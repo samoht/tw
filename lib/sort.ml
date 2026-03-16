@@ -806,13 +806,57 @@ let strip_group_peer_vo p =
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
+(* Find the first ':' in a string that is not inside brackets. Returns None if
+   all colons are inside bracket pairs. *)
+let index_colon_outside_brackets s =
+  let len = String.length s in
+  let rec loop i depth =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '[' -> loop (i + 1) (depth + 1)
+      | ']' -> loop (i + 1) (max 0 (depth - 1))
+      | ':' when depth = 0 -> Some i
+      | _ -> loop (i + 1) depth
+  in
+  loop 0 0
+
+(* Split a string on ':' but respecting bracket nesting, so colons inside [...]
+   are not treated as separators. *)
+let split_on_colon_outside_brackets s =
+  let len = String.length s in
+  let buf = Buffer.create 16 in
+  let acc = ref [] in
+  let rec loop i depth =
+    if i >= len then (
+      let last = Buffer.contents buf in
+      if last <> "" then acc := last :: !acc;
+      List.rev !acc)
+    else
+      match s.[i] with
+      | '[' ->
+          Buffer.add_char buf '[';
+          loop (i + 1) (depth + 1)
+      | ']' ->
+          Buffer.add_char buf ']';
+          loop (i + 1) (max 0 (depth - 1))
+      | ':' when depth = 0 ->
+          acc := Buffer.contents buf :: !acc;
+          Buffer.clear buf;
+          loop (i + 1) depth
+      | c ->
+          Buffer.add_char buf c;
+          loop (i + 1) depth
+  in
+  loop 0 0
+
 (* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
-  match String.index_opt prefix ':' with
+  match index_colon_outside_brackets prefix with
   | Some j ->
       let outer = String.sub prefix 0 j in
       if starts_with outer "group-" || starts_with outer "peer-" then
-        let parts = String.split_on_char ':' prefix in
+        let parts = split_on_colon_outside_brackets prefix in
         List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
         + 1
       else
@@ -880,6 +924,41 @@ let compare_variant_ordered r1 r2 =
               let prefix_cmp =
                 if b1 && not b2 then 1
                 else if b2 && not b1 then -1
+                else if b1 && b2 then
+                  (* Both have brackets: sort by bracket content type.
+                     Pseudo-class brackets ([:checked]) sort before
+                     combinator/ampersand brackets ([&>img], [+img], etc.) to
+                     match Tailwind's variant ordering. *)
+                  let bracket_content_key p =
+                    match String.index_opt p '[' with
+                    | Some i when i + 1 < String.length p ->
+                        let first_char = p.[i + 1] in
+                        if first_char = ':' then 0 (* pseudo-class *)
+                        else 1 (* combinator/ampersand/other *)
+                    | _ -> 1
+                  in
+                  let bk1 = bracket_content_key p1_prefix in
+                  let bk2 = bracket_content_key p2_prefix in
+                  let bk_cmp = Int.compare bk1 bk2 in
+                  if bk_cmp <> 0 then bk_cmp
+                  else
+                    (* Use normalized comparison for aria-/data- attribute
+                       variants where underscores represent spaces. For other
+                       bracket variants (peer-[&_p], nth-[...]), underscores are
+                       literal characters and should not be normalized. *)
+                    let is_attr_variant p =
+                      starts_with p "aria-[" || starts_with p "data-["
+                      || starts_with p "group-aria-["
+                      || starts_with p "group-data-["
+                      || starts_with p "peer-aria-["
+                      || starts_with p "peer-data-["
+                    in
+                    if is_attr_variant p1_prefix || is_attr_variant p2_prefix
+                    then
+                      String.compare
+                        (normalize_for_sort p1_prefix)
+                        (normalize_for_sort p2_prefix)
+                    else String.compare p1_prefix p2_prefix
                 else String.compare p1_prefix p2_prefix
               in
               if prefix_cmp <> 0 then prefix_cmp
