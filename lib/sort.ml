@@ -674,9 +674,9 @@ let compare_cross_utility_regular r1 r2 =
            kind_str kind2;
            ")\n";
          ]));
-  let same_priority = p1 = p2 in
+  let same_order = p1 = p2 && s1 = s2 in
   match
-    if same_priority then
+    if same_order then
       compare_pseudo_elements kind1 kind2 r1.selector r2.selector
     else None
   with
