@@ -369,6 +369,12 @@ let check_invalid_input (module H : Handler) input =
   | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
   | Error _ -> ()
 
+let standard ~roundtrip ~invalid =
+  Alcotest.
+    [
+      test_case "roundtrip" `Quick roundtrip; test_case "invalid" `Quick invalid;
+    ]
+
 (** Helper that takes a list of parts, concatenates with "-", and checks
     roundtrip *)
 let check_parts (module H : Handler) parts =

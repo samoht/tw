@@ -14,10 +14,6 @@ let test_invalid () =
     "text-shadow-foo"
 
 let tests =
-  Alcotest.
-    [
-      test_case "roundtrip" `Quick test_roundtrip;
-      test_case "invalid" `Quick test_invalid;
-    ]
+  Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
 
 let suite = ("text_shadow", tests)

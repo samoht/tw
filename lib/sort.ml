@@ -471,11 +471,13 @@ let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
   | Pseudo_element, Pseudo_element -> None
   | _, _ -> None
 
-(** Compare regular rules from the same base utility. Preserves original index
-    order to maintain source ordering within a utility. *)
-let compare_same_utility_regular r1 r2 =
-  let prio_cmp = compare r1.order r2.order in
-  if prio_cmp <> 0 then prio_cmp else Int.compare r1.index r2.index
+(** Compare rules by order tuple then index. Used for same-utility regular
+    rules, starting style rules, and as a generic tiebreaker. *)
+let compare_by_order_then_index r1 r2 =
+  let order_cmp = compare r1.order r2.order in
+  if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+
+let compare_same_utility_regular = compare_by_order_then_index
 
 let compare_base_class_option bc1 bc2 =
   match (bc1, bc2) with
@@ -710,10 +712,7 @@ let compare_regular_rules r1 r2 =
   | Same_utility _ -> compare_same_utility_regular r1 r2
   | Different_utilities -> compare_cross_utility_regular r1 r2
 
-(** Compare two Starting style rules by priority then index. *)
-let compare_starting_rules r1 r2 =
-  let order_cmp = compare r1.order r2.order in
-  if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+let compare_starting_rules = compare_by_order_then_index
 
 (* ======================================================================== *)
 (* Main Rule Comparison *)
@@ -768,11 +767,6 @@ let compare_by_order_then_selector r1 r2 =
         (Css.Selector.to_string r2.selector)
     in
     if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
-
-(* Compare by order tuple, then index *)
-let compare_by_order_then_index r1 r2 =
-  let order_cmp = compare r1.order r2.order in
-  if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
 
 (* Compare nested media conditions *)
 let compare_nested_media r1 r2 =

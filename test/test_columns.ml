@@ -25,10 +25,6 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-abc"
 
 let tests =
-  Alcotest.
-    [
-      test_case "roundtrip" `Quick test_roundtrip;
-      test_case "invalid" `Quick test_invalid;
-    ]
+  Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
 
 let suite = ("columns", tests)
