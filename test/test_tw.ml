@@ -286,6 +286,10 @@ let prose_with_modifiers () =
   check (hover [ prose ]);
   check (md [ prose_lg ])
 
+let prose_ordering () =
+  check_list [ mb 0; prose ];
+  check_list [ mb 4; mb 8; mb 12; prose ]
+
 (* ===== PRECEDENCE TESTS ===== *)
 
 let precedence_base_overrides () =
@@ -506,6 +510,7 @@ let core_tests =
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;
+    test_case "prose ordering" `Quick prose_ordering;
     test_case "precedence base overrides" `Slow precedence_base_overrides;
     test_case "precedence breakpoints" `Slow precedence_breakpoints;
     test_case "precedence states" `Slow precedence_states;
