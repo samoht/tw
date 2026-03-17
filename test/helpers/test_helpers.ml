@@ -1,5 +1,9 @@
 (** Test helper functions for CSS comparison and minimization *)
 
+(** Check that a utility value produces the expected class name *)
+let check_class expected t =
+  Alcotest.check Alcotest.string "class" expected (Tw.Utility.to_class t)
+
 (** Extract utilities layer from CSS *)
 let extract_utilities_layer_rules css =
   let stmts = Css.statements css in

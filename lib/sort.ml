@@ -516,11 +516,9 @@ let is_outline_utility bc =
 (* Natural sort comparison: treats consecutive digit sequences as integers.
    E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
    Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
-let natural_is_digit c = c >= '0' && c <= '9'
-
 let natural_extract_number s i =
   let rec go j acc =
-    if j >= String.length s || not (natural_is_digit s.[j]) then (acc, j)
+    if j >= String.length s || not (Css.Reader.is_digit s.[j]) then (acc, j)
     else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
   in
   go i 0
@@ -555,7 +553,7 @@ let natural_compare s1 s2 =
     | `Greater -> 1
     | `Continue ->
         let c1 = s1.[i1] and c2 = s2.[i2] in
-        if natural_is_digit c1 && natural_is_digit c2 then
+        if Css.Reader.is_digit c1 && Css.Reader.is_digit c2 then
           let n1, end1 = natural_extract_number s1 i1 in
           let n2, end2 = natural_extract_number s2 i2 in
           let num_cmp = Int.compare n1 n2 in
@@ -788,15 +786,12 @@ let variant_prefix = function
       | None -> "")
   | None -> ""
 
-let starts_with s p =
-  String.length s >= String.length p && String.sub s 0 (String.length p) = p
-
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
 let strip_group_peer_vo p =
-  if starts_with p "group-" then
+  if String.starts_with ~prefix:"group-" p then
     Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
-  else if starts_with p "peer-" then
+  else if String.starts_with ~prefix:"peer-" p then
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
@@ -849,7 +844,10 @@ let inner_vo prefix =
   match index_colon_outside_brackets prefix with
   | Some j ->
       let outer = String.sub prefix 0 j in
-      if starts_with outer "group-" || starts_with outer "peer-" then
+      if
+        String.starts_with ~prefix:"group-" outer
+        || String.starts_with ~prefix:"peer-" outer
+      then
         let parts = split_on_colon_outside_brackets prefix in
         List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
         + 1
@@ -857,10 +855,10 @@ let inner_vo prefix =
         let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
         Modifiers.variant_order_of_prefix inner
   | None ->
-      if starts_with prefix "group-" then
+      if String.starts_with ~prefix:"group-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 6 (String.length prefix - 6))
-      else if starts_with prefix "peer-" then
+      else if String.starts_with ~prefix:"peer-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 5 (String.length prefix - 5))
       else 0
@@ -891,11 +889,12 @@ let bracket_content_key p =
 (** Check if a prefix is an aria-/data- attribute variant where underscores
     represent spaces. *)
 let is_attr_variant p =
-  starts_with p "aria-[" || starts_with p "data-["
-  || starts_with p "group-aria-["
-  || starts_with p "group-data-["
-  || starts_with p "peer-aria-["
-  || starts_with p "peer-data-["
+  String.starts_with ~prefix:"aria-[" p
+  || String.starts_with ~prefix:"data-[" p
+  || String.starts_with ~prefix:"group-aria-[" p
+  || String.starts_with ~prefix:"group-data-[" p
+  || String.starts_with ~prefix:"peer-aria-[" p
+  || String.starts_with ~prefix:"peer-data-[" p
 
 (** Compare two bracket-containing variant prefixes. Sorts by bracket content
     type (pseudo-class before combinator), then by normalized name for

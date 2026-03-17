@@ -1,7 +1,6 @@
 open Alcotest
 
-let check_class expected t =
-  Alcotest.check string "class" expected (Tw.Utility.to_class t)
+let check_class = Test_helpers.check_class
 
 let basic_svg () =
   check_class "fill-none" Tw.Svg.fill_none;

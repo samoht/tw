@@ -737,13 +737,6 @@ let parse_aria_expr expr =
       in
       ("aria-" ^ attr, Css.Selector.Exact value)
 
-(* Known aria shorthand names *)
-let is_aria_shorthand_name = function
-  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
-  | "readonly" | "required" | "selected" ->
-      true
-  | _ -> false
-
 (* Route aria variants to appropriate handler *)
 let route_aria_modifier modifier base_class props =
   let kind, raw_str, name_opt =
@@ -754,7 +747,7 @@ let route_aria_modifier modifier base_class props =
     | _ -> failwith "Invalid aria modifier"
   in
   let open Css.Selector in
-  let is_shorthand = is_aria_shorthand_name raw_str in
+  let is_shorthand = Modifiers.is_aria_shorthand raw_str in
   let aria_attr, aria_match =
     if is_shorthand then ("aria-" ^ raw_str, Exact "true")
     else parse_aria_expr raw_str

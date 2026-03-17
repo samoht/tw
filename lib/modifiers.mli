@@ -585,6 +585,13 @@ val apply : string list -> t -> t option
     [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
 *)
 
+(** {1 ARIA Helpers} *)
+
+val is_aria_shorthand : string -> bool
+(** [is_aria_shorthand name] returns [true] if [name] is a known ARIA shorthand
+    attribute (e.g., "checked", "expanded", "hidden") that maps to
+    [aria-X=true]. *)
+
 (** {1 Variant Ordering} *)
 
 val not_variant_order : modifier -> int

@@ -1866,9 +1866,6 @@ let not_variant_order = function
   (* Fallback *)
   | _ -> 5500
 
-let starts_with s p =
-  String.length s >= String.length p && String.sub s 0 (String.length p) = p
-
 (** [variant_order_of_prefix prefix] returns the position of a modifier prefix
     string in the Tailwind v4 variant cascade. The prefix is the part before the
     last ":" in a class name (e.g., "hover" in "hover:bg-blue-500", or
@@ -1941,25 +1938,28 @@ let variant_order_of_prefix prefix =
   (* @starting-style: comes after all media queries including dark:hover *)
   | "starting" -> 95000
   | _ ->
-      if starts_with prefix "group-" then 500
-      else if starts_with prefix "peer-" then 600
-      else if starts_with prefix "has-" then 30600
-      else if starts_with prefix "aria-" then
+      if String.starts_with ~prefix:"group-" prefix then 500
+      else if String.starts_with ~prefix:"peer-" prefix then 600
+      else if String.starts_with ~prefix:"has-" prefix then 30600
+      else if String.starts_with ~prefix:"aria-" prefix then
         if String.length prefix > 5 && prefix.[5] <> '[' then 30700 else 30790
-      else if starts_with prefix "data-" then
+      else if String.starts_with ~prefix:"data-" prefix then
         if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
-      else if starts_with prefix "supports-" || starts_with prefix "supports"
+      else if
+        String.starts_with ~prefix:"supports-" prefix
+        || String.starts_with ~prefix:"supports" prefix
       then 40000
       else if prefix = "motion-safe" then 50000
       else if prefix = "motion-reduce" then 50100
       else if prefix = "contrast-more" then 50200
       else if prefix = "contrast-less" then 50300
-      else if starts_with prefix "pointer-" then 50400
-      else if starts_with prefix "any-pointer-" then 50500
+      else if String.starts_with ~prefix:"pointer-" prefix then 50400
+      else if String.starts_with ~prefix:"any-pointer-" prefix then 50500
       else if
         prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
-        || prefix = "2xl" || starts_with prefix "min-"
-        || starts_with prefix "max-"
+        || prefix = "2xl"
+        || String.starts_with ~prefix:"min-" prefix
+        || String.starts_with ~prefix:"max-" prefix
       then 60000
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000
       else if String.length prefix > 0 && prefix.[0] = '@' then 110000
