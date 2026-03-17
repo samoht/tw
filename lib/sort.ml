@@ -936,17 +936,22 @@ let compare_variant_ordered r1 r2 =
           (* Nested hover media sorts BEFORE non-nested within the same ivo tier
              (Tailwind puts group-hover before group-focus). Other nested media
              (stacked breakpoints) sorts AFTER non-nested. *)
-          let nested_order nested =
+          let nested_order rule_type nested =
             match nested with
             | [] -> 0 (* non-nested: middle *)
             | [ stmt ] -> (
-                match Css.as_media stmt with
-                | Some (Css.Media.Hover, _) -> -1 (* hover nested: first *)
+                match (rule_type, Css.as_media stmt) with
+                | `Media Css.Media.Hover, Some (Css.Media.Hover, _) ->
+                    2 (* doubly-nested hover: after everything *)
+                | _, Some (Css.Media.Hover, _) ->
+                    -1 (* single hover nested: first *)
                 | _ -> 1 (* other nested: last *))
             | _ -> 1 (* multiple nested: last *)
           in
           let nested_cmp =
-            Int.compare (nested_order r1.nested) (nested_order r2.nested)
+            Int.compare
+              (nested_order r1.rule_type r1.nested)
+              (nested_order r2.rule_type r2.nested)
           in
           if nested_cmp <> 0 then nested_cmp
           else
