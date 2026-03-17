@@ -141,6 +141,13 @@ val check_invalid_input : (module Handler) -> string -> unit
 (** [check_invalid_input h input] tests that parsing fails for invalid input as
     expected. *)
 
+val standard :
+  roundtrip:(unit -> unit) ->
+  invalid:(unit -> unit) ->
+  unit Alcotest.test_case list
+(** [standard ~roundtrip ~invalid] creates the standard test case list with
+    roundtrip and invalid test cases. *)
+
 val check_parts : (module Handler) -> string list -> unit
 (** [check_parts h parts] concatenates parts with "-" and tests roundtrip. *)
 

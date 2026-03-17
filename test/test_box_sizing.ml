@@ -9,10 +9,6 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Box_sizing.Handler) "box"
 
 let tests =
-  Alcotest.
-    [
-      test_case "roundtrip" `Quick test_roundtrip;
-      test_case "invalid" `Quick test_invalid;
-    ]
+  Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
 
 let suite = ("box_sizing", tests)
