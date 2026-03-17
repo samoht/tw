@@ -1,8 +1,6 @@
 open Alcotest
 
-let check_class expected t =
-  Alcotest.check string "class" expected (Tw.Utility.to_class t)
-
+let check_class = Test_helpers.check_class
 let check = Test_helpers.check_handler_roundtrip (module Tw.Layout.Handler)
 
 let check_overflow =

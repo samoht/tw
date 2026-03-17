@@ -1,5 +1,9 @@
 (** Test helper functions for CSS comparison and minimization *)
 
+val check_class : string -> Tw.Utility.t -> unit
+(** [check_class expected t] checks that the utility [t] produces the expected
+    class name string. *)
+
 val extract_utilities_layer_rules : Css.t -> Css.statement list
 (** [extract_utilities_layer_rules css] extracts rules from the utilities layer.
 *)
