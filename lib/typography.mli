@@ -310,8 +310,9 @@ val list_image_url : string -> t
 
 (** {1 Text Indent} *)
 
-val indent : int -> t
-(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+val indent : float -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem).
+    Accepts fractional values like 0.5, 1.5, 2.5, 3.5. *)
 
 (** {1 Line Clamp} *)
 

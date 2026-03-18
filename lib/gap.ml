@@ -126,15 +126,16 @@ module Handler = struct
     ((Css.Calc start_expr : Css.length), (Css.Calc end_expr : Css.length))
 
   let space_x n =
-    let negative = n < 0 in
-    let abs_n = abs n in
+    let negative = n < 0.0 in
+    let abs_n = Float.abs n in
     let class_name =
-      (if negative then "-space-x-" else "space-x-") ^ string_of_int abs_n
+      (if negative then "-space-x-" else "space-x-")
+      ^ Spacing.pp_spacing_suffix (`Rem (abs_n *. 0.25))
     in
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc abs_n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float abs_n in
     let reverse_decl, reverse_ref =
       Var.binding space_x_reverse_var (Css.Num 0.0)
     in
@@ -157,15 +158,16 @@ module Handler = struct
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   let space_y n =
-    let negative = n < 0 in
-    let abs_n = abs n in
+    let negative = n < 0.0 in
+    let abs_n = Float.abs n in
     let class_name =
-      (if negative then "-space-y-" else "space-y-") ^ string_of_int abs_n
+      (if negative then "-space-y-" else "space-y-")
+      ^ Spacing.pp_spacing_suffix (`Rem (abs_n *. 0.25))
     in
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc abs_n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float abs_n in
     let reverse_decl, reverse_ref =
       Var.binding space_y_reverse_var (Css.Num 0.0)
     in
@@ -289,12 +291,12 @@ module Handler = struct
     | Space { negative; axis; value } -> (
         let n =
           match value with
-          | `Rem f -> int_of_float (f /. 0.25)
-          | `Px -> 0
-          | `Full -> 0
-          | `Named _ -> 0
+          | `Rem f -> f /. 0.25
+          | `Px -> 0.0
+          | `Full -> 0.0
+          | `Named _ -> 0.0
         in
-        let n = if negative then -n else n in
+        let n = if negative then -.n else n in
         match axis with `X -> space_x n | `Y -> space_y n)
     | Space_arb { axis; value } -> (
         let len_suffix =
@@ -416,14 +418,14 @@ module Handler = struct
             match parse_gap_arbitrary value with
             | Some (Arbitrary len) -> Ok (Space_arb { axis = `X; value = len })
             | _ -> (
-                match Parse.int_pos ~name:"space-x" value with
+                match Parse.spacing_value ~name:"space-x" value with
                 | Ok n ->
                     Ok
                       (Space
                          {
                            negative = false;
                            axis = `X;
-                           value = `Rem (float_of_int n *. 0.25);
+                           value = `Rem (n *. 0.25);
                          })
                 | Error _ -> err_not_utility))
       | [ "space"; "y"; value ] -> (
@@ -432,37 +434,27 @@ module Handler = struct
             match parse_gap_arbitrary value with
             | Some (Arbitrary len) -> Ok (Space_arb { axis = `Y; value = len })
             | _ -> (
-                match Parse.int_pos ~name:"space-y" value with
+                match Parse.spacing_value ~name:"space-y" value with
                 | Ok n ->
                     Ok
                       (Space
                          {
                            negative = false;
                            axis = `Y;
-                           value = `Rem (float_of_int n *. 0.25);
+                           value = `Rem (n *. 0.25);
                          })
                 | Error _ -> err_not_utility))
       | [ ""; "space"; "x"; value ] -> (
-          match Parse.int_pos ~name:"space-x" value with
+          match Parse.spacing_value ~name:"space-x" value with
           | Ok n ->
               Ok
-                (Space
-                   {
-                     negative = true;
-                     axis = `X;
-                     value = `Rem (float_of_int n *. 0.25);
-                   })
+                (Space { negative = true; axis = `X; value = `Rem (n *. 0.25) })
           | Error _ -> err_not_utility)
       | [ ""; "space"; "y"; value ] -> (
-          match Parse.int_pos ~name:"space-y" value with
+          match Parse.spacing_value ~name:"space-y" value with
           | Ok n ->
               Ok
-                (Space
-                   {
-                     negative = true;
-                     axis = `Y;
-                     value = `Rem (float_of_int n *. 0.25);
-                   })
+                (Space { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
           | Error _ -> err_not_utility)
       | _ -> err_not_utility
     in
@@ -500,11 +492,11 @@ let gap_y_full = gap_util `Y (Handler.Standard `Full)
 (** {2 Space Between Utilities} *)
 
 let space_x n =
-  let s = Spacing.int n in
-  let neg = n < 0 in
+  let s = `Rem (Float.abs n *. 0.25) in
+  let neg = n < 0.0 in
   space_util neg `X s
 
 let space_y n =
-  let s = Spacing.int n in
-  let neg = n < 0 in
+  let s = `Rem (Float.abs n *. 0.25) in
+  let neg = n < 0.0 in
   space_util neg `Y s
