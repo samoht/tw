@@ -527,8 +527,8 @@ let border_spacing_axis () =
 
 let border_spacing_combined () =
   (* Typed API border_spacing combined with axis-specific *)
-  check (border_spacing 4);
-  check_list [ border_spacing 4; require_parse "border-spacing-x-8" ]
+  check (border_spacing 4.);
+  check_list [ border_spacing 4.; require_parse "border-spacing-x-8" ]
 
 (* -- 8. Opacity modifiers (Tailwind v3 compat / v4 approach) -------------- *)
 (* In Tailwind v4, bg-opacity-* and text-opacity-* are removed in favor of

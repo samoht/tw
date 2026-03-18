@@ -149,7 +149,7 @@ let sidebar =
     [
       sidebar_logo;
       nav
-        ~tw:Tw.[ flex_1; p 4; space_y 2 ]
+        ~tw:Tw.[ flex_1; p 4; space_y 2. ]
         [
           nav_item ~active:true ~icon:icon_home "Overview";
           nav_item ~active:false ~icon:icon_chart "Analytics";
@@ -610,7 +610,7 @@ let content =
     [
       header_section;
       div
-        ~tw:Tw.[ p 4; space_y 4; md [ p 6; space_y 6 ] ]
+        ~tw:Tw.[ p 4; space_y 4.; md [ p 6; space_y 6. ] ]
         [
           (* Page title *)
           div

@@ -23,9 +23,9 @@ module Handler = struct
   type t =
     | Border_collapse
     | Border_separate
-    | Border_spacing of int
-    | Border_spacing_x of int
-    | Border_spacing_y of int
+    | Border_spacing of float
+    | Border_spacing_x of float
+    | Border_spacing_y of float
     | Border_spacing_arb of Css.length
     | Border_spacing_x_arb of Css.length
     | Border_spacing_y_arb of Css.length
@@ -54,7 +54,7 @@ module Handler = struct
 
   (** Get spacing value - uses theme variable var(--spacing-N) *)
   let spacing_value n =
-    let decl, len = Theme.spacing_calc n in
+    let decl, len = Theme.spacing_calc_float n in
     (decl, len)
 
   (** border-spacing: sets both x and y variables and outputs two-value
@@ -179,11 +179,11 @@ module Handler = struct
     | Table_fixed -> 19
     | Border_collapse -> 30
     | Border_separate -> 31
-    | Border_spacing n -> 32 + n
+    | Border_spacing n -> 32 + int_of_float (n *. 10.)
     | Border_spacing_arb _ -> 1000
-    | Border_spacing_x n -> 1032 + n
+    | Border_spacing_x n -> 1032 + int_of_float (n *. 10.)
     | Border_spacing_x_arb _ -> 2000
-    | Border_spacing_y n -> 2032 + n
+    | Border_spacing_y n -> 2032 + int_of_float (n *. 10.)
     | Border_spacing_y_arb _ -> 3000
 
   let of_class class_name =
@@ -200,9 +200,9 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "border"; "spacing"; n ] -> (
-        match int_of_string_opt n with
-        | Some i when i >= 0 -> Ok (Border_spacing i)
-        | _ -> err_not_utility)
+        match Parse.spacing_value ~name:"border-spacing" n with
+        | Ok f -> Ok (Border_spacing f)
+        | Error _ -> err_not_utility)
     | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
         if String.ends_with ~suffix:"px" inner then
@@ -212,9 +212,9 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "border"; "spacing"; "x"; n ] -> (
-        match int_of_string_opt n with
-        | Some i when i >= 0 -> Ok (Border_spacing_x i)
-        | _ -> err_not_utility)
+        match Parse.spacing_value ~name:"border-spacing-x" n with
+        | Ok f -> Ok (Border_spacing_x f)
+        | Error _ -> err_not_utility)
     | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
         if String.ends_with ~suffix:"px" inner then
@@ -224,9 +224,9 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "border"; "spacing"; "y"; n ] -> (
-        match int_of_string_opt n with
-        | Some i when i >= 0 -> Ok (Border_spacing_y i)
-        | _ -> err_not_utility)
+        match Parse.spacing_value ~name:"border-spacing-y" n with
+        | Ok f -> Ok (Border_spacing_y f)
+        | Error _ -> err_not_utility)
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
     | [ "caption"; "top" ] -> Ok Caption_top
@@ -236,7 +236,8 @@ module Handler = struct
   let to_class = function
     | Border_collapse -> "border-collapse"
     | Border_separate -> "border-separate"
-    | Border_spacing n -> "border-spacing-" ^ string_of_int n
+    | Border_spacing n ->
+        "border-spacing-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
     | Border_spacing_arb (Px n) ->
         let s = string_of_float n in
         let s =
@@ -246,7 +247,8 @@ module Handler = struct
         in
         "border-spacing-[" ^ s ^ "px]"
     | Border_spacing_arb _ -> "border-spacing-[<length>]"
-    | Border_spacing_x n -> "border-spacing-x-" ^ string_of_int n
+    | Border_spacing_x n ->
+        "border-spacing-x-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
     | Border_spacing_x_arb (Px n) ->
         let s = string_of_float n in
         let s =
@@ -256,7 +258,8 @@ module Handler = struct
         in
         "border-spacing-x-[" ^ s ^ "px]"
     | Border_spacing_x_arb _ -> "border-spacing-x-[<length>]"
-    | Border_spacing_y n -> "border-spacing-y-" ^ string_of_int n
+    | Border_spacing_y n ->
+        "border-spacing-y-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
     | Border_spacing_y_arb (Px n) ->
         let s = string_of_float n in
         let s =
@@ -285,6 +288,8 @@ let border_separate = utility Border_separate
 let border_spacing n = utility (Border_spacing n)
 let border_spacing_x n = utility (Border_spacing_x n)
 let border_spacing_y n = utility (Border_spacing_y n)
+
+(* Note: n is now a float multiplier, e.g., 4.0 for border-spacing-4 *)
 let table_auto = utility Table_auto
 let table_fixed = utility Table_fixed
 let caption_top = utility Caption_top

@@ -1350,7 +1350,7 @@ module Typography_late = struct
     | Diagonal_fractions
     | Stacked_fractions
     | (* Indent and line clamp *)
-      Indent of int
+      Indent of float
     | Indent_arbitrary of string
     | Indent_neg_arbitrary of string
     | Line_clamp of int
@@ -1574,7 +1574,10 @@ module Typography_late = struct
         Ok (Indent_arbitrary (Parse.bracket_inner n))
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
         Ok (Indent_neg_arbitrary (Parse.bracket_inner n))
-    | [ "indent"; n ] -> Parse.int_any n >|= fun i -> Indent i
+    | [ "indent"; n ] -> (
+        match Parse.spacing_value ~name:"indent" n with
+        | Ok f -> Ok (Indent f)
+        | Error _ -> err_not_utility)
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
@@ -1737,7 +1740,7 @@ module Typography_late = struct
     | Tabular_nums -> "tabular-nums"
     | Diagonal_fractions -> "diagonal-fractions"
     | Stacked_fractions -> "stacked-fractions"
-    | Indent n -> "indent-" ^ string_of_int n
+    | Indent n -> "indent-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
     | Indent_arbitrary s -> "indent-[" ^ s ^ "]"
     | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
@@ -1884,7 +1887,7 @@ module Typography_late = struct
     | Tabular_nums -> 9707
     | Normal_nums -> 9708
     (* Indent and line clamp *)
-    | Indent n -> 9800 + n
+    | Indent n -> 9800 + int_of_float (n *. 10.)
     | Indent_arbitrary _ -> 9800
     | Indent_neg_arbitrary _ -> 9800
     | Line_clamp n -> 10000 + n
@@ -2221,8 +2224,7 @@ module Typography_late = struct
     style
       [
         spacing_decl;
-        text_indent
-          (Calc Calc.(length (Css.Var spacing_ref) * float (float_of_int n)));
+        text_indent (Calc Calc.(length (Css.Var spacing_ref) * float n));
       ]
 
   let indent_arbitrary s =

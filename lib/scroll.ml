@@ -21,7 +21,7 @@ module Handler = struct
     | Be (* block-end *)
 
   type scroll_value =
-    | Spacing of int (* scroll-m-4 *)
+    | Spacing of float (* scroll-m-4, scroll-m-0.5 *)
     | Arbitrary of Css.length (* scroll-m-[4px] *)
     | Arbitrary_var of string (* scroll-m-[var(--value)] *)
 
@@ -40,11 +40,11 @@ module Handler = struct
   (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
   *)
   let spacing_to_decl_len ~negative n : Css.declaration * Css.length =
-    if n = 0 then
+    if n = 0.0 then
       let decl, _ = Var.binding Theme.spacing_var (Css.Rem 0.25) in
       (decl, Css.Px 0.)
     else
-      let mult = if negative then float_of_int (-n) else float_of_int n in
+      let mult = if negative then -.n else n in
       Theme.spacing_calc_float mult
 
   let try_parse_length inner =
@@ -156,7 +156,7 @@ module Handler = struct
     in
     let value_order =
       match value with
-      | Spacing n -> n * 10
+      | Spacing n -> int_of_float (n *. 10.)
       | Arbitrary _ -> 50000
       | Arbitrary_var _ -> 50001
     in
@@ -197,7 +197,7 @@ module Handler = struct
     let axis_str = axis_suffix axis in
     let value_suffix =
       match value with
-      | Spacing n -> string_of_int (abs n)
+      | Spacing n -> Spacing.pp_spacing_suffix (`Rem (Float.abs n *. 0.25))
       | Arbitrary len -> pp_length_suffix len
       | Arbitrary_var s -> "[" ^ s ^ "]"
     in
@@ -241,10 +241,10 @@ module Handler = struct
         | Some Padding, _ when negative ->
             Error (`Msg "Negative scroll-padding not supported")
         | Some kind, Some axis -> (
-            (* Try as integer spacing *)
-            match int_of_string_opt value with
-            | Some n -> Ok { kind; negative; axis; value = Spacing n }
-            | None -> (
+            (* Try as spacing value (integer or fractional like 0.5, 2.5) *)
+            match Parse.spacing_value ~name:"scroll" value with
+            | Ok n -> Ok { kind; negative; axis; value = Spacing n }
+            | Error _ -> (
                 (* Try as arbitrary value *)
                 match parse_arbitrary value with
                 | Some (`Length len) ->
@@ -278,9 +278,9 @@ module Handler = struct
         | Some Padding, _ when negative ->
             Error (`Msg "Negative scroll-padding not supported")
         | Some kind, Some axis -> (
-            match int_of_string_opt value3 with
-            | Some n -> Ok { kind; negative; axis; value = Spacing n }
-            | None -> (
+            match Parse.spacing_value ~name:"scroll" value3 with
+            | Ok n -> Ok { kind; negative; axis; value = Spacing n }
+            | Error _ -> (
                 match parse_arbitrary value3 with
                 | Some (`Length len) ->
                     Ok { kind; negative; axis; value = Arbitrary len }
@@ -299,27 +299,27 @@ let utility kind negative axis value =
   Utility.base (Self { kind; negative; axis; value })
 
 (* Scroll margin utilities *)
-let scroll_m n = utility Margin (n < 0) All (Spacing (abs n))
-let scroll_mx n = utility Margin (n < 0) X (Spacing (abs n))
-let scroll_my n = utility Margin (n < 0) Y (Spacing (abs n))
-let scroll_mt n = utility Margin (n < 0) T (Spacing (abs n))
-let scroll_mr n = utility Margin (n < 0) R (Spacing (abs n))
-let scroll_mb n = utility Margin (n < 0) B (Spacing (abs n))
-let scroll_ml n = utility Margin (n < 0) L (Spacing (abs n))
-let scroll_ms n = utility Margin (n < 0) S (Spacing (abs n))
-let scroll_me n = utility Margin (n < 0) E (Spacing (abs n))
-let scroll_mbs n = utility Margin (n < 0) Bs (Spacing (abs n))
-let scroll_mbe n = utility Margin (n < 0) Be (Spacing (abs n))
+let scroll_m n = utility Margin (n < 0.0) All (Spacing (Float.abs n))
+let scroll_mx n = utility Margin (n < 0.0) X (Spacing (Float.abs n))
+let scroll_my n = utility Margin (n < 0.0) Y (Spacing (Float.abs n))
+let scroll_mt n = utility Margin (n < 0.0) T (Spacing (Float.abs n))
+let scroll_mr n = utility Margin (n < 0.0) R (Spacing (Float.abs n))
+let scroll_mb n = utility Margin (n < 0.0) B (Spacing (Float.abs n))
+let scroll_ml n = utility Margin (n < 0.0) L (Spacing (Float.abs n))
+let scroll_ms n = utility Margin (n < 0.0) S (Spacing (Float.abs n))
+let scroll_me n = utility Margin (n < 0.0) E (Spacing (Float.abs n))
+let scroll_mbs n = utility Margin (n < 0.0) Bs (Spacing (Float.abs n))
+let scroll_mbe n = utility Margin (n < 0.0) Be (Spacing (Float.abs n))
 
 (* Scroll padding utilities *)
-let scroll_p n = utility Padding (n < 0) All (Spacing (abs n))
-let scroll_px n = utility Padding (n < 0) X (Spacing (abs n))
-let scroll_py n = utility Padding (n < 0) Y (Spacing (abs n))
-let scroll_pt n = utility Padding (n < 0) T (Spacing (abs n))
-let scroll_pr n = utility Padding (n < 0) R (Spacing (abs n))
-let scroll_pb n = utility Padding (n < 0) B (Spacing (abs n))
-let scroll_pl n = utility Padding (n < 0) L (Spacing (abs n))
-let scroll_ps n = utility Padding (n < 0) S (Spacing (abs n))
-let scroll_pe n = utility Padding (n < 0) E (Spacing (abs n))
-let scroll_pbs n = utility Padding (n < 0) Bs (Spacing (abs n))
-let scroll_pbe n = utility Padding (n < 0) Be (Spacing (abs n))
+let scroll_p n = utility Padding (n < 0.0) All (Spacing (Float.abs n))
+let scroll_px n = utility Padding (n < 0.0) X (Spacing (Float.abs n))
+let scroll_py n = utility Padding (n < 0.0) Y (Spacing (Float.abs n))
+let scroll_pt n = utility Padding (n < 0.0) T (Spacing (Float.abs n))
+let scroll_pr n = utility Padding (n < 0.0) R (Spacing (Float.abs n))
+let scroll_pb n = utility Padding (n < 0.0) B (Spacing (Float.abs n))
+let scroll_pl n = utility Padding (n < 0.0) L (Spacing (Float.abs n))
+let scroll_ps n = utility Padding (n < 0.0) S (Spacing (Float.abs n))
+let scroll_pe n = utility Padding (n < 0.0) E (Spacing (Float.abs n))
+let scroll_pbs n = utility Padding (n < 0.0) Bs (Spacing (Float.abs n))
+let scroll_pbe n = utility Padding (n < 0.0) Be (Spacing (Float.abs n))

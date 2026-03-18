@@ -40,10 +40,12 @@ val gap_y_full : t
 
 (** {1 Space Between Utilities} *)
 
-val space_x : int -> t
-(** [space_x n] creates horizontal space between child elements. *)
+val space_x : float -> t
+(** [space_x n] creates horizontal space between child elements. [n] is the
+    spacing multiplier (e.g., 2.0 for space-x-2, 2.5 for space-x-2.5). *)
 
-val space_y : int -> t
-(** [space_y n] creates vertical space between child elements. *)
+val space_y : float -> t
+(** [space_y n] creates vertical space between child elements. [n] is the
+    spacing multiplier (e.g., 2.0 for space-y-2, 2.5 for space-y-2.5). *)
 
 module Handler : Utility.Handler

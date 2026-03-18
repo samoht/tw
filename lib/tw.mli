@@ -1129,11 +1129,13 @@ val mb_auto : t
 val ml_auto : t
 (** [ml_auto] pushes element to right by setting auto left margin. *)
 
-val space_x : int -> t
-(** [space_x n] sets horizontal space between child elements. *)
+val space_x : float -> t
+(** [space_x n] sets horizontal space between child elements. [n] is the spacing
+    multiplier (e.g., 2.0 for space-x-2, 2.5 for space-x-2.5). *)
 
-val space_y : int -> t
-(** [space_y n] sets vertical space between child elements. *)
+val space_y : float -> t
+(** [space_y n] sets vertical space between child elements. [n] is the spacing
+    multiplier (e.g., 2.0 for space-y-2, 2.5 for space-y-2.5). *)
 
 (** {1 Sizing} *)
 
@@ -1759,8 +1761,9 @@ val text_pretty : t
 (** {2 Text Indent}
     @see <https://tailwindcss.com/docs/text-indent> Text Indent *)
 
-val indent : int -> t
-(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+val indent : float -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem).
+    Accepts fractional values like 0.5, 1.5, 2.5, 3.5. *)
 
 (** {2 Vertical Align}
     @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
@@ -2753,8 +2756,9 @@ val border_separate : t
 (** {2 Border Spacing}
     @see <https://tailwindcss.com/docs/border-spacing> Border Spacing *)
 
-val border_spacing : int -> t
-(** [border_spacing n] sets border spacing using spacing scale. *)
+val border_spacing : float -> t
+(** [border_spacing n] sets border spacing using spacing scale. [n] is the
+    spacing multiplier (e.g., 4.0 for border-spacing-4). *)
 
 (** {2 Table Layout}
     @see <https://tailwindcss.com/docs/table-layout> Table Layout *)
