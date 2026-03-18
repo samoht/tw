@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: OCaml ${{ matrix.ocaml-compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ocaml-compiler:
+          - "4.14"
+          - "5.4"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Pin alcobar
+        run: opam pin add alcobar.dev "https://github.com/samoht/alcobar.git" -n -y
+
+      - name: Install dependencies
+        run: opam install . --deps-only --with-test -y
+
+      - name: Build
+        run: opam exec -- dune build
+
+      - name: Test
+        run: opam exec -- dune runtest

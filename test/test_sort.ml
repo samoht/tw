@@ -2,6 +2,15 @@ open Alcotest
 open Tw.Color
 open Tw.Padding
 
+(* OCaml 4.14 compat *)
+let find_index f lst =
+  let rec go i = function
+    | [] -> None
+    | x :: _ when f x -> Some i
+    | _ :: rest -> go (i + 1) rest
+  in
+  go 0 lst
+
 (* ===== Tests ===== *)
 
 (* Short, reusable helper *)
@@ -134,8 +143,16 @@ let test_cascade_order_violation () =
   let is_p4 sel = sel = ".p-4" in
   let is_p2 sel = sel = ".p-2" in
 
-  let p4_idx = List.find_index is_p4 selectors in
-  let p2_idx = List.find_index is_p2 selectors in
+  let find_index f lst =
+    let rec go i = function
+      | [] -> None
+      | x :: _ when f x -> Some i
+      | _ :: rest -> go (i + 1) rest
+    in
+    go 0 lst
+  in
+  let p4_idx = find_index is_p4 selectors in
+  let p2_idx = find_index is_p2 selectors in
 
   match (p4_idx, p2_idx) with
   | Some i, Some j when i > j ->
@@ -214,14 +231,20 @@ let test_cascade_color_override () =
   (* Check original order *)
   let original_selectors = List.map (fun (sel, _, _) -> sel) pairs in
   let orig_blue_idx =
-    List.find_index
-      (fun sel -> Css.Selector.to_string sel = ".bg-blue-500")
-      original_selectors
+    let rec go i = function
+      | [] -> None
+      | sel :: _ when Css.Selector.to_string sel = ".bg-blue-500" -> Some i
+      | _ :: rest -> go (i + 1) rest
+    in
+    go 0 original_selectors
   in
   let orig_red_idx =
-    List.find_index
-      (fun sel -> Css.Selector.to_string sel = ".bg-red-500")
-      original_selectors
+    let rec go i = function
+      | [] -> None
+      | sel :: _ when Css.Selector.to_string sel = ".bg-red-500" -> Some i
+      | _ :: rest -> go (i + 1) rest
+    in
+    go 0 original_selectors
   in
 
   (match (orig_blue_idx, orig_red_idx) with
@@ -241,10 +264,10 @@ let test_cascade_color_override () =
   in
 
   let sorted_blue_idx =
-    List.find_index (fun sel -> sel = ".bg-blue-500") sorted_selectors
+    find_index (fun sel -> sel = ".bg-blue-500") sorted_selectors
   in
   let sorted_red_idx =
-    List.find_index (fun sel -> sel = ".bg-red-500") sorted_selectors
+    find_index (fun sel -> sel = ".bg-red-500") sorted_selectors
   in
 
   match (sorted_blue_idx, sorted_red_idx) with

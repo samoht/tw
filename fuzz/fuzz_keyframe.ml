@@ -2,7 +2,7 @@
 
     Tests crash safety of keyframe position/selector parsing and roundtrip. *)
 
-open Crowbar
+open Alcobar
 
 (** position_of_string — must not crash. *)
 let test_position buf = ignore (Css.Keyframe.position_of_string buf)

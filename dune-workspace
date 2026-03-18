@@ -1,0 +1,8 @@
+(lang dune 3.0)
+
+(context default)
+
+(context
+ (opam
+  (name ocaml-4.14)
+  (switch 4.14.2)))

@@ -1,9 +1,9 @@
 (** CSS parser fuzz tests — main entry point.
 
-    Registers all fuzz test modules and runs them with Crowbar. *)
+    Registers all fuzz test modules and runs them with Alcobar. *)
 
 let () =
-  Crowbar.run "css"
+  Alcobar.run "css"
     [
       Fuzz_reader.suite;
       Fuzz_selector.suite;

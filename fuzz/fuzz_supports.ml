@@ -2,7 +2,7 @@
 
     Tests crash safety of @supports condition parsing and roundtrip. *)
 
-open Crowbar
+open Alcobar
 
 (** Supports.of_string — must not crash on arbitrary input. *)
 let test_of_string buf =

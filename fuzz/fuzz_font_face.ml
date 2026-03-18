@@ -2,7 +2,7 @@
 
     Tests crash safety of font-face descriptor parsing and roundtrip. *)
 
-open Crowbar
+open Alcobar
 
 (** metric_override_of_string — must not crash. *)
 let test_metric_override buf =

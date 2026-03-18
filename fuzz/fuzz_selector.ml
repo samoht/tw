@@ -2,7 +2,7 @@
 
     Tests crash safety of selector parsing and roundtrip consistency. *)
 
-open Crowbar
+open Alcobar
 
 (** Selector.of_string — must not crash on arbitrary input. *)
 let test_of_string buf =
