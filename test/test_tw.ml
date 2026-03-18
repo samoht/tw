@@ -333,6 +333,226 @@ let ordering_complex_card () =
       hover [ shadow_md ];
     ]
 
+(* ===== MISSING FEATURE TESTS ===== *)
+(* These tests exercise features that may have incomplete typed API or known
+   diffs against real Tailwind. They serve as regression targets: once the
+   underlying implementation is fixed, the test should pass. *)
+
+(* Helper: parse a Tailwind class string via of_string; fail the test if the
+   class is not recognised by our parser (i.e. the feature is completely
+   missing). *)
+let require_parse class_name =
+  match of_string class_name with
+  | Ok v -> v
+  | Error (`Msg m) ->
+      Alcotest.fail
+        (Printf.sprintf "of_string %S failed — API gap: %s" class_name m)
+
+(* -- 1. Fractional spacing ------------------------------------------------ *)
+(* Tailwind v4 supports half-step spacing values like space-x-2.5, p-0.5, etc.
+   Our typed API only accepts int, so these must go through of_string.
+   NOTE: space-x-2.5 is currently rejected by of_string (API gap: fractional
+   spacing values are not yet implemented). These tests document the gap. *)
+
+let fractional_spacing () =
+  (* space-x / space-y with fractional values *)
+  check (require_parse "space-x-2.5");
+  check (require_parse "space-y-3.5");
+  (* padding with fractional values *)
+  check (require_parse "p-0.5");
+  check (require_parse "p-1.5");
+  (* margin with fractional values *)
+  check (require_parse "m-0.5");
+  check (require_parse "m-2.5");
+  (* gap with fractional values *)
+  check (require_parse "gap-0.5");
+  check (require_parse "gap-1.5")
+
+let fractional_translate () =
+  (* translate-x/y with fractional values (e.g. 1/2, 1/3, 1/4) *)
+  (* NOTE: translate-x-1/2 is currently rejected by of_string (API gap:
+     fractional translate values are not yet implemented). *)
+  check (require_parse "translate-x-1/2");
+  check (require_parse "translate-y-1/2");
+  check (require_parse "translate-x-1/3");
+  check (require_parse "translate-x-2/3");
+  check (require_parse "translate-x-1/4");
+  check (require_parse "translate-x-3/4");
+  check (require_parse "translate-x-full");
+  check (require_parse "translate-y-full")
+
+let fractional_width_height () =
+  (* Width/height with fractional values *)
+  check (require_parse "w-1/2");
+  check (require_parse "w-1/3");
+  check (require_parse "w-2/3");
+  check (require_parse "w-1/4");
+  check (require_parse "w-3/4");
+  check (require_parse "h-1/2");
+  check (require_parse "h-1/3")
+
+(* -- 2. Prose element variant tests --------------------------------------- *)
+(* Tailwind typography plugin provides modifier variants like
+   prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
+   element types within prose. Our typed API currently only has prose_lead,
+   prose_gray, prose_slate — no element-targeting variants.
+   NOTE: These are currently rejected by of_string (API gap). *)
+
+let prose_element_variants () =
+  (* prose-headings targets h1-h4 within prose *)
+  check (require_parse "prose-headings:text-white");
+  (* prose-p targets paragraphs *)
+  check (require_parse "prose-p:text-gray-700");
+  (* prose-a targets links *)
+  check (require_parse "prose-a:text-blue-500");
+  (* prose-strong targets <strong> *)
+  check (require_parse "prose-strong:font-black");
+  (* prose-code targets inline <code> *)
+  check (require_parse "prose-code:bg-gray-100");
+  (* prose-pre targets <pre> blocks *)
+  check (require_parse "prose-pre:bg-gray-900");
+  (* prose-ol targets ordered lists *)
+  check (require_parse "prose-ol:list-decimal");
+  (* prose-ul targets unordered lists *)
+  check (require_parse "prose-ul:list-disc");
+  (* prose-li targets list items *)
+  check (require_parse "prose-li:my-1");
+  (* prose-blockquote targets blockquotes *)
+  check (require_parse "prose-blockquote:italic");
+  (* prose-img targets images *)
+  check (require_parse "prose-img:rounded-lg");
+  (* prose-hr targets horizontal rules *)
+  check (require_parse "prose-hr:border-gray-300")
+
+let prose_element_variants_combined () =
+  (* Multiple prose element variants together with base prose *)
+  check_list
+    [
+      prose;
+      require_parse "prose-headings:text-blue-600";
+      require_parse "prose-a:text-blue-500";
+      require_parse "prose-code:bg-gray-100";
+    ]
+
+(* -- 3. Divide utilities -------------------------------------------------- *)
+(* divide-x and divide-y with width values are parseable by CLI but have no
+   typed API (only divide_x_reverse and divide_y_reverse are exposed).
+   divide-x/divide-y without explicit widths also exist. *)
+
+let divide_width () =
+  (* Basic divide-x and divide-y (1px default) *)
+  check (require_parse "divide-x");
+  check (require_parse "divide-y");
+  (* Divide with explicit widths *)
+  check (require_parse "divide-x-2");
+  check (require_parse "divide-x-4");
+  check (require_parse "divide-x-8");
+  check (require_parse "divide-y-2");
+  check (require_parse "divide-y-4")
+
+let divide_with_reverse () =
+  (* divide-x combined with divide-x-reverse for RTL layouts *)
+  check_list [ require_parse "divide-x"; divide_x_reverse ];
+  check_list [ require_parse "divide-y"; divide_y_reverse ];
+  (* divide with width + reverse *)
+  check_list [ require_parse "divide-x-2"; divide_x_reverse ]
+
+let divide_combined () =
+  (* divide-x and divide-y used together *)
+  check_list [ require_parse "divide-x"; require_parse "divide-y" ];
+  (* divide with widths together *)
+  check_list [ require_parse "divide-x-2"; require_parse "divide-y-4" ]
+
+let divide_color () =
+  (* divide-color utilities *)
+  check (require_parse "divide-blue-500");
+  check (require_parse "divide-gray-300");
+  check (require_parse "divide-red-600")
+
+(* -- 4. Decoration skip ink ----------------------------------------------- *)
+(* text-decoration-skip-ink is a CSS property controlling ink skipping around
+   descenders. Tailwind v4 has decoration-skip-ink-auto and
+   decoration-skip-ink-none.
+   NOTE: Currently rejected by of_string (API gap). *)
+
+let decoration_skip_ink () =
+  check (require_parse "decoration-skip-ink-auto");
+  check (require_parse "decoration-skip-ink-none")
+
+(* -- 5. Word break utilities ---------------------------------------------- *)
+(* These have typed API and should already work. Test them for completeness
+   and parity. *)
+
+let word_break_utilities () =
+  check break_normal;
+  check break_words;
+  check break_all;
+  check break_keep
+
+(* -- 6. Scroll margin and scroll padding ---------------------------------- *)
+(* scroll-margin and scroll-padding utilities exist in the parser (CLI works)
+   but have no typed API in tw.mli (marked as TODO).
+   Test via of_string. *)
+
+let scroll_margin () =
+  check (require_parse "scroll-m-4");
+  check (require_parse "scroll-mt-4");
+  check (require_parse "scroll-mr-2");
+  check (require_parse "scroll-mb-8");
+  check (require_parse "scroll-ml-4");
+  check (require_parse "scroll-mx-4");
+  check (require_parse "scroll-my-2")
+
+let scroll_padding () =
+  check (require_parse "scroll-p-4");
+  check (require_parse "scroll-pt-4");
+  check (require_parse "scroll-pr-2");
+  check (require_parse "scroll-pb-8");
+  check (require_parse "scroll-pl-4");
+  check (require_parse "scroll-px-4");
+  check (require_parse "scroll-py-2")
+
+let scroll_margin_padding_combined () =
+  check_list [ require_parse "scroll-mt-4"; require_parse "scroll-px-2" ]
+
+(* -- 7. Border spacing axis variants -------------------------------------- *)
+(* border-spacing-x and border-spacing-y have no typed API but the parser
+   supports them. The combined border-spacing has a typed API. *)
+
+let border_spacing_axis () =
+  check (require_parse "border-spacing-x-4");
+  check (require_parse "border-spacing-y-2");
+  check_list
+    [ require_parse "border-spacing-x-4"; require_parse "border-spacing-y-2" ]
+
+let border_spacing_combined () =
+  (* Typed API border_spacing combined with axis-specific *)
+  check (border_spacing 4);
+  check_list [ border_spacing 4; require_parse "border-spacing-x-8" ]
+
+(* -- 8. Opacity modifiers (Tailwind v3 compat / v4 approach) -------------- *)
+(* In Tailwind v4, bg-opacity-* and text-opacity-* are removed in favor of
+   color opacity syntax like bg-blue-500/50. Test that color-with-opacity
+   works if the API supports it, and document what's missing.
+   NOTE: bg-opacity-* and text-opacity-* are Tailwind v3 utilities and are
+   NOT expected to exist in v4. Instead, slash-opacity syntax should be used. *)
+
+let color_opacity_slash () =
+  (* Tailwind v4 uses slash syntax: bg-blue-500/50 for 50% opacity *)
+  check (require_parse "bg-blue-500/50");
+  check (require_parse "bg-blue-500/75");
+  check (require_parse "text-white/80");
+  check (require_parse "text-gray-900/50");
+  check (require_parse "border-red-500/25")
+
+(* -- 9. Nesting variant --------------------------------------------------- *)
+(* The * variant (nesting) targets direct children. Test if it's supported. *)
+
+let nesting_variant () =
+  check (require_parse "*:p-4");
+  check (require_parse "*:text-blue-500");
+  check_list [ require_parse "*:p-4"; require_parse "*:m-2" ]
+
 (* ===== PRECEDENCE TESTS ===== *)
 
 let precedence_base_overrides () =
@@ -562,6 +782,28 @@ let core_tests =
     test_case "order: transitions" `Quick ordering_transitions;
     test_case "order: with variants" `Quick ordering_with_variants;
     test_case "order: complex card" `Quick ordering_complex_card;
+    (* Missing feature tests — expected to fail until features are
+       implemented *)
+    test_case "fractional spacing" `Slow fractional_spacing;
+    test_case "fractional translate" `Slow fractional_translate;
+    test_case "fractional width/height" `Slow fractional_width_height;
+    test_case "prose element variants" `Slow prose_element_variants;
+    test_case "prose element variants combined" `Slow
+      prose_element_variants_combined;
+    test_case "divide width" `Slow divide_width;
+    test_case "divide with reverse" `Slow divide_with_reverse;
+    test_case "divide combined" `Slow divide_combined;
+    test_case "divide color" `Slow divide_color;
+    test_case "decoration skip ink" `Slow decoration_skip_ink;
+    test_case "word break utilities" `Slow word_break_utilities;
+    test_case "scroll margin" `Slow scroll_margin;
+    test_case "scroll padding" `Slow scroll_padding;
+    test_case "scroll margin+padding combined" `Slow
+      scroll_margin_padding_combined;
+    test_case "border spacing axis" `Slow border_spacing_axis;
+    test_case "border spacing combined" `Slow border_spacing_combined;
+    test_case "color opacity slash" `Slow color_opacity_slash;
+    test_case "nesting variant" `Slow nesting_variant;
     test_case "precedence base overrides" `Slow precedence_base_overrides;
     test_case "precedence breakpoints" `Slow precedence_breakpoints;
     test_case "precedence states" `Slow precedence_states;
