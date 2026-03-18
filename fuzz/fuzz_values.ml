@@ -3,7 +3,7 @@
     Tests crash safety of value parsers (colors, lengths, angles, etc.) and
     roundtrip consistency for pretty-printed values. *)
 
-open Crowbar
+open Alcobar
 
 (** read_color — must not crash on arbitrary input. *)
 let test_read_color buf =

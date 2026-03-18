@@ -188,10 +188,12 @@ let property_moves ~max_count prop_names1 prop_names2 =
       match (lst1, lst2) with
       | x1 :: rest1, x2 :: rest2 when x1 <> x2 ->
           let new_pos =
-            List.find_mapi
-              (fun i x -> if x = x1 then Some i else None)
-              prop_names2
-            |> Option.value ~default:(-1)
+            let rec find_idx i = function
+              | [] -> -1
+              | x :: _ when x = x1 -> i
+              | _ :: rest -> find_idx (i + 1) rest
+            in
+            find_idx 0 prop_names2
           in
           scan rest1 rest2 ((x1, new_pos) :: acc) (count + 1)
       | _ :: rest1, _ :: rest2 -> scan rest1 rest2 acc count
@@ -1377,12 +1379,14 @@ and process_modified_container ~container_type ~extract_fn ~depth ~stmts1
     in
     (* Check for position changes within parent container *)
     let find_position cond stmts =
-      List.find_mapi
-        (fun i stmt ->
-          match extract_fn stmt with
-          | Some (c, _) when c = cond -> Some i
-          | _ -> None)
-        stmts
+      let rec go i = function
+        | [] -> None
+        | stmt :: rest -> (
+            match extract_fn stmt with
+            | Some (c, _) when c = cond -> Some i
+            | _ -> go (i + 1) rest)
+      in
+      go 0 stmts
     in
     let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
     let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
@@ -1665,7 +1669,13 @@ and property_reorder_diffs stmts1 stmts2 items1 items2 =
       List.filter_map
         (fun (i1, name1) ->
           let i2 =
-            List.find_index (( = ) name1) names2 |> Option.value ~default:i1
+            (let rec go i = function
+               | [] -> None
+               | x :: _ when x = name1 -> Some i
+               | _ :: rest -> go (i + 1) rest
+             in
+             go 0 names2)
+            |> Option.value ~default:i1
           in
           if i1 = i2 then None
           else

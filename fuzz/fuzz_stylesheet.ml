@@ -2,7 +2,7 @@
 
     Tests crash safety of stylesheet, rule, and declaration parsing. *)
 
-open Crowbar
+open Alcobar
 
 (** read_stylesheet — must not crash on arbitrary input. *)
 let test_read_stylesheet buf =

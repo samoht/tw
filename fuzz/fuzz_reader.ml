@@ -2,7 +2,7 @@
 
     Tests crash safety of the core parser combinators on arbitrary input. *)
 
-open Crowbar
+open Alcobar
 
 (** Reader.of_string + is_done — must not crash. *)
 let test_of_string buf =
