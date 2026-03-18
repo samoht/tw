@@ -217,6 +217,9 @@ type modifier =
   | Group_peer_named of modifier * string
       (** [group-peer-X/name] — peer-X within named group *)
   | Arbitrary_selector of string  (** [[&_p]] — arbitrary selector variant *)
+  | Prose_element of string
+      (** [prose-X:] — prose element variant for targeting specific HTML
+          elements within prose content *)
 
 type t =
   | Style of {
