@@ -290,6 +290,49 @@ let prose_ordering () =
   check_list [ mb 0; prose ];
   check_list [ mb 4; mb 8; mb 12; prose ]
 
+(* ===== CROSS-HANDLER ORDERING TESTS ===== *)
+(* Test CSS output ordering when mixing utilities from different handlers.
+   These catch bugs where sort priority/suborder comparisons produce wrong
+   interleaving across handler boundaries. *)
+
+let ordering_padding_margin () =
+  check_list [ p 1; px 3; py 3 ];
+  check_list [ m 4; p 4 ];
+  check_list [ mx_auto; my 4; p 2 ]
+
+let ordering_layout_sizing () =
+  check_list [ block; w_full; h 5 ];
+  check_list [ flex; flex_col; items_center; gap 4 ]
+
+let ordering_text_bg_border () =
+  check_list [ text gray 700; bg white 0; border; border_color gray 300 ];
+  check_list [ text_sm; font_bold; text blue 500 ]
+
+let ordering_shadow_ring () =
+  check_list [ shadow_sm; ring; ring_color blue 500 ]
+
+let ordering_transitions () = check_list [ transition_colors; duration 200 ]
+
+let ordering_with_variants () =
+  check_list [ bg blue 500; hover [ bg blue 600 ]; focus [ ring ] ];
+  check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
+  check_list [ text white 0; dark [ text gray 300 ] ]
+
+let ordering_complex_card () =
+  check_list
+    [
+      flex;
+      flex_col;
+      gap 4;
+      p 6;
+      bg white 0;
+      rounded_lg;
+      shadow_sm;
+      border;
+      border_color gray 200;
+      hover [ shadow_md ];
+    ]
+
 (* ===== PRECEDENCE TESTS ===== *)
 
 let precedence_base_overrides () =
@@ -511,6 +554,14 @@ let core_tests =
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;
     test_case "prose ordering" `Quick prose_ordering;
+    (* Cross-handler ordering *)
+    test_case "order: padding/margin" `Quick ordering_padding_margin;
+    test_case "order: layout/sizing" `Quick ordering_layout_sizing;
+    test_case "order: text/bg/border" `Quick ordering_text_bg_border;
+    test_case "order: shadow/ring" `Quick ordering_shadow_ring;
+    test_case "order: transitions" `Quick ordering_transitions;
+    test_case "order: with variants" `Quick ordering_with_variants;
+    test_case "order: complex card" `Quick ordering_complex_card;
     test_case "precedence base overrides" `Slow precedence_base_overrides;
     test_case "precedence breakpoints" `Slow precedence_breakpoints;
     test_case "precedence states" `Slow precedence_states;
