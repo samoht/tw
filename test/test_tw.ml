@@ -475,9 +475,14 @@ let divide_color () =
    decoration-skip-ink-none.
    NOTE: Currently rejected by of_string (API gap). *)
 
+(* decoration-skip-ink was dropped in Tailwind v4. Verify we reject it. *)
 let decoration_skip_ink () =
-  check (require_parse "decoration-skip-ink-auto");
-  check (require_parse "decoration-skip-ink-none")
+  (match of_string "decoration-skip-ink-auto" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "decoration-skip-ink-auto should not be a v4 utility");
+  match of_string "decoration-skip-ink-none" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "decoration-skip-ink-none should not be a v4 utility"
 
 (* -- 5. Word break utilities ---------------------------------------------- *)
 (* These have typed API and should already work. Test them for completeness
