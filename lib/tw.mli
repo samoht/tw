@@ -3724,6 +3724,88 @@ val data_inactive : t list -> t
 val peer_checked : t list -> t
 (** [peer_checked styles] applies [styles] when a preceding [.peer]:checked. *)
 
+(** {2 Prose Element Variants}
+
+    These target specific HTML elements within prose content. Each variant wraps
+    the utility in a descendant selector that targets the specified element(s),
+    excluding elements inside [.not-prose].
+
+    @see <https://tailwindcss.com/docs/typography-plugin> Typography Plugin *)
+
+val prose_headings : t list -> t
+(** [prose_headings styles] applies [styles] to h1-h6, th within prose. *)
+
+val prose_p : t list -> t
+(** [prose_p styles] applies [styles] to p elements within prose. *)
+
+val prose_a : t list -> t
+(** [prose_a styles] applies [styles] to a elements within prose. *)
+
+val prose_strong : t list -> t
+(** [prose_strong styles] applies [styles] to strong elements within prose. *)
+
+val prose_em : t list -> t
+(** [prose_em styles] applies [styles] to em elements within prose. *)
+
+val prose_code : t list -> t
+(** [prose_code styles] applies [styles] to code elements within prose. *)
+
+val prose_pre : t list -> t
+(** [prose_pre styles] applies [styles] to pre elements within prose. *)
+
+val prose_ol : t list -> t
+(** [prose_ol styles] applies [styles] to ol elements within prose. *)
+
+val prose_ul : t list -> t
+(** [prose_ul styles] applies [styles] to ul elements within prose. *)
+
+val prose_li : t list -> t
+(** [prose_li styles] applies [styles] to li elements within prose. *)
+
+val prose_blockquote : t list -> t
+(** [prose_blockquote styles] applies [styles] to blockquote elements within
+    prose. *)
+
+val prose_h1 : t list -> t
+(** [prose_h1 styles] applies [styles] to h1 elements within prose. *)
+
+val prose_h2 : t list -> t
+(** [prose_h2 styles] applies [styles] to h2 elements within prose. *)
+
+val prose_h3 : t list -> t
+(** [prose_h3 styles] applies [styles] to h3 elements within prose. *)
+
+val prose_h4 : t list -> t
+(** [prose_h4 styles] applies [styles] to h4 elements within prose. *)
+
+val prose_img : t list -> t
+(** [prose_img styles] applies [styles] to img elements within prose. *)
+
+val prose_video : t list -> t
+(** [prose_video styles] applies [styles] to video elements within prose. *)
+
+val prose_figure : t list -> t
+(** [prose_figure styles] applies [styles] to figure elements within prose. *)
+
+val prose_figcaption : t list -> t
+(** [prose_figcaption styles] applies [styles] to figcaption elements within
+    prose. *)
+
+val prose_hr : t list -> t
+(** [prose_hr styles] applies [styles] to hr elements within prose. *)
+
+val prose_th : t list -> t
+(** [prose_th styles] applies [styles] to th elements within prose. *)
+
+val prose_td : t list -> t
+(** [prose_td styles] applies [styles] to td elements within prose. *)
+
+val prose_thead : t list -> t
+(** [prose_thead styles] applies [styles] to thead elements within prose. *)
+
+val prose_kbd : t list -> t
+(** [prose_kbd styles] applies [styles] to kbd elements within prose. *)
+
 module Style = Style
 module Margin = Margin
 module Padding = Padding

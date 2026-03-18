@@ -219,6 +219,10 @@ type modifier =
   | Arbitrary_selector of string
       (** [[&_p]] — arbitrary selector variant, [&] is replaced by the element's
           own class selector *)
+  | Prose_element of string
+      (** [prose-X:] — prose element variant, wraps utility in a descendant
+          selector targeting specific HTML elements within prose content. E.g.
+          [prose-headings:text-white] targets h1-h6,th inside prose. *)
 
 type t =
   | Style of {
@@ -498,6 +502,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | Prose_element name -> "prose-" ^ name
 
 let rec pp = function
   | Style { props; _ } ->

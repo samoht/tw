@@ -1504,6 +1504,15 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       regular ~selector:sel ~props:final_props ~base_class ()
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class props
+  (* Prose element variants — descendant selector with element filter *)
+  | Style.Prose_element name ->
+      let modified_class = "prose-" ^ name ^ ":" ^ base_class in
+      let outer_sel = Css.Selector.Class modified_class in
+      let inner_sel = Modifiers.prose_element_inner_selector name in
+      let combined_sel =
+        Css.Selector.combine outer_sel Css.Selector.Descendant inner_sel
+      in
+      regular ~selector:combined_sel ~props ~base_class:modified_class ()
   (* Fallback for other modifiers *)
   | _ ->
       handle_fallback_modifier ~inner_has_hover modifier base_class selector

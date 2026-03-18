@@ -466,6 +466,36 @@ let pseudo_element_selector cls modifier =
       cp "details-content" cls Css.Selector.Details_content
   | _ -> aria_data_selector cls modifier
 
+(** Map prose element variant names to their CSS element selectors *)
+let prose_element_selectors name =
+  let open Css.Selector in
+  match name with
+  | "headings" ->
+      [
+        Element (None, "h1");
+        Element (None, "h2");
+        Element (None, "h3");
+        Element (None, "h4");
+        Element (None, "h5");
+        Element (None, "h6");
+        Element (None, "th");
+      ]
+  | "lead" ->
+      [ Attribute (None, Regular "class", Whitespace_list "lead", None) ]
+  | s -> [ Element (None, s) ]
+
+(** Build the inner prose element selector for a prose element variant. Creates
+    ":where(ELTS):not(:where(not-prose, not-prose descendant))" which is
+    combined as a descendant of the outer class selector. *)
+let prose_element_inner_selector name =
+  let open Css.Selector in
+  let elements = prose_element_selectors name in
+  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
+  let not_prose_descendant = combine not_prose_class Descendant universal in
+  let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
+  let not_sel = not [ not_prose_where ] in
+  compound [ where elements; not_sel ]
+
 (** Generate CSS selector for a modifier and base class *)
 let to_selector (modifier : modifier) cls =
   let open Css.Selector in
@@ -489,6 +519,8 @@ let to_selector (modifier : modifier) cls =
   | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
   | Device_hocus ->
       compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
+  (* Prose element variants — outer selector is just the class *)
+  | Prose_element name -> Class ("prose-" ^ name ^ ":" ^ cls)
   (* Pseudo-elements, aria/data, structural, media, peer, form state *)
   | _ -> pseudo_element_selector cls modifier
 
@@ -746,6 +778,33 @@ let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
 let supports cond styles = wrap (Supports cond) styles
+
+(* Prose element variants *)
+let prose_headings styles = wrap (Prose_element "headings") styles
+let prose_p styles = wrap (Prose_element "p") styles
+let prose_a styles = wrap (Prose_element "a") styles
+let prose_strong styles = wrap (Prose_element "strong") styles
+let prose_em styles = wrap (Prose_element "em") styles
+let prose_code styles = wrap (Prose_element "code") styles
+let prose_pre styles = wrap (Prose_element "pre") styles
+let prose_ol styles = wrap (Prose_element "ol") styles
+let prose_ul styles = wrap (Prose_element "ul") styles
+let prose_li styles = wrap (Prose_element "li") styles
+let prose_blockquote styles = wrap (Prose_element "blockquote") styles
+let prose_h1 styles = wrap (Prose_element "h1") styles
+let prose_h2 styles = wrap (Prose_element "h2") styles
+let prose_h3 styles = wrap (Prose_element "h3") styles
+let prose_h4 styles = wrap (Prose_element "h4") styles
+let prose_img styles = wrap (Prose_element "img") styles
+let prose_video styles = wrap (Prose_element "video") styles
+let prose_figure styles = wrap (Prose_element "figure") styles
+let prose_figcaption styles = wrap (Prose_element "figcaption") styles
+let prose_hr styles = wrap (Prose_element "hr") styles
+let prose_th styles = wrap (Prose_element "th") styles
+let prose_td styles = wrap (Prose_element "td") styles
+let prose_thead styles = wrap (Prose_element "thead") styles
+let prose_kbd styles = wrap (Prose_element "kbd") styles
+let prose_lead styles = wrap (Prose_element "lead") styles
 
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
@@ -1012,6 +1071,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | Prose_element name -> "prose-" ^ name
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -1453,7 +1513,7 @@ let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
-  | Descendants ->
+  | Descendants | Prose_element _ ->
       false
   | _ -> true
 
@@ -1721,6 +1781,50 @@ let try_bare_data_aria s =
   then Some (Aria_bracket (String.sub s 5 (String.length s - 5)))
   else None
 
+(* Ordering of prose element variants (matches Tailwind v4 typography plugin) *)
+let prose_element_variant_order = function
+  | "headings" -> 96001
+  | "h1" -> 96002
+  | "h2" -> 96003
+  | "h3" -> 96004
+  | "h4" -> 96005
+  | "p" -> 96006
+  | "a" -> 96007
+  | "blockquote" -> 96008
+  | "figure" -> 96009
+  | "figcaption" -> 96010
+  | "strong" -> 96011
+  | "em" -> 96012
+  | "kbd" -> 96013
+  | "code" -> 96014
+  | "pre" -> 96015
+  | "ol" -> 96016
+  | "ul" -> 96017
+  | "li" -> 96018
+  | "thead" -> 96019
+  | "th" -> 96020
+  | "td" -> 96021
+  | "img" -> 96022
+  | "video" -> 96023
+  | "hr" -> 96024
+  | "lead" -> 96025
+  | _ -> 96000
+
+(* Known prose element variant names (matches Tailwind v4 typography plugin) *)
+let is_prose_element_name = function
+  | "headings" | "p" | "a" | "strong" | "em" | "code" | "pre" | "ol" | "ul"
+  | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "img" | "video" | "figure"
+  | "figcaption" | "hr" | "th" | "td" | "thead" | "kbd" | "lead" ->
+      true
+  | _ -> false
+
+(* Try parsing prose-* element variant modifier *)
+let try_prose_element s =
+  if String.length s > 6 && String.sub s 0 6 = "prose-" then
+    let name = String.sub s 6 (String.length s - 6) in
+    if is_prose_element_name name then Some (Prose_element name) else None
+  else None
+
 (* Parse a modifier string into a typed Style.modifier *)
 let parse_modifier s : modifier option =
   let fns =
@@ -1736,6 +1840,7 @@ let parse_modifier s : modifier option =
       (fun () -> try_group_peer_not s);
       (fun () -> try_not_modifier s);
       (fun () -> try_bare_data_aria s);
+      (fun () -> try_prose_element s);
       (fun () -> try_custom_breakpoint s);
     ]
   in
@@ -1961,6 +2066,9 @@ let variant_order_of_prefix prefix =
         || String.starts_with ~prefix:"min-" prefix
         || String.starts_with ~prefix:"max-" prefix
       then 60000
+      else if String.starts_with ~prefix:"prose-" prefix then
+        let name = String.sub prefix 6 (String.length prefix - 6) in
+        prose_element_variant_order name
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000
       else if String.length prefix > 0 && prefix.[0] = '@' then 110000
       else 0
