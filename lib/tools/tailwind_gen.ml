@@ -217,7 +217,10 @@ let temp_dir () =
   if not (Sys.file_exists "tmp") then Unix.mkdir "tmp" 0o755;
   (* Create unique temp directory in project root so tailwindcss can resolve
      imports *)
-  Filename.temp_dir ~temp_dir:"tmp" "tw_gen_" ""
+  let dir = Filename.temp_file ~temp_dir:"tmp" "tw_gen_" "" in
+  Sys.remove dir;
+  Sys.mkdir dir 0o755;
+  dir
 
 (** Detect if any class names use forms utilities (form-input, form-select,
     etc.) *)
