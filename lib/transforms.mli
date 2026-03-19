@@ -32,6 +32,14 @@ val skew_x : int -> t
 val skew_y : int -> t
 (** [skew_y deg] skews element vertically by deg degrees. *)
 
+val translate_x_fraction : int -> int -> t
+(** [translate_x_fraction num denom] translates element horizontally by
+    calc(num/denom * 100%). *)
+
+val translate_y_fraction : int -> int -> t
+(** [translate_y_fraction num denom] translates element vertically by
+    calc(num/denom * 100%). *)
+
 val neg_translate_x_1_2 : t
 (** [neg_translate_x_1_2] translates element -50% along the X axis (useful for
     centering). *)

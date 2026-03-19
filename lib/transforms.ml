@@ -36,19 +36,25 @@ module Handler = struct
     | Skew_y_arbitrary of Css.angle
     | Skew of int
     | Skew_arbitrary of Css.angle
+    | Translate_x_fraction of int * int
+    | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
       Translate_full
     | Translate_1_2
+    | Translate_fraction of int * int
     | Translate_arbitrary of Css.length
     | (* Negative translate utilities *)
       Neg_translate_arbitrary of string
     | Neg_translate_full
+    | Neg_translate_fraction of int * int
     | Neg_translate_x_arbitrary of string
     | Neg_translate_x_full
     | Neg_translate_x_1_2
+    | Neg_translate_x_fraction of int * int
     | Neg_translate_y_arbitrary of string
     | Neg_translate_y_full
     | Neg_translate_y_1_2
+    | Neg_translate_y_fraction of int * int
     | (* 3D Transforms *)
       Translate_z of int
     | Translate_z_px
@@ -406,6 +412,41 @@ module Handler = struct
   let translate_x n = translate_axis tw_translate_x_var n
   let translate_y n = translate_axis tw_translate_y_var n
 
+  (** Helper to create a fraction percentage value: calc(n/d * 100%) *)
+  let make_fraction_pct num denom : Css.length =
+    Css.Calc
+      (Css.Calc.mul
+         (Css.Calc.div
+            (Css.Calc.float (float_of_int num))
+            (Css.Calc.float (float_of_int denom)))
+         (Css.Calc.length (Css.Pct 100.)))
+
+  (** Helper to create a negated fraction percentage value: calc(calc(n/d *
+      100%) * -1) *)
+  let make_neg_fraction_pct num denom : Css.length =
+    Css.Calc
+      (Css.Calc.mul
+         (Css.Calc.length (make_fraction_pct num denom))
+         (Css.Calc.float (-1.)))
+
+  let translate_x_fraction num denom =
+    let axis_decl, _ =
+      Var.binding tw_translate_x_var (make_fraction_pct num denom)
+    in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_y_fraction num denom =
+    let axis_decl, _ =
+      Var.binding tw_translate_y_var (make_fraction_pct num denom)
+    in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
   let translate_x_full =
     let axis_decl, _ = Var.binding tw_translate_x_var (Pct 100.0) in
     let tx_ref = Var.reference tw_translate_x_var in
@@ -620,12 +661,54 @@ module Handler = struct
     style ~property_rules:props
       (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
-  (* Negative translate utilities for centering *)
-  let neg_translate_x_1_2 =
-    style [ Css.transform (Css.Translate_x (Css.Pct (-50.0))) ]
+  let translate_fraction num denom =
+    let frac_pct = make_fraction_pct num denom in
+    let dx, _ = Var.binding tw_translate_x_var frac_pct in
+    let dy, _ = Var.binding tw_translate_y_var frac_pct in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
-  let neg_translate_y_1_2 =
-    style [ Css.transform (Css.Translate_y (Css.Pct (-50.0))) ]
+  let neg_translate_fraction num denom =
+    let neg_frac_pct = make_neg_fraction_pct num denom in
+    let dx, _ = Var.binding tw_translate_x_var neg_frac_pct in
+    let dy, _ = Var.binding tw_translate_y_var neg_frac_pct in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_x_fraction num denom =
+    let axis_decl, _ =
+      Var.binding tw_translate_x_var (make_neg_fraction_pct num denom)
+    in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_y_fraction num denom =
+    let axis_decl, _ =
+      Var.binding tw_translate_y_var (make_neg_fraction_pct num denom)
+    in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  (* Legacy negative translate utilities for centering - kept for backward
+     compat *)
+  let neg_translate_x_1_2 = neg_translate_x_fraction 1 2
+  let neg_translate_y_1_2 = neg_translate_y_fraction 1 2
 
   (** {1 3D Transform Utilities} *)
 
@@ -1064,21 +1147,29 @@ module Handler = struct
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
     | Translate_x_arbitrary len -> translate_x_arbitrary len
+    | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
     | Translate_y n -> translate_y n
     | Translate_y_full -> translate_y_full
     | Translate_y_px -> translate_y_px
     | Translate_y_arbitrary len -> translate_y_arbitrary len
+    | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate_full -> translate_full
     | Translate_1_2 -> translate_1_2
+    | Translate_fraction (num, denom) -> translate_fraction num denom
     | Translate_arbitrary len -> translate_arbitrary len
     | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
+    | Neg_translate_fraction (num, denom) -> neg_translate_fraction num denom
     | Neg_translate_x_arbitrary s -> neg_translate_x_arbitrary_style s
     | Neg_translate_x_full -> neg_translate_x_full
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
+    | Neg_translate_x_fraction (num, denom) ->
+        neg_translate_x_fraction num denom
     | Neg_translate_y_arbitrary s -> neg_translate_y_arbitrary_style s
     | Neg_translate_y_full -> neg_translate_y_full
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
+    | Neg_translate_y_fraction (num, denom) ->
+        neg_translate_y_fraction num denom
     | Translate_z n -> translate_z n
     | Translate_z_px -> translate_z_px
     | Neg_translate_z_arbitrary s -> neg_translate_z_arbitrary_style s
@@ -1165,21 +1256,27 @@ module Handler = struct
     (* Combined translate utilities: negative first, then positive *)
     | Neg_translate_arbitrary _ -> 85
     | Neg_translate_full -> 86
+    | Neg_translate_fraction _ -> 86
     | Translate_1_2 -> 87
+    | Translate_fraction _ -> 87
     | Translate_arbitrary _ -> 89
     | Translate_full -> 91
     (* Translate utilities come first *)
     | Neg_translate_x_arbitrary _ -> 100
     | Neg_translate_x_full -> 101
     | Neg_translate_x_1_2 -> 102
+    | Neg_translate_x_fraction _ -> 102
     | Translate_x n -> 110 + n
+    | Translate_x_fraction _ -> 125
     | Translate_x_full -> 130
     | Translate_x_px -> 131
     | Translate_x_arbitrary _ -> 199
     | Neg_translate_y_arbitrary _ -> 200
     | Neg_translate_y_full -> 201
     | Neg_translate_y_1_2 -> 202
+    | Neg_translate_y_fraction _ -> 202
     | Translate_y n -> 210 + n
+    | Translate_y_fraction _ -> 225
     | Translate_y_full -> 230
     | Translate_y_px -> 231
     | Translate_y_arbitrary _ -> 299
@@ -1269,6 +1366,16 @@ module Handler = struct
     | Origin_top_right -> 1708
     | Origin_arbitrary _ -> 1699
 
+  (** Parse a fraction string like "1/2", "2/3", etc. Returns (numerator,
+      denominator) or None. *)
+  let parse_fraction s =
+    match String.split_on_char '/' s with
+    | [ num_s; denom_s ] -> (
+        match (int_of_string_opt num_s, int_of_string_opt denom_s) with
+        | Some num, Some denom when num > 0 && denom > 0 -> Some (num, denom)
+        | _ -> None)
+    | _ -> None
+
   let of_class class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1306,6 +1413,10 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "translate"; "x"; "full" ] -> Ok Translate_x_full
     | [ "translate"; "x"; "px" ] -> Ok Translate_x_px
+    | [ "translate"; "x"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Translate_x_fraction (num, denom))
+        | None -> err_not_utility)
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
@@ -1313,17 +1424,26 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
     | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
+    | [ "translate"; "y"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Translate_y_fraction (num, denom))
+        | None -> err_not_utility)
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
     | [ "translate"; "1/2" ] -> Ok Translate_1_2
+    | [ "translate"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Translate_fraction (num, denom))
+        | None -> err_not_utility)
     | [ "translate"; "3d" ] -> Ok Translate_3d
     | "translate" :: rest
       when match rest with
            | [] | [ "x"; _ ] | [ "y"; _ ] | [ "z"; _ ] | [ "full" ] | [ "1/2" ]
              ->
                false
+           | [ n ] when String.contains n '/' -> false
            | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
@@ -1335,16 +1455,28 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_arbitrary inner)
     | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
+    | [ ""; "translate"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Neg_translate_fraction (num, denom))
+        | None -> err_not_utility)
     | [ ""; "translate"; "x"; value ] when Parse.is_bracket_var value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_x_arbitrary inner)
     | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
+    | [ ""; "translate"; "x"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Neg_translate_x_fraction (num, denom))
+        | None -> err_not_utility)
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
     | [ ""; "translate"; "y"; value ] when Parse.is_bracket_var value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_y_arbitrary inner)
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
+    | [ ""; "translate"; "y"; n ] when String.contains n '/' -> (
+        match parse_fraction n with
+        | Some (num, denom) -> Ok (Neg_translate_y_fraction (num, denom))
+        | None -> err_not_utility)
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
     | [ ""; "translate"; "z"; value ] when Parse.is_bracket_var value ->
@@ -1576,10 +1708,14 @@ module Handler = struct
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
     | Translate_x_arbitrary len -> "translate-x-" ^ pp_length_bracket len
+    | Translate_x_fraction (num, denom) ->
+        "translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_y n -> neg_class "translate-y-" n
     | Translate_y_full -> "translate-y-full"
     | Translate_y_px -> "translate-y-px"
     | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
+    | Translate_y_fraction (num, denom) ->
+        "translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_z n -> neg_class "translate-z-" n
     | Translate_z_px -> "translate-z-px"
     | Neg_translate_z_arbitrary s -> "-translate-z-[" ^ s ^ "]"
@@ -1587,15 +1723,23 @@ module Handler = struct
     | Translate_3d -> "translate-3d"
     | Translate_full -> "translate-full"
     | Translate_1_2 -> "translate-1/2"
+    | Translate_fraction (num, denom) ->
+        "translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
     | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
-    | Neg_translate_x_arbitrary s -> "-translate-x-[" ^ s ^ "]"
-    | Neg_translate_y_arbitrary s -> "-translate-y-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
+    | Neg_translate_fraction (num, denom) ->
+        "-translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
+    | Neg_translate_x_arbitrary s -> "-translate-x-[" ^ s ^ "]"
     | Neg_translate_x_full -> "-translate-x-full"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
+    | Neg_translate_x_fraction (num, denom) ->
+        "-translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
+    | Neg_translate_y_arbitrary s -> "-translate-y-[" ^ s ^ "]"
     | Neg_translate_y_full -> "-translate-y-full"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
+    | Neg_translate_y_fraction (num, denom) ->
+        "-translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Scale n -> neg_class "scale-" n
     | Scale_x n -> neg_class "scale-x-" n
     | Scale_x_arbitrary f -> "scale-x-" ^ pp_number_bracket f
@@ -1697,7 +1841,9 @@ let utility x = Utility.base (Self x)
 
 let rotate n = utility (Rotate n)
 let translate_x n = utility (Translate_x n)
+let translate_x_fraction num denom = utility (Translate_x_fraction (num, denom))
 let translate_y n = utility (Translate_y n)
+let translate_y_fraction num denom = utility (Translate_y_fraction (num, denom))
 let scale n = utility (Scale n)
 let scale_x n = utility (Scale_x n)
 let scale_y n = utility (Scale_y n)
