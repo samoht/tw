@@ -740,7 +740,8 @@ let uses_direct_property_order = function
 (* Variables without families (e.g. --tw-ease) are NOT direct; get_family_order
    returns 1000 for None, placing them last *)
 
-let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
+let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
+    fam2 =
   (* Variables with negative property_order and no family come FIRST *)
   match (fam1, po1 < 0, fam2, po2 < 0) with
   | None, true, None, true -> compare po1 po2
@@ -749,7 +750,15 @@ let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
   | Some `Gradient, _, Some `Gradient, _ ->
       compare (gradient_family_index n1) (gradient_family_index n2)
   | _ when uses_direct_property_order fam1 && uses_direct_property_order fam2 ->
-      compare po1 po2
+      if fam1 = fam2 && fam1 = Some `Border then
+        (* Border family: use first-usage order to match Tailwind's per-utility
+           declaration ordering (divide-x emits x-reverse then border-style,
+           divide-y emits y-reverse, so the combined order interleaves them). *)
+        compare (get_first_usage n1) (get_first_usage n2)
+      else
+        (* All other families (Ring, Inset_ring, Shadow, etc.) and cross-family
+           comparisons use property_order for the carefully chosen ordering. *)
+        compare po1 po2
   | _ ->
       let fo1 = get_family_order n1 in
       let fo2 = get_family_order n2 in
@@ -765,12 +774,18 @@ let sort_properties_by_order first_usage_order initial_values =
         | None -> 1000)
     | None -> 1000
   in
+  let get_first_usage name =
+    match Hashtbl.find_opt first_usage_order name with
+    | Some idx -> idx
+    | None -> 10000
+  in
   let cmp (n1, _) (n2, _) =
     let fam1 = Var.family n1 in
     let fam2 = Var.family n2 in
     let po1 = property_order_from n1 in
     let po2 = property_order_from n2 in
-    compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2
+    compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
+      fam2
   in
   List.sort cmp initial_values
 
@@ -888,7 +903,12 @@ let layer_declaration ~has_properties ~include_base =
   in
   Css.v [ Css.layer_decl names ]
 
-(** Sort [@property] rules using family-based first-usage order *)
+(** Sort [@property] rules using first-usage order.
+    Variables are ordered by when they first appear across all utilities.
+    For variables within the same family that both use direct property_order,
+    first-usage order is used as primary sort key (this matches Tailwind's
+    behavior where per-utility declaration order determines @property order).
+    Falls back to family order then property_order for cross-family sorting. *)
 let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   let family_order = family_order first_usage_order in
   let get_family_order name =
@@ -898,6 +918,11 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
         | Some o -> o
         | None -> 1000)
     | None -> 1000
+  in
+  let get_first_usage name =
+    match Hashtbl.find_opt first_usage_order name with
+    | Some idx -> idx
+    | None -> 10000
   in
   property_rules_for_end
   |> List.sort (fun s1 s2 ->
@@ -918,13 +943,15 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
           in
           if no_family_negative_first <> 0 then no_family_negative_first
           else if
-            (* Named families that use property_order directly (Ring,
-               Inset_ring, Shadow, Border, etc.) sort by property_order across
-               families. This groups Ring+Inset_ring correctly (po 13-20).
-               No-family vars (--tw-ease etc.) are NOT direct and get fo=1000,
-               so they appear after all named-family vars. *)
             uses_direct_property_order fam1 && uses_direct_property_order fam2
-          then compare po1 po2
+          then
+            if fam1 = fam2 && fam1 = Some `Border then
+              (* Border family: use first-usage order to match Tailwind's
+                 per-utility declaration ordering. *)
+              compare (get_first_usage n1) (get_first_usage n2)
+            else
+              (* All other families and cross-family: use property_order. *)
+              compare po1 po2
           else
             let fo1 = get_family_order n1 in
             let fo2 = get_family_order n2 in

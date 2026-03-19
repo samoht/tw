@@ -38,9 +38,9 @@ module Handler = struct
   let priority = 5
 
   (* CSS Variables for divide reverse. Property order 4/5 places these BEFORE
-     --tw-border-style (order 6) in @layer properties, matching Tailwind. Must
-     use ~family:`Border so they sort together with --tw-border-style by
-     property_order rather than by family-order. *)
+     --tw-border-style (order 6) in within-utility sorting, which determines
+     first-usage order. Must use ~family:`Border so they sort together with
+     --tw-border-style by property_order rather than by family-order. *)
   let divide_x_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Num 0.0)
       ~universal:true ~property_order:4 ~family:`Border "tw-divide-x-reverse"

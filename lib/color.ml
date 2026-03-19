@@ -127,40 +127,153 @@ let rgb_to_oklab rgb =
   in
   (ok_l *. 100.0, ok_a, ok_b)
 
-let oklch_to_rgb oklch =
-  (* Convert LCH to Lab *)
-  let ok_l = oklch.l /. 100.0 in
-  let h_rad = oklch.h *. Float.pi /. 180.0 in
-  let ok_a = oklch.c *. cos h_rad in
-  let ok_b = oklch.c *. sin h_rad in
-
-  (* Convert from OKLab to linear RGB *)
+(* Convert OKLab to linear sRGB via XYZ intermediate, matching the CSS Color
+   Level 4 / lightningcss conversion path. *)
+let oklab_to_linear_srgb ok_l ok_a ok_b =
+  (* OKLab to LMS (cube root space) *)
   let l' = ok_l +. (0.3963377774 *. ok_a) +. (0.2158037573 *. ok_b) in
   let m' = ok_l -. (0.1055613458 *. ok_a) -. (0.0638541728 *. ok_b) in
   let s' = ok_l -. (0.0894841775 *. ok_a) -. (1.2914855480 *. ok_b) in
-
+  (* Cube to get LMS *)
   let l = l' *. l' *. l' in
   let m = m' *. m' *. m' in
   let s = s' *. s' *. s' in
-
-  (* Convert to linear RGB *)
+  (* LMS to XYZ (D65) *)
+  let x =
+    (1.2268798733741557 *. l) -. (0.5578149965554813 *. m)
+    +. (0.28139105017721583 *. s)
+  in
+  let y =
+    (-0.04057576262431372 *. l)
+    +. (1.1122868293970594 *. m) -. (0.07171106666151701 *. s)
+  in
+  let z =
+    (-0.07637294974672142 *. l)
+    -. (0.4214933239627914 *. m) +. (1.5869240244272418 *. s)
+  in
+  (* XYZ to linear sRGB *)
   let r_lin =
-    (4.0767416621 *. l) -. (3.3077115913 *. m) +. (0.2309699292 *. s)
+    (3.2409699419045226 *. x) -. (1.5373831775700939 *. y)
+    -. (0.4986107602930034 *. z)
   in
   let g_lin =
-    (-1.2684380046 *. l) +. (2.6097574011 *. m) -. (0.3413193965 *. s)
+    (-0.9692436362808796 *. x) +. (1.8759675015077202 *. y)
+    +. (0.04155505740717559 *. z)
   in
   let b_lin =
-    (-0.0041960863 *. l) -. (0.7034186147 *. m) +. (1.7076147010 *. s)
+    (0.05563007969699366 *. x) -. (0.20397696064091520 *. y)
+    +. (1.0569715142428786 *. z)
   in
+  (r_lin, g_lin, b_lin)
 
-  (* Apply gamma correction and clamp to 0-255 *)
-  let clamp x = max 0 (min 255 x) in
-  {
-    r = clamp (gamma_correct r_lin);
-    g = clamp (gamma_correct g_lin);
-    b = clamp (gamma_correct b_lin);
-  }
+(* Convert linear sRGB to OKLab via XYZ intermediate *)
+let linear_srgb_to_oklab r_lin g_lin b_lin =
+  (* linear sRGB to XYZ *)
+  let x =
+    (0.4123907992659595 *. r_lin)
+    +. (0.357584339383878 *. g_lin)
+    +. (0.1804807884018343 *. b_lin)
+  in
+  let y =
+    (0.21263900587151027 *. r_lin)
+    +. (0.715168678767756 *. g_lin)
+    +. (0.07219231536073371 *. b_lin)
+  in
+  let z =
+    (0.01933081871559182 *. r_lin)
+    +. (0.11919477979462598 *. g_lin)
+    +. (0.9505321522496607 *. b_lin)
+  in
+  (* XYZ to LMS *)
+  let l = (0.8189330101 *. x) +. (0.3618667424 *. y) -. (0.1288597137 *. z) in
+  let m = (0.0329845436 *. x) +. (0.9293118715 *. y) +. (0.0361456387 *. z) in
+  let s = (0.0482003018 *. x) +. (0.2643662691 *. y) +. (0.6338517070 *. z) in
+  (* Cube root *)
+  let cbrt x =
+    if x < 0.0 then -.(Float.abs x ** (1.0 /. 3.0))
+    else if x = 0.0 then 0.0
+    else x ** (1.0 /. 3.0)
+  in
+  let l' = cbrt l in
+  let m' = cbrt m in
+  let s' = cbrt s in
+  (* LMS' to OKLab *)
+  let ok_l =
+    (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
+  in
+  let ok_a =
+    (1.9779984951 *. l') -. (2.4285922050 *. m') +. (0.4505937099 *. s')
+  in
+  let ok_b =
+    (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
+  in
+  (ok_l, ok_a, ok_b)
+
+(* CSS Color Level 4 gamut mapping algorithm, matching lightningcss. Uses binary
+   search on OKLCh chroma to find the closest in-gamut sRGB color. Reference:
+   https://www.w3.org/TR/css-color-4/#css-gamut-mapping *)
+let oklch_to_rgb oklch =
+  let jnd = 0.02 in
+  let epsilon = 0.00001 in
+  let ok_l = oklch.l /. 100.0 in
+  let hue = oklch.h in
+  let chroma = oklch.c in
+  (* Special cases: near-black and near-white *)
+  if Float.abs (ok_l -. 1.0) < epsilon || ok_l > 1.0 then
+    { r = 255; g = 255; b = 255 }
+  else if ok_l < epsilon then { r = 0; g = 0; b = 0 }
+  else
+    let h_rad = hue *. Float.pi /. 180.0 in
+    let cos_h = cos h_rad in
+    let sin_h = sin h_rad in
+    let oklch_to_linear c =
+      let ok_a = c *. cos_h in
+      let ok_b = c *. sin_h in
+      oklab_to_linear_srgb ok_l ok_a ok_b
+    in
+    let in_gamut (r, g, b) =
+      r >= 0.0 && r <= 1.0 && g >= 0.0 && g <= 1.0 && b >= 0.0 && b <= 1.0
+    in
+    let clip_val x = Float.max 0.0 (Float.min 1.0 x) in
+    let clip (r, g, b) = (clip_val r, clip_val g, clip_val b) in
+    let delta_e_ok (r, g, b) c =
+      let l1, a1, b1 = linear_srgb_to_oklab r g b in
+      let ok_a2 = c *. cos_h in
+      let ok_b2 = c *. sin_h in
+      let dl = l1 -. ok_l in
+      let da = a1 -. ok_a2 in
+      let db = b1 -. ok_b2 in
+      sqrt ((dl *. dl) +. (da *. da) +. (db *. db))
+    in
+    let rgb = oklch_to_linear chroma in
+    let result =
+      if in_gamut rgb then clip rgb
+      else
+        let min_c = ref 0.0 in
+        let max_c = ref chroma in
+        let result = ref None in
+        while !max_c -. !min_c > epsilon && !result = None do
+          let c = (!min_c +. !max_c) /. 2.0 in
+          let rgb = oklch_to_linear c in
+          if in_gamut rgb then min_c := c
+          else
+            let clipped = clip rgb in
+            let de = delta_e_ok clipped c in
+            if de < jnd then result := Some clipped else max_c := c
+        done;
+        match !result with
+        | Some clipped -> clipped
+        | None ->
+            let rgb = oklch_to_linear !min_c in
+            clip rgb
+    in
+    let r, g, b = result in
+    let clamp x = max 0 (min 255 x) in
+    {
+      r = clamp (gamma_correct r);
+      g = clamp (gamma_correct g);
+      b = clamp (gamma_correct b);
+    }
 
 let hex_to_rgb hex =
   try
@@ -211,7 +324,26 @@ let hex_with_alpha hex_str opacity_percent =
   (* Convert opacity percentage to 8-bit alpha value, with rounding *)
   let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
   let alpha_clamped = max 0 (min 255 alpha) in
-  "#" ^ hex_clean ^ to_hex_byte alpha_clamped
+  let full = hex_clean ^ to_hex_byte alpha_clamped in
+  (* Shorten #RRGGBBAA → #RGBA when each pair is identical *)
+  let len = String.length full in
+  let shortened =
+    if
+      len = 8
+      && full.[0] = full.[1]
+      && full.[2] = full.[3]
+      && full.[4] = full.[5]
+      && full.[6] = full.[7]
+    then (
+      let s = Bytes.create 4 in
+      Bytes.set s 0 full.[0];
+      Bytes.set s 1 full.[2];
+      Bytes.set s 2 full.[4];
+      Bytes.set s 3 full.[6];
+      Bytes.unsafe_to_string s)
+    else full
+  in
+  "#" ^ shortened
 
 let oklch_to_css oklch =
   let f n = Css.Pp.float_to_string ~drop_leading_zero:false ~max_decimals:n in
@@ -609,8 +741,33 @@ let shorten_hex_str hex_str =
       String.sub hex_str 1 (String.length hex_str - 1)
     else hex_str
   in
-  if String.length hex_no_hash <> 6 then hex_no_hash
-  else
+  let len = String.length hex_no_hash in
+  if len = 8 then
+    let r1 = hex_no_hash.[0] and r2 = hex_no_hash.[1] in
+    let g1 = hex_no_hash.[2] and g2 = hex_no_hash.[3] in
+    let b1 = hex_no_hash.[4] and b2 = hex_no_hash.[5] in
+    let a1 = hex_no_hash.[6] and a2 = hex_no_hash.[7] in
+    if r1 = r2 && g1 = g2 && b1 = b2 && a1 = a2 then (
+      if a1 = 'f' || a1 = 'F' then (
+        (* #RRGGBBFF → #RGB when fully opaque *)
+        let short = Bytes.create 3 in
+        Bytes.set short 0 r1;
+        Bytes.set short 1 g1;
+        Bytes.set short 2 b1;
+        Bytes.unsafe_to_string short)
+      else
+        (* #RRGGBBAA → #RGBA *)
+        let short = Bytes.create 4 in
+        Bytes.set short 0 r1;
+        Bytes.set short 1 g1;
+        Bytes.set short 2 b1;
+        Bytes.set short 3 a1;
+        Bytes.unsafe_to_string short)
+    else if (a1 = 'f' || a1 = 'F') && (a2 = 'f' || a2 = 'F') then
+      (* #RRGGBBFF → #RRGGBB when fully opaque *)
+      String.sub hex_no_hash 0 6
+    else hex_no_hash
+  else if len = 6 then
     let r1 = hex_no_hash.[0] and r2 = hex_no_hash.[1] in
     let g1 = hex_no_hash.[2] and g2 = hex_no_hash.[3] in
     let b1 = hex_no_hash.[4] and b2 = hex_no_hash.[5] in
@@ -621,6 +778,7 @@ let shorten_hex_str hex_str =
       Bytes.set short 2 b1;
       Bytes.unsafe_to_string short)
     else hex_no_hash
+  else hex_no_hash
 
 let is_rgb_call s =
   String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s
