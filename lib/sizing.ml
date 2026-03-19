@@ -225,8 +225,8 @@ module Handler = struct
   let w_max' = style [ width Max_content ]
   let w_fit' = style [ width Fit_content ]
   let w_1_2' = style [ width (Pct 50.0) ]
-  let w_1_3' = style [ width (Pct 33.333333) ]
-  let w_2_3' = style [ width (Pct 66.666667) ]
+  let w_1_3' = style [ width (Pct 33.3333) ]
+  let w_2_3' = style [ width (Pct 66.6667) ]
   let w_1_4' = style [ width (Pct 25.0) ]
   let w_3_4' = style [ width (Pct 75.0) ]
   let w_1_5' = style [ width (Pct 20.0) ]
@@ -257,8 +257,8 @@ module Handler = struct
   let h_max' = style [ height Max_content ]
   let h_fit' = style [ height Fit_content ]
   let h_1_2' = style [ height (Pct 50.0) ]
-  let h_1_3' = style [ height (Pct 33.333333) ]
-  let h_2_3' = style [ height (Pct 66.666667) ]
+  let h_1_3' = style [ height (Pct 33.3333) ]
+  let h_2_3' = style [ height (Pct 66.6667) ]
   let h_1_4' = style [ height (Pct 25.0) ]
   let h_3_4' = style [ height (Pct 75.0) ]
   let h_1_5' = style [ height (Pct 20.0) ]
@@ -425,16 +425,16 @@ module Handler = struct
   let fraction_table =
     [
       ("1/2", 50.0);
-      ("1/3", 33.333333);
-      ("2/3", 66.666667);
+      ("1/3", 33.3333);
+      ("2/3", 66.6667);
       ("1/4", 25.0);
       ("3/4", 75.0);
       ("1/5", 20.0);
       ("2/5", 40.0);
       ("3/5", 60.0);
       ("4/5", 80.0);
-      ("1/6", 16.666667);
-      ("5/6", 83.333333);
+      ("1/6", 16.6667);
+      ("5/6", 83.3333);
     ]
 
   let aspect_auto' = style [ Css.aspect_ratio Auto ]
@@ -590,16 +590,16 @@ module Handler = struct
           List.assoc_opt f
             [
               ("1/2", 50.0);
-              ("1/3", 33.333333);
-              ("2/3", 66.666667);
+              ("1/3", 33.3333);
+              ("2/3", 66.6667);
               ("1/4", 25.0);
               ("3/4", 75.0);
               ("1/5", 20.0);
               ("2/5", 40.0);
               ("3/5", 60.0);
               ("4/5", 80.0);
-              ("1/6", 16.666667);
-              ("5/6", 83.333333);
+              ("1/6", 16.6667);
+              ("5/6", 83.3333);
             ]
         with
         | Some pct -> style [ width (Pct pct); height (Pct pct) ]
