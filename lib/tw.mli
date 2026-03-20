@@ -3415,6 +3415,15 @@ val of_string : string -> (t, [ `Msg of string ]) result
 
     Returns [Error (`Msg reason)] if the class string is not recognized. *)
 
+val str : string -> t list
+(** [str s] parses a space-separated string of Tailwind class names into a list
+    of styles. Raises [Invalid_argument] if any class is not recognized.
+
+    Example:
+    {[
+      str "flex items-center gap-4 p-6 bg-white rounded-lg"
+    ]} *)
+
 (** {2 CSS Generation}
 
     This library generates Tailwind-like class names using [to_classes].
