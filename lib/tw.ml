@@ -85,6 +85,13 @@ let of_string class_str =
       | Some u -> Ok u
       | None -> Error (`Msg ("Unknown modifier in: " ^ class_str)))
 
+let str s =
+  let classes = String.split_on_char ' ' s |> List.filter (fun s -> s <> "") in
+  List.map
+    (fun cls ->
+      match of_string cls with Ok t -> t | Error (`Msg msg) -> invalid_arg msg)
+    classes
+
 (** {1 Module Exports} *)
 
 module Style = Style
