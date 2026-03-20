@@ -1,4 +1,4 @@
-(executables
- (public_names tw cascade)
- (names main cascade)
- (libraries tw tw.css tw_tools cmdliner fmt))
+(executable
+ (public_name tw)
+ (name main)
+ (libraries tw tw.css css_tools tw_tools cmdliner fmt))

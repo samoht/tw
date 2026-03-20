@@ -100,10 +100,10 @@ let eval_flag flag ~default =
 
 let print_diff_result label diff =
   match diff with
-  | Tw_tools.Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
+  | Css_tools.Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
   | _ ->
       Fmt.pr "Differences found%s:@.@." label;
-      Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout diff;
+      Css_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout diff;
       Fmt.pr "@."
 
 let diff_single_class class_str ~(opts : gen_opts) =
@@ -118,7 +118,9 @@ let diff_single_class class_str ~(opts : gen_opts) =
     let our_css =
       Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
     in
-    let diff = Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css in
+    let diff =
+      Css_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
+    in
     match tw_styles with
     | [] when class_str = "" ->
         print_diff_result " (empty/base only)" diff;
@@ -223,7 +225,9 @@ let diff_files paths ~(opts : gen_opts) =
     let our_css =
       Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
     in
-    let diff = Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css in
+    let diff =
+      Css_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
+    in
     print_diff_result "" diff;
     `Ok ()
   with e ->

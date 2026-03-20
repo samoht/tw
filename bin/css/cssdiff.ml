@@ -34,12 +34,12 @@ let compare_files file1 file2 style_renderer diff_mode =
         (* Use css_compare for detailed structural comparison *)
         let result =
           match diff_mode with
-          | Auto -> Tw_tools.Css_compare.diff ~expected:css1 ~actual:css2
+          | Auto -> Css_tools.Css_compare.diff ~expected:css1 ~actual:css2
           | Tree ->
-              Tw_tools.Css_compare.diff_with_mode ~mode:`Tree ~expected:css1
+              Css_tools.Css_compare.diff_with_mode ~mode:`Tree ~expected:css1
                 ~actual:css2
           | String ->
-              Tw_tools.Css_compare.diff_with_mode ~mode:`String ~expected:css1
+              Css_tools.Css_compare.diff_with_mode ~mode:`String ~expected:css1
                 ~actual:css2
         in
         match result with
@@ -50,22 +50,22 @@ let compare_files file1 file2 style_renderer diff_mode =
             (* Treat pure string differences as failures so tests catch ordering
                changes. Encourage --diff=tree for more detail. *)
             let stats =
-              Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
+              Css_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
                 result
             in
-            Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
+            Fmt.pr "%a@,@," Css_tools.Css_compare.pp_stats stats;
             Fmt.pr "%a@."
-              (Tw_tools.Css_compare.pp ~expected:file1 ~actual:file2)
+              (Css_tools.Css_compare.pp ~expected:file1 ~actual:file2)
               result;
             Error (`Msg "CSS files differ (string diff)")
         | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
             let stats =
-              Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
+              Css_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
                 result
             in
-            Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
+            Fmt.pr "%a@,@," Css_tools.Css_compare.pp_stats stats;
             Fmt.pr "%a@."
-              (Tw_tools.Css_compare.pp ~expected:file1 ~actual:file2)
+              (Css_tools.Css_compare.pp ~expected:file1 ~actual:file2)
               result;
             Error (`Msg "CSS files differ"))
   | Error e, _ | _, Error e -> Error e

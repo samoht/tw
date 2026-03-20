@@ -85,10 +85,10 @@ let check_exact_match tw_styles =
 
     (* Strip headers for both outputs before any comparison *)
     let tw_css =
-      !tw_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
+      !tw_css_raw |> Css_tools.Css_compare.strip_header |> String.trim
     in
     let tailwind_css =
-      !tailwind_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
+      !tailwind_css_raw |> Css_tools.Css_compare.strip_header |> String.trim
     in
 
     let test_name = test_name_of classnames in
@@ -99,19 +99,19 @@ let check_exact_match tw_styles =
       report_failure test_name tw_file tailwind_file;
 
       let diff_result =
-        Tw_tools.Css_compare.diff ~expected:tailwind_css ~actual:tw_css
+        Css_tools.Css_compare.diff ~expected:tailwind_css ~actual:tw_css
       in
 
       (* Show diff statistics *)
       let stats =
-        Tw_tools.Css_compare.stats ~expected_str:tailwind_css ~actual_str:tw_css
-          diff_result
+        Css_tools.Css_compare.stats ~expected_str:tailwind_css
+          ~actual_str:tw_css diff_result
       in
-      Fmt.epr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
+      Fmt.epr "%a@,@," Css_tools.Css_compare.pp_stats stats;
 
       (* Show the actual diff *)
       Fmt.epr "%a@,"
-        (Tw_tools.Css_compare.pp ~expected:"Tailwind (expected)"
+        (Css_tools.Css_compare.pp ~expected:"Tailwind (expected)"
            ~actual:"Our TW (actual)")
         diff_result);
 
@@ -703,8 +703,8 @@ let gen_minified_css styles =
   to_css ~base:true ~optimize:true styles |> Css.to_string ~minify:true
 
 let assert_stable_ordering ~label styles_a styles_b =
-  let a = gen_minified_css styles_a |> Tw_tools.Css_compare.strip_header in
-  let b = gen_minified_css styles_b |> Tw_tools.Css_compare.strip_header in
+  let a = gen_minified_css styles_a |> Css_tools.Css_compare.strip_header in
+  let b = gen_minified_css styles_b |> Css_tools.Css_compare.strip_header in
   if a <> b then (
     Fmt.epr "Stable ordering failed for %s\n" label;
     Fmt.epr "--- A (%s)\n%s\n" label a;

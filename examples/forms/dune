@@ -34,6 +34,6 @@
 
 (rule
  (alias runtest)
- (deps forms.css tailwind.css ../../scripts/cssdiff.exe)
+ (deps forms.css tailwind.css ../../bin/css/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always tailwind.css forms.css)))
+  (run ../../bin/css/cssdiff.exe --color=always tailwind.css forms.css)))

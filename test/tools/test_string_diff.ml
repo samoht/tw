@@ -1,5 +1,5 @@
 open Alcotest
-module Sd = Tw_tools.String_diff
+module Sd = Css_tools.String_diff
 
 let test_equal () =
   let result = Sd.diff ~expected:"hello" "hello" in

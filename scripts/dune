@@ -1,7 +1,6 @@
 (executables
- (public_names cssdiff check_properties check_api_consistency)
- (names cssdiff check_properties check_api_consistency)
- (libraries tw_tools re unix fmt fmt.cli fmt.tty cmdliner))
+ (names check_properties check_api_consistency)
+ (libraries tw_tools css_tools re unix fmt fmt.cli fmt.tty cmdliner))
 
 (rule
  (alias runtest)

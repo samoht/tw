@@ -20,6 +20,6 @@
 
 (rule
  (alias runtest)
- (deps dashboard.css tailwind.css ../../scripts/cssdiff.exe)
+ (deps dashboard.css tailwind.css ../../bin/css/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always dashboard.css tailwind.css)))
+  (run ../../bin/css/cssdiff.exe --color=always dashboard.css tailwind.css)))
