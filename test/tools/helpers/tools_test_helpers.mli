@@ -1,7 +1,7 @@
 (** Shared test utilities for tools tests *)
 
-module Td = Tw_tools.Tree_diff
-module Cc = Tw_tools.Css_compare
+module Td = Css_tools.Tree_diff
+module Cc = Css_tools.Css_compare
 
 (** {1 Testable types} *)
 

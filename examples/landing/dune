@@ -26,6 +26,6 @@
 
 (rule
  (alias runtest)
- (deps landing.css tailwind.css ../../scripts/cssdiff.exe)
+ (deps landing.css tailwind.css ../../bin/css/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always landing.css tailwind.css)))
+  (run ../../bin/css/cssdiff.exe --color=always landing.css tailwind.css)))

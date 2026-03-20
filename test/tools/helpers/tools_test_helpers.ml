@@ -1,8 +1,8 @@
 (** Shared test utilities for tools tests *)
 
 open Alcotest
-module Td = Tw_tools.Tree_diff
-module Cc = Tw_tools.Css_compare
+module Td = Css_tools.Tree_diff
+module Cc = Css_tools.Css_compare
 
 (** Testable types *)
 let rule_diff = testable Td.pp_rule_diff_simple ( = )

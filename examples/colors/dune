@@ -20,6 +20,6 @@
 
 (rule
  (alias runtest)
- (deps colors.css tailwind.css ../../scripts/cssdiff.exe)
+ (deps colors.css tailwind.css ../../bin/css/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always colors.css tailwind.css)))
+  (run ../../bin/css/cssdiff.exe --color=always colors.css tailwind.css)))

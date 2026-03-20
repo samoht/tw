@@ -20,10 +20,10 @@
 
 (rule
  (alias runtest)
- (deps accessibility.css tailwind.css ../../scripts/cssdiff.exe)
+ (deps accessibility.css tailwind.css ../../bin/css/cssdiff.exe)
  (action
   (run
-   ../../scripts/cssdiff.exe
+   ../../bin/css/cssdiff.exe
    --color=always
    accessibility.css
    tailwind.css)))

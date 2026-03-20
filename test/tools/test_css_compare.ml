@@ -1,6 +1,6 @@
 open Alcotest
-module Cc = Tw_tools.Css_compare
-module Td = Tw_tools.Tree_diff
+module Cc = Css_tools.Css_compare
+module Td = Css_tools.Tree_diff
 open Cc
 open Tools_test_helpers
 
@@ -333,7 +333,7 @@ let test_supports_and_container_diffs () =
 let test_string_diff_context_basic () =
   let expected = "hello world" in
   let actual = "hello wurld" in
-  match Tw_tools.String_diff.diff ~expected actual with
+  match Css_tools.String_diff.diff ~expected actual with
   | Some sdiff ->
       check int "diff position" 7 sdiff.position;
       (* Position of 'o' vs 'u' is index 7 *)
@@ -346,7 +346,7 @@ let test_string_diff_context_basic () =
 let test_string_diff_context_multiline () =
   let expected = "line one\nline two\nline three" in
   let actual = "line one\nline too\nline three" in
-  match Tw_tools.String_diff.diff ~expected actual with
+  match Css_tools.String_diff.diff ~expected actual with
   | Some sdiff ->
       check int "diff position" 15 sdiff.position;
       (* Position of 'w' vs 'o' at index 15 *)
@@ -361,14 +361,14 @@ let test_string_diff_context_multiline () =
 let test_string_diff_at_end () =
   let expected = "abc" in
   let actual = "abcd" in
-  match Tw_tools.String_diff.diff ~expected actual with
+  match Css_tools.String_diff.diff ~expected actual with
   | Some sdiff -> check int "diff at end position" 3 sdiff.position
   | None -> fail "expected diff context"
 
 let test_string_diff_context_none () =
   let expected = "same" in
   let actual = "same" in
-  match Tw_tools.String_diff.diff ~expected actual with
+  match Css_tools.String_diff.diff ~expected actual with
   | Some _ -> fail "no diff expected"
   | None -> ()
 
