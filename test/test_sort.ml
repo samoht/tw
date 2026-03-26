@@ -3,7 +3,7 @@ open Tw.Color
 open Tw.Padding
 
 (* OCaml 4.14 compat *)
-let find_index f lst =
+let index f lst =
   let rec go i = function
     | [] -> None
     | x :: _ when f x -> Some i
@@ -143,7 +143,7 @@ let test_cascade_order_violation () =
   let is_p4 sel = sel = ".p-4" in
   let is_p2 sel = sel = ".p-2" in
 
-  let find_index f lst =
+  let index f lst =
     let rec go i = function
       | [] -> None
       | x :: _ when f x -> Some i
@@ -151,8 +151,8 @@ let test_cascade_order_violation () =
     in
     go 0 lst
   in
-  let p4_idx = find_index is_p4 selectors in
-  let p2_idx = find_index is_p2 selectors in
+  let p4_idx = index is_p4 selectors in
+  let p2_idx = index is_p2 selectors in
 
   match (p4_idx, p2_idx) with
   | Some i, Some j when i > j ->
@@ -264,10 +264,10 @@ let test_cascade_color_override () =
   in
 
   let sorted_blue_idx =
-    find_index (fun sel -> sel = ".bg-blue-500") sorted_selectors
+    index (fun sel -> sel = ".bg-blue-500") sorted_selectors
   in
   let sorted_red_idx =
-    find_index (fun sel -> sel = ".bg-red-500") sorted_selectors
+    index (fun sel -> sel = ".bg-red-500") sorted_selectors
   in
 
   match (sorted_blue_idx, sorted_red_idx) with

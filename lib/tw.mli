@@ -2886,7 +2886,10 @@ val accent : ?opacity:int -> ?shade:int -> color -> t
     (0-100). *)
 
 val accent_current : t
+(** [accent_current] sets accent color to currentColor. *)
+
 val accent_inherit : t
+(** [accent_inherit] sets accent color to inherit. *)
 
 (** {2 Caret Color}
     @see <https://tailwindcss.com/docs/caret-color> Caret Color *)
@@ -2896,8 +2899,13 @@ val caret : ?opacity:int -> ?shade:int -> color -> t
     the alpha modifier (0-100). *)
 
 val caret_current : t
+(** [caret_current] sets caret color to currentColor. *)
+
 val caret_inherit : t
+(** [caret_inherit] sets caret color to inherit. *)
+
 val caret_transparent : t
+(** [caret_transparent] sets caret color to transparent. *)
 
 (** {2 Color Scheme}
     @see <https://tailwindcss.com/docs/color-scheme> Color Scheme *)

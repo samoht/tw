@@ -199,7 +199,7 @@ let rawf segments = raw (str segments)
 let empty = { el = El.void; tw = []; forms = false }
 
 (* Build final attribute list from tw styles, raw class strings, and non-class attrs *)
-let make_atts tw_styles raw_classes other_atts =
+let class_atts tw_styles raw_classes other_atts =
   let tw_cls =
     match tw_styles with [] -> "" | _ -> Tw.to_classes tw_styles
   in
@@ -241,7 +241,7 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw_styles = tw @ tw_from_at in
-  let atts_with_tw = make_atts all_tw_styles raw_classes other_atts in
+  let atts_with_tw = class_atts all_tw_styles raw_classes other_atts in
   (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
@@ -322,7 +322,7 @@ let void_el ?(forms = false) name ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw = tw @ tw_from_at in
-  let atts_with_tw = make_atts all_tw raw_classes other_atts in
+  let atts_with_tw = class_atts all_tw raw_classes other_atts in
   { el = El.v ~at:atts_with_tw name []; tw = all_tw; forms }
 
 let img ?at ?tw () = void_el "img" ?at ?tw ()
