@@ -8,7 +8,7 @@ open Tw_html
 (* Header with skip link for keyboard navigation *)
 let page_header =
   header
-    ~tw:Tw.[ bg_white; shadow_sm; dark [ bg gray 900 ] ]
+    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:900 gray ] ]
     [
       a
         ~at:[ At.href "#main-content" ]
@@ -16,14 +16,19 @@ let page_header =
           Tw.
             [
               sr_only;
-              focus [ not_sr_only; absolute; p 4; bg blue 600; text_white ];
+              focus
+                [ not_sr_only; absolute; p 4; bg ~shade:600 blue; text white ];
             ]
         [ txt "Skip to main content" ];
       div
         ~tw:Tw.[ max_w_7xl; mx_auto; px 4; py 4 ]
         [
           h1
-            ~tw:Tw.[ text_2xl; font_bold; text gray 900; dark [ text_white ] ]
+            ~tw:
+              Tw.
+                [
+                  text_2xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                ]
             [ txt "Accessibility Demo" ];
         ];
     ]
@@ -40,11 +45,11 @@ let contrast_buttons =
               px 4;
               py 2;
               rounded_lg;
-              bg blue 600;
-              text_white;
-              hover [ bg blue 700 ];
+              bg ~shade:600 blue;
+              text white;
+              hover [ bg ~shade:700 blue ];
               focus [ ring_md; ring_color blue 500 ];
-              contrast_more [ border_md; border_color blue 900 ];
+              contrast_more [ border_md; border_color ~shade:900 blue ];
             ]
         [ txt "Primary Action" ];
       button
@@ -55,12 +60,13 @@ let contrast_buttons =
               py 2;
               rounded_lg;
               border;
-              border_color gray 300;
-              text gray 700;
-              hover [ bg gray 100 ];
+              border_color ~shade:300 gray;
+              text ~shade:700 gray;
+              hover [ bg ~shade:100 gray ];
               focus [ ring_md; ring_color gray 500 ];
-              contrast_more [ border_lg; border_color gray 900; text_black ];
-              dark [ border_color gray 600; text gray 300 ];
+              contrast_more
+                [ border_lg; border_color ~shade:900 gray; text black ];
+              dark [ border_color ~shade:600 gray; text ~shade:300 gray ];
             ]
         [ txt "Secondary" ];
     ]
@@ -71,14 +77,14 @@ let contrast_section =
     ~tw:
       Tw.
         [
-          bg_white;
+          bg white;
           p 6;
           rounded_xl;
           shadow_sm;
           border;
-          border_color gray 200;
-          dark [ bg gray 800; border_color gray 700 ];
-          contrast_more [ border_color gray 900; border_lg ];
+          border_color ~shade:200 gray;
+          dark [ bg ~shade:800 gray; border_color ~shade:700 gray ];
+          contrast_more [ border_color ~shade:900 gray; border_lg ];
         ]
     [
       h2
@@ -88,9 +94,9 @@ let contrast_section =
             [
               text_xl;
               font_bold;
-              text gray 900;
+              text ~shade:900 gray;
               mb 4;
-              dark [ text_white ];
+              dark [ text white ];
               contrast_more [ underline ];
             ]
         [ txt "High Contrast Mode" ];
@@ -98,9 +104,9 @@ let contrast_section =
         ~tw:
           Tw.
             [
-              text gray 600;
-              dark [ text gray 300 ];
-              contrast_more [ text_black; dark [ text_white ] ];
+              text ~shade:600 gray;
+              dark [ text ~shade:300 gray ];
+              contrast_more [ text black; dark [ text white ] ];
             ]
         [
           txt
@@ -112,7 +118,7 @@ let contrast_section =
     ]
 
 (* Motion preferences section *)
-let motion_demo_label = Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+let motion_demo_label = Tw.[ text_sm; text gray; dark [ text ~shade:400 gray ] ]
 
 let motion_demo_item ~styles label =
   div
@@ -129,7 +135,7 @@ let motion_demos =
             [
               w 12;
               h 12;
-              bg blue 500;
+              bg blue;
               rounded_full;
               motion_safe [ animate_pulse ];
               motion_reduce [ opacity 100 ];
@@ -142,7 +148,7 @@ let motion_demos =
               w 12;
               h 12;
               border_lg;
-              border_color blue 600;
+              border_color ~shade:600 blue;
               rounded_full;
               motion_safe [ animate_spin ];
             ]
@@ -153,7 +159,7 @@ let motion_demos =
             [
               w 12;
               h 12;
-              bg green 500;
+              bg green;
               rounded_lg;
               motion_safe [ animate_bounce ];
               motion_reduce [ opacity 100 ];
@@ -164,14 +170,22 @@ let motion_demos =
 let motion_section =
   section
     ~at:[ At.v "aria-labelledby" "motion-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "motion-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Motion Preferences" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [
           txt
             "These animations respect the prefers-reduced-motion media query. \
@@ -184,14 +198,22 @@ let motion_section =
 let color_section =
   section
     ~at:[ At.v "aria-labelledby" "color-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "color-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Dark Mode Support" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "These elements adapt to your system's color scheme preference." ];
       div
         ~tw:Tw.[ grid; grid_cols 2; gap 4; lg [ grid_cols 4 ] ]
@@ -211,10 +233,10 @@ let color_section =
                    ]
                [ txt color_name ])
            [
-             ("Light", Tw.(bg gray 100), Tw.(text gray 800));
-             ("Primary", Tw.(bg blue 600), Tw.text_white);
-             ("Success", Tw.(bg green 600), Tw.text_white);
-             ("Warning", Tw.(bg amber 500), Tw.text_black);
+             ("Light", Tw.(bg ~shade:100 gray), Tw.(text ~shade:800 gray));
+             ("Primary", Tw.(bg ~shade:600 blue), Tw.(text white));
+             ("Success", Tw.(bg ~shade:600 green), Tw.(text white));
+             ("Warning", Tw.(bg amber), Tw.(text black));
            ]);
     ]
 
@@ -237,9 +259,10 @@ let focus_examples =
               py 2;
               rounded_lg;
               border;
-              border_color gray 300;
+              border_color ~shade:300 gray;
               focus [ ring_md; ring_color blue 500; outline_none ];
-              dark [ bg gray 700; border_color gray 600; text_white ];
+              dark
+                [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
             ]
         ();
       a
@@ -249,11 +272,11 @@ let focus_examples =
             [
               px 4;
               py 2;
-              text blue 600;
+              text ~shade:600 blue;
               underline;
               rounded;
               focus [ ring_md; ring_color blue 500 ];
-              dark [ text blue 400 ];
+              dark [ text ~shade:400 blue ];
             ]
         [ txt "Focusable Link" ];
       button
@@ -262,8 +285,8 @@ let focus_examples =
             [
               px 4;
               py 2;
-              bg blue 600;
-              text_white;
+              bg ~shade:600 blue;
+              text white;
               rounded_lg;
               focus [ ring_md; ring_color blue 400 ];
             ]
@@ -273,14 +296,22 @@ let focus_examples =
 let focus_section =
   section
     ~at:[ At.v "aria-labelledby" "focus-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "focus-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Focus States for Keyboard Navigation" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [
           txt
             "Use Tab to navigate these interactive elements. Each has a clear \
@@ -298,12 +329,12 @@ let sr_button_style =
       gap 2;
       px 4;
       py 2;
-      bg_white;
+      bg white;
       rounded_lg;
       shadow_sm;
       hover [ shadow_md ];
       focus [ ring_md; ring_color blue 500 ];
-      dark [ bg gray 800 ];
+      dark [ bg ~shade:800 gray ];
     ]
 
 let sr_buttons =
@@ -314,27 +345,39 @@ let sr_buttons =
         [
           span ~tw:Tw.[ text_xl ] [ txt "!" ];
           span ~tw:Tw.[ sr_only ] [ txt "Important notification" ];
-          span ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ] [ txt "Alert" ];
+          span
+            ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+            [ txt "Alert" ];
         ];
       button ~tw:sr_button_style
         [
           span ~tw:Tw.[ text_xl ] [ txt "i" ];
           span ~tw:Tw.[ sr_only ] [ txt "More information" ];
-          span ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ] [ txt "Info" ];
+          span
+            ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+            [ txt "Info" ];
         ];
     ]
 
 let sr_section =
   section
     ~at:[ At.v "aria-labelledby" "sr-heading" ]
-    ~tw:Tw.[ bg blue 50; p 6; rounded_xl; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg ~shade:50 blue; p 6; rounded_xl; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "sr-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Screen Reader Utilities" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [
           txt
             "The sr-only class hides content visually while keeping it \
@@ -342,7 +385,7 @@ let sr_section =
         ];
       sr_buttons;
       p
-        ~tw:Tw.[ text_sm; text gray 500; mt 4; dark [ text gray 400 ] ]
+        ~tw:Tw.[ text_sm; text gray; mt 4; dark [ text ~shade:400 gray ] ]
         [
           txt
             "Screen reader users will hear 'Important notification Alert' and \
@@ -362,16 +405,20 @@ let page_intro =
               text_3xl;
               md [ text_4xl ];
               font_bold;
-              text gray 900;
+              text ~shade:900 gray;
               mb 4;
-              dark [ text_white ];
+              dark [ text white ];
             ]
         [ txt "Building Accessible Interfaces" ];
       p
         ~tw:
           Tw.
             [
-              text_lg; text gray 600; max_w_2xl; mx_auto; dark [ text gray 400 ];
+              text_lg;
+              text ~shade:600 gray;
+              max_w_2xl;
+              mx_auto;
+              dark [ text ~shade:400 gray ];
             ]
         [
           txt

@@ -19,6 +19,7 @@ depends: [
   "astring" {with-test}
   "crunch" {with-test}
   "alcobar" {with-test}
+  "memtrace"
   "odoc" {with-doc}
 ]
 build: [

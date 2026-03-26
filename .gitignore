@@ -24,6 +24,7 @@ _build/
 *.swo
 
 # Dune local files
+dune-workspace
 .dune-workspace.local
 
 # Test artifacts

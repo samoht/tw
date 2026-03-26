@@ -27,7 +27,7 @@ let check_theme_layer_with_color () =
     Tw.Typography.default_font_declarations
     @ Tw.Typography.default_font_family_declarations
   in
-  let theme_layer = Tw.Build.theme_layer_of ~default_decls [ bg blue 500 ] in
+  let theme_layer = Tw.Build.theme_layer_of ~default_decls [ bg blue ] in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true
     (has_var_in_layer "--color-blue-500" "theme" theme_layer);
@@ -185,7 +185,7 @@ let check_css_inline_without_base () =
   check bool "has padding rule" true (List.mem ".p-4" all_sels)
 
 let check_inline_style () =
-  let style = Tw.Build.to_inline_style [ p 4; m 2; bg blue 500 ] in
+  let style = Tw.Build.to_inline_style [ p 4; m 2; bg blue ] in
   check bool "has padding" true (inline_has_property "padding" style);
   check bool "has margin" true (inline_has_property "margin" style);
   check bool "has background-color" true

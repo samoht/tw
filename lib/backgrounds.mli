@@ -17,9 +17,9 @@ type direction =
   | Left
   | Bottom_left
 
-val bg : Color.color -> int -> t
-(** [bg color shade] sets the background color. [shade] selects a color shade
-    (e.g., 50..900) when using Tailwind colors. *)
+val bg : ?opacity:int -> ?shade:int -> Color.color -> t
+(** [bg color] sets the background color. [shade] defaults to 500. [opacity]
+    sets the alpha modifier (0-100). *)
 
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over

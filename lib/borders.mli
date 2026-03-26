@@ -69,9 +69,9 @@ val border_none : t
 
 (** {1 Border Color Utilities} *)
 
-val border_color : Color.color -> int -> t
-(** [border_color color shade] sets the border color to the specified color and
-    shade. *)
+val border_color : ?opacity:int -> ?shade:int -> Color.color -> t
+(** [border_color color] sets the border color. [shade] defaults to 500.
+    [opacity] sets the alpha modifier (0-100). *)
 
 val border_transparent : t
 (** [border_transparent] sets the border color to transparent. *)

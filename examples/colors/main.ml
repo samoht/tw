@@ -12,7 +12,8 @@ let hue_row ~title ~make_color =
     List.map
       (fun shade ->
         let label = string_of_int shade in
-        swatch ~label ~tw:Tw.[ make_color shade; text gray 900; rounded_md ])
+        swatch ~label
+          ~tw:Tw.[ make_color shade; text ~shade:900 gray; rounded_md ])
       shades
   in
   div
@@ -30,12 +31,16 @@ let text_on_bg_examples =
         [
           (* Dark text on light bg *)
           div
-            ~tw:Tw.[ p 4; bg gray 50; rounded_md ]
-            [ p ~tw:Tw.[ text gray 800 ] [ txt "Text gray-800 on gray-50" ] ];
+            ~tw:Tw.[ p 4; bg ~shade:50 gray; rounded_md ]
+            [
+              p
+                ~tw:Tw.[ text ~shade:800 gray ]
+                [ txt "Text gray-800 on gray-50" ];
+            ];
           (* Light text on dark bg *)
           div
-            ~tw:Tw.[ p 4; bg gray 900; rounded_md ]
-            [ p ~tw:Tw.[ text_white ] [ txt "Text white on gray-900" ] ];
+            ~tw:Tw.[ p 4; bg ~shade:900 gray; rounded_md ]
+            [ p ~tw:Tw.[ text white ] [ txt "Text white on gray-900" ] ];
         ];
     ]
 
@@ -47,17 +52,21 @@ let page_view =
         [
           h1 ~tw:Tw.[ text_4xl; font_bold; mb 2; text_center ] [ txt "Colors" ];
           p
-            ~tw:Tw.[ text gray 600; text_center ]
+            ~tw:Tw.[ text ~shade:600 gray; text_center ]
             [ txt "Palette swatches for common hues and gray scale" ];
-          hue_row ~title:"Red" ~make_color:(fun s -> Tw.bg Tw.red s);
-          hue_row ~title:"Orange" ~make_color:(fun s -> Tw.bg Tw.orange s);
-          hue_row ~title:"Yellow" ~make_color:(fun s -> Tw.bg Tw.yellow s);
-          hue_row ~title:"Green" ~make_color:(fun s -> Tw.bg Tw.green s);
-          hue_row ~title:"Blue" ~make_color:(fun s -> Tw.bg Tw.blue s);
-          hue_row ~title:"Indigo" ~make_color:(fun s -> Tw.bg Tw.indigo s);
-          hue_row ~title:"Purple" ~make_color:(fun s -> Tw.bg Tw.purple s);
-          hue_row ~title:"Pink" ~make_color:(fun s -> Tw.bg Tw.pink s);
-          hue_row ~title:"Gray" ~make_color:(fun s -> Tw.bg Tw.gray s);
+          hue_row ~title:"Red" ~make_color:(fun s -> Tw.bg ~shade:s Tw.red);
+          hue_row ~title:"Orange" ~make_color:(fun s ->
+              Tw.bg ~shade:s Tw.orange);
+          hue_row ~title:"Yellow" ~make_color:(fun s ->
+              Tw.bg ~shade:s Tw.yellow);
+          hue_row ~title:"Green" ~make_color:(fun s -> Tw.bg ~shade:s Tw.green);
+          hue_row ~title:"Blue" ~make_color:(fun s -> Tw.bg ~shade:s Tw.blue);
+          hue_row ~title:"Indigo" ~make_color:(fun s ->
+              Tw.bg ~shade:s Tw.indigo);
+          hue_row ~title:"Purple" ~make_color:(fun s ->
+              Tw.bg ~shade:s Tw.purple);
+          hue_row ~title:"Pink" ~make_color:(fun s -> Tw.bg ~shade:s Tw.pink);
+          hue_row ~title:"Gray" ~make_color:(fun s -> Tw.bg ~shade:s Tw.gray);
           text_on_bg_examples;
         ];
     ]

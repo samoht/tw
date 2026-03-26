@@ -40,7 +40,7 @@ let test_txt () =
   check string "text content" "Hello World" html_str
 
 let test_element_creation () =
-  let div = div ~tw:Tw.[ p 4; bg_white ] [ txt "Content" ] in
+  let div = div ~tw:Tw.[ p 4; bg white ] [ txt "Content" ] in
   let html_str = to_string div in
 
   check bool "is div element" true
@@ -54,7 +54,7 @@ let test_attributes () =
   let link =
     a
       ~at:[ At.href "/about"; At.title "About page" ]
-      ~tw:Tw.[ text blue 600; hover [ underline ] ]
+      ~tw:Tw.[ text ~shade:600 blue; hover [ underline ] ]
       [ txt "About" ]
   in
   let html_str = to_string link in
@@ -145,7 +145,7 @@ let test_nesting () =
 let test_to_tw () =
   let elem =
     div
-      ~tw:Tw.[ p 4; bg_white; text gray 900; rounded_lg ]
+      ~tw:Tw.[ p 4; bg white; text ~shade:900 gray; rounded_lg ]
       [ span ~tw:Tw.[ font_bold ] [ txt "Text" ] ]
   in
 
@@ -171,7 +171,7 @@ let test_page_cache_busting () =
     page ~title:"Test Page"
       ~meta:[ ("description", "Test page for cache busting") ]
       ~tw_css:"styles.css" [ (* head content *) ]
-      [ div ~tw:Tw.[ p 4; bg_white ] [ txt "Test content" ] ]
+      [ div ~tw:Tw.[ p 4; bg white ] [ txt "Test content" ] ]
   in
 
   let html_content = html test_page in
@@ -246,32 +246,26 @@ let test_page_cache_busting_consistency () =
 let test_exact_tailwind_match () =
   let page_content =
     div
-      ~tw:Tw.[ p 4; bg blue 500; hover [ bg blue 600 ] ]
+      ~tw:Tw.[ p 4; bg blue; hover [ bg ~shade:600 blue ] ]
       [
-        h1
-          ~tw:Tw.[ text_2xl; font_bold; text white 0; mb 4 ]
-          [ txt "Test Page" ];
+        h1 ~tw:Tw.[ text_2xl; font_bold; text white; mb 4 ] [ txt "Test Page" ];
         p
-          ~tw:Tw.[ text gray 200; hover [ text white 0 ] ]
+          ~tw:Tw.[ text ~shade:200 gray; hover [ text white ] ]
           [ txt "Testing hover states" ];
         (* Test group hover *)
         div
           ~tw:Tw.[ group; p 4 ]
-          [
-            p ~tw:Tw.[ group_hover [ text red 500 ] ] [ txt "Group hover test" ];
-          ];
+          [ p ~tw:Tw.[ group_hover [ text red ] ] [ txt "Group hover test" ] ];
         (* Test peer *)
         div
           [
             input ~at:[ At.type' "checkbox" ] ~tw:Tw.[ peer ] ();
-            p
-              ~tw:Tw.[ peer_checked [ text green 500 ] ]
-              [ txt "Peer checked test" ];
+            p ~tw:Tw.[ peer_checked [ text green ] ] [ txt "Peer checked test" ];
           ];
         (* Test aria *)
         div
           ~at:[ At.v "aria-checked" "true" ]
-          ~tw:Tw.[ aria_checked [ bg purple 100 ] ]
+          ~tw:Tw.[ aria_checked [ bg ~shade:100 purple ] ]
           [ txt "Aria checked test" ];
         (* Test data attribute *)
         div
@@ -335,9 +329,7 @@ module.exports = {
       (String.sub tailwind_css 0 (min 500 (String.length tailwind_css)))
 
 let test_exact_byte_match () =
-  let page_content =
-    div ~tw:Tw.[ p 4; bg blue 500; text white 0 ] [ txt "Test" ]
-  in
+  let page_content = div ~tw:Tw.[ p 4; bg blue; text white ] [ txt "Test" ] in
 
   let generated_page = page ~title:"Test" ~tw_css:"" [] [ page_content ] in
   let html_output = html generated_page in

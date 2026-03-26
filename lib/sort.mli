@@ -6,6 +6,21 @@
 
 (** {1 Indexed rule} *)
 
+type selector_kind =
+  | Simple
+  | Pseudo_element
+  | Complex of {
+      has_focus : bool;
+      has_focus_within : bool;
+      has_focus_visible : bool;
+      has_group : bool;
+      has_peer : bool;
+      has_group_has : bool;
+      has_peer_has : bool;
+      has_standalone_has : bool;
+      has_aria : bool;
+    }
+
 type indexed_rule = {
   index : int;  (** Source position — used as a stable tiebreaker. *)
   rule_type :
@@ -15,6 +30,8 @@ type indexed_rule = {
     | `Starting
     | `Supports of Css.Supports.t ];
   selector : Css.Selector.t;
+  selector_kind : selector_kind;
+  has_modifier_colon : bool;
   props : Css.declaration list;
   order : int * int;  (** [(priority, suborder)] from the utility definition. *)
   nested : Css.statement list;
@@ -24,6 +41,9 @@ type indexed_rule = {
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
 }
+
+val classify_selector : Css.Selector.t -> selector_kind
+(** [classify_selector sel] classifies a selector for ordering purposes. *)
 
 (** {1 Sorting} *)
 

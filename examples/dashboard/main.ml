@@ -50,13 +50,14 @@ let nav_item ~active ~icon label =
       ]
   in
   let state_styles =
-    if active then Tw.[ bg blue 600; text_white; dark [ bg blue 500 ] ]
+    if active then Tw.[ bg ~shade:600 blue; text white; dark [ bg blue ] ]
     else
       Tw.
         [
-          text gray 600;
-          hover [ bg gray 100; text gray 900 ];
-          dark [ text gray 300; hover [ bg gray 700; text_white ] ];
+          text ~shade:600 gray;
+          hover [ bg ~shade:100 gray; text ~shade:900 gray ];
+          dark
+            [ text ~shade:300 gray; hover [ bg ~shade:700 gray; text white ] ];
         ]
   in
   div ~tw:(base_styles @ state_styles) [ icon; txt label ]
@@ -65,7 +66,12 @@ let sidebar_logo =
   div
     ~tw:
       Tw.
-        [ p 6; border_b; border_color gray 200; dark [ border_color gray 700 ] ]
+        [
+          p 6;
+          border_b;
+          border_color ~shade:200 gray;
+          dark [ border_color ~shade:700 gray ];
+        ]
     [
       div
         ~tw:Tw.[ flex; items_center; gap 3 ]
@@ -83,12 +89,16 @@ let sidebar_logo =
                   flex;
                   items_center;
                   justify_center;
-                  text_white;
+                  text white;
                   font_bold;
                 ]
             [ txt "D" ];
           span
-            ~tw:Tw.[ text_xl; font_bold; text gray 900; dark [ text_white ] ]
+            ~tw:
+              Tw.
+                [
+                  text_xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                ]
             [ txt "Dashboard" ];
         ];
     ]
@@ -97,7 +107,12 @@ let sidebar_user =
   div
     ~tw:
       Tw.
-        [ p 4; border_t; border_color gray 200; dark [ border_color gray 700 ] ]
+        [
+          p 4;
+          border_t;
+          border_color ~shade:200 gray;
+          dark [ border_color ~shade:700 gray ];
+        ]
     [
       div
         ~tw:Tw.[ flex; items_center; gap 3 ]
@@ -109,11 +124,11 @@ let sidebar_user =
                   w 10;
                   h 10;
                   rounded_full;
-                  bg gray 300;
+                  bg ~shade:300 gray;
                   flex;
                   items_center;
                   justify_center;
-                  text gray 600;
+                  text ~shade:600 gray;
                   font_medium;
                 ]
             [ txt "JD" ];
@@ -123,10 +138,15 @@ let sidebar_user =
               p
                 ~tw:
                   Tw.
-                    [ text_sm; font_medium; text gray 900; dark [ text_white ] ]
+                    [
+                      text_sm;
+                      font_medium;
+                      text ~shade:900 gray;
+                      dark [ text white ];
+                    ]
                 [ txt "John Doe" ];
               p
-                ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
+                ~tw:Tw.[ text_xs; text gray; dark [ text ~shade:400 gray ] ]
                 [ txt "Admin" ];
             ];
         ];
@@ -140,11 +160,11 @@ let sidebar =
           hidden;
           lg [ flex; w 64 ];
           min_h_screen;
-          bg_white;
+          bg white;
           border_r;
-          border_color gray 200;
+          border_color ~shade:200 gray;
           flex_col;
-          dark [ bg gray 800; border_color gray 700 ];
+          dark [ bg ~shade:800 gray; border_color ~shade:700 gray ];
         ]
     [
       sidebar_logo;
@@ -181,13 +201,13 @@ let mobile_logo =
               flex;
               items_center;
               justify_center;
-              text_white;
+              text white;
               font_bold;
               text_sm;
             ]
         [ txt "D" ];
       span
-        ~tw:Tw.[ font_bold; text gray 900; dark [ text_white ] ]
+        ~tw:Tw.[ font_bold; text ~shade:900 gray; dark [ text white ] ]
         [ txt "Dashboard" ];
     ]
 
@@ -200,18 +220,18 @@ let header_search =
           md [ flex ];
           items_center;
           gap 3;
-          bg gray 100;
+          bg ~shade:100 gray;
           rounded_lg;
           px 4;
           py 2;
           flex_1;
           max_w_md;
-          dark [ bg gray 700 ];
+          dark [ bg ~shade:700 gray ];
         ]
     [
       icon_search;
       span
-        ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+        ~tw:Tw.[ text_sm; text gray; dark [ text ~shade:400 gray ] ]
         [ txt "Search..." ];
     ]
 
@@ -225,8 +245,8 @@ let notification_badge =
           right 0;
           w 5;
           h 5;
-          bg red 500;
-          text_white;
+          bg red;
+          text white;
           text_xs;
           font_bold;
           rounded_full;
@@ -247,9 +267,9 @@ let header_actions =
               md [ hidden ];
               p 2;
               rounded_lg;
-              hover [ bg gray 100 ];
+              hover [ bg ~shade:100 gray ];
               cursor_pointer;
-              dark [ hover [ bg gray 700 ] ];
+              dark [ hover [ bg ~shade:700 gray ] ];
             ]
         [ icon_search ];
       div
@@ -259,10 +279,10 @@ let header_actions =
               relative;
               p 2;
               rounded_lg;
-              hover [ bg gray 100 ];
+              hover [ bg ~shade:100 gray ];
               cursor_pointer;
               transition_colors;
-              dark [ hover [ bg gray 700 ] ];
+              dark [ hover [ bg ~shade:700 gray ] ];
             ]
         [ icon_bell; notification_badge ];
     ]
@@ -272,13 +292,13 @@ let header_section =
     ~tw:
       Tw.
         [
-          bg_white;
+          bg white;
           border_b;
-          border_color gray 200;
+          border_color ~shade:200 gray;
           px 4;
           py 3;
           md [ px 6; py 4 ];
-          dark [ bg gray 800; border_color gray 700 ];
+          dark [ bg ~shade:800 gray; border_color ~shade:700 gray ];
         ]
     [
       div
@@ -294,9 +314,9 @@ let header_section =
                       lg [ hidden ];
                       p 2;
                       rounded_lg;
-                      hover [ bg gray 100 ];
+                      hover [ bg ~shade:100 gray ];
                       cursor_pointer;
-                      dark [ hover [ bg gray 700 ] ];
+                      dark [ hover [ bg ~shade:700 gray ] ];
                     ]
                 [ icon_menu ];
               mobile_logo;
@@ -332,24 +352,34 @@ let stat_card_content ~title ~value ~change ~trend =
     ~tw:Tw.[ relative ]
     [
       p
-        ~tw:Tw.[ text_sm; font_medium; text gray 500; dark [ text gray 400 ] ]
+        ~tw:
+          Tw.[ text_sm; font_medium; text gray; dark [ text ~shade:400 gray ] ]
         [ txt title ];
       p
-        ~tw:Tw.[ text_3xl; font_bold; text gray 900; mt 2; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_3xl;
+              font_bold;
+              text ~shade:900 gray;
+              mt 2;
+              dark [ text white ];
+            ]
         [ txt value ];
       div
         ~tw:Tw.[ flex; items_center; gap 2; mt 2 ]
         [
           span
             ~tw:
-              (if trend = "up" then Tw.[ text_sm; font_medium; text green 600 ]
-               else Tw.[ text_sm; font_medium; text red 600 ])
+              (if trend = "up" then
+                 Tw.[ text_sm; font_medium; text ~shade:600 green ]
+               else Tw.[ text_sm; font_medium; text ~shade:600 red ])
             [
               txt
                 (if trend = "up" then "+" ^ change ^ "%" else "-" ^ change ^ "%");
             ];
           span
-            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+            ~tw:Tw.[ text_sm; text gray; dark [ text ~shade:400 gray ] ]
             [ txt "vs last month" ];
         ];
     ]
@@ -359,7 +389,7 @@ let stat_card ~title ~value ~change ~trend ~gradient_from ~gradient_to =
     ~tw:
       Tw.
         [
-          bg_white;
+          bg white;
           rounded_xl;
           shadow_sm;
           p 6;
@@ -368,7 +398,7 @@ let stat_card ~title ~value ~change ~trend ~gradient_from ~gradient_to =
           transition_all;
           duration 300;
           hover [ shadow_md; transform; scale 102 ];
-          dark [ bg gray 800 ];
+          dark [ bg ~shade:800 gray ];
         ]
     [
       stat_card_accent ~gradient_from ~gradient_to;
@@ -393,7 +423,7 @@ let stats_section =
 
 let chart_card ~title ~subtitle children =
   div
-    ~tw:Tw.[ bg_white; rounded_xl; shadow_sm; p 6; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; rounded_xl; shadow_sm; p 6; dark [ bg ~shade:800 gray ] ]
     [
       div
         ~tw:Tw.[ flex; items_center; justify_between; mb 6 ]
@@ -404,11 +434,15 @@ let chart_card ~title ~subtitle children =
                 ~tw:
                   Tw.
                     [
-                      text_lg; font_semibold; text gray 900; dark [ text_white ];
+                      text_lg;
+                      font_semibold;
+                      text ~shade:900 gray;
+                      dark [ text white ];
                     ]
                 [ txt title ];
               p
-                ~tw:Tw.[ text_sm; text gray 500; mt 1; dark [ text gray 400 ] ]
+                ~tw:
+                  Tw.[ text_sm; text gray; mt 1; dark [ text ~shade:400 gray ] ]
                 [ txt subtitle ];
             ];
           div
@@ -417,14 +451,19 @@ let chart_card ~title ~subtitle children =
                 [
                   px 3;
                   py 1;
-                  bg gray 100;
+                  bg ~shade:100 gray;
                   rounded_lg;
                   text_sm;
                   font_medium;
-                  text gray 600;
+                  text ~shade:600 gray;
                   cursor_pointer;
-                  hover [ bg gray 200 ];
-                  dark [ bg gray 700; text gray 300; hover [ bg gray 600 ] ];
+                  hover [ bg ~shade:200 gray ];
+                  dark
+                    [
+                      bg ~shade:700 gray;
+                      text ~shade:300 gray;
+                      hover [ bg ~shade:600 gray ];
+                    ];
                 ]
             [ txt "This Month" ];
         ];
@@ -439,12 +478,12 @@ let bar_chart =
         Tw.
           [
             flex_1;
-            bg color 200;
+            bg ~shade:200 color;
             rounded_t_lg;
             transition_all;
             duration 300;
-            hover [ bg color 300 ];
-            dark [ bg color 700; hover [ bg color 600 ] ];
+            hover [ bg ~shade:300 color ];
+            dark [ bg ~shade:700 color; hover [ bg ~shade:600 color ] ];
           ]
       ~at:
         [
@@ -477,36 +516,36 @@ let status_badge_style = function
         [
           text_xs;
           font_medium;
-          text green 600;
-          bg green 100;
+          text ~shade:600 green;
+          bg ~shade:100 green;
           px 2;
           py 1;
           rounded_full;
-          dark [ bg green 900; text green 300 ];
+          dark [ bg ~shade:900 green; text ~shade:300 green ];
         ]
   | "pending" ->
       Tw.
         [
           text_xs;
           font_medium;
-          text yellow 600;
-          bg yellow 100;
+          text ~shade:600 yellow;
+          bg ~shade:100 yellow;
           px 2;
           py 1;
           rounded_full;
-          dark [ bg yellow 900; text yellow 300 ];
+          dark [ bg ~shade:900 yellow; text ~shade:300 yellow ];
         ]
   | _ ->
       Tw.
         [
           text_xs;
           font_medium;
-          text gray 600;
-          bg gray 100;
+          text ~shade:600 gray;
+          bg ~shade:100 gray;
           px 2;
           py 1;
           rounded_full;
-          dark [ bg gray 700; text gray 300 ];
+          dark [ bg ~shade:700 gray; text ~shade:300 gray ];
         ]
 
 let activity_avatar name =
@@ -517,13 +556,13 @@ let activity_avatar name =
           w 10;
           h 10;
           rounded_full;
-          bg gray 200;
+          bg ~shade:200 gray;
           flex;
           items_center;
           justify_center;
           font_medium;
-          text gray 600;
-          dark [ bg gray 600; text gray 300 ];
+          text ~shade:600 gray;
+          dark [ bg ~shade:600 gray; text ~shade:300 gray ];
         ]
     [ txt (String.sub name 0 1) ]
 
@@ -537,8 +576,8 @@ let activity_row ~name ~action ~time ~status =
           justify_between;
           py 3;
           border_b;
-          border_color gray 100;
-          dark [ border_color gray 700 ];
+          border_color ~shade:100 gray;
+          dark [ border_color ~shade:700 gray ];
         ]
     [
       div
@@ -550,10 +589,15 @@ let activity_row ~name ~action ~time ~status =
               p
                 ~tw:
                   Tw.
-                    [ text_sm; font_medium; text gray 900; dark [ text_white ] ]
+                    [
+                      text_sm;
+                      font_medium;
+                      text ~shade:900 gray;
+                      dark [ text white ];
+                    ]
                 [ txt name ];
               p
-                ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
+                ~tw:Tw.[ text_xs; text gray; dark [ text ~shade:400 gray ] ]
                 [ txt action ];
             ];
         ];
@@ -561,7 +605,7 @@ let activity_row ~name ~action ~time ~status =
         ~tw:Tw.[ text_right ]
         [
           p
-            ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
+            ~tw:Tw.[ text_xs; text gray; dark [ text ~shade:400 gray ] ]
             [ txt time ];
           span ~tw:(status_badge_style status) [ txt status ];
         ];
@@ -569,12 +613,18 @@ let activity_row ~name ~action ~time ~status =
 
 let activity_section =
   div
-    ~tw:Tw.[ bg_white; rounded_xl; shadow_sm; p 6; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; rounded_xl; shadow_sm; p 6; dark [ bg ~shade:800 gray ] ]
     [
       h3
         ~tw:
           Tw.
-            [ text_lg; font_semibold; text gray 900; mb 4; dark [ text_white ] ]
+            [
+              text_lg;
+              font_semibold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Recent Activity" ];
       div
         [
@@ -606,7 +656,7 @@ let charts_section =
 
 let content =
   main
-    ~tw:Tw.[ flex_1; bg gray 50; dark [ bg gray 900 ]; min_w 0 ]
+    ~tw:Tw.[ flex_1; bg ~shade:50 gray; dark [ bg ~shade:900 gray ]; min_w 0 ]
     [
       header_section;
       div
@@ -622,8 +672,8 @@ let content =
                       text_xl;
                       md [ text_2xl ];
                       font_bold;
-                      text gray 900;
-                      dark [ text_white ];
+                      text ~shade:900 gray;
+                      dark [ text white ];
                     ]
                 [ txt "Dashboard Overview" ];
               p
@@ -632,9 +682,9 @@ let content =
                     [
                       text_sm;
                       md [ text_base ];
-                      text gray 500;
+                      text gray;
                       mt 1;
-                      dark [ text gray 400 ];
+                      dark [ text ~shade:400 gray ];
                     ]
                 [ txt "Welcome back! Here's what's happening today." ];
             ];

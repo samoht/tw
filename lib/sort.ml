@@ -39,6 +39,8 @@ type indexed_rule = {
     | `Starting
     | `Supports of Css.Supports.t ];
   selector : Css.Selector.t;
+  selector_kind : selector_kind;
+  has_modifier_colon : bool;
   props : Css.declaration list;
   order : int * int;
   nested : Css.statement list;
@@ -239,15 +241,14 @@ let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
     type-directed dispatch based on selector classification. At the same
     priority/suborder, cross-kind comparisons preserve source order (index) to
     match tailwindcss output exactly. *)
-let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
+let compare_by_priority_suborder_alpha kind1 kind2 sel1 sel2 (p1, s1) (p2, s2)
+    i1 i2 =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
   else
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp
     else
-      let kind1 = classify_selector sel1 in
-      let kind2 = classify_selector sel2 in
       match (kind1, kind2) with
       | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
       | Pseudo_element, Pseudo_element ->
@@ -302,41 +303,40 @@ let compare_nested_media_cond nested1 nested2 =
       | _ -> 0)
   | _ -> 0
 
-let compare_same_media_group sel1 sel2 order1 order2 i1 i2 nested1 nested2 bc1
-    bc2 cond1 cond2 =
-  let depth_cmp = compare_hover_depth cond1 cond2 sel1 sel2 in
+let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
+    =
+  let depth_cmp = compare_hover_depth cond1 cond2 r1.selector r2.selector in
   if depth_cmp <> 0 then depth_cmp
   else
-    let nested_media_cmp = compare_nested_media_cond nested1 nested2 in
+    let nested_media_cmp = compare_nested_media_cond r1.nested r2.nested in
     if nested_media_cmp <> 0 then nested_media_cmp
     else
       let same_utility =
-        match (bc1, bc2) with
+        match (r1.base_class, r2.base_class) with
         | Some b1, Some b2 -> String.equal b1 b2
         | _ -> false
       in
       if same_utility then
-        let order_cmp = compare order1 order2 in
-        if order_cmp <> 0 then order_cmp else Int.compare i1 i2
-      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+      else
+        compare_by_priority_suborder_alpha r1.selector_kind r2.selector_kind
+          r1.selector r2.selector r1.order r2.order r1.index r2.index
 
-let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
-    bc1 bc2 =
-  let nested_cmp = Bool.compare (nested1 <> []) (nested2 <> []) in
+let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
+  let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
   if nested_cmp <> 0 then nested_cmp
   else
-    let group1, sub1 = extract_media_sort_key typ1 in
-    let group2, sub2 = extract_media_sort_key typ2 in
+    let group1, sub1 = extract_media_sort_key r1.rule_type in
+    let group2, sub2 = extract_media_sort_key r2.rule_type in
     let key_cmp = Int.compare group1 group2 in
     if key_cmp <> 0 then key_cmp
     else
-      let cond1 = match typ1 with `Media c -> Some c | _ -> None in
-      let cond2 = match typ2 with `Media c -> Some c | _ -> None in
+      let cond1 = match r1.rule_type with `Media c -> Some c | _ -> None in
+      let cond2 = match r2.rule_type with `Media c -> Some c | _ -> None in
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
-      else
-        compare_same_media_group sel1 sel2 order1 order2 i1 i2 nested1 nested2
-          bc1 bc2 cond1 cond2
+      else compare_same_media_group r1 r2 cond1 cond2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison *)
@@ -356,8 +356,7 @@ let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
     IMPORTANT: Only selectors with modifier colons (like `.focus-within\:ring`)
     are late modifiers. Native pseudo-classes like `.form-radio:focus` are not.
 *)
-let is_late_modifier sel_kind selector =
-  let has_modifier_colon = Css.Selector.contains_modifier_colon selector in
+let is_late_modifier sel_kind has_modifier_colon =
   match sel_kind with
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
@@ -368,8 +367,8 @@ let is_late_modifier sel_kind selector =
 
 (** Check if a selector is a state modifier rule. These include :active,
     :disabled, [aria-*], and :has() selectors with modifier colons. *)
-let is_state_modifier_rule sel_kind selector =
-  if not (Css.Selector.contains_modifier_colon selector) then false
+let is_state_modifier_rule sel_kind has_modifier_colon selector =
+  if not has_modifier_colon then false
   else
     match sel_kind with
     | Complex { has_aria = true; _ } -> true
@@ -383,8 +382,8 @@ let is_state_modifier_rule sel_kind selector =
 (** Check if a selector is a focus: modifier rule (has :focus pseudo-class and
     modifier colon). These rules come AFTER hover:hover media but BEFORE other
     modifier-prefixed media like motion-safe:/motion-reduce:/contrast-more:. *)
-let is_focus_modifier_rule sel_kind selector =
-  Css.Selector.contains_modifier_colon selector
+let is_focus_modifier_rule sel_kind has_modifier_colon =
+  has_modifier_colon
   && match sel_kind with Complex { has_focus = true; _ } -> true | _ -> false
 
 (** Compare by (priority, suborder), defaulting to [regular_first] (-1). *)
@@ -397,24 +396,26 @@ let compare_by_order_regular_first (p1, s1) (p2, s2) =
 
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
-let try_hover_media_interleave kind1 sel1 sel2 media_type =
+let try_hover_media_interleave (r1 : indexed_rule) (r2 : indexed_rule)
+    media_type =
   match media_type with
-  | Some Css.Media.Hover when is_focus_modifier_rule kind1 sel1 ->
-      let d1 = selector_modifier_depth sel1 in
-      let d2 = selector_modifier_depth sel2 in
-      let has_hov = selector_has_hover sel1 in
+  | Some Css.Media.Hover
+    when is_focus_modifier_rule r1.selector_kind r1.has_modifier_colon ->
+      let d1 = selector_modifier_depth r1.selector in
+      let d2 = selector_modifier_depth r2.selector in
+      let has_hov = selector_has_hover r1.selector in
       if d2 > d1 && not has_hov then Some (-1) else Some 1
   | _ -> None
 
-let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
-  let kind1 = classify_selector sel1 in
-  match try_hover_media_interleave kind1 sel1 sel2 media_type with
+let compare_different_utility_regular_media (r1 : indexed_rule)
+    (r2 : indexed_rule) media_type =
+  match try_hover_media_interleave r1 r2 media_type with
   | Some c -> c
   | None -> (
-      if is_focus_modifier_rule kind1 sel1 then 1
+      if is_focus_modifier_rule r1.selector_kind r1.has_modifier_colon then 1
       else
         let is_modifier_prefixed_media =
-          Css.Selector.contains_modifier_colon sel2
+          r2.has_modifier_colon
           &&
           match media_type with
           | Some
@@ -425,26 +426,25 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
           | _ -> false
         in
         if is_modifier_prefixed_media then
-          if is_late_modifier kind1 sel1 then 1 else -1
-        else
-          let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
-          if not has_modifier_colon then
-            let prio_cmp = Int.compare (fst order1) (fst order2) in
-            if prio_cmp <> 0 then prio_cmp
-            else
-              match media_type with
-              | Some
-                  ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
-                  | Css.Media.Hover ) ->
-                  -1
-              | _ -> compare_by_order_regular_first order1 order2
+          if is_late_modifier r1.selector_kind r1.has_modifier_colon then 1
+          else -1
+        else if not r2.has_modifier_colon then
+          let prio_cmp = Int.compare (fst r1.order) (fst r2.order) in
+          if prio_cmp <> 0 then prio_cmp
           else
             match media_type with
             | Some
-                ( Css.Media.Hover | Css.Media.Min_width _
-                | Css.Media.Min_width_rem _ ) ->
+                ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
+                | Css.Media.Hover ) ->
                 -1
-            | _ -> compare_by_order_regular_first order1 order2)
+            | _ -> compare_by_order_regular_first r1.order r2.order
+        else
+          match media_type with
+          | Some
+              ( Css.Media.Hover | Css.Media.Min_width _
+              | Css.Media.Min_width_rem _ ) ->
+              -1
+          | _ -> compare_by_order_regular_first r1.order r2.order)
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
@@ -454,8 +454,7 @@ let compare_regular_vs_media r1 r2 =
       let media_type =
         match r2.rule_type with `Media m -> Some m | _ -> None
       in
-      compare_different_utility_regular_media r1.selector r2.selector r1.order
-        r2.order media_type
+      compare_different_utility_regular_media r1 r2 media_type
 
 (* ======================================================================== *)
 (* Regular Rule Comparison *)
@@ -576,8 +575,8 @@ let compare_focus_modifiers r1 r2 =
   else compare_by_priority_index r1 r2
 
 (** Check if a selector kind is a focus-visible late modifier *)
-let is_focus_visible_late_modifier kind selector =
-  is_late_modifier kind selector
+let is_focus_visible_late_modifier kind has_modifier_colon =
+  is_late_modifier kind has_modifier_colon
   &&
   match kind with
   | Complex { has_focus_visible = true; _ } -> true
@@ -586,10 +585,10 @@ let is_focus_visible_late_modifier kind selector =
 (** Compare focus-visible and state modifier ordering. Returns [Some cmp] if at
     least one rule is a focus-visible or state modifier, [None] otherwise. *)
 let compare_focus_visible_state r1 r2 kind1 kind2 =
-  let fv1 = is_focus_visible_late_modifier kind1 r1.selector in
-  let fv2 = is_focus_visible_late_modifier kind2 r2.selector in
-  let s1 = is_state_modifier_rule kind1 r1.selector in
-  let s2 = is_state_modifier_rule kind2 r2.selector in
+  let fv1 = is_focus_visible_late_modifier kind1 r1.has_modifier_colon in
+  let fv2 = is_focus_visible_late_modifier kind2 r2.has_modifier_colon in
+  let s1 = is_state_modifier_rule kind1 r1.has_modifier_colon r1.selector in
+  let s2 = is_state_modifier_rule kind2 r2.has_modifier_colon r2.selector in
   if fv1 && s2 then Some (-1)
   else if s1 && fv2 then Some 1
   else if fv1 && (not fv2) && not s2 then Some 1
@@ -603,8 +602,8 @@ let compare_focus_visible_state r1 r2 kind1 kind2 =
 (** Compare focus modifier ordering. Returns [Some cmp] if at least one rule is
     a focus modifier, [None] otherwise. *)
 let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
-  let f1 = is_focus_modifier_rule kind1 r1.selector in
-  let f2 = is_focus_modifier_rule kind2 r2.selector in
+  let f1 = is_focus_modifier_rule kind1 r1.has_modifier_colon in
+  let f2 = is_focus_modifier_rule kind2 r2.has_modifier_colon in
   if f1 && not f2 then Some 1
   else if f2 && not f1 then Some (-1)
   else if f1 && f2 then Some (compare_focus_modifiers r1 r2)
@@ -622,8 +621,8 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp
     else
-      let late1 = is_late_modifier kind1 r1.selector in
-      let late2 = is_late_modifier kind2 r2.selector in
+      let late1 = is_late_modifier kind1 r1.has_modifier_colon in
+      let late2 = is_late_modifier kind2 r2.has_modifier_colon in
       if late1 && not late2 then 1
       else if late2 && not late1 then -1
       else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
@@ -634,8 +633,8 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
-  let kind1 = classify_selector r1.selector in
-  let kind2 = classify_selector r2.selector in
+  let kind1 = r1.selector_kind in
+  let kind2 = r2.selector_kind in
   if !debug_compare then (
     let sel1 = Css.Selector.to_string r1.selector in
     let sel2 = Css.Selector.to_string r2.selector in
@@ -1026,10 +1025,7 @@ let compare_indexed_rules r1 r2 =
     else
       match (r1.rule_type, r2.rule_type) with
       | `Regular, `Regular -> compare_regular_rules r1 r2
-      | `Media _, `Media _ ->
-          compare_media_rules r1.rule_type r2.rule_type r1.selector r2.selector
-            r1.order r2.order r1.index r2.index r1.nested r2.nested
-            r1.base_class r2.base_class
+      | `Media _, `Media _ -> compare_media_rules r1 r2
       | `Regular, `Media _ -> compare_regular_vs_media r1 r2
       | `Media _, `Regular -> -compare_regular_vs_media r2 r1
       | `Starting, `Starting -> compare_starting_rules r1 r2

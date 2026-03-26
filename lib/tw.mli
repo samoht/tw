@@ -82,7 +82,7 @@
 type t
 (** The abstract type representing a single CSS style utility. *)
 
-type color
+type color = Color.color
 (** Abstract type for colors. Use color constructors like [red], [blue], etc.
     Colors can have shades from 50 (lightest) to 900 (darkest). *)
 
@@ -1557,8 +1557,9 @@ val text_justify : t
 (** {2 Color}
     @see <https://tailwindcss.com/docs/color> Color *)
 
-val text : color -> int -> t
-(** [text color shade] sets text color using the Tailwind color scale. *)
+val text : ?opacity:int -> ?shade:int -> color -> t
+(** [text color] sets text color. [shade] defaults to 500. [opacity] sets the
+    alpha modifier (0-100). *)
 
 val text_inherit : t
 (** [text_inherit] inherits color from the parent element. *)
@@ -1568,78 +1569,6 @@ val text_current : t
 
 val text_transparent : t
 (** [text_transparent] makes text fully transparent. *)
-
-val text_black : t
-(** [text_black] is default black text. *)
-
-val text_white : t
-(** [text_white] is default white text. *)
-
-val text_slate : t
-(** [text_slate] Default slate text. *)
-
-val text_gray : t
-(** [text_gray] Default gray text. *)
-
-val text_zinc : t
-(** [text_zinc] Default zinc text. *)
-
-val text_neutral : t
-(** [text_neutral] Default neutral text. *)
-
-val text_stone : t
-(** [text_stone] Default stone text. *)
-
-val text_red : t
-(** [text_red] Default red text. *)
-
-val text_orange : t
-(** [text_orange] Default orange text. *)
-
-val text_amber : t
-(** [text_amber] Default amber text. *)
-
-val text_yellow : t
-(** [text_yellow] Default yellow text. *)
-
-val text_lime : t
-(** [text_lime] Default lime text. *)
-
-val text_green : t
-(** [text_green] Default green text. *)
-
-val text_emerald : t
-(** [text_emerald] Default emerald text. *)
-
-val text_teal : t
-(** [text_teal] Default teal text. *)
-
-val text_cyan : t
-(** [text_cyan] Default cyan text. *)
-
-val text_sky : t
-(** [text_sky] Default sky text. *)
-
-val text_blue : t
-(** [text_blue] Default blue text. *)
-
-val text_indigo : t
-(** [text_indigo] Default indigo text. *)
-
-val text_violet : t
-(** [text_violet] Default violet text. *)
-
-val text_purple : t
-(** [text_purple] Default purple text. *)
-
-val text_fuchsia : t
-(** [text_fuchsia] Default fuchsia text. *)
-
-val text_pink : t
-(** [text_pink] Default pink text. *)
-
-val text_rose : t
-(** [text_rose] Default rose text. *)
 
 (** {2 Text Decoration Line}
     @see <https://tailwindcss.com/docs/text-decoration-line>
@@ -1875,8 +1804,8 @@ val content : string -> t
 (** {2 Background Color}
     @see <https://tailwindcss.com/docs/background-color> Background Color *)
 
-val bg : color -> int -> t
-(** [bg color shade] sets the background color with a specific shade.
+val bg : ?opacity:int -> ?shade:int -> color -> t
+(** [bg color] sets the background color. [shade] defaults to 500.
 
     Examples:
     - [bg blue 500]: Medium blue background
@@ -1892,78 +1821,6 @@ val bg_current : t
 (** [bg_current] sets background color to match the element's text color. If the
     element has [text ~shade:500 blue], the background will also be blue-500.
     Useful for icons and decorative elements that should match text. *)
-
-val bg_black : t
-(** [bg_black] is default black background. See {!tailwind_colors}. *)
-
-val bg_white : t
-(** [bg_white] is default white background. See {!tailwind_colors}. *)
-
-val bg_slate : t
-(** [bg_slate] is default slate background. See {!tailwind_colors}. *)
-
-val bg_gray : t
-(** [bg_gray] is default gray background. See {!tailwind_colors}. *)
-
-val bg_zinc : t
-(** [bg_zinc] is default zinc background. See {!tailwind_colors}. *)
-
-val bg_neutral : t
-(** [bg_neutral] is default neutral background. See {!tailwind_colors}. *)
-
-val bg_stone : t
-(** [bg_stone] is default stone background. See {!tailwind_colors}. *)
-
-val bg_red : t
-(** [bg_red] is default red background. See {!tailwind_colors}. *)
-
-val bg_orange : t
-(** [bg_orange] is default orange background. See {!tailwind_colors}. *)
-
-val bg_amber : t
-(** [bg_amber] is default amber background. See {!tailwind_colors}. *)
-
-val bg_yellow : t
-(** [bg_yellow] is default yellow background. See {!tailwind_colors}. *)
-
-val bg_lime : t
-(** [bg_lime] is default lime background. See {!tailwind_colors}. *)
-
-val bg_green : t
-(** [bg_green] is default green background. See {!tailwind_colors}. *)
-
-val bg_emerald : t
-(** [bg_emerald] is default emerald background. See {!tailwind_colors}. *)
-
-val bg_teal : t
-(** [bg_teal] is default teal background. See {!tailwind_colors}. *)
-
-val bg_cyan : t
-(** [bg_cyan] is default cyan background. See {!tailwind_colors}. *)
-
-val bg_sky : t
-(** [bg_sky] is default sky background. See {!tailwind_colors}. *)
-
-val bg_blue : t
-(** [bg_blue] is default blue background. See {!tailwind_colors}. *)
-
-val bg_indigo : t
-(** [bg_indigo] is default indigo background. See {!tailwind_colors}. *)
-
-val bg_violet : t
-(** [bg_violet] is default violet background. See {!tailwind_colors}. *)
-
-val bg_purple : t
-(** [bg_purple] is default purple background. See {!tailwind_colors}. *)
-
-val bg_fuchsia : t
-(** [bg_fuchsia] is default fuchsia background. See {!tailwind_colors}. *)
-
-val bg_pink : t
-(** [bg_pink] is default pink background. See {!tailwind_colors}. *)
-
-val bg_rose : t
-(** [bg_rose] is default rose background. See {!tailwind_colors}. *)
 
 (* Text color declarations moved under Typography → Color. *)
 
@@ -2095,8 +1952,9 @@ val border_l : t
 (** {2 Border Color}
     @see <https://tailwindcss.com/docs/border-color> Border Color *)
 
-val border_color : color -> int -> t
-(** [border_color color shade] creates a border color with a specific shade. *)
+val border_color : ?opacity:int -> ?shade:int -> color -> t
+(** [border_color color] sets the border color. [shade] defaults to 500.
+    [opacity] sets the alpha modifier (0-100). *)
 
 val border_transparent : t
 (** [border_transparent] makes border fully transparent. *)
@@ -2109,78 +1967,6 @@ val border_current : t
     ]}
 
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
-
-val border_black : t
-(** [border_black] is default black border. See {!tailwind_colors}. *)
-
-val border_white : t
-(** [border_white] is default white border. See {!tailwind_colors}. *)
-
-val border_slate : t
-(** [border_slate] is default slate border. See {!tailwind_colors}. *)
-
-val border_gray : t
-(** [border_gray] is default gray border. See {!tailwind_colors}. *)
-
-val border_zinc : t
-(** [border_zinc] is default zinc border. See {!tailwind_colors}. *)
-
-val border_neutral : t
-(** [border_neutral] is default neutral border. See {!tailwind_colors}. *)
-
-val border_stone : t
-(** [border_stone] is default stone border. See {!tailwind_colors}. *)
-
-val border_red : t
-(** [border_red] is default red border. See {!tailwind_colors}. *)
-
-val border_orange : t
-(** [border_orange] is default orange border. See {!tailwind_colors}. *)
-
-val border_amber : t
-(** [border_amber] is default amber border. See {!tailwind_colors}. *)
-
-val border_yellow : t
-(** [border_yellow] is default yellow border. See {!tailwind_colors}. *)
-
-val border_lime : t
-(** [border_lime] is default lime border. See {!tailwind_colors}. *)
-
-val border_green : t
-(** [border_green] is default green border. See {!tailwind_colors}. *)
-
-val border_emerald : t
-(** [border_emerald] is default emerald border. See {!tailwind_colors}. *)
-
-val border_teal : t
-(** [border_teal] is default teal border. See {!tailwind_colors}. *)
-
-val border_cyan : t
-(** [border_cyan] is default cyan border. See {!tailwind_colors}. *)
-
-val border_sky : t
-(** [border_sky] is default sky border. See {!tailwind_colors}. *)
-
-val border_blue : t
-(** [border_blue] is default blue border. See {!tailwind_colors}. *)
-
-val border_indigo : t
-(** [border_indigo] is default indigo border. See {!tailwind_colors}. *)
-
-val border_violet : t
-(** [border_violet] is default violet border. See {!tailwind_colors}. *)
-
-val border_purple : t
-(** [border_purple] is default purple border. See {!tailwind_colors}. *)
-
-val border_fuchsia : t
-(** [border_fuchsia] is default fuchsia border. See {!tailwind_colors}. *)
-
-val border_pink : t
-(** [border_pink] is default pink border. See {!tailwind_colors}. *)
-
-val border_rose : t
-(** [border_rose] is default rose border. See {!tailwind_colors}. *)
 
 (** {2 Border Style}
     @see <https://tailwindcss.com/docs/border-style> Border Style *)
@@ -3083,14 +2869,24 @@ val form_radio : t
 (** {2 Accent Color}
     @see <https://tailwindcss.com/docs/accent-color> Accent Color *)
 
-val accent : color -> int -> t
-(** [accent color shade] sets the accent color for form controls like checkboxes
-    and radio buttons. *)
+val accent : ?opacity:int -> ?shade:int -> color -> t
+(** [accent color] sets the accent color for form controls like checkboxes and
+    radio buttons. [shade] defaults to 500. [opacity] sets the alpha modifier
+    (0-100). *)
+
+val accent_current : t
+val accent_inherit : t
 
 (** {2 Caret Color}
     @see <https://tailwindcss.com/docs/caret-color> Caret Color *)
 
-(** TODO: Implement caret-color utilities. *)
+val caret : ?opacity:int -> ?shade:int -> color -> t
+(** [caret color] sets the caret color. [shade] defaults to 500. [opacity] sets
+    the alpha modifier (0-100). *)
+
+val caret_current : t
+val caret_inherit : t
+val caret_transparent : t
 
 (** {2 Color Scheme}
     @see <https://tailwindcss.com/docs/color-scheme> Color Scheme *)

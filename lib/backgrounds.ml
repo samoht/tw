@@ -1805,7 +1805,14 @@ open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
-let bg color shade = utility (Bg (color, shade))
+
+let bg ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Bg (color, shade))
+  | Some pct ->
+      utility
+        (Bg_opacity (color, shade, Color.Opacity_percent (Float.of_int pct)))
+
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =

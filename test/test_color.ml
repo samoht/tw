@@ -160,13 +160,13 @@ let test_css_mode_with_colors () =
   (* Test that color utilities work correctly with different CSS modes *)
   let open Tw in
   (* Generate CSS from color utilities *)
-  let styles = [ bg_blue; text_red ] in
+  let styles = [ bg blue; text red ] in
   let css = to_css styles in
   let css_string = Css.to_string css in
 
   (* Debug: print CSS and class names *)
-  Fmt.epr "bg_blue class: '%s'\n" (Tw.to_classes [ bg_blue ]);
-  Fmt.epr "text_red class: '%s'\n" (Tw.to_classes [ text_red ]);
+  Fmt.epr "bg_blue class: '%s'\n" (Tw.to_classes [ bg blue ]);
+  Fmt.epr "text_red class: '%s'\n" (Tw.to_classes [ text red ]);
   Fmt.epr "Generated CSS:\n%s\n" css_string;
 
   (* Test that Variables mode is the default and uses CSS variables *)

@@ -187,10 +187,10 @@ module Handler = struct
         style (decl :: [ Css.inset zero_value ])
     | Inset_x_0 ->
         let decl, zero_value = spacing_value 0 in
-        style (decl :: [ Css.left zero_value; Css.right zero_value ])
+        style (decl :: [ Css.inset_inline zero_value ])
     | Inset_y_0 ->
         let decl, zero_value = spacing_value 0 in
-        style (decl :: [ Css.bottom zero_value; Css.top zero_value ])
+        style (decl :: [ Css.inset_block zero_value ])
     | Inset_auto -> style [ Css.inset Auto ]
     | Inset_full -> style [ Css.inset (Pct 100.0) ]
     | Neg_inset_full -> style [ Css.inset (Pct (-100.0)) ]

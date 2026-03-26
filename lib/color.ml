@@ -2907,9 +2907,25 @@ let bg_current_with_opacity opacity =
 (** Public API *)
 let utility x = Utility.base (Self x)
 
-let bg color shade = utility (Bg (color, shade))
-let text color shade = utility (Text (color, shade))
-let border_color color shade = utility (Border (color, shade))
+let bg ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Bg (color, shade))
+  | Some pct ->
+      utility (Bg_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
+let text ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Text (color, shade))
+  | Some pct ->
+      utility (Text_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
+let border_color ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Border (color, shade))
+  | Some pct ->
+      utility
+        (Border_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
 let bg_transparent = utility Bg_transparent
 let bg_current = utility Bg_current
 let text_transparent = utility Text_transparent
@@ -2917,84 +2933,23 @@ let text_current = utility Text_current
 let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
-let accent color shade = utility (Accent (color, shade))
+
+let accent ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Accent (color, shade))
+  | Some pct ->
+      utility
+        (Accent_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
 let accent_current = utility Accent_current
 let accent_inherit = utility Accent_inherit
-let caret color shade = utility (Caret (color, shade))
+
+let caret ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Caret (color, shade))
+  | Some pct ->
+      utility (Caret_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
 let caret_current = utility Caret_current
 let caret_inherit = utility Caret_inherit
 let caret_transparent = utility Caret_transparent
-
-(* Convenient semantic wrappers for default 500 shade *)
-let bg_black = bg black 500
-let bg_white = bg white 500
-let bg_gray = bg gray 500
-let bg_slate = bg slate 500
-let bg_zinc = bg zinc 500
-let bg_neutral = bg neutral 500
-let bg_stone = bg stone 500
-let bg_red = bg red 500
-let bg_orange = bg orange 500
-let bg_amber = bg amber 500
-let bg_yellow = bg yellow 500
-let bg_lime = bg lime 500
-let bg_green = bg green 500
-let bg_emerald = bg emerald 500
-let bg_teal = bg teal 500
-let bg_cyan = bg cyan 500
-let bg_sky = bg sky 500
-let bg_blue = bg blue 500
-let bg_indigo = bg indigo 500
-let bg_violet = bg violet 500
-let bg_purple = bg purple 500
-let bg_fuchsia = bg fuchsia 500
-let bg_pink = bg pink 500
-let bg_rose = bg rose 500
-let text_black = text black 500
-let text_white = text white 500
-let text_gray = text gray 500
-let text_slate = text slate 500
-let text_zinc = text zinc 500
-let text_neutral = text neutral 500
-let text_stone = text stone 500
-let text_red = text red 500
-let text_orange = text orange 500
-let text_amber = text amber 500
-let text_yellow = text yellow 500
-let text_lime = text lime 500
-let text_green = text green 500
-let text_emerald = text emerald 500
-let text_teal = text teal 500
-let text_cyan = text cyan 500
-let text_sky = text sky 500
-let text_blue = text blue 500
-let text_indigo = text indigo 500
-let text_violet = text violet 500
-let text_purple = text purple 500
-let text_fuchsia = text fuchsia 500
-let text_pink = text pink 500
-let text_rose = text rose 500
-let border_black = border_color black 500
-let border_white = border_color white 500
-let border_gray = border_color gray 500
-let border_slate = border_color slate 500
-let border_zinc = border_color zinc 500
-let border_neutral = border_color neutral 500
-let border_stone = border_color stone 500
-let border_red = border_color red 500
-let border_orange = border_color orange 500
-let border_amber = border_color amber 500
-let border_yellow = border_color yellow 500
-let border_lime = border_color lime 500
-let border_green = border_color green 500
-let border_emerald = border_color emerald 500
-let border_teal = border_color teal 500
-let border_cyan = border_color cyan 500
-let border_sky = border_color sky 500
-let border_blue = border_color blue 500
-let border_indigo = border_color indigo 500
-let border_violet = border_color violet 500
-let border_purple = border_color purple 500
-let border_fuchsia = border_color fuchsia 500
-let border_pink = border_color pink 500
-let border_rose = border_color rose 500
