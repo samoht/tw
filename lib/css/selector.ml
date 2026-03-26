@@ -1065,10 +1065,13 @@ let strs ctx strings = Pp.list ~sep:Pp.comma Pp.string ctx strings
     characters commonly found in Tailwind utilities like fractions (w-1/2),
     arbitrary values (p-[10px]), etc. Also handles identifiers starting with
     digits or other invalid start characters using hex escapes. *)
+let escape_buf = Buffer.create 128
+
 let escape_selector_name name =
   if String.length name = 0 then ""
   else
-    let buf = Buffer.create (String.length name * 2) in
+    let buf = escape_buf in
+    Buffer.clear buf;
     (* Helper to convert char to hex escape *)
     let hex_escape c =
       let code = Char.code c in

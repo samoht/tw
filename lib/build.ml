@@ -269,10 +269,13 @@ let indexed_rule_to_statement (r : Sort.indexed_rule) =
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
+  let buf = Buffer.create 256 in
   List.filter
     (fun (typ, sel, props, _order, nested, _base_class, _merge_key, _not_order)
        ->
-      let key = (typ, Css.Selector.to_string sel, props, nested) in
+      Buffer.clear buf;
+      Css.Selector.to_buffer buf sel;
+      let key = (typ, Buffer.contents buf, props, nested) in
       if Hashtbl.mem seen key then false
       else (
         Hashtbl.add seen key ();

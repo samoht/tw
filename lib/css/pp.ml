@@ -111,9 +111,10 @@ let column ctx =
 let list_wrap ?(threshold = 80) ~sep ~wrap_indent pp ctx l =
   if ctx.minify then list ~sep pp ctx l
   else
+    let tmp = Buffer.create 64 in
+    let tmp_ctx = { ctx with buf = tmp } in
     let measure_item x =
-      let tmp = Buffer.create 64 in
-      let tmp_ctx = { ctx with buf = tmp } in
+      Buffer.clear tmp;
       pp tmp_ctx x;
       Buffer.contents tmp
     in
