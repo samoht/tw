@@ -83,12 +83,9 @@ let bare_var_inner s =
 (** Split a class name on '-' but treat '[...]' as atomic. E.g.
     "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
     [""; "m"; "[var(--value)]"] *)
-let split_buf = Buffer.create 64
-
 let split_class class_name =
   let len = String.length class_name in
-  let buf = split_buf in
-  Buffer.clear buf;
+  let buf = Buffer.create 16 in
   let parts = ref [] in
   let i = ref 0 in
   while !i < len do

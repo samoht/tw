@@ -426,12 +426,45 @@ module.exports = {
         Fmt.pr "@.Our CSS:@.%s@." our_css;
         Fmt.pr "@.Tailwind CSS:@.%s@." tailwind_css))
 
+let test_class_merging () =
+  (* tw classes and explicit class attribute should merge into one class attr *)
+  let elem =
+    div
+      ~at:[ At.v "class" "custom-class" ]
+      ~tw:Tw.[ p 4; flex ]
+      [ txt "Merged" ]
+  in
+  let html_str = to_string elem in
+  (* Should have exactly one class attribute containing both *)
+  let class_count =
+    let rec count s from n =
+      match Astring.String.find_sub ~start:from ~sub:"class=" s with
+      | Some i -> count s (i + 6) (n + 1)
+      | None -> n
+    in
+    count html_str 0 0
+  in
+  check int "single class attribute" 1 class_count;
+  check bool "has tw classes" true
+    (Astring.String.is_infix ~affix:"p-4" html_str);
+  check bool "has custom class" true
+    (Astring.String.is_infix ~affix:"custom-class" html_str)
+
+let test_no_class_without_tw () =
+  (* No class attribute when tw is empty *)
+  let elem = div [ txt "Plain" ] in
+  let html_str = to_string elem in
+  check bool "no class attribute" false
+    (Astring.String.is_infix ~affix:"class=" html_str)
+
 let suite =
   ( "tw_html",
     [
       test_case "txt" `Quick test_txt;
       test_case "element creation" `Quick test_element_creation;
       test_case "attributes" `Quick test_attributes;
+      test_case "class merging" `Quick test_class_merging;
+      test_case "no class without tw" `Quick test_no_class_without_tw;
       test_case "html escaping" `Quick test_html_escaping;
       test_case "boolean + aria/data attrs" `Quick test_boolean_and_data_attrs;
       test_case "nesting" `Quick test_nesting;
