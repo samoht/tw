@@ -198,34 +198,54 @@ let rawf segments = raw (str segments)
 (* Empty element *)
 let empty = { el = El.void; tw = []; forms = false }
 
-(* Merge tw classes with any existing class attribute into a single class *)
-let merge_tw_classes tw_styles atts =
-  match tw_styles with
-  | [] -> atts
-  | _ ->
-      let tw_cls = Tw.to_classes tw_styles in
-      let existing_cls, other_atts =
-        List.fold_left
-          (fun (cls, rest) ((name, value) as att) ->
-            if name = "class" then (value :: cls, rest)
-            else (cls, att :: rest))
-          ([], []) atts
-      in
-      let merged =
-        match existing_cls with
-        | [] -> tw_cls
-        | parts -> String.concat " " (tw_cls :: List.rev parts)
-      in
-      At.class' merged :: List.rev other_atts
+(* Build final attribute list from tw styles, raw class strings, and non-class attrs *)
+let make_atts tw_styles raw_classes other_atts =
+  let tw_cls =
+    match tw_styles with [] -> "" | _ -> Tw.to_classes tw_styles
+  in
+  let all_cls =
+    match (tw_cls, raw_classes) with
+    | "", [] -> ""
+    | s, [] -> s
+    | "", parts -> String.concat " " parts
+    | s, parts -> String.concat " " (s :: parts)
+  in
+  match all_cls with
+  | "" -> List.rev other_atts
+  | cls -> At.class' cls :: List.rev other_atts
+
+(* Extract class attrs from at, parse recognized Tw classes, keep unrecognized as-is.
+   Returns (tw_extras, raw_class_parts, other_atts) *)
+let extract_class_attrs atts =
+  List.fold_left
+    (fun (tw_extra, raw_cls, rest) ((name, value) as att) ->
+      if name = "class" then
+        let classes =
+          String.split_on_char ' ' value
+          |> List.filter (fun s -> String.length s > 0)
+        in
+        let tw_parsed, raw =
+          List.fold_left
+            (fun (tw_acc, raw_acc) cls ->
+              match Tw.of_string cls with
+              | Ok t -> (t :: tw_acc, raw_acc)
+              | Error _ -> (tw_acc, cls :: raw_acc))
+            ([], []) classes
+        in
+        (List.rev tw_parsed @ tw_extra, List.rev raw @ raw_cls, rest)
+      else (tw_extra, raw_cls, att :: rest))
+    ([], [], []) atts
 
 (* Helper to create elements - applies tw classes immediately *)
 let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in
-  let atts_with_tw = merge_tw_classes tw atts in
+  let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
+  let all_tw_styles = tw @ tw_from_at in
+  let atts_with_tw = make_atts all_tw_styles raw_classes other_atts in
   (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
-  let all_tw = tw @ List.concat_map to_tw children in
+  let all_tw = all_tw_styles @ List.concat_map to_tw children in
   (* Propagate forms flag from children or this element *)
   let has_forms = forms || List.exists (fun c -> c.forms) children in
   { el = El.v ~at:atts_with_tw name child_els; tw = all_tw; forms = has_forms }
@@ -298,32 +318,16 @@ let slot ?at ?tw children = el_with_tw "slot" ?at ?tw children
 let template ?at ?tw children = el_with_tw "template" ?at ?tw children
 
 (* Void elements *)
-let img ?at ?(tw = []) () =
+let void_el ?(forms = false) name ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "img" []; tw; forms = false }
+  let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
+  let all_tw = tw @ tw_from_at in
+  let atts_with_tw = make_atts all_tw raw_classes other_atts in
+  { el = El.v ~at:atts_with_tw name []; tw = all_tw; forms }
 
-let meta ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "meta" []; tw; forms = false }
-
-let link ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "link" []; tw; forms = false }
+let img ?at ?tw () = void_el "img" ?at ?tw ()
+let meta ?at ?tw () = void_el "meta" ?at ?tw ()
+let link ?at ?tw () = void_el "link" ?at ?tw ()
 
 (* Void is now an alias for empty *)
 let void = empty
@@ -331,14 +335,7 @@ let void = empty
 (* Forms *)
 let form ?at ?tw children = el_with_tw "form" ?at ?tw children
 
-let input ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "input" []; tw; forms = true }
+let input ?at ?tw () = void_el ~forms:true "input" ?at ?tw ()
 
 let textarea ?at ?tw children =
   el_with_tw ~forms:true "textarea" ?at ?tw children
@@ -362,23 +359,8 @@ let small ?at ?tw children = el_with_tw "small" ?at ?tw children
 let mark ?at ?tw children = el_with_tw "mark" ?at ?tw children
 
 (* Breaks *)
-let br ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "br" []; tw; forms = false }
-
-let hr ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "hr" []; tw; forms = false }
+let br ?at ?tw () = void_el "br" ?at ?tw ()
+let hr ?at ?tw () = void_el "hr" ?at ?tw ()
 
 (* Tables *)
 let table ?at ?tw children = el_with_tw "table" ?at ?tw children
@@ -406,14 +388,7 @@ let figcaption ?at ?tw children = el_with_tw "figcaption" ?at ?tw children
 let video ?at ?tw children = el_with_tw "video" ?at ?tw children
 let audio ?at ?tw children = el_with_tw "audio" ?at ?tw children
 
-let source ?at ?(tw = []) () =
-  let atts = Option.value ~default:[] at in
-  let atts_with_tw =
-    match tw with
-    | [] -> atts
-    | _ -> merge_tw_classes tw atts
-  in
-  { el = El.v ~at:atts_with_tw "source" []; tw; forms = false }
+let source ?at ?tw () = void_el "source" ?at ?tw ()
 
 (* Embedded content *)
 let canvas ?at ?tw children = el_with_tw "canvas" ?at ?tw children
