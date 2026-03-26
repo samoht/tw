@@ -39,6 +39,7 @@ type indexed_rule = {
     | `Starting
     | `Supports of Css.Supports.t ];
   selector : Css.Selector.t;
+  selector_str : string;
   selector_kind : selector_kind;
   has_modifier_colon : bool;
   props : Css.declaration list;
@@ -200,27 +201,23 @@ let extract_media_sort_key = function
 (** Compare two simple selectors by suborder, then alphabetically, then index.
     Index fallback is critical for utilities like prose that emit multiple rules
     with the same selector - preserves original order. *)
-let compare_simple_selectors sel1 sel2 s1 s2 i1 i2 =
+let compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2 =
   let sub_cmp = Int.compare s1 s2 in
   if sub_cmp <> 0 then sub_cmp
   else
-    let sel_cmp =
-      String.compare (Css.Selector.to_string sel1) (Css.Selector.to_string sel2)
-    in
+    let sel_cmp = String.compare sel_str1 sel_str2 in
     if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
 (** Compare two complex selectors by kind, then selector string (for aria), then
     suborder, then index. Order: focus < group-has < peer-has < has < aria. For
     aria selectors, sort by attribute name before property to match Tailwind. *)
-let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
+let compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
   else if k1 = 60 then
     (* Both are aria selectors - compare by selector string (aria attribute)
        before suborder (property shade) to match Tailwind v4 behavior *)
-    let sel_cmp =
-      String.compare (Css.Selector.to_string sel1) (Css.Selector.to_string sel2)
-    in
+    let sel_cmp = String.compare sel_str1 sel_str2 in
     if sel_cmp <> 0 then sel_cmp
     else
       let sub_cmp = Int.compare s1 s2 in
@@ -230,18 +227,15 @@ let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp
     else
-      let sel_cmp =
-        String.compare
-          (Css.Selector.to_string sel1)
-          (Css.Selector.to_string sel2)
-      in
+      let sel_cmp = String.compare sel_str1 sel_str2 in
       if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
 (** Compare rules by priority, then suborder, then by selector kind. Uses
     type-directed dispatch based on selector classification. At the same
     priority/suborder, cross-kind comparisons preserve source order (index) to
     match tailwindcss output exactly. *)
-let compare_by_priority_suborder_alpha kind1 kind2 sel1 sel2 (p1, s1) (p2, s2)
+let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
+    (p2, s2)
     i1 i2 =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
@@ -250,9 +244,9 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel1 sel2 (p1, s1) (p2, s2)
     if sub_cmp <> 0 then sub_cmp
     else
       match (kind1, kind2) with
-      | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+      | Simple, Simple -> compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2
       | Pseudo_element, Pseudo_element ->
-          compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+          compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2
       | Pseudo_element, Simple -> Int.compare i1 i2
       | Pseudo_element, Complex _ ->
           (* Prose rules need pseudo-elements after complex selectors *)
@@ -262,7 +256,7 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel1 sel2 (p1, s1) (p2, s2)
       | Complex _, Pseudo_element -> Int.compare i1 i2
       | Complex _, Simple -> Int.compare i1 i2
       | Complex _, Complex _ ->
-          compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
+          compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2
 
 (* ======================================================================== *)
 (* Media Query Comparison *)
@@ -321,7 +315,7 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
         if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
       else
         compare_by_priority_suborder_alpha r1.selector_kind r2.selector_kind
-          r1.selector r2.selector r1.order r2.order r1.index r2.index
+          r1.selector_str r2.selector_str r1.order r2.order r1.index r2.index
 
 let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
   let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
@@ -367,14 +361,13 @@ let is_late_modifier sel_kind has_modifier_colon =
 
 (** Check if a selector is a state modifier rule. These include :active,
     :disabled, [aria-*], and :has() selectors with modifier colons. *)
-let is_state_modifier_rule sel_kind has_modifier_colon selector =
+let is_state_modifier_rule sel_kind has_modifier_colon sel_str =
   if not has_modifier_colon then false
   else
     match sel_kind with
     | Complex { has_aria = true; _ } -> true
     | Complex { has_standalone_has = true; _ } -> true
     | Complex _ ->
-        let sel_str = Css.Selector.to_string selector in
         String.ends_with ~suffix:":active" sel_str
         || String.ends_with ~suffix:":disabled" sel_str
     | _ -> false
@@ -500,8 +493,8 @@ let compare_by_priority_index r1 r2 =
         if idx_cmp <> 0 then idx_cmp
         else
           String.compare
-            (Css.Selector.to_string r1.selector)
-            (Css.Selector.to_string r2.selector)
+            (r1.selector_str)
+            (r2.selector_str)
 
 let is_outline_utility bc =
   match bc with
@@ -587,8 +580,8 @@ let is_focus_visible_late_modifier kind has_modifier_colon =
 let compare_focus_visible_state r1 r2 kind1 kind2 =
   let fv1 = is_focus_visible_late_modifier kind1 r1.has_modifier_colon in
   let fv2 = is_focus_visible_late_modifier kind2 r2.has_modifier_colon in
-  let s1 = is_state_modifier_rule kind1 r1.has_modifier_colon r1.selector in
-  let s2 = is_state_modifier_rule kind2 r2.has_modifier_colon r2.selector in
+  let s1 = is_state_modifier_rule kind1 r1.has_modifier_colon r1.selector_str in
+  let s2 = is_state_modifier_rule kind2 r2.has_modifier_colon r2.selector_str in
   if fv1 && s2 then Some (-1)
   else if s1 && fv2 then Some 1
   else if fv1 && (not fv2) && not s2 then Some 1
@@ -628,16 +621,16 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
       else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
       else
         natural_compare
-          (Css.Selector.to_string r1.selector)
-          (Css.Selector.to_string r2.selector)
+          (r1.selector_str)
+          (r2.selector_str)
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
   let kind1 = r1.selector_kind in
   let kind2 = r2.selector_kind in
   if !debug_compare then (
-    let sel1 = Css.Selector.to_string r1.selector in
-    let sel2 = Css.Selector.to_string r2.selector in
+    let sel1 = r1.selector_str in
+    let sel2 = r2.selector_str in
     let kind_str = function
       | Simple -> "Simple"
       | Pseudo_element -> "Pseudo_element"
@@ -696,9 +689,9 @@ let compare_regular_rules r1 r2 =
       (String.concat ""
          [
            "compare_regular: ";
-           Css.Selector.to_string r1.selector;
+           r1.selector_str;
            " vs ";
-           Css.Selector.to_string r2.selector;
+           r2.selector_str;
            " -> ";
            (match rel with
            | Same_utility bc -> "Same:" ^ bc
@@ -760,8 +753,8 @@ let compare_by_order_then_selector r1 r2 =
   else
     let sel_cmp =
       natural_compare
-        (Css.Selector.to_string r1.selector)
-        (Css.Selector.to_string r2.selector)
+        (r1.selector_str)
+        (r2.selector_str)
     in
     if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
 
@@ -1001,9 +994,9 @@ let compare_indexed_rules r1 r2 =
        (String.concat ""
           [
             "compare_indexed: ";
-            Css.Selector.to_string r1.selector;
+            r1.selector_str;
             " vs ";
-            Css.Selector.to_string r2.selector;
+            r2.selector_str;
             " (types: ";
             rule_type_str r1.rule_type;
             "/";

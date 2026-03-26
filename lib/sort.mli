@@ -30,6 +30,7 @@ type indexed_rule = {
     | `Starting
     | `Supports of Css.Supports.t ];
   selector : Css.Selector.t;
+  selector_str : string;
   selector_kind : selector_kind;
   has_modifier_colon : bool;
   props : Css.declaration list;
