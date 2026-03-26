@@ -350,12 +350,17 @@ let rule_to_triple = function
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =
+  let buf = Buffer.create 256 in
   List.mapi
     (fun i (typ, sel, props, order, nested, base_class, merge_key, not_order) ->
+      Buffer.clear buf;
+      Css.Selector.to_buffer buf sel;
+      let selector_str = Buffer.contents buf in
       ({
          index = i;
          rule_type = typ;
          selector = sel;
+         selector_str;
          selector_kind = Sort.classify_selector sel;
          has_modifier_colon = Css.Selector.contains_modifier_colon sel;
          props;
