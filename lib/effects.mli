@@ -94,9 +94,10 @@ val ring_xl : t
 val inset_ring : t
 (** [inset_ring] applies a default (1px) inset ring. *)
 
-val ring_color : color -> int -> t
-(** [ring_color color shade] sets the ring color class, e.g., [ring blue 500].
-*)
+val ring_color : ?opacity:int -> ?shade:int -> color -> t
+(** [ring_color color] sets the ring color class, e.g., [ring_color blue].
+    Use [~shade] to pick a shade (default 500) and [~opacity] to set
+    opacity as a percentage. *)
 
 val ring_inset : t
 (** [ring_inset] applies an inset ring. *)

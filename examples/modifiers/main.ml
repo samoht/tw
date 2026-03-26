@@ -70,7 +70,7 @@ let focus_demo =
               border;
               border_color ~shade:300 gray;
               rounded_lg;
-              focus [ ring_md; ring_color blue 500; outline_none ];
+              focus [ ring_md; ring_color blue; outline_none ];
               dark
                 [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
             ]
@@ -220,7 +220,7 @@ let group_focus_demo =
                   border_color ~shade:300 gray;
                   rounded_md;
                   mb 2;
-                  focus [ outline_none; ring_md; ring_color blue 500 ];
+                  focus [ outline_none; ring_md; ring_color blue ];
                   dark [ bg ~shade:600 gray; border_color gray; text white ];
                 ]
             ~at:[ At.placeholder "Focus this input" ]
@@ -527,7 +527,7 @@ let focus_visible_demo =
                   text white;
                   rounded_lg;
                   focus [ outline_none ];
-                  focus_visible [ ring_md; ring_color blue 400 ];
+                  focus_visible [ ring_md; ring_color ~shade:400 blue ];
                 ]
             [ txt "Tab to focus" ];
         ];

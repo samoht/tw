@@ -2747,6 +2747,9 @@ let uppercase = utility_late Typography_late.Uppercase
 let lowercase = utility_late Typography_late.Lowercase
 let capitalize = utility_late Typography_late.Capitalize
 let normal_case = utility_late Typography_late.Normal_case
+let underline_offset n =
+  utility_late (Typography_late.Underline_offset_px (float_of_int n))
+
 let underline_offset_auto = utility_late Typography_late.Underline_offset_auto
 let underline_offset_0 = utility_late Typography_late.Underline_offset_0
 let underline_offset_1 = utility_late Typography_late.Underline_offset_1

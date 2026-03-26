@@ -310,7 +310,7 @@ let ordering_text_bg_border () =
   check_list [ text_sm; font_bold; text blue ]
 
 let ordering_shadow_ring () =
-  check_list [ shadow_sm; ring; ring_color blue 500 ]
+  check_list [ shadow_sm; ring; ring_color blue ]
 
 let ordering_transitions () = check_list [ transition_colors; duration 200 ]
 

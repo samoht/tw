@@ -480,8 +480,14 @@ val sticky : t
 val inset_0 : t
 (** [inset_0] sets all inset values to 0. *)
 
+val inset_x : int -> t
+(** [inset_x n] sets horizontal inset (left and right). *)
+
 val inset_x_0 : t
 (** [inset_x_0] sets left and right to 0. *)
+
+val inset_y : int -> t
+(** [inset_y n] sets vertical inset (top and bottom). *)
 
 val inset_y_0 : t
 (** [inset_y_0] sets top and bottom to 0. *)
@@ -1624,6 +1630,9 @@ val decoration_from_font : t
     @see <https://tailwindcss.com/docs/text-underline-offset>
       Text Underline Offset *)
 
+val underline_offset : int -> t
+(** [underline_offset n] sets text underline offset to [n]px. *)
+
 val underline_offset_auto : t
 (** [underline_offset_auto] sets text underline offset to auto (browser
     default). *)
@@ -2331,7 +2340,7 @@ val ring_xl : t
 
 (** Rings use box-shadow and don't affect layout. By default, rings are blue
     with 50% opacity. To customize:
-    - Use [ring_color] to change color: [ring_sm; ring_color purple 500]
+    - Use [ring_color] to change color: [ring_sm; ring_color purple]
     - Rings are often used for focus states: [on_focus [ ring ]]
     - Unlike borders, rings don't take up space in the layout. *)
 
@@ -2341,8 +2350,10 @@ val ring_xl : t
 (** {2 Ring Color}
     @see <https://tailwindcss.com/docs/ring-color> Ring Color *)
 
-val ring_color : color -> int -> t
-(** [ring_color color shade] sets the color of outline rings. *)
+val ring_color : ?opacity:int -> ?shade:int -> color -> t
+(** [ring_color color] sets the color of outline rings.
+    Use [~shade] to pick a shade (default 500) and [~opacity] to set
+    opacity as a percentage. *)
 
 (** {2 Ring Offset Width}
     @see <https://tailwindcss.com/docs/ring-offset-width> Ring Offset Width *)
