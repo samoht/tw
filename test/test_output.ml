@@ -6,8 +6,8 @@ open Tw.Margin
 open Tw.Modifiers
 
 let test_is_hover_rule () =
-  let hover_rules = Tw.Rule.outputs (hover [ bg blue 500 ]) in
-  let non_hover_rules = Tw.Rule.outputs (bg blue 500) in
+  let hover_rules = Tw.Rule.outputs (hover [ bg blue ]) in
+  let non_hover_rules = Tw.Rule.outputs (bg blue) in
 
   (match hover_rules with
   | [ hover_rule ] ->
@@ -33,13 +33,13 @@ let test_is_hover_rule () =
         (is_hover_rule regular_rule)
   | _ -> fail "Expected single regular rule with nested CSS");
 
-  let focus_rules = Tw.Rule.outputs (focus [ bg red 400 ]) in
+  let focus_rules = Tw.Rule.outputs (focus [ bg ~shade:400 red ]) in
   (match focus_rules with
   | [ focus_rule ] ->
       check bool "focus alone is not hover" false (is_hover_rule focus_rule)
   | _ -> fail "Expected single focus rule");
 
-  let group_hover_rules = Tw.Rule.outputs (group_hover [ text white 0 ]) in
+  let group_hover_rules = Tw.Rule.outputs (group_hover [ text white ]) in
   match group_hover_rules with
   | [ group_rule ] ->
       check bool "group-hover is detected as hover" true

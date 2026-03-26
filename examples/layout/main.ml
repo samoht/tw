@@ -8,22 +8,34 @@ open Tw_html
 (* Page header *)
 let page_header =
   header
-    ~tw:Tw.[ bg_white; shadow_sm; dark [ bg gray 900 ] ]
+    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:900 gray ] ]
     [
       div
         ~tw:Tw.[ max_w_6xl; mx_auto; px 4; py 4 ]
         [
           h1
-            ~tw:Tw.[ text_2xl; font_bold; text gray 900; dark [ text_white ] ]
+            ~tw:
+              Tw.
+                [
+                  text_2xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                ]
             [ txt "Layout Demo" ];
         ];
     ]
 
 (* Shared demo styles *)
 let demo_label =
-  Tw.[ text_sm; font_semibold; text gray 700; mb 2; dark [ text gray 300 ] ]
+  Tw.
+    [
+      text_sm;
+      font_semibold;
+      text ~shade:700 gray;
+      mb 2;
+      dark [ text ~shade:300 gray ];
+    ]
 
-let demo_bg = Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+let demo_bg =
+  Tw.[ p 4; bg ~shade:100 gray; rounded_lg; dark [ bg ~shade:700 gray ] ]
 
 (* Helper for demo boxes *)
 let box ?(extra = []) content =
@@ -32,12 +44,12 @@ let box ?(extra = []) content =
       Tw.(
         [
           p 4;
-          bg blue 100;
+          bg ~shade:100 blue;
           rounded_lg;
           text_center;
           font_medium;
-          text blue 800;
-          dark [ bg blue 900; text blue 100 ];
+          text ~shade:800 blue;
+          dark [ bg ~shade:900 blue; text ~shade:100 blue ];
         ]
         @ extra)
     [ txt content ]
@@ -67,14 +79,22 @@ let flex_direction_demos =
 let flex_direction_section =
   section
     ~at:[ At.v "aria-labelledby" "flex-dir-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "flex-dir-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Flex Direction" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [
           txt "Control the direction of flex items with row and column layouts.";
         ];
@@ -106,14 +126,22 @@ let justify_demos =
 let justify_section =
   section
     ~at:[ At.v "aria-labelledby" "justify-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "justify-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Justify Content" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Control how items are positioned along the main axis." ];
       justify_demos;
     ]
@@ -146,14 +174,22 @@ let align_demos =
 let align_section =
   section
     ~at:[ At.v "aria-labelledby" "align-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "align-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Align Items" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Control how items are positioned along the cross axis." ];
       align_demos;
     ]
@@ -181,14 +217,22 @@ let nowrap_demo =
 let wrap_section =
   section
     ~at:[ At.v "aria-labelledby" "wrap-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "wrap-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Flex Wrap" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Control whether flex items wrap to new lines." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; lg [ grid_cols 2 ] ]
@@ -213,14 +257,22 @@ let grid_cols_demos =
 let grid_cols_section =
   section
     ~at:[ At.v "aria-labelledby" "grid-cols-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "grid-cols-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Grid Columns" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Create multi-column layouts with CSS Grid." ];
       grid_cols_demos;
     ]
@@ -229,14 +281,22 @@ let grid_cols_section =
 let grid_span_section =
   section
     ~at:[ At.v "aria-labelledby" "grid-span-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "grid-span-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Grid Column & Row Span" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Make items span multiple columns or rows." ];
       div
         ~tw:Tw.([ grid; grid_cols 4; gap 2 ] @ demo_bg)
@@ -254,14 +314,22 @@ let grid_span_section =
 let responsive_grid_section =
   section
     ~at:[ At.v "aria-labelledby" "responsive-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "responsive-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Responsive Grid" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [
           txt
             "Resize your browser to see the grid adapt: 1 column on mobile, 2 \
@@ -309,14 +377,22 @@ let asymmetric_gap_demo =
 let gap_section =
   section
     ~at:[ At.v "aria-labelledby" "gap-heading" ]
-    ~tw:Tw.[ bg_white; p 6; rounded_xl; shadow_sm; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "gap-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Gap Utilities" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "Control spacing between grid and flex items." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
@@ -330,15 +406,16 @@ let sidebar_nav =
       Tw.
         [
           lg [ col_span 1 ];
-          bg_white;
+          bg white;
           rounded_lg;
           p 4;
           shadow_sm;
-          dark [ bg gray 700 ];
+          dark [ bg ~shade:700 gray ];
         ]
     [
       h3
-        ~tw:Tw.[ font_semibold; text gray 800; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.[ font_semibold; text ~shade:800 gray; mb 4; dark [ text white ] ]
         [ txt "Navigation" ];
       div
         ~tw:Tw.[ flex; flex_col; gap 2 ]
@@ -351,9 +428,9 @@ let sidebar_nav =
                      px 3;
                      py 2;
                      rounded;
-                     text gray 600;
-                     hover [ bg gray 100 ];
-                     dark [ text gray 300; hover [ bg gray 600 ] ];
+                     text ~shade:600 gray;
+                     hover [ bg ~shade:100 gray ];
+                     dark [ text ~shade:300 gray; hover [ bg ~shade:600 gray ] ];
                    ]
                [ txt label ])
            [ "Dashboard"; "Analytics"; "Reports"; "Settings" ]);
@@ -365,14 +442,28 @@ let stats_row =
     (List.map
        (fun (label, value) ->
          div
-           ~tw:Tw.[ bg_white; rounded_lg; p 4; shadow_sm; dark [ bg gray 700 ] ]
+           ~tw:
+             Tw.
+               [
+                 bg white;
+                 rounded_lg;
+                 p 4;
+                 shadow_sm;
+                 dark [ bg ~shade:700 gray ];
+               ]
            [
              p
-               ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+               ~tw:Tw.[ text_sm; text gray; dark [ text ~shade:400 gray ] ]
                [ txt label ];
              p
                ~tw:
-                 Tw.[ text_2xl; font_bold; text gray 900; dark [ text_white ] ]
+                 Tw.
+                   [
+                     text_2xl;
+                     font_bold;
+                     text ~shade:900 gray;
+                     dark [ text white ];
+                   ]
                [ txt value ];
            ])
        [ ("Users", "1,234"); ("Revenue", "$45.2k"); ("Orders", "892") ])
@@ -380,13 +471,22 @@ let stats_row =
 let content_area =
   div
     ~tw:
-      Tw.[ flex_1; bg_white; rounded_lg; p 6; shadow_sm; dark [ bg gray 700 ] ]
+      Tw.
+        [
+          flex_1;
+          bg white;
+          rounded_lg;
+          p 6;
+          shadow_sm;
+          dark [ bg ~shade:700 gray ];
+        ]
     [
       h3
-        ~tw:Tw.[ font_semibold; text gray 800; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.[ font_semibold; text ~shade:800 gray; mb 4; dark [ text white ] ]
         [ txt "Content Area" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ] ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ] ]
         [
           txt
             "This area uses flex-1 to fill the remaining space. The sidebar \
@@ -398,14 +498,22 @@ let content_area =
 let layout_pattern_section =
   section
     ~at:[ At.v "aria-labelledby" "pattern-heading" ]
-    ~tw:Tw.[ bg blue 50; p 6; rounded_xl; dark [ bg gray 800 ] ]
+    ~tw:Tw.[ bg ~shade:50 blue; p 6; rounded_xl; dark [ bg ~shade:800 gray ] ]
     [
       h2
         ~at:[ At.id "pattern-heading" ]
-        ~tw:Tw.[ text_xl; font_bold; text gray 900; mb 4; dark [ text_white ] ]
+        ~tw:
+          Tw.
+            [
+              text_xl;
+              font_bold;
+              text ~shade:900 gray;
+              mb 4;
+              dark [ text white ];
+            ]
         [ txt "Real-World Layout: Dashboard" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
         [ txt "A typical dashboard layout using grid and flex utilities." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 4 ]; gap 4 ]
@@ -429,16 +537,20 @@ let page_intro =
               text_3xl;
               md [ text_4xl ];
               font_bold;
-              text gray 900;
+              text ~shade:900 gray;
               mb 4;
-              dark [ text_white ];
+              dark [ text white ];
             ]
         [ txt "Layout Utilities" ];
       p
         ~tw:
           Tw.
             [
-              text_lg; text gray 600; max_w_2xl; mx_auto; dark [ text gray 400 ];
+              text_lg;
+              text ~shade:600 gray;
+              max_w_2xl;
+              mx_auto;
+              dark [ text ~shade:400 gray ];
             ]
         [
           txt

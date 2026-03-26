@@ -81,13 +81,13 @@ let test_color_order () =
      order)
 
 let test_theme_layer_color_order () =
-  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let sheet = sheet_of [ bg cyan; bg sky; bg blue ] in
   let theme_colors = extract_theme_color_vars sheet in
   check (list string) "theme layer: cyan, sky, blue" [ "cyan"; "sky"; "blue" ]
     theme_colors
 
 let test_utilities_layer_color_order () =
-  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let sheet = sheet_of [ bg cyan; bg sky; bg blue ] in
   let util_colors = extract_utility_selectors sheet in
   check (list string) "utilities layer: blue, cyan, sky"
     [ "blue"; "cyan"; "sky" ] util_colors
@@ -95,9 +95,9 @@ let test_utilities_layer_color_order () =
 let test_deterministic_ordering () =
   let inputs =
     [
-      [ bg cyan 500; bg sky 500; bg blue 500 ];
-      [ bg blue 500; bg sky 500; bg cyan 500 ];
-      [ bg sky 500; bg blue 500; bg cyan 500 ];
+      [ bg cyan; bg sky; bg blue ];
+      [ bg blue; bg sky; bg cyan ];
+      [ bg sky; bg blue; bg cyan ];
     ]
   in
   let results =
@@ -211,11 +211,11 @@ let test_cascade_color_override () =
   (* Real-world example: user wants to override a color *)
   let styles =
     [
-      bg blue 500;
+      bg blue;
       (* Initial color *)
-      text white 0;
+      text white;
       (* Some other styles *)
-      bg red 500;
+      bg red;
       (* Override the background to red *)
     ]
   in
@@ -291,10 +291,10 @@ let test_typography_before_color () =
       text_center;
       text_4xl;
       font_bold;
-      text gray 600;
+      text ~shade:600 gray;
       text_sm;
-      text gray 800;
-      text_white;
+      text ~shade:800 gray;
+      text white;
     ]
   in
   Test_helpers.check_ordering_matches
@@ -328,7 +328,7 @@ let test_priority_order_per_group () =
   let alignment_utils = [ items_center; items_start; items_end ] in
   let gap_utils = List.init 10 (fun i -> gap i) in
   let border_utils = [ rounded; rounded_lg; rounded_full ] in
-  let bg_utils = [ bg blue 500; bg red 500; bg green 500 ] in
+  let bg_utils = [ bg blue; bg red; bg green ] in
   let padding_utils = List.init 10 (fun i -> p i) in
   let typography_utils = [ text_xl; text_sm; text_2xl ] in
   let effect_utils = [ shadow; shadow_md; shadow_lg ] in
@@ -481,7 +481,7 @@ let test_suborder_within_group () =
         let colors = [ red; blue; green; yellow; purple; pink ] in
         let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
         List.concat_map
-          (fun color -> List.map (fun shade -> bg color shade) shades)
+          (fun color -> List.map (fun shade -> bg ~shade color) shades)
           colors );
       ("flex", [ flex; inline_flex ]);
       ( "grid",
@@ -785,31 +785,31 @@ let test_random_utilities_with_minimization () =
       rounded_full;
       border;
       (* Background: priority 18 *)
-      bg white 0;
-      bg black 0;
-      bg gray 50;
-      bg gray 100;
-      bg gray 200;
-      bg gray 300;
-      bg gray 500;
-      bg gray 900;
-      bg red 50;
-      bg red 100;
-      bg red 500;
-      bg red 600;
-      bg red 900;
-      bg blue 50;
-      bg blue 100;
-      bg blue 500;
-      bg blue 600;
-      bg blue 900;
-      bg green 50;
-      bg green 500;
-      bg green 600;
-      bg yellow 50;
-      bg yellow 500;
-      bg purple 500;
-      bg pink 500;
+      bg white;
+      bg black;
+      bg ~shade:50 gray;
+      bg ~shade:100 gray;
+      bg ~shade:200 gray;
+      bg ~shade:300 gray;
+      bg gray;
+      bg ~shade:900 gray;
+      bg ~shade:50 red;
+      bg ~shade:100 red;
+      bg red;
+      bg ~shade:600 red;
+      bg ~shade:900 red;
+      bg ~shade:50 blue;
+      bg ~shade:100 blue;
+      bg blue;
+      bg ~shade:600 blue;
+      bg ~shade:900 blue;
+      bg ~shade:50 green;
+      bg green;
+      bg ~shade:600 green;
+      bg ~shade:50 yellow;
+      bg yellow;
+      bg purple;
+      bg pink;
       (* Padding: priority 19 *)
       p 0;
       p 1;

@@ -27,4 +27,5 @@
   (alcotest :with-test)
   (astring :with-test)
   (crunch :with-test)
-  (alcobar :with-test)))
+  (alcobar :with-test)
+  memtrace))

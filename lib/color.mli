@@ -233,9 +233,9 @@ end
 
 (** {1 Color Application Utilities} *)
 
-val bg : color -> int -> t
-(** [bg color shade] sets the background color using a palette [color] and
-    [shade]. *)
+val bg : ?opacity:int -> ?shade:int -> color -> t
+(** [bg color] sets the background color. [shade] defaults to 500. [opacity]
+    sets the alpha modifier (0-100), e.g. [bg ~opacity:50 white]. *)
 
 val bg_transparent : t
 (** [bg_transparent] makes the background fully transparent. *)
@@ -243,81 +243,9 @@ val bg_transparent : t
 val bg_current : t
 (** [bg_current] uses [currentColor] for the background. *)
 
-val bg_black : t
-(** [bg_black] uses the black palette for background. *)
-
-val bg_white : t
-(** [bg_white] uses the white palette for background. *)
-
-val bg_gray : t
-(** [bg_gray] uses the gray palette for background. *)
-
-val bg_slate : t
-(** [bg_slate] uses the slate palette for background. *)
-
-val bg_zinc : t
-(** [bg_zinc] uses the zinc palette for background. *)
-
-val bg_neutral : t
-(** [bg_neutral] uses the neutral palette for background. *)
-
-val bg_stone : t
-(** [bg_stone] uses the stone palette for background. *)
-
-val bg_red : t
-(** [bg_red] uses the red palette for background. *)
-
-val bg_orange : t
-(** [bg_orange] uses the orange palette for background. *)
-
-val bg_amber : t
-(** [bg_amber] uses the amber palette for background. *)
-
-val bg_yellow : t
-(** [bg_yellow] uses the yellow palette for background. *)
-
-val bg_lime : t
-(** [bg_lime] uses the lime palette for background. *)
-
-val bg_green : t
-(** [bg_green] uses the green palette for background. *)
-
-val bg_emerald : t
-(** [bg_emerald] uses the emerald palette for background. *)
-
-val bg_teal : t
-(** [bg_teal] uses the teal palette for background. *)
-
-val bg_cyan : t
-(** [bg_cyan] uses the cyan palette for background. *)
-
-val bg_sky : t
-(** [bg_sky] uses the sky palette for background. *)
-
-val bg_blue : t
-(** [bg_blue] uses the blue palette for background. *)
-
-val bg_indigo : t
-(** [bg_indigo] uses the indigo palette for background. *)
-
-val bg_violet : t
-(** [bg_violet] uses the violet palette for background. *)
-
-val bg_purple : t
-(** [bg_purple] uses the purple palette for background. *)
-
-val bg_fuchsia : t
-(** [bg_fuchsia] uses the fuchsia palette for background. *)
-
-val bg_pink : t
-(** [bg_pink] uses the pink palette for background. *)
-
-val bg_rose : t
-(** [bg_rose] uses the rose palette for background. *)
-
-val text : color -> int -> t
-(** [text color shade] sets the text color using a palette [color] and [shade].
-*)
+val text : ?opacity:int -> ?shade:int -> color -> t
+(** [text color] sets the text color. [shade] defaults to 500. [opacity] sets
+    the alpha modifier (0-100), e.g. [text ~opacity:50 red]. *)
 
 val text_transparent : t
 (** [text_transparent] makes text fully transparent. *)
@@ -328,81 +256,10 @@ val text_current : t
 val text_inherit : t
 (** [text_inherit] inherits text color from parent. *)
 
-val text_black : t
-(** [text_black] uses the black palette for text. *)
-
-val text_white : t
-(** [text_white] uses the white palette for text. *)
-
-val text_gray : t
-(** [text_gray] uses the gray palette for text. *)
-
-val text_slate : t
-(** [text_slate] uses the slate palette for text. *)
-
-val text_zinc : t
-(** [text_zinc] uses the zinc palette for text. *)
-
-val text_neutral : t
-(** [text_neutral] uses the neutral palette for text. *)
-
-val text_stone : t
-(** [text_stone] uses the stone palette for text. *)
-
-val text_red : t
-(** [text_red] uses the red palette for text. *)
-
-val text_orange : t
-(** [text_orange] uses the orange palette for text. *)
-
-val text_amber : t
-(** [text_amber] uses the amber palette for text. *)
-
-val text_yellow : t
-(** [text_yellow] uses the yellow palette for text. *)
-
-val text_lime : t
-(** [text_lime] uses the lime palette for text. *)
-
-val text_green : t
-(** [text_green] uses the green palette for text. *)
-
-val text_emerald : t
-(** [text_emerald] uses the emerald palette for text. *)
-
-val text_teal : t
-(** [text_teal] uses the teal palette for text. *)
-
-val text_cyan : t
-(** [text_cyan] uses the cyan palette for text. *)
-
-val text_sky : t
-(** [text_sky] uses the sky palette for text. *)
-
-val text_blue : t
-(** [text_blue] uses the blue palette for text. *)
-
-val text_indigo : t
-(** [text_indigo] uses the indigo palette for text. *)
-
-val text_violet : t
-(** [text_violet] uses the violet palette for text. *)
-
-val text_purple : t
-(** [text_purple] uses the purple palette for text. *)
-
-val text_fuchsia : t
-(** [text_fuchsia] uses the fuchsia palette for text. *)
-
-val text_pink : t
-(** [text_pink] uses the pink palette for text. *)
-
-val text_rose : t
-(** [text_rose] uses the rose palette for text. *)
-
-val border_color : color -> int -> t
-(** [border_color color shade] sets the border color using a palette [color] and
-    [shade]. *)
+val border_color : ?opacity:int -> ?shade:int -> color -> t
+(** [border_color color] sets the border color. [shade] defaults to 500.
+    [opacity] sets the alpha modifier (0-100), e.g.
+    [border_color ~opacity:5 white]. *)
 
 val border_transparent : t
 (** [border_transparent] makes the border fully transparent. *)
@@ -410,80 +267,9 @@ val border_transparent : t
 val border_current : t
 (** [border_current] uses [currentColor] for border color. *)
 
-val border_black : t
-(** [border_black] uses the black palette for border color. *)
-
-val border_white : t
-(** [border_white] uses the white palette for border color. *)
-
-val border_gray : t
-(** [border_gray] uses the gray palette for border color. *)
-
-val border_slate : t
-(** [border_slate] uses the slate palette for border color. *)
-
-val border_zinc : t
-(** [border_zinc] uses the zinc palette for border color. *)
-
-val border_neutral : t
-(** [border_neutral] uses the neutral palette for border color. *)
-
-val border_stone : t
-(** [border_stone] uses the stone palette for border color. *)
-
-val border_red : t
-(** [border_red] uses the red palette for border color. *)
-
-val border_orange : t
-(** [border_orange] uses the orange palette for border color. *)
-
-val border_amber : t
-(** [border_amber] uses the amber palette for border color. *)
-
-val border_yellow : t
-(** [border_yellow] uses the yellow palette for border color. *)
-
-val border_lime : t
-(** [border_lime] uses the lime palette for border color. *)
-
-val border_green : t
-(** [border_green] uses the green palette for border color. *)
-
-val border_emerald : t
-(** [border_emerald] uses the emerald palette for border color. *)
-
-val border_teal : t
-(** [border_teal] uses the teal palette for border color. *)
-
-val border_cyan : t
-(** [border_cyan] uses the cyan palette for border color. *)
-
-val border_sky : t
-(** [border_sky] uses the sky palette for border color. *)
-
-val border_blue : t
-(** [border_blue] uses the blue palette for border color. *)
-
-val border_indigo : t
-(** [border_indigo] uses the indigo palette for border color. *)
-
-val border_violet : t
-(** [border_violet] uses the violet palette for border color. *)
-
-val border_purple : t
-(** [border_purple] uses the purple palette for border color. *)
-
-val border_fuchsia : t
-(** [border_fuchsia] uses the fuchsia palette for border color. *)
-
-val border_pink : t
-(** [border_pink] uses the pink palette for border color. *)
-
-val border_rose : t
-(** [border_rose] uses the rose palette for border color. *)
-
-val accent : color -> int -> t
-(** [accent color shade] sets the accent color for form controls. *)
+val accent : ?opacity:int -> ?shade:int -> color -> t
+(** [accent color] sets the accent color for form controls. [shade] defaults to
+    500. [opacity] sets the alpha modifier (0-100). *)
 
 val accent_current : t
 (** [accent_current] sets accent color to currentColor. *)
@@ -491,8 +277,9 @@ val accent_current : t
 val accent_inherit : t
 (** [accent_inherit] sets accent color to inherit. *)
 
-val caret : color -> int -> t
-(** [caret color shade] sets the caret color for text input elements. *)
+val caret : ?opacity:int -> ?shade:int -> color -> t
+(** [caret color] sets the caret color for text input elements. [shade] defaults
+    to 500. [opacity] sets the alpha modifier (0-100). *)
 
 val caret_current : t
 (** [caret_current] sets caret color to currentColor. *)

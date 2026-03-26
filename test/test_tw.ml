@@ -156,7 +156,7 @@ let empty_test () =
 
 let multiple_classes () =
   (* Test with multiple classes together *)
-  check_list [ p 4; m 2; bg blue 500; text white 0 ];
+  check_list [ p 4; m 2; bg blue; text white ];
   check_list [ flex; items_center; justify_center; gap 4 ];
   check_list [ rounded_lg; shadow_md; p 6 ]
 
@@ -167,9 +167,9 @@ let responsive_classes () =
   check_list [ hidden; sm [ block ]; md [ flex ] ]
 
 let states () =
-  check (hover [ bg_white ]);
-  check (focus [ bg sky 500 ]);
-  check (active [ text gray 900 ]);
+  check (hover [ bg white ]);
+  check (focus [ bg sky ]);
+  check (active [ text ~shade:900 gray ]);
 
   check shadow_sm;
   check shadow;
@@ -189,15 +189,15 @@ let container_queries () =
   check (container_md [ m 8 ])
 
 let hex_colors () =
-  check (bg (hex "#1da1f2") 0);
-  check (text (hex "#ff5733") 0);
-  check (border_color (hex "#00ff00") 0);
-  check (bg (hex "rgb(29,161,242)") 0)
+  check (bg (hex "#1da1f2"));
+  check (text (hex "#ff5733"));
+  check (border_color (hex "#00ff00"));
+  check (bg (hex "rgb(29,161,242)"))
 
 let gradients () =
-  check (from_color blue ~shade:500);
-  check (via_color purple ~shade:500);
-  check (to_color pink ~shade:500)
+  check (from_color blue);
+  check (via_color purple);
+  check (to_color pink)
 
 let responsive_breakpoints () =
   check (sm [ block ]);
@@ -224,27 +224,27 @@ let opacity_effects () =
   check (opacity 100)
 
 let extended_colors () =
-  check (bg slate 50);
-  check (bg zinc 500);
-  check (bg orange 900);
-  check (text amber 100);
-  check (text lime 600);
-  check (border_color emerald 300);
-  check (border_color cyan 700);
-  check (bg violet 400);
-  check (text fuchsia 800);
-  check (bg rose 200)
+  check (bg ~shade:50 slate);
+  check (bg zinc);
+  check (bg ~shade:900 orange);
+  check (text ~shade:100 amber);
+  check (text ~shade:600 lime);
+  check (border_color ~shade:300 emerald);
+  check (border_color ~shade:700 cyan);
+  check (bg ~shade:400 violet);
+  check (text ~shade:800 fuchsia);
+  check (bg ~shade:200 rose)
 
 let peer_selectors () =
-  check (peer_hover [ text blue 500 ]);
-  check (peer_focus [ bg yellow 200 ])
+  check (peer_hover [ text blue ]);
+  check (peer_focus [ bg ~shade:200 yellow ])
 
 let aria_selectors () =
-  check (aria_checked [ text green 500 ]);
+  check (aria_checked [ text green ]);
   check (aria_disabled [ opacity 50 ])
 
 let data_selectors () =
-  check (data_active [ bg blue 100 ]);
+  check (data_active [ bg ~shade:100 blue ]);
   check (data_inactive [ opacity 50 ])
 
 let transforms_3d () =
@@ -305,8 +305,9 @@ let ordering_layout_sizing () =
   check_list [ flex; flex_col; items_center; gap 4 ]
 
 let ordering_text_bg_border () =
-  check_list [ text gray 700; bg white 0; border; border_color gray 300 ];
-  check_list [ text_sm; font_bold; text blue 500 ]
+  check_list
+    [ text ~shade:700 gray; bg white; border; border_color ~shade:300 gray ];
+  check_list [ text_sm; font_bold; text blue ]
 
 let ordering_shadow_ring () =
   check_list [ shadow_sm; ring; ring_color blue 500 ]
@@ -314,9 +315,9 @@ let ordering_shadow_ring () =
 let ordering_transitions () = check_list [ transition_colors; duration 200 ]
 
 let ordering_with_variants () =
-  check_list [ bg blue 500; hover [ bg blue 600 ]; focus [ ring ] ];
+  check_list [ bg blue; hover [ bg ~shade:600 blue ]; focus [ ring ] ];
   check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
-  check_list [ text white 0; dark [ text gray 300 ] ]
+  check_list [ text white; dark [ text ~shade:300 gray ] ]
 
 let ordering_complex_card () =
   check_list
@@ -325,11 +326,11 @@ let ordering_complex_card () =
       flex_col;
       gap 4;
       p 6;
-      bg white 0;
+      bg white;
       rounded_lg;
       shadow_sm;
       border;
-      border_color gray 200;
+      border_color ~shade:200 gray;
       hover [ shadow_md ];
     ]
 
@@ -563,26 +564,29 @@ let nesting_variant () =
 let precedence_base_overrides () =
   (* Later base utility should win over earlier base of same kind *)
   check_list [ p 4; p 2 ];
-  check_list [ text blue 600; text blue 500 ]
+  check_list [ text ~shade:600 blue; text blue ]
 
 let precedence_breakpoints () =
   (* Responsive variants should scope correctly and not affect base *)
   check_list [ p 2; md [ p 8 ] ];
-  check_list [ text green 400; sm [ text green 500 ]; lg [ text green 700 ] ]
+  check_list
+    [ text ~shade:400 green; sm [ text green ]; lg [ text ~shade:700 green ] ]
 
 let precedence_states () =
   (* State modifiers combine without interfering with base *)
-  check_list [ bg blue 500; hover [ bg blue 600 ] ];
-  check_list [ text gray 500; focus [ text gray 700 ] ]
+  check_list [ bg blue; hover [ bg ~shade:600 blue ] ];
+  check_list [ text gray; focus [ text ~shade:700 gray ] ]
 
 (* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
 
 (* Helpers for comprehensive color coverage *)
 let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
-let bg_shades color shade_list = List.map (fun s -> bg color s) shade_list
+
+let bg_shades color shade_list =
+  List.map (fun shade -> bg ~shade color) shade_list
 
 let inline_styles () =
-  let inline = to_inline_style [ p 4; bg blue 500; text white 0 ] in
+  let inline = to_inline_style [ p 4; bg blue; text white ] in
   let expected_patterns = [ "padding:"; "background-color:"; "color:" ] in
   List.iter
     (fun pattern ->
@@ -595,7 +599,7 @@ let inline_styles () =
     expected_patterns
 
 let style_combination () =
-  let combined = [ p 4; bg blue 500; text white 0; rounded_lg ] in
+  let combined = [ p 4; bg blue; text white; rounded_lg ] in
   let css = to_css combined |> Css.to_string ~minify:true ~optimize:true in
   let expected_classes =
     [ ".p-4"; ".bg-blue-500"; ".text-white"; ".rounded-lg" ]
@@ -641,28 +645,28 @@ let all_colors_same_shade () =
   check_list
     [
       (* All color families at shade 500 in Tailwind's canonical order *)
-      bg slate 500;
-      bg gray 500;
-      bg zinc 500;
-      bg neutral 500;
-      bg stone 500;
-      bg red 500;
-      bg orange 500;
-      bg amber 500;
-      bg yellow 500;
-      bg lime 500;
-      bg green 500;
-      bg emerald 500;
-      bg teal 500;
-      bg cyan 500;
-      bg sky 500;
-      bg blue 500;
-      bg indigo 500;
-      bg violet 500;
-      bg purple 500;
-      bg fuchsia 500;
-      bg pink 500;
-      bg rose 500;
+      bg slate;
+      bg gray;
+      bg zinc;
+      bg neutral;
+      bg stone;
+      bg red;
+      bg orange;
+      bg amber;
+      bg yellow;
+      bg lime;
+      bg green;
+      bg emerald;
+      bg teal;
+      bg cyan;
+      bg sky;
+      bg blue;
+      bg indigo;
+      bg violet;
+      bg purple;
+      bg fuchsia;
+      bg pink;
+      bg rose;
     ]
 
 let color_shade_ordering () =
@@ -672,17 +676,17 @@ let color_shade_ordering () =
   check_list
     [
       (* Base colors: get order base*1000 + 0 *)
-      text_black;
+      text black;
       (* --color-black: 1*1000 + 0 = 1000 *)
-      bg_white;
+      bg white;
       (* --color-white: 24*1000 + 0 = 24000 *)
 
       (* Regular colors with shades: get order base*1000 + shade *)
-      bg blue 400;
+      bg ~shade:400 blue;
       (* --color-blue-400: 12*1000 + 400 = 12400 *)
-      bg blue 500;
+      bg blue;
       (* --color-blue-500: 12*1000 + 500 = 12500 *)
-      bg blue 600;
+      bg ~shade:600 blue;
       (* --color-blue-600: 12*1000 + 600 = 12600 *)
 
       (* Verify order: black < blue-* < white *)
@@ -720,18 +724,18 @@ let stable_order_with_modifiers () =
   (* Regular vs responsive media ordering should be independent of input
      order *)
   assert_stable_ordering ~label:"responsive vs regular"
-    Tw.[ bg blue 500; md [ bg red 500 ] ]
-    Tw.[ md [ bg red 500 ]; bg blue 500 ]
+    Tw.[ bg blue; md [ bg red ] ]
+    Tw.[ md [ bg red ]; bg blue ]
 
 let stable_order_complex_modifiers () =
   (* Complex selectors like group-has/focus-within must also sort
      deterministically *)
   assert_stable_ordering ~label:"group-has vs responsive"
-    Tw.[ group_has "a" [ text black 0 ]; md [ text white 0 ] ]
-    Tw.[ md [ text white 0 ]; group_has "a" [ text black 0 ] ];
+    Tw.[ group_has "a" [ text black ]; md [ text white ] ]
+    Tw.[ md [ text white ]; group_has "a" [ text black ] ];
   assert_stable_ordering ~label:"focus-within vs responsive"
-    Tw.[ focus_within [ bg red 500 ]; md [ bg blue 500 ] ]
-    Tw.[ md [ bg blue 500 ]; focus_within [ bg red 500 ] ]
+    Tw.[ focus_within [ bg red ]; md [ bg blue ] ]
+    Tw.[ md [ bg blue ]; focus_within [ bg red ] ]
 
 (* ===== PROPERTY ORDERING TESTS ===== *)
 (* These tests verify that the @layer properties @supports block ordering

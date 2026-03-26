@@ -2430,7 +2430,11 @@ let border_none = utility Border_none
 
 (** {1 Border Color Utilities} *)
 
-let border_color color shade = utility (Border_color (color, shade))
+let border_color ?opacity ?(shade = 500) color =
+  match opacity with
+  | None -> utility (Border_color (color, shade))
+  | Some pct -> Color.border_color ~opacity:pct ~shade color
+
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 

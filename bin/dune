@@ -1,4 +1,4 @@
 (executable
  (public_name tw)
  (name main)
- (libraries tw tw.css css_tools tw_tools cmdliner fmt))
+ (libraries tw tw.css css_tools tw_tools cmdliner fmt memtrace))

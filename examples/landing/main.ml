@@ -4,13 +4,13 @@ open Tw_html
 (* Header component *)
 let header_section =
   header
-    ~tw:Tw.[ bg_white; shadow_sm; py 4 ]
+    ~tw:Tw.[ bg white; shadow_sm; py 4 ]
     [
       div
         ~tw:Tw.[ max_w_4xl; mx_auto; px 4 ]
         [
           h1
-            ~tw:Tw.[ text_2xl; font_bold; text gray 800 ]
+            ~tw:Tw.[ text_2xl; font_bold; text ~shade:800 gray ]
             [ txt "Welcome to tw.html" ];
         ];
     ]
@@ -21,10 +21,14 @@ let hero_section =
     ~tw:Tw.[ text_center; mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_4xl; font_bold; text gray 900; mb 4 ]
+        ~tw:Tw.[ text_4xl; font_bold; text ~shade:900 gray; mb 4 ]
         [ txt "Type-Safe HTML with Tw" ];
       p
-        ~tw:Tw.[ text_lg; text gray 600; max_w_2xl; mx_auto; leading_relaxed ]
+        ~tw:
+          Tw.
+            [
+              text_lg; text ~shade:600 gray; max_w_2xl; mx_auto; leading_relaxed;
+            ]
         [
           txt
             "Write HTML and CSS using OCaml's type system. Get compile-time \
@@ -35,7 +39,7 @@ let hero_section =
 (* Card component *)
 let feature_card ~icon ~title ~description =
   div
-    ~tw:Tw.[ bg_white; rounded_lg; shadow_md; p 6 ]
+    ~tw:Tw.[ bg white; rounded_lg; shadow_md; p 6 ]
     [
       div
         ~tw:Tw.[ flex; items_center; mb 4 ]
@@ -46,21 +50,21 @@ let feature_card ~icon ~title ~description =
                 [
                   w 12;
                   h 12;
-                  bg blue 100;
+                  bg ~shade:100 blue;
                   rounded_full;
                   flex;
                   items_center;
                   justify_center;
-                  text blue 600;
+                  text ~shade:600 blue;
                   font_semibold;
                   text_xl;
                 ]
             [ txt icon ];
           h3
-            ~tw:Tw.[ ml 4; text_xl; font_semibold; text gray 800 ]
+            ~tw:Tw.[ ml 4; text_xl; font_semibold; text ~shade:800 gray ]
             [ txt title ];
         ];
-      p ~tw:Tw.[ text gray 600 ] [ txt description ];
+      p ~tw:Tw.[ text ~shade:600 gray ] [ txt description ];
     ]
 
 (* Features section *)
@@ -69,7 +73,7 @@ let features_section =
     ~tw:Tw.[ mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_3xl; font_bold; text_center; text gray 900; mb 8 ]
+        ~tw:Tw.[ text_3xl; font_bold; text_center; text ~shade:900 gray; mb 8 ]
         [ txt "Features" ];
       div
         ~tw:Tw.[ grid; grid_cols 1; md [ grid_cols 2 ]; gap 6 ]
@@ -96,10 +100,10 @@ let features_section =
 (* Code example *)
 let code_example_section =
   section
-    ~tw:Tw.[ bg gray 100; rounded_lg; p 6; mb 12 ]
+    ~tw:Tw.[ bg ~shade:100 gray; rounded_lg; p 6; mb 12 ]
     [
       h3
-        ~tw:Tw.[ text_xl; font_semibold; text gray 800; mb 4 ]
+        ~tw:Tw.[ text_xl; font_semibold; text ~shade:800 gray; mb 4 ]
         [ txt "Code Example" ];
       pre
         ~tw:
@@ -108,8 +112,8 @@ let code_example_section =
               p 4;
               rounded_md;
               overflow_x_auto;
-              bg gray 900;
-              text_white;
+              bg ~shade:900 gray;
+              text white;
               font_mono;
               text_sm;
             ]
@@ -130,7 +134,9 @@ let cta_section =
     ~tw:Tw.[ text_center ]
     [
       h2 ~tw:Tw.[ text_2xl; font_bold; mb 2 ] [ txt "Get Started" ];
-      p ~tw:Tw.[ text gray 600; mb 4 ] [ txt "Install and start styling now." ];
+      p
+        ~tw:Tw.[ text ~shade:600 gray; mb 4 ]
+        [ txt "Install and start styling now." ];
       a
         ~tw:
           Tw.
@@ -140,9 +146,9 @@ let cta_section =
               px 6;
               py 3;
               rounded_md;
-              bg blue 600;
-              text_white;
-              hover [ bg blue 700 ];
+              bg ~shade:600 blue;
+              text white;
+              hover [ bg ~shade:700 blue ];
             ]
         ~at:[ At.href "#" ]
         [ txt "Read the docs" ];
@@ -153,32 +159,31 @@ let hover_effect_card =
     ~tw:Tw.[ transform; transition_all; duration 300; hover [ scale 105 ] ]
     [
       div
-        ~tw:Tw.[ bg_white; p 6; rounded_lg; shadow_md; text_center ]
+        ~tw:Tw.[ bg white; p 6; rounded_lg; shadow_md; text_center ]
         [ txt "Hover over this card to see it scale and lift." ];
     ]
 
 let dark_mode_card =
   div
-    ~tw:Tw.[ bg_white; dark [ bg gray 800 ]; p 4; rounded_lg; shadow_sm ]
+    ~tw:Tw.[ bg white; dark [ bg ~shade:800 gray ]; p 4; rounded_lg; shadow_sm ]
     [
       h3
-        ~tw:Tw.[ font_semibold; mb 2; text gray 900; dark [ text_white ] ]
+        ~tw:
+          Tw.[ font_semibold; mb 2; text ~shade:900 gray; dark [ text white ] ]
         [ txt "Dark Mode" ];
       p
-        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; text_sm ]
+        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; text_sm ]
         [ txt "This card adapts to your system's dark mode preference." ];
     ]
 
 let animation_card =
   div
-    ~tw:Tw.[ bg_white; p 4; rounded_lg; shadow_sm ]
+    ~tw:Tw.[ bg white; p 4; rounded_lg; shadow_sm ]
     [
       h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Animation" ];
-      div
-        ~tw:Tw.[ w 8; h 8; bg blue 500; rounded_full; mx_auto; animate_pulse ]
-        [];
+      div ~tw:Tw.[ w 8; h 8; bg blue; rounded_full; mx_auto; animate_pulse ] [];
       p
-        ~tw:Tw.[ text gray 600; text_sm; mt 2 ]
+        ~tw:Tw.[ text ~shade:600 gray; text_sm; mt 2 ]
         [ txt "A pulsing indicator using CSS animations." ];
     ]
 
@@ -188,7 +193,7 @@ let interactive_section =
     ~tw:Tw.[ mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_3xl; font_bold; text_center; text gray 900; mb 8 ]
+        ~tw:Tw.[ text_3xl; font_bold; text_center; text ~shade:900 gray; mb 8 ]
         [ txt "Interactive Examples" ];
       div
         ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 3 ]; gap 4 ]
@@ -198,11 +203,11 @@ let interactive_section =
 (* Footer component *)
 let footer_section =
   footer
-    ~tw:Tw.[ bg gray 800; text_white; py 8; mt_auto ]
+    ~tw:Tw.[ bg ~shade:800 gray; text white; py 8; mt_auto ]
     [
       div
         ~tw:Tw.[ max_w_4xl; mx_auto; px 4; text_center ]
-        [ p ~tw:Tw.[ text gray 500 ] [ txt "Built with ❤️ using OCaml and Tw" ] ];
+        [ p ~tw:Tw.[ text gray ] [ txt "Built with ❤️ using OCaml and Tw" ] ];
     ]
 
 (* Main page assembly *)
@@ -220,7 +225,7 @@ let main =
     (* Body content *)
     [
       div
-        ~tw:Tw.[ min_h_screen; bg gray 50 ]
+        ~tw:Tw.[ min_h_screen; bg ~shade:50 gray ]
         [
           header_section;
           (* Main content *)

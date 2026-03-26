@@ -8,11 +8,11 @@ Tailwind's pipeline, producing **byte-for-byte identical output**.
 open Tw
 
 let card = [
-  flex; flex_col; gap 4.; p 6;
-  bg white 0; rounded_lg; shadow_sm;
-  border; border_color gray 200;
+  flex; flex_col; gap 4; p 6;
+  bg white; rounded_lg; shadow_sm;
+  border; border_color ~shade:200 gray;
   hover [ shadow_md ];
-  dark [ bg gray 800; text gray 100 ];
+  dark [ bg ~shade:800 gray; text ~shade:100 gray ];
 ]
 ```
 
@@ -42,17 +42,20 @@ opam install tw
 ```ocaml
 open Tw
 
-(* Spacing uses float multipliers: 4 = 1rem *)
-let layout = [ flex; items_center; gap 4.; p 6; mx_auto; max_w_4xl ]
+(* Spacing: integers are multiplied by 0.25rem *)
+let layout = [ flex; items_center; gap 4; p 6; mx_auto; max_w_4xl ]
 
-(* Colors take a color and shade *)
-let colors = [ bg blue 500; text white 0; border_color gray 300 ]
+(* Colors: default shade is 500, use ~shade for others *)
+let colors = [ bg blue; text white; border_color ~shade:300 gray ]
+
+(* Opacity modifier *)
+let faded = [ bg ~opacity:50 white; border_color ~opacity:5 white ]
 
 (* Responsive and state modifiers *)
 let responsive = [
-  p 4.; md [ p 8. ]; lg [ p 12. ];
-  bg blue 500; hover [ bg blue 600 ];
-  text white 0; dark [ text gray 300 ];
+  p 4; md [ p 8 ]; lg [ p 12 ];
+  bg blue; hover [ bg ~shade:600 blue ];
+  text white; dark [ text ~shade:300 gray ];
 ]
 
 (* Typography plugin *)
@@ -61,10 +64,10 @@ let article = [ prose; prose_lg; max_w_4xl; mx_auto ]
 (* Prose element variants *)
 let styled_prose = [
   prose;
-  prose_headings [ text blue 600 ];
-  prose_a [ text blue 500 ];
-  prose_code [ bg gray 100 ];
-  prose_pre [ bg gray 800 ];
+  prose_headings [ text ~shade:600 blue ];
+  prose_a [ text blue ];
+  prose_code [ bg ~shade:100 gray ];
+  prose_pre [ bg ~shade:800 gray ];
 ]
 
 (* Generate CSS *)
@@ -138,6 +141,30 @@ All Tailwind CSS v4 core utilities and both official plugins:
 | Stacked | `dark:hover:`, `md:focus:`, `sm:dark:hover:` |
 
 ## Development
+
+### Prerequisites
+
+The `--diff` and `--tailwind` CLI modes require the `tailwindcss` standalone
+binary for comparison testing:
+
+```bash
+# macOS (Apple Silicon)
+curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-arm64
+chmod +x tailwindcss-macos-arm64
+sudo mv tailwindcss-macos-arm64 /usr/local/bin/tailwindcss
+
+# macOS (Intel)
+curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-x64
+chmod +x tailwindcss-macos-x64
+sudo mv tailwindcss-macos-x64 /usr/local/bin/tailwindcss
+
+# Linux (x64)
+curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64
+chmod +x tailwindcss-linux-x64
+sudo mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
+```
+
+### Building
 
 ```bash
 # Build (both OCaml 5.4 and 4.14)

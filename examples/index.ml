@@ -8,9 +8,9 @@ let example_card ~title ~path ~height =
     ~tw:Tw.[ mb 10 ]
     [
       h2 ~tw:Tw.[ text_2xl; font_semibold; mb 2 ] [ txt title ];
-      p ~tw:Tw.[ text gray 600; mb 4 ] [ txt path ];
+      p ~tw:Tw.[ text ~shade:600 gray; mb 4 ] [ txt path ];
       iframe
-        ~tw:Tw.[ w_full; h height; border; rounded_md; bg_white ]
+        ~tw:Tw.[ w_full; h height; border; rounded_md; bg white ]
         ~at:[ At.src path ]
         [];
     ]

@@ -2,7 +2,7 @@ open Alcotest
 
 (* Test that @layer theme includes expected vars in stable order *)
 let theme_layer_stable_order () =
-  let styles = [ Tw.text_xl; Tw.text_red; Tw.p 4 ] in
+  let styles = Tw.[ text_xl; text red; p 4 ] in
   let css = Tw.to_css ~base:false ~optimize:false styles in
   let theme_layer = Css.layer_block "theme" css in
   match theme_layer with
@@ -21,14 +21,15 @@ let theme_layer_stable_order () =
 let theme_cross_module_vars () =
   (* Use utilities from different modules that reference theme vars *)
   let styles =
-    [
-      Tw.text_xl;
-      (* typography - font size *)
-      Tw.text_blue;
-      (* colors *)
-      Tw.p 4;
-      (* spacing *)
-    ]
+    Tw.
+      [
+        text_xl;
+        (* typography - font size *)
+        text blue;
+        (* colors *)
+        p 4;
+        (* spacing *)
+      ]
   in
   let css = Tw.to_css ~base:false ~optimize:false styles in
   let theme_layer = Css.layer_block "theme" css in

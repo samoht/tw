@@ -66,7 +66,7 @@ let suborder_matches_tailwind () =
   let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
   let utilities =
     List.concat_map
-      (fun color -> List.map (fun shade -> bg color shade) shades)
+      (fun color -> List.map (fun shade -> bg ~shade color) shades)
       colors
   in
   let shuffled = Test_helpers.shuffle utilities in

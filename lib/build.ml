@@ -356,6 +356,8 @@ let add_index triples =
          index = i;
          rule_type = typ;
          selector = sel;
+         selector_kind = Sort.classify_selector sel;
+         has_modifier_colon = Css.Selector.contains_modifier_colon sel;
          props;
          order;
          nested;

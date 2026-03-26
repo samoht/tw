@@ -15,7 +15,7 @@ let check_extract_selector_props () =
   | _ -> fail "Expected Regular rule"
 
 let check_extract_hover () =
-  let rules = Tw.Rule.outputs (hover [ bg blue 500 ]) in
+  let rules = Tw.Rule.outputs (hover [ bg blue ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->

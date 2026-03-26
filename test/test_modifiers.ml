@@ -20,11 +20,11 @@ let test_has_responsive_modifier () =
   let style2 = sm [ p 4 ] in
   check bool "has responsive (sm)" true (has_responsive_modifier style2);
 
-  let style3 = md [ bg blue 500 ] in
+  let style3 = md [ bg blue ] in
   check bool "has responsive (md)" true (has_responsive_modifier style3);
 
   (* Nested modifiers with responsive should be detected *)
-  let style4 = hover [ sm [ bg blue 500 ] ] in
+  let style4 = hover [ sm [ bg blue ] ] in
   check bool "nested has responsive" true (has_responsive_modifier style4);
 
   (* Non-responsive modifiers should not be detected as responsive *)
@@ -101,7 +101,7 @@ let test_apply () =
   (* Test multiple modifiers - "sm:hover:..." means sm is outermost, hover is
      inner. The structure is Modified(Sm, Modified(Hover, base)) which generates
      "sm:hover:..." *)
-  let style2 = apply [ "sm"; "hover" ] (bg blue 500) in
+  let style2 = apply [ "sm"; "hover" ] (bg blue) in
   check bool "multiple modifiers applied" true
     (match style2 with
     | Some (Group [ Modified (Responsive `Sm, Modified (Hover, _)) ]) -> true
@@ -122,7 +122,7 @@ let test_apply () =
     | _ -> false);
 
   (* Test dark mode *)
-  let style5 = apply [ "dark" ] (bg gray 900) in
+  let style5 = apply [ "dark" ] (bg ~shade:900 gray) in
   check bool "dark modifier applied" true
     (match style5 with
     | Some (Group [ Modified (Dark, _) ]) -> true
@@ -151,7 +151,7 @@ let test_modifier_class_names () =
     (Tw.Utility.to_class (md [ grid_cols 2 ]));
 
   check string "lg: single colon" "lg:bg-blue-500"
-    (Tw.Utility.to_class (lg [ bg blue 500 ]));
+    (Tw.Utility.to_class (lg [ bg blue ]));
 
   (* 2xl prefix formatting *)
   check string "2xl: single colon" "2xl:p-4" (Tw.Utility.to_class (xl2 [ p 4 ]));
@@ -185,11 +185,11 @@ let test_media_preference_modifiers () =
     (Tw.Utility.to_class (contrast_more [ border_4 ]));
 
   check string "contrast-less: single colon" "contrast-less:text-gray-600"
-    (Tw.Utility.to_class (contrast_less [ text gray 600 ]));
+    (Tw.Utility.to_class (contrast_less [ text ~shade:600 gray ]));
 
   (* Dark mode *)
   check string "dark: single colon" "dark:bg-gray-900"
-    (Tw.Utility.to_class (dark [ bg gray 900 ]))
+    (Tw.Utility.to_class (dark [ bg ~shade:900 gray ]))
 
 (* Test CSS generation and parsing roundtrip for modifiers *)
 let test_modifier_css_roundtrip () =
@@ -198,10 +198,10 @@ let test_modifier_css_roundtrip () =
       motion_safe [ animate_pulse ];
       motion_reduce [ transition_none ];
       contrast_more [ border_4 ];
-      contrast_more [ text_black ];
-      contrast_less [ text gray 600 ];
-      dark [ bg gray 900 ];
-      hover [ bg blue 500 ];
+      contrast_more [ text black ];
+      contrast_less [ text ~shade:600 gray ];
+      dark [ bg ~shade:900 gray ];
+      hover [ bg blue ];
       sm [ p 4 ];
     ]
   in
@@ -254,11 +254,11 @@ let test_combined_media_modifiers () =
     (Tw.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
 
   check string "md:dark: works" "md:dark:bg-gray-900"
-    (Tw.Utility.to_class (md [ dark [ bg gray 900 ] ]));
+    (Tw.Utility.to_class (md [ dark [ bg ~shade:900 gray ] ]));
 
   (* Generate and parse CSS with combined modifiers *)
   let utilities =
-    [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg gray 900 ] ] ]
+    [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg ~shade:900 gray ] ] ]
   in
   let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
   match Tw.Css.of_string css_str with
@@ -369,7 +369,7 @@ let test_apply_bracketed_has () =
   check string "group-has + hover order" "group-has-[.y]:hover:m-2"
     (Tw.Utility.to_class (Option.get u2));
 
-  let u3 = apply [ "peer-has-[.z]" ] (bg blue 500) in
+  let u3 = apply [ "peer-has-[.z]" ] (bg blue) in
   check string "peer-has class" "peer-has-[.z]:bg-blue-500"
     (Tw.Utility.to_class (Option.get u3))
 
@@ -384,7 +384,7 @@ let test_aria_and_data_modifiers () =
   check string "data-inactive:m-2" "data-inactive:m-2"
     (Tw.Utility.to_class (data_inactive [ m 2 ]));
   check string "data-state=open:bg-blue-500" "data-state=open:bg-blue-500"
-    (Tw.Utility.to_class (data_state "open" (bg blue 500)));
+    (Tw.Utility.to_class (data_state "open" (bg blue)));
   check string "data-variant=primary:p-3" "data-variant=primary:p-3"
     (Tw.Utility.to_class (data_variant "primary" (p 3)));
   check string "data-status=on:m-4" "data-status=on:m-4"
@@ -399,17 +399,21 @@ let test_before_after_modifiers () =
 let test_nested_modifier_class_names () =
   (* Basic dark:hover: nesting *)
   check string "dark:hover:text-white" "dark:hover:text-white"
-    Tw.(to_classes [ dark [ hover [ text_white ] ] ]);
+    Tw.(to_classes [ dark [ hover [ text white ] ] ]);
 
   (* Multiple utilities in nested modifier group *)
   check string "dark:[hover group with multiple items]"
     "dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
     Tw.(
-      to_classes [ dark [ text gray 300; hover [ bg gray 700; text_white ] ] ]);
+      to_classes
+        [
+          dark
+            [ text ~shade:300 gray; hover [ bg ~shade:700 gray; text white ] ];
+        ]);
 
   (* Triple nesting: sm:dark:hover *)
   check string "sm:dark:hover:bg-blue-500" "sm:dark:hover:bg-blue-500"
-    Tw.(to_classes [ sm [ dark [ hover [ bg blue 500 ] ] ] ]);
+    Tw.(to_classes [ sm [ dark [ hover [ bg blue ] ] ] ]);
 
   (* focus:before: nesting *)
   check string "focus:before:content-*" "focus:before:content-[\"'*'\"]"
@@ -418,7 +422,7 @@ let test_nested_modifier_class_names () =
   (* md:hover: group with multiple items *)
   check string "md:hover:[multiple items]"
     "md:hover:bg-blue-500 md:hover:text-white"
-    Tw.(to_classes [ md [ hover [ bg blue 500; text_white ] ] ]);
+    Tw.(to_classes [ md [ hover [ bg blue; text white ] ] ]);
 
   (* dark:focus-within: nesting *)
   check string "dark:focus-within:ring" "dark:focus-within:ring-2"
@@ -426,16 +430,16 @@ let test_nested_modifier_class_names () =
 
   (* group-hover inside dark *)
   check string "dark:group-hover:text-white" "dark:group-hover:text-white"
-    Tw.(to_classes [ dark [ group_hover [ text_white ] ] ]);
+    Tw.(to_classes [ dark [ group_hover [ text white ] ] ]);
 
   (* Complex nested group structure - this is the pattern from dashboard
      main.ml *)
   let complex_styles =
     Tw.
       [
-        text gray 600;
-        hover [ bg gray 100; text gray 900 ];
-        dark [ text gray 300; hover [ bg gray 700; text_white ] ];
+        text ~shade:600 gray;
+        hover [ bg ~shade:100 gray; text ~shade:900 gray ];
+        dark [ text ~shade:300 gray; hover [ bg ~shade:700 gray; text white ] ];
       ]
   in
   check string "complex nested structure"
@@ -446,7 +450,7 @@ let test_nested_modifier_class_names () =
 (* Test CSS generation for nested modifiers *)
 let test_nested_modifier_css_generation () =
   (* Ensure dark:hover: generates valid CSS with proper media query nesting *)
-  let utilities = [ dark [ hover [ bg blue 500 ] ] ] in
+  let utilities = [ dark [ hover [ bg blue ] ] ] in
   let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
 
   (* Should contain the escaped class name *)
