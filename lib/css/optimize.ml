@@ -562,17 +562,12 @@ let has_oklab_none s =
   in
   find_oklab 0
 
+let pp_decls ctx ds = List.iter (Declaration.pp_declaration ctx) ds
+let render_decls_minified ds = Pp.to_string ~minify:true pp_decls ds
+
 let declarations_css_equal d1 d2 =
-  (d1 = d2
-  ||
-  let pp_decls ctx ds = List.iter (Declaration.pp_declaration ctx) ds in
-  let s1 = Pp.to_string ~minify:true pp_decls d1 in
-  let s2 = Pp.to_string ~minify:true pp_decls d2 in
-  s1 = s2)
-  &&
-  let pp_decls ctx ds = List.iter (Declaration.pp_declaration ctx) ds in
-  let s = Pp.to_string ~minify:true pp_decls d1 in
-  not (has_oklab_none s)
+  let s1 = render_decls_minified d1 in
+  (d1 = d2 || s1 = render_decls_minified d2) && not (has_oklab_none s1)
 
 let can_combine_rules (prev : Stylesheet.rule) (rule : Stylesheet.rule) =
   declarations_css_equal prev.declarations rule.declarations
@@ -706,7 +701,7 @@ let has_nested_preference_media block =
 let is_container_block block =
   List.exists
     (function
-      | Rule { selector; _ } -> Selector.to_string selector = ".container"
+      | Rule { selector; _ } -> selector = Selector.Class "container"
       | _ -> false)
     block
 
