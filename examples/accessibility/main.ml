@@ -48,7 +48,7 @@ let contrast_buttons =
               bg ~shade:600 blue;
               text white;
               hover [ bg ~shade:700 blue ];
-              focus [ ring_md; ring_color blue 500 ];
+              focus [ ring_md; ring_color blue ];
               contrast_more [ border_md; border_color ~shade:900 blue ];
             ]
         [ txt "Primary Action" ];
@@ -63,7 +63,7 @@ let contrast_buttons =
               border_color ~shade:300 gray;
               text ~shade:700 gray;
               hover [ bg ~shade:100 gray ];
-              focus [ ring_md; ring_color gray 500 ];
+              focus [ ring_md; ring_color gray ];
               contrast_more
                 [ border_lg; border_color ~shade:900 gray; text black ];
               dark [ border_color ~shade:600 gray; text ~shade:300 gray ];
@@ -260,7 +260,7 @@ let focus_examples =
               rounded_lg;
               border;
               border_color ~shade:300 gray;
-              focus [ ring_md; ring_color blue 500; outline_none ];
+              focus [ ring_md; ring_color blue; outline_none ];
               dark
                 [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
             ]
@@ -275,7 +275,7 @@ let focus_examples =
               text ~shade:600 blue;
               underline;
               rounded;
-              focus [ ring_md; ring_color blue 500 ];
+              focus [ ring_md; ring_color blue ];
               dark [ text ~shade:400 blue ];
             ]
         [ txt "Focusable Link" ];
@@ -288,7 +288,7 @@ let focus_examples =
               bg ~shade:600 blue;
               text white;
               rounded_lg;
-              focus [ ring_md; ring_color blue 400 ];
+              focus [ ring_md; ring_color ~shade:400 blue ];
             ]
         [ txt "Button" ];
     ]
@@ -333,7 +333,7 @@ let sr_button_style =
       rounded_lg;
       shadow_sm;
       hover [ shadow_md ];
-      focus [ ring_md; ring_color blue 500 ];
+      focus [ ring_md; ring_color blue ];
       dark [ bg ~shade:800 gray ];
     ]
 

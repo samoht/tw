@@ -233,6 +233,9 @@ val normal_case : t
 
 (** {1 Text Underline Offset} *)
 
+val underline_offset : int -> t
+(** [underline_offset n] sets underline offset to [n]px. *)
+
 val underline_offset_auto : t
 (** [underline_offset_auto] sets underline offset to auto. *)
 

@@ -28,8 +28,14 @@ val inset : int -> t
 val inset_0 : t
 (** [inset_0] sets all inset values to 0. *)
 
+val inset_x : int -> t
+(** [inset_x n] sets horizontal inset (left and right). *)
+
 val inset_x_0 : t
 (** [inset_x_0] sets horizontal inset to 0. *)
+
+val inset_y : int -> t
+(** [inset_y n] sets vertical inset (top and bottom). *)
 
 val inset_y_0 : t
 (** [inset_y_0] sets vertical inset to 0. *)
