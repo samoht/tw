@@ -7,12 +7,12 @@
     {ol
      {- Extract tests from upstream into .txt files (see [extract_tests.ml]):
         {v
-    dune exec test/upstream/extract_tests.exe -- \
-      <tailwindcss>/packages/tailwindcss/src/utilities.test.ts \
-      > test/upstream/utilities.txt
-    dune exec test/upstream/extract_tests.exe -- \
-      <tailwindcss>/packages/tailwindcss/src/variants.test.ts \
-      > test/upstream/variants.txt
+        dune exec test/upstream/extract_tests.exe -- \
+          <tailwindcss>/packages/tailwindcss/src/utilities.test.ts \
+          > test/upstream/utilities.txt
+        dune exec test/upstream/extract_tests.exe -- \
+          <tailwindcss>/packages/tailwindcss/src/variants.test.ts \
+          > test/upstream/variants.txt
         v}
      }
      {- Run each test with tw }
@@ -375,9 +375,9 @@ let theme_config config expected =
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, Css.Pp.no_theme_defaults)
 
-(** Sort declarations inside [:root, :host \{ ... \}] blocks alphabetically.
-    This normalizes ordering differences between Tailwind's @theme insertion
-    order and our category-based sort order. *)
+(* Sort declarations inside [:root, :host { ... }] blocks alphabetically. This
+   normalizes ordering differences between Tailwind's @theme insertion order and
+   our category-based sort order. *)
 let sort_root_declarations css =
   let root_re = Re.Pcre.regexp {|(:root,\s*:host\s*\{)([\s\S]*?)(\})|} in
   Re.replace root_re css ~f:(fun group ->
