@@ -157,7 +157,9 @@ module Handler = struct
             in
             style ~rules:(Some [ supports_block ]) [ fallback_decl ]
         | Color.No_opacity -> style [ prop color ])
-    | _ -> style []
+    | _ ->
+        invalid_arg
+          ("Invalid arbitrary color property: " ^ property ^ ":" ^ value)
 
   let suborder _ = 0
 
