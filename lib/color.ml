@@ -212,62 +212,54 @@ let linear_srgb_to_oklab r_lin g_lin b_lin =
 (* CSS Color Level 4 gamut mapping algorithm, matching lightningcss. Uses binary
    search on OKLCh chroma to find the closest in-gamut sRGB color. Reference:
    https://www.w3.org/TR/css-color-4/#css-gamut-mapping *)
-let oklch_to_rgb oklch =
+let clip_val x = Float.max 0.0 (Float.min 1.0 x)
+let clip (r, g, b) = (clip_val r, clip_val g, clip_val b)
+
+let in_gamut (r, g, b) =
+  r >= 0.0 && r <= 1.0 && g >= 0.0 && g <= 1.0 && b >= 0.0 && b <= 1.0
+
+(* Binary search to find maximum chroma that stays in sRGB gamut *)
+let gamut_map_chroma ~ok_l ~cos_h ~sin_h chroma =
   let jnd = 0.02 in
   let epsilon = 0.00001 in
+  let oklch_to_linear c =
+    oklab_to_linear_srgb ok_l (c *. cos_h) (c *. sin_h)
+  in
+  let delta_e_ok (r, g, b) c =
+    let l1, a1, b1 = linear_srgb_to_oklab r g b in
+    let dl = l1 -. ok_l and da = a1 -. (c *. cos_h) and db = b1 -. (c *. sin_h) in
+    sqrt ((dl *. dl) +. (da *. da) +. (db *. db))
+  in
+  let rgb = oklch_to_linear chroma in
+  if in_gamut rgb then clip rgb
+  else
+    let min_c = ref 0.0 in
+    let max_c = ref chroma in
+    let result = ref None in
+    while !max_c -. !min_c > epsilon && !result = None do
+      let c = (!min_c +. !max_c) /. 2.0 in
+      let rgb = oklch_to_linear c in
+      if in_gamut rgb then min_c := c
+      else
+        let clipped = clip rgb in
+        let de = delta_e_ok clipped c in
+        if de < jnd then result := Some clipped else max_c := c
+    done;
+    match !result with
+    | Some clipped -> clipped
+    | None -> clip (oklch_to_linear !min_c)
+
+let oklch_to_rgb oklch =
+  let epsilon = 0.00001 in
   let ok_l = oklch.l /. 100.0 in
-  let hue = oklch.h in
-  let chroma = oklch.c in
-  (* Special cases: near-black and near-white *)
   if Float.abs (ok_l -. 1.0) < epsilon || ok_l > 1.0 then
     { r = 255; g = 255; b = 255 }
   else if ok_l < epsilon then { r = 0; g = 0; b = 0 }
   else
-    let h_rad = hue *. Float.pi /. 180.0 in
-    let cos_h = cos h_rad in
-    let sin_h = sin h_rad in
-    let oklch_to_linear c =
-      let ok_a = c *. cos_h in
-      let ok_b = c *. sin_h in
-      oklab_to_linear_srgb ok_l ok_a ok_b
+    let h_rad = oklch.h *. Float.pi /. 180.0 in
+    let r, g, b =
+      gamut_map_chroma ~ok_l ~cos_h:(cos h_rad) ~sin_h:(sin h_rad) oklch.c
     in
-    let in_gamut (r, g, b) =
-      r >= 0.0 && r <= 1.0 && g >= 0.0 && g <= 1.0 && b >= 0.0 && b <= 1.0
-    in
-    let clip_val x = Float.max 0.0 (Float.min 1.0 x) in
-    let clip (r, g, b) = (clip_val r, clip_val g, clip_val b) in
-    let delta_e_ok (r, g, b) c =
-      let l1, a1, b1 = linear_srgb_to_oklab r g b in
-      let ok_a2 = c *. cos_h in
-      let ok_b2 = c *. sin_h in
-      let dl = l1 -. ok_l in
-      let da = a1 -. ok_a2 in
-      let db = b1 -. ok_b2 in
-      sqrt ((dl *. dl) +. (da *. da) +. (db *. db))
-    in
-    let rgb = oklch_to_linear chroma in
-    let result =
-      if in_gamut rgb then clip rgb
-      else
-        let min_c = ref 0.0 in
-        let max_c = ref chroma in
-        let result = ref None in
-        while !max_c -. !min_c > epsilon && !result = None do
-          let c = (!min_c +. !max_c) /. 2.0 in
-          let rgb = oklch_to_linear c in
-          if in_gamut rgb then min_c := c
-          else
-            let clipped = clip rgb in
-            let de = delta_e_ok clipped c in
-            if de < jnd then result := Some clipped else max_c := c
-        done;
-        match !result with
-        | Some clipped -> clipped
-        | None ->
-            let rgb = oklch_to_linear !min_c in
-            clip rgb
-    in
-    let r, g, b = result in
     let clamp x = max 0 (min 255 x) in
     {
       r = clamp (gamma_correct r);

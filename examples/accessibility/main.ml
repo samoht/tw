@@ -241,30 +241,33 @@ let color_section =
     ]
 
 (* Focus states demonstration *)
+let focus_text_input =
+  input
+    ~at:
+      [
+        At.v "type" "text";
+        At.v "placeholder" "Focus me with Tab";
+        At.v "aria-label" "Example text input";
+      ]
+    ~tw:
+      Tw.
+        [
+          px 4;
+          py 2;
+          rounded_lg;
+          border;
+          border_color ~shade:300 gray;
+          focus [ ring_md; ring_color blue; outline_none ];
+          dark
+            [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
+        ]
+    ()
+
 let focus_examples =
   div
     ~tw:Tw.[ flex; flex_wrap; gap 4 ]
     [
-      input
-        ~at:
-          [
-            At.v "type" "text";
-            At.v "placeholder" "Focus me with Tab";
-            At.v "aria-label" "Example text input";
-          ]
-        ~tw:
-          Tw.
-            [
-              px 4;
-              py 2;
-              rounded_lg;
-              border;
-              border_color ~shade:300 gray;
-              focus [ ring_md; ring_color blue; outline_none ];
-              dark
-                [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
-            ]
-        ();
+      focus_text_input;
       a
         ~at:[ At.href "#" ]
         ~tw:
