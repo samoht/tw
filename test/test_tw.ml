@@ -397,6 +397,11 @@ let arbitrary_tracking () =
   check (require_parse "tracking-[2px]");
   check (require_parse "-tracking-[0.05em]")
 
+let arbitrary_grid_cols () =
+  check (require_parse "grid-cols-[1.15fr_0.85fr]");
+  check (require_parse "grid-cols-[200px_1fr_2fr]");
+  check (require_parse "grid-rows-[auto_1fr_auto]")
+
 (* -- 2. Prose element variant tests --------------------------------------- *)
 (* Tailwind typography plugin provides modifier variants like
    prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
@@ -834,6 +839,7 @@ let core_tests =
     test_case "all colors purples" `Slow all_colors_purples;
     test_case "all colors pinks" `Slow all_colors_pinks;
     test_case "arbitrary tracking" `Quick arbitrary_tracking;
+    test_case "arbitrary grid cols" `Quick arbitrary_grid_cols;
   ]
 
 let suite = ("tw", core_tests)

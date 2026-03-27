@@ -100,28 +100,43 @@ module Handler = struct
       | Some n -> Some (Px (float_of_int n))
       | None -> None
 
-  let parse_arbitrary_grid_template s : Css.grid_template =
-    let value = String.trim s in
-    (* First try to parse as a simple length *)
+  let parse_single_track value : Css.grid_template =
     match parse_arbitrary_length value with
-    | Some len ->
-        Px (match len with Px n -> n | Rem n -> n *. 16.0 | _ -> 0.0)
+    | Some (Px n) -> Px n
+    | Some (Rem n) -> Rem n
+    | Some (Em n) -> Em n
+    | Some (Pct n) -> Pct n
+    | Some (Vw n) -> Vw n
+    | Some (Vh n) -> Vh n
+    | Some _ ->
+        invalid_arg ("Unsupported grid track unit: " ^ value)
     | None ->
-        (* Try to parse fr values *)
         let len = String.length value in
         if len >= 2 && String.sub value (len - 2) 2 = "fr" then
           match float_of_string_opt (String.sub value 0 (len - 2)) with
           | Some n -> Fr n
-          | None -> Auto
-        else Auto
+          | None -> invalid_arg ("Invalid fr value: " ^ value)
+        else if value = "auto" then Auto
+        else if value = "min-content" then Min_content
+        else if value = "max-content" then Max_content
+        else invalid_arg ("Unsupported grid track value: " ^ value)
+
+  let parse_arbitrary_grid_template s : Css.grid_template =
+    let value = String.trim s in
+    (* Tailwind converts underscores to spaces in bracket values *)
+    let parts =
+      String.split_on_char '_' value |> List.filter (fun s -> s <> "")
+    in
+    match parts with
+    | [] -> invalid_arg "Empty grid template"
+    | [ single ] -> parse_single_track single
+    | tracks -> Tracks (List.map parse_single_track tracks)
 
   let grid_cols_arbitrary s =
-    let template = parse_arbitrary_grid_template s in
-    style [ Css.grid_template_columns template ]
+    style [ Css.grid_template_columns (parse_arbitrary_grid_template s) ]
 
   let grid_rows_arbitrary s =
-    let template = parse_arbitrary_grid_template s in
-    style [ Css.grid_template_rows template ]
+    style [ Css.grid_template_rows (parse_arbitrary_grid_template s) ]
 
   let grid_rows n =
     if n < 1 || n > 999 then
@@ -163,8 +178,7 @@ module Handler = struct
   let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
 
   let auto_cols_arbitrary s =
-    let template = parse_arbitrary_grid_template s in
-    style [ Css.grid_auto_columns template ]
+    style [ Css.grid_auto_columns (parse_arbitrary_grid_template s) ]
 
   (** {1 Grid Auto Rows} *)
 
@@ -183,8 +197,7 @@ module Handler = struct
   let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
 
   let auto_rows_arbitrary s =
-    let template = parse_arbitrary_grid_template s in
-    style [ Css.grid_auto_rows template ]
+    style [ Css.grid_auto_rows (parse_arbitrary_grid_template s) ]
 
   (** Convert grid template utility to style *)
   let to_style = function
