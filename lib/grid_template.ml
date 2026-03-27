@@ -108,8 +108,7 @@ module Handler = struct
     | Some (Pct n) -> Pct n
     | Some (Vw n) -> Vw n
     | Some (Vh n) -> Vh n
-    | Some _ ->
-        invalid_arg ("Unsupported grid track unit: " ^ value)
+    | Some _ -> invalid_arg ("Unsupported grid track unit: " ^ value)
     | None ->
         let len = String.length value in
         if len >= 2 && String.sub value (len - 2) 2 = "fr" then

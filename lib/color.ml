@@ -222,12 +222,12 @@ let in_gamut (r, g, b) =
 let gamut_map_chroma ~ok_l ~cos_h ~sin_h chroma =
   let jnd = 0.02 in
   let epsilon = 0.00001 in
-  let oklch_to_linear c =
-    oklab_to_linear_srgb ok_l (c *. cos_h) (c *. sin_h)
-  in
+  let oklch_to_linear c = oklab_to_linear_srgb ok_l (c *. cos_h) (c *. sin_h) in
   let delta_e_ok (r, g, b) c =
     let l1, a1, b1 = linear_srgb_to_oklab r g b in
-    let dl = l1 -. ok_l and da = a1 -. (c *. cos_h) and db = b1 -. (c *. sin_h) in
+    let dl = l1 -. ok_l
+    and da = a1 -. (c *. cos_h)
+    and db = b1 -. (c *. sin_h) in
     sqrt ((dl *. dl) +. (da *. da) +. (db *. db))
   in
   let rgb = oklch_to_linear chroma in

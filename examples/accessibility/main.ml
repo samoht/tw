@@ -258,8 +258,7 @@ let focus_text_input =
           border;
           border_color ~shade:300 gray;
           focus [ ring_md; ring_color blue; outline_none ];
-          dark
-            [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
+          dark [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
         ]
     ()
 

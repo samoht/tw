@@ -1,6 +1,6 @@
-(** Fuzz tests for the CSS Supports module.
+(* Fuzz tests for the CSS Supports module.
 
-    Tests crash safety of @supports condition parsing and roundtrip. *)
+   Tests crash safety of @supports condition parsing and roundtrip. *)
 
 open Alcobar
 

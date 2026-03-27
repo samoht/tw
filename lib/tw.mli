@@ -2351,9 +2351,8 @@ val ring_xl : t
     @see <https://tailwindcss.com/docs/ring-color> Ring Color *)
 
 val ring_color : ?opacity:int -> ?shade:int -> color -> t
-(** [ring_color color] sets the color of outline rings.
-    Use [~shade] to pick a shade (default 500) and [~opacity] to set
-    opacity as a percentage. *)
+(** [ring_color color] sets the color of outline rings. Use [~shade] to pick a
+    shade (default 500) and [~opacity] to set opacity as a percentage. *)
 
 (** {2 Ring Offset Width}
     @see <https://tailwindcss.com/docs/ring-offset-width> Ring Offset Width *)

@@ -1,6 +1,6 @@
-(** Feature: Form utilities demo
+(* Feature: Form utilities demo
 
-    Shows styled form controls using @tailwindcss/forms plugin utilities. *)
+   Shows styled form controls using @tailwindcss/forms plugin utilities. *)
 
 open Tw_html
 open At

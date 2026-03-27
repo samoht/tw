@@ -198,11 +198,10 @@ let rawf segments = raw (str segments)
 (* Empty element *)
 let empty = { el = El.void; tw = []; forms = false }
 
-(* Build final attribute list from tw styles, raw class strings, and non-class attrs *)
+(* Build final attribute list from tw styles, raw class strings, and non-class
+   attrs *)
 let class_atts tw_styles raw_classes other_atts =
-  let tw_cls =
-    match tw_styles with [] -> "" | _ -> Tw.to_classes tw_styles
-  in
+  let tw_cls = match tw_styles with [] -> "" | _ -> Tw.to_classes tw_styles in
   let all_cls =
     match (tw_cls, raw_classes) with
     | "", [] -> ""
@@ -226,8 +225,8 @@ let parse_class_value value =
       | Error _ -> (tw_acc, cls :: raw_acc))
     ([], []) classes
 
-(* Extract class attrs from at, parse recognized Tw classes, keep unrecognized as-is.
-   Returns (tw_extras, raw_class_parts, other_atts) *)
+(* Extract class attrs from at, parse recognized Tw classes, keep unrecognized
+   as-is. Returns (tw_extras, raw_class_parts, other_atts) *)
 let extract_class_attrs atts =
   List.fold_left
     (fun (tw_extra, raw_cls, rest) ((name, value) as att) ->
@@ -335,7 +334,6 @@ let void = empty
 
 (* Forms *)
 let form ?at ?tw children = el_with_tw "form" ?at ?tw children
-
 let input ?at ?tw () = void_el ~forms:true "input" ?at ?tw ()
 
 let textarea ?at ?tw children =
@@ -388,7 +386,6 @@ let figcaption ?at ?tw children = el_with_tw "figcaption" ?at ?tw children
 (* Media *)
 let video ?at ?tw children = el_with_tw "video" ?at ?tw children
 let audio ?at ?tw children = el_with_tw "audio" ?at ?tw children
-
 let source ?at ?tw () = void_el "source" ?at ?tw ()
 
 (* Embedded content *)

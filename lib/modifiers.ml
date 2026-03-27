@@ -2073,11 +2073,11 @@ let variant_order_of_prefix prefix =
       else if String.length prefix > 0 && prefix.[0] = '@' then 110000
       else 0
 
-(** [variant_order_of_media_cond cond] returns the same sort key as
-    [variant_order_of_prefix] for the corresponding CSS media condition. Used
-    to determine the cascade position of rules with nested media queries (e.g.,
-    dark:group-hover has a nested @media(hover:hover), so its effective inner
-    order is 20000, matching standalone hover). *)
+(* [variant_order_of_media_cond cond] returns the same sort key as
+   [variant_order_of_prefix] for the corresponding CSS media condition. Used
+   to determine the cascade position of rules with nested media queries (e.g.,
+   dark:group-hover has a nested @media(hover:hover), so its effective inner
+   order is 20000, matching standalone hover). *)
 let variant_order_of_media_cond cond =
   let open Css.Media in
   match cond with

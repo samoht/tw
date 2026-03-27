@@ -857,8 +857,7 @@ module Handler = struct
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
-    | None ->
-        invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
+    | None -> invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
 
   (** [bg-conic-{angle}/interp] - conic with angle and interpolation *)
   let bg_conic_angle_interp' angle_deg interp_str =
@@ -874,8 +873,7 @@ module Handler = struct
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
-    | None ->
-        invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
+    | None -> invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
 
   (** [-bg-conic-{angle}/interp] *)
   let bg_conic_angle_neg_interp' angle_deg interp_str =
@@ -891,8 +889,7 @@ module Handler = struct
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
-    | None ->
-        invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
+    | None -> invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
 
   (** bg-radial/interp - radial gradient with interpolation *)
   let bg_radial_interp' interp_str =
@@ -907,8 +904,7 @@ module Handler = struct
           [
             position_decl; Css.background_image (Radial_gradient_var stops_ref);
           ]
-    | None ->
-        invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
+    | None -> invalid_arg ("Invalid gradient interpolation: " ^ interp_str)
 
   (** bg-radial-[value] - bracket radial gradient *)
   let bg_radial_bracket' value_str =

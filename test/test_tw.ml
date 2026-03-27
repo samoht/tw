@@ -309,9 +309,7 @@ let ordering_text_bg_border () =
     [ text ~shade:700 gray; bg white; border; border_color ~shade:300 gray ];
   check_list [ text_sm; font_bold; text blue ]
 
-let ordering_shadow_ring () =
-  check_list [ shadow_sm; ring; ring_color blue ]
-
+let ordering_shadow_ring () = check_list [ shadow_sm; ring; ring_color blue ]
 let ordering_transitions () = check_list [ transition_colors; duration 200 ]
 
 let ordering_with_variants () =
@@ -346,8 +344,7 @@ let require_parse class_name =
   match of_string class_name with
   | Ok v -> v
   | Error (`Msg m) ->
-      Alcotest.fail
-        (Fmt.str "of_string %S failed — API gap: %s" class_name m)
+      Alcotest.fail (Fmt.str "of_string %S failed — API gap: %s" class_name m)
 
 (* -- 1. Fractional spacing ------------------------------------------------ *)
 (* Tailwind v4 supports half-step spacing values like space-x-2.5, p-0.5, etc.
