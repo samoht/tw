@@ -402,6 +402,46 @@ let arbitrary_grid_cols () =
   check (require_parse "grid-cols-[200px_1fr_2fr]");
   check (require_parse "grid-rows-[auto_1fr_auto]")
 
+let arbitrary_borders () =
+  check (require_parse "border-[3px]");
+  check (require_parse "border-[0.5rem]")
+
+let arbitrary_leading () =
+  check (require_parse "leading-[1.8]");
+  check (require_parse "leading-[24px]");
+  check (require_parse "leading-[2em]")
+
+let arbitrary_sizing () =
+  check (require_parse "h-[calc(100vh-4rem)]");
+  check (require_parse "w-[calc(100%-2rem)]");
+  check (require_parse "w-[300px]");
+  check (require_parse "h-[50vh]");
+  check (require_parse "max-w-[1200px]")
+
+let arbitrary_transitions () =
+  check (require_parse "transition-[color,background-color]");
+  check (require_parse "ease-[cubic-bezier(0.4,0,0.2,1)]");
+  check (require_parse "duration-[250ms]");
+  check (require_parse "delay-[100ms]")
+
+let arbitrary_animations () =
+  check (require_parse "animate-[spin_1s_linear_infinite]")
+
+let arbitrary_will_change () =
+  check (require_parse "will-change-[transform,opacity]")
+
+let arbitrary_misc () =
+  check (require_parse "rounded-[12px]");
+  check (require_parse "opacity-[0.8]");
+  check (require_parse "z-[999]");
+  check (require_parse "text-[14px]");
+  check (require_parse "p-[10px]");
+  check (require_parse "m-[2rem]");
+  check (require_parse "top-[50%]");
+  check (require_parse "gap-[1.5rem]");
+  check (require_parse "rotate-[17deg]");
+  check (require_parse "scale-[1.1]")
+
 (* -- 2. Prose element variant tests --------------------------------------- *)
 (* Tailwind typography plugin provides modifier variants like
    prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
@@ -840,6 +880,13 @@ let core_tests =
     test_case "all colors pinks" `Slow all_colors_pinks;
     test_case "arbitrary tracking" `Quick arbitrary_tracking;
     test_case "arbitrary grid cols" `Quick arbitrary_grid_cols;
+    test_case "arbitrary borders" `Quick arbitrary_borders;
+    test_case "arbitrary leading" `Quick arbitrary_leading;
+    test_case "arbitrary sizing" `Quick arbitrary_sizing;
+    test_case "arbitrary transitions" `Quick arbitrary_transitions;
+    test_case "arbitrary animations" `Quick arbitrary_animations;
+    test_case "arbitrary will-change" `Quick arbitrary_will_change;
+    test_case "arbitrary misc" `Quick arbitrary_misc;
   ]
 
 let suite = ("tw", core_tests)

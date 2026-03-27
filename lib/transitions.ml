@@ -257,16 +257,33 @@ module Handler = struct
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_arbitrary var_str =
-    let bare_name = Parse.extract_var_name var_str in
-    let ref_ : Css.transition_property_value Css.var = Var.bracket bare_name in
-    style
-      (default_theme_decls ()
-      @ [
-          Css.transition_property [ Css.Var ref_ ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
-        ])
+  let transition_arbitrary s =
+    if Parse.is_var s then
+      let bare_name = Parse.extract_var_name s in
+      let ref_ : Css.transition_property_value Css.var =
+        Var.bracket bare_name
+      in
+      style
+        (default_theme_decls ()
+        @ [
+            Css.transition_property [ Css.Var ref_ ];
+            Css.transition_timing_function (Css.Var ease_ref);
+            Css.transition_duration (Css.Var duration_ref);
+          ])
+    else
+      (* Raw property list like "color,background-color" *)
+      let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
+      let props =
+        String.split_on_char ',' raw
+        |> List.map (fun p -> Css.Property (String.trim p))
+      in
+      style
+        (default_theme_decls ()
+        @ [
+            Css.transition_property props;
+            Css.transition_timing_function (Css.Var ease_ref);
+            Css.transition_duration (Css.Var duration_ref);
+          ])
 
   (* Transition behavior (CSS Transitions Level 2) *)
   let transition_behavior_normal = style [ Css.transition_behavior Normal ]
@@ -371,16 +388,55 @@ module Handler = struct
         Css.transition_timing_function (Css.Var ease_in_out_ref);
       ]
 
-  let ease_arbitrary var_str =
-    let bare_name = Parse.extract_var_name var_str in
-    let ref_ : Css.timing_function Css.var = Var.bracket bare_name in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ref_) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
-    style ~property_rules
-      [ tw_ease_decl; Css.transition_timing_function (Css.Var ref_) ]
+  let ease_arbitrary s =
+    if Parse.is_var s then
+      let bare_name = Parse.extract_var_name s in
+      let ref_ : Css.timing_function Css.var = Var.bracket bare_name in
+      let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ref_) in
+      let prop_rule = Var.property_rule tw_ease_var in
+      let property_rules =
+        match prop_rule with Some r -> r | None -> Css.empty
+      in
+      style ~property_rules
+        [ tw_ease_decl; Css.transition_timing_function (Css.Var ref_) ]
+    else
+      (* Raw timing function like "cubic-bezier(0.4,0,0.2,1)" *)
+      let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
+      let tf : Css.timing_function =
+        let prefix = "cubic-bezier(" in
+        if String.length raw > String.length prefix + 1
+           && String.sub raw 0 (String.length prefix) = prefix
+           && raw.[String.length raw - 1] = ')'
+        then
+          let inner =
+            String.sub raw (String.length prefix)
+              (String.length raw - String.length prefix - 1)
+          in
+          match String.split_on_char ',' inner |> List.map String.trim with
+          | [ a; b; c; d ] -> (
+              match
+                ( float_of_string_opt a,
+                  float_of_string_opt b,
+                  float_of_string_opt c,
+                  float_of_string_opt d )
+              with
+              | Some a, Some b, Some c, Some d -> Cubic_bezier (a, b, c, d)
+              | _ -> invalid_arg ("Invalid cubic-bezier: " ^ raw))
+          | _ -> invalid_arg ("Invalid cubic-bezier: " ^ raw)
+        else if raw = "linear" then Linear
+        else if raw = "ease" then Ease
+        else if raw = "ease-in" then Ease_in
+        else if raw = "ease-out" then Ease_out
+        else if raw = "ease-in-out" then Ease_in_out
+        else invalid_arg ("Unsupported timing function: " ^ raw)
+      in
+      let tw_ease_decl, _ = Var.binding tw_ease_var tf in
+      let prop_rule = Var.property_rule tw_ease_var in
+      let property_rules =
+        match prop_rule with Some r -> r | None -> Css.empty
+      in
+      style ~property_rules
+        [ tw_ease_decl; Css.transition_timing_function tf ]
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
   let delay_arbitrary d = style [ Css.transition_delay d ]
