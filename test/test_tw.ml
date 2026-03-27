@@ -392,6 +392,11 @@ let fractional_width_height () =
   check (require_parse "h-1/2");
   check (require_parse "h-1/3")
 
+let arbitrary_tracking () =
+  check (require_parse "tracking-[0.1em]");
+  check (require_parse "tracking-[2px]");
+  check (require_parse "-tracking-[0.05em]")
+
 (* -- 2. Prose element variant tests --------------------------------------- *)
 (* Tailwind typography plugin provides modifier variants like
    prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
@@ -828,6 +833,7 @@ let core_tests =
     test_case "all colors blues" `Slow all_colors_blues;
     test_case "all colors purples" `Slow all_colors_purples;
     test_case "all colors pinks" `Slow all_colors_pinks;
+    test_case "arbitrary tracking" `Quick arbitrary_tracking;
   ]
 
 let suite = ("tw", core_tests)

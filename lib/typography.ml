@@ -1252,7 +1252,9 @@ module Typography_late = struct
     | Decoration_bracket_length_var of string
     | Decoration_bracket_pct_var of string
     | (* Tracking *)
-      Tracking_var of string
+      Tracking_arbitrary of string
+    | Neg_tracking_arbitrary of string
+    | Tracking_var of string
     | Neg_tracking_var of string
     | Tracking_tighter
     | Tracking_tight
@@ -1448,13 +1450,14 @@ module Typography_late = struct
         | _ -> err_not_utility)
     | [ "tracking"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if Parse.is_var inner then Ok (Tracking_var inner) else err_not_utility
+        if Parse.is_var inner then Ok (Tracking_var inner)
+        else Ok (Tracking_arbitrary inner)
     | "" :: "tracking" :: rest when rest <> [] ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_tracking_var inner)
-          else err_not_utility
+          else Ok (Neg_tracking_arbitrary inner)
         else err_not_utility
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
@@ -1642,6 +1645,8 @@ module Typography_late = struct
     | Decoration_bracket_pct v -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
+    | Tracking_arbitrary v -> "tracking-[" ^ v ^ "]"
+    | Neg_tracking_arbitrary v -> "-tracking-[" ^ v ^ "]"
     | Tracking_var v -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
@@ -1789,7 +1794,9 @@ module Typography_late = struct
     | Decoration_auto -> 8500
     | Decoration_from_font -> 8500
     (* Tracking — negative first, then arbitrary, then named *)
+    | Neg_tracking_arbitrary _ -> 8245
     | Neg_tracking_var _ -> 8250
+    | Tracking_arbitrary _ -> 8255
     | Tracking_var _ -> 8260
     | Tracking_tighter -> 8300
     | Tracking_tight -> 8301
@@ -2160,6 +2167,29 @@ module Typography_late = struct
   let lowercase = style [ text_transform Lowercase ]
   let capitalize = style [ text_transform Capitalize ]
   let normal_case = style [ text_transform None ]
+
+  let tracking_arbitrary v =
+    match Css.parse_length v with
+    | Some len ->
+        let channel_decl, _ = Var.binding tracking_var len in
+        let property_rules =
+          Var.property_rule tracking_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; letter_spacing len ]
+    | None -> style []
+
+  let neg_tracking_arbitrary v =
+    match Css.parse_length v with
+    | Some len ->
+        let neg_len : Css.length =
+          Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
+        in
+        let channel_decl, _ = Var.binding tracking_var neg_len in
+        let property_rules =
+          Var.property_rule tracking_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; letter_spacing neg_len ]
+    | None -> style []
 
   let underline_offset_auto () =
     match Var.theme_value "text-underline-offset-auto" with
@@ -2532,6 +2562,10 @@ module Typography_late = struct
     | Decoration_bracket_pct v -> decoration_bracket_pct v
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
+    | Tracking_arbitrary v ->
+        tracking_arbitrary v
+    | Neg_tracking_arbitrary v ->
+        neg_tracking_arbitrary v
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
