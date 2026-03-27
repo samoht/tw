@@ -49,6 +49,7 @@ module Handler = struct
     | Border_2
     | Border_4
     | Border_8
+    | Border_width_bracket of string
     | (* Border side/axis utilities *)
       Border_t
     | Border_r
@@ -297,6 +298,45 @@ module Handler = struct
   let border_2 = make_border_util [ Css.border_width (Px 2.) ]
   let border_4 = make_border_util [ Css.border_width (Px 4.) ]
   let border_8 = make_border_util [ Css.border_width (Px 8.) ]
+
+  let border_width_bracket_style inner =
+    let width : Css.border_width =
+      if
+        String.length inner > 2
+        && String.sub inner (String.length inner - 2) 2 = "px"
+      then
+        let n = String.sub inner 0 (String.length inner - 2) in
+        match float_of_string_opt n with
+        | Some f -> Px f
+        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid px value")
+      else if
+        String.length inner > 3
+        && String.sub inner (String.length inner - 3) 3 = "rem"
+      then
+        let n = String.sub inner 0 (String.length inner - 3) in
+        match float_of_string_opt n with
+        | Some f -> Rem f
+        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid rem value")
+      else if
+        String.length inner > 2
+        && String.sub inner (String.length inner - 2) 2 = "em"
+      then
+        let n = String.sub inner 0 (String.length inner - 2) in
+        match float_of_string_opt n with
+        | Some f -> Em f
+        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid em value")
+      else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
+      then
+        let n = String.sub inner 0 (String.length inner - 1) in
+        match float_of_string_opt n with
+        | Some f -> Pct f
+        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid % value")
+      else
+        match float_of_string_opt inner with
+        | Some f -> Px f
+        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid value")
+    in
+    make_border_util [ Css.border_width width ]
 
   (* Helper for border side utilities that reference the variable with @property
      default *)
@@ -1513,6 +1553,7 @@ module Handler = struct
     | Border_2 -> border_2
     | Border_4 -> border_4
     | Border_8 -> border_8
+    | Border_width_bracket v -> border_width_bracket_style v
     (* Border side/axis utilities *)
     | Border_t -> border_t
     | Border_r -> border_r
@@ -1794,6 +1835,7 @@ module Handler = struct
     | Border_2 -> 1002
     | Border_4 -> 1003
     | Border_8 -> 1004
+    | Border_width_bracket _ -> 1005
     (* Border side/axis utilities (1100-1199) - clockwise from top: t, r, b,
        l *)
     | Border_t -> 1100
@@ -1893,6 +1935,14 @@ module Handler = struct
     | [ "border"; "none" ] -> Ok Border_none
     | [ "border"; "transparent" ] -> Ok Border_transparent
     | [ "border"; "current" ] -> Ok Border_current
+    | [ "border"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        let is_numeric_start c =
+          (c >= '0' && c <= '9') || c = '.' || c = '-'
+        in
+        if String.length inner > 0 && is_numeric_start inner.[0] then
+          Ok (Border_width_bracket inner)
+        else err_not_utility
     | "border" :: color_parts -> (
         match Color.shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Border_color (color, shade))
@@ -2124,6 +2174,7 @@ module Handler = struct
     | Border_2 -> "border-2"
     | Border_4 -> "border-4"
     | Border_8 -> "border-8"
+    | Border_width_bracket v -> "border-[" ^ v ^ "]"
     | Border_t -> "border-t"
     | Border_r -> "border-r"
     | Border_b -> "border-b"

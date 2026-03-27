@@ -351,6 +351,7 @@ module Typography_early = struct
     | Leading_loose
     | Leading of int
     | Leading_var of string (* leading-[var(--value)] *)
+    | Leading_bracket of string (* leading-[1.8], leading-[24px], etc. *)
     | (* Font-size with explicit line-height modifier (text-sm/6) *)
       Text_named_lh of string * lh_modifier
     | (* Arbitrary font-size (text-[12px]) *)
@@ -516,7 +517,8 @@ module Typography_early = struct
     | [ "leading"; "loose" ] -> Ok Leading_loose
     | [ "leading"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if Parse.is_var inner then Ok (Leading_var inner) else err_not_utility
+        if Parse.is_var inner then Ok (Leading_var inner)
+        else Ok (Leading_bracket inner)
     | [ "leading"; n ] ->
         Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i ->
         Leading i
@@ -597,6 +599,7 @@ module Typography_early = struct
     | Leading_loose -> "leading-loose"
     | Leading n -> "leading-" ^ string_of_int n
     | Leading_var v -> "leading-[" ^ v ^ "]"
+    | Leading_bracket v -> "leading-[" ^ v ^ "]"
     | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
@@ -659,6 +662,7 @@ module Typography_early = struct
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
     | Leading_var _ -> 3100
+    | Leading_bracket _ -> 3100
     | Leading_loose -> 3201
     | Leading_none -> 3202
     | Leading_normal -> 3203
@@ -1204,6 +1208,43 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
+    | Leading_bracket raw ->
+        let lh : Css.line_height =
+          if String.ends_with ~suffix:"px" raw then
+            let n = String.sub raw 0 (String.length raw - 2) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Px f
+            | Stdlib.Option.None ->
+                invalid_arg ("leading-[" ^ raw ^ "]: invalid px value")
+          else if String.ends_with ~suffix:"rem" raw then
+            let n = String.sub raw 0 (String.length raw - 3) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Rem f
+            | Stdlib.Option.None ->
+                invalid_arg ("leading-[" ^ raw ^ "]: invalid rem value")
+          else if String.ends_with ~suffix:"em" raw then
+            let n = String.sub raw 0 (String.length raw - 2) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Em f
+            | Stdlib.Option.None ->
+                invalid_arg ("leading-[" ^ raw ^ "]: invalid em value")
+          else if String.ends_with ~suffix:"%" raw then
+            let n = String.sub raw 0 (String.length raw - 1) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Pct f
+            | Stdlib.Option.None ->
+                invalid_arg ("leading-[" ^ raw ^ "]: invalid % value")
+          else
+            match float_of_string_opt raw with
+            | Stdlib.Option.Some f -> Num f
+            | Stdlib.Option.None ->
+                invalid_arg ("leading-[" ^ raw ^ "]: invalid value")
+        in
+        let channel_decl, _ = Var.binding leading_var lh in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; line_height lh ]
     | Text_named_lh (name, lh_mod) ->
         let fs_decl, lh_decls = text_named_with_lh name lh_mod in
         style (fs_decl @ lh_decls)
