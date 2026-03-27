@@ -910,12 +910,12 @@ let layer_declaration ~has_properties ~include_base =
   in
   Css.v [ Css.layer_decl names ]
 
-(* Sort [@property] rules using first-usage order.
-   Variables are ordered by when they first appear across all utilities.
-   For variables within the same family that both use direct property_order,
-   first-usage order is used as primary sort key (this matches Tailwind's
-   behavior where per-utility declaration order determines @property order).
-   Falls back to family order then property_order for cross-family sorting. *)
+(* Sort [@property] rules using first-usage order. Variables are ordered by when
+   they first appear across all utilities. For variables within the same family
+   that both use direct property_order, first-usage order is used as primary
+   sort key (this matches Tailwind's behavior where per-utility declaration
+   order determines @property order). Falls back to family order then
+   property_order for cross-family sorting. *)
 let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   let family_order = family_order first_usage_order in
   let get_family_order name =

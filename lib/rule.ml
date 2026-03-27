@@ -1723,15 +1723,15 @@ let process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules stmt =
                        condition statements)
               | None -> None)))
 
-(* Process a Style with a rule_list into output rules. Processes rule_list
-   items in order, preserving the original interleaving of Regular rules,
-   @supports blocks, and @media queries.
+(* Process a Style with a rule_list into output rules. Processes rule_list items
+   in order, preserving the original interleaving of Regular rules, @supports
+   blocks, and @media queries.
 
    @supports blocks become separate [Supports_query] entries so they sort
    independently and don't prevent the base rule from being combined by the
    optimizer. @media blocks that appear at the top level of rule_list are
-   collected and nested on the base rule (they represent modifier-based
-   media that must stay grouped with the utility). *)
+   collected and nested on the base rule (they represent modifier-based media
+   that must stay grouped with the utility). *)
 let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   (* Collect top-level @media for nesting on the base rule *)
   let nested_media = rule_list |> List.filter Css.is_nested_media in
