@@ -214,24 +214,25 @@ let class_atts tw_styles raw_classes other_atts =
   | "" -> List.rev other_atts
   | cls -> At.class' cls :: List.rev other_atts
 
+(* Parse a class string, returning (recognized_tw, raw_strings) *)
+let parse_class_value value =
+  let classes =
+    String.split_on_char ' ' value |> List.filter (fun s -> s <> "")
+  in
+  List.fold_left
+    (fun (tw_acc, raw_acc) cls ->
+      match Tw.of_string cls with
+      | Ok t -> (t :: tw_acc, raw_acc)
+      | Error _ -> (tw_acc, cls :: raw_acc))
+    ([], []) classes
+
 (* Extract class attrs from at, parse recognized Tw classes, keep unrecognized as-is.
    Returns (tw_extras, raw_class_parts, other_atts) *)
 let extract_class_attrs atts =
   List.fold_left
     (fun (tw_extra, raw_cls, rest) ((name, value) as att) ->
       if name = "class" then
-        let classes =
-          String.split_on_char ' ' value
-          |> List.filter (fun s -> String.length s > 0)
-        in
-        let tw_parsed, raw =
-          List.fold_left
-            (fun (tw_acc, raw_acc) cls ->
-              match Tw.of_string cls with
-              | Ok t -> (t :: tw_acc, raw_acc)
-              | Error _ -> (tw_acc, cls :: raw_acc))
-            ([], []) classes
-        in
+        let tw_parsed, raw = parse_class_value value in
         (List.rev tw_parsed @ tw_extra, List.rev raw @ raw_cls, rest)
       else (tw_extra, raw_cls, att :: rest))
     ([], [], []) atts
