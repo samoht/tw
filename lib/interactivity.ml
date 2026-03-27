@@ -187,9 +187,16 @@ module Handler = struct
     | Will_change_scroll -> will_change_scroll_s
     | Will_change_contents -> will_change_contents_s
     | Will_change_transform -> will_change_transform_s
-    | Will_change_arbitrary var_str ->
-        let bare_name = Parse.extract_var_name var_str in
-        style [ will_change (Var (Var.bracket bare_name)) ]
+    | Will_change_arbitrary s ->
+        if Parse.is_var s then
+          let bare_name = Parse.extract_var_name s in
+          style [ will_change (Var (Var.bracket bare_name)) ]
+        else
+          let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
+          let props =
+            String.split_on_char ',' raw |> List.map String.trim
+          in
+          style [ will_change (Properties props) ]
     | Group -> group_s
     | Peer -> peer_s
     | Scheme_dark -> scheme_dark_s

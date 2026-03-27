@@ -227,10 +227,40 @@ module Handler = struct
     in
     style ~rules [ theme_decl; Css.animation (Css.Var bounce_var) ]
 
+  (* Known @keyframes for bracket animation references *)
+  let spin_keyframes =
+    Css.keyframes "spin"
+      [
+        {
+          Css.Stylesheet.keyframe_selector =
+            Css.Keyframe.Positions [ Css.Keyframe.To ];
+          keyframe_declarations =
+            [ Css.Declaration.transform (Rotate (Deg 360.)) ];
+        };
+      ]
+
+  let known_keyframes = function
+    | "spin" -> Some spin_keyframes
+    | _ -> Option.None
+
   let animate_bracket value =
-    (* Convert underscores to spaces in bracket values *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) value in
-    style [ Css.animation (Arbitrary value) ]
+    let css_value =
+      String.map (fun c -> if c = '_' then ' ' else c) value
+    in
+    let parts = String.split_on_char ' ' css_value in
+    (* Tailwind moves the animation name to the end of the shorthand *)
+    let anim_name, reordered =
+      match parts with
+      | name :: rest when rest <> [] ->
+          (name, String.concat " " (rest @ [ name ]))
+      | _ -> (css_value, css_value)
+    in
+    let rules =
+      match known_keyframes anim_name with
+      | Some kf -> opt_some [ kf ]
+      | Option.None -> opt_none
+    in
+    style ~rules [ Css.animation (Arbitrary reordered) ]
 
   let animate_named name =
     let var_name = "animate-" ^ name in
