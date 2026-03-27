@@ -347,7 +347,7 @@ let require_parse class_name =
   | Ok v -> v
   | Error (`Msg m) ->
       Alcotest.fail
-        (Printf.sprintf "of_string %S failed — API gap: %s" class_name m)
+        (Fmt.str "of_string %S failed — API gap: %s" class_name m)
 
 (* -- 1. Fractional spacing ------------------------------------------------ *)
 (* Tailwind v4 supports half-step spacing values like space-x-2.5, p-0.5, etc.
