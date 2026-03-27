@@ -350,7 +350,7 @@ module Handler = struct
           let bare = Parse.extract_var_name inner in
           let ref_ : Css.length Css.var = Var.bracket bare in
           set_filter_var "--tw-blur" (Blur (Var ref_))
-        else style []
+        else invalid_arg ("Invalid blur value: " ^ s)
 
   let brightness_arbitrary s =
     let inner = Parse.bracket_inner s in
@@ -508,7 +508,10 @@ module Handler = struct
                   "var(--tw-drop-shadow-size)";
               ];
           ]
-    | Option.None -> style []
+    | Option.None ->
+        invalid_arg
+          ("drop-shadow color not found in scheme: "
+          ^ Color.scheme_color_name c shade)
 
   let drop_shadow_color_opacity c shade opacity =
     let color_name = Color.scheme_color_name c shade in
@@ -550,7 +553,10 @@ module Handler = struct
                   "var(--tw-drop-shadow-size)";
               ];
           ]
-    | Option.None -> style []
+    | Option.None ->
+        invalid_arg
+          ("drop-shadow color not found in scheme: "
+          ^ Color.scheme_color_name c shade)
 
   let drop_shadow_opacity opacity =
     let alpha_str =
@@ -703,7 +709,7 @@ module Handler = struct
           let bare = Parse.extract_var_name inner in
           let ref_ : Css.length Css.var = Var.bracket bare in
           set_backdrop_var "--tw-backdrop-blur" (Blur (Var ref_))
-        else style []
+        else invalid_arg ("Invalid backdrop-blur value: " ^ s)
 
   let backdrop_brightness n =
     set_backdrop_var "--tw-backdrop-brightness"
