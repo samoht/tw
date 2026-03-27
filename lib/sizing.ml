@@ -18,7 +18,7 @@ module Handler = struct
     | W_px
     | W_spacing of float
     | W_fraction of string
-    | W_arbitrary of Css.length
+    | W_arbitrary of string * Css.length
     | W_dvw (* 100dvw - dynamic viewport width *)
     | W_lvw (* 100lvw - large viewport width *)
     | W_svw (* 100svw - small viewport width *)
@@ -33,7 +33,7 @@ module Handler = struct
     | H_px
     | H_spacing of float
     | H_fraction of string
-    | H_arbitrary of Css.length
+    | H_arbitrary of string * Css.length
     | H_dvh (* 100dvh - dynamic viewport height *)
     | H_lvh (* 100lvh - large viewport height *)
     | H_svh (* 100svh - small viewport height *)
@@ -46,7 +46,7 @@ module Handler = struct
     | Min_w_fit
     | Min_w_auto
     | Min_w_spacing of float
-    | Min_w_arbitrary of Css.length
+    | Min_w_arbitrary of string * Css.length
     | Min_w_xl (* min-width: var(--container-xl) *)
     (* Max-width utilities *)
     | Max_w_none
@@ -72,7 +72,7 @@ module Handler = struct
     | Max_w_screen_xl
     | Max_w_screen_2xl
     | Max_w_spacing of float
-    | Max_w_arbitrary of Css.length
+    | Max_w_arbitrary of string * Css.length
     (* Min-height utilities *)
     | Min_h_0
     | Min_h_full
@@ -86,7 +86,7 @@ module Handler = struct
     | Min_h_svh
     | Min_h_lh
     | Min_h_spacing of float
-    | Min_h_arbitrary of Css.length
+    | Min_h_arbitrary of string * Css.length
     (* Max-height utilities *)
     | Max_h_none
     | Max_h_full
@@ -99,7 +99,7 @@ module Handler = struct
     | Max_h_svh
     | Max_h_lh
     | Max_h_spacing of float
-    | Max_h_arbitrary of Css.length
+    | Max_h_arbitrary of string * Css.length
     (* Size utilities (both width and height) *)
     | Size_auto
     | Size_full
@@ -108,11 +108,11 @@ module Handler = struct
     | Size_fit
     | Size_spacing of float
     | Size_fraction of string
-    | Size_arbitrary of Css.length
+    | Size_arbitrary of string * Css.length
     (* inline-size utilities *)
     | Inline_fraction of string
     | Inline_spacing of float
-    | Inline_arbitrary of Css.length
+    | Inline_arbitrary of string * Css.length
     | Inline_auto
     | Inline_dvw
     | Inline_fit
@@ -125,7 +125,7 @@ module Handler = struct
     | Inline_xl
     (* min-inline-size utilities *)
     | Min_inline_spacing of float
-    | Min_inline_arbitrary of Css.length
+    | Min_inline_arbitrary of string * Css.length
     | Min_inline_auto
     | Min_inline_fit
     | Min_inline_full
@@ -134,7 +134,7 @@ module Handler = struct
     | Min_inline_xl
     (* max-inline-size utilities *)
     | Max_inline_spacing of float
-    | Max_inline_arbitrary of Css.length
+    | Max_inline_arbitrary of string * Css.length
     | Max_inline_fit
     | Max_inline_full
     | Max_inline_max
@@ -143,7 +143,7 @@ module Handler = struct
     (* block-size utilities *)
     | Block_fraction of string
     | Block_spacing of float
-    | Block_arbitrary of Css.length
+    | Block_arbitrary of string * Css.length
     | Block_auto
     | Block_dvh
     | Block_fit
@@ -156,7 +156,7 @@ module Handler = struct
     | Block_svh
     (* min-block-size utilities *)
     | Min_block_spacing of float
-    | Min_block_arbitrary of Css.length
+    | Min_block_arbitrary of string * Css.length
     | Min_block_auto
     | Min_block_dvh
     | Min_block_fit
@@ -169,7 +169,7 @@ module Handler = struct
     | Min_block_svh
     (* max-block-size utilities *)
     | Max_block_spacing of float
-    | Max_block_arbitrary of Css.length
+    | Max_block_arbitrary of string * Css.length
     | Max_block_dvh
     | Max_block_fit
     | Max_block_full
@@ -478,7 +478,7 @@ module Handler = struct
         | "3/5" -> w_3_5'
         | "4/5" -> w_4_5'
         | _ -> failwith ("Unknown width fraction: " ^ f))
-    | W_arbitrary len -> style [ width len ]
+    | W_arbitrary (_, len) -> style [ width len ]
     | W_dvw -> style [ width (Dvw 100.) ]
     | W_lvw -> style [ width (Lvw 100.) ]
     | W_svw -> style [ width (Svw 100.) ]
@@ -506,7 +506,7 @@ module Handler = struct
         | "3/5" -> h_3_5'
         | "4/5" -> h_4_5'
         | _ -> failwith ("Unknown height fraction: " ^ f))
-    | H_arbitrary len -> style [ height len ]
+    | H_arbitrary (_, len) -> style [ height len ]
     | H_dvh -> style [ height (Dvh 100.) ]
     | H_lvh -> style [ height (Lvh 100.) ]
     | H_svh -> style [ height (Svh 100.) ]
@@ -519,7 +519,7 @@ module Handler = struct
     | Min_w_fit -> min_w_fit'
     | Min_w_auto -> style [ min_width Auto ]
     | Min_w_spacing n -> min_w' (`Rem n)
-    | Min_w_arbitrary len -> style [ min_width len ]
+    | Min_w_arbitrary (_, len) -> style [ min_width len ]
     | Min_w_xl ->
         let decl, ref_ = Var.binding container_xl (Rem 36.0) in
         style [ decl; min_width (Var ref_) ]
@@ -547,7 +547,7 @@ module Handler = struct
     | Max_w_screen_xl -> max_w_screen_xl'
     | Max_w_screen_2xl -> max_w_screen_2xl'
     | Max_w_spacing n -> max_w' (`Rem n)
-    | Max_w_arbitrary len -> style [ max_width len ]
+    | Max_w_arbitrary (_, len) -> style [ max_width len ]
     (* Min-height utilities *)
     | Min_h_0 -> min_h_0'
     | Min_h_full -> min_h_full'
@@ -561,7 +561,7 @@ module Handler = struct
     | Min_h_svh -> style [ min_height (Svh 100.) ]
     | Min_h_lh -> style [ min_height (Lh 1.) ]
     | Min_h_spacing n -> min_h' (`Rem n)
-    | Min_h_arbitrary len -> style [ min_height len ]
+    | Min_h_arbitrary (_, len) -> style [ min_height len ]
     (* Max-height utilities *)
     | Max_h_none -> max_h_none'
     | Max_h_full -> max_h_full'
@@ -574,7 +574,7 @@ module Handler = struct
     | Max_h_svh -> style [ max_height (Svh 100.) ]
     | Max_h_lh -> style [ max_height (Lh 1.) ]
     | Max_h_spacing n -> max_h' (`Rem n)
-    | Max_h_arbitrary len -> style [ max_height len ]
+    | Max_h_arbitrary (_, len) -> style [ max_height len ]
     (* Size utilities *)
     | Size_auto -> style [ width Auto; height Auto ]
     | Size_full -> style [ width (Pct 100.0); height (Pct 100.0) ]
@@ -604,14 +604,14 @@ module Handler = struct
         with
         | Some pct -> style [ width (Pct pct); height (Pct pct) ]
         | None -> failwith ("Unknown size fraction: " ^ f))
-    | Size_arbitrary len -> style [ width len; height len ]
+    | Size_arbitrary (_, len) -> style [ width len; height len ]
     (* inline-size utilities *)
     | Inline_fraction f -> (
         match List.assoc_opt f fraction_table with
         | Some pct -> style [ inline_size (Pct pct) ]
         | None -> failwith ("Unknown inline-size fraction: " ^ f))
     | Inline_spacing n -> spacing_utility inline_size n
-    | Inline_arbitrary len -> style [ inline_size len ]
+    | Inline_arbitrary (_, len) -> style [ inline_size len ]
     | Inline_auto -> style [ inline_size Auto ]
     | Inline_dvw -> style [ inline_size (Dvw 100.) ]
     | Inline_fit -> style [ inline_size Fit_content ]
@@ -626,7 +626,7 @@ module Handler = struct
         style [ decl; inline_size (Var ref_) ]
     (* min-inline-size utilities *)
     | Min_inline_spacing n -> spacing_utility min_inline_size n
-    | Min_inline_arbitrary len -> style [ min_inline_size len ]
+    | Min_inline_arbitrary (_, len) -> style [ min_inline_size len ]
     | Min_inline_auto -> style [ min_inline_size Auto ]
     | Min_inline_fit -> style [ min_inline_size Fit_content ]
     | Min_inline_full -> style [ min_inline_size (Pct 100.) ]
@@ -637,7 +637,7 @@ module Handler = struct
         style [ decl; min_inline_size (Var ref_) ]
     (* max-inline-size utilities *)
     | Max_inline_spacing n -> spacing_utility max_inline_size n
-    | Max_inline_arbitrary len -> style [ max_inline_size len ]
+    | Max_inline_arbitrary (_, len) -> style [ max_inline_size len ]
     | Max_inline_fit -> style [ max_inline_size Fit_content ]
     | Max_inline_full -> style [ max_inline_size (Pct 100.) ]
     | Max_inline_max -> style [ max_inline_size Max_content ]
@@ -651,7 +651,7 @@ module Handler = struct
         | Some pct -> style [ block_size (Pct pct) ]
         | None -> failwith ("Unknown block-size fraction: " ^ f))
     | Block_spacing n -> spacing_utility block_size n
-    | Block_arbitrary len -> style [ block_size len ]
+    | Block_arbitrary (_, len) -> style [ block_size len ]
     | Block_auto -> style [ block_size Auto ]
     | Block_dvh -> style [ block_size (Dvh 100.) ]
     | Block_fit -> style [ block_size Fit_content ]
@@ -664,7 +664,7 @@ module Handler = struct
     | Block_svh -> style [ block_size (Svh 100.) ]
     (* min-block-size utilities *)
     | Min_block_spacing n -> spacing_utility min_block_size n
-    | Min_block_arbitrary len -> style [ min_block_size len ]
+    | Min_block_arbitrary (_, len) -> style [ min_block_size len ]
     | Min_block_auto -> style [ min_block_size Auto ]
     | Min_block_dvh -> style [ min_block_size (Dvh 100.) ]
     | Min_block_fit -> style [ min_block_size Fit_content ]
@@ -677,7 +677,7 @@ module Handler = struct
     | Min_block_svh -> style [ min_block_size (Svh 100.) ]
     (* max-block-size utilities *)
     | Max_block_spacing n -> spacing_utility max_block_size n
-    | Max_block_arbitrary len -> style [ max_block_size len ]
+    | Max_block_arbitrary (_, len) -> style [ max_block_size len ]
     | Max_block_dvh -> style [ max_block_size (Dvh 100.) ]
     | Max_block_fit -> style [ max_block_size Fit_content ]
     | Max_block_full -> style [ max_block_size (Pct 100.) ]
@@ -700,22 +700,19 @@ module Handler = struct
   let err_invalid_value name value =
     Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
 
-  let parse_arbitrary s : Css.length option =
-    (* Parse [4px] or [1rem] etc. *)
+  let parse_arbitrary s : (string * Css.length) option =
+    (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc.
+       Uses Css.parse_length for full CSS length parsing including calc().
+       Returns (raw_inner, parsed_length) where raw_inner is used for the
+       CSS class name selector (preserving original formatting). *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if String.ends_with ~suffix:"px" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (Css.Px f)
-        | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (Css.Rem f)
-        | None -> None
-      else None
+      (* Tailwind bracket syntax: underscores become spaces *)
+      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
+      match Css.parse_length normalized with
+      | Some l -> Some (inner, l)
+      | None -> None
     else None
 
   let parse_w = function
@@ -735,8 +732,8 @@ module Handler = struct
         else err_invalid_value "width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (W_arbitrary len)
-        | None -> err_invalid_value "width" v)
+        | Some (raw, len) -> Ok (W_arbitrary (raw, len))
+        | None -> invalid_arg ("w-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
@@ -759,8 +756,8 @@ module Handler = struct
         else err_invalid_value "height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (H_arbitrary len)
-        | None -> err_invalid_value "height" v)
+        | Some (raw, len) -> Ok (H_arbitrary (raw, len))
+        | None -> invalid_arg ("h-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
@@ -776,8 +773,8 @@ module Handler = struct
     | "xl" -> Ok Min_w_xl
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Min_w_arbitrary len)
-        | None -> err_invalid_value "min-width" v)
+        | Some (raw, len) -> Ok (Min_w_arbitrary (raw, len))
+        | None -> invalid_arg ("min-w-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
@@ -797,8 +794,8 @@ module Handler = struct
     | "lh" -> Ok Min_h_lh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Min_h_arbitrary len)
-        | None -> err_invalid_value "min-height" v)
+        | Some (raw, len) -> Ok (Min_h_arbitrary (raw, len))
+        | None -> invalid_arg ("min-h-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
@@ -822,14 +819,10 @@ module Handler = struct
     | "max" -> Ok Max_w_max
     | "fit" -> Ok Max_w_fit
     | "prose" -> Ok Max_w_prose
-    | v when Parse.is_bracket_value v ->
-        let inner = Parse.bracket_inner v in
-        if String.ends_with ~suffix:"px" inner then
-          let s = String.sub inner 0 (String.length inner - 2) in
-          match float_of_string_opt s with
-          | Some f -> Ok (Max_w_arbitrary (Css.Px f))
-          | None -> err_invalid_value "max-width" v
-        else err_invalid_value "max-width" v
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some (raw, len) -> Ok (Max_w_arbitrary (raw, len))
+        | None -> invalid_arg ("max-w-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
@@ -856,8 +849,8 @@ module Handler = struct
     | "lh" -> Ok Max_h_lh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Max_h_arbitrary len)
-        | None -> err_invalid_value "max-height" v)
+        | Some (raw, len) -> Ok (Max_h_arbitrary (raw, len))
+        | None -> invalid_arg ("max-h-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
@@ -874,8 +867,8 @@ module Handler = struct
         else err_invalid_value "size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Size_arbitrary len)
-        | None -> err_invalid_value "size" v)
+        | Some (raw, len) -> Ok (Size_arbitrary (raw, len))
+        | None -> invalid_arg ("size-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
@@ -897,8 +890,8 @@ module Handler = struct
         else err_invalid_value "inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Inline_arbitrary len)
-        | None -> err_invalid_value "inline-size" v)
+        | Some (raw, len) -> Ok (Inline_arbitrary (raw, len))
+        | None -> invalid_arg ("inline-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Inline_spacing (n *. 0.25))
@@ -913,8 +906,8 @@ module Handler = struct
     | "xl" -> Ok Min_inline_xl
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Min_inline_arbitrary len)
-        | None -> err_invalid_value "min-inline-size" v)
+        | Some (raw, len) -> Ok (Min_inline_arbitrary (raw, len))
+        | None -> invalid_arg ("min-inline-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_inline_spacing (n *. 0.25))
@@ -928,8 +921,8 @@ module Handler = struct
     | "xl" -> Ok Max_inline_xl
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Max_inline_arbitrary len)
-        | None -> err_invalid_value "max-inline-size" v)
+        | Some (raw, len) -> Ok (Max_inline_arbitrary (raw, len))
+        | None -> invalid_arg ("max-inline-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_inline_spacing (n *. 0.25))
@@ -951,8 +944,8 @@ module Handler = struct
         else err_invalid_value "block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Block_arbitrary len)
-        | None -> err_invalid_value "block-size" v)
+        | Some (raw, len) -> Ok (Block_arbitrary (raw, len))
+        | None -> invalid_arg ("block-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Block_spacing (n *. 0.25))
@@ -971,8 +964,8 @@ module Handler = struct
     | "svh" -> Ok Min_block_svh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Min_block_arbitrary len)
-        | None -> err_invalid_value "min-block-size" v)
+        | Some (raw, len) -> Ok (Min_block_arbitrary (raw, len))
+        | None -> invalid_arg ("min-block-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_block_spacing (n *. 0.25))
@@ -991,8 +984,8 @@ module Handler = struct
     | "svh" -> Ok Max_block_svh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
-        | Some len -> Ok (Max_block_arbitrary len)
-        | None -> err_invalid_value "max-block-size" v)
+        | Some (raw, len) -> Ok (Max_block_arbitrary (raw, len))
+        | None -> invalid_arg ("max-block-" ^ v ^ ": invalid bracket value"))
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
@@ -1244,20 +1237,7 @@ module Handler = struct
     | W_px -> "w-px"
     | W_spacing n -> "w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | W_fraction f -> "w-" ^ f
-    | W_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "w-[" ^ len_str ^ "]"
+    | W_arbitrary (raw, _) -> "w-[" ^ raw ^ "]"
     | W_dvw -> "w-dvw"
     | W_lvw -> "w-lvw"
     | W_svw -> "w-svw"
@@ -1272,20 +1252,7 @@ module Handler = struct
     | H_px -> "h-px"
     | H_spacing n -> "h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | H_fraction f -> "h-" ^ f
-    | H_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "h-[" ^ len_str ^ "]"
+    | H_arbitrary (raw, _) -> "h-[" ^ raw ^ "]"
     | H_dvh -> "h-dvh"
     | H_lh -> "h-lh"
     | H_lvh -> "h-lvh"
@@ -1298,20 +1265,7 @@ module Handler = struct
     | Min_w_fit -> "min-w-fit"
     | Min_w_auto -> "min-w-auto"
     | Min_w_spacing n -> "min-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Min_w_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "min-w-[" ^ len_str ^ "]"
+    | Min_w_arbitrary (raw, _) -> "min-w-[" ^ raw ^ "]"
     | Min_w_xl -> "min-w-xl"
     (* Max-width utilities *)
     | Max_w_none -> "max-w-none"
@@ -1337,15 +1291,7 @@ module Handler = struct
     | Max_w_screen_xl -> "max-w-screen-xl"
     | Max_w_screen_2xl -> "max-w-screen-2xl"
     | Max_w_spacing n -> "max-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Max_w_arbitrary (Px n) ->
-        let s = string_of_float n in
-        let s =
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "max-w-[" ^ s ^ "px]"
-    | Max_w_arbitrary _ -> "max-w-[<length>]"
+    | Max_w_arbitrary (raw, _) -> "max-w-[" ^ raw ^ "]"
     (* Min-height utilities *)
     | Min_h_0 -> "min-h-0"
     | Min_h_full -> "min-h-full"
@@ -1359,20 +1305,7 @@ module Handler = struct
     | Min_h_svh -> "min-h-svh"
     | Min_h_lh -> "min-h-lh"
     | Min_h_spacing n -> "min-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Min_h_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "min-h-[" ^ len_str ^ "]"
+    | Min_h_arbitrary (raw, _) -> "min-h-[" ^ raw ^ "]"
     (* Max-height utilities *)
     | Max_h_none -> "max-h-none"
     | Max_h_full -> "max-h-full"
@@ -1385,20 +1318,7 @@ module Handler = struct
     | Max_h_svh -> "max-h-svh"
     | Max_h_lh -> "max-h-lh"
     | Max_h_spacing n -> "max-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Max_h_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "max-h-[" ^ len_str ^ "]"
+    | Max_h_arbitrary (raw, _) -> "max-h-[" ^ raw ^ "]"
     (* Size utilities *)
     | Size_auto -> "size-auto"
     | Size_full -> "size-full"
@@ -1407,37 +1327,11 @@ module Handler = struct
     | Size_fit -> "size-fit"
     | Size_spacing n -> "size-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | Size_fraction f -> "size-" ^ f
-    | Size_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "size-[" ^ len_str ^ "]"
+    | Size_arbitrary (raw, _) -> "size-[" ^ raw ^ "]"
     (* inline-size utilities *)
     | Inline_fraction f -> "inline-" ^ f
     | Inline_spacing n -> "inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Inline_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "inline-[" ^ len_str ^ "]"
+    | Inline_arbitrary (raw, _) -> "inline-[" ^ raw ^ "]"
     | Inline_auto -> "inline-auto"
     | Inline_dvw -> "inline-dvw"
     | Inline_fit -> "inline-fit"
@@ -1451,20 +1345,7 @@ module Handler = struct
     (* min-inline-size utilities *)
     | Min_inline_spacing n ->
         "min-inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Min_inline_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "min-inline-[" ^ len_str ^ "]"
+    | Min_inline_arbitrary (raw, _) -> "min-inline-[" ^ raw ^ "]"
     | Min_inline_auto -> "min-inline-auto"
     | Min_inline_fit -> "min-inline-fit"
     | Min_inline_full -> "min-inline-full"
@@ -1474,20 +1355,7 @@ module Handler = struct
     (* max-inline-size utilities *)
     | Max_inline_spacing n ->
         "max-inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Max_inline_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "max-inline-[" ^ len_str ^ "]"
+    | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
     | Max_inline_fit -> "max-inline-fit"
     | Max_inline_full -> "max-inline-full"
     | Max_inline_max -> "max-inline-max"
@@ -1496,20 +1364,7 @@ module Handler = struct
     (* block-size utilities *)
     | Block_fraction f -> "block-" ^ f
     | Block_spacing n -> "block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Block_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "block-[" ^ len_str ^ "]"
+    | Block_arbitrary (raw, _) -> "block-[" ^ raw ^ "]"
     | Block_auto -> "block-auto"
     | Block_dvh -> "block-dvh"
     | Block_fit -> "block-fit"
@@ -1523,20 +1378,7 @@ module Handler = struct
     (* min-block-size utilities *)
     | Min_block_spacing n ->
         "min-block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Min_block_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "min-block-[" ^ len_str ^ "]"
+    | Min_block_arbitrary (raw, _) -> "min-block-[" ^ raw ^ "]"
     | Min_block_auto -> "min-block-auto"
     | Min_block_dvh -> "min-block-dvh"
     | Min_block_fit -> "min-block-fit"
@@ -1550,20 +1392,7 @@ module Handler = struct
     (* max-block-size utilities *)
     | Max_block_spacing n ->
         "max-block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
-    | Max_block_arbitrary len ->
-        let pp_float n =
-          let s = string_of_float n in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        let len_str =
-          match len with
-          | Css.Px n -> pp_float n ^ "px"
-          | Css.Rem n -> pp_float n ^ "rem"
-          | _ -> Css.Pp.to_string Css.pp_length len
-        in
-        "max-block-[" ^ len_str ^ "]"
+    | Max_block_arbitrary (raw, _) -> "max-block-[" ^ raw ^ "]"
     | Max_block_dvh -> "max-block-dvh"
     | Max_block_fit -> "max-block-fit"
     | Max_block_full -> "max-block-full"
