@@ -2074,8 +2074,8 @@ let variant_order_of_prefix prefix =
       else 0
 
 (* [variant_order_of_media_cond cond] returns the same sort key as
-   [variant_order_of_prefix] for the corresponding CSS media condition. Used
-   to determine the cascade position of rules with nested media queries (e.g.,
+   [variant_order_of_prefix] for the corresponding CSS media condition. Used to
+   determine the cascade position of rules with nested media queries (e.g.,
    dark:group-hover has a nested @media(hover:hover), so its effective inner
    order is 20000, matching standalone hover). *)
 let variant_order_of_media_cond cond =
