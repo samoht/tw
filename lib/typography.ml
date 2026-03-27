@@ -2168,28 +2168,47 @@ module Typography_late = struct
   let capitalize = style [ text_transform Capitalize ]
   let normal_case = style [ text_transform None ]
 
-  let tracking_arbitrary v =
+  let parse_length_exn v =
     match Css.parse_length v with
-    | Some len ->
-        let channel_decl, _ = Var.binding tracking_var len in
-        let property_rules =
-          Var.property_rule tracking_var |> Option.to_list |> Css.concat
-        in
-        style ~property_rules [ channel_decl; letter_spacing len ]
-    | None -> style []
+    | Some len -> len
+    | None -> invalid_arg ("Invalid tracking length: " ^ v)
+
+  let tracking_arbitrary v =
+    let len = parse_length_exn v in
+    let channel_decl, _ = Var.binding tracking_var len in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules [ channel_decl; letter_spacing len ]
+
+  let negate_length : Css.length -> Css.length = function
+    | Px n -> Px (-.n)
+    | Em n -> Em (-.n)
+    | Rem n -> Rem (-.n)
+    | Cm n -> Cm (-.n)
+    | Mm n -> Mm (-.n)
+    | Pt n -> Pt (-.n)
+    | Pc n -> Pc (-.n)
+    | Ex n -> Ex (-.n)
+    | Ch n -> Ch (-.n)
+    | Lh n -> Lh (-.n)
+    | Vw n -> Vw (-.n)
+    | Vh n -> Vh (-.n)
+    | Pct n -> Pct (-.n)
+    | len -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
 
   let neg_tracking_arbitrary v =
-    match Css.parse_length v with
-    | Some len ->
-        let neg_len : Css.length =
-          Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
-        in
-        let channel_decl, _ = Var.binding tracking_var neg_len in
-        let property_rules =
-          Var.property_rule tracking_var |> Option.to_list |> Css.concat
-        in
-        style ~property_rules [ channel_decl; letter_spacing neg_len ]
-    | None -> style []
+    let len = parse_length_exn v in
+    (* --tw-tracking uses calc() form, letter-spacing uses direct negation *)
+    let calc_neg : Css.length =
+      Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
+    in
+    let direct_neg = negate_length len in
+    let channel_decl, _ = Var.binding tracking_var calc_neg in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules [ channel_decl; letter_spacing direct_neg ]
 
   let underline_offset_auto () =
     match Var.theme_value "text-underline-offset-auto" with
