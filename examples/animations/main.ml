@@ -308,42 +308,48 @@ let starting_card ~start_styles ~end_styles ~bg_styles ~heading_tw ~text_tw
     ~tw:Tw.(start_styles @ end_styles @ [ p 6; rounded_lg ] @ bg_styles)
     [ h3 ~tw:heading_tw [ txt heading ]; p ~tw:text_tw [ txt description ] ]
 
+let fade_in_card =
+  starting_card
+    ~start_styles:Tw.[ starting [ opacity 0 ] ]
+    ~end_styles:Tw.[ opacity 100; transition_opacity; duration 700 ]
+    ~bg_styles:Tw.[ bg ~shade:100 blue; dark [ bg ~shade:900 blue ] ]
+    ~heading_tw:
+      Tw.
+        [
+          font_semibold;
+          text ~shade:900 blue;
+          mb 2;
+          dark [ text ~shade:100 blue ];
+        ]
+    ~text_tw:
+      Tw.[ text_sm; text ~shade:700 blue; dark [ text ~shade:200 blue ] ]
+    ~heading:"Fade In"
+    ~description:"This element fades in from transparent to opaque."
+
+let scale_in_card =
+  starting_card
+    ~start_styles:Tw.[ starting [ opacity 0; scale 90 ] ]
+    ~end_styles:Tw.[ opacity 100; scale 100; transition_all; duration 500 ]
+    ~bg_styles:Tw.[ bg ~shade:100 green; dark [ bg ~shade:900 green ] ]
+    ~heading_tw:
+      Tw.
+        [
+          font_semibold;
+          text ~shade:900 green;
+          mb 2;
+          dark [ text ~shade:100 green ];
+        ]
+    ~text_tw:
+      Tw.[ text_sm; text ~shade:700 green; dark [ text ~shade:200 green ] ]
+    ~heading:"Scale In"
+    ~description:"This element scales up while fading in."
+
 let starting_demos =
   div
     ~tw:Tw.[ grid; grid_cols 1; gap 4; md [ grid_cols 2 ] ]
     [
-      starting_card
-        ~start_styles:Tw.[ starting [ opacity 0 ] ]
-        ~end_styles:Tw.[ opacity 100; transition_opacity; duration 700 ]
-        ~bg_styles:Tw.[ bg ~shade:100 blue; dark [ bg ~shade:900 blue ] ]
-        ~heading_tw:
-          Tw.
-            [
-              font_semibold;
-              text ~shade:900 blue;
-              mb 2;
-              dark [ text ~shade:100 blue ];
-            ]
-        ~text_tw:
-          Tw.[ text_sm; text ~shade:700 blue; dark [ text ~shade:200 blue ] ]
-        ~heading:"Fade In"
-        ~description:"This element fades in from transparent to opaque.";
-      starting_card
-        ~start_styles:Tw.[ starting [ opacity 0; scale 90 ] ]
-        ~end_styles:Tw.[ opacity 100; scale 100; transition_all; duration 500 ]
-        ~bg_styles:Tw.[ bg ~shade:100 green; dark [ bg ~shade:900 green ] ]
-        ~heading_tw:
-          Tw.
-            [
-              font_semibold;
-              text ~shade:900 green;
-              mb 2;
-              dark [ text ~shade:100 green ];
-            ]
-        ~text_tw:
-          Tw.[ text_sm; text ~shade:700 green; dark [ text ~shade:200 green ] ]
-        ~heading:"Scale In"
-        ~description:"This element scales up while fading in.";
+      fade_in_card;
+      scale_in_card;
       starting_card
         ~start_styles:Tw.[ starting [ opacity 0; translate_x (-4) ] ]
         ~end_styles:
