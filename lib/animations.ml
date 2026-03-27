@@ -244,9 +244,7 @@ module Handler = struct
     | _ -> Option.None
 
   let animate_bracket value =
-    let css_value =
-      String.map (fun c -> if c = '_' then ' ' else c) value
-    in
+    let css_value = String.map (fun c -> if c = '_' then ' ' else c) value in
     let parts = String.split_on_char ' ' css_value in
     (* Tailwind moves the animation name to the end of the shorthand *)
     let anim_name, reordered =

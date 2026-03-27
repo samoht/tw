@@ -2862,12 +2862,14 @@ let ring = utility Ring_md
 let ring_md = utility Ring_md
 let ring_lg = utility Ring_lg
 let ring_xl = utility Ring_xl
+
 let ring_color ?opacity ?(shade = 500) color =
   match opacity with
   | None -> utility (Ring_color (color, shade))
   | Some pct ->
       utility
         (Ring_color_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
 let inset_ring = utility Inset_ring_default
 let opacity n = utility (Opacity n)
 let mix_blend_normal = utility Mix_blend_normal

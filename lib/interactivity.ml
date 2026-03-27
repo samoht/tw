@@ -193,9 +193,7 @@ module Handler = struct
           style [ will_change (Var (Var.bracket bare_name)) ]
         else
           let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
-          let props =
-            String.split_on_char ',' raw |> List.map String.trim
-          in
+          let props = String.split_on_char ',' raw |> List.map String.trim in
           style [ will_change (Properties props) ]
     | Group -> group_s
     | Peer -> peer_s

@@ -2622,10 +2622,8 @@ module Typography_late = struct
     | Decoration_bracket_pct v -> decoration_bracket_pct v
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
-    | Tracking_arbitrary v ->
-        tracking_arbitrary v
-    | Neg_tracking_arbitrary v ->
-        neg_tracking_arbitrary v
+    | Tracking_arbitrary v -> tracking_arbitrary v
+    | Neg_tracking_arbitrary v -> neg_tracking_arbitrary v
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
@@ -2841,6 +2839,7 @@ let uppercase = utility_late Typography_late.Uppercase
 let lowercase = utility_late Typography_late.Lowercase
 let capitalize = utility_late Typography_late.Capitalize
 let normal_case = utility_late Typography_late.Normal_case
+
 let underline_offset n =
   utility_late (Typography_late.Underline_offset_px (float_of_int n))
 

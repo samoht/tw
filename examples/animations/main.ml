@@ -1,7 +1,7 @@
-(** Feature: Animations demo
+(* Feature: Animations demo
 
-    Shows various animation utilities including keyframe animations, transitions,
-    transforms, @starting-style, and motion preferences. *)
+   Shows various animation utilities including keyframe animations, transitions,
+   transforms, @starting-style, and motion preferences. *)
 
 open Tw_html
 
@@ -321,8 +321,7 @@ let fade_in_card =
           mb 2;
           dark [ text ~shade:100 blue ];
         ]
-    ~text_tw:
-      Tw.[ text_sm; text ~shade:700 blue; dark [ text ~shade:200 blue ] ]
+    ~text_tw:Tw.[ text_sm; text ~shade:700 blue; dark [ text ~shade:200 blue ] ]
     ~heading:"Fade In"
     ~description:"This element fades in from transparent to opaque."
 
@@ -341,8 +340,7 @@ let scale_in_card =
         ]
     ~text_tw:
       Tw.[ text_sm; text ~shade:700 green; dark [ text ~shade:200 green ] ]
-    ~heading:"Scale In"
-    ~description:"This element scales up while fading in."
+    ~heading:"Scale In" ~description:"This element scales up while fading in."
 
 let starting_demos =
   div

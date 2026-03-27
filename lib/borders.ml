@@ -1937,9 +1937,7 @@ module Handler = struct
     | [ "border"; "current" ] -> Ok Border_current
     | [ "border"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        let is_numeric_start c =
-          (c >= '0' && c <= '9') || c = '.' || c = '-'
-        in
+        let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         if String.length inner > 0 && is_numeric_start inner.[0] then
           Ok (Border_width_bracket inner)
         else err_not_utility

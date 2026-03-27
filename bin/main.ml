@@ -75,8 +75,8 @@ type gen_opts = {
   test_scheme : bool;
 }
 
-(** Set up the test scheme matching Tailwind's test @theme.
-    This uses hex colors and explicit spacing variables. *)
+(* Set up the test scheme matching Tailwind's test @theme.
+   This uses hex colors and explicit spacing variables. *)
 let setup_test_scheme () =
   let scheme : Tw.Scheme.t =
     {

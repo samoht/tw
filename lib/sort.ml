@@ -235,8 +235,7 @@ let compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2 =
     priority/suborder, cross-kind comparisons preserve source order (index) to
     match tailwindcss output exactly. *)
 let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
-    (p2, s2)
-    i1 i2 =
+    (p2, s2) i1 i2 =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
   else
@@ -491,10 +490,7 @@ let compare_by_priority_index r1 r2 =
       else
         let idx_cmp = Int.compare r1.index r2.index in
         if idx_cmp <> 0 then idx_cmp
-        else
-          String.compare
-            (r1.selector_str)
-            (r2.selector_str)
+        else String.compare r1.selector_str r2.selector_str
 
 let is_outline_utility bc =
   match bc with
@@ -619,10 +615,7 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
       if late1 && not late2 then 1
       else if late2 && not late1 then -1
       else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
-      else
-        natural_compare
-          (r1.selector_str)
-          (r2.selector_str)
+      else natural_compare r1.selector_str r2.selector_str
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
@@ -751,11 +744,7 @@ let compare_by_order_then_selector r1 r2 =
   let order_cmp = compare r1.order r2.order in
   if order_cmp <> 0 then order_cmp
   else
-    let sel_cmp =
-      natural_compare
-        (r1.selector_str)
-        (r2.selector_str)
-    in
+    let sel_cmp = natural_compare r1.selector_str r2.selector_str in
     if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
 
 (* Compare nested media conditions *)
@@ -917,8 +906,7 @@ let nested_order rule_type nested =
       match (rule_type, Css.as_media stmt) with
       | `Media Css.Media.Hover, Some (Css.Media.Hover, _) ->
           2 (* doubly-nested hover: after everything *)
-      | _, Some (Css.Media.Hover, _) ->
-          -1 (* single hover nested: first *)
+      | _, Some (Css.Media.Hover, _) -> -1 (* single hover nested: first *)
       | _ -> 1 (* other nested: last *))
   | _ -> 1 (* multiple nested: last *)
 

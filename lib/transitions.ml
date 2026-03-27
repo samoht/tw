@@ -404,9 +404,10 @@ module Handler = struct
       let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
       let tf : Css.timing_function =
         let prefix = "cubic-bezier(" in
-        if String.length raw > String.length prefix + 1
-           && String.sub raw 0 (String.length prefix) = prefix
-           && raw.[String.length raw - 1] = ')'
+        if
+          String.length raw > String.length prefix + 1
+          && String.sub raw 0 (String.length prefix) = prefix
+          && raw.[String.length raw - 1] = ')'
         then
           let inner =
             String.sub raw (String.length prefix)
@@ -435,8 +436,7 @@ module Handler = struct
       let property_rules =
         match prop_rule with Some r -> r | None -> Css.empty
       in
-      style ~property_rules
-        [ tw_ease_decl; Css.transition_timing_function tf ]
+      style ~property_rules [ tw_ease_decl; Css.transition_timing_function tf ]
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
   let delay_arbitrary d = style [ Css.transition_delay d ]
