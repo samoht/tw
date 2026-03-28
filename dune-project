@@ -24,7 +24,10 @@
   cmdliner
   fmt
   re
+  (brr (>= 0.0.6))
+  js_of_ocaml
   (alcotest :with-test)
+  (alcotest-js :with-test)
   (astring :with-test)
   (crunch :with-test)
   (alcobar :with-test)
