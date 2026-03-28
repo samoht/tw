@@ -1491,6 +1491,8 @@ module Handler = struct
     | Border_transparent
     | Border_current
     | Border_current_opacity of opacity_modifier
+    | Border_bracket_color of string
+    | Border_bracket_color_opacity of string * opacity_modifier
     (* Accent colors *)
     | Accent of color * int
     | Accent_opacity of color * int * opacity_modifier
@@ -1686,6 +1688,25 @@ module Handler = struct
         | No_opacity when base = "current" -> Ok Border_current
         | No_opacity -> Error (`Msg ("Invalid border: " ^ current_str))
         | _ -> Ok (Border_current_opacity opacity))
+    | [ "border"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) ->
+        let base_str, opacity = parse_opacity_modifier v in
+        let base_inner = Parse.bracket_inner base_str in
+        let starts prefix s =
+          String.length s >= String.length prefix
+          && String.sub s 0 (String.length prefix) = prefix
+        in
+        if
+          starts "#" base_inner
+          || Result.is_ok (color_of_string base_inner)
+          || Parse.is_css_color_fn base_inner
+        then
+          match opacity with
+          | No_opacity -> Ok (Border_bracket_color base_inner)
+          | _ -> Ok (Border_bracket_color_opacity (base_inner, opacity))
+        else Error (`Msg ("Invalid border bracket value: " ^ base_inner))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->
@@ -2175,6 +2196,42 @@ module Handler = struct
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
+  let parse_css_color_fn inner =
+    try
+      let reader = Css.Reader.of_string inner in
+      Some (Css.Values.read_color reader)
+    with _ -> None
+
+  let border_bracket_color_style inner =
+    if String.length inner > 0 && inner.[0] = '#' then
+      let shortened = shorten_hex_str inner in
+      style ~merge_key:"border-"
+        [ Css.border_color (Css.hex ("#" ^ shortened)) ]
+    else if Parse.is_css_color_fn inner then
+      match parse_css_color_fn inner with
+      | Some c -> style [ Css.border_color c ]
+      | None -> style [ Css.border_color (Css.hex "#000") ]
+    else
+      match color_of_string inner with
+      | Ok c ->
+          let css_color = to_css c 500 in
+          style [ Css.border_color css_color ]
+      | Error _ -> style [ Css.border_color (Css.hex "#000") ]
+
+  let border_bracket_color_opacity_style inner opacity =
+    if Parse.is_css_color_fn inner then
+      match parse_css_color_fn inner with
+      | Some c ->
+          color_with_opacity_style ~property:Css.border_color (Hex "000000") 500
+            opacity
+          (* TODO: proper CSS fn opacity support *)
+      | None ->
+          color_with_opacity_style ~property:Css.border_color (Hex "000000") 500
+            opacity
+    else
+      let c = bracket_color_to_custom inner in
+      color_with_opacity_style ~property:Css.border_color c 500 opacity
+
   let with_pseudo pseudo = function
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
     | other -> other
@@ -2256,6 +2313,9 @@ module Handler = struct
     | Border_current -> border_current
     | Border_current_opacity opacity ->
         current_color_with_opacity ~property:Css.border_color opacity
+    | Border_bracket_color inner -> border_bracket_color_style inner
+    | Border_bracket_color_opacity (inner, opacity) ->
+        border_bracket_color_opacity_style inner opacity
     | Accent (color, shade) -> accent' color shade
     | Accent_opacity (color, shade, opacity) ->
         accent_with_opacity color shade opacity

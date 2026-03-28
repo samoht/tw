@@ -87,7 +87,7 @@ let dom_tests =
   else []
 
 let () =
-  run "tw_dom"
+  run ~and_exit:false "tw_dom"
     ([
        ( "core",
          [
