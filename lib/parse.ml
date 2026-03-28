@@ -67,6 +67,28 @@ let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
 
+(** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
+    "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
+    followed by '('. *)
+let is_css_color_fn s =
+  let starts prefix =
+    String.length s >= String.length prefix + 1
+    && String.sub s 0 (String.length prefix) = prefix
+    && s.[String.length prefix] = '('
+  in
+  starts "rgb" || starts "rgba" || starts "hsl" || starts "hsla" || starts "hwb"
+  || starts "oklch" || starts "oklab" || starts "lch" || starts "lab"
+  || starts "color" || starts "color-mix"
+
+(** Parse a CSS color function string into a typed [Css.color] value using the
+    CSS reader. Returns [None] if parsing fails. *)
+let parse_css_color_fn s =
+  try
+    let reader = Css.Reader.of_string s in
+    let color = Css.Values.read_color reader in
+    Some color
+  with _ -> None
+
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =
   String.length s > 4
