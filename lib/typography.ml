@@ -400,6 +400,8 @@ module Typography_early = struct
     || (String.length inner >= 6 && String.sub inner 0 6 = "color:")
     (* bare var() without type prefix defaults to color *)
     || Parse.is_var inner
+    (* CSS color functions like rgba(...), hsl(...), oklch(...) *)
+    || Parse.is_css_color_fn inner
 
   (** Split on first '/' outside brackets/parens. *)
   let split_on_slash s =
