@@ -21,7 +21,11 @@ module Handler = struct
     | Ish_2xl
 
   (* Color in an arbitrary shadow value *)
-  type arb_color = Arb_hex of string | Arb_var of string | Arb_none
+  type arbitrary =
+    | Hex of string
+    | Var of string
+    | Css_color of Css.color
+    | None
 
   type t =
     (* Shadows — shape utilities *)
@@ -423,7 +427,7 @@ module Handler = struct
 
   (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
   let parse_arbitrary_shadow (s : string) :
-      (Css.length * Css.length * Css.length option * arb_color) option =
+      (Css.length * Css.length * Css.length option * arbitrary) option =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
     let parts = String.split_on_char ' ' normalized in
     let parse_length str : Css.length option =
@@ -452,13 +456,19 @@ module Handler = struct
       else None
     in
     let rec find_color_and_lengths acc (parts : string list) :
-        string list * arb_color =
+        string list * arbitrary =
       match parts with
-      | [] -> (List.rev acc, Arb_none)
+      | [] -> (List.rev acc, None)
       | x :: _rest when String.length x > 0 && x.[0] = '#' ->
-          (List.rev acc, Arb_hex x)
+          (List.rev acc, Hex x)
       | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
-          (List.rev acc, Arb_var x)
+          (List.rev acc, Var x)
+      | x :: rest when Parse.is_css_color_fn x -> (
+          (* Rejoin remaining parts with x in case the color fn spans spaces *)
+          let color_str = String.concat " " (x :: rest) in
+          match Css.parse_color color_str with
+          | Some c -> (List.rev acc, Css_color c)
+          | None -> find_color_and_lengths (x :: acc) rest)
       | x :: rest -> find_color_and_lengths (x :: acc) rest
     in
     let length_strs, color = find_color_and_lengths [] parts in
@@ -474,9 +484,11 @@ module Handler = struct
     | Some (h_offset, v_offset, blur, color) ->
         let fallback_color : Css.color =
           match color with
-          | Arb_hex c -> Css.hex (shorten_hex c)
-          | Arb_var v -> make_color_var (Parse.extract_var_name v)
-          | Arb_none -> Css.Current
+          | Hex c -> Css.hex (shorten_hex c)
+          | Var v -> make_color_var (Parse.extract_var_name v)
+          | Css_color c -> (
+              match Color.css_color_to_hex c with Some h -> h | None -> c)
+          | None -> Css.Current
         in
         let color_ref =
           Var.reference_with_fallback shadow_color_var fallback_color
@@ -497,9 +509,11 @@ module Handler = struct
         let alpha_d = shadow_alpha_decl percent in
         let base_fallback : Css.color =
           match color with
-          | Arb_hex c -> Color.hex_to_oklab_alpha c alpha
-          | Arb_var v -> make_color_var (Parse.extract_var_name v)
-          | Arb_none -> Css.Current
+          | Hex c -> Color.hex_to_oklab_alpha c alpha
+          | Var v -> make_color_var (Parse.extract_var_name v)
+          | Css_color c -> (
+              match Color.css_color_to_hex c with Some h -> h | None -> c)
+          | None -> Css.Current
         in
         let base_color_ref =
           Var.reference_with_fallback shadow_color_var base_fallback
@@ -510,8 +524,8 @@ module Handler = struct
         let d_shadow, v_shadow = Var.binding shadow_var base_shadow in
         let supports_rules =
           match color with
-          | Arb_hex _ -> []
-          | Arb_var v ->
+          | Hex _ | Css_color _ -> []
+          | Var v ->
               let vn = Parse.extract_var_name v in
               let raw_fb =
                 Printf.sprintf "oklab(from var(--%s) l a b / %s%%)" vn
@@ -532,7 +546,7 @@ module Handler = struct
                   ]
               in
               [ supports_block ]
-          | Arb_none ->
+          | None ->
               let color_mix_fallback =
                 Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
                   ~percent1:percent
@@ -927,9 +941,13 @@ module Handler = struct
             (fun (h_offset, v_offset, blur, color) ->
               let fallback_color : Css.color =
                 match color with
-                | Arb_hex c -> Css.hex (shorten_hex c)
-                | Arb_var v -> make_full_color_var v
-                | Arb_none -> Css.Current
+                | Hex c -> Css.hex (shorten_hex c)
+                | Var v -> make_full_color_var v
+                | Css_color c -> (
+                    match Color.css_color_to_hex c with
+                    | Some h -> h
+                    | None -> c)
+                | None -> Css.Current
               in
               let color_ref =
                 Var.reference_with_fallback inset_shadow_color_var
@@ -997,7 +1015,7 @@ module Handler = struct
         let needs_supports =
           List.exists
             (fun (_, _, _, color) ->
-              match color with Arb_var _ | Arb_none -> true | _ -> false)
+              match color with Var _ | None -> true | _ -> false)
             parsed_parts
         in
         (* Build base shadow values: when @supports is present, use simple
@@ -1007,11 +1025,15 @@ module Handler = struct
             (fun (h_offset, v_offset, blur, color) ->
               let base_fallback : Css.color =
                 match color with
-                | Arb_hex c ->
+                | Hex c ->
                     if needs_supports then Css.hex (shorten_hex c)
                     else Color.hex_to_oklab_alpha c alpha
-                | Arb_var v -> make_full_color_var v
-                | Arb_none -> Css.Current
+                | Var v -> make_full_color_var v
+                | Css_color c -> (
+                    match Color.css_color_to_hex c with
+                    | Some h -> h
+                    | None -> c)
+                | None -> Css.Current
               in
               let color_ref =
                 Var.reference_with_fallback inset_shadow_color_var base_fallback
@@ -1037,10 +1059,10 @@ module Handler = struct
                 (fun (h_offset, v_offset, blur, color) ->
                   let enhanced_ref =
                     match color with
-                    | Arb_hex c ->
+                    | Hex c ->
                         let oklab = Color.hex_to_oklab_alpha c alpha in
                         Var.reference_with_fallback inset_shadow_color_var oklab
-                    | Arb_var v ->
+                    | Var v ->
                         let var_with_fb = reconstruct_short_var v in
                         let raw_fb =
                           Printf.sprintf "oklab(from %s l a b / %s%%)"
@@ -1048,7 +1070,14 @@ module Handler = struct
                         in
                         Var.bracket ~fallback:(Raw_fallback raw_fb)
                           "tw-inset-shadow-color"
-                    | Arb_none ->
+                    | Css_color c ->
+                        let hex_c =
+                          match Color.css_color_to_hex c with
+                          | Some h -> h
+                          | None -> c
+                        in
+                        Var.reference_with_fallback inset_shadow_color_var hex_c
+                    | None ->
                         let color_mix_fallback =
                           Css.color_mix ~in_space:Oklab Css.Current
                             Css.Transparent ~percent1:percent
@@ -1071,7 +1100,7 @@ module Handler = struct
             let has_real_var =
               List.exists
                 (fun (_, _, _, color) ->
-                  match color with Arb_var _ -> true | _ -> false)
+                  match color with Var _ -> true | _ -> false)
                 parsed_parts
             in
             if has_real_var then
