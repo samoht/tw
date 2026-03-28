@@ -1,0 +1,5 @@
+(library
+ (name tw_dom)
+ (public_name tw.dom)
+ (libraries tw brr)
+ (optional))

@@ -1,0 +1,13 @@
+(executable
+ (name test)
+ (modes js)
+ (libraries tw alcotest astring)
+ (enabled_if
+  (= %{context_name} "default")))
+
+(rule
+ (alias runtest)
+ (enabled_if
+  (= %{context_name} "default"))
+ (action
+  (run node -e "require('./%{dep:test.bc.js}')")))
