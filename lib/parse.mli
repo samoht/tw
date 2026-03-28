@@ -62,11 +62,6 @@ val is_css_color_fn : string -> bool
     standard CSS color functions: rgb, rgba, hsl, hsla, hwb, oklch, oklab, lch,
     lab, color, and color-mix. *)
 
-val parse_css_color_fn : string -> Css.color option
-(** [parse_css_color_fn s] parses a CSS color function string like
-    ["rgba(48,163,0,0.14)"] into a typed {!Css.color} value. Returns [None] if
-    parsing fails. *)
-
 val is_bare_var : string -> bool
 (** [is_bare_var s] returns [true] if [s] is a bare var reference like
     ["(--name)"]. *)

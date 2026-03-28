@@ -80,15 +80,6 @@ let is_css_color_fn s =
   || starts "oklch" || starts "oklab" || starts "lch" || starts "lab"
   || starts "color" || starts "color-mix"
 
-(** Parse a CSS color function string into a typed [Css.color] value using the
-    CSS reader. Returns [None] if parsing fails. *)
-let parse_css_color_fn s =
-  try
-    let reader = Css.Reader.of_string s in
-    let color = Css.Values.read_color reader in
-    Some color
-  with _ -> None
-
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =
   String.length s > 4
