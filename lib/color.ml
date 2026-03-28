@@ -2196,41 +2196,100 @@ module Handler = struct
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
-  let parse_css_color_fn inner =
-    try
-      let reader = Css.Reader.of_string inner in
-      Some (Css.Values.read_color reader)
-    with _ -> None
+  (** Convert a CSS channel value to an integer 0-255 *)
+  let channel_to_int : Css.channel -> int = function
+    | Int i -> min 255 (max 0 i)
+    | Num f -> min 255 (max 0 (Float.to_int (Float.round f)))
+    | Pct f -> min 255 (max 0 (Float.to_int (Float.round (f *. 2.55))))
+    | Var _ -> 0
+
+  (** Convert a CSS alpha value to an integer 0-255 *)
+  let alpha_to_int : Css.alpha -> int option = function
+    | None -> None
+    | Num f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 255.)))))
+    | Pct f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
+    | Var _ -> None
+
+  let to_hex_byte n =
+    let hex = "0123456789abcdef" in
+    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
+
+  (** Convert a typed CSS color to a hex string for Tailwind parity *)
+  let css_color_to_hex (c : Css.color) : Css.color option =
+    match c with
+    | Rgb (Channels { r; g; b }) ->
+        let hex =
+          to_hex_byte (channel_to_int r)
+          ^ to_hex_byte (channel_to_int g)
+          ^ to_hex_byte (channel_to_int b)
+        in
+        Some (Css.hex ("#" ^ shorten_hex_str hex))
+    | Rgba { rgb = Channels { r; g; b }; a } -> (
+        let r = channel_to_int r
+        and g = channel_to_int g
+        and b = channel_to_int b in
+        let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
+        match alpha_to_int a with
+        | Some a_int ->
+            let full_hex = hex ^ to_hex_byte a_int in
+            Some (Css.hex ("#" ^ shorten_hex_str full_hex))
+        | None -> Some (Css.hex ("#" ^ shorten_hex_str hex)))
+    | Hsl { h; s; l; a } ->
+        (* Convert HSL to RGB then to hex *)
+        let h_deg =
+          match h with Unitless f -> f | Angle (Deg f) -> f | _ -> 0.
+        in
+        let s_pct = match s with Pct f -> f /. 100. | _ -> 0. in
+        let l_pct = match l with Pct f -> f /. 100. | _ -> 0. in
+        let c = (1. -. abs_float ((2. *. l_pct) -. 1.)) *. s_pct in
+        let h' = h_deg /. 60. in
+        let x = c *. (1. -. abs_float (Float.rem h' 2. -. 1.)) in
+        let r1, g1, b1 =
+          if h' < 1. then (c, x, 0.)
+          else if h' < 2. then (x, c, 0.)
+          else if h' < 3. then (0., c, x)
+          else if h' < 4. then (0., x, c)
+          else if h' < 5. then (x, 0., c)
+          else (c, 0., x)
+        in
+        let m = l_pct -. (c /. 2.) in
+        let r = Float.to_int (Float.round ((r1 +. m) *. 255.)) in
+        let g = Float.to_int (Float.round ((g1 +. m) *. 255.)) in
+        let b = Float.to_int (Float.round ((b1 +. m) *. 255.)) in
+        let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
+        let hex =
+          match alpha_to_int a with
+          | Some a_int -> hex ^ to_hex_byte a_int
+          | None -> hex
+        in
+        Some (Css.hex ("#" ^ shorten_hex_str hex))
+    | _ -> None (* For oklch, oklab, etc. - return None to use as-is *)
 
   let border_bracket_color_style inner =
     if String.length inner > 0 && inner.[0] = '#' then
       let shortened = shorten_hex_str inner in
       style ~merge_key:"border-"
         [ Css.border_color (Css.hex ("#" ^ shortened)) ]
-    else if Parse.is_css_color_fn inner then
-      match parse_css_color_fn inner with
-      | Some c -> style [ Css.border_color c ]
-      | None -> style [ Css.border_color (Css.hex "#000") ]
     else
-      match color_of_string inner with
-      | Ok c ->
-          let css_color = to_css c 500 in
-          style [ Css.border_color css_color ]
-      | Error _ -> style [ Css.border_color (Css.hex "#000") ]
+      (* Convert underscores to spaces for CSS color functions *)
+      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
+      if Parse.is_css_color_fn normalized then
+        match Css.parse_color normalized with
+        | Some c -> (
+            match css_color_to_hex c with
+            | Some hex_c -> style [ Css.border_color hex_c ]
+            | None -> style [ Css.border_color c ])
+        | None -> style [ Css.border_color (Css.hex "#000") ]
+      else
+        match color_of_string inner with
+        | Ok c ->
+            let css_color = to_css c 500 in
+            style [ Css.border_color css_color ]
+        | Error _ -> style [ Css.border_color (Css.hex "#000") ]
 
   let border_bracket_color_opacity_style inner opacity =
-    if Parse.is_css_color_fn inner then
-      match parse_css_color_fn inner with
-      | Some c ->
-          color_with_opacity_style ~property:Css.border_color (Hex "000000") 500
-            opacity
-          (* TODO: proper CSS fn opacity support *)
-      | None ->
-          color_with_opacity_style ~property:Css.border_color (Hex "000000") 500
-            opacity
-    else
-      let c = bracket_color_to_custom inner in
-      color_with_opacity_style ~property:Css.border_color c 500 opacity
+    let c = bracket_color_to_custom inner in
+    color_with_opacity_style ~property:Css.border_color c 500 opacity
 
   let with_pseudo pseudo = function
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
@@ -2427,6 +2486,8 @@ module Handler = struct
     | Border_transparent -> 0
     | Border_current -> 0
     | Border_current_opacity _ -> 0
+    | Border_bracket_color _ -> 0
+    | Border_bracket_color_opacity _ -> 0
     | Accent (color, shade) ->
         (* All accent colors use the same suborder (50000) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
@@ -2563,6 +2624,9 @@ module Handler = struct
     | Border_current -> "border-current"
     | Border_current_opacity opacity ->
         "border-current" ^ opacity_suffix opacity
+    | Border_bracket_color v -> "border-[" ^ v ^ "]"
+    | Border_bracket_color_opacity (v, opacity) ->
+        "border-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Accent (c, shade) ->
         if is_base_color c || is_custom_color c then
           "accent-" ^ color_to_string c

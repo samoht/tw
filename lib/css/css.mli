@@ -4787,6 +4787,11 @@ val parse_length : string -> length option
 (** [parse_length s] parses a CSS length string (including [calc()] expressions)
     using the CSS reader. Returns [None] if parsing fails. *)
 
+val parse_color : string -> color option
+(** [parse_color s] parses a CSS color string (e.g., ["rgba(48,163,0,0.14)"],
+    ["hsl(120,50%,50%)"], ["oklch(0.5 0.2 240)"]) using the CSS reader. Returns
+    [None] if parsing fails. *)
+
 module Container = Container
 module Supports = Supports
 module Keyframe = Keyframe
