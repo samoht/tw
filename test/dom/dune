@@ -1,7 +1,7 @@
 (executable
  (name test)
  (modes js)
- (libraries tw alcotest astring)
+ (libraries tw tw_dom alcotest astring brr)
  (enabled_if
   (= %{context_name} "default")))
 
@@ -11,3 +11,14 @@
   (= %{context_name} "default"))
  (action
   (run node -e "require('./%{dep:test.bc.js}')")))
+
+(rule
+ (target index.html)
+ (deps test.bc.js)
+ (enabled_if
+  (= %{context_name} "default"))
+ (action
+  (with-stdout-to
+   %{target}
+   (echo
+    "<!DOCTYPE html>\n<html>\n<head><meta charset=\"utf-8\"><title>tw_dom tests</title></head>\n<body>\n<h1>tw_dom tests</h1>\n<p>Open the browser console to see test results.</p>\n<script src=\"test.bc.js\"></script>\n</body>\n</html>"))))
