@@ -72,6 +72,13 @@ let parse_length s =
     if Reader.is_done r then Some l else None
   with Reader.Parse_error _ | Invalid_argument _ -> None
 
+let parse_color s =
+  try
+    let r = Reader.of_string s in
+    let c = Values.read_color r in
+    if Reader.is_done r then Some c else None
+  with Reader.Parse_error _ | Invalid_argument _ -> None
+
 let as_layer = function
   | Layer (name, content) -> Some (name, content)
   | _ -> None
