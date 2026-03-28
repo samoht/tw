@@ -403,6 +403,15 @@ let arbitrary_borders () =
   check (require_parse "border-[3px]");
   check (require_parse "border-[0.5rem]")
 
+let arbitrary_bracket_colors () =
+  check (require_parse "border-[rgba(48,163,0,0.14)]");
+  check (require_parse "border-[rgb(48,163,0)]");
+  check (require_parse "border-[hsl(120,50%,50%)]");
+  check (require_parse "text-[rgba(48,163,0,0.14)]");
+  check (require_parse "text-[hsl(120,50%,50%)]");
+  check (require_parse "outline-[rgba(48,163,0,0.14)]");
+  check (require_parse "placeholder-[rgba(48,163,0,0.14)]")
+
 let arbitrary_leading () =
   check (require_parse "leading-[1.8]");
   check (require_parse "leading-[24px]");
@@ -878,6 +887,7 @@ let core_tests =
     test_case "arbitrary tracking" `Quick arbitrary_tracking;
     test_case "arbitrary grid cols" `Quick arbitrary_grid_cols;
     test_case "arbitrary borders" `Quick arbitrary_borders;
+    test_case "arbitrary bracket colors" `Quick arbitrary_bracket_colors;
     test_case "arbitrary leading" `Quick arbitrary_leading;
     test_case "arbitrary sizing" `Quick arbitrary_sizing;
     test_case "arbitrary transitions" `Quick arbitrary_transitions;
