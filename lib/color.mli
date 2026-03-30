@@ -40,6 +40,8 @@ type color =
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
+  | Css of Css.color
+      (** Arbitrary CSS color function (rgba, hsl, oklch, ...) *)
   | Theme_named of string
 
 open Utility

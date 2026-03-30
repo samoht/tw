@@ -40,6 +40,7 @@ type color =
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
+  | Css of Css.color
   | Theme_named of string
 
 let linearize_channel c =
@@ -903,6 +904,16 @@ let of_string = function
         String.iter (fun c -> if not (is_hex c) then valid := false) hex;
         if !valid && String.length hex >= 3 then Ok (Hex hex)
         else Error (`Msg ("Unknown color: " ^ s)))
+      else if len >= 3 && s.[0] = '[' && s.[len - 1] = ']' then
+        let inner = String.sub s 1 (len - 2) in
+        let normalized =
+          String.map (fun c -> if c = '_' then ' ' else c) inner
+        in
+        if Parse.is_css_color_fn normalized then
+          match Css.parse_color normalized with
+          | Some c -> Ok (Css c)
+          | None -> Error (`Msg ("Unknown color: " ^ s))
+        else Error (`Msg ("Unknown color: " ^ s))
       else Error (`Msg ("Unknown color: " ^ s))
 
 let rgb r g b =
@@ -925,6 +936,24 @@ let to_oklch color shade =
       | Some rgb -> rgb_to_oklch rgb
       | None -> { l = 0.0; c = 0.0; h = 0.0 })
   | Rgb { red; green; blue } -> rgb_to_oklch { r = red; g = green; b = blue }
+  | Css c -> (
+      (* Extract RGB channels from CSS color for oklch conversion *)
+      match c with
+      | Css.Hex { value; _ } -> (
+          match hex_to_rgb value with
+          | Some rgb -> rgb_to_oklch rgb
+          | None -> { l = 0.0; c = 0.0; h = 0.0 })
+      | Css.Rgb (Channels { r; g; b })
+      | Css.Rgba { rgb = Channels { r; g; b }; _ } ->
+          let chan_to_int : Css.channel -> int = function
+            | Int i -> i
+            | Num f -> Float.to_int (Float.round f)
+            | Pct f -> Float.to_int (Float.round (f *. 2.55))
+            | Var _ -> 0
+          in
+          rgb_to_oklch
+            { r = chan_to_int r; g = chan_to_int g; b = chan_to_int b }
+      | _ -> { l = 0.0; c = 0.0; h = 0.0 })
   | _ -> (
       (* For named colors, get OKLCH data directly from Tailwind *)
       let color_name =
@@ -1016,9 +1045,8 @@ let to_css color shade =
         else hex
       in
       Css.Hex { hash = true; value = shorten_hex_str hex_value }
-  | Oklch oklch ->
-      (* Use the new Oklch constructor *)
-      Css.oklch oklch.l oklch.c oklch.h
+  | Oklch oklch -> Css.oklch oklch.l oklch.c oklch.h
+  | Css c -> c
   | _ ->
       (* For other colors, get OKLCH data directly *)
       let oklch = to_oklch color shade in
@@ -1084,6 +1112,11 @@ let to_name = function
         Css.Pp.string ctx ")]"
       in
       Css.Pp.to_string ~minify:false pp_oklch oklch
+  | Css c ->
+      (* Serialize CSS color to bracket string for class names *)
+      let s = Css.Pp.to_string ~minify:true Css.pp_color c in
+      let s = String.map (fun c -> if c = ' ' then '_' else c) s in
+      "[" ^ s ^ "]"
   | Theme_named name -> name
 
 (* Pretty printer for colors *)
@@ -1143,13 +1176,18 @@ let pp = function
         Css.Pp.string ctx ")"
       in
       Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
+  | Css c ->
+      let s = Css.Pp.to_string ~minify:true Css.pp_color c in
+      "Css(" ^ s ^ ")"
   | Theme_named name -> name
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
 (* Check if a color is a custom color (hex, rgb, or oklch) *)
-let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
+let is_custom_color = function
+  | Hex _ | Rgb _ | Oklch _ | Css _ -> true
+  | _ -> false
 
 (* Check if a color is a theme-named color (no shade suffix) *)
 let is_theme_named = function Theme_named _ -> true | _ -> false
@@ -1373,6 +1411,10 @@ let color_to_string (c : color) : string =
           Css.Pp.float ctx o.h;
           Css.Pp.string ctx ")]")
         oklch
+  | Css c ->
+      let s = Css.Pp.to_string ~minify:true Css.pp_color c in
+      let s = String.map (fun ch -> if ch = ' ' then '_' else ch) s in
+      "[" ^ s ^ "]"
   | Theme_named name -> name
 
 (** Color parsing utilities *)
