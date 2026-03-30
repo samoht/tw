@@ -1950,6 +1950,19 @@ module Handler = struct
   let outline_inherit = style [ Css.outline_color Inherit ]
   let outline_transparent = style [ Css.outline_color (Css.hex "#0000") ]
 
+  (** Parse a bracket color string into a typed [Css.color]. Handles hex, CSS
+      color functions, and Tailwind named colors. *)
+  let parse_bracket_color inner : Css.color option =
+    if String.length inner > 0 && inner.[0] = '#' then
+      Some (Css.hex (shorten_hex_str inner))
+    else
+      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
+      if Parse.is_css_color_fn normalized then Css.parse_color normalized
+      else
+        match color_of_string inner with
+        | Ok c -> Some (to_css c 500)
+        | Error _ -> None
+
   (** Convert a CSS channel value to an integer 0-255 *)
   let channel_to_int : Css.channel -> int = function
     | Int i -> min 255 (max 0 i)
@@ -2768,6 +2781,7 @@ let scheme () = !Handler.current_scheme
 let shorten_hex_str = shorten_hex_str
 let bracket_color_to_custom = Handler.bracket_color_to_custom
 let css_color_to_hex = Handler.css_color_to_hex
+let parse_bracket_color = Handler.parse_bracket_color
 let round_n = round_n
 
 let hex_alpha_color c shade opacity =

@@ -405,6 +405,11 @@ val bracket_color_to_custom : string -> color
 (** [bracket_color_to_custom inner] converts a bracket color string to a custom
     color for opacity handling. *)
 
+val parse_bracket_color : string -> Css.color option
+(** [parse_bracket_color inner] parses a bracket color value into a typed
+    {!Css.color}. Handles hex, CSS color functions (rgba, hsl, oklch, ...), and
+    Tailwind named colors. Returns [None] if not a recognized color. *)
+
 val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex
     color for Tailwind parity. Returns [None] for color types that cannot be
