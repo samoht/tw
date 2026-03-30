@@ -411,6 +411,16 @@ let arbitrary_bracket_colors () =
   check (require_parse "text-[hsl(120,50%,50%)]");
   check (require_parse "outline-[rgba(48,163,0,0.14)]");
   check (require_parse "placeholder-[rgba(48,163,0,0.14)]");
+  check (require_parse "bg-[rgba(48,163,0,0.14)]");
+  check (require_parse "accent-[rgba(48,163,0,0.14)]");
+  check (require_parse "caret-[rgba(48,163,0,0.14)]");
+  check (require_parse "fill-[rgba(48,163,0,0.14)]");
+  check (require_parse "stroke-[hsl(120,50%,50%)]");
+  check (require_parse "divide-[rgba(48,163,0,0.14)]");
+  check (require_parse "ring-[rgba(48,163,0,0.14)]");
+  check (require_parse "ring-offset-[rgba(48,163,0,0.14)]");
+  check (require_parse "inset-ring-[rgba(48,163,0,0.14)]");
+  check (require_parse "decoration-[rgba(48,163,0,0.14)]");
   check (require_parse "shadow-[0_24px_80px_rgba(2,6,23,0.42)]")
 
 let arbitrary_leading () =

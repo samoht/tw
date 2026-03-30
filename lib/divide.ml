@@ -30,6 +30,9 @@ module Handler = struct
     | Divide_current
     | Divide_current_opacity of Color.opacity_modifier
     | Divide_inherit
+    | Divide_bracket_color of string * Css.color
+    | Divide_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Divide_style of Css.border_style
 
   type Utility.base += Self of t
@@ -207,6 +210,63 @@ module Handler = struct
     let rule = Css.rule ~selector [ Css.border_color Css.Inherit ] in
     style ~rules:(Some [ rule ]) []
 
+  let divide_bracket_color_style class_name inner c =
+    let color =
+      if String.length inner > 0 && inner.[0] = '#' then
+        let shortened = Color.shorten_hex_str inner in
+        Css.hex ("#" ^ shortened)
+      else match Color.css_color_to_hex c with Some h -> h | None -> c
+    in
+    let selector =
+      Css.Selector.(
+        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
+    in
+    let rule = Css.rule ~selector [ Css.border_color color ] in
+    style ~rules:(Some [ rule ]) []
+
+  let divide_bracket_color_opacity_style class_name inner _c opacity =
+    let selector =
+      Css.Selector.(
+        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
+    in
+    let percent = Color.opacity_to_percent opacity in
+    let alpha = percent /. 100.0 in
+    if String.length inner > 0 && inner.[0] = '#' then
+      match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
+      | Some rgb ->
+          let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
+          let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
+          let rule = Css.rule ~selector [ Css.border_color oklab_value ] in
+          style ~rules:(Some [ rule ]) []
+      | None ->
+          let rule = Css.rule ~selector [ Css.border_color (Css.hex "#000") ] in
+          style ~rules:(Some [ rule ]) []
+    else
+      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
+      let css_color =
+        match Css.parse_color normalized with
+        | Some c -> c
+        | None -> Css.hex "#000"
+      in
+      let hex_color =
+        match Color.css_color_to_hex css_color with
+        | Some h -> h
+        | None -> css_color
+      in
+      let _ = alpha in
+      let fallback_decl = Css.border_color hex_color in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab hex_color Css.Transparent
+          ~percent1:percent
+      in
+      let oklab_decl = Css.border_color oklab_color in
+      let supports_block =
+        Css.supports ~condition:Color.color_mix_supports_condition
+          [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+      in
+      let rule = Css.rule ~selector [ fallback_decl ] in
+      style ~rules:(Some [ rule; supports_block ]) []
+
   let divide_style_of_string (s : string) =
     let open Css in
     let r : border_style option =
@@ -318,6 +378,9 @@ module Handler = struct
     | Divide_current_opacity opacity ->
         "divide-current" ^ opacity_suffix opacity
     | Divide_inherit -> "divide-inherit"
+    | Divide_bracket_color (v, _) -> "divide-[" ^ v ^ "]"
+    | Divide_bracket_color_opacity (v, _, opacity) ->
+        "divide-[" ^ v ^ "]/" ^ opacity_suffix opacity
     | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style = function
@@ -348,6 +411,14 @@ module Handler = struct
     | Divide_current -> divide_current_style ()
     | Divide_current_opacity opacity -> divide_current_opacity_style opacity
     | Divide_inherit -> divide_inherit_style ()
+    | Divide_bracket_color (inner, c) ->
+        let class_name = to_class (Divide_bracket_color (inner, c)) in
+        divide_bracket_color_style class_name inner c
+    | Divide_bracket_color_opacity (inner, c, opacity) ->
+        let class_name =
+          to_class (Divide_bracket_color_opacity (inner, c, opacity))
+        in
+        divide_bracket_color_opacity_style class_name inner c opacity
     | Divide_style bs -> divide_style_style bs
 
   let suborder = function
@@ -359,6 +430,7 @@ module Handler = struct
     | Divide_y_reverse -> 1
     (* All divide color utilities use flat suborder for natural sort *)
     | Divide_color _ | Divide_color_opacity _ -> 70000
+    | Divide_bracket_color _ | Divide_bracket_color_opacity _ -> 70000
     | Divide_current | Divide_current_opacity _ -> 70000
     | Divide_inherit -> 70000
     | Divide_transparent -> 70000
@@ -410,6 +482,29 @@ module Handler = struct
         | Color.No_opacity when base = "current" -> Ok Divide_current
         | Color.No_opacity -> Error (`Msg ("Invalid divide: " ^ current_str))
         | _ -> Ok (Divide_current_opacity opacity))
+    | [ "divide"; v ]
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+        let base_str, opacity = Color.parse_opacity_modifier v in
+        let inner = Parse.bracket_inner base_str in
+        let normalized =
+          String.map (fun c -> if c = '_' then ' ' else c) inner
+        in
+        if
+          (String.length inner > 0 && inner.[0] = '#')
+          || Parse.is_css_color_fn normalized
+        then
+          let css_color =
+            if String.length inner > 0 && inner.[0] = '#' then
+              Some (Css.hex inner)
+            else Css.parse_color normalized
+          in
+          match css_color with
+          | Some c -> (
+              match opacity with
+              | Color.No_opacity -> Ok (Divide_bracket_color (inner, c))
+              | _ -> Ok (Divide_bracket_color_opacity (inner, c, opacity)))
+          | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))
+        else Error (`Msg ("Invalid divide bracket value: " ^ inner))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->

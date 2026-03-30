@@ -47,8 +47,9 @@ module Handler = struct
     | Shadow_current_opacity of Color.opacity_modifier
     | Shadow_inherit
     | Shadow_transparent
-    | Shadow_bracket_hex of string
-    | Shadow_bracket_hex_opacity of string * Color.opacity_modifier
+    | Shadow_bracket_color of string * Css.color
+    | Shadow_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Shadow_bracket_color_var of string
     | Shadow_bracket_color_var_opacity of string * Color.opacity_modifier
     | Shadow_bracket_shadow of string (* shadow-[shadow:...] type hint *)
@@ -71,8 +72,9 @@ module Handler = struct
     | Inset_shadow_current_opacity of Color.opacity_modifier
     | Inset_shadow_inherit
     | Inset_shadow_transparent
-    | Inset_shadow_bracket_hex of string
-    | Inset_shadow_bracket_hex_opacity of string * Color.opacity_modifier
+    | Inset_shadow_bracket_color of string * Css.color
+    | Inset_shadow_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Inset_shadow_bracket_color_var of string
     | Inset_shadow_bracket_cvar_opacity of string * Color.opacity_modifier
     | Inset_shadow_bracket_shadow of string
@@ -100,8 +102,9 @@ module Handler = struct
     | Ring_offset_current
     | Ring_offset_current_opacity of Color.opacity_modifier
     | Ring_offset_inherit
-    | Ring_offset_bracket_hex of string
-    | Ring_offset_bracket_hex_opacity of string * Color.opacity_modifier
+    | Ring_offset_bracket_color of string * Css.color
+    | Ring_offset_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Ring_offset_bracket_color_var of string
     | Ring_offset_bracket_cvar_opacity of string * Color.opacity_modifier
     | Ring_offset_bracket_var of string
@@ -112,8 +115,9 @@ module Handler = struct
     | Inset_ring_current
     | Inset_ring_current_opacity of Color.opacity_modifier
     | Inset_ring_inherit
-    | Inset_ring_bracket_hex of string
-    | Inset_ring_bracket_hex_opacity of string * Color.opacity_modifier
+    | Inset_ring_bracket_color of string * Css.color
+    | Inset_ring_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Inset_ring_bracket_color_var of string
     | Inset_ring_bracket_cvar_opacity of string * Color.opacity_modifier
     | Inset_ring_bracket_var of string
@@ -125,8 +129,8 @@ module Handler = struct
     | Ring_current
     | Ring_current_opacity of Color.opacity_modifier
     | Ring_inherit
-    | Ring_bracket_hex of string
-    | Ring_bracket_hex_opacity of string * Color.opacity_modifier
+    | Ring_bracket_color of string * Css.color
+    | Ring_bracket_color_opacity of string * Css.color * Color.opacity_modifier
     | Ring_bracket_color_var of string
     | Ring_bracket_color_var_opacity of string * Color.opacity_modifier
     | Ring_bracket_var of string
@@ -689,27 +693,33 @@ module Handler = struct
     let base_decl, _ = Var.binding shadow_color_var Css.Inherit in
     style ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_shadow_bracket_hex hex =
-    let short = shorten_hex ("#" ^ hex) in
-    let base_decl, _ = Var.binding shadow_color_var (Css.hex short) in
+  let set_shadow_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let base_decl, _ = Var.binding shadow_color_var c in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        (Css.hex short) Css.Transparent
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha" c
+        Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_shadow_bracket_hex_opacity hex opacity =
+  let set_shadow_bracket_color_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
-    let hex_with_alpha = Color.hex_with_alpha hex percent in
-    let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
     let alpha = percent /. 100.0 in
-    let oklab_color = Color.hex_to_oklab_alpha hex alpha in
+    let with_alpha =
+      match c with
+      | Hex { value = h; _ } ->
+          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+          Color.hex_to_oklab_alpha hex alpha
+      | _ -> c
+    in
+    let base_decl, _ = Var.binding shadow_color_var with_alpha in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        oklab_color Css.Transparent
+        with_alpha Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
@@ -1242,29 +1252,33 @@ module Handler = struct
     let base_decl, _ = Var.binding inset_shadow_color_var Css.Inherit in
     style ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_inset_shadow_bracket_hex hex =
-    let short = shorten_hex ("#" ^ hex) in
-    let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex short) in
+  let set_inset_shadow_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let base_decl, _ = Var.binding inset_shadow_color_var c in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" (Css.hex short) Css.Transparent
+        ~var_name:"tw-inset-shadow-alpha" c Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_ishadow_bracket_hex_opacity hex opacity =
+  let set_ishadow_bracket_color_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
-    let hex_with_alpha = Color.hex_with_alpha hex percent in
-    let base_decl, _ =
-      Var.binding inset_shadow_color_var (Css.hex hex_with_alpha)
-    in
     let alpha = percent /. 100.0 in
-    let oklab_color = Color.hex_to_oklab_alpha hex alpha in
+    let with_alpha =
+      match c with
+      | Hex { value = h; _ } ->
+          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+          Color.hex_to_oklab_alpha hex alpha
+      | _ -> c
+    in
+    let base_decl, _ = Var.binding inset_shadow_color_var with_alpha in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" oklab_color Css.Transparent
+        ~var_name:"tw-inset-shadow-alpha" with_alpha Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
@@ -1615,21 +1629,23 @@ module Handler = struct
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
-  let ring_offset_bracket_hex inner =
-    let c = Color.hex inner in
-    let css_color = Color.to_css c 500 in
-    let d, _ = Var.binding ring_offset_color_var css_color in
+  let ring_offset_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let d, _ = Var.binding ring_offset_color_var c in
     style [ d ]
 
-  let ring_offset_bracket_hex_opacity inner opacity =
+  let ring_offset_bracket_color_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
-    let hex =
-      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
-    in
     let alpha = percent /. 100.0 in
-    let d, _ =
-      Var.binding ring_offset_color_var (Color.hex_to_oklab_alpha hex alpha)
+    let with_alpha =
+      match c with
+      | Hex { value = h; _ } ->
+          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+          Color.hex_to_oklab_alpha hex alpha
+      | _ -> c
     in
+    let d, _ = Var.binding ring_offset_color_var with_alpha in
     style [ d ]
 
   let ring_offset_bracket_color_var v =
@@ -1747,21 +1763,23 @@ module Handler = struct
     let d, _ = Var.binding inset_ring_color_var Css.Inherit in
     style [ d ]
 
-  let inset_ring_bracket_hex inner =
-    let c = Color.hex inner in
-    let css_color = Color.to_css c 500 in
-    let d, _ = Var.binding inset_ring_color_var css_color in
+  let inset_ring_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let d, _ = Var.binding inset_ring_color_var c in
     style [ d ]
 
-  let inset_ring_bracket_hex_opacity inner opacity =
+  let inset_ring_bracket_color_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
-    let hex =
-      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
-    in
     let alpha = percent /. 100.0 in
-    let d, _ =
-      Var.binding inset_ring_color_var (Color.hex_to_oklab_alpha hex alpha)
+    let with_alpha =
+      match c with
+      | Hex { value = h; _ } ->
+          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+          Color.hex_to_oklab_alpha hex alpha
+      | _ -> c
     in
+    let d, _ = Var.binding inset_ring_color_var with_alpha in
     style [ d ]
 
   let inset_ring_bracket_color_var v =
@@ -1837,21 +1855,23 @@ module Handler = struct
     let d, _ = Var.binding ring_color_var Css.Inherit in
     style [ d ]
 
-  let ring_bracket_hex inner =
-    let c = Color.hex inner in
-    let css_color = Color.to_css c 500 in
-    let d, _ = Var.binding ring_color_var css_color in
+  let ring_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let d, _ = Var.binding ring_color_var c in
     style [ d ]
 
-  let ring_bracket_hex_with_opacity inner opacity =
+  let ring_bracket_color_with_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
-    let hex =
-      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
-    in
     let alpha = percent /. 100.0 in
-    let d, _ =
-      Var.binding ring_color_var (Color.hex_to_oklab_alpha hex alpha)
+    let with_alpha =
+      match c with
+      | Hex { value = h; _ } ->
+          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+          Color.hex_to_oklab_alpha hex alpha
+      | _ -> c
     in
+    let d, _ = Var.binding ring_color_var with_alpha in
     style [ d ]
 
   let ring_bracket_color_var v =
@@ -1955,10 +1975,9 @@ module Handler = struct
     | Shadow_current_opacity op -> set_shadow_current_opacity op
     | Shadow_inherit -> set_shadow_inherit ()
     | Shadow_transparent -> set_shadow_transparent ()
-    | Shadow_bracket_hex h ->
-        set_shadow_bracket_hex (String.sub h 1 (String.length h - 1))
-    | Shadow_bracket_hex_opacity (h, op) ->
-        set_shadow_bracket_hex_opacity (String.sub h 1 (String.length h - 1)) op
+    | Shadow_bracket_color (_orig, c) -> set_shadow_bracket_color c
+    | Shadow_bracket_color_opacity (_orig, c, op) ->
+        set_shadow_bracket_color_opacity c op
     | Shadow_bracket_color_var v -> set_shadow_bracket_color_var v
     | Shadow_bracket_color_var_opacity (v, op) ->
         set_shadow_bracket_cvar_opacity v op
@@ -1983,12 +2002,9 @@ module Handler = struct
     | Inset_shadow_current_opacity op -> set_inset_shadow_current_opacity op
     | Inset_shadow_inherit -> set_inset_shadow_inherit ()
     | Inset_shadow_transparent -> set_inset_shadow_transparent ()
-    | Inset_shadow_bracket_hex h ->
-        set_inset_shadow_bracket_hex (String.sub h 1 (String.length h - 1))
-    | Inset_shadow_bracket_hex_opacity (h, op) ->
-        set_ishadow_bracket_hex_opacity
-          (String.sub h 1 (String.length h - 1))
-          op
+    | Inset_shadow_bracket_color (_orig, c) -> set_inset_shadow_bracket_color c
+    | Inset_shadow_bracket_color_opacity (_orig, c, op) ->
+        set_ishadow_bracket_color_opacity c op
     | Inset_shadow_bracket_color_var v -> set_ishadow_bracket_cvar v
     | Inset_shadow_bracket_cvar_opacity (v, op) ->
         set_ishadow_bracket_cvar_opacity v op
@@ -2017,8 +2033,9 @@ module Handler = struct
     | Ring_current -> ring_current
     | Ring_current_opacity opacity -> ring_current_with_opacity opacity
     | Ring_inherit -> ring_inherit
-    | Ring_bracket_hex h -> ring_bracket_hex h
-    | Ring_bracket_hex_opacity (h, o) -> ring_bracket_hex_with_opacity h o
+    | Ring_bracket_color (_orig, c) -> ring_bracket_color c
+    | Ring_bracket_color_opacity (_orig, c, o) ->
+        ring_bracket_color_with_opacity c o
     | Ring_bracket_color_var v -> ring_bracket_color_var v
     | Ring_bracket_color_var_opacity (v, o) -> ring_bracket_cvar_opacity v o
     | Ring_bracket_var v -> ring_bracket_var v
@@ -2077,9 +2094,9 @@ module Handler = struct
     | Ring_offset_current_opacity opacity ->
         ring_offset_current_with_opacity opacity
     | Ring_offset_inherit -> ring_offset_inherit
-    | Ring_offset_bracket_hex h -> ring_offset_bracket_hex h
-    | Ring_offset_bracket_hex_opacity (h, o) ->
-        ring_offset_bracket_hex_opacity h o
+    | Ring_offset_bracket_color (_orig, c) -> ring_offset_bracket_color c
+    | Ring_offset_bracket_color_opacity (_orig, c, o) ->
+        ring_offset_bracket_color_opacity c o
     | Ring_offset_bracket_color_var v -> ring_offset_bracket_color_var v
     | Ring_offset_bracket_cvar_opacity (v, o) ->
         ring_offset_bracket_cvar_opacity v o
@@ -2094,9 +2111,9 @@ module Handler = struct
     | Inset_ring_current_opacity opacity ->
         inset_ring_current_with_opacity opacity
     | Inset_ring_inherit -> inset_ring_inherit
-    | Inset_ring_bracket_hex h -> inset_ring_bracket_hex h
-    | Inset_ring_bracket_hex_opacity (h, o) ->
-        inset_ring_bracket_hex_opacity h o
+    | Inset_ring_bracket_color (_orig, c) -> inset_ring_bracket_color c
+    | Inset_ring_bracket_color_opacity (_orig, c, o) ->
+        inset_ring_bracket_color_opacity c o
     | Inset_ring_bracket_color_var v -> inset_ring_bracket_color_var v
     | Inset_ring_bracket_cvar_opacity (v, o) ->
         inset_ring_bracket_cvar_opacity v o
@@ -2189,6 +2206,22 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not an effects utility")
 
+  (** Try to parse a bracket inner string as a color: hex or CSS color function.
+      Returns [Some css_color] on success. *)
+  let parse_bracket_color inner =
+    let starts prefix s =
+      String.length s >= String.length prefix
+      && String.sub s 0 (String.length prefix) = prefix
+    in
+    if starts "#" inner then
+      let c = Color.hex inner in
+      Some (Color.to_css c 500)
+    else
+      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
+      if Parse.is_css_color_fn normalized then
+        match Css.parse_color normalized with Some c -> Some c | None -> None
+      else None
+
   let parse_ring_bracket kind v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
@@ -2207,15 +2240,18 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Ring_bracket_var inner)
           | _ -> Ok (Ring_bracket_var_opacity (inner, opacity))
-        else if starts "#" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_bracket_hex inner)
-          | _ -> Ok (Ring_bracket_hex_opacity (inner, opacity))
-        else if starts "length:" inner then Ok (Ring_bracket_length inner)
         else
-          match parse_bracket_width_opt inner with
-          | Some _ -> Ok (Ring_bracket_length inner)
-          | None -> err_not_utility)
+          match parse_bracket_color inner with
+          | Some c -> (
+              match opacity with
+              | Color.No_opacity -> Ok (Ring_bracket_color (inner, c))
+              | _ -> Ok (Ring_bracket_color_opacity (inner, c, opacity)))
+          | None -> (
+              if starts "length:" inner then Ok (Ring_bracket_length inner)
+              else
+                match parse_bracket_width_opt inner with
+                | Some _ -> Ok (Ring_bracket_length inner)
+                | None -> err_not_utility))
     | `Ring_offset -> (
         if starts "color:" inner then
           let var_part = String.sub inner 6 (String.length inner - 6) in
@@ -2226,16 +2262,19 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Ring_offset_bracket_var inner)
           | _ -> Ok (Ring_offset_bracket_var_opacity (inner, opacity))
-        else if starts "#" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_offset_bracket_hex inner)
-          | _ -> Ok (Ring_offset_bracket_hex_opacity (inner, opacity))
-        else if starts "length:" inner then
-          Ok (Ring_offset_bracket_length inner)
         else
-          match parse_bracket_width_opt inner with
-          | Some _ -> Ok (Ring_offset_bracket_length inner)
-          | None -> err_not_utility)
+          match parse_bracket_color inner with
+          | Some c -> (
+              match opacity with
+              | Color.No_opacity -> Ok (Ring_offset_bracket_color (inner, c))
+              | _ -> Ok (Ring_offset_bracket_color_opacity (inner, c, opacity)))
+          | None -> (
+              if starts "length:" inner then
+                Ok (Ring_offset_bracket_length inner)
+              else
+                match parse_bracket_width_opt inner with
+                | Some _ -> Ok (Ring_offset_bracket_length inner)
+                | None -> err_not_utility))
     | `Inset_ring -> (
         if starts "color:" inner then
           let var_part = String.sub inner 6 (String.length inner - 6) in
@@ -2246,15 +2285,19 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Inset_ring_bracket_var inner)
           | _ -> Ok (Inset_ring_bracket_var_opacity (inner, opacity))
-        else if starts "#" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Inset_ring_bracket_hex inner)
-          | _ -> Ok (Inset_ring_bracket_hex_opacity (inner, opacity))
-        else if starts "length:" inner then Ok (Inset_ring_bracket_length inner)
         else
-          match parse_bracket_width_opt inner with
-          | Some _ -> Ok (Inset_ring_bracket_length inner)
-          | None -> err_not_utility)
+          match parse_bracket_color inner with
+          | Some c -> (
+              match opacity with
+              | Color.No_opacity -> Ok (Inset_ring_bracket_color (inner, c))
+              | _ -> Ok (Inset_ring_bracket_color_opacity (inner, c, opacity)))
+          | None -> (
+              if starts "length:" inner then
+                Ok (Inset_ring_bracket_length inner)
+              else
+                match parse_bracket_width_opt inner with
+                | Some _ -> Ok (Inset_ring_bracket_length inner)
+                | None -> err_not_utility))
 
   let parse_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
@@ -2275,14 +2318,16 @@ module Handler = struct
       match opacity with
       | Color.No_opacity -> Ok (Shadow_bracket_var inner)
       | _ -> err_not_utility
-    else if starts "#" inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Shadow_bracket_hex inner)
-      | _ -> Ok (Shadow_bracket_hex_opacity (inner, opacity))
     else
-      match opacity with
-      | Color.No_opacity -> Ok (Shadow_arbitrary inner)
-      | _ -> Ok (Shadow_arbitrary_opacity (inner, opacity))
+      match parse_bracket_color inner with
+      | Some c -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Shadow_bracket_color (inner, c))
+          | _ -> Ok (Shadow_bracket_color_opacity (inner, c, opacity)))
+      | None -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Shadow_arbitrary inner)
+          | _ -> Ok (Shadow_arbitrary_opacity (inner, opacity)))
 
   let parse_inset_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
@@ -2303,14 +2348,16 @@ module Handler = struct
       match opacity with
       | Color.No_opacity -> Ok (Inset_shadow_bracket_var inner)
       | _ -> err_not_utility
-    else if starts "#" inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Inset_shadow_bracket_hex inner)
-      | _ -> Ok (Inset_shadow_bracket_hex_opacity (inner, opacity))
     else
-      match opacity with
-      | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
-      | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity))
+      match parse_bracket_color inner with
+      | Some c -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_shadow_bracket_color (inner, c))
+          | _ -> Ok (Inset_shadow_bracket_color_opacity (inner, c, opacity)))
+      | None -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
+          | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity)))
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -2570,9 +2617,9 @@ module Handler = struct
     | Shadow_current_opacity op -> "shadow-current/" ^ Color.pp_opacity op
     | Shadow_inherit -> "shadow-inherit"
     | Shadow_transparent -> "shadow-transparent"
-    | Shadow_bracket_hex h -> "shadow-[" ^ h ^ "]"
-    | Shadow_bracket_hex_opacity (h, op) ->
-        "shadow-[" ^ h ^ "]/" ^ Color.pp_opacity op
+    | Shadow_bracket_color (orig, _c) -> "shadow-[" ^ orig ^ "]"
+    | Shadow_bracket_color_opacity (orig, _c, op) ->
+        "shadow-[" ^ orig ^ "]/" ^ Color.pp_opacity op
     | Shadow_bracket_color_var v -> "shadow-[color:" ^ v ^ "]"
     | Shadow_bracket_color_var_opacity (v, op) ->
         "shadow-[color:" ^ v ^ "]/" ^ Color.pp_opacity op
@@ -2607,9 +2654,9 @@ module Handler = struct
         "inset-shadow-current/" ^ Color.pp_opacity op
     | Inset_shadow_inherit -> "inset-shadow-inherit"
     | Inset_shadow_transparent -> "inset-shadow-transparent"
-    | Inset_shadow_bracket_hex h -> "inset-shadow-[" ^ h ^ "]"
-    | Inset_shadow_bracket_hex_opacity (h, op) ->
-        "inset-shadow-[" ^ h ^ "]/" ^ Color.pp_opacity op
+    | Inset_shadow_bracket_color (orig, _c) -> "inset-shadow-[" ^ orig ^ "]"
+    | Inset_shadow_bracket_color_opacity (orig, _c, op) ->
+        "inset-shadow-[" ^ orig ^ "]/" ^ Color.pp_opacity op
     | Inset_shadow_bracket_color_var v -> "inset-shadow-[color:" ^ v ^ "]"
     | Inset_shadow_bracket_cvar_opacity (v, op) ->
         "inset-shadow-[color:" ^ v ^ "]/" ^ Color.pp_opacity op
@@ -2635,9 +2682,9 @@ module Handler = struct
     | Ring_current -> "ring-current"
     | Ring_current_opacity o -> "ring-current/" ^ Color.pp_opacity o
     | Ring_inherit -> "ring-inherit"
-    | Ring_bracket_hex h -> "ring-[" ^ h ^ "]"
-    | Ring_bracket_hex_opacity (h, o) ->
-        "ring-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Ring_bracket_color (orig, _c) -> "ring-[" ^ orig ^ "]"
+    | Ring_bracket_color_opacity (orig, _c, o) ->
+        "ring-[" ^ orig ^ "]/" ^ Color.pp_opacity o
     | Ring_bracket_color_var v -> "ring-[color:" ^ v ^ "]"
     | Ring_bracket_color_var_opacity (v, o) ->
         "ring-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
@@ -2657,9 +2704,9 @@ module Handler = struct
     | Ring_offset_current_opacity o ->
         "ring-offset-current/" ^ Color.pp_opacity o
     | Ring_offset_inherit -> "ring-offset-inherit"
-    | Ring_offset_bracket_hex h -> "ring-offset-[" ^ h ^ "]"
-    | Ring_offset_bracket_hex_opacity (h, o) ->
-        "ring-offset-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Ring_offset_bracket_color (orig, _c) -> "ring-offset-[" ^ orig ^ "]"
+    | Ring_offset_bracket_color_opacity (orig, _c, o) ->
+        "ring-offset-[" ^ orig ^ "]/" ^ Color.pp_opacity o
     | Ring_offset_bracket_color_var v -> "ring-offset-[color:" ^ v ^ "]"
     | Ring_offset_bracket_cvar_opacity (v, o) ->
         "ring-offset-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
@@ -2675,9 +2722,9 @@ module Handler = struct
     | Inset_ring_current -> "inset-ring-current"
     | Inset_ring_current_opacity o -> "inset-ring-current/" ^ Color.pp_opacity o
     | Inset_ring_inherit -> "inset-ring-inherit"
-    | Inset_ring_bracket_hex h -> "inset-ring-[" ^ h ^ "]"
-    | Inset_ring_bracket_hex_opacity (h, o) ->
-        "inset-ring-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_bracket_color (orig, _c) -> "inset-ring-[" ^ orig ^ "]"
+    | Inset_ring_bracket_color_opacity (orig, _c, o) ->
+        "inset-ring-[" ^ orig ^ "]/" ^ Color.pp_opacity o
     | Inset_ring_bracket_color_var v -> "inset-ring-[color:" ^ v ^ "]"
     | Inset_ring_bracket_cvar_opacity (v, o) ->
         "inset-ring-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
@@ -2755,7 +2802,7 @@ module Handler = struct
     (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
     | Shadow_current_opacity _ | Shadow_inherit | Shadow_transparent
-    | Shadow_bracket_hex _ | Shadow_bracket_hex_opacity _
+    | Shadow_bracket_color _ | Shadow_bracket_color_opacity _
     | Shadow_bracket_color_var _ | Shadow_bracket_color_var_opacity _ ->
         35000
     (* Inset shadow opacity utilities — same relative scheme as shadow *)
@@ -2785,8 +2832,8 @@ module Handler = struct
     (* Inset shadow color utilities *)
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
     | Inset_shadow_current_opacity _ | Inset_shadow_inherit
-    | Inset_shadow_transparent | Inset_shadow_bracket_hex _
-    | Inset_shadow_bracket_hex_opacity _ | Inset_shadow_bracket_color_var _
+    | Inset_shadow_transparent | Inset_shadow_bracket_color _
+    | Inset_shadow_bracket_color_opacity _ | Inset_shadow_bracket_color_var _
     | Inset_shadow_bracket_cvar_opacity _ ->
         36000
     (* Background blend modes come after opacity, before mix-blend *)
@@ -2836,8 +2883,8 @@ module Handler = struct
     | Ring_xl -> 40005
     | Ring_bracket_length _ -> 40010
     | Ring_color _ | Ring_color_opacity _ | Ring_transparent | Ring_current
-    | Ring_current_opacity _ | Ring_inherit | Ring_bracket_hex _
-    | Ring_bracket_hex_opacity _ | Ring_bracket_color_var _
+    | Ring_current_opacity _ | Ring_inherit | Ring_bracket_color _
+    | Ring_bracket_color_opacity _ | Ring_bracket_color_var _
     | Ring_bracket_color_var_opacity _ | Ring_bracket_var _
     | Ring_bracket_var_opacity _ ->
         50000
@@ -2847,7 +2894,7 @@ module Handler = struct
     | Inset_ring_bracket_length _ -> 55100
     | Inset_ring_color _ | Inset_ring_color_opacity _ | Inset_ring_transparent
     | Inset_ring_current | Inset_ring_current_opacity _ | Inset_ring_inherit
-    | Inset_ring_bracket_hex _ | Inset_ring_bracket_hex_opacity _
+    | Inset_ring_bracket_color _ | Inset_ring_bracket_color_opacity _
     | Inset_ring_bracket_color_var _ | Inset_ring_bracket_cvar_opacity _
     | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
         60000
@@ -2856,7 +2903,7 @@ module Handler = struct
     | Ring_offset_color _ | Ring_offset_color_opacity _
     | Ring_offset_transparent | Ring_offset_current
     | Ring_offset_current_opacity _ | Ring_offset_inherit
-    | Ring_offset_bracket_hex _ | Ring_offset_bracket_hex_opacity _
+    | Ring_offset_bracket_color _ | Ring_offset_bracket_color_opacity _
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_cvar_opacity _
     | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
         100000

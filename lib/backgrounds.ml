@@ -148,10 +148,11 @@ module Handler = struct
     (* Bracket color/var with opacity *)
     | Bg_bracket_color_var_opacity of string * Color.opacity_modifier
     | Bg_bracket_var_opacity of string * Color.opacity_modifier
-    (* Bracket hex color: bg-[#0088cc] *)
-    | Bg_bracket_hex of string
-    (* Bracket hex color with opacity: bg-[#0088cc]/50 *)
-    | Bg_bracket_hex_opacity of string * Color.opacity_modifier
+    (* Bracket color: bg-[#0088cc], bg-[rgba(48,163,0,0.14)], etc. Stores
+       original string for class name roundtrip and typed Css.color *)
+    | Bg_bracket_color of string * Css.color
+    (* Bracket color with opacity: bg-[#0088cc]/50, bg-[rgba(...)]/50, etc. *)
+    | Bg_bracket_color_opacity of string * Css.color * Color.opacity_modifier
     (* bg-current *)
     | Bg_current
     (* bg-current with opacity: bg-current/50, bg-current/[0.5] *)
@@ -297,9 +298,9 @@ module Handler = struct
         "bg-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Bg_bracket_var_opacity (v, opacity) ->
         "bg-[" ^ v ^ "]" ^ opacity_suffix opacity
-    | Bg_bracket_hex hex -> "bg-[#" ^ hex ^ "]"
-    | Bg_bracket_hex_opacity (hex, opacity) ->
-        "bg-[#" ^ hex ^ "]" ^ opacity_suffix opacity
+    | Bg_bracket_color (orig, _) -> "bg-[" ^ orig ^ "]"
+    | Bg_bracket_color_opacity (orig, _, opacity) ->
+        "bg-[" ^ orig ^ "]" ^ opacity_suffix opacity
     | Bg_current -> "bg-current"
     | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
     | Bg_transparent -> "bg-transparent"
@@ -1372,11 +1373,16 @@ module Handler = struct
         bg_bracket_color_var_opacity' v opacity
     | Bg_bracket_var_opacity (v, opacity) ->
         bg_bracket_color_var_opacity' v opacity
-    | Bg_bracket_hex hex ->
-        let color_value = Color.to_css (Color.Hex hex) 500 in
-        style [ Css.background_color color_value ]
-    | Bg_bracket_hex_opacity (hex, opacity) ->
-        Color.bg_with_opacity (Color.Hex hex) 500 opacity
+    | Bg_bracket_color (_, css_color) ->
+        let c =
+          match Color.css_color_to_hex css_color with
+          | Some h -> h
+          | None -> css_color
+        in
+        style [ Css.background_color c ]
+    | Bg_bracket_color_opacity (orig, _, opacity) ->
+        let c = Color.bracket_color_to_custom orig in
+        Color.bg_with_opacity c 500 opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
@@ -1409,7 +1415,7 @@ module Handler = struct
        Tailwind's output ordering. *)
     | Bg _ | Bg_inherit | Bg_bracket_color_var _ | Bg_bracket_var _
     | Bg_bracket_color_var_opacity _ | Bg_bracket_var_opacity _
-    | Bg_bracket_hex _ | Bg_bracket_hex_opacity _ | Bg_current
+    | Bg_bracket_color _ | Bg_bracket_color_opacity _ | Bg_current
     | Bg_current_opacity _ | Bg_transparent | Bg_opacity _ ->
         10000
     (* Gradient direction utilities - same suborder for alphabetical sorting *)
@@ -1730,16 +1736,20 @@ module Handler = struct
           in
           let inner = Parse.bracket_inner bracket in
           match parse_opacity opacity_str with
-          | Some opacity ->
+          | Some opacity -> (
               if String.length inner > 6 && String.sub inner 0 6 = "color:" then
                 let var_str = String.sub inner 6 (String.length inner - 6) in
                 Ok (Bg_bracket_color_var_opacity (var_str, opacity))
-              else if String.length inner > 0 && inner.[0] = '#' then
-                let hex = String.sub inner 1 (String.length inner - 1) in
-                Ok (Bg_bracket_hex_opacity (hex, opacity))
-              else if Parse.is_var inner then
-                Ok (Bg_bracket_var_opacity (inner, opacity))
-              else Error (`Msg ("Unknown bg bracket value: " ^ bracket_stuff))
+              else
+                match Color.parse_bracket_color inner with
+                | Some css_color ->
+                    Ok (Bg_bracket_color_opacity (inner, css_color, opacity))
+                | None ->
+                    if Parse.is_var inner then
+                      Ok (Bg_bracket_var_opacity (inner, opacity))
+                    else
+                      Error
+                        (`Msg ("Unknown bg bracket value: " ^ bracket_stuff)))
           | None -> Error (`Msg ("Invalid opacity: " ^ bracket_stuff))
         else
           (* Regular bracket notation: bg-[...] *)
@@ -1779,14 +1789,14 @@ module Handler = struct
             when String.length inner > 16
                  && String.sub inner 0 16 = "linear-gradient(" ->
               Ok (Bg_bracket_linear_gradient inner)
-          | _ when String.length inner > 0 && inner.[0] = '#' ->
-              let hex = String.sub inner 1 (String.length inner - 1) in
-              Ok (Bg_bracket_hex hex)
-          | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
-          | _ ->
-              if parse_bracket_position inner <> None then
-                Ok (Bg_bracket_position inner)
-              else Error (`Msg ("Unknown bg bracket value: " ^ inner)))
+          | _ -> (
+              match Color.parse_bracket_color inner with
+              | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
+              | None ->
+                  if Parse.is_var inner then Ok (Bg_bracket_var inner)
+                  else if parse_bracket_position inner <> None then
+                    Ok (Bg_bracket_position inner)
+                  else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
     | "bg" :: rest when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
