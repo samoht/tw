@@ -1270,8 +1270,9 @@ module Typography_late = struct
     | Decoration_current
     | Decoration_current_opacity of Color.opacity_modifier
     | Decoration_inherit
-    | Decoration_bracket_hex of string
-    | Decoration_bracket_hex_opacity of string * Color.opacity_modifier
+    | Decoration_bracket_color of string * Css.color
+    | Decoration_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Decoration_bracket_var of string
     | Decoration_bracket_var_opacity of string * Color.opacity_modifier
     | Decoration_bracket_color_var of string
@@ -1461,11 +1462,28 @@ module Typography_late = struct
                 Ok (Decoration_bracket_pct_var var_part)
               else if
                 String.length inner > 0
-                && inner.[0] = '#'
-                && opacity <> Color.No_opacity
-              then Ok (Decoration_bracket_hex_opacity (inner, opacity))
-              else if String.length inner > 0 && inner.[0] = '#' then
-                Ok (Decoration_bracket_hex inner)
+                && (inner.[0] = '#'
+                   || Parse.is_css_color_fn
+                        (String.map (fun c -> if c = '_' then ' ' else c) inner)
+                   )
+              then
+                let normalized =
+                  String.map (fun c -> if c = '_' then ' ' else c) inner
+                in
+                let css_color =
+                  if inner.[0] = '#' then Some (Css.hex inner)
+                  else Css.parse_color normalized
+                in
+                match css_color with
+                | Some c -> (
+                    match opacity with
+                    | Color.No_opacity ->
+                        Ok (Decoration_bracket_color (inner, c))
+                    | _ ->
+                        Ok
+                          (Decoration_bracket_color_opacity (inner, c, opacity))
+                    )
+                | None -> Ok (Decoration_bracket_thickness inner)
               else if
                 String.length inner > 0 && inner.[String.length inner - 1] = '%'
               then Ok (Decoration_bracket_pct inner)
@@ -1663,8 +1681,8 @@ module Typography_late = struct
     | Decoration_current_opacity opacity ->
         "decoration-current/" ^ Color.pp_opacity opacity
     | Decoration_inherit -> "decoration-inherit"
-    | Decoration_bracket_hex v -> "decoration-[" ^ v ^ "]"
-    | Decoration_bracket_hex_opacity (v, opacity) ->
+    | Decoration_bracket_color (v, _) -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_color_opacity (v, _, opacity) ->
         "decoration-[" ^ v ^ "]/" ^ Color.pp_opacity opacity
     | Decoration_bracket_var v -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_var_opacity (v, opacity) ->
@@ -1810,8 +1828,8 @@ module Typography_late = struct
     | Decoration_current -> 5000
     | Decoration_current_opacity _ -> 5000
     | Decoration_inherit -> 5000
-    | Decoration_bracket_hex _ -> 4000
-    | Decoration_bracket_hex_opacity _ -> 4000
+    | Decoration_bracket_color _ -> 4000
+    | Decoration_bracket_color_opacity _ -> 4000
     | Decoration_bracket_color_var _ -> 4100
     | Decoration_bracket_color_var_opacity _ -> 4100
     | Decoration_bracket_var _ -> 4200
@@ -2098,20 +2116,45 @@ module Typography_late = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  let decoration_bracket_hex inner =
-    let shortened = Color.shorten_hex_str inner in
-    style ~merge_key:"decoration-"
-      [ text_decoration_color (Css.hex ("#" ^ shortened)) ]
+  let decoration_bracket_color_style inner c =
+    let color =
+      if String.length inner > 0 && inner.[0] = '#' then
+        let shortened = Color.shorten_hex_str inner in
+        Css.hex ("#" ^ shortened)
+      else match Color.css_color_to_hex c with Some h -> h | None -> c
+    in
+    style ~merge_key:"decoration-" [ text_decoration_color color ]
 
-  let decoration_bracket_hex_with_opacity inner opacity =
+  let decoration_bracket_color_with_opacity inner c opacity =
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
-    match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
-    | Some rgb ->
-        let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-        let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-        style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
-    | None -> style [ text_decoration_color (Css.hex "#000") ]
+    if String.length inner > 0 && inner.[0] = '#' then
+      match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
+      | Some rgb ->
+          let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
+          let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
+          style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
+      | None -> style [ text_decoration_color (Css.hex "#000") ]
+    else
+      let hex_color =
+        match Color.css_color_to_hex c with Some h -> h | None -> c
+      in
+      let _ = alpha in
+      let fallback_decl = text_decoration_color hex_color in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab hex_color Css.Transparent
+          ~percent1:percent
+      in
+      let oklab_decl = text_decoration_color oklab_color in
+      let supports_block =
+        Css.supports ~condition:Color.color_mix_supports_condition
+          [
+            Css.rule ~selector:(Css.Selector.class_ "_")
+              [ webkit_text_decoration_color oklab_color; oklab_decl ];
+          ]
+      in
+      style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
+        [ fallback_decl ]
 
   let decoration_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
@@ -2599,9 +2642,10 @@ module Typography_late = struct
     | Decoration_current_opacity opacity ->
         decoration_current_with_opacity opacity
     | Decoration_inherit -> decoration_inherit
-    | Decoration_bracket_hex inner -> decoration_bracket_hex inner
-    | Decoration_bracket_hex_opacity (inner, opacity) ->
-        decoration_bracket_hex_with_opacity inner opacity
+    | Decoration_bracket_color (inner, c) ->
+        decoration_bracket_color_style inner c
+    | Decoration_bracket_color_opacity (inner, c, opacity) ->
+        decoration_bracket_color_with_opacity inner c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
     | Decoration_bracket_var_opacity (v, opacity) ->
         decoration_bracket_var_with_opacity v opacity

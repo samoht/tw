@@ -14,8 +14,8 @@ module Handler = struct
     | Fill_current_opacity of Color.opacity_modifier
     | Fill_color of Color.color * int
     | Fill_color_opacity of Color.color * int * Color.opacity_modifier
-    | Fill_bracket_color of string
-    | Fill_bracket_color_opacity of string * Color.opacity_modifier
+    | Fill_bracket_color of string * Css.color
+    | Fill_bracket_color_opacity of string * Css.color * Color.opacity_modifier
     | Fill_bracket_var of string
     | Fill_bracket_var_opacity of string * Color.opacity_modifier
     | Fill_bracket_typed_var of string
@@ -27,8 +27,9 @@ module Handler = struct
     | Stroke_current_opacity of Color.opacity_modifier
     | Stroke_color of Color.color * int
     | Stroke_color_opacity of Color.color * int * Color.opacity_modifier
-    | Stroke_bracket_color of string
-    | Stroke_bracket_color_opacity of string * Color.opacity_modifier
+    | Stroke_bracket_color of string * Css.color
+    | Stroke_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Stroke_bracket_var of string
     | Stroke_bracket_var_opacity of string * Color.opacity_modifier
     | Stroke_bracket_typed_var of string
@@ -89,12 +90,15 @@ module Handler = struct
       let theme_decl, color_ref = Var.binding color_var color_value in
       style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
 
-  (* Bracket hex color: fill/stroke "#0088cc" → shortened hex *)
-  let bracket_hex_style ~property inner =
-    (* Use to_css which handles hex shortening *)
-    let c = Color.hex inner in
-    let css_color = Color.to_css c 500 in
-    style [ property (Css.Color css_color : Css.svg_paint) ]
+  (* Bracket color: fill/stroke with a typed Css.color, converting to hex when
+     possible for minified output *)
+  let bracket_color_style ~property css_color =
+    let color =
+      match Color.css_color_to_hex css_color with
+      | Some hex_c -> hex_c
+      | None -> css_color
+    in
+    style [ property (Css.Color color : Css.svg_paint) ]
 
   (* Bracket var: fill/stroke "var(--my-color)" *)
   let bracket_var_style ~property ~merge_key v =
@@ -102,13 +106,21 @@ module Handler = struct
     style ~merge_key
       [ property (Css.Color (Css.Var (Var.bracket bare_name)) : Css.svg_paint) ]
 
-  (* Bracket color with opacity: hex colors → oklab *)
-  let bracket_color_opacity_style ~property inner opacity =
+  (* Extract a hex string (with leading #) from a Css.color, for oklab
+     conversion *)
+  let extract_hex_string css_color =
+    match Color.css_color_to_hex css_color with
+    | Some (Hex { value; _ }) -> "#" ^ value
+    | _ -> (
+        match css_color with
+        | Css.Hex { value; _ } -> "#" ^ value
+        | _ -> "#000000")
+
+  (* Bracket color with opacity: convert to hex first, then apply oklab alpha *)
+  let bracket_color_opacity_style ~property css_color opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex =
-      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
-    in
     let alpha = percent /. 100.0 in
+    let hex = extract_hex_string css_color in
     let oklab_value = Color.hex_to_oklab_alpha hex alpha in
     style [ property (Css.Color oklab_value : Css.svg_paint) ]
 
@@ -151,9 +163,10 @@ module Handler = struct
     | Fill_color (color, shade) -> fill_color_style color shade
     | Fill_color_opacity (color, shade, opacity) ->
         Color.fill_with_opacity color shade opacity
-    | Fill_bracket_color inner -> bracket_hex_style ~property:Css.fill inner
-    | Fill_bracket_color_opacity (inner, opacity) ->
-        bracket_color_opacity_style ~property:Css.fill inner opacity
+    | Fill_bracket_color (_, css_color) ->
+        bracket_color_style ~property:Css.fill css_color
+    | Fill_bracket_color_opacity (_, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.fill css_color opacity
     | Fill_bracket_var v | Fill_bracket_typed_var v ->
         bracket_var_style ~property:Css.fill ~merge_key:"fill-" v
     | Fill_bracket_var_opacity (v, opacity)
@@ -170,9 +183,10 @@ module Handler = struct
     | Stroke_color (color, shade) -> stroke_color_style color shade
     | Stroke_color_opacity (color, shade, opacity) ->
         Color.stroke_with_opacity color shade opacity
-    | Stroke_bracket_color inner -> bracket_hex_style ~property:Css.stroke inner
-    | Stroke_bracket_color_opacity (inner, opacity) ->
-        bracket_color_opacity_style ~property:Css.stroke inner opacity
+    | Stroke_bracket_color (_, css_color) ->
+        bracket_color_style ~property:Css.stroke css_color
+    | Stroke_bracket_color_opacity (_, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.stroke css_color opacity
     | Stroke_bracket_var v | Stroke_bracket_typed_var v ->
         bracket_var_style ~property:Css.stroke ~merge_key:"stroke-" v
     | Stroke_bracket_var_opacity (v, opacity)
@@ -262,8 +276,8 @@ module Handler = struct
         else
           "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
-    | Fill_bracket_color v -> "fill-[" ^ v ^ "]"
-    | Fill_bracket_color_opacity (v, opacity) ->
+    | Fill_bracket_color (v, _) -> "fill-[" ^ v ^ "]"
+    | Fill_bracket_color_opacity (v, _, opacity) ->
         "fill-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Fill_bracket_var v -> "fill-[" ^ v ^ "]"
     | Fill_bracket_var_opacity (v, opacity) ->
@@ -287,8 +301,8 @@ module Handler = struct
         else
           "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
-    | Stroke_bracket_color v -> "stroke-[" ^ v ^ "]"
-    | Stroke_bracket_color_opacity (v, opacity) ->
+    | Stroke_bracket_color (v, _) -> "stroke-[" ^ v ^ "]"
+    | Stroke_bracket_color_opacity (v, _, opacity) ->
         "stroke-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Stroke_bracket_var v -> "stroke-[" ^ v ^ "]"
     | Stroke_bracket_var_opacity (v, opacity) ->
@@ -325,11 +339,14 @@ module Handler = struct
       match opacity with
       | Color.No_opacity -> Ok (Fill_bracket_var base_inner)
       | _ -> Ok (Fill_bracket_var_opacity (base_inner, opacity))
-    else if starts "#" base_inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Fill_bracket_color base_inner)
-      | _ -> Ok (Fill_bracket_color_opacity (base_inner, opacity))
-    else err_not_utility
+    else
+      match Color.parse_bracket_color base_inner with
+      | Some css_color -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Fill_bracket_color (base_inner, css_color))
+          | _ ->
+              Ok (Fill_bracket_color_opacity (base_inner, css_color, opacity)))
+      | None -> err_not_utility
 
   let parse_bracket_stroke_color v =
     let base_str, opacity = Color.parse_opacity_modifier v in
@@ -343,11 +360,16 @@ module Handler = struct
       match opacity with
       | Color.No_opacity -> Ok (Stroke_bracket_var base_inner)
       | _ -> Ok (Stroke_bracket_var_opacity (base_inner, opacity))
-    else if starts "#" base_inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Stroke_bracket_color base_inner)
-      | _ -> Ok (Stroke_bracket_color_opacity (base_inner, opacity))
-    else err_not_utility
+    else
+      match Color.parse_bracket_color base_inner with
+      | Some css_color -> (
+          match opacity with
+          | Color.No_opacity ->
+              Ok (Stroke_bracket_color (base_inner, css_color))
+          | _ ->
+              Ok (Stroke_bracket_color_opacity (base_inner, css_color, opacity))
+          )
+      | None -> err_not_utility
 
   (* Parse bracket value for stroke width: [1.5], [12px], [50%],
      [length:var(...)], [number:var(...)], [percentage:var(...)] *)
@@ -402,9 +424,13 @@ module Handler = struct
         (* Bracket value: could be color or width *)
         let base_str, _ = Color.parse_opacity_modifier v in
         let base_inner = Parse.bracket_inner base_str in
+        let normalized =
+          String.map (fun c -> if c = '_' then ' ' else c) base_inner
+        in
         if
           starts "color:" base_inner || starts "var(" base_inner
           || starts "#" base_inner
+          || Parse.is_css_color_fn normalized
         then parse_bracket_stroke_color v
         else parse_bracket_stroke_width base_inner
     | [ "stroke"; "0" ] -> Ok Stroke_0
