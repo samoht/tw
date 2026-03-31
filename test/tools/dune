@@ -2,7 +2,7 @@
  (name test)
  (libraries
   alcotest
-  css_tools
+  cascade.tools
   tw_tools
   astring
   cascade
