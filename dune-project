@@ -20,7 +20,7 @@
  (depends
   ocaml
   dune
-  dune-build-info
+  cascade
   cmdliner
   fmt
   re
