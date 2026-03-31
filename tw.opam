@@ -11,7 +11,7 @@ bug-reports: "https://github.com/username/tw/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.0"}
-  "dune-build-info"
+  "cascade"
   "cmdliner"
   "fmt"
   "re"
@@ -41,5 +41,6 @@ build: [
 ]
 dev-repo: "git+https://github.com/username/tw.git"
 pin-depends: [
+  ["cascade.dev" "git+https://github.com/samoht/cascade.git"]
   ["crowbar.0.2.2" "git+https://tangled.org/gazagnaire.org/crowbar.git"]
 ]
