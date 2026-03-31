@@ -1,6 +1,6 @@
 (** Arbitrary property utilities: [property:value] with optional /opacity. *)
 
-open Cascade
+module Css = Cascade.Css
 
 let err_not_utility = Error (`Msg "Not an arbitrary property utility")
 

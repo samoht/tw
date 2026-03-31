@@ -1,6 +1,6 @@
 (** Transform utilities for 2D and 3D transformations. *)
 
-open Cascade
+module Css = Cascade.Css
 
 (** Error helpers *)
 let err_not_utility = Error (`Msg "Not a transform utility")

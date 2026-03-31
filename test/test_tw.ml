@@ -4,8 +4,7 @@
     with real Tailwind CSS output for exact correspondence. This ensures 1:1
     compatibility. *)
 
-open Cascade
-
+module Css = Cascade.Css
 open Alcotest
 open Tw
 

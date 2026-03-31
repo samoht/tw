@@ -5,7 +5,6 @@
     https://tailwindcss.com/docs/ring-color *)
 
 open Cascade
-
 open Utility
 open Color
 

@@ -1,6 +1,6 @@
 (** Positioning utilities for controlling element placement *)
 
-open Cascade
+module Css = Cascade.Css
 
 (** {1 Helper Functions} *)
 

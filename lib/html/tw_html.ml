@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 (* HTML component module implementation with integrated Tailwind CSS *)
 
 (* Helper function to concatenate strings *)

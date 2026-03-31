@@ -15,6 +15,8 @@
       ["place"; ...]. Unknown tokens yield `Error (`Msg "Not an alignment
       utility")`. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

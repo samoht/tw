@@ -10,7 +10,7 @@
     - Accepts ["animate"; ...]. Unknown tokens yield `Error (`Msg "Not an
       animation utility")`. *)
 
-open Cascade
+module Css = Cascade.Css
 
 let opt_none : 'a option = None
 let opt_some x : 'a option = Some x

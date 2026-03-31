@@ -1,6 +1,6 @@
 (** CSS rule t types and smart constructors *)
 
-open Cascade
+module Css = Cascade.Css
 
 type t =
   | Regular of {

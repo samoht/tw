@@ -6,15 +6,15 @@
 
     Usage with Helix:
     {[
-      open Tw
+    open Tw
 
-      let () = Tw_dom.init ()
+    let () = Tw_dom.init ()
 
-      (* Helper: compose with your framework's class attribute *)
-      let tw styles = Html.class_name (Tw_dom.use styles)
+    (* Helper: compose with your framework's class attribute *)
+    let tw styles = Html.class_name (Tw_dom.use styles)
 
-      let card () =
-        Html.div [ tw [ flex; p 4; bg blue; rounded_lg ] ] [ Html.text "Hello" ]
+    let card () =
+      Html.div [ tw [ flex; p 4; bg blue; rounded_lg ] ] [ Html.text "Hello" ]
     ]}
 
     Usage standalone:

@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 (* Tests for prose typography utilities *)
 
 open Tw

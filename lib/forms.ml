@@ -9,7 +9,7 @@
     - checkbox, radio, input: priority 3 (before layout at 4)
     - select, textarea: priority 7 (after sizing at 6) *)
 
-open Cascade
+module Css = Cascade.Css
 
 (* Shared colors and focus ring helpers *)
 let blue_600 = Css.oklch 54.6 0.245 262.881

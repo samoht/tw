@@ -1,7 +1,7 @@
 (** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
 *)
 
-open Cascade
+module Css = Cascade.Css
 
 (* We work with Utility.t instead of Style.t *)
 open Style

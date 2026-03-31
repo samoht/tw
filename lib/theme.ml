@@ -1,6 +1,6 @@
 (** Shared theme variables for consistent ordering and avoiding conflicts *)
 
-open Cascade
+module Css = Cascade.Css
 
 (** Main ordering scheme: 1. Font families (1) - basic font families 2. Colors
     (2) - color variables 3. Spacing (3) - spacing variables 4. Breakpoints (4)

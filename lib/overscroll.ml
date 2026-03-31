@@ -10,6 +10,8 @@
     - Accepts ["overscroll"; value] and ["overscroll"; axis; value].
     - Unknown tokens yield [Error (`Msg "Not an overscroll utility")]. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

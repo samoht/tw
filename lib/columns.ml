@@ -3,7 +3,7 @@
     @see <https://tailwindcss.com/docs/columns>
       Tailwind CSS Columns documentation *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

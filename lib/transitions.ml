@@ -10,7 +10,7 @@
     What's not:
     - Custom timing functions beyond basic easing. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

@@ -11,6 +11,8 @@
     - Accepts ["forced"; "color"; "adjust"; "auto" | "none"]. Unknown tokens
       yield `Error (`Msg "Not an accessibility utility")`. *)
 
+module Css = Cascade.Css
+
 open Style
 open Css
 

@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 open Cmdliner
 
 (* Parse a space-separated string of classes *)

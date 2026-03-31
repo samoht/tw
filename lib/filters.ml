@@ -1,7 +1,7 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
     filters. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

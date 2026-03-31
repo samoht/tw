@@ -1,6 +1,6 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
-open Cascade
+module Css = Cascade.Css
 
 type rgb = {
   r : int;  (** Red channel (0-255) *)

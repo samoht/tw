@@ -5,7 +5,7 @@
     inline-flex), see Flex module. For direction/wrap utilities, see Flex_layout
     module. *)
 
-open Cascade
+module Css = Cascade.Css
 
 (* Generate themed order style: custom declaration + var reference when theme
    value is set, otherwise bare theme_ref fallback *)
