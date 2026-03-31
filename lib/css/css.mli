@@ -4792,6 +4792,17 @@ val parse_color : string -> color option
     ["hsl(120,50%,50%)"], ["oklch(0.5 0.2 240)"]) using the CSS reader. Returns
     [None] if parsing fails. *)
 
+val parse_shadow : string -> shadow option
+(** [parse_shadow s] parses a CSS shadow string, including comma-separated
+    multi-shadow values (e.g., ["inset 0 1px 0 red, 0 4px 8px blue"]). Returns
+    [None] if parsing fails. *)
+
+val parse_background_image : string -> background_image list option
+(** [parse_background_image s] parses a CSS background-image value, including
+    comma-separated multiple images (e.g.,
+    ["linear-gradient(...), radial-gradient(...)"]). Returns [None] if parsing
+    fails. *)
+
 module Container = Container
 module Supports = Supports
 module Keyframe = Keyframe
