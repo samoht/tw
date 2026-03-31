@@ -8,7 +8,6 @@
     https://tailwindcss.com/docs/aspect-ratio *)
 
 open Cascade
-
 open Utility
 
 type size =

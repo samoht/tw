@@ -1,6 +1,6 @@
 (** Visual effects utilities for shadows, opacity, and filters. *)
 
-open Cascade
+module Css = Cascade.Css
 
 let current_scheme : Scheme.t ref = ref Scheme.default
 let set_scheme scheme = current_scheme := scheme

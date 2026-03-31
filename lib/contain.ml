@@ -1,6 +1,6 @@
 (** Contain utilities for CSS containment. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

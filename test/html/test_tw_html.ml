@@ -1,7 +1,6 @@
 (** Tests for the HTML module *)
 
-open Cascade
-
+module Css = Cascade.Css
 open Alcotest
 open Tw_html
 

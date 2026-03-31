@@ -1,6 +1,6 @@
 (** Clipping utilities *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

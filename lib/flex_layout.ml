@@ -3,6 +3,8 @@
     These utilities control flex container layout direction and wrap behavior.
     They come after grid-template utilities in Tailwind's ordering. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

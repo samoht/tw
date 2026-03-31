@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 (* Tests for tw.dom — runs in both Node.js and browser.
 
    In Node.js: only core tests run (no DOM). In a browser: all tests run

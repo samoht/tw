@@ -4,6 +4,8 @@
     should appear after display, sizing, flex, alignment, and gap utilities but
     before borders. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

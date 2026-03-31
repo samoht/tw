@@ -1,7 +1,6 @@
 (** Tests for the color conversion module *)
 
-open Cascade
-
+module Css = Cascade.Css
 open Tw.Color
 
 let test_rgb_to_oklch_roundtrip () =

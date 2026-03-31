@@ -5,6 +5,8 @@
     - `wrap-break-word` - Break words to prevent overflow.
     - `wrap-anywhere` - Break at any character to prevent overflow. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

@@ -3,6 +3,8 @@
     @see <https://tailwindcss.com/docs/touch-action>
       Tailwind CSS Touch Action documentation *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

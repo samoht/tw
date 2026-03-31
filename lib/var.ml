@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 (* Typed CSS custom properties (variables) - Simplified API
 
    This module provides the core extensible variable system for CSS custom
@@ -502,12 +501,12 @@ let property_info_to_declaration_value (Css.Property_info info) =
           match info.syntax with
           | Universal -> v (* Universal syntax already stores strings *)
           | _ -> (
-              let
-              (* For non-Universal syntax, we shouldn't be in the properties
-                 layer but handle it gracefully using the existing pp
-                 functions *)
-              open
-                Css.Values in
+              let (* For non-Universal syntax, we shouldn't be in the properties
+                     layer but handle it gracefully using the existing pp
+                     functions *)
+                open
+                Css.Values
+              in
               match info.syntax with
               | Length -> (
                   match v with

@@ -3,7 +3,7 @@
     Provides utilities for mask-image, mask-composite, mask-mode, mask-type,
     mask-size, mask-position, mask-repeat, mask-clip, and mask-origin. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

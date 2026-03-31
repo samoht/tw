@@ -6,6 +6,8 @@
     mask-linear-to-*, mask-radial-*, mask-radial-from-*, mask-radial-to-*,
     mask-conic-from-*, mask-conic-to-*. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
 

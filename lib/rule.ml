@@ -3,8 +3,7 @@
     Converts modifier structures into CSS rules, handling all modifier types:
     pseudo-classes, media queries, container queries, etc. *)
 
-open Cascade
-
+module Css = Cascade.Css
 open Output
 
 (* ======================================================================== *)

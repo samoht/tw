@@ -1,6 +1,6 @@
 (** SVG utilities for fill, stroke, and stroke-width. *)
 
-open Cascade
+module Css = Cascade.Css
 
 (** Error helper *)
 let err_not_utility = Error (`Msg "Not an SVG utility")

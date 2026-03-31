@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 open Alcotest
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)

@@ -1,6 +1,6 @@
 (** Container query utilities for responsive design based on container size. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

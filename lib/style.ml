@@ -1,6 +1,6 @@
 (** Core types and helpers for Tailwind CSS DSL *)
 
-open Cascade
+module Css = Cascade.Css
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 

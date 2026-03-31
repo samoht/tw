@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 open Alcotest
 module Cc = Css_tools.Css_compare
 module Td = Css_tools.Tree_diff

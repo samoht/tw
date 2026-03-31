@@ -3,7 +3,7 @@
     @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
 *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

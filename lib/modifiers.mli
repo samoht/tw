@@ -2,7 +2,6 @@
 *)
 
 open Cascade
-
 open Style
 open Utility
 

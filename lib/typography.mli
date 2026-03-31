@@ -16,7 +16,6 @@
     https://tailwindcss.com/docs/word-break *)
 
 open Cascade
-
 open Utility
 
 (** {1 Font Size Utilities} *)

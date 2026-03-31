@@ -1,3 +1,10 @@
 (test
  (name test)
- (libraries alcotest css_tools tw_tools astring cascade re tools_test_helpers))
+ (libraries
+  alcotest
+  css_tools
+  tw_tools
+  astring
+  cascade
+  re
+  tools_test_helpers))

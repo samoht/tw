@@ -1,6 +1,6 @@
 (** Test helper functions for CSS comparison and minimization *)
 
-open Cascade
+module Css = Cascade.Css
 
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =

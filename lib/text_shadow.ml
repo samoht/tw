@@ -1,6 +1,6 @@
 (** Text shadow utilities for CSS text-shadow property. *)
 
-open Cascade
+module Css = Cascade.Css
 
 (* Capture Pp.float before open Css shadows it *)
 let pp_float = Pp.float

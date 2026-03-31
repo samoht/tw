@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 open Alcotest
 
 (* Test that @layer theme includes expected vars in stable order *)

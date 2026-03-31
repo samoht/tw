@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 (* Client-side CSS injection.
 
    Maintains a <style> element in <head> containing CSS for all utilities

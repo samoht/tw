@@ -6,11 +6,10 @@
     - Full CSS variable theming
     - Size and color variants *)
 
-open Cascade
+module Css = Cascade.Css
 
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
-
 
 (* Create prose variables using the new API *)
 let prose_body_var = Var.channel Color "tw-prose-body"

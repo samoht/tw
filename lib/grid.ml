@@ -3,6 +3,8 @@
     For grid item placement utilities (col-{i n}, row-{i n}), see Grid_item
     module. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

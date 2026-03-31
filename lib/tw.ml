@@ -12,7 +12,7 @@
     - Support for modern CSS features like container queries and 3D transforms
     - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
 
-open Cascade
+module Css = Cascade.Css
 
 type t = Utility.t
 

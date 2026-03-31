@@ -1,5 +1,4 @@
-
-open Cascade
+module Css = Cascade.Css
 open Alcotest
 open Tw.Color
 open Tw.Padding

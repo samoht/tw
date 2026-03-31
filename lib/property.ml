@@ -1,5 +1,5 @@
+module Css = Cascade.Css
 
-open Cascade
 let split statements =
   List.partition
     (fun stmt ->

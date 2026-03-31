@@ -12,7 +12,7 @@
       ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens yield `Error (`Msg
       "Not an interactivity utility")`. *)
 
-open Cascade
+module Css = Cascade.Css
 
 module Handler = struct
   open Style

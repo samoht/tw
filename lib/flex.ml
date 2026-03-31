@@ -3,6 +3,8 @@
     For flexbox property utilities (direction, wrap, grow, shrink, basis,
     order), see Flex_props module. *)
 
+module Css = Cascade.Css
+
 module Handler = struct
   open Style
   open Css

@@ -3,7 +3,7 @@
     @see <https://tailwindcss.com/docs/divide-width>
       Tailwind CSS Divide Width documentation *)
 
-open Cascade
+module Css = Cascade.Css
 
 (* Current scheme for default border width *)
 let current_scheme : Scheme.t ref = ref Scheme.default

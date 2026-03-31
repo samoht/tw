@@ -1,7 +1,6 @@
 (** Shared spacing utilities for padding, margin, and gap *)
 
-open Cascade
-
+module Css = Cascade.Css
 open Style
 
 (** {1 Spacing Variable} *)
@@ -58,7 +57,7 @@ let named_spacing_binding name : Css.declaration option * Css.length =
       let ref = named_spacing_ref name in
       (None, ref)
 
-let to_length spacing_ref : spacing -> length = function
+let to_length spacing_ref : spacing -> Css.length = function
   | `Px -> Px 1.
   | `Full -> Pct 100.0
   | `Named name -> named_spacing_ref name
