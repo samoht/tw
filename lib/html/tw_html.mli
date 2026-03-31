@@ -4,8 +4,6 @@
     elements and attributes. It is designed to be used for generating static
     HTML pages. *)
 
-open Cascade
-
 type t
 (** The abstract type for an HTML node. *)
 

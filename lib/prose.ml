@@ -7,6 +7,7 @@
     - Size and color variants *)
 
 module Css = Cascade.Css
+open Css
 
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]

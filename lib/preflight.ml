@@ -1,6 +1,8 @@
 (** Preflight and reset rules *)
 
 module Css = Cascade.Css
+open Css
+
 
 (* Base element selectors *)
 let abbr = Selector.element "abbr"
