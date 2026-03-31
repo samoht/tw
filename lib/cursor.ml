@@ -3,6 +3,8 @@
     @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
 *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

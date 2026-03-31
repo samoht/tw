@@ -1,5 +1,7 @@
 (** Typography utilities for text and font styling. *)
 
+open Cascade
+
 (* Text size variables with line heights *)
 let text_xs_var = Var.theme Css.Length "text-xs" ~order:(6, 0)
 

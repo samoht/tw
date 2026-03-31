@@ -15,6 +15,8 @@
       ["border"; "spacing"; "y"; n], ["table"; "auto"], ["table"; "fixed"].
     - Unknown tokens yield `Error (`Msg "Not a table utility")`. *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

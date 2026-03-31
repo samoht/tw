@@ -1,5 +1,7 @@
 (** Tests for the HTML module *)
 
+open Cascade
+
 open Alcotest
 open Tw_html
 

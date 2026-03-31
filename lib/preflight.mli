@@ -1,5 +1,7 @@
 (** Preflight and reset rules *)
 
+open Cascade
+
 val stylesheet : ?placeholder_supports:Css.t -> ?forms:bool -> unit -> Css.t
 (** [stylesheet ?placeholder_supports ?forms ()] generates Tailwind-like base
     reset rules. If [placeholder_supports] is provided, it will be inserted

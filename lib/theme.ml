@@ -1,5 +1,7 @@
 (** Shared theme variables for consistent ordering and avoiding conflicts *)
 
+open Cascade
+
 (** Main ordering scheme: 1. Font families (1) - basic font families 2. Colors
     (2) - color variables 3. Spacing (3) - spacing variables 4. Breakpoints (4)
     \- breakpoint variables 5. Containers (5) - container variables 6.

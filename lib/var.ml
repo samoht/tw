@@ -1,3 +1,5 @@
+
+open Cascade
 (* Typed CSS custom properties (variables) - Simplified API
 
    This module provides the core extensible variable system for CSS custom

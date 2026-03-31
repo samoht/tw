@@ -1,3 +1,5 @@
+
+open Cascade
 let test_escape_in_selector () =
   let test_css = ".inset-3\\/4 { inset: 75%; }" in
   match Css.of_string test_css with

@@ -160,6 +160,7 @@
     {2 Example: Variables vs Inline Mode}
     {[
       (* Variables mode *)
+
       .border { border-style: var(--tw-border-style); border-width: 1px; }
       .border-solid { --tw-border-style: solid; border-style: solid; }
 
@@ -334,6 +335,8 @@
     - Each variable is owned by one module
     - Cross-module usage only via function parameters
     - Parent functions call [Var.binding] and pass results to children *)
+
+open Cascade
 
 (** Layer classification for CSS variables *)
 type layer = Theme | Utility

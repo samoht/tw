@@ -2,6 +2,8 @@
 
     Provides utilities for scroll-m-*, scroll-mx-*, scroll-p-*, etc. *)
 
+open Cascade
+
 module Handler = struct
   open Style
 

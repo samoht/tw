@@ -1,3 +1,5 @@
+
+open Cascade
 open Alcotest
 
 (* Test that @layer theme includes expected vars in stable order *)

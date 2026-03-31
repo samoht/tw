@@ -15,6 +15,8 @@
       ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield `Error
       (`Msg "Not a border utility")`. *)
 
+open Cascade
+
 (* Current scheme for radius overrides *)
 let current_scheme : Scheme.t ref = ref Scheme.default
 

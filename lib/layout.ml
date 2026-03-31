@@ -1,5 +1,7 @@
 (** Layout utilities for basic display, positioning, and object properties *)
 
+open Cascade
+
 (** Screen reader utilities handler - priority 0 to appear first *)
 module Screen_reader_handler = struct
   open Style

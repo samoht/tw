@@ -1,5 +1,7 @@
 (** Shared spacing utilities for padding, margin, and gap *)
 
+open Cascade
+
 (** {1 Spacing Variable} *)
 
 val var : Css.length Var.theme

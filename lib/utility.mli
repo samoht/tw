@@ -79,6 +79,8 @@
     - 100+: Modifiers and special utilities
     - 800+: Component-level utilities (forms, etc.) *)
 
+open Cascade
+
 type base = ..
 (** Base utility type without modifiers - extensible variant *)
 

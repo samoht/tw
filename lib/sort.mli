@@ -4,6 +4,8 @@
     function that produces Tailwind v4 cascade order when used with [List.sort].
 *)
 
+open Cascade
+
 (** {1 Indexed rule} *)
 
 type selector_kind =

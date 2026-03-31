@@ -1,3 +1,5 @@
+
+open Cascade
 open Cmdliner
 
 (* Parse a space-separated string of classes *)

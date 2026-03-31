@@ -1,3 +1,5 @@
+
+open Cascade
 open Alcotest
 
 (* Test that variable naming follows conventions *)

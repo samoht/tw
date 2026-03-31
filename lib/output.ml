@@ -1,5 +1,7 @@
 (** CSS rule t types and smart constructors *)
 
+open Cascade
+
 type t =
   | Regular of {
       selector : Css.Selector.t;

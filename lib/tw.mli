@@ -39,6 +39,7 @@
         let styles =
           [
             (* Background and text colors *)
+
             bg blue;
             (* blue background *)
             text white;
@@ -75,6 +76,8 @@
     - The API design follows {{:https://tailwindcss.com/}Tailwind CSS}
       conventions
     - Colors, spacing, and sizes use consistent scales throughout *)
+
+open Cascade
 
 (** {1 Core Types}
     @see <https://tailwindcss.com/docs/colors> Colors *)

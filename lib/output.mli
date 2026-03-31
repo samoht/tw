@@ -12,6 +12,8 @@
 
     Values are produced by {!Rule.outputs} and consumed by {!Build}. *)
 
+open Cascade
+
 type t =
   | Regular of {
       selector : Css.Selector.t;

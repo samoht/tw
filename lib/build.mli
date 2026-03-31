@@ -8,6 +8,7 @@
 
     {v
       @layer properties   (* CSS custom property registrations *)
+
       @layer theme        (* design-token variables *)
       @layer base         (* Preflight reset + forms base styles *)
       @layer components   (* (empty placeholder) *)
@@ -17,6 +18,8 @@
     The main entry point for normal use is {!to_css}. The lower-level functions
     ([theme_layer_of], [rule_sets], [utilities_layer]) are exposed for testing
     and for the [tw] CLI. *)
+
+open Cascade
 
 (** {1 CSS generation} *)
 

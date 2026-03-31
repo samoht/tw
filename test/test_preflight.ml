@@ -1,3 +1,5 @@
+
+open Cascade
 open Alcotest
 
 let stylesheet_nonempty () =

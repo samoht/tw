@@ -4,6 +4,8 @@
     with real Tailwind CSS output for exact correspondence. This ensures 1:1
     compatibility. *)
 
+open Cascade
+
 open Alcotest
 open Tw
 

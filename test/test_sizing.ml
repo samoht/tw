@@ -1,3 +1,5 @@
+
+open Cascade
 open Alcotest
 open Test_helpers
 

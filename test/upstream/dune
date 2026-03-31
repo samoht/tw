@@ -6,5 +6,5 @@
 (test
  (name test)
  (modules test)
- (libraries alcotest tw tw.css fmt re)
+ (libraries alcotest tw cascade fmt re)
  (deps utilities.txt))
