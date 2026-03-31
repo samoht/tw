@@ -1,6 +1,8 @@
 (** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
 *)
 
+open Cascade
+
 open Style
 open Utility
 

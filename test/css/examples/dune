@@ -1,8 +1,0 @@
-(rule
- (targets examples.ml)
- (deps empty_tailwind.css)
- (action
-  (run ocaml-crunch --mode plain -o examples.ml .)))
-
-(library
- (name examples))

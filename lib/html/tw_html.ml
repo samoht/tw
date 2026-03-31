@@ -1,3 +1,5 @@
+
+open Cascade
 (* HTML component module implementation with integrated Tailwind CSS *)
 
 (* Helper function to concatenate strings *)

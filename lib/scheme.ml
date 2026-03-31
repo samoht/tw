@@ -4,6 +4,8 @@
     This allows matching Tailwind's test expectations which use custom [@theme]
     definitions with hex colors and explicit spacing variables. *)
 
+open Cascade
+
 (** Color value - either hex string or oklch components *)
 type color_value =
   | Hex of string  (** e.g., "#ef4444" *)

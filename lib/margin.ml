@@ -1,5 +1,7 @@
 (** Margin utilities with negative value support. *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

@@ -9,6 +9,8 @@
     - checkbox, radio, input: priority 3 (before layout at 4)
     - select, textarea: priority 7 (after sizing at 6) *)
 
+open Cascade
+
 open Utility
 
 (** {1 Form Input Utilities} *)

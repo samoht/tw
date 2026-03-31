@@ -1,5 +1,7 @@
 (** Core types and helpers for Tailwind CSS DSL *)
 
+open Cascade
+
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 
 type container_query =

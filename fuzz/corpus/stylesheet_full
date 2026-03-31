@@ -1,5 +1,0 @@
-@layer base, components, utilities;
-@property --tw-color { syntax: '<color>'; inherits: false; initial-value: transparent; }
-.foo { color: var(--tw-color); }
-@media (min-width: 768px) { .foo { padding: 1rem; } }
-@supports (display: grid) { .bar { display: grid; } }

@@ -1,5 +1,7 @@
 (** Contain utilities for CSS containment. *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

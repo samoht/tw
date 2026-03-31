@@ -27,6 +27,8 @@
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
+open Cascade
+
 (** Check if a string looks like a class name (vs a directive or invalid
     syntax). We only filter out things that aren't class names at all - bare
     utility names and invalid suffixes are kept as negative tests. *)

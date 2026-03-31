@@ -12,6 +12,8 @@
     - Support for modern CSS features like container queries and 3D transforms
     - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
 
+open Cascade
+
 type t = Utility.t
 
 include Color
@@ -136,7 +138,7 @@ module Output = Output
 module Rule = Rule
 module Build = Build
 module Prose = Prose
-module Css = Css
+module Css = Cascade.Css
 module Color = Color
 module Modifiers = Modifiers
 module Var = Var

@@ -1,3 +1,5 @@
+
+open Cascade
 open Alcotest
 
 let check_class = Test_helpers.check_class

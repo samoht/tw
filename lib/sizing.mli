@@ -7,6 +7,8 @@
     https://tailwindcss.com/docs/max-height
     https://tailwindcss.com/docs/aspect-ratio *)
 
+open Cascade
+
 open Utility
 
 type size =

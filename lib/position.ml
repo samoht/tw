@@ -1,5 +1,7 @@
 (** Positioning utilities for controlling element placement *)
 
+open Cascade
+
 (** {1 Helper Functions} *)
 
 (* Parse a bracket value like [4px] and return a Css.length *)

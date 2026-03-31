@@ -1,3 +1,5 @@
+
+open Cascade
 (* Tests for prose typography utilities *)
 
 open Tw

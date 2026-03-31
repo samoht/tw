@@ -1,5 +1,7 @@
 (** Tests for Tree_diff module *)
 
+open Cascade
+
 open Alcotest
 module Td = Css_tools.Tree_diff
 open Tools_test_helpers

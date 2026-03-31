@@ -3,6 +3,8 @@
     These utilities control how grid items are placed within a grid container.
     They come before display utilities in the cascade order. *)
 
+open Cascade
+
 (* Generate themed grid_column style: custom declaration + var reference when
    theme value is set, otherwise bare theme_ref fallback *)
 let themed_decl name value_str =

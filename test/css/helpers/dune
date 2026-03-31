@@ -1,3 +1,0 @@
-(library
- (name css_test_helpers)
- (libraries css alcotest fmt))

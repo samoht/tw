@@ -3,6 +3,8 @@
     Provides the [indexed_rule] type and [compare_indexed_rules], the comparison
     function used to sort assembled CSS rules into Tailwind v4 cascade order. *)
 
+open Cascade
+
 (* ======================================================================== *)
 (* Types *)
 (* ======================================================================== *)

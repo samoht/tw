@@ -1,5 +1,7 @@
 (** Transform utilities for 2D and 3D transformations. *)
 
+open Cascade
+
 (** Error helpers *)
 let err_not_utility = Error (`Msg "Not a transform utility")
 

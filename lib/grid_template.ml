@@ -15,6 +15,8 @@
       ["auto"; "cols" | "rows"; ...]. Unknown tokens yield `Error (`Msg "Not a
       grid template utility")`. *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

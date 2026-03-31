@@ -1,7 +1,8 @@
 (** Shared spacing utilities for padding, margin, and gap *)
 
+open Cascade
+
 open Style
-open Css
 
 (** {1 Spacing Variable} *)
 

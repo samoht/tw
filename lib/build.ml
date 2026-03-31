@@ -3,6 +3,8 @@
     Converts assembled, sorted CSS rules into CSS layer directives following
     Tailwind v4's architecture. *)
 
+open Cascade
+
 open Output
 
 (* ======================================================================== *)

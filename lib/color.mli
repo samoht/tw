@@ -1,5 +1,7 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
+open Cascade
+
 type rgb = {
   r : int;  (** Red channel (0-255) *)
   g : int;  (** Green channel (0-255) *)

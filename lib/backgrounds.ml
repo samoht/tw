@@ -16,6 +16,8 @@
       ["via"; color; shade], ["to"; color; shade]. Unknown tokens yield `Error
       (`Msg "Unknown background class")`. *)
 
+open Cascade
+
 type direction =
   | Bottom
   | Bottom_right

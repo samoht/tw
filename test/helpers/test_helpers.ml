@@ -1,5 +1,7 @@
 (** Test helper functions for CSS comparison and minimization *)
 
+open Cascade
+
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =
   Alcotest.check Alcotest.string "class" expected (Tw.Utility.to_class t)

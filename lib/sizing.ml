@@ -1,5 +1,7 @@
 (** Sizing utilities for width and height *)
 
+open Cascade
+
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 

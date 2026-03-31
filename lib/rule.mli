@@ -11,8 +11,11 @@
     {v
       Utility.t list
         |> List.concat_map Rule.outputs   (* Rule *)
+
         |> Build.rule_sets               (* Build *)
     v} *)
+
+open Cascade
 
 (** {1 Scheme}
 

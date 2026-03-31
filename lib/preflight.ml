@@ -1,6 +1,7 @@
 (** Preflight and reset rules *)
 
-open Css
+open Cascade
+
 
 (* Base element selectors *)
 let abbr = Selector.element "abbr"

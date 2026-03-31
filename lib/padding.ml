@@ -1,5 +1,7 @@
 (** Padding utilities. *)
 
+open Cascade
+
 module Handler = struct
   open Style
   open Css

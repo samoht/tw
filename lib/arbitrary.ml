@@ -1,5 +1,7 @@
 (** Arbitrary property utilities: [property:value] with optional /opacity. *)
 
+open Cascade
+
 let err_not_utility = Error (`Msg "Not an arbitrary property utility")
 
 (** Parse a CSS color name string into a typed color value. *)

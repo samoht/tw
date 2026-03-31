@@ -14,6 +14,8 @@
     Based on Tailwind CSS Typography plugin:
     https://tailwindcss.com/docs/typography-plugin *)
 
+open Cascade
+
 (** Example usage:
     {[
       (* Apply prose styling to article content *)

@@ -27,6 +27,8 @@
     necessary because the expected CSS comes from JS template literals with
     extra indentation. *)
 
+open Cascade
+
 open Alcotest
 
 type theme_config =

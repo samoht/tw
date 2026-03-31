@@ -3,6 +3,8 @@
     https://tailwindcss.com/docs/background-image
     https://tailwindcss.com/docs/gradient-color-stops *)
 
+open Cascade
+
 open Utility
 
 (** {1 Utility Types} *)

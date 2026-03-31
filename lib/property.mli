@@ -1,5 +1,7 @@
 (** Helpers for building the {i \@layer properties} block. *)
 
+open Cascade
+
 val split : Css.statement list -> Css.statement list * Css.statement list
 (** [split stmts] partitions into ({i \@property} rules, other statements). *)
 
