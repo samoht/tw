@@ -483,22 +483,32 @@ module Handler = struct
     | [ h; v; blur; _spread ] -> Some (h, v, Some blur, color)
     | _ -> None
 
-  let shadow_arbitrary (arb : string) =
-    match parse_arbitrary_shadow arb with
-    | Some (h_offset, v_offset, blur, color) ->
-        let fallback_color : Css.color =
-          match color with
-          | Hex c -> Css.hex (shorten_hex c)
-          | Var v -> make_color_var (Parse.extract_var_name v)
-          | Css_color c -> (
+  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)]. Converts
+      CSS color functions to hex for Tailwind parity. *)
+  let wrap_shadow_color ~color_var (sh : Css.shadow) : Css.shadow =
+    match sh with
+    | Shadow s ->
+        let fallback : Css.color =
+          match s.color with
+          | Some c -> (
               match Color.css_color_to_hex c with Some h -> h | None -> c)
           | None -> Css.Current
         in
-        let color_ref =
-          Var.reference_with_fallback shadow_color_var fallback_color
-        in
+        let color_ref = Var.reference_with_fallback color_var fallback in
+        Shadow { s with color = Some (Var color_ref) }
+    | other -> other
+
+  let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
+    match sh with
+    | List shadows -> List (List.map (wrap_shadow_color ~color_var) shadows)
+    | _ -> wrap_shadow_color ~color_var sh
+
+  let shadow_arbitrary (arb : string) =
+    let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
+    match Css.parse_shadow normalized with
+    | Some shadow ->
         let shadow_value =
-          Css.shadow ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
+          wrap_shadow_colors ~color_var:shadow_color_var shadow
         in
         let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
         style ~property_rules:shadow_property_rules

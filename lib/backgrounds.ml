@@ -1348,12 +1348,16 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_linear_gradient v ->
+    | Bg_bracket_linear_gradient v -> (
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
-        let reader = Css.Reader.of_string css_str in
-        let img = Css.read_background_image reader in
-        let img = Css.minify_background_image img in
-        style [ Css.background_image img ]
+        match Css.parse_background_image css_str with
+        | Some [ img ] ->
+            let img = Css.minify_background_image img in
+            style [ Css.background_image img ]
+        | Some imgs ->
+            let imgs = List.map Css.minify_background_image imgs in
+            style [ Css.background_image (Css.List imgs) ]
+        | None -> style [])
     | Bg_linear_to dir -> bg_linear_to' dir
     | Bg_linear_to_interp (dir, interp) -> bg_linear_to_interp' dir interp
     | Bg_linear_angle n -> bg_linear_angle' n
@@ -1785,18 +1789,23 @@ module Handler = struct
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
               let url_content = String.sub inner 4 (String.length inner - 5) in
               Ok (Bg_bracket_url url_content)
-          | _
-            when String.length inner > 16
-                 && String.sub inner 0 16 = "linear-gradient(" ->
-              Ok (Bg_bracket_linear_gradient inner)
           | _ -> (
-              match Color.parse_bracket_color inner with
-              | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
-              | None ->
-                  if Parse.is_var inner then Ok (Bg_bracket_var inner)
-                  else if parse_bracket_position inner <> None then
-                    Ok (Bg_bracket_position inner)
-                  else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
+              (* Try parsing as background-image (gradients, urls,
+                 comma-separated) *)
+              let normalized =
+                String.map (fun c -> if c = '_' then ' ' else c) inner
+              in
+              match Css.parse_background_image normalized with
+              | Some (_ :: _) -> Ok (Bg_bracket_linear_gradient inner)
+              | _ -> (
+                  match Color.parse_bracket_color inner with
+                  | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
+                  | None ->
+                      if Parse.is_var inner then Ok (Bg_bracket_var inner)
+                      else if parse_bracket_position inner <> None then
+                        Ok (Bg_bracket_position inner)
+                      else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
+        )
     | "bg" :: rest when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))

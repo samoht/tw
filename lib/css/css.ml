@@ -79,6 +79,20 @@ let parse_color s =
     if Reader.is_done r then Some c else None
   with Reader.Parse_error _ | Invalid_argument _ -> None
 
+let parse_shadow s =
+  try
+    let r = Reader.of_string s in
+    let sh = Properties.read_shadow r in
+    if Reader.is_done r then Some sh else None
+  with Reader.Parse_error _ | Invalid_argument _ -> None
+
+let parse_background_image s =
+  try
+    let r = Reader.of_string s in
+    let imgs = Properties.read_background_images r in
+    if Reader.is_done r then Some imgs else None
+  with Reader.Parse_error _ | Invalid_argument _ -> None
+
 let as_layer = function
   | Layer (name, content) -> Some (name, content)
   | _ -> None
