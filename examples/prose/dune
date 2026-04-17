@@ -15,6 +15,13 @@
 ; Generate reference CSS with Tailwind CLI (requires typography plugin)
 
 (rule
+ (target input.css)
+ (action
+  (write-file
+   %{target}
+   "@import 'tailwindcss';\n@plugin '@tailwindcss/typography';\n")))
+
+(rule
  (targets tailwind.css)
  (deps index.html input.css ../../package-lock.json)
  (action
@@ -34,6 +41,6 @@
 
 (rule
  (alias runtest)
- (deps prose.css tailwind.css ../../bin/css/cssdiff.exe)
+ (deps prose.css tailwind.css)
  (action
-  (run ../../bin/css/cssdiff.exe --color=always tailwind.css prose.css)))
+  (run cssdiff --color=always tailwind.css prose.css)))
