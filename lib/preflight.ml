@@ -3,7 +3,6 @@
 module Css = Cascade.Css
 open Css
 
-
 (* Base element selectors *)
 let abbr = Selector.element "abbr"
 let button = Selector.element "button"
