@@ -390,6 +390,43 @@ module Handler = struct
         Css.transition_timing_function (Css.Var ease_in_out_ref);
       ]
 
+  let parse_cubic_bezier raw =
+    let prefix = "cubic-bezier(" in
+    if
+      String.length raw > String.length prefix + 1
+      && String.sub raw 0 (String.length prefix) = prefix
+      && raw.[String.length raw - 1] = ')'
+    then
+      let inner =
+        String.sub raw (String.length prefix)
+          (String.length raw - String.length prefix - 1)
+      in
+      match String.split_on_char ',' inner |> List.map String.trim with
+      | [ a; b; c; d ] -> (
+          match
+            ( float_of_string_opt a,
+              float_of_string_opt b,
+              float_of_string_opt c,
+              float_of_string_opt d )
+          with
+          | Some a, Some b, Some c, Some d ->
+              Some (Css.Cubic_bezier (a, b, c, d))
+          | _ -> None)
+      | _ -> None
+    else None
+
+  let parse_raw_timing_function raw : Css.timing_function =
+    match parse_cubic_bezier raw with
+    | Some tf -> tf
+    | None -> (
+        match raw with
+        | "linear" -> Linear
+        | "ease" -> Ease
+        | "ease-in" -> Ease_in
+        | "ease-out" -> Ease_out
+        | "ease-in-out" -> Ease_in_out
+        | _ -> invalid_arg ("Unsupported timing function: " ^ raw))
+
   let ease_arbitrary s =
     if Parse.is_var s then
       let bare_name = Parse.extract_var_name s in
@@ -404,35 +441,7 @@ module Handler = struct
     else
       (* Raw timing function like "cubic-bezier(0.4,0,0.2,1)" *)
       let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
-      let tf : Css.timing_function =
-        let prefix = "cubic-bezier(" in
-        if
-          String.length raw > String.length prefix + 1
-          && String.sub raw 0 (String.length prefix) = prefix
-          && raw.[String.length raw - 1] = ')'
-        then
-          let inner =
-            String.sub raw (String.length prefix)
-              (String.length raw - String.length prefix - 1)
-          in
-          match String.split_on_char ',' inner |> List.map String.trim with
-          | [ a; b; c; d ] -> (
-              match
-                ( float_of_string_opt a,
-                  float_of_string_opt b,
-                  float_of_string_opt c,
-                  float_of_string_opt d )
-              with
-              | Some a, Some b, Some c, Some d -> Cubic_bezier (a, b, c, d)
-              | _ -> invalid_arg ("Invalid cubic-bezier: " ^ raw))
-          | _ -> invalid_arg ("Invalid cubic-bezier: " ^ raw)
-        else if raw = "linear" then Linear
-        else if raw = "ease" then Ease
-        else if raw = "ease-in" then Ease_in
-        else if raw = "ease-out" then Ease_out
-        else if raw = "ease-in-out" then Ease_in_out
-        else invalid_arg ("Unsupported timing function: " ^ raw)
-      in
+      let tf = parse_raw_timing_function raw in
       let tw_ease_decl, _ = Var.binding tw_ease_var tf in
       let prop_rule = Var.property_rule tw_ease_var in
       let property_rules =
