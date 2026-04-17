@@ -444,6 +444,4 @@ let cmd =
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
         $ quiet_flag $ backend_vflag $ test_scheme_flag $ paths_arg))
 
-let () =
-  Memtrace.trace_if_requested ();
-  exit (Cmd.eval cmd)
+let () = exit (Cmd.eval cmd)

@@ -30,5 +30,4 @@
   (alcotest-js :with-test)
   (astring :with-test)
   (crunch :with-test)
-  (alcobar :with-test)
-  memtrace))
+  (alcobar :with-test)))
