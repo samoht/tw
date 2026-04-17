@@ -11,6 +11,11 @@
   (promote (until-clean))))
 
 (rule
+ (target input.css)
+ (action
+  (write-file %{target} "@import 'tailwindcss';\n")))
+
+(rule
  (targets tailwind.css)
  (deps index.html input.css ../../package-lock.json)
  (action
@@ -20,10 +25,6 @@
 
 (rule
  (alias runtest)
- (deps accessibility.css tailwind.css ../../bin/css/cssdiff.exe)
+ (deps accessibility.css tailwind.css)
  (action
-  (run
-   ../../bin/css/cssdiff.exe
-   --color=always
-   accessibility.css
-   tailwind.css)))
+  (run cssdiff --color=always accessibility.css tailwind.css)))

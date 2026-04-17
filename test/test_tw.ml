@@ -108,13 +108,15 @@ let check_exact_match tw_styles =
         Css_tools.Css_compare.stats ~expected_str:tailwind_css
           ~actual_str:tw_css diff_result
       in
-      Fmt.epr "%a@,@," Css_tools.Css_compare.pp_stats stats;
+      let stats_buf = Buffer.create 256 in
+      Css_tools.Css_compare.pp_stats stats_buf stats;
+      Fmt.epr "%s@,@," (Buffer.contents stats_buf);
 
       (* Show the actual diff *)
-      Fmt.epr "%a@,"
-        (Css_tools.Css_compare.pp ~expected:"Tailwind (expected)"
-           ~actual:"Our TW (actual)")
-        diff_result);
+      let diff_buf = Buffer.create 256 in
+      Css_tools.Css_compare.pp ~expected:"Tailwind (expected)"
+        ~actual:"Our TW (actual)" diff_buf diff_result;
+      Fmt.epr "%s@," (Buffer.contents diff_buf));
 
     let test_label =
       if String.length test_name > 50 then String.sub test_name 0 47 ^ "..."

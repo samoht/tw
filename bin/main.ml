@@ -104,7 +104,9 @@ let print_diff_result label diff =
   | Css_tools.Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
   | _ ->
       Fmt.pr "Differences found%s:@.@." label;
-      Css_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout diff;
+      let buf = Buffer.create 256 in
+      Css_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" buf diff;
+      print_string (Buffer.contents buf);
       Fmt.pr "@."
 
 let diff_single_class class_str ~(opts : gen_opts) =
