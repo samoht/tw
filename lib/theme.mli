@@ -24,5 +24,5 @@ val spacing_calc : int -> Css.declaration * Css.length
     Otherwise returns [calc(var(--spacing) * n)]. *)
 
 val spacing_calc_float : float -> Css.declaration * Css.length
-(** [spacing_calc_float n] is like {!spacing_calc} but accepts float
-    multipliers such as [2.5] for classes like [my-2.5]. *)
+(** [spacing_calc_float n] is like {!spacing_calc} but accepts float multipliers
+    such as [2.5] for classes like [my-2.5]. *)
