@@ -22,9 +22,6 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
-      - name: Pin alcobar
-        run: opam pin add alcobar.dev "https://github.com/samoht/alcobar.git" -n -y
-
       - name: Install dependencies
         run: opam install . --deps-only --with-test -y
 

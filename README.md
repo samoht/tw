@@ -174,15 +174,11 @@ dune build
 dune runtest
 
 # Run specific test suites
-dune exec test/upstream/test.exe     # 765 Tailwind parity tests
-dune exec test/css/test.exe          # 458 CSS parser tests
-dune exec test/test.exe              # 334 main tests
+dune exec test/upstream/test.exe     # Tailwind parity tests
+dune exec test/test.exe              # main tests
 
 # Compare single utility with Tailwind
 dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff
-
-# Fuzz testing
-dune exec fuzz/fuzz.exe
 ```
 
 ## License

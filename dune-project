@@ -5,18 +5,19 @@
 (generate_opam_files true)
 
 (source
- (github username/tw))
+ (github samoht/tw))
 
-(authors "Your Name")
+(authors "Thomas Gazagnaire")
 
-(maintainers "Your Name")
+(maintainers "Thomas Gazagnaire <thomas@gazagnaire.org>")
 
-(license MIT)
+(license ISC)
 
 (package
  (name tw)
- (synopsis "A DSL for generating CSS that matches Tailwind CSS classes")
- (description "tw is an OCaml DSL that compiles to CSS, providing Tailwind CSS-like utility classes")
+ (synopsis "Type-safe Tailwind CSS v4 in OCaml")
+ (description
+  "tw is a type-safe OCaml implementation of Tailwind CSS v4. It compiles to CSS through a strongly-typed variable system that mirrors Tailwind's pipeline, producing byte-for-byte identical output. Supports all core utilities and the official forms and typography plugins.")
  (depends
   ocaml
   dune
