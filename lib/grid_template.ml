@@ -94,6 +94,10 @@ module Handler = struct
       match float_of_string_opt (String.sub value 0 (len - 2)) with
       | Some n -> Some (Em n)
       | None -> None
+    else if len >= 1 && value.[len - 1] = '%' then
+      match float_of_string_opt (String.sub value 0 (len - 1)) with
+      | Some n -> Some (Pct n)
+      | None -> None
     else if len >= 2 && String.sub value (len - 2) 2 = "fr" then
       (* Handle fr values *)
       None (* fr needs special handling as grid_template type *)
@@ -102,42 +106,59 @@ module Handler = struct
       | Some n -> Some (Px (float_of_int n))
       | None -> None
 
-  let parse_single_track value : Css.grid_template =
+  let parse_single_track value : Css.grid_template option =
     match parse_arbitrary_length value with
-    | Some (Px n) -> Px n
-    | Some (Rem n) -> Rem n
-    | Some (Em n) -> Em n
-    | Some (Pct n) -> Pct n
-    | Some (Vw n) -> Vw n
-    | Some (Vh n) -> Vh n
-    | Some _ -> invalid_arg ("Unsupported grid track unit: " ^ value)
+    | Some (Px n) -> Some (Px n)
+    | Some (Rem n) -> Some (Rem n)
+    | Some (Em n) -> Some (Em n)
+    | Some (Pct n) -> Some (Pct n)
+    | Some (Vw n) -> Some (Vw n)
+    | Some (Vh n) -> Some (Vh n)
+    | Some _ -> None
     | None ->
         let len = String.length value in
         if len >= 2 && String.sub value (len - 2) 2 = "fr" then
           match float_of_string_opt (String.sub value 0 (len - 2)) with
-          | Some n -> Fr n
-          | None -> invalid_arg ("Invalid fr value: " ^ value)
-        else if value = "auto" then Auto
-        else if value = "min-content" then Min_content
-        else if value = "max-content" then Max_content
-        else invalid_arg ("Unsupported grid track value: " ^ value)
+          | Some n -> Some (Fr n)
+          | None -> None
+        else if value = "auto" then Some Auto
+        else if value = "min-content" then Some Min_content
+        else if value = "max-content" then Some Max_content
+        else None
 
-  let parse_arbitrary_grid_template s : Css.grid_template =
+  let parse_arbitrary_grid_template s : Css.grid_template option =
     let value = String.trim s in
     (* Tailwind converts underscores to spaces in bracket values *)
     let parts =
       String.split_on_char '_' value |> List.filter (fun s -> s <> "")
     in
+    let rec all_some = function
+      | [] -> Some []
+      | x :: xs -> (
+          match (x, all_some xs) with
+          | Some v, Some vs -> Some (v :: vs)
+          | _ -> None)
+    in
     match parts with
-    | [] -> invalid_arg "Empty grid template"
+    | [] -> None
     | [ single ] -> parse_single_track single
-    | tracks -> Tracks (List.map parse_single_track tracks)
+    | tracks -> (
+        match all_some (List.map parse_single_track tracks) with
+        | Some ts -> Some (Tracks ts)
+        | None -> None)
+
+  (* Should never fail: of_class validates arbitrary values before constructing
+     [Grid_cols_arbitrary]/[Grid_rows_arbitrary]. *)
+  let parse_arbitrary_grid_template_exn s =
+    match parse_arbitrary_grid_template s with
+    | Some v -> v
+    | None -> invalid_arg ("Unparseable grid template: " ^ s)
 
   let grid_cols_arbitrary s =
-    style [ Css.grid_template_columns (parse_arbitrary_grid_template s) ]
+    style [ Css.grid_template_columns (parse_arbitrary_grid_template_exn s) ]
 
   let grid_rows_arbitrary s =
-    style [ Css.grid_template_rows (parse_arbitrary_grid_template s) ]
+    style [ Css.grid_template_rows (parse_arbitrary_grid_template_exn s) ]
 
   let grid_rows n =
     if n < 1 || n > 999 then
@@ -179,7 +200,7 @@ module Handler = struct
   let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
 
   let auto_cols_arbitrary s =
-    style [ Css.grid_auto_columns (parse_arbitrary_grid_template s) ]
+    style [ Css.grid_auto_columns (parse_arbitrary_grid_template_exn s) ]
 
   (** {1 Grid Auto Rows} *)
 
@@ -198,7 +219,7 @@ module Handler = struct
   let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
 
   let auto_rows_arbitrary s =
-    style [ Css.grid_auto_rows (parse_arbitrary_grid_template s) ]
+    style [ Css.grid_auto_rows (parse_arbitrary_grid_template_exn s) ]
 
   (** Convert grid template utility to style *)
   let to_style = function
@@ -267,7 +288,9 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          Ok (Grid_cols_arbitrary inner)
+          match parse_arbitrary_grid_template inner with
+          | Some _ -> Ok (Grid_cols_arbitrary inner)
+          | None -> err_invalid_cols
         else
           match int_of_string_opt n with
           | Some i when i >= 1 && i <= 999 -> Ok (Grid_cols i)
@@ -278,7 +301,9 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          Ok (Grid_rows_arbitrary inner)
+          match parse_arbitrary_grid_template inner with
+          | Some _ -> Ok (Grid_rows_arbitrary inner)
+          | None -> err_invalid_rows
         else
           match int_of_string_opt n with
           | Some i when i >= 1 && i <= 999 -> Ok (Grid_rows i)
@@ -296,7 +321,9 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          Ok (Auto_cols_arbitrary inner)
+          match parse_arbitrary_grid_template inner with
+          | Some _ -> Ok (Auto_cols_arbitrary inner)
+          | None -> err_not_utility
         else err_not_utility
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
     | [ "auto"; "rows"; "min" ] -> Ok Auto_rows_min
@@ -306,7 +333,9 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          Ok (Auto_rows_arbitrary inner)
+          match parse_arbitrary_grid_template inner with
+          | Some _ -> Ok (Auto_rows_arbitrary inner)
+          | None -> err_not_utility
         else err_not_utility
     | _ -> err_not_utility
 
