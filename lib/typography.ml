@@ -393,6 +393,85 @@ module Typography_early = struct
 
   let is_named_size s = List.mem s named_sizes
 
+  (** Font-size keyword lookup. *)
+  let font_size_keyword = function
+    | "larger" -> Stdlib.Option.Some Css.Larger
+    | "smaller" -> Stdlib.Option.Some Css.Smaller
+    | "xx-large" -> Stdlib.Option.Some Css.Xx_large
+    | "x-large" -> Stdlib.Option.Some Css.X_large
+    | "large" -> Stdlib.Option.Some Css.Large
+    | "medium" -> Stdlib.Option.Some Css.Medium
+    | "small" -> Stdlib.Option.Some Css.Small
+    | "x-small" -> Stdlib.Option.Some Css.X_small
+    | "xx-small" -> Stdlib.Option.Some Css.Xx_small
+    | "xxx-large" -> Stdlib.Option.Some Css.Xxx_large
+    | _ -> Stdlib.Option.None
+
+  (** Try to parse a string as a CSS length value. *)
+  let try_parse_length_value s =
+    let unit_table : (string * int * (float -> Css.length)) list =
+      [
+        ("rem", 3, fun f -> Css.Rem f);
+        ("px", 2, fun f -> Css.Px f);
+        ("em", 2, fun f -> Css.Em f);
+        ("%", 1, fun f -> Css.Pct f);
+      ]
+    in
+    let rec try_units = function
+      | [] -> Stdlib.Option.None
+      | (suffix, suffix_len, mk) :: rest ->
+          if String.ends_with ~suffix s then
+            let n = String.sub s 0 (String.length s - suffix_len) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Stdlib.Option.Some (mk f)
+            | Stdlib.Option.None -> try_units rest
+          else try_units rest
+    in
+    try_units unit_table
+
+  (** Split a type prefix like "absolute-size:var(--my-size)" into (prefix,
+      value). Finds first ':' outside parens/brackets. *)
+  let split_type_prefix inner =
+    let len = String.length inner in
+    let rec find i depth =
+      if i >= len then Stdlib.Option.None
+      else
+        match inner.[i] with
+        | '(' | '[' -> find (i + 1) (depth + 1)
+        | ')' | ']' -> find (i + 1) (depth - 1)
+        | ':' when depth = 0 ->
+            Stdlib.Option.Some
+              (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
+        | _ -> find (i + 1) depth
+    in
+    find 0 0
+
+  (** Does [inner] look like something we can emit as a font-size? Accepts typed
+      prefix (length/percentage/absolute-size/relative-size), font-size keyword
+      (medium, xxx-large, larger, ...), length with unit (16px, 1rem, 1.5em,
+      100%), clamp(...), or var(...). Rejects bare identifiers that aren't
+      recognised keywords -- e.g. a bare "1A202C" is not a valid font-size: a
+      length must carry a unit and a hex color must start with "#" (CSS Color
+      §5.4.6). *)
+  let is_valid_bracket_font_size (inner : string) : bool =
+    match split_type_prefix inner with
+    | Some (prefix, _)
+      when prefix = "absolute-size" || prefix = "relative-size"
+           || prefix = "length" || prefix = "percentage" ->
+        true
+    | _ -> (
+        match font_size_keyword inner with
+        | Some _ -> true
+        | Stdlib.Option.None -> (
+            match try_parse_length_value inner with
+            | Some _ -> true
+            | Stdlib.Option.None ->
+                let len = String.length inner in
+                len > 6
+                && String.sub inner 0 6 = "clamp("
+                && inner.[len - 1] = ')'
+                || Parse.is_var inner))
+
   (** Check if bracket content looks like a color (should go to color handler).
   *)
   let is_color_bracket inner =
@@ -534,7 +613,9 @@ module Typography_early = struct
                 if Parse.is_bracket_value base then
                   let inner = Parse.bracket_inner base in
                   if is_color_bracket inner then err_not_utility
-                  else Ok (Text_bracket_fs_lh (inner, lh_mod))
+                  else if is_valid_bracket_font_size inner then
+                    Ok (Text_bracket_fs_lh (inner, lh_mod))
+                  else err_not_utility
                 else if is_named_size base then
                   Ok (Text_named_lh (base, lh_mod))
                 else err_not_utility
@@ -543,7 +624,9 @@ module Typography_early = struct
             if Parse.is_bracket_value part then
               let inner = Parse.bracket_inner part in
               if is_color_bracket inner then err_not_utility
-              else Ok (Text_bracket_fs inner)
+              else if is_valid_bracket_font_size inner then
+                Ok (Text_bracket_fs inner)
+              else err_not_utility
             else err_not_utility)
     | _ -> err_not_utility
 
@@ -950,58 +1033,9 @@ module Typography_early = struct
         (* Fallback — should not happen for valid named sizes *)
         ([], [])
 
-  (** Font-size keyword lookup. *)
-  let font_size_keyword = function
-    | "larger" -> Stdlib.Option.Some Css.Larger
-    | "smaller" -> Stdlib.Option.Some Css.Smaller
-    | "xx-large" -> Stdlib.Option.Some Css.Xx_large
-    | "x-large" -> Stdlib.Option.Some Css.X_large
-    | "large" -> Stdlib.Option.Some Css.Large
-    | "medium" -> Stdlib.Option.Some Css.Medium
-    | "small" -> Stdlib.Option.Some Css.Small
-    | "x-small" -> Stdlib.Option.Some Css.X_small
-    | "xx-small" -> Stdlib.Option.Some Css.Xx_small
-    | "xxx-large" -> Stdlib.Option.Some Css.Xxx_large
-    | _ -> Stdlib.Option.None
-
-  (** Try to parse a string as a CSS length value. *)
-  let try_parse_length_value s =
-    let unit_table : (string * int * (float -> Css.length)) list =
-      [
-        ("rem", 3, fun f -> Css.Rem f);
-        ("px", 2, fun f -> Css.Px f);
-        ("em", 2, fun f -> Css.Em f);
-        ("%", 1, fun f -> Css.Pct f);
-      ]
-    in
-    let rec try_units = function
-      | [] -> Stdlib.Option.None
-      | (suffix, suffix_len, mk) :: rest ->
-          if String.ends_with ~suffix s then
-            let n = String.sub s 0 (String.length s - suffix_len) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Stdlib.Option.Some (mk f)
-            | Stdlib.Option.None -> try_units rest
-          else try_units rest
-    in
-    try_units unit_table
-
-  (** Split a type prefix like "absolute-size:var(--my-size)" into (prefix,
-      value). Finds first ':' outside parens/brackets. *)
-  let split_type_prefix inner =
-    let len = String.length inner in
-    let rec find i depth =
-      if i >= len then Stdlib.Option.None
-      else
-        match inner.[i] with
-        | '(' | '[' -> find (i + 1) (depth + 1)
-        | ')' | ']' -> find (i + 1) (depth - 1)
-        | ':' when depth = 0 ->
-            Stdlib.Option.Some
-              (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
-        | _ -> find (i + 1) depth
-    in
-    find 0 0
+  (* font_size_keyword / try_parse_length_value / split_type_prefix are defined
+     earlier in the module so of_class can validate arbitrary bracket values up
+     front. *)
 
   (** Try to simplify clamp(min, val, max) when all values are static and same
       unit. Returns [Some simplified_value] or [None]. *)
@@ -1053,42 +1087,43 @@ module Typography_early = struct
         | _ -> Stdlib.Option.None)
     | _ -> Stdlib.Option.None
 
-  (** Parse bracket content as font-size declarations (without line-height). *)
+  (* is_valid_bracket_font_size is defined earlier (before of_class). *)
+
+  (** Parse bracket content as font-size declarations (without line-height).
+      Caller must have already passed [inner] through
+      [is_valid_bracket_font_size]. *)
   let bracket_font_size_decls inner =
-    (* Check for type prefix *)
     match split_type_prefix inner with
     | Stdlib.Option.Some (prefix, value)
       when prefix = "absolute-size" || prefix = "relative-size"
            || prefix = "length" || prefix = "percentage" ->
-        (* Typed arbitrary — strip prefix, use the value *)
         if Parse.is_var value then
           let bare = Parse.extract_var_name value in
           [ font_size (Css.Var (Var.bracket bare)) ]
         else [ font_size (Css.Var (Var.bracket value)) ]
     | _ -> (
-        (* Check for keyword *)
         match font_size_keyword inner with
         | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
         | Stdlib.Option.None -> (
-            (* Try as length *)
             match try_parse_length_value inner with
             | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
             | Stdlib.Option.None ->
-                (* Try as clamp/calc function *)
                 if
                   String.length inner > 6
                   && String.sub inner 0 6 = "clamp("
                   && inner.[String.length inner - 1] = ')'
                 then
                   let args = String.sub inner 6 (String.length inner - 7) in
-                  (* Try to simplify static clamp *)
                   match simplify_clamp args with
                   | Stdlib.Option.Some simplified -> [ font_size simplified ]
                   | Stdlib.Option.None -> [ font_size (Css.Clamp args) ]
                 else if Parse.is_var inner then
                   let bare = Parse.extract_var_name inner in
                   [ font_size (Css.Var (Var.bracket bare)) ]
-                else [ font_size (Css.Var (Var.bracket inner)) ]))
+                else
+                  invalid_arg
+                    ("bracket_font_size_decls: not a valid font-size value: "
+                   ^ inner)))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
