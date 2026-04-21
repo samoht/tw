@@ -175,7 +175,8 @@ let collect_files paths =
     (fun path ->
       if Sys.file_exists path then
         if Sys.is_directory path then
-          files path [ ".html"; ".ml"; ".re"; ".jsx"; ".tsx" ]
+          files path
+            [ ".html"; ".eml"; ".ml"; ".re"; ".jsx"; ".tsx"; ".vue"; ".svelte" ]
         else [ path ]
       else [])
     paths
