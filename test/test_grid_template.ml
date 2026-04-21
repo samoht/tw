@@ -41,7 +41,16 @@ let of_string_valid () =
   check "auto-rows-auto";
   check "auto-rows-min";
   check "auto-rows-max";
-  check "auto-rows-fr"
+  check "auto-rows-fr";
+
+  (* Arbitrary values with mixed units (was crashing on '%' before) *)
+  check "grid-cols-[1fr_40%]";
+  check "grid-cols-[200px]";
+  check "grid-cols-[1fr_2fr]";
+  check "grid-cols-[auto_1fr_auto]";
+  check "grid-rows-[min-content_1fr_max-content]";
+  check "auto-cols-[50%]";
+  check "auto-rows-[1.5rem]"
 
 let of_string_invalid () =
   let fail_maybe input =
@@ -74,8 +83,21 @@ let of_string_invalid () =
   (* Invalid value *)
   fail_maybe [ "auto"; "rows" ];
   (* Missing value *)
-  fail_maybe [ "auto"; "rows"; "invalid" ]
-(* Invalid value *)
+  fail_maybe [ "auto"; "rows"; "invalid" ];
+
+  (* Invalid value *)
+
+  (* Arbitrary values with unparseable contents: should reject, not crash.
+     Regression: grid-cols-[1fr_40%] used to raise Invalid_argument mid-run. *)
+  let bad input =
+    match Tw.Grid_template.Handler.of_class input with
+    | Ok _ -> fail ("Expected error for: " ^ input)
+    | Error _ -> ()
+  in
+  bad "grid-cols-[totally_garbage]";
+  bad "grid-cols-[1xyz]";
+  bad "grid-rows-[abc_def]";
+  bad "auto-cols-[nope]"
 
 let suborder_matches_tailwind () =
   let open Tw in
