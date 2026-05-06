@@ -420,8 +420,9 @@ let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
     props =
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
-  let reader = Css.Reader.of_string processed in
-  let parsed_selector = Css.Selector.read_relative reader in
+  let parsed_selector =
+    Css.Selector.read_relative (Css.Cursor.of_string processed)
+  in
   let has_part s =
     match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"
   in
@@ -477,9 +478,10 @@ let handle_pseudo_class_modifier ?(inner_has_hover = false) modifier base_class
   if has_hover && inner_has_hover then
     (* Nested hover: wrap in @media (hover:hover) { @media (hover:hover) { }
        } *)
+    let hover : Css.Media.t = Css.Media.Hover `Hover in
     let inner_rule = Css.rule ~selector:new_selector props in
-    let inner_media = Css.media ~condition:Css.Media.Hover [ inner_rule ] in
-    media_query ~condition:Css.Media.Hover ~selector:new_selector ~props:[]
+    let inner_media = Css.media ~condition:hover [ inner_rule ] in
+    media_query ~condition:hover ~selector:new_selector ~props:[]
       ~base_class:modified_class ~nested:[ inner_media ] ()
   else
     regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover
@@ -513,8 +515,8 @@ let handle_media_like_modifier (modifier : Style.modifier)
     in
     (* Nested @media (hover:hover) { .dark\:hover\:X:hover { props } } *)
     let inner_hover_media =
-      Css.media ~condition:Css.Media.Hover
-        [ Css.rule ~selector:hover_selector props ]
+      let hover : Css.Media.t = Css.Media.Hover `Hover in
+      Css.media ~condition:hover [ Css.rule ~selector:hover_selector props ]
     in
     media_query ~condition ~selector:hover_selector ~props:[]
       ~base_class:modified_class ~nested:[ inner_hover_media ] ()
@@ -1013,7 +1015,7 @@ let handle_not_modifier inner_modifier base_class _selector props =
       props
   in
   let not_hover_media () =
-    not_media_rule ~nvo ~condition:(Css.Media.Negated Css.Media.Hover)
+    not_media_rule ~nvo ~condition:(Css.Media.Negated (Css.Media.Hover `Hover))
       modified_class props
   in
   match inner_modifier with
@@ -1080,7 +1082,7 @@ let parse_bracket_media content =
         Css.Media.Orientation `Portrait
     | "(orientation: landscape)" | "(orientation:landscape)" ->
         Css.Media.Orientation `Landscape
-    | _ -> Css.Media.Raw inner
+    | _ -> Css.Media.of_string inner
   else
     (* Negate the condition *)
     match rest with
@@ -1089,8 +1091,9 @@ let parse_bracket_media content =
         Css.Media.Negated (Css.Media.Orientation `Portrait)
     | "(orientation: landscape)" | "(orientation:landscape)" ->
         Css.Media.Negated (Css.Media.Orientation `Landscape)
-    | "(hover: hover)" | "(hover:hover)" -> Css.Media.Negated Css.Media.Hover
-    | _ -> Css.Media.Negated (Css.Media.Raw rest)
+    | "(hover: hover)" | "(hover:hover)" ->
+        Css.Media.Negated (Css.Media.Hover `Hover)
+    | _ -> Css.Media.Negated (Css.Media.of_string rest)
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =
@@ -1408,8 +1411,7 @@ let arbitrary_selector_rule content base_class props =
         let rest = String.trim rest in
         if rest = "" then Class modified_class
         else
-          let reader = Css.Reader.of_string rest in
-          let descendant_sel = Css.Selector.read reader in
+          let descendant_sel = Css.Selector.read (Css.Cursor.of_string rest) in
           combine (Class modified_class) Descendant descendant_sel
     | _ -> Class modified_class
   in

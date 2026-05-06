@@ -157,7 +157,7 @@ let fraction_var =
 
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
-  Css.Calc (Css.Expr (Css.Num lh_rem, Css.Div, Css.Num size_rem))
+  (Css.Num (lh_rem /. size_rem) : Css.line_height)
 
 (* Theme record for line height variables *)
 type line_height_theme = { leading : Css.declaration * Css.line_height Css.var }
@@ -2427,11 +2427,12 @@ module Typography_late = struct
         match int_of_string_opt value_str with
         | Some n ->
             let decl =
-              Css.custom_declaration ~layer:"theme" "--line-clamp-none" Css.Int
-                n
+              Css.custom_property ~layer:"theme" "--line-clamp-none"
+                (string_of_int n)
             in
             let ref : Css.webkit_line_clamp Css.var =
-              Var.theme_ref "line-clamp-none" ~default:Css.Unset
+              Var.theme_ref "line-clamp-none"
+                ~default:(Css.Unset : Css.webkit_line_clamp)
                 ~default_css:"unset"
             in
             style
@@ -2512,7 +2513,7 @@ module Typography_late = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_type (Var ref) ]
     | None -> style [ list_style_type (Var ref) ]
@@ -2542,7 +2543,7 @@ module Typography_late = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_image (Var ref) ]
     | None -> style [ list_style_image (Var ref) ]

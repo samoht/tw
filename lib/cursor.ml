@@ -130,8 +130,7 @@ module Handler = struct
         match Var.theme_value var_name with
         | Some value ->
             let theme_decl =
-              Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String
-                value
+              Css.custom_property ~layer:"theme" ("--" ^ var_name) value
             in
             style [ theme_decl; cursor (Var ref) ]
         | None -> style [ cursor (Var ref) ])

@@ -80,7 +80,7 @@ module Handler = struct
         spacing_decl;
         decl_x;
         decl_y;
-        Css.border_spacing [ Var x_ref; Var y_ref ];
+        Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]);
       ]
 
   (** border-spacing-x: sets only x variable *)
@@ -97,7 +97,11 @@ module Handler = struct
     in
     style
       ~property_rules:(Css.concat property_rules)
-      [ spacing_decl; decl_x; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+      [
+        spacing_decl;
+        decl_x;
+        Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]);
+      ]
 
   (** border-spacing-y: sets only y variable *)
   let border_spacing_y_style n =
@@ -113,7 +117,11 @@ module Handler = struct
     in
     style
       ~property_rules:(Css.concat property_rules)
-      [ spacing_decl; decl_y; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+      [
+        spacing_decl;
+        decl_y;
+        Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]);
+      ]
 
   let border_spacing_arb_style (len : Css.length) =
     let decl_x, x_ref = Var.binding border_spacing_x_var len in
@@ -127,7 +135,7 @@ module Handler = struct
     in
     style
       ~property_rules:(Css.concat property_rules)
-      [ decl_x; decl_y; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+      [ decl_x; decl_y; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
   let border_spacing_x_arb_style (len : Css.length) =
     let decl_x, x_ref = Var.binding border_spacing_x_var len in
@@ -141,7 +149,7 @@ module Handler = struct
     in
     style
       ~property_rules:(Css.concat property_rules)
-      [ decl_x; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+      [ decl_x; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
   let border_spacing_y_arb_style (len : Css.length) =
     let _, x_ref = Var.binding border_spacing_x_var Zero in
@@ -155,7 +163,7 @@ module Handler = struct
     in
     style
       ~property_rules:(Css.concat property_rules)
-      [ decl_y; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+      [ decl_y; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
   let to_style = function
     | Border_collapse -> style [ Css.border_collapse Collapse ]

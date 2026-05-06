@@ -82,62 +82,54 @@ module Handler = struct
         | None -> Some (`Var inner)
     else None
 
-  (* Get the CSS property function for scroll margin by axis *)
-  let scroll_margin_prop = function
-    | All -> Css.scroll_margin
-    | X -> Css.scroll_margin_inline
-    | Y -> Css.scroll_margin_block
-    | T -> Css.scroll_margin_top
-    | R -> Css.scroll_margin_right
-    | B -> Css.scroll_margin_bottom
-    | L -> Css.scroll_margin_left
-    | S -> Css.scroll_margin_inline_start
-    | E -> Css.scroll_margin_inline_end
-    | Bs -> Css.scroll_margin_block_start
-    | Be -> Css.scroll_margin_block_end
-
-  (* Get the CSS property function for scroll padding by axis *)
-  let scroll_padding_prop = function
-    | All -> Css.scroll_padding
-    | X -> Css.scroll_padding_inline
-    | Y -> Css.scroll_padding_block
-    | T -> Css.scroll_padding_top
-    | R -> Css.scroll_padding_right
-    | B -> Css.scroll_padding_bottom
-    | L -> Css.scroll_padding_left
-    | S -> Css.scroll_padding_inline_start
-    | E -> Css.scroll_padding_inline_end
-    | Bs -> Css.scroll_padding_block_start
-    | Be -> Css.scroll_padding_block_end
+  let scroll_prop kind axis len =
+    match (kind, axis) with
+    | Margin, All -> Css.scroll_margin [ len ]
+    | Margin, X -> Css.scroll_margin_inline [ len ]
+    | Margin, Y -> Css.scroll_margin_block [ len ]
+    | Margin, T -> Css.scroll_margin_top len
+    | Margin, R -> Css.scroll_margin_right len
+    | Margin, B -> Css.scroll_margin_bottom len
+    | Margin, L -> Css.scroll_margin_left len
+    | Margin, S -> Css.scroll_margin_inline_start len
+    | Margin, E -> Css.scroll_margin_inline_end len
+    | Margin, Bs -> Css.scroll_margin_block_start len
+    | Margin, Be -> Css.scroll_margin_block_end len
+    | Padding, All -> Css.scroll_padding [ len ]
+    | Padding, X -> Css.scroll_padding_inline [ len ]
+    | Padding, Y -> Css.scroll_padding_block [ len ]
+    | Padding, T -> Css.scroll_padding_top len
+    | Padding, R -> Css.scroll_padding_right len
+    | Padding, B -> Css.scroll_padding_bottom len
+    | Padding, L -> Css.scroll_padding_left len
+    | Padding, S -> Css.scroll_padding_inline_start len
+    | Padding, E -> Css.scroll_padding_inline_end len
+    | Padding, Bs -> Css.scroll_padding_block_start len
+    | Padding, Be -> Css.scroll_padding_block_end len
 
   let to_style { kind; negative; axis; value } =
-    let prop =
-      match kind with
-      | Margin -> scroll_margin_prop axis
-      | Padding -> scroll_padding_prop axis
-    in
     match value with
     | Spacing n ->
         let decl, len = spacing_to_decl_len ~negative n in
-        style [ decl; prop len ]
+        style [ decl; scroll_prop kind axis len ]
     | Arbitrary len ->
-        if negative then
-          style
-            [
-              prop
-                (Css.Calc
-                   (Css.Calc.mul (Css.Calc.length len) (Css.Calc.float (-1.))));
-            ]
-        else style [ prop len ]
+        let len : Css.length =
+          if negative then
+            Css.Calc (Css.Calc.mul (Css.Calc.length len) (Css.Calc.float (-1.)))
+          else len
+        in
+        style [ scroll_prop kind axis len ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
           if negative then
             Css.Calc
-              (Css.Calc.mul (Css.Calc.var bare_name) (Css.Calc.float (-1.)))
+              (Css.Calc.mul
+                 (Css.Calc.var bare_name : Css.length Css.calc)
+                 (Css.Calc.float (-1.)))
           else Css.Var (Var.bracket bare_name)
         in
-        style [ prop len ]
+        style [ scroll_prop kind axis len ]
 
   let suborder { kind; negative; axis; value } =
     let kind_offset = match kind with Margin -> 0 | Padding -> 10000000 in

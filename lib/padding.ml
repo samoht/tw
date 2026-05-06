@@ -96,32 +96,35 @@ module Handler = struct
     | Arbitrary _ -> 20000
     | Arbitrary_var _ -> 20000
 
-  let apply_prop axis (prop_v : length -> declaration)
-      (prop_vs : length list -> declaration) value =
+  let apply_prop_list (prop : length list -> declaration) value =
     match value with
-    | Standard s ->
-        if axis = `All then vs_spacing prop_vs s else v_spacing prop_v s
-    | Arbitrary len ->
-        if axis = `All then style [ prop_vs [ len ] ] else style [ prop_v len ]
+    | Standard s -> vs_spacing prop s
+    | Arbitrary len -> style [ prop [ len ] ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        let var_len : Css.length = Var (Var.bracket bare_name) in
-        if axis = `All then style [ prop_vs [ var_len ] ]
-        else style [ prop_v var_len ]
+        style [ prop [ Var (Var.bracket bare_name) ] ]
+
+  let apply_prop (prop : length -> declaration) value =
+    match value with
+    | Standard s -> v_spacing prop s
+    | Arbitrary len -> style [ prop len ]
+    | Arbitrary_var var_str ->
+        let bare_name = Parse.extract_var_name var_str in
+        style [ prop (Var (Var.bracket bare_name)) ]
 
   let to_style t =
     match t.axis with
-    | `All -> apply_prop `All padding_top padding t.value
-    | `X -> apply_prop `X padding_inline padding t.value
-    | `Y -> apply_prop `Y padding_block padding t.value
-    | `T -> apply_prop `T padding_top padding t.value
-    | `R -> apply_prop `R padding_right padding t.value
-    | `B -> apply_prop `B padding_bottom padding t.value
-    | `L -> apply_prop `L padding_left padding t.value
-    | `S -> apply_prop `S padding_inline_start padding t.value
-    | `E -> apply_prop `E padding_inline_end padding t.value
-    | `Bs -> apply_prop `Bs padding_block_start padding t.value
-    | `Be -> apply_prop `Be padding_block_end padding t.value
+    | `All -> apply_prop_list padding t.value
+    | `X -> apply_prop_list padding_inline t.value
+    | `Y -> apply_prop_list padding_block t.value
+    | `T -> apply_prop padding_top t.value
+    | `R -> apply_prop padding_right t.value
+    | `B -> apply_prop padding_bottom t.value
+    | `L -> apply_prop padding_left t.value
+    | `S -> apply_prop padding_inline_start t.value
+    | `E -> apply_prop padding_inline_end t.value
+    | `Bs -> apply_prop padding_block_start t.value
+    | `Be -> apply_prop padding_block_end t.value
 
   let suborder { axis; value } =
     let side_offset =

@@ -238,7 +238,7 @@ module Handler = struct
       "tw-inset-ring-shadow"
 
   let ring_inset_var =
-    Var.channel ~needs_property:true ~property_order:17 ~family:`Ring Css.String
+    Var.channel ~needs_property:true ~property_order:17 ~family:`Ring Css.Value
       "tw-ring-inset"
 
   let ring_offset_width_var =
@@ -294,7 +294,7 @@ module Handler = struct
       [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
 
   let relative_color_supports =
-    Css.Supports.Property ("color", "lab(from red l a b)")
+    Css.Supports.property "color" "lab(from red l a b)"
 
   let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
@@ -548,7 +548,11 @@ module Handler = struct
                   (pp_float percent)
               in
               let enhanced_ref =
-                Var.bracket ~fallback:(Raw_fallback raw_fb) "tw-shadow-color"
+                Var.bracket
+                  ~fallback:
+                    (Css.Syntax_fallback
+                       (Css.Cursor.remaining (Css.Cursor.of_string raw_fb)))
+                  "tw-shadow-color"
               in
               let enhanced_shadow =
                 Css.shadow ~h_offset ~v_offset ?blur ~color:(Var enhanced_ref)
@@ -936,7 +940,12 @@ module Handler = struct
     match extract_var_fallback v with
     | Stdlib.Option.Some fb ->
         let short_fb = shorten_hex_with_hash fb in
-        Css.Var (Var.bracket ~fallback:(Raw_fallback short_fb) name)
+        Css.Var
+          (Var.bracket
+             ~fallback:
+               (Css.Syntax_fallback
+                  (Css.Cursor.remaining (Css.Cursor.of_string short_fb)))
+             name)
     | Stdlib.Option.None -> Css.Var (Var.bracket name)
 
   (* Reconstruct a shortened var expression string like "var(--name, #08c)" *)
@@ -1090,7 +1099,11 @@ module Handler = struct
                           Printf.sprintf "oklab(from %s l a b / %s%%)"
                             var_with_fb (pp_float percent)
                         in
-                        Var.bracket ~fallback:(Raw_fallback raw_fb)
+                        Var.bracket
+                          ~fallback:
+                            (Css.Syntax_fallback
+                               (Css.Cursor.remaining
+                                  (Css.Cursor.of_string raw_fb)))
                           "tw-inset-shadow-color"
                     | Css_color c ->
                         let hex_c =
@@ -1346,7 +1359,10 @@ module Handler = struct
       Calc (Expr (Val (Px (float_of_int width_px)), Add, Var offset_width_ref))
     in
     let color : Css.color =
-      Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-ring-color")
+      Var
+        (Var.bracket
+           ~fallback:(Fallback (Css.Current : Css.color))
+           "tw-ring-color")
     in
     let ring_shadow_value =
       Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
@@ -1411,7 +1427,10 @@ module Handler = struct
   let inset_ring_internal width_px =
     let spread : Css.length = Px (float_of_int width_px) in
     let color : Css.color =
-      Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+      Var
+        (Var.bracket
+           ~fallback:(Fallback (Css.Current : Css.color))
+           "tw-inset-ring-color")
     in
     let shadow_value =
       Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread
@@ -1458,7 +1477,9 @@ module Handler = struct
   let inset_ring_default () = inset_ring_internal 1
 
   let ring_inset =
-    let decl, _var_ref = Var.binding ring_inset_var "inset" in
+    let decl, _var_ref =
+      Var.binding ring_inset_var (Var.custom_value_ident "inset")
+    in
     style [ decl ]
 
   let ring_color color shade =
@@ -2060,7 +2081,10 @@ module Handler = struct
           Calc (Expr (Val width_value, Add, Var offset_width_ref))
         in
         let color : Css.color =
-          Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-ring-color")
+          Var
+            (Var.bracket
+               ~fallback:(Fallback (Css.Current : Css.color))
+               "tw-ring-color")
         in
         let ring_shadow_value =
           Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
@@ -2138,7 +2162,9 @@ module Handler = struct
         let spread = parse_bracket_width inner in
         let color : Css.color =
           Var
-            (Var.bracket ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+            (Var.bracket
+               ~fallback:(Fallback (Css.Current : Css.color))
+               "tw-inset-ring-color")
         in
         let shadow_value =
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero

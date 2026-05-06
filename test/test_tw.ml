@@ -126,7 +126,7 @@ let check_exact_match tw_styles =
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
   | Css.Reader.Parse_error err ->
-      let details = Css.pp_parse_error err in
+      let details = Css.Reader.pp_parse_error err in
       (* Print a more helpful parse error with context and callstack. *)
       Fmt.epr "CSS parse error:\n%s@." details;
       (* Also try to show a quick 80-char window around the position in both

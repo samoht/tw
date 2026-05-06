@@ -16,7 +16,7 @@ let test_clip_polygon () =
 (* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand) *)
 let test_clip_inset_shorthand () =
   let check_roundtrip input =
-    let r = Css.Reader.of_string input in
+    let r = Css.Cursor.of_string input in
     match Css.Declaration.read_declaration r with
     | None -> Alcotest.fail "Failed to parse declaration"
     | Some decl ->
@@ -26,7 +26,7 @@ let test_clip_inset_shorthand () =
         check string (Fmt.str "parse %s" input) input output
   in
   let check_parse input expected =
-    let r = Css.Reader.of_string input in
+    let r = Css.Cursor.of_string input in
     match Css.Declaration.read_declaration r with
     | None -> Alcotest.fail "Failed to parse declaration"
     | Some decl ->

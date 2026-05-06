@@ -24,6 +24,7 @@ let hidden_until_found = Selector.attribute "hidden" (Exact "until-found")
 (* Complex selectors *)
 let abbr_with_title = Selector.(abbr && where [ title ])
 let select_is_multiple_size = Selector.(select && is_ [ multiple; size ])
+let radius len = Radius { horizontal = [ Length len ]; vertical = None }
 
 let input_button_types =
   Selector.(input && where [ type_button; type_reset; type_submit ])
@@ -36,7 +37,9 @@ let box_resets () =
   let open Selector in
   [
     rule
-      ~selector:(Selector.list [ Selector.universal; After; Before; Backdrop ])
+      ~selector:
+        (Selector.list
+           [ Selector.universal; After Double; Before Double; Backdrop ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
@@ -313,7 +316,7 @@ let form_control_resets () =
         color Inherit;
         opacity (Opacity_number 1.0);
         background_color (hex "#0000");
-        border_radius Zero;
+        border_radius (radius Zero);
       ];
     rule ~selector:File_selector_button
       [
@@ -324,7 +327,7 @@ let form_control_resets () =
         color Inherit;
         opacity (Opacity_number 1.0);
         background_color (hex "#0000");
-        border_radius Zero;
+        border_radius (radius Zero);
       ];
   ]
 
@@ -370,16 +373,19 @@ let webkit_form_resets ?(forms = false) () =
   in
   let padding_block_rules =
     [
-      rule ~selector:Webkit_datetime_edit [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_year_field [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_month_field [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_day_field [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_hour_field [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_minute_field [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_second_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_year_field [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_month_field [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_day_field [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_hour_field [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_minute_field
+        [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_second_field
+        [ padding_block [ Zero ] ];
       rule ~selector:Webkit_datetime_edit_millisecond_field
-        [ padding_block Zero ];
-      rule ~selector:Webkit_datetime_edit_meridiem_field [ padding_block Zero ];
+        [ padding_block [ Zero ] ];
+      rule ~selector:Webkit_datetime_edit_meridiem_field
+        [ padding_block [ Zero ] ];
       rule ~selector:Webkit_calendar_picker_indicator [ line_height (Num 1.) ];
     ]
   in

@@ -44,7 +44,7 @@ module Handler = struct
         let none_animation =
           Css.Shorthand
             {
-              name = Some "none";
+              name = Some Css.None;
               duration = None;
               timing_function = None;
               delay = None;
@@ -52,6 +52,7 @@ module Handler = struct
               direction = None;
               fill_mode = None;
               play_state = None;
+              timeline = None;
             }
         in
         let theme_decl, none_var = Var.binding tv none_animation in
@@ -66,7 +67,7 @@ module Handler = struct
     let spin_animation =
       Css.Shorthand
         {
-          name = Some "spin";
+          name = Some (Name "spin");
           duration = Some (S 1.0);
           timing_function = Some Linear;
           delay = None;
@@ -74,6 +75,7 @@ module Handler = struct
           direction = None;
           fill_mode = None;
           play_state = None;
+          timeline = None;
         }
     in
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
@@ -104,7 +106,7 @@ module Handler = struct
     let ping_animation =
       Css.Shorthand
         {
-          name = Some "ping";
+          name = Some (Name "ping");
           duration = Some (S 1.0);
           timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
           delay = None;
@@ -112,6 +114,7 @@ module Handler = struct
           direction = None;
           fill_mode = None;
           play_state = None;
+          timeline = None;
         }
     in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
@@ -129,7 +132,7 @@ module Handler = struct
                   keyframe_declarations =
                     [
                       Css.Declaration.opacity (Opacity_number 0.0);
-                      Css.Declaration.transform (Scale (2.0, opt_none));
+                      Css.Declaration.transform (Scale (Num 2.0, opt_none));
                     ];
                 };
               ];
@@ -145,7 +148,7 @@ module Handler = struct
     let pulse_animation =
       Css.Shorthand
         {
-          name = Some "pulse";
+          name = Some (Name "pulse");
           duration = Some (S 2.0);
           timing_function = Some (Cubic_bezier (0.4, 0., 0.6, 1.));
           delay = None;
@@ -153,6 +156,7 @@ module Handler = struct
           direction = None;
           fill_mode = None;
           play_state = None;
+          timeline = None;
         }
     in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
@@ -183,7 +187,7 @@ module Handler = struct
     let bounce_animation =
       Css.Shorthand
         {
-          name = Some "bounce";
+          name = Some (Name "bounce");
           duration = Some (S 1.0);
           timing_function = None;
           delay = None;
@@ -191,6 +195,7 @@ module Handler = struct
           direction = None;
           fill_mode = None;
           play_state = None;
+          timeline = None;
         }
     in
     let theme_decl, bounce_var =
@@ -260,7 +265,8 @@ module Handler = struct
       | Some kf -> opt_some [ kf ]
       | Option.None -> opt_none
     in
-    style ~rules [ Css.animation (Arbitrary reordered) ]
+    style ~rules
+      [ Css.animation (Css.read_animation (Css.Cursor.of_string reordered)) ]
 
   let animate_named name =
     let var_name = "animate-" ^ name in
@@ -269,7 +275,7 @@ module Handler = struct
       Var.binding tv
         (Shorthand
            {
-             name = Some name;
+             name = Some (Name name);
              duration = None;
              timing_function = None;
              delay = None;
@@ -277,6 +283,7 @@ module Handler = struct
              direction = None;
              fill_mode = None;
              play_state = None;
+             timeline = None;
            })
     in
     style [ theme_decl; Css.animation (Css.Var theme_ref) ]

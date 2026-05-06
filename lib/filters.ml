@@ -226,12 +226,17 @@ module Handler = struct
       ]
 
   (* Helper: set a --tw-<name> filter var and output composable chain *)
+  let filter_var_decl var_name value =
+    let name =
+      if String.starts_with ~prefix:"--" var_name then
+        String.sub var_name 2 (String.length var_name - 2)
+      else var_name
+    in
+    fst (Css.var ~layer:"utilities" name Css.Filter value)
+
   let set_filter_var var_name (value : Css.filter) =
     style ~property_rules:filter_property_rules
-      [
-        Css.custom_declaration ~layer:"utilities" var_name Filter value;
-        filter composable_filter_chain;
-      ]
+      [ filter_var_decl var_name value; filter composable_filter_chain ]
 
   (* Generate a theme-layer declaration for a theme variable if its value is
      set. This produces the --name: value entry for the :root, :host block. *)
@@ -251,8 +256,7 @@ module Handler = struct
     style ~property_rules:filter_property_rules
       (theme_decl_if_set theme_name
       @ [
-          Css.custom_declaration ~layer:"utilities" var_name Filter
-            (make_filter (Var ref_));
+          filter_var_decl var_name (make_filter (Var ref_));
           filter composable_filter_chain;
         ])
 
@@ -614,7 +618,7 @@ module Handler = struct
   let set_backdrop_var var_name (value : Css.filter) =
     style ~property_rules:backdrop_filter_property_rules
       [
-        Css.custom_declaration ~layer:"utilities" var_name Filter value;
+        filter_var_decl var_name value;
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
         backdrop_filter composable_backdrop_filter_chain;
       ]
@@ -644,8 +648,7 @@ module Handler = struct
     style ~property_rules:backdrop_filter_property_rules
       (theme_decl_if_set actual_theme_name
       @ [
-          Css.custom_declaration ~layer:"utilities" var_name Filter
-            (make_filter (Var ref_));
+          filter_var_decl var_name (make_filter (Var ref_));
           Css.webkit_backdrop_filter composable_backdrop_filter_chain;
           backdrop_filter composable_backdrop_filter_chain;
         ])

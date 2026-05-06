@@ -363,7 +363,13 @@ let test_inline_no_vars_defaults () =
 let test_inline_style_no_vars () =
   (* Directly build a declaration with a defaulted var and inline it. *)
   let _, radius_var = Css.var "radius-md" Css.Length (Css.Rem 0.5) in
-  let decls = [ Css.border_radius (Css.Var radius_var) ] in
+  let decls =
+    [
+      Css.border_radius
+        (Css.Radius
+           { horizontal = [ Css.Length (Css.Var radius_var) ]; vertical = None });
+    ]
+  in
   let inline = Css.inline_style_of_declarations ~mode:Css.Inline decls in
   check bool "inline: border-radius present" true
     (inline_has_property "border-radius" inline);

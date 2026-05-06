@@ -2057,7 +2057,7 @@ module Handler = struct
     | None -> None
     | Num f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 255.)))))
     | Pct f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
-    | Var _ -> None
+    | Var _ | Calc _ -> None
 
   let to_hex_byte n =
     let hex = "0123456789abcdef" in
@@ -2149,7 +2149,7 @@ module Handler = struct
 
   (** Condition for progressive enhancement with color-mix in oklab *)
   let color_mix_supports_condition =
-    Css.Supports.Property ("color", "color-mix(in lab, red, red)")
+    Css.Supports.property "color" "color-mix(in lab, red, red)"
 
   (** Generate color with opacity using progressive enhancement. Output depends
       on scheme:
@@ -2276,6 +2276,7 @@ module Handler = struct
 
   (** Current color with opacity using color-mix with progressive enhancement *)
   let current_color_with_opacity ~property opacity =
+    let property : Css.color -> Css.declaration = property in
     let percent = opacity_to_percent opacity in
     (* Fallback: just currentColor (browsers that don't support color-mix) *)
     let fallback_decl = property Css.Current in

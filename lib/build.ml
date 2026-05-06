@@ -56,8 +56,7 @@ let parse_utility_order base_utility =
     modifier prefixes (e.g., "hover:"), and maps to Utility.order. Falls back to
     a default low priority when no class is found. *)
 let conflict_order selector =
-  let reader = Css.Reader.of_string selector in
-  let sel = Css.Selector.read reader in
+  let sel = Css.Selector.read (Css.Cursor.of_string selector) in
   match Css.Selector.first_class sel with
   | Some class_name -> class_name |> extract_base_utility |> parse_utility_order
   | None -> (9999, 0)
@@ -324,7 +323,8 @@ let rule_to_triple = function
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      let typ = if has_hover then `Media Css.Media.Hover else `Regular in
+      let hover : Css.Media.t = Css.Media.Hover `Hover in
+      let typ = if has_hover then `Media hover else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
         ~not_order
   | Media_query { condition; selector; props; base_class; nested; not_order } ->
@@ -630,8 +630,7 @@ let placeholder_supports =
   in
   let modern_support_stmt =
     Css.supports
-      ~condition:
-        (Css.Supports.Property ("color", "color-mix(in lab, red, red)"))
+      ~condition:(Css.Supports.property "color" "color-mix(in lab, red, red)")
       [ modern_rule ]
   in
 
@@ -646,9 +645,8 @@ let placeholder_supports =
         ~condition:
           (Css.Supports.Or
              ( Css.Supports.Not
-                 (Css.Supports.Property
-                    ("-webkit-appearance", "-apple-pay-button")),
-               Css.Supports.Property ("contain-intrinsic-size", "1px") ))
+                 (Css.Supports.property "-webkit-appearance" "-apple-pay-button"),
+               Css.Supports.property "contain-intrinsic-size" "1px" ))
         outer_support_content;
     ]
 
@@ -675,11 +673,11 @@ let browser_detection =
   let open Css.Supports in
   Or
     ( And
-        ( Property ("-webkit-hyphens", "none"),
-          Not (Property ("margin-trim", "inline")) ),
+        ( property "-webkit-hyphens" "none",
+          Not (property "margin-trim" "inline") ),
       And
-        ( Property ("-moz-orient", "inline"),
-          Not (Property ("color", "rgb(from red r g b)")) ) )
+        ( property "-moz-orient" "inline",
+          Not (property "color" "rgb(from red r g b)") ) )
 
 (* Build a mapping from property names to their first-usage index. Tailwind
    orders properties in @supports and @property by first usage order in the
@@ -799,7 +797,9 @@ let sort_properties_by_order first_usage_order initial_values =
 
 (* Build property layer content with browser detection *)
 let property_layer_content first_usage_order initial_values other_statements =
-  let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
+  let selector =
+    Css.Selector.(list [ universal; Before Double; After Double; Backdrop ])
+  in
   let sorted_values =
     sort_properties_by_order first_usage_order initial_values
   in

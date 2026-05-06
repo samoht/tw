@@ -64,7 +64,7 @@ module Handler = struct
       [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
 
   let relative_color_supports =
-    Css.Supports.Property ("color", "lab(from red l a b)")
+    Css.Supports.property "color" "lab(from red l a b)"
 
   let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
@@ -381,7 +381,10 @@ module Handler = struct
                   (pp_float percent)
               in
               let enhanced_ref =
-                Var.bracket ~fallback:(Raw_fallback raw_fb)
+                Var.bracket
+                  ~fallback:
+                    (Css.Syntax_fallback
+                       (Css.Cursor.remaining (Css.Cursor.of_string raw_fb)))
                   "tw-text-shadow-color"
               in
               let enhanced_shadow =

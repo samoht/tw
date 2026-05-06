@@ -37,12 +37,12 @@ module Handler = struct
   (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
   let overscroll_data =
     [
-      (Auto, "auto", (fun () -> style [ overscroll_behavior Auto ]), 600);
+      (Auto, "auto", (fun () -> style [ overscroll_behavior [ Auto ] ]), 600);
       ( Contain,
         "contain",
-        (fun () -> style [ overscroll_behavior Contain ]),
+        (fun () -> style [ overscroll_behavior [ Contain ] ]),
         601 );
-      (None_, "none", (fun () -> style [ overscroll_behavior None ]), 602);
+      (None_, "none", (fun () -> style [ overscroll_behavior [ None ] ]), 602);
       (X_auto, "x-auto", (fun () -> style [ overscroll_behavior_x Auto ]), 603);
       ( X_contain,
         "x-contain",

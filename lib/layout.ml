@@ -26,7 +26,15 @@ module Screen_reader_handler = struct
            border-width, width, height, margin, padding, position, overflow *)
         style
           [
-            clip_path (Css.Clip_path_inset (Pct 50., None, None, None));
+            clip_path
+              (Css.Clip_path_inset
+                 {
+                   top = Pct 50.;
+                   right = None;
+                   bottom = None;
+                   left = None;
+                   rounded = None;
+                 });
             white_space Nowrap;
             border_width Zero;
             width (Px 1.);
@@ -471,8 +479,9 @@ module Handler = struct
         in
         match Var.theme_value name with
         | Some _ ->
-            let tv = Var.theme Css.String name ~order:(6, 40) in
-            let theme_decl, _theme_ref = Var.binding tv default_css in
+            let theme_decl =
+              Css.custom_property ~layer:"theme" ("--" ^ name) default_css
+            in
             let pos_ref : Css.position_value Css.var = Var.bracket name in
             style [ theme_decl; object_position (Var pos_ref) ]
         | None ->

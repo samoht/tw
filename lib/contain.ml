@@ -60,19 +60,19 @@ module Handler = struct
      and initial-value declarations in the properties layer. property_order
      groups them together; they use syntax: "*" with no initial-value. *)
   let tw_contain_size_var =
-    Var.channel ~needs_property:true ~property_order:50 Css.String
+    Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-size"
 
   let tw_contain_layout_var =
-    Var.channel ~needs_property:true ~property_order:50 Css.String
+    Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-layout"
 
   let tw_contain_paint_var =
-    Var.channel ~needs_property:true ~property_order:50 Css.String
+    Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-paint"
 
   let tw_contain_style_var =
-    Var.channel ~needs_property:true ~property_order:50 Css.String
+    Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-style"
 
   let all_contain_vars =
@@ -101,7 +101,7 @@ module Handler = struct
 
   (* Create a composable contain style that sets one variable *)
   let composable_contain var set_value =
-    let decl, _ = Var.binding var set_value in
+    let decl, _ = Var.binding var (Var.custom_value_ident set_value) in
     style ~property_rules:contain_property_rules
       [ decl; contain composable_contain_value ]
 

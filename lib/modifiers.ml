@@ -41,8 +41,7 @@ let class_pseudo prefix cls pseudo =
     Some [Class "foo"]. *)
 let parse_nth_selector expr =
   let spaced = String.map (fun c -> if c = '_' then ' ' else c) expr in
-  let reader = Css.Reader.of_string spaced in
-  Css.Selector.read_nth_selector reader
+  Css.Selector.read_nth_selector (Css.Cursor.of_string spaced)
 
 (** Helper: breakpoint name for responsive modifiers *)
 let breakpoint_name qual bp =
@@ -94,6 +93,8 @@ and compact_calc : Css.length Css.calc -> string = function
   | Var v -> "var(--" ^ Css.var_name v ^ ")"
   | Nested inner -> "calc(" ^ compact_calc inner ^ ")"
   | Parens inner -> "(" ^ compact_calc inner ^ ")"
+  | Sibling_index -> "sibling-index()"
+  | Sibling_count -> "sibling-count()"
 
 (** Build class selector for an arbitrary length breakpoint *)
 let arbitrary_length_class prefix (l : Css.length) cls =
@@ -455,15 +456,21 @@ let aria_data_selector cls modifier =
 let pseudo_element_selector cls modifier =
   let cp = class_pseudo in
   match modifier with
-  | Pseudo_before -> Css.Selector.compound [ before cls; Css.Selector.Before ]
-  | Pseudo_after -> Css.Selector.compound [ after cls; Css.Selector.After ]
+  | Pseudo_before ->
+      Css.Selector.compound
+        [ before cls; Css.Selector.Before Css.Selector.Double ]
+  | Pseudo_after ->
+      Css.Selector.compound
+        [ after cls; Css.Selector.After Css.Selector.Double ]
   | Pseudo_marker -> cp "marker" cls Css.Selector.Marker
   | Pseudo_selection -> cp "selection" cls Css.Selector.Selection
   | Pseudo_placeholder -> cp "placeholder" cls Css.Selector.Placeholder
   | Pseudo_backdrop -> cp "backdrop" cls Css.Selector.Backdrop
   | Pseudo_file -> cp "file" cls Css.Selector.File_selector_button
-  | Pseudo_first_letter -> cp "first-letter" cls Css.Selector.First_letter
-  | Pseudo_first_line -> cp "first-line" cls Css.Selector.First_line
+  | Pseudo_first_letter ->
+      cp "first-letter" cls (Css.Selector.First_letter Css.Selector.Double)
+  | Pseudo_first_line ->
+      cp "first-line" cls (Css.Selector.First_line Css.Selector.Double)
   | Pseudo_details_content ->
       cp "details-content" cls Css.Selector.Details_content
   | _ -> aria_data_selector cls modifier
@@ -1160,10 +1167,9 @@ let preprocess_has_selector s =
 let is_valid_has_selector sel =
   try
     let processed = preprocess_has_selector sel in
-    let reader = Css.Reader.of_string processed in
-    ignore (Css.Selector.read_relative reader);
+    ignore (Css.Selector.read_relative (Css.Cursor.of_string processed));
     true
-  with Css.Reader.Parse_error _ | Invalid_argument _ -> false
+  with Css.Cursor.Parse_error _ | Invalid_argument _ -> false
 
 (* Try parsing a bracketed modifier, returning Some if matched *)
 (* Build the list of bracket pattern matchers for a given input string *)
@@ -2080,10 +2086,10 @@ let variant_order_of_prefix prefix =
    determine the cascade position of rules with nested media queries (e.g.,
    dark:group-hover has a nested @media(hover:hover), so its effective inner
    order is 20000, matching standalone hover). *)
-let variant_order_of_media_cond cond =
+let variant_order_of_media_cond (cond : Css.Media.t) =
   let open Css.Media in
   match cond with
-  | Hover -> 20000
+  | Hover _ -> 20000
   | Prefers_reduced_motion `No_preference -> 50000
   | Prefers_reduced_motion `Reduce -> 50100
   | Prefers_contrast `More -> 50200

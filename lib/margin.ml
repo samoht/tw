@@ -46,8 +46,7 @@ module Handler = struct
         match Var.theme_value prop_name with
         | Some value_str ->
             let decl =
-              Css.custom_declaration ~layer:"theme" ("--" ^ prop_name)
-                Css.String value_str
+              Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
             in
             let ref : Css.length Css.var =
               Var.theme_ref prop_name
@@ -101,8 +100,7 @@ module Handler = struct
     match Var.theme_value prop_name with
     | Some value_str ->
         let decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String
-            value_str
+          Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
         in
         let ref : Css.length Css.var =
           Var.theme_ref prop_name

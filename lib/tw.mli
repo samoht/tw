@@ -3637,7 +3637,7 @@ module Flex = Flex
 module Flex_props = Flex_props
 module Flex_layout = Flex_layout
 module Alignment = Alignment
-module Cursor = Cursor
+module Cursor : module type of Tw__.Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing

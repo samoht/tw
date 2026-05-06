@@ -147,9 +147,12 @@ let video = Css.Selector.element "video"
 
 (* Pseudo-element helpers that apply pseudo AFTER the where clause *)
 let with_before selector =
-  Css.Selector.compound [ selector; Css.Selector.Before ]
+  Css.Selector.compound [ selector; Css.Selector.Before Css.Selector.Double ]
 
-let with_after selector = Css.Selector.compound [ selector; Css.Selector.After ]
+let with_after selector =
+  Css.Selector.compound [ selector; Css.Selector.After Css.Selector.Double ]
+
+let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
 (* blockquote paragraph pseudo-element selectors were only used in removed
    duplicates *)
@@ -567,7 +570,7 @@ let kbd_rules base =
         Css.padding_top (Em 0.1875);
         Css.padding_inline_end (Em 0.375);
         Css.padding_bottom (Em 0.1875);
-        border_radius (Rem 0.3125);
+        border_radius (radius (Rem 0.3125));
         Css.padding_inline_start (Em 0.375);
         font_family Inherit;
         Css.font_size (Em 0.875);
@@ -585,7 +588,7 @@ let pre_code_rules base =
         Css.padding_top (Em 0.857143);
         Css.padding_inline_end (Em 1.14286);
         Css.padding_bottom (Em 0.857143);
-        border_radius (Rem 0.375);
+        border_radius (radius (Rem 0.375));
         Css.margin_top (Em 1.71429);
         Css.margin_bottom (Em 1.71429);
         Css.padding_inline_start (Em 1.14286);
@@ -603,7 +606,7 @@ let pre_code_rules base =
         Css.line_height Inherit;
         Css.background_color (hex "#0000");
         border_width Zero;
-        border_radius Zero;
+        border_radius (radius Zero);
         padding [ Zero ];
       ];
     (* Pre code pseudo-elements come AFTER pre code rule *)
@@ -1369,7 +1372,7 @@ let typography_code_rules selector c =
         Css.padding_top c.kbd_padding_y;
         Css.padding_inline_end c.kbd_padding_x;
         Css.padding_bottom c.kbd_padding_y;
-        border_radius c.kbd_border_radius;
+        border_radius (radius c.kbd_border_radius);
         Css.padding_inline_start c.kbd_padding_x;
         Css.font_size c.kbd_font_size;
       ];
@@ -1388,7 +1391,7 @@ let typography_code_rules selector c =
         Css.padding_top c.pre_padding_y;
         Css.padding_inline_end c.pre_padding_x;
         Css.padding_bottom c.pre_padding_y;
-        border_radius c.pre_border_radius;
+        border_radius (radius c.pre_border_radius);
         Css.margin_top c.pre_margin_top;
         Css.margin_bottom c.pre_margin_bottom;
         Css.padding_inline_start c.pre_padding_x;

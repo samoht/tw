@@ -14,6 +14,7 @@ module Css = Cascade.Css
 (* Shared colors and focus ring helpers *)
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
+let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
 let ring_offset_shadow () =
   let open Css in
@@ -39,7 +40,8 @@ let ring_shadow ~ring_width_px =
 let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in
   let d_ring_inset, _ =
-    Var.binding Effects.ring_inset_var "var(--tw-empty, )"
+    Var.binding Effects.ring_inset_var
+      (Var.custom_value_var_empty_fallback "tw-empty")
   in
   let d_offset_width, _ =
     Var.binding Effects.ring_offset_width_var offset_width
@@ -126,7 +128,8 @@ module Handler = struct
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
-            border_radius (Px 0.);
+            border_radius
+              (Radius { horizontal = [ Length Zero ]; vertical = None });
             padding [ Rem 0.5; Rem 0.75 ];
             font_size (Rem 1.);
             line_height (Rem 1.5);
@@ -202,7 +205,7 @@ module Handler = struct
             background_origin Border_box;
             border_width (Px 1.);
             border_color gray_500;
-            border_radius (Px 0.);
+            border_radius (radius Zero);
             flex_shrink 0.0;
             width (Rem 1.);
             height (Rem 1.);
@@ -294,7 +297,7 @@ module Handler = struct
             background_origin Border_box;
             border_width (Px 1.);
             border_color gray_500;
-            border_radius (Pct 100.0);
+            border_radius (radius (Pct 100.0));
             flex_shrink 0.0;
             width (Rem 1.);
             height (Rem 1.);
@@ -381,7 +384,7 @@ module Select = struct
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
-            border_radius (Px 0.);
+            border_radius (radius Zero);
             padding [ Rem 0.5; Rem 0.75 ];
             font_size (Rem 1.);
             line_height (Rem 1.5);
@@ -411,7 +414,7 @@ module Select = struct
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
-            border_radius (Px 0.);
+            border_radius (radius Zero);
             padding [ Rem 0.5; Rem 0.75 ];
             font_size (Rem 1.);
             line_height (Rem 1.5);
@@ -428,7 +431,7 @@ module Select = struct
                   stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 \
                   4-4'/%3e%3c/svg%3e");
             background_position
-              [ Edge_offset_axis ("right", Rem 0.5, "center") ];
+              [ Edge_offset_axis ("right", Length (Rem 0.5), "center") ];
             background_repeat No_repeat;
             background_size (Size (Em 1.5, Em 1.5));
             padding_right (Rem 2.5);
@@ -667,7 +670,7 @@ let text_inputs_base () =
         background_color (hex "#fff");
         border_width (Px 1.);
         border_color gray_500;
-        border_radius (Px 0.);
+        border_radius (radius Zero);
         padding [ Rem 0.5; Rem 0.75 ];
         font_size (Rem 1.);
         line_height (Rem 1.5);
@@ -700,7 +703,8 @@ let select_base () =
               fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='oklch(55.1%25 \
               0.027 264.364)' stroke-linecap='round' stroke-linejoin='round' \
               stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-        background_position [ Edge_offset_axis ("right", Rem 0.5, "center") ];
+        background_position
+          [ Edge_offset_axis ("right", Length (Rem 0.5), "center") ];
         background_repeat No_repeat;
         background_size (Size (Em 1.5, Em 1.5));
         padding_right (Rem 2.5);
@@ -846,9 +850,9 @@ let checkbox_radio_base () =
         display Inline_block;
       ];
     (* 2. Checkbox border-radius: 0 *)
-    rule ~selector:type_checkbox [ border_radius (Px 0.) ];
+    rule ~selector:type_checkbox [ border_radius (radius Zero) ];
     (* 3. Radio border-radius: 100% *)
-    rule ~selector:type_radio [ border_radius (Pct 100.) ];
+    rule ~selector:type_radio [ border_radius (radius (Pct 100.)) ];
     (* 4. Focus ring for both *)
     rule
       ~selector:Selector.(list [ type_checkbox && Focus; type_radio && Focus ])
@@ -868,7 +872,7 @@ let file_input_base () =
         font_size Unset;
         line_height Inherit;
         border_width (Px 0.);
-        border_radius (Px 0.);
+        border_radius (radius Zero);
         padding [ Px 0. ];
       ];
     rule

@@ -9,9 +9,8 @@ module Css = Cascade.Css
    theme value is set, otherwise bare theme_ref fallback *)
 let themed_decl name value_str =
   match int_of_string_opt value_str with
-  | Some n -> Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.Int n
-  | None ->
-      Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String value_str
+  | Some n -> Css.custom_property ~layer:"theme" ("--" ^ name) (string_of_int n)
+  | None -> Css.custom_property ~layer:"theme" ("--" ^ name) value_str
 
 let grid_col_themed_style name () =
   match Var.theme_value name with
@@ -186,17 +185,17 @@ module Handler = struct
 
   let col n = style [ grid_column (Num n, Auto) ]
   let neg_col n = style [ grid_column (Num (-n), Auto) ]
-  let col_arbitrary s = style [ grid_column (Arbitrary s, Auto) ]
+  let col_arbitrary s = style [ grid_column (Calc s, Auto) ]
   let col_auto () = grid_col_themed_style "grid-column-auto" ()
   let col_span n = style [ grid_column (Span n, Span n) ]
 
   let col_span_arbitrary s =
-    style [ grid_column (Arbitrary ("span " ^ s), Arbitrary ("span " ^ s)) ]
+    style [ grid_column (Calc ("span " ^ s), Calc ("span " ^ s)) ]
 
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
-  let col_start_arbitrary s = style [ grid_column_start (Arbitrary s) ]
+  let col_start_arbitrary s = style [ grid_column_start (Calc s) ]
 
   let col_start_auto () =
     grid_col_start_themed_style "grid-column-start-auto" ()
@@ -206,27 +205,27 @@ module Handler = struct
 
   let col_end n = style [ grid_column_end (Num n) ]
   let neg_col_end n = style [ grid_column_end (Num (-n)) ]
-  let col_end_arbitrary s = style [ grid_column_end (Arbitrary s) ]
+  let col_end_arbitrary s = style [ grid_column_end (Calc s) ]
   let col_end_auto () = grid_col_end_themed_style "grid-column-end-auto" ()
   let col_end_named s = grid_col_end_themed_style ("grid-column-end-" ^ s) ()
   let row n = style [ grid_row (Num n, Auto) ]
   let neg_row n = style [ grid_row (Num (-n), Auto) ]
-  let row_arbitrary s = style [ grid_row (Arbitrary s, Auto) ]
+  let row_arbitrary s = style [ grid_row (Calc s, Auto) ]
   let row_auto () = grid_row_themed_style "grid-row-auto" ()
   let row_span n = style [ grid_row (Span n, Span n) ]
 
   let row_span_arbitrary s =
-    style [ grid_row (Arbitrary ("span " ^ s), Arbitrary ("span " ^ s)) ]
+    style [ grid_row (Calc ("span " ^ s), Calc ("span " ^ s)) ]
 
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
-  let row_start_arbitrary s = style [ grid_row_start (Arbitrary s) ]
+  let row_start_arbitrary s = style [ grid_row_start (Calc s) ]
   let row_start_auto () = grid_row_start_themed_style "grid-row-start-auto" ()
   let row_start_named s = grid_row_start_themed_style ("grid-row-start-" ^ s) ()
   let row_end n = style [ grid_row_end (Num n) ]
   let neg_row_end n = style [ grid_row_end (Num (-n)) ]
-  let row_end_arbitrary s = style [ grid_row_end (Arbitrary s) ]
+  let row_end_arbitrary s = style [ grid_row_end (Calc s) ]
   let row_end_auto () = grid_row_end_themed_style "grid-row-end-auto" ()
   let row_end_named s = grid_row_end_themed_style ("grid-row-end-" ^ s) ()
 
@@ -367,7 +366,7 @@ module Handler = struct
         | Ok i -> Ok (Neg_col_end i)
         | Error _ -> err_not_utility)
     | [ "col"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        (* Arbitrary col: col-[span_123/span_123] *)
+        (* Calc col: col-[span_123/span_123] *)
         match parse_arbitrary n with
         | Some v -> Ok (Col_arbitrary v)
         | None -> err_not_utility)
@@ -391,7 +390,7 @@ module Handler = struct
         | Ok i -> Ok (Row_span i)
         | Error _ -> err_not_utility)
     | [ "row"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        (* Arbitrary row: row-[span_123/span_123] *)
+        (* Calc row: row-[span_123/span_123] *)
         match parse_arbitrary n with
         | Some v -> Ok (Row_arbitrary v)
         | None -> err_not_utility)

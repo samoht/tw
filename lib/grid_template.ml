@@ -71,7 +71,7 @@ module Handler = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; Css.grid_template_columns Auto ]
     | None -> style [ Css.grid_template_columns None ]
@@ -173,7 +173,7 @@ module Handler = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; Css.grid_template_rows Auto ]
     | None -> style [ Css.grid_template_rows None ]
@@ -190,7 +190,7 @@ module Handler = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; Css.grid_auto_columns Auto ]
     | None -> style [ Css.grid_auto_columns Auto ]
@@ -209,7 +209,7 @@ module Handler = struct
     match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; Css.grid_auto_rows Auto ]
     | None -> style [ Css.grid_auto_rows Auto ]

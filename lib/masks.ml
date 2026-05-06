@@ -403,8 +403,7 @@ module Handler = struct
           ]
     | Mask_bracket_linear_gradient v ->
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
-        let reader = Css.Reader.of_string css_str in
-        let img = Css.read_background_image reader in
+        let img = Css.read_background_image (Css.Cursor.of_string css_str) in
         let img = Css.minify_background_image img in
         style [ Css.webkit_mask_image img; Css.mask_image img ]
     (* Sub-property bracket notation *)

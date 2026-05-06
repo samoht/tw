@@ -186,46 +186,46 @@ module Handler = struct
     | Position_sticky -> style [ position Sticky ]
     | Inset_0 ->
         let decl, zero_value = spacing_value 0 in
-        style (decl :: [ Css.inset zero_value ])
+        style (decl :: [ Css.inset [ zero_value ] ])
     | Inset_x_0 ->
         let decl, zero_value = spacing_value 0 in
-        style (decl :: [ Css.inset_inline zero_value ])
+        style (decl :: [ Css.inset_inline [ zero_value ] ])
     | Inset_y_0 ->
         let decl, zero_value = spacing_value 0 in
-        style (decl :: [ Css.inset_block zero_value ])
-    | Inset_auto -> style [ Css.inset Auto ]
-    | Inset_full -> style [ Css.inset (Pct 100.0) ]
-    | Neg_inset_full -> style [ Css.inset (Pct (-100.0)) ]
-    | Inset_3_4 -> style [ Css.inset (Pct 75.0) ]
-    | Inset_x_auto -> style [ Css.inset_inline Auto ]
-    | Inset_x_full -> style [ Css.inset_inline (Pct 100.0) ]
-    | Neg_inset_x_full -> style [ Css.inset_inline (Pct (-100.0)) ]
-    | Inset_x_3_4 -> style [ Css.inset_inline (Pct 75.0) ]
-    | Inset_y_auto -> style [ Css.inset_block Auto ]
-    | Inset_y_full -> style [ Css.inset_block (Pct 100.0) ]
-    | Neg_inset_y_full -> style [ Css.inset_block (Pct (-100.0)) ]
-    | Inset_y_3_4 -> style [ Css.inset_block (Pct 75.0) ]
+        style (decl :: [ Css.inset_block [ zero_value ] ])
+    | Inset_auto -> style [ Css.inset [ Auto ] ]
+    | Inset_full -> style [ Css.inset [ Pct 100.0 ] ]
+    | Neg_inset_full -> style [ Css.inset [ Pct (-100.0) ] ]
+    | Inset_3_4 -> style [ Css.inset [ Pct 75.0 ] ]
+    | Inset_x_auto -> style [ Css.inset_inline [ Auto ] ]
+    | Inset_x_full -> style [ Css.inset_inline [ Pct 100.0 ] ]
+    | Neg_inset_x_full -> style [ Css.inset_inline [ Pct (-100.0) ] ]
+    | Inset_x_3_4 -> style [ Css.inset_inline [ Pct 75.0 ] ]
+    | Inset_y_auto -> style [ Css.inset_block [ Auto ] ]
+    | Inset_y_full -> style [ Css.inset_block [ Pct 100.0 ] ]
+    | Neg_inset_y_full -> style [ Css.inset_block [ Pct (-100.0) ] ]
+    | Inset_y_3_4 -> style [ Css.inset_block [ Pct 75.0 ] ]
     | Inset n ->
         let decl, value = spacing_value n in
-        style (decl :: [ Css.inset value ])
-    | Inset_arbitrary len -> style [ Css.inset len ]
+        style (decl :: [ Css.inset [ value ] ])
+    | Inset_arbitrary len -> style [ Css.inset [ len ] ]
     | Inset_named name ->
         let decl, value = named_inset_value name in
-        style (decl :: [ Css.inset value ])
+        style (decl :: [ Css.inset [ value ] ])
     | Inset_x n ->
         let decl, value = spacing_value n in
-        style (decl :: [ Css.inset_inline value ])
-    | Inset_x_arbitrary len -> style [ Css.inset_inline len ]
+        style (decl :: [ Css.inset_inline [ value ] ])
+    | Inset_x_arbitrary len -> style [ Css.inset_inline [ len ] ]
     | Inset_x_named name ->
         let decl, value = named_inset_value name in
-        style (decl :: [ Css.inset_inline value ])
+        style (decl :: [ Css.inset_inline [ value ] ])
     | Inset_y n ->
         let decl, value = spacing_value n in
-        style (decl :: [ Css.inset_block value ])
-    | Inset_y_arbitrary len -> style [ Css.inset_block len ]
+        style (decl :: [ Css.inset_block [ value ] ])
+    | Inset_y_arbitrary len -> style [ Css.inset_block [ len ] ]
     | Inset_y_named name ->
         let decl, value = named_inset_value name in
-        style (decl :: [ Css.inset_block value ])
+        style (decl :: [ Css.inset_block [ value ] ])
     (* inset-s = inset-inline-start *)
     | Inset_s n ->
         let decl, value = spacing_value n in

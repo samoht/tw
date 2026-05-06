@@ -176,6 +176,24 @@ let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 let number_percentage_to_string (np : Css.number_percentage) =
   match np with Num f | Pct f -> Pp.float f | _ -> "initial"
 
+let custom_value_ident name =
+  [ Css.Component.Preserved (Css.Token.synthetic (Css.Token.Ident name)) ]
+
+let custom_value_var_empty_fallback name =
+  let loc = Css.Loc.dummy in
+  let ident =
+    Css.Component.Preserved
+      (Css.Token.synthetic (Css.Token.Ident ("--" ^ name)))
+  in
+  let comma = Css.Component.Preserved (Css.Token.synthetic Css.Token.Comma) in
+  [
+    Css.Component.Func
+      {
+        node = { name = "var"; arguments = [ ident; comma ]; terminated = true };
+        loc;
+      };
+  ]
+
 let channel_to_string : Css.channel -> string = function
   | Css.Int i -> string_of_int i
   | Css.Num f -> Pp.float f
@@ -196,16 +214,20 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
   | Css.Percentage -> ( match value with Pct f -> Pp.float f | _ -> "initial")
   | Css.Number_percentage -> number_percentage_to_string value
   | Css.Int -> string_of_int value
-  | Css.String -> if value = "" then "\"\"" else value
+  | Css.Value -> Css.Parser.to_string_custom value
   | Css.Content -> (
       match value with
       | Css.String "" -> "\"\""
       | Css.String s -> "\"" ^ s ^ "\""
+      | Css.Quoted (s, quote) -> String.make 1 quote ^ s ^ String.make 1 quote
       | Css.None -> "none"
       | Css.Normal -> "normal"
       | Css.Open_quote -> "open-quote"
       | Css.Close_quote -> "close-quote"
-      | Css.Var _ -> "initial")
+      | Css.Attr _ | Css.Counter _ | Css.Counters _ | Css.Content_list _
+      | Css.Inherit | Css.Initial | Css.Unset | Css.Revert | Css.Revert_layer
+      | Css.Var _ ->
+          "initial")
   | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight value
   | Css.Shadow -> "0 0 #0000"
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style value
@@ -326,8 +348,7 @@ let property_universal : type a.
       match (kind, v) with
       | Gradient_stop, List []
       | Percentage, Pct 0.
-      | Gradient_direction, To_bottom
-      | String, "initial" ->
+      | Gradient_direction, To_bottom ->
           property ~name Universal ~inherits ()
       | _ ->
           let initial_str = value_to_css_string kind v in

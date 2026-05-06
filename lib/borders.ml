@@ -484,19 +484,22 @@ module Handler = struct
   let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 7)
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 8)
 
+  let radius_value len =
+    Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
+
   let rounded_none () =
     match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         (* Scheme has explicit radius: use var(--radius-none) *)
         let decl, r = Var.binding radius_none_var explicit_length in
-        style (decl :: [ Css.border_radius (Var r) ])
+        style (decl :: [ Css.border_radius (radius_value (Var r)) ])
     | None ->
         (* Default: use raw value *)
-        style [ Css.border_radius Zero ]
+        style [ Css.border_radius (radius_value Zero) ]
 
   let rounded_sm =
     let decl, r = Var.binding radius_sm_var (Rem 0.125) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   (* Helper: return (decls, length_val) for the bare --radius variable. When
      theme_value "radius" is set (e.g. @config theme), emit the var declaration
@@ -509,37 +512,37 @@ module Handler = struct
 
   let rounded () =
     let extra, v = radius_decl_and_val () in
-    style (extra @ [ Css.border_radius v ])
+    style (extra @ [ Css.border_radius (radius_value v) ])
 
   let rounded_md =
     let decl, r = Var.binding radius_md_var (Rem 0.375) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   let rounded_lg =
     let decl, r = Var.binding radius_lg_var (Rem 0.5) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   let rounded_xl =
     let decl, r = Var.binding radius_xl_var (Rem 0.75) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   let rounded_2xl =
     let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   let rounded_3xl =
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
-    style (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   let rounded_full () =
     match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         (* Scheme has explicit radius: use var(--radius-full) *)
         let decl, r = Var.binding radius_full_var explicit_length in
-        style (decl :: [ Css.border_radius (Var r) ])
+        style (decl :: [ Css.border_radius (radius_value (Var r)) ])
     | None ->
         (* Default: use raw value - 9999px represented as large float *)
-        style [ Css.border_radius (Px 3.40282e38) ]
+        style [ Css.border_radius (radius_value (Px 3.40282e38)) ]
 
   (** Side-specific rounded utilities - top *)
   let rounded_t () =
@@ -1517,7 +1520,7 @@ module Handler = struct
   let rounded_arbitrary_style pos value =
     let make_decls len =
       match pos with
-      | Rp_all -> [ Css.border_radius len ]
+      | Rp_all -> [ Css.border_radius (radius_value len) ]
       | Rp_t ->
           [ Css.border_top_left_radius len; Css.border_top_right_radius len ]
       | Rp_r ->

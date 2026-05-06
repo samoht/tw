@@ -15,7 +15,7 @@ let order_themed_style name ~default ~default_css () =
       match int_of_string_opt value_str with
       | Some n ->
           let decl =
-            Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.Int n
+            Css.custom_property ~layer:"theme" ("--" ^ name) (string_of_int n)
           in
           let ref : Css.order Css.var =
             Var.theme_ref name ~default ~default_css
@@ -55,7 +55,7 @@ module Handler = struct
     | Basis_full
     | Basis_fraction of int * int
     | Basis_named of string
-    | Basis_arbitrary of Css.length (* basis-[123px] *)
+    | Basis_arbitrary of Css.flex_basis (* basis-[123px] *)
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
@@ -110,35 +110,33 @@ module Handler = struct
     match Var.theme_value var_name with
     | Some value_str ->
         let decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) Css.String
-            value_str
+          Css.custom_property ~layer:"theme" ("--" ^ var_name) value_str
         in
-        let ref : Css.length Css.var =
+        let ref : Css.flex_basis Css.var =
           Var.theme_ref var_name
-            ~default:(Css.Zero : Css.length)
+            ~default:(Css.Zero : Css.flex_basis)
             ~default_css:"0px"
         in
         style [ decl; flex_basis (Var ref) ]
     | None ->
-        let ref : Css.length Css.var =
+        let ref : Css.flex_basis Css.var =
           Var.theme_ref var_name
-            ~default:(Css.Zero : Css.length)
+            ~default:(Css.Zero : Css.flex_basis)
             ~default_css:"0px"
         in
         style [ flex_basis (Var ref) ]
 
   (* Order *)
-  let order_style n = style [ order (Order_int n) ]
+  let order_style n = style [ order (Int n) ]
 
   let order_first () =
-    order_themed_style "order-first" ~default:(Order_int (-9999))
-      ~default_css:"-9999" ()
+    order_themed_style "order-first" ~default:(Int (-9999)) ~default_css:"-9999"
+      ()
 
   let order_last () =
-    order_themed_style "order-last" ~default:(Order_int 9999)
-      ~default_css:"9999" ()
+    order_themed_style "order-last" ~default:(Int 9999) ~default_css:"9999" ()
 
-  let order_none = style [ order (Order_int 0) ]
+  let order_none = style [ order (Int 0) ]
 
   let to_style = function
     | Flex_1 -> flex_1
@@ -162,15 +160,15 @@ module Handler = struct
     | Basis_named name -> basis_named_style name
     | Basis_arbitrary len -> style [ flex_basis len ]
     | Order n -> order_style n
-    | Neg_order n -> style [ order (Order_int (-n)) ]
+    | Neg_order n -> style [ order (Int (-n)) ]
     | Neg_order_arbitrary s -> (
         match int_of_string_opt s with
-        | Some n -> style [ order (Order_int (-n)) ]
-        | None -> style [ order (Order_calc ("calc(" ^ s ^ " * -1)")) ])
+        | Some n -> style [ order (Int (-n)) ]
+        | None -> style [ order (Calc ("calc(" ^ s ^ " * -1)")) ])
     | Order_arbitrary s -> (
         match int_of_string_opt s with
-        | Some n -> style [ order (Order_int n) ]
-        | None -> style [ order (Order_calc s) ])
+        | Some n -> style [ order (Int n) ]
+        | None -> style [ order (Calc s) ])
     | Order_first -> order_first ()
     | Order_last -> order_last ()
     | Order_none -> order_none

@@ -283,7 +283,9 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
    (group-focus:group-hover:flex) *)
 let compare_hover_depth cond1 cond2 sel1 sel2 =
   match (cond1, cond2) with
-  | Some Css.Media.Hover, Some Css.Media.Hover ->
+  | Some c1, Some c2
+    when Css.Media.kind c1 = Css.Media.Hover
+         && Css.Media.kind c2 = Css.Media.Hover ->
       Int.compare (selector_modifier_depth sel1) (selector_modifier_depth sel2)
   | _ -> 0
 
@@ -413,9 +415,8 @@ let compare_different_utility_regular_media (r1 : indexed_rule)
           &&
           match media_type with
           | Some
-              ( Css.Media.Prefers_color_scheme _
-              | Css.Media.Prefers_reduced_motion _
-              | Css.Media.Prefers_contrast _ ) ->
+              ( Css.Media.Preference_appearance
+              | Css.Media.Preference_accessibility ) ->
               true
           | _ -> false
         in
@@ -427,17 +428,11 @@ let compare_different_utility_regular_media (r1 : indexed_rule)
           if prio_cmp <> 0 then prio_cmp
           else
             match media_type with
-            | Some
-                ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
-                | Css.Media.Hover ) ->
-                -1
+            | Some (Css.Media.Responsive _ | Css.Media.Hover) -> -1
             | _ -> compare_by_order_regular_first r1.order r2.order
         else
           match media_type with
-          | Some
-              ( Css.Media.Hover | Css.Media.Min_width _
-              | Css.Media.Min_width_rem _ ) ->
-              -1
+          | Some (Css.Media.Hover | Css.Media.Responsive _) -> -1
           | _ -> compare_by_order_regular_first r1.order r2.order)
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
@@ -446,7 +441,9 @@ let compare_regular_vs_media r1 r2 =
   | Same_utility _ -> compare_same_utility_regular_media r1 r2
   | Different_utilities ->
       let media_type =
-        match r2.rule_type with `Media m -> Some m | _ -> None
+        match r2.rule_type with
+        | `Media m -> Some (Css.Media.kind m)
+        | _ -> None
       in
       compare_different_utility_regular_media r1 r2 media_type
 
@@ -906,9 +903,12 @@ let nested_order rule_type nested =
   | [] -> 0 (* non-nested: middle *)
   | [ stmt ] -> (
       match (rule_type, Css.as_media stmt) with
-      | `Media Css.Media.Hover, Some (Css.Media.Hover, _) ->
+      | `Media c, Some (nested, _)
+        when Css.Media.kind c = Css.Media.Hover
+             && Css.Media.kind nested = Css.Media.Hover ->
           2 (* doubly-nested hover: after everything *)
-      | _, Some (Css.Media.Hover, _) -> -1 (* single hover nested: first *)
+      | _, Some (nested, _) when Css.Media.kind nested = Css.Media.Hover ->
+          -1 (* single hover nested: first *)
       | _ -> 1 (* other nested: last *))
   | _ -> 1 (* multiple nested: last *)
 

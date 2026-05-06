@@ -678,8 +678,7 @@ module Handler = struct
     | _ -> None
 
   let gradient_supports_condition =
-    Css.Supports.Property
-      ("background-image", "linear-gradient(in lab, red, red)")
+    Css.Supports.property "background-image" "linear-gradient(in lab, red, red)"
 
   (* Gradient direction utilities do NOT register property_rules. Only
      from/to/via (gradient color) utilities need the @layer properties block for
@@ -830,7 +829,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Css.Cursor.remaining (Css.Cursor.of_string css_val)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -843,7 +846,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Raw_fallback neg_str) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Css.Cursor.remaining (Css.Cursor.of_string neg_str)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -916,7 +923,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Css.Cursor.remaining (Css.Cursor.of_string css_val)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]
@@ -1231,7 +1242,7 @@ module Handler = struct
     Var vr
 
   (** Convert a non-named gradient_color_source to a Css.color *)
-  let css_color_of_source = function
+  let css_color_of_source : gradient_color_source -> Css.color = function
     | Gc_current | Gc_current_opacity _ -> Css.Current
     | Gc_inherit -> Css.Inherit
     | Gc_transparent -> Css.Transparent

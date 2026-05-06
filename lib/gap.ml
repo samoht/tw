@@ -58,7 +58,7 @@ module Handler = struct
 
   let gap_standard (s : spacing) =
     let decl, len = spacing_to_decl_len s in
-    let gap_value = { row_gap = Some len; column_gap = Some len } in
+    let gap_value = Lengths { row_gap = Some len; column_gap = Some len } in
     style (Option.to_list decl @ [ gap gap_value ])
 
   let gap_x_standard (s : spacing) =
@@ -70,7 +70,7 @@ module Handler = struct
     style (Option.to_list decl @ [ row_gap len ])
 
   let gap_arb len =
-    let gap_value = { row_gap = Some len; column_gap = Some len } in
+    let gap_value = Lengths { row_gap = Some len; column_gap = Some len } in
     style [ gap gap_value ]
 
   let gap_x_arb len = style [ column_gap len ]

@@ -845,7 +845,7 @@ module Handler = struct
       )
 
   let scale_z_arbitrary s =
-    let d = Css.custom_declaration ~layer:"utilities" "--tw-scale-z" String s in
+    let d = Css.custom_property ~layer:"utilities" "--tw-scale-z" s in
     let props =
       collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
     in
@@ -893,12 +893,9 @@ module Handler = struct
   let po_with_ref name (default : Css.perspective_origin) default_css () =
     match Var.theme_value name with
     | Some value_str ->
-        let decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String
-            value_str
-        in
+        let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.perspective_origin =
-          Perspective_var (Var.theme_ref name ~default ~default_css)
+          Var (Var.theme_ref name ~default ~default_css)
         in
         let perspective_ref : Css.length =
           Css.Var
@@ -907,7 +904,7 @@ module Handler = struct
         style [ decl; perspective_origin ref; Css.perspective perspective_ref ]
     | None ->
         let v : Css.perspective_origin =
-          Perspective_var (Var.theme_ref name ~default ~default_css)
+          Var (Var.theme_ref name ~default ~default_css)
         in
         let perspective_ref : Css.length =
           Css.Var
@@ -920,44 +917,40 @@ module Handler = struct
           ]
 
   let perspective_origin_center () =
-    po_with_ref "perspective-origin-center" Perspective_center "center" ()
+    po_with_ref "perspective-origin-center" Center "center" ()
 
   let perspective_origin_top () =
-    po_with_ref "perspective-origin-top" Perspective_top "top" ()
+    po_with_ref "perspective-origin-top" Top "top" ()
 
   let perspective_origin_bottom () =
-    po_with_ref "perspective-origin-bottom" Perspective_bottom "bottom" ()
+    po_with_ref "perspective-origin-bottom" Bottom "bottom" ()
 
   let perspective_origin_left () =
-    po_with_ref "perspective-origin-left" (Perspective_x Zero) "0" ()
+    po_with_ref "perspective-origin-left" (Single Zero) "0" ()
 
   let perspective_origin_right () =
-    po_with_ref "perspective-origin-right" (Perspective_x (Pct 100.)) "100%" ()
+    po_with_ref "perspective-origin-right" (Single (Pct 100.)) "100%" ()
 
   let perspective_origin_top_left () =
-    po_with_ref "perspective-origin-top-left"
-      (Perspective_xy (Zero, Zero))
-      "0 0" ()
+    po_with_ref "perspective-origin-top-left" (XY (Zero, Zero)) "0 0" ()
 
   let perspective_origin_top_right () =
-    po_with_ref "perspective-origin-top-right"
-      (Perspective_xy (Pct 100., Zero))
-      "100% 0" ()
+    po_with_ref "perspective-origin-top-right" (XY (Pct 100., Zero)) "100% 0" ()
 
   let perspective_origin_bottom_left () =
     po_with_ref "perspective-origin-bottom-left"
-      (Perspective_xy (Zero, Pct 100.))
+      (XY (Zero, Pct 100.))
       "0 100%" ()
 
   let perspective_origin_bottom_right () =
     po_with_ref "perspective-origin-bottom-right"
-      (Perspective_xy (Pct 100., Pct 100.))
+      (XY (Pct 100., Pct 100.))
       "100% 100%" ()
 
   let perspective_origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    style [ perspective_origin (Css.Perspective_arbitrary value) ]
+    style [ perspective_origin (Var (Var.bracket value)) ]
 
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
@@ -977,12 +970,11 @@ module Handler = struct
   let origin_with_ref name (default : Css.transform_origin) default_css () =
     match Var.theme_value name with
     | Some value_str ->
-        let decl =
-          Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String
-            value_str
+        let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
+        let ref : Css.transform_origin Css.var =
+          Var.theme_ref name ~default ~default_css
         in
-        let ref_str = "var(--" ^ name ^ ") var(--" ^ name ^ ")" in
-        style [ decl; transform_origin (Arbitrary ref_str) ]
+        style [ decl; transform_origin (Var ref) ]
     | None ->
         let v : Css.transform_origin =
           Var (Var.theme_ref name ~default ~default_css)
@@ -1031,7 +1023,11 @@ module Handler = struct
     let value =
       if not (String.contains value ' ') then value ^ " " ^ value else value
     in
-    style [ transform_origin (Arbitrary value) ]
+    style
+      [
+        transform_origin
+          (Css.read_transform_origin (Css.Cursor.of_string value));
+      ]
 
   (** {1 Transform Control Utilities} *)
 
@@ -1237,7 +1233,8 @@ module Handler = struct
     | Transform_gpu -> transform_gpu
     | Transform_arbitrary s ->
         let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-        style [ Css.transform (Arbitrary value) ]
+        style
+          [ Css.transform (Css.read_transform (Css.Cursor.of_string value)) ]
     | Origin_center -> origin_center ()
     | Origin_top -> origin_top ()
     | Origin_bottom -> origin_bottom ()
