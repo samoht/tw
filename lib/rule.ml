@@ -478,7 +478,7 @@ let handle_pseudo_class_modifier ?(inner_has_hover = false) modifier base_class
   if has_hover && inner_has_hover then
     (* Nested hover: wrap in @media (hover:hover) { @media (hover:hover) { }
        } *)
-    let hover : Css.Media.t = Css.Media.Hover `Hover in
+    let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
     let inner_rule = Css.rule ~selector:new_selector props in
     let inner_media = Css.media ~condition:hover [ inner_rule ] in
     media_query ~condition:hover ~selector:new_selector ~props:[]
@@ -515,7 +515,7 @@ let handle_media_like_modifier (modifier : Style.modifier)
     in
     (* Nested @media (hover:hover) { .dark\:hover\:X:hover { props } } *)
     let inner_hover_media =
-      let hover : Css.Media.t = Css.Media.Hover `Hover in
+      let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
       Css.media ~condition:hover [ Css.rule ~selector:hover_selector props ]
     in
     media_query ~condition ~selector:hover_selector ~props:[]
@@ -859,23 +859,25 @@ let handle_supports_modifier condition_str base_class selector props =
     Returns [Some condition] for modifiers that map to media queries, [None] for
     non-media modifiers. *)
 let media_condition_of_modifier = function
-  | Style.Dark -> Some (Css.Media.Prefers_color_scheme `Dark)
-  | Style.Motion_safe -> Some (Css.Media.Prefers_reduced_motion `No_preference)
-  | Style.Motion_reduce -> Some (Css.Media.Prefers_reduced_motion `Reduce)
-  | Style.Contrast_more -> Some (Css.Media.Prefers_contrast `More)
-  | Style.Contrast_less -> Some (Css.Media.Prefers_contrast `Less)
+  | Style.Dark -> Some (Css.Media.Prefers_color_scheme Css.Media.Dark)
+  | Style.Motion_safe ->
+      Some (Css.Media.Prefers_reduced_motion Css.Media.No_preference)
+  | Style.Motion_reduce ->
+      Some (Css.Media.Prefers_reduced_motion Css.Media.Reduce)
+  | Style.Contrast_more -> Some (Css.Media.Prefers_contrast Css.Media.More)
+  | Style.Contrast_less -> Some (Css.Media.Prefers_contrast Css.Media.Less)
   | Style.Print -> Some Css.Media.Print
-  | Style.Portrait -> Some (Css.Media.Orientation `Portrait)
-  | Style.Landscape -> Some (Css.Media.Orientation `Landscape)
-  | Style.Forced_colors -> Some (Css.Media.Forced_colors `Active)
-  | Style.Inverted_colors -> Some (Css.Media.Inverted_colors `Inverted)
-  | Style.Pointer_none -> Some (Css.Media.Pointer `None)
-  | Style.Pointer_coarse -> Some (Css.Media.Pointer `Coarse)
-  | Style.Pointer_fine -> Some (Css.Media.Pointer `Fine)
-  | Style.Any_pointer_none -> Some (Css.Media.Any_pointer `None)
-  | Style.Any_pointer_coarse -> Some (Css.Media.Any_pointer `Coarse)
-  | Style.Any_pointer_fine -> Some (Css.Media.Any_pointer `Fine)
-  | Style.Noscript -> Some (Css.Media.Scripting `None)
+  | Style.Portrait -> Some (Css.Media.Orientation Css.Media.Portrait)
+  | Style.Landscape -> Some (Css.Media.Orientation Css.Media.Landscape)
+  | Style.Forced_colors -> Some (Css.Media.Forced_colors Css.Media.Active)
+  | Style.Inverted_colors -> Some (Css.Media.Inverted_colors Css.Media.Inverted)
+  | Style.Pointer_none -> Some (Css.Media.Pointer Css.Media.None)
+  | Style.Pointer_coarse -> Some (Css.Media.Pointer Css.Media.Coarse)
+  | Style.Pointer_fine -> Some (Css.Media.Pointer Css.Media.Fine)
+  | Style.Any_pointer_none -> Some (Css.Media.Any_pointer Css.Media.None)
+  | Style.Any_pointer_coarse -> Some (Css.Media.Any_pointer Css.Media.Coarse)
+  | Style.Any_pointer_fine -> Some (Css.Media.Any_pointer Css.Media.Fine)
+  | Style.Noscript -> Some (Css.Media.Scripting Css.Media.None)
   | _ -> None
 
 (** Variant order for not-* inner modifiers. Returns a large offset that encodes
@@ -1015,7 +1017,8 @@ let handle_not_modifier inner_modifier base_class _selector props =
       props
   in
   let not_hover_media () =
-    not_media_rule ~nvo ~condition:(Css.Media.Negated (Css.Media.Hover `Hover))
+    not_media_rule ~nvo
+      ~condition:(Css.Media.Negated (Css.Media.Hover Css.Media.Hover))
       modified_class props
   in
   match inner_modifier with
@@ -1079,20 +1082,20 @@ let parse_bracket_media content =
     (* Double negation: return the positive condition *)
     match inner with
     | "(orientation: portrait)" | "(orientation:portrait)" ->
-        Css.Media.Orientation `Portrait
+        Css.Media.Orientation Css.Media.Portrait
     | "(orientation: landscape)" | "(orientation:landscape)" ->
-        Css.Media.Orientation `Landscape
+        Css.Media.Orientation Css.Media.Landscape
     | _ -> Css.Media.of_string inner
   else
     (* Negate the condition *)
     match rest with
     | "print" -> Css.Media.Negated Css.Media.Print
     | "(orientation: portrait)" | "(orientation:portrait)" ->
-        Css.Media.Negated (Css.Media.Orientation `Portrait)
+        Css.Media.Negated (Css.Media.Orientation Css.Media.Portrait)
     | "(orientation: landscape)" | "(orientation:landscape)" ->
-        Css.Media.Negated (Css.Media.Orientation `Landscape)
+        Css.Media.Negated (Css.Media.Orientation Css.Media.Landscape)
     | "(hover: hover)" | "(hover:hover)" ->
-        Css.Media.Negated (Css.Media.Hover `Hover)
+        Css.Media.Negated (Css.Media.Hover Css.Media.Hover)
     | _ -> Css.Media.Negated (Css.Media.of_string rest)
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)

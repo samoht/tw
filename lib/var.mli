@@ -406,14 +406,6 @@ val theme : 'a Css.kind -> string -> order:int * int -> 'a theme
     Values are set via [Var.binding] at use sites that own the declaration.
     Enforces explicit ordering for deterministic theme output. *)
 
-val custom_value_ident : string -> Css.Component.t list
-(** [custom_value_ident name] is a custom-property value made from one CSS
-    ident. *)
-
-val custom_value_var_empty_fallback : string -> Css.Component.t list
-(** [custom_value_var_empty_fallback name] is [var(--name,)] as structured CSS
-    components, used for empty-fallback custom-property channels. *)
-
 val property_default :
   'a Css.kind ->
   initial:'a ->

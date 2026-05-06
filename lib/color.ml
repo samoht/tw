@@ -341,7 +341,7 @@ let hex_with_alpha hex_str opacity_percent =
   "#" ^ shortened
 
 let oklch_to_css oklch =
-  let f n = Css.Pp.float_to_string ~drop_leading_zero:false ~max_decimals:n in
+  let f n = Css.Pp.string_of_float ~drop_leading_zero:false ~max_decimals:n in
   String.concat ""
     [ "oklch("; f 1 oklch.l; "% "; f 3 oklch.c; " "; f 3 oklch.h; ")" ]
 

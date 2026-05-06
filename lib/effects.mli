@@ -111,7 +111,7 @@ val ring_inset : t
 val shadow_var : Css.shadow Var.property_default
 (** [shadow_var] is the --tw-shadow variable. *)
 
-val ring_inset_var : Css.Component.t list Var.channel
+val ring_inset_var : Css.Variables.custom_value Var.channel
 (** [ring_inset_var] is the --tw-ring-inset variable. *)
 
 val ring_offset_width_var : Css.length Var.property_default

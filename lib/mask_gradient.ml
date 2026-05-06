@@ -502,7 +502,7 @@ module Handler = struct
   let convert_angle_to_css s =
     let to_deg n =
       let rounded = Float.round (n *. 1000.0) /. 1000.0 in
-      Pp.float_to_string ~max_decimals:3 rounded ^ "deg"
+      Pp.string_of_float ~max_decimals:3 rounded ^ "deg"
     in
     let len = String.length s in
     if len > 3 && String.sub s (len - 3) 3 = "rad" then

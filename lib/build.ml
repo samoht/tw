@@ -323,7 +323,7 @@ let rule_to_triple = function
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      let hover : Css.Media.t = Css.Media.Hover `Hover in
+      let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
       let typ = if has_hover then `Media hover else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
         ~not_order

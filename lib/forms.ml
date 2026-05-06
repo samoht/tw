@@ -41,7 +41,7 @@ let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in
   let d_ring_inset, _ =
     Var.binding Effects.ring_inset_var
-      (Var.custom_value_var_empty_fallback "tw-empty")
+      (Css.custom_value_var_empty_fallback "tw-empty")
   in
   let d_offset_width, _ =
     Var.binding Effects.ring_offset_width_var offset_width
@@ -229,7 +229,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors `Active)
+        media ~condition:(Media.Forced_colors Media.Active)
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];
@@ -256,7 +256,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors `Active)
+        media ~condition:(Media.Forced_colors Media.Active)
           [
             rule
               ~selector:(compound [ base_sel; Indeterminate ])
@@ -319,7 +319,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors `Active)
+        media ~condition:(Media.Forced_colors Media.Active)
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];
@@ -729,7 +729,7 @@ let select_base () =
 
 let forced_colors_checked_appearance selector =
   let open Css in
-  media ~condition:(Media.Forced_colors `Active)
+  media ~condition:(Media.Forced_colors Media.Active)
     [ rule ~selector [ appearance Auto ] ]
 
 (** Checked state rules for checkbox/radio *)
@@ -801,7 +801,7 @@ let checkbox_indeterminate_rules () =
         border_color (hex "#0000");
       ];
     (* 12. @media (forced-colors:active) checkbox:indeterminate *)
-    media ~condition:(Media.Forced_colors `Active)
+    media ~condition:(Media.Forced_colors Media.Active)
       [
         rule
           ~selector:Selector.(type_checkbox && Indeterminate)

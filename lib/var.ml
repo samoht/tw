@@ -172,81 +172,6 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
-(* Helper to serialize number_percentage values for universal syntax *)
-let number_percentage_to_string (np : Css.number_percentage) =
-  match np with Num f | Pct f -> Pp.float f | _ -> "initial"
-
-let custom_value_ident name =
-  [ Css.Component.Preserved (Css.Token.synthetic (Css.Token.Ident name)) ]
-
-let custom_value_var_empty_fallback name =
-  let loc = Css.Loc.dummy in
-  let ident =
-    Css.Component.Preserved
-      (Css.Token.synthetic (Css.Token.Ident ("--" ^ name)))
-  in
-  let comma = Css.Component.Preserved (Css.Token.synthetic Css.Token.Comma) in
-  [
-    Css.Component.Func
-      {
-        node = { name = "var"; arguments = [ ident; comma ]; terminated = true };
-        loc;
-      };
-  ]
-
-let channel_to_string : Css.channel -> string = function
-  | Css.Int i -> string_of_int i
-  | Css.Num f -> Pp.float f
-  | Css.Pct p -> Pp.float p ^ "%"
-  | Css.Var _ -> "0"
-
-(* Single source of truth for converting typed values to CSS strings This
-   function converts a typed value to its CSS string representation for use in
-   both @property initial-value and properties layer *)
-let value_to_css_string : type a. a Css.kind -> a -> string =
- fun kind value ->
-  match kind with
-  | Css.Length -> Css.Pp.to_string (Css.pp_length ~always:false) value
-  | Css.Color -> Css.Pp.to_string Css.pp_color value
-  | Css.Angle -> Css.Pp.to_string Css.pp_angle value
-  | Css.Duration -> Css.Pp.to_string Css.pp_duration value
-  | Css.Float -> Pp.float value
-  | Css.Percentage -> ( match value with Pct f -> Pp.float f | _ -> "initial")
-  | Css.Number_percentage -> number_percentage_to_string value
-  | Css.Int -> string_of_int value
-  | Css.Value -> Css.Parser.to_string_custom value
-  | Css.Content -> (
-      match value with
-      | Css.String "" -> "\"\""
-      | Css.String s -> "\"" ^ s ^ "\""
-      | Css.Quoted (s, quote) -> String.make 1 quote ^ s ^ String.make 1 quote
-      | Css.None -> "none"
-      | Css.Normal -> "normal"
-      | Css.Open_quote -> "open-quote"
-      | Css.Close_quote -> "close-quote"
-      | Css.Attr _ | Css.Counter _ | Css.Counters _ | Css.Content_list _
-      | Css.Inherit | Css.Initial | Css.Unset | Css.Revert | Css.Revert_layer
-      | Css.Var _ ->
-          "initial")
-  | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight value
-  | Css.Shadow -> "0 0 #0000"
-  | Css.Border_style -> Css.Pp.to_string Css.pp_border_style value
-  | Css.Outline_style -> Css.Pp.to_string Css.pp_outline_style value
-  | Css.Scroll_snap_strictness ->
-      Css.Pp.to_string Css.pp_scroll_snap_strictness value
-  | Css.Rgb -> (
-      match value with
-      | Css.Channels { r; g; b } ->
-          channel_to_string r ^ " " ^ channel_to_string g ^ " "
-          ^ channel_to_string b
-      | Css.Var _ -> "initial")
-  | Css.Animation -> Css.Pp.to_string Css.pp_animation value
-  | Css.Gradient_direction -> Css.Pp.to_string Css.pp_gradient_direction value
-  | _ -> "initial"
-
-(* Alias for backward compatibility *)
-let initial_to_universal = value_to_css_string
-
 (* Create a variable template *)
 let v : type a r.
     a Css.kind ->
@@ -351,7 +276,7 @@ let property_universal : type a.
       | Gradient_direction, To_bottom ->
           property ~name Universal ~inherits ()
       | _ ->
-          let initial_str = value_to_css_string kind v in
+          let initial_str = Css.string_of_kind_value kind v in
           property ~name Universal ~initial_value:initial_str ~inherits ())
 
 let property_typed : type a.
@@ -376,18 +301,18 @@ let property_typed : type a.
       property ~name Length_percentage ~initial_value:v ~inherits ()
   | Number_percentage, None -> property ~name Universal ~inherits ()
   | Number_percentage, Some v ->
-      let initial_str = number_percentage_to_string v in
+      let initial_str = Css.string_of_number_percentage v in
       property ~name Universal ~initial_value:initial_str ~inherits ()
   | Gradient_stop, None -> property ~name Universal ~inherits ()
   | Gradient_stop, Some (List []) -> property ~name Universal ~inherits ()
   | Gradient_stop, Some v ->
       property ~name Universal
-        ~initial_value:(initial_to_universal kind v)
+        ~initial_value:(Css.string_of_kind_value kind v)
         ~inherits ()
   | _, None -> property ~name Universal ~inherits ()
   | _, Some v ->
       property ~name Universal
-        ~initial_value:(initial_to_universal kind v)
+        ~initial_value:(Css.string_of_kind_value kind v)
         ~inherits ()
 
 let property ~name kind initial ~inherits ~universal =

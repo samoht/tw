@@ -1443,7 +1443,7 @@ module Handler = struct
     (* Base style: outline-style: none *)
     (* In forced-colors mode, reset outline with shorthand + offset *)
     let media_rule =
-      Css.media ~condition:(Css.Media.Forced_colors `Active)
+      Css.media ~condition:(Css.Media.Forced_colors Css.Media.Active)
         [
           Css.rule ~selector:(Css.Selector.class_ "_")
             [

@@ -64,7 +64,10 @@ module Handler = struct
            [ "grid_cols: "; string_of_int n; " is out of range (1-999)" ])
     else
       style
-        [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
+        [
+          Css.grid_template_columns
+            (Repeat (Count n, [ Min_max (Zero, Fr 1.0) ]));
+        ]
 
   let grid_cols_none () =
     let var_name = "grid-template-columns-none" in
@@ -166,7 +169,10 @@ module Handler = struct
         (String.concat ""
            [ "grid_rows: "; string_of_int n; " is out of range (1-999)" ])
     else
-      style [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
+      style
+        [
+          Css.grid_template_rows (Repeat (Count n, [ Min_max (Zero, Fr 1.0) ]));
+        ]
 
   let grid_rows_none () =
     let var_name = "grid-template-rows-none" in

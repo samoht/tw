@@ -2090,15 +2090,15 @@ let variant_order_of_media_cond (cond : Css.Media.t) =
   let open Css.Media in
   match cond with
   | Hover _ -> 20000
-  | Prefers_reduced_motion `No_preference -> 50000
-  | Prefers_reduced_motion `Reduce -> 50100
-  | Prefers_contrast `More -> 50200
-  | Prefers_contrast `Less -> 50300
-  | Orientation `Portrait -> 70000
-  | Orientation `Landscape -> 70100
-  | Prefers_color_scheme `Dark -> 90000
-  | Prefers_color_scheme `Light -> 90000
+  | Prefers_reduced_motion No_preference -> 50000
+  | Prefers_reduced_motion Reduce -> 50100
+  | Prefers_contrast More -> 50200
+  | Prefers_contrast Less -> 50300
+  | Orientation Portrait -> 70000
+  | Orientation Landscape -> 70100
+  | Prefers_color_scheme Dark -> 90000
+  | Prefers_color_scheme Light -> 90000
   | Print -> 91000
-  | Forced_colors `Active -> 92000
-  | Inverted_colors `Inverted -> 93100
+  | Forced_colors Active -> 92000
+  | Inverted_colors Inverted -> 93100
   | _ -> 0

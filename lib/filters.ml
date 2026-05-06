@@ -1218,7 +1218,7 @@ module Handler = struct
         "backdrop-opacity-"
         ^
         if Float.is_integer n then string_of_int (Float.to_int n)
-        else Css.Pp.float_to_string n
+        else Css.Pp.string_of_float n
     | Backdrop_opacity_arbitrary s -> "backdrop-opacity-" ^ s
     | Backdrop_saturate n -> "backdrop-saturate-" ^ string_of_int n
     | Backdrop_saturate_arbitrary s -> "backdrop-saturate-" ^ s
