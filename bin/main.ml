@@ -1,12 +1,9 @@
 module Css = Cascade.Css
 open Cmdliner
 
-(* Parse a space-separated string of classes *)
+(* Parse a whitespace-separated string of classes *)
 let parse_classes ?(warn = true) classes_str =
-  let class_names =
-    String.split_on_char ' ' classes_str
-    |> List.filter (fun s -> String.length s > 0)
-  in
+  let class_names = Tw_tools.Source_scan.split_whitespace classes_str in
   List.filter_map
     (fun cls ->
       match Tw.of_string cls with
@@ -15,38 +12,6 @@ let parse_classes ?(warn = true) classes_str =
           if warn then Fmt.epr "Warning: Unknown class '%s'@." cls;
           None)
     class_names
-
-(* Extract class names from files *)
-let extract_classes_from_file filename =
-  let ic = open_in filename in
-  let classes = ref [] in
-  try
-    while true do
-      let line = input_line ic in
-      (* Simple regex-like pattern matching for class attributes *)
-      (* This is a simplified version - in production you'd use a proper HTML parser *)
-      let rec extract_from_line line =
-        try
-          let class_start = String.index line '"' in
-          let class_end = String.index_from line (class_start + 1) '"' in
-          let class_str =
-            String.sub line (class_start + 1) (class_end - class_start - 1)
-          in
-          if
-            String.length class_str > 0
-            && (String.contains line '=' || String.contains line ':')
-          then classes := class_str :: !classes;
-          extract_from_line
-            (String.sub line (class_end + 1)
-               (String.length line - class_end - 1))
-        with Not_found -> ()
-      in
-      extract_from_line line
-    done;
-    !classes
-  with End_of_file ->
-    close_in ic;
-    !classes
 
 (* Recursively get files in directories *)
 let rec files path patterns =
@@ -181,50 +146,32 @@ let collect_files paths =
       else [])
     paths
 
-let print_stats ~quiet ~known ~unknown =
-  if (not quiet) && unknown <> [] then (
-    let total = List.length known + List.length unknown in
-    let unknown_count = List.length unknown in
-    let unique_unknown = unknown |> List.sort_uniq String.compare in
+let print_stats ~quiet ~candidate_count ~known_count =
+  if (not quiet) && known_count = 0 && candidate_count > 0 then (
     Fmt.epr "@.--- Statistics ---%@.";
-    Fmt.epr "Total classes found: %d@." total;
-    Fmt.epr "Successfully parsed: %d@." (List.length known);
-    Fmt.epr "Unknown classes: %d (%.1f%%)@." unknown_count
-      (float_of_int unknown_count /. float_of_int total *. 100.0);
-    if List.length unique_unknown <= 20 then
-      Fmt.epr "Unknown: %s@." (String.concat ", " unique_unknown)
-    else
-      Fmt.epr "Unknown (first 20): %s...@."
-        (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)))
+    Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
+    Fmt.epr "Successfully parsed: %d@." known_count)
 
-let split_class_names raw_classes =
-  raw_classes
-  |> List.concat_map (fun s ->
-      String.split_on_char ' ' s |> List.filter (fun s -> String.length s > 0))
-  |> List.sort_uniq String.compare
-
-let parse_styles_from_raw raw_classes =
-  List.concat_map
-    (fun classes_str ->
-      String.split_on_char ' ' classes_str
-      |> List.filter (fun s -> String.length s > 0)
-      |> List.filter_map (fun cls ->
-          match Tw.of_string cls with Ok style -> Some style | Error _ -> None))
-    raw_classes
+let parse_known_candidates candidates =
+  List.filter_map
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok style -> Some (cls, style)
+      | Error _ -> None)
+    candidates
 
 let diff_files paths ~(opts : gen_opts) =
   try
     let all_files = collect_files paths in
-    let all_classes_raw =
-      List.concat_map extract_classes_from_file all_files
+    let all_classes =
+      List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
-    let all_classes = split_class_names all_classes_raw in
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true all_classes
     in
-    let tw_styles = parse_styles_from_raw all_classes_raw in
+    let tw_styles = parse_known_candidates all_classes |> List.map snd in
     let stylesheet = Tw.to_css ~base:true ~mode:Variables tw_styles in
     let our_css =
       Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
@@ -242,35 +189,18 @@ let native_files paths flag ~(opts : gen_opts) =
   try
     let all_files = collect_files paths in
     let all_classes =
-      List.concat_map extract_classes_from_file all_files
+      List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
-    let unknown_classes = ref [] in
-    let known_classes = ref [] in
-    let tw_styles =
-      List.concat_map
-        (fun classes_str ->
-          String.split_on_char ' ' classes_str
-          |> List.filter (fun s -> String.length s > 0)
-          |> List.filter_map (fun cls ->
-              match Tw.of_string cls with
-              | Ok style ->
-                  known_classes := cls :: !known_classes;
-                  Some style
-              | Error _ ->
-                  unknown_classes := cls :: !unknown_classes;
-                  if not opts.quiet then
-                    Fmt.epr "Warning: Unknown class '%s'@." cls;
-                  None))
-        all_classes
-    in
+    let known = parse_known_candidates all_classes in
+    let tw_styles = List.map snd known in
     let stylesheet =
       Tw.to_css ~base:include_base ~mode:opts.css_mode tw_styles
     in
     print_string
       (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
-    print_stats ~quiet:opts.quiet ~known:!known_classes
-      ~unknown:!unknown_classes;
+    print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
+      ~known_count:(List.length known);
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
@@ -282,9 +212,8 @@ let process_files paths flag ~(opts : gen_opts) =
       try
         let all_files = collect_files paths in
         let all_classes =
-          List.concat_map extract_classes_from_file all_files
+          List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
           |> List.sort_uniq String.compare
-          |> split_class_names
         in
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify

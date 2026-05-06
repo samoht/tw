@@ -28,6 +28,7 @@ let () =
     (* Return test suites *)
     [
       Test_tw.suite;
+      Test_source_scan.suite;
       Test_svg.suite;
       Test_tables.suite;
       Test_accessibility.suite;

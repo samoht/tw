@@ -25,6 +25,7 @@
   cmdliner
   fmt
   re
+  uutf
   (brr (>= 0.0.6))
   js_of_ocaml
   (alcotest :with-test)

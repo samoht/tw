@@ -74,6 +74,27 @@ let pp utility = Utility.to_class utility
 let to_classes styles = styles |> List.map Utility.to_class |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
 
+let is_whitespace = function
+  | ' ' | '\t' | '\n' | '\r' | '\012' -> true
+  | _ -> false
+
+let split_whitespace s =
+  let len = String.length s in
+  let rec skip_ws i =
+    if i < len && is_whitespace s.[i] then skip_ws (i + 1) else i
+  in
+  let rec find_ws i =
+    if i < len && not (is_whitespace s.[i]) then find_ws (i + 1) else i
+  in
+  let rec loop i acc =
+    let start = skip_ws i in
+    if start >= len then List.rev acc
+    else
+      let stop = find_ws start in
+      loop stop (String.sub s start (stop - start) :: acc)
+  in
+  loop 0 []
+
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
@@ -86,7 +107,7 @@ let of_string class_str =
       | None -> Error (`Msg ("Unknown modifier in: " ^ class_str)))
 
 let str s =
-  let classes = String.split_on_char ' ' s |> List.filter (fun s -> s <> "") in
+  let classes = split_whitespace s in
   List.map
     (fun cls ->
       match of_string cls with Ok t -> t | Error (`Msg msg) -> invalid_arg msg)
