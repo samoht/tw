@@ -82,9 +82,10 @@ let diff_single_class class_str ~(opts : gen_opts) =
     in
     let tw_styles = parse_classes ~warn:false class_str in
     let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~base:true ~mode:Variables styles in
+    let stylesheet = Tw.to_css ~base:true styles in
     let our_css =
-      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
+      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+        ~mode:Variables stylesheet
     in
     let diff =
       Css_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
@@ -127,12 +128,10 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       | [] when class_str <> "" ->
           `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
       | _ ->
-          let stylesheet =
-            Tw.to_css ~base:include_base ~mode:opts.css_mode styles
-          in
+          let stylesheet = Tw.to_css ~base:include_base styles in
           print_string
             (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-               stylesheet);
+               ~mode:opts.css_mode stylesheet);
           `Ok ())
 
 let collect_files paths =
@@ -172,9 +171,10 @@ let diff_files paths ~(opts : gen_opts) =
         ~forms:true all_classes
     in
     let tw_styles = parse_known_candidates all_classes |> List.map snd in
-    let stylesheet = Tw.to_css ~base:true ~mode:Variables tw_styles in
+    let stylesheet = Tw.to_css ~base:true tw_styles in
     let our_css =
-      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
+      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+        ~mode:Variables stylesheet
     in
     let diff =
       Css_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
@@ -194,11 +194,10 @@ let native_files paths flag ~(opts : gen_opts) =
     in
     let known = parse_known_candidates all_classes in
     let tw_styles = List.map snd known in
-    let stylesheet =
-      Tw.to_css ~base:include_base ~mode:opts.css_mode tw_styles
-    in
+    let stylesheet = Tw.to_css ~base:include_base tw_styles in
     print_string
-      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
+      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+         ~mode:opts.css_mode stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count:(List.length known);
     `Ok ()

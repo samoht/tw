@@ -62,9 +62,8 @@ include Scroll
 include Arbitrary
 
 let to_css ?(base = Build.default_config.base) ?forms
-    ?(mode = Build.default_config.mode) ?(layers = Build.default_config.layers)
-    ?(optimize = Build.default_config.optimize) utilities =
-  Build.to_css ~config:{ base; forms; mode; layers; optimize } utilities
+    ?(layers = Build.default_config.layers) utilities =
+  Build.to_css ~config:{ base; forms; layers } utilities
 
 let to_inline_style utilities = Build.to_inline_style utilities
 let preflight = Preflight.stylesheet

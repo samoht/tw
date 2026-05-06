@@ -633,8 +633,8 @@ let run_test_case test () =
     let our_css =
       if utilities = [] then ""
       else
-        Tw.to_css ~base:false ~layers:false ~optimize:true utilities
-        |> Css.to_string ~minify:false ~theme ~theme_defaults
+        Tw.to_css ~base:false ~layers:false utilities
+        |> Css.to_string ~minify:false ~optimize:true ~theme ~theme_defaults
         |> String.trim
     in
     let expected = normalize_css test.expected |> sort_root_declarations in

@@ -5,7 +5,7 @@ open Alcotest
 let var_css_output () =
   (* Create styles that use theme variables *)
   let styles = Tw.[ text_xl; p 4 ] in
-  let css = Tw.to_css ~base:false ~optimize:false styles in
+  let css = Tw.to_css ~base:false styles in
   let css_str = Css.to_string css in
 
   (* Should contain CSS variable references *)
@@ -16,7 +16,7 @@ let var_css_output () =
 let var_fallback_in_css () =
   (* Use a utility that might have a fallback *)
   let styles = [ Tw.text Tw.blue ] in
-  let css = Tw.to_css ~base:false ~optimize:false styles in
+  let css = Tw.to_css ~base:false styles in
   let css_str = Css.to_string css in
 
   (* Should produce valid CSS *)
@@ -25,7 +25,7 @@ let var_fallback_in_css () =
 (* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
-  let css = Tw.to_css ~base:true ~optimize:false styles in
+  let css = Tw.to_css ~base:true styles in
   let theme_layer = Css.layer_block "theme" css in
 
   match theme_layer with

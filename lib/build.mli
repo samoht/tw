@@ -31,30 +31,19 @@ type config = {
       (** Include forms plugin base styles. [None] = auto-detect from utility
           classes; [Some true] = always include; [Some false] = never include.
       *)
-  mode : Css.mode;
-      (** [Variables]: full layered output with CSS custom properties. [Inline]:
-          raw rules, variables resolved to their fallback values. Default:
-          [Variables]. *)
   layers : bool;
       (** Wrap output in [@layer] directives. When [false] the same content is
           emitted without the [@layer theme] / [@layer utilities] wrappers
           ([@layer properties] is always kept). Default: [true]. *)
-  optimize : bool;
-      (** Apply CSS optimizations (merge adjacent rules, deduplicate
-          declarations). Default: [false]. *)
 }
 
 val default_config : config
-(** The default configuration. Base layer enabled, variables mode, no
-    optimization. *)
+(** The default configuration. Base layer enabled. *)
 
 val to_css : ?config:config -> Utility.t list -> Css.t
 (** [to_css ?config utilities] generates a full CSS stylesheet for [utilities].
-    This is the main entry point for the library.
-
-    In [Variables] mode the stylesheet contains all five layers plus trailing
-    [@property] registrations. In [Inline] mode it contains only raw utility
-    rules with variable references resolved to their fallback values. *)
+    This is the main entry point for the library. Rendering concerns such as
+    inlining and optimization are handled by {!Css.to_string}. *)
 
 val to_inline_style : Utility.t list -> string
 (** [to_inline_style utilities] returns a CSS [style] attribute string (e.g.

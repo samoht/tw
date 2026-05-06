@@ -1198,37 +1198,18 @@ let layers ~layers ~include_base ?forms ~selector_props tw_classes statements =
 (* CSS Generation API *)
 (* ======================================================================== *)
 
-type config = {
-  base : bool;
-  forms : bool option;
-  mode : Css.mode;
-  layers : bool;
-  optimize : bool;
-}
+type config = { base : bool; forms : bool option; layers : bool }
 
-let default_config =
-  {
-    base = true;
-    forms = None;
-    mode = Css.Variables;
-    layers = true;
-    optimize = false;
-  }
+let default_config = { base = true; forms = None; layers = true }
 
 let to_css ?(config = default_config) tw_classes =
   let selector_props = List.concat_map Rule.outputs tw_classes in
   let statements = rule_sets_from_selector_props selector_props in
-  let stylesheet =
-    match config.mode with
-    | Css.Variables ->
-        let layer_results =
-          layers ~layers:config.layers ~include_base:config.base
-            ?forms:config.forms ~selector_props tw_classes statements
-        in
-        Css.concat layer_results
-    | Css.Inline -> Css.v statements
+  let layer_results =
+    layers ~layers:config.layers ~include_base:config.base ?forms:config.forms
+      ~selector_props tw_classes statements
   in
-  if config.optimize then Css.optimize stylesheet else stylesheet
+  Css.concat layer_results
 
 let rec collect_declarations acc = function
   | Style.Style { props; rules; _ } ->

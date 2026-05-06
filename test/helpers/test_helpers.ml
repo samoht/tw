@@ -29,7 +29,7 @@ let extract_rule_selectors stmts =
 (** Check if utilities produce different ordering than Tailwind *)
 let check_ordering_fails ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
-  let tw_css = Tw.to_css ~base:true ~optimize:true utilities in
+  let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
   let tw_order = extract_rule_selectors tw_utilities_rules in
 
@@ -151,7 +151,7 @@ let tailwind_order ?(forms = false) classes =
 
 (** Get rule selector ordering from our implementation *)
 let our_order utilities =
-  let tw_css = Tw.to_css ~base:true ~optimize:true utilities in
+  let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
   extract_rule_selectors tw_utilities_rules
 

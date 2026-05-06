@@ -10,7 +10,7 @@ open Tw
 
 (* CSS generation *)
 let generate_tw_css ?(minify = false) ?(optimize = true) styles =
-  let stylesheet = to_css ~base:true ~optimize styles in
+  let stylesheet = to_css ~base:true styles in
   Css.to_string ~minify ~optimize stylesheet
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
@@ -774,7 +774,7 @@ let grid_cols_reordering () =
 (* ===== STABLE ORDERING TESTS ===== *)
 
 let gen_minified_css styles =
-  to_css ~base:true ~optimize:true styles |> Css.to_string ~minify:true
+  to_css ~base:true styles |> Css.to_string ~minify:true ~optimize:true
 
 let assert_stable_ordering ~label styles_a styles_b =
   let a = gen_minified_css styles_a |> Css_tools.Css_compare.strip_header in

@@ -66,15 +66,7 @@ let check_conflict_order () =
 let check_properties_layer () =
   (* Test that shadow utilities generate proper @layer properties with initial
      values *)
-  let config =
-    {
-      Tw.Build.base = false;
-      mode = Css.Variables;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
   let actual_css = Tw.Build.to_css ~config [ Tw.Effects.shadow_sm ] in
 
   (* Verify properties layer exists *)
@@ -92,15 +84,7 @@ let check_properties_layer () =
     (List.mem "--tw-ring-offset-width" vars)
 
 let check_css_variables_with_base () =
-  let config =
-    {
-      Tw.Build.base = true;
-      mode = Css.Variables;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = true; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [] in
   (* Base=true under Variables: all layers including base are present. *)
   check bool "has theme layer" true (has_layer "theme" css);
@@ -112,15 +96,7 @@ let check_css_variables_with_base () =
     (List.mem "*, ::after, ::before, ::backdrop" base_selectors)
 
 let check_css_variables_without_base () =
-  let config =
-    {
-      Tw.Build.base = false;
-      mode = Css.Variables;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ p 4 ] in
   (* Base=false under Variables: theme + components + utilities, but no base. *)
   check bool "has theme layer" true (has_layer "theme" css);
@@ -130,60 +106,22 @@ let check_css_variables_without_base () =
     (has_selector_in_layer ".p-4" "utilities" css)
 
 let check_css_inline_with_base () =
-  let config =
-    {
-      Tw.Build.base = true;
-      mode = Css.Inline;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = true; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ p 4 ] in
-  (* Inline mode never emits layers; base has no effect. *)
-  check bool "no theme layer" false (has_layer "theme" css);
-  check bool "no base layer" false (has_layer "base" css);
-  check bool "no utilities layer" false (has_layer "utilities" css);
-  (* Check that .p-4 rule exists at top level *)
-  let top_level_selectors = selectors_in_layer "utilities" css in
+  let css_str = Css.to_string ~mode:Css.Inline css in
+  check bool "no layer wrappers" false
+    (Astring.String.is_infix ~affix:"@layer" css_str);
   check bool "has padding rule" true
-    (List.length top_level_selectors = 0
-    ||
-    let all_sels =
-      List.filter_map
-        (fun stmt ->
-          match Css.as_rule stmt with
-          | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-          | None -> None)
-        (Css.statements css)
-    in
-    List.mem ".p-4" all_sels)
+    (Astring.String.is_infix ~affix:".p-4" css_str)
 
 let check_css_inline_without_base () =
-  let config =
-    {
-      Tw.Build.base = false;
-      mode = Css.Inline;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ p 4 ] in
-  (* Inline mode never emits layers. *)
-  check bool "no theme layer" false (has_layer "theme" css);
-  check bool "no base layer" false (has_layer "base" css);
-  check bool "no utilities layer" false (has_layer "utilities" css);
-  (* Check that .p-4 rule exists at top level *)
-  let all_sels =
-    List.filter_map
-      (fun stmt ->
-        match Css.as_rule stmt with
-        | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-        | None -> None)
-      (Css.statements css)
-  in
-  check bool "has padding rule" true (List.mem ".p-4" all_sels)
+  let css_str = Css.to_string ~mode:Css.Inline css in
+  check bool "no layer wrappers" false
+    (Astring.String.is_infix ~affix:"@layer" css_str);
+  check bool "has padding rule" true
+    (Astring.String.is_infix ~affix:".p-4" css_str)
 
 let check_inline_style () =
   let style = Tw.Build.to_inline_style [ p 4; m 2; bg blue ] in
@@ -199,9 +137,17 @@ let check_inline_style () =
 (* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
     =
-  Tw.Build.to_css
-    ~config:{ Tw.Build.base; mode; optimize; forms = None; layers = true }
-    styles
+  let sheet =
+    Tw.Build.to_css
+      ~config:{ Tw.Build.base; forms = None; layers = true }
+      styles
+  in
+  let sheet =
+    match mode with
+    | Css.Inline -> Css.inline_vars sheet
+    | Css.Variables -> sheet
+  in
+  if optimize then Css.optimize sheet else sheet
 
 let layers_of (sheet : Css.t) : string list = Css.layers sheet
 
@@ -326,16 +272,10 @@ let test_resolve_dependencies () =
 let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
-  let config =
-    {
-      Tw.Build.base = false;
-      mode = Css.Inline;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
+  let sheet =
+    Tw.Build.to_css ~config [ Tw.Borders.rounded_sm ] |> Css.inline_vars
   in
-  let sheet = Tw.Build.to_css ~config [ Tw.Borders.rounded_sm ] in
   (* Find first rule with declarations using fold *)
   let find_first_decls css =
     Css.fold
@@ -387,27 +327,14 @@ let test_inline_vs_variables_diff () =
      that may still contain var() in declarations. *)
   let sheet_vars =
     Tw.Build.to_css
-      ~config:
-        {
-          Tw.Build.base = false;
-          mode = Css.Variables;
-          optimize = false;
-          forms = None;
-          layers = true;
-        }
+      ~config:{ Tw.Build.base = false; forms = None; layers = true }
       [ Tw.Borders.rounded_sm ]
   in
   let sheet_inline =
     Tw.Build.to_css
-      ~config:
-        {
-          Tw.Build.base = false;
-          mode = Css.Inline;
-          optimize = false;
-          forms = None;
-          layers = true;
-        }
+      ~config:{ Tw.Build.base = false; forms = None; layers = true }
       [ Tw.Borders.rounded_sm ]
+    |> Css.inline_vars
   in
   (* Extract all declarations using fold *)
   let extract_decls css =
@@ -479,15 +406,7 @@ let test_theme_media_refs_md () =
 let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
-  let config =
-    {
-      Tw.Build.base = false;
-      mode = Css.Variables;
-      optimize = false;
-      forms = None;
-      layers = true;
-    }
-  in
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ hover [ p 4 ] ] in
   (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
@@ -507,15 +426,9 @@ let test_rule_sets_md_media () =
      when optimized *)
   let css =
     Tw.Build.to_css
-      ~config:
-        {
-          base = true;
-          mode = Css.Variables;
-          optimize = true;
-          forms = None;
-          layers = true;
-        }
+      ~config:{ base = true; forms = None; layers = true }
       [ md [ p 4 ]; md [ m 2 ] ]
+    |> Css.optimize
   in
   (* Check for exact media condition *)
   check bool "has (min-width: 48rem) media query" true
@@ -774,7 +687,7 @@ let test_media_query_deduplication () =
    *   @media (min-width:768px) { .md\:grid-cols-2 { ... } }
    *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
-  let css = Tw.to_css ~base:false ~optimize:false utilities in
+  let css = Tw.to_css ~base:false utilities in
 
   (* Count top-level media queries in layers *)
   let rec count_toplevel_media condition stmt =

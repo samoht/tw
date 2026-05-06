@@ -4,7 +4,7 @@ open Alcotest
 (* Test that @layer theme includes expected vars in stable order *)
 let theme_layer_stable_order () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
-  let css = Tw.to_css ~base:false ~optimize:false styles in
+  let css = Tw.to_css ~base:false styles in
   let theme_layer = Css.layer_block "theme" css in
   match theme_layer with
   | None -> fail "Expected @layer theme to be present"
@@ -32,7 +32,7 @@ let theme_cross_module_vars () =
         (* spacing *)
       ]
   in
-  let css = Tw.to_css ~base:false ~optimize:false styles in
+  let css = Tw.to_css ~base:false styles in
   let theme_layer = Css.layer_block "theme" css in
   match theme_layer with
   | None -> fail "Expected @layer theme"

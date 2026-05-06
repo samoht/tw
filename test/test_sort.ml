@@ -17,9 +17,17 @@ let index f lst =
 (* Short, reusable helper *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
     =
-  Tw.Build.to_css
-    ~config:{ Tw.Build.base; mode; optimize; forms = None; layers = true }
-    styles
+  let sheet =
+    Tw.Build.to_css
+      ~config:{ Tw.Build.base; forms = None; layers = true }
+      styles
+  in
+  let sheet =
+    match mode with
+    | Css.Inline -> Css.inline_vars sheet
+    | Css.Variables -> sheet
+  in
+  if optimize then Css.optimize sheet else sheet
 
 let extract_var_names_with_prefix (prefix : string) (props : string list) :
     string list =

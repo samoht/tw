@@ -3328,16 +3328,9 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
-val to_css :
-  ?base:bool ->
-  ?forms:bool ->
-  ?mode:Css.mode ->
-  ?layers:bool ->
-  ?optimize:bool ->
-  t list ->
-  Css.t
-(** [to_css ?base ?forms ?mode ?optimize styles] generates a CSS stylesheet for
-    the given styles.
+val to_css : ?base:bool -> ?forms:bool -> ?layers:bool -> t list -> Css.t
+(** [to_css ?base ?forms ?layers styles] generates a CSS stylesheet for the
+    given styles.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 
@@ -3373,20 +3366,15 @@ val to_css :
     md → lg → xl → 2xl) and state modifiers in Tailwind's predetermined priority
     order.
 
-    {b Mode and base behavior}
-    - [mode=Variables] (default): emits layered output. When [base=true], the
-      Base layer (Preflight reset and semantic defaults) is included; when
-      [base=false], the Base layer is omitted but Theme/Components/Utilities
-      layers remain present.
-    - [mode=Inline]: resolves values and emits raw rules without any layers. In
-      this mode, [reset] has no effect on layering.
+    Rendering choices such as variable inlining, minification, and optimization
+    are handled by {!Css.to_string}.
 
     @param base Include base (Preflight) styles (default: [true])
     @param forms
       Include forms plugin base styles. When [true], adds base styles for native
       HTML form elements. When not specified, auto-detects based on utility
       classes (form-input, etc.)
-    @param mode CSS generation mode (default: [Variables])
+    @param layers Wrap generated rules in Tailwind cascade layers.
 
     Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)
 
