@@ -151,12 +151,11 @@ let check_tailwindcss_available () =
               | None -> false
           in
           if not is_v4 then
-            failwith
-              (Fmt.str
-                 "Expected Tailwind CSS v4.x but found: %s\n\
-                  Please install v4:\n\
-                  npm install -D tailwindcss"
-                 version_line);
+            Fmt.failwith
+              "Expected Tailwind CSS v4.x but found: %s\n\
+               Please install v4:\n\
+               npm install -D tailwindcss"
+              version_line;
           Ok ()
         with e -> Error e
       in

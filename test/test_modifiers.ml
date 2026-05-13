@@ -220,7 +220,7 @@ let test_modifier_css_roundtrip () =
       (* Successfully parsed our own generated CSS *)
       ()
   | Error parse_err ->
-      let error_msg = Tw.Css.pp_parse_error parse_err in
+      let error_msg = Cascade.Error.to_string parse_err in
       Alcotest.failf "Failed to parse generated CSS:\n%s" error_msg
 
 (* Test that generated CSS has correct selector escaping *)
@@ -246,7 +246,7 @@ let test_selector_escaping_in_css () =
   | Ok _ -> ()
   | Error e ->
       Alcotest.failf "Selector escaping broken - parse failed:\n%s"
-        (Tw.Css.pp_parse_error e)
+        (Cascade.Error.to_string e)
 
 (* Test combined modifiers with media preferences *)
 let test_combined_media_modifiers () =
@@ -266,7 +266,7 @@ let test_combined_media_modifiers () =
   | Ok _ -> ()
   | Error e ->
       Alcotest.failf "Combined modifiers CSS roundtrip failed:\n%s"
-        (Tw.Css.pp_parse_error e)
+        (Cascade.Error.to_string e)
 
 (* Media query behavior for md [...] *)
 
@@ -472,7 +472,7 @@ let test_nested_modifier_css_generation () =
   | Ok _ -> ()
   | Error e ->
       Alcotest.failf "Nested modifier CSS parse failed:\n%s"
-        (Tw.Css.pp_parse_error e)
+        (Cascade.Error.to_string e)
 
 (* Extend the suite with new tests *)
 let tests =

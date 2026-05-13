@@ -544,12 +544,15 @@ module Handler = struct
           | Var v ->
               let vn = Parse.extract_var_name v in
               let raw_fb =
-                Printf.sprintf "oklab(from var(--%s) l a b / %s%%)" vn
+                Format.asprintf "oklab(from var(--%s) l a b / %s%%)" vn
                   (pp_float percent)
               in
               let enhanced_ref =
                 Var.bracket
-                  ~fallback:(Css.syntax_fallback raw_fb)
+                  ~fallback:
+                    (Css.Syntax_fallback
+                       (Cascade.Cursor.remaining
+                          (Cascade.Cursor.of_string raw_fb)))
                   "tw-shadow-color"
               in
               let enhanced_shadow =
@@ -938,7 +941,12 @@ module Handler = struct
     match extract_var_fallback v with
     | Stdlib.Option.Some fb ->
         let short_fb = shorten_hex_with_hash fb in
-        Css.Var (Var.bracket ~fallback:(Css.syntax_fallback short_fb) name)
+        Css.Var
+          (Var.bracket
+             ~fallback:
+               (Css.Syntax_fallback
+                  (Cascade.Cursor.remaining (Cascade.Cursor.of_string short_fb)))
+             name)
     | Stdlib.Option.None -> Css.Var (Var.bracket name)
 
   (* Reconstruct a shortened var expression string like "var(--name, #08c)" *)
@@ -947,8 +955,8 @@ module Handler = struct
     match extract_var_fallback v with
     | Stdlib.Option.Some fb ->
         let short_fb = shorten_hex_with_hash fb in
-        Printf.sprintf "var(--%s, %s)" name short_fb
-    | Stdlib.Option.None -> Printf.sprintf "var(--%s)" name
+        Format.asprintf "var(--%s, %s)" name short_fb
+    | Stdlib.Option.None -> Format.asprintf "var(--%s)" name
 
   (* Parse multi-value shadow (comma-separated) *)
   let parse_multi_shadow (s : string) =
@@ -1089,11 +1097,14 @@ module Handler = struct
                     | Var v ->
                         let var_with_fb = reconstruct_short_var v in
                         let raw_fb =
-                          Printf.sprintf "oklab(from %s l a b / %s%%)"
+                          Format.asprintf "oklab(from %s l a b / %s%%)"
                             var_with_fb (pp_float percent)
                         in
                         Var.bracket
-                          ~fallback:(Css.syntax_fallback raw_fb)
+                          ~fallback:
+                            (Css.Syntax_fallback
+                               (Cascade.Cursor.remaining
+                                  (Cascade.Cursor.of_string raw_fb)))
                           "tw-inset-shadow-color"
                     | Css_color c ->
                         let hex_c =
@@ -1468,7 +1479,7 @@ module Handler = struct
 
   let ring_inset =
     let decl, _var_ref =
-      Var.binding ring_inset_var (Css.custom_value_ident "inset")
+      Var.binding ring_inset_var (Css.Variables.custom_value_ident "inset")
     in
     style [ decl ]
 

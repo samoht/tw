@@ -56,14 +56,10 @@ let gamma_correct c =
   in
   int_of_float ((c' *. 255.0) +. 0.5)
 
-let rgb_to_oklch rgb =
-  (* Convert to linear RGB *)
-  let r_lin = linearize_channel rgb.r in
-  let g_lin = linearize_channel rgb.g in
-  let b_lin = linearize_channel rgb.b in
+let cbrt_signed x =
+  if x < 0.0 then -.(-.x ** (1.0 /. 3.0)) else x ** (1.0 /. 3.0)
 
-  (* Convert to OKLab using the standard matrix *)
-  (* M1: linear RGB to LMS *)
+let linear_rgb_to_oklab r_lin g_lin b_lin =
   let l =
     (0.4122214708 *. r_lin) +. (0.5363325363 *. g_lin) +. (0.0514459929 *. b_lin)
   in
@@ -73,15 +69,9 @@ let rgb_to_oklch rgb =
   let s =
     (0.0883024619 *. r_lin) +. (0.2817188376 *. g_lin) +. (0.6299787005 *. b_lin)
   in
-
-  (* Apply cube root for perceptual uniformity *)
-  let cbrt x = if x < 0.0 then -.(-.x ** (1.0 /. 3.0)) else x ** (1.0 /. 3.0) in
-
-  let l' = cbrt l in
-  let m' = cbrt m in
-  let s' = cbrt s in
-
-  (* M2: LMS' to Lab coordinates *)
+  let l' = cbrt_signed l in
+  let m' = cbrt_signed m in
+  let s' = cbrt_signed s in
   let ok_l =
     (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
   in
@@ -91,6 +81,13 @@ let rgb_to_oklch rgb =
   let ok_b =
     (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
   in
+  (ok_l, ok_a, ok_b)
+
+let rgb_to_oklch rgb =
+  let r_lin = linearize_channel rgb.r in
+  let g_lin = linearize_channel rgb.g in
+  let b_lin = linearize_channel rgb.b in
+  let ok_l, ok_a, ok_b = linear_rgb_to_oklab r_lin g_lin b_lin in
 
   (* Convert to LCH *)
   let lightness = ok_l *. 100.0 in
@@ -106,28 +103,7 @@ let rgb_to_oklab rgb =
   let r_lin = linearize_channel rgb.r in
   let g_lin = linearize_channel rgb.g in
   let b_lin = linearize_channel rgb.b in
-  let l =
-    (0.4122214708 *. r_lin) +. (0.5363325363 *. g_lin) +. (0.0514459929 *. b_lin)
-  in
-  let m =
-    (0.2119034982 *. r_lin) +. (0.6806995451 *. g_lin) +. (0.1073969566 *. b_lin)
-  in
-  let s =
-    (0.0883024619 *. r_lin) +. (0.2817188376 *. g_lin) +. (0.6299787005 *. b_lin)
-  in
-  let cbrt x = if x < 0.0 then -.(-.x ** (1.0 /. 3.0)) else x ** (1.0 /. 3.0) in
-  let l' = cbrt l in
-  let m' = cbrt m in
-  let s' = cbrt s in
-  let ok_l =
-    (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
-  in
-  let ok_a =
-    (1.9779984951 *. l') -. (2.4285922050 *. m') +. (0.4505937099 *. s')
-  in
-  let ok_b =
-    (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
-  in
+  let ok_l, ok_a, ok_b = linear_rgb_to_oklab r_lin g_lin b_lin in
   (ok_l *. 100.0, ok_a, ok_b)
 
 (* Convert OKLab to linear sRGB via XYZ intermediate, matching the CSS Color
@@ -1054,8 +1030,7 @@ let to_css color shade =
       let oklch = to_oklch color shade in
       Css.oklch oklch.l oklch.c oklch.h
 
-(* Get the name of a color as a string *)
-let to_name = function
+let named_color_name = function
   | Black -> "black"
   | White -> "white"
   | Gray -> "gray"
@@ -1080,108 +1055,100 @@ let to_name = function
   | Fuchsia -> "fuchsia"
   | Pink -> "pink"
   | Rose -> "rose"
-  | Hex h ->
-      let h_stripped =
-        if String.starts_with ~prefix:"#" h then
-          String.sub h 1 (String.length h - 1)
-        else h
-      in
-      let pp_hex ctx h =
-        Css.Pp.string ctx "[";
-        Css.Pp.string ctx h;
-        Css.Pp.string ctx "]"
-      in
-      Css.Pp.to_string ~minify:false pp_hex h_stripped
-  | Rgb { red; green; blue } ->
-      let pp_rgb ctx (r, g, b) =
-        Css.Pp.string ctx "[rgb(";
-        Css.Pp.int ctx r;
-        Css.Pp.string ctx ",";
-        Css.Pp.int ctx g;
-        Css.Pp.string ctx ",";
-        Css.Pp.int ctx b;
-        Css.Pp.string ctx ")]"
-      in
-      Css.Pp.to_string ~minify:false pp_rgb (red, green, blue)
-  | Oklch oklch ->
-      let pp_oklch ctx oklch =
-        Css.Pp.string ctx "[oklch(";
-        Css.Pp.float ctx oklch.l;
-        Css.Pp.string ctx "%,";
-        Css.Pp.float ctx oklch.c;
-        Css.Pp.string ctx ",";
-        Css.Pp.float ctx oklch.h;
-        Css.Pp.string ctx ")]"
-      in
-      Css.Pp.to_string ~minify:false pp_oklch oklch
-  | Css c ->
-      (* Serialize CSS color to bracket string for class names *)
-      let s = Css.Pp.to_string ~minify:true Css.pp_color c in
-      let s = String.map (fun c -> if c = ' ' then '_' else c) s in
-      "[" ^ s ^ "]"
-  | Theme_named name -> name
+  | _ -> ""
+
+let is_named_color color = named_color_name color <> ""
+
+(* Get the name of a color as a string *)
+let to_name color =
+  if is_named_color color then named_color_name color
+  else
+    match color with
+    | Hex h ->
+        let h_stripped =
+          if String.starts_with ~prefix:"#" h then
+            String.sub h 1 (String.length h - 1)
+          else h
+        in
+        let pp_hex ctx h =
+          Css.Pp.string ctx "[";
+          Css.Pp.string ctx h;
+          Css.Pp.string ctx "]"
+        in
+        Css.Pp.to_string ~minify:false pp_hex h_stripped
+    | Rgb { red; green; blue } ->
+        let pp_rgb ctx (r, g, b) =
+          Css.Pp.string ctx "[rgb(";
+          Css.Pp.int ctx r;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx g;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx b;
+          Css.Pp.string ctx ")]"
+        in
+        Css.Pp.to_string ~minify:false pp_rgb (red, green, blue)
+    | Oklch oklch ->
+        let pp_oklch ctx oklch =
+          Css.Pp.string ctx "[oklch(";
+          Css.Pp.float ctx oklch.l;
+          Css.Pp.string ctx "%,";
+          Css.Pp.float ctx oklch.c;
+          Css.Pp.string ctx ",";
+          Css.Pp.float ctx oklch.h;
+          Css.Pp.string ctx ")]"
+        in
+        Css.Pp.to_string ~minify:false pp_oklch oklch
+    | Css c ->
+        (* Serialize CSS color to bracket string for class names *)
+        let s = Css.Pp.to_string ~minify:true Css.pp_color c in
+        let s = String.map (fun c -> if c = ' ' then '_' else c) s in
+        "[" ^ s ^ "]"
+    | Theme_named name -> name
+    | _ -> ""
 
 (* Pretty printer for colors *)
-let pp = function
-  | Black -> "black"
-  | White -> "white"
-  | Gray -> "gray"
-  | Slate -> "slate"
-  | Zinc -> "zinc"
-  | Neutral -> "neutral"
-  | Stone -> "stone"
-  | Red -> "red"
-  | Orange -> "orange"
-  | Amber -> "amber"
-  | Yellow -> "yellow"
-  | Lime -> "lime"
-  | Green -> "green"
-  | Emerald -> "emerald"
-  | Teal -> "teal"
-  | Cyan -> "cyan"
-  | Sky -> "sky"
-  | Blue -> "blue"
-  | Indigo -> "indigo"
-  | Violet -> "violet"
-  | Purple -> "purple"
-  | Fuchsia -> "fuchsia"
-  | Pink -> "pink"
-  | Rose -> "rose"
-  | Hex s ->
-      (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
-      let hex_value = if String.starts_with ~prefix:"#" s then s else "#" ^ s in
-      let pp_hex_val ctx v =
-        Css.Pp.string ctx "[";
-        Css.Pp.string ctx v;
-        Css.Pp.string ctx "]"
-      in
-      Css.Pp.to_string ~minify:false pp_hex_val hex_value
-  | Rgb { red; green; blue } ->
-      let pp_rgb_val ctx (r, g, b) =
-        Css.Pp.string ctx "Rgb(";
-        Css.Pp.int ctx r;
-        Css.Pp.string ctx ",";
-        Css.Pp.int ctx g;
-        Css.Pp.string ctx ",";
-        Css.Pp.int ctx b;
-        Css.Pp.string ctx ")"
-      in
-      Css.Pp.to_string ~minify:false pp_rgb_val (red, green, blue)
-  | Oklch { l; c; h } ->
-      let pp_oklch_val ctx (l, c, h) =
-        Css.Pp.string ctx "Oklch(";
-        Css.Pp.float ctx l;
-        Css.Pp.string ctx ",";
-        Css.Pp.float ctx c;
-        Css.Pp.string ctx ",";
-        Css.Pp.float ctx h;
-        Css.Pp.string ctx ")"
-      in
-      Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
-  | Css c ->
-      let s = Css.Pp.to_string ~minify:true Css.pp_color c in
-      "Css(" ^ s ^ ")"
-  | Theme_named name -> name
+let pp color =
+  if is_named_color color then named_color_name color
+  else
+    match color with
+    | Hex s ->
+        (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
+        let hex_value =
+          if String.starts_with ~prefix:"#" s then s else "#" ^ s
+        in
+        let pp_hex_val ctx v =
+          Css.Pp.string ctx "[";
+          Css.Pp.string ctx v;
+          Css.Pp.string ctx "]"
+        in
+        Css.Pp.to_string ~minify:false pp_hex_val hex_value
+    | Rgb { red; green; blue } ->
+        let pp_rgb_val ctx (r, g, b) =
+          Css.Pp.string ctx "Rgb(";
+          Css.Pp.int ctx r;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx g;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx b;
+          Css.Pp.string ctx ")"
+        in
+        Css.Pp.to_string ~minify:false pp_rgb_val (red, green, blue)
+    | Oklch { l; c; h } ->
+        let pp_oklch_val ctx (l, c, h) =
+          Css.Pp.string ctx "Oklch(";
+          Css.Pp.float ctx l;
+          Css.Pp.string ctx ",";
+          Css.Pp.float ctx c;
+          Css.Pp.string ctx ",";
+          Css.Pp.float ctx h;
+          Css.Pp.string ctx ")"
+        in
+        Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
+    | Css c ->
+        let s = Css.Pp.to_string ~minify:true Css.pp_color c in
+        "Css(" ^ s ^ ")"
+    | Theme_named name -> name
+    | _ -> ""
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
@@ -2073,7 +2040,7 @@ module Handler = struct
           ^ to_hex_byte (channel_to_int b)
         in
         Some (Css.hex ("#" ^ shorten_hex_str hex))
-    | Rgba { rgb = Channels { r; g; b }; a } -> (
+    | Rgba { rgb = Channels { r; g; b }; a; _ } -> (
         let r = channel_to_int r
         and g = channel_to_int g
         and b = channel_to_int b in

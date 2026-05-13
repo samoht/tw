@@ -9,14 +9,15 @@ let test_clip_polygon () =
   let css = to_css [ tri ] |> Css.pp ~minify:false in
   check bool "has clip-path property" true
     (Astring.String.is_infix ~affix:"clip-path:" css);
-  (* Note: 0% is output as 0 in CSS, so check for that pattern *)
+  (* Polygon points preserve percentage units and the API keeps compact
+     commas. *)
   check bool "has polygon value" true
-    (Astring.String.is_infix ~affix:"polygon(50% 0, 0 100%, 100% 100%)" css)
+    (Astring.String.is_infix ~affix:"polygon(50% 0%,0% 100%,100% 100%)" css)
 
 (* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand) *)
 let test_clip_inset_shorthand () =
   let check_roundtrip input =
-    let r = Css.Cursor.of_string input in
+    let r = Cascade.Cursor.of_string input in
     match Css.Declaration.read_declaration r with
     | None -> Alcotest.fail "Failed to parse declaration"
     | Some decl ->
@@ -26,7 +27,7 @@ let test_clip_inset_shorthand () =
         check string (Fmt.str "parse %s" input) input output
   in
   let check_parse input expected =
-    let r = Css.Cursor.of_string input in
+    let r = Cascade.Cursor.of_string input in
     match Css.Declaration.read_declaration r with
     | None -> Alcotest.fail "Failed to parse declaration"
     | Some decl ->

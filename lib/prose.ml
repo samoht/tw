@@ -147,10 +147,10 @@ let video = Css.Selector.element "video"
 
 (* Pseudo-element helpers that apply pseudo AFTER the where clause *)
 let with_before selector =
-  Css.Selector.compound [ selector; Css.Selector.Before Css.Selector.Double ]
+  Css.Selector.compound [ selector; Css.Selector.Before Css.Selector.Single ]
 
 let with_after selector =
-  Css.Selector.compound [ selector; Css.Selector.After Css.Selector.Double ]
+  Css.Selector.compound [ selector; Css.Selector.After Css.Selector.Single ]
 
 let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 

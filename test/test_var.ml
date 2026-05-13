@@ -31,8 +31,8 @@ let var_in_theme_layer () =
   match theme_layer with
   | None -> fail "Expected @layer theme"
   | Some statements ->
-      let rules = Css.rules_from_statements statements in
-      let custom_props = Css.custom_props_from_rules rules in
+      let rules = Css.rules_of_statements statements in
+      let custom_props = Css.custom_props_of_rules rules in
       check (list string) "theme custom properties"
         [
           "--color-red-500";

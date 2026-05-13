@@ -382,7 +382,10 @@ module Handler = struct
               in
               let enhanced_ref =
                 Var.bracket
-                  ~fallback:(Css.syntax_fallback raw_fb)
+                  ~fallback:
+                    (Css.Syntax_fallback
+                       (Cascade.Cursor.remaining
+                          (Cascade.Cursor.of_string raw_fb)))
                   "tw-text-shadow-color"
               in
               let enhanced_shadow =

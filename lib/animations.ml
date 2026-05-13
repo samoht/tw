@@ -265,8 +265,7 @@ module Handler = struct
       | Some kf -> opt_some [ kf ]
       | Option.None -> opt_none
     in
-    style ~rules
-      [ Css.animation (Css.read_animation (Css.Cursor.of_string reordered)) ]
+    style ~rules [ Css.Declaration.of_string ("animation: " ^ reordered) ]
 
   let animate_named name =
     let var_name = "animate-" ^ name in

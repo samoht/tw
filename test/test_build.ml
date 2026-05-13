@@ -149,8 +149,6 @@ let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
   in
   if optimize then Css.optimize sheet else sheet
 
-let layers_of (sheet : Css.t) : string list = Css.layers sheet
-
 (* layer_block is now available in Css module *)
 
 let supports_block (stmts : Css.statement list) : Css.statement list option =
@@ -198,9 +196,11 @@ let or_fail msg = function Some x -> x | None -> fail msg
 let check_layer_declaration_and_ordering () =
   (* Use a utility that triggers properties + @property rules *)
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
-  let layer_names = layers_of sheet in
   let expected = [ "properties"; "theme"; "components"; "utilities" ] in
-  check bool "layer decl order prefix" true (is_prefix expected layer_names);
+  let layer_names =
+    Css.statements sheet |> List.find_map Css.layer_statement_name_list
+  in
+  check (option (list string)) "layer decl order" (Some expected) layer_names;
   check bool "has properties layer block" true
     (Css.layer_block "properties" sheet <> None)
 
@@ -372,8 +372,8 @@ let test_theme_layer_media_refs () =
   in
   let all_vars =
     Css.layer_block "theme" theme_layer
-    |> Option.map Css.rules_from_statements
-    |> Option.map Css.custom_props_from_rules
+    |> Option.map Css.rules_of_statements
+    |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
   in
   (* Check for exact variable name matches *)
@@ -394,8 +394,8 @@ let test_theme_media_refs_md () =
   in
   let all_vars =
     Css.layer_block "theme" theme_layer
-    |> Option.map Css.rules_from_statements
-    |> Option.map Css.custom_props_from_rules
+    |> Option.map Css.rules_of_statements
+    |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
   in
   check bool "includes --text-xl var (md)" true

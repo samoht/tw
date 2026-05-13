@@ -14,7 +14,6 @@ module Css = Cascade.Css
 (* Shared colors and focus ring helpers *)
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
-let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
 let ring_offset_shadow () =
   let open Css in
@@ -41,7 +40,7 @@ let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in
   let d_ring_inset, _ =
     Var.binding Effects.ring_inset_var
-      (Css.custom_value_var_empty_fallback "tw-empty")
+      (Css.Variables.custom_value_var_empty_fallback "tw-empty")
   in
   let d_offset_width, _ =
     Var.binding Effects.ring_offset_width_var offset_width

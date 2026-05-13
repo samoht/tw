@@ -26,23 +26,48 @@ let extract_rule_selectors stmts =
       | None -> None)
     stmts
 
+let canonical_selector selector =
+  Css.Selector.map
+    (function
+      | Css.Selector.Before _ -> Css.Selector.Before Css.Selector.Single
+      | Css.Selector.After _ -> Css.Selector.After Css.Selector.Single
+      | Css.Selector.First_letter _ ->
+          Css.Selector.First_letter Css.Selector.Single
+      | Css.Selector.First_line _ -> Css.Selector.First_line Css.Selector.Single
+      | selector -> selector)
+    selector
+
+let selector_order_key selector =
+  selector |> canonical_selector |> Css.Selector.to_string ~minify:true
+
+(** Extract canonical selector keys from rules for ordering comparisons. *)
+let extract_rule_selector_order_keys stmts =
+  List.filter_map
+    (fun stmt ->
+      match Css.as_rule stmt with
+      | Some (selector, _, _) -> Some (selector_order_key selector)
+      | None -> None)
+    stmts
+
 (** Check if utilities produce different ordering than Tailwind *)
 let check_ordering_fails ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
   let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
-  let tw_order = extract_rule_selectors tw_utilities_rules in
+  let tw_order = extract_rule_selector_order_keys tw_utilities_rules in
 
   let tailwind_css_str =
     Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
   in
   let tailwind_css =
     match Css.of_string tailwind_css_str with
-    | Ok css -> css
+    | Ok { stylesheet; _ } -> stylesheet
     | Error _ -> failwith "Failed to parse Tailwind CSS"
   in
   let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
-  let tailwind_order = extract_rule_selectors tailwind_utilities_rules in
+  let tailwind_order =
+    extract_rule_selector_order_keys tailwind_utilities_rules
+  in
 
   tw_order <> tailwind_order
 
@@ -141,19 +166,19 @@ let tailwind_order ?(forms = false) classes =
   in
   let tailwind_css =
     match Css.of_string tailwind_css_str with
-    | Ok css -> css
+    | Ok { stylesheet; _ } -> stylesheet
     | Error err ->
-        let formatted_error = Css.pp_parse_error err in
+        let formatted_error = Cascade.Error.to_string err in
         Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
   in
   let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
-  extract_rule_selectors tailwind_utilities_rules
+  extract_rule_selector_order_keys tailwind_utilities_rules
 
 (** Get rule selector ordering from our implementation *)
 let our_order utilities =
   let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
-  extract_rule_selectors tw_utilities_rules
+  extract_rule_selector_order_keys tw_utilities_rules
 
 (** Compare ordering between our implementation and Tailwind *)
 let check_ordering_matches ?(forms = false) ~test_name utilities =

@@ -56,7 +56,7 @@ let parse_utility_order base_utility =
     modifier prefixes (e.g., "hover:"), and maps to Utility.order. Falls back to
     a default low priority when no class is found. *)
 let conflict_order selector =
-  let sel = Css.Selector.read (Css.Cursor.of_string selector) in
+  let sel = Css.Selector.read (Cascade.Cursor.of_string selector) in
   match Css.Selector.first_class sel with
   | Some class_name -> class_name |> extract_base_utility |> parse_utility_order
   | None -> (9999, 0)
@@ -199,7 +199,7 @@ let rec filter_theme_from_statements statements =
                   | None -> (
                       match Css.as_container stmt with
                       | Some (name, condition, content) ->
-                          Css.container ?name ~condition
+                          Css.container ?name ?condition
                             (filter_theme_from_statements content)
                       | None -> stmt)))))
     statements
@@ -390,7 +390,7 @@ let rule_sets_from_selector_props all_rules =
   if Sort.debug_compare_enabled () then
     List.iter
       (fun (r : Sort.indexed_rule) ->
-        Printf.eprintf "SORTED: vo=%d base=%s type=%s nested=%d\n"
+        Format.eprintf "SORTED: vo=%d base=%s type=%s nested=%d@."
           r.variant_order
           (match r.base_class with Some s -> s | None -> "<none>")
           (match r.rule_type with
@@ -1047,10 +1047,11 @@ let has_forms_utilities tw_classes =
 (* Detect if before/after pseudo-elements are used - triggers content var
    property rule *)
 let has_pseudo_elements tw_classes =
-  let rec has_pseudo = function
+  let has_pseudo = function
     | Style.Pseudo_before | Style.Pseudo_after -> true
     | _ -> false
-  and check_utility = function
+  in
+  let rec check_utility = function
     | Utility.Base _ -> false
     | Utility.Modified (modifier, u) -> has_pseudo modifier || check_utility u
     | Utility.Group us -> List.exists check_utility us

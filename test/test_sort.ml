@@ -49,8 +49,8 @@ let extract_var_names_with_prefix (prefix : string) (props : string list) :
 
 let extract_theme_color_vars sheet =
   Css.layer_block "theme" sheet
-  |> Option.map Css.rules_from_statements
-  |> Option.map Css.custom_props_from_rules
+  |> Option.map Css.rules_of_statements
+  |> Option.map Css.custom_props_of_rules
   |> Option.map (extract_var_names_with_prefix "--color-")
   |> Option.value ~default:[]
 
@@ -65,7 +65,7 @@ let extract_bg_color_name sel_str =
 let extract_utility_selectors sheet =
   Css.layer_block "utilities" sheet
   |> Option.map (fun stmts ->
-      Css.rules_from_statements stmts
+      Css.rules_of_statements stmts
       |> List.filter_map (fun (sel, _) ->
           extract_bg_color_name (Css.Selector.to_string sel)))
   |> Option.value ~default:[]

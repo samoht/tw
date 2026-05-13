@@ -220,66 +220,41 @@ let default_font_family_var =
 let default_mono_font_family_var =
   Var.theme Css.Font_family "default-mono-font-family" ~order:(9, 1)
 
+let default_sans_stack : Css.font_family =
+  List
+    [
+      Ui_sans_serif;
+      System_ui;
+      Sans_serif;
+      Apple_color_emoji;
+      Segoe_ui_emoji;
+      Segoe_ui_symbol;
+      Noto_color_emoji;
+    ]
+
+let default_mono_stack : Css.font_family =
+  List
+    [
+      Ui_monospace;
+      SFMono_regular;
+      Menlo;
+      Monaco;
+      Consolas;
+      Liberation_mono;
+      Courier_new;
+      Monospace;
+    ]
+
 (* Base font family variables for theme layer *)
 let default_font_declarations =
-  let sans_decl, _ =
-    Var.binding font_sans_var
-      (List
-         [
-           Ui_sans_serif;
-           System_ui;
-           Sans_serif;
-           Apple_color_emoji;
-           Segoe_ui_emoji;
-           Segoe_ui_symbol;
-           Noto_color_emoji;
-         ])
-  in
-  let mono_decl, _ =
-    Var.binding font_mono_var
-      (List
-         [
-           Ui_monospace;
-           SFMono_regular;
-           Menlo;
-           Monaco;
-           Consolas;
-           Liberation_mono;
-           Courier_new;
-           Monospace;
-         ])
-  in
+  let sans_decl, _ = Var.binding font_sans_var default_sans_stack in
+  let mono_decl, _ = Var.binding font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_declarations =
-  let sans_decl, sans_ref =
-    Var.binding font_sans_var
-      (List
-         [
-           Ui_sans_serif;
-           System_ui;
-           Sans_serif;
-           Apple_color_emoji;
-           Segoe_ui_emoji;
-           Segoe_ui_symbol;
-           Noto_color_emoji;
-         ])
-  in
-  let mono_decl, mono_ref =
-    Var.binding font_mono_var
-      (List
-         [
-           Ui_monospace;
-           SFMono_regular;
-           Menlo;
-           Monaco;
-           Consolas;
-           Liberation_mono;
-           Courier_new;
-           Monospace;
-         ])
-  in
+  let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
+  let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
   let default_font_decl, _ =
     Var.binding default_font_family_var (Css.Var sans_ref)
   in
@@ -1037,56 +1012,6 @@ module Typography_early = struct
      earlier in the module so of_class can validate arbitrary bracket values up
      front. *)
 
-  (** Try to simplify clamp(min, val, max) when all values are static and same
-      unit. Returns [Some simplified_value] or [None]. *)
-  let simplify_clamp args_str =
-    (* Split on commas outside parens *)
-    let parts =
-      let len = String.length args_str in
-      let buf = Buffer.create 16 in
-      let parts = ref [] in
-      let depth = ref 0 in
-      for i = 0 to len - 1 do
-        match args_str.[i] with
-        | '(' ->
-            incr depth;
-            Buffer.add_char buf '('
-        | ')' ->
-            decr depth;
-            Buffer.add_char buf ')'
-        | ',' when !depth = 0 ->
-            parts := String.trim (Buffer.contents buf) :: !parts;
-            Buffer.clear buf
-        | c -> Buffer.add_char buf c
-      done;
-      parts := String.trim (Buffer.contents buf) :: !parts;
-      List.rev !parts
-    in
-    match parts with
-    | [ min_s; val_s; max_s ] -> (
-        match
-          ( try_parse_length_value min_s,
-            try_parse_length_value val_s,
-            try_parse_length_value max_s )
-        with
-        | ( Stdlib.Option.Some (Css.Rem min_v),
-            Stdlib.Option.Some (Css.Rem val_v),
-            Stdlib.Option.Some (Css.Rem max_v) ) ->
-            let clamped = Float.max min_v (Float.min val_v max_v) in
-            Stdlib.Option.Some (Css.Rem clamped : Css.length)
-        | ( Stdlib.Option.Some (Css.Px min_v),
-            Stdlib.Option.Some (Css.Px val_v),
-            Stdlib.Option.Some (Css.Px max_v) ) ->
-            let clamped = Float.max min_v (Float.min val_v max_v) in
-            Stdlib.Option.Some (Css.Px clamped : Css.length)
-        | ( Stdlib.Option.Some (Css.Em min_v),
-            Stdlib.Option.Some (Css.Em val_v),
-            Stdlib.Option.Some (Css.Em max_v) ) ->
-            let clamped = Float.max min_v (Float.min val_v max_v) in
-            Stdlib.Option.Some (Css.Em clamped : Css.length)
-        | _ -> Stdlib.Option.None)
-    | _ -> Stdlib.Option.None
-
   (* is_valid_bracket_font_size is defined earlier (before of_class). *)
 
   (** Parse bracket content as font-size declarations (without line-height).
@@ -1114,9 +1039,7 @@ module Typography_early = struct
                   && inner.[String.length inner - 1] = ')'
                 then
                   let args = String.sub inner 6 (String.length inner - 7) in
-                  match simplify_clamp args with
-                  | Stdlib.Option.Some simplified -> [ font_size simplified ]
-                  | Stdlib.Option.None -> [ font_size (Css.Clamp args) ]
+                  [ font_size (Css.Clamp args) ]
                 else if Parse.is_var inner then
                   let bare = Parse.extract_var_name inner in
                   [ font_size (Css.Var (Var.bracket bare)) ]
@@ -2286,9 +2209,9 @@ module Typography_late = struct
     style ~property_rules
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
-  let uppercase = style [ text_transform Uppercase ]
-  let lowercase = style [ text_transform Lowercase ]
-  let capitalize = style [ text_transform Capitalize ]
+  let uppercase = style [ text_transform (Case Uppercase) ]
+  let lowercase = style [ text_transform (Case Lowercase) ]
+  let capitalize = style [ text_transform (Case Capitalize) ]
   let normal_case = style [ text_transform None ]
 
   let parse_length_exn v =
@@ -2391,26 +2314,28 @@ module Typography_late = struct
           | _ -> None)
       | None -> None
 
+  let text_indent_length length =
+    text_indent (Indent { length; hanging = false; each_line = false })
+
   let indent n =
     let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
-    style
-      [
-        spacing_decl;
-        text_indent (Calc Calc.(length (Css.Var spacing_ref) * float n));
-      ]
+    let base : Css.length_percentage = Length (Css.Var spacing_ref) in
+    let calc : Css.length_percentage Css.calc = Expr (Val base, Mul, Num n) in
+    let length : Css.length_percentage = Calc calc in
+    style [ spacing_decl; text_indent_length length ]
 
   let indent_arbitrary s =
     match parse_length_value s with
-    | Some len -> style [ text_indent len ]
-    | None -> style [ text_indent (Px 0.) ]
+    | Some len -> style [ text_indent_length (Length len) ]
+    | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let indent_neg_arbitrary s =
     match parse_length_value s with
-    | Some (Px n) -> style [ text_indent (Px (-.n)) ]
-    | Some (Rem n) -> style [ text_indent (Rem (-.n)) ]
-    | Some (Em n) -> style [ text_indent (Em (-.n)) ]
-    | Some (Pct n) -> style [ text_indent (Pct (-.n)) ]
-    | _ -> style [ text_indent (Px 0.) ]
+    | Some (Px n) -> style [ text_indent_length (Length (Px (-.n))) ]
+    | Some (Rem n) -> style [ text_indent_length (Length (Rem (-.n))) ]
+    | Some (Em n) -> style [ text_indent_length (Length (Em (-.n))) ]
+    | Some (Pct n) -> style [ text_indent_length (Length (Pct (-.n))) ]
+    | _ -> style [ text_indent_length (Length (Px 0.)) ]
 
   let line_clamp n =
     style

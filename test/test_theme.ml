@@ -38,8 +38,8 @@ let theme_cross_module_vars () =
   | None -> fail "Expected @layer theme"
   | Some statements ->
       (* Theme layer contains custom property declarations *)
-      let rules = Css.rules_from_statements statements in
-      let custom_props = Css.custom_props_from_rules rules in
+      let rules = Css.rules_of_statements statements in
+      let custom_props = Css.custom_props_of_rules rules in
 
       (* Verify expected theme variables are declared *)
       check (list string) "theme custom properties"

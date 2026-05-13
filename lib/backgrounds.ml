@@ -829,7 +829,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Css.syntax_fallback css_val) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Cascade.Cursor.remaining (Cascade.Cursor.of_string css_val)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -842,7 +846,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Css.syntax_fallback neg_str) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Cascade.Cursor.remaining (Cascade.Cursor.of_string neg_str)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -915,7 +923,11 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket ~fallback:(Css.syntax_fallback css_val) "tw-gradient-stops"
+      Var.bracket
+        ~fallback:
+          (Css.Syntax_fallback
+             (Cascade.Cursor.remaining (Cascade.Cursor.of_string css_val)))
+        "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]

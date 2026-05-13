@@ -41,7 +41,7 @@ let class_pseudo prefix cls pseudo =
     Some [Class "foo"]. *)
 let parse_nth_selector expr =
   let spaced = String.map (fun c -> if c = '_' then ' ' else c) expr in
-  Css.Selector.read_nth_selector (Css.Cursor.of_string spaced)
+  Css.Selector.read_nth_selector (Cascade.Cursor.of_string spaced)
 
 (** Helper: breakpoint name for responsive modifiers *)
 let breakpoint_name qual bp =
@@ -95,6 +95,8 @@ and compact_calc : Css.length Css.calc -> string = function
   | Parens inner -> "(" ^ compact_calc inner ^ ")"
   | Sibling_index -> "sibling-index()"
   | Sibling_count -> "sibling-count()"
+  | (Math_const _ | Math_fn _) as c ->
+      Css.Pp.to_string (Css.pp_length ~always:true) (Calc c)
 
 (** Build class selector for an arbitrary length breakpoint *)
 let arbitrary_length_class prefix (l : Css.length) cls =
@@ -496,14 +498,17 @@ let prose_element_selectors name =
 (** Build the inner prose element selector for a prose element variant. Creates
     ":where(ELTS):not(:where(not-prose, not-prose descendant))" which is
     combined as a descendant of the outer class selector. *)
-let prose_element_inner_selector name =
+let not_prose_exclusion_selector () =
   let open Css.Selector in
-  let elements = prose_element_selectors name in
   let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
   let not_prose_descendant = combine not_prose_class Descendant universal in
   let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
-  let not_sel = not [ not_prose_where ] in
-  compound [ where elements; not_sel ]
+  not [ not_prose_where ]
+
+let prose_element_inner_selector name =
+  let open Css.Selector in
+  compound
+    [ where (prose_element_selectors name); not_prose_exclusion_selector () ]
 
 (** Generate CSS selector for a modifier and base class *)
 let to_selector (modifier : modifier) cls =
@@ -1167,9 +1172,9 @@ let preprocess_has_selector s =
 let is_valid_has_selector sel =
   try
     let processed = preprocess_has_selector sel in
-    ignore (Css.Selector.read_relative (Css.Cursor.of_string processed));
+    ignore (Css.Selector.read_relative (Cascade.Cursor.of_string processed));
     true
-  with Css.Cursor.Parse_error _ | Invalid_argument _ -> false
+  with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
 (* Try parsing a bracketed modifier, returning Some if matched *)
 (* Build the list of bracket pattern matchers for a given input string *)

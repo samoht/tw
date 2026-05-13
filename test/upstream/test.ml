@@ -402,7 +402,8 @@ let normalize_css css =
   if trimmed = "" then ""
   else
     match Css.of_string trimmed with
-    | Ok ast -> Css.to_string ~minify:false ~newline:false ast |> String.trim
+    | Ok { stylesheet; _ } ->
+        Css.to_string ~minify:false ~newline:false stylesheet |> String.trim
     | Error _ -> trimmed
 
 (** Extract var(--name, fallback) patterns from expected CSS. Returns (name,

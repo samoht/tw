@@ -102,10 +102,10 @@ let test_oklch_css_formatting () =
       (Fmt.str "OKLCH { l = %.1f; c = %.3f; h = %.3f }" l c h)
       expected result
   in
-  pp 98.5 0.002 247.839 "oklch(98.5% 0.002 247.839)";
-  pp 62.3 0.214 259.815 "oklch(62.3% 0.214 259.815)";
-  pp 0.0 0.0 0.0 "oklch(0 0 0)";
-  pp 100.0 0.4 360.0 "oklch(100% 0.4 360)"
+  pp 98.5 0.002 247.839 "oklch(98.5% .002 247.839)";
+  pp 62.3 0.214 259.815 "oklch(62.3% .214 259.815)";
+  pp 0.0 0.0 0.0 "oklch(0% 0 0)";
+  pp 100.0 0.4 360.0 "oklch(100% .4 360)"
 
 let test_edge_cases () =
   let extreme_oklch = { l = 150.0; c = 0.5; h = 45.0 } in

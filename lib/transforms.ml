@@ -1023,11 +1023,7 @@ module Handler = struct
     let value =
       if not (String.contains value ' ') then value ^ " " ^ value else value
     in
-    style
-      [
-        transform_origin
-          (Css.read_transform_origin (Css.Cursor.of_string value));
-      ]
+    style [ Css.Declaration.of_string ("transform-origin: " ^ value) ]
 
   (** {1 Transform Control Utilities} *)
 
@@ -1233,8 +1229,7 @@ module Handler = struct
     | Transform_gpu -> transform_gpu
     | Transform_arbitrary s ->
         let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-        style
-          [ Css.transform (Css.read_transform (Css.Cursor.of_string value)) ]
+        style [ Css.Declaration.of_string ("transform: " ^ value) ]
     | Origin_center -> origin_center ()
     | Origin_top -> origin_top ()
     | Origin_bottom -> origin_bottom ()

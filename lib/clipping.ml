@@ -23,7 +23,16 @@ module Handler = struct
       points
 
   let clip_polygon' points =
-    style [ clip_path (Css.Clip_path_polygon (points_to_lengths points)) ]
+    style
+      [
+        clip_path
+          (Css.Clip_path_polygon
+             {
+               fill_rule = None;
+               points = points_to_lengths points;
+               spaced = false;
+             });
+      ]
 
   (** Format a float without trailing zeros for class name generation *)
   let format_float f =

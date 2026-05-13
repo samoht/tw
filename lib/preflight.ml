@@ -243,7 +243,12 @@ let text_level_resets () =
 let table_resets () =
   [
     rule ~selector:(Selector.element "table")
-      [ text_indent Zero; border_color Inherit; border_collapse Collapse ];
+      [
+        text_indent
+          (Indent { length = Length Zero; hanging = false; each_line = false });
+        border_color Inherit;
+        border_collapse Collapse;
+      ];
   ]
 
 (** Interactive elements *)
@@ -416,42 +421,42 @@ let button_resets () =
 let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
+let font_family_ref theme fallback_stack =
+  let _, ref = Var.binding theme fallback_stack in
+  ref
+
+let default_font_stack : font_family =
+  List
+    [
+      Ui_sans_serif;
+      System_ui;
+      Sans_serif;
+      Apple_color_emoji;
+      Segoe_ui_emoji;
+      Segoe_ui_symbol;
+      Noto_color_emoji;
+    ]
+
+let default_mono_stack : font_family =
+  List
+    [
+      Ui_monospace;
+      SFMono_regular;
+      Menlo;
+      Monaco;
+      Consolas;
+      Liberation_mono;
+      Courier_new;
+      Monospace;
+    ]
+
 (* Get default sans-serif font family reference *)
 let default_font_family_ref () =
-  let fallback_stack : font_family =
-    List
-      [
-        Ui_sans_serif;
-        System_ui;
-        Sans_serif;
-        Apple_color_emoji;
-        Segoe_ui_emoji;
-        Segoe_ui_symbol;
-        Noto_color_emoji;
-      ]
-  in
-  let _, ref = Var.binding Typography.default_font_family_var fallback_stack in
-  ref
+  font_family_ref Typography.default_font_family_var default_font_stack
 
 (* Get default monospace font family reference *)
 let default_mono_family_ref () =
-  let mono_fallback_stack : font_family =
-    List
-      [
-        Ui_monospace;
-        SFMono_regular;
-        Menlo;
-        Monaco;
-        Consolas;
-        Liberation_mono;
-        Courier_new;
-        Monospace;
-      ]
-  in
-  let _, ref =
-    Var.binding Typography.default_mono_font_family_var mono_fallback_stack
-  in
-  ref
+  font_family_ref Typography.default_mono_font_family_var default_mono_stack
 
 (* Get all font customization variable references *)
 let font_customization_refs () =
