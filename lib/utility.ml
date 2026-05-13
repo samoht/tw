@@ -34,12 +34,16 @@ let name_of_base u =
   try_handlers !handlers
 
 let class_of_base u =
-  let rec try_handlers = function
-    | [] -> failwith "name_of_base"
-    | H (module M) :: rest -> (
-        match u with M.Self x -> M.to_class x | _ -> try_handlers rest)
+  let found = ref None in
+  let visit (H (module M)) =
+    match (!found, u) with
+    | None, M.Self x -> found := Some (M.to_class x)
+    | _ -> ()
   in
-  try_handlers !handlers
+  List.iter visit !handlers;
+  match !found with
+  | Some class_name -> class_name
+  | None -> failwith "name_of_base"
 
 let base_of_class class_name =
   let rec try_handlers = function

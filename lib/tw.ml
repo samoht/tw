@@ -78,21 +78,18 @@ let is_whitespace = function
   | _ -> false
 
 let split_whitespace s =
-  let len = String.length s in
-  let rec skip_ws i =
-    if i < len && is_whitespace s.[i] then skip_ws (i + 1) else i
+  let current = Buffer.create 16 in
+  let tokens = ref [] in
+  let flush () =
+    if Buffer.length current > 0 then (
+      tokens := Buffer.contents current :: !tokens;
+      Buffer.clear current)
   in
-  let rec find_ws i =
-    if i < len && not (is_whitespace s.[i]) then find_ws (i + 1) else i
-  in
-  let rec loop i acc =
-    let start = skip_ws i in
-    if start >= len then List.rev acc
-    else
-      let stop = find_ws start in
-      loop stop (String.sub s start (stop - start) :: acc)
-  in
-  loop 0 []
+  String.iter
+    (fun c -> if is_whitespace c then flush () else Buffer.add_char current c)
+    s;
+  flush ();
+  List.rev !tokens
 
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =

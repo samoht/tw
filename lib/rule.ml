@@ -241,146 +241,100 @@ let selector_with_data_key selector key value =
   let attr_selector = Css.Selector.attribute key (Exact value) in
   Css.Selector.combine selector Descendant attr_selector
 
-let responsive_rule breakpoint base_class selector props =
-  let prefix = string_of_breakpoint breakpoint in
+let media_rule_with_prefix prefix condition base_class selector props =
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query
-    ~condition:(breakpoint_condition breakpoint)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  media_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+let responsive_rule breakpoint base_class selector props =
+  media_rule_with_prefix
+    (string_of_breakpoint breakpoint)
+    (breakpoint_condition breakpoint)
+    base_class selector props
+
+let responsive_breakpoint_prefix prefix breakpoint =
+  let suffix =
+    match breakpoint with
+    | `Sm -> "sm"
+    | `Md -> "md"
+    | `Lg -> "lg"
+    | `Xl -> "xl"
+    | `Xl_2 -> "2xl"
+  in
+  prefix ^ "-" ^ suffix
 
 let min_responsive_rule breakpoint base_class selector props =
-  let prefix =
-    match breakpoint with
-    | `Sm -> "min-sm"
-    | `Md -> "min-md"
-    | `Lg -> "min-lg"
-    | `Xl -> "min-xl"
-    | `Xl_2 -> "min-2xl"
-  in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query
-    ~condition:(breakpoint_condition breakpoint)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  media_rule_with_prefix
+    (responsive_breakpoint_prefix "min" breakpoint)
+    (breakpoint_condition breakpoint)
+    base_class selector props
 
 let max_responsive_rule breakpoint base_class selector props =
-  let prefix =
-    match breakpoint with
-    | `Sm -> "max-sm"
-    | `Md -> "max-md"
-    | `Lg -> "max-lg"
-    | `Xl -> "max-xl"
-    | `Xl_2 -> "max-2xl"
-  in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query
-    ~condition:(breakpoint_not_condition breakpoint)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  media_rule_with_prefix
+    (responsive_breakpoint_prefix "max" breakpoint)
+    (breakpoint_not_condition breakpoint)
+    base_class selector props
+
+let arbitrary_px_string px =
+  if Float.is_integer px then Int.to_string (Float.to_int px)
+  else Float.to_string px
 
 let min_arbitrary_rule px base_class selector props =
-  let px_str =
-    if Float.is_integer px then Int.to_string (Float.to_int px)
-    else Float.to_string px
-  in
-  let prefix = "min-[" ^ px_str ^ "px]" in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
-    ~base_class:modified_class ()
+  let prefix = "min-[" ^ arbitrary_px_string px ^ "px]" in
+  media_rule_with_prefix prefix (Css.Media.Min_width px) base_class selector
+    props
 
 let max_arbitrary_rule px base_class selector props =
-  let px_str =
-    if Float.is_integer px then Int.to_string (Float.to_int px)
-    else Float.to_string px
-  in
-  let prefix = "max-[" ^ px_str ^ "px]" in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query ~condition:(Css.Media.Not_min_width px) ~selector:new_selector
-    ~props ~base_class:modified_class ()
+  let prefix = "max-[" ^ arbitrary_px_string px ^ "px]" in
+  media_rule_with_prefix prefix (Css.Media.Not_min_width px) base_class selector
+    props
+
+let arbitrary_length_rule prefix condition l base_class selector props =
+  let len_str = Modifiers.compact_length l in
+  media_rule_with_prefix
+    (prefix ^ "-[" ^ len_str ^ "]")
+    condition base_class selector props
 
 let min_arbitrary_length_rule l base_class selector props =
-  let len_str = Modifiers.compact_length l in
-  let prefix = "min-[" ^ len_str ^ "]" in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query
-    ~condition:(Css.media_min_width_length l)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  arbitrary_length_rule "min"
+    (Css.media_min_width_length l)
+    l base_class selector props
 
 let max_arbitrary_length_rule l base_class selector props =
-  let len_str = Modifiers.compact_length l in
-  let prefix = "max-[" ^ len_str ^ "]" in
-  let modified_class = prefix ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query
-    ~condition:(Css.media_not_min_width_length l)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  arbitrary_length_rule "max"
+    (Css.media_not_min_width_length l)
+    l base_class selector props
+
+let custom_breakpoint name =
+  match Scheme.breakpoint !current_scheme name with
+  | Some px -> px
+  | None -> failwith ("unknown custom breakpoint: " ^ name)
+
+let custom_media_rule prefix condition_of_px name base_class selector props =
+  let px = custom_breakpoint name in
+  media_rule_with_prefix (prefix name) (condition_of_px px) base_class selector
+    props
 
 let custom_responsive_rule name base_class selector props =
-  let px =
-    match Scheme.breakpoint !current_scheme name with
-    | Some px -> px
-    | None -> failwith ("unknown custom breakpoint: " ^ name)
-  in
-  let modified_class = name ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
-    ~base_class:modified_class ()
+  custom_media_rule Fun.id
+    (fun px -> Css.Media.Min_width px)
+    name base_class selector props
 
 let min_custom_rule name base_class selector props =
-  let px =
-    match Scheme.breakpoint !current_scheme name with
-    | Some px -> px
-    | None -> failwith ("unknown custom breakpoint: " ^ name)
-  in
-  let modified_class = "min-" ^ name ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
-    ~base_class:modified_class ()
+  custom_media_rule
+    (fun name -> "min-" ^ name)
+    (fun px -> Css.Media.Min_width px)
+    name base_class selector props
 
 let max_custom_rule name base_class selector props =
-  let px =
-    match Scheme.breakpoint !current_scheme name with
-    | Some px -> px
-    | None -> failwith ("unknown custom breakpoint: " ^ name)
-  in
-  let modified_class = "max-" ^ name ^ ":" ^ base_class in
-  let new_selector =
-    Rules_selector.replace_class_in_selector ~old_class:base_class
-      ~new_class:modified_class selector
-  in
-  media_query ~condition:(Css.Media.Not_min_width px) ~selector:new_selector
-    ~props ~base_class:modified_class ()
+  custom_media_rule
+    (fun name -> "max-" ^ name)
+    (fun px -> Css.Media.Not_min_width px)
+    name base_class selector props
 
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
@@ -421,7 +375,7 @@ let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let parsed_selector =
-    Css.Selector.read_relative (Css.Cursor.of_string processed)
+    Css.Selector.read_relative (Cascade.Cursor.of_string processed)
   in
   let has_part s =
     match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"
@@ -1212,32 +1166,31 @@ let handle_not_bracket content base_class props =
 
 (** Handle group-not-X modifier. Produces selector with
     :is(:where(.group):not(...) descendant) pattern. *)
-let handle_group_not_modifier inner name_opt base_class props =
-  let inner_str =
-    match inner with
-    | Style.Not_bracket content -> "[" ^ content ^ "]"
-    | m -> Modifiers.pp_modifier m
-  in
-  let name_suffix = match name_opt with None -> "" | Some n -> "/" ^ n in
+let not_modifier_inner_string = function
+  | Style.Not_bracket content -> "[" ^ content ^ "]"
+  | m -> Modifiers.pp_modifier m
+
+let named_modifier_suffix = function None -> "" | Some n -> "/" ^ n
+
+let is_media_inner_modifier = function
+  | Style.Hover | Style.Device_hocus -> true
+  | inner -> Option.is_some (media_condition_of_modifier inner)
+
+let handle_peer_or_group_not_modifier ~prefix ~base_marker_class ~combinator
+    ~variant inner name_opt base_class props =
+  let inner_str = not_modifier_inner_string inner in
+  let name_suffix = named_modifier_suffix name_opt in
   let modified_class =
-    "group-not-" ^ inner_str ^ name_suffix ^ ":" ^ base_class
+    prefix ^ "-not-" ^ inner_str ^ name_suffix ^ ":" ^ base_class
   in
-  let nvo = Modifiers.not_variant_order (Style.Group_not (inner, name_opt)) in
-  (* Check if inner modifier is media-based — those produce no output in group
-     context *)
-  let is_media_inner =
-    match inner with
-    | Style.Hover | Style.Device_hocus -> true
-    | _ -> Option.is_some (media_condition_of_modifier inner)
-  in
-  if is_media_inner then []
+  let nvo = Modifiers.not_variant_order (variant inner name_opt) in
+  if is_media_inner_modifier inner then []
   else
-    let group_class =
+    let marker_class =
       match name_opt with
-      | None -> Css.Selector.Class "group"
-      | Some name -> Css.Selector.Class ("group/" ^ name)
+      | None -> Css.Selector.Class base_marker_class
+      | Some name -> Css.Selector.Class (base_marker_class ^ "/" ^ name)
     in
-    (* Get the pseudo conditions for :not() *)
     let not_conditions =
       match inner with
       | Style.Not_bracket content when content <> "" && content.[0] = ':' ->
@@ -1247,8 +1200,8 @@ let handle_group_not_modifier inner name_opt base_class props =
     let open Css.Selector in
     let rel =
       combine
-        (compound [ where [ group_class ]; Not not_conditions ])
-        Descendant universal
+        (compound [ where [ marker_class ]; Not not_conditions ])
+        combinator universal
     in
     [
       regular ~not_order:nvo
@@ -1256,48 +1209,19 @@ let handle_group_not_modifier inner name_opt base_class props =
         ~props ~base_class:modified_class ();
     ]
 
+let handle_group_not_modifier inner name_opt base_class props =
+  handle_peer_or_group_not_modifier ~prefix:"group" ~base_marker_class:"group"
+    ~combinator:Descendant
+    ~variant:(fun inner name_opt -> Style.Group_not (inner, name_opt))
+    inner name_opt base_class props
+
 (** Handle peer-not-X modifier. Produces selector with
     :is(:where(.peer):not(...) sibling) pattern. *)
 let handle_peer_not_modifier inner name_opt base_class props =
-  let inner_str =
-    match inner with
-    | Style.Not_bracket content -> "[" ^ content ^ "]"
-    | m -> Modifiers.pp_modifier m
-  in
-  let name_suffix = match name_opt with None -> "" | Some n -> "/" ^ n in
-  let modified_class =
-    "peer-not-" ^ inner_str ^ name_suffix ^ ":" ^ base_class
-  in
-  let nvo = Modifiers.not_variant_order (Style.Peer_not (inner, name_opt)) in
-  let is_media_inner =
-    match inner with
-    | Style.Hover | Style.Device_hocus -> true
-    | _ -> Option.is_some (media_condition_of_modifier inner)
-  in
-  if is_media_inner then []
-  else
-    let peer_class =
-      match name_opt with
-      | None -> Css.Selector.Class "peer"
-      | Some name -> Css.Selector.Class ("peer/" ^ name)
-    in
-    let not_conditions =
-      match inner with
-      | Style.Not_bracket content when content <> "" && content.[0] = ':' ->
-          [ parse_bracket_pseudo content ]
-      | _ -> extract_not_conditions inner base_class
-    in
-    let open Css.Selector in
-    let rel =
-      combine
-        (compound [ where [ peer_class ]; Not not_conditions ])
-        Subsequent_sibling universal
-    in
-    [
-      regular ~not_order:nvo
-        ~selector:(compound [ Class modified_class; is_ [ rel ] ])
-        ~props ~base_class:modified_class ();
-    ]
+  handle_peer_or_group_not_modifier ~prefix:"peer" ~base_marker_class:"peer"
+    ~combinator:Subsequent_sibling
+    ~variant:(fun inner name_opt -> Style.Peer_not (inner, name_opt))
+    inner name_opt base_class props
 
 (** Convert a base modifier to its CSS pseudo-class selector. *)
 let pseudo_selector_of_modifier = function
@@ -1346,40 +1270,38 @@ let named_group_rel name pseudo =
     Descendant universal
 
 (** Handle not-group-STATE/name compound variant *)
-let handle_not_named_group inner name base_class props =
+let named_group_modified_class prefix inner name base_class =
   let inner_str = Modifiers.pp_modifier inner in
+  prefix ^ "-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+
+let named_group_rule ~selector_of_rel prefix inner name base_class props =
   let modified_class =
-    "not-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+    named_group_modified_class prefix inner name base_class
   in
   let pseudo = pseudo_selector_of_modifier inner in
   let rel = named_group_rel name pseudo in
-  let open Css.Selector in
-  let sel = compound [ Class modified_class; Not [ is_ [ rel ] ] ] in
+  let sel = selector_of_rel modified_class rel in
   [ regular ~selector:sel ~props ~base_class:modified_class () ]
+
+let handle_not_named_group inner name base_class props =
+  let open Css.Selector in
+  named_group_rule "not" inner name base_class props
+    ~selector_of_rel:(fun modified_class rel ->
+      compound [ Class modified_class; Not [ is_ [ rel ] ] ])
 
 (** Handle has-group-STATE/name compound variant *)
 let handle_has_named_group inner name base_class props =
-  let inner_str = Modifiers.pp_modifier inner in
-  let modified_class =
-    "has-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
-  in
-  let pseudo = pseudo_selector_of_modifier inner in
-  let rel = named_group_rel name pseudo in
   let open Css.Selector in
-  let sel = compound [ Class modified_class; Has [ is_ [ rel ] ] ] in
-  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+  named_group_rule "has" inner name base_class props
+    ~selector_of_rel:(fun modified_class rel ->
+      compound [ Class modified_class; Has [ is_ [ rel ] ] ])
 
 (** Handle in-group-STATE/name compound variant — ancestor pattern *)
 let handle_in_named_group inner name base_class props =
-  let inner_str = Modifiers.pp_modifier inner in
-  let modified_class =
-    "in-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
-  in
-  let pseudo = pseudo_selector_of_modifier inner in
-  let rel = named_group_rel name pseudo in
   let open Css.Selector in
-  let sel = combine (Where [ is_ [ rel ] ]) Descendant (Class modified_class) in
-  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+  named_group_rule "in" inner name base_class props
+    ~selector_of_rel:(fun modified_class rel ->
+      combine (Where [ is_ [ rel ] ]) Descendant (Class modified_class))
 
 (** Handle group-peer-STATE/name compound variant *)
 let handle_group_peer_named inner name base_class props =
@@ -1414,7 +1336,9 @@ let arbitrary_selector_rule content base_class props =
         let rest = String.trim rest in
         if rest = "" then Class modified_class
         else
-          let descendant_sel = Css.Selector.read (Css.Cursor.of_string rest) in
+          let descendant_sel =
+            Css.Selector.read (Cascade.Cursor.of_string rest)
+          in
           combine (Class modified_class) Descendant descendant_sel
     | _ -> Class modified_class
   in
@@ -1666,40 +1590,39 @@ let handle_group class_name util_inner styles extract_fn =
 let resolve_placeholder_selector sel selector =
   if Css.Selector.to_string selector = "._" then sel else selector
 
-(** Extract outputs from a [@media] statement's inner rules *)
-let extract_media_outputs ~class_name ~sel condition statements =
+let extract_rule_outputs build_output statements =
   statements
   |> List.filter_map (fun inner ->
       match Css.as_rule inner with
       | Some (selector, declarations, _) ->
-          let actual_selector = resolve_placeholder_selector sel selector in
-          Some
-            (media_query ~condition ~selector:actual_selector
-               ~props:declarations ~base_class:class_name ())
+          Some (build_output selector declarations)
       | None -> None)
+
+(** Extract outputs from a [@media] statement's inner rules *)
+let extract_media_outputs ~class_name ~sel condition statements =
+  extract_rule_outputs
+    (fun selector declarations ->
+      let actual_selector = resolve_placeholder_selector sel selector in
+      media_query ~condition ~selector:actual_selector ~props:declarations
+        ~base_class:class_name ())
+    statements
 
 (** Extract outputs from a [@container] statement's inner rules *)
 let extract_container_outputs ~class_name condition statements =
-  statements
-  |> List.filter_map (fun inner ->
-      match Css.as_rule inner with
-      | Some (selector, declarations, _) ->
-          Some
-            (container_query ~condition ~selector ~props:declarations
-               ~base_class:class_name ())
-      | None -> None)
+  extract_rule_outputs
+    (fun selector declarations ->
+      container_query ~condition ~selector ~props:declarations
+        ~base_class:class_name ())
+    statements
 
 (** Extract outputs from a [@supports] statement's inner rules *)
 let extract_supports_outputs ~class_name ~sel ?merge_key condition statements =
-  statements
-  |> List.filter_map (fun inner ->
-      match Css.as_rule inner with
-      | Some (selector, declarations, _) ->
-          let actual_selector = resolve_placeholder_selector sel selector in
-          Some
-            (supports_query ~condition ~selector:actual_selector
-               ~props:declarations ~base_class:class_name ?merge_key ())
-      | None -> None)
+  extract_rule_outputs
+    (fun selector declarations ->
+      let actual_selector = resolve_placeholder_selector sel selector in
+      supports_query ~condition ~selector:actual_selector ~props:declarations
+        ~base_class:class_name ?merge_key ())
+    statements
 
 (** Process a non-nested statement from a rule_list, returning outputs. Sets
     [has_regular_rules] to true when a regular rule is found. *)
@@ -1719,8 +1642,9 @@ let process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules stmt =
           Some (extract_media_outputs ~class_name ~sel condition statements)
       | None -> (
           match Css.as_container stmt with
-          | Some (_, condition, statements) ->
+          | Some (_, Some condition, statements) ->
               Some (extract_container_outputs ~class_name condition statements)
+          | Some (_, None, _) -> None
           | None -> (
               match Css.as_supports stmt with
               | Some (condition, statements) ->

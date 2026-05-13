@@ -12,127 +12,34 @@ let themed_decl name value_str =
   | Some n -> Css.custom_property ~layer:"theme" ("--" ^ name) (string_of_int n)
   | None -> Css.custom_property ~layer:"theme" ("--" ^ name) value_str
 
-let grid_col_themed_style name () =
+let themed_grid_line name (declaration : Css.grid_line -> Css.declaration) =
+  let ref : Css.grid_line Css.var =
+    Var.theme_ref name ~default:(Css.Auto : Css.grid_line) ~default_css:"auto"
+  in
+  let grid_line : Css.grid_line = Css.Var ref in
+  let grid_decl = declaration grid_line in
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_column (Var ref, Auto) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_column
-            ( Var
-                (Var.theme_ref name
-                   ~default:(Css.Auto : Css.grid_line)
-                   ~default_css:"auto"),
-              Auto );
-        ]
+      Style.style [ decl; grid_decl ]
+  | None -> Style.style [ grid_decl ]
+
+let grid_col_themed_style name () =
+  themed_grid_line name (fun line -> Css.grid_column (line, Auto))
 
 let grid_col_start_themed_style name () =
-  match Var.theme_value name with
-  | Some value_str ->
-      let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_column_start (Var ref) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_column_start
-            (Var
-               (Var.theme_ref name
-                  ~default:(Css.Auto : Css.grid_line)
-                  ~default_css:"auto"));
-        ]
+  themed_grid_line name Css.grid_column_start
 
 let grid_col_end_themed_style name () =
-  match Var.theme_value name with
-  | Some value_str ->
-      let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_column_end (Var ref) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_column_end
-            (Var
-               (Var.theme_ref name
-                  ~default:(Css.Auto : Css.grid_line)
-                  ~default_css:"auto"));
-        ]
+  themed_grid_line name Css.grid_column_end
 
 let grid_row_themed_style name () =
-  match Var.theme_value name with
-  | Some value_str ->
-      let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_row (Var ref, Auto) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_row
-            ( Var
-                (Var.theme_ref name
-                   ~default:(Css.Auto : Css.grid_line)
-                   ~default_css:"auto"),
-              Auto );
-        ]
+  themed_grid_line name (fun line -> Css.grid_row (line, Auto))
 
 let grid_row_start_themed_style name () =
-  match Var.theme_value name with
-  | Some value_str ->
-      let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_row_start (Var ref) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_row_start
-            (Var
-               (Var.theme_ref name
-                  ~default:(Css.Auto : Css.grid_line)
-                  ~default_css:"auto"));
-        ]
+  themed_grid_line name Css.grid_row_start
 
-let grid_row_end_themed_style name () =
-  match Var.theme_value name with
-  | Some value_str ->
-      let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var =
-        Var.theme_ref name
-          ~default:(Css.Auto : Css.grid_line)
-          ~default_css:"auto"
-      in
-      Style.style [ decl; Css.grid_row_end (Var ref) ]
-  | None ->
-      Style.style
-        [
-          Css.grid_row_end
-            (Var
-               (Var.theme_ref name
-                  ~default:(Css.Auto : Css.grid_line)
-                  ~default_css:"auto"));
-        ]
+let grid_row_end_themed_style name () = themed_grid_line name Css.grid_row_end
 
 module Handler = struct
   open Style
