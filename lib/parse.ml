@@ -3,10 +3,15 @@ let int_any s =
   | Some n -> Ok n
   | None -> Error (`Msg ("Invalid number: " ^ s))
 
-let int_pos ~name s =
+let nonnegative_int ~name s =
   match int_of_string_opt s with
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
+  | Some n when n >= 0 -> Some (Ok n)
+  | Some _ -> Some (Error (`Msg (name ^ " must be non-negative: " ^ s)))
+  | None -> None
+
+let int_pos ~name s =
+  match nonnegative_int ~name s with
+  | Some result -> result
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
 (* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
@@ -23,9 +28,9 @@ let decimal_pos ~name s =
 
 (* Parse spacing values - handles both integers and decimals *)
 let spacing_value ~name s =
-  match int_of_string_opt s with
-  | Some n when n >= 0 -> Ok (float_of_int n)
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
+  match nonnegative_int ~name s with
+  | Some (Ok n) -> Ok (float_of_int n)
+  | Some (Error _ as error) -> error
   | None -> decimal_pos ~name s
 
 let int_bounded ~name ~min ~max s =
@@ -59,6 +64,99 @@ let is_bracket_value s =
 (** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
+
+let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
+
+let function_name_before s i =
+  let is_name_char = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' -> true
+    | _ -> false
+  in
+  let j = ref (i - 1) in
+  while !j >= 0 && s.[!j] = ' ' do
+    decr j
+  done;
+  let stop = !j + 1 in
+  while !j >= 0 && is_name_char s.[!j] do
+    decr j
+  done;
+  if stop > !j + 1 then
+    String.lowercase_ascii (String.sub s (!j + 1) (stop - !j - 1))
+  else ""
+
+let is_css_math_function = function
+  | "abs" | "calc" | "calc-size" | "clamp" | "hypot" | "max" | "min" | "mod"
+  | "rem" | "round" | "sign" ->
+      true
+  | _ -> false
+
+let is_css_non_math_function = function
+  | "attr" | "env" | "url" | "var" -> true
+  | _ -> false
+
+let normalize_css_math_operators s =
+  let len = String.length s in
+  let buf = Buffer.create (len + 8) in
+  let contexts = ref [] in
+  let current_math () =
+    match !contexts with math :: _ -> math | [] -> false
+  in
+  let rec prev_non_space i =
+    if i < 0 then None
+    else if s.[i] = ' ' then prev_non_space (i - 1)
+    else Some s.[i]
+  in
+  let rec next_non_space i =
+    if i >= len then None
+    else if s.[i] = ' ' then next_non_space (i + 1)
+    else Some s.[i]
+  in
+  let value_end = function
+    | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '%' | ')' | ']' -> true
+    | _ -> false
+  in
+  let value_start = function
+    | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '.' | '(' -> true
+    | _ -> false
+  in
+  for i = 0 to len - 1 do
+    match s.[i] with
+    | '(' ->
+        let fn = function_name_before s i in
+        let ctx =
+          if is_css_math_function fn then true
+          else if is_css_non_math_function fn then false
+          else current_math ()
+        in
+        contexts := ctx :: !contexts;
+        Buffer.add_char buf '('
+    | ')' ->
+        (match !contexts with _ :: rest -> contexts := rest | [] -> ());
+        Buffer.add_char buf ')'
+    | ('+' | '-') as op
+      when current_math ()
+           && (match prev_non_space (i - 1) with
+             | Some c -> value_end c
+             | None -> false)
+           &&
+           match next_non_space (i + 1) with
+           | Some c -> value_start c
+           | None -> false ->
+        let last =
+          let n = Buffer.length buf in
+          if n = 0 then None else Some (Buffer.nth buf (n - 1))
+        in
+        (match last with
+        | Some ' ' | None -> ()
+        | Some _ -> Buffer.add_char buf ' ');
+        Buffer.add_char buf op;
+        Buffer.add_char buf ' '
+    | c -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
+
+let decode_arbitrary_value s =
+  s |> decode_underscores |> normalize_css_math_operators
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("

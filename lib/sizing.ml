@@ -6,6 +6,8 @@ type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 
 module Handler = struct
+  let class_float = Pp.float
+
   open Style
   open Css
 
@@ -710,9 +712,8 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      (* Tailwind bracket syntax: underscores become spaces *)
-      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
-      match Css.parse_length normalized with
+      let css_value = Parse.decode_arbitrary_value inner in
+      match Css.parse_length css_value with
       | Some l -> Some (inner, l)
       | None -> None
     else None
@@ -1237,7 +1238,7 @@ module Handler = struct
     | W_max -> "w-max"
     | W_fit -> "w-fit"
     | W_px -> "w-px"
-    | W_spacing n -> "w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | W_spacing n -> "w-" ^ class_float (n *. 4.)
     | W_fraction f -> "w-" ^ f
     | W_arbitrary (raw, _) -> "w-[" ^ raw ^ "]"
     | W_dvw -> "w-dvw"
@@ -1252,7 +1253,7 @@ module Handler = struct
     | H_max -> "h-max"
     | H_fit -> "h-fit"
     | H_px -> "h-px"
-    | H_spacing n -> "h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | H_spacing n -> "h-" ^ class_float (n *. 4.)
     | H_fraction f -> "h-" ^ f
     | H_arbitrary (raw, _) -> "h-[" ^ raw ^ "]"
     | H_dvh -> "h-dvh"
@@ -1266,7 +1267,7 @@ module Handler = struct
     | Min_w_max -> "min-w-max"
     | Min_w_fit -> "min-w-fit"
     | Min_w_auto -> "min-w-auto"
-    | Min_w_spacing n -> "min-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_w_spacing n -> "min-w-" ^ class_float (n *. 4.)
     | Min_w_arbitrary (raw, _) -> "min-w-[" ^ raw ^ "]"
     | Min_w_xl -> "min-w-xl"
     (* Max-width utilities *)
@@ -1292,7 +1293,7 @@ module Handler = struct
     | Max_w_screen_lg -> "max-w-screen-lg"
     | Max_w_screen_xl -> "max-w-screen-xl"
     | Max_w_screen_2xl -> "max-w-screen-2xl"
-    | Max_w_spacing n -> "max-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_w_spacing n -> "max-w-" ^ class_float (n *. 4.)
     | Max_w_arbitrary (raw, _) -> "max-w-[" ^ raw ^ "]"
     (* Min-height utilities *)
     | Min_h_0 -> "min-h-0"
@@ -1306,7 +1307,7 @@ module Handler = struct
     | Min_h_lvh -> "min-h-lvh"
     | Min_h_svh -> "min-h-svh"
     | Min_h_lh -> "min-h-lh"
-    | Min_h_spacing n -> "min-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_h_spacing n -> "min-h-" ^ class_float (n *. 4.)
     | Min_h_arbitrary (raw, _) -> "min-h-[" ^ raw ^ "]"
     (* Max-height utilities *)
     | Max_h_none -> "max-h-none"
@@ -1319,7 +1320,7 @@ module Handler = struct
     | Max_h_lvh -> "max-h-lvh"
     | Max_h_svh -> "max-h-svh"
     | Max_h_lh -> "max-h-lh"
-    | Max_h_spacing n -> "max-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_h_spacing n -> "max-h-" ^ class_float (n *. 4.)
     | Max_h_arbitrary (raw, _) -> "max-h-[" ^ raw ^ "]"
     (* Size utilities *)
     | Size_auto -> "size-auto"
@@ -1327,12 +1328,12 @@ module Handler = struct
     | Size_min -> "size-min"
     | Size_max -> "size-max"
     | Size_fit -> "size-fit"
-    | Size_spacing n -> "size-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Size_spacing n -> "size-" ^ class_float (n *. 4.)
     | Size_fraction f -> "size-" ^ f
     | Size_arbitrary (raw, _) -> "size-[" ^ raw ^ "]"
     (* inline-size utilities *)
     | Inline_fraction f -> "inline-" ^ f
-    | Inline_spacing n -> "inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Inline_spacing n -> "inline-" ^ class_float (n *. 4.)
     | Inline_arbitrary (raw, _) -> "inline-[" ^ raw ^ "]"
     | Inline_auto -> "inline-auto"
     | Inline_dvw -> "inline-dvw"
@@ -1345,8 +1346,7 @@ module Handler = struct
     | Inline_svw -> "inline-svw"
     | Inline_xl -> "inline-xl"
     (* min-inline-size utilities *)
-    | Min_inline_spacing n ->
-        "min-inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_inline_spacing n -> "min-inline-" ^ class_float (n *. 4.)
     | Min_inline_arbitrary (raw, _) -> "min-inline-[" ^ raw ^ "]"
     | Min_inline_auto -> "min-inline-auto"
     | Min_inline_fit -> "min-inline-fit"
@@ -1355,8 +1355,7 @@ module Handler = struct
     | Min_inline_min -> "min-inline-min"
     | Min_inline_xl -> "min-inline-xl"
     (* max-inline-size utilities *)
-    | Max_inline_spacing n ->
-        "max-inline-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_inline_spacing n -> "max-inline-" ^ class_float (n *. 4.)
     | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
     | Max_inline_fit -> "max-inline-fit"
     | Max_inline_full -> "max-inline-full"
@@ -1365,7 +1364,7 @@ module Handler = struct
     | Max_inline_xl -> "max-inline-xl"
     (* block-size utilities *)
     | Block_fraction f -> "block-" ^ f
-    | Block_spacing n -> "block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Block_spacing n -> "block-" ^ class_float (n *. 4.)
     | Block_arbitrary (raw, _) -> "block-[" ^ raw ^ "]"
     | Block_auto -> "block-auto"
     | Block_dvh -> "block-dvh"
@@ -1378,8 +1377,7 @@ module Handler = struct
     | Block_screen -> "block-screen"
     | Block_svh -> "block-svh"
     (* min-block-size utilities *)
-    | Min_block_spacing n ->
-        "min-block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_block_spacing n -> "min-block-" ^ class_float (n *. 4.)
     | Min_block_arbitrary (raw, _) -> "min-block-[" ^ raw ^ "]"
     | Min_block_auto -> "min-block-auto"
     | Min_block_dvh -> "min-block-dvh"
@@ -1392,8 +1390,7 @@ module Handler = struct
     | Min_block_screen -> "min-block-screen"
     | Min_block_svh -> "min-block-svh"
     (* max-block-size utilities *)
-    | Max_block_spacing n ->
-        "max-block-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_block_spacing n -> "max-block-" ^ class_float (n *. 4.)
     | Max_block_arbitrary (raw, _) -> "max-block-[" ^ raw ^ "]"
     | Max_block_dvh -> "max-block-dvh"
     | Max_block_fit -> "max-block-fit"
@@ -1425,77 +1422,53 @@ let utility x = Utility.base (Self x)
 let () = () (* Ensure utility is defined before usage below *)
 
 (* Expose prime helpers wrapped as Utility.t *)
-let w' = function
-  | `None -> utility (W_spacing 0.)
-  | `Xs -> utility (W_spacing 0.5)
-  | `Sm -> utility (W_spacing 1.0)
-  | `Md -> utility (W_spacing 1.5)
-  | `Lg -> utility (W_spacing 2.0)
-  | `Xl -> utility (W_spacing 3.0)
-  | `Xl_2 -> utility (W_spacing 4.0)
-  | `Xl_3 -> utility (W_spacing 6.0)
-  | `Full -> utility W_full
-  | `Rem n -> utility (W_spacing n)
+let prime_size_utility ~none ~xs ~sm ~md ~lg ~xl ~xl_2 ~xl_3 ~full ~rem =
+  function
+  | `None -> utility none
+  | `Xs -> utility xs
+  | `Sm -> utility sm
+  | `Md -> utility md
+  | `Lg -> utility lg
+  | `Xl -> utility xl
+  | `Xl_2 -> utility xl_2
+  | `Xl_3 -> utility xl_3
+  | `Full -> utility full
+  | `Rem n -> utility (rem n)
 
-let h' = function
-  | `None -> utility (H_spacing 0.)
-  | `Xs -> utility (H_spacing 0.5)
-  | `Sm -> utility (H_spacing 1.0)
-  | `Md -> utility (H_spacing 1.5)
-  | `Lg -> utility (H_spacing 2.0)
-  | `Xl -> utility (H_spacing 3.0)
-  | `Xl_2 -> utility (H_spacing 4.0)
-  | `Xl_3 -> utility (H_spacing 6.0)
-  | `Full -> utility H_full
-  | `Rem n -> utility (H_spacing n)
+let w' =
+  prime_size_utility ~none:(W_spacing 0.) ~xs:(W_spacing 0.5)
+    ~sm:(W_spacing 1.0) ~md:(W_spacing 1.5) ~lg:(W_spacing 2.0)
+    ~xl:(W_spacing 3.0) ~xl_2:(W_spacing 4.0) ~xl_3:(W_spacing 6.0) ~full:W_full
+    ~rem:(fun n -> W_spacing n)
 
-let min_w' = function
-  | `None -> utility Min_w_0
-  | `Xs -> utility (Min_w_spacing 0.5)
-  | `Sm -> utility (Min_w_spacing 1.0)
-  | `Md -> utility (Min_w_spacing 1.5)
-  | `Lg -> utility (Min_w_spacing 2.0)
-  | `Xl -> utility (Min_w_spacing 3.0)
-  | `Xl_2 -> utility (Min_w_spacing 4.0)
-  | `Xl_3 -> utility (Min_w_spacing 6.0)
-  | `Full -> utility Min_w_full
-  | `Rem n -> utility (Min_w_spacing n)
+let h' =
+  prime_size_utility ~none:(H_spacing 0.) ~xs:(H_spacing 0.5)
+    ~sm:(H_spacing 1.0) ~md:(H_spacing 1.5) ~lg:(H_spacing 2.0)
+    ~xl:(H_spacing 3.0) ~xl_2:(H_spacing 4.0) ~xl_3:(H_spacing 6.0) ~full:H_full
+    ~rem:(fun n -> H_spacing n)
 
-let max_w' = function
-  | `None -> utility Max_w_none
-  | `Xs -> utility Max_w_xs
-  | `Sm -> utility Max_w_sm
-  | `Md -> utility Max_w_md
-  | `Lg -> utility Max_w_lg
-  | `Xl -> utility Max_w_xl
-  | `Xl_2 -> utility Max_w_2xl
-  | `Xl_3 -> utility Max_w_3xl
-  | `Full -> utility Max_w_full
-  | `Rem n -> utility (Max_w_spacing n)
+let min_w' =
+  prime_size_utility ~none:Min_w_0 ~xs:(Min_w_spacing 0.5)
+    ~sm:(Min_w_spacing 1.0) ~md:(Min_w_spacing 1.5) ~lg:(Min_w_spacing 2.0)
+    ~xl:(Min_w_spacing 3.0) ~xl_2:(Min_w_spacing 4.0) ~xl_3:(Min_w_spacing 6.0)
+    ~full:Min_w_full ~rem:(fun n -> Min_w_spacing n)
 
-let min_h' = function
-  | `None -> utility Min_h_0
-  | `Xs -> utility (Min_h_spacing 0.5)
-  | `Sm -> utility (Min_h_spacing 1.0)
-  | `Md -> utility (Min_h_spacing 1.5)
-  | `Lg -> utility (Min_h_spacing 2.0)
-  | `Xl -> utility (Min_h_spacing 3.0)
-  | `Xl_2 -> utility (Min_h_spacing 4.0)
-  | `Xl_3 -> utility (Min_h_spacing 6.0)
-  | `Full -> utility Min_h_full
-  | `Rem n -> utility (Min_h_spacing n)
+let max_w' =
+  prime_size_utility ~none:Max_w_none ~xs:Max_w_xs ~sm:Max_w_sm ~md:Max_w_md
+    ~lg:Max_w_lg ~xl:Max_w_xl ~xl_2:Max_w_2xl ~xl_3:Max_w_3xl ~full:Max_w_full
+    ~rem:(fun n -> Max_w_spacing n)
 
-let max_h' = function
-  | `None -> utility Max_h_none
-  | `Xs -> utility (Max_h_spacing 0.5)
-  | `Sm -> utility (Max_h_spacing 1.0)
-  | `Md -> utility (Max_h_spacing 1.5)
-  | `Lg -> utility (Max_h_spacing 2.0)
-  | `Xl -> utility (Max_h_spacing 3.0)
-  | `Xl_2 -> utility (Max_h_spacing 4.0)
-  | `Xl_3 -> utility (Max_h_spacing 6.0)
-  | `Full -> utility Max_h_full
-  | `Rem n -> utility (Max_h_spacing n)
+let min_h' =
+  prime_size_utility ~none:Min_h_0 ~xs:(Min_h_spacing 0.5)
+    ~sm:(Min_h_spacing 1.0) ~md:(Min_h_spacing 1.5) ~lg:(Min_h_spacing 2.0)
+    ~xl:(Min_h_spacing 3.0) ~xl_2:(Min_h_spacing 4.0) ~xl_3:(Min_h_spacing 6.0)
+    ~full:Min_h_full ~rem:(fun n -> Min_h_spacing n)
+
+let max_h' =
+  prime_size_utility ~none:Max_h_none ~xs:(Max_h_spacing 0.5)
+    ~sm:(Max_h_spacing 1.0) ~md:(Max_h_spacing 1.5) ~lg:(Max_h_spacing 2.0)
+    ~xl:(Max_h_spacing 3.0) ~xl_2:(Max_h_spacing 4.0) ~xl_3:(Max_h_spacing 6.0)
+    ~full:Max_h_full ~rem:(fun n -> Max_h_spacing n)
 
 (* Top-level wrappers returning Utility.t, following the Utility.Handler
    pattern *)
