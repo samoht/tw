@@ -39,7 +39,7 @@
     {2 [\@layer properties]}
     Contains initial values for utility variables that need [\@property]
     registration:
-    {[
+    {v
       @layer properties {
         *, :before, :after, ::backdrop {
           --tw-shadow: 0 0 #0000;
@@ -47,11 +47,11 @@
           --tw-shadow-alpha: 100%;
         }
       }
-    ]}
+    v}
 
     {2 [@layer theme]}
     Contains theme design tokens - the actual values:
-    {[
+    {v
       @layer theme {
         :root, :host {
           --font-weight-thin: 100;
@@ -59,11 +59,11 @@
           --text-xl: 1.25rem;
         }
       }
-    ]}
+    v}
 
     {2 [@layer utilities]}
     Contains utility class definitions that set variables and CSS properties:
-    {[
+    {v
       @layer utilities {
         .font-thin {
           --tw-font-weight: var(--font-weight-thin);
@@ -78,11 +78,11 @@
           border-width: 1px;
         }
       }
-    ]}
+    v}
 
     {2 [@property declarations]}
     Type registrations for animated/transitionable variables (at the end):
-    {[
+    {v
       \@property --tw-shadow {
         syntax: "*";
         inherits: false;
@@ -93,7 +93,7 @@
         inherits: false;
         initial-value: 100%;
       }
-    ]}
+    v}
 
     {1 Variable Types and [@property] Rules}
 
@@ -158,7 +158,7 @@
     - Always-set variables: use the bound value
 
     {2 Example: Variables vs Inline Mode}
-    {[
+    {v
       (* Variables mode *)
 
       .border { border-style: var(--tw-border-style); border-width: 1px; }
@@ -167,7 +167,7 @@
       (* Inline mode - no variables *)
       .border { border-style: solid; border-width: 1px; }  (* uses [@property] initial *)
       .border-solid { border-style: solid; }
-    ]}
+    v}
 
     This constraint ensures the same CSS classes work identically whether
     variables are supported or not, enabling progressive enhancement and broader
@@ -190,28 +190,27 @@
 
     {b Rule 1: Need both declaration and variable}
     {[
-    (* Variable owned by this module *)
-    let my_var = Var.theme Type "css-var-name" ~order:N
+    let my_var = Var.theme Css.Color "example-color" ~order:(999, 0)
 
-    (* Utility that sets the variable *)
     let my_utility =
-      let var_d, var_v = Var.binding my_var value in
-      style "utility-name" [ var_d; css_property (Css.Var var_v) ]
+      let var_d, var_v = Var.binding my_var (Css.Named Css.Red) in
+      Style.style [ var_d; Css.color (Css.Var var_v) ]
     ]}
 
     {b Rule 2: Need only declaration OR only variable reference}
     {[
-    (* Function receives variable reference as 'a Css.var parameter *)
-    let my_utility var_ref = style "utility-name" [ css_property (Var var_ref) ]
+    let color_utility var_ref = Style.style [ Css.color (Css.Var var_ref) ]
 
-    (* Or receives declaration as Css.declaration parameter *)
-    let my_utility var_decl =
-      style "utility-name" [ var_decl; css_property some_other_value ]
+    let declaration_utility var_decl =
+      Style.style [ var_decl; Css.color (Css.Named Css.Black) ]
 
-    (* Parent function calls Var.binding and passes the needed part *)
+    let my_var = Var.theme Css.Color "example-parent-color" ~order:(999, 1)
+    let value : Css.color = Css.Named Css.Blue
+
     let parent_utility =
       let var_d, var_v = Var.binding my_var value in
-      my_utility var_v (* or: my_utility var_d *)
+      let _set_only = declaration_utility var_d in
+      color_utility var_v
     ]}
 
     {1 Advanced Patterns}
@@ -220,32 +219,28 @@
     For complex utilities involving multiple variables, use a record to manage
     all bindings centrally:
     {[
-    type font_theme = {
-      weight : declaration * font_weight var;
-      size : declaration * font_size var;
-      leading : declaration * line_height var;
+    type text_theme = {
+      color : Css.declaration * Css.color Css.var;
+      size : Css.declaration * Css.length Css.var;
     }
 
-    let default_font_theme =
-      let weight_d, weight_v = Var.binding weight_var default_weight in
-      let size_d, size_v = Var.binding size_var default_size in
-      let leading_d, leading_v = Var.binding leading_var default_leading in
-      {
-        weight = (weight_d, weight_v);
-        size = (size_d, size_v);
-        leading = (leading_d, leading_v);
-      }
+    let color_var = Var.theme Css.Color "example-text-color" ~order:(999, 2)
+    let size_var = Var.theme Css.Length "example-text-size" ~order:(999, 3)
+
+    let default_text_theme =
+      let color_d, color_v = Var.binding color_var (Css.Named Css.Black) in
+      let size_d, size_v = Var.binding size_var (Css.Rem 1.) in
+      { color = (color_d, color_v); size = (size_d, size_v) }
 
     let text_utility size_value =
-      let theme = default_font_theme in
+      let theme = default_text_theme in
       let new_size_d, new_size_v = Var.binding size_var size_value in
       let updated_theme = { theme with size = (new_size_d, new_size_v) } in
-      style "text-xl"
+      Style.style
         [
           fst updated_theme.size;
-          (* only the active declaration *)
-          font_size (Var (snd updated_theme.size));
-          line_height (Var (snd theme.leading)) (* reference default *);
+          Css.font_size (Css.Var (snd updated_theme.size));
+          Css.color (Css.Var (snd theme.color));
         ]
     ]}
 
@@ -260,10 +255,9 @@
     The [binding] function's value parameter serves as the default for inline
     mode:
     {[
-    (* Variables mode: generates --tw-color: red; color: var(--tw-color) *)
-    (* Inline mode: generates color: red directly *)
-    let color_decl, color_ref = Var.binding color_var red in
-    style "text-red-500" [ color_decl; color (Var color_ref) ]
+    let color_var = Var.theme Css.Color "example-inline-color" ~order:(999, 4)
+    let color_decl, color_ref = Var.binding color_var (Css.Named Css.Red)
+    let text_red = Style.style [ color_decl; Css.color (Css.Var color_ref) ]
     ]}
 
     This guarantees consistent behavior between Variables and Inline modes with
@@ -273,25 +267,19 @@
     Use [@property] registration for variables that need type safety, animation
     support, or fallback defaults for referencing utilities:
     {[
-    (* Variable with [@property] initial value *)
-    let shadow_var =
-      Var.property_default Css.Shadow "tw-shadow"
-        ~property:(Some (Shadow "0 0 #0000"), false)
+    let example_color =
+      Var.property_default Css.Color ~initial:(Css.Named Css.Black)
+        "tw-example-property-color"
 
-    (* Setting utility - follows three rules *)
-    let shadow_lg_utility =
-      let decl, var_ref = Var.binding shadow_var lg_shadow in
-      style "shadow-lg" [ decl; box_shadow (Var var_ref) ]
+    let set_color =
+      let decl, var_ref = Var.binding example_color (Css.Named Css.Red) in
+      Style.style [ decl; Css.color (Css.Var var_ref) ]
 
-    (* Referencing utility - needs [@property] defaults and property_rules *)
-    let shadow_utility =
-      let var_ref = Var.reference shadow_var in
-      let property_rule =
-        match Var.property_rule shadow_var with
-        | Some rule -> rule
-        | None -> Css.empty
-      in
-      style "shadow" ~property_rules:property_rule [ box_shadow (Var var_ref) ]
+    let reference_color =
+      let var_ref = Var.reference example_color in
+      Style.style
+        ~property_rules:(Var.property_rules example_color)
+        [ Css.color (Css.Var var_ref) ]
     ]}
 
     {2 The Border Pattern: Setting vs Referencing Variables}
@@ -302,26 +290,28 @@
     {3 Setting Utilities}
     Set the variable to a specific value (use [Var.binding]):
     {[
-    (* No [@property] rule generation needed *)
+    let border_style_var =
+      Var.property_default Css.Border_style ~initial:Css.Solid
+        "tw-example-border-style"
+
     let border_solid =
-      let decl, var_ref = Var.binding border_style_var Solid in
-      style "border-solid" [ decl; border_style (Var var_ref) ]
+      let decl, var_ref = Var.binding border_style_var Css.Solid in
+      Style.style [ decl; Css.border_style (Css.Var var_ref) ]
     ]}
 
     {3 Referencing Utilities}
     Reference the variable with [@property] default (use [Var.reference] +
     [~property_rules]):
     {[
-    (* Generates [@property] rule and properties layer *)
+    let border_style_var =
+      Var.property_default Css.Border_style ~initial:Css.Solid
+        "tw-example-border-style-reference"
+
     let border =
       let var_ref = Var.reference border_style_var in
-      let property_rule =
-        match Var.property_rule border_style_var with
-        | Some rule -> rule
-        | None -> Css.empty
-      in
-      style "border" ~property_rules:property_rule
-        [ border_style (Var var_ref); border_width (Px 1.) ]
+      Style.style
+        ~property_rules:(Var.property_rules border_style_var)
+        [ Css.border_style (Css.Var var_ref); Css.border_width (Css.Px 1.) ]
     ]}
 
     This pattern ensures [@property] rules are only generated when utilities
@@ -428,16 +418,16 @@ val property_default :
     {b IMPORTANT}: Due to current architecture limitations, any style that uses
     a [property_default] variable MUST include its [property_rule] explicitly:
     {[
-      let my_var = Var.property_default Content ~initial:(String "") "tw-content"
+    let my_var =
+      Var.property_default Css.Content ~initial:(Css.String "")
+        "tw-example-content"
 
-      let my_style =
-        let decl, ref = Var.binding my_var value in
-        let property_rules =
-          match Var.property_rule my_var with
-          | None -> Css.empty
-          | Some r -> r
-        in
-        style "my-class" ~property_rules [ decl; ... ]
+    let my_style =
+      let decl, ref_ = Var.binding my_var (Css.String "") in
+      let property_rules =
+        match Var.property_rule my_var with None -> Css.empty | Some r -> r
+      in
+      Style.style ~property_rules [ decl; Css.content (Css.Var ref_) ]
     ]}
 
     This ensures the [\@property] rule with the correct initial value flows
@@ -565,7 +555,10 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 
     Used with [Var.reference] to provide explicit property rules:
     {[
-    (* Generate [@property] rule for variables that need it *)
+    let my_var =
+      Var.property_default Css.Color ~initial:(Css.Named Css.Black)
+        "tw-example-rule-color"
+
     let property_rules =
       match Var.property_rule my_var with
       | Some rule -> rule
@@ -573,24 +566,34 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
     ]}
 
     Example output:
-    {[
+    {v
       \@property --tw-shadow {
         syntax: "*";
         inherits: false;
         initial-value: 0 0 #0000;
       }
-    ]} *)
+    v}
+
+    The generated rule is emitted as CSS. *)
 
 val property_rules : ('a, [< `Property_default ]) t -> Css.t
 (** [property_rules var] is a convenience function for property_default
     variables that returns either the property rule or [Css.empty] if there is
     none. This simplifies the common pattern of:
     {[
+    let var =
+      Var.property_default Css.Color ~initial:(Css.Named Css.Black)
+        "tw-example-rules-color"
+
     let property_rules =
       match Var.property_rule var with None -> Css.empty | Some r -> r
     ]}
     to just:
     {[
+    let var =
+      Var.property_default Css.Color ~initial:(Css.Named Css.Black)
+        "tw-example-rules-short-color"
+
     let property_rules = Var.property_rules var
     ]}
     Only use this for property_default variables where you expect a property

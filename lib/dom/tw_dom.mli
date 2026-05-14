@@ -6,23 +6,13 @@
 
     Usage with Helix:
     {[
-    open Tw
-
-    let () = Tw_dom.init ()
-
-    (* Helper: compose with your framework's class attribute *)
-    let tw styles = Html.class_name (Tw_dom.use styles)
-
-    let card () =
-      Html.div [ tw [ flex; p 4; bg blue; rounded_lg ] ] [ Html.text "Hello" ]
+    let init_tw_dom () = Tw_dom.init ()
+    let card_class () = Tw_dom.use Tw.[ flex; p 4; bg blue; rounded_lg ]
     ]}
 
     Usage standalone:
     {[
-      let () = Tw_dom.init ()
-
-      let el = Brr.Document.find_el_by_id (Brr.G.document) "app" in
-      Brr.El.set_at "class" (Some (Tw_dom.use Tw.[flex; p 4])) el
+    let app_class () = Tw_dom.use Tw.[ flex; p 4 ]
     ]} *)
 
 val init : ?base:bool -> unit -> unit

@@ -35,39 +35,19 @@
     {1:usage Usage Example}
 
     {[
-    let button =
-      let styles =
+    let button_classes =
+      to_classes
         [
-          (* Background and text colors *)
           bg blue;
-          (* blue background *)
           text white;
-          (* white text *)
-
-          (* Spacing: padding of 1rem vertical, 2rem horizontal *)
           py 4;
-          (* 4 * 0.25rem = 1rem *)
           px 8;
-          (* 8 * 0.25rem = 2rem *)
-
-          (* Typography and borders *)
           font_bold;
-          (* font-weight: 700 *)
-          rounded md;
-          (* medium border radius *)
-
-          (* Interactive states *)
+          rounded_md;
           hover [ bg ~shade:700 blue ];
-          (* darker blue on hover *)
           transition_colors;
-          (* smooth color transitions *)
-
-          (* Responsive design *)
           sm [ px 6 ];
-          (* less padding on small screens *)
         ]
-      in
-      Html.button ~tw:styles [ Html.txt "Click Me" ]
     ]}
 
     {1:links Learn More}
@@ -462,9 +442,8 @@ val absolute : t
 
     Example:
     {[
-    (* Notification badge on icon *)
-    div ~tw:[ relative ]
-      [ icon; span ~tw:[ absolute; top (-2); right (-2) ] [ txt "3" ] ]
+    let badge_container = to_classes [ relative ]
+    let badge = to_classes [ absolute; top (-2); right (-2) ]
     ]} *)
 
 val fixed : t
@@ -594,7 +573,7 @@ val flex : t
 
     Example:
     {[
-    div ~tw:[ flex; items_center; gap 4 ] [ icon; span [ txt "Dashboard" ] ]
+    let nav_item = to_classes [ flex; items_center; gap 4 ]
     ]} *)
 
 val inline_flex : t
@@ -606,16 +585,8 @@ val flex_1 : t
 
     Example:
     {[
-    (* Three columns of equal width *)
-    div ~tw:[ flex ]
-      [
-        div ~tw:[ flex_1 ] [ content1 ];
-        (* 33.33% *)
-        div ~tw:[ flex_1 ] [ content2 ];
-        (* 33.33% *)
-        div ~tw:[ flex_1 ] [ content3 ];
-        (* 33.33% *)
-      ]
+    let columns = to_classes [ flex ]
+    let column = to_classes [ flex_1 ]
     ]} *)
 
 val flex_auto : t
@@ -800,13 +771,7 @@ val gap : int -> t
 
     Example:
     {[
-    div
-      ~tw:[ flex; gap 4 ]
-      [
-        (* All children will have 1rem space between them *)
-        button [ txt "Save" ];
-        button [ txt "Cancel" ];
-      ]
+    let button_row = to_classes [ flex; gap 4 ]
     ]} *)
 
 val gap_x : int -> t
@@ -1482,9 +1447,7 @@ val line_clamp : int -> t
 
     Example:
     {[
-    p
-      ~tw:[ line_clamp 3 ]
-      [ txt "This very long text will be truncated after three lines..." ]
+    let summary = to_classes [ line_clamp 3 ]
     ]} *)
 
 (** {2 Line Height}
@@ -1855,14 +1818,13 @@ val bg_gradient_to : direction -> t
 
     Example:
     {[
-    div
-      ~tw:
+    let gradient =
+      to_classes
         [
           bg_gradient_to Bottom;
           from_color ~shade:100 blue;
           to_color ~shade:600 blue;
         ]
-      [ txt "Gradient background" ]
     ]} *)
 
 val from_color : ?shade:int -> color -> t
@@ -1871,10 +1833,10 @@ val from_color : ?shade:int -> color -> t
 
     Example:
     {[
-    div
-      ~tw:
+    let gradient =
+      to_classes
         [
-          bg_gradient_to_r;
+          bg_gradient_to Right;
           from_color ~shade:400 blue;
           to_color ~shade:600 purple;
         ]
@@ -1973,8 +1935,8 @@ val border_transparent : t
 val border_current : t
 (** [border_current] sets border color to match the text color. For example:
     {[
-    div ~tw:[ text ~shade:600 red; border xs; border_current ]
-    (* Border will be red-600, same as the text *)
+    let danger_border =
+      to_classes [ text ~shade:600 red; border_xs; border_current ]
     ]}
 
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
@@ -2489,16 +2451,14 @@ val backdrop_brightness : int -> t
 
     Example:
     {[
-    (* Frosted glass overlay *)
-    div
-      ~tw:
+    let frosted_overlay =
+      to_classes
         [
           backdrop_brightness 75;
           backdrop_saturate 150;
           bg ~shade:100 white;
           opacity 30;
         ]
-      [ txt "Overlay content" ]
     ]} *)
 
 val backdrop_contrast : int -> t
@@ -2594,14 +2554,8 @@ val transition_colors : t
 
     Example:
     {[
-    button
-      ~tw:
-        [
-          bg blue;
-          transition_colors;
-          (* Smooth color change *)
-          hover [ bg ~shade:700 blue ];
-        ]
+    let button =
+      to_classes [ bg blue; transition_colors; hover [ bg ~shade:700 blue ] ]
     ]}
 
     Duration is 150ms by default. *)
@@ -2975,13 +2929,8 @@ val snap_x : t
 
     Example:
     {[
-    (* Horizontal carousel *)
-    div
-      ~tw:[ flex; overflow_x_auto; snap_x; snap_mandatory ]
-      [
-        div ~tw:[ snap_center; flex_shrink_0; w full ] [ img1 ];
-        div ~tw:[ snap_center; flex_shrink_0; w full ] [ img2 ];
-      ]
+    let carousel = to_classes [ flex; overflow_x_auto; snap_x; snap_mandatory ]
+    let slide = to_classes [ snap_center; flex_shrink_0; w_full ]
     ]} *)
 
 val snap_y : t
@@ -3165,13 +3114,7 @@ val prose : t
 
     Example:
     {[
-    article
-      ~tw:[ prose; prose_lg; max_w none ]
-      [
-        h1 [ txt "Article Title" ];
-        p [ txt "This paragraph will be beautifully styled..." ];
-        (* All child elements get appropriate typography *)
-      ]
+    let article = to_classes [ prose; prose_lg; max_w_none ]
     ]} *)
 
 val prose_sm : t
@@ -3211,8 +3154,8 @@ val to_classes : t list -> string
 
     Example:
     {[
-    let button_styles = [ bg blue; text white; px (int 4); py (int 2) ] in
-    button ~at:[ At.class_ (to_classes button_styles) ] [ txt "Click" ]
+    let button_styles = [ bg blue; text white; px 4; py 2 ]
+    let button_class = to_classes button_styles
     ]} *)
 
 val pp : t -> string
@@ -3223,10 +3166,10 @@ val of_string : string -> (t, [ `Msg of string ]) result
 
     Example:
     {[
-      of_string "bg-blue-500" = Ok (bg_blue)
-      of_string "p-4" = Ok (p (int 4))
-      of_string "text-center" = Ok text_center
-      of_string "unknown-class" = Error (`Msg "Unknown class: unknown-class")
+    let parsed = of_string "bg-blue-500"
+    let spacing = of_string "p-4"
+    let centered = of_string "text-center"
+    let invalid = of_string "unknown-class"
     ]}
 
     Returns [Error (`Msg reason)] if the class string is not recognized. *)
@@ -3237,7 +3180,7 @@ val str : string -> t list
 
     Example:
     {[
-    str "flex items-center gap-4 p-6 bg-white rounded-lg"
+    let classes = str "flex items-center gap-4 p-6 bg-white rounded-lg"
     ]} *)
 
 (** {2 CSS Generation}
@@ -3260,17 +3203,8 @@ val to_inline_style : t list -> string
 
     Perfect for tweaking individual HTML nodes with custom styles:
     {[
-    (* Create inline styles *)
     let inline_styles =
-      to_inline_style [ bg blue 100; p 4; rounded_md; text_white ]
-    in
-
-    (* Use in HTML *)
-    Html.div
-      ~at:[ Html.At.style inline_styles ]
-      [ Html.txt "This div has inline styles" ]
-    (* Generates: style="background-color:rgb(219 234
-       254);padding:1rem;border-radius:0.375rem;color:rgb(255 255 255)" *)
+      to_inline_style [ bg ~shade:100 blue; p 4; rounded_md; text white ]
     ]}
 
     {b When to use [to_inline_style] vs [to_css]:}
@@ -3384,8 +3318,9 @@ val clip_polygon : (float * float) list -> t
 
     Example:
     {[
-    (* Create a triangular badge/indicator *)
-    span ~tw:[ clip_polygon [ (50., 0.); (0., 100.); (100., 100.) ]; bg red ] []
+    let triangular_badge =
+      to_classes
+        [ clip_polygon [ (50., 0.); (0., 100.); (100., 100.) ]; bg red ]
     ]} *)
 
 (** {1 Modifiers}

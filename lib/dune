@@ -1,4 +1,9 @@
 (library
  (public_name tw)
  (name tw)
- (libraries cascade))
+ (libraries cascade fmt))
+
+(mdx
+ (files tw.mli prose.mli utility.mli var.mli)
+ (preludes mdx/prelude.ml)
+ (libraries tw cascade))

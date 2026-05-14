@@ -7,57 +7,31 @@
     {2 Module Structure}
 
     {[
-      (** Module documentation with links to Tailwind CSS docs *)
-
-      open Style
-      open Css
+    module Example = struct
+      module Css = Cascade.Css
+      module Style = Tw.Style
+      module Utility = Tw.Utility
 
       module Handler = struct
-        type t =
-          | Variant1
-          | Variant2
-          | ...
-
+        type t = Block
         type Utility.base += Self of t
 
-        let priority = N  (* See priority table below *)
+        let name = "example"
+        let priority = 4
+        let to_style = function Block -> Style.style [ Css.display Css.Block ]
+        let suborder = function Block -> 0
 
-        let variant1 = style "class-name" [ css_prop value ]
-        let variant2 = style "class-name" [ css_prop value ]
+        let of_class = function
+          | "example-block" -> Ok Block
+          | _ -> Error (`Msg "Not an example utility")
 
-        (* Note: Use Css.prop qualified names if helper name conflicts with CSS property *)
-        let example = style "example" [ Css.flex Auto ]
-
-        let to_style = function
-          | Variant1 -> variant1
-          | Variant2 -> variant2
-          | ...
-
-        let suborder = function
-          | Variant1 -> 0
-          | Variant2 -> 1
-          | ...
-
-        let err_not_utility = Error (`Msg "Not a <category> utility")
-        let of_strings =
-          function
-          | [ "class"; "name" ] -> Ok Variant1
-          | [ "other"; "class" ] -> Ok Variant2
-          | _ -> err_not_utility
-
-        let to_class = function
-          | ...
+        let to_class = function Block -> "example-block"
       end
 
-      open Handler
-
       let () = Utility.register (module Handler)
-
-      let utility x = Utility.base (Self x)
-
-      (* Public API *)
-      let variant1 = utility Variant1
-      let variant2 = utility Variant2
+      let utility x = Utility.base (Handler.Self x)
+      let example_block = utility Handler.Block
+    end
     ]}
 
     {2 Key Rules}

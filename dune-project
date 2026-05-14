@@ -1,5 +1,7 @@
 (lang dune 3.0)
 
+(using mdx 0.2)
+
 (name tw)
 
 (generate_opam_files true)

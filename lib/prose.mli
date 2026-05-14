@@ -18,18 +18,7 @@ open Cascade
 
 (** Example usage:
     {[
-    (* Apply prose styling to article content *)
-    div
-      ~attrs:[ Tw.to_class_list [ Tw.prose; Tw.prose_lg ] ]
-      [
-        h1 [ text "Article Title" ];
-        p [ text "This paragraph will have beautiful typography..." ];
-        ul
-          [
-            li [ text "List items are properly styled" ];
-            li [ text "With appropriate spacing" ];
-          ];
-      ]
+    let article_class = Tw.to_classes Tw.[ prose; prose_lg ]
     ]} *)
 
 type variant =

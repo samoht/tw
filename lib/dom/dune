@@ -3,3 +3,9 @@
  (public_name tw.dom)
  (libraries tw brr)
  (optional))
+
+(mdx
+ (files tw_dom.mli)
+ (enabled_if false)
+ (preludes mdx/prelude.ml)
+ (libraries tw tw.dom brr))
