@@ -27,4 +27,7 @@
  (alias runtest)
  (deps dashboard.css tailwind.css)
  (action
-  (run cssdiff --color=always dashboard.css tailwind.css)))
+  (setenv
+   CASCADE_COLOR
+   always
+   (run %{bin:cascade} diff --diff=semantic dashboard.css tailwind.css))))

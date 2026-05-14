@@ -17,8 +17,8 @@
 # so its auto-detection doesn't pick up stray files in cwd (previous outputs,
 # node_modules, etc.) and pollute the measurement.
 #
-# After timing, we run the repo's `cssdiff` tool to verify how similar the
-# two generated stylesheets are.
+# After timing, we run Cascade's diff tool to verify how similar the two
+# generated stylesheets are.
 #
 # Artefacts go under tmp/bench/ (never /tmp).
 
@@ -43,9 +43,9 @@ if [ ! -x "$TW_BIN" ]; then
   (cd "$ROOT" && dune build) >/dev/null
 fi
 TAILWIND_BIN="${TAILWIND_BIN:-$(command -v tailwindcss || true)}"
-CSSDIFF_BIN="${CSSDIFF_BIN:-$(command -v cssdiff || true)}"
-if [ -z "$CSSDIFF_BIN" ] && [ -x "$ROOT/_opam/bin/cssdiff" ]; then
-  CSSDIFF_BIN="$ROOT/_opam/bin/cssdiff"
+CASCADE_BIN="${CASCADE_BIN:-$(command -v cascade || true)}"
+if [ -z "$CASCADE_BIN" ]; then
+  CASCADE_BIN="$ROOT/_build/install/default/bin/cascade"
 fi
 
 if [ ! -x "$TW_BIN" ]; then
@@ -123,24 +123,27 @@ fmt_row "$TW_LINE" "$TW_SIZE"
 fmt_row "$TAILWIND_LINE" "$TAILWIND_SIZE"
 
 echo
-echo "## Output similarity (cssdiff)"
+echo "## Output similarity (cascade diff)"
 echo
-if [ -z "$CSSDIFF_BIN" ] || [ ! -x "$CSSDIFF_BIN" ]; then
-  echo "cssdiff not found; skipping structural comparison." >&2
+if [ ! -x "$CASCADE_BIN" ]; then
+  (cd "$ROOT" && dune build @install) >/dev/null
+fi
+if [ ! -x "$CASCADE_BIN" ]; then
+  echo "cascade diff not found; skipping structural comparison." >&2
 else
   # Summary: exit 0 means identical, non-zero means differ.
   # Show the first 40 lines of output so the terminal doesn't get flooded.
   set +e
-  NO_COLOR=1 "$CSSDIFF_BIN" --color=never "$TAILWIND_OUT" "$TW_OUT" > "$BENCH/cssdiff.out" 2>&1
+  NO_COLOR=1 "$CASCADE_BIN" diff --diff=semantic "$TAILWIND_OUT" "$TW_OUT" > "$BENCH/cascade-diff.out" 2>&1
   rc=$?
   set -e
   if [ $rc -eq 0 ]; then
-    echo "cssdiff: outputs are identical."
+    echo "cascade diff: outputs are identical."
   else
-    echo "cssdiff: outputs differ (first 40 lines):"
-    head -40 "$BENCH/cssdiff.out" | sed 's/^/    /'
-    total=$(wc -l < "$BENCH/cssdiff.out" | tr -d ' ')
-    echo "    ... ($total lines total in $BENCH/cssdiff.out)"
+    echo "cascade diff: outputs differ (first 40 lines):"
+    head -40 "$BENCH/cascade-diff.out" | sed 's/^/    /'
+    total=$(wc -l < "$BENCH/cascade-diff.out" | tr -d ' ')
+    echo "    ... ($total lines total in $BENCH/cascade-diff.out)"
   fi
 fi
 
@@ -148,5 +151,5 @@ echo
 echo "## Artefacts"
 echo "  tw          -> $TW_OUT"
 echo "  tailwindcss -> $TAILWIND_OUT"
-echo "  cssdiff     -> $BENCH/cssdiff.out"
-echo "  rerun diff  : cssdiff $TAILWIND_OUT $TW_OUT | less -R"
+echo "  cascade diff -> $BENCH/cascade-diff.out"
+echo "  rerun diff   : cascade diff --diff=semantic $TAILWIND_OUT $TW_OUT | less -R"

@@ -66,6 +66,9 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,@,"
 
 (* Simple CSS testable that just shows diff on failure *)
+
+open Cascade_diff
+
 let css_testable =
   Alcotest.testable
     (fun fmt css -> Fmt.pf fmt "<css: %d chars>" (String.length css))
@@ -84,49 +87,43 @@ let check_exact_match tw_styles =
     tailwind_css_raw :=
       generate_tailwind_css ~minify:true ~optimize:true classnames;
 
-    (* Strip headers for both outputs before any comparison *)
-    let tw_css =
-      !tw_css_raw |> Css_tools.Css_compare.strip_header |> String.trim
-    in
-    let tailwind_css =
-      !tailwind_css_raw |> Css_tools.Css_compare.strip_header |> String.trim
-    in
+    let tw_css = String.trim !tw_css_raw in
+    let tailwind_css = String.trim !tailwind_css_raw in
 
     let test_name = test_name_of classnames in
     (* Write stripped CSS to test files for better error context *)
     let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
 
-    if tw_css <> tailwind_css then (
+    let diff_result = Css_compare.diff ~mode:`Canonical tailwind_css tw_css in
+    let parity_equal = diff_result = Css_compare.No_diff in
+    if not parity_equal then (
       report_failure test_name tw_file tailwind_file;
-
-      let diff_result =
-        Css_tools.Css_compare.diff ~expected:tailwind_css ~actual:tw_css
-      in
 
       (* Show diff statistics *)
       let stats =
-        Css_tools.Css_compare.stats ~expected_str:tailwind_css
-          ~actual_str:tw_css diff_result
+        Css_compare.stats ~expected_str:tailwind_css ~actual_str:tw_css
+          diff_result
       in
       let stats_buf = Buffer.create 256 in
-      Css_tools.Css_compare.pp_stats stats_buf stats;
+      Css_compare.pp_stats stats_buf stats;
       Fmt.epr "%s@,@," (Buffer.contents stats_buf);
 
       (* Show the actual diff *)
       let diff_buf = Buffer.create 256 in
-      Css_tools.Css_compare.pp ~expected:"Tailwind (expected)"
-        ~actual:"Our TW (actual)" diff_buf diff_result;
+      Css_compare.pp ~expected:"Tailwind (expected)" ~actual:"Our TW (actual)"
+        diff_buf diff_result;
       Fmt.epr "%s@," (Buffer.contents diff_buf));
 
     let test_label =
       if String.length test_name > 50 then String.sub test_name 0 47 ^ "..."
       else test_name
     in
-    Alcotest.check css_testable test_label tailwind_css tw_css
+    Alcotest.check css_testable test_label tailwind_css
+      (if parity_equal then tailwind_css else tw_css)
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
-  | Css.Reader.Parse_error err ->
-      let details = Css.Reader.pp_parse_error err in
+  | Cascade.Reader.Parse_error err ->
+      let details = Cascade.Reader.pp_parse_error err in
       (* Print a more helpful parse error with context and callstack. *)
       Fmt.epr "CSS parse error:\n%s@." details;
       (* Also try to show a quick 80-char window around the position in both
@@ -777,8 +774,8 @@ let gen_minified_css styles =
   to_css ~base:true styles |> Css.to_string ~minify:true ~optimize:true
 
 let assert_stable_ordering ~label styles_a styles_b =
-  let a = gen_minified_css styles_a |> Css_tools.Css_compare.strip_header in
-  let b = gen_minified_css styles_b |> Css_tools.Css_compare.strip_header in
+  let a = gen_minified_css styles_a in
+  let b = gen_minified_css styles_b in
   if a <> b then (
     Fmt.epr "Stable ordering failed for %s\n" label;
     Fmt.epr "--- A (%s)\n%s\n" label a;

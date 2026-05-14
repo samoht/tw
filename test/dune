@@ -8,5 +8,5 @@
   astring
   fmt
   tw_tools
-  cascade.tools
+  cascade.diff
   test_helpers))

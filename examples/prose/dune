@@ -43,4 +43,7 @@
  (alias runtest)
  (deps prose.css tailwind.css)
  (action
-  (run cssdiff --color=always tailwind.css prose.css)))
+  (setenv
+   CASCADE_COLOR
+   always
+   (run %{bin:cascade} diff --diff=semantic tailwind.css prose.css))))

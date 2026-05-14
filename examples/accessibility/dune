@@ -27,4 +27,7 @@
  (alias runtest)
  (deps accessibility.css tailwind.css)
  (action
-  (run cssdiff --color=always accessibility.css tailwind.css)))
+  (setenv
+   CASCADE_COLOR
+   always
+   (run %{bin:cascade} diff --diff=semantic accessibility.css tailwind.css))))

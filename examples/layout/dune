@@ -27,4 +27,7 @@
  (alias runtest)
  (deps layout.css tailwind.css)
  (action
-  (run cssdiff --color=always layout.css tailwind.css)))
+  (setenv
+   CASCADE_COLOR
+   always
+   (run %{bin:cascade} diff --diff=semantic layout.css tailwind.css))))
