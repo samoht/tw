@@ -377,7 +377,7 @@ module Handler = struct
           | Arb_var v ->
               let vn = Parse.extract_var_name v in
               let raw_fb =
-                Printf.sprintf "oklab(from var(--%s) l a b / %s%%)" vn
+                Fmt.str "oklab(from var(--%s) l a b / %s%%)" vn
                   (pp_float percent)
               in
               let enhanced_ref =

@@ -544,7 +544,7 @@ module Handler = struct
           | Var v ->
               let vn = Parse.extract_var_name v in
               let raw_fb =
-                Format.asprintf "oklab(from var(--%s) l a b / %s%%)" vn
+                Fmt.str "oklab(from var(--%s) l a b / %s%%)" vn
                   (pp_float percent)
               in
               let enhanced_ref =
@@ -955,8 +955,8 @@ module Handler = struct
     match extract_var_fallback v with
     | Stdlib.Option.Some fb ->
         let short_fb = shorten_hex_with_hash fb in
-        Format.asprintf "var(--%s, %s)" name short_fb
-    | Stdlib.Option.None -> Format.asprintf "var(--%s)" name
+        Fmt.str "var(--%s, %s)" name short_fb
+    | Stdlib.Option.None -> Fmt.str "var(--%s)" name
 
   (* Parse multi-value shadow (comma-separated) *)
   let parse_multi_shadow (s : string) =
@@ -1097,8 +1097,8 @@ module Handler = struct
                     | Var v ->
                         let var_with_fb = reconstruct_short_var v in
                         let raw_fb =
-                          Format.asprintf "oklab(from %s l a b / %s%%)"
-                            var_with_fb (pp_float percent)
+                          Fmt.str "oklab(from %s l a b / %s%%)" var_with_fb
+                            (pp_float percent)
                         in
                         Var.bracket
                           ~fallback:

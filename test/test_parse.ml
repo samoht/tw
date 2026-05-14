@@ -5,9 +5,8 @@ let test_escape_in_selector () =
   match Css.of_string test_css with
   | Ok _stylesheet -> ()
   | Error e ->
-      Alcotest.fail
-        (Fmt.str "Failed to parse escaped selector: %s"
-           (Cascade.Error.to_string e))
+      Alcotest.failf "Failed to parse escaped selector: %s"
+        (Cascade.Error.to_string e)
 
 let tests =
   Alcotest.

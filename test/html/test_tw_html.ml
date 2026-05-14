@@ -338,8 +338,8 @@ let test_exact_byte_match () =
   let our_css = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
 
   let html_file = "/tmp/tw_exact_test.html" in
-  write_file html_file
-    (Fmt.str "<!DOCTYPE html>\n<html>\n<body>\n%s\n</body>\n</html>" html_output);
+  Fmt.kstr (write_file html_file)
+    "<!DOCTYPE html>\n<html>\n<body>\n%s\n</body>\n</html>" html_output;
 
   (* Create minimal Tailwind config with preflight enabled *)
   let tailwind_config =

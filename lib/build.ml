@@ -390,8 +390,7 @@ let rule_sets_from_selector_props all_rules =
   if Sort.debug_compare_enabled () then
     List.iter
       (fun (r : Sort.indexed_rule) ->
-        Format.eprintf "SORTED: vo=%d base=%s type=%s nested=%d@."
-          r.variant_order
+        Fmt.epr "SORTED: vo=%d base=%s type=%s nested=%d@." r.variant_order
           (match r.base_class with Some s -> s | None -> "<none>")
           (match r.rule_type with
           | `Regular -> "R"
