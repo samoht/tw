@@ -1176,8 +1176,8 @@ let is_media_inner_modifier = function
   | Style.Hover | Style.Device_hocus -> true
   | inner -> Option.is_some (media_condition_of_modifier inner)
 
-let handle_peer_or_group_not_modifier ~prefix ~base_marker_class ~combinator
-    ~variant inner name_opt base_class props =
+let handle_named_not ~prefix ~base_marker_class ~combinator ~variant inner
+    name_opt base_class props =
   let inner_str = not_modifier_inner_string inner in
   let name_suffix = named_modifier_suffix name_opt in
   let modified_class =
@@ -1210,7 +1210,7 @@ let handle_peer_or_group_not_modifier ~prefix ~base_marker_class ~combinator
     ]
 
 let handle_group_not_modifier inner name_opt base_class props =
-  handle_peer_or_group_not_modifier ~prefix:"group" ~base_marker_class:"group"
+  handle_named_not ~prefix:"group" ~base_marker_class:"group"
     ~combinator:Descendant
     ~variant:(fun inner name_opt -> Style.Group_not (inner, name_opt))
     inner name_opt base_class props
@@ -1218,7 +1218,7 @@ let handle_group_not_modifier inner name_opt base_class props =
 (** Handle peer-not-X modifier. Produces selector with
     :is(:where(.peer):not(...) sibling) pattern. *)
 let handle_peer_not_modifier inner name_opt base_class props =
-  handle_peer_or_group_not_modifier ~prefix:"peer" ~base_marker_class:"peer"
+  handle_named_not ~prefix:"peer" ~base_marker_class:"peer"
     ~combinator:Subsequent_sibling
     ~variant:(fun inner name_opt -> Style.Peer_not (inner, name_opt))
     inner name_opt base_class props
