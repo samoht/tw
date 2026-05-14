@@ -173,7 +173,7 @@ let test_content () = check "content-none"
    clamp(...), and var(...). Bare identifiers without a unit are rejected --
    including things that look like hex colors but lack the leading '#' (CSS
    Color §5.4.6). *)
-let test_text_bracket_font_size_valid () =
+let test_text_bracket_size_valid () =
   check "text-[16px]";
   check "text-[1.5rem]";
   check "text-[1.25em]";
@@ -185,7 +185,7 @@ let test_text_bracket_font_size_valid () =
   check "text-[length:var(--my-size)]";
   check "text-[percentage:50%]"
 
-let test_text_bracket_font_size_invalid () =
+let test_text_bracket_size_invalid () =
   let bad input =
     match Tw.Typography.Typography_early.of_class input with
     | Ok _ -> Alcotest.fail ("Expected early handler to reject: " ^ input)
@@ -287,9 +287,9 @@ let tests =
     test_case "numeric variants" `Quick test_numeric_variants;
     test_case "content" `Quick test_content;
     test_case "text-[<font-size>] valid values" `Quick
-      test_text_bracket_font_size_valid;
+      test_text_bracket_size_valid;
     test_case "text-[<font-size>] invalid values" `Quick
-      test_text_bracket_font_size_invalid;
+      test_text_bracket_size_invalid;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

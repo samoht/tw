@@ -36,7 +36,7 @@ let test_scan_utf8_source () =
   let source = {|<div title="café" class="p-4">Привет bg-red-500 你好</div>|} in
   check_strings "known classes" [ "bg-red-500"; "p-4" ] (known_classes source)
 
-let test_tw_str_uses_html_whitespace () =
+let test_tw_str_html_space () =
   check_strings "Tw.str"
     [ "flex"; "items-center"; "p-4" ]
     (Tw.str "flex\titems-center\np-4" |> List.map Tw.pp)
@@ -47,8 +47,7 @@ let tests =
     test_case "scan HTML plain text" `Quick test_scan_html_plain_text;
     test_case "scan JS static classes" `Quick test_scan_js_static_classes;
     test_case "scan UTF-8 source" `Quick test_scan_utf8_source;
-    test_case "Tw.str splits HTML whitespace" `Quick
-      test_tw_str_uses_html_whitespace;
+    test_case "Tw.str splits HTML whitespace" `Quick test_tw_str_html_space;
   ]
 
 let suite = ("source_scan", tests)

@@ -37,6 +37,8 @@ _doc/
 
 # opam local switch
 _opam/
+_opam
+cascade
 
 # Secrets
 .env

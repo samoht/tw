@@ -1,0 +1,238 @@
+# Modules included in tw.ml intentionally expose prefixed DSL names at the
+# top-level Tw namespace.
+# Utility parsers are intentionally expressed as large Tailwind class matchers.
+max-complexity = 43
+max-nesting = 9
+
+allowed_words = [
+  "base_to_style",
+  "bracket_color_to_custom",
+  "candidates_from_file",
+  "color_to_string",
+  "config_to_string",
+  "container_query_to_condition",
+  "css_color_to_hex",
+  "custom_color_to_oklab",
+  "dedup_keyframes_to_css",
+  "extract_breakpoints_from_css",
+  "extract_radius_from_css",
+  "extract_spacing_from_css",
+  "filter_theme_from_statements",
+  "hex_to_rgb",
+  "indexed_rule_to_statement",
+  "margin_to_length",
+  "oklch_to_css",
+  "oklch_to_rgb",
+  "opacity_to_percent",
+  "rgb_to_hex",
+  "rgb_to_oklab",
+  "rgb_to_oklch",
+  "rule_to_triple",
+  "set_var_names_from_props",
+  "test_modifier_to_rule",
+  "test_rgb_to_hex",
+  "test_to_tw",
+  "to_class",
+  "to_classes",
+  "to_color",
+  "to_css",
+  "to_name",
+]
+
+# The local checkout uses an untracked symlink to the sibling cascade repo for
+# development. It is not part of this package's lint surface.
+[[rules]]
+files = "cascade/**"
+exclude = ["*"]
+
+[[rules]]
+files = "./cascade/**"
+exclude = ["*"]
+
+[[rules]]
+files = "lib/color.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/backgrounds.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/margin.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/gap.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/padding.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/sizing.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/typography.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/layout.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/overflow.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/overscroll.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/overflow_wrap.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/box_sizing.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/field_sizing.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/grid.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/grid_item.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/grid_template.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/flex.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/flex_props.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/flex_layout.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/alignment.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/borders.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/effects.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/text_shadow.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/transforms.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/cursor.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/touch.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/divide.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/interactivity.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/containers.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/filters.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/masks.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/mask_gradient.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/clipping.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/position.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/animations.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/transitions.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/forms.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/tables.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/svg.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/accessibility.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/modifiers.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/prose.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/columns.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/contain.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/scroll.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/arbitrary.ml*"
+exclude = ["E330"]
+
+[[rules]]
+files = "lib/style.ml*"
+exclude = ["E330"]

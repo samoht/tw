@@ -57,8 +57,7 @@ let named_spacing_binding name : Css.declaration option * Css.length =
       let ref = named_spacing_ref name in
       (None, ref)
 
-let spacing_to_length_with ~px ~full ~rem_factor spacing_ref : spacing -> length
-    = function
+let length_with ~px ~full ~rem_factor spacing_ref : spacing -> length = function
   | `Px -> Px px
   | `Full -> Pct full
   | `Named name -> named_spacing_ref name
@@ -67,19 +66,19 @@ let spacing_to_length_with ~px ~full ~rem_factor spacing_ref : spacing -> length
       Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float n))
 
 let to_length spacing_ref =
-  spacing_to_length_with ~px:1. ~full:100.0
+  length_with ~px:1. ~full:100.0
     ~rem_factor:(fun f -> float_of_int (int_of_float (f /. 0.25)))
     spacing_ref
 
 let margin_to_length spacing_ref : margin -> length = function
   | `Auto -> Auto
   | #spacing as spacing ->
-      spacing_to_length_with ~px:1. ~full:100.0
+      length_with ~px:1. ~full:100.0
         ~rem_factor:(fun f -> f /. 0.25)
         spacing_ref spacing
 
 let margin_to_length_neg spacing_ref =
-  spacing_to_length_with ~px:(-1.) ~full:(-100.0)
+  length_with ~px:(-1.) ~full:(-100.0)
     ~rem_factor:(fun f -> -.(f /. 0.25))
     spacing_ref
 
