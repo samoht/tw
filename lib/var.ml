@@ -309,8 +309,12 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Filter -> Css.Properties.Filter
   | Font_src -> Css.Properties.Font_src
 
-let string_of_kind_value kind value =
-  Css.Properties.string_of_kind_value (properties_kind_of_kind kind) value
+let string_of_kind_value : type a. a Css.kind -> a -> string =
+ fun kind value ->
+  match kind with
+  | Css.Color -> Css.Pp.to_string ~minify:true Css.Values.pp_color value
+  | _ ->
+      Css.Properties.string_of_kind_value (properties_kind_of_kind kind) value
 
 (* Helper to create @property with correct syntax based on kind *)
 let property_universal : type a.

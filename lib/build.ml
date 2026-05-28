@@ -323,7 +323,11 @@ let rule_to_triple = function
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
+      let hover : Css.Media.t =
+        Css.Media.Cond
+          (Css.Media.Feature
+             (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
+      in
       let typ = if has_hover then `Media hover else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
         ~not_order
@@ -797,7 +801,7 @@ let sort_properties_by_order first_usage_order initial_values =
 (* Build property layer content with browser detection *)
 let property_layer_content first_usage_order initial_values other_statements =
   let selector =
-    Css.Selector.(list [ universal; Before Double; After Double; Backdrop ])
+    Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
   in
   let sorted_values =
     sort_properties_by_order first_usage_order initial_values

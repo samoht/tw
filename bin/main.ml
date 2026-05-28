@@ -75,6 +75,18 @@ let print_diff_result label diff =
       print_string (Buffer.contents buf);
       Fmt.pr "@."
 
+let render_css ~(opts : gen_opts) stylesheet =
+  let stylesheet =
+    match opts.css_mode with
+    | Inline -> Tw.Css.inline_vars stylesheet
+    | Variables -> stylesheet
+  in
+  let stylesheet =
+    if opts.optimize then Tw.Css.optimize ~scope:`Stylesheet stylesheet
+    else stylesheet
+  in
+  Tw.Css.to_string ~minify:opts.minify stylesheet
+
 let diff_single_class class_str ~(opts : gen_opts) =
   try
     let legacy_css =
@@ -84,10 +96,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     let tw_styles = parse_classes ~warn:false class_str in
     let styles = match tw_styles with [] -> [] | s -> s in
     let stylesheet = Tw.to_css ~base:true styles in
-    let our_css =
-      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-        ~mode:Variables stylesheet
-    in
+    let our_css = render_css ~opts stylesheet in
     let diff = Css_compare.diff ~mode:`Canonical legacy_css our_css in
     match tw_styles with
     | [] when class_str = "" ->
@@ -128,9 +137,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
           `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
       | _ ->
           let stylesheet = Tw.to_css ~base:include_base styles in
-          print_string
-            (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-               ~mode:opts.css_mode stylesheet);
+          print_string (render_css ~opts stylesheet);
           `Ok ())
 
 let collect_files paths =
@@ -171,10 +178,7 @@ let diff_files paths ~(opts : gen_opts) =
     in
     let tw_styles = parse_known_candidates all_classes |> List.map snd in
     let stylesheet = Tw.to_css ~base:true tw_styles in
-    let our_css =
-      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-        ~mode:Variables stylesheet
-    in
+    let our_css = render_css ~opts stylesheet in
     let diff = Css_compare.diff ~mode:`Canonical legacy_css our_css in
     print_diff_result "" diff;
     `Ok ()
@@ -192,9 +196,7 @@ let native_files paths flag ~(opts : gen_opts) =
     let known = parse_known_candidates all_classes in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~base:include_base tw_styles in
-    print_string
-      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-         ~mode:opts.css_mode stylesheet);
+    print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count:(List.length known);
     `Ok ()

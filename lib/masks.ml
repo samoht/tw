@@ -259,17 +259,17 @@ module Handler = struct
             let n =
               String.sub s 0 (String.length s - 2) |> float_of_string_opt
             in
-            Option.map (fun f -> (Css.Px f : Css.background_size)) n
+            Option.map (fun f -> (Length (Px f) : Css.background_size)) n
           else if String.ends_with ~suffix:"%" s then
             let n =
               String.sub s 0 (String.length s - 1) |> float_of_string_opt
             in
-            Option.map (fun f -> (Css.Pct f : Css.background_size)) n
+            Option.map (fun f -> (Length (Pct f) : Css.background_size)) n
           else if String.ends_with ~suffix:"rem" s then
             let n =
               String.sub s 0 (String.length s - 3) |> float_of_string_opt
             in
-            Option.map (fun f -> (Css.Rem f : Css.background_size)) n
+            Option.map (fun f -> (Length (Rem f) : Css.background_size)) n
           else None
         in
         Option.map

@@ -108,7 +108,7 @@ let check_css_variables_without_base () =
 let check_css_inline_with_base () =
   let config = { Tw.Build.base = true; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ p 4 ] in
-  let css_str = Css.to_string ~mode:Css.Inline css in
+  let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
   check bool "has padding rule" true
@@ -117,7 +117,7 @@ let check_css_inline_with_base () =
 let check_css_inline_without_base () =
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ p 4 ] in
-  let css_str = Css.to_string ~mode:Css.Inline css in
+  let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
   check bool "has padding rule" true
@@ -440,7 +440,9 @@ let test_rule_sets_md_media () =
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
-        | None, Some (cond, inner) when cond = Css.Media.Min_width_rem 48. ->
+        | None, Some (cond, inner)
+          when Css.Media.equal cond (Css.media_min_width_length (Css.Rem 48.))
+          ->
             Some inner
         | None, _ -> None)
       None css
@@ -584,11 +586,11 @@ let test_build_utils_layer_order () =
   let statements =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
-        [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
+        [ Css.color (Css.hex "#ff0000") ];
       Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin [ Css.Px 10. ] ];
       Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding [ Css.Px 5. ] ];
       Css.rule ~selector:(Css.Selector.class_ "a")
-        [ Css.background_color (Css.Hex { hash = false; value = "0000ff" }) ];
+        [ Css.background_color (Css.hex "#0000ff") ];
       Css.rule ~selector:(Css.Selector.class_ "d")
         [ Css.font_size (Css.Rem 1.0) ];
     ]
@@ -637,7 +639,7 @@ let test_style_rules_props () =
         [ padding [ Rem 2.0 ] ];
     ]
   in
-  let props = [ color (Hex { hash = false; value = "ff0000" }) ] in
+  let props = [ color (Css.hex "#ff0000") ] in
 
   let style = Tw.Style.style ~rules:(Some custom_rules) props in
   (* Create a test utility that wraps the style and provides the class name *)
@@ -704,7 +706,7 @@ let test_media_query_deduplication () =
   let count_768px =
     List.fold_left ( + ) 0
       (List.map
-         (count_toplevel_media (Tw.Css.Media.Min_width_rem 48.))
+         (count_toplevel_media (Tw.Css.media_min_width_length (Tw.Css.Rem 48.)))
          (Tw.Css.statements css))
   in
 

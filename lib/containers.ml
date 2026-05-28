@@ -31,17 +31,18 @@ module Handler = struct
        rules.ml handles this ordering since container has only media rules and
        base props. *)
     let container_selector = Selector.class_ "container" in
+    let min_width_rem rem = media_min_width_length (Rem rem) in
     let media_rules =
       [
-        media ~condition:(Media.Min_width_rem 40.)
+        media ~condition:(min_width_rem 40.)
           [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
-        media ~condition:(Media.Min_width_rem 48.)
+        media ~condition:(min_width_rem 48.)
           [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
-        media ~condition:(Media.Min_width_rem 64.)
+        media ~condition:(min_width_rem 64.)
           [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
-        media ~condition:(Media.Min_width_rem 80.)
+        media ~condition:(min_width_rem 80.)
           [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
-        media ~condition:(Media.Min_width_rem 96.)
+        media ~condition:(min_width_rem 96.)
           [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
       ]
     in

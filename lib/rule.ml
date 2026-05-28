@@ -156,20 +156,43 @@ let breakpoint_rem = function
   | `Xl -> 80.
   | `Xl_2 -> 96.
 
+let media_min_width_px px = Css.media_min_width_length (Css.Px px)
+let media_min_width_rem rem = Css.media_min_width_length (Css.Rem rem)
+let media_not_min_width_px px = Css.media_not_min_width_length (Css.Px px)
+let media_not_min_width_rem rem = Css.media_not_min_width_length (Css.Rem rem)
+
+let media_feature name ident =
+  Css.Media.Cond
+    (Css.Media.Feature (Css.Media.Plain (name, Css.Media.Ident ident)))
+
+let hover_media = media_feature Css.Media.Hover Css.Media.Hover
+
+let print_media =
+  Css.Media.Type { prefix = None; type_ = Css.Media.Print; trailing = None }
+
+let negate_media = function
+  | Css.Media.Cond condition -> Css.Media.Cond (Css.Media.Not condition)
+  | Css.Media.Type ({ prefix = Some Css.Media.Not; _ } as media) ->
+      Css.Media.Type { media with prefix = None }
+  | Css.Media.Type media ->
+      Css.Media.Type { media with prefix = Some Css.Media.Not }
+  | Css.Media.List _ as media ->
+      Css.Media.of_string ("not " ^ Css.Media.to_string media)
+
 (** Get the media condition for a breakpoint, using px from scheme if available,
     otherwise rem. *)
 let breakpoint_condition bp =
   let name = string_of_breakpoint bp in
   match Scheme.breakpoint !current_scheme name with
-  | Some px -> Css.Media.Min_width px
-  | None -> Css.Media.Min_width_rem (breakpoint_rem bp)
+  | Some px -> media_min_width_px px
+  | None -> media_min_width_rem (breakpoint_rem bp)
 
 (** Get the negated media condition for max-* breakpoints. *)
 let breakpoint_not_condition bp =
   let name = string_of_breakpoint bp in
   match Scheme.breakpoint !current_scheme name with
-  | Some px -> Css.Media.Not_min_width px
-  | None -> Css.Media.Not_min_width_rem (breakpoint_rem bp)
+  | Some px -> media_not_min_width_px px
+  | None -> media_not_min_width_rem (breakpoint_rem bp)
 
 (** Get the media condition and class prefix for a responsive modifier. *)
 let responsive_modifier_condition = function
@@ -201,13 +224,13 @@ let responsive_modifier_condition = function
         if Float.is_integer px then Int.to_string (Float.to_int px)
         else Float.to_string px
       in
-      (Css.Media.Min_width px, "min-[" ^ px_str ^ "px]")
+      (media_min_width_px px, "min-[" ^ px_str ^ "px]")
   | Style.Max_arbitrary px ->
       let px_str =
         if Float.is_integer px then Int.to_string (Float.to_int px)
         else Float.to_string px
       in
-      (Css.Media.Not_min_width px, "max-[" ^ px_str ^ "px]")
+      (media_not_min_width_px px, "max-[" ^ px_str ^ "px]")
   | Style.Min_arbitrary_length l ->
       let len_str = Modifiers.compact_length l in
       (Css.media_min_width_length l, "min-[" ^ len_str ^ "]")
@@ -220,21 +243,21 @@ let responsive_modifier_condition = function
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (Css.Media.Min_width px, name)
+      (media_min_width_px px, name)
   | Style.Min_custom name ->
       let px =
         match Scheme.breakpoint !current_scheme name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (Css.Media.Min_width px, "min-" ^ name)
+      (media_min_width_px px, "min-" ^ name)
   | Style.Max_custom name ->
       let px =
         match Scheme.breakpoint !current_scheme name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (Css.Media.Not_min_width px, "max-" ^ name)
+      (media_not_min_width_px px, "max-" ^ name)
   | _ -> failwith "not a responsive modifier"
 
 let selector_with_data_key selector key value =
@@ -285,13 +308,14 @@ let arbitrary_px_string px =
 
 let min_arbitrary_rule px base_class selector props =
   let prefix = "min-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix prefix (Css.Media.Min_width px) base_class selector
+  media_rule_with_prefix prefix (media_min_width_px px) base_class selector
     props
 
 let max_arbitrary_rule px base_class selector props =
   let prefix = "max-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix prefix (Css.Media.Not_min_width px) base_class selector
-    props
+  media_rule_with_prefix prefix
+    (media_not_min_width_px px)
+    base_class selector props
 
 let arbitrary_length_rule prefix condition l base_class selector props =
   let len_str = Modifiers.compact_length l in
@@ -320,21 +344,17 @@ let custom_media_rule prefix condition_of_px name base_class selector props =
     props
 
 let custom_responsive_rule name base_class selector props =
-  custom_media_rule Fun.id
-    (fun px -> Css.Media.Min_width px)
-    name base_class selector props
+  custom_media_rule Fun.id media_min_width_px name base_class selector props
 
 let min_custom_rule name base_class selector props =
   custom_media_rule
     (fun name -> "min-" ^ name)
-    (fun px -> Css.Media.Min_width px)
-    name base_class selector props
+    media_min_width_px name base_class selector props
 
 let max_custom_rule name base_class selector props =
   custom_media_rule
     (fun name -> "max-" ^ name)
-    (fun px -> Css.Media.Not_min_width px)
-    name base_class selector props
+    media_not_min_width_px name base_class selector props
 
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
@@ -432,7 +452,7 @@ let handle_pseudo_class_modifier ?(inner_has_hover = false) modifier base_class
   if has_hover && inner_has_hover then
     (* Nested hover: wrap in @media (hover:hover) { @media (hover:hover) { }
        } *)
-    let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
+    let hover : Css.Media.t = hover_media in
     let inner_rule = Css.rule ~selector:new_selector props in
     let inner_media = Css.media ~condition:hover [ inner_rule ] in
     media_query ~condition:hover ~selector:new_selector ~props:[]
@@ -469,7 +489,7 @@ let handle_media_like_modifier (modifier : Style.modifier)
     in
     (* Nested @media (hover:hover) { .dark\:hover\:X:hover { props } } *)
     let inner_hover_media =
-      let hover : Css.Media.t = Css.Media.Hover Css.Media.Hover in
+      let hover : Css.Media.t = hover_media in
       Css.media ~condition:hover [ Css.rule ~selector:hover_selector props ]
     in
     media_query ~condition ~selector:hover_selector ~props:[]
@@ -813,25 +833,37 @@ let handle_supports_modifier condition_str base_class selector props =
     Returns [Some condition] for modifiers that map to media queries, [None] for
     non-media modifiers. *)
 let media_condition_of_modifier = function
-  | Style.Dark -> Some (Css.Media.Prefers_color_scheme Css.Media.Dark)
+  | Style.Dark ->
+      Some (media_feature Css.Media.Prefers_color_scheme Css.Media.Dark)
   | Style.Motion_safe ->
-      Some (Css.Media.Prefers_reduced_motion Css.Media.No_preference)
+      Some
+        (media_feature Css.Media.Prefers_reduced_motion Css.Media.No_preference)
   | Style.Motion_reduce ->
-      Some (Css.Media.Prefers_reduced_motion Css.Media.Reduce)
-  | Style.Contrast_more -> Some (Css.Media.Prefers_contrast Css.Media.More)
-  | Style.Contrast_less -> Some (Css.Media.Prefers_contrast Css.Media.Less)
-  | Style.Print -> Some Css.Media.Print
-  | Style.Portrait -> Some (Css.Media.Orientation Css.Media.Portrait)
-  | Style.Landscape -> Some (Css.Media.Orientation Css.Media.Landscape)
-  | Style.Forced_colors -> Some (Css.Media.Forced_colors Css.Media.Active)
-  | Style.Inverted_colors -> Some (Css.Media.Inverted_colors Css.Media.Inverted)
-  | Style.Pointer_none -> Some (Css.Media.Pointer Css.Media.None)
-  | Style.Pointer_coarse -> Some (Css.Media.Pointer Css.Media.Coarse)
-  | Style.Pointer_fine -> Some (Css.Media.Pointer Css.Media.Fine)
-  | Style.Any_pointer_none -> Some (Css.Media.Any_pointer Css.Media.None)
-  | Style.Any_pointer_coarse -> Some (Css.Media.Any_pointer Css.Media.Coarse)
-  | Style.Any_pointer_fine -> Some (Css.Media.Any_pointer Css.Media.Fine)
-  | Style.Noscript -> Some (Css.Media.Scripting Css.Media.None)
+      Some (media_feature Css.Media.Prefers_reduced_motion Css.Media.Reduce)
+  | Style.Contrast_more ->
+      Some (media_feature Css.Media.Prefers_contrast Css.Media.More)
+  | Style.Contrast_less ->
+      Some (media_feature Css.Media.Prefers_contrast Css.Media.Less)
+  | Style.Print -> Some print_media
+  | Style.Portrait ->
+      Some (media_feature Css.Media.Orientation Css.Media.Portrait)
+  | Style.Landscape ->
+      Some (media_feature Css.Media.Orientation Css.Media.Landscape)
+  | Style.Forced_colors ->
+      Some (media_feature Css.Media.Forced_colors Css.Media.Active)
+  | Style.Inverted_colors ->
+      Some (media_feature Css.Media.Inverted_colors Css.Media.Inverted)
+  | Style.Pointer_none -> Some (media_feature Css.Media.Pointer Css.Media.None)
+  | Style.Pointer_coarse ->
+      Some (media_feature Css.Media.Pointer Css.Media.Coarse)
+  | Style.Pointer_fine -> Some (media_feature Css.Media.Pointer Css.Media.Fine)
+  | Style.Any_pointer_none ->
+      Some (media_feature Css.Media.Any_pointer Css.Media.None)
+  | Style.Any_pointer_coarse ->
+      Some (media_feature Css.Media.Any_pointer Css.Media.Coarse)
+  | Style.Any_pointer_fine ->
+      Some (media_feature Css.Media.Any_pointer Css.Media.Fine)
+  | Style.Noscript -> Some (media_feature Css.Media.Scripting Css.Media.None)
   | _ -> None
 
 (** Variant order for not-* inner modifiers. Returns a large offset that encodes
@@ -971,9 +1003,8 @@ let handle_not_modifier inner_modifier base_class _selector props =
       props
   in
   let not_hover_media () =
-    not_media_rule ~nvo
-      ~condition:(Css.Media.Negated (Css.Media.Hover Css.Media.Hover))
-      modified_class props
+    not_media_rule ~nvo ~condition:(negate_media hover_media) modified_class
+      props
   in
   match inner_modifier with
   | Style.Hover -> [ sel_rule () ] @ not_hover_media ()
@@ -981,8 +1012,8 @@ let handle_not_modifier inner_modifier base_class _selector props =
   | Style.Hocus -> [ sel_rule () ]
   | _ when Option.is_some (media_condition_of_modifier inner_modifier) ->
       let condition = Option.get (media_condition_of_modifier inner_modifier) in
-      not_media_rule ~nvo ~condition:(Css.Media.Negated condition)
-        modified_class props
+      not_media_rule ~nvo ~condition:(negate_media condition) modified_class
+        props
   | Style.Supports condition_str ->
       let condition_input = normalize_supports_condition condition_str in
       let inner_condition = Css.Supports.of_string condition_input in
@@ -1000,10 +1031,11 @@ let handle_not_modifier inner_modifier base_class _selector props =
       not_media_rule ~nvo ~condition:(breakpoint_condition bp) modified_class
         props
   | Style.Min_arbitrary px ->
-      not_media_rule ~nvo ~condition:(Css.Media.Not_min_width px) modified_class
-        props
+      not_media_rule ~nvo
+        ~condition:(media_not_min_width_px px)
+        modified_class props
   | Style.Max_arbitrary px ->
-      not_media_rule ~nvo ~condition:(Css.Media.Min_width px) modified_class
+      not_media_rule ~nvo ~condition:(media_min_width_px px) modified_class
         props
   | Style.Min_arbitrary_length l ->
       not_media_rule ~nvo
@@ -1036,21 +1068,20 @@ let parse_bracket_media content =
     (* Double negation: return the positive condition *)
     match inner with
     | "(orientation: portrait)" | "(orientation:portrait)" ->
-        Css.Media.Orientation Css.Media.Portrait
+        media_feature Css.Media.Orientation Css.Media.Portrait
     | "(orientation: landscape)" | "(orientation:landscape)" ->
-        Css.Media.Orientation Css.Media.Landscape
+        media_feature Css.Media.Orientation Css.Media.Landscape
     | _ -> Css.Media.of_string inner
   else
     (* Negate the condition *)
     match rest with
-    | "print" -> Css.Media.Negated Css.Media.Print
+    | "print" -> negate_media print_media
     | "(orientation: portrait)" | "(orientation:portrait)" ->
-        Css.Media.Negated (Css.Media.Orientation Css.Media.Portrait)
+        negate_media (media_feature Css.Media.Orientation Css.Media.Portrait)
     | "(orientation: landscape)" | "(orientation:landscape)" ->
-        Css.Media.Negated (Css.Media.Orientation Css.Media.Landscape)
-    | "(hover: hover)" | "(hover:hover)" ->
-        Css.Media.Negated (Css.Media.Hover Css.Media.Hover)
-    | _ -> Css.Media.Negated (Css.Media.of_string rest)
+        negate_media (media_feature Css.Media.Orientation Css.Media.Landscape)
+    | "(hover: hover)" | "(hover:hover)" -> negate_media hover_media
+    | _ -> negate_media (Css.Media.of_string rest)
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =

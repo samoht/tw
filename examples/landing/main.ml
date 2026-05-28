@@ -250,7 +250,7 @@ let main =
 let () =
   let html_str = html main in
   let css_filename, css_stylesheet = css main in
-  let css_str = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Write HTML file *)
   let oc_html = open_out "index.html" in

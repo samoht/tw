@@ -11,6 +11,12 @@
 
 module Css = Cascade.Css
 
+let forced_colors_active =
+  Css.Media.Cond
+    (Css.Media.Feature
+       (Css.Media.Plain
+          (Css.Media.Forced_colors, Css.Media.Ident Css.Media.Active)))
+
 (* Shared colors and focus ring helpers *)
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
@@ -228,7 +234,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors Media.Active)
+        media ~condition:forced_colors_active
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];
@@ -255,7 +261,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors Media.Active)
+        media ~condition:forced_colors_active
           [
             rule
               ~selector:(compound [ base_sel; Indeterminate ])
@@ -318,7 +324,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:(Media.Forced_colors Media.Active)
+        media ~condition:forced_colors_active
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];
@@ -728,8 +734,7 @@ let select_base () =
 
 let forced_colors_checked_appearance selector =
   let open Css in
-  media ~condition:(Media.Forced_colors Media.Active)
-    [ rule ~selector [ appearance Auto ] ]
+  media ~condition:forced_colors_active [ rule ~selector [ appearance Auto ] ]
 
 (** Checked state rules for checkbox/radio *)
 let checkbox_checked_rules () =
@@ -800,7 +805,7 @@ let checkbox_indeterminate_rules () =
         border_color (hex "#0000");
       ];
     (* 12. @media (forced-colors:active) checkbox:indeterminate *)
-    media ~condition:(Media.Forced_colors Media.Active)
+    media ~condition:forced_colors_active
       [
         rule
           ~selector:Selector.(type_checkbox && Indeterminate)

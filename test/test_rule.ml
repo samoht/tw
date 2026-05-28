@@ -96,7 +96,7 @@ let test_modifier_to_rule () =
   let rule =
     Tw.Rule.modifier_to_rule Tw.Style.Hover "bg-blue-500"
       (Css.Selector.class_ "bg-blue-500")
-      [ Css.background_color (Css.Hex { hash = true; value = "3b82f6" }) ]
+      [ Css.background_color (Css.hex "#3b82f6") ]
   in
   match rule with
   | Tw.Output.Regular { selector; props; has_hover; _ } ->

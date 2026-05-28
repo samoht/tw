@@ -62,7 +62,7 @@ let test_screen_reader () =
 let test_layout_container () =
   (* Test that container generates .container rule with width: 100% *)
   let css = Tw.to_css [ Tw.container ] in
-  let css_string = Tw.Css.to_string ~minify:true ~optimize:false css in
+  let css_string = Tw.Css.to_string ~minify:true css in
   Alcotest.(check bool)
     "has .container class" true
     (String.contains css_string 'c');
@@ -72,8 +72,8 @@ let test_container_vs_at_container () =
   (* Test the difference between layout .container and @container query *)
   let layout = Tw.to_css [ Tw.container ] in
   let query = Tw.to_css [ Tw.at_container ] in
-  let layout_str = Tw.Css.to_string ~minify:true ~optimize:false layout in
-  let query_str = Tw.Css.to_string ~minify:true ~optimize:false query in
+  let layout_str = Tw.Css.to_string ~minify:true layout in
+  let query_str = Tw.Css.to_string ~minify:true query in
   Alcotest.(check bool)
     "layout container has .container class" true
     (String.contains layout_str '.');

@@ -209,7 +209,7 @@ let test_modifier_css_roundtrip () =
 
   (* Generate CSS *)
   let stylesheet = Tw.Build.to_css test_utilities in
-  let css_str = Tw.Css.to_string ~minify:true ~optimize:true stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true stylesheet in
 
   (* Verify CSS was generated *)
   check bool "CSS generated" true (String.length css_str > 0);

@@ -12,6 +12,12 @@ module Handler = struct
 
   open Css
 
+  let hex_byte n = Printf.sprintf "%02x" n
+
+  let rgba_hex_string r g b a =
+    let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
+    if a = 255 then rgb else rgb ^ hex_byte a
+
   type shadow_shape = Sh_sm | Sh_default | Sh_md | Sh_lg | Sh_xl | Sh_2xl
 
   type inset_shadow_shape =
@@ -728,8 +734,8 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let with_alpha =
       match c with
-      | Hex { value = h; _ } ->
-          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+          let hex = "#" ^ rgba_hex_string r g b a in
           Color.hex_to_oklab_alpha hex alpha
       | _ -> c
     in
@@ -1296,8 +1302,8 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let with_alpha =
       match c with
-      | Hex { value = h; _ } ->
-          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+          let hex = "#" ^ rgba_hex_string r g b a in
           Color.hex_to_oklab_alpha hex alpha
       | _ -> c
     in
@@ -1674,8 +1680,8 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let with_alpha =
       match c with
-      | Hex { value = h; _ } ->
-          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+          let hex = "#" ^ rgba_hex_string r g b a in
           Color.hex_to_oklab_alpha hex alpha
       | _ -> c
     in
@@ -1808,8 +1814,8 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let with_alpha =
       match c with
-      | Hex { value = h; _ } ->
-          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+          let hex = "#" ^ rgba_hex_string r g b a in
           Color.hex_to_oklab_alpha hex alpha
       | _ -> c
     in
@@ -1900,8 +1906,8 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let with_alpha =
       match c with
-      | Hex { value = h; _ } ->
-          let hex = if String.starts_with ~prefix:"#" h then h else "#" ^ h in
+      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+          let hex = "#" ^ rgba_hex_string r g b a in
           Color.hex_to_oklab_alpha hex alpha
       | _ -> c
     in

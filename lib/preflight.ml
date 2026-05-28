@@ -272,7 +272,10 @@ let list_resets () =
               Selector.element "ul";
               Selector.element "menu";
             ])
-      [ list_style "none" ];
+      [
+        list_style
+          (Shorthand { type_ = Some None; position = None; image = Some None });
+      ];
   ]
 
 (** Media resets *)
@@ -314,7 +317,7 @@ let form_control_resets () =
               Selector.element "textarea";
             ])
       [
-        font "inherit";
+        font Inherit;
         font_feature_settings Inherit;
         font_variation_settings Inherit;
         letter_spacing Inherit;
@@ -325,7 +328,7 @@ let form_control_resets () =
       ];
     rule ~selector:File_selector_button
       [
-        font "inherit";
+        font Inherit;
         font_feature_settings Inherit;
         font_variation_settings Inherit;
         letter_spacing Inherit;

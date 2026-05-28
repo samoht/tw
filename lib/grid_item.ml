@@ -92,7 +92,17 @@ module Handler = struct
 
   let col n = style [ grid_column (Num n, Auto) ]
   let neg_col n = style [ grid_column (Num (-n), Auto) ]
-  let col_arbitrary s = style [ grid_column (Calc s, Auto) ]
+
+  let read_grid_line_pair s =
+    let cursor = Cascade.Cursor.of_string s in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_grid_line_pair
+        cursor
+    with
+    | Ok (Lines (start, end_)) -> (start, end_)
+    | Ok (Var _) | Error _ -> (Calc s, Auto)
+
+  let col_arbitrary s = style [ grid_column (read_grid_line_pair s) ]
   let col_auto () = grid_col_themed_style "grid-column-auto" ()
   let col_span n = style [ grid_column (Span n, Span n) ]
 
@@ -117,7 +127,7 @@ module Handler = struct
   let col_end_named s = grid_col_end_themed_style ("grid-column-end-" ^ s) ()
   let row n = style [ grid_row (Num n, Auto) ]
   let neg_row n = style [ grid_row (Num (-n), Auto) ]
-  let row_arbitrary s = style [ grid_row (Calc s, Auto) ]
+  let row_arbitrary s = style [ grid_row (read_grid_line_pair s) ]
   let row_auto () = grid_row_themed_style "grid-row-auto" ()
   let row_span n = style [ grid_row (Span n, Span n) ]
 

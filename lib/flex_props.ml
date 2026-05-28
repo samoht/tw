@@ -73,13 +73,13 @@ module Handler = struct
   let priority = 7
 
   (* Flex shortcuts *)
-  let flex_1 = style [ flex (Grow 1.0) ]
+  let flex_1 = style [ flex (Grow (Number 1.0)) ]
   let flex_auto = style [ flex Auto ]
-  let flex_initial = style [ flex (Full (0., 1., Auto)) ]
+  let flex_initial = style [ flex (Full (Number 0., Number 1., Auto)) ]
   let flex_none = style [ flex None ]
 
   (* flex-N: flex: N *)
-  let flex_n_style n = style [ flex (Grow (float_of_int n)) ]
+  let flex_n_style n = style [ flex (Grow (Number (float_of_int n))) ]
 
   (* flex-N/M: flex: (N/M * 100)% - evaluates the fraction *)
   let flex_fraction_style n m =

@@ -41,7 +41,7 @@ module Handler = struct
     match Var.theme_value "animate-none" with
     | Some _ ->
         let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
-        let none_animation =
+        let none_animation : Css.animation =
           Css.Shorthand
             {
               name = Some Css.None;
@@ -64,7 +64,7 @@ module Handler = struct
   let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 13)
 
   let animate_spin () =
-    let spin_animation =
+    let spin_animation : Css.animation =
       Css.Shorthand
         {
           name = Some (Name "spin");
@@ -103,7 +103,7 @@ module Handler = struct
   let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 14)
 
   let animate_ping () =
-    let ping_animation =
+    let ping_animation : Css.animation =
       Css.Shorthand
         {
           name = Some (Name "ping");
@@ -145,7 +145,7 @@ module Handler = struct
   let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 15)
 
   let animate_pulse () =
-    let pulse_animation =
+    let pulse_animation : Css.animation =
       Css.Shorthand
         {
           name = Some (Name "pulse");
@@ -184,7 +184,7 @@ module Handler = struct
     Var.theme Css.Animation "animate-bounce" ~order:(7, 16)
 
   let animate_bounce () =
-    let bounce_animation =
+    let bounce_animation : Css.animation =
       Css.Shorthand
         {
           name = Some (Name "bounce");

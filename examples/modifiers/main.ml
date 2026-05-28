@@ -792,7 +792,7 @@ let page_view =
 let () =
   let html_str = html page_view in
   let css_file, css_stylesheet = css page_view in
-  let css_str = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
   let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;

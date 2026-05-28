@@ -1442,8 +1442,14 @@ module Handler = struct
     let decl, _ = Var.binding outline_style_var Css.None in
     (* Base style: outline-style: none *)
     (* In forced-colors mode, reset outline with shorthand + offset *)
+    let forced_colors_active =
+      Css.Media.Cond
+        (Css.Media.Feature
+           (Css.Media.Plain
+              (Css.Media.Forced_colors, Css.Media.Ident Css.Media.Active)))
+    in
     let media_rule =
-      Css.media ~condition:(Css.Media.Forced_colors Css.Media.Active)
+      Css.media ~condition:forced_colors_active
         [
           Css.rule ~selector:(Css.Selector.class_ "_")
             [
@@ -1453,7 +1459,7 @@ module Handler = struct
                    {
                      width = Some (Px 2.);
                      style = Some Solid;
-                     color = Some (Hex { hash = true; value = "0000" });
+                     color = Some (Css.hex "#0000");
                    });
             ];
         ]

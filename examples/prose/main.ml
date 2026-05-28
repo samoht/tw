@@ -202,7 +202,7 @@ let doc =
 let () =
   let html_out = html doc in
   let css_file, css_stylesheet = css doc in
-  let css_out = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
+  let css_out = Tw.Css.to_string ~minify:true css_stylesheet in
   let oc_html = open_out "index.html" in
   output_string oc_html html_out;
   close_out oc_html;

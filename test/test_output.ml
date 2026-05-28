@@ -54,7 +54,8 @@ let test_classify () =
         ~selector:(Css.Selector.class_ "p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
-      media_query ~condition:(Css.Media.Min_width 640.)
+      media_query
+        ~condition:(Css.media_min_width_length (Css.Px 640.))
         ~selector:(Css.Selector.class_ "sm\\:p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();

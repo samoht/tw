@@ -736,7 +736,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (W_arbitrary (raw, len))
-        | None -> invalid_arg ("w-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "width" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
@@ -760,7 +760,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (H_arbitrary (raw, len))
-        | None -> invalid_arg ("h-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "height" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
@@ -777,7 +777,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_w_arbitrary (raw, len))
-        | None -> invalid_arg ("min-w-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "min-width" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
@@ -798,7 +798,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_h_arbitrary (raw, len))
-        | None -> invalid_arg ("min-h-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "min-height" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
@@ -825,7 +825,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_w_arbitrary (raw, len))
-        | None -> invalid_arg ("max-w-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "max-width" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
@@ -853,7 +853,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_h_arbitrary (raw, len))
-        | None -> invalid_arg ("max-h-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "max-height" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
@@ -871,7 +871,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Size_arbitrary (raw, len))
-        | None -> invalid_arg ("size-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
@@ -894,7 +894,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Inline_arbitrary (raw, len))
-        | None -> invalid_arg ("inline-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "inline-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Inline_spacing (n *. 0.25))
@@ -910,7 +910,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_inline_arbitrary (raw, len))
-        | None -> invalid_arg ("min-inline-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "min-inline-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_inline_spacing (n *. 0.25))
@@ -925,7 +925,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_inline_arbitrary (raw, len))
-        | None -> invalid_arg ("max-inline-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "max-inline-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_inline_spacing (n *. 0.25))
@@ -948,7 +948,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Block_arbitrary (raw, len))
-        | None -> invalid_arg ("block-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "block-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Block_spacing (n *. 0.25))
@@ -968,7 +968,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_block_arbitrary (raw, len))
-        | None -> invalid_arg ("min-block-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "min-block-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Min_block_spacing (n *. 0.25))
@@ -988,7 +988,7 @@ module Handler = struct
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_block_arbitrary (raw, len))
-        | None -> invalid_arg ("max-block-" ^ v ^ ": invalid bracket value"))
+        | None -> err_invalid_value "max-block-size" v)
     | v -> (
         match float_of_string_opt v with
         | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))

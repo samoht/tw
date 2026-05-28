@@ -111,11 +111,18 @@ module Handler = struct
   (* Extract a hex string (with leading #) from a Css.color, for oklab
      conversion *)
   let extract_hex_string css_color =
+    let hex_byte n = Printf.sprintf "%02x" n in
+    let rgba_hex r g b a =
+      let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
+      if a = 255 then rgb else rgb ^ hex_byte a
+    in
     match Color.css_color_to_hex css_color with
-    | Some (Hex { value; _ }) -> "#" ^ value
+    | Some (Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ }) ->
+        "#" ^ rgba_hex r g b a
     | _ -> (
         match css_color with
-        | Css.Hex { value; _ } -> "#" ^ value
+        | Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ } ->
+            "#" ^ rgba_hex r g b a
         | _ -> "#000000")
 
   (* Bracket color with opacity: convert to hex first, then apply oklab alpha *)

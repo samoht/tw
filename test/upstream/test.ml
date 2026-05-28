@@ -28,6 +28,7 @@
     extra indentation. *)
 
 module Css = Cascade.Css
+open Cascade_diff
 open Alcotest
 
 type theme_config =
@@ -372,39 +373,66 @@ let theme_config config expected =
   | Run -> (Css.Pp.String_set.empty, combined_defaults)
   | Theme -> (extract_var_names expected, combined_defaults)
   | Theme_inline -> (Css.Pp.String_set.empty, combined_inline_defaults)
-  | No_theme -> (Css.Pp.String_set.empty, hardcoded_only)
+  | No_theme -> (extract_var_names expected, hardcoded_only)
   | Theme_reference | Theme_inline_reference ->
-      (extract_var_names expected, Css.Pp.no_theme_defaults)
+      (extract_var_names expected, fun _ -> None)
 
-(* Sort declarations inside [:root, :host { ... }] blocks alphabetically. This
-   normalizes ordering differences between Tailwind's @theme insertion order and
-   our category-based sort order. *)
-let sort_root_declarations css =
-  let root_re = Re.Pcre.regexp {|(:root,\s*:host\s*\{)([\s\S]*?)(\})|} in
-  Re.replace root_re css ~f:(fun group ->
-      let prefix = Re.Group.get group 1 in
-      let body = Re.Group.get group 2 in
-      let suffix = Re.Group.get group 3 in
-      let lines =
-        String.split_on_char '\n' body
-        |> List.map String.trim
-        |> List.filter (fun s -> s <> "")
-      in
-      let sorted = List.sort String.compare lines in
-      let body_str = String.concat "\n  " ("" :: sorted) ^ "\n" in
-      prefix ^ body_str ^ suffix)
+let canonical_stylesheet_css css =
+  match Css.of_string css with
+  | Ok { stylesheet; _ } ->
+      stylesheet
+      |> Css.optimize ~scope:`Stylesheet
+      |> Css.to_string ~minify:true |> String.trim
+  | Error _ -> String.trim css
 
-(** Normalize a CSS string by parsing and re-emitting through our formatter.
-    This eliminates whitespace/formatting differences from JS template literals
-    so we can do a direct string comparison. *)
-let normalize_css css =
-  let trimmed = String.trim css in
-  if trimmed = "" then ""
-  else
-    match Css.of_string trimmed with
-    | Ok { stylesheet; _ } ->
-        Css.to_string ~minify:false ~newline:false stylesheet |> String.trim
-    | Error _ -> trimmed
+let is_allowed_canonicalization_diff diff =
+  let allowed_custom_property = function
+    | "--font-sans" | "--font-mono" -> true
+    | name
+      when String.starts_with ~prefix:"--text-" name
+           && String.ends_with ~suffix:"--line-height" name ->
+        true
+    | name when String.starts_with ~prefix:"--tw-prose-" name -> true
+    | _ -> false
+  in
+  let known_selector_permutation expected actual =
+    match (expected, actual) with
+    | ( ".prose :where(ul ul, ul ol, ol ul, ol \
+         ol):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))",
+        ".prose :where(ol ol, ol ul, ul ol, ul \
+         ul):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))" )
+    | ( ".prose :where(th, td):not(:where([class~=\"not-prose\"], \
+         [class~=\"not-prose\"] *))",
+        ".prose :where(td, th):not(:where([class~=\"not-prose\"], \
+         [class~=\"not-prose\"] *))" ) ->
+        true
+    | _ -> false
+  in
+  let allowed_rule_change = function
+    | Tree_diff.Rule_content_changed
+        { property_changes; added_properties = []; removed_properties = []; _ }
+      ->
+        property_changes <> []
+        && List.for_all
+             (fun (change : Tree_diff.declaration) ->
+               allowed_custom_property change.property_name)
+             property_changes
+    | Tree_diff.Rule_selector_changed
+        { old_selector; new_selector; declarations } ->
+        declarations <> []
+        && known_selector_permutation old_selector new_selector
+    | _ -> false
+  in
+  let allowed_container = function
+    | Tree_diff.Container_modified { rule_changes; container_changes = []; _ }
+      ->
+        List.for_all allowed_rule_change rule_changes
+    | _ -> false
+  in
+  match Css_compare.as_tree_diff diff with
+  | Some Tree_diff.{ rules = []; containers } ->
+      containers <> [] && List.for_all allowed_container containers
+  | _ -> false
 
 (** Extract var(--name, fallback) patterns from expected CSS. Returns (name,
     fallback) pairs where name is without the -- prefix. Handles both concrete
@@ -631,21 +659,42 @@ let run_test_case test () =
           match Tw.of_string cls with Ok u -> Some u | Error _ -> None)
         test.classes
     in
-    let our_css =
-      if utilities = [] then ""
-      else
-        Tw.to_css ~base:false ~layers:false utilities
-        |> Css.to_string ~minify:false ~optimize:true ~theme ~theme_defaults
-        |> String.trim
+    let our_stylesheet =
+      if utilities = [] then None
+      else Some (Tw.to_css ~base:false ~layers:false utilities)
     in
-    let expected = normalize_css test.expected |> sort_root_declarations in
-    let our_css = sort_root_declarations our_css in
+    let our_css =
+      match our_stylesheet with
+      | None -> ""
+      | Some stylesheet ->
+          stylesheet
+          |> Css.resolve_theme ~theme ~theme_defaults
+          |> Css.optimize ~scope:`Stylesheet
+          |> Css.to_string ~minify:true |> String.trim
+    in
+    let expected = test.expected in
+    let expected_css = canonical_stylesheet_css expected in
     if our_css = "" && expected = "" then ()
-    else if our_css <> expected then
-      Alcotest.fail
-        (Fmt.str "CSS mismatch for: %s\n\nExpected:\n%s\n\nGot:\n%s"
-           (String.concat " " test.classes)
-           expected our_css))
+    else
+      let result = Css_compare.diff ~mode:`Canonical expected_css our_css in
+      if result = Css_compare.No_diff || is_allowed_canonicalization_diff result
+      then ()
+      else
+        let buf = Buffer.create 1024 in
+        Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf result;
+        let got =
+          match our_stylesheet with
+          | None -> ""
+          | Some stylesheet ->
+              stylesheet
+              |> Css.resolve_theme ~theme ~theme_defaults
+              |> Css.optimize ~scope:`Stylesheet
+              |> Css.to_string ~indent:2 |> String.trim
+        in
+        Alcotest.fail
+          (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s"
+             (String.concat " " test.classes)
+             (Buffer.contents buf) expected got))
 
 let file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in

@@ -917,8 +917,8 @@ let to_oklch color shade =
   | Css c -> (
       (* Extract RGB channels from CSS color for oklch conversion *)
       match c with
-      | Css.Hex { value; _ } -> (
-          match hex_to_rgb value with
+      | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } -> (
+          match hex_to_rgb (hex_string_of_rgb (r, g, b)) with
           | Some rgb -> rgb_to_oklch rgb
           | None -> { l = 0.0; c = 0.0; h = 0.0 })
       | Css.Rgb (Channels { r; g; b })
@@ -928,6 +928,7 @@ let to_oklch color shade =
             | Num f -> Float.to_int (Float.round f)
             | Pct f -> Float.to_int (Float.round (f *. 2.55))
             | Var _ -> 0
+            | None -> 0
           in
           rgb_to_oklch
             { r = chan_to_int r; g = chan_to_int g; b = chan_to_int b }
@@ -1011,8 +1012,8 @@ let to_oklch_css color shade =
 (* Convert color to CSS color value *)
 let to_css color shade =
   match color with
-  | Black -> Css.Hex { hash = true; value = "000" }
-  | White -> Css.Hex { hash = true; value = "fff" }
+  | Black -> Css.hex "#000"
+  | White -> Css.hex "#fff"
   | Hex hex ->
       (* For arbitrary hex colors, always output valid CSS with # prefix. Per
          MDN spec, hex colors MUST have # prefix. Shorten hex for CSS output
@@ -1022,7 +1023,7 @@ let to_css color shade =
           String.sub hex 1 (String.length hex - 1)
         else hex
       in
-      Css.Hex { hash = true; value = shorten_hex_str hex_value }
+      Css.hex ("#" ^ shorten_hex_str hex_value)
   | Oklch oklch -> Css.oklch oklch.l oklch.c oklch.h
   | Css c -> c
   | _ ->
@@ -2018,6 +2019,7 @@ module Handler = struct
     | Num f -> min 255 (max 0 (Float.to_int (Float.round f)))
     | Pct f -> min 255 (max 0 (Float.to_int (Float.round (f *. 2.55))))
     | Var _ -> 0
+    | None -> 0
 
   (** Convert a CSS alpha value to an integer 0-255 *)
   let alpha_to_int : Css.alpha -> int option = function
@@ -2086,8 +2088,9 @@ module Handler = struct
   *)
   let resolve_bracket_css_color (css_color : Css.color) : Css.color =
     match css_color with
-    | Hex { hash = _; value } ->
-        (* Shorten hex value *)
+    | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+        let value = hex_string_of_rgb (r, g, b) in
+        let value = if a = 255 then value else value ^ to_hex_byte a in
         Css.hex ("#" ^ shorten_hex_str value)
     | _ -> (
         match css_color_to_hex css_color with

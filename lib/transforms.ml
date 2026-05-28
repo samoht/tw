@@ -394,6 +394,17 @@ module Handler = struct
     collect_property_rules
       [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
 
+  let translate_xy_refs =
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    Css.translate (XY (Var tx_ref, Var ty_ref))
+
+  let translate_xyz_refs =
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref))
+
   let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
       Var.binding Theme.spacing_var (Css.Rem 0.25)
@@ -405,11 +416,8 @@ module Handler = struct
            (Css.Calc.float (float_of_int n)))
     in
     let axis_decl, _ = Var.binding axis_var spacing_value in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     style ~property_rules:translate_props
-      (spacing_decl :: axis_decl
-      :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+      (spacing_decl :: axis_decl :: [ translate_xy_refs ])
 
   let translate_x n = translate_axis tw_translate_x_var n
   let translate_y n = translate_axis tw_translate_y_var n
@@ -435,61 +443,37 @@ module Handler = struct
     let axis_decl, _ =
       Var.binding tw_translate_x_var (make_fraction_pct num denom)
     in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_y_fraction num denom =
     let axis_decl, _ =
       Var.binding tw_translate_y_var (make_fraction_pct num denom)
     in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_x_full =
     let axis_decl, _ = Var.binding tw_translate_x_var (Pct 100.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_x_px =
     let axis_decl, _ = Var.binding tw_translate_x_var (Px 1.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_x_arbitrary len =
     let axis_decl, _ = Var.binding tw_translate_x_var len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_y_full =
     let axis_decl, _ = Var.binding tw_translate_y_var (Pct 100.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_y_px =
     let axis_decl, _ = Var.binding tw_translate_y_var (Px 1.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let translate_y_arbitrary len =
     let axis_decl, _ = Var.binding tw_translate_y_var len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_x_arbitrary_style s =
     let bare_name = Parse.extract_var_name s in
@@ -497,10 +481,7 @@ module Handler = struct
       Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
     in
     let axis_decl, _ = Var.binding tw_translate_x_var neg_len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_y_arbitrary_style s =
     let bare_name = Parse.extract_var_name s in
@@ -508,24 +489,15 @@ module Handler = struct
       Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
     in
     let axis_decl, _ = Var.binding tw_translate_y_var neg_len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_x_full =
     let axis_decl, _ = Var.binding tw_translate_x_var (Pct (-100.0)) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_y_full =
     let axis_decl, _ = Var.binding tw_translate_y_var (Pct (-100.0)) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let scale n =
     let value = make_pct n in
@@ -594,14 +566,11 @@ module Handler = struct
   let translate_full =
     let dx, _ = Var.binding tw_translate_x_var (Pct 100.0) in
     let dy, _ = Var.binding tw_translate_y_var (Pct 100.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let translate_1_2 =
     (* Tailwind outputs calc(1 / 2 * 100%) rather than 50% *)
@@ -613,26 +582,20 @@ module Handler = struct
     in
     let dx, _ = Var.binding tw_translate_x_var half_pct in
     let dy, _ = Var.binding tw_translate_y_var half_pct in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let translate_arbitrary len =
     let dx, _ = Var.binding tw_translate_x_var len in
     let dy, _ = Var.binding tw_translate_y_var len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let neg_translate_arbitrary_style s =
     (* Parse var name and negate: calc(var(--value) * -1) *)
@@ -642,70 +605,52 @@ module Handler = struct
     in
     let dx, _ = Var.binding tw_translate_x_var neg_len in
     let dy, _ = Var.binding tw_translate_y_var neg_len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let neg_translate_full =
     let dx, _ = Var.binding tw_translate_x_var (Pct (-100.0)) in
     let dy, _ = Var.binding tw_translate_y_var (Pct (-100.0)) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let translate_fraction num denom =
     let frac_pct = make_fraction_pct num denom in
     let dx, _ = Var.binding tw_translate_x_var frac_pct in
     let dy, _ = Var.binding tw_translate_y_var frac_pct in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let neg_translate_fraction num denom =
     let neg_frac_pct = make_neg_fraction_pct num denom in
     let dx, _ = Var.binding tw_translate_x_var neg_frac_pct in
     let dy, _ = Var.binding tw_translate_y_var neg_frac_pct in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
     let props =
       collect_property_rules
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
-    style ~property_rules:props
-      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
   let neg_translate_x_fraction num denom =
     let axis_decl, _ =
       Var.binding tw_translate_x_var (make_neg_fraction_pct num denom)
     in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_y_fraction num denom =
     let axis_decl, _ =
       Var.binding tw_translate_y_var (make_neg_fraction_pct num denom)
     in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   (* Legacy negative translate utilities for centering - kept for backward
      compat *)
@@ -788,20 +733,12 @@ module Handler = struct
            (Css.Calc.float (float_of_int n)))
     in
     let axis_decl, _ = Var.binding tw_translate_z_var spacing_value in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let tz_ref = Var.reference tw_translate_z_var in
     style ~property_rules:translate_props
-      (spacing_decl :: axis_decl
-      :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+      (spacing_decl :: axis_decl :: [ translate_xyz_refs ])
 
   let translate_z_px =
     let axis_decl, _ = Var.binding tw_translate_z_var (Px 1.0) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let tz_ref = Var.reference tw_translate_z_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xyz_refs ])
 
   let neg_translate_z_arbitrary_style s =
     let bare_name = Parse.extract_var_name s in
@@ -809,26 +746,14 @@ module Handler = struct
       Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
     in
     let axis_decl, _ = Var.binding tw_translate_z_var neg_len in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let tz_ref = Var.reference tw_translate_z_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xyz_refs ])
 
   let neg_translate_z_px =
     let axis_decl, _ = Var.binding tw_translate_z_var (Px (-1.0)) in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let tz_ref = Var.reference tw_translate_z_var in
-    style ~property_rules:translate_props
-      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+    style ~property_rules:translate_props (axis_decl :: [ translate_xyz_refs ])
 
   let translate_3d =
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let tz_ref = Var.reference tw_translate_z_var in
-    style ~property_rules:translate_props
-      [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ]
+    style ~property_rules:translate_props [ translate_xyz_refs ]
 
   let scale_z n =
     let value = make_pct n in
@@ -950,7 +875,7 @@ module Handler = struct
   let perspective_origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    style [ perspective_origin (Var (Var.bracket value)) ]
+    style [ Css.Declaration.of_string ("perspective-origin: " ^ value) ]
 
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
@@ -1018,11 +943,6 @@ module Handler = struct
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    (* If value has no spaces (single value like var(--x)), duplicate for x and
-       y *)
-    let value =
-      if not (String.contains value ' ') then value ^ " " ^ value else value
-    in
     style [ Css.Declaration.of_string ("transform-origin: " ^ value) ]
 
   (** {1 Transform Control Utilities} *)

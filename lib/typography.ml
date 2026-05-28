@@ -1032,21 +1032,17 @@ module Typography_early = struct
         | Stdlib.Option.None -> (
             match try_parse_length_value inner with
             | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
-            | Stdlib.Option.None ->
-                if
-                  String.length inner > 6
-                  && String.sub inner 0 6 = "clamp("
-                  && inner.[String.length inner - 1] = ')'
-                then
-                  let args = String.sub inner 6 (String.length inner - 7) in
-                  [ font_size (Css.Clamp args) ]
-                else if Parse.is_var inner then
-                  let bare = Parse.extract_var_name inner in
-                  [ font_size (Css.Var (Var.bracket bare)) ]
-                else
-                  invalid_arg
-                    ("bracket_font_size_decls: not a valid font-size value: "
-                   ^ inner)))
+            | Stdlib.Option.None -> (
+                match Css.parse_length inner with
+                | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
+                | Stdlib.Option.None ->
+                    if Parse.is_var inner then
+                      let bare = Parse.extract_var_name inner in
+                      [ font_size (Css.Var (Var.bracket bare)) ]
+                    else
+                      invalid_arg
+                        ("bracket_font_size_decls: not a valid font-size \
+                          value: " ^ inner))))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
