@@ -155,10 +155,6 @@ let fraction_var =
   Var.channel ~needs_property:true ~property_order:106
     Css.Font_variant_numeric_token "tw-numeric-fraction"
 
-(* Helper to get line height calc value *)
-let calc_line_height lh_rem size_rem =
-  (Css.Num (lh_rem /. size_rem) : Css.line_height)
-
 (* Theme record for line height variables *)
 type line_height_theme = { leading : Css.declaration * Css.line_height Css.var }
 
@@ -251,10 +247,28 @@ let default_font_declarations =
   let mono_decl, _ = Var.binding font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
-(* Default font family variables that reference the base font variables *)
+(* Default font family variables that reference the base font variables. The
+   [--font-sans] / [--font-mono] declarations are emitted as opaque
+   custom-property tokens rather than going through the typed font-family pp.
+   Tailwind v4 emits these theme values with multi-word family names quoted
+   (e.g. ["Segoe UI Symbol"]); cascade's typed pp normalises to the equivalent
+   unquoted form, which yields the same CSS but different bytes and would diff
+   under canonical comparison against verbatim Tailwind source. Constructing the
+   declarations as opaque tokens keeps them byte-identical with Tailwind's
+   output. *)
 let default_font_family_declarations =
-  let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
-  let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
+  let _typed_sans, sans_ref = Var.binding font_sans_var default_sans_stack in
+  let _typed_mono, mono_ref = Var.binding font_mono_var default_mono_stack in
+  let sans_decl =
+    Css.Declaration.of_string
+      "--font-sans: ui-sans-serif, system-ui, sans-serif, \"Apple Color \
+       Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""
+  in
+  let mono_decl =
+    Css.Declaration.of_string
+      "--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
+       \"Liberation Mono\", \"Courier New\", monospace"
+  in
   let default_font_decl, _ =
     Var.binding default_font_family_var (Css.Var sans_ref)
   in
@@ -771,38 +785,50 @@ module Typography_early = struct
         line_height (Var leading_with_fallback);
       ]
 
-  let text_xs =
-    text_size_utility text_xs_var text_xs_lh_var 0.75
-      (calc_line_height 1.0 0.75)
+  (* Tailwind v4 emits [--text-*--line-height: calc(<lh>/<size>)] preserving the
+     ratio relationship; the computed decimal is equivalent but byte- different
+     (and round-trips lossily via decimal). Wrap [text_size_utility] to emit the
+     line-height theme decl as opaque [calc] tokens while still going through
+     [Var.binding] so the typed reference is available for [line-height:
+     var(...)] in the utility class. *)
+  let text_size_calc (size_var : Css.length Var.theme)
+      (lh_var : Css.line_height Var.theme) size_rem lh_rem =
+    (* Drop the leading zero on sub-1 values to match Tailwind's minified form
+       ([.75] not [0.75]). *)
+    let fmt_num f =
+      let s = Fmt.str "%g" f in
+      if String.length s >= 2 && String.sub s 0 2 = "0." then
+        "." ^ String.sub s 2 (String.length s - 2)
+      else s
+    in
+    let size_decl, size_ref = Var.binding size_var (Css.Rem size_rem) in
+    let typed_lh : Css.line_height = Num (lh_rem /. size_rem) in
+    let _, lh_ref = Var.binding lh_var typed_lh in
+    let lh_decl =
+      Css.custom_property ~layer:"theme" (Var.css_name lh_var)
+        (Fmt.str "calc(%s/%s)" (fmt_num lh_rem) (fmt_num size_rem))
+    in
+    let theme = default_line_height_theme in
+    let leading_ref = snd theme.leading in
+    let leading_with_fallback =
+      Css.with_fallback leading_ref (Css.Var lh_ref)
+    in
+    style
+      [
+        size_decl;
+        lh_decl;
+        font_size (Css.Var size_ref);
+        line_height (Var leading_with_fallback);
+      ]
 
-  let text_sm =
-    text_size_utility text_sm_var text_sm_lh_var 0.875
-      (calc_line_height 1.25 0.875)
-
-  let text_base =
-    text_size_utility text_base_var text_base_lh_var 1.0
-      (calc_line_height 1.5 1.0)
-
-  let text_lg =
-    text_size_utility text_lg_var text_lg_lh_var 1.125
-      (calc_line_height 1.75 1.125)
-
-  let text_xl =
-    text_size_utility text_xl_var text_xl_lh_var 1.25
-      (calc_line_height 1.75 1.25)
-
-  let text_2xl =
-    text_size_utility text_2xl_var text_2xl_lh_var 1.5
-      (calc_line_height 2.0 1.5)
-
-  let text_3xl =
-    text_size_utility text_3xl_var text_3xl_lh_var 1.875
-      (calc_line_height 2.25 1.875)
-
-  let text_4xl =
-    text_size_utility text_4xl_var text_4xl_lh_var 2.25
-      (calc_line_height 2.5 2.25)
-
+  let text_xs = text_size_calc text_xs_var text_xs_lh_var 0.75 1.0
+  let text_sm = text_size_calc text_sm_var text_sm_lh_var 0.875 1.25
+  let text_base = text_size_calc text_base_var text_base_lh_var 1.0 1.5
+  let text_lg = text_size_calc text_lg_var text_lg_lh_var 1.125 1.75
+  let text_xl = text_size_calc text_xl_var text_xl_lh_var 1.25 1.75
+  let text_2xl = text_size_calc text_2xl_var text_2xl_lh_var 1.5 2.0
+  let text_3xl = text_size_calc text_3xl_var text_3xl_lh_var 1.875 2.25
+  let text_4xl = text_size_calc text_4xl_var text_4xl_lh_var 2.25 2.5
   let text_5xl = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
   let text_6xl = text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
   let text_7xl = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)

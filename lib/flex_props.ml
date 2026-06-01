@@ -7,26 +7,6 @@
 
 module Css = Cascade.Css
 
-(* Generate themed order style: custom declaration + var reference when theme
-   value is set, otherwise bare theme_ref fallback *)
-let order_themed_style name ~default ~default_css () =
-  match Var.theme_value name with
-  | Some value_str -> (
-      match int_of_string_opt value_str with
-      | Some n ->
-          let decl =
-            Css.custom_property ~layer:"theme" ("--" ^ name) (string_of_int n)
-          in
-          let ref : Css.order Css.var =
-            Var.theme_ref name ~default ~default_css
-          in
-          Style.style [ decl; Css.order (Var ref) ]
-      | None ->
-          Style.style
-            [ Css.order (Var (Var.theme_ref name ~default ~default_css)) ])
-  | None ->
-      Style.style [ Css.order (Var (Var.theme_ref name ~default ~default_css)) ]
-
 module Handler = struct
   open Style
   open Css
@@ -94,9 +74,24 @@ module Handler = struct
   let flex_shrink_utility = style [ flex_shrink 1.0 ]
   let flex_shrink_0_utility = style [ flex_shrink 0.0 ]
 
-  (* Basis *)
-  let basis_0 = style [ flex_basis Zero ]
-  let basis_1 = style [ flex_basis (Pct 100.0) ]
+  (* Basis. Tailwind v4: [basis-<number>] resolves to [calc(var(--spacing) *
+     <n>)] - including [basis-0] which keeps the [calc] form for parity with the
+     rest of the spacing scale. [basis-full] / [basis-1/1] are the only forms
+     that emit literal [100%]. Cascade's typed [flex_basis] [Calc] is
+     parameterised by [flex_basis] and there is no polymorphic numeric calc
+     atom, so we emit the property value as a raw declaration string while still
+     going through [Var.binding] for the [--spacing] theme declaration so the
+     theme-layer metadata stays correct. *)
+  let basis_spacing n =
+    let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+    let basis_decl =
+      Css.Declaration.of_string
+        (Fmt.str "flex-basis: calc(var(--spacing) * %d)" n)
+    in
+    style [ spacing_decl; basis_decl ]
+
+  let basis_0 = basis_spacing 0
+  let basis_1 = basis_spacing 1
   let basis_auto = style [ flex_basis Auto ]
   let basis_full = style [ flex_basis (Pct 100.0) ]
 
@@ -129,13 +124,10 @@ module Handler = struct
   (* Order *)
   let order_style n = style [ order (Int n) ]
 
-  let order_first () =
-    order_themed_style "order-first" ~default:(Int (-9999)) ~default_css:"-9999"
-      ()
-
-  let order_last () =
-    order_themed_style "order-last" ~default:(Int 9999) ~default_css:"9999" ()
-
+  (* Tailwind v4 emits [.order-first { order: -9999 }] and [.order-last { order:
+     9999 }] as literal values, not through a theme var reference. *)
+  let order_first () = style [ order (Int (-9999)) ]
+  let order_last () = style [ order (Int 9999) ]
   let order_none = style [ order (Int 0) ]
 
   let to_style = function

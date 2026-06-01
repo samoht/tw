@@ -200,6 +200,7 @@ module Handler = struct
         rule ~selector:base_sel
           [
             appearance None;
+            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
             print_color_adjust Exact;
             vertical_align Middle;
             webkit_user_select None;
@@ -292,6 +293,7 @@ module Handler = struct
         rule ~selector:base_sel
           [
             appearance None;
+            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
             print_color_adjust Exact;
             vertical_align Middle;
             webkit_user_select None;
@@ -410,6 +412,14 @@ module Select = struct
       Var.binding Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
+    (* Emit a single .form-select base rule, then :focus, then :where(...) -
+       matching Tailwind's de-nested layout. Tailwind's source uses CSS nesting
+       (.form-select { base; &:focus {..}; more-base; &:where {..} }) which its
+       optimizer flattens into one consolidated outer rule plus the de-nested
+       children. Splitting our base props across two .form-select rules
+       separated by :focus would be structurally different (and break the
+       suborder parity test) even though our [:focus] decls don't override any
+       base prop here. *)
     let rules =
       [
         rule ~selector:base_sel
@@ -423,10 +433,7 @@ module Select = struct
             padding [ Rem 0.5; Rem 0.75 ];
             font_size (Rem 1.);
             line_height (Rem 1.5);
-          ];
-        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
-        rule ~selector:base_sel
-          [
+            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
             print_color_adjust Exact;
             background_image
               (Url
@@ -441,6 +448,7 @@ module Select = struct
             background_size (Size (Em 1.5, Em 1.5));
             padding_right (Rem 2.5);
           ];
+        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule
           ~selector:
             (compound
@@ -900,13 +908,16 @@ let file_input_base () =
       ];
   ]
 
+(* Tailwind v4's [\@tailwindcss/forms] plugin defaults to [strategy: 'class'] -
+   the plugin only emits styles for elements bearing one of the [.form-*]
+   utility classes, not for global [input/select/textarea] selectors. The
+   per-class styling is emitted directly by the [.form-*] utility handlers
+   above, so this base stylesheet stays empty. *)
+
 (** Complete base layer stylesheet for forms plugin *)
 let base_stylesheet () =
-  Css.v
-    (List.concat
-       [
-         text_inputs_base ();
-         select_base ();
-         checkbox_radio_base ();
-         file_input_base ();
-       ])
+  let _ = text_inputs_base in
+  let _ = select_base in
+  let _ = checkbox_radio_base in
+  let _ = file_input_base in
+  Css.v []

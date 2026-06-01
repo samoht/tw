@@ -1,6 +1,7 @@
 (** Test helper functions for CSS comparison and minimization *)
 
 module Css = Cascade.Css
+module Css_compare = Cascade_diff.Css_compare
 
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =
@@ -26,50 +27,20 @@ let extract_rule_selectors stmts =
       | None -> None)
     stmts
 
-let canonical_selector selector =
-  Css.Selector.map
-    (function
-      | Css.Selector.Before _ -> Css.Selector.Before Css.Selector.Single
-      | Css.Selector.After _ -> Css.Selector.After Css.Selector.Single
-      | Css.Selector.First_letter _ ->
-          Css.Selector.First_letter Css.Selector.Single
-      | Css.Selector.First_line _ -> Css.Selector.First_line Css.Selector.Single
-      | selector -> selector)
-    selector
+let our_css utilities =
+  Tw.to_css ~base:true utilities
+  |> Css.optimize ~lossless:true
+  |> Css.to_string ~minify:true ~lossless:true
 
-let selector_order_key selector =
-  selector |> canonical_selector |> Css.Selector.to_string ~minify:true
+let tailwind_css ?(forms = false) classnames =
+  Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
 
-(** Extract canonical selector keys from rules for ordering comparisons. *)
-let extract_rule_selector_order_keys stmts =
-  List.filter_map
-    (fun stmt ->
-      match Css.as_rule stmt with
-      | Some (selector, _, _) -> Some (selector_order_key selector)
-      | None -> None)
-    stmts
-
-(** Check if utilities produce different ordering than Tailwind *)
 let check_ordering_fails ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
-  let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
-  let tw_utilities_rules = extract_utilities_layer_rules tw_css in
-  let tw_order = extract_rule_selector_order_keys tw_utilities_rules in
-
-  let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
-  in
-  let tailwind_css =
-    match Css.of_string tailwind_css_str with
-    | Ok { stylesheet; _ } -> stylesheet
-    | Error _ -> failwith "Failed to parse Tailwind CSS"
-  in
-  let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
-  let tailwind_order =
-    extract_rule_selector_order_keys tailwind_utilities_rules
-  in
-
-  tw_order <> tailwind_order
+  not
+    (Css_compare.equal ~mode:`Canonical
+       (tailwind_css ~forms classnames)
+       (our_css utilities))
 
 (** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
     binary search *)
@@ -159,60 +130,19 @@ let minimize_failing_case check_fails initial =
     in
     Some final
 
-(** Get rule selector ordering from Tailwind CSS *)
-let tailwind_order ?(forms = false) classes =
-  let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classes
-  in
-  let tailwind_css =
-    match Css.of_string tailwind_css_str with
-    | Ok { stylesheet; _ } -> stylesheet
-    | Error err ->
-        let formatted_error = Cascade.Error.to_string err in
-        Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
-  in
-  let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
-  extract_rule_selector_order_keys tailwind_utilities_rules
-
-(** Get rule selector ordering from our implementation *)
-let our_order utilities =
-  let tw_css = Tw.to_css ~base:true utilities |> Css.optimize in
-  let tw_utilities_rules = extract_utilities_layer_rules tw_css in
-  extract_rule_selector_order_keys tw_utilities_rules
-
-(** Compare ordering between our implementation and Tailwind *)
 let check_ordering_matches ?(forms = false) ~test_name utilities =
-  let classes = List.map Tw.pp utilities in
-  let tw_order = tailwind_order ~forms classes in
-  let ours = our_order utilities in
-
-  (* If ordering doesn't match, try to minimize the test case *)
-  if tw_order <> ours then (
-    Fmt.epr "@.Ordering mismatch detected. Minimizing test case...@.";
-    match minimize_failing_case (check_ordering_fails ~forms) utilities with
-    | Some minimal ->
-        let minimal_classes = List.map Tw.pp minimal in
-        Fmt.epr "@.Minimal failing case (%d utilities): %a@."
-          (List.length minimal)
-          Fmt.(list ~sep:(const string " ") string)
-          minimal_classes;
-        let minimal_tw_order = tailwind_order ~forms minimal_classes in
-        let minimal_our_order = our_order minimal in
-        Fmt.epr "@.Expected (Tailwind): %a@."
-          Fmt.(list ~sep:(const string ", ") (quote string))
-          minimal_tw_order;
-        Fmt.epr "Received (tw):       %a@.@."
-          Fmt.(list ~sep:(const string ", ") (quote string))
-          minimal_our_order;
-        (* Fail with minimal test case for clearer error message *)
-        Alcotest.(check (list string))
-          test_name minimal_tw_order minimal_our_order
-    | None ->
-        (* No minimization possible, fail with full test case *)
-        Alcotest.(check (list string)) test_name tw_order ours)
-  else
-    (* Test passes *)
-    Alcotest.(check (list string)) test_name tw_order ours
+  let classnames = List.map Tw.pp utilities in
+  let diff =
+    Css_compare.diff ~mode:`Canonical
+      (tailwind_css ~forms classnames)
+      (our_css utilities)
+  in
+  match diff with
+  | Css_compare.No_diff _ -> ()
+  | _ ->
+      let buf = Buffer.create 1024 in
+      Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
+      Alcotest.fail (Fmt.str "%s\n%s" test_name (Buffer.contents buf))
 
 (** CSS Test Helpers *)
 

@@ -14,27 +14,32 @@ let test_clip_polygon () =
   check bool "has polygon value" true
     (Astring.String.is_infix ~affix:"polygon(50% 0%,0% 100%,100% 100%)" css)
 
-(* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand) *)
+(* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand).
+   Canonicalisation (e.g. dropping the unit on zero lengths inside basic-shape
+   functions) lives in cascade's normalize/optimize pass, not in pp - so the
+   helpers wrap the declaration in a tiny rule, run the optimize pipeline, and
+   extract the declaration body for comparison. *)
 let test_clip_inset_shorthand () =
-  let check_roundtrip input =
-    let r = Cascade.Cursor.of_string input in
-    match Css.Declaration.read_declaration r with
-    | None -> Alcotest.fail "Failed to parse declaration"
-    | Some decl ->
-        let output =
-          Css.Pp.to_string ~minify:true Css.Declaration.pp_declaration decl
+  let normalize input =
+    let wrapped = ".x{" ^ input ^ "}" in
+    match Css.of_string wrapped with
+    | Error _ -> Alcotest.fail (Fmt.str "Failed to parse: %s" input)
+    | Ok { stylesheet; _ } ->
+        let out =
+          stylesheet
+          |> Css.optimize ~scope:`Stylesheet
+          |> Css.to_string ~minify:true
         in
-        check string (Fmt.str "parse %s" input) input output
+        let n = String.length out in
+        if n >= 4 && String.sub out 0 3 = ".x{" && out.[n - 1] = '}' then
+          String.sub out 3 (n - 4)
+        else out
+  in
+  let check_roundtrip input =
+    check string (Fmt.str "parse %s" input) input (normalize input)
   in
   let check_parse input expected =
-    let r = Cascade.Cursor.of_string input in
-    match Css.Declaration.read_declaration r with
-    | None -> Alcotest.fail "Failed to parse declaration"
-    | Some decl ->
-        let output =
-          Css.Pp.to_string ~minify:true Css.Declaration.pp_declaration decl
-        in
-        check string (Fmt.str "parse %s" input) expected output
+    check string (Fmt.str "parse %s" input) expected (normalize input)
   in
   (* 1 value: all four sides get the same value *)
   check_roundtrip "clip-path:inset(50%)";

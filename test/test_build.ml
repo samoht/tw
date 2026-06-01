@@ -430,19 +430,23 @@ let test_rule_sets_md_media () =
       [ md [ p 4 ]; md [ m 2 ] ]
     |> Css.optimize
   in
-  (* Check for exact media condition *)
-  check bool "has (min-width: 48rem) media query" true
-    (has_media_condition "(min-width: 48rem)" css);
+  (* After [Css.optimize], the legacy [min-width: 48rem] form is rewritten to
+     the equivalent range syntax [(width >= 48rem)] - the test verifies the
+     post-optimize string form. *)
+  check bool "has (width >= 48rem) media query" true
+    (has_media_condition "(width >= 48rem)" css);
 
-  (* Find the md media block and verify both selectors are inside it *)
+  (* Find the md media block and verify both selectors are inside it. Match by
+     the optimized string form to avoid coupling on the structural AST, which
+     [Css.optimize] may rewrite into different but equivalent shapes (e.g. plain
+     features rewritten as range queries). *)
   let md_block =
     Css.fold
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
         | None, Some (cond, inner)
-          when Css.Media.equal cond (Css.media_min_width_length (Css.Rem 48.))
-          ->
+          when Css.Media.to_string cond = "(width >= 48rem)" ->
             Some inner
         | None, _ -> None)
       None css

@@ -370,14 +370,15 @@ let webkit_form_resets ?(forms = false) () =
         [ min_height (Lh 1.0); text_align Inherit ];
     ]
   in
-  (* When forms plugin is active, it provides these rules, so skip them here *)
+  (* Tailwind v4's [\@tailwindcss/forms] with [strategy: 'class'] does not touch
+     global webkit datetime pseudo-elements, so preflight always emits these
+     (independent of the [~forms] flag). *)
+  let _ = forms in
   let forms_provided_rules =
-    if forms then []
-    else
-      [
-        rule ~selector:Webkit_datetime_edit [ display Inline_flex ];
-        rule ~selector:Webkit_datetime_edit_fields_wrapper [ padding [ Zero ] ];
-      ]
+    [
+      rule ~selector:Webkit_datetime_edit [ display Inline_flex ];
+      rule ~selector:Webkit_datetime_edit_fields_wrapper [ padding [ Zero ] ];
+    ]
   in
   let padding_block_rules =
     [

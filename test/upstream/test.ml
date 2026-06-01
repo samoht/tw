@@ -677,7 +677,9 @@ let run_test_case test () =
     if our_css = "" && expected = "" then ()
     else
       let result = Css_compare.diff ~mode:`Canonical expected_css our_css in
-      if result = Css_compare.No_diff || is_allowed_canonicalization_diff result
+      if
+        (match result with Css_compare.No_diff _ -> true | _ -> false)
+        || is_allowed_canonicalization_diff result
       then ()
       else
         let buf = Buffer.create 1024 in

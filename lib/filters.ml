@@ -271,14 +271,42 @@ module Handler = struct
             filter composable_filter_chain;
           ]
 
-  let blur_xs = set_filter_var_theme "--tw-blur" "blur-xs" (fun l -> Blur l)
-  let blur_sm = set_filter_var_theme "--tw-blur" "blur-sm" (fun l -> Blur l)
-  let blur = set_filter_var_theme "--tw-blur" "blur" (fun l -> Blur l)
-  let blur_md = set_filter_var_theme "--tw-blur" "blur-md" (fun l -> Blur l)
-  let blur_lg = set_filter_var_theme "--tw-blur" "blur-lg" (fun l -> Blur l)
-  let blur_xl = set_filter_var_theme "--tw-blur" "blur-xl" (fun l -> Blur l)
-  let blur_2xl = set_filter_var_theme "--tw-blur" "blur-2xl" (fun l -> Blur l)
-  let blur_3xl = set_filter_var_theme "--tw-blur" "blur-3xl" (fun l -> Blur l)
+  (* Tailwind v4 default blur theme tokens (in px). Each [.blur-<size>] utility
+     binds its theme token and references it in [--tw-blur]; the [.blur] keyword
+     utility (no suffix) has no theme token in v4 and emits the literal
+     [blur(8px)] inline. *)
+  let blur_xs_var = Var.theme Css.Length "blur-xs" ~order:(8, 0)
+  let blur_sm_var = Var.theme Css.Length "blur-sm" ~order:(8, 1)
+  let blur_md_var = Var.theme Css.Length "blur-md" ~order:(8, 2)
+  let blur_lg_var = Var.theme Css.Length "blur-lg" ~order:(8, 3)
+  let blur_xl_var = Var.theme Css.Length "blur-xl" ~order:(8, 4)
+  let blur_2xl_var = Var.theme Css.Length "blur-2xl" ~order:(8, 5)
+  let blur_3xl_var = Var.theme Css.Length "blur-3xl" ~order:(8, 6)
+
+  let blur_size_utility (theme_var : Css.length Var.theme) default_px () =
+    let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
+    style ~property_rules:filter_property_rules
+      [
+        decl;
+        filter_var_decl "--tw-blur" (Blur (Var ref_));
+        filter composable_filter_chain;
+      ]
+
+  let blur_xs = blur_size_utility blur_xs_var 4.
+  let blur_sm = blur_size_utility blur_sm_var 8.
+  let blur_md = blur_size_utility blur_md_var 12.
+  let blur_lg = blur_size_utility blur_lg_var 16.
+  let blur_xl = blur_size_utility blur_xl_var 24.
+  let blur_2xl = blur_size_utility blur_2xl_var 40.
+  let blur_3xl = blur_size_utility blur_3xl_var 64.
+
+  (* [.blur] (no suffix) is the keyword utility - inline literal blur(8px). *)
+  let blur () =
+    style ~property_rules:filter_property_rules
+      [
+        filter_var_decl "--tw-blur" (Blur (Px 8.));
+        filter composable_filter_chain;
+      ]
 
   (* Parse bracket content for length values (e.g., "4px", "0.5rem") *)
   let parse_bracket_length s =
@@ -681,9 +709,14 @@ module Handler = struct
     set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-sm" (fun l ->
         Blur l)
 
-  let backdrop_blur =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur" (fun l ->
-        Blur l)
+  (* [.backdrop-blur] (no suffix) emits literal [blur(8px)] in v4. *)
+  let backdrop_blur () =
+    style ~property_rules:backdrop_filter_property_rules
+      [
+        filter_var_decl "--tw-backdrop-blur" (Blur (Px 8.));
+        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+        backdrop_filter composable_backdrop_filter_chain;
+      ]
 
   let backdrop_blur_md =
     set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-md" (fun l ->

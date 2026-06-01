@@ -11,7 +11,9 @@ open Tw
 (* CSS generation *)
 let generate_tw_css ?(minify = false) styles =
   let stylesheet = to_css ~base:true styles in
-  stylesheet |> Css.optimize ~scope:`Stylesheet |> Css.to_string ~minify
+  stylesheet
+  |> Css.optimize ~scope:`Stylesheet ~lossless:true
+  |> Css.to_string ~minify ~lossless:true
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 
@@ -19,8 +21,9 @@ let canonical_stylesheet_css css =
   match Css.of_string css with
   | Ok { stylesheet; _ } ->
       stylesheet
-      |> Css.optimize ~scope:`Stylesheet
-      |> Css.to_string ~minify:true |> String.trim
+      |> Css.optimize ~scope:`Stylesheet ~lossless:true
+      |> Css.to_string ~minify:true ~lossless:true
+      |> String.trim
   | Error _ -> String.trim css
 
 let is_allowed_canonicalization_diff diff =
@@ -151,7 +154,7 @@ let check_exact_match tw_styles =
 
     let diff_result = Css_compare.diff ~mode:`Canonical tailwind_css tw_css in
     let parity_equal =
-      diff_result = Css_compare.No_diff
+      (match diff_result with Css_compare.No_diff _ -> true | _ -> false)
       || is_allowed_canonicalization_diff diff_result
     in
     if not parity_equal then (

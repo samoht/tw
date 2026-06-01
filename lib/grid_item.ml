@@ -24,17 +24,11 @@ let themed_grid_line name (declaration : Css.grid_line -> Css.declaration) =
       Style.style [ decl; grid_decl ]
   | None -> Style.style [ grid_decl ]
 
-let grid_col_themed_style name () =
-  themed_grid_line name (fun line -> Css.grid_column (line, Auto))
-
 let grid_col_start_themed_style name () =
   themed_grid_line name Css.grid_column_start
 
 let grid_col_end_themed_style name () =
   themed_grid_line name Css.grid_column_end
-
-let grid_row_themed_style name () =
-  themed_grid_line name (fun line -> Css.grid_row (line, Auto))
 
 let grid_row_start_themed_style name () =
   themed_grid_line name Css.grid_row_start
@@ -103,7 +97,12 @@ module Handler = struct
     | Ok (Var _) | Error _ -> (Calc s, Auto)
 
   let col_arbitrary s = style [ grid_column (read_grid_line_pair s) ]
-  let col_auto () = grid_col_themed_style "grid-column-auto" ()
+
+  (* Tailwind v4 emits the [auto] keyword literally for [.col-auto] /
+     [.row-auto] / [.col-start-auto] / [.col-end-auto] / [.row-start-auto] /
+     [.row-end-auto]; the themed-var helpers are kept only for the [-named]
+     variants below where the user can theme a custom grid line. *)
+  let col_auto () = style [ grid_column (Auto, Auto) ]
   let col_span n = style [ grid_column (Span n, Span n) ]
 
   let col_span_arbitrary s =
@@ -113,9 +112,7 @@ module Handler = struct
   let col_start n = style [ grid_column_start (Num n) ]
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
   let col_start_arbitrary s = style [ grid_column_start (Calc s) ]
-
-  let col_start_auto () =
-    grid_col_start_themed_style "grid-column-start-auto" ()
+  let col_start_auto () = style [ grid_column_start Auto ]
 
   let col_start_named s =
     grid_col_start_themed_style ("grid-column-start-" ^ s) ()
@@ -123,12 +120,12 @@ module Handler = struct
   let col_end n = style [ grid_column_end (Num n) ]
   let neg_col_end n = style [ grid_column_end (Num (-n)) ]
   let col_end_arbitrary s = style [ grid_column_end (Calc s) ]
-  let col_end_auto () = grid_col_end_themed_style "grid-column-end-auto" ()
+  let col_end_auto () = style [ grid_column_end Auto ]
   let col_end_named s = grid_col_end_themed_style ("grid-column-end-" ^ s) ()
   let row n = style [ grid_row (Num n, Auto) ]
   let neg_row n = style [ grid_row (Num (-n), Auto) ]
   let row_arbitrary s = style [ grid_row (read_grid_line_pair s) ]
-  let row_auto () = grid_row_themed_style "grid-row-auto" ()
+  let row_auto () = style [ grid_row (Auto, Auto) ]
   let row_span n = style [ grid_row (Span n, Span n) ]
 
   let row_span_arbitrary s =
@@ -138,12 +135,12 @@ module Handler = struct
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
   let row_start_arbitrary s = style [ grid_row_start (Calc s) ]
-  let row_start_auto () = grid_row_start_themed_style "grid-row-start-auto" ()
+  let row_start_auto () = style [ grid_row_start Auto ]
   let row_start_named s = grid_row_start_themed_style ("grid-row-start-" ^ s) ()
   let row_end n = style [ grid_row_end (Num n) ]
   let neg_row_end n = style [ grid_row_end (Num (-n)) ]
   let row_end_arbitrary s = style [ grid_row_end (Calc s) ]
-  let row_end_auto () = grid_row_end_themed_style "grid-row-end-auto" ()
+  let row_end_auto () = style [ grid_row_end Auto ]
   let row_end_named s = grid_row_end_themed_style ("grid-row-end-" ^ s) ()
 
   let to_style = function
