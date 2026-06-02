@@ -265,7 +265,12 @@ module Handler = struct
       | Some kf -> opt_some [ kf ]
       | Option.None -> opt_none
     in
-    style ~rules [ Css.Declaration.of_string ("animation: " ^ reordered) ]
+    let cursor = Cascade.Cursor.of_string reordered in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_animation cursor
+    with
+    | Ok anim -> style ~rules [ Css.animation anim ]
+    | Error _ -> invalid_arg ("animate-[" ^ value ^ "]: not a valid animation")
 
   let animate_named name =
     let var_name = "animate-" ^ name in

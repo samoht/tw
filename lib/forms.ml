@@ -200,7 +200,7 @@ module Handler = struct
         rule ~selector:base_sel
           [
             appearance None;
-            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
+            webkit_print_color_adjust Exact;
             print_color_adjust Exact;
             vertical_align Middle;
             webkit_user_select None;
@@ -293,7 +293,7 @@ module Handler = struct
         rule ~selector:base_sel
           [
             appearance None;
-            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
+            webkit_print_color_adjust Exact;
             print_color_adjust Exact;
             vertical_align Middle;
             webkit_user_select None;
@@ -433,7 +433,7 @@ module Select = struct
             padding [ Rem 0.5; Rem 0.75 ];
             font_size (Rem 1.);
             line_height (Rem 1.5);
-            Css.Declaration.of_string "-webkit-print-color-adjust: exact";
+            webkit_print_color_adjust Exact;
             print_color_adjust Exact;
             background_image
               (Url

@@ -77,18 +77,23 @@ module Handler = struct
   (* Basis. Tailwind v4: [basis-<number>] resolves to [calc(var(--spacing) *
      <n>)] - including [basis-0] which keeps the [calc] form for parity with the
      rest of the spacing scale. [basis-full] / [basis-1/1] are the only forms
-     that emit literal [100%]. Cascade's typed [flex_basis] [Calc] is
-     parameterised by [flex_basis] and there is no polymorphic numeric calc
-     atom, so we emit the property value as a raw declaration string while still
-     going through [Var.binding] for the [--spacing] theme declaration so the
-     theme-layer metadata stays correct. *)
+     that emit literal [100%]. The calc value is parsed through
+     [Properties.read_flex_basis] so it lands in the typed AST rather than going
+     via an opaque declaration. *)
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
-    let basis_decl =
-      Css.Declaration.of_string
-        (Fmt.str "flex-basis: calc(var(--spacing) * %d)" n)
+    let cursor =
+      Cascade.Cursor.of_string (Fmt.str "calc(var(--spacing) * %d)" n)
     in
-    style [ spacing_decl; basis_decl ]
+    let value =
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_flex_basis cursor
+      with
+      | Ok v -> v
+      | Error _ ->
+          invalid_arg (Fmt.str "basis-%d: failed to parse spacing calc" n)
+    in
+    style [ spacing_decl; flex_basis value ]
 
   let basis_0 = basis_spacing 0
   let basis_1 = basis_spacing 1

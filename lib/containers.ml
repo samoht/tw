@@ -52,14 +52,9 @@ module Handler = struct
   let container_normal_style = style [ container_type Normal ]
 
   (* Tailwind v4 emits the [container] shorthand ([container: <name> /
-     inline-size]) rather than the longhand pair. Cascade has no typed emitter
-     for the [container] shorthand, so we emit it via
-     [Declaration.of_string]. *)
+     inline-size]) rather than the longhand pair. *)
   let container_named_style name =
-    let decl =
-      Css.Declaration.of_string (Fmt.str "container: %s / inline-size" name)
-    in
-    style [ decl ]
+    style [ Css.Declaration.container ~type_:Inline_size name ]
 
   let to_style = function
     | Layout_container -> layout_container_style

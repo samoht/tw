@@ -875,7 +875,15 @@ module Handler = struct
   let perspective_origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    style [ Css.Declaration.of_string ("perspective-origin: " ^ value) ]
+    let cursor = Cascade.Cursor.of_string value in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_perspective_origin
+        cursor
+    with
+    | Ok po -> style [ perspective_origin po ]
+    | Error _ ->
+        invalid_arg
+          ("perspective-origin-[" ^ s ^ "]: not a valid perspective-origin")
 
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
@@ -943,7 +951,13 @@ module Handler = struct
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    style [ Css.Declaration.of_string ("transform-origin: " ^ value) ]
+    let cursor = Cascade.Cursor.of_string value in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_transform_origin
+        cursor
+    with
+    | Ok t -> style [ transform_origin t ]
+    | Error _ -> invalid_arg ("origin-[" ^ s ^ "]: not a valid transform-origin")
 
   (** {1 Transform Control Utilities} *)
 
@@ -1147,9 +1161,16 @@ module Handler = struct
     | Transform_cpu -> transform_cpu
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
-    | Transform_arbitrary s ->
+    | Transform_arbitrary s -> (
         let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-        style [ Css.Declaration.of_string ("transform: " ^ value) ]
+        let cursor = Cascade.Cursor.of_string value in
+        match
+          Cascade.Cursor.try_parse_full_err Css.Properties.read_transforms
+            cursor
+        with
+        | Ok ts -> style [ transforms ts ]
+        | Error _ ->
+            invalid_arg ("transform-[" ^ s ^ "]: not a valid transform list"))
     | Origin_center -> origin_center ()
     | Origin_top -> origin_top ()
     | Origin_bottom -> origin_bottom ()

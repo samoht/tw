@@ -401,13 +401,14 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Mask_bracket_linear_gradient v ->
+    | Mask_bracket_linear_gradient v -> (
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
-        style
-          [
-            Css.Declaration.of_string ("-webkit-mask-image: " ^ css_str);
-            Css.Declaration.of_string ("mask-image: " ^ css_str);
-          ]
+        match Css.parse_background_image css_str with
+        | Some (img :: _) ->
+            style [ Css.webkit_mask_image img; Css.mask_image img ]
+        | _ ->
+            invalid_arg ("mask-[" ^ v ^ "]: not a valid background-image value")
+        )
     (* Sub-property bracket notation *)
     | Mask_position_bracket inner -> (
         match parse_bracket_position inner with
