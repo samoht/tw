@@ -585,7 +585,13 @@ let compare_orders order_a order_b =
 let sort_by_var_order decls =
   decls
   |> List.map (fun d ->
-      (d, Var.order_of_declaration d, Css.custom_declaration_name d))
+      let name = Css.custom_declaration_name d in
+      let order =
+        match Var.order_of_declaration d with
+        | Some _ as order -> order
+        | None -> Option.bind name Var.order
+      in
+      (d, order, name))
   |> List.sort (fun (_, a, na) (_, b, nb) ->
       let c = compare_orders a b in
       if c <> 0 then c else compare na nb)

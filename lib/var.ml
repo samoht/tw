@@ -172,6 +172,17 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
+(* Theme value overrides: maps var name -> CSS string value. When set,
+   theme-backed utilities emit the override in the theme layer while still using
+   typed variable references in utility declarations. *)
+let theme_value_overrides : (string, string) Hashtbl.t = Hashtbl.create 16
+
+let set_theme_value name value =
+  Hashtbl.replace theme_value_overrides name value
+
+let theme_value name = Hashtbl.find_opt theme_value_overrides name
+let clear_theme_values () = Hashtbl.clear theme_value_overrides
+
 (* Create a variable template *)
 let v : type a r.
     a Css.kind ->
@@ -222,8 +233,14 @@ let v : type a r.
       | _, _, Some f -> f (* Use provided fallback *)
       | _ -> Css.None (* No fallback *)
     in
-    Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
-      name kind value
+    let decl, var =
+      Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
+        name kind value
+    in
+    match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
+    | Theme, Some css ->
+        (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
+    | _ -> (decl, var)
   in
   {
     kind;
@@ -287,7 +304,7 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Font_family -> Css.Properties.Font_family
   | Font_feature_settings -> Css.Properties.Font_feature_settings
   | Font_variation_settings -> Css.Properties.Font_variation_settings
-  | Font_variant_numeric -> Css.Properties.Font_variant_numeric
+  | Numeric -> Css.Properties.Numeric
   | Font_variant_numeric_token -> Css.Properties.Font_variant_numeric_token
   | Blend_mode -> Css.Properties.Blend_mode
   | Scroll_snap_strictness -> Css.Properties.Scroll_snap_strictness
@@ -476,17 +493,6 @@ let theme_ref : type a. ?default:a -> ?default_css:string -> string -> a Css.var
   Css.var_ref ~layer:"theme" ?default name
 
 let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
-
-(* Theme value overrides: maps var name -> CSS string value. When set, theme_ref
-   utilities produce custom declarations for the theme layer (e.g.,
-   --z-index-auto: 42 in :root, :host). *)
-let theme_value_overrides : (string, string) Hashtbl.t = Hashtbl.create 16
-
-let set_theme_value name value =
-  Hashtbl.replace theme_value_overrides name value
-
-let theme_value name = Hashtbl.find_opt theme_value_overrides name
-let clear_theme_values () = Hashtbl.clear theme_value_overrides
 
 (* Convert Property_info to the string value for properties layer This extracts
    the initial value and converts it to the appropriate CSS string *)

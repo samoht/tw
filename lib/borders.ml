@@ -498,7 +498,7 @@ module Handler = struct
         style [ Css.border_radius (radius_value Zero) ]
 
   let rounded_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   (* Helper: return (decls, length_val) for the bare --radius variable. When
@@ -560,7 +560,7 @@ module Handler = struct
          ])
 
   let rounded_t_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -639,7 +639,7 @@ module Handler = struct
          ])
 
   let rounded_r_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -718,7 +718,7 @@ module Handler = struct
          ])
 
   let rounded_b_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -796,7 +796,7 @@ module Handler = struct
          ])
 
   let rounded_l_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -868,7 +868,7 @@ module Handler = struct
     style (decl :: [ Css.border_top_left_radius (Var r) ])
 
   let rounded_tl_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_top_left_radius (Var r) ])
 
   let rounded_tl_md =
@@ -905,7 +905,7 @@ module Handler = struct
     style (decl :: [ Css.border_top_right_radius (Var r) ])
 
   let rounded_tr_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_top_right_radius (Var r) ])
 
   let rounded_tr_md =
@@ -942,7 +942,7 @@ module Handler = struct
     style (decl :: [ Css.border_bottom_right_radius (Var r) ])
 
   let rounded_br_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_bottom_right_radius (Var r) ])
 
   let rounded_br_md =
@@ -979,7 +979,7 @@ module Handler = struct
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
   let rounded_bl_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
   let rounded_bl_md =
@@ -1030,7 +1030,7 @@ module Handler = struct
           ]
 
   let rounded_s_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -1121,7 +1121,7 @@ module Handler = struct
           [ Css.border_start_end_radius Zero; Css.border_end_end_radius Zero ]
 
   let rounded_e_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style
       (decl
       :: [
@@ -1204,7 +1204,7 @@ module Handler = struct
     | None -> style [ Css.border_start_start_radius Zero ]
 
   let rounded_ss_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_start_start_radius (Var r) ])
 
   let rounded_ss_md =
@@ -1247,7 +1247,7 @@ module Handler = struct
     | None -> style [ Css.border_start_end_radius Zero ]
 
   let rounded_se_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_start_end_radius (Var r) ])
 
   let rounded_se_md =
@@ -1290,7 +1290,7 @@ module Handler = struct
     | None -> style [ Css.border_end_end_radius Zero ]
 
   let rounded_ee_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_end_end_radius (Var r) ])
 
   let rounded_ee_md =
@@ -1333,7 +1333,7 @@ module Handler = struct
     | None -> style [ Css.border_end_start_radius Zero ]
 
   let rounded_es_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_end_start_radius (Var r) ])
 
   let rounded_es_md =

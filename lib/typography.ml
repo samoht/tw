@@ -247,27 +247,19 @@ let default_font_declarations =
   let mono_decl, _ = Var.binding font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
-(* Default font family variables that reference the base font variables. The
-   [--font-sans] / [--font-mono] declarations are emitted as opaque
-   custom-property tokens rather than going through the typed font-family pp.
-   Tailwind v4 emits these theme values with multi-word family names quoted
-   (e.g. ["Segoe UI Symbol"]); cascade's typed pp normalises to the equivalent
-   unquoted form, which yields the same CSS but different bytes and would diff
-   under canonical comparison against verbatim Tailwind source. Constructing the
-   declarations as opaque tokens keeps them byte-identical with Tailwind's
-   output. *)
+(* Default font family variables that reference the base font variables. *)
 let default_font_family_declarations =
   let _typed_sans, sans_ref = Var.binding font_sans_var default_sans_stack in
   let _typed_mono, mono_ref = Var.binding font_mono_var default_mono_stack in
   let sans_decl =
-    Css.Declaration.of_string
-      "--font-sans: ui-sans-serif, system-ui, sans-serif, \"Apple Color \
-       Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""
+    Css.custom_property ~layer:"theme" "--font-sans"
+      "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI \
+       Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""
   in
   let mono_decl =
-    Css.Declaration.of_string
-      "--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
-       \"Liberation Mono\", \"Courier New\", monospace"
+    Css.custom_property ~layer:"theme" "--font-mono"
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
+       Mono\", \"Courier New\", monospace"
   in
   let default_font_decl, _ =
     Var.binding default_font_family_var (Css.Var sans_ref)
@@ -785,50 +777,14 @@ module Typography_early = struct
         line_height (Var leading_with_fallback);
       ]
 
-  (* Tailwind v4 emits [--text-*--line-height: calc(<lh>/<size>)] preserving the
-     ratio relationship; the computed decimal is equivalent but byte- different
-     (and round-trips lossily via decimal). Wrap [text_size_utility] to emit the
-     line-height theme decl as opaque [calc] tokens while still going through
-     [Var.binding] so the typed reference is available for [line-height:
-     var(...)] in the utility class. *)
-  let text_size_calc (size_var : Css.length Var.theme)
-      (lh_var : Css.line_height Var.theme) size_rem lh_rem =
-    (* Drop the leading zero on sub-1 values to match Tailwind's minified form
-       ([.75] not [0.75]). *)
-    let fmt_num f =
-      let s = Fmt.str "%g" f in
-      if String.length s >= 2 && String.sub s 0 2 = "0." then
-        "." ^ String.sub s 2 (String.length s - 2)
-      else s
-    in
-    let size_decl, size_ref = Var.binding size_var (Css.Rem size_rem) in
-    let typed_lh : Css.line_height = Num (lh_rem /. size_rem) in
-    let _, lh_ref = Var.binding lh_var typed_lh in
-    let lh_decl =
-      Css.custom_property ~layer:"theme" (Var.css_name lh_var)
-        (Fmt.str "calc(%s/%s)" (fmt_num lh_rem) (fmt_num size_rem))
-    in
-    let theme = default_line_height_theme in
-    let leading_ref = snd theme.leading in
-    let leading_with_fallback =
-      Css.with_fallback leading_ref (Css.Var lh_ref)
-    in
-    style
-      [
-        size_decl;
-        lh_decl;
-        font_size (Css.Var size_ref);
-        line_height (Var leading_with_fallback);
-      ]
-
-  let text_xs = text_size_calc text_xs_var text_xs_lh_var 0.75 1.0
-  let text_sm = text_size_calc text_sm_var text_sm_lh_var 0.875 1.25
-  let text_base = text_size_calc text_base_var text_base_lh_var 1.0 1.5
-  let text_lg = text_size_calc text_lg_var text_lg_lh_var 1.125 1.75
-  let text_xl = text_size_calc text_xl_var text_xl_lh_var 1.25 1.75
-  let text_2xl = text_size_calc text_2xl_var text_2xl_lh_var 1.5 2.0
-  let text_3xl = text_size_calc text_3xl_var text_3xl_lh_var 1.875 2.25
-  let text_4xl = text_size_calc text_4xl_var text_4xl_lh_var 2.25 2.5
+  let text_xs = text_size_utility text_xs_var text_xs_lh_var 0.75 (Rem 1.0)
+  let text_sm = text_size_utility text_sm_var text_sm_lh_var 0.875 (Rem 1.25)
+  let text_base = text_size_utility text_base_var text_base_lh_var 1.0 (Rem 1.5)
+  let text_lg = text_size_utility text_lg_var text_lg_lh_var 1.125 (Rem 1.75)
+  let text_xl = text_size_utility text_xl_var text_xl_lh_var 1.25 (Rem 1.75)
+  let text_2xl = text_size_utility text_2xl_var text_2xl_lh_var 1.5 (Rem 2.0)
+  let text_3xl = text_size_utility text_3xl_var text_3xl_lh_var 1.875 (Rem 2.25)
+  let text_4xl = text_size_utility text_4xl_var text_4xl_lh_var 2.25 (Rem 2.5)
   let text_5xl = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
   let text_6xl = text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
   let text_7xl = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
@@ -866,7 +822,7 @@ module Typography_early = struct
   let font_normal = font_weight_utility font_weight_normal_var (Weight 400)
   let font_medium = font_weight_utility font_weight_medium_var (Weight 500)
   let font_semibold = font_weight_utility font_weight_semibold_var (Weight 600)
-  let font_bold = font_weight_utility font_weight_bold_var (Weight 700)
+  let font_bold () = font_weight_utility font_weight_bold_var (Weight 700)
 
   let font_extrabold =
     font_weight_utility font_weight_extrabold_var (Weight 800)
@@ -932,7 +888,7 @@ module Typography_early = struct
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
-  let leading_none = leading_with_theme_var leading_none_var (Num 1.0)
+  let leading_none () = leading_with_theme_var leading_none_var (Num 1.0)
   let leading_tight = leading_with_theme_var leading_tight_var (Num 1.25)
   let leading_snug = leading_with_theme_var leading_snug_var (Num 1.375)
   let leading_normal = leading_with_theme_var leading_normal_var (Num 1.5)
@@ -1093,7 +1049,7 @@ module Typography_early = struct
     | Font_normal -> font_normal
     | Font_medium -> font_medium
     | Font_semibold -> font_semibold
-    | Font_bold -> font_bold
+    | Font_bold -> font_bold ()
     | Font_extrabold -> font_extrabold
     | Font_black -> font_black
     | Font_bracket_weight (_, n) ->
@@ -1177,7 +1133,7 @@ module Typography_early = struct
     | Text_justify -> text_justify
     | Text_start -> text_start
     | Text_end -> text_end
-    | Leading_none -> leading_none
+    | Leading_none -> leading_none ()
     | Leading_tight -> leading_tight
     | Leading_snug -> leading_snug
     | Leading_normal -> leading_normal
@@ -2195,7 +2151,7 @@ module Typography_late = struct
     style ~property_rules
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
-  let tracking_normal =
+  let tracking_normal () =
     let theme_decl, theme_ref = Var.binding tracking_normal_var Zero in
     let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
     let property_rules =
@@ -2285,15 +2241,7 @@ module Typography_late = struct
           Var.binding underline_offset_auto_var (Auto : Css.length)
         in
         style [ decl; text_underline_offset (Var ref_) ]
-    | None ->
-        style
-          [
-            text_underline_offset
-              (Var
-                 (Var.theme_ref "text-underline-offset-auto"
-                    ~default:(Auto : Css.length)
-                    ~default_css:"auto"));
-          ]
+    | None -> style [ text_underline_offset (Auto : Css.length) ]
 
   let underline_offset_0 = style [ text_underline_offset Zero ]
   let underline_offset_1 = style [ text_underline_offset (Px 1.) ]
@@ -2675,7 +2623,7 @@ module Typography_late = struct
         style ~property_rules [ channel_decl; letter_spacing neg_len ]
     | Tracking_tighter -> tracking_tighter
     | Tracking_tight -> tracking_tight
-    | Tracking_normal -> tracking_normal
+    | Tracking_normal -> tracking_normal ()
     | Tracking_wide -> tracking_wide
     | Tracking_wider -> tracking_wider
     | Tracking_widest -> tracking_widest

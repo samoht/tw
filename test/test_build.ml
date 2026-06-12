@@ -135,8 +135,7 @@ let check_inline_style () =
 (* ---------------------------------------------------------------------- *)
 
 (* Short, reusable helpers *)
-let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
-    =
+let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   let sheet =
     Tw.Build.to_css
       ~config:{ Tw.Build.base; forms = None; layers = true }
@@ -147,7 +146,7 @@ let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
     | Css.Inline -> Css.inline_vars sheet
     | Css.Variables -> sheet
   in
-  if optimize then Css.optimize sheet else sheet
+  sheet
 
 (* layer_block is now available in Css module *)
 
@@ -422,54 +421,42 @@ let test_rule_sets_hover_media () =
     "hover selector in media" [ expected ] selectors
 
 let test_rule_sets_md_media () =
-  (* Multiple md[...] utilities should group under a single (min-width:768px)
-     when optimized *)
+  (* Multiple md[...] utilities should group under a single min-width media
+     block without relying on Cascade optimization. *)
   let css =
     Tw.Build.to_css
       ~config:{ base = true; forms = None; layers = true }
       [ md [ p 4 ]; md [ m 2 ] ]
-    |> Css.optimize
   in
-  (* After [Css.optimize], the legacy [min-width: 48rem] form is rewritten to
-     the equivalent range syntax [(width >= 48rem)] - the test verifies the
-     post-optimize string form. *)
-  check bool "has (width >= 48rem) media query" true
-    (has_media_condition "(width >= 48rem)" css);
+  check bool "has (min-width: 48rem) media query" true
+    (has_media_condition "(min-width: 48rem)" css);
 
-  (* Find the md media block and verify both selectors are inside it. Match by
-     the optimized string form to avoid coupling on the structural AST, which
-     [Css.optimize] may rewrite into different but equivalent shapes (e.g. plain
-     features rewritten as range queries). *)
-  let md_block =
+  (* Collect md media blocks and verify both selectors are under md. CSS
+     optimization may merge these blocks, but tw no longer depends on that. *)
+  let selectors =
     Css.fold
       (fun acc stmt ->
-        match (acc, Css.as_media stmt) with
-        | Some _, _ -> acc
-        | None, Some (cond, inner)
-          when Css.Media.to_string cond = "(width >= 48rem)" ->
-            Some inner
-        | None, _ -> None)
-      None css
+        match Css.as_media stmt with
+        | Some (cond, inner)
+          when Css.Media.to_string cond = "(min-width: 48rem)" ->
+            List.filter_map
+              (fun s ->
+                match Css.as_rule s with
+                | Some (sel, _, _) -> Some sel
+                | None -> None)
+              inner
+            @ acc
+        | _ -> acc)
+      [] css
   in
-  match md_block with
-  | None -> fail "Expected md media block"
-  | Some stmts ->
-      let selectors =
-        List.filter_map
-          (fun s ->
-            match Css.as_rule s with
-            | Some (sel, _, _) -> Some sel
-            | None -> None)
-          stmts
-      in
-      let expected =
-        Test_helpers.sort_selectors
-          [ Css.Selector.class_ "md:p-4"; Css.Selector.class_ "md:m-2" ]
-      in
-      let actual = Test_helpers.sort_selectors selectors in
-      check
-        (list Test_helpers.selector_testable)
-        "md block selectors" expected actual
+  let expected =
+    Test_helpers.sort_selectors
+      [ Css.Selector.class_ "md:p-4"; Css.Selector.class_ "md:m-2" ]
+  in
+  let actual = Test_helpers.sort_selectors selectors in
+  check
+    (list Test_helpers.selector_testable)
+    "md block selectors" expected actual
 
 let test_media_grouping_order () =
   let css =

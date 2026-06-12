@@ -527,12 +527,12 @@ let parse_value_and_flag value_str =
     if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
     then
       ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Case_insensitive )
+        Some Css.Selector.Insensitive )
     else if
       vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
     then
       ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Case_sensitive )
+        Some Css.Selector.Sensitive )
     else (value_str, None)
   in
   let value =

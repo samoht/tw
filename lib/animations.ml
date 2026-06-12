@@ -88,9 +88,9 @@ module Handler = struct
             Css.keyframes "spin"
               [
                 {
-                  Css.Stylesheet.keyframe_selector =
+                  Css.Stylesheet.selector =
                     Css.Keyframe.Positions [ Css.Keyframe.To ];
-                  keyframe_declarations =
+                  declarations =
                     [ Css.Declaration.transform (Rotate (Deg 360.)) ];
                 };
               ];
@@ -126,10 +126,10 @@ module Handler = struct
             Css.keyframes "ping"
               [
                 {
-                  Css.Stylesheet.keyframe_selector =
+                  Css.Stylesheet.selector =
                     Css.Keyframe.Positions
                       [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
-                  keyframe_declarations =
+                  declarations =
                     [
                       Css.Declaration.opacity (Opacity_number 0.0);
                       Css.Declaration.transform (Scale (Num 2.0, opt_none));
@@ -168,9 +168,9 @@ module Handler = struct
             Css.keyframes "pulse"
               [
                 {
-                  Css.Stylesheet.keyframe_selector =
+                  Css.Stylesheet.selector =
                     Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  keyframe_declarations =
+                  declarations =
                     [ Css.Declaration.opacity (Opacity_number 0.5) ];
                 };
               ];
@@ -209,10 +209,10 @@ module Handler = struct
             Css.keyframes "bounce"
               [
                 {
-                  Css.Stylesheet.keyframe_selector =
+                  Css.Stylesheet.selector =
                     Css.Keyframe.Positions
                       [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
-                  keyframe_declarations =
+                  declarations =
                     [
                       Css.Declaration.animation_timing_function
                         (Cubic_bezier (0.8, 0., 1., 1.));
@@ -220,9 +220,9 @@ module Handler = struct
                     ];
                 };
                 {
-                  Css.Stylesheet.keyframe_selector =
+                  Css.Stylesheet.selector =
                     Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  keyframe_declarations =
+                  declarations =
                     [
                       Css.Declaration.animation_timing_function
                         (Cubic_bezier (0., 0., 0.2, 1.));
@@ -239,10 +239,8 @@ module Handler = struct
     Css.keyframes "spin"
       [
         {
-          Css.Stylesheet.keyframe_selector =
-            Css.Keyframe.Positions [ Css.Keyframe.To ];
-          keyframe_declarations =
-            [ Css.Declaration.transform (Rotate (Deg 360.)) ];
+          Css.Stylesheet.selector = Css.Keyframe.Positions [ Css.Keyframe.To ];
+          declarations = [ Css.Declaration.transform (Rotate (Deg 360.)) ];
         };
       ]
 

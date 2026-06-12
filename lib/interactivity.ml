@@ -155,8 +155,12 @@ module Handler = struct
   let scheme_light_s = style [ color_scheme Light ]
   let scheme_light_dark_s = style [ color_scheme Light_dark ]
   let scheme_normal_s = style [ color_scheme Normal ]
-  let scheme_only_dark_s = style [ color_scheme Only_dark ]
-  let scheme_only_light_s = style [ color_scheme Only_light ]
+
+  let scheme_only_dark_s =
+    style [ Css.Declaration.of_string "color-scheme: dark only" ]
+
+  let scheme_only_light_s =
+    style [ Css.Declaration.of_string "color-scheme: light only" ]
 
   let to_style = function
     | Select_none -> select_none_s

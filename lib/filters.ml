@@ -242,7 +242,7 @@ module Handler = struct
      set. This produces the --name: value entry for the :root, :host block. *)
   let theme_decl_if_set name =
     match Var.theme_value name with
-    | Some _ -> [ Css.custom_property ~layer:"theme" ("--" ^ name) "" ]
+    | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
   (* Helper: set a --tw-<name> filter var using a theme var reference. Creates

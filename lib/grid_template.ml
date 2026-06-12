@@ -69,14 +69,19 @@ module Handler = struct
             (Repeat (Count n, [ Min_max (Zero, Fr 1.0) ]));
         ]
 
+  let themed_property var_name property value =
+    let theme_decl =
+      Css.custom_property ~layer:"theme" ("--" ^ var_name) value
+    in
+    let prop_decl =
+      Css.Declaration.of_string (property ^ ": var(--" ^ var_name ^ ")")
+    in
+    style [ theme_decl; prop_decl ]
+
   let grid_cols_none () =
     let var_name = "grid-template-columns-none" in
     match Var.theme_value var_name with
-    | Some value ->
-        let theme_decl =
-          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
-        in
-        style [ theme_decl; Css.grid_template_columns Auto ]
+    | Some value -> themed_property var_name "grid-template-columns" value
     | None -> style [ Css.grid_template_columns None ]
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
@@ -177,11 +182,7 @@ module Handler = struct
   let grid_rows_none () =
     let var_name = "grid-template-rows-none" in
     match Var.theme_value var_name with
-    | Some value ->
-        let theme_decl =
-          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
-        in
-        style [ theme_decl; Css.grid_template_rows Auto ]
+    | Some value -> themed_property var_name "grid-template-rows" value
     | None -> style [ Css.grid_template_rows None ]
 
   let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
@@ -194,11 +195,7 @@ module Handler = struct
   let auto_cols_auto () =
     let var_name = "grid-auto-columns-auto" in
     match Var.theme_value var_name with
-    | Some value ->
-        let theme_decl =
-          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
-        in
-        style [ theme_decl; Css.grid_auto_columns Auto ]
+    | Some value -> themed_property var_name "grid-auto-columns" value
     | None -> style [ Css.grid_auto_columns Auto ]
 
   let auto_cols_min = style [ Css.grid_auto_columns Min_content ]
@@ -213,11 +210,7 @@ module Handler = struct
   let auto_rows_auto () =
     let var_name = "grid-auto-rows-auto" in
     match Var.theme_value var_name with
-    | Some value ->
-        let theme_decl =
-          Css.custom_property ~layer:"theme" ("--" ^ var_name) value
-        in
-        style [ theme_decl; Css.grid_auto_rows Auto ]
+    | Some value -> themed_property var_name "grid-auto-rows" value
     | None -> style [ Css.grid_auto_rows Auto ]
 
   let auto_rows_min = style [ Css.grid_auto_rows Min_content ]

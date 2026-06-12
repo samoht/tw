@@ -129,10 +129,16 @@ module Handler = struct
   (* Order *)
   let order_style n = style [ order (Int n) ]
 
-  (* Tailwind v4 emits [.order-first { order: -9999 }] and [.order-last { order:
-     9999 }] as literal values, not through a theme var reference. *)
-  let order_first () = style [ order (Int (-9999)) ]
-  let order_last () = style [ order (Int 9999) ]
+  let themed_order name default =
+    match Var.theme_value name with
+    | None -> style [ order (Int default) ]
+    | Some value ->
+        let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value in
+        let var_ref = Css.var_ref ~layer:"theme" name in
+        style [ decl; order (Var var_ref) ]
+
+  let order_first () = themed_order "order-first" (-9999)
+  let order_last () = themed_order "order-last" 9999
   let order_none = style [ order (Int 0) ]
 
   let to_style = function

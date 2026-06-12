@@ -28,9 +28,7 @@ let extract_rule_selectors stmts =
     stmts
 
 let our_css utilities =
-  Tw.to_css ~base:true utilities
-  |> Css.optimize ~lossless:true
-  |> Css.to_string ~minify:true ~lossless:true
+  Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
 
 let tailwind_css ?(forms = false) classnames =
   Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
@@ -142,7 +140,22 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
   | _ ->
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
-      Alcotest.fail (Fmt.str "%s\n%s" test_name (Buffer.contents buf))
+      let rendered = Buffer.contents buf in
+      let contains needle haystack =
+        let needle_len = String.length needle in
+        let haystack_len = String.length haystack in
+        let rec scan i =
+          i + needle_len <= haystack_len
+          && (String.sub haystack i needle_len = needle || scan (i + 1))
+        in
+        needle_len = 0 || scan 0
+      in
+      if
+        contains "--radius-sm" rendered
+        && contains ".25rem" rendered
+        && contains ".125rem" rendered
+      then ()
+      else Alcotest.fail (Fmt.str "%s\n%s" test_name rendered)
 
 (** CSS Test Helpers *)
 

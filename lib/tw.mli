@@ -3584,7 +3584,7 @@ module Tables = Tables
 module Svg = Svg
 module Accessibility = Accessibility
 module Output = Output
-module Rule = Rule
+module Rule : module type of Tw__.Rule
 module Build = Build
 module Theme = Theme
 module Scheme = Scheme

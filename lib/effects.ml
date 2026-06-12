@@ -303,6 +303,65 @@ module Handler = struct
     Css.Supports.property "color" "lab(from red l a b)"
 
   let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
+  let pp_length_token len = Css.Pp.to_string Css.pp_length len
+  let pp_color_token color = Css.Pp.to_string Css.pp_color color
+
+  let extract_bare_var_name (v : string) : string =
+    let len = String.length v in
+    if len > 6 && String.sub v 0 6 = "var(--" && v.[len - 1] = ')' then
+      let inner = String.sub v 6 (len - 7) in
+      match String.index_opt inner ',' with
+      | Stdlib.Option.Some i -> String.sub inner 0 i
+      | Stdlib.Option.None -> inner
+    else v
+
+  let extract_var_fallback (v : string) : string option =
+    let len = String.length v in
+    if len > 6 && String.sub v 0 6 = "var(--" && v.[len - 1] = ')' then
+      let inner = String.sub v 6 (len - 7) in
+      match String.index_opt inner ',' with
+      | Stdlib.Option.Some i ->
+          Stdlib.Option.Some
+            (String.sub inner (i + 1) (String.length inner - i - 1))
+      | Stdlib.Option.None -> Stdlib.Option.None
+    else Stdlib.Option.None
+
+  let shorten_hex_with_hash h =
+    if String.length h > 0 && h.[0] = '#' then "#" ^ shorten_hex h else h
+
+  let reconstruct_short_var (v : string) : string =
+    let name = extract_bare_var_name v in
+    match extract_var_fallback v with
+    | Stdlib.Option.Some fb ->
+        let short_fb = shorten_hex_with_hash fb in
+        Fmt.str "var(--%s, %s)" name short_fb
+    | Stdlib.Option.None -> Fmt.str "var(--%s)" name
+
+  let arbitrary_color_fallback_token ?alpha = function
+    | Hex c -> (
+        match alpha with
+        | Some a -> pp_color_token (Color.hex_to_oklab_alpha c a)
+        | Stdlib.Option.None -> pp_color_token (Css.hex (shorten_hex c)))
+    | Var v -> reconstruct_short_var v
+    | Css_color c -> (
+        match Color.css_color_to_hex c with
+        | Some h -> pp_color_token h
+        | Stdlib.Option.None -> pp_color_token c)
+    | None -> "currentcolor"
+
+  let shadow_token ?(inset = false) ~color_var h_offset v_offset blur fallback =
+    let parts =
+      (if inset then [ "inset" ] else [])
+      @ [ pp_length_token h_offset; pp_length_token v_offset ]
+      @ (match blur with Some blur -> [ pp_length_token blur ] | None -> [])
+      @ [ Fmt.str "var(--%s, %s)" color_var fallback ]
+    in
+    String.concat " " parts
+
+  let shadow_custom_property ?inset ~property ~color_var h_offset v_offset blur
+      fallback =
+    Css.custom_property ~layer:"utilities" property
+      (shadow_token ?inset ~color_var h_offset v_offset blur fallback)
 
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
@@ -513,15 +572,26 @@ module Handler = struct
 
   let shadow_arbitrary (arb : string) =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
-    match Css.parse_shadow normalized with
-    | Some shadow ->
-        let shadow_value =
-          wrap_shadow_colors ~color_var:shadow_color_var shadow
+    match parse_arbitrary_shadow arb with
+    | Some (h_offset, v_offset, blur, color) ->
+        let fallback = arbitrary_color_fallback_token color in
+        let d_shadow =
+          shadow_custom_property ~property:"--tw-shadow"
+            ~color_var:"tw-shadow-color" h_offset v_offset blur fallback
         in
-        let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
+        let v_shadow = Var.reference shadow_var in
         style ~property_rules:shadow_property_rules
           [ d_shadow; box_shadow_composition v_shadow ]
-    | None -> shadow_none
+    | None -> (
+        match Css.parse_shadow normalized with
+        | Some shadow ->
+            let shadow_value =
+              wrap_shadow_colors ~color_var:shadow_color_var shadow
+            in
+            let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
+            style ~property_rules:shadow_property_rules
+              [ d_shadow; box_shadow_composition v_shadow ]
+        | None -> shadow_none)
 
   let shadow_arbitrary_opacity (arb : string) opacity =
     match parse_arbitrary_shadow arb with
@@ -529,43 +599,26 @@ module Handler = struct
         let percent = Color.opacity_to_percent opacity in
         let alpha = percent /. 100.0 in
         let alpha_d = shadow_alpha_decl percent in
-        let base_fallback : Css.color =
-          match color with
-          | Hex c -> Color.hex_to_oklab_alpha c alpha
-          | Var v -> make_color_var (Parse.extract_var_name v)
-          | Css_color c -> (
-              match Color.css_color_to_hex c with Some h -> h | None -> c)
-          | None -> Css.Current
-        in
-        let base_color_ref =
-          Var.reference_with_fallback shadow_color_var base_fallback
-        in
+        let fallback = arbitrary_color_fallback_token ~alpha color in
         let base_shadow =
-          Css.shadow ~h_offset ~v_offset ?blur ~color:(Var base_color_ref) ()
+          shadow_custom_property ~property:"--tw-shadow"
+            ~color_var:"tw-shadow-color" h_offset v_offset blur fallback
         in
-        let d_shadow, v_shadow = Var.binding shadow_var base_shadow in
+        let v_shadow = Var.reference shadow_var in
         let supports_rules =
           match color with
           | Hex _ | Css_color _ -> []
           | Var v ->
               let vn = Parse.extract_var_name v in
-              let raw_fb =
+              let enhanced_fallback =
                 Fmt.str "oklab(from var(--%s) l a b / %s%%)" vn
                   (pp_float percent)
               in
-              let enhanced_ref =
-                Var.bracket
-                  ~fallback:
-                    (Css.Syntax_fallback
-                       (Cascade.Cursor.remaining
-                          (Cascade.Cursor.of_string raw_fb)))
-                  "tw-shadow-color"
+              let d_enhanced =
+                shadow_custom_property ~property:"--tw-shadow"
+                  ~color_var:"tw-shadow-color" h_offset v_offset blur
+                  enhanced_fallback
               in
-              let enhanced_shadow =
-                Css.shadow ~h_offset ~v_offset ?blur ~color:(Var enhanced_ref)
-                  ()
-              in
-              let d_enhanced, _ = Var.binding shadow_var enhanced_shadow in
               let supports_block =
                 Css.supports ~condition:relative_color_supports
                   [
@@ -578,14 +631,12 @@ module Handler = struct
                 Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
                   ~percent1:percent
               in
-              let enhanced_ref =
-                Var.reference_with_fallback shadow_color_var color_mix_fallback
+              let enhanced_fallback = pp_color_token color_mix_fallback in
+              let d_enhanced =
+                shadow_custom_property ~property:"--tw-shadow"
+                  ~color_var:"tw-shadow-color" h_offset v_offset blur
+                  enhanced_fallback
               in
-              let enhanced_shadow =
-                Css.shadow ~h_offset ~v_offset ?blur ~color:(Var enhanced_ref)
-                  ()
-              in
-              let d_enhanced, _ = Var.binding shadow_var enhanced_shadow in
               let supports_block = color_mix_supports [ d_enhanced ] in
               [ supports_block ]
         in
@@ -593,7 +644,7 @@ module Handler = struct
         | [] ->
             (* No @supports — keep all declarations in one block *)
             style ~property_rules:shadow_property_rules
-              [ alpha_d; d_shadow; box_shadow_composition v_shadow ]
+              [ alpha_d; base_shadow; box_shadow_composition v_shadow ]
         | _ ->
             (* Has @supports — split: alpha+shadow first (as regular rule), then
                @supports, then box-shadow in props (base rule).
@@ -601,7 +652,8 @@ module Handler = struct
                when has_regular_rules=true, giving the correct order:
                [alpha+shadow] -> [@supports] -> [box-shadow] *)
             let alpha_shadow_rule =
-              Css.rule ~selector:(Css.Selector.class_ "_") [ alpha_d; d_shadow ]
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ alpha_d; base_shadow ]
             in
             style
               ~rules:(Stdlib.Option.Some (alpha_shadow_rule :: supports_rules))
@@ -915,55 +967,6 @@ module Handler = struct
     parts := String.sub s !start (len - !start) :: !parts;
     List.rev !parts
 
-  (* Extract just the var name from "var(--name)" or "var(--name,fallback)" *)
-  let extract_bare_var_name (v : string) : string =
-    let len = String.length v in
-    if len > 6 && String.sub v 0 6 = "var(--" && v.[len - 1] = ')' then
-      let inner = String.sub v 6 (len - 7) in
-      match String.index_opt inner ',' with
-      | Stdlib.Option.Some i -> String.sub inner 0 i
-      | Stdlib.Option.None -> inner
-    else v
-
-  (* Extract the fallback from "var(--name,fallback)" if present *)
-  let extract_var_fallback (v : string) : string option =
-    let len = String.length v in
-    if len > 6 && String.sub v 0 6 = "var(--" && v.[len - 1] = ')' then
-      let inner = String.sub v 6 (len - 7) in
-      match String.index_opt inner ',' with
-      | Stdlib.Option.Some i ->
-          Stdlib.Option.Some
-            (String.sub inner (i + 1) (String.length inner - i - 1))
-      | Stdlib.Option.None -> Stdlib.Option.None
-    else Stdlib.Option.None
-
-  (* Shorten a hex color and keep the # prefix *)
-  let shorten_hex_with_hash h =
-    if String.length h > 0 && h.[0] = '#' then "#" ^ shorten_hex h else h
-
-  (* Create a color var reference preserving any var() fallback *)
-  let make_full_color_var (v : string) : Css.color =
-    let name = extract_bare_var_name v in
-    match extract_var_fallback v with
-    | Stdlib.Option.Some fb ->
-        let short_fb = shorten_hex_with_hash fb in
-        Css.Var
-          (Var.bracket
-             ~fallback:
-               (Css.Syntax_fallback
-                  (Cascade.Cursor.remaining (Cascade.Cursor.of_string short_fb)))
-             name)
-    | Stdlib.Option.None -> Css.Var (Var.bracket name)
-
-  (* Reconstruct a shortened var expression string like "var(--name, #08c)" *)
-  let reconstruct_short_var (v : string) : string =
-    let name = extract_bare_var_name v in
-    match extract_var_fallback v with
-    | Stdlib.Option.Some fb ->
-        let short_fb = shorten_hex_with_hash fb in
-        Fmt.str "var(--%s, %s)" name short_fb
-    | Stdlib.Option.None -> Fmt.str "var(--%s)" name
-
   (* Parse multi-value shadow (comma-separated) *)
   let parse_multi_shadow (s : string) =
     let parts = split_top_level_commas s in
@@ -974,33 +977,19 @@ module Handler = struct
   let inset_shadow_arbitrary (arb : string) =
     match parse_multi_shadow arb with
     | Stdlib.Option.Some parsed_parts ->
-        let shadow_values =
+        let shadow_tokens =
           List.map
             (fun (h_offset, v_offset, blur, color) ->
-              let fallback_color : Css.color =
-                match color with
-                | Hex c -> Css.hex (shorten_hex c)
-                | Var v -> make_full_color_var v
-                | Css_color c -> (
-                    match Color.css_color_to_hex c with
-                    | Some h -> h
-                    | None -> c)
-                | None -> Css.Current
-              in
-              let color_ref =
-                Var.reference_with_fallback inset_shadow_color_var
-                  fallback_color
-              in
-              Css.shadow ~inset:true ~h_offset ~v_offset ?blur
-                ~color:(Var color_ref) ())
+              let fallback = arbitrary_color_fallback_token color in
+              shadow_token ~inset:true ~color_var:"tw-inset-shadow-color"
+                h_offset v_offset blur fallback)
             parsed_parts
         in
-        let inset_value =
-          match shadow_values with [ s ] -> s | _ -> List shadow_values
+        let d_inset_shadow =
+          Css.custom_property ~layer:"utilities" "--tw-inset-shadow"
+            (String.concat ", " shadow_tokens)
         in
-        let d_inset_shadow, v_inset_shadow =
-          Var.binding inset_shadow_var inset_value
-        in
+        let v_inset_shadow = Var.reference inset_shadow_var in
         style ~property_rules:shadow_property_rules
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
     | Stdlib.Option.None -> inset_shadow_none
@@ -1058,86 +1047,68 @@ module Handler = struct
         in
         (* Build base shadow values: when @supports is present, use simple
            fallbacks (shortened hex); otherwise use oklab *)
-        let base_shadow_values =
+        let base_shadow_tokens =
           List.map
             (fun (h_offset, v_offset, blur, color) ->
-              let base_fallback : Css.color =
+              let base_fallback =
                 match color with
                 | Hex c ->
-                    if needs_supports then Css.hex (shorten_hex c)
-                    else Color.hex_to_oklab_alpha c alpha
-                | Var v -> make_full_color_var v
+                    if needs_supports then
+                      pp_color_token (Css.hex (shorten_hex c))
+                    else arbitrary_color_fallback_token ~alpha color
+                | Var _ -> arbitrary_color_fallback_token color
                 | Css_color c -> (
                     match Color.css_color_to_hex c with
-                    | Some h -> h
-                    | None -> c)
-                | None -> Css.Current
+                    | Some h -> pp_color_token h
+                    | None -> pp_color_token c)
+                | None -> "currentcolor"
               in
-              let color_ref =
-                Var.reference_with_fallback inset_shadow_color_var base_fallback
-              in
-              Css.shadow ~inset:true ~h_offset ~v_offset ?blur
-                ~color:(Var color_ref) ())
+              shadow_token ~inset:true ~color_var:"tw-inset-shadow-color"
+                h_offset v_offset blur base_fallback)
             parsed_parts
         in
-        let base_inset_value =
-          match base_shadow_values with
-          | [ s ] -> s
-          | _ -> List base_shadow_values
+        let d_inset_shadow =
+          Css.custom_property ~layer:"utilities" "--tw-inset-shadow"
+            (String.concat ", " base_shadow_tokens)
         in
-        let d_inset_shadow, v_inset_shadow =
-          Var.binding inset_shadow_var base_inset_value
-        in
+        let v_inset_shadow = Var.reference inset_shadow_var in
         let supports_rules =
           if not needs_supports then []
           else
             (* Build enhanced shadow values with oklab *)
-            let enhanced_shadow_values =
+            let enhanced_shadow_tokens =
               List.map
                 (fun (h_offset, v_offset, blur, color) ->
-                  let enhanced_ref =
+                  let enhanced_fallback =
                     match color with
                     | Hex c ->
                         let oklab = Color.hex_to_oklab_alpha c alpha in
-                        Var.reference_with_fallback inset_shadow_color_var oklab
+                        pp_color_token oklab
                     | Var v ->
                         let var_with_fb = reconstruct_short_var v in
-                        let raw_fb =
-                          Fmt.str "oklab(from %s l a b / %s%%)" var_with_fb
-                            (pp_float percent)
-                        in
-                        Var.bracket
-                          ~fallback:
-                            (Css.Syntax_fallback
-                               (Cascade.Cursor.remaining
-                                  (Cascade.Cursor.of_string raw_fb)))
-                          "tw-inset-shadow-color"
+                        Fmt.str "oklab(from %s l a b / %s%%)" var_with_fb
+                          (pp_float percent)
                     | Css_color c ->
                         let hex_c =
                           match Color.css_color_to_hex c with
                           | Some h -> h
                           | None -> c
                         in
-                        Var.reference_with_fallback inset_shadow_color_var hex_c
+                        pp_color_token hex_c
                     | None ->
                         let color_mix_fallback =
                           Css.color_mix ~in_space:Oklab Css.Current
                             Css.Transparent ~percent1:percent
                         in
-                        Var.reference_with_fallback inset_shadow_color_var
-                          color_mix_fallback
+                        pp_color_token color_mix_fallback
                   in
-                  Css.shadow ~inset:true ~h_offset ~v_offset ?blur
-                    ~color:(Css.Var enhanced_ref) ())
+                  shadow_token ~inset:true ~color_var:"tw-inset-shadow-color"
+                    h_offset v_offset blur enhanced_fallback)
                 parsed_parts
             in
-            let enhanced_inset_value =
-              match enhanced_shadow_values with
-              | [ s ] -> s
-              | _ -> List enhanced_shadow_values
-            in
-            let d_enhanced, _ =
-              Var.binding inset_shadow_var enhanced_inset_value
+            let d_enhanced =
+              Css.custom_property ~layer:"utilities" "--tw-inset-shadow"
+                (String.concat ", " enhanced_shadow_tokens)
             in
             let has_real_var =
               List.exists

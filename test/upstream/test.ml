@@ -370,20 +370,14 @@ let theme_config config expected =
               hardcoded)
   in
   match config with
-  | Run -> (Css.Pp.String_set.empty, combined_defaults)
+  | Run -> (extract_var_names expected, combined_defaults)
   | Theme -> (extract_var_names expected, combined_defaults)
   | Theme_inline -> (Css.Pp.String_set.empty, combined_inline_defaults)
   | No_theme -> (extract_var_names expected, hardcoded_only)
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, fun _ -> None)
 
-let canonical_stylesheet_css css =
-  match Css.of_string css with
-  | Ok { stylesheet; _ } ->
-      stylesheet
-      |> Css.optimize ~scope:`Stylesheet
-      |> Css.to_string ~minify:true |> String.trim
-  | Error _ -> String.trim css
+let canonical_stylesheet_css css = String.trim css
 
 let is_allowed_canonicalization_diff diff =
   let allowed_custom_property = function
@@ -409,7 +403,7 @@ let is_allowed_canonicalization_diff diff =
     | _ -> false
   in
   let allowed_rule_change = function
-    | Tree_diff.Rule_content_changed
+    | Tree_diff.Content_changed
         { property_changes; added_properties = []; removed_properties = []; _ }
       ->
         property_changes <> []
@@ -417,15 +411,13 @@ let is_allowed_canonicalization_diff diff =
              (fun (change : Tree_diff.declaration) ->
                allowed_custom_property change.property_name)
              property_changes
-    | Tree_diff.Rule_selector_changed
-        { old_selector; new_selector; declarations } ->
+    | Tree_diff.Selector_changed { old_selector; new_selector; declarations } ->
         declarations <> []
         && known_selector_permutation old_selector new_selector
     | _ -> false
   in
   let allowed_container = function
-    | Tree_diff.Container_modified { rule_changes; container_changes = []; _ }
-      ->
+    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
         List.for_all allowed_rule_change rule_changes
     | _ -> false
   in
@@ -459,7 +451,7 @@ let extract_var_fallbacks expected =
 let setup_theme_overrides config expected =
   Tw.Var.clear_theme_values ();
   match config with
-  | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
+  | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
       let root_vars = extract_root_vars expected in
       List.iter
         (fun (name, value) ->
@@ -489,7 +481,7 @@ let setup_theme_overrides config expected =
             if Tw.Var.theme_value name = None then
               Tw.Var.set_theme_value name fallback)
           var_fallbacks
-  | Run | No_theme -> ()
+  | No_theme -> ()
 
 (** Extract custom breakpoints by matching input class modifiers with px values
     from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
@@ -669,7 +661,6 @@ let run_test_case test () =
       | Some stylesheet ->
           stylesheet
           |> Css.resolve_theme ~theme ~theme_defaults
-          |> Css.optimize ~scope:`Stylesheet
           |> Css.to_string ~minify:true |> String.trim
     in
     let expected = test.expected in
@@ -690,7 +681,6 @@ let run_test_case test () =
           | Some stylesheet ->
               stylesheet
               |> Css.resolve_theme ~theme ~theme_defaults
-              |> Css.optimize ~scope:`Stylesheet
               |> Css.to_string ~indent:2 |> String.trim
         in
         Alcotest.fail

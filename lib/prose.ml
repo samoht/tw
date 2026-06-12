@@ -927,9 +927,7 @@ let ol_type_ci base letter style =
 
 (* Case-sensitive ol[type] rule *)
 let ol_type_cs base letter style =
-  let cs_attr =
-    Css.Selector.attribute ~flag:Case_sensitive "type" (Exact letter)
-  in
+  let cs_attr = Css.Selector.attribute ~flag:Sensitive "type" (Exact letter) in
   Css.rule
     ~selector:(where base (Css.Selector.compound [ ol; cs_attr ]))
     [ list_style_type style ]

@@ -81,10 +81,6 @@ let render_css ~(opts : gen_opts) stylesheet =
     | Inline -> Tw.Css.inline_vars stylesheet
     | Variables -> stylesheet
   in
-  let stylesheet =
-    if opts.optimize then Tw.Css.optimize ~scope:`Stylesheet stylesheet
-    else stylesheet
-  in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
 let diff_single_class class_str ~(opts : gen_opts) =
@@ -237,9 +233,9 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, _, `Default -> Variables (* files/scan default to variables *)
   in
-  (* Diff mode forces both minify and optimize to match Tailwind's output *)
+  (* Diff mode forces minified output; Cascade handles semantic comparison. *)
   let resolved_minify = match backend with Diff -> true | _ -> minify in
-  let resolved_optimize = match backend with Diff -> true | _ -> optimize in
+  let resolved_optimize = optimize in
   let opts : gen_opts =
     {
       minify = resolved_minify;
@@ -282,8 +278,8 @@ let minify_flag =
 
 let optimize_flag =
   let doc =
-    "Apply CSS optimizations (deduplicate, merge consecutive rules, combine\n\n\
-    \     identical rules)"
+    "Pass CSS optimization through to the Tailwind backend. tw output is not \
+     pre-optimized."
   in
   Arg.(value & flag & info [ "optimize" ] ~doc)
 
@@ -295,7 +291,7 @@ let backend_vflag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
   let doc_diff =
     "Compare tw output with real Tailwind CSS (shows differences). Forces \
-     --variables --base --minify --optimize for 1:1 equivalence comparison."
+     --variables --base --minify for comparison."
   in
   Arg.(
     value

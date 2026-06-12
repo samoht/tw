@@ -1802,6 +1802,7 @@ module Handler = struct
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
               let url_content = String.sub inner 4 (String.length inner - 5) in
               Ok (Bg_bracket_url url_content)
+          | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
           | _ -> (
               (* Try parsing as background-image (gradients, urls,
                  comma-separated) *)
@@ -1814,8 +1815,7 @@ module Handler = struct
                   match Color.parse_bracket_color inner with
                   | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
                   | None ->
-                      if Parse.is_var inner then Ok (Bg_bracket_var inner)
-                      else if parse_bracket_position inner <> None then
+                      if parse_bracket_position inner <> None then
                         Ok (Bg_bracket_position inner)
                       else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
         )

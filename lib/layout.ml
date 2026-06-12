@@ -455,12 +455,10 @@ module Handler = struct
         let name, (default : Css.position_value), default_css =
           match obj with
           | Object_center -> ("object-position-center", Center, "center")
-          | Object_top -> ("object-position-top", Center_top, "center top")
-          | Object_bottom ->
-              ("object-position-bottom", Center_bottom, "center bottom")
-          | Object_left -> ("object-position-left", Left_center, "left center")
-          | Object_right ->
-              ("object-position-right", Right_center, "right center")
+          | Object_top -> ("object-position-top", Top, "top")
+          | Object_bottom -> ("object-position-bottom", Bottom, "bottom")
+          | Object_left -> ("object-position-left", Left, "left")
+          | Object_right -> ("object-position-right", Right, "right")
           | Object_bottom_left ->
               ("object-position-bottom-left", Bottom_left, "left bottom")
           | Object_bottom_right ->
@@ -478,9 +476,9 @@ module Handler = struct
           | _ -> assert false
         in
         match Var.theme_value name with
-        | Some _ ->
+        | Some value ->
             let theme_decl =
-              Css.custom_property ~layer:"theme" ("--" ^ name) default_css
+              Css.custom_property ~layer:"theme" ("--" ^ name) value
             in
             let pos_ref : Css.position_value Css.var = Var.bracket name in
             style [ theme_decl; object_position (Var pos_ref) ]

@@ -11,20 +11,10 @@ open Tw
 (* CSS generation *)
 let generate_tw_css ?(minify = false) styles =
   let stylesheet = to_css ~base:true styles in
-  stylesheet
-  |> Css.optimize ~scope:`Stylesheet ~lossless:true
-  |> Css.to_string ~minify ~lossless:true
+  stylesheet |> Css.to_string ~minify ~lossless:true
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
-
-let canonical_stylesheet_css css =
-  match Css.of_string css with
-  | Ok { stylesheet; _ } ->
-      stylesheet
-      |> Css.optimize ~scope:`Stylesheet ~lossless:true
-      |> Css.to_string ~minify:true ~lossless:true
-      |> String.trim
-  | Error _ -> String.trim css
+let canonical_stylesheet_css css = String.trim css
 
 let is_allowed_canonicalization_diff diff =
   let allowed_custom_property = function
@@ -50,7 +40,7 @@ let is_allowed_canonicalization_diff diff =
     | _ -> false
   in
   let allowed_rule_change = function
-    | Tree_diff.Rule_content_changed
+    | Tree_diff.Content_changed
         { property_changes; added_properties = []; removed_properties = []; _ }
       ->
         property_changes <> []
@@ -58,15 +48,13 @@ let is_allowed_canonicalization_diff diff =
              (fun (change : Tree_diff.declaration) ->
                allowed_custom_property change.property_name)
              property_changes
-    | Tree_diff.Rule_selector_changed
-        { old_selector; new_selector; declarations } ->
+    | Tree_diff.Selector_changed { old_selector; new_selector; declarations } ->
         declarations <> []
         && known_selector_permutation old_selector new_selector
     | _ -> false
   in
   let allowed_container = function
-    | Tree_diff.Container_modified { rule_changes; container_changes = []; _ }
-      ->
+    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
         List.for_all allowed_rule_change rule_changes
     | _ -> false
   in
