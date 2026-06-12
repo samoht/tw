@@ -669,7 +669,9 @@ let run_test_case test () =
     else
       let result = Css_compare.diff ~mode:`Canonical expected_css our_css in
       if
-        (match result with Css_compare.No_diff _ -> true | _ -> false)
+        (match result.Css_compare.result with
+          | Css_compare.No_diff _ -> true
+          | _ -> false)
         || is_allowed_canonicalization_diff result
       then ()
       else

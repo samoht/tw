@@ -66,7 +66,7 @@ let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
 let print_diff_result label diff =
-  match diff with
+  match diff.Css_compare.result with
   | Css_compare.No_diff _ -> Fmt.pr "✓ No differences found%s@." label
   | _ ->
       Fmt.pr "Differences found%s:@.@." label;

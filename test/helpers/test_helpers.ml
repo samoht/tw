@@ -135,7 +135,7 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
       (tailwind_css ~forms classnames)
       (our_css utilities)
   in
-  match diff with
+  match diff.Css_compare.result with
   | Css_compare.No_diff _ -> ()
   | _ ->
       let buf = Buffer.create 1024 in

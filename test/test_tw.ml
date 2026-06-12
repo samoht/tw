@@ -142,7 +142,9 @@ let check_exact_match tw_styles =
 
     let diff_result = Css_compare.diff ~mode:`Canonical tailwind_css tw_css in
     let parity_equal =
-      (match diff_result with Css_compare.No_diff _ -> true | _ -> false)
+      (match diff_result.Css_compare.result with
+        | Css_compare.No_diff _ -> true
+        | _ -> false)
       || is_allowed_canonicalization_diff diff_result
     in
     if not parity_equal then (
