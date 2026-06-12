@@ -70,7 +70,7 @@ module Handler = struct
     | Bg of Color.color * int
     | Bg_gradient_to of direction
     | Gradient_color of gradient_target * gradient_color_source
-    | Gradient_position of gradient_target * gradient_position_source
+    | Gradient_stop_position of gradient_target * gradient_position_source
     | Bg_origin_border
     | Bg_origin_padding
     | Bg_origin_content
@@ -235,7 +235,7 @@ module Handler = struct
               "[" ^ v ^ "]" ^ opacity_suffix opacity
         in
         prefix ^ color_class src
-    | Gradient_position (target, src) -> (
+    | Gradient_stop_position (target, src) -> (
         let prefix =
           match target with
           | Gradient_from -> "from-"
@@ -1285,7 +1285,7 @@ module Handler = struct
             | Some opacity ->
                 let percent = Color.opacity_to_percent opacity in
                 gradient_with_opacity ~prefix ~set_var color color percent))
-    | Gradient_position (target, src) -> (
+    | Gradient_stop_position (target, src) -> (
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
         | Gp_pct p -> gradient_position_style pos_var (Pct p)
@@ -1450,9 +1450,9 @@ module Handler = struct
     | Gradient_color (Gradient_via, _) -> 120000
     | Gradient_color (Gradient_to, _) -> 130000
     (* Gradient position utilities *)
-    | Gradient_position (Gradient_from, _) -> 110001
-    | Gradient_position (Gradient_via, _) -> 120001
-    | Gradient_position (Gradient_to, _) -> 130001
+    | Gradient_stop_position (Gradient_from, _) -> 110001
+    | Gradient_stop_position (Gradient_via, _) -> 120001
+    | Gradient_stop_position (Gradient_to, _) -> 130001
     (* bg-origin utilities *)
     | Bg_origin_border -> 140000
     | Bg_origin_content -> 140001
@@ -1505,7 +1505,7 @@ module Handler = struct
   (** Parse gradient color/position from token list for a given target *)
   let parse_gradient_color target rest =
     let gc src = Ok (Gradient_color (target, src)) in
-    let gp src = Ok (Gradient_position (target, src)) in
+    let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
     (* Keywords *)
     | [ "current" ] -> gc Gc_current

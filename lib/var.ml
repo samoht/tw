@@ -316,6 +316,7 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Content -> Css.Properties.Content
   | Gradient_stop -> Css.Properties.Gradient_stop
   | Gradient_direction -> Css.Properties.Gradient_direction
+  | Gradient_position -> Css.Properties.Gradient_position
   | Animation -> Css.Properties.Animation
   | Timing_function -> Css.Properties.Timing_function
   | Transform -> Css.Properties.Transform
@@ -330,6 +331,8 @@ let string_of_kind_value : type a. a Css.kind -> a -> string =
  fun kind value ->
   match kind with
   | Css.Color -> Css.Pp.to_string ~minify:true Css.Values.pp_color value
+  | Css.Gradient_position ->
+      Css.Pp.to_string ~minify:true Css.Properties.pp_gradient_position value
   | _ ->
       Css.Properties.string_of_kind_value (properties_kind_of_kind kind) value
 
@@ -345,6 +348,8 @@ let property_universal : type a.
       | Gradient_stop, List []
       | Percentage, Pct 0.
       | Gradient_direction, To_bottom ->
+          property ~name Universal ~inherits ()
+      | Gradient_position, Linear_position To_bottom ->
           property ~name Universal ~inherits ()
       | _ ->
           let initial_str = string_of_kind_value kind v in
