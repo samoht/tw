@@ -382,7 +382,7 @@ module Handler = struct
     | Divide_inherit -> "divide-inherit"
     | Divide_bracket_color (v, _) -> "divide-[" ^ v ^ "]"
     | Divide_bracket_color_opacity (v, _, opacity) ->
-        "divide-[" ^ v ^ "]/" ^ opacity_suffix opacity
+        "divide-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style = function
