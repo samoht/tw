@@ -1137,7 +1137,10 @@ let extract_bracket_content_with_name ~prefix s =
   else None
 
 (* Parse a CSS length from a string like "600px", "40rem", "100vh" *)
-let parse_css_length s : Css.length option = Css.parse_length s
+let parse_css_length s : Css.length option =
+  (* Decode arbitrary-value syntax first so [min-[calc(1000px+12em)]] becomes a
+     spec-valid [calc(1000px + 12em)] the length reader accepts. *)
+  Css.parse_length (Parse.decode_arbitrary_value s)
 
 (* Parse a pixel value from a string like "600px" or "600" *)
 let parse_px_value s =
