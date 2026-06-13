@@ -770,7 +770,12 @@ module Handler = struct
       )
 
   let scale_z_arbitrary s =
-    let d = Css.custom_property ~layer:"utilities" "--tw-scale-z" s in
+    (* Arbitrary values pass through verbatim into [--tw-scale-z], whose
+       [@property] uses [syntax: "*"]. *)
+    let d =
+      Css.custom_property ~layer:"utilities" "--tw-scale-z"
+        (Parse.decode_arbitrary_value s)
+    in
     let props =
       collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
     in
@@ -778,9 +783,7 @@ module Handler = struct
     let scale_y_ref = Var.reference tw_scale_y_var in
     let scale_z_ref = Var.reference tw_scale_z_var in
     style ~property_rules:props
-      (d
-      :: [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
-      )
+      [ d; Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let scale_3d =
     let props =
