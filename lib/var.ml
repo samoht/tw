@@ -183,6 +183,65 @@ let set_theme_value name value =
 let theme_value name = Hashtbl.find_opt theme_value_overrides name
 let clear_theme_values () = Hashtbl.clear theme_value_overrides
 
+(* Convert a [Css.kind] witness to the matching [Css.Properties.kind]. *)
+let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
+  let open Css in
+  function
+  | Length -> Css.Properties.Length
+  | Color -> Css.Properties.Color
+  | Rgb -> Css.Properties.Rgb
+  | Int -> Css.Properties.Int
+  | Number -> Css.Properties.Number
+  | Float -> Css.Properties.Float
+  | Percentage -> Css.Properties.Percentage
+  | Length_percentage -> Css.Properties.Length_percentage
+  | Number_percentage -> Css.Properties.Number_percentage
+  | Opacity -> Css.Properties.Opacity
+  | Value -> Css.Properties.Value
+  | Duration -> Css.Properties.Duration
+  | Aspect_ratio -> Css.Properties.Aspect_ratio
+  | Border_style -> Css.Properties.Border_style
+  | Outline_style -> Css.Properties.Outline_style
+  | Border -> Css.Properties.Border
+  | Font_weight -> Css.Properties.Font_weight
+  | Font_size -> Css.Properties.Font_size
+  | Line_height -> Css.Properties.Line_height
+  | Font_family -> Css.Properties.Font_family
+  | Font_feature_settings -> Css.Properties.Font_feature_settings
+  | Font_variation_settings -> Css.Properties.Font_variation_settings
+  | Numeric -> Css.Properties.Numeric
+  | Font_variant_numeric_token -> Css.Properties.Font_variant_numeric_token
+  | Blend_mode -> Css.Properties.Blend_mode
+  | Scroll_snap_strictness -> Css.Properties.Scroll_snap_strictness
+  | Angle -> Css.Properties.Angle
+  | Rotate -> Css.Properties.Rotate
+  | Scale -> Css.Properties.Scale
+  | Shadow -> Css.Properties.Shadow
+  | Box_shadow -> Css.Properties.Box_shadow
+  | Content -> Css.Properties.Content
+  | Gradient_stop -> Css.Properties.Gradient_stop
+  | Gradient_direction -> Css.Properties.Gradient_direction
+  | Gradient_position -> Css.Properties.Gradient_position
+  | Animation -> Css.Properties.Animation
+  | Timing_function -> Css.Properties.Timing_function
+  | Transform -> Css.Properties.Transform
+  | Touch_action -> Css.Properties.Touch_action
+  | Transition_property_value -> Css.Properties.Transition_property_value
+  | Background_image -> Css.Properties.Background_image
+  | Z_index -> Css.Properties.Z_index
+  | Filter -> Css.Properties.Filter
+  | Font_src -> Css.Properties.Font_src
+
+(* Serialize a typed value the way Tailwind authors a [syntax: "*"] custom
+   property: minified (short hex, rounded precision, canonical units) but with
+   [enforce_spec] so colour axes keep their spec-canonical number form rather
+   than cascade's shorter percentage swap. The result is emitted as an opaque
+   token stream, which CSS Variables 1 leaves uninterpreted. *)
+let raw_of_kind_value : type a. a Css.kind -> a -> string =
+ fun kind value ->
+  Css.Pp.to_string ~minify:true ~enforce_spec:true Css.Properties.pp_value
+    (properties_kind_of_kind kind, value)
+
 (* Create a variable template *)
 let v : type a r.
     a Css.kind ->
@@ -237,9 +296,30 @@ let v : type a r.
       Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
         name kind value
     in
+    (* A [syntax: "*"] custom property holds an opaque token stream (CSS
+       Variables 1): emit the value verbatim from a Tailwind-matching
+       serialization so the typed minifier does not re-canonicalise it (oklab
+       axis percentage swap, etc.) away from the authored form. *)
+    (* Only colour/shadow/font kinds diverge between cascade's typed minifier
+       and Tailwind's authored spelling; numeric kinds (duration, scale, ...)
+       already minify to the same bytes, so leave them typed. *)
+    let kind_needs_raw : type a. a Css.kind -> bool = function
+      | Css.Color | Css.Shadow | Css.Box_shadow | Css.Gradient_stop
+      | Css.Gradient_direction | Css.Gradient_position | Css.Font_family ->
+          true
+      | _ -> false
+    in
+    let is_universal =
+      (match property with Some { universal = true; _ } -> true | _ -> false)
+      && kind_needs_raw kind
+    in
     match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
     | Theme, Some css ->
         (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
+    | _ when is_universal ->
+        ( Css.custom_property ?layer:layer_name ("--" ^ name)
+            (raw_of_kind_value kind value),
+          var )
     | _ -> (decl, var)
   in
   {
@@ -277,55 +357,6 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
     v kind ~property ?property_order ?family ~role:Channel name ~layer:Utility
   else v kind ?property_order ?family ~role:Channel name ~layer:Utility
 
-(* Place after [reference] to avoid forward reference issues *)
-
-let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
-  let open Css in
-  function
-  | Length -> Css.Properties.Length
-  | Color -> Css.Properties.Color
-  | Rgb -> Css.Properties.Rgb
-  | Int -> Css.Properties.Int
-  | Number -> Css.Properties.Number
-  | Float -> Css.Properties.Float
-  | Percentage -> Css.Properties.Percentage
-  | Length_percentage -> Css.Properties.Length_percentage
-  | Number_percentage -> Css.Properties.Number_percentage
-  | Opacity -> Css.Properties.Opacity
-  | Value -> Css.Properties.Value
-  | Duration -> Css.Properties.Duration
-  | Aspect_ratio -> Css.Properties.Aspect_ratio
-  | Border_style -> Css.Properties.Border_style
-  | Outline_style -> Css.Properties.Outline_style
-  | Border -> Css.Properties.Border
-  | Font_weight -> Css.Properties.Font_weight
-  | Font_size -> Css.Properties.Font_size
-  | Line_height -> Css.Properties.Line_height
-  | Font_family -> Css.Properties.Font_family
-  | Font_feature_settings -> Css.Properties.Font_feature_settings
-  | Font_variation_settings -> Css.Properties.Font_variation_settings
-  | Numeric -> Css.Properties.Numeric
-  | Font_variant_numeric_token -> Css.Properties.Font_variant_numeric_token
-  | Blend_mode -> Css.Properties.Blend_mode
-  | Scroll_snap_strictness -> Css.Properties.Scroll_snap_strictness
-  | Angle -> Css.Properties.Angle
-  | Rotate -> Css.Properties.Rotate
-  | Scale -> Css.Properties.Scale
-  | Shadow -> Css.Properties.Shadow
-  | Box_shadow -> Css.Properties.Box_shadow
-  | Content -> Css.Properties.Content
-  | Gradient_stop -> Css.Properties.Gradient_stop
-  | Gradient_direction -> Css.Properties.Gradient_direction
-  | Gradient_position -> Css.Properties.Gradient_position
-  | Animation -> Css.Properties.Animation
-  | Timing_function -> Css.Properties.Timing_function
-  | Transform -> Css.Properties.Transform
-  | Touch_action -> Css.Properties.Touch_action
-  | Transition_property_value -> Css.Properties.Transition_property_value
-  | Background_image -> Css.Properties.Background_image
-  | Z_index -> Css.Properties.Z_index
-  | Filter -> Css.Properties.Filter
-  | Font_src -> Css.Properties.Font_src
 
 let string_of_kind_value : type a. a Css.kind -> a -> string =
  fun kind value ->
