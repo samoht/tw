@@ -309,14 +309,21 @@ let v : type a r.
           true
       | _ -> false
     in
-    let is_universal =
-      (match property with Some { universal = true; _ } -> true | _ -> false)
-      && kind_needs_raw kind
+    (* A [syntax: "*"] universal custom property is an opaque token stream, so
+       emit a colour/shadow/font value verbatim rather than re-canonicalised by
+       the typed minifier. A theme font stack ([--font-sans]) is opaque the same
+       way and must keep its authored quoting; other theme kinds already minify
+       to matching bytes, so leave them typed. *)
+    let is_opaque =
+      match ((role : r role), property, kind) with
+      | Theme, _, Css.Font_family -> true
+      | _, Some { universal = true; _ }, _ -> kind_needs_raw kind
+      | _ -> false
     in
     match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
     | Theme, Some css ->
         (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
-    | _ when is_universal ->
+    | _ when is_opaque ->
         ( Css.custom_property ?layer:layer_name ("--" ^ name)
             (raw_of_kind_value kind value),
           var )
