@@ -171,7 +171,15 @@ let print_media =
   Css.Media.Type { prefix = None; type_ = Css.Media.Print; trailing = None }
 
 let negate_media = function
-  | Css.Media.Cond condition -> Css.Media.Cond (Css.Media.Not condition)
+  | Css.Media.Cond condition ->
+      (* Tailwind negates a feature query with the legacy [not all and (...)]
+         form rather than the Level 4 [not (...)] condition negation. *)
+      Css.Media.Type
+        {
+          prefix = Some Css.Media.Not;
+          type_ = Css.Media.All;
+          trailing = Some condition;
+        }
   | Css.Media.Type ({ prefix = Some Css.Media.Not; _ } as media) ->
       Css.Media.Type { media with prefix = None }
   | Css.Media.Type media ->
