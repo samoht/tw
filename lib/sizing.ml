@@ -188,8 +188,8 @@ module Handler = struct
     | Aspect_auto
     | Aspect_square
     | Aspect_video
-    | Aspect_ratio of int * int (* aspect-4/3 *)
-    | Aspect_bracket of int * int (* aspect-[10/9] *)
+    | Aspect_ratio of float * float (* aspect-4/3, aspect-8.5/11 *)
+    | Aspect_bracket of float * float (* aspect-[10/9] *)
 
   type Utility.base += Self of t
 
@@ -457,8 +457,7 @@ module Handler = struct
     let decl, r = Var.binding aspect_video_var (Ratio (16., 9.)) in
     style (decl :: [ Css.aspect_ratio (Var r) ])
 
-  let aspect_ratio' w h =
-    style [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
+  let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
 
   let to_style = function
     (* Width utilities *)
@@ -994,11 +993,17 @@ module Handler = struct
         | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
         | _ -> err_invalid_value "max-block-size" v)
 
+  (* Tailwind accepts a ratio part only when it is a non-negative multiple of
+     0.25 ([isValidSpacingMultiplier]), so [8.5/11] is valid but [1.23/4.56] is
+     not. *)
+  let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
+
   let parse_aspect_ratio s mk =
     match String.split_on_char '/' s with
     | [ w; h ] -> (
-        match (int_of_string_opt w, int_of_string_opt h) with
-        | Some w, Some h when w > 0 && h > 0 -> Ok (mk w h)
+        match (float_of_string_opt w, float_of_string_opt h) with
+        | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
+            Ok (mk w h)
         | _ -> err_not_utility)
     | _ -> err_not_utility
 
@@ -1223,8 +1228,8 @@ module Handler = struct
     | Max_block_screen -> 886008
     | Max_block_svh -> 886009
     (* Aspect utilities (900000-): ratios → brackets → keywords *)
-    | Aspect_ratio (w, h) -> 900000 + (w * 10) + h
-    | Aspect_bracket (w, h) -> 901000 + (w * 10) + h
+    | Aspect_ratio (w, h) -> 900000 + int_of_float (w *. 10.) + int_of_float h
+    | Aspect_bracket (w, h) -> 901000 + int_of_float (w *. 10.) + int_of_float h
     | Aspect_auto -> 902000
     | Aspect_square -> 902001
     | Aspect_video -> 902002
@@ -1406,9 +1411,18 @@ module Handler = struct
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
-    | Aspect_ratio (w, h) -> "aspect-" ^ string_of_int w ^ "/" ^ string_of_int h
+    | Aspect_ratio (w, h) ->
+        let num f =
+          if Float.is_integer f then string_of_int (int_of_float f)
+          else string_of_float f
+        in
+        "aspect-" ^ num w ^ "/" ^ num h
     | Aspect_bracket (w, h) ->
-        "aspect-[" ^ string_of_int w ^ "/" ^ string_of_int h ^ "]"
+        let num f =
+          if Float.is_integer f then string_of_int (int_of_float f)
+          else string_of_float f
+        in
+        "aspect-[" ^ num w ^ "/" ^ num h ^ "]"
 end
 
 open Handler
@@ -1572,7 +1586,7 @@ let size_fit = utility Size_fit
 let aspect_auto = utility Aspect_auto
 let aspect_square = utility Aspect_square
 let aspect_video = utility Aspect_video
-let aspect_ratio w h = utility (Aspect_ratio (w, h))
+let aspect_ratio w h = utility (Aspect_ratio (float_of_int w, float_of_int h))
 
 (* Order exposure for this module *)
 let order (u : Utility.base) =
