@@ -752,6 +752,15 @@ module Typography_early = struct
   let text_size_utility (size_var : Css.length Var.theme)
       (lh_var : Css.line_height Var.theme) size_rem lh_value =
     let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
+    (* Tailwind v4 expresses a rem line-height as the ratio
+       [calc(line-height / font-size)]; unitless line-heights stay verbatim. *)
+    let lh_value : Css.line_height =
+      match (lh_value : Css.line_height) with
+      | Rem lh_rem ->
+          let num f : Css.line_height Css.calc = Num f in
+          Calc (Css.Calc.div (num lh_rem) (num size_rem))
+      | other -> other
+    in
     let lh_decl, lh_ref = Var.binding lh_var lh_value in
     (* Use shared theme record - no declaration, just reference *)
     let theme = default_line_height_theme in
