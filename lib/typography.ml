@@ -249,18 +249,8 @@ let default_font_declarations =
 
 (* Default font family variables that reference the base font variables. *)
 let default_font_family_declarations =
-  let _typed_sans, sans_ref = Var.binding font_sans_var default_sans_stack in
-  let _typed_mono, mono_ref = Var.binding font_mono_var default_mono_stack in
-  let sans_decl =
-    Css.custom_property ~layer:"theme" "--font-sans"
-      "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI \
-       Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""
-  in
-  let mono_decl =
-    Css.custom_property ~layer:"theme" "--font-mono"
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
-       Mono\", \"Courier New\", monospace"
-  in
+  let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
+  let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
   let default_font_decl, _ =
     Var.binding default_font_family_var (Css.Var sans_ref)
   in

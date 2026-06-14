@@ -68,6 +68,14 @@ module Handler = struct
 
   let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
+  let make_full_color_var (v : string) : Css.color =
+    match Css.parse_color v with
+    | Some c -> c
+    | None -> make_color_var (Parse.extract_var_name v)
+
+  let relative_oklab_from_var v percent =
+    Css.parse_color (Fmt.str "oklab(from %s l a b / %s%%)" v (pp_float percent))
+
   (* ============ Parse arbitrary shadow ============ *)
 
   let parse_arbitrary_shadow (s : string) :
@@ -337,7 +345,7 @@ module Handler = struct
         let fallback_color : Css.color =
           match color with
           | Arb_hex c -> Css.hex (shorten_hex c)
-          | Arb_var v -> make_color_var (Parse.extract_var_name v)
+          | Arb_var v -> make_full_color_var v
           | Arb_none -> Css.Current
         in
         let color_ref =
@@ -360,7 +368,7 @@ module Handler = struct
         let base_fallback : Css.color =
           match color with
           | Arb_hex c -> Color.hex_to_oklab_alpha c alpha
-          | Arb_var v -> make_color_var (Parse.extract_var_name v)
+          | Arb_var v -> make_full_color_var v
           | Arb_none -> Css.Current
         in
         let base_color_ref =
@@ -374,38 +382,32 @@ module Handler = struct
         let rules =
           match color with
           | Arb_hex _ -> Stdlib.Option.None
-          | Arb_var v ->
-              let vn = Parse.extract_var_name v in
-              let raw_fb =
-                Fmt.str "oklab(from var(--%s) l a b / %s%%)" vn
-                  (pp_float percent)
-              in
-              let enhanced_ref =
-                Var.bracket
-                  ~fallback:
-                    (Css.Syntax_fallback
-                       (Cascade.Cursor.remaining
-                          (Cascade.Cursor.of_string raw_fb)))
-                  "tw-text-shadow-color"
-              in
-              let enhanced_shadow =
-                Css.text_shadow
-                  (Css.Text_shadow
-                     {
-                       h_offset;
-                       v_offset;
-                       blur;
-                       color = Some (Var enhanced_ref);
-                     })
-              in
-              let supports_block =
-                Css.supports ~condition:relative_color_supports
-                  [
-                    Css.rule ~selector:(Css.Selector.class_ "_")
-                      [ enhanced_shadow ];
-                  ]
-              in
-              Some [ supports_block ]
+          | Arb_var v -> (
+              match relative_oklab_from_var v percent with
+              | Some relative_color ->
+                  let enhanced_ref =
+                    Var.reference_with_fallback text_shadow_color_var
+                      relative_color
+                  in
+                  let enhanced_shadow =
+                    Css.text_shadow
+                      (Css.Text_shadow
+                         {
+                           h_offset;
+                           v_offset;
+                           blur;
+                           color = Some (Var enhanced_ref);
+                         })
+                  in
+                  let supports_block =
+                    Css.supports ~condition:relative_color_supports
+                      [
+                        Css.rule ~selector:(Css.Selector.class_ "_")
+                          [ enhanced_shadow ];
+                      ]
+                  in
+                  Some [ supports_block ]
+              | None -> Stdlib.Option.None)
           | Arb_none ->
               let color_mix_fallback =
                 Css.color_mix ~in_space:Oklab Css.Current Css.Transparent

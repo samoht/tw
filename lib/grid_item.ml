@@ -36,9 +36,9 @@ let grid_row_start_themed_style name () =
 let grid_row_end_themed_style name () = themed_grid_line name Css.grid_row_end
 
 let themed_grid_shorthand name property =
-  let grid_decl =
-    Css.Declaration.of_string (property ^ ": var(--" ^ name ^ ")")
-  in
+  let ref : Css.grid_line_pair Css.var = Var.bracket name in
+  let value : Css.grid_line_pair = Css.Var ref in
+  let grid_decl = Css.Declaration.v property value in
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
@@ -110,7 +110,8 @@ module Handler = struct
 
   let col_auto () =
     match Var.theme_value "grid-column-auto" with
-    | Some _ -> themed_grid_shorthand "grid-column-auto" "grid-column"
+    | Some _ ->
+        themed_grid_shorthand "grid-column-auto" Css.Properties.Grid_column
     | None -> style [ grid_column (Auto, Auto) ]
 
   let col_span n = style [ grid_column (Span n, Span n) ]
@@ -147,7 +148,7 @@ module Handler = struct
 
   let row_auto () =
     match Var.theme_value "grid-row-auto" with
-    | Some _ -> themed_grid_shorthand "grid-row-auto" "grid-row"
+    | Some _ -> themed_grid_shorthand "grid-row-auto" Css.Properties.Grid_row
     | None -> style [ grid_row (Auto, Auto) ]
 
   let row_span n = style [ grid_row (Span n, Span n) ]

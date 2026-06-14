@@ -73,15 +73,15 @@ module Handler = struct
     let theme_decl =
       Css.custom_property ~layer:"theme" ("--" ^ var_name) value
     in
-    let prop_decl =
-      Css.Declaration.of_string (property ^ ": var(--" ^ var_name ^ ")")
-    in
+    let ref : Css.grid_template Css.var = Var.bracket var_name in
+    let value : Css.grid_template = Css.Var ref in
+    let prop_decl = property value in
     style [ theme_decl; prop_decl ]
 
   let grid_cols_none () =
     let var_name = "grid-template-columns-none" in
     match Var.theme_value var_name with
-    | Some value -> themed_property var_name "grid-template-columns" value
+    | Some value -> themed_property var_name Css.grid_template_columns value
     | None -> style [ Css.grid_template_columns None ]
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
@@ -182,7 +182,7 @@ module Handler = struct
   let grid_rows_none () =
     let var_name = "grid-template-rows-none" in
     match Var.theme_value var_name with
-    | Some value -> themed_property var_name "grid-template-rows" value
+    | Some value -> themed_property var_name Css.grid_template_rows value
     | None -> style [ Css.grid_template_rows None ]
 
   let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
@@ -195,7 +195,7 @@ module Handler = struct
   let auto_cols_auto () =
     let var_name = "grid-auto-columns-auto" in
     match Var.theme_value var_name with
-    | Some value -> themed_property var_name "grid-auto-columns" value
+    | Some value -> themed_property var_name Css.grid_auto_columns value
     | None -> style [ Css.grid_auto_columns Auto ]
 
   let auto_cols_min = style [ Css.grid_auto_columns Min_content ]
@@ -210,7 +210,7 @@ module Handler = struct
   let auto_rows_auto () =
     let var_name = "grid-auto-rows-auto" in
     match Var.theme_value var_name with
-    | Some value -> themed_property var_name "grid-auto-rows" value
+    | Some value -> themed_property var_name Css.grid_auto_rows value
     | None -> style [ Css.grid_auto_rows Auto ]
 
   let auto_rows_min = style [ Css.grid_auto_rows Min_content ]

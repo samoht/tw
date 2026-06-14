@@ -267,7 +267,7 @@ module Handler = struct
     | None ->
         style
           [
-            Css.custom_property ~layer:"utilities" "--tw-blur" "";
+            Css.custom_property ~layer:"utilities" "--tw-blur" " ";
             filter composable_filter_chain;
           ]
 
@@ -447,10 +447,35 @@ module Handler = struct
     set_filter_var "--tw-hue-rotate" (Hue_rotate neg)
 
   (* Drop-shadow utilities *)
+  let bind_drop_shadow value = fst (Var.binding drop_shadow_var value)
+  let bind_drop_shadow_size value = fst (Var.binding drop_shadow_size_var value)
+
+  let bind_drop_shadow_color value =
+    fst (Var.binding drop_shadow_color_var value)
+
+  let drop_shadow_size_ref : Css.filter =
+    Css.Var (Var.bracket "tw-drop-shadow-size")
+
+  let drop_shadow_theme_ref name : Css.filter =
+    Css.Drop_shadow (Css.Var (Var.bracket name) : Css.shadow)
+
+  let drop_shadow_color_ref fallback =
+    Var.reference_with_fallback drop_shadow_color_var fallback
+
+  let drop_shadow_filter h v blur fallback =
+    Css.Drop_shadow
+      (Css.shadow ~h_offset:h ~v_offset:v ?blur
+         ~color:(Css.Var (drop_shadow_color_ref fallback))
+         ())
+
+  let parse_filter_value css =
+    let cursor = Cascade.Cursor.of_string css in
+    Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
+
   let drop_shadow_none =
     style
       [
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow" "";
+        Css.custom_property ~layer:"utilities" "--tw-drop-shadow" " ";
         filter composable_filter_chain;
       ]
 
@@ -458,10 +483,10 @@ module Handler = struct
     style
       (theme_decl_if_set "drop-shadow"
       @ [
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-size"
-            "drop-shadow(0 1px 1px var(--tw-drop-shadow-color, #0000000d))";
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-            "drop-shadow(var(--drop-shadow))";
+          bind_drop_shadow_size
+            (drop_shadow_filter Zero (Px 1.) (Some (Px 1.))
+               (Css.hex "#0000000d"));
+          bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
           filter composable_filter_chain;
         ])
 
@@ -469,21 +494,38 @@ module Handler = struct
     style
       (theme_decl_if_set "drop-shadow-xl"
       @ [
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-size"
-            "drop-shadow(0 9px 7px var(--tw-drop-shadow-color, #0000001a))";
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-            "drop-shadow(var(--drop-shadow-xl))";
+          bind_drop_shadow_size
+            (drop_shadow_filter Zero (Px 9.) (Some (Px 7.))
+               (Css.hex "#0000001a"));
+          bind_drop_shadow (drop_shadow_theme_ref "drop-shadow-xl");
           filter composable_filter_chain;
         ])
 
   let drop_shadow_multi_ =
+    let fallback_a = Css.hex "#0000000d" in
+    let fallback_b = Css.hex "#0000001a" in
+    let size : Css.filter =
+      Css.List
+        [
+          drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback_a;
+          drop_shadow_filter Zero (Px 9.) (Some (Px 7.)) fallback_b;
+        ]
+    in
+    let literal : Css.filter =
+      Css.List
+        [
+          Css.Drop_shadow
+            (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
+               ~color:fallback_a ());
+          Css.Drop_shadow
+            (Css.shadow ~h_offset:Zero ~v_offset:(Px 9.) ~blur:(Px 7.)
+               ~color:fallback_b ());
+        ]
+    in
     style
       [
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow-size"
-          "drop-shadow(0 1px 1px var(--tw-drop-shadow-color, #0000000d)) \
-           drop-shadow(0 9px 7px var(--tw-drop-shadow-color, #0000001a))";
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-          "drop-shadow(0 1px 1px #0000000d) drop-shadow(0 9px 7px #0000001a)";
+        bind_drop_shadow_size size;
+        bind_drop_shadow literal;
         filter composable_filter_chain;
       ]
 
@@ -496,33 +538,39 @@ module Handler = struct
       | c :: rest -> (String.concat " " (List.rev rest), c)
       | [] -> (inner, "black")
     in
-    style
-      [
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow-size"
-          ("drop-shadow(" ^ non_color ^ " var(--tw-drop-shadow-color, " ^ color
-         ^ "))");
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-          "var(--tw-drop-shadow-size)";
-        filter composable_filter_chain;
-      ]
+    match
+      parse_filter_value
+        ("drop-shadow(" ^ non_color ^ " var(--tw-drop-shadow-color, " ^ color
+       ^ "))")
+    with
+    | Ok size ->
+        style
+          [
+            bind_drop_shadow_size size;
+            bind_drop_shadow drop_shadow_size_ref;
+            filter composable_filter_chain;
+          ]
+    | Error _ -> style []
 
   let drop_shadow_inherit_ =
     style
       [
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow-color"
-          "inherit";
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-          "var(--tw-drop-shadow-size)";
+        bind_drop_shadow_color Css.Inherit;
+        bind_drop_shadow drop_shadow_size_ref;
       ]
 
   let drop_shadow_color c shade =
     let color_name = Color.scheme_color_name c shade in
     match Scheme.hex_color (Color.current_scheme ()) color_name with
     | Option.Some hex ->
+        let color_ref : Css.color Css.var =
+          Var.bracket ("color-" ^ color_name)
+        in
         let supports_decl =
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-color"
-            ("color-mix(in oklab, var(--color-" ^ color_name
-           ^ ") var(--tw-drop-shadow-alpha), transparent)")
+          bind_drop_shadow_color
+            (Css.color_mix_var_percent ~in_space:Oklab
+               ~var_name:"tw-drop-shadow-alpha" (Css.Var color_ref)
+               Css.Transparent)
         in
         let supports_block =
           Css.supports ~condition:Color.color_mix_supports_condition
@@ -532,15 +580,8 @@ module Handler = struct
           [
             style ~rules:(Option.Some [ supports_block ])
               (theme_decl_if_set ("color-" ^ color_name)
-              @ [
-                  Css.custom_property ~layer:"utilities"
-                    "--tw-drop-shadow-color" hex;
-                ]);
-            style
-              [
-                Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-                  "var(--tw-drop-shadow-size)";
-              ];
+              @ [ bind_drop_shadow_color (Css.hex hex) ]);
+            style [ bind_drop_shadow drop_shadow_size_ref ];
           ]
     | Option.None ->
         invalid_arg
@@ -553,21 +594,17 @@ module Handler = struct
     | Option.Some hex ->
         let percent = Color.opacity_to_percent opacity in
         let hex_with_alpha = Color.hex_with_alpha hex percent in
-        let opacity_str =
-          match opacity with
-          | Color.Opacity_percent p -> string_of_int (int_of_float p) ^ "%"
-          | Color.Opacity_arbitrary f ->
-              let s = string_of_float f in
-              if String.length s > 0 && s.[String.length s - 1] = '.' then
-                String.sub s 0 (String.length s - 1)
-              else s
-          | _ -> "100%"
+        let color_ref : Css.color Css.var =
+          Var.bracket ("color-" ^ color_name)
         in
         let supports_decl =
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-color"
-            ("color-mix(in oklab, color-mix(in oklab, var(--color-" ^ color_name
-           ^ ") " ^ opacity_str
-           ^ ", transparent) var(--tw-drop-shadow-alpha), transparent)")
+          let inner =
+            Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+              ~percent1:percent
+          in
+          bind_drop_shadow_color
+            (Css.color_mix_var_percent ~in_space:Oklab
+               ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent)
         in
         let supports_block =
           Css.supports ~condition:Color.color_mix_supports_condition
@@ -577,15 +614,8 @@ module Handler = struct
           [
             style ~rules:(Option.Some [ supports_block ])
               (theme_decl_if_set ("color-" ^ color_name)
-              @ [
-                  Css.custom_property ~layer:"utilities"
-                    "--tw-drop-shadow-color" hex_with_alpha;
-                ]);
-            style
-              [
-                Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-                  "var(--tw-drop-shadow-size)";
-              ];
+              @ [ bind_drop_shadow_color (Css.hex hex_with_alpha) ]);
+            style [ bind_drop_shadow drop_shadow_size_ref ];
           ]
     | Option.None ->
         invalid_arg
@@ -598,22 +628,18 @@ module Handler = struct
       | Color.Opacity_percent p -> string_of_int (int_of_float p) ^ "%"
       | _ -> "100%"
     in
+    let percent =
+      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+    in
+    let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
     style
       (theme_decl_if_set "drop-shadow"
       @ [
           Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
             alpha_str;
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-size"
-            ("drop-shadow(0 1px 1px var(--tw-drop-shadow-color, oklab(0% 0 0 / \
-              ."
-            ^ string_of_int
-                (int_of_float
-                   (match opacity with
-                   | Color.Opacity_percent p -> p
-                   | _ -> 100.))
-            ^ ")))");
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow"
-            "drop-shadow(var(--drop-shadow))";
+          bind_drop_shadow_size
+            (drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback);
+          bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
           filter composable_filter_chain;
         ])
 
@@ -624,7 +650,13 @@ module Handler = struct
       let bare = Parse.extract_var_name inner in
       let ref_ : Css.filter Css.var = Var.bracket bare in
       style [ filter (Var ref_) ]
-    else style [ Css.custom_property ~layer:"utilities" "filter" inner ]
+    else
+      let cursor = Cascade.Cursor.of_string inner in
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
+      with
+      | Ok value -> style [ filter value ]
+      | Error _ -> style []
 
   (* Composable backdrop-filter chain *)
   let composable_backdrop_filter_chain : Css.filter =
@@ -696,7 +728,7 @@ module Handler = struct
         | None ->
             style ~property_rules:backdrop_filter_property_rules
               [
-                Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" "";
+                Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" " ";
                 Css.webkit_backdrop_filter composable_backdrop_filter_chain;
                 backdrop_filter composable_backdrop_filter_chain;
               ])
@@ -849,11 +881,13 @@ module Handler = struct
       style
         [ Css.webkit_backdrop_filter (Var ref_); backdrop_filter (Var ref_) ]
     else
-      style
-        [
-          Css.custom_property ~layer:"utilities" "-webkit-backdrop-filter" inner;
-          Css.custom_property ~layer:"utilities" "backdrop-filter" inner;
-        ]
+      let cursor = Cascade.Cursor.of_string inner in
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
+      with
+      | Ok value ->
+          style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
+      | Error _ -> style []
 
   let to_style = function
     | Filter -> filter_
