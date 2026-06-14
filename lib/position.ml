@@ -34,6 +34,32 @@ let parse_bracket_length s : (Css.length, _) result =
         | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
   else Error (`Msg ("Not a bracket value: " ^ s))
 
+(* Negate an inset length: simple units flip sign directly; var()/calc() and
+   parenthesized expressions wrap in [calc(... * -1)] to match Tailwind. *)
+let negate_length (l : Css.length) : Css.length =
+  let open Css in
+  match l with
+  | Px n -> Px (-.n)
+  | Rem n -> Rem (-.n)
+  | Em n -> Em (-.n)
+  | Pct n -> Pct (-.n)
+  | Vw n -> Vw (-.n)
+  | Vh n -> Vh (-.n)
+  | other -> Calc (Calc.mul (Calc.length other) (Calc.float (-1.)))
+
+(* Parse a negative arbitrary inset value like [-left-[(var(--a)+var(--b))]]. A
+   bare parenthesised expression is not a length on its own, so wrap it in
+   [calc(... * -1)] directly. *)
+let parse_neg_bracket_length s : Css.length option =
+  if String.length s > 2 && s.[0] = '[' && s.[String.length s - 1] = ']' then
+    let inner =
+      Parse.decode_arbitrary_value (String.sub s 1 (String.length s - 2))
+    in
+    match Css.parse_length inner with
+    | Some l -> Some (negate_length l)
+    | None -> Css.parse_length (String.concat "" [ "calc("; inner; " * -1)" ])
+  else None
+
 (* Memoization cache for inset-named theme variables *)
 let inset_named_cache : (string, Css.length Var.theme) Hashtbl.t =
   Hashtbl.create 16
@@ -158,6 +184,8 @@ module Handler = struct
     | Neg_left_full
     | Left_3_4
     | Left_arbitrary of Css.length
+    | Neg_left_arbitrary of string * Css.length
+      (* raw bracket suffix kept for the class name; value is negated *)
     | Left_named of string
     | Start of int
     | Start_auto
@@ -317,6 +345,7 @@ module Handler = struct
     | Neg_left_full -> style [ Css.left (Pct (-100.0)) ]
     | Left_3_4 -> style [ Css.left (Pct 75.0) ]
     | Left_arbitrary len -> style [ Css.left len ]
+    | Neg_left_arbitrary (_, len) -> style [ Css.left len ]
     | Left_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.left value ])
@@ -441,14 +470,15 @@ module Handler = struct
     | Bottom_named _ -> 623
     (* left suborders *)
     | Left n when n < 0 -> 700
-    | Neg_left_full -> 701
-    | Left_1_2 -> 702
-    | Left_3_4 -> 703
-    | Left n -> 704 + n
-    | Left_arbitrary _ -> 720
-    | Left_auto -> 721
-    | Left_full -> 722
-    | Left_named _ -> 723
+    | Neg_left_arbitrary _ -> 701
+    | Neg_left_full -> 702
+    | Left_1_2 -> 703
+    | Left_3_4 -> 704
+    | Left n -> 705 + n
+    | Left_arbitrary _ -> 730
+    | Left_auto -> 731
+    | Left_full -> 732
+    | Left_named _ -> 733
     | Start_3_4 -> 850
     | Start_auto -> 851
     | Start_full -> 852
@@ -629,8 +659,13 @@ module Handler = struct
             | Ok len -> Ok (Left_arbitrary len)
             | Error _ when Parse.is_valid_theme_name n -> Ok (Left_named n)
             | Error _ -> Error (`Msg "invalid")))
-    | [ ""; "left"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Left (-x))
+    | [ ""; "left"; n ] -> (
+        match int_of_string_with_sign n with
+        | Ok x -> Ok (Left (-x))
+        | Error _ -> (
+            match parse_neg_bracket_length n with
+            | Some len -> Ok (Neg_left_arbitrary (n, len))
+            | None -> Error (`Msg "invalid")))
     | [ "start"; "3/4" ] -> Ok Start_3_4
     | [ "start"; "auto" ] -> Ok Start_auto
     | [ "start"; "full" ] -> Ok Start_full
@@ -770,6 +805,7 @@ module Handler = struct
         prefix ^ "left-" ^ string_of_int (abs n)
     | Left_arbitrary len ->
         "left-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Neg_left_arbitrary (raw, _) -> "-left-" ^ raw
     | Left_named name -> "left-" ^ name
     | Start_3_4 -> "start-3/4"
     | Start_auto -> "start-auto"
