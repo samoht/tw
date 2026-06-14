@@ -761,10 +761,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let dir_css = direction_to_css_string dir in
-        let interp_decl =
-          gradient_position_decl
-            (dir_css ^ " " ^ interp_css)
-        in
+        let interp_decl = gradient_position_decl (dir_css ^ " " ^ interp_css) in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
     | None -> bg_linear_to' dir
@@ -804,8 +801,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let interp_decl =
-          gradient_position_decl
-            (string_of_int angle_deg ^ "deg " ^ interp_css)
+          gradient_position_decl (string_of_int angle_deg ^ "deg " ^ interp_css)
         in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
@@ -833,9 +829,7 @@ module Handler = struct
       raw bracket inner; we convert rad→deg and _→space. *)
   let bg_linear_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
-    let position_decl =
-      gradient_position_decl css_val
-    in
+    let position_decl = gradient_position_decl css_val in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
         ~fallback:
@@ -850,9 +844,7 @@ module Handler = struct
   let bg_linear_bracket_neg' value_str =
     let css_val = bracket_value_to_css value_str in
     let neg_str = "calc(" ^ css_val ^ " * -1)" in
-    let position_decl =
-      gradient_position_decl neg_str
-    in
+    let position_decl = gradient_position_decl neg_str in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
         ~fallback:
@@ -868,10 +860,7 @@ module Handler = struct
   let bg_conic_interp' interp_str =
     match interp_to_css_string interp_str with
     | Some interp_css ->
-        let position_decl =
-          gradient_position_decl
-            interp_css
-        in
+        let position_decl = gradient_position_decl interp_css in
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
@@ -884,10 +873,7 @@ module Handler = struct
         let position_css =
           "from " ^ string_of_int angle_deg ^ "deg " ^ interp_css
         in
-        let position_decl =
-          gradient_position_decl
-            position_css
-        in
+        let position_decl = gradient_position_decl position_css in
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
@@ -900,10 +886,7 @@ module Handler = struct
         let position_css =
           "from calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css
         in
-        let position_decl =
-          gradient_position_decl
-            position_css
-        in
+        let position_decl = gradient_position_decl position_css in
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
@@ -913,10 +896,7 @@ module Handler = struct
   let bg_radial_interp' interp_str =
     match interp_to_css_string interp_str with
     | Some interp_css ->
-        let position_decl =
-          gradient_position_decl
-            interp_css
-        in
+        let position_decl = gradient_position_decl interp_css in
         let stops_ref = Var.reference gradient_stops_var in
         style ~property_rules:gradient_property_rules
           [
@@ -927,9 +907,7 @@ module Handler = struct
   (** bg-radial-[value] - bracket radial gradient *)
   let bg_radial_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
-    let position_decl =
-      gradient_position_decl css_val
-    in
+    let position_decl = gradient_position_decl css_val in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
         ~fallback:

@@ -1317,7 +1317,9 @@ module Handler = struct
   let inset_shadow_raw_var v =
     let var_name = Parse.extract_var_name v in
     (* Tailwind prepends [inset] so the composed shadow is actually inset. *)
-    let shadow_value : Css.shadow = Css.Inset (Css.Var (Var.bracket var_name)) in
+    let shadow_value : Css.shadow =
+      Css.Inset (Css.Var (Var.bracket var_name))
+    in
     let decl, v_inset_shadow = Var.binding inset_shadow_var shadow_value in
     style ~property_rules:shadow_property_rules
       [ decl; inset_box_shadow_composition v_inset_shadow ]

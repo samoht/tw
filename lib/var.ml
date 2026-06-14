@@ -326,7 +326,6 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
     v kind ~property ?property_order ?family ~role:Channel name ~layer:Utility
   else v kind ?property_order ?family ~role:Channel name ~layer:Utility
 
-
 let string_of_kind_value : type a. a Css.kind -> a -> string =
  fun kind value ->
   match kind with
