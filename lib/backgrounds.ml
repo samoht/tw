@@ -409,6 +409,16 @@ module Handler = struct
     Var.property_default Gradient_direction ~initial:To_bottom ~universal:true
       ~property_order:7 ~family:`Gradient "tw-gradient-position"
 
+  (* The [--tw-gradient-position] value stays a typed gradient direction wherever
+     cascade can parse one (so its optimizer canonicalises it); shapes its
+     direction grammar does not cover (conic [from ...], radial) fall back to the
+     verbatim token stream. *)
+  let gradient_position_decl value =
+    match Css.Gradient_direction.of_string value with
+    | Ok d -> fst (Var.binding gradient_position_var d)
+    | Error _ ->
+        Css.custom_property ~layer:"utilities" "--tw-gradient-position" value
+
   let gradient_from_var =
     Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:8
       ~family:`Gradient "tw-gradient-from"
@@ -754,7 +764,7 @@ module Handler = struct
     | Some interp_css ->
         let dir_css = direction_to_css_string dir in
         let interp_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             (dir_css ^ " " ^ interp_css)
         in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
@@ -796,7 +806,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let interp_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             (string_of_int angle_deg ^ "deg " ^ interp_css)
         in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
@@ -812,7 +822,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let interp_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             ("calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css)
         in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
@@ -826,7 +836,7 @@ module Handler = struct
   let bg_linear_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
     let position_decl =
-      Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
+      gradient_position_decl css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
@@ -843,7 +853,7 @@ module Handler = struct
     let css_val = bracket_value_to_css value_str in
     let neg_str = "calc(" ^ css_val ^ " * -1)" in
     let position_decl =
-      Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
+      gradient_position_decl neg_str
     in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
@@ -861,7 +871,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let position_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             interp_css
         in
         let stops_ref = Var.reference gradient_stops_var in
@@ -877,7 +887,7 @@ module Handler = struct
           "from " ^ string_of_int angle_deg ^ "deg " ^ interp_css
         in
         let position_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             position_css
         in
         let stops_ref = Var.reference gradient_stops_var in
@@ -893,7 +903,7 @@ module Handler = struct
           "from calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css
         in
         let position_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             position_css
         in
         let stops_ref = Var.reference gradient_stops_var in
@@ -906,7 +916,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let position_decl =
-          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+          gradient_position_decl
             interp_css
         in
         let stops_ref = Var.reference gradient_stops_var in
@@ -920,7 +930,7 @@ module Handler = struct
   let bg_radial_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
     let position_decl =
-      Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
+      gradient_position_decl css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
