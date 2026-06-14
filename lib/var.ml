@@ -232,16 +232,6 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Filter -> Css.Properties.Filter
   | Font_src -> Css.Properties.Font_src
 
-(* Serialize a typed value the way Tailwind authors a [syntax: "*"] custom
-   property: minified (short hex, rounded precision, canonical units) but with
-   [enforce_spec] so colour axes keep their spec-canonical number form rather
-   than cascade's shorter percentage swap. The result is emitted as an opaque
-   token stream, which CSS Variables 1 leaves uninterpreted. *)
-let raw_of_kind_value : type a. a Css.kind -> a -> string =
- fun kind value ->
-  Css.Pp.to_string ~minify:true ~enforce_spec:true Css.Properties.pp_value
-    (properties_kind_of_kind kind, value)
-
 (* Create a variable template *)
 let v : type a r.
     a Css.kind ->
@@ -296,24 +286,9 @@ let v : type a r.
       Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
         name kind value
     in
-    (* A [syntax: "*"] custom property holds an opaque token stream (CSS
-       Variables 1): emit the value verbatim from a Tailwind-matching
-       serialization so the typed minifier does not re-canonicalise it (oklab
-       axis percentage swap, etc.) away from the authored form. *)
-    (* A theme font stack stays verbatim to keep its authored quoting; every
-       other kind is emitted typed and cascade canonicalises it. *)
-    let is_opaque =
-      match ((role : r role), kind) with
-      | Theme, Css.Font_family -> true
-      | _ -> false
-    in
     match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
     | Theme, Some css ->
         (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
-    | _ when is_opaque ->
-        ( Css.custom_property ?layer:layer_name ("--" ^ name)
-            (raw_of_kind_value kind value),
-          var )
     | _ -> (decl, var)
   in
   {
