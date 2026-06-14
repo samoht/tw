@@ -300,24 +300,14 @@ let v : type a r.
        Variables 1): emit the value verbatim from a Tailwind-matching
        serialization so the typed minifier does not re-canonicalise it (oklab
        axis percentage swap, etc.) away from the authored form. *)
-    (* Only colour/shadow/font kinds diverge between cascade's typed minifier
-       and Tailwind's authored spelling; numeric kinds (duration, scale, ...)
-       already minify to the same bytes, so leave them typed. *)
-    let kind_needs_raw : type a. a Css.kind -> bool = function
-      | Css.Color | Css.Shadow | Css.Box_shadow | Css.Gradient_stop
-      | Css.Gradient_direction | Css.Gradient_position | Css.Font_family ->
-          true
-      | _ -> false
-    in
-    (* A [syntax: "*"] universal custom property is an opaque token stream, so
-       emit a colour/shadow/font value verbatim rather than re-canonicalised by
-       the typed minifier. A theme font stack ([--font-sans]) is opaque the same
-       way and must keep its authored quoting; other theme kinds already minify
-       to matching bytes, so leave them typed. *)
+    (* A theme font stack ([--font-sans]) is emitted verbatim so it keeps its
+       authored quoting, which cascade's typed font-family canonicalisation does
+       not yet preserve in a custom-property body. Every other kind is emitted
+       typed: cascade's optimizer canonicalises colours, shadows, and gradient
+       parts inside custom-property values to match. *)
     let is_opaque =
-      match ((role : r role), property, kind) with
-      | Theme, _, Css.Font_family -> true
-      | _, Some { universal = true; _ }, _ -> kind_needs_raw kind
+      match ((role : r role), kind) with
+      | Theme, Css.Font_family -> true
       | _ -> false
     in
     match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
