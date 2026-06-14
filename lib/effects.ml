@@ -528,9 +528,7 @@ module Handler = struct
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
     match parse_arbitrary_shadow arb with
     | Some (h_offset, v_offset, blur, Var v) ->
-        (* box-shadow's greedy <length>{2,4} grammar reads a trailing [var()] as
-           the blur, but Tailwind treats it as the colour. Wrap it as the shadow
-           colour rather than leaving it a length with a defaulted currentcolor. *)
+        (* A trailing var() is the colour, not the blur (Tailwind). *)
         let color_ref =
           Var.reference_with_fallback shadow_color_var (make_full_color_var v)
         in
@@ -1318,8 +1316,7 @@ module Handler = struct
 
   let inset_shadow_raw_var v =
     let var_name = Parse.extract_var_name v in
-    (* [inset-shadow-[var(--x)]] carries the whole shadow body in the var;
-       Tailwind prepends [inset] so the composed box-shadow is actually inset. *)
+    (* Tailwind prepends [inset] so the composed shadow is actually inset. *)
     let shadow_value : Css.shadow = Css.Inset (Css.Var (Var.bracket var_name)) in
     let decl, v_inset_shadow = Var.binding inset_shadow_var shadow_value in
     style ~property_rules:shadow_property_rules

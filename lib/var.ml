@@ -300,11 +300,8 @@ let v : type a r.
        Variables 1): emit the value verbatim from a Tailwind-matching
        serialization so the typed minifier does not re-canonicalise it (oklab
        axis percentage swap, etc.) away from the authored form. *)
-    (* A theme font stack ([--font-sans]) is emitted verbatim so it keeps its
-       authored quoting, which cascade's typed font-family canonicalisation does
-       not yet preserve in a custom-property body. Every other kind is emitted
-       typed: cascade's optimizer canonicalises colours, shadows, and gradient
-       parts inside custom-property values to match. *)
+    (* A theme font stack stays verbatim to keep its authored quoting; every
+       other kind is emitted typed and cascade canonicalises it. *)
     let is_opaque =
       match ((role : r role), kind) with
       | Theme, Css.Font_family -> true

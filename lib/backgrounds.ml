@@ -409,10 +409,8 @@ module Handler = struct
     Var.property_default Gradient_direction ~initial:To_bottom ~universal:true
       ~property_order:7 ~family:`Gradient "tw-gradient-position"
 
-  (* The [--tw-gradient-position] value stays a typed gradient direction wherever
-     cascade can parse one (so its optimizer canonicalises it); shapes its
-     direction grammar does not cover (conic [from ...], radial) fall back to the
-     verbatim token stream. *)
+  (* Keep the value a typed gradient direction where cascade parses one; conic
+     [from ...] / radial shapes fall back to the verbatim stream. *)
   let gradient_position_decl value =
     match Css.Gradient_direction.of_string value with
     | Ok d -> fst (Var.binding gradient_position_var d)
