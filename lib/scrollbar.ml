@@ -109,7 +109,7 @@ module Handler = struct
 
   let hex_string_of (c : Css.color) : string =
     let fmt r g b a =
-      let h2 n = Printf.sprintf "%02x" n in
+      let h2 = Pp.hex_byte in
       "#" ^ h2 r ^ h2 g ^ h2 b ^ if a = 255 then "" else h2 a
     in
     match c with
@@ -253,7 +253,4 @@ module Handler = struct
     | _ -> Error (`Msg "Not a scrollbar utility")
 end
 
-open Handler
-
 let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)

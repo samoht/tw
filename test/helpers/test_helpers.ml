@@ -155,7 +155,7 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
         && contains ".25rem" rendered
         && contains ".125rem" rendered
       then ()
-      else Alcotest.fail (Fmt.str "%s\n%s" test_name rendered)
+      else Alcotest.failf "%s\n%s" test_name rendered
 
 (** CSS Test Helpers *)
 

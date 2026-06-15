@@ -90,6 +90,11 @@ let rec to_class = function
       | _ -> Style.pp_modifier m ^ ":" ^ to_class u)
   | Group us -> String.concat " " (List.map to_class us)
 
+let rec pp = function
+  | Base u -> "Base " ^ class_of_base u
+  | Modified (m, u) -> "Modified (" ^ Style.pp_modifier m ^ ", " ^ pp u ^ ")"
+  | Group us -> "Group [" ^ String.concat "; " (List.map pp us) ^ "]"
+
 let order (u : base) : int * int =
   let rec try_handlers = function
     | [] ->

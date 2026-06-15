@@ -10,7 +10,7 @@ homepage: "https://github.com/samoht/tw"
 bug-reports: "https://github.com/samoht/tw/issues"
 depends: [
   "ocaml" {>= "5.2"}
-  "dune" {>= "3.0"}
+  "dune" {>= "3.21"}
   "cascade"
   "cmdliner"
   "fmt"
@@ -41,6 +41,7 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/samoht/tw.git"
+x-maintenance-intent: ["(latest)"]
 pin-depends: [
   [ "cascade.dev" "git+https://github.com/samoht/cascade.git#main" ]
 ]

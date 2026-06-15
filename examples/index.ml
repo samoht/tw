@@ -15,78 +15,35 @@ let example_card ~title ~path ~height =
         [];
     ]
 
+(* Each example: title, iframe path, one-line blurb, and embed height. *)
+let examples =
+  [
+    ("Landing", "landing/", "Marketing page with gradients and CTA", 700);
+    ("Dashboard", "dashboard/", "Responsive admin layout", 800);
+    ("Prose", "prose/", "Typography for articles", 1200);
+    ("Forms", "forms/", "Input states and validation", 600);
+    ("Colors", "colors/", "Full palette and alpha variants", 900);
+    ("Layout", "layout/", "Flexbox and Grid patterns", 1800);
+    ("Modifiers", "modifiers/", "State, group, peer, and ARIA", 1600);
+    ("Animations", "animations/", "Keyframes and transitions", 1500);
+    ("Accessibility", "accessibility/", "Contrast, motion, focus", 1400);
+  ]
+
+let nav_link (title, path, blurb, _) =
+  li [ a ~at:[ At.href path ] [ txt (title ^ " — " ^ blurb) ] ]
+
 let content =
   [
     h1 [ txt "Examples Manual" ];
     p
       ~tw:Tw.[ prose_lead ]
       [ txt "Explore focused, feature-based examples. Each is embedded below." ];
-    ul
-      [
-        li
-          [
-            a
-              ~at:[ At.href "landing/" ]
-              [ txt "Landing — Marketing page with gradients and CTA" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "dashboard/" ]
-              [ txt "Dashboard — Responsive admin layout" ];
-          ];
-        li
-          [
-            a ~at:[ At.href "prose/" ] [ txt "Prose — Typography for articles" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "forms/" ]
-              [ txt "Forms — Input states and validation" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "colors/" ]
-              [ txt "Colors — Full palette and alpha variants" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "layout/" ]
-              [ txt "Layout — Flexbox and Grid patterns" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "modifiers/" ]
-              [ txt "Modifiers — State, group, peer, and ARIA" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "animations/" ]
-              [ txt "Animations — Keyframes and transitions" ];
-          ];
-        li
-          [
-            a
-              ~at:[ At.href "accessibility/" ]
-              [ txt "Accessibility — Contrast, motion, focus" ];
-          ];
-      ];
+    ul (List.map nav_link examples);
     hr ();
-    example_card ~title:"Landing" ~path:"landing/" ~height:700;
-    example_card ~title:"Dashboard" ~path:"dashboard/" ~height:800;
-    example_card ~title:"Prose" ~path:"prose/" ~height:1200;
-    example_card ~title:"Forms" ~path:"forms/" ~height:600;
-    example_card ~title:"Colors" ~path:"colors/" ~height:900;
-    example_card ~title:"Layout" ~path:"layout/" ~height:1800;
-    example_card ~title:"Modifiers" ~path:"modifiers/" ~height:1600;
-    example_card ~title:"Animations" ~path:"animations/" ~height:1500;
-    example_card ~title:"Accessibility" ~path:"accessibility/" ~height:1400;
   ]
+  @ List.map
+      (fun (title, path, _, height) -> example_card ~title ~path ~height)
+      examples
 
 let page_view =
   page ~title:"Examples Manual" ~tw_css:"manual.css" []

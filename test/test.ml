@@ -73,6 +73,9 @@ let () =
       Test_utility.suite;
       Test_spacing.suite;
       Test_box_sizing.suite;
+      Test_tab.suite;
+      Test_scrollbar.suite;
+      Test_zoom.suite;
       Test_columns.suite;
       Test_contain.suite;
       Test_divide.suite;

@@ -1,7 +1,7 @@
 (executable
  (name test)
  (modes js)
- (libraries tw tw_dom alcotest astring brr)
+ (libraries tw tw_dom cascade alcotest astring brr)
  (enabled_if
   (= %{context_name} "default")))
 

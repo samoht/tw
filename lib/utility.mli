@@ -62,6 +62,9 @@ type t = Base of base | Modified of Style.modifier * t | Group of t list
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t. *)
 
+val pp : t -> string
+(** [pp u] is a human-readable representation of [u] for debugging. *)
+
 (** Handler module type for utility registration *)
 module type Handler = sig
   type t
@@ -70,22 +73,22 @@ module type Handler = sig
   type base += Self of t  (** Extension of the base utility type *)
 
   val name : string
-  (** Name of this utility handler *)
+  (** Name of this utility handler. *)
 
   val to_style : t -> Style.t
-  (** Convert utility to style *)
+  (** [to_style u] converts utility [u] to a style. *)
 
   val priority : int
-  (** Priority for ordering utilities *)
+  (** Priority for ordering utilities. *)
 
   val suborder : t -> int
-  (** Suborder within the same priority *)
+  (** [suborder u] is the suborder within the same priority. *)
 
   val of_class : string -> (t, [ `Msg of string ]) result
-  (** Parse class name into utility *)
+  (** [of_class name] parses class [name] into a utility. *)
 
   val to_class : t -> string
-  (* TODO *)
+  (** [to_class u] is the CSS class name for utility [u]. *)
 end
 
 val register : (module Handler with type t = 'a) -> unit

@@ -51,8 +51,9 @@ val classify_selector : Css.Selector.t -> selector_kind
 (** {1 Sorting} *)
 
 val compare_indexed_rules : indexed_rule -> indexed_rule -> int
-(** [compare_indexed_rules r1 r2] is the total order over [indexed_rule] values
-    that produces Tailwind v4 cascade order when used with [List.sort]. *)
+(** [compare_indexed_rules r1 r2] is the total order over {!type-indexed_rule}
+    values that produces Tailwind v4 cascade order when used with [List.sort].
+*)
 
 (** {1 Debug} *)
 

@@ -1,8 +1,10 @@
-(lang dune 3.0)
+(lang dune 3.21)
 
 (using mdx 0.2)
 
 (name tw)
+
+(implicit_transitive_deps false)
 
 (generate_opam_files true)
 

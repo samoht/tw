@@ -1,5 +1,5 @@
 (* Tests for Pp module *)
-module Pp = Tw__Pp (* Access internal module *)
+module Pp = Tw__.Pp (* Access internal module *)
 
 let test_str () =
   let result = Pp.str [ "Hello"; " "; "World" ] in

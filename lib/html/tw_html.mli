@@ -22,7 +22,7 @@ module At : sig
   (** {1 Global attributes} *)
 
   val title : string -> attr
-  (** [title "My Title"] creates a [title] attribute. *)
+  (** [title s] creates a {!val-title} attribute. *)
 
   val lang : string -> attr
   (** [lang "en"] creates a [lang] attribute. *)
@@ -141,7 +141,7 @@ module At : sig
   (** [sizes "..."] creates a [sizes] attribute for responsive images. *)
 
   val title' : string -> attr
-  (** [title' "My Page"] creates a [title] attribute for elements. *)
+  (** [title' s] creates a {!val-title} attribute for elements. *)
 
   (** {1 Additional attributes} *)
 
@@ -174,7 +174,7 @@ module At : sig
   (** [to_pair at] returns the attribute as a (name, value) pair. *)
 
   val of_pair : string * string -> attr
-  (** [of_pair (n, v)] creates an attribute from a (name, value) pair. *)
+  (** [of_pair (n,v)] creates an attribute from a (name, value) pair. *)
 
   (** {2 Additional HTML5 attributes} *)
 
@@ -241,61 +241,61 @@ module At : sig
   (** {2 SVG Attributes} *)
 
   val fill_rule : [ `evenodd ] -> attr
-  (** [fill_rule `evenodd] sets the fill rule *)
+  (** [fill_rule `evenodd] sets the fill rule. *)
 
   val clip_rule : [ `evenodd ] -> attr
-  (** [clip_rule `evenodd] sets the clipping rule *)
+  (** [clip_rule `evenodd] sets the clipping rule. *)
 
   val cx : int -> attr
-  (** [cx n] sets the center x coordinate *)
+  (** [cx n] sets the center x coordinate. *)
 
   val cy : int -> attr
-  (** [cy n] sets the center y coordinate *)
+  (** [cy n] sets the center y coordinate. *)
 
   val r : int -> attr
-  (** [r n] sets the radius *)
+  (** [r n] sets the radius. *)
 
   val view_box : string -> attr
-  (** [view_box "0 0 20 20"] sets the viewBox *)
+  (** [view_box s] sets the viewBox. *)
 
   val fill : string -> attr
-  (** [fill "currentColor"] sets the fill color *)
+  (** [fill "currentColor"] sets the fill color. *)
 
   val stroke : string -> attr
-  (** [stroke "currentColor"] sets the stroke color *)
+  (** [stroke "currentColor"] sets the stroke color. *)
 
   val stroke_width : string -> attr
-  (** [stroke_width "2"] sets the stroke width *)
+  (** [stroke_width "2"] sets the stroke width. *)
 
   val stroke_linecap : string -> attr
-  (** [stroke_linecap "round"] sets the stroke line cap *)
+  (** [stroke_linecap "round"] sets the stroke line cap. *)
 
   val stroke_linejoin : string -> attr
-  (** [stroke_linejoin "round"] sets the stroke line join *)
+  (** [stroke_linejoin "round"] sets the stroke line join. *)
 
   val x : string -> attr
-  (** [x "10"] sets the x coordinate *)
+  (** [x "10"] sets the x coordinate. *)
 
   val y : string -> attr
-  (** [y "10"] sets the y coordinate *)
+  (** [y "10"] sets the y coordinate. *)
 
   val rx : string -> attr
-  (** [rx "5"] sets the x radius for rounded rectangles *)
+  (** [rx "5"] sets the x radius for rounded rectangles. *)
 
   val d : string -> attr
-  (** [d "M10 10 L20 20"] sets the path data *)
+  (** [d s] sets the path data. *)
 
   val x1 : string -> attr
-  (** [x1 "0"] sets the first x coordinate *)
+  (** [x1 "0"] sets the first x coordinate. *)
 
   val y1 : string -> attr
-  (** [y1 "0"] sets the first y coordinate *)
+  (** [y1 "0"] sets the first y coordinate. *)
 
   val x2 : string -> attr
-  (** [x2 "20"] sets the second x coordinate *)
+  (** [x2 "20"] sets the second x coordinate. *)
 
   val y2 : string -> attr
-  (** [y2 "20"] sets the second y coordinate *)
+  (** [y2 "20"] sets the second y coordinate. *)
 end
 
 (** {1 Text helpers} *)
@@ -413,7 +413,7 @@ module Livereload : sig
 
   val script : t
   (** [script] is the JavaScript code for livereload functionality. Only
-      included when [enabled] is true. *)
+      included when {!val-enabled} is true. *)
 end
 
 (** {1 HTML Elements} *)
