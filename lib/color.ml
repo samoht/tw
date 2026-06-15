@@ -1006,11 +1006,45 @@ let oklch_node_of color shade =
   Css.oklch oklch.l oklch.c oklch.h
 
 (* The palette ([Red], [Blue], ...) is a fixed set of (colour, shade) pairs and
-   its oklch nodes are immutable, so build each one once and share it across
-   every utility and variant that uses the colour instead of reconstructing an
-   identical node per use. Keyed only on the constant palette constructors;
-   [Rgb]/[Theme_named] carry open-ended payloads and build fresh. *)
-let palette_nodes : (color * int, Css.color) Hashtbl.t = Hashtbl.create 256
+   its oklch nodes are immutable, so materialise each node once and share it
+   across every utility and variant that uses the colour, instead of
+   reconstructing an identical node per use. Built once on first use; only the
+   constant palette constructors are keyed here, [Rgb]/[Theme_named] carry
+   open-ended payloads and build fresh. *)
+let palette_nodes =
+  lazy
+    (let table = Hashtbl.create 256 in
+     List.iter
+       (fun (color, palette) ->
+         List.iter
+           (fun (shade, o) ->
+             Hashtbl.replace table (color, shade) (Css.oklch o.l o.c o.h))
+           palette)
+       [
+         (Gray, Tailwind.gray);
+         (Slate, Tailwind.slate);
+         (Zinc, Tailwind.zinc);
+         (Neutral, Tailwind.neutral);
+         (Stone, Tailwind.stone);
+         (Red, Tailwind.red);
+         (Orange, Tailwind.orange);
+         (Amber, Tailwind.amber);
+         (Yellow, Tailwind.yellow);
+         (Lime, Tailwind.lime);
+         (Green, Tailwind.green);
+         (Emerald, Tailwind.emerald);
+         (Teal, Tailwind.teal);
+         (Cyan, Tailwind.cyan);
+         (Sky, Tailwind.sky);
+         (Blue, Tailwind.blue);
+         (Indigo, Tailwind.indigo);
+         (Violet, Tailwind.violet);
+         (Purple, Tailwind.purple);
+         (Fuchsia, Tailwind.fuchsia);
+         (Pink, Tailwind.pink);
+         (Rose, Tailwind.rose);
+       ];
+     table)
 
 (* Convert color to CSS color value *)
 let to_css color shade =
@@ -1031,13 +1065,9 @@ let to_css color shade =
   | Css c -> c
   | Rgb _ | Theme_named _ -> oklch_node_of color shade
   | _ -> (
-      let key = (color, shade) in
-      match Hashtbl.find_opt palette_nodes key with
+      match Hashtbl.find_opt (Lazy.force palette_nodes) (color, shade) with
       | Some node -> node
-      | None ->
-          let node = oklch_node_of color shade in
-          Hashtbl.add palette_nodes key node;
-          node)
+      | None -> oklch_node_of color shade)
 
 let named_color_name = function
   | Black -> "black"
