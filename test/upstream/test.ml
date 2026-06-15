@@ -53,6 +53,7 @@ type case = {
   config : theme_config;
   classes : string list;
   expected : string;
+  variants : string list;  (** [matchVariant] directive lines for this test. *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -86,6 +87,7 @@ let read_test_cases filename =
     let content = really_input_string ic (in_channel_length ic) in
     close_in ic;
     let tests = ref [] in
+    let current_variants = ref [] in
     let lines = String.split_on_char '\n' content in
     let parse_config_line line =
       let line = String.trim line in
@@ -98,17 +100,28 @@ let read_test_cases filename =
       | [] -> ()
       | line :: rest ->
           let line = String.trim line in
-          if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then
+          if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
             let name = String.sub line 2 (String.length line - 2) in
-            parse_config name No_theme rest
+            current_variants := [];
+            parse_config name No_theme rest)
           else parse rest
     and parse_config name default_config lines =
       match lines with
       | [] -> ()
       | line :: rest -> (
           match parse_config_line line with
-          | Some config -> parse_classes name config rest
-          | None -> parse_classes name default_config (line :: rest))
+          | Some config -> parse_variants name config rest
+          | None -> parse_variants name default_config (line :: rest))
+    and parse_variants name config lines =
+      match lines with
+      | [] -> ()
+      | line :: rest ->
+          let tl = String.trim line in
+          if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
+            current_variants :=
+              String.sub tl 9 (String.length tl - 9) :: !current_variants;
+            parse_variants name config rest)
+          else parse_classes name config (line :: rest)
     and parse_classes name config lines =
       match lines with
       | [] -> ()
@@ -119,10 +132,11 @@ let read_test_cases filename =
             (* No classes line before ---, skip *)
             parse_expected name config [] (Buffer.create 256) rest
           else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
-          then
+          then (
             (* New test without classes *)
             let new_name = String.sub line 2 (String.length line - 2) in
-            parse_config new_name No_theme rest
+            current_variants := [];
+            parse_config new_name No_theme rest)
           else
             let classes = split_classes line in
             parse_after_classes name config classes rest
@@ -142,12 +156,28 @@ let read_test_cases filename =
       | [] ->
           let expected = Buffer.contents buf |> String.trim in
           if classes <> [] then
-            tests := { name; config; classes; expected } :: !tests
+            tests :=
+              {
+                name;
+                config;
+                classes;
+                expected;
+                variants = List.rev !current_variants;
+              }
+              :: !tests
       | line :: rest ->
           if String.trim line = "<<<>>>" then (
             let expected = Buffer.contents buf |> String.trim in
             if classes <> [] then
-              tests := { name; config; classes; expected } :: !tests;
+              tests :=
+                {
+                  name;
+                  config;
+                  classes;
+                  expected;
+                  variants = List.rev !current_variants;
+                }
+                :: !tests;
             parse rest)
           else (
             if Buffer.length buf > 0 then Buffer.add_char buf '\n';
@@ -634,6 +664,27 @@ let run_test_case test () =
   if test.classes = [] then ()
   else (
     setup_scheme_for_test test.expected;
+    (* Register any matchVariant custom variants for this test. Directive form:
+       "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
+    let parse_variant_directive d =
+      match String.split_on_char ' ' d with
+      | name :: template :: pairs ->
+          let values =
+            List.filter_map
+              (fun kv ->
+                match String.index_opt kv '=' with
+                | Some i ->
+                    let k = String.sub kv 0 i in
+                    let v = String.sub kv (i + 1) (String.length kv - i - 1) in
+                    Some ((if k = "DEFAULT" then "" else k), v)
+                | None -> None)
+              pairs
+          in
+          Some (name, Tw.Modifiers.{ values; template })
+      | _ -> None
+    in
+    Tw.Modifiers.register_custom_variants
+      (List.filter_map parse_variant_directive test.variants);
     (* Register custom breakpoints before parsing classes *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
     if custom_bps <> [] then (

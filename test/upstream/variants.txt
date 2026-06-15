@@ -2127,6 +2127,7 @@ data-[bar]:flex data-[baz]:flex data-[foo]:flex data-active:flex data-focus:flex
 <<<>>>
 # matchVariant sorts deterministically
 @config none
+@variant is-data &:is([data-{}]) DEFAULT=default foo=foo bar=bar
 is-data-[potato]:flex is-data-[sandwich]:flex is-data-bar:flex is-data-foo:flex is-data:flex
 ---
 

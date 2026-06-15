@@ -107,7 +107,37 @@ type test_case = {
   config : theme_config;
   classes : string list;
   expected : string option;
+  variants : string list;
+      (** [matchVariant] directives, e.g. ["is-data ..."]. *)
 }
+
+(* Parse [matchVariant('name', (value) => `template`, { values: {...} })] calls
+   into directive strings: "name <template-with-{}> KEY=value ...". The DEFAULT
+   key is kept verbatim and mapped to the default slot by the test runner. *)
+let parse_match_variants content =
+  let re =
+    Re.Pcre.regexp
+      {|matchVariant\(\s*'([^']+)'\s*,\s*\(value\)\s*=>\s*`([^`]*)`\s*,\s*\{[^{]*values:\s*\{([^}]*)\}|}
+  in
+  let value_re = Re.Pcre.regexp {|([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*'([^']*)'|} in
+  let tbl = Hashtbl.create 4 in
+  List.iter
+    (fun m ->
+      let name = Re.Group.get m 1 in
+      let template =
+        (* `${value}` -> `{}` placeholder *)
+        Re.replace
+          (Re.Pcre.regexp {|\$\{value\}|})
+          ~f:(fun _ -> "{}")
+          (Re.Group.get m 2)
+      in
+      let pairs =
+        Re.all value_re (Re.Group.get m 3)
+        |> List.map (fun p -> Re.Group.get p 1 ^ "=" ^ Re.Group.get p 2)
+      in
+      Hashtbl.replace tbl name (String.concat " " (name :: template :: pairs)))
+    (Re.all re content);
+  tbl
 
 type parse_state =
   | Outside
@@ -150,15 +180,25 @@ let parse_file filename =
   let state = ref Outside in
   let current_classes = ref [] in
   let current_config = ref No_theme in
+  let variant_defs = parse_match_variants content in
+  let match_variant_use = Re.Pcre.regexp {|matchVariant\(\s*'([^']+)'|} in
+  let current_variant_names = ref [] in
 
   let flush_test name expected =
     let classes =
       !current_classes |> List.rev |> List.filter is_valid_class
       |> List.sort_uniq String.compare
     in
+    let variants =
+      !current_variant_names |> List.rev
+      |> List.filter_map (fun n -> Hashtbl.find_opt variant_defs n)
+    in
     if classes <> [] then
-      tests := { name; config = !current_config; classes; expected } :: !tests;
-    current_classes := []
+      tests :=
+        { name; config = !current_config; classes; expected; variants }
+        :: !tests;
+    current_classes := [];
+    current_variant_names := []
   in
 
   List.iter
@@ -176,6 +216,14 @@ let parse_file filename =
              uses built-in defaults. *)
           if Re.execp compile_css_re line then current_config := No_theme
           else if Re.execp run_call_re line then current_config := Run;
+
+          (* Record any matchVariant plugin used by this test so the runner can
+             register it before compiling. *)
+          (match Re.exec_opt match_variant_use line with
+          | Some g ->
+              current_variant_names :=
+                Re.Group.get g 1 :: !current_variant_names
+          | None -> ());
 
           (* Detect @theme variants within compileCss CSS templates. Most
              specific patterns checked first to avoid partial matches. *)
@@ -280,6 +328,7 @@ let () =
     (fun test ->
       Fmt.pr "# %s@." test.name;
       Fmt.pr "@config %s@." (config_to_string test.config);
+      List.iter (fun v -> Fmt.pr "@variant %s@." v) test.variants;
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->
