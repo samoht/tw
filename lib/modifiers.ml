@@ -2156,30 +2156,30 @@ let variant_order_of_prefix prefix =
   (* @starting-style: comes after all media queries including dark:hover *)
   | "starting" -> 95000
   | _ ->
-      if String.starts_with ~prefix:"group-" prefix then 500
-      else if String.starts_with ~prefix:"peer-" prefix then 600
-      else if String.starts_with ~prefix:"has-" prefix then 30600
-      else if String.starts_with ~prefix:"aria-" prefix then
+      if Parse.has_prefix ~prefix:"group-" prefix then 500
+      else if Parse.has_prefix ~prefix:"peer-" prefix then 600
+      else if Parse.has_prefix ~prefix:"has-" prefix then 30600
+      else if Parse.has_prefix ~prefix:"aria-" prefix then
         if String.length prefix > 5 && prefix.[5] <> '[' then 30700 else 30790
-      else if String.starts_with ~prefix:"data-" prefix then
+      else if Parse.has_prefix ~prefix:"data-" prefix then
         if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
       else if
-        String.starts_with ~prefix:"supports-" prefix
-        || String.starts_with ~prefix:"supports" prefix
+        Parse.has_prefix ~prefix:"supports-" prefix
+        || Parse.has_prefix ~prefix:"supports" prefix
       then 40000
       else if prefix = "motion-safe" then 50000
       else if prefix = "motion-reduce" then 50100
       else if prefix = "contrast-more" then 50200
       else if prefix = "contrast-less" then 50300
-      else if String.starts_with ~prefix:"pointer-" prefix then 50400
-      else if String.starts_with ~prefix:"any-pointer-" prefix then 50500
+      else if Parse.has_prefix ~prefix:"pointer-" prefix then 50400
+      else if Parse.has_prefix ~prefix:"any-pointer-" prefix then 50500
       else if
         prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
         || prefix = "2xl"
-        || String.starts_with ~prefix:"min-" prefix
-        || String.starts_with ~prefix:"max-" prefix
+        || Parse.has_prefix ~prefix:"min-" prefix
+        || Parse.has_prefix ~prefix:"max-" prefix
       then 60000
-      else if String.starts_with ~prefix:"prose-" prefix then
+      else if Parse.has_prefix ~prefix:"prose-" prefix then
         let name = String.sub prefix 6 (String.length prefix - 6) in
         prose_element_variant_order name
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000

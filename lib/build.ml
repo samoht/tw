@@ -288,8 +288,8 @@ let deduplicate_typed_triples triples =
    Tailwind v4, where pseudo-elements appear late). *)
 let adjust_pseudo class_name (prio, suborder) =
   if
-    String.starts_with ~prefix:"before:" class_name
-    || String.starts_with ~prefix:"after:" class_name
+    Parse.has_prefix ~prefix:"before:" class_name
+    || Parse.has_prefix ~prefix:"after:" class_name
   then (prio, suborder + 5000)
   else (prio, suborder)
 

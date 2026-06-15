@@ -797,9 +797,9 @@ let variant_prefix = function
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
 let strip_group_peer_vo p =
-  if String.starts_with ~prefix:"group-" p then
+  if Parse.has_prefix ~prefix:"group-" p then
     Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
-  else if String.starts_with ~prefix:"peer-" p then
+  else if Parse.has_prefix ~prefix:"peer-" p then
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
@@ -853,8 +853,8 @@ let inner_vo prefix =
   | Some j ->
       let outer = String.sub prefix 0 j in
       if
-        String.starts_with ~prefix:"group-" outer
-        || String.starts_with ~prefix:"peer-" outer
+        Parse.has_prefix ~prefix:"group-" outer
+        || Parse.has_prefix ~prefix:"peer-" outer
       then
         let parts = split_on_colon_outside_brackets prefix in
         List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
@@ -863,10 +863,10 @@ let inner_vo prefix =
         let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
         Modifiers.variant_order_of_prefix inner
   | None ->
-      if String.starts_with ~prefix:"group-" prefix then
+      if Parse.has_prefix ~prefix:"group-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 6 (String.length prefix - 6))
-      else if String.starts_with ~prefix:"peer-" prefix then
+      else if Parse.has_prefix ~prefix:"peer-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 5 (String.length prefix - 5))
       else 0
@@ -905,12 +905,12 @@ let bracket_content_key p =
 (** Check if a prefix is an aria-/data- attribute variant where underscores
     represent spaces. *)
 let is_attr_variant p =
-  String.starts_with ~prefix:"aria-[" p
-  || String.starts_with ~prefix:"data-[" p
-  || String.starts_with ~prefix:"group-aria-[" p
-  || String.starts_with ~prefix:"group-data-[" p
-  || String.starts_with ~prefix:"peer-aria-[" p
-  || String.starts_with ~prefix:"peer-data-[" p
+  Parse.has_prefix ~prefix:"aria-[" p
+  || Parse.has_prefix ~prefix:"data-[" p
+  || Parse.has_prefix ~prefix:"group-aria-[" p
+  || Parse.has_prefix ~prefix:"group-data-[" p
+  || Parse.has_prefix ~prefix:"peer-aria-[" p
+  || Parse.has_prefix ~prefix:"peer-data-[" p
 
 (** Compare two bracket-containing variant prefixes. Sorts by bracket content
     type (pseudo-class before combinator), then by normalized name for
