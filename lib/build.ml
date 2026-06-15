@@ -392,6 +392,10 @@ let add_index triples =
          not_order;
          variant_order = Rule.compute_variant_order base_class sel;
          variant_key = Sort.variant_sort_key base_class nested;
+         normalized_base_class =
+           (match base_class with
+           | Some s -> Sort.normalize_for_sort s
+           | None -> "");
        }
         : Sort.indexed_rule))
     triples

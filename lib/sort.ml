@@ -54,6 +54,9 @@ type indexed_rule = {
   variant_key : string * int;
       (* Precomputed (variant prefix, effective inner order) - see
          [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  normalized_base_class : string;
+      (* Precomputed [normalize_for_sort base_class] ("" when no base class),
+         read by [compare_by_base_class] instead of re-mapping per comparison. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -710,15 +713,11 @@ let normalize_for_sort s =
       | '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | ':' -> '!' | c -> c)
     s
 
-(* Compare by normalized base_class, then index *)
+(* Compare by normalized base_class (precomputed in [add_index]), then index *)
 let compare_by_base_class r1 r2 =
-  let bc1 =
-    match r1.base_class with Some s -> normalize_for_sort s | None -> ""
+  let class_cmp =
+    String.compare r1.normalized_base_class r2.normalized_base_class
   in
-  let bc2 =
-    match r2.base_class with Some s -> normalize_for_sort s | None -> ""
-  in
-  let class_cmp = String.compare bc1 bc2 in
   if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
 
 (* Sort key for supports modifier variants: named before bracket *)
