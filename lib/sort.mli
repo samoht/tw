@@ -47,10 +47,17 @@ type indexed_rule = {
       (** Precomputed [(variant prefix, effective inner order)], built with
           {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
           per comparison. *)
+  normalized_base_class : string;
+      (** Precomputed [normalize_for_sort base_class] ([""] when there is no base
+          class), so [compare_indexed_rules] does not re-map it per comparison. *)
 }
 
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
+
+val normalize_for_sort : string -> string
+(** [normalize_for_sort s] rewrites separator characters so base classes sort in
+    Tailwind order. Stored per rule in {!field-normalized_base_class}. *)
 
 val variant_sort_key : string option -> Css.statement list -> string * int
 (** [variant_sort_key base_class nested] is the [(variant prefix, effective
