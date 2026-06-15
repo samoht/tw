@@ -40,9 +40,10 @@ allowed_words = [
 ]
 
 # The local checkout uses an untracked symlink to the sibling cascade repo for
-# development. It is not part of this package's lint surface.
+# development, and vendored dev tooling under mono/. Neither is part of this
+# package's lint surface.
 [[rules]]
-files = ["cascade/**", "./cascade/**"]
+files = ["cascade/**", "./cascade/**", "mono/**", "./mono/**"]
 exclude = ["*"]
 
 # Modules included in tw.ml are flattened into the top-level Tw namespace, so
