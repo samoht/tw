@@ -19342,7 +19342,7 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
       --color-red-500: #ef4444;
       --text-color-blue-500: #3b82f6;
       --text-sm: .875rem;
-      --text-sm--line-height: 1.25rem;
+      --text-sm--line-height: calc(1.25 / .875);
       --leading-snug: 1.375;
     }
 
