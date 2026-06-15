@@ -219,6 +219,9 @@ type modifier =
   | Group_peer_named of modifier * string
       (** [group-peer-X/name] — peer-X within named group *)
   | Arbitrary_selector of string  (** [[&_p]] — arbitrary selector variant *)
+  | Custom_variant of string * string
+      (** [is-data-foo:] — a [matchVariant]-registered variant: the class-name
+          token and the resolved selector template ([&] is the own class). *)
   | Prose_element of string
       (** [prose-X:] — prose element variant for targeting specific HTML
           elements within prose content *)

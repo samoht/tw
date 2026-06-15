@@ -30,6 +30,18 @@ val register_custom_breakpoints : (string * float) list -> unit
 val clear_custom_breakpoints : unit -> unit
 (** [clear_custom_breakpoints ()] clears the custom breakpoint registry. *)
 
+type custom_variant = { values : (string * string) list; template : string }
+(** A [matchVariant]-registered variant: a value map (the [DEFAULT] value under
+    key [""]) and a selector template with [{}] where the value is substituted.
+    [&] in the template denotes the element's own class. *)
+
+val register_custom_variants : (string * custom_variant) list -> unit
+(** [register_custom_variants vs] sets the [matchVariant] custom variants used
+    during modifier parsing. *)
+
+val clear_custom_variants : unit -> unit
+(** [clear_custom_variants ()] clears the custom variant registry. *)
+
 (** {1 State Variants} *)
 
 val hover : t list -> t

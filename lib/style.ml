@@ -221,6 +221,11 @@ type modifier =
   | Arbitrary_selector of string
       (** [[&_p]] — arbitrary selector variant, [&] is replaced by the element's
           own class selector *)
+  | Custom_variant of string * string
+      (** [is-data-foo:] — a [matchVariant]-registered variant. First field is
+          the class-name token (e.g. [is-data-foo]); second is the resolved
+          selector template with the value substituted (e.g.
+          [&:is([data-foo])]), where [&] is the element's own class. *)
   | Prose_element of string
       (** [prose-X:] — prose element variant, wraps utility in a descendant
           selector targeting specific HTML elements within prose content. E.g.
@@ -504,6 +509,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | Custom_variant (token, _) -> token
   | Prose_element name -> "prose-" ^ name
 
 let rec pp = function

@@ -109,6 +109,65 @@ let custom_breakpoints : (string * float) list ref = ref []
 let register_custom_breakpoints bps = custom_breakpoints := bps
 let clear_custom_breakpoints () = custom_breakpoints := []
 
+type custom_variant = { values : (string * string) list; template : string }
+(** A [matchVariant]-registered variant: a value map (including a [DEFAULT]
+    entry under the key [""]) and a selector template containing [{}] where the
+    resolved value is substituted. *)
+
+(** Registry for [matchVariant] custom variants (set per-test by the harness or
+    by callers that mirror a Tailwind plugin). *)
+let custom_variants : (string * custom_variant) list ref = ref []
+
+let register_custom_variants vs = custom_variants := vs
+let clear_custom_variants () = custom_variants := []
+
+(* Substitute the resolved value into a template's [{}] placeholder. *)
+let custom_variant_apply template value =
+  let tlen = String.length template in
+  let rec find i =
+    if i + 2 > tlen then None
+    else if template.[i] = '{' && template.[i + 1] = '}' then Some i
+    else find (i + 1)
+  in
+  match find 0 with
+  | Some i ->
+      String.sub template 0 i ^ value
+      ^ String.sub template (i + 2) (tlen - i - 2)
+  | None -> template
+
+(* Parse [is-data], [is-data-foo], or [is-data-[potato]] against the registry,
+   returning the (token, resolved-selector) for a [Custom_variant]. *)
+let try_custom_variant s =
+  let resolve name cv =
+    if s = name then
+      Option.map
+        (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
+        (List.assoc_opt "" cv.values)
+    else
+      let prefix = name ^ "-" in
+      if
+        String.length s > String.length prefix
+        && String.sub s 0 (String.length prefix) = prefix
+      then
+        let rest =
+          String.sub s (String.length prefix)
+            (String.length s - String.length prefix)
+        in
+        let value =
+          if
+            String.length rest >= 2
+            && rest.[0] = '['
+            && rest.[String.length rest - 1] = ']'
+          then Some (String.sub rest 1 (String.length rest - 2))
+          else List.assoc_opt rest cv.values
+        in
+        Option.map
+          (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
+          value
+      else None
+  in
+  List.find_map (fun (name, cv) -> resolve name cv) !custom_variants
+
 (** Helper: direction selector (ltr/rtl) *)
 let dir_selector dir cls =
   let open Css.Selector in
@@ -1085,6 +1144,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | Custom_variant (token, _) -> token
   | Prose_element name -> "prose-" ^ name
 
 (* Find matching closing bracket, handling nested brackets *)
@@ -1858,6 +1918,7 @@ let parse_modifier s : modifier option =
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
       (fun () -> try_custom_breakpoint s);
+      (fun () -> try_custom_variant s);
     ]
   in
   List.find_map (fun f -> f ()) fns

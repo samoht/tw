@@ -1383,6 +1383,23 @@ let arbitrary_selector_rule content base_class props =
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
+(* A [matchVariant]-registered custom variant. The class name is the token
+   ([is-data-foo]); the selector is the template with [&] replaced by the
+   element's own class, e.g. [&:is([data-foo])] -> [.is-data-foo\:flex:is(...)].
+   The canonical optimizer then reduces the single-argument [:is()]. *)
+let custom_variant_rule token template base_class props =
+  let modified_class = token ^ ":" ^ base_class in
+  let class_str = Css.Selector.to_string (Css.Selector.Class modified_class) in
+  let buf = Buffer.create (String.length template + String.length class_str) in
+  String.iter
+    (fun c ->
+      if c = '&' then Buffer.add_string buf class_str else Buffer.add_char buf c)
+    template;
+  let sel =
+    Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf))
+  in
+  regular ~selector:sel ~props ~base_class:modified_class ()
+
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
@@ -1473,6 +1490,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       regular ~selector:sel ~props:final_props ~base_class ()
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class props
+  | Style.Custom_variant (token, template) ->
+      custom_variant_rule token template base_class props
   (* Prose element variants — descendant selector with element filter *)
   | Style.Prose_element name ->
       let modified_class = "prose-" ^ name ^ ":" ^ base_class in
