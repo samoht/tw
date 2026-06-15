@@ -42,9 +42,15 @@ let is_valid_class s =
      || String.contains s '['
      || Re.execp (Re.Pcre.regexp {|-\(|}) s)
 
+(* Candidates are quoted with single or double quotes; JS uses double quotes
+   when the candidate itself contains a single quote (e.g.
+   ["data-[foo$='bar'_i]:flex"]). Match either quote style so the outer quote
+   wins instead of capturing an inner single-quoted fragment. *)
 let extract_quoted_strings line =
-  let pattern = Re.Pcre.regexp {|'([^']+)'|} in
-  List.map (fun m -> Re.Group.get m 1) (Re.all pattern line)
+  let pattern = Re.Pcre.regexp {|"([^"]*)"|'([^']*)'|} in
+  Re.all pattern line
+  |> List.map (fun m ->
+      if Re.Group.test m 1 then Re.Group.get m 1 else Re.Group.get m 2)
 
 (* Strip quoted strings from a line so we can detect unquoted brackets. E.g.
    ['z-\[123\]', 'foo'] becomes [, ] — the ] inside quotes is removed. *)
