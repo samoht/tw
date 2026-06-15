@@ -51,6 +51,9 @@ type indexed_rule = {
   merge_key : string option;
   not_order : int;
   variant_order : int;
+  variant_key : string * int;
+      (* Precomputed (variant prefix, effective inner order) - see
+         [variant_sort_key]. Read by [compare_variant_ordered]. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -845,16 +848,24 @@ let inner_vo prefix =
 
 (* Effective inner variant order: prefer prefix-derived, fall back to nested
    media *)
-let effective_ivo r prefix =
+let effective_ivo_of nested prefix =
   let ivo = inner_vo prefix in
   if ivo > 0 then ivo
   else
-    match r.nested with
+    match nested with
     | [ n ] -> (
         match Css.as_media n with
         | Some (cond, _) -> Modifiers.variant_order_of_media_cond cond
         | None -> 0)
     | _ -> 0
+
+(* The variant prefix and effective inner order are pure functions of a rule's
+   base class and nested statements, but [compare_variant_ordered] needs them on
+   every comparison. Precompute them once per rule (see [add_index]) so the hot
+   sort comparator only reads the result. *)
+let variant_sort_key base_class nested =
+  let prefix = variant_prefix base_class in
+  (prefix, effective_ivo_of nested prefix)
 
 (** Classify bracket content: pseudo-class brackets ([:checked]) sort before
     combinator/ampersand brackets ([&>img], [+img], etc.). *)
@@ -920,11 +931,9 @@ let compare_variant_ordered r1 r2 =
       let vo_cmp = Int.compare r1.variant_order r2.variant_order in
       if vo_cmp <> 0 then vo_cmp
       else
-        let p1_prefix = variant_prefix r1.base_class in
-        let p2_prefix = variant_prefix r2.base_class in
-        let ivo_cmp =
-          Int.compare (effective_ivo r1 p1_prefix) (effective_ivo r2 p2_prefix)
-        in
+        let p1_prefix, ivo1 = r1.variant_key in
+        let p2_prefix, ivo2 = r2.variant_key in
+        let ivo_cmp = Int.compare ivo1 ivo2 in
         if ivo_cmp <> 0 then ivo_cmp
         else
           let nested_cmp =

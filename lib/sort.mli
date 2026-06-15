@@ -43,10 +43,18 @@ type indexed_rule = {
   not_order : int;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
+  variant_key : string * int;
+      (** Precomputed [(variant prefix, effective inner order)], built with
+          {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
+          per comparison. *)
 }
 
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
+
+val variant_sort_key : string option -> Css.statement list -> string * int
+(** [variant_sort_key base_class nested] is the [(variant prefix, effective
+    inner variant order)] pair stored in {!field-variant_key}. *)
 
 (** {1 Sorting} *)
 
