@@ -56,7 +56,14 @@ type indexed_rule = {
          [variant_sort_key]. Read by [compare_variant_ordered]. *)
   normalized_base_class : string;
       (* Precomputed [normalize_for_sort base_class] ("" when no base class),
-         read by [compare_by_base_class] instead of re-mapping per comparison. *)
+         read by [compare_by_base_class] instead of re-mapping per
+         comparison. *)
+  media_key : Css.Media.key option;
+      (* Precomputed sort key of the rule's own media condition (the [`Media]
+         case of [rule_type]); [None] otherwise. Lets media comparisons use
+         [Css.Media.compare_keys] instead of re-serializing the query. *)
+  nested_media_key : Css.Media.key option;
+      (* Precomputed sort key of a single nested media condition. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -202,6 +209,23 @@ let extract_media_sort_key = function
   | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
 
+(* Precompute the sort keys for a rule's own and nested media conditions, so the
+   comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing the
+   query on every comparison. See [media_key]/[nested_media_key]. *)
+let media_sort_keys rule_type nested =
+  let media_key =
+    match rule_type with `Media c -> Some (Css.Media.sort_key c) | _ -> None
+  in
+  let nested_media_key =
+    match nested with
+    | [ n ] -> (
+        match Css.as_media n with
+        | Some (c, _) -> Some (Css.Media.sort_key c)
+        | None -> None)
+    | _ -> None
+  in
+  (media_key, nested_media_key)
+
 (* ======================================================================== *)
 (* Priority Comparison *)
 (* ======================================================================== *)
@@ -270,7 +294,7 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
 (* ======================================================================== *)
 
 (** Compare two media conditions within the same group *)
-let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
+let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
   if group1 = 2000 then Float.compare sub1 sub2
   else if group1 = 1000 then
     match (cond1, cond2) with
@@ -280,8 +304,8 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
           (preference_condition_order c2)
     | _ -> 0
   else
-    match (cond1, cond2) with
-    | Some c1, Some c2 -> Css.Media.compare c1 c2
+    match (key1, key2) with
+    | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
     | _ -> 0
 
 (* For hover media, separate rules by modifier depth so that single-modifier
@@ -298,12 +322,9 @@ let compare_hover_depth cond1 cond2 sel1 sel2 =
 (* Compare by nested media condition when both have nested media. This sorts
    stacked min/max variants like min-sm:max-xl vs min-sm:max-lg by the inner
    media condition. *)
-let compare_nested_media_cond nested1 nested2 =
-  match (nested1, nested2) with
-  | [ n1 ], [ n2 ] -> (
-      match (Css.as_media n1, Css.as_media n2) with
-      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
-      | _ -> 0)
+let compare_nested_media_cond nk1 nk2 =
+  match (nk1, nk2) with
+  | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
   | _ -> 0
 
 let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
@@ -311,7 +332,9 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
   let depth_cmp = compare_hover_depth cond1 cond2 r1.selector r2.selector in
   if depth_cmp <> 0 then depth_cmp
   else
-    let nested_media_cmp = compare_nested_media_cond r1.nested r2.nested in
+    let nested_media_cmp =
+      compare_nested_media_cond r1.nested_media_key r2.nested_media_key
+    in
     if nested_media_cmp <> 0 then nested_media_cmp
     else
       let same_utility =
@@ -337,7 +360,10 @@ let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
     else
       let cond1 = match r1.rule_type with `Media c -> Some c | _ -> None in
       let cond2 = match r2.rule_type with `Media c -> Some c | _ -> None in
-      let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
+      let cond_cmp =
+        compare_media_conditions group1 sub1 sub2 cond1 cond2 r1.media_key
+          r2.media_key
+      in
       if cond_cmp <> 0 then cond_cmp
       else compare_same_media_group r1 r2 cond1 cond2
 
@@ -754,9 +780,9 @@ let compare_nested_media r1 r2 =
   | [], [] -> 0
   | [], _ -> -1
   | _, [] -> 1
-  | [ n1 ], [ n2 ] -> (
-      match (Css.as_media n1, Css.as_media n2) with
-      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+  | [ _ ], [ _ ] -> (
+      match (r1.nested_media_key, r2.nested_media_key) with
+      | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
       | _ -> 0)
   | _ -> 0
 
@@ -943,9 +969,9 @@ let compare_variant_ordered r1 r2 =
           if nested_cmp <> 0 then nested_cmp
           else
             let media_cmp =
-              match (r1.rule_type, r2.rule_type) with
-              | `Media c1, `Media c2 ->
-                  let cmp = Css.Media.compare c1 c2 in
+              match (r1.media_key, r2.media_key) with
+              | Some k1, Some k2 ->
+                  let cmp = Css.Media.compare_keys k1 k2 in
                   if cmp <> 0 then cmp else compare_nested_media r1 r2
               | _ -> 0
             in

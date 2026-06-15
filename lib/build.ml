@@ -302,7 +302,8 @@ let adjust_pseudo class_name (prio, suborder) =
 let collect_order_map tw_classes =
   let m = Hashtbl.create 256 in
   let rec collect = function
-    | Utility.Base b -> Hashtbl.replace m (Utility.class_of_base b) (Utility.order b)
+    | Utility.Base b ->
+        Hashtbl.replace m (Utility.class_of_base b) (Utility.order b)
     | Utility.Modified (_, t) -> collect t
     | Utility.Group us -> List.iter collect us
   in
@@ -377,6 +378,7 @@ let add_index triples =
       Buffer.clear buf;
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
+      let media_key, nested_media_key = Sort.media_sort_keys typ nested in
       ({
          index = i;
          rule_type = typ;
@@ -396,6 +398,8 @@ let add_index triples =
            (match base_class with
            | Some s -> Sort.normalize_for_sort s
            | None -> "");
+         media_key;
+         nested_media_key;
        }
         : Sort.indexed_rule))
     triples
