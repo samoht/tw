@@ -283,28 +283,43 @@ let deduplicate_typed_triples triples =
    base_class may contain modifier prefixes (e.g., "md:grid-cols-2"), so we need
    to strip those before looking up the utility. Pseudo-element modifiers
    (before:, after:) use a fixed high suborder to preserve source order. *)
-let order_of_base base_class selector =
+(* Pseudo-element modifiers add 5000 to the base utility's suborder, keeping
+   them near their base utility but after all regular utilities (matching
+   Tailwind v4, where pseudo-elements appear late). *)
+let adjust_pseudo class_name (prio, suborder) =
+  if
+    String.starts_with ~prefix:"before:" class_name
+    || String.starts_with ~prefix:"after:" class_name
+  then (prio, suborder + 5000)
+  else (prio, suborder)
+
+(* The base utility's order is [Utility.order] on its value, recovered here from
+   the class string by re-parsing it through the handlers - the expensive part.
+   [order_map] (built once per generation from the actual utility values, see
+   [collect_order_map]) lets the common case skip that parse; an unknown class
+   (not in the input set) falls back to the parse, or to a selector-based
+   conflict order when even that fails. *)
+let collect_order_map tw_classes =
+  let m = Hashtbl.create 256 in
+  let rec collect = function
+    | Utility.Base b -> Hashtbl.replace m (Utility.class_of_base b) (Utility.order b)
+    | Utility.Modified (_, t) -> collect t
+    | Utility.Group us -> List.iter collect us
+  in
+  List.iter collect tw_classes;
+  m
+
+let order_of_base order_map base_class selector =
   match base_class with
   | Some class_name -> (
-      (* Check if this has a pseudo-element modifier prefix *)
-      let has_pseudo_element_modifier =
-        String.starts_with ~prefix:"before:" class_name
-        || String.starts_with ~prefix:"after:" class_name
-      in
-      (* Strip modifier prefix to get base utility name *)
       let base_utility = extract_base_utility class_name in
-      let parts = String.split_on_char '-' base_utility in
-      match Utility.base_of_strings parts with
-      | Ok u ->
-          let prio, suborder = Utility.order u in
-          if has_pseudo_element_modifier then
-            (* Pseudo-element modifiers add 5000 to the base utility's suborder.
-               This keeps them near their base utility but after all regular
-               utilities, matching Tailwind v4 behavior where pseudo-elements
-               appear late. *)
-            (prio, suborder + 5000)
-          else Utility.order u
-      | Error _ -> conflict_order (Css.Selector.to_string selector))
+      match Hashtbl.find_opt order_map base_utility with
+      | Some order -> adjust_pseudo class_name order
+      | None -> (
+          let parts = String.split_on_char '-' base_utility in
+          match Utility.base_of_strings parts with
+          | Ok u -> adjust_pseudo class_name (Utility.order u)
+          | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
 
 (* Adjust order with not-variant offset *)
@@ -316,39 +331,40 @@ let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key ~not_order
     =
   Some (typ, selector, props, order, nested, base_class, merge_key, not_order)
 
-let rule_to_triple = function
+(* The [(hover: hover)] media condition is the same for every hover rule. *)
+let hover_media : Css.Media.t =
+  Css.Media.Cond
+    (Css.Media.Feature
+       (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
+
+let rule_to_triple order_map = function
   | Regular
       { selector; props; base_class; nested; has_hover; merge_key; not_order }
     ->
       let order =
-        apply_not_order (order_of_base base_class selector) not_order
+        apply_not_order (order_of_base order_map base_class selector) not_order
       in
-      let hover : Css.Media.t =
-        Css.Media.Cond
-          (Css.Media.Feature
-             (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
-      in
-      let typ = if has_hover then `Media hover else `Regular in
+      let typ = if has_hover then `Media hover_media else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
         ~not_order
   | Media_query { condition; selector; props; base_class; nested; not_order } ->
       let order =
-        apply_not_order (order_of_base base_class selector) not_order
+        apply_not_order (order_of_base order_map base_class selector) not_order
       in
       triple (`Media condition) ~selector ~props ~order ~nested ~base_class
         ~merge_key:None ~not_order
   | Container_query { condition; selector; props; base_class } ->
       triple (`Container condition) ~selector ~props
-        ~order:(order_of_base base_class selector)
+        ~order:(order_of_base order_map base_class selector)
         ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Starting_style { selector; props; base_class } ->
       triple `Starting ~selector ~props
-        ~order:(order_of_base base_class selector)
+        ~order:(order_of_base order_map base_class selector)
         ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Supports_query
       { condition; selector; props; base_class; merge_key; not_order } ->
       let order =
-        apply_not_order (order_of_base base_class selector) not_order
+        apply_not_order (order_of_base order_map base_class selector) not_order
       in
       triple (`Supports condition) ~selector ~props ~order ~nested:[]
         ~base_class ~merge_key ~not_order
@@ -381,13 +397,13 @@ let add_index triples =
 
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
-let rule_sets_from_selector_props all_rules =
+let rule_sets_from_selector_props order_map all_rules =
   (* All rules (including hover) are now sorted together. Hover rules are
      converted to Media "(hover:hover)" rules in rule_to_triple, so they
      participate in the normal media query sorting. *)
   let indexed =
     all_rules
-    |> List.filter_map rule_to_triple
+    |> List.filter_map (rule_to_triple order_map)
     |> deduplicate_typed_triples |> add_index
   in
   let sorted = List.sort Sort.compare_indexed_rules indexed in
@@ -423,9 +439,9 @@ let utilities_layer ~layers ~statements =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules all_rules =
+let sorted_indexed_rules order_map all_rules =
   all_rules
-  |> List.filter_map rule_to_triple
+  |> List.filter_map (rule_to_triple order_map)
   |> deduplicate_typed_triples |> add_index
   |> List.sort Sort.compare_indexed_rules
 
@@ -469,7 +485,7 @@ let var_names_of_sorted_rules sorted_rules =
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map Rule.outputs in
-  rule_sets_from_selector_props all_rules
+  rule_sets_from_selector_props (collect_order_map tw_classes) all_rules
 
 (* ======================================================================== *)
 (* Layer Generation - CSS @layer directives and theme variable resolution *)
@@ -1211,10 +1227,13 @@ let default_config = { base = true; forms = None; layers = true }
 
 let to_css ?(config = default_config) tw_classes =
   let selector_props = List.concat_map Rule.outputs tw_classes in
+  (* Resolve each utility's order from its value once, so [order_of_base] does
+     not re-parse class strings while building/sorting rules. *)
+  let order_map = collect_order_map tw_classes in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
-  let sorted_rules = sorted_indexed_rules selector_props in
+  let sorted_rules = sorted_indexed_rules order_map selector_props in
   let statements = List.map indexed_rule_to_statement sorted_rules in
   let layer_results =
     layers ~layers:config.layers ~include_base:config.base ?forms:config.forms
