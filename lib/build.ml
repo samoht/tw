@@ -295,20 +295,10 @@ let adjust_pseudo class_name (prio, suborder) =
 
 (* The base utility's order is [Utility.order] on its value, recovered here from
    the class string by re-parsing it through the handlers - the expensive part.
-   [order_map] (built once per generation from the actual utility values, see
-   [collect_order_map]) lets the common case skip that parse; an unknown class
-   (not in the input set) falls back to the parse, or to a selector-based
-   conflict order when even that fails. *)
-let collect_order_map tw_classes =
-  let m = Hashtbl.create 256 in
-  let rec collect = function
-    | Utility.Base b ->
-        Hashtbl.replace m (Utility.class_of_base b) (Utility.order b)
-    | Utility.Modified (_, t) -> collect t
-    | Utility.Group us -> List.iter collect us
-  in
-  List.iter collect tw_classes;
-  m
+   [order_map] is populated by [Rule.outputs ~order_tbl] from the class strings
+   it already builds, so the common case is a lookup; an unknown class (not in
+   the input set) falls back to the parse, or to a selector-based conflict order
+   when even that fails. *)
 
 let order_of_base order_map base_class selector =
   match base_class with
@@ -493,8 +483,9 @@ let var_names_of_sorted_rules sorted_rules =
       sort_vars_by_property_order (set_vars @ ref_vars))
 
 let rule_sets tw_classes =
-  let all_rules = tw_classes |> List.concat_map Rule.outputs in
-  rule_sets_from_selector_props (collect_order_map tw_classes) all_rules
+  let order_tbl = Hashtbl.create 256 in
+  let all_rules = List.concat_map (Rule.outputs ~order_tbl) tw_classes in
+  rule_sets_from_selector_props order_tbl all_rules
 
 (* ======================================================================== *)
 (* Layer Generation - CSS @layer directives and theme variable resolution *)
@@ -1235,10 +1226,13 @@ type config = { base : bool; forms : bool option; layers : bool }
 let default_config = { base = true; forms = None; layers = true }
 
 let to_css ?(config = default_config) tw_classes =
-  let selector_props = List.concat_map Rule.outputs tw_classes in
-  (* Resolve each utility's order from its value once, so [order_of_base] does
-     not re-parse class strings while building/sorting rules. *)
-  let order_map = collect_order_map tw_classes in
+  (* [Rule.outputs ~order_tbl] records each base utility's order under the class
+     name it already builds, so [order_of_base] looks it up instead of re-parsing
+     the class string while building/sorting rules. *)
+  let order_map = Hashtbl.create 256 in
+  let selector_props =
+    List.concat_map (Rule.outputs ~order_tbl:order_map) tw_classes
+  in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
