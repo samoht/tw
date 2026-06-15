@@ -40,3 +40,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/samoht/tw.git"
+pin-depends: [
+  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#main" ]
+]
