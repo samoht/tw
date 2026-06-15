@@ -1318,35 +1318,45 @@ let theme_order_with_shade color_name shade =
   (var_priority, base_order + shade)
 
 (* Memoization table for color variables *)
-let color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
+(* Keyed by [(color, shade)] (shade normalised to 0 for shadeless colours, which
+   ignore it) rather than the materialized name, so a cache hit skips building
+   the name string entirely - and within one generation bg/text/border share the
+   same colour, so hits happen even on a single cold run. *)
+let color_var_cache : (color * int, Css.color Var.theme) Hashtbl.t =
   Hashtbl.create 128
+
+(* Property-scoped colour variables (text-color-*, accent-color-*, ...) keyed by
+   their full name, kept separate from the [(color, shade)] cache above. *)
+let property_color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
+  Hashtbl.create 64
 
 (* Helper to create a color variable with memoization. Creates theme layer
    variables with deterministic ordering based on color and shade. *)
 let color_var color shade =
-  let base = pp color in
-  (* Escape brackets in variable names - CSS variable names can't have unescaped
-     []. Almost no colour name contains brackets, so keep a zero-allocation fast
-     path and only build a buffer when escaping is actually needed. *)
-  let escaped_base =
-    if String.contains base '[' || String.contains base ']' then (
-      let buf = Buffer.create (String.length base + 4) in
-      String.iter
-        (fun c ->
-          (match c with '[' | ']' -> Buffer.add_char buf '\\' | _ -> ());
-          Buffer.add_char buf c)
-        base;
-      Buffer.contents buf)
-    else base
-  in
-  let name =
-    if is_shadeless color then "color-" ^ escaped_base
-    else "color-" ^ escaped_base ^ "-" ^ string_of_int shade
-  in
-  (* Check if variable already exists in cache *)
-  match Hashtbl.find_opt color_var_cache name with
+  let shadeless = is_shadeless color in
+  let key = (color, if shadeless then 0 else shade) in
+  match Hashtbl.find_opt color_var_cache key with
   | Some var -> var
   | None ->
+      let base = pp color in
+      (* Escape brackets in variable names - CSS variable names can't have
+         unescaped []. Almost no colour name contains brackets, so keep a
+         zero-allocation fast path and only build a buffer when needed. *)
+      let escaped_base =
+        if String.contains base '[' || String.contains base ']' then (
+          let buf = Buffer.create (String.length base + 4) in
+          String.iter
+            (fun c ->
+              (match c with '[' | ']' -> Buffer.add_char buf '\\' | _ -> ());
+              Buffer.add_char buf c)
+            base;
+          Buffer.contents buf)
+        else base
+      in
+      let name =
+        if shadeless then "color-" ^ escaped_base
+        else Pp.str [ "color-"; escaped_base; "-"; string_of_int shade ]
+      in
       (* Create theme variable with deterministic theme layer order: - Base
          colors use theme_order(color_name) - Shaded colors use
          theme_order_with_shade(color_name, shade)
@@ -1355,11 +1365,11 @@ let color_var color shade =
          input, not by a fixed ordering. Our implementation uses a fixed
          ordering for determinism and consistency. *)
       let var_order =
-        if is_shadeless color then theme_order_with_shade base 0
+        if shadeless then theme_order_with_shade base 0
         else theme_order_with_shade base shade
       in
       let var = Var.theme Css.Color name ~order:var_order in
-      Hashtbl.add color_var_cache name var;
+      Hashtbl.add color_var_cache key var;
       var
 
 let color_to_string (c : color) : string =
@@ -1625,7 +1635,7 @@ module Handler = struct
     | Some _ -> (
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
-        match Hashtbl.find_opt color_var_cache name with
+        match Hashtbl.find_opt property_color_var_cache name with
         | Some var -> var
         | None ->
             let base = pp c in
@@ -1634,7 +1644,7 @@ module Handler = struct
               else theme_order_with_shade base shade
             in
             let var = Var.theme Css.Color name ~order:var_order in
-            Hashtbl.add color_var_cache name var;
+            Hashtbl.add property_color_var_cache name var;
             var)
     | None ->
         (* Fall back to generic --color-{name} *)
