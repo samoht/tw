@@ -9,7 +9,7 @@ license: "ISC"
 homepage: "https://github.com/samoht/tw"
 bug-reports: "https://github.com/samoht/tw/issues"
 depends: [
-  "ocaml"
+  "ocaml" {>= "5.2"}
   "dune" {>= "3.0"}
   "cascade"
   "cmdliner"
@@ -23,6 +23,7 @@ depends: [
   "astring" {with-test}
   "crunch" {with-test}
   "alcobar" {with-test}
+  "mdx" {with-test}
   "odoc" {with-doc}
 ]
 build: [
