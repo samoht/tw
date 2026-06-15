@@ -27,6 +27,7 @@ include Overscroll
 include Overflow_wrap
 include Box_sizing
 include Tab
+include Scrollbar
 include Field_sizing
 include Grid
 include Grid_item
@@ -131,6 +132,7 @@ module Overscroll = Overscroll
 module Overflow_wrap = Overflow_wrap
 module Box_sizing = Box_sizing
 module Tab = Tab
+module Scrollbar = Scrollbar
 module Field_sizing = Field_sizing
 module Grid = Grid
 module Grid_item = Grid_item
