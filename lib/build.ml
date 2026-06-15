@@ -1153,13 +1153,12 @@ let sort_keyframes_by_var_order keyframes =
       else String.compare name1 name2 (* Stable sort for same order *))
 
 (** Build all CSS layers from utilities and rules *)
-let layers ~layers ~include_base ?forms ~selector_props tw_classes statements =
+let layers ~layers ~include_base ?forms ~selector_props ~sorted_rules tw_classes
+    statements =
   let styles = List.map Utility.to_style tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
   in
-  (* Get sorted indexed_rules to extract first-usage order from sorted output *)
-  let sorted_rules = sorted_indexed_rules selector_props in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
      Within each utility, vars are sorted by property_order (done in
@@ -1212,10 +1211,14 @@ let default_config = { base = true; forms = None; layers = true }
 
 let to_css ?(config = default_config) tw_classes =
   let selector_props = List.concat_map Rule.outputs tw_classes in
-  let statements = rule_sets_from_selector_props selector_props in
+  (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
+     utilities-layer statements and the variable first-usage order, so compute
+     it once and share it rather than recomputing inside [layers]. *)
+  let sorted_rules = sorted_indexed_rules selector_props in
+  let statements = List.map indexed_rule_to_statement sorted_rules in
   let layer_results =
     layers ~layers:config.layers ~include_base:config.base ?forms:config.forms
-      ~selector_props tw_classes statements
+      ~selector_props ~sorted_rules tw_classes statements
   in
   Css.concat layer_results
 
