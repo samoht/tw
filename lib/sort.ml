@@ -32,14 +32,16 @@ type rule_relationship =
   | Same_utility of string  (** Both rules from same base utility *)
   | Different_utilities  (** Rules from different utilities *)
 
+type rule_type =
+  [ `Regular
+  | `Media of Css.Media.t
+  | `Container of Css.Container.t
+  | `Starting
+  | `Supports of Css.Supports.t ]
+
 type indexed_rule = {
   index : int;
-  rule_type :
-    [ `Regular
-    | `Media of Css.Media.t
-    | `Container of Css.Container.t
-    | `Starting
-    | `Supports of Css.Supports.t ];
+  rule_type : rule_type;
   selector : Css.Selector.t;
   selector_str : string;
   selector_kind : selector_kind;
@@ -54,6 +56,15 @@ type indexed_rule = {
   variant_key : string * int;
       (* Precomputed (variant prefix, effective inner order) - see
          [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  media_group_sub : int * float;
+      (* Precomputed [extract_media_sort_key rule_type]: the (group, subkey)
+         that opens every media comparison. *)
+  media_key : Css.Media.key option;
+      (* Precomputed sort key of the rule's own media condition (the [`Media]
+         case of [rule_type]); [None] otherwise. *)
+  nested_media_key : Css.Media.key option;
+      (* Precomputed sort key of a single nested media condition, used to order
+         stacked variants like [min-sm:max-xl]. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -195,9 +206,26 @@ let rule_type_order = function
 
 (* Extract media sort key using Css.Media.kind and group_order. Returns (group,
    subkey) where subkey is rem value for responsive conditions. *)
-let extract_media_sort_key = function
+let extract_media_sort_key : rule_type -> int * float = function
   | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
+
+(* Precompute everything a media comparison reads from a rule, so the sort never
+   re-derives a [Css.Media.kind] or re-serializes a query: the (group, subkey)
+   pair, the rule's own media key, and a single nested media key. *)
+let nested_media_condition = function
+  | [ stmt ] -> (
+      match Css.as_media stmt with Some (c, _) -> Some c | None -> None)
+  | _ -> None
+
+let precompute_media_keys (rule_type : rule_type) nested =
+  let media_key =
+    match rule_type with `Media c -> Some (Css.Media.sort_key c) | _ -> None
+  in
+  let nested_media_key =
+    Option.map Css.Media.sort_key (nested_media_condition nested)
+  in
+  (extract_media_sort_key rule_type, media_key, nested_media_key)
 
 (* ======================================================================== *)
 (* Priority Comparison *)
@@ -266,8 +294,10 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
 (* Media Query Comparison *)
 (* ======================================================================== *)
 
-(** Compare two media conditions within the same group *)
-let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
+(** Compare two media conditions within the same group. The responsive branch
+    uses the precomputed keys ([key1]/[key2]) so it never re-serializes; the
+    preference branch reads the cheap ordinal off the conditions directly. *)
+let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
   if group1 = 2000 then Float.compare sub1 sub2
   else if group1 = 1000 then
     match (cond1, cond2) with
@@ -277,8 +307,8 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
           (preference_condition_order c2)
     | _ -> 0
   else
-    match (cond1, cond2) with
-    | Some c1, Some c2 -> Css.Media.compare c1 c2
+    match (key1, key2) with
+    | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
     | _ -> 0
 
 (* For hover media, separate rules by modifier depth so that single-modifier
@@ -294,13 +324,10 @@ let compare_hover_depth cond1 cond2 sel1 sel2 =
 
 (* Compare by nested media condition when both have nested media. This sorts
    stacked min/max variants like min-sm:max-xl vs min-sm:max-lg by the inner
-   media condition. *)
-let compare_nested_media_cond nested1 nested2 =
-  match (nested1, nested2) with
-  | [ n1 ], [ n2 ] -> (
-      match (Css.as_media n1, Css.as_media n2) with
-      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
-      | _ -> 0)
+   media condition, from precomputed keys. *)
+let compare_nested_media_cond key1 key2 =
+  match (key1, key2) with
+  | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
   | _ -> 0
 
 let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
@@ -308,7 +335,9 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
   let depth_cmp = compare_hover_depth cond1 cond2 r1.selector r2.selector in
   if depth_cmp <> 0 then depth_cmp
   else
-    let nested_media_cmp = compare_nested_media_cond r1.nested r2.nested in
+    let nested_media_cmp =
+      compare_nested_media_cond r1.nested_media_key r2.nested_media_key
+    in
     if nested_media_cmp <> 0 then nested_media_cmp
     else
       let same_utility =
@@ -327,14 +356,17 @@ let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
   let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
   if nested_cmp <> 0 then nested_cmp
   else
-    let group1, sub1 = extract_media_sort_key r1.rule_type in
-    let group2, sub2 = extract_media_sort_key r2.rule_type in
+    let group1, sub1 = r1.media_group_sub in
+    let group2, sub2 = r2.media_group_sub in
     let key_cmp = Int.compare group1 group2 in
     if key_cmp <> 0 then key_cmp
     else
       let cond1 = match r1.rule_type with `Media c -> Some c | _ -> None in
       let cond2 = match r2.rule_type with `Media c -> Some c | _ -> None in
-      let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
+      let cond_cmp =
+        compare_media_conditions group1 sub1 sub2 cond1 cond2 r1.media_key
+          r2.media_key
+      in
       if cond_cmp <> 0 then cond_cmp
       else compare_same_media_group r1 r2 cond1 cond2
 
@@ -749,15 +781,16 @@ let compare_by_order_then_selector r1 r2 =
     let sel_cmp = natural_compare r1.selector_str r2.selector_str in
     if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
 
-(* Compare nested media conditions *)
+(* Compare nested media conditions. Presence of nested content orders first; two
+   single nested media compare from their precomputed keys. *)
 let compare_nested_media r1 r2 =
   match (r1.nested, r2.nested) with
   | [], [] -> 0
   | [], _ -> -1
   | _, [] -> 1
-  | [ n1 ], [ n2 ] -> (
-      match (Css.as_media n1, Css.as_media n2) with
-      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+  | [ _ ], [ _ ] -> (
+      match (r1.nested_media_key, r2.nested_media_key) with
+      | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
       | _ -> 0)
   | _ -> 0
 
@@ -944,9 +977,9 @@ let compare_variant_ordered r1 r2 =
           if nested_cmp <> 0 then nested_cmp
           else
             let media_cmp =
-              match (r1.rule_type, r2.rule_type) with
-              | `Media c1, `Media c2 ->
-                  let cmp = Css.Media.compare c1 c2 in
+              match (r1.media_key, r2.media_key) with
+              | Some k1, Some k2 ->
+                  let cmp = Css.Media.compare_keys k1 k2 in
                   if cmp <> 0 then cmp else compare_nested_media r1 r2
               | _ -> 0
             in
