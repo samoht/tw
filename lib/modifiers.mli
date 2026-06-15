@@ -693,7 +693,7 @@ val is_aria_shorthand : string -> bool
 
 val not_variant_order : modifier -> int
 (** [not_variant_order m] returns the cascade sort key for a [not-*] inner
-    modifier. Matches the ordering of [variant_order_of_prefix] for the
+    modifier. Matches the ordering of {!val-variant_order_of_prefix} for the
     corresponding pseudo-class/media prefix. *)
 
 val variant_order_of_prefix : string -> int
@@ -704,6 +704,6 @@ val variant_order_of_prefix : string -> int
 
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as
-    [variant_order_of_prefix] for the corresponding CSS media condition. Used to
-    derive the cascade position of rules whose ordering comes from a nested
-    media query rather than from the class-name prefix alone. *)
+    {!val-variant_order_of_prefix} for the corresponding CSS media condition.
+    Used to derive the cascade position of rules whose ordering comes from a
+    nested media query rather than from the class-name prefix alone. *)

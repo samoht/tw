@@ -9,6 +9,11 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
+
+  (* Capture project Pp helpers before [open Css] shadows Pp with Css.Pp. *)
+  let pp_str = Pp.str
+  let pp_int = Pp.int
+
   open Css
 
   type t =
@@ -83,7 +88,8 @@ module Handler = struct
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
     let cursor =
-      Cascade.Cursor.of_string (Fmt.str "calc(var(--spacing) * %d)" n)
+      Cascade.Cursor.of_string
+        (pp_str [ "calc(var(--spacing) * "; pp_int n; ")" ])
     in
     let value =
       match
@@ -91,7 +97,8 @@ module Handler = struct
       with
       | Ok v -> v
       | Error _ ->
-          invalid_arg (Fmt.str "basis-%d: failed to parse spacing calc" n)
+          invalid_arg
+            (pp_str [ "basis-"; pp_int n; ": failed to parse spacing calc" ])
     in
     style [ spacing_decl; flex_basis value ]
 

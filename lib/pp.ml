@@ -57,6 +57,11 @@ let bool = string_of_bool
 (** Format int *)
 let int = string_of_int
 
+(** Format a byte (0-255) as two lowercase hex digits *)
+let hex_byte n =
+  let hex = "0123456789abcdef" in
+  String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
+
 (** Format float nicely without trailing dots *)
 let float f =
   let s = string_of_float f in

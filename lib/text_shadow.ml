@@ -2,8 +2,9 @@
 
 module Css = Cascade.Css
 
-(* Capture Pp.float before open Css shadows it *)
+(* Capture project Pp helpers before open Css shadows Pp with Css.Pp. *)
 let pp_float = Pp.float
+let pp_str = Pp.str
 
 module Handler = struct
   open Style
@@ -74,7 +75,8 @@ module Handler = struct
     | None -> make_color_var (Parse.extract_var_name v)
 
   let relative_oklab_from_var v percent =
-    Css.parse_color (Fmt.str "oklab(from %s l a b / %s%%)" v (pp_float percent))
+    Css.parse_color
+      (pp_str [ "oklab(from "; v; " l a b / "; pp_float percent; "%)" ])
 
   (* ============ Parse arbitrary shadow ============ *)
 

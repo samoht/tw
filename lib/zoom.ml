@@ -52,7 +52,4 @@ module Handler = struct
     | _ -> Error (`Msg "Not a zoom utility")
 end
 
-open Handler
-
 let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)

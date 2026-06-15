@@ -140,8 +140,9 @@ module type Handler = sig
 end
 
 val check_handler_roundtrip : (module Handler) -> string -> unit
-(** [check_handler_roundtrip h class_name] tests that parsing with [of_class]
-    and converting back with [to_class] round-trip correctly. *)
+(** [check_handler_roundtrip h class_name] tests that parsing with
+    {!val-of_class} and converting back with {!val-to_class} round-trip
+    correctly. *)
 
 val check_invalid_input : (module Handler) -> string -> unit
 (** [check_invalid_input h input] tests that parsing fails for invalid input as

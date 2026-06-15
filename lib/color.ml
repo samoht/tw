@@ -273,19 +273,11 @@ let hex_to_rgb hex =
   with Invalid_argument _ | Failure _ -> None
 
 let rgb_to_hex rgb =
-  let to_hex_byte n =
-    let hex = "0123456789abcdef" in
-    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
-  in
-  "#" ^ to_hex_byte rgb.r ^ to_hex_byte rgb.g ^ to_hex_byte rgb.b
+  "#" ^ Pp.hex_byte rgb.r ^ Pp.hex_byte rgb.g ^ Pp.hex_byte rgb.b
 
 (** Add alpha to a hex color string. Returns #RRGGBBAA format. The opacity is a
     percentage (0-100). *)
 let hex_with_alpha hex_str opacity_percent =
-  let to_hex_byte n =
-    let hex = "0123456789abcdef" in
-    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
-  in
   (* Parse hex color *)
   let hex_clean =
     if String.length hex_str > 0 && hex_str.[0] = '#' then
@@ -295,7 +287,7 @@ let hex_with_alpha hex_str opacity_percent =
   (* Convert opacity percentage to 8-bit alpha value, with rounding *)
   let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
   let alpha_clamped = max 0 (min 255 alpha) in
-  let full = hex_clean ^ to_hex_byte alpha_clamped in
+  let full = hex_clean ^ Pp.hex_byte alpha_clamped in
   (* Shorten #RRGGBBAA → #RGBA when each pair is identical *)
   let len = String.length full in
   let shortened =

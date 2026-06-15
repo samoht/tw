@@ -394,15 +394,23 @@ let rule_sets_from_selector_props all_rules =
   if Sort.debug_compare_enabled () then
     List.iter
       (fun (r : Sort.indexed_rule) ->
-        Fmt.epr "SORTED: vo=%d base=%s type=%s nested=%d@." r.variant_order
-          (match r.base_class with Some s -> s | None -> "<none>")
-          (match r.rule_type with
-          | `Regular -> "R"
-          | `Media m -> "M:" ^ Css.Media.to_string m
-          | `Container _ -> "C"
-          | `Starting -> "S"
-          | `Supports _ -> "U")
-          (List.length r.nested))
+        prerr_endline
+          (Pp.str
+             [
+               "SORTED: vo=";
+               Pp.int r.variant_order;
+               " base=";
+               (match r.base_class with Some s -> s | None -> "<none>");
+               " type=";
+               (match r.rule_type with
+               | `Regular -> "R"
+               | `Media m -> "M:" ^ Css.Media.to_string m
+               | `Container _ -> "C"
+               | `Starting -> "S"
+               | `Supports _ -> "U");
+               " nested=";
+               Pp.int (List.length r.nested);
+             ]))
       sorted;
   sorted |> List.map indexed_rule_to_statement
 
