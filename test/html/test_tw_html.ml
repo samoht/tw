@@ -171,7 +171,7 @@ let test_page_cache_busting () =
   let test_page =
     page ~title:"Test Page"
       ~meta:[ ("description", "Test page for cache busting") ]
-      ~tw_css:"styles.css" [ (* head content *) ]
+      ~tw_css:(Link "styles.css") [ (* head content *) ]
       [ div ~tw:Tw.[ p 4; bg white ] [ txt "Test content" ] ]
   in
 
@@ -183,7 +183,9 @@ let test_page_cache_busting () =
     (Astring.String.is_infix ~affix:"<link" html_content);
   check bool "CSS link has cache buster" true
     (Astring.String.is_infix ~affix:"styles.css?v=" html_content);
-  check string "CSS filename is correct" "styles.css" css_filename;
+  check
+    Alcotest.(option string)
+    "CSS filename is correct" (Some "styles.css") css_filename;
 
   (* Check that the hash is 8 characters (MD5 hash prefix) *)
   match Astring.String.find_sub ~sub:"styles.css?v=" html_content with
@@ -209,7 +211,7 @@ let test_page_cache_busting () =
 let test_page_cache_busting_consistency () =
   (* Test that same content produces same hash *)
   let create_test_page () =
-    page ~title:"Test" ~tw_css:"test.css" []
+    page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 4; m 2 ] [ txt "Content" ] ]
   in
 
@@ -236,13 +238,36 @@ let test_page_cache_busting_consistency () =
 
   (* Different content should produce different hash *)
   let page3 =
-    page ~title:"Test" ~tw_css:"test.css" []
+    page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 8; m 4 ] [ txt "Different" ] ]
   in
   let html3 = html page3 in
   let hash3 = extract_hash html3 in
 
   check bool "different content produces different hash" false (hash1 = hash3)
+
+let test_inline_css () =
+  let test_page =
+    page ~title:"Inline Style Test" ~tw_css:Inline []
+      [ div ~tw:Tw.[ p 4; bg white ] [ txt "Inline content" ] ]
+  in
+  let html_content = html test_page in
+  let css_filename, css_stylesheet = css test_page in
+
+  (* Inline pages have no external CSS file *)
+  check Alcotest.(option string) "no external CSS file" None css_filename;
+
+  (* The CSS is embedded in a <style> tag, not referenced via <link> *)
+  check bool "HTML contains style tag" true
+    (Astring.String.is_infix ~affix:"<style>" html_content);
+  check bool "HTML has no link tag" false
+    (Astring.String.is_infix ~affix:"<link" html_content);
+
+  (* The stylesheet is inlined verbatim: <style> is a raw-text element, so the
+     CSS must not be HTML-escaped (e.g. [>] must stay [>], not [&gt;]). *)
+  let expected_css = Tw.Css.to_string ~minify:true css_stylesheet in
+  check bool "stylesheet inlined verbatim (unescaped)" true
+    (Astring.String.is_infix ~affix:expected_css html_content)
 
 let test_exact_tailwind_match () =
   let page_content =
@@ -332,7 +357,9 @@ module.exports = {
 let test_exact_byte_match () =
   let page_content = div ~tw:Tw.[ p 4; bg blue; text white ] [ txt "Test" ] in
 
-  let generated_page = page ~title:"Test" ~tw_css:"" [] [ page_content ] in
+  let generated_page =
+    page ~title:"Test" ~tw_css:(Link "") [] [ page_content ]
+  in
   let html_output = html generated_page in
   let _css_filename, css_stylesheet = css generated_page in
   let our_css = Tw.Css.to_string ~minify:true css_stylesheet in
@@ -474,6 +501,7 @@ let suite =
       test_case "page cache busting" `Quick test_page_cache_busting;
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
+      test_case "inline css" `Quick test_inline_css;
       test_case "exact tailwind match" `Quick test_exact_tailwind_match;
       test_case "minified exact match" `Quick test_exact_byte_match;
     ] )

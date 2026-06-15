@@ -180,7 +180,7 @@ let page_content =
   ]
 
 let doc =
-  page ~title:"Prose Typography Demo" ~tw_css:"prose.css" []
+  page ~title:"Prose Typography Demo" ~tw_css:(Link "prose.css") []
     [
       div
         ~tw:
@@ -206,7 +206,10 @@ let () =
   let oc_html = open_out "index.html" in
   output_string oc_html html_out;
   close_out oc_html;
-  let oc_css = open_out css_file in
-  output_string oc_css css_out;
-  close_out oc_css;
+  Option.iter
+    (fun file ->
+      let oc_css = open_out file in
+      output_string oc_css css_out;
+      close_out oc_css)
+    css_file;
   ()

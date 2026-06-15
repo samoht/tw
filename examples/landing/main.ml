@@ -219,7 +219,7 @@ let main =
           "A landing page demonstrating Tw CSS generation with OCaml" );
         ("viewport", "width=device-width, initial-scale=1.0");
       ]
-    ~tw_css:"landing.css"
+    ~tw_css:(Link "landing.css")
     (* Head content *)
     [ meta ~at:[ At.name "author"; At.content "tw.html" ] () ]
     (* Body content *)
@@ -258,8 +258,11 @@ let () =
   close_out oc_html;
 
   (* Write CSS file *)
-  let oc_css = open_out css_filename in
-  output_string oc_css css_str;
-  close_out oc_css;
+  Option.iter
+    (fun file ->
+      let oc_css = open_out file in
+      output_string oc_css css_str;
+      close_out oc_css)
+    css_filename;
 
   ()
