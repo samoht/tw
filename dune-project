@@ -21,7 +21,7 @@
  (description
   "tw is a type-safe OCaml implementation of Tailwind CSS v4. It compiles to CSS through a strongly-typed variable system that mirrors Tailwind's pipeline, producing byte-for-byte identical output. Supports all core utilities and the official forms and typography plugins.")
  (depends
-  ocaml
+  (ocaml (>= 5.2))
   dune
   cascade
   cmdliner
@@ -34,4 +34,5 @@
   (alcotest-js :with-test)
   (astring :with-test)
   (crunch :with-test)
-  (alcobar :with-test)))
+  (alcobar :with-test)
+  (mdx :with-test)))
