@@ -9,7 +9,7 @@ license: "ISC"
 homepage: "https://github.com/samoht/tw"
 bug-reports: "https://github.com/samoht/tw/issues"
 depends: [
-  "ocaml"
+  "ocaml" {>= "5.2"}
   "dune" {>= "3.0"}
   "cascade"
   "cmdliner"
@@ -23,6 +23,7 @@ depends: [
   "astring" {with-test}
   "crunch" {with-test}
   "alcobar" {with-test}
+  "mdx" {with-test}
   "odoc" {with-doc}
 ]
 build: [
@@ -40,3 +41,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/samoht/tw.git"
+pin-depends: [
+  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#ad90d314c1e808b64b07fc0b532d14ea334bdc5c" ]
+]
