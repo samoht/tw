@@ -375,11 +375,12 @@ val page :
   ?title:string ->
   ?charset:string ->
   ?tw_css:string ->
+  ?forms:bool ->
   t list ->
   t list ->
   page
-(** [page ?lang ?meta ?title ?charset ?tw_css head body] generates a complete
-    HTML page and its corresponding CSS.
+(** [page ?lang ?meta ?title ?charset ?tw_css ?forms head body] generates a
+    complete HTML page and its corresponding CSS.
 
     - [lang] defaults to ["en"]
     - [charset] defaults to ["utf-8"]
@@ -387,6 +388,9 @@ val page :
     - [title] is the page title
     - [tw_css] defaults to ["tw.css"] - the filename for the CSS, automatically
       included as a [<link>] tag in HTML head
+    - [forms] explicitly enables the [\@tailwindcss/forms] plugin base layer,
+      mirroring Tailwind's [\@plugin] opt-in. When omitted, the forms base is
+      auto-detected from forms utility usage (like prose styling).
     - [head] is additional content for the head section
     - [body] is the body content
 

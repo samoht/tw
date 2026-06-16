@@ -883,7 +883,7 @@ let file_input_base () =
         border_color Inherit;
         font_size Unset;
         line_height Inherit;
-        border_width (Px 0.);
+        border_width Zero;
         border_radius (radius Zero);
         padding [ Px 0. ];
       ];
@@ -908,16 +908,14 @@ let file_input_base () =
       ];
   ]
 
-(* Tailwind v4's [\@tailwindcss/forms] plugin defaults to [strategy: 'class'] -
-   the plugin only emits styles for elements bearing one of the [.form-*]
-   utility classes, not for global [input/select/textarea] selectors. The
-   per-class styling is emitted directly by the [.form-*] utility handlers
-   above, so this base stylesheet stays empty. *)
+(* Tailwind v4's [\@tailwindcss/forms] plugin defaults to the [base] strategy:
+   it resets native form controls globally ([input]/[select]/[textarea]/...),
+   not only elements bearing a [.form-*] class. Those global resets are the
+   forms base layer, emitted whenever the forms plugin is active. The rule order
+   below mirrors the plugin's own output. *)
 
 (** Complete base layer stylesheet for forms plugin *)
 let base_stylesheet () =
-  let _ = text_inputs_base in
-  let _ = select_base in
-  let _ = checkbox_radio_base in
-  let _ = file_input_base in
-  Css.v []
+  Css.v
+    (text_inputs_base () @ select_base () @ checkbox_radio_base ()
+   @ file_input_base ())

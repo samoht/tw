@@ -115,7 +115,7 @@ let contact_form =
     ]
 
 let page_view =
-  page ~title:"Forms Demo" ~tw_css:"forms.css" []
+  page ~forms:true ~title:"Forms Demo" ~tw_css:"forms.css" []
     [
       div
         ~tw:Tw.[ min_h_screen; bg ~shade:100 gray; py 12 ]
