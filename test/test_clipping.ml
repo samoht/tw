@@ -23,7 +23,7 @@ let test_clip_inset_shorthand () =
   let normalize input =
     let wrapped = ".x{" ^ input ^ "}" in
     match Css.of_string wrapped with
-    | Error _ -> Alcotest.fail (Fmt.str "Failed to parse: %s" input)
+    | Error _ -> Alcotest.failf "Failed to parse: %s" input
     | Ok { stylesheet; _ } ->
         let out =
           stylesheet

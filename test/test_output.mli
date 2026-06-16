@@ -1,2 +1,4 @@
+(** Tests for the output module. *)
+
 val suite : string * unit Alcotest.test_case list
 (** Alcotest suite for {!Output}. *)

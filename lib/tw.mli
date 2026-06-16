@@ -56,6 +56,10 @@
       conventions
     - Colors, spacing, and sizes use consistent scales throughout *)
 
+(* Bind tw's own [Cursor] and [Rule] modules before [open Cascade] shadows the
+   bare names with [Cascade.Cursor] / [Cascade.Rule]. *)
+module Cursor = Cursor
+module Rule = Rule
 open Cascade
 
 (** {1 Core Types}
@@ -65,8 +69,9 @@ type t
 (** The abstract type representing a single CSS style utility. *)
 
 type color = Color.color
-(** Abstract type for colors. Use color constructors like [red], [blue], etc.
-    Colors can have shades from 50 (lightest) to 900 (darkest). *)
+(** Abstract type for colors. Use color constructors like {!val-red},
+    {!val-blue}, etc. Colors can have shades from 50 (lightest) to 900
+    (darkest). *)
 
 (** {1:tailwind_colors Tailwind colors}
 
@@ -271,7 +276,7 @@ val table : t
 
 val hidden : t
 (** [hidden] completely hides the element; no space is reserved and screen
-    readers skip it. Use [sr_only] to hide visually but keep accessible. *)
+    readers skip it. Use {!val-sr_only} to hide visually but keep accessible. *)
 
 (** {2 Float}
     @see <https://tailwindcss.com/docs/float> Float *)
@@ -447,8 +452,8 @@ val absolute : t
     ]} *)
 
 val fixed : t
-(** [fixed] is like [absolute] but relative to the viewport; it stays in place
-    when scrolling. *)
+(** [fixed] is like {!val-absolute} but relative to the viewport; it stays in
+    place when scrolling. *)
 
 val sticky : t
 (** [sticky] scrolls normally until it reaches a viewport edge, then sticks.
@@ -577,7 +582,7 @@ val flex : t
     ]} *)
 
 val inline_flex : t
-(** [inline_flex] is like [flex] but the container itself is inline. *)
+(** [inline_flex] is like {!val-flex} but the container itself is inline. *)
 
 val flex_1 : t
 (** [flex_1] item grows and shrinks as needed, ignoring initial size. Perfect
@@ -639,7 +644,7 @@ val grid : t
     structured than flexbox. *)
 
 val inline_grid : t
-(** [inline_grid] is like [grid] but the container itself is inline. *)
+(** [inline_grid] is like {!val-grid} but the container itself is inline. *)
 
 (** {2 Grid Template Columns}
     @see <https://tailwindcss.com/docs/grid-template-columns>
@@ -1529,8 +1534,8 @@ val text_justify : t
     @see <https://tailwindcss.com/docs/color> Color *)
 
 val text : ?opacity:int -> ?shade:int -> color -> t
-(** [text color] sets text color. [shade] defaults to 500. [opacity] sets the
-    alpha modifier (0-100). *)
+(** [text color] sets text color. [shade] defaults to 500. {!val-opacity} sets
+    the alpha modifier (0-100). *)
 
 val text_inherit : t
 (** [text_inherit] inherits color from the parent element. *)
@@ -1814,7 +1819,7 @@ type direction =
 
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction using a typed direction.
-    Combine with [from_color]/[via_color]/[to_color].
+    Combine with {!val-from_color}/{!val-via_color}/{!val-to_color}.
 
     Example:
     {[
@@ -1844,8 +1849,8 @@ val from_color : ?shade:int -> color -> t
 
 val via_color : ?shade:int -> color -> t
 (** [via_color purple] sets the middle color of a gradient. Default shade is
-    500. Creates a three-color gradient when used with [bg_gradient_to] and
-    [to_color]. *)
+    500. Creates a three-color gradient when used with {!val-bg_gradient_to} and
+    {!val-to_color}. *)
 
 val to_color : ?shade:int -> color -> t
 (** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
@@ -1927,7 +1932,7 @@ val border_l : t
 
 val border_color : ?opacity:int -> ?shade:int -> color -> t
 (** [border_color color] sets the border color. [shade] defaults to 500.
-    [opacity] sets the alpha modifier (0-100). *)
+    {!val-opacity} sets the alpha modifier (0-100). *)
 
 val border_transparent : t
 (** [border_transparent] makes border fully transparent. *)
@@ -2837,8 +2842,8 @@ val form_radio : t
 
 val accent : ?opacity:int -> ?shade:int -> color -> t
 (** [accent color] sets the accent color for form controls like checkboxes and
-    radio buttons. [shade] defaults to 500. [opacity] sets the alpha modifier
-    (0-100). *)
+    radio buttons. [shade] defaults to 500. {!val-opacity} sets the alpha
+    modifier (0-100). *)
 
 val accent_current : t
 (** [accent_current] sets accent color to currentColor. *)
@@ -2850,8 +2855,8 @@ val accent_inherit : t
     @see <https://tailwindcss.com/docs/caret-color> Caret Color *)
 
 val caret : ?opacity:int -> ?shade:int -> color -> t
-(** [caret color] sets the caret color. [shade] defaults to 500. [opacity] sets
-    the alpha modifier (0-100). *)
+(** [caret color] sets the caret color. [shade] defaults to 500. {!val-opacity}
+    sets the alpha modifier (0-100). *)
 
 val caret_current : t
 (** [caret_current] sets caret color to currentColor. *)
@@ -2934,7 +2939,7 @@ val snap_x : t
     ]} *)
 
 val snap_y : t
-(** [snap_y] enables vertical scroll snapping. Similar to [snap_x] but for
+(** [snap_y] enables vertical scroll snapping. Similar to {!val-snap_x} but for
     vertical scrolling. *)
 
 val snap_both : t
@@ -3097,8 +3102,8 @@ val sr_only : t
     accessible. *)
 
 val not_sr_only : t
-(** [not_sr_only] reverses [sr_only]; it makes previously screen-reader-only
-    content visible. *)
+(** [not_sr_only] reverses {!val-sr_only}; it makes previously
+    screen-reader-only content visible. *)
 
 (** {1 Prose Typography}
 
@@ -3198,8 +3203,9 @@ val to_inline_style : t list -> string
 (** [to_inline_style styles] generates inline CSS for the style attribute.
 
     {b Note:} This generates {i only} the CSS properties for the given styles,
-    without any Tailwind reset/prelude. The reset is only included in [to_css]
-    since it's meant for complete stylesheets, not individual elements.
+    without any Tailwind reset/prelude. The reset is only included in
+    {!val-to_css} since it's meant for complete stylesheets, not individual
+    elements.
 
     Perfect for tweaking individual HTML nodes with custom styles:
     {[
@@ -3207,7 +3213,7 @@ val to_inline_style : t list -> string
       to_inline_style [ bg ~shade:100 blue; p 4; rounded_md; text white ]
     ]}
 
-    {b When to use [to_inline_style] vs [to_css]:}
+    {b When to use [to_inline_style] vs {!val-to_css}:}
 
     {b Use [to_inline_style] when:}
     - You need dynamic styles that change at runtime
@@ -3215,7 +3221,7 @@ val to_inline_style : t list -> string
     - You're working with existing HTML that you can't modify classes for
     - You need precise control over a single element's styling
 
-    {b Use [to_css] (preferred) when:}
+    {b Use {!val-to_css} (preferred) when:}
     - You want to generate a stylesheet that can be cached and reused
     - You're building a full website with consistent styling
     - You want better performance (CSS classes are more efficient than inline
@@ -3237,8 +3243,8 @@ module Css = Css
 
     The Css module provides lower-level CSS types and functions for working with
     stylesheets, rules, and properties. Most users will only need the high-level
-    functions like [to_css] and [stylesheet_to_string], but the Css module is
-    exposed for advanced use cases requiring direct manipulation of CSS
+    functions like {!val-to_css} and [stylesheet_to_string], but the Css module
+    is exposed for advanced use cases requiring direct manipulation of CSS
     structures. *)
 
 module Prose = Prose
@@ -3429,11 +3435,11 @@ val xl2 : t list -> t
 (** {2 Pseudo-elements} *)
 
 val before : t list -> t
-(** [before styles] applies [styles] to ::before. Combine with [content]
+(** [before styles] applies [styles] to ::before. Combine with {!val-content}
     utilities. *)
 
 val after : t list -> t
-(** [after styles] applies [styles] to ::after. Combine with [content]
+(** [after styles] applies [styles] to ::after. Combine with {!val-content}
     utilities. *)
 
 (** {2 ARIA Variants} *)
@@ -3560,7 +3566,6 @@ module Flex = Flex
 module Flex_props = Flex_props
 module Flex_layout = Flex_layout
 module Alignment = Alignment
-module Cursor : module type of Tw__.Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
@@ -3584,13 +3589,15 @@ module Tables = Tables
 module Svg = Svg
 module Accessibility = Accessibility
 module Output = Output
-module Rule : module type of Tw__.Rule
 module Build = Build
 module Theme = Theme
 module Scheme = Scheme
 module Utility = Utility
 module Spacing = Spacing
 module Box_sizing = Box_sizing
+module Tab = Tab
+module Scrollbar = Scrollbar
+module Zoom = Zoom
 module Columns = Columns
 module Contain = Contain
 module Field_sizing = Field_sizing

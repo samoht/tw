@@ -74,6 +74,8 @@ val regular :
   ?not_order:int ->
   unit ->
   t
+(** [regular ~selector ~props ()] constructs a plain (non-media,
+    non-conditional) rule. *)
 
 val media_query :
   condition:Css.Media.t ->
@@ -84,8 +86,8 @@ val media_query :
   ?not_order:int ->
   unit ->
   t
-(** [media_query ~condition ~selector ~props ()] constructs a [Media_query] rule
-    wrapped in [@media condition]. *)
+(** [media_query ~condition ~selector ~props ()] constructs a
+    {!constructor-Media_query} rule wrapped in [@media condition]. *)
 
 val container_query :
   condition:Css.Container.t ->
@@ -95,7 +97,7 @@ val container_query :
   unit ->
   t
 (** [container_query ~condition ~selector ~props ()] constructs a
-    [Container_query] rule wrapped in [@container condition]. *)
+    {!constructor-Container_query} rule wrapped in [@container condition]. *)
 
 val starting_style :
   selector:Css.Selector.t ->
@@ -103,8 +105,8 @@ val starting_style :
   ?base_class:string ->
   unit ->
   t
-(** [starting_style ~selector ~props ()] constructs a [Starting_style] rule
-    wrapped in [@starting-style]. *)
+(** [starting_style ~selector ~props ()] constructs a
+    {!constructor-Starting_style} rule wrapped in [@starting-style]. *)
 
 val supports_query :
   condition:Css.Supports.t ->
@@ -116,7 +118,7 @@ val supports_query :
   unit ->
   t
 (** [supports_query ~condition ~selector ~props ()] constructs a
-    [Supports_query] rule wrapped in [@supports condition]. *)
+    {!constructor-Supports_query} rule wrapped in [@supports condition]. *)
 
 val pp : t -> string
 (** [pp r] returns a short human-readable description of [r], e.g.
@@ -136,10 +138,11 @@ type by_type = {
 *)
 
 val classify_by_type : t list -> by_type
-(** [classify_by_type rules] partitions [rules] by variant into a [by_type]
-    record. Each group preserves the original order of its elements. *)
+(** [classify_by_type rules] partitions [rules] by variant into a
+    {!type-by_type} record. Each group preserves the original order of its
+    elements. *)
 
 val is_hover_rule : t -> bool
-(** [is_hover_rule r] is [true] iff [r] is a [Regular] rule with
+(** [is_hover_rule r] is [true] iff [r] is a {!constructor-Regular} rule with
     [has_hover = true]. Used by {!Build} to gate hover utilities under
     [@media (hover:hover)]. *)

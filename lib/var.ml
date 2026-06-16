@@ -31,15 +31,10 @@ type _ role =
 type ('a, 'r) t = {
   kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
-  layer : layer; (* Theme or Utility *)
   role : 'r role; (* The GADT role/pattern of this variable *)
   binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
-  order : (int * int) option;
-      (* Explicit ordering for theme layer (utility_priority, suborder) *)
-  property_order : int option;
-      (* Explicit ordering for properties layer @supports block *)
   fallback : 'a option; (* Built-in fallback for ref_only variables *)
 }
 
@@ -291,17 +286,7 @@ let v : type a r.
         (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
     | _ -> (decl, var)
   in
-  {
-    kind;
-    name;
-    layer;
-    role;
-    binding;
-    property;
-    order;
-    property_order;
-    fallback;
-  }
+  { kind; name; role; binding; property; fallback }
 
 (* Convenience constructors to encode patterns safely *)
 

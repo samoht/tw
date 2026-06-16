@@ -1,0 +1,8 @@
+(env
+ (dev
+  (flags
+   (:standard %{dune-warnings}))))
+
+(mdx
+ (files README.md)
+ (libraries tw cascade))

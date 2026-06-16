@@ -40,12 +40,16 @@ allowed_words = [
 ]
 
 # The local checkout uses an untracked symlink to the sibling cascade repo for
-# development. It is not part of this package's lint surface.
+# development, and vendored dev tooling under mono/. Neither is part of this
+# package's lint surface.
 [[rules]]
-files = ["cascade/**", "./cascade/**"]
+files = ["cascade/**", "./cascade/**", "mono/**", "./mono/**"]
 exclude = ["*"]
 
-# Modules included in tw.ml need E330 exceptions to expose the proper API
+# Modules included in tw.ml are flattened into the top-level Tw namespace, so
+# they intentionally keep prefixed DSL names (E330) and prefixed variant/field
+# constructors (E334): the prefixes disambiguate constructors that would
+# otherwise collide once every module is merged into a single namespace.
 [[rules]]
 files = [
   "lib/color.ml*",
@@ -60,6 +64,9 @@ files = [
   "lib/overscroll.ml*",
   "lib/overflow_wrap.ml*",
   "lib/box_sizing.ml*",
+  "lib/tab.ml*",
+  "lib/scrollbar.ml*",
+  "lib/zoom.ml*",
   "lib/field_sizing.ml*",
   "lib/grid.ml*",
   "lib/grid_item.ml*",
@@ -96,4 +103,4 @@ files = [
   "lib/arbitrary.ml*",
   "lib/style.ml*",
 ]
-exclude = ["E330"]
+exclude = ["E330", "E334"]

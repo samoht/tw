@@ -1,7 +1,7 @@
 (library
  (name tw_dom)
  (public_name tw.dom)
- (libraries tw brr)
+ (libraries tw brr cascade)
  (optional))
 
 (mdx

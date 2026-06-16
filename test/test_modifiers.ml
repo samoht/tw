@@ -53,9 +53,7 @@ let test_validate_no_nested_responsive () =
     try
       validate_no_nested_responsive [ sm [ md [ p 4 ] ] ];
       fail "Should have raised exception for nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure with 'responsive' in message"
+    with Failure _ -> ()
   in
   test_nested_fail ();
 
@@ -65,9 +63,7 @@ let test_validate_no_nested_responsive () =
       let responsive_style = sm [ p 4 ] in
       validate_no_nested_responsive [ responsive_style ];
       fail "Should have rejected responsive style"
-    with
-    | Failure _ -> () (* Expected to fail *)
-    | _ -> fail "Expected Failure for responsive style"
+    with Failure _ -> () (* Expected to fail *)
   in
   test_already_responsive ()
 
@@ -76,9 +72,7 @@ let test_responsive_rejects name outer_fn inner_content =
   try
     let _ = outer_fn [ inner_content ] in
     Alcotest.failf "%s should reject nested responsive" name
-  with
-  | Failure _ -> () (* Expected to fail *)
-  | _ -> Alcotest.failf "Expected Failure about nested responsive"
+  with Failure _ -> () (* Expected to fail *)
 
 (* Test that responsive functions reject nested responsive *)
 let test_responsive_functions_reject_nesting () =

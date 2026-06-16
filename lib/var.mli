@@ -335,10 +335,10 @@ type 'a property_info = {
   universal : bool;
 }
 (** Property metadata for [@property] registration.
-    - [initial]: Optional initial value. If [None], properties layer uses
+    - {!field-initial}: Optional initial value. If [None], properties layer uses
       "initial"
-    - [inherits]: Whether the property inherits from parent elements
-    - [universal]: Force universal syntax "*" instead of typed syntax *)
+    - {!field-inherits}: Whether the property inherits from parent elements
+    - {!field-universal}: Force universal syntax "*" instead of typed syntax *)
 
 val property_info :
   ?initial:'a -> ?inherits:bool -> ?universal:bool -> unit -> 'a property_info
@@ -416,7 +416,8 @@ val property_default :
     {i \@layer properties \@supports} block. Lower values appear first.
 
     {b IMPORTANT}: Due to current architecture limitations, any style that uses
-    a [property_default] variable MUST include its [property_rule] explicitly:
+    a [property_default] variable MUST include its {!val-property_rule}
+    explicitly:
     {[
     let my_var =
       Var.property_default Css.Content ~initial:(Css.String "")
@@ -498,13 +499,14 @@ val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
 
 val resolve_theme_refs : string -> string option
 (** [resolve_theme_refs name] returns the default CSS string value for a
-    [theme_ref] variable. Used as [theme_defaults] in [Pp.ctx] when theme
+    {!val-theme_ref} variable. Used as [theme_defaults] in [Pp.ctx] when theme
     variables don't exist and should be replaced by their concrete defaults. *)
 
 val set_theme_value : string -> string -> unit
 (** [set_theme_value name value] registers a theme value override. When set,
-    utilities using [theme_ref] for this name will produce custom declarations
-    in the theme layer (e.g., [--z-index-auto: 42] in [:root, :host]). *)
+    utilities using {!val-theme_ref} for this name will produce custom
+    declarations in the theme layer (e.g., [--z-index-auto: 42] in
+    [:root, :host]). *)
 
 val theme_value : string -> string option
 (** [theme_value name] returns the overridden theme value, if any. *)

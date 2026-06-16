@@ -59,6 +59,10 @@ val bool : bool -> string
 val int : int -> string
 (** [int n] formats an integer. *)
 
+val hex_byte : int -> string
+(** [hex_byte n] formats a byte [n] (0-255) as two lowercase hexadecimal digits,
+    e.g. [hex_byte 255 = "ff"]. *)
+
 val float : float -> string
 (** [float f] formats a float without trailing dots. *)
 
