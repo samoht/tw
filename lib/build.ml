@@ -1050,17 +1050,6 @@ let flatten_property_rules property_rules_lists =
   property_rules_lists |> List.concat_map Css.statements
 
 (* Build individual CSS layers *)
-(* Detect if forms utilities are used - triggers including forms base layer *)
-let has_forms_utilities tw_classes =
-  let rec check_utility = function
-    | Utility.Base u ->
-        let name = Utility.name_of_base u in
-        name = "forms" || name = "forms_select"
-    | Utility.Modified (_, u) -> check_utility u
-    | Utility.Group us -> List.exists check_utility us
-  in
-  List.exists check_utility tw_classes
-
 (* Detect if before/after pseudo-elements are used - triggers content var
    property rule *)
 let has_pseudo_elements tw_classes =
@@ -1192,11 +1181,12 @@ let layers ~layers ~include_base ?forms ~selector_props tw_classes statements =
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
   in
-  (* Use explicit forms flag if provided, otherwise auto-detect from
-     utilities *)
-  let forms_base =
-    match forms with Some f -> f | None -> has_forms_utilities tw_classes
-  in
+  (* The forms base layer is the plugin's [base] strategy: a global reset of
+     native form controls. It is opt-in only ([~forms:true]), mirroring
+     Tailwind's [\@plugin '@tailwindcss/forms']. The [.form-*] class-strategy
+     utilities emit their own per-class styles when used, independent of this
+     flag, so utility presence must not auto-enable the global base. *)
+  let forms_base = match forms with Some f -> f | None -> false in
   let individual =
     individual_layers ~layers ~include_base ~forms_base first_usage_order
       selector_props all_property_statements statements

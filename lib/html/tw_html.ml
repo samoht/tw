@@ -404,7 +404,7 @@ let line ?at ?tw children = el_with_tw "line" ?at ?tw children
 (* Type for page generation result *)
 type page = { html : string; css : Tw.Css.t; tw_css : string }
 
-let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
+let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
     body_content =
   (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
@@ -423,14 +423,16 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
   (* Add styles from head content *)
   let all_tw = all_tw @ List.concat_map to_tw head_content in
 
-  (* Detect if forms plugin base styles are needed. Check body and head content
-     for form elements (input, select, textarea). *)
-  let forms_in_body = has_forms body_element in
-  let forms_in_head = List.exists has_forms head_content in
-  let need_forms = forms_in_body || forms_in_head in
-
-  (* Generate CSS and compute MD5 hash for cache busting *)
-  let css_stylesheet = Tw.to_css ~forms:need_forms all_tw in
+  (* The forms plugin base layer follows Tailwind's [\@plugin] model: it is
+     emitted only when the plugin is explicitly enabled ([~forms:true]), since a
+     page merely containing form controls does not opt into the plugin. When
+     [forms] is unset, [Tw.to_css] auto-detects from forms utility usage, the
+     same way prose styling is driven by the [prose] utility. *)
+  let css_stylesheet =
+    match forms with
+    | Some forms -> Tw.to_css ~forms all_tw
+    | None -> Tw.to_css all_tw
+  in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Compute MD5 hash of the CSS content for cache busting *)
@@ -461,8 +463,8 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = "tw.css") head_content body_content =
-  page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css
+    ?(tw_css = "tw.css") ?forms head_content body_content =
+  page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
     head_content body_content
 
 (* Page accessor functions *)
