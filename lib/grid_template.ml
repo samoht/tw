@@ -19,6 +19,11 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
+
+  (* Bind tw's [Pp.float : float -> string] before [open Css] shadows [Pp]
+     with cascade's context-based [Css.Pp]. *)
+  let pp_float = Pp.float
+
   open Css
 
   let err_not_utility = Error (`Msg "Not a grid template utility")
@@ -43,11 +48,13 @@ module Handler = struct
     | Auto_cols_min
     | Auto_cols_max
     | Auto_cols_fr
+    | Auto_cols_spacing of float  (** [auto-cols-<n>]: spacing-scaled track. *)
     | Auto_cols_arbitrary of string
     | Auto_rows_auto
     | Auto_rows_min
     | Auto_rows_max
     | Auto_rows_fr
+    | Auto_rows_spacing of float  (** [auto-rows-<n>]: spacing-scaled track. *)
     | Auto_rows_arbitrary of string
 
   type Utility.base += Self of t
@@ -205,6 +212,12 @@ module Handler = struct
   let auto_cols_arbitrary s =
     style [ Css.grid_auto_columns (parse_arbitrary_grid_template_exn s) ]
 
+  (* [auto-cols-<n>] sizes implicit columns to a spacing-scaled track,
+     [grid-auto-columns: calc(var(--spacing) * n)]. *)
+  let auto_cols_spacing n =
+    let decl, len = Theme.spacing_calc_float n in
+    style [ decl; Css.grid_auto_columns (Css.Length len) ]
+
   (** {1 Grid Auto Rows} *)
 
   let auto_rows_auto () =
@@ -219,6 +232,10 @@ module Handler = struct
 
   let auto_rows_arbitrary s =
     style [ Css.grid_auto_rows (parse_arbitrary_grid_template_exn s) ]
+
+  let auto_rows_spacing n =
+    let decl, len = Theme.spacing_calc_float n in
+    style [ decl; Css.grid_auto_rows (Css.Length len) ]
 
   (** Convert grid template utility to style *)
   let to_style = function
@@ -239,11 +256,13 @@ module Handler = struct
     | Auto_cols_min -> auto_cols_min
     | Auto_cols_max -> auto_cols_max
     | Auto_cols_fr -> auto_cols_fr
+    | Auto_cols_spacing n -> auto_cols_spacing n
     | Auto_cols_arbitrary s -> auto_cols_arbitrary s
     | Auto_rows_auto -> auto_rows_auto ()
     | Auto_rows_min -> auto_rows_min
     | Auto_rows_max -> auto_rows_max
     | Auto_rows_fr -> auto_rows_fr
+    | Auto_rows_spacing n -> auto_rows_spacing n
     | Auto_rows_arbitrary s -> auto_rows_arbitrary s
 
   let suborder = function
@@ -265,18 +284,20 @@ module Handler = struct
     | Grid_flow_row -> 14003
     | Grid_flow_row_dense -> 14004
     (* Grid auto columns (15000-15099) *)
-    (* Order: arbitrary → keywords alphabetical *)
-    | Auto_cols_arbitrary _ -> 15000
-    | Auto_cols_auto -> 15001
-    | Auto_cols_fr -> 15002
-    | Auto_cols_max -> 15003
-    | Auto_cols_min -> 15004
+    (* Order: spacing (numeric) → arbitrary → keywords alphabetical *)
+    | Auto_cols_spacing _ -> 15000
+    | Auto_cols_arbitrary _ -> 15001
+    | Auto_cols_auto -> 15002
+    | Auto_cols_fr -> 15003
+    | Auto_cols_max -> 15004
+    | Auto_cols_min -> 15005
     (* Grid auto rows (15100-15199) *)
-    | Auto_rows_arbitrary _ -> 15100
-    | Auto_rows_auto -> 15101
-    | Auto_rows_fr -> 15102
-    | Auto_rows_max -> 15103
-    | Auto_rows_min -> 15104
+    | Auto_rows_spacing _ -> 15100
+    | Auto_rows_arbitrary _ -> 15101
+    | Auto_rows_auto -> 15102
+    | Auto_rows_fr -> 15103
+    | Auto_rows_max -> 15104
+    | Auto_rows_min -> 15105
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -316,26 +337,32 @@ module Handler = struct
     | [ "auto"; "cols"; "min" ] -> Ok Auto_cols_min
     | [ "auto"; "cols"; "max" ] -> Ok Auto_cols_max
     | [ "auto"; "cols"; "fr" ] -> Ok Auto_cols_fr
-    | [ "auto"; "cols"; n ] ->
-        let len = String.length n in
-        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
-          match parse_arbitrary_grid_template inner with
-          | Some _ -> Ok (Auto_cols_arbitrary inner)
-          | None -> err_not_utility
-        else err_not_utility
+    | [ "auto"; "cols"; n ] -> (
+        match float_of_string_opt n with
+        | Some f when f >= 0.0 -> Ok (Auto_cols_spacing f)
+        | _ ->
+            let len = String.length n in
+            if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+              let inner = String.sub n 1 (len - 2) in
+              match parse_arbitrary_grid_template inner with
+              | Some _ -> Ok (Auto_cols_arbitrary inner)
+              | None -> err_not_utility
+            else err_not_utility)
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
     | [ "auto"; "rows"; "min" ] -> Ok Auto_rows_min
     | [ "auto"; "rows"; "max" ] -> Ok Auto_rows_max
     | [ "auto"; "rows"; "fr" ] -> Ok Auto_rows_fr
-    | [ "auto"; "rows"; n ] ->
-        let len = String.length n in
-        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
-          match parse_arbitrary_grid_template inner with
-          | Some _ -> Ok (Auto_rows_arbitrary inner)
-          | None -> err_not_utility
-        else err_not_utility
+    | [ "auto"; "rows"; n ] -> (
+        match float_of_string_opt n with
+        | Some f when f >= 0.0 -> Ok (Auto_rows_spacing f)
+        | _ ->
+            let len = String.length n in
+            if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+              let inner = String.sub n 1 (len - 2) in
+              match parse_arbitrary_grid_template inner with
+              | Some _ -> Ok (Auto_rows_arbitrary inner)
+              | None -> err_not_utility
+            else err_not_utility)
     | _ -> err_not_utility
 
   let to_class = function
@@ -356,11 +383,13 @@ module Handler = struct
     | Auto_cols_min -> "auto-cols-min"
     | Auto_cols_max -> "auto-cols-max"
     | Auto_cols_fr -> "auto-cols-fr"
+    | Auto_cols_spacing n -> "auto-cols-" ^ pp_float n
     | Auto_cols_arbitrary s -> "auto-cols-[" ^ s ^ "]"
     | Auto_rows_auto -> "auto-rows-auto"
     | Auto_rows_min -> "auto-rows-min"
     | Auto_rows_max -> "auto-rows-max"
     | Auto_rows_fr -> "auto-rows-fr"
+    | Auto_rows_spacing n -> "auto-rows-" ^ pp_float n
     | Auto_rows_arbitrary s -> "auto-rows-[" ^ s ^ "]"
 end
 
