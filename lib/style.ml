@@ -226,6 +226,11 @@ type modifier =
           the class-name token (e.g. [is-data-foo]); second is the resolved
           selector template with the value substituted (e.g.
           [&:is([data-foo])]), where [&] is the element's own class. *)
+  | Container_style of string * Css.Container.t
+      (** [has-a:] — a [@custom-variant]-registered variant whose body is a
+          container query (e.g. [@container style(--a)]). First field is the
+          class-name token; second is the structural container condition (so the
+          [not-] prefix can negate it soundly, including double-negation). *)
   | Prose_element of string
       (** [prose-X:] — prose element variant, wraps utility in a descendant
           selector targeting specific HTML elements within prose content. E.g.
@@ -510,6 +515,7 @@ let rec pp_modifier = function
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
   | Custom_variant (token, _) -> token
+  | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name
 
 let rec pp = function

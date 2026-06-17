@@ -168,6 +168,38 @@ let try_custom_variant s =
   in
   List.find_map (fun (name, cv) -> resolve name cv) !custom_variants
 
+(** Registry for [@custom-variant]s whose body is a container query (e.g.
+    [@custom-variant has-a { @container style(--a) { @slot } }]). Kept separate
+    from {!custom_variants} because the condition is structural
+    ([Css.Container.t]) so the [not-] prefix can negate it soundly. *)
+let container_variants : (string * Css.Container.t) list ref = ref []
+
+let register_container_variants vs = container_variants := vs
+let clear_container_variants () = container_variants := []
+
+(* Negate a container condition, cancelling double-negation and pushing through
+   a named container: [not (not C)] = [C]; [name (C)] -> [name (not C)]. *)
+let rec negate_container (c : Css.Container.t) : Css.Container.t =
+  match c with
+  | Css.Container.Not x -> x
+  | Css.Container.Named (name, x) ->
+      Css.Container.Named (name, negate_container x)
+  | x -> Css.Container.Not x
+
+(* Parse [has-a] (registered) or [not-has-a] (negated) against the
+   container-variant registry, yielding a [Container_style] modifier. *)
+let try_container_variant s =
+  let lookup name = List.assoc_opt name !container_variants in
+  match lookup s with
+  | Some cond -> Some (Container_style (s, cond))
+  | None ->
+      if String.length s > 4 && String.sub s 0 4 = "not-" then
+        let inner = String.sub s 4 (String.length s - 4) in
+        Option.map
+          (fun cond -> Container_style (s, negate_container cond))
+          (lookup inner)
+      else None
+
 (** Helper: direction selector (ltr/rtl) *)
 let dir_selector dir cls =
   let open Css.Selector in
@@ -1145,6 +1177,7 @@ let rec pp_modifier = function
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
   | Custom_variant (token, _) -> token
+  | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name
 
 (* Find matching closing bracket, handling nested brackets *)
@@ -1914,6 +1947,9 @@ let parse_modifier s : modifier option =
       (fun () -> try_in_modifier s);
       (fun () -> try_not_in_modifier s);
       (fun () -> try_group_peer_not s);
+      (* Before [try_not_modifier]: a container variant handles its own [not-]
+         (negating the structural condition), not the generic [Not] wrapper. *)
+      (fun () -> try_container_variant s);
       (fun () -> try_not_modifier s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);

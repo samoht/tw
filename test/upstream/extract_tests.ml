@@ -139,6 +139,24 @@ let parse_match_variants content =
     (Re.all re content);
   tbl
 
+(* Parse [@custom-variant <name> { @container <header> { @slot } }] blocks into
+   directive strings ["container <name> <header>"], e.g.
+   ["container has-c foo style(--c)"]. The runner registers these as structural
+   container-query variants. *)
+let parse_custom_variant_containers content =
+  let re =
+    Re.Pcre.regexp
+      {|@custom-variant\s+([A-Za-z0-9_-]+)\s*\{\s*@container\s+([^{\n]+?)\s*\{\s*@slot|}
+  in
+  let tbl = Hashtbl.create 4 in
+  List.iter
+    (fun m ->
+      let name = Re.Group.get m 1 in
+      let header = Re.Group.get m 2 |> String.trim in
+      Hashtbl.replace tbl name ("container " ^ name ^ " " ^ header))
+    (Re.all re content);
+  tbl
+
 type parse_state =
   | Outside
   | In_test of string
@@ -181,7 +199,11 @@ let parse_file filename =
   let current_classes = ref [] in
   let current_config = ref No_theme in
   let variant_defs = parse_match_variants content in
+  Hashtbl.iter
+    (fun k v -> Hashtbl.replace variant_defs k v)
+    (parse_custom_variant_containers content);
   let match_variant_use = Re.Pcre.regexp {|matchVariant\(\s*'([^']+)'|} in
+  let custom_variant_use = Re.Pcre.regexp {|@custom-variant\s+([A-Za-z0-9_-]+)|} in
   let current_variant_names = ref [] in
 
   let flush_test name expected =
@@ -220,6 +242,13 @@ let parse_file filename =
           (* Record any matchVariant plugin used by this test so the runner can
              register it before compiling. *)
           (match Re.exec_opt match_variant_use line with
+          | Some g ->
+              current_variant_names :=
+                Re.Group.get g 1 :: !current_variant_names
+          | None -> ());
+
+          (* Record [@custom-variant <name>] definitions used by this test. *)
+          (match Re.exec_opt custom_variant_use line with
           | Some g ->
               current_variant_names :=
                 Re.Group.get g 1 :: !current_variant_names
