@@ -1772,9 +1772,16 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
-let outputs util =
+let outputs ?order_tbl util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
+        (* Record the base utility's order under the class name we already built,
+           so the caller does not have to re-derive it from the string. *)
+        (match (order_tbl, util_inner) with
+        | Some tbl, Utility.Base b ->
+            if not (Hashtbl.mem tbl class_name) then
+              Hashtbl.add tbl class_name (Utility.order b)
+        | _ -> ());
         let sel =
           match pseudo_suffix with
           | None -> Css.Selector.Class class_name

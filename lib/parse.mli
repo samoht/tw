@@ -5,6 +5,11 @@
     results. All functions return [result] with [`Msg] error messages instead of
     raising. *)
 
+val has_prefix : prefix:string -> string -> bool
+(** [has_prefix ~prefix s] is [true] when [s] starts with [prefix]. Like
+    [String.starts_with] but allocation-free (no per-call closure), for hot
+    prefix tests in ordering. *)
+
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
 (** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
     [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used

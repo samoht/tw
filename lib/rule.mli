@@ -29,12 +29,17 @@ val set_scheme : Scheme.t -> unit
 
 (** {1 Rule extraction} *)
 
-val outputs : Utility.t -> Output.t list
+val outputs :
+  ?order_tbl:(string, int * int) Hashtbl.t -> Utility.t -> Output.t list
 (** [outputs u] extracts the CSS rules for utility [u].
 
     Returns a list because a single utility can produce more than one rule — for
     example a container utility emits one plain rule plus one [@media] rule per
-    breakpoint. *)
+    breakpoint.
+
+    [?order_tbl], when given, is populated with [class name -> (priority,
+    suborder)] for each base utility encountered, reusing the class strings built
+    here so callers need not re-derive the order from the class name. *)
 
 (** {1 Modifier dispatch}
 
