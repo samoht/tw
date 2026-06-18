@@ -1648,6 +1648,10 @@ group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checke
 <<<>>>
 # not
 @config run
+@variant container has-a style(--a)
+@variant container has-b not style(--b)
+@variant container has-c foo style(--c)
+@variant container has-d bar not style(--d)
 not-has-a:flex not-has-b:flex not-has-c:flex not-has-d:flex
 ---
 

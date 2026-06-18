@@ -800,6 +800,7 @@ let run_test_case test () =
        "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
     let parse_variant_directive d =
       match String.split_on_char ' ' d with
+      | "container" :: _ -> None (* handled by parse_container_directive *)
       | name :: template :: pairs ->
           let values =
             List.filter_map
@@ -815,8 +816,30 @@ let run_test_case test () =
           Some (name, Tw.Modifiers.{ values; template })
       | _ -> None
     in
+    (* [@custom-variant <name> { @container <header> { @slot } }] directives,
+       extracted as "container <name> <header>". A leading plain identifier in
+       the header (not [not], not a function) is the container name. *)
+    let parse_container_directive d =
+      let container_of_header header =
+        match String.index_opt header ' ' with
+        | Some i ->
+            let first = String.sub header 0 i in
+            let rest = String.sub header (i + 1) (String.length header - i - 1) in
+            if first <> "not" && not (String.contains first '(') then
+              Css.Container.Named (first, Css.Container.of_string rest)
+            else Css.Container.of_string header
+        | None -> Css.Container.of_string header
+      in
+      match String.split_on_char ' ' d with
+      | "container" :: name :: (_ :: _ as rest) -> (
+          let header = String.concat " " rest in
+          try Some (name, container_of_header header) with _ -> None)
+      | _ -> None
+    in
     Tw.Modifiers.register_custom_variants
       (List.filter_map parse_variant_directive test.variants);
+    Tw.Modifiers.register_container_variants
+      (List.filter_map parse_container_directive test.variants);
     (* Register custom breakpoints before parsing classes *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
     if custom_bps <> [] then (

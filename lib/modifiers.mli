@@ -42,6 +42,14 @@ val register_custom_variants : (string * custom_variant) list -> unit
 val clear_custom_variants : unit -> unit
 (** [clear_custom_variants ()] clears the custom variant registry. *)
 
+val register_container_variants : (string * Css.Container.t) list -> unit
+(** [register_container_variants vs] sets the [@custom-variant]s whose body is a
+    container query (e.g. [has-a] -> [@container style(--a)]). The [not-] prefix
+    on these negates the condition structurally. *)
+
+val clear_container_variants : unit -> unit
+(** [clear_container_variants ()] clears the container-variant registry. *)
+
 (** {1 State Variants} *)
 
 val hover : t list -> t

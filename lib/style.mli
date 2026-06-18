@@ -222,6 +222,10 @@ type modifier =
   | Custom_variant of string * string
       (** [is-data-foo:] — a [matchVariant]-registered variant: the class-name
           token and the resolved selector template ([&] is the own class). *)
+  | Container_style of string * Css.Container.t
+      (** [has-a:] — a [@custom-variant] whose body is a container query: the
+          class-name token and the structural container condition (so [not-]
+          can negate it soundly). *)
   | Prose_element of string
       (** [prose-X:] — prose element variant for targeting specific HTML
           elements within prose content *)

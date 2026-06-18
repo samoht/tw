@@ -1492,6 +1492,17 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       arbitrary_selector_rule content base_class props
   | Style.Custom_variant (token, template) ->
       custom_variant_rule token template base_class props
+  | Style.Container_style (token, condition) ->
+      (* A [@custom-variant] whose body is a container query: wrap the utility
+         in [@container <condition>], like [container_rule] but with a
+         structural condition supplied by the variant. *)
+      let modified_class = token ^ ":" ^ base_class in
+      let new_selector =
+        Rules_selector.replace_class_in_selector ~old_class:base_class
+          ~new_class:modified_class selector
+      in
+      container_query ~condition ~selector:new_selector ~props
+        ~base_class:modified_class ()
   (* Prose element variants — descendant selector with element filter *)
   | Style.Prose_element name ->
       let modified_class = "prose-" ^ name ^ ":" ^ base_class in
