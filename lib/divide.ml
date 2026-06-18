@@ -424,6 +424,11 @@ module Handler = struct
     | Divide_style bs -> divide_style_style bs
 
   let suborder = function
+    (* The bare divide-x / divide-y (DEFAULT, n=1) sorts before the numbered
+       variants, matching Tailwind's order: divide-x, divide-x-0, divide-x-4,
+       ... The "-1" offset keeps the default ahead of divide-x-0 (n=0). *)
+    | Divide_x 1 -> -20000 - 1
+    | Divide_y 1 -> -10000 - 1
     | Divide_x n -> -20000 + n
     | Divide_y n -> -10000 + n
     | Divide_x_arb _ -> -20000 + 50000

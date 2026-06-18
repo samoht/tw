@@ -20,7 +20,7 @@ let set_scheme scheme = current_scheme := scheme
 (* Shared spacing variable used across padding, margin, positioning, etc.
    Tailwind v4 uses a single --spacing: 0.25rem variable and calc() for
    values. *)
-let spacing_var = Var.theme Css.Length "spacing" ~order:(3, 0)
+let spacing_var = Var.theme Css.Length "spacing" ~runtime:true ~order:(3, 0)
 
 (* The base spacing value: 0.25rem *)
 let spacing_base : Css.length = Rem 0.25
@@ -51,15 +51,32 @@ let spacing_calc n : Css.declaration * Css.length =
         (decl, neg_len)
       else (decl, (Css.Var spacing_ref : Css.length))
   | None ->
-      (* Default: use calc(var(--spacing) * n) *)
+      (* Default: calc(var(--spacing) * n). For the unit multiplier we emit a
+         bare var(--spacing) rather than calc(var(--spacing) * 1). This shortcut
+         exists only to match Tailwind core byte-for-byte: the fixture has p-1
+         producing "padding: var(--spacing)" next to p-4 producing
+         "calc(var(--spacing) * 4)". Without it our output diverges and the
+         examples/parity comparisons flag the difference.
+
+         Runtime expectation: --spacing must resolve to a single length. That is
+         the spacing-scale contract (the default 0.25rem and any single-value
+         @theme override). The shortcut is NOT sound under a multi-term runtime
+         redefinition such as ".dense { --spacing: 1px + 3px }": bare
+         var(--spacing) then expands to invalid bare math and falls back to the
+         initial value, whereas calc(var(--spacing) * 1) would still compute
+         (4px). We inherit this fragility from Tailwind. cascade must not
+         perform the equivalent calc(var(--spacing)) -> var(--spacing) rewrite,
+         because it optimises arbitrary CSS and cannot assume that contract. *)
       let decl, spacing_ref = Var.binding spacing_var spacing_base in
-      let len : Css.length =
-        Css.Calc
-          (Css.Calc.mul
-             (Css.Calc.length (Css.Var spacing_ref))
-             (Css.Calc.float (float_of_int n)))
-      in
-      (decl, len)
+      if n = 1 then (decl, (Css.Var spacing_ref : Css.length))
+      else
+        let len : Css.length =
+          Css.Calc
+            (Css.Calc.mul
+               (Css.Calc.length (Css.Var spacing_ref))
+               (Css.Calc.float (float_of_int n)))
+        in
+        (decl, len)
 
 (* Create a spacing length value for float multipliers like 2.5. For integer
    values, checks scheme for explicit spacing. Otherwise uses calc. This handles

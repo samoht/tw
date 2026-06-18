@@ -1364,7 +1364,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mx-1 {
-      margin-inline: calc(var(--spacing) * 1);
+      margin-inline: var(--spacing);
     }
 
     .mx-4 {
@@ -1429,7 +1429,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .my-1 {
-      margin-block: calc(var(--spacing) * 1);
+      margin-block: var(--spacing);
     }
 
     .my-2\.5 {
@@ -1490,7 +1490,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mt-1 {
-      margin-top: calc(var(--spacing) * 1);
+      margin-top: var(--spacing);
     }
 
     .mt-2\.5 {
@@ -1551,7 +1551,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .ms-1 {
-      margin-inline-start: calc(var(--spacing) * 1);
+      margin-inline-start: var(--spacing);
     }
 
     .ms-2\.5 {
@@ -1612,7 +1612,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .me-1 {
-      margin-inline-end: calc(var(--spacing) * 1);
+      margin-inline-end: var(--spacing);
     }
 
     .me-2\.5 {
@@ -1673,7 +1673,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mbs-1 {
-      margin-block-start: calc(var(--spacing) * 1);
+      margin-block-start: var(--spacing);
     }
 
     .mbs-2\.5 {
@@ -1734,7 +1734,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mbe-1 {
-      margin-block-end: calc(var(--spacing) * 1);
+      margin-block-end: var(--spacing);
     }
 
     .mbe-2\.5 {
@@ -1795,7 +1795,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mr-1 {
-      margin-right: calc(var(--spacing) * 1);
+      margin-right: var(--spacing);
     }
 
     .mr-2\.5 {
@@ -1856,7 +1856,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .mb-1 {
-      margin-bottom: calc(var(--spacing) * 1);
+      margin-bottom: var(--spacing);
     }
 
     .mb-2\.5 {
@@ -1917,7 +1917,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 
     .ml-1 {
-      margin-left: calc(var(--spacing) * 1);
+      margin-left: var(--spacing);
     }
 
     .ml-2\.5 {
@@ -4769,7 +4769,7 @@ backface-hidden backface-visible transform-3d transform-border transform-content
 
 <<<>>>
 # zoom
-@config none
+@config run
 zoom-100 zoom-50 zoom-[var(--zoom)]
 ---
 
@@ -6266,9 +6266,13 @@ break-after-all break-after-auto break-after-avoid break-after-avoid-page break-
 
 <<<>>>
 # auto-cols
-@config run
-auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
+@config theme
+auto-cols-12 auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 ---
+
+    .auto-cols-12 {
+      grid-auto-columns: calc(var(--spacing) * 12);
+    }
 
     .auto-cols-\[2fr\] {
       grid-auto-columns: 2fr;
@@ -6288,6 +6292,10 @@ auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 
     .auto-cols-min {
       grid-auto-columns: min-content;
+    }
+
+    :root, :host {
+      --spacing: .25rem;
     }
     
 <<<>>>
@@ -6344,9 +6352,13 @@ grid-flow-col grid-flow-col-dense grid-flow-dense grid-flow-row grid-flow-row-de
 
 <<<>>>
 # auto-rows
-@config run
-auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
+@config theme
+auto-rows-12 auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
 ---
+
+    .auto-rows-12 {
+      grid-auto-rows: calc(var(--spacing) * 12);
+    }
 
     .auto-rows-\[2fr\] {
       grid-auto-rows: 2fr;
@@ -6366,6 +6378,10 @@ auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
 
     .auto-rows-min {
       grid-auto-rows: min-content;
+    }
+
+    :root, :host {
+      --spacing: .25rem;
     }
     
 <<<>>>
@@ -6887,7 +6903,7 @@ gap-y-4 gap-y-[4px]
 <<<>>>
 # space-x
 @config theme
--space-x-4 space-x-4 space-x-[4px]
+-space-x-0 -space-x-1 -space-x-4 space-x-0 space-x-1 space-x-4 space-x-[-0] space-x-[-0px] space-x-[0] space-x-[0px] space-x-[4px]
 ---
 
     @layer properties {
@@ -6899,7 +6915,19 @@ gap-y-4 gap-y-[4px]
     }
 
     :root, :host {
+      --spacing: .25rem;
       --spacing-4: 1rem;
+    }
+
+    :where(.-space-x-0 > :not(:last-child)) {
+      --tw-space-x-reverse: 0;
+      margin-inline: 0;
+    }
+
+    :where(.-space-x-1 > :not(:last-child)) {
+      --tw-space-x-reverse: 0;
+      margin-inline-start: calc(calc(var(--spacing) * -1) * var(--tw-space-x-reverse));
+      margin-inline-end: calc(calc(var(--spacing) * -1) * calc(1 - var(--tw-space-x-reverse)));
     }
 
     :where(.-space-x-4 > :not(:last-child)) {
@@ -6908,10 +6936,26 @@ gap-y-4 gap-y-[4px]
       margin-inline-end: calc(calc(var(--spacing-4) * -1) * calc(1 - var(--tw-space-x-reverse)));
     }
 
+    :where(.space-x-0 > :not(:last-child)) {
+      --tw-space-x-reverse: 0;
+      margin-inline: 0;
+    }
+
+    :where(.space-x-1 > :not(:last-child)) {
+      --tw-space-x-reverse: 0;
+      margin-inline-start: calc(var(--spacing) * var(--tw-space-x-reverse));
+      margin-inline-end: calc(var(--spacing) * calc(1 - var(--tw-space-x-reverse)));
+    }
+
     :where(.space-x-4 > :not(:last-child)) {
       --tw-space-x-reverse: 0;
       margin-inline-start: calc(var(--spacing-4) * var(--tw-space-x-reverse));
       margin-inline-end: calc(var(--spacing-4) * calc(1 - var(--tw-space-x-reverse)));
+    }
+
+    :where(.space-x-\[-0\] > :not(:last-child)), :where(.space-x-\[-0px\] > :not(:last-child)), :where(.space-x-\[0\] > :not(:last-child)), :where(.space-x-\[0px\] > :not(:last-child)) {
+      --tw-space-x-reverse: 0;
+      margin-inline: 0;
     }
 
     :where(.space-x-\[4px\] > :not(:last-child)) {
@@ -6935,7 +6979,7 @@ gap-y-4 gap-y-[4px]
 <<<>>>
 # space-y
 @config theme
--space-y-4 space-y-4 space-y-[4px]
+-space-y-0 -space-y-1 -space-y-4 space-y-0 space-y-1 space-y-4 space-y-[-0] space-y-[-0px] space-y-[0] space-y-[0px] space-y-[4px]
 ---
 
     @layer properties {
@@ -6947,7 +6991,19 @@ gap-y-4 gap-y-[4px]
     }
 
     :root, :host {
+      --spacing: .25rem;
       --spacing-4: 1rem;
+    }
+
+    :where(.-space-y-0 > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block: 0;
+    }
+
+    :where(.-space-y-1 > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block-start: calc(calc(var(--spacing) * -1) * var(--tw-space-y-reverse));
+      margin-block-end: calc(calc(var(--spacing) * -1) * calc(1 - var(--tw-space-y-reverse)));
     }
 
     :where(.-space-y-4 > :not(:last-child)) {
@@ -6956,10 +7012,26 @@ gap-y-4 gap-y-[4px]
       margin-block-end: calc(calc(var(--spacing-4) * -1) * calc(1 - var(--tw-space-y-reverse)));
     }
 
+    :where(.space-y-0 > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block: 0;
+    }
+
+    :where(.space-y-1 > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block-start: calc(var(--spacing) * var(--tw-space-y-reverse));
+      margin-block-end: calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)));
+    }
+
     :where(.space-y-4 > :not(:last-child)) {
       --tw-space-y-reverse: 0;
       margin-block-start: calc(var(--spacing-4) * var(--tw-space-y-reverse));
       margin-block-end: calc(var(--spacing-4) * calc(1 - var(--tw-space-y-reverse)));
+    }
+
+    :where(.space-y-\[-0\] > :not(:last-child)), :where(.space-y-\[-0px\] > :not(:last-child)), :where(.space-y-\[0\] > :not(:last-child)), :where(.space-y-\[0px\] > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block: 0;
     }
 
     :where(.space-y-\[4px\] > :not(:last-child)) {
@@ -7042,59 +7114,66 @@ space-y-reverse
 
 <<<>>>
 # divide-x
-@config none
-divide-x divide-x-123 divide-x-4 divide-x-[4px]
+@config run
+divide-x divide-x-0 divide-x-123 divide-x-4 divide-x-[4px]
 ---
 
-    @layer properties {
-      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
-        *, :before, :after, ::backdrop {
-          --tw-divide-x-reverse: 0;
-          --tw-border-style: solid;
+      @layer properties {
+        @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+          *, :before, :after, ::backdrop {
+            --tw-divide-x-reverse: 0;
+            --tw-border-style: solid;
+          }
         }
       }
-    }
 
-    :where(.divide-x > :not(:last-child)) {
-      --tw-divide-x-reverse: 0;
-      border-inline-style: var(--tw-border-style);
-      border-inline-start-width: calc(1px * var(--tw-divide-x-reverse));
-      border-inline-end-width: calc(1px * calc(1 - var(--tw-divide-x-reverse)));
-    }
+      :where(.divide-x > :not(:last-child)) {
+        --tw-divide-x-reverse: 0;
+        border-inline-style: var(--tw-border-style);
+        border-inline-start-width: calc(1px * var(--tw-divide-x-reverse));
+        border-inline-end-width: calc(1px * calc(1 - var(--tw-divide-x-reverse)));
+      }
 
-    :where(.divide-x-4 > :not(:last-child)) {
-      --tw-divide-x-reverse: 0;
-      border-inline-style: var(--tw-border-style);
-      border-inline-start-width: calc(4px * var(--tw-divide-x-reverse));
-      border-inline-end-width: calc(4px * calc(1 - var(--tw-divide-x-reverse)));
-    }
+      :where(.divide-x-0 > :not(:last-child)) {
+        --tw-divide-x-reverse: 0;
+        border-inline-style: var(--tw-border-style);
+        border-inline-start-width: calc(0px * var(--tw-divide-x-reverse));
+        border-inline-end-width: calc(0px * calc(1 - var(--tw-divide-x-reverse)));
+      }
 
-    :where(.divide-x-123 > :not(:last-child)) {
-      --tw-divide-x-reverse: 0;
-      border-inline-style: var(--tw-border-style);
-      border-inline-start-width: calc(123px * var(--tw-divide-x-reverse));
-      border-inline-end-width: calc(123px * calc(1 - var(--tw-divide-x-reverse)));
-    }
+      :where(.divide-x-4 > :not(:last-child)) {
+        --tw-divide-x-reverse: 0;
+        border-inline-style: var(--tw-border-style);
+        border-inline-start-width: calc(4px * var(--tw-divide-x-reverse));
+        border-inline-end-width: calc(4px * calc(1 - var(--tw-divide-x-reverse)));
+      }
 
-    :where(.divide-x-\[4px\] > :not(:last-child)) {
-      --tw-divide-x-reverse: 0;
-      border-inline-style: var(--tw-border-style);
-      border-inline-start-width: calc(4px * var(--tw-divide-x-reverse));
-      border-inline-end-width: calc(4px * calc(1 - var(--tw-divide-x-reverse)));
-    }
+      :where(.divide-x-123 > :not(:last-child)) {
+        --tw-divide-x-reverse: 0;
+        border-inline-style: var(--tw-border-style);
+        border-inline-start-width: calc(123px * var(--tw-divide-x-reverse));
+        border-inline-end-width: calc(123px * calc(1 - var(--tw-divide-x-reverse)));
+      }
 
-    @property --tw-divide-x-reverse {
-      syntax: "*";
-      inherits: false;
-      initial-value: 0;
-    }
+      :where(.divide-x-\[4px\] > :not(:last-child)) {
+        --tw-divide-x-reverse: 0;
+        border-inline-style: var(--tw-border-style);
+        border-inline-start-width: calc(4px * var(--tw-divide-x-reverse));
+        border-inline-end-width: calc(4px * calc(1 - var(--tw-divide-x-reverse)));
+      }
 
-    @property --tw-border-style {
-      syntax: "*";
-      inherits: false;
-      initial-value: solid;
-    }
-    
+      @property --tw-divide-x-reverse {
+        syntax: "*";
+        inherits: false;
+        initial-value: 0;
+      }
+
+      @property --tw-border-style {
+        syntax: "*";
+        inherits: false;
+        initial-value: solid;
+      }
+      
 <<<>>>
 # divide-x
 @config run
@@ -7143,63 +7222,71 @@ divide-x/foo
 
 <<<>>>
 # divide-y
-@config none
-divide-y divide-y-123 divide-y-4 divide-y-[4px]
+@config run
+divide-y divide-y-0 divide-y-123 divide-y-4 divide-y-[4px]
 ---
 
-    @layer properties {
-      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
-        *, :before, :after, ::backdrop {
-          --tw-divide-y-reverse: 0;
-          --tw-border-style: solid;
+      @layer properties {
+        @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+          *, :before, :after, ::backdrop {
+            --tw-divide-y-reverse: 0;
+            --tw-border-style: solid;
+          }
         }
       }
-    }
 
-    :where(.divide-y > :not(:last-child)) {
-      --tw-divide-y-reverse: 0;
-      border-bottom-style: var(--tw-border-style);
-      border-top-style: var(--tw-border-style);
-      border-top-width: calc(1px * var(--tw-divide-y-reverse));
-      border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
-    }
+      :where(.divide-y > :not(:last-child)) {
+        --tw-divide-y-reverse: 0;
+        border-bottom-style: var(--tw-border-style);
+        border-top-style: var(--tw-border-style);
+        border-top-width: calc(1px * var(--tw-divide-y-reverse));
+        border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
+      }
 
-    :where(.divide-y-4 > :not(:last-child)) {
-      --tw-divide-y-reverse: 0;
-      border-bottom-style: var(--tw-border-style);
-      border-top-style: var(--tw-border-style);
-      border-top-width: calc(4px * var(--tw-divide-y-reverse));
-      border-bottom-width: calc(4px * calc(1 - var(--tw-divide-y-reverse)));
-    }
+      :where(.divide-y-0 > :not(:last-child)) {
+        --tw-divide-y-reverse: 0;
+        border-bottom-style: var(--tw-border-style);
+        border-top-style: var(--tw-border-style);
+        border-top-width: calc(0px * var(--tw-divide-y-reverse));
+        border-bottom-width: calc(0px * calc(1 - var(--tw-divide-y-reverse)));
+      }
 
-    :where(.divide-y-123 > :not(:last-child)) {
-      --tw-divide-y-reverse: 0;
-      border-bottom-style: var(--tw-border-style);
-      border-top-style: var(--tw-border-style);
-      border-top-width: calc(123px * var(--tw-divide-y-reverse));
-      border-bottom-width: calc(123px * calc(1 - var(--tw-divide-y-reverse)));
-    }
+      :where(.divide-y-4 > :not(:last-child)) {
+        --tw-divide-y-reverse: 0;
+        border-bottom-style: var(--tw-border-style);
+        border-top-style: var(--tw-border-style);
+        border-top-width: calc(4px * var(--tw-divide-y-reverse));
+        border-bottom-width: calc(4px * calc(1 - var(--tw-divide-y-reverse)));
+      }
 
-    :where(.divide-y-\[4px\] > :not(:last-child)) {
-      --tw-divide-y-reverse: 0;
-      border-bottom-style: var(--tw-border-style);
-      border-top-style: var(--tw-border-style);
-      border-top-width: calc(4px * var(--tw-divide-y-reverse));
-      border-bottom-width: calc(4px * calc(1 - var(--tw-divide-y-reverse)));
-    }
+      :where(.divide-y-123 > :not(:last-child)) {
+        --tw-divide-y-reverse: 0;
+        border-bottom-style: var(--tw-border-style);
+        border-top-style: var(--tw-border-style);
+        border-top-width: calc(123px * var(--tw-divide-y-reverse));
+        border-bottom-width: calc(123px * calc(1 - var(--tw-divide-y-reverse)));
+      }
 
-    @property --tw-divide-y-reverse {
-      syntax: "*";
-      inherits: false;
-      initial-value: 0;
-    }
+      :where(.divide-y-\[4px\] > :not(:last-child)) {
+        --tw-divide-y-reverse: 0;
+        border-bottom-style: var(--tw-border-style);
+        border-top-style: var(--tw-border-style);
+        border-top-width: calc(4px * var(--tw-divide-y-reverse));
+        border-bottom-width: calc(4px * calc(1 - var(--tw-divide-y-reverse)));
+      }
 
-    @property --tw-border-style {
-      syntax: "*";
-      inherits: false;
-      initial-value: solid;
-    }
-    
+      @property --tw-divide-y-reverse {
+        syntax: "*";
+        inherits: false;
+        initial-value: 0;
+      }
+
+      @property --tw-border-style {
+        syntax: "*";
+        inherits: false;
+        initial-value: solid;
+      }
+      
 <<<>>>
 # divide-y
 @config run
@@ -11360,7 +11447,7 @@ mask-size-[120px] mask-size-[120px_120px] mask-size-[var(--some-var)]
 
 <<<>>>
 # mask-t-from
-@config theme
+@config run
 mask-t-from-(--my-var) mask-t-from-(color:--my-var) mask-t-from-(length:--my-var) mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t-from-[0%] mask-t-from-[0px]
 ---
 
@@ -11416,7 +11503,7 @@ mask-t-from-(--my-var) mask-t-from-(color:--my-var) mask-t-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from-color) var(--tw-mask-top-from-position), var(--tw-mask-top-to-color) var(--tw-mask-top-to-position));
-      --tw-mask-top-from-position: calc(var(--spacing) * 0);
+      --tw-mask-top-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -11562,13 +11649,13 @@ mask-t-from-(--my-var) mask-t-from-(color:--my-var) mask-t-from-(length:--my-var
     
 <<<>>>
 # mask-t-from
-@config theme
+@config run
 -mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[25%]/foo -mask-t-from-(--my-var) -mask-t-from-(color:--my-var) -mask-t-from-(length:--my-var) -mask-t-from-0 -mask-t-from-0% -mask-t-from-1.5 -mask-t-from-2 -mask-t-from-2% -mask-t-from-[0%] -mask-t-from-[0px] mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
 ---
 
 <<<>>>
 # mask-t-to
-@config theme
+@config run
 mask-t-to-(--my-var) mask-t-to-(color:--my-var) mask-t-to-(length:--my-var) mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0%] mask-t-to-[0px]
 ---
 
@@ -11624,7 +11711,7 @@ mask-t-to-(--my-var) mask-t-to-(color:--my-var) mask-t-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from-color) var(--tw-mask-top-from-position), var(--tw-mask-top-to-color) var(--tw-mask-top-to-position));
-      --tw-mask-top-to-position: calc(var(--spacing) * 0);
+      --tw-mask-top-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -11770,13 +11857,13 @@ mask-t-to-(--my-var) mask-t-to-(color:--my-var) mask-t-to-(length:--my-var) mask
     
 <<<>>>
 # mask-t-to
-@config theme
+@config run
 -mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[25%]/foo -mask-t-to-(--my-var) -mask-t-to-(color:--my-var) -mask-t-to-(length:--my-var) -mask-t-to-0 -mask-t-to-0% -mask-t-to-1.5 -mask-t-to-2 -mask-t-to-2% -mask-t-to-[0%] -mask-t-to-[0px] mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
 ---
 
 <<<>>>
 # mask-r-from
-@config theme
+@config run
 mask-r-from-(--my-var) mask-r-from-(color:--my-var) mask-r-from-(length:--my-var) mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r-from-[0%] mask-r-from-[0px]
 ---
 
@@ -11832,7 +11919,7 @@ mask-r-from-(--my-var) mask-r-from-(color:--my-var) mask-r-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from-color) var(--tw-mask-right-from-position), var(--tw-mask-right-to-color) var(--tw-mask-right-to-position));
-      --tw-mask-right-from-position: calc(var(--spacing) * 0);
+      --tw-mask-right-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -11978,13 +12065,13 @@ mask-r-from-(--my-var) mask-r-from-(color:--my-var) mask-r-from-(length:--my-var
     
 <<<>>>
 # mask-r-from
-@config theme
+@config run
 -mask-r-from-(--my-var) -mask-r-from-(color:--my-var) -mask-r-from-(length:--my-var) -mask-r-from-0 -mask-r-from-0% -mask-r-from-1.5 -mask-r-from-2 -mask-r-from-2% -mask-r-from-[-25%] -mask-r-from-[-25%]/foo -mask-r-from-[0%] -mask-r-from-[0px] -mask-r-from-[25%]/foo mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-[-25%] mask-r-from-[-25%]/foo mask-r-from-[25%]/foo mask-r-from-unknown mask-r-from-unknown%
 ---
 
 <<<>>>
 # mask-r-to
-@config theme
+@config run
 mask-r-to-(--my-var) mask-r-to-(color:--my-var) mask-r-to-(length:--my-var) mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0%] mask-r-to-[0px]
 ---
 
@@ -12040,7 +12127,7 @@ mask-r-to-(--my-var) mask-r-to-(color:--my-var) mask-r-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from-color) var(--tw-mask-right-from-position), var(--tw-mask-right-to-color) var(--tw-mask-right-to-position));
-      --tw-mask-right-to-position: calc(var(--spacing) * 0);
+      --tw-mask-right-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -12186,13 +12273,13 @@ mask-r-to-(--my-var) mask-r-to-(color:--my-var) mask-r-to-(length:--my-var) mask
     
 <<<>>>
 # mask-r-to
-@config theme
+@config run
 -mask-r-to-(--my-var) -mask-r-to-(color:--my-var) -mask-r-to-(length:--my-var) -mask-r-to-0 -mask-r-to-0% -mask-r-to-1.5 -mask-r-to-2 -mask-r-to-2% -mask-r-to-[-25%] -mask-r-to-[-25%]/foo -mask-r-to-[0%] -mask-r-to-[0px] -mask-r-to-[25%]/foo mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-[-25%] mask-r-to-[-25%]/foo mask-r-to-[25%]/foo mask-r-to-unknown mask-r-to-unknown%
 ---
 
 <<<>>>
 # mask-b-from
-@config theme
+@config run
 mask-b-from-(--my-var) mask-b-from-(color:--my-var) mask-b-from-(length:--my-var) mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b-from-[0%] mask-b-from-[0px]
 ---
 
@@ -12248,7 +12335,7 @@ mask-b-from-(--my-var) mask-b-from-(color:--my-var) mask-b-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from-color) var(--tw-mask-bottom-from-position), var(--tw-mask-bottom-to-color) var(--tw-mask-bottom-to-position));
-      --tw-mask-bottom-from-position: calc(var(--spacing) * 0);
+      --tw-mask-bottom-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -12394,13 +12481,13 @@ mask-b-from-(--my-var) mask-b-from-(color:--my-var) mask-b-from-(length:--my-var
     
 <<<>>>
 # mask-b-from
-@config theme
+@config run
 -mask-b-from-(--my-var) -mask-b-from-(color:--my-var) -mask-b-from-(length:--my-var) -mask-b-from-0 -mask-b-from-0% -mask-b-from-1.5 -mask-b-from-2 -mask-b-from-2% -mask-b-from-[-25%] -mask-b-from-[-25%]/foo -mask-b-from-[0%] -mask-b-from-[0px] -mask-b-from-[25%]/foo mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-[-25%] mask-b-from-[-25%]/foo mask-b-from-[25%]/foo mask-b-from-unknown mask-b-from-unknown%
 ---
 
 <<<>>>
 # mask-b-to
-@config theme
+@config run
 mask-b-to-(--my-var) mask-b-to-(color:--my-var) mask-b-to-(length:--my-var) mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0%] mask-b-to-[0px]
 ---
 
@@ -12456,7 +12543,7 @@ mask-b-to-(--my-var) mask-b-to-(color:--my-var) mask-b-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from-color) var(--tw-mask-bottom-from-position), var(--tw-mask-bottom-to-color) var(--tw-mask-bottom-to-position));
-      --tw-mask-bottom-to-position: calc(var(--spacing) * 0);
+      --tw-mask-bottom-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -12602,13 +12689,13 @@ mask-b-to-(--my-var) mask-b-to-(color:--my-var) mask-b-to-(length:--my-var) mask
     
 <<<>>>
 # mask-b-to
-@config theme
+@config run
 -mask-b-to-(--my-var) -mask-b-to-(color:--my-var) -mask-b-to-(length:--my-var) -mask-b-to-0 -mask-b-to-0% -mask-b-to-1.5 -mask-b-to-2 -mask-b-to-2% -mask-b-to-[-25%] -mask-b-to-[-25%]/foo -mask-b-to-[0%] -mask-b-to-[0px] -mask-b-to-[25%]/foo mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-[-25%] mask-b-to-[-25%]/foo mask-b-to-[25%]/foo mask-b-to-unknown mask-b-to-unknown%
 ---
 
 <<<>>>
 # mask-l-from
-@config theme
+@config run
 mask-l-from-(--my-var) mask-l-from-(color:--my-var) mask-l-from-(length:--my-var) mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l-from-[0%] mask-l-from-[0px]
 ---
 
@@ -12664,7 +12751,7 @@ mask-l-from-(--my-var) mask-l-from-(color:--my-var) mask-l-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from-color) var(--tw-mask-left-from-position), var(--tw-mask-left-to-color) var(--tw-mask-left-to-position));
-      --tw-mask-left-from-position: calc(var(--spacing) * 0);
+      --tw-mask-left-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -12810,13 +12897,13 @@ mask-l-from-(--my-var) mask-l-from-(color:--my-var) mask-l-from-(length:--my-var
     
 <<<>>>
 # mask-l-from
-@config theme
+@config run
 -mask-l-from-(--my-var) -mask-l-from-(color:--my-var) -mask-l-from-(length:--my-var) -mask-l-from-0 -mask-l-from-0% -mask-l-from-1.5 -mask-l-from-2 -mask-l-from-2% -mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[0%] -mask-l-from-[0px] -mask-l-from-[25%]/foo mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-l-from-unknown mask-l-from-unknown%
 ---
 
 <<<>>>
 # mask-l-to
-@config theme
+@config run
 mask-l-to-(--my-var) mask-l-to-(color:--my-var) mask-l-to-(length:--my-var) mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0%] mask-l-to-[0px]
 ---
 
@@ -12872,7 +12959,7 @@ mask-l-to-(--my-var) mask-l-to-(color:--my-var) mask-l-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from-color) var(--tw-mask-left-from-position), var(--tw-mask-left-to-color) var(--tw-mask-left-to-position));
-      --tw-mask-left-to-position: calc(var(--spacing) * 0);
+      --tw-mask-left-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -13018,13 +13105,13 @@ mask-l-to-(--my-var) mask-l-to-(color:--my-var) mask-l-to-(length:--my-var) mask
     
 <<<>>>
 # mask-l-to
-@config theme
+@config run
 -mask-l-to-(--my-var) -mask-l-to-(color:--my-var) -mask-l-to-(length:--my-var) -mask-l-to-0 -mask-l-to-0% -mask-l-to-1.5 -mask-l-to-2 -mask-l-to-2% -mask-l-to-[-25%] -mask-l-to-[-25%]/foo -mask-l-to-[0%] -mask-l-to-[0px] -mask-l-to-[25%]/foo mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-[-25%] mask-l-to-[-25%]/foo mask-l-to-[25%]/foo mask-l-to-unknown mask-l-to-unknown%
 ---
 
 <<<>>>
 # mask-x-from
-@config theme
+@config run
 mask-x-from-(--my-var) mask-x-from-(color:--my-var) mask-x-from-(length:--my-var) mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x-from-[0%] mask-x-from-[0px]
 ---
 
@@ -13088,9 +13175,9 @@ mask-x-from-(--my-var) mask-x-from-(color:--my-var) mask-x-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from-color) var(--tw-mask-right-from-position), var(--tw-mask-right-to-color) var(--tw-mask-right-to-position));
-      --tw-mask-right-from-position: calc(var(--spacing) * 0);
+      --tw-mask-right-from-position: 0;
       --tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from-color) var(--tw-mask-left-from-position), var(--tw-mask-left-to-color) var(--tw-mask-left-to-position));
-      --tw-mask-left-from-position: calc(var(--spacing) * 0);
+      --tw-mask-left-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -13272,13 +13359,13 @@ mask-x-from-(--my-var) mask-x-from-(color:--my-var) mask-x-from-(length:--my-var
     
 <<<>>>
 # mask-x-from
-@config theme
+@config run
 -mask-x-from-(--my-var) -mask-x-from-(color:--my-var) -mask-x-from-(length:--my-var) -mask-x-from-0 -mask-x-from-0% -mask-x-from-1.5 -mask-x-from-2 -mask-x-from-2% -mask-x-from-[-25%] -mask-x-from-[-25%]/foo -mask-x-from-[0%] -mask-x-from-[0px] -mask-x-from-[25%]/foo mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-[-25%] mask-x-from-[-25%]/foo mask-x-from-[25%]/foo mask-x-from-unknown mask-x-from-unknown%
 ---
 
 <<<>>>
 # mask-x-to
-@config theme
+@config run
 mask-x-to-(--my-var) mask-x-to-(color:--my-var) mask-x-to-(length:--my-var) mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0%] mask-x-to-[0px]
 ---
 
@@ -13342,9 +13429,9 @@ mask-x-to-(--my-var) mask-x-to-(color:--my-var) mask-x-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from-color) var(--tw-mask-right-from-position), var(--tw-mask-right-to-color) var(--tw-mask-right-to-position));
-      --tw-mask-right-to-position: calc(var(--spacing) * 0);
+      --tw-mask-right-to-position: 0;
       --tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from-color) var(--tw-mask-left-from-position), var(--tw-mask-left-to-color) var(--tw-mask-left-to-position));
-      --tw-mask-left-to-position: calc(var(--spacing) * 0);
+      --tw-mask-left-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -13526,13 +13613,13 @@ mask-x-to-(--my-var) mask-x-to-(color:--my-var) mask-x-to-(length:--my-var) mask
     
 <<<>>>
 # mask-x-to
-@config theme
+@config run
 -mask-x-to-(--my-var) -mask-x-to-(color:--my-var) -mask-x-to-(length:--my-var) -mask-x-to-0 -mask-x-to-0% -mask-x-to-1.5 -mask-x-to-2 -mask-x-to-2% -mask-x-to-[-25%] -mask-x-to-[-25%]/foo -mask-x-to-[0%] -mask-x-to-[0px] -mask-x-to-[25%]/foo mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-[-25%] mask-x-to-[-25%]/foo mask-x-to-[25%]/foo mask-x-to-unknown mask-x-to-unknown%
 ---
 
 <<<>>>
 # mask-y-from
-@config theme
+@config run
 mask-y-from-(--my-var) mask-y-from-(color:--my-var) mask-y-from-(length:--my-var) mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y-from-[0%] mask-y-from-[0px]
 ---
 
@@ -13596,9 +13683,9 @@ mask-y-from-(--my-var) mask-y-from-(color:--my-var) mask-y-from-(length:--my-var
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from-color) var(--tw-mask-top-from-position), var(--tw-mask-top-to-color) var(--tw-mask-top-to-position));
-      --tw-mask-top-from-position: calc(var(--spacing) * 0);
+      --tw-mask-top-from-position: 0;
       --tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from-color) var(--tw-mask-bottom-from-position), var(--tw-mask-bottom-to-color) var(--tw-mask-bottom-to-position));
-      --tw-mask-bottom-from-position: calc(var(--spacing) * 0);
+      --tw-mask-bottom-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -13780,13 +13867,13 @@ mask-y-from-(--my-var) mask-y-from-(color:--my-var) mask-y-from-(length:--my-var
     
 <<<>>>
 # mask-y-from
-@config theme
+@config run
 -mask-y-from-(--my-var) -mask-y-from-(color:--my-var) -mask-y-from-(length:--my-var) -mask-y-from-0 -mask-y-from-0% -mask-y-from-1.5 -mask-y-from-2 -mask-y-from-2% -mask-y-from-[-25%] -mask-y-from-[-25%]/foo -mask-y-from-[0%] -mask-y-from-[0px] -mask-y-from-[25%]/foo mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-[-25%] mask-y-from-[-25%]/foo mask-y-from-[25%]/foo mask-y-from-unknown mask-y-from-unknown%
 ---
 
 <<<>>>
 # mask-y-to
-@config theme
+@config run
 mask-y-to-(--my-var) mask-y-to-(color:--my-var) mask-y-to-(length:--my-var) mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0%] mask-y-to-[0px]
 ---
 
@@ -13850,9 +13937,9 @@ mask-y-to-(--my-var) mask-y-to-(color:--my-var) mask-y-to-(length:--my-var) mask
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), var(--tw-mask-top);
       --tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from-color) var(--tw-mask-top-from-position), var(--tw-mask-top-to-color) var(--tw-mask-top-to-position));
-      --tw-mask-top-to-position: calc(var(--spacing) * 0);
+      --tw-mask-top-to-position: 0;
       --tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from-color) var(--tw-mask-bottom-from-position), var(--tw-mask-bottom-to-color) var(--tw-mask-bottom-to-position));
-      --tw-mask-bottom-to-position: calc(var(--spacing) * 0);
+      --tw-mask-bottom-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -14034,14 +14121,14 @@ mask-y-to-(--my-var) mask-y-to-(color:--my-var) mask-y-to-(length:--my-var) mask
     
 <<<>>>
 # mask-y-to
-@config theme
+@config run
 -mask-y-to-(--my-var) -mask-y-to-(color:--my-var) -mask-y-to-(length:--my-var) -mask-y-to-0 -mask-y-to-0% -mask-y-to-1.5 -mask-y-to-2 -mask-y-to-2% -mask-y-to-[-25%] -mask-y-to-[-25%]/foo -mask-y-to-[0%] -mask-y-to-[0px] -mask-y-to-[25%]/foo mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-[-25%] mask-y-to-[-25%]/foo mask-y-to-[25%]/foo mask-y-to-unknown mask-y-to-unknown%
 ---
 
 <<<>>>
 # mask-linear
-@config none
--mask-linear-45 mask-linear-45 mask-linear-[3rad]
+@config run
+-mask-linear-1 -mask-linear-45 mask-linear-0 mask-linear-1 mask-linear-45 mask-linear-[3rad]
 ---
 
     @layer properties {
@@ -14059,12 +14146,45 @@ mask-y-to-(--my-var) mask-y-to-(color:--my-var) mask-y-to-(length:--my-var) mask
       }
     }
 
+    .-mask-linear-1 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops, var(--tw-mask-linear-position)));
+      --tw-mask-linear-position: -1deg;
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
     .-mask-linear-45 {
       -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops, var(--tw-mask-linear-position)));
       --tw-mask-linear-position: calc(1deg * -45);
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
+    .mask-linear-0 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops, var(--tw-mask-linear-position)));
+      --tw-mask-linear-position: 0deg;
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
+    .mask-linear-1 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops, var(--tw-mask-linear-position)));
+      --tw-mask-linear-position: 1deg;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -14148,7 +14268,7 @@ mask-y-to-(--my-var) mask-y-to-(color:--my-var) mask-y-to-(length:--my-var) mask
 
 <<<>>>
 # mask-linear-from
-@config theme
+@config run
 mask-linear-from-(--my-var) mask-linear-from-(color:--my-var) mask-linear-from-(length:--my-var) mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2% mask-linear-from-[0%] mask-linear-from-[0px]
 ---
 
@@ -14201,7 +14321,7 @@ mask-linear-from-(--my-var) mask-linear-from-(color:--my-var) mask-linear-from-(
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear-stops: var(--tw-mask-linear-position), var(--tw-mask-linear-from-color) var(--tw-mask-linear-from-position), var(--tw-mask-linear-to-color) var(--tw-mask-linear-to-position);
       --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops));
-      --tw-mask-linear-from-position: calc(var(--spacing) * 0);
+      --tw-mask-linear-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -14329,13 +14449,13 @@ mask-linear-from-(--my-var) mask-linear-from-(color:--my-var) mask-linear-from-(
     
 <<<>>>
 # mask-linear-from
-@config theme
+@config run
 -mask-linear-from-(--my-var) -mask-linear-from-(color:--my-var) -mask-linear-from-(length:--my-var) -mask-linear-from-0 -mask-linear-from-0% -mask-linear-from-1.5 -mask-linear-from-2 -mask-linear-from-2% -mask-linear-from-[-25%] -mask-linear-from-[-25%]/foo -mask-linear-from-[0%] -mask-linear-from-[0px] -mask-linear-from-[25%]/foo mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-[-25%] mask-linear-from-[-25%]/foo mask-linear-from-[25%]/foo mask-linear-from-unknown mask-linear-from-unknown%
 ---
 
 <<<>>>
 # mask-linear-to
-@config theme
+@config run
 mask-linear-to-(--my-var) mask-linear-to-(color:--my-var) mask-linear-to-(length:--my-var) mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2% mask-linear-to-[0%] mask-linear-to-[0px]
 ---
 
@@ -14388,7 +14508,7 @@ mask-linear-to-(--my-var) mask-linear-to-(color:--my-var) mask-linear-to-(length
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-linear-stops: var(--tw-mask-linear-position), var(--tw-mask-linear-from-color) var(--tw-mask-linear-from-position), var(--tw-mask-linear-to-color) var(--tw-mask-linear-to-position);
       --tw-mask-linear: linear-gradient(var(--tw-mask-linear-stops));
-      --tw-mask-linear-to-position: calc(var(--spacing) * 0);
+      --tw-mask-linear-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -14516,13 +14636,13 @@ mask-linear-to-(--my-var) mask-linear-to-(color:--my-var) mask-linear-to-(length
     
 <<<>>>
 # mask-linear-to
-@config theme
+@config run
 -mask-linear-to-(--my-var) -mask-linear-to-(color:--my-var) -mask-linear-to-(length:--my-var) -mask-linear-to-0 -mask-linear-to-0% -mask-linear-to-1.5 -mask-linear-to-2 -mask-linear-to-2% -mask-linear-to-[-25%] -mask-linear-to-[-25%]/foo -mask-linear-to-[0%] -mask-linear-to-[0px] -mask-linear-to-[25%]/foo mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-[-25%] mask-linear-to-[-25%]/foo mask-linear-to-[25%]/foo mask-linear-to-unknown mask-linear-to-unknown%
 ---
 
 <<<>>>
 # mask-radial
-@config none
+@config run
 mask-circle mask-ellipse mask-radial-[25%_25%] mask-radial-closest-corner mask-radial-closest-side mask-radial-farthest-corner mask-radial-farthest-side
 ---
 
@@ -14694,7 +14814,7 @@ mask-radial-at-[25%] mask-radial-at-bottom mask-radial-at-bottom-left mask-radia
 
 <<<>>>
 # mask-radial-from
-@config theme
+@config run
 mask-radial-from-(--my-var) mask-radial-from-(color:--my-var) mask-radial-from-(length:--my-var) mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2% mask-radial-from-[0%] mask-radial-from-[0px]
 ---
 
@@ -14749,7 +14869,7 @@ mask-radial-from-(--my-var) mask-radial-from-(color:--my-var) mask-radial-from-(
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-radial-stops: var(--tw-mask-radial-shape) var(--tw-mask-radial-size) at var(--tw-mask-radial-position), var(--tw-mask-radial-from-color) var(--tw-mask-radial-from-position), var(--tw-mask-radial-to-color) var(--tw-mask-radial-to-position);
       --tw-mask-radial: radial-gradient(var(--tw-mask-radial-stops));
-      --tw-mask-radial-from-position: calc(var(--spacing) * 0);
+      --tw-mask-radial-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -14889,13 +15009,13 @@ mask-radial-from-(--my-var) mask-radial-from-(color:--my-var) mask-radial-from-(
     
 <<<>>>
 # mask-radial-from
-@config theme
+@config run
 -mask-radial-from-(--my-var) -mask-radial-from-(color:--my-var) -mask-radial-from-(length:--my-var) -mask-radial-from-0 -mask-radial-from-0% -mask-radial-from-1.5 -mask-radial-from-2 -mask-radial-from-2% -mask-radial-from-[-25%] -mask-radial-from-[-25%]/foo -mask-radial-from-[0%] -mask-radial-from-[0px] -mask-radial-from-[25%]/foo mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-[-25%] mask-radial-from-[-25%]/foo mask-radial-from-[25%]/foo mask-radial-from-unknown mask-radial-from-unknown%
 ---
 
 <<<>>>
 # mask-radial-to
-@config theme
+@config run
 mask-radial-to-(--my-var) mask-radial-to-(color:--my-var) mask-radial-to-(length:--my-var) mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2% mask-radial-to-[0%] mask-radial-to-[0px]
 ---
 
@@ -14950,7 +15070,7 @@ mask-radial-to-(--my-var) mask-radial-to-(color:--my-var) mask-radial-to-(length
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-radial-stops: var(--tw-mask-radial-shape) var(--tw-mask-radial-size) at var(--tw-mask-radial-position), var(--tw-mask-radial-from-color) var(--tw-mask-radial-from-position), var(--tw-mask-radial-to-color) var(--tw-mask-radial-to-position);
       --tw-mask-radial: radial-gradient(var(--tw-mask-radial-stops));
-      --tw-mask-radial-to-position: calc(var(--spacing) * 0);
+      --tw-mask-radial-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -15090,14 +15210,14 @@ mask-radial-to-(--my-var) mask-radial-to-(color:--my-var) mask-radial-to-(length
     
 <<<>>>
 # mask-radial-to
-@config theme
+@config run
 -mask-radial-to-(--my-var) -mask-radial-to-(color:--my-var) -mask-radial-to-(length:--my-var) -mask-radial-to-0 -mask-radial-to-0% -mask-radial-to-1.5 -mask-radial-to-2 -mask-radial-to-2% -mask-radial-to-[-25%] -mask-radial-to-[-25%]/foo -mask-radial-to-[0%] -mask-radial-to-[0px] -mask-radial-to-[25%]/foo mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-[-25%] mask-radial-to-[-25%]/foo mask-radial-to-[25%]/foo mask-radial-to-unknown mask-radial-to-unknown%
 ---
 
 <<<>>>
 # mask-conic
-@config none
--mask-conic-45 mask-conic-45 mask-conic-[3rad]
+@config run
+-mask-conic-1 -mask-conic-45 mask-conic-0 mask-conic-1 mask-conic-45 mask-conic-[3rad]
 ---
 
     @layer properties {
@@ -15115,12 +15235,45 @@ mask-radial-to-(--my-var) mask-radial-to-(color:--my-var) mask-radial-to-(length
       }
     }
 
+    .-mask-conic-1 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops, var(--tw-mask-conic-position)));
+      --tw-mask-conic-position: -1deg;
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
     .-mask-conic-45 {
       -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops, var(--tw-mask-conic-position)));
       --tw-mask-conic-position: calc(1deg * -45);
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
+    .mask-conic-0 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops, var(--tw-mask-conic-position)));
+      --tw-mask-conic-position: 0deg;
+      -webkit-mask-composite: source-in;
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
+    .mask-conic-1 {
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      -webkit-mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
+      --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops, var(--tw-mask-conic-position)));
+      --tw-mask-conic-position: 1deg;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -15204,7 +15357,7 @@ mask-radial-to-(--my-var) mask-radial-to-(color:--my-var) mask-radial-to-(length
 
 <<<>>>
 # mask-conic-from
-@config theme
+@config run
 mask-conic-from-(--my-var) mask-conic-from-(color:--my-var) mask-conic-from-(length:--my-var) mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2% mask-conic-from-[0%] mask-conic-from-[0px]
 ---
 
@@ -15257,7 +15410,7 @@ mask-conic-from-(--my-var) mask-conic-from-(color:--my-var) mask-conic-from-(len
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-conic-stops: from var(--tw-mask-conic-position), var(--tw-mask-conic-from-color) var(--tw-mask-conic-from-position), var(--tw-mask-conic-to-color) var(--tw-mask-conic-to-position);
       --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops));
-      --tw-mask-conic-from-position: calc(var(--spacing) * 0);
+      --tw-mask-conic-from-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -15385,13 +15538,13 @@ mask-conic-from-(--my-var) mask-conic-from-(color:--my-var) mask-conic-from-(len
     
 <<<>>>
 # mask-conic-from
-@config theme
+@config run
 -mask-conic-from-(--my-var) -mask-conic-from-(color:--my-var) -mask-conic-from-(length:--my-var) -mask-conic-from-0 -mask-conic-from-0% -mask-conic-from-1.5 -mask-conic-from-2 -mask-conic-from-2% -mask-conic-from-[-25%] -mask-conic-from-[-25%]/foo -mask-conic-from-[0%] -mask-conic-from-[0px] -mask-conic-from-[25%]/foo mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-[-25%] mask-conic-from-[-25%]/foo mask-conic-from-[25%]/foo mask-conic-from-unknown mask-conic-from-unknown%
 ---
 
 <<<>>>
 # mask-conic-to
-@config theme
+@config run
 mask-conic-to-(--my-var) mask-conic-to-(color:--my-var) mask-conic-to-(length:--my-var) mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2% mask-conic-to-[0%] mask-conic-to-[0px]
 ---
 
@@ -15444,7 +15597,7 @@ mask-conic-to-(--my-var) mask-conic-to-(color:--my-var) mask-conic-to-(length:--
       mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic);
       --tw-mask-conic-stops: from var(--tw-mask-conic-position), var(--tw-mask-conic-from-color) var(--tw-mask-conic-from-position), var(--tw-mask-conic-to-color) var(--tw-mask-conic-to-position);
       --tw-mask-conic: conic-gradient(var(--tw-mask-conic-stops));
-      --tw-mask-conic-to-position: calc(var(--spacing) * 0);
+      --tw-mask-conic-to-position: 0;
       -webkit-mask-composite: source-in;
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
@@ -15572,7 +15725,7 @@ mask-conic-to-(--my-var) mask-conic-to-(color:--my-var) mask-conic-to-(length:--
     
 <<<>>>
 # mask-conic-to
-@config theme
+@config run
 -mask-conic-to-(--my-var) -mask-conic-to-(color:--my-var) -mask-conic-to-(length:--my-var) -mask-conic-to-0 -mask-conic-to-0% -mask-conic-to-1.5 -mask-conic-to-2 -mask-conic-to-2% -mask-conic-to-[-25%] -mask-conic-to-[-25%]/foo -mask-conic-to-[0%] -mask-conic-to-[0px] -mask-conic-to-[25%]/foo mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-[-25%] mask-conic-to-[-25%]/foo mask-conic-to-[25%]/foo mask-conic-to-unknown mask-conic-to-unknown%
 ---
 
@@ -16368,7 +16521,7 @@ p-1 p-4 p-99 p-[4px] p-big
     }
 
     .p-1 {
-      padding: calc(var(--spacing) * 1);
+      padding: var(--spacing);
     }
 
     .p-4 {
@@ -16405,7 +16558,7 @@ px-1 px-2.5 px-99 px-[4px] px-big
     }
 
     .px-1 {
-      padding-inline: calc(var(--spacing) * 1);
+      padding-inline: var(--spacing);
     }
 
     .px-2\.5 {
@@ -16442,7 +16595,7 @@ py-1 py-4 py-99 py-[4px] py-big
     }
 
     .py-1 {
-      padding-block: calc(var(--spacing) * 1);
+      padding-block: var(--spacing);
     }
 
     .py-4 {
@@ -16479,7 +16632,7 @@ pt-1 pt-4 pt-99 pt-[4px] pt-big
     }
 
     .pt-1 {
-      padding-top: calc(var(--spacing) * 1);
+      padding-top: var(--spacing);
     }
 
     .pt-4 {
@@ -16516,7 +16669,7 @@ ps-1 ps-4 ps-99 ps-[4px] ps-big
     }
 
     .ps-1 {
-      padding-inline-start: calc(var(--spacing) * 1);
+      padding-inline-start: var(--spacing);
     }
 
     .ps-4 {
@@ -16553,7 +16706,7 @@ pe-1 pe-4 pe-99 pe-[4px] pe-big
     }
 
     .pe-1 {
-      padding-inline-end: calc(var(--spacing) * 1);
+      padding-inline-end: var(--spacing);
     }
 
     .pe-4 {
@@ -16590,7 +16743,7 @@ pbs-1 pbs-4 pbs-99 pbs-[4px] pbs-big
     }
 
     .pbs-1 {
-      padding-block-start: calc(var(--spacing) * 1);
+      padding-block-start: var(--spacing);
     }
 
     .pbs-4 {
@@ -16627,7 +16780,7 @@ pbe-1 pbe-4 pbe-99 pbe-[4px] pbe-big
     }
 
     .pbe-1 {
-      padding-block-end: calc(var(--spacing) * 1);
+      padding-block-end: var(--spacing);
     }
 
     .pbe-4 {
@@ -16664,7 +16817,7 @@ pr-1 pr-4 pr-99 pr-[4px] pr-big
     }
 
     .pr-1 {
-      padding-right: calc(var(--spacing) * 1);
+      padding-right: var(--spacing);
     }
 
     .pr-4 {
@@ -16701,7 +16854,7 @@ pb-1 pb-4 pb-99 pb-[4px] pb-big
     }
 
     .pb-1 {
-      padding-bottom: calc(var(--spacing) * 1);
+      padding-bottom: var(--spacing);
     }
 
     .pb-4 {
@@ -16738,7 +16891,7 @@ pl-1 pl-4 pl-99 pl-[4px] pl-big
     }
 
     .pl-1 {
-      padding-left: calc(var(--spacing) * 1);
+      padding-left: var(--spacing);
     }
 
     .pl-4 {
@@ -17496,7 +17649,7 @@ animate-none
 <<<>>>
 # filter
 @config theme-inline
--hue-rotate-15 -hue-rotate-[45deg] blur-[4px] blur-none blur-xl brightness-50 brightness-[1.23] contrast-50 contrast-[1.23] drop-shadow drop-shadow-[0_0_red] drop-shadow-inherit drop-shadow-multi drop-shadow-none drop-shadow-red-500 drop-shadow-red-500/50 drop-shadow-xl drop-shadow/25 filter filter-[var(--value)] filter-none grayscale grayscale-0 grayscale-[var(--value)] hue-rotate-15 hue-rotate-[45deg] invert invert-0 invert-[var(--value)] saturate-0 saturate-[1.75] saturate-[var(--value)] sepia sepia-0 sepia-[50%] sepia-[var(--value)]
+-hue-rotate-15 -hue-rotate-[45deg] blur-[4px] blur-none blur-xl brightness-50 brightness-[1.23] contrast-50 contrast-[1.23] drop-shadow drop-shadow-[0_0_red] drop-shadow-calc drop-shadow-inherit drop-shadow-multi drop-shadow-none drop-shadow-red-500 drop-shadow-red-500/50 drop-shadow-xl drop-shadow/25 filter filter-[var(--value)] filter-none grayscale grayscale-0 grayscale-[var(--value)] hue-rotate-15 hue-rotate-[45deg] invert invert-0 invert-[var(--value)] saturate-0 saturate-[1.75] saturate-[var(--value)] sepia sepia-0 sepia-[50%] sepia-[var(--value)]
 ---
 
     @layer properties {
@@ -17520,10 +17673,12 @@ animate-none
     }
 
     :root, :host {
+      --spacing: .25rem;
       --blur-xl: 24px;
       --color-red-500: #ef4444;
       --drop-shadow: 0 1px 1px #0000000d;
       --drop-shadow-xl: 0 9px 7px #0000001a;
+      --drop-shadow-calc: 0 0 calc(1 * var(--spacing)) black;
     }
 
     .blur-\[4px\] {
@@ -17577,6 +17732,12 @@ animate-none
     .drop-shadow-\[0_0_red\] {
       --tw-drop-shadow-size: drop-shadow(0 0 var(--tw-drop-shadow-color, red));
       --tw-drop-shadow: var(--tw-drop-shadow-size);
+      filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, );
+    }
+
+    .drop-shadow-calc {
+      --tw-drop-shadow-size: drop-shadow(0 0 calc(1 * var(--spacing)) var(--tw-drop-shadow-color, black));
+      --tw-drop-shadow: drop-shadow(var(--drop-shadow-calc));
       filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, );
     }
 
@@ -18333,7 +18494,7 @@ transition transition-all transition-colors
     
 <<<>>>
 # transition
-@config none
+@config run
 transition-all
 ---
 
@@ -19334,7 +19495,7 @@ underline-offset-auto
 <<<>>>
 # text
 @config theme
-text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-[10px]/none text-[12px] text-[12px]/6 text-[50%] text-[50%]/6 text-[absolute-size:var(--my-size)] text-[clamp(1rem,2rem,3rem)] text-[clamp(1rem,var(--size),3rem)] text-[clamp(1rem,var(--size),3rem)]/9 text-[color:var(--my-color)] text-[color:var(--my-color)]/50 text-[color:var(--my-color)]/[0.5] text-[color:var(--my-color)]/[50%] text-[larger] text-[larger]/6 text-[length:var(--my-size)] text-[percentage:var(--my-size)] text-[relative-size:var(--my-size)] text-[var(--my-color)] text-[var(--my-color)]/50 text-[var(--my-color)]/[0.5] text-[var(--my-color)]/[50%] text-[xx-large] text-[xx-large]/6 text-blue-500 text-current text-current/50 text-current/[0.5] text-current/[50%] text-inherit text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5] text-red-500/[50%] text-sm text-sm/6 text-sm/[4px] text-sm/none text-sm/snug text-transparent
+text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-[10px]/none text-[12px] text-[12px]/0 text-[12px]/6 text-[50%] text-[50%]/6 text-[absolute-size:var(--my-size)] text-[clamp(1rem,2rem,3rem)] text-[clamp(1rem,var(--size),3rem)] text-[clamp(1rem,var(--size),3rem)]/9 text-[color:var(--my-color)] text-[color:var(--my-color)]/50 text-[color:var(--my-color)]/[0.5] text-[color:var(--my-color)]/[50%] text-[larger] text-[larger]/6 text-[length:var(--my-size)] text-[percentage:var(--my-size)] text-[relative-size:var(--my-size)] text-[var(--my-color)] text-[var(--my-color)]/50 text-[var(--my-color)]/[0.5] text-[var(--my-color)]/[50%] text-[xx-large] text-[xx-large]/6 text-blue-500 text-current text-current/50 text-current/[0.5] text-current/[50%] text-inherit text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5] text-red-500/[50%] text-sm text-sm/0 text-sm/6 text-sm/[4px] text-sm/none text-sm/snug text-transparent
 ---
 
     :root, :host {
@@ -19342,13 +19503,18 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
       --color-red-500: #ef4444;
       --text-color-blue-500: #3b82f6;
       --text-sm: .875rem;
-      --text-sm--line-height: calc(1.25 / .875);
+      --text-sm--line-height: 1.25rem;
       --leading-snug: 1.375;
     }
 
     .text-\[10px\]\/none {
       font-size: 10px;
       line-height: 1;
+    }
+
+    .text-\[12px\]\/0 {
+      font-size: 12px;
+      line-height: 0;
     }
 
     .text-\[12px\]\/6 {
@@ -19379,6 +19545,11 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
     .text-sm {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
+    }
+
+    .text-sm\/0 {
+      font-size: var(--text-sm);
+      line-height: 0;
     }
 
     .text-sm\/6 {
@@ -20440,7 +20611,7 @@ inset-shadow inset-shadow-[#0088cc] inset-shadow-[#0088cc]/50 inset-shadow-[#008
     }
 
     .inset-shadow-none {
-      --tw-inset-shadow: 0 0 #0000;
+      --tw-inset-shadow: inset 0 0 #0000;
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
 
