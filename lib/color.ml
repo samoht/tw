@@ -1001,6 +1001,51 @@ let to_oklch_css color shade =
       | Some value -> value
       | None -> "oklch(0% 0 0)" (* Fallback *))
 
+let oklch_node_of color shade =
+  let oklch = to_oklch color shade in
+  Css.oklch oklch.l oklch.c oklch.h
+
+(* The palette ([Red], [Blue], ...) is a fixed set of (colour, shade) pairs and
+   its oklch nodes are immutable, so materialise each node once and share it
+   across every utility and variant that uses the colour, instead of
+   reconstructing an identical node per use. Built once on first use; only the
+   constant palette constructors are keyed here, [Rgb]/[Theme_named] carry
+   open-ended payloads and build fresh. *)
+let palette_nodes =
+  lazy
+    (let table = Hashtbl.create 256 in
+     List.iter
+       (fun (color, palette) ->
+         List.iter
+           (fun (shade, o) ->
+             Hashtbl.replace table (color, shade) (Css.oklch o.l o.c o.h))
+           palette)
+       [
+         (Gray, Tailwind.gray);
+         (Slate, Tailwind.slate);
+         (Zinc, Tailwind.zinc);
+         (Neutral, Tailwind.neutral);
+         (Stone, Tailwind.stone);
+         (Red, Tailwind.red);
+         (Orange, Tailwind.orange);
+         (Amber, Tailwind.amber);
+         (Yellow, Tailwind.yellow);
+         (Lime, Tailwind.lime);
+         (Green, Tailwind.green);
+         (Emerald, Tailwind.emerald);
+         (Teal, Tailwind.teal);
+         (Cyan, Tailwind.cyan);
+         (Sky, Tailwind.sky);
+         (Blue, Tailwind.blue);
+         (Indigo, Tailwind.indigo);
+         (Violet, Tailwind.violet);
+         (Purple, Tailwind.purple);
+         (Fuchsia, Tailwind.fuchsia);
+         (Pink, Tailwind.pink);
+         (Rose, Tailwind.rose);
+       ];
+     table)
+
 (* Convert color to CSS color value *)
 let to_css color shade =
   match color with
@@ -1018,10 +1063,11 @@ let to_css color shade =
       Css.hex ("#" ^ shorten_hex_str hex_value)
   | Oklch oklch -> Css.oklch oklch.l oklch.c oklch.h
   | Css c -> c
-  | _ ->
-      (* For other colors, get OKLCH data directly *)
-      let oklch = to_oklch color shade in
-      Css.oklch oklch.l oklch.c oklch.h
+  | Rgb _ | Theme_named _ -> oklch_node_of color shade
+  | _ -> (
+      match Hashtbl.find_opt (Lazy.force palette_nodes) (color, shade) with
+      | Some node -> node
+      | None -> oklch_node_of color shade)
 
 let named_color_name = function
   | Black -> "black"
@@ -1280,15 +1326,18 @@ let color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
 let color_var color shade =
   let base = pp color in
   (* Escape brackets in variable names - CSS variable names can't have unescaped
-     [] *)
+     []. Almost no colour name contains brackets, so keep a zero-allocation fast
+     path and only build a buffer when escaping is actually needed. *)
   let escaped_base =
-    let s = String.to_seq base |> List.of_seq in
-    let escaped =
-      List.concat_map
-        (function '[' -> [ '\\'; '[' ] | ']' -> [ '\\'; ']' ] | c -> [ c ])
-        s
-    in
-    String.of_seq (List.to_seq escaped)
+    if String.contains base '[' || String.contains base ']' then (
+      let buf = Buffer.create (String.length base + 4) in
+      String.iter
+        (fun c ->
+          (match c with '[' | ']' -> Buffer.add_char buf '\\' | _ -> ());
+          Buffer.add_char buf c)
+        base;
+      Buffer.contents buf)
+    else base
   in
   let name =
     if is_shadeless color then "color-" ^ escaped_base
