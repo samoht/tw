@@ -235,11 +235,12 @@ let v : type a r.
     ?property_order:int ->
     ?family:family ->
     ?fallback:a ->
+    ?runtime:bool ->
     role:r role ->
     string ->
     layer:layer ->
     (a, r) t =
- fun kind ?property ?order ?property_order ?family ?fallback ~role name
+ fun kind ?property ?order ?property_order ?family ?fallback ?runtime ~role name
      ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
@@ -279,7 +280,7 @@ let v : type a r.
     in
     let decl, var =
       Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
-        name kind value
+        ?runtime name kind value
     in
     match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
     | Theme, Some css ->
@@ -290,8 +291,9 @@ let v : type a r.
 
 (* Convenience constructors to encode patterns safely *)
 
-let theme kind name ~order =
-  v kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
+let theme kind ?runtime name ~order =
+  v kind ?property:None ?order:(Some order) ?runtime ~role:Theme name
+    ~layer:Theme
 
 let property_default kind ~initial ?(inherits = false) ?(universal = false)
     ?initial_css ?property_order ?family name =

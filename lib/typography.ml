@@ -480,7 +480,7 @@ module Typography_early = struct
       Stdlib.Option.Some (Lh_bracket (Parse.bracket_inner s))
     else
       match int_of_string_opt s with
-      | Stdlib.Option.Some n when n > 0 -> Stdlib.Option.Some (Lh_int n)
+      | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Lh_int n)
       | _ ->
           if List.mem s known_leading_names then Stdlib.Option.Some (Lh_named s)
           else Stdlib.Option.None
@@ -752,8 +752,8 @@ module Typography_early = struct
   let text_size_utility (size_var : Css.length Var.theme)
       (lh_var : Css.line_height Var.theme) size_rem lh_value =
     let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
-    (* Tailwind v4 expresses a rem line-height as the ratio
-       [calc(line-height / font-size)]; unitless line-heights stay verbatim. *)
+    (* Tailwind v4 expresses a rem line-height as the ratio [calc(line-height /
+       font-size)]; unitless line-heights stay verbatim. *)
     let lh_value : Css.line_height =
       match (lh_value : Css.line_height) with
       | Rem lh_rem ->

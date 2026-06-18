@@ -81,8 +81,7 @@ let z_auto_style () =
       let z_value : Css.z_index =
         match value_str with
         | "auto" -> Auto
-        | s -> (
-            match int_of_string_opt s with Some n -> Index n | None -> Calc s)
+        | s -> Css.Properties.read_z_index (Cascade.Cursor.of_string s)
       in
       let decl, ref = Var.binding z_index_auto_var z_value in
       Style.style [ decl; Css.z_index (Var ref) ]
@@ -434,15 +433,16 @@ module Handler = struct
     | Z_50 -> style [ z_index (Index 50) ]
     | Z_auto -> z_auto_style ()
     | Neg_z n -> style [ z_index (Index (-n)) ]
-    | Z_arbitrary s -> (
-        (* Parse the arbitrary value as an integer if possible *)
-        match int_of_string_opt s with
-        | Some n -> style [ z_index (Index n) ]
-        | None -> style [ z_index (Calc s) ])
+    | Z_arbitrary s ->
+        style
+          [ z_index (Css.Properties.read_z_index (Cascade.Cursor.of_string s)) ]
     | Neg_z_arbitrary s -> (
         match int_of_string_opt s with
         | Some n -> style [ z_index (Index (-n)) ]
-        | None -> style [ z_index (Calc ("calc(" ^ s ^ " * -1)")) ])
+        | None ->
+            let zi = Css.Properties.read_z_index (Cascade.Cursor.of_string s) in
+            style
+              [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ])
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]

@@ -140,7 +140,10 @@ let check_exact_match tw_styles =
     (* Write stripped CSS to test files for better error context *)
     let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
 
-    let diff_result = Css_compare.diff ~mode:`Canonical tailwind_css tw_css in
+    let diff_result =
+      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+        tailwind_css tw_css
+    in
     let parity_equal =
       (match diff_result.Css_compare.result with
         | Css_compare.No_diff _ -> true

@@ -824,7 +824,8 @@ module Handler = struct
     let inset_value =
       match size with
       | `None ->
-          Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero
+            ~color:(Css.hex "#0000") ()
       | `Sm ->
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
             ~color:(Var color_ref) ()

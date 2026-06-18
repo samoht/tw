@@ -38,10 +38,15 @@ module Handler = struct
     | Hue_rotate_arbitrary of Css.angle
     | Neg_hue_rotate_arbitrary of Css.angle
     | Drop_shadow
+    | Drop_shadow_sm
+    | Drop_shadow_md
+    | Drop_shadow_lg
     | Drop_shadow_xl
+    | Drop_shadow_2xl
     | Drop_shadow_multi
     | Drop_shadow_none
     | Drop_shadow_inherit
+    | Drop_shadow_named of string
     | Drop_shadow_arbitrary of string
     | Drop_shadow_color of Color.color * int
     | Drop_shadow_color_opacity of Color.color * int * Color.opacity_modifier
@@ -459,6 +464,18 @@ module Handler = struct
   let drop_shadow_theme_ref name : Css.filter =
     Css.Drop_shadow (Css.Var (Var.bracket name) : Css.shadow)
 
+  (* Theme tokens for the sized drop-shadow utilities. Tailwind v4 defines a
+     [--drop-shadow-<size>] design token in the theme layer and references it
+     from [--tw-drop-shadow]. These tokens sort after border-radius (order 7)
+     and before blur (order 8). Bound via [Var.binding] so the theme declaration
+     is always emitted with its default value and stays overridable through
+     [set_theme_value]. *)
+  let drop_shadow_sm_var = Var.theme Css.Shadow "drop-shadow-sm" ~order:(7, 9)
+  let drop_shadow_md_var = Var.theme Css.Shadow "drop-shadow-md" ~order:(7, 10)
+  let drop_shadow_lg_var = Var.theme Css.Shadow "drop-shadow-lg" ~order:(7, 11)
+  let drop_shadow_xl_var = Var.theme Css.Shadow "drop-shadow-xl" ~order:(7, 12)
+  let drop_shadow_2xl_var = Var.theme Css.Shadow "drop-shadow-2xl" ~order:(7, 13)
+
   let drop_shadow_color_ref fallback =
     Var.reference_with_fallback drop_shadow_color_var fallback
 
@@ -473,14 +490,18 @@ module Handler = struct
     Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
 
   let drop_shadow_none =
-    style
+    style ~property_rules:filter_property_rules
       [
         Css.custom_property ~layer:"utilities" "--tw-drop-shadow" " ";
         filter composable_filter_chain;
       ]
 
-  let drop_shadow_ () =
-    style
+  (* Bare [.drop-shadow]. In the default Tailwind v4 theme this token is a
+     two-shadow stack inlined as a literal (no [--drop-shadow] theme var). When
+     a custom theme overrides [--drop-shadow] with a single shadow value, it is
+     referenced via [drop-shadow(var(--drop-shadow))] instead. *)
+  let drop_shadow_override () =
+    style ~property_rules:filter_property_rules
       (theme_decl_if_set "drop-shadow"
       @ [
           bind_drop_shadow_size
@@ -490,16 +511,127 @@ module Handler = struct
           filter composable_filter_chain;
         ])
 
+  let drop_shadow_default () =
+    let fallback_a = Css.hex "#0000001a" in
+    let fallback_b = Css.hex "#0000000f" in
+    let size : Css.filter =
+      Css.List
+        [
+          drop_shadow_filter Zero (Px 1.) (Some (Px 2.)) fallback_a;
+          drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback_b;
+        ]
+    in
+    let literal : Css.filter =
+      Css.List
+        [
+          Css.Drop_shadow
+            (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
+               ~color:fallback_a ());
+          Css.Drop_shadow
+            (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
+               ~color:fallback_b ());
+        ]
+    in
+    style ~property_rules:filter_property_rules
+      [
+        bind_drop_shadow_size size;
+        bind_drop_shadow literal;
+        filter composable_filter_chain;
+      ]
+
+  let drop_shadow_ () =
+    match Var.theme_value "drop-shadow" with
+    | Some _ -> drop_shadow_override ()
+    | None -> drop_shadow_default ()
+
+  (* A sized drop-shadow utility: [drop-shadow-{sm,md,lg,xl,2xl}].
+
+     Emits the [--drop-shadow-<size>] theme token with its default value,
+     references it from [--tw-drop-shadow], and builds [--tw-drop-shadow-size]
+     from the same geometry with the color hoisted into the
+     [--tw-drop-shadow-color] fallback. The theme value is bound (always
+     present, overridable). [theme_var] carries the design token; [name] is its
+     bare name. *)
+  let drop_shadow_sized theme_var name ~h ~v ~blur ~color () =
+    let theme_decl, _ref =
+      Var.binding theme_var (Css.shadow ~h_offset:h ~v_offset:v ~blur ~color ())
+    in
+    style ~property_rules:filter_property_rules
+      [
+        theme_decl;
+        bind_drop_shadow_size (drop_shadow_filter h v (Some blur) color);
+        bind_drop_shadow (drop_shadow_theme_ref name);
+        filter composable_filter_chain;
+      ]
+
+  let drop_shadow_sm_ () =
+    drop_shadow_sized drop_shadow_sm_var "drop-shadow-sm" ~h:Zero ~v:(Px 1.)
+      ~blur:(Px 2.) ~color:(Css.hex "#00000026") ()
+
+  let drop_shadow_md_ () =
+    drop_shadow_sized drop_shadow_md_var "drop-shadow-md" ~h:Zero ~v:(Px 3.)
+      ~blur:(Px 3.) ~color:(Css.hex "#0000001f") ()
+
+  let drop_shadow_lg_ () =
+    drop_shadow_sized drop_shadow_lg_var "drop-shadow-lg" ~h:Zero ~v:(Px 4.)
+      ~blur:(Px 4.) ~color:(Css.hex "#00000026") ()
+
   let drop_shadow_xl_ () =
-    style
-      (theme_decl_if_set "drop-shadow-xl"
-      @ [
-          bind_drop_shadow_size
-            (drop_shadow_filter Zero (Px 9.) (Some (Px 7.))
-               (Css.hex "#0000001a"));
-          bind_drop_shadow (drop_shadow_theme_ref "drop-shadow-xl");
-          filter composable_filter_chain;
-        ])
+    drop_shadow_sized drop_shadow_xl_var "drop-shadow-xl" ~h:Zero ~v:(Px 9.)
+      ~blur:(Px 7.) ~color:(Css.hex "#0000001a") ()
+
+  let drop_shadow_2xl_ () =
+    drop_shadow_sized drop_shadow_2xl_var "drop-shadow-2xl" ~h:Zero ~v:(Px 25.)
+      ~blur:(Px 25.) ~color:(Css.hex "#00000026") ()
+
+  (* Build the [--tw-drop-shadow-size] filter from a parsed theme shadow body,
+     hoisting the body's colour into the [--tw-drop-shadow-color] fallback. A
+     body without an explicit colour falls back to [currentcolor]. *)
+  let drop_shadow_size_of_body (body : Css.shadow_body) : Css.filter =
+    let fallback : Css.color =
+      match body.color with Some c -> c | None -> Css.Current
+    in
+    Css.Drop_shadow
+      (Css.shadow ~h_offset:body.h_offset ~v_offset:body.v_offset
+         ?blur:body.blur ?spread:body.spread
+         ~color:(Css.Var (drop_shadow_color_ref fallback))
+         ())
+
+  (* A theme-token drop-shadow such as [drop-shadow-calc] backed by a custom
+     [--drop-shadow-<name>] theme value. Parses the theme value into one or more
+     shadow bodies, hoists each colour into [--tw-drop-shadow-color], and
+     references the token from [--tw-drop-shadow]. *)
+  let drop_shadow_named name =
+    let theme_name = "drop-shadow-" ^ name in
+    match Var.theme_value theme_name with
+    | None -> style []
+    | Some value ->
+        let cursor = Cascade.Cursor.of_string value in
+        let body_of (sh : Css.shadow) : Css.shadow_body option =
+          match sh with Css.Shadow body -> Some body | _ -> None
+        in
+        let bodies =
+          match
+            Cascade.Cursor.try_parse_full_err Css.Properties.read_shadow cursor
+          with
+          | Ok (Css.List shadows) -> List.filter_map body_of shadows
+          | Ok sh -> ( match body_of sh with Some b -> [ b ] | None -> [])
+          | Error _ -> []
+        in
+        if bodies = [] then style []
+        else
+          let size : Css.filter =
+            match List.map drop_shadow_size_of_body bodies with
+            | [ single ] -> single
+            | many -> Css.List many
+          in
+          style ~property_rules:filter_property_rules
+            [
+              Css.custom_property ~layer:"theme" ("--" ^ theme_name) value;
+              bind_drop_shadow_size size;
+              bind_drop_shadow (drop_shadow_theme_ref theme_name);
+              filter composable_filter_chain;
+            ]
 
   let drop_shadow_multi_ =
     let fallback_a = Css.hex "#0000000d" in
@@ -522,7 +654,7 @@ module Handler = struct
                ~color:fallback_b ());
         ]
     in
-    style
+    style ~property_rules:filter_property_rules
       [
         bind_drop_shadow_size size;
         bind_drop_shadow literal;
@@ -544,7 +676,7 @@ module Handler = struct
        ^ "))")
     with
     | Ok size ->
-        style
+        style ~property_rules:filter_property_rules
           [
             bind_drop_shadow_size size;
             bind_drop_shadow drop_shadow_size_ref;
@@ -553,7 +685,7 @@ module Handler = struct
     | Error _ -> style []
 
   let drop_shadow_inherit_ =
-    style
+    style ~property_rules:filter_property_rules
       [
         bind_drop_shadow_color Css.Inherit;
         bind_drop_shadow drop_shadow_size_ref;
@@ -581,7 +713,8 @@ module Handler = struct
             style ~rules:(Option.Some [ supports_block ])
               (theme_decl_if_set ("color-" ^ color_name)
               @ [ bind_drop_shadow_color (Css.hex hex) ]);
-            style [ bind_drop_shadow drop_shadow_size_ref ];
+            style ~property_rules:filter_property_rules
+              [ bind_drop_shadow drop_shadow_size_ref ];
           ]
     | Option.None ->
         invalid_arg
@@ -615,7 +748,8 @@ module Handler = struct
             style ~rules:(Option.Some [ supports_block ])
               (theme_decl_if_set ("color-" ^ color_name)
               @ [ bind_drop_shadow_color (Css.hex hex_with_alpha) ]);
-            style [ bind_drop_shadow drop_shadow_size_ref ];
+            style ~property_rules:filter_property_rules
+              [ bind_drop_shadow drop_shadow_size_ref ];
           ]
     | Option.None ->
         invalid_arg
@@ -632,7 +766,7 @@ module Handler = struct
       match opacity with Color.Opacity_percent p -> p | _ -> 100.
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
-    style
+    style ~property_rules:filter_property_rules
       (theme_decl_if_set "drop-shadow"
       @ [
           Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
@@ -859,7 +993,10 @@ module Handler = struct
     set_backdrop_var "--tw-backdrop-hue-rotate" (Hue_rotate neg)
 
   (* Composable filter using all the filter variables *)
-  let filter_ = style [ filter composable_filter_chain ]
+  let filter_ =
+    style ~property_rules:filter_property_rules
+      [ filter composable_filter_chain ]
+
   let filter_none = style [ filter None ]
 
   (* Composable backdrop-filter using all the backdrop-filter variables *)
@@ -919,10 +1056,15 @@ module Handler = struct
     | Hue_rotate_arbitrary angle -> hue_rotate_arbitrary angle
     | Neg_hue_rotate_arbitrary angle -> neg_hue_rotate_arbitrary angle
     | Drop_shadow -> drop_shadow_ ()
+    | Drop_shadow_sm -> drop_shadow_sm_ ()
+    | Drop_shadow_md -> drop_shadow_md_ ()
+    | Drop_shadow_lg -> drop_shadow_lg_ ()
     | Drop_shadow_xl -> drop_shadow_xl_ ()
+    | Drop_shadow_2xl -> drop_shadow_2xl_ ()
     | Drop_shadow_multi -> drop_shadow_multi_
     | Drop_shadow_none -> drop_shadow_none
     | Drop_shadow_inherit -> drop_shadow_inherit_
+    | Drop_shadow_named name -> drop_shadow_named name
     | Drop_shadow_arbitrary s -> drop_shadow_arbitrary_impl s
     | Drop_shadow_color (c, shade) -> drop_shadow_color c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
@@ -987,11 +1129,16 @@ module Handler = struct
     | Drop_shadow -> 2700
     | Drop_shadow_arbitrary _ -> 2701
     | Drop_shadow_multi -> 2702
-    | Drop_shadow_xl -> 2703
-    | Drop_shadow_none -> 2704
-    | Drop_shadow_inherit -> 2705
-    | Drop_shadow_color _ -> 2706
-    | Drop_shadow_color_opacity _ -> 2707
+    | Drop_shadow_2xl -> 2703
+    | Drop_shadow_lg -> 2704
+    | Drop_shadow_md -> 2705
+    | Drop_shadow_sm -> 2706
+    | Drop_shadow_xl -> 2707
+    | Drop_shadow_none -> 2708
+    | Drop_shadow_inherit -> 2709
+    | Drop_shadow_named _ -> 2701
+    | Drop_shadow_color _ -> 2710
+    | Drop_shadow_color_opacity _ -> 2711
     | Filter -> 9000
     | Filter_arbitrary _ -> 9001
     | Filter_none -> 9002
@@ -1105,7 +1252,11 @@ module Handler = struct
         | op -> Ok (Drop_shadow_opacity op))
     (* Drop shadow *)
     | [ "drop"; "shadow" ] -> Ok Drop_shadow
+    | [ "drop"; "shadow"; "sm" ] -> Ok Drop_shadow_sm
+    | [ "drop"; "shadow"; "md" ] -> Ok Drop_shadow_md
+    | [ "drop"; "shadow"; "lg" ] -> Ok Drop_shadow_lg
     | [ "drop"; "shadow"; "xl" ] -> Ok Drop_shadow_xl
+    | [ "drop"; "shadow"; "2xl" ] -> Ok Drop_shadow_2xl
     | [ "drop"; "shadow"; "multi" ] -> Ok Drop_shadow_multi
     | [ "drop"; "shadow"; "none" ] -> Ok Drop_shadow_none
     | [ "drop"; "shadow"; "inherit" ] -> Ok Drop_shadow_inherit
@@ -1123,7 +1274,9 @@ module Handler = struct
             | Ok (c, shade, Color.No_opacity) ->
                 Ok (Drop_shadow_color (c, shade))
             | Ok (c, shade, op) -> Ok (Drop_shadow_color_opacity (c, shade, op))
-            | Error _ -> err_not_utility)
+            (* Otherwise treat it as a custom [--drop-shadow-<name>] theme
+               token; the theme value is resolved at emission time. *)
+            | Error _ -> Ok (Drop_shadow_named full))
         | op -> (
             if base = "" then Ok (Drop_shadow_opacity op)
             else
@@ -1255,10 +1408,15 @@ module Handler = struct
     | Neg_hue_rotate_arbitrary angle ->
         "-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
     | Drop_shadow -> "drop-shadow"
+    | Drop_shadow_sm -> "drop-shadow-sm"
+    | Drop_shadow_md -> "drop-shadow-md"
+    | Drop_shadow_lg -> "drop-shadow-lg"
     | Drop_shadow_xl -> "drop-shadow-xl"
+    | Drop_shadow_2xl -> "drop-shadow-2xl"
     | Drop_shadow_multi -> "drop-shadow-multi"
     | Drop_shadow_none -> "drop-shadow-none"
     | Drop_shadow_inherit -> "drop-shadow-inherit"
+    | Drop_shadow_named name -> "drop-shadow-" ^ name
     | Drop_shadow_arbitrary s -> "drop-shadow-" ^ s
     | Drop_shadow_color (c, shade) ->
         "drop-shadow-" ^ Color.scheme_color_name c shade

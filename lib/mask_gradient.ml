@@ -51,7 +51,9 @@ module Handler = struct
   type mask_angle =
     | Angle_int of int (* mask-linear-45 → calc(1deg * 45) *)
     | Angle_arb of string
-  (* mask-linear-[3rad] → original value, converted at style time *)
+      (* mask-linear-[3rad] → original value, converted at style time *)
+    | Angle_arb_neg of string
+  (* -mask-linear-[3rad] → calc(3rad * -1) *)
 
   type var_ref_kind = Plain_var | Length_var
 
@@ -100,10 +102,8 @@ module Handler = struct
   (* Format the position value as CSS *)
   let format_position_value = function
     | Spacing n ->
-        if n = 0.0 then "calc(var(--spacing) * 0)"
-        else if Float.is_integer n then
-          "calc(var(--spacing) * " ^ pp_int (int_of_float n) ^ ")"
-        else "calc(var(--spacing) * " ^ pp_float n ^ ")"
+        let _, len = Theme.spacing_calc_float n in
+        Css.Pp.to_string ~minify:false Css.pp_length len
     | Percent p ->
         if Float.is_integer p then pp_int (int_of_float p) ^ "%"
         else pp_float p ^ "%"
@@ -525,6 +525,7 @@ module Handler = struct
   let format_angle_position = function
     | Angle_int n -> "calc(1deg * " ^ string_of_int n ^ ")"
     | Angle_arb s -> convert_angle_to_css s
+    | Angle_arb_neg s -> "calc(" ^ convert_angle_to_css s ^ " * -1)"
 
   (* Build the style for mask-linear-N (angle shorthand) *)
   let build_linear_angle_style angle =
@@ -893,11 +894,16 @@ module Handler = struct
           match int_of_string_opt n with
           | Some i -> Ok (Mask_linear_angle (Angle_int i))
           | None -> Error (`Msg "Invalid mask-linear angle value"))
-    (* -mask-linear-N (negative angle) *)
+    (* -mask-linear-N (negative angle), -mask-linear-[arb] *)
     | [ ""; "mask"; "linear"; n ] -> (
-        match int_of_string_opt n with
-        | Some i -> Ok (Mask_linear_angle (Angle_int (-i)))
-        | None -> Error (`Msg "Invalid negative mask-linear angle value"))
+        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
+        then
+          let inner = String.sub n 1 (String.length n - 2) in
+          Ok (Mask_linear_angle (Angle_arb_neg inner))
+        else
+          match int_of_string_opt n with
+          | Some i -> Ok (Mask_linear_angle (Angle_int (-i)))
+          | None -> Error (`Msg "Invalid negative mask-linear angle value"))
     (* mask-radial *)
     | [ "mask"; "radial" ] -> Ok Mask_radial
     (* mask-radial-at-* *)
@@ -942,11 +948,16 @@ module Handler = struct
           match int_of_string_opt n with
           | Some i -> Ok (Mask_conic_angle (Angle_int i))
           | None -> Error (`Msg "Invalid mask-conic angle value"))
-    (* -mask-conic-N (negative angle) *)
+    (* -mask-conic-N (negative angle), -mask-conic-[arb] *)
     | [ ""; "mask"; "conic"; n ] -> (
-        match int_of_string_opt n with
-        | Some i -> Ok (Mask_conic_angle (Angle_int (-i)))
-        | None -> Error (`Msg "Invalid negative mask-conic angle value"))
+        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
+        then
+          let inner = String.sub n 1 (String.length n - 2) in
+          Ok (Mask_conic_angle (Angle_arb_neg inner))
+        else
+          match int_of_string_opt n with
+          | Some i -> Ok (Mask_conic_angle (Angle_int (-i)))
+          | None -> Error (`Msg "Invalid negative mask-conic angle value"))
     (* mask-circle, mask-ellipse *)
     | [ "mask"; "circle" ] -> Ok (Mask_radial_shape Circle)
     | [ "mask"; "ellipse" ] -> Ok (Mask_radial_shape Ellipse)
@@ -998,10 +1009,12 @@ module Handler = struct
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
     | Mask_linear_angle (Angle_arb s) -> "mask-linear-[" ^ s ^ "]"
+    | Mask_linear_angle (Angle_arb_neg s) -> "-mask-linear-[" ^ s ^ "]"
     | Mask_conic_angle (Angle_int n) ->
         if n < 0 then "-mask-conic-" ^ string_of_int (-n)
         else "mask-conic-" ^ string_of_int n
     | Mask_conic_angle (Angle_arb s) -> "mask-conic-[" ^ s ^ "]"
+    | Mask_conic_angle (Angle_arb_neg s) -> "-mask-conic-[" ^ s ^ "]"
     | Mask_radial -> "mask-radial"
     | Mask_radial_at (At_keyword pos) ->
         "mask-radial-at-" ^ String.concat "-" (String.split_on_char ' ' pos)

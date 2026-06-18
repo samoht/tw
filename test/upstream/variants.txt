@@ -849,13 +849,13 @@ group-[&:hover]:group-[&_p]:flex group-[&_p]:flex group-[&_p]:hover:flex hover:g
     
 <<<>>>
 # group-[...]
-@config none
+@config run
 group-[>img]:flex group-[@media_foo]:flex group-[]:flex group-hover/[]:flex
 ---
 
 <<<>>>
 # group-*
-@config none
+@config run
 group-focus:flex group-focus:group-hover:flex group-hocus:flex group-hover:flex group-hover:group-focus:flex
 ---
 
@@ -881,7 +881,7 @@ group-focus:flex group-focus:group-hover:flex group-hocus:flex group-hover:flex 
     
 <<<>>>
 # group-*
-@config none
+@config run
 group-custom-at-rule:flex group-nested-selectors:flex
 ---
 
@@ -903,13 +903,13 @@ hover:peer-[&_p]:flex hover:peer-[&_p]:focus:flex peer-[&:hover]:peer-[&_p]:flex
     
 <<<>>>
 # peer-[...]
-@config none
+@config run
 peer-[>img]:flex peer-[@media_foo]:flex peer-[]:flex peer-hover/[]:flex
 ---
 
 <<<>>>
 # peer-*
-@config none
+@config run
 peer-focus:flex peer-focus:peer-hover:flex peer-hocus:flex peer-hover:flex peer-hover:peer-focus:flex
 ---
 
@@ -935,7 +935,7 @@ peer-focus:flex peer-focus:peer-hover:flex peer-hocus:flex peer-hover:flex peer-
     
 <<<>>>
 # peer-*
-@config none
+@config run
 peer-custom-at-rule:flex peer-nested-selectors:flex
 ---
 
@@ -1647,7 +1647,37 @@ group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checke
     
 <<<>>>
 # not
-@config none
+@config run
+not-has-a:flex not-has-b:flex not-has-c:flex not-has-d:flex
+---
+
+    @container not style(--a) {
+      .not-has-a\:flex {
+        display: flex;
+      }
+    }
+
+    @container style(--b) {
+      .not-has-b\:flex {
+        display: flex;
+      }
+    }
+
+    @container foo not style(--c) {
+      .not-has-c\:flex {
+        display: flex;
+      }
+    }
+
+    @container bar style(--d) {
+      .not-has-d\:flex {
+        display: flex;
+      }
+    }
+    
+<<<>>>
+# not
+@config run
 not-*:flex not-[+img]:flex not-[:checked]/foo:flex not-[>img]:flex not-[@media_not_screen,not_print]:flex not-[@media_not_screen,print]:flex not-[@media_screen,print]:flex not-[~img]:flex not-after:flex not-backdrop:flex not-before:flex not-file:flex not-first-letter:flex not-first-line:flex not-force:flex not-marker:flex not-multiple-media-conditions:flex not-nested-at-rules:flex not-nested-style-rules:flex not-parallel-at-rules:flex not-parallel-mixed-rules:flex not-parallel-style-rules:flex not-placeholder:flex not-selection:flex not-starting:flex
 ---
 
@@ -1669,7 +1699,7 @@ in-foo-bar:flex in-p:flex
 
 <<<>>>
 # has
-@config none
+@config run
 group-has-[&>img]/parent-name:flex group-has-[&>img]:flex group-has-[+img]:flex group-has-[:checked]/parent-name:flex group-has-[:checked]:flex group-has-[>img]/parent-name:flex group-has-[>img]:flex group-has-[~img]:flex group-has-checked/parent-name:flex group-has-checked:flex group-has-hocus/parent-name:flex group-has-hocus:flex has-[&>img]:flex has-[+img]:flex has-[:checked]:flex has-[>img]:flex has-[~img]:flex has-checked:flex has-hocus:flex peer-has-[&>img]/sibling-name:flex peer-has-[&>img]:flex peer-has-[+img]:flex peer-has-[:checked]/sibling-name:flex peer-has-[:checked]:flex peer-has-[>img]/sibling-name:flex peer-has-[>img]:flex peer-has-[~img]:flex peer-has-checked/sibling-name:flex peer-has-checked:flex peer-has-hocus/sibling-name:flex peer-has-hocus:flex
 ---
 
@@ -1679,7 +1709,7 @@ group-has-[&>img]/parent-name:flex group-has-[&>img]:flex group-has-[+img]:flex 
     
 <<<>>>
 # has
-@config none
+@config run
 has-[:checked]/foo:flex has-[@media_print]:flex has-custom-at-rule:flex has-nested-selectors:flex
 ---
 
@@ -2116,7 +2146,7 @@ nth--3:flex nth-3/foo:flex nth-[2n+1]/foo:flex nth-[2n+1_of_.foo]/foo:flex nth-l
     
 <<<>>>
 # variants with the same root are sorted deterministically
-@config none
+@config run
 data-[bar]:flex data-[baz]:flex data-[foo]:flex data-active:flex data-focus:flex data-hover:flex
 ---
 
@@ -2126,7 +2156,7 @@ data-[bar]:flex data-[baz]:flex data-[foo]:flex data-active:flex data-focus:flex
       
 <<<>>>
 # matchVariant sorts deterministically
-@config none
+@config run
 @variant is-data &:is([data-{}]) DEFAULT=default foo=foo bar=bar
 is-data-[potato]:flex is-data-[sandwich]:flex is-data-bar:flex is-data-foo:flex is-data:flex
 ---

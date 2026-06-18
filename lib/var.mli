@@ -391,10 +391,16 @@ type 'a ref_only = ('a, [ `Ref_only ]) t
 
 (** {1 Core API} *)
 
-val theme : 'a Css.kind -> string -> order:int * int -> 'a theme
-(** [theme kind name ~order] creates a Theme-layer variable (design token).
-    Values are set via [Var.binding] at use sites that own the declaration.
-    Enforces explicit ordering for deterministic theme output. *)
+val theme :
+  'a Css.kind -> ?runtime:bool -> string -> order:int * int -> 'a theme
+(** [theme kind name ?runtime ~order] creates a Theme-layer variable (design
+    token). Values are set via [Var.binding] at use sites that own the
+    declaration. Enforces explicit ordering for deterministic theme output.
+
+    With [~runtime:true] the optimizer keeps [var(name)] references unfolded
+    instead of inlining the theme value, so the token stays overridable at
+    runtime (matching Tailwind, which leaves e.g. [calc(var(--spacing)*4)]
+    intact rather than baking in the resolved length). *)
 
 val property_default :
   'a Css.kind ->

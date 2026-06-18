@@ -14,7 +14,9 @@ module Handler = struct
   type t =
     | Gap of { axis : [ `All | `X | `Y ]; value : gap_value }
     | Space of { negative : bool; axis : [ `X | `Y ]; value : spacing }
-    | Space_arb of { axis : [ `X | `Y ]; value : Css.length }
+    | Space_arb of { axis : [ `X | `Y ]; value : Css.length; raw : string }
+        (* [raw] is the original bracketed token (e.g. "[-0]"), kept verbatim
+           for the class name since [value] normalises away signed zero. *)
     | Space_x_reverse
     | Space_y_reverse
 
@@ -101,11 +103,11 @@ module Handler = struct
 
   (** {2 Space Between Utilities} *)
 
-  (* Build margin calc expressions for space utilities. For negative values,
-     folds * -1 into the expression to avoid nested calc(). *)
-  let space_margin_calcs ~negative ~spacing_len ~reverse_var_name =
+  (* Build margin calc expressions for space utilities. The negative sign is
+     already folded into [spacing_len] (calc(var(--spacing) * -n)), so the
+     reverse mechanism just wraps it once, matching Tailwind. *)
+  let space_margin_calcs ~spacing_len ~reverse_var_name =
     let base = Css.Calc.length spacing_len in
-    let neg_factor = Css.Calc.float (-1.0) in
     (* Wrap sub-expression as an explicit calc() call, matching Tailwind's
        output: calc(... * calc(1 - var(--tw-space-y-reverse))) *)
     let one_minus_reverse =
@@ -113,22 +115,15 @@ module Handler = struct
         (Css.Calc
            (Css.Calc.sub (Css.Calc.float 1.0) (Css.Calc.var reverse_var_name)))
     in
-    let start_expr =
-      if negative then
-        Css.Calc.(
-          mul (length (Css.Calc (mul base neg_factor))) (var reverse_var_name))
-      else Css.Calc.(mul base (var reverse_var_name))
-    in
-    let end_expr =
-      if negative then
-        Css.Calc.(
-          mul (length (Css.Calc (mul base neg_factor))) one_minus_reverse)
-      else Css.Calc.(mul base one_minus_reverse)
-    in
+    let start_expr = Css.Calc.(mul base (var reverse_var_name)) in
+    let end_expr = Css.Calc.(mul base one_minus_reverse) in
     ((Css.Calc start_expr : Css.length), (Css.Calc end_expr : Css.length))
 
   let space_x n =
-    let negative = n < 0.0 in
+    (* [Float.sign_bit] (not [n < 0.0]) so negative zero keeps its sign: the
+       class [-space-x-0] must render [.-space-x-0], distinct from [.space-x-0],
+       even though the value collapses to the same [margin-inline: 0]. *)
+    let negative = Float.sign_bit n in
     let abs_n = Float.abs n in
     let class_name =
       (if negative then "-space-x-" else "space-x-")
@@ -137,13 +132,13 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float abs_n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float n in
     let reverse_decl, reverse_ref =
       Var.binding space_x_reverse_var (Css.Num 0.0)
     in
     let reverse_var_name = Css.var_name reverse_ref in
     let margin_start, margin_end =
-      space_margin_calcs ~negative ~spacing_len ~reverse_var_name
+      space_margin_calcs ~spacing_len ~reverse_var_name
     in
     let property_rules =
       [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
@@ -160,7 +155,8 @@ module Handler = struct
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   let space_y n =
-    let negative = n < 0.0 in
+    (* See [space_x]: negative zero ([-space-y-0]) must keep its sign. *)
+    let negative = Float.sign_bit n in
     let abs_n = Float.abs n in
     let class_name =
       (if negative then "-space-y-" else "space-y-")
@@ -169,13 +165,13 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float abs_n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float n in
     let reverse_decl, reverse_ref =
       Var.binding space_y_reverse_var (Css.Num 0.0)
     in
     let reverse_var_name = Css.var_name reverse_ref in
     let margin_start, margin_end =
-      space_margin_calcs ~negative ~spacing_len ~reverse_var_name
+      space_margin_calcs ~spacing_len ~reverse_var_name
     in
     let property_rules =
       [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
@@ -300,18 +296,9 @@ module Handler = struct
         in
         let n = if negative then -.n else n in
         match axis with `X -> space_x n | `Y -> space_y n)
-    | Space_arb { axis; value } -> (
-        let len_suffix =
-          match value with
-          | Px n -> "[" ^ pp_float n ^ "px]"
-          | Rem n -> "[" ^ pp_float n ^ "rem]"
-          | Pct n -> "[" ^ pp_float n ^ "%]"
-          | _ -> "[<length>]"
-        in
+    | Space_arb { axis; value; raw } -> (
         let class_name =
-          match axis with
-          | `X -> "space-x-" ^ len_suffix
-          | `Y -> "space-y-" ^ len_suffix
+          match axis with `X -> "space-x-" ^ raw | `Y -> "space-y-" ^ raw
         in
         match axis with
         | `X -> space_arb_x value class_name
@@ -345,6 +332,7 @@ module Handler = struct
     | Standard s -> Spacing.pp_spacing_suffix s
     | Arbitrary len -> (
         match len with
+        | Zero -> "[0]"
         | Px n -> "[" ^ pp_float n ^ "px]"
         | Rem n -> "[" ^ pp_float n ^ "rem]"
         | Pct n -> "[" ^ pp_float n ^ "%]"
@@ -364,9 +352,8 @@ module Handler = struct
         match axis with
         | `X -> prefix ^ "space-x-" ^ suffix
         | `Y -> prefix ^ "space-y-" ^ suffix)
-    | Space_arb { axis; value } -> (
-        let suffix = pp_gap_value_suffix (Arbitrary value) in
-        match axis with `X -> "space-x-" ^ suffix | `Y -> "space-y-" ^ suffix)
+    | Space_arb { axis; raw; _ } -> (
+        match axis with `X -> "space-x-" ^ raw | `Y -> "space-y-" ^ raw)
     | Space_x_reverse -> "space-x-reverse"
     | Space_y_reverse -> "space-y-reverse"
 
@@ -385,7 +372,11 @@ module Handler = struct
         match float_of_string_opt n with
         | Some f -> Some (Arbitrary (Css.Rem f))
         | None -> None
-      else None
+      else (
+        (* Unitless zero ([0], [-0]) is a valid CSS length. *)
+        match float_of_string_opt inner with
+        | Some f when f = 0.0 -> Some (Arbitrary Css.Zero)
+        | _ -> None)
     else None
 
   let parse_gap_value value =
@@ -418,7 +409,8 @@ module Handler = struct
           if value = "reverse" then Ok Space_x_reverse
           else
             match parse_gap_arbitrary value with
-            | Some (Arbitrary len) -> Ok (Space_arb { axis = `X; value = len })
+            | Some (Arbitrary len) ->
+                Ok (Space_arb { axis = `X; value = len; raw = value })
             | _ -> (
                 match Parse.spacing_value ~name:"space-x" value with
                 | Ok n ->
@@ -434,7 +426,8 @@ module Handler = struct
           if value = "reverse" then Ok Space_y_reverse
           else
             match parse_gap_arbitrary value with
-            | Some (Arbitrary len) -> Ok (Space_arb { axis = `Y; value = len })
+            | Some (Arbitrary len) ->
+                Ok (Space_arb { axis = `Y; value = len; raw = value })
             | _ -> (
                 match Parse.spacing_value ~name:"space-y" value with
                 | Ok n ->

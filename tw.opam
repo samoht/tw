@@ -43,5 +43,5 @@ build: [
 dev-repo: "git+https://github.com/samoht/tw.git"
 x-maintenance-intent: ["(latest)"]
 pin-depends: [
-  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#ad90d314c1e808b64b07fc0b532d14ea334bdc5c" ]
+  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#cc9746d2a2606934ee521d7757fbdecca6973847" ]
 ]
