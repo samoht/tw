@@ -56,27 +56,26 @@ export default {
 let availability_result = ref None
 let tailwind_command = ref None
 
-let tailwindcss_command () =
-  (* First try native tailwindcss (much faster) *)
-  let native_check = Sys.command "which tailwindcss > /dev/null 2>&1" in
-  let use_npx = native_check <> 0 in
+(* The fixtures and utility expectations target Tailwind v4.3.1 (see CLAUDE.md).
+   The unit spacing multiplier changed between v4.2 (calc(var(--spacing) * 1))
+   and v4.3 (bare var(--spacing)), so an older native binary yields a stale
+   reference. We therefore use a native tailwindcss only when it is at least
+   this version, and otherwise fall back to the pinned node_modules build. *)
+let required_version = (4, 3, 1)
 
-  let cmd =
-    if use_npx then (
-      let npx_check = Sys.command "which npx > /dev/null 2>&1" in
-      if npx_check <> 0 then
-        failwith
-          "Test setup failed: neither tailwindcss nor npx found in PATH.\n\
-           Please install tailwindcss directly or install Node.js and npm.";
-      "npx tailwindcss")
-    else "tailwindcss"
+let parse_version v =
+  let to_int s =
+    let buf = Buffer.create 4 in
+    String.iter (fun c -> if c >= '0' && c <= '9' then Buffer.add_char buf c) s;
+    int_of_string_opt (Buffer.contents buf)
   in
-
-  if use_npx then
-    Fmt.epr
-      "Using npx tailwindcss (slower). For faster tests, install native \
-       tailwindcss.@.";
-  cmd
+  match String.split_on_char '.' v with
+  | maj :: min :: rest -> (
+      let patch = match rest with p :: _ -> p | [] -> "0" in
+      match (to_int maj, to_int min, to_int patch) with
+      | Some a, Some b, Some c -> Some (a, b, c)
+      | _ -> None)
+  | _ -> None
 
 let tailwindcss_version cmd =
   (* Try --version first, fall back to --help if needed *)
@@ -128,6 +127,42 @@ let extract_version_number line =
       in
       Some clean_v
 
+let version_string (a, b, c) =
+  string_of_int a ^ "." ^ string_of_int b ^ "." ^ string_of_int c
+
+let command_version cmd =
+  let line, fallback_used = tailwindcss_version cmd in
+  if fallback_used then None else extract_version_number line
+
+(* The reference must be EXACTLY the pinned version: a different release, even a
+   newer one, can change the emitted CSS and silently diverge from the snapshot
+   fixtures (e.g. the v4.2 -> v4.3 unit-spacing change). *)
+let command_is_required cmd =
+  match command_version cmd with
+  | Some v -> parse_version v = Some required_version
+  | None -> false
+
+let tailwindcss_command () =
+  let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
+  let native = have "tailwindcss" in
+  if native && command_is_required "tailwindcss" then "tailwindcss"
+  else if have "npx" && command_is_required "npx tailwindcss" then
+    "npx tailwindcss"
+  else
+    let found =
+      if native then
+        match command_version "tailwindcss" with
+        | Some v -> "v" ^ v
+        | None -> "unknown version"
+      else "not installed"
+    in
+    failwith
+      ("Test setup failed: tailwindcss v"
+      ^ version_string required_version
+      ^ " is required (native: " ^ found
+      ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
+      ^ version_string required_version)
+
 let check_tailwindcss_available () =
   match !availability_result with
   | Some (Ok ()) -> ()
@@ -135,27 +170,7 @@ let check_tailwindcss_available () =
   | None -> (
       let result =
         try
-          let cmd = tailwindcss_command () in
-          tailwind_command := Some cmd;
-
-          let version_line, fallback_used = tailwindcss_version cmd in
-
-          let is_v4 =
-            if fallback_used then String.contains version_line '4'
-            else
-              match extract_version_number version_line with
-              | Some version_num -> (
-                  match String.split_on_char '.' version_num with
-                  | major :: _ -> major = "4"
-                  | [] -> false)
-              | None -> false
-          in
-          if not is_v4 then
-            Fmt.failwith
-              "Expected Tailwind CSS v4.x but found: %s\n\
-               Please install v4:\n\
-               npm install -D tailwindcss"
-              version_line;
+          tailwind_command := Some (tailwindcss_command ());
           Ok ()
         with e -> Error e
       in

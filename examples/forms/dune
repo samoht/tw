@@ -39,4 +39,4 @@
   (setenv
    CASCADE_COLOR
    always
-   (run %{bin:cascade} diff --diff=semantic tailwind.css forms.css))))
+   (run %{bin:cascade} diff --diff=semantic --prune-unused-custom-props tailwind.css forms.css))))

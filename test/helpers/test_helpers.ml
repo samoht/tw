@@ -131,7 +131,7 @@ let minimize_failing_case check_fails initial =
 let check_ordering_matches ?(forms = false) ~test_name utilities =
   let classnames = List.map Tw.pp utilities in
   let diff =
-    Css_compare.diff ~mode:`Canonical
+    Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
       (tailwind_css ~forms classnames)
       (our_css utilities)
   in

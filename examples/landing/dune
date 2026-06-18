@@ -31,4 +31,4 @@
   (setenv
    CASCADE_COLOR
    always
-   (run %{bin:cascade} diff --diff=semantic landing.css tailwind.css))))
+   (run %{bin:cascade} diff --diff=semantic --prune-unused-custom-props landing.css tailwind.css))))

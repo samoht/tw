@@ -860,10 +860,11 @@ let run_test_case test () =
          and merely supplies the type context (no string surgery, no unsound
          unwrap of plain :root vars). *)
       let spacing_property =
-        "@property --spacing{syntax:\"<length>\";inherits:false;initial-value:0px}\n"
+        "@property \
+         --spacing{syntax:\"<length>\";inherits:false;initial-value:0px}\n"
       in
       let result =
-        Css_compare.diff ~mode:`Canonical
+        Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
           (spacing_property ^ expected_css)
           (spacing_property ^ our_css)
       in
