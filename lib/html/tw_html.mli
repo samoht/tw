@@ -357,6 +357,14 @@ val has_forms : t -> bool
 
 (** {1 Page generation} *)
 
+(** How a {!page} delivers its generated CSS. *)
+type tw_css =
+  | Link of string
+      (** Write the CSS to this file and reference it with a cache-busted
+          [<link>] tag. *)
+  | Inline
+      (** Embed the CSS directly in the document inside a [<style>] tag. *)
+
 type page
 (** Complete HTML page with integrated CSS.
 
@@ -374,7 +382,7 @@ val page :
   ?meta:(string * string) list ->
   ?title:string ->
   ?charset:string ->
-  ?tw_css:string ->
+  ?tw_css:tw_css ->
   ?forms:bool ->
   t list ->
   t list ->
@@ -386,23 +394,26 @@ val page :
     - [charset] defaults to ["utf-8"]
     - [meta] is a list of [(name, content)] pairs for meta tags
     - [title] is the page title
-    - [tw_css] defaults to ["tw.css"] - the filename for the CSS, automatically
-      included as a [<link>] tag in HTML head
+    - [tw_css] controls how the CSS is delivered (see {!type:tw_css}). Defaults
+      to [Link "tw.css"], which references the CSS through a cache-busted
+      [<link>] tag in the HTML head. Use [Inline] to embed the CSS in the
+      document and avoid an extra HTTP request.
     - [forms] explicitly enables the [\@tailwindcss/forms] plugin base layer,
       mirroring Tailwind's [\@plugin] opt-in. When omitted, the forms base is
       auto-detected from forms utility usage (like prose styling).
     - [head] is additional content for the head section
     - [body] is the body content
 
-    The HTML automatically includes a [<link rel="stylesheet" href="{tw_css}">]
-    tag. Use {!html} to get the HTML string and {!css} to get the CSS filename
-    and stylesheet. *)
+    Use {!html} to get the HTML string and {!css} to get the CSS filename and
+    stylesheet. *)
 
 val html : page -> string
 (** [html page] extracts the HTML string from a page result. *)
 
-val css : page -> string * Tw.Css.t
-(** [css page] extracts the CSS filename and stylesheet from a page result. *)
+val css : page -> string option * Tw.Css.t
+(** [css page] extracts the CSS filename and stylesheet from a page result. The
+    filename is [Some file] when the page links to an external stylesheet
+    ([Link file]) and [None] when the CSS is inlined ([Inline]). *)
 
 (** {1 Livereload module}
 

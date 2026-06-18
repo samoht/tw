@@ -330,6 +330,20 @@ let img ?at ?tw () = void_el "img" ?at ?tw ()
 let meta ?at ?tw () = void_el "meta" ?at ?tw ()
 let link ?at ?tw () = void_el "link" ?at ?tw ()
 
+(* The <style> element holds raw CSS. Its content is emitted unescaped because
+   <style> is a raw-text element: escaping would turn selectors such as [ol>li]
+   into [ol&gt;li] and corrupt the stylesheet. *)
+let style ?at ?(tw = []) css =
+  let atts = Option.value ~default:[] at in
+  let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
+  let all_tw = tw @ tw_from_at in
+  let atts_with_tw = class_atts all_tw raw_classes other_atts in
+  {
+    el = El.v ~at:atts_with_tw "style" [ El.unsafe_raw css ];
+    tw = all_tw;
+    forms = false;
+  }
+
 (* Void is now an alias for empty *)
 let void = empty
 
@@ -401,8 +415,12 @@ let rect ?at ?tw children = el_with_tw "rect" ?at ?tw children
 let path ?at ?tw children = el_with_tw "path" ?at ?tw children
 let line ?at ?tw children = el_with_tw "line" ?at ?tw children
 
+(* CSS delivery strategy: link to an external stylesheet (with cache busting) or
+   inline the stylesheet directly into the document. *)
+type tw_css = Link of string | Inline
+
 (* Type for page generation result *)
-type page = { html : string; css : Tw.Css.t; tw_css : string }
+type page = { html : string; css : Tw.Css.t; tw_css : tw_css }
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
     body_content =
@@ -435,25 +453,25 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
   in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
-  (* Compute MD5 hash of the CSS content for cache busting *)
-  let css_hash =
-    let digest = Digest.string css_string in
-    (* Convert first 8 bytes of MD5 to hex string *)
-    let hex = Digest.to_hex digest in
-    String.sub hex 0 8
-  in
-
-  (* Add cache busting query parameter to CSS URL *)
-  let css_url_with_hash = String.concat "" [ tw_css; "?v="; css_hash ] in
-
-  (* Build final HTML with cache-busted CSS link *)
-  let css_link =
-    link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
+  (* Build the head CSS node: a cache-busted <link> for an external stylesheet,
+     or an inline <style> when the stylesheet is embedded in the document. *)
+  let css_head =
+    match tw_css with
+    | Inline -> style css_string
+    | Link file ->
+        (* Compute MD5 hash of the CSS content for cache busting *)
+        let css_hash =
+          let digest = Digest.string css_string in
+          (* Use the first 8 hex chars of the MD5 digest *)
+          String.sub (Digest.to_hex digest) 0 8
+        in
+        let css_url_with_hash = String.concat "" [ file; "?v="; css_hash ] in
+        link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
   in
   let head_children =
     meta_tags
     @ (match title_text with Some t -> [ title [ txt t ] ] | None -> [])
-    @ [ css_link ] @ head_content
+    @ [ css_head ] @ head_content
   in
   let html_tree =
     root ~at:[ At.lang lang ] [ head head_children; body_element ]
@@ -463,13 +481,17 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = "tw.css") ?forms head_content body_content =
+    ?(tw_css = Link "tw.css") ?forms head_content body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
     head_content body_content
 
 (* Page accessor functions *)
 let html page = page.html
-let css page = (page.tw_css, page.css)
+
+let css page =
+  match page.tw_css with
+  | Link file -> (Some file, page.css)
+  | Inline -> (None, page.css)
 
 (* Pretty printing *)
 let pp t =

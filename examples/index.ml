@@ -46,7 +46,7 @@ let content =
       examples
 
 let page_view =
-  page ~title:"Examples Manual" ~tw_css:"manual.css" []
+  page ~title:"Examples Manual" ~tw_css:(Link "manual.css") []
     [ div ~tw:Tw.[ prose; max_w_4xl; mx_auto; p 8 ] content ]
 
 let () =
@@ -56,7 +56,10 @@ let () =
   let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;
-  let oc_css = open_out css_file in
-  output_string oc_css css_str;
-  close_out oc_css;
+  Option.iter
+    (fun file ->
+      let oc_css = open_out file in
+      output_string oc_css css_str;
+      close_out oc_css)
+    css_file;
   ()

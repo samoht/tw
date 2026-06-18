@@ -768,7 +768,7 @@ let page_intro =
     ]
 
 let page_view =
-  page ~title:"Modifiers Demo" ~tw_css:"modifiers.css" []
+  page ~title:"Modifiers Demo" ~tw_css:(Link "modifiers.css") []
     [
       page_header;
       main
@@ -796,7 +796,10 @@ let () =
   let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;
-  let oc_css = open_out css_file in
-  output_string oc_css css_str;
-  close_out oc_css;
+  Option.iter
+    (fun file ->
+      let oc_css = open_out file in
+      output_string oc_css css_str;
+      close_out oc_css)
+    css_file;
   ()

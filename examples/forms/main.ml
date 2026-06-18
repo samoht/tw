@@ -115,7 +115,7 @@ let contact_form =
     ]
 
 let page_view =
-  page ~forms:true ~title:"Forms Demo" ~tw_css:"forms.css" []
+  page ~forms:true ~title:"Forms Demo" ~tw_css:(Link "forms.css") []
     [
       div
         ~tw:Tw.[ min_h_screen; bg ~shade:100 gray; py 12 ]
@@ -136,7 +136,10 @@ let () =
   let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;
-  let oc_css = open_out css_file in
-  output_string oc_css css_str;
-  close_out oc_css;
+  Option.iter
+    (fun file ->
+      let oc_css = open_out file in
+      output_string oc_css css_str;
+      close_out oc_css)
+    css_file;
   ()
