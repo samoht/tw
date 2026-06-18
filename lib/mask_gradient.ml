@@ -102,10 +102,8 @@ module Handler = struct
   (* Format the position value as CSS *)
   let format_position_value = function
     | Spacing n ->
-        if n = 0.0 then "calc(var(--spacing) * 0)"
-        else if Float.is_integer n then
-          "calc(var(--spacing) * " ^ pp_int (int_of_float n) ^ ")"
-        else "calc(var(--spacing) * " ^ pp_float n ^ ")"
+        let _, len = Theme.spacing_calc_float n in
+        Css.Pp.to_string ~minify:false Css.pp_length len
     | Percent p ->
         if Float.is_integer p then pp_int (int_of_float p) ^ "%"
         else pp_float p ^ "%"

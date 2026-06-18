@@ -9,11 +9,6 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
-
-  (* Capture project Pp helpers before [open Css] shadows Pp with Css.Pp. *)
-  let pp_str = Pp.str
-  let pp_int = Pp.int
-
   open Css
 
   type t =
@@ -79,26 +74,14 @@ module Handler = struct
   let flex_shrink_utility = style [ flex_shrink 1.0 ]
   let flex_shrink_0_utility = style [ flex_shrink 0.0 ]
 
-  (* Basis. Tailwind v4: [basis-<number>] resolves to [calc(var(--spacing) *
-     <n>)] - including [basis-0] which keeps the [calc] form for parity with the
-     rest of the spacing scale. [basis-full] / [basis-1/1] are the only forms
-     that emit literal [100%]. The calc value is parsed through
-     [Properties.read_flex_basis] so it lands in the typed AST rather than going
-     via an opaque declaration. *)
+  (* Basis. Tailwind v4.3 emits [var(--spacing)] for [basis-1] and
+     [calc(var(--spacing) * <n>)] otherwise; [basis-full] / [basis-1/1] emit
+     literal [100%]. *)
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
-    let cursor =
-      Cascade.Cursor.of_string
-        (pp_str [ "calc(var(--spacing) * "; pp_int n; ")" ])
-    in
-    let value =
-      match
-        Cascade.Cursor.try_parse_full_err Css.Properties.read_flex_basis cursor
-      with
-      | Ok v -> v
-      | Error _ ->
-          invalid_arg
-            (pp_str [ "basis-"; pp_int n; ": failed to parse spacing calc" ])
+    let value : Css.flex_basis =
+      if n = 1 then Var (Var.theme_ref "spacing")
+      else Calc Css.Calc.(mul (var "spacing") (float (float_of_int n)))
     in
     style [ spacing_decl; flex_basis value ]
 
@@ -174,11 +157,12 @@ module Handler = struct
     | Neg_order_arbitrary s -> (
         match int_of_string_opt s with
         | Some n -> style [ order (Int (-n)) ]
-        | None -> style [ order (Calc ("calc(" ^ s ^ " * -1)")) ])
-    | Order_arbitrary s -> (
-        match int_of_string_opt s with
-        | Some n -> style [ order (Int n) ]
-        | None -> style [ order (Calc s) ])
+        | None ->
+            let o = Css.Properties.read_order (Cascade.Cursor.of_string s) in
+            style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
+        )
+    | Order_arbitrary s ->
+        style [ order (Css.Properties.read_order (Cascade.Cursor.of_string s)) ]
     | Order_first -> order_first ()
     | Order_last -> order_last ()
     | Order_none -> order_none
