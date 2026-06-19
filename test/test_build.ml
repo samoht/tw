@@ -706,8 +706,25 @@ let test_media_query_deduplication () =
   Alcotest.(check int)
     "preserves cascade with nested and top-level media" 2 count_768px
 
+(* p-0 folds to 0, so the unused --spacing token is pruned, matching
+   Tailwind. *)
+let check_spacing_zero_prune () =
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
+  let css =
+    Tw.Build.to_css ~config [ p 0 ]
+    |> Css.optimize ~prune_unused_custom_props:true
+    |> Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "p-0 is padding:0" true
+    (Astring.String.is_infix ~affix:"padding:0" css);
+  Alcotest.(check bool)
+    "p-0 drops unused --spacing" false
+    (Astring.String.is_infix ~affix:"--spacing" css)
+
 let tests =
   [
+    test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
     test_case "Tw.Build.conflict_order delegates to Utility.order" `Quick
