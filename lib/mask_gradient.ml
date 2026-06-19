@@ -49,7 +49,8 @@ module Handler = struct
         string (* arbitrary values like "25%" - stored without brackets *)
 
   type mask_angle =
-    | Angle_int of int (* mask-linear-45 → calc(1deg * 45) *)
+    | Angle_int of
+        int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
     | Angle_arb of string
       (* mask-linear-[3rad] → original value, converted at style time *)
     | Angle_arb_neg of string
@@ -523,7 +524,16 @@ module Handler = struct
     else s
 
   let format_angle_position = function
-    | Angle_int n -> "calc(1deg * " ^ string_of_int n ^ ")"
+    | Angle_int n ->
+        (* [--tw-mask-*-position] is an opaque [syntax: "*"] custom property, so
+           the value must reproduce Tailwind's own output verbatim: a bare
+           degree for the trivial multipliers -1/0/1, and [calc(1deg * n)]
+           otherwise. *)
+        let a : Css.angle =
+          if n >= -1 && n <= 1 then Deg (float_of_int n)
+          else Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n)))
+        in
+        Css.Pp.to_string ~minify:false Css.pp_angle a
     | Angle_arb s -> convert_angle_to_css s
     | Angle_arb_neg s -> "calc(" ^ convert_angle_to_css s ^ " * -1)"
 
