@@ -31,6 +31,19 @@ module Css = Cascade.Css
 open Cascade_diff
 open Alcotest
 
+(* One tolerance sits on top of the raw upstream fixtures:
+   [is_allowed_canonicalization_diff], and it is pure fixture skew, not a tw
+   bug. The hard-coded expectations in Tailwind's [*.test.ts] predate
+   LightningCSS, so they carry the pre-optimise opacity hex ([#0088cc]/50 ->
+   [#0288cc80]) and an unresolved [--text-*--line-height] ([1.25rem]) where the
+   real v4.3.1 CLI -- and tw -- emit [#0088cc80] and [calc(1.25/.875)] (checked
+   with [tw -s ... --diff]). Set [TW_UPSTREAM_STRICT=1] to disable it and watch
+   for changes that close the gap. (A mask-angle calc allowance, an [@property
+   --spacing] hint and a prose selector-permutation allowance were all dropped
+   earlier, once tw emitted Tailwind's exact mask degrees and cascade gained
+   typed calc + the custom-property prune.) *)
+let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
+
 type theme_config =
   | Theme
   | Theme_inline
@@ -476,67 +489,6 @@ let values_close expected actual =
   && hexes_e <> []
   && List.for_all2 colors_close hexes_e hexes_a
 
-(* Strip the redundant-but-safe wrappers cascade keeps around a kept runtime var
-   ([calc(var(--x) * 1)] / [calc(var(--x))]) which Tailwind's test formatter
-   over-simplifies to [var(--x)]. Removing the calc context is unsound in
-   general (the var may be redefined to need it), so tw keeps it; we only
-   normalise for the *comparison*. *)
-let normalize_calc s =
-  let buf = Buffer.create (String.length s) in
-  String.iter (fun c -> if c <> ' ' then Buffer.add_char buf c) s;
-  let s = Buffer.contents buf in
-  (* drop a unit multiplier "*1)" -> ")" *)
-  let s =
-    let n = String.length s in
-    if n < 3 then s
-    else begin
-      let out = Buffer.create n in
-      let i = ref 0 in
-      while !i < n do
-        if !i <= n - 3 && String.sub s !i 3 = "*1)" then (
-          Buffer.add_char out ')';
-          i := !i + 3)
-        else (
-          Buffer.add_char out s.[!i];
-          incr i)
-      done;
-      Buffer.contents out
-    end
-  in
-  (* strip outer calc() wrappers *)
-  let rec strip s =
-    let n = String.length s in
-    if n > 6 && String.sub s 0 5 = "calc(" && s.[n - 1] = ')' then
-      strip (String.sub s 5 (n - 6))
-    else s
-  in
-  let s = strip s in
-  (* fold a value-independent literal product [<num><unit>*<int>] (e.g.
-     [1deg*-1] -> [-1deg], [1deg*0] -> [0deg]); only fires when both operands
-     are plain numbers, so runtime-var calcs are untouched. *)
-  match String.split_on_char '*' s with
-  | [ a; b ] -> (
-      let n = String.length a in
-      let i = ref 0 in
-      while
-        !i < n
-        &&
-        let c = a.[!i] in
-        c = '-' || c = '.' || (c >= '0' && c <= '9')
-      do
-        incr i
-      done;
-      let num_a = String.sub a 0 !i and unit_a = String.sub a !i (n - !i) in
-      match (float_of_string_opt num_a, float_of_string_opt b) with
-      | Some fa, Some fb ->
-          let r = fa *. fb in
-          if Float.is_integer r then string_of_int (int_of_float r) ^ unit_a
-          else s
-      | _ -> s)
-  | _ -> s
-
-let calc_equiv expected actual = normalize_calc expected = normalize_calc actual
-
 let is_allowed_canonicalization_diff diff =
   let allowed_custom_property = function
     | "--font-sans" | "--font-mono" -> true
@@ -547,19 +499,6 @@ let is_allowed_canonicalization_diff diff =
     | name when String.starts_with ~prefix:"--tw-prose-" name -> true
     | _ -> false
   in
-  let known_selector_permutation expected actual =
-    match (expected, actual) with
-    | ( ".prose :where(ul ul, ul ol, ol ul, ol \
-         ol):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))",
-        ".prose :where(ol ol, ol ul, ul ol, ul \
-         ul):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))" )
-    | ( ".prose :where(th, td):not(:where([class~=\"not-prose\"], \
-         [class~=\"not-prose\"] *))",
-        ".prose :where(td, th):not(:where([class~=\"not-prose\"], \
-         [class~=\"not-prose\"] *))" ) ->
-        true
-    | _ -> false
-  in
   let allowed_rule_change = function
     | Tree_diff.Content_changed
         { property_changes; added_properties = []; removed_properties = []; _ }
@@ -568,12 +507,8 @@ let is_allowed_canonicalization_diff diff =
         && List.for_all
              (fun (change : Tree_diff.declaration) ->
                allowed_custom_property change.property_name
-               || values_close change.expected_value change.actual_value
-               || calc_equiv change.expected_value change.actual_value)
+               || values_close change.expected_value change.actual_value)
              property_changes
-    | Tree_diff.Selector_changed { old_selector; new_selector; declarations } ->
-        declarations <> []
-        && known_selector_permutation old_selector new_selector
     | _ -> false
   in
   let allowed_container = function
@@ -824,7 +759,9 @@ let run_test_case test () =
         match String.index_opt header ' ' with
         | Some i ->
             let first = String.sub header 0 i in
-            let rest = String.sub header (i + 1) (String.length header - i - 1) in
+            let rest =
+              String.sub header (i + 1) (String.length header - i - 1)
+            in
             if first <> "not" && not (String.contains first '(') then
               Css.Container.Named (first, Css.Container.of_string rest)
             else Css.Container.of_string header
@@ -873,29 +810,15 @@ let run_test_case test () =
     let expected_css = canonical_stylesheet_css expected in
     if our_css = "" && expected = "" then ()
     else
-      (* Declare [--spacing] as a single-value [<length>] @property for the
-         comparison. Tailwind's build knows [--spacing] is single-valued and
-         emits the flattened [calc(var(--spacing) * R)] for unit multipliers,
-         but it does not carry that type into the CSS. tw faithfully keeps the
-         nested [calc(calc(var(--spacing) * 1) * R)]; cascade only inlines the
-         inner calc when it can prove the var is single-valued -- which this
-         @property guarantees soundly. Prepended to BOTH sides, so it cancels
-         and merely supplies the type context (no string surgery, no unsound
-         unwrap of plain :root vars). *)
-      let spacing_property =
-        "@property \
-         --spacing{syntax:\"<length>\";inherits:false;initial-value:0px}\n"
-      in
       let result =
         Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-          (spacing_property ^ expected_css)
-          (spacing_property ^ our_css)
+          expected_css our_css
       in
       if
         (match result.Css_compare.result with
           | Css_compare.No_diff _ -> true
           | _ -> false)
-        || is_allowed_canonicalization_diff result
+        || ((not strict) && is_allowed_canonicalization_diff result)
       then ()
       else
         let buf = Buffer.create 1024 in
