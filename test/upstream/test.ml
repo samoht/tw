@@ -422,32 +422,25 @@ let theme_config config expected =
 
 let canonical_stylesheet_css css = String.trim css
 
-(* Parse a [#rrggbb] / [#rrggbbaa] colour into its byte channels. *)
-let hex_channels s =
-  let s = String.trim s in
-  let len = String.length s in
-  if len >= 7 && s.[0] = '#' && (len = 7 || len = 9) then
-    let rec collect i acc =
-      if i >= len then Some (List.rev acc)
-      else
-        match int_of_string_opt ("0x" ^ String.sub s i 2) with
-        | Some v -> collect (i + 2) (v :: acc)
-        | None -> None
-    in
-    collect 1 []
-  else None
+(* The upstream fixtures store one opacity-modified arbitrary colour --
+   [#0088cc], at 25% and 50% -- as Tailwind's LightningCSS-rounded oklab, which
+   round-trips back to hex two units high in the red channel ([#0288cc40] /
+   [#0288cc80]). tw keeps full precision and emits the true [#0088cc40] /
+   [#0088cc80]. Those are the *only* fixture colours that skew, and they recur
+   across every colour utility (accent, bg, ring, gradient, shadow, ...), so
+   allow exactly those pairs. A fuzzy [abs (x - y) <= 2] per-channel threshold
+   would also cover them, but it would silently absorb a genuine colour
+   regression of a unit or two -- defeating the comparison -- so prefer an
+   explicit allowlist that only the known stale fixtures match. *)
+let known_stale_colors =
+  [ ("#0288cc40", "#0088cc40"); ("#0288cc80", "#0088cc80") ]
 
-(* The upstream fixtures store opacity-modified arbitrary colours as Tailwind's
-   rounded oklab, which round-trips back to hex a couple of units off (e.g.
-   [#0288cc80] vs the true [#0088cc80]). tw keeps full precision and matches the
-   real colour, so treat hex channels within [delta] of each other as equal. *)
 let colors_close expected actual =
-  String.trim expected = String.trim actual
-  ||
-  match (hex_channels expected, hex_channels actual) with
-  | Some xs, Some ys when List.length xs = List.length ys ->
-      List.for_all2 (fun x y -> abs (x - y) <= 2) xs ys
-  | _ -> false
+  let e = String.trim expected and a = String.trim actual in
+  String.equal e a
+  || List.exists
+       (fun (stale, correct) -> String.equal e stale && String.equal a correct)
+       known_stale_colors
 
 (* Split a value into its non-hex skeleton and the list of [#...] colours, so a
    colour embedded in a larger value (e.g. a shadow's [var(--c, #0288cc40)]) can
@@ -836,6 +829,21 @@ let run_test_case test () =
              (String.concat " " test.classes)
              (Buffer.contents buf) expected got))
 
+(* Guards [colors_close]: a documented stale fixture pair is accepted, but a
+   near-miss the previous [abs (x - y) <= 2] blanket would have wrongly accepted
+   is now rejected, so a real colour regression cannot hide behind the
+   tolerance. *)
+let test_color_tolerance () =
+  Alcotest.(check bool)
+    "stale fixture pair tolerated" true
+    (colors_close "#0288cc80" "#0088cc80");
+  Alcotest.(check bool)
+    "one-unit red skew rejected" false
+    (colors_close "#0188cc80" "#0088cc80");
+  Alcotest.(check bool)
+    "unrelated near colour rejected" false
+    (colors_close "#123456" "#123458")
+
 let file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in
   List.find_opt Sys.file_exists paths
@@ -872,8 +880,11 @@ let () =
       (fun tc -> test_case tc.name `Quick (run_test_case tc))
       variant_tests
   in
+  let tolerance_cases =
+    [ test_case "colour stale-fixture allowlist" `Quick test_color_tolerance ]
+  in
   let suites =
-    [ ("utilities", utility_cases) ]
+    [ ("utilities", utility_cases); ("tolerance", tolerance_cases) ]
     @ if variant_cases <> [] then [ ("variants", variant_cases) ] else []
   in
   Alcotest.run "upstream" suites
