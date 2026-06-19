@@ -266,8 +266,15 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"typography suborder matches Tailwind" shuffled
 
+(* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
+let test_tracking_normal_unit () =
+  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.pp ~minify:true in
+  Alcotest.check bool "tracking-normal token keeps em unit" true
+    (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
+
 let tests =
   [
+    test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "font family" `Quick test_font_family;
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;

@@ -2151,7 +2151,9 @@ module Typography_late = struct
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
   let tracking_normal () =
-    let theme_decl, theme_ref = Var.binding tracking_normal_var Zero in
+    (* Tailwind's default theme defines --tracking-normal as 0em, not a unitless
+       0, so keep the explicit em unit. *)
+    let theme_decl, theme_ref = Var.binding tracking_normal_var (Em 0.0) in
     let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
