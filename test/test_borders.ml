@@ -97,8 +97,16 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"borders suborder matches Tailwind" shuffled
 
+(* rounded-sm's default radius is .25rem in v4.3.1, not the old .125rem. *)
+let test_rounded_sm_default () =
+  let css = Tw.to_css ~base:false [ Tw.rounded_sm ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "rounded-sm default is .25rem" true
+    (Astring.String.is_infix ~affix:"--radius-sm: .25rem" css)
+
 let tests =
   [
+    test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick
