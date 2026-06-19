@@ -81,6 +81,9 @@ let render_css ~(opts : gen_opts) stylesheet =
     | Inline -> Tw.Css.inline_vars stylesheet
     | Variables -> stylesheet
   in
+  let stylesheet =
+    if opts.optimize then Tw.Css.optimize stylesheet else stylesheet
+  in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
 let diff_single_class class_str ~(opts : gen_opts) =
