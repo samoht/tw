@@ -24,10 +24,22 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"filters suborder matches Tailwind" shuffled
 
+(* backdrop-blur-N must reference the unified v4 --blur-N token (not the dropped
+   --backdrop-blur-N) and emit the shipped --blur-N decl. *)
+let test_backdrop_blur_token () =
+  let css = Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.pp ~minify:true in
+  Alcotest.(check bool)
+    "references var(--blur-sm)" true
+    (Astring.String.is_infix ~affix:"var(--blur-sm)" css);
+  Alcotest.(check bool)
+    "emits --blur-sm:8px" true
+    (Astring.String.is_infix ~affix:"--blur-sm:8px" css)
+
 let tests =
   [
     test_case "blur" `Quick test_blur;
     test_case "backdrop" `Quick test_backdrop;
+    test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
