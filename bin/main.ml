@@ -82,7 +82,12 @@ let render_css ~(opts : gen_opts) stylesheet =
     | Variables -> stylesheet
   in
   let stylesheet =
-    if opts.optimize then Tw.Css.optimize stylesheet else stylesheet
+    if opts.optimize then
+      (* The generated sheet is a closed author stylesheet, so prune theme
+         tokens nothing references -- e.g. --spacing once p-0 folds to 0, which
+         Tailwind also drops. *)
+      Tw.Css.optimize ~prune_unused_custom_props:true stylesheet
+    else stylesheet
   in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
@@ -96,7 +101,10 @@ let diff_single_class class_str ~(opts : gen_opts) =
     let styles = match tw_styles with [] -> [] | s -> s in
     let stylesheet = Tw.to_css ~base:true styles in
     let our_css = render_css ~opts stylesheet in
-    let diff = Css_compare.diff ~mode:`Canonical legacy_css our_css in
+    let diff =
+      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+        legacy_css our_css
+    in
     match tw_styles with
     | [] when class_str = "" ->
         print_diff_result " (empty/base only)" diff;
@@ -178,7 +186,10 @@ let diff_files paths ~(opts : gen_opts) =
     let tw_styles = parse_known_candidates all_classes |> List.map snd in
     let stylesheet = Tw.to_css ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
-    let diff = Css_compare.diff ~mode:`Canonical legacy_css our_css in
+    let diff =
+      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+        legacy_css our_css
+    in
     print_diff_result "" diff;
     `Ok ()
   with e ->
