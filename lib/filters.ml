@@ -867,13 +867,21 @@ module Handler = struct
                 backdrop_filter composable_backdrop_filter_chain;
               ])
 
-  let backdrop_blur_xs =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-xs" (fun l ->
-        Blur l)
+  (* Each backdrop-blur-<size> binds the unified v4 --blur-<size> token and
+     references it; Tailwind dropped the separate --backdrop-blur-* tokens, so
+     the default theme ships only --blur-*. *)
+  let backdrop_blur_size (theme_var : Css.length Var.theme) default_px () =
+    let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
+    style ~property_rules:backdrop_filter_property_rules
+      [
+        decl;
+        filter_var_decl "--tw-backdrop-blur" (Blur (Var ref_));
+        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+        backdrop_filter composable_backdrop_filter_chain;
+      ]
 
-  let backdrop_blur_sm =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-sm" (fun l ->
-        Blur l)
+  let backdrop_blur_xs = backdrop_blur_size blur_xs_var 4.
+  let backdrop_blur_sm = backdrop_blur_size blur_sm_var 8.
 
   (* [.backdrop-blur] (no suffix) emits literal [blur(8px)] in v4. *)
   let backdrop_blur () =
@@ -884,25 +892,11 @@ module Handler = struct
         backdrop_filter composable_backdrop_filter_chain;
       ]
 
-  let backdrop_blur_md =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-md" (fun l ->
-        Blur l)
-
-  let backdrop_blur_lg =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-lg" (fun l ->
-        Blur l)
-
-  let backdrop_blur_xl =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-xl" (fun l ->
-        Blur l)
-
-  let backdrop_blur_2xl =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-2xl" (fun l ->
-        Blur l)
-
-  let backdrop_blur_3xl =
-    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-3xl" (fun l ->
-        Blur l)
+  let backdrop_blur_md = backdrop_blur_size blur_md_var 12.
+  let backdrop_blur_lg = backdrop_blur_size blur_lg_var 16.
+  let backdrop_blur_xl = backdrop_blur_size blur_xl_var 24.
+  let backdrop_blur_2xl = backdrop_blur_size blur_2xl_var 40.
+  let backdrop_blur_3xl = backdrop_blur_size blur_3xl_var 64.
 
   let backdrop_blur_arbitrary s =
     match parse_bracket_length s with
