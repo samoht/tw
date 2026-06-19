@@ -169,8 +169,27 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"sizing suborder matches Tailwind" shuffled
 
+let css_of cls =
+  match Tw.of_string cls with
+  | Ok s -> Tw.to_css ~base:false [ s ] |> Css.to_string
+  | Error _ -> Alcotest.failf "could not parse %S" cls
+
+(* Fractional spacing steps must scale --spacing, not truncate to 0. *)
+let test_fractional_spacing () =
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " contains " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css_of cls))
+  in
+  has "h-0.5" "height: calc(var(--spacing) * .5)";
+  has "w-0.5" "width: calc(var(--spacing) * .5)";
+  has "size-0.5" "calc(var(--spacing) * .5)";
+  has "h-2.5" "height: calc(var(--spacing) * 2.5)"
+
 let tests =
   [
+    test_case "fractional spacing" `Quick test_fractional_spacing;
     test_case "widths" `Quick test_widths;
     test_case "heights" `Quick test_heights;
     test_case "min sizes" `Quick test_min_sizes;
