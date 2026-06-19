@@ -574,8 +574,8 @@ module Typography_early = struct
         if Parse.is_var inner then Ok (Leading_var inner)
         else Ok (Leading_bracket inner)
     | [ "leading"; n ] ->
-        Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i ->
-        Leading i
+        (* Tailwind accepts any non-negative leading-N, derived from spacing. *)
+        Parse.int_pos ~name:"leading" n >|= fun i -> Leading i
     | [ "text"; part ] -> (
         match split_on_slash part with
         | Stdlib.Option.Some (base, lh_str) -> (
@@ -901,6 +901,14 @@ module Typography_early = struct
         (* A theme overrides --leading-N: reference it like a named leading. *)
         let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
         leading_with_theme_var theme_var (Rem (float_of_int n *. 0.25))
+    | None when n = 0 ->
+        (* leading-0 is a literal 0, not calc(var(--spacing) * 0). *)
+        let value : line_height = Num 0.0 in
+        let channel_decl, _ = Var.binding leading_var value in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; line_height value ]
     | None ->
         (* Tailwind v4.3 default: derive numeric leading from the spacing scale,
            leading-1 -> var(--spacing), leading-N -> calc(var(--spacing) *
