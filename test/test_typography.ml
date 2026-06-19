@@ -272,9 +272,22 @@ let test_tracking_normal_unit () =
   Alcotest.check bool "tracking-normal token keeps em unit" true
     (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
 
+(* Numeric leading derives from the spacing scale in v4.3.1 (not a --leading-N
+   theme token). *)
+let test_numeric_leading_spacing () =
+  let css =
+    match Tw.of_string "leading-6" with
+    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
+    | Error _ -> Alcotest.fail "could not parse leading-6"
+  in
+  Alcotest.(check bool)
+    "leading-6 uses calc(var(--spacing)*6)" true
+    (Astring.String.is_infix ~affix:"calc(var(--spacing)*6)" css)
+
 let tests =
   [
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
+    test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "font family" `Quick test_font_family;
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;
