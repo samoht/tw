@@ -497,8 +497,8 @@ module Handler = struct
         (* Default: use raw value *)
         style [ Css.border_radius (radius_value Zero) ]
 
-  let rounded_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_radius (radius_value (Var r)) ])
 
   (* Helper: return (decls, length_val) for the bare --radius variable. When
@@ -559,8 +559,8 @@ module Handler = struct
            Css.border_top_right_radius (Var r);
          ])
 
-  let rounded_t_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_t_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -638,8 +638,8 @@ module Handler = struct
            Css.border_bottom_right_radius (Var r);
          ])
 
-  let rounded_r_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_r_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -717,8 +717,8 @@ module Handler = struct
            Css.border_bottom_left_radius (Var r);
          ])
 
-  let rounded_b_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_b_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -795,8 +795,8 @@ module Handler = struct
            Css.border_bottom_left_radius (Var r);
          ])
 
-  let rounded_l_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_l_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -867,8 +867,8 @@ module Handler = struct
     let decl, r = Var.binding radius_none_var (Px 0.) in
     style (decl :: [ Css.border_top_left_radius (Var r) ])
 
-  let rounded_tl_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_tl_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_top_left_radius (Var r) ])
 
   let rounded_tl_md =
@@ -904,8 +904,8 @@ module Handler = struct
     let decl, r = Var.binding radius_none_var (Px 0.) in
     style (decl :: [ Css.border_top_right_radius (Var r) ])
 
-  let rounded_tr_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_tr_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_top_right_radius (Var r) ])
 
   let rounded_tr_md =
@@ -941,8 +941,8 @@ module Handler = struct
     let decl, r = Var.binding radius_none_var (Px 0.) in
     style (decl :: [ Css.border_bottom_right_radius (Var r) ])
 
-  let rounded_br_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_br_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_bottom_right_radius (Var r) ])
 
   let rounded_br_md =
@@ -978,8 +978,8 @@ module Handler = struct
     let decl, r = Var.binding radius_none_var (Px 0.) in
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
-  let rounded_bl_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_bl_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
   let rounded_bl_md =
@@ -1029,8 +1029,8 @@ module Handler = struct
             Css.border_start_start_radius Zero; Css.border_end_start_radius Zero;
           ]
 
-  let rounded_s_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_s_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -1120,8 +1120,8 @@ module Handler = struct
         style
           [ Css.border_start_end_radius Zero; Css.border_end_end_radius Zero ]
 
-  let rounded_e_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_e_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style
       (decl
       :: [
@@ -1203,8 +1203,8 @@ module Handler = struct
         style (decl :: [ Css.border_start_start_radius (Var r) ])
     | None -> style [ Css.border_start_start_radius Zero ]
 
-  let rounded_ss_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_ss_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_start_start_radius (Var r) ])
 
   let rounded_ss_md =
@@ -1246,8 +1246,8 @@ module Handler = struct
         style (decl :: [ Css.border_start_end_radius (Var r) ])
     | None -> style [ Css.border_start_end_radius Zero ]
 
-  let rounded_se_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_se_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_start_end_radius (Var r) ])
 
   let rounded_se_md =
@@ -1289,8 +1289,8 @@ module Handler = struct
         style (decl :: [ Css.border_end_end_radius (Var r) ])
     | None -> style [ Css.border_end_end_radius Zero ]
 
-  let rounded_ee_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_ee_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_end_end_radius (Var r) ])
 
   let rounded_ee_md =
@@ -1332,8 +1332,8 @@ module Handler = struct
         style (decl :: [ Css.border_end_start_radius (Var r) ])
     | None -> style [ Css.border_end_start_radius Zero ]
 
-  let rounded_es_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+  let rounded_es_sm () =
+    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
     style (decl :: [ Css.border_end_start_radius (Var r) ])
 
   let rounded_es_md =
@@ -1603,7 +1603,7 @@ module Handler = struct
     (* Border radius utilities *)
     | Rounded -> rounded ()
     | Rounded_none -> rounded_none ()
-    | Rounded_sm -> rounded_sm
+    | Rounded_sm -> rounded_sm ()
     | Rounded_md -> rounded_md
     | Rounded_lg -> rounded_lg
     | Rounded_xl -> rounded_xl
@@ -1613,7 +1613,7 @@ module Handler = struct
     (* Side-specific rounded utilities - top *)
     | Rounded_t -> rounded_t ()
     | Rounded_t_none -> rounded_t_none
-    | Rounded_t_sm -> rounded_t_sm
+    | Rounded_t_sm -> rounded_t_sm ()
     | Rounded_t_md -> rounded_t_md
     | Rounded_t_lg -> rounded_t_lg
     | Rounded_t_xl -> rounded_t_xl
@@ -1623,7 +1623,7 @@ module Handler = struct
     (* Side-specific rounded utilities - right *)
     | Rounded_r -> rounded_r ()
     | Rounded_r_none -> rounded_r_none
-    | Rounded_r_sm -> rounded_r_sm
+    | Rounded_r_sm -> rounded_r_sm ()
     | Rounded_r_md -> rounded_r_md
     | Rounded_r_lg -> rounded_r_lg
     | Rounded_r_xl -> rounded_r_xl
@@ -1633,7 +1633,7 @@ module Handler = struct
     (* Side-specific rounded utilities - bottom *)
     | Rounded_b -> rounded_b ()
     | Rounded_b_none -> rounded_b_none
-    | Rounded_b_sm -> rounded_b_sm
+    | Rounded_b_sm -> rounded_b_sm ()
     | Rounded_b_md -> rounded_b_md
     | Rounded_b_lg -> rounded_b_lg
     | Rounded_b_xl -> rounded_b_xl
@@ -1643,7 +1643,7 @@ module Handler = struct
     (* Side-specific rounded utilities - left *)
     | Rounded_l -> rounded_l ()
     | Rounded_l_none -> rounded_l_none
-    | Rounded_l_sm -> rounded_l_sm
+    | Rounded_l_sm -> rounded_l_sm ()
     | Rounded_l_md -> rounded_l_md
     | Rounded_l_lg -> rounded_l_lg
     | Rounded_l_xl -> rounded_l_xl
@@ -1653,7 +1653,7 @@ module Handler = struct
     (* Corner-specific rounded utilities - top-left *)
     | Rounded_tl -> rounded_tl ()
     | Rounded_tl_none -> rounded_tl_none
-    | Rounded_tl_sm -> rounded_tl_sm
+    | Rounded_tl_sm -> rounded_tl_sm ()
     | Rounded_tl_md -> rounded_tl_md
     | Rounded_tl_lg -> rounded_tl_lg
     | Rounded_tl_xl -> rounded_tl_xl
@@ -1663,7 +1663,7 @@ module Handler = struct
     (* Corner-specific rounded utilities - top-right *)
     | Rounded_tr -> rounded_tr ()
     | Rounded_tr_none -> rounded_tr_none
-    | Rounded_tr_sm -> rounded_tr_sm
+    | Rounded_tr_sm -> rounded_tr_sm ()
     | Rounded_tr_md -> rounded_tr_md
     | Rounded_tr_lg -> rounded_tr_lg
     | Rounded_tr_xl -> rounded_tr_xl
@@ -1673,7 +1673,7 @@ module Handler = struct
     (* Corner-specific rounded utilities - bottom-right *)
     | Rounded_br -> rounded_br ()
     | Rounded_br_none -> rounded_br_none
-    | Rounded_br_sm -> rounded_br_sm
+    | Rounded_br_sm -> rounded_br_sm ()
     | Rounded_br_md -> rounded_br_md
     | Rounded_br_lg -> rounded_br_lg
     | Rounded_br_xl -> rounded_br_xl
@@ -1683,7 +1683,7 @@ module Handler = struct
     (* Corner-specific rounded utilities - bottom-left *)
     | Rounded_bl -> rounded_bl ()
     | Rounded_bl_none -> rounded_bl_none
-    | Rounded_bl_sm -> rounded_bl_sm
+    | Rounded_bl_sm -> rounded_bl_sm ()
     | Rounded_bl_md -> rounded_bl_md
     | Rounded_bl_lg -> rounded_bl_lg
     | Rounded_bl_xl -> rounded_bl_xl
@@ -1693,7 +1693,7 @@ module Handler = struct
     (* Logical property rounded utilities - start *)
     | Rounded_s -> rounded_s ()
     | Rounded_s_none -> rounded_s_none ()
-    | Rounded_s_sm -> rounded_s_sm
+    | Rounded_s_sm -> rounded_s_sm ()
     | Rounded_s_md -> rounded_s_md
     | Rounded_s_lg -> rounded_s_lg
     | Rounded_s_xl -> rounded_s_xl
@@ -1703,7 +1703,7 @@ module Handler = struct
     (* Logical property rounded utilities - end *)
     | Rounded_e -> rounded_e ()
     | Rounded_e_none -> rounded_e_none ()
-    | Rounded_e_sm -> rounded_e_sm
+    | Rounded_e_sm -> rounded_e_sm ()
     | Rounded_e_md -> rounded_e_md
     | Rounded_e_lg -> rounded_e_lg
     | Rounded_e_xl -> rounded_e_xl
@@ -1713,7 +1713,7 @@ module Handler = struct
     (* Logical corner rounded utilities - ss/se/ee/es *)
     | Rounded_ss -> rounded_ss ()
     | Rounded_ss_none -> rounded_ss_none ()
-    | Rounded_ss_sm -> rounded_ss_sm
+    | Rounded_ss_sm -> rounded_ss_sm ()
     | Rounded_ss_md -> rounded_ss_md
     | Rounded_ss_lg -> rounded_ss_lg
     | Rounded_ss_xl -> rounded_ss_xl
@@ -1722,7 +1722,7 @@ module Handler = struct
     | Rounded_ss_full -> rounded_ss_full ()
     | Rounded_se -> rounded_se ()
     | Rounded_se_none -> rounded_se_none ()
-    | Rounded_se_sm -> rounded_se_sm
+    | Rounded_se_sm -> rounded_se_sm ()
     | Rounded_se_md -> rounded_se_md
     | Rounded_se_lg -> rounded_se_lg
     | Rounded_se_xl -> rounded_se_xl
@@ -1731,7 +1731,7 @@ module Handler = struct
     | Rounded_se_full -> rounded_se_full ()
     | Rounded_ee -> rounded_ee ()
     | Rounded_ee_none -> rounded_ee_none ()
-    | Rounded_ee_sm -> rounded_ee_sm
+    | Rounded_ee_sm -> rounded_ee_sm ()
     | Rounded_ee_md -> rounded_ee_md
     | Rounded_ee_lg -> rounded_ee_lg
     | Rounded_ee_xl -> rounded_ee_xl
@@ -1740,7 +1740,7 @@ module Handler = struct
     | Rounded_ee_full -> rounded_ee_full ()
     | Rounded_es -> rounded_es ()
     | Rounded_es_none -> rounded_es_none ()
-    | Rounded_es_sm -> rounded_es_sm
+    | Rounded_es_sm -> rounded_es_sm ()
     | Rounded_es_md -> rounded_es_md
     | Rounded_es_lg -> rounded_es_lg
     | Rounded_es_xl -> rounded_es_xl
