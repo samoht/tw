@@ -204,8 +204,7 @@ module Handler = struct
       multiplying by 4, since --spacing is 0.25rem. Uses calc(var(--spacing) *
       n) for Tailwind v4 compatibility. *)
   let spacing_utility css_prop n =
-    let class_units = int_of_float (n *. 4.) in
-    let decl, spacing_value = Theme.spacing_calc class_units in
+    let decl, spacing_value = Theme.spacing_calc_float (n *. 4.) in
     style (decl :: [ css_prop spacing_value ])
 
   let w' size =
@@ -585,8 +584,7 @@ module Handler = struct
     | Size_max -> style [ width Max_content; height Max_content ]
     | Size_fit -> style [ width Fit_content; height Fit_content ]
     | Size_spacing n ->
-        let class_units = int_of_float (n *. 4.) in
-        let decl, spacing_value = Theme.spacing_calc class_units in
+        let decl, spacing_value = Theme.spacing_calc_float (n *. 4.) in
         style (decl :: [ width spacing_value; height spacing_value ])
     | Size_fraction f -> (
         match
