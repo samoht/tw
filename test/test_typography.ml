@@ -284,10 +284,26 @@ let test_numeric_leading_spacing () =
     "leading-6 uses calc(var(--spacing)*6)" true
     (Astring.String.is_infix ~affix:"calc(var(--spacing)*6)" css)
 
+(* leading-none has no v4.3 theme token, so it inlines line-height: 1 rather
+   than minting a --leading-none var. *)
+let test_leading_none_inline () =
+  let css =
+    match Tw.of_string "leading-none" with
+    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
+    | Error _ -> Alcotest.fail "could not parse leading-none"
+  in
+  Alcotest.(check bool)
+    "leading-none inlines line-height:1" true
+    (Astring.String.is_infix ~affix:"line-height:1" css);
+  Alcotest.(check bool)
+    "leading-none mints no --leading-none token" false
+    (Astring.String.is_infix ~affix:"--leading-none" css)
+
 let tests =
   [
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
+    test_case "leading-none inline" `Quick test_leading_none_inline;
     test_case "font family" `Quick test_font_family;
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;

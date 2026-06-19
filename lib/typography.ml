@@ -887,7 +887,19 @@ module Typography_early = struct
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
-  let leading_none () = leading_with_theme_var leading_none_var (Num 1.0)
+  let leading_none () =
+    match Var.theme_value "leading-none" with
+    | Some _ -> leading_with_theme_var leading_none_var (Num 1.0)
+    | None ->
+        (* Tailwind v4.3 ships no --leading-none token, so inline the literal
+           rather than minting a var. *)
+        let value : line_height = Num 1.0 in
+        let channel_decl, _ = Var.binding leading_var value in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; line_height value ]
+
   let leading_tight = leading_with_theme_var leading_tight_var (Num 1.25)
   let leading_snug = leading_with_theme_var leading_snug_var (Num 1.375)
   let leading_normal = leading_with_theme_var leading_normal_var (Num 1.5)
