@@ -895,11 +895,31 @@ module Typography_early = struct
   let leading_loose = leading_with_theme_var leading_loose_var (Num 2.0)
 
   let leading n =
-    let lh_value : line_height = Rem (float_of_int n *. 0.25) in
-    let theme_var =
-      Var.theme Css.Line_height ("leading-" ^ string_of_int n) ~order:(6, 53)
-    in
-    leading_with_theme_var theme_var lh_value
+    let name = "leading-" ^ string_of_int n in
+    match Var.theme_value name with
+    | Some _ ->
+        (* A theme overrides --leading-N: reference it like a named leading. *)
+        let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
+        leading_with_theme_var theme_var (Rem (float_of_int n *. 0.25))
+    | None ->
+        (* Tailwind v4.3 default: derive numeric leading from the spacing scale,
+           leading-1 -> var(--spacing), leading-N -> calc(var(--spacing) *
+           N). *)
+        let spacing_decl, _ =
+          Var.binding Theme.spacing_var Theme.spacing_base
+        in
+        let value : line_height =
+          if n = 1 then Css.Var (Var.theme_ref "spacing")
+          else
+            Css.Calc
+              (Css.Calc.mul (Css.Calc.var "spacing")
+                 (Css.Calc.float (float_of_int n)))
+        in
+        let channel_decl, _ = Var.binding leading_var value in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ spacing_decl; channel_decl; line_height value ]
 
   (* Lookup table for named text sizes: (name, size_var, default_rem) *)
   let text_size_data =
