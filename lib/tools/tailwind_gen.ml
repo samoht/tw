@@ -6,29 +6,14 @@ let write_file path content =
   close_out oc
 
 let tailwind_files ?(forms = false) temp_dir classnames =
-  (* Use single-quoted class attribute to allow double quotes inside arbitrary
-     variants (e.g., content-["→"]). Also escape any single quotes to HTML
-     entity to keep HTML valid. *)
-  let escape_single_quotes s =
-    let b = Buffer.create (String.length s) in
-    String.iter
-      (fun c ->
-        if c = '\'' then Buffer.add_string b "&#39;" else Buffer.add_char b c)
-      s;
-    Buffer.contents b
-  in
-  let classes = classnames |> String.concat " " |> escape_single_quotes in
-  let html_content =
-    Fmt.str
-      {|<!DOCTYPE html>
-<html>
-<head></head>
-<body>
-  <div class='%s'></div>
-</body>
-</html>|}
-      classes
-  in
+  (* Feed candidates to the extractor verbatim, space-separated, as raw file
+     text rather than inside an HTML class attribute. An attribute forces
+     escaping one quote style into an HTML entity, and Tailwind's extractor
+     reads that entity literally into the selector (e.g. bg-[url('x')] ->
+     .bg-\[url\(\&\#39\;x\&\#39\;\)\]), diverging from tw's selector. Raw text
+     preserves both single and double quotes exactly as a real source file
+     would, so arbitrary url() and content-["..."] values round-trip. *)
+  let html_content = String.concat " " classnames in
   let input_css_content =
     if forms then
       (* forms plugin with strategy: 'class' requires a config file *)
