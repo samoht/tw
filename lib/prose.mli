@@ -94,6 +94,12 @@ val prose_neutral : t
 val prose_stone : t
 (** [prose_stone] applies stone color theme. *)
 
+val prose_invert : t
+(** [prose_invert] remaps the prose palette to its inverted (dark) variant. *)
+
+val prose_orange : t
+(** [prose_orange] applies the orange accent (link) color theme. *)
+
 val stylesheet : unit -> Css.statement list
 (** [stylesheet ()] generates complete CSS rules for all prose variants. *)
 
