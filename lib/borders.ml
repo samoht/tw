@@ -487,6 +487,24 @@ module Handler = struct
   let radius_value len =
     Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
+  (* Tailwind's --radius-full default is calc(infinity * 1px); FLT_MAX is the
+     canonical large value that infinity folds to, so the all-corners and
+     per-side/corner "full" utilities share it. *)
+  let radius_full_len : Css.length = Css.Px 3.40282e38
+
+  (* Per-side/corner "full"/"none" radius: reference var(--radius-X) when the
+     active theme defines that radius (e.g. an @theme override, as the upstream
+     fixtures use), otherwise inline the literal -- matching Tailwind, which
+     inlines calc(infinity*1px)/0 by default but keys off the token when set.
+     Mirrors [rounded_full]/[rounded_none] for the per-corner properties. *)
+  let scheme_radius key var ~(default : Css.length)
+      (setters : (Css.length -> Css.declaration) list) =
+    match Scheme.radius !current_scheme key with
+    | Some explicit ->
+        let decl, r = Var.binding var explicit in
+        style (decl :: List.map (fun set -> set (Var r : Css.length)) setters)
+    | None -> style (List.map (fun set -> set default) setters)
+
   let rounded_none () =
     match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
@@ -542,7 +560,7 @@ module Handler = struct
         style (decl :: [ Css.border_radius (radius_value (Var r)) ])
     | None ->
         (* Default: use raw value - 9999px represented as large float *)
-        style [ Css.border_radius (radius_value (Px 3.40282e38)) ]
+        style [ Css.border_radius (radius_value radius_full_len) ]
 
   (** Side-specific rounded utilities - top *)
   let rounded_t () =
@@ -550,14 +568,7 @@ module Handler = struct
     style
       (extra @ [ Css.border_top_left_radius v; Css.border_top_right_radius v ])
 
-  let rounded_t_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style
-      (decl
-      :: [
-           Css.border_top_left_radius (Var r);
-           Css.border_top_right_radius (Var r);
-         ])
+  let rounded_t_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_top_left_radius; Css.border_top_right_radius ]
 
   let rounded_t_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -613,14 +624,10 @@ module Handler = struct
            Css.border_top_right_radius (Var r);
          ])
 
-  let rounded_t_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style
-      (decl
-      :: [
-           Css.border_top_left_radius (Var r);
-           Css.border_top_right_radius (Var r);
-         ])
+  let rounded_t_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [
+        Css.border_top_left_radius;
+        Css.border_top_right_radius;
+      ]
 
   (** Side-specific rounded utilities - right *)
   let rounded_r () =
@@ -629,14 +636,7 @@ module Handler = struct
       (extra
       @ [ Css.border_top_right_radius v; Css.border_bottom_right_radius v ])
 
-  let rounded_r_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style
-      (decl
-      :: [
-           Css.border_top_right_radius (Var r);
-           Css.border_bottom_right_radius (Var r);
-         ])
+  let rounded_r_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_top_right_radius; Css.border_bottom_right_radius ]
 
   let rounded_r_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -692,14 +692,10 @@ module Handler = struct
            Css.border_bottom_right_radius (Var r);
          ])
 
-  let rounded_r_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style
-      (decl
-      :: [
-           Css.border_top_right_radius (Var r);
-           Css.border_bottom_right_radius (Var r);
-         ])
+  let rounded_r_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [
+        Css.border_top_right_radius;
+        Css.border_bottom_right_radius;
+      ]
 
   (** Side-specific rounded utilities - bottom *)
   let rounded_b () =
@@ -708,14 +704,9 @@ module Handler = struct
       (extra
       @ [ Css.border_bottom_right_radius v; Css.border_bottom_left_radius v ])
 
-  let rounded_b_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style
-      (decl
-      :: [
-           Css.border_bottom_right_radius (Var r);
-           Css.border_bottom_left_radius (Var r);
-         ])
+  let rounded_b_none () = scheme_radius "none" radius_none_var ~default:Zero [
+        Css.border_bottom_right_radius; Css.border_bottom_left_radius;
+      ]
 
   let rounded_b_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -771,14 +762,10 @@ module Handler = struct
            Css.border_bottom_left_radius (Var r);
          ])
 
-  let rounded_b_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style
-      (decl
-      :: [
-           Css.border_bottom_right_radius (Var r);
-           Css.border_bottom_left_radius (Var r);
-         ])
+  let rounded_b_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [
+        Css.border_bottom_right_radius;
+        Css.border_bottom_left_radius;
+      ]
 
   (** Side-specific rounded utilities - left *)
   let rounded_l () =
@@ -786,14 +773,7 @@ module Handler = struct
     style
       (extra @ [ Css.border_top_left_radius v; Css.border_bottom_left_radius v ])
 
-  let rounded_l_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style
-      (decl
-      :: [
-           Css.border_top_left_radius (Var r);
-           Css.border_bottom_left_radius (Var r);
-         ])
+  let rounded_l_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_top_left_radius; Css.border_bottom_left_radius ]
 
   let rounded_l_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -849,23 +829,17 @@ module Handler = struct
            Css.border_bottom_left_radius (Var r);
          ])
 
-  let rounded_l_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style
-      (decl
-      :: [
-           Css.border_top_left_radius (Var r);
-           Css.border_bottom_left_radius (Var r);
-         ])
+  let rounded_l_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [
+        Css.border_top_left_radius;
+        Css.border_bottom_left_radius;
+      ]
 
   (** Corner-specific rounded utilities - top-left *)
   let rounded_tl () =
     let extra, v = radius_decl_and_val () in
     style (extra @ [ Css.border_top_left_radius v ])
 
-  let rounded_tl_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style (decl :: [ Css.border_top_left_radius (Var r) ])
+  let rounded_tl_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_top_left_radius ]
 
   let rounded_tl_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -891,18 +865,14 @@ module Handler = struct
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
     style (decl :: [ Css.border_top_left_radius (Var r) ])
 
-  let rounded_tl_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style (decl :: [ Css.border_top_left_radius (Var r) ])
+  let rounded_tl_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [ Css.border_top_left_radius ]
 
   (** Corner-specific rounded utilities - top-right *)
   let rounded_tr () =
     let extra, v = radius_decl_and_val () in
     style (extra @ [ Css.border_top_right_radius v ])
 
-  let rounded_tr_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style (decl :: [ Css.border_top_right_radius (Var r) ])
+  let rounded_tr_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_top_right_radius ]
 
   let rounded_tr_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -928,18 +898,14 @@ module Handler = struct
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
     style (decl :: [ Css.border_top_right_radius (Var r) ])
 
-  let rounded_tr_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style (decl :: [ Css.border_top_right_radius (Var r) ])
+  let rounded_tr_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [ Css.border_top_right_radius ]
 
   (** Corner-specific rounded utilities - bottom-right *)
   let rounded_br () =
     let extra, v = radius_decl_and_val () in
     style (extra @ [ Css.border_bottom_right_radius v ])
 
-  let rounded_br_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style (decl :: [ Css.border_bottom_right_radius (Var r) ])
+  let rounded_br_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_bottom_right_radius ]
 
   let rounded_br_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -965,18 +931,14 @@ module Handler = struct
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
     style (decl :: [ Css.border_bottom_right_radius (Var r) ])
 
-  let rounded_br_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style (decl :: [ Css.border_bottom_right_radius (Var r) ])
+  let rounded_br_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [ Css.border_bottom_right_radius ]
 
   (** Corner-specific rounded utilities - bottom-left *)
   let rounded_bl () =
     let extra, v = radius_decl_and_val () in
     style (extra @ [ Css.border_bottom_left_radius v ])
 
-  let rounded_bl_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style (decl :: [ Css.border_bottom_left_radius (Var r) ])
+  let rounded_bl_none () = scheme_radius "none" radius_none_var ~default:Zero [ Css.border_bottom_left_radius ]
 
   let rounded_bl_sm () =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
@@ -1002,9 +964,7 @@ module Handler = struct
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
-  let rounded_bl_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style (decl :: [ Css.border_bottom_left_radius (Var r) ])
+  let rounded_bl_full () = scheme_radius "full" radius_full_var ~default:radius_full_len [ Css.border_bottom_left_radius ]
 
   (** Logical property rounded utilities - start (inline-start) *)
   let rounded_s () =
@@ -1612,84 +1572,84 @@ module Handler = struct
     | Rounded_full -> rounded_full ()
     (* Side-specific rounded utilities - top *)
     | Rounded_t -> rounded_t ()
-    | Rounded_t_none -> rounded_t_none
+    | Rounded_t_none -> rounded_t_none ()
     | Rounded_t_sm -> rounded_t_sm ()
     | Rounded_t_md -> rounded_t_md
     | Rounded_t_lg -> rounded_t_lg
     | Rounded_t_xl -> rounded_t_xl
     | Rounded_t_2xl -> rounded_t_2xl
     | Rounded_t_3xl -> rounded_t_3xl
-    | Rounded_t_full -> rounded_t_full
+    | Rounded_t_full -> rounded_t_full ()
     (* Side-specific rounded utilities - right *)
     | Rounded_r -> rounded_r ()
-    | Rounded_r_none -> rounded_r_none
+    | Rounded_r_none -> rounded_r_none ()
     | Rounded_r_sm -> rounded_r_sm ()
     | Rounded_r_md -> rounded_r_md
     | Rounded_r_lg -> rounded_r_lg
     | Rounded_r_xl -> rounded_r_xl
     | Rounded_r_2xl -> rounded_r_2xl
     | Rounded_r_3xl -> rounded_r_3xl
-    | Rounded_r_full -> rounded_r_full
+    | Rounded_r_full -> rounded_r_full ()
     (* Side-specific rounded utilities - bottom *)
     | Rounded_b -> rounded_b ()
-    | Rounded_b_none -> rounded_b_none
+    | Rounded_b_none -> rounded_b_none ()
     | Rounded_b_sm -> rounded_b_sm ()
     | Rounded_b_md -> rounded_b_md
     | Rounded_b_lg -> rounded_b_lg
     | Rounded_b_xl -> rounded_b_xl
     | Rounded_b_2xl -> rounded_b_2xl
     | Rounded_b_3xl -> rounded_b_3xl
-    | Rounded_b_full -> rounded_b_full
+    | Rounded_b_full -> rounded_b_full ()
     (* Side-specific rounded utilities - left *)
     | Rounded_l -> rounded_l ()
-    | Rounded_l_none -> rounded_l_none
+    | Rounded_l_none -> rounded_l_none ()
     | Rounded_l_sm -> rounded_l_sm ()
     | Rounded_l_md -> rounded_l_md
     | Rounded_l_lg -> rounded_l_lg
     | Rounded_l_xl -> rounded_l_xl
     | Rounded_l_2xl -> rounded_l_2xl
     | Rounded_l_3xl -> rounded_l_3xl
-    | Rounded_l_full -> rounded_l_full
+    | Rounded_l_full -> rounded_l_full ()
     (* Corner-specific rounded utilities - top-left *)
     | Rounded_tl -> rounded_tl ()
-    | Rounded_tl_none -> rounded_tl_none
+    | Rounded_tl_none -> rounded_tl_none ()
     | Rounded_tl_sm -> rounded_tl_sm ()
     | Rounded_tl_md -> rounded_tl_md
     | Rounded_tl_lg -> rounded_tl_lg
     | Rounded_tl_xl -> rounded_tl_xl
     | Rounded_tl_2xl -> rounded_tl_2xl
     | Rounded_tl_3xl -> rounded_tl_3xl
-    | Rounded_tl_full -> rounded_tl_full
+    | Rounded_tl_full -> rounded_tl_full ()
     (* Corner-specific rounded utilities - top-right *)
     | Rounded_tr -> rounded_tr ()
-    | Rounded_tr_none -> rounded_tr_none
+    | Rounded_tr_none -> rounded_tr_none ()
     | Rounded_tr_sm -> rounded_tr_sm ()
     | Rounded_tr_md -> rounded_tr_md
     | Rounded_tr_lg -> rounded_tr_lg
     | Rounded_tr_xl -> rounded_tr_xl
     | Rounded_tr_2xl -> rounded_tr_2xl
     | Rounded_tr_3xl -> rounded_tr_3xl
-    | Rounded_tr_full -> rounded_tr_full
+    | Rounded_tr_full -> rounded_tr_full ()
     (* Corner-specific rounded utilities - bottom-right *)
     | Rounded_br -> rounded_br ()
-    | Rounded_br_none -> rounded_br_none
+    | Rounded_br_none -> rounded_br_none ()
     | Rounded_br_sm -> rounded_br_sm ()
     | Rounded_br_md -> rounded_br_md
     | Rounded_br_lg -> rounded_br_lg
     | Rounded_br_xl -> rounded_br_xl
     | Rounded_br_2xl -> rounded_br_2xl
     | Rounded_br_3xl -> rounded_br_3xl
-    | Rounded_br_full -> rounded_br_full
+    | Rounded_br_full -> rounded_br_full ()
     (* Corner-specific rounded utilities - bottom-left *)
     | Rounded_bl -> rounded_bl ()
-    | Rounded_bl_none -> rounded_bl_none
+    | Rounded_bl_none -> rounded_bl_none ()
     | Rounded_bl_sm -> rounded_bl_sm ()
     | Rounded_bl_md -> rounded_bl_md
     | Rounded_bl_lg -> rounded_bl_lg
     | Rounded_bl_xl -> rounded_bl_xl
     | Rounded_bl_2xl -> rounded_bl_2xl
     | Rounded_bl_3xl -> rounded_bl_3xl
-    | Rounded_bl_full -> rounded_bl_full
+    | Rounded_bl_full -> rounded_bl_full ()
     (* Logical property rounded utilities - start *)
     | Rounded_s -> rounded_s ()
     | Rounded_s_none -> rounded_s_none ()
