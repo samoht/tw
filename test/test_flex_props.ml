@@ -24,6 +24,7 @@ let of_string_valid () =
   check "basis-full";
 
   (* Order *)
+  check "order-0";
   check "order-1";
   check "order-2";
   check "order-3";
@@ -46,9 +47,6 @@ let of_string_invalid () =
   fail_maybe [ "basis" ];
   (* Missing value *)
   fail_maybe [ "order" ];
-  (* Missing value *)
-  fail_maybe [ "order"; "0" ];
-  (* Invalid - must be >= 1 *)
   fail_maybe []
 
 let suborder_matches_tailwind () =
