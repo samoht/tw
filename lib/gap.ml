@@ -25,16 +25,18 @@ module Handler = struct
   let name = "gap"
   let priority = 17
 
-  (** Space reverse variables for flex-reverse support. Property order -1
-      ensures these come FIRST in {i \@layer properties} (Tailwind places them
-      before --tw-border-style). *)
+  (* Space reverse variables for flex-reverse support. Property order 2/3 places
+     these after the transform group but before --tw-divide-*-reverse (4/5) and
+     --tw-border-style (6), matching Tailwind's @layer properties order. Like
+     divide, they must use ~family:`Border so they sort with that group by
+     property_order rather than being pushed to family-order. *)
   let space_x_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
-      ~property_order:(-2) "tw-space-x-reverse"
+      ~property_order:2 ~family:`Border "tw-space-x-reverse"
 
   let space_y_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
-      ~property_order:(-1) "tw-space-y-reverse"
+      ~property_order:3 ~family:`Border "tw-space-y-reverse"
 
   (** {2 Typed Gap Utilities} *)
 
