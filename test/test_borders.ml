@@ -123,11 +123,30 @@ let test_rounded_side_full_inlined () =
     "rounded-l-full is not the old 9999px" false
     (Astring.String.is_infix ~affix:"9999px" css)
 
+(* Numeric outline widths (outline-1/2/4/8) emit outline-width: Npx with the
+   outline-style var; they used to be unknown classes. *)
+let test_outline_widths () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "outline-2 emits outline-width: 2px" true
+    (Astring.String.is_infix ~affix:"outline-width: 2px" (css "outline-2"));
+  Alcotest.(check bool)
+    "outline-1 emits outline-width: 1px" true
+    (Astring.String.is_infix ~affix:"outline-width: 1px" (css "outline-1"));
+  Alcotest.(check bool)
+    "outline-3 is not a utility" true
+    (match Tw.of_string "outline-3" with Error _ -> true | Ok _ -> false)
+
 let tests =
   [
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "rounded-l-full inlined radius" `Quick
       test_rounded_side_full_inlined;
+    test_case "outline numeric widths" `Quick test_outline_widths;
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick
