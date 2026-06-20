@@ -52,6 +52,8 @@ module Handler = struct
     | Border_4
     | Border_8
     | Border_width_bracket of string
+    | Border_side_width_bracket of string * string
+      (* side ("t"/"r"/"b"/"l"), arbitrary width inner: border-t-[1px] *)
     | (* Border side/axis utilities *)
       Border_t
     | Border_r
@@ -302,44 +304,43 @@ module Handler = struct
   let border_4 = make_border_util [ Css.border_width (Px 4.) ]
   let border_8 = make_border_util [ Css.border_width (Px 8.) ]
 
+  let parse_border_width inner : Css.border_width =
+    if
+      String.length inner > 2
+      && String.sub inner (String.length inner - 2) 2 = "px"
+    then
+      let n = String.sub inner 0 (String.length inner - 2) in
+      match float_of_string_opt n with
+      | Some f -> Px f
+      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid px value")
+    else if
+      String.length inner > 3
+      && String.sub inner (String.length inner - 3) 3 = "rem"
+    then
+      let n = String.sub inner 0 (String.length inner - 3) in
+      match float_of_string_opt n with
+      | Some f -> Rem f
+      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid rem value")
+    else if
+      String.length inner > 2
+      && String.sub inner (String.length inner - 2) 2 = "em"
+    then
+      let n = String.sub inner 0 (String.length inner - 2) in
+      match float_of_string_opt n with
+      | Some f -> Em f
+      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid em value")
+    else if String.length inner > 1 && inner.[String.length inner - 1] = '%' then
+      let n = String.sub inner 0 (String.length inner - 1) in
+      match float_of_string_opt n with
+      | Some f -> Pct f
+      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid % value")
+    else
+      match float_of_string_opt inner with
+      | Some f -> Px f
+      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid value")
+
   let border_width_bracket_style inner =
-    let width : Css.border_width =
-      if
-        String.length inner > 2
-        && String.sub inner (String.length inner - 2) 2 = "px"
-      then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Px f
-        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid px value")
-      else if
-        String.length inner > 3
-        && String.sub inner (String.length inner - 3) 3 = "rem"
-      then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Rem f
-        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid rem value")
-      else if
-        String.length inner > 2
-        && String.sub inner (String.length inner - 2) 2 = "em"
-      then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Em f
-        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid em value")
-      else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
-      then
-        let n = String.sub inner 0 (String.length inner - 1) in
-        match float_of_string_opt n with
-        | Some f -> Pct f
-        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid % value")
-      else
-        match float_of_string_opt inner with
-        | Some f -> Px f
-        | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid value")
-    in
-    make_border_util [ Css.border_width width ]
+    make_border_util [ Css.border_width (parse_border_width inner) ]
 
   (* Helper for border side utilities that reference the variable with @property
      default *)
@@ -1540,6 +1541,14 @@ module Handler = struct
     | Border_4 -> border_4
     | Border_8 -> border_8
     | Border_width_bracket v -> border_width_bracket_style v
+    | Border_side_width_bracket (side, inner) ->
+        let w = parse_border_width inner in
+        make_side_util (fun bv ->
+            match side with
+            | "t" -> [ border_top_style (Var bv); border_top_width w ]
+            | "r" -> [ border_right_style (Var bv); border_right_width w ]
+            | "b" -> [ border_bottom_style (Var bv); border_bottom_width w ]
+            | _ -> [ border_left_style (Var bv); border_left_width w ])
     (* Border side/axis utilities *)
     | Border_t -> border_t
     | Border_r -> border_r
@@ -1823,6 +1832,10 @@ module Handler = struct
     | Border_4 -> 1003
     | Border_8 -> 1004
     | Border_width_bracket _ -> 1005
+    (* Per-side arbitrary widths join their side's group (1200-1399), sorting
+       after that side's numeric widths, matching Tailwind. *)
+    | Border_side_width_bracket (side, _) -> (
+        match side with "t" -> 1204 | "r" -> 1214 | "b" -> 1224 | _ -> 1234)
     (* Border side/axis utilities (1100-1199) - clockwise from top: t, r, b,
        l *)
     | Border_t -> 1100
@@ -1928,6 +1941,14 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         if String.length inner > 0 && is_numeric_start inner.[0] then
           Ok (Border_width_bracket inner)
+        else err_not_utility
+    | [ "border"; side; v ]
+      when (match side with "t" | "r" | "b" | "l" -> true | _ -> false)
+           && Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
+        if String.length inner > 0 && is_numeric_start inner.[0] then
+          Ok (Border_side_width_bracket (side, inner))
         else err_not_utility
     | "border" :: color_parts -> (
         match Color.shade_of_strings color_parts with
@@ -2163,6 +2184,8 @@ module Handler = struct
     | Border_4 -> "border-4"
     | Border_8 -> "border-8"
     | Border_width_bracket v -> "border-[" ^ v ^ "]"
+    | Border_side_width_bracket (side, inner) ->
+        "border-" ^ side ^ "-[" ^ inner ^ "]"
     | Border_t -> "border-t"
     | Border_r -> "border-r"
     | Border_b -> "border-b"
