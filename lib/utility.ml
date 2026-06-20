@@ -6,10 +6,10 @@ type t =
   | Base of base
   | Modified of Style.modifier * t
   | Group of t list
-  | Important of t
+  | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
 
 let base x = Base x
-let important x = Important x
+let important ?(suffix = false) x = Important (suffix, x)
 
 module type Handler = sig
   type t
@@ -83,7 +83,7 @@ let rec to_style = function
   | Base u -> base_to_style u
   | Modified (m, u) -> Style.Modified (m, to_style u)
   | Group us -> Style.Group (List.map to_style us)
-  | Important u -> Style.map_important (to_style u)
+  | Important (_, u) -> Style.map_important (to_style u)
 
 let rec to_class = function
   | Base u -> class_of_base u
@@ -96,13 +96,14 @@ let rec to_class = function
             (List.map (fun item -> to_class (Modified (m, item))) us)
       | _ -> Style.pp_modifier m ^ ":" ^ to_class u)
   | Group us -> String.concat " " (List.map to_class us)
-  | Important u -> "!" ^ to_class u
+  | Important (suffix, u) ->
+      if suffix then to_class u ^ "!" else "!" ^ to_class u
 
 let rec pp = function
   | Base u -> "Base " ^ class_of_base u
   | Modified (m, u) -> "Modified (" ^ Style.pp_modifier m ^ ", " ^ pp u ^ ")"
   | Group us -> "Group [" ^ String.concat "; " (List.map pp us) ^ "]"
-  | Important u -> "Important (" ^ pp u ^ ")"
+  | Important (_, u) -> "Important (" ^ pp u ^ ")"
 
 let order (u : base) : int * int =
   let rec try_handlers = function

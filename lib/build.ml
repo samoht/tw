@@ -1077,7 +1077,7 @@ let has_pseudo_elements tw_classes =
     | Utility.Base _ -> false
     | Utility.Modified (modifier, u) -> has_pseudo modifier || check_utility u
     | Utility.Group us -> List.exists check_utility us
-    | Utility.Important u -> check_utility u
+    | Utility.Important (_, u) -> check_utility u
   in
   List.exists check_utility tw_classes
 

@@ -97,14 +97,16 @@ let split_whitespace s =
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
-  (* The [!] important marker sits right before the utility: [!flex],
-     [md:!flex]. (Tailwind v4's trailing form [flex!] keeps the suffix in the
-     selector, which would need form-preserving round-trips; not handled
-     yet.) *)
-  let important, base_class =
+  (* The [!] important marker sits right next to the utility: the v3 prefix
+     ([!flex], [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its
+     form in the generated selector so it matches the source class. *)
+  let importance, base_class =
     let n = String.length base_class in
-    if n > 1 && base_class.[0] = '!' then (true, String.sub base_class 1 (n - 1))
-    else (false, base_class)
+    if n > 1 && base_class.[0] = '!' then
+      (`Prefix, String.sub base_class 1 (n - 1))
+    else if n > 1 && base_class.[n - 1] = '!' then
+      (`Suffix, String.sub base_class 0 (n - 1))
+    else (`None, base_class)
   in
   match Utility.base_of_class base_class with
   | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
@@ -113,7 +115,10 @@ let of_string class_str =
          responsive/state prefix stays outermost: md:!flex -> md:(!flex). *)
       let base_util = Utility.base base_utility in
       let base_util =
-        if important then Utility.important base_util else base_util
+        match importance with
+        | `Prefix -> Utility.important base_util
+        | `Suffix -> Utility.important ~suffix:true base_util
+        | `None -> base_util
       in
       match Modifiers.apply modifiers base_util with
       | Some u -> Ok u
