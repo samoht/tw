@@ -141,12 +141,31 @@ let test_outline_widths () =
     "outline-3 is not a utility" true
     (match Tw.of_string "outline-3" with Error _ -> true | Ok _ -> false)
 
+(* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
+   plus the side border-style var; they used to be unknown classes. *)
+let test_border_side_arbitrary_width () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "border-t-[1px] sets border-top-width" true
+    (Astring.String.is_infix ~affix:"border-top-width: 1px"
+       (css "border-t-[1px]"));
+  Alcotest.(check bool)
+    "border-l-[0.5rem] sets border-left-width" true
+    (Astring.String.is_infix ~affix:"border-left-width: .5rem"
+       (css "border-l-[0.5rem]"))
+
 let tests =
   [
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "rounded-l-full inlined radius" `Quick
       test_rounded_side_full_inlined;
     test_case "outline numeric widths" `Quick test_outline_widths;
+    test_case "border side arbitrary widths" `Quick
+      test_border_side_arbitrary_width;
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick
