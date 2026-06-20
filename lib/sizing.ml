@@ -304,6 +304,15 @@ module Handler = struct
   let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 10)
   let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 11)
   let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 12)
+
+  (* Breakpoint theme vars, referenced by the (v3) max-w-screen-* utilities.
+     Negative suborders keep them before --container-* in the theme layer, as
+     Tailwind emits them. *)
+  let breakpoint_sm = Var.theme Css.Length "breakpoint-sm" ~order:(5, -5)
+  let breakpoint_md = Var.theme Css.Length "breakpoint-md" ~order:(5, -4)
+  let breakpoint_lg = Var.theme Css.Length "breakpoint-lg" ~order:(5, -3)
+  let breakpoint_xl = Var.theme Css.Length "breakpoint-xl" ~order:(5, -2)
+  let breakpoint_2xl = Var.theme Css.Length "breakpoint-2xl" ~order:(5, -1)
   let max_w_none' = style [ max_width None ]
 
   let max_w_xs' =
@@ -355,11 +364,16 @@ module Handler = struct
   let max_w_max' = style [ max_width Max_content ]
   let max_w_fit' = style [ max_width Fit_content ]
   let max_w_prose' = style [ max_width (Ch 65.0) ]
-  let max_w_screen_sm' = style [ max_width (Px 640.) ]
-  let max_w_screen_md' = style [ max_width (Px 768.) ]
-  let max_w_screen_lg' = style [ max_width (Px 1024.) ]
-  let max_w_screen_xl' = style [ max_width (Px 1280.) ]
-  let max_w_screen_2xl' = style [ max_width (Px 1536.) ]
+
+  let max_w_screen_of var rem =
+    let decl, r = Var.binding var (Rem rem : Css.length) in
+    style (decl :: [ max_width (Var r) ])
+
+  let max_w_screen_sm' = max_w_screen_of breakpoint_sm 40.
+  let max_w_screen_md' = max_w_screen_of breakpoint_md 48.
+  let max_w_screen_lg' = max_w_screen_of breakpoint_lg 64.
+  let max_w_screen_xl' = max_w_screen_of breakpoint_xl 80.
+  let max_w_screen_2xl' = max_w_screen_of breakpoint_2xl 96.
 
   (* Int-based max-width function for Tailwind scale (n * 0.25rem) *)
 

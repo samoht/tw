@@ -209,10 +209,22 @@ let test_general_fractions () =
   rejected "w-1/7";
   rejected "w-13/12"
 
+(* max-w-screen-* references the breakpoint theme var (like the v4 CLI), not an
+   inlined px. *)
+let test_max_w_screen () =
+  let xl = css_of "max-w-screen-xl" in
+  Alcotest.(check bool)
+    "max-w-screen-xl references --breakpoint-xl" true
+    (Astring.String.is_infix ~affix:"max-width: var(--breakpoint-xl)" xl);
+  Alcotest.(check bool)
+    "max-w-screen-xl defines --breakpoint-xl: 80rem" true
+    (Astring.String.is_infix ~affix:"--breakpoint-xl: 80rem" xl)
+
 let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
     test_case "general fractions" `Quick test_general_fractions;
+    test_case "max-w-screen breakpoint var" `Quick test_max_w_screen;
     test_case "widths" `Quick test_widths;
     test_case "heights" `Quick test_heights;
     test_case "min sizes" `Quick test_min_sizes;
