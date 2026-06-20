@@ -259,6 +259,26 @@ let check_property_rules_order () =
   in
   check bool "@property after utilities" true (first_prop_idx > util_idx)
 
+(* Regression: --tw-space-y-reverse must sort AFTER the transform group in
+   @property, matching Tailwind (which places it after --tw-translate-* and
+   before --tw-border-style). It previously carried a negative property_order
+   with no family, which forced it ahead of the transforms. *)
+let check_space_reverse_after_transforms () =
+  let sheet =
+    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4. ]
+  in
+  let names = property_rule_names sheet in
+  let index_of n =
+    let rec loop i = function
+      | [] -> fail (n ^ " missing from @property rules")
+      | x :: _ when x = n -> i
+      | _ :: t -> loop (i + 1) t
+    in
+    loop 0 names
+  in
+  check bool "--tw-translate-x before --tw-space-y-reverse" true
+    (index_of "--tw-translate-x" < index_of "--tw-space-y-reverse")
+
 let test_resolve_dependencies () =
   (* Dependency resolution is now handled automatically by
      Css.vars_of_declarations This test is kept for compatibility but
@@ -741,6 +761,8 @@ let tests =
     test_case "properties layer internal order" `Quick
       check_properties_layer_internal_order;
     test_case "@property trailing and order" `Quick check_property_rules_order;
+    test_case "@property space-reverse after transforms" `Quick
+      check_space_reverse_after_transforms;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
       test_inline_no_vars_defaults;
