@@ -776,19 +776,30 @@ module Typography_early = struct
         line_height (Var leading_with_fallback);
       ]
 
-  let text_xs = text_size_utility text_xs_var text_xs_lh_var 0.75 (Rem 1.0)
-  let text_sm = text_size_utility text_sm_var text_sm_lh_var 0.875 (Rem 1.25)
-  let text_base = text_size_utility text_base_var text_base_lh_var 1.0 (Rem 1.5)
-  let text_lg = text_size_utility text_lg_var text_lg_lh_var 1.125 (Rem 1.75)
-  let text_xl = text_size_utility text_xl_var text_xl_lh_var 1.25 (Rem 1.75)
-  let text_2xl = text_size_utility text_2xl_var text_2xl_lh_var 1.5 (Rem 2.0)
-  let text_3xl = text_size_utility text_3xl_var text_3xl_lh_var 1.875 (Rem 2.25)
-  let text_4xl = text_size_utility text_4xl_var text_4xl_lh_var 2.25 (Rem 2.5)
-  let text_5xl = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
-  let text_6xl = text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
-  let text_7xl = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
-  let text_8xl = text_size_utility text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
-  let text_9xl = text_size_utility text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
+  let text_xs () = text_size_utility text_xs_var text_xs_lh_var 0.75 (Rem 1.0)
+  let text_sm () = text_size_utility text_sm_var text_sm_lh_var 0.875 (Rem 1.25)
+
+  let text_base () =
+    text_size_utility text_base_var text_base_lh_var 1.0 (Rem 1.5)
+
+  let text_lg () = text_size_utility text_lg_var text_lg_lh_var 1.125 (Rem 1.75)
+  let text_xl () = text_size_utility text_xl_var text_xl_lh_var 1.25 (Rem 1.75)
+  let text_2xl () = text_size_utility text_2xl_var text_2xl_lh_var 1.5 (Rem 2.0)
+
+  let text_3xl () =
+    text_size_utility text_3xl_var text_3xl_lh_var 1.875 (Rem 2.25)
+
+  let text_4xl () =
+    text_size_utility text_4xl_var text_4xl_lh_var 2.25 (Rem 2.5)
+
+  let text_5xl () = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
+
+  let text_6xl () =
+    text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
+
+  let text_7xl () = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
+  let text_8xl () = text_size_utility text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
+  let text_9xl () = text_size_utility text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
 
   (* Font weight utilities set --tw-font-weight for animation but use theme var
      directly *)
@@ -1069,19 +1080,19 @@ module Typography_early = struct
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
 
   let to_style = function
-    | Text_xs -> text_xs
-    | Text_sm -> text_sm
-    | Text_base -> text_base
-    | Text_lg -> text_lg
-    | Text_xl -> text_xl
-    | Text_2xl -> text_2xl
-    | Text_3xl -> text_3xl
-    | Text_4xl -> text_4xl
-    | Text_5xl -> text_5xl
-    | Text_6xl -> text_6xl
-    | Text_7xl -> text_7xl
-    | Text_8xl -> text_8xl
-    | Text_9xl -> text_9xl
+    | Text_xs -> text_xs ()
+    | Text_sm -> text_sm ()
+    | Text_base -> text_base ()
+    | Text_lg -> text_lg ()
+    | Text_xl -> text_xl ()
+    | Text_2xl -> text_2xl ()
+    | Text_3xl -> text_3xl ()
+    | Text_4xl -> text_4xl ()
+    | Text_5xl -> text_5xl ()
+    | Text_6xl -> text_6xl ()
+    | Text_7xl -> text_7xl ()
+    | Text_8xl -> text_8xl ()
+    | Text_9xl -> text_9xl ()
     | Font_thin -> font_thin
     | Font_extralight -> font_extralight
     | Font_light -> font_light

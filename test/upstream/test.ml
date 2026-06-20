@@ -35,13 +35,14 @@ open Alcotest
    [is_allowed_canonicalization_diff], and it is pure fixture skew, not a tw
    bug. The hard-coded expectations in Tailwind's [*.test.ts] predate
    LightningCSS, so they carry the pre-optimise opacity hex ([#0088cc]/50 ->
-   [#0288cc80]) and an unresolved [--text-*--line-height] ([1.25rem]) where the
-   real v4.3.1 CLI -- and tw -- emit [#0088cc80] and [calc(1.25/.875)] (checked
-   with [tw -s ... --diff]). Set [TW_UPSTREAM_STRICT=1] to disable it and watch
-   for changes that close the gap. (A mask-angle calc allowance, an [@property
-   --spacing] hint and a prose selector-permutation allowance were all dropped
-   earlier, once tw emitted Tailwind's exact mask degrees and cascade gained
-   typed calc + the custom-property prune.) *)
+   [#0288cc80]) where the real v4.3.1 CLI -- and tw -- emit [#0088cc80] (checked
+   with [tw -s ... --diff]); only cascade rounding oklab to LightningCSS
+   precision retires it. Set [TW_UPSTREAM_STRICT=1] to disable it and watch for
+   changes that close the gap. (A [--text-*--line-height] allowance, a
+   mask-angle calc allowance, an [@property --spacing] hint and a prose
+   selector-permutation allowance were all dropped earlier, once tw honoured
+   theme line-height overrides, emitted Tailwind's exact mask degrees, and
+   cascade gained typed calc + the custom-property prune.) *)
 let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
 
 type theme_config =
@@ -485,10 +486,6 @@ let values_close expected actual =
 let is_allowed_canonicalization_diff diff =
   let allowed_custom_property = function
     | "--font-sans" | "--font-mono" -> true
-    | name
-      when String.starts_with ~prefix:"--text-" name
-           && String.ends_with ~suffix:"--line-height" name ->
-        true
     | name when String.starts_with ~prefix:"--tw-prose-" name -> true
     | _ -> false
   in

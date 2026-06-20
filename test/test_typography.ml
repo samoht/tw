@@ -308,11 +308,27 @@ let test_leading_none_inline () =
     "leading-none mints no --leading-none token" false
     (Astring.String.is_infix ~affix:"--leading-none" css)
 
+(* A text size must honor a --text-N--line-height theme override at use time,
+   not bake in the spacing-derived default at module load. *)
+let test_text_line_height_override () =
+  Tw.Var.clear_theme_values ();
+  Tw.Var.set_theme_value "text-sm--line-height" "1.25rem";
+  let css =
+    match Tw.of_string "text-sm" with
+    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
+    | Error _ -> Alcotest.fail "could not parse text-sm"
+  in
+  Tw.Var.clear_theme_values ();
+  Alcotest.(check bool)
+    "text-sm honors --text-sm--line-height override" true
+    (Astring.String.is_infix ~affix:"--text-sm--line-height:1.25rem" css)
+
 let tests =
   [
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading-none inline" `Quick test_leading_none_inline;
+    test_case "text line-height override" `Quick test_text_line_height_override;
     test_case "font family" `Quick test_font_family;
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;
