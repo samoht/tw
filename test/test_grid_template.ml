@@ -50,7 +50,16 @@ let of_string_valid () =
   check "grid-cols-[auto_1fr_auto]";
   check "grid-rows-[min-content_1fr_max-content]";
   check "auto-cols-[50%]";
-  check "auto-rows-[1.5rem]"
+  check "auto-rows-[1.5rem]";
+
+  (* Arbitrary grid functions: repeat()/minmax()/fit-content(), incl. nesting
+     and auto-fill/auto-fit (used to be rejected as unknown classes). *)
+  check "grid-cols-[minmax(0,1fr)]";
+  check "grid-cols-[repeat(3,minmax(0,1fr))]";
+  check "grid-cols-[repeat(2,1fr_2fr)]";
+  check "grid-cols-[repeat(auto-fill,minmax(0,1fr))]";
+  check "grid-cols-[fit-content(200px)]";
+  check "grid-rows-[repeat(4,minmax(100px,auto))]"
 
 let of_string_invalid () =
   let fail_maybe input =
@@ -110,6 +119,27 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"grid_template suborder matches Tailwind" shuffled
 
+(* Arbitrary grid functions emit their values verbatim, including bare 0 inside
+   minmax (not 0px) and nested repeat()/minmax(). *)
+let test_grid_functions_css () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " contains " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "grid-cols-[repeat(3,minmax(0,1fr))]"
+    "grid-template-columns:repeat(3,minmax(0,1fr))";
+  has "grid-rows-[repeat(4,minmax(100px,auto))]"
+    "grid-template-rows:repeat(4,minmax(100px,auto))";
+  has "grid-cols-[fit-content(200px)]"
+    "grid-template-columns:fit-content(200px)"
+
 let tests =
   [
     test_case "grid_template of_string - valid values" `Quick of_string_valid;
@@ -117,6 +147,8 @@ let tests =
       of_string_invalid;
     test_case "grid_template suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "grid_template arbitrary functions css" `Quick
+      test_grid_functions_css;
   ]
 
 let suite = ("grid_template", tests)
