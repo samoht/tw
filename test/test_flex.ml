@@ -64,7 +64,6 @@ let of_string_invalid () =
   fail_props [ "flex"; "invalid" ];
   fail_props [ "basis" ];
   fail_props [ "order" ];
-  fail_props [ "order"; "0" ];
   fail_props []
 
 let suborder_matches_tailwind () =

@@ -277,7 +277,7 @@ module Handler = struct
           Ok (Order_arbitrary inner)
         else
           match int_of_string_opt value with
-          | Some n when n >= 1 -> Ok (Order n)
+          | Some n when n >= 0 -> Ok (Order n)
           | _ -> err_not_utility)
     | "" :: "order" :: rest when rest <> [] -> (
         (* Negative order: -order-4, -order-[var(--value)] *)
