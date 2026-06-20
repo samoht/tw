@@ -74,9 +74,36 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"backgrounds suborder matches Tailwind" shuffled
 
+(* An arbitrary url() with its own quotes must not be double-wrapped: tw used to
+   emit the broken url("'/img/x.png'"); it now canonicalises to a valid
+   url(). *)
+let test_bg_arbitrary_url () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  List.iter
+    (fun cls ->
+      let css = css_of cls in
+      Alcotest.(check bool)
+        (cls ^ " emits a valid url()")
+        true
+        (Astring.String.is_infix ~affix:"url(/img/x.png)" css);
+      Alcotest.(check bool)
+        (cls ^ " does not double-quote")
+        false
+        (Astring.String.is_infix ~affix:"url(\"'" css))
+    [
+      "bg-[url('/img/x.png')]";
+      "bg-[url(\"/img/x.png\")]";
+      "bg-[url(/img/x.png)]";
+    ]
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
+    test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
