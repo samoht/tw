@@ -183,9 +183,35 @@ let test_css_mode_with_colors () =
     "Contains text-red-500 class" true
     (Astring.String.is_infix ~affix:".text-red-500" css_string)
 
+(* Per-side border colors (border-{t,r,b,l}-{color}) paint the matching physical
+   edge; named, arbitrary and keyword forms. Widths (border-l-2) still resolve
+   via the borders handler. *)
+let test_border_side_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "border-l-[#575959] sets border-left-color" true
+    (Astring.String.is_infix ~affix:"border-left-color: #575959"
+       (css "border-l-[#575959]"));
+  Alcotest.(check bool)
+    "border-b-transparent sets border-bottom-color" true
+    (Astring.String.is_infix ~affix:"border-bottom-color:"
+       (css "border-b-transparent"));
+  Alcotest.(check bool)
+    "border-l-red-500 sets border-left-color" true
+    (Astring.String.is_infix ~affix:"border-left-color:"
+       (css "border-l-red-500"));
+  Alcotest.(check bool)
+    "border-l-2 is still a width" true
+    (Astring.String.is_infix ~affix:"border-left-width: 2px" (css "border-l-2"))
+
 (* Test suite *)
 let tests =
   [
+    ("Per-side border colors", `Quick, test_border_side_color);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);

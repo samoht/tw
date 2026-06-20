@@ -1527,6 +1527,19 @@ let shade_and_opacity_of_strings = function
 (** {1 Parsing Functions} *)
 
 module Handler = struct
+  (* Per-side border colour: which physical border edge a border-{side}-{color}
+     utility paints. (border-x/border-y map to the logical inline/block colour
+     properties and aren't handled here yet.) *)
+  type border_side = Bs_t | Bs_r | Bs_b | Bs_l
+
+  (* The colour value of a border-{side}-{color}: a named theme colour, an
+     arbitrary bracket colour, or a keyword. *)
+  type border_side_color =
+    | Bsc_named of color * int
+    | Bsc_bracket of string * Css.color
+    | Bsc_transparent
+    | Bsc_current
+
   (** Local color utility type *)
   type t =
     (* Background colors *)
@@ -1557,6 +1570,7 @@ module Handler = struct
     | Border_current_opacity of opacity_modifier
     | Border_bracket_color of string * Css.color
     | Border_bracket_color_opacity of string * Css.color * opacity_modifier
+    | Border_side_color of border_side * border_side_color
     (* Accent colors *)
     | Accent of color * int
     | Accent_opacity of color * int * opacity_modifier
@@ -1790,6 +1804,28 @@ module Handler = struct
                   (Border_bracket_color_opacity (base_inner, css_color, opacity))
             )
         | None -> Error (`Msg ("Invalid border bracket value: " ^ base_inner)))
+    | "border" :: side :: rest
+      when rest <> []
+           && match side with "t" | "r" | "b" | "l" -> true | _ -> false -> (
+        let bs =
+          match side with "t" -> Bs_t | "r" -> Bs_r | "b" -> Bs_b | _ -> Bs_l
+        in
+        match rest with
+        | [ "transparent" ] -> Ok (Border_side_color (bs, Bsc_transparent))
+        | [ "current" ] -> Ok (Border_side_color (bs, Bsc_current))
+        | [ v ]
+          when String.length v > 0 && v.[0] = '[' && Parse.is_bracket_value v
+          -> (
+            let inner = Parse.bracket_inner v in
+            match parse_bracket_color inner with
+            | Some css_color ->
+                Ok (Border_side_color (bs, Bsc_bracket (inner, css_color)))
+            | None -> Error (`Msg ("Invalid border side bracket: " ^ v)))
+        | color_parts -> (
+            match shade_of_strings color_parts with
+            | Ok (color, shade) ->
+                Ok (Border_side_color (bs, Bsc_named (color, shade)))
+            | Error e -> Error e))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->
@@ -2003,6 +2039,30 @@ module Handler = struct
 
   let border_transparent = style [ Css.border_color (Css.hex "#0000") ]
   let border_current = style [ Css.border_color Current ]
+
+  (* Per-side border colour emission. *)
+  let setters_of_side : border_side -> (Css.color -> Css.declaration) list =
+    function
+    | Bs_t -> [ Css.border_top_color ]
+    | Bs_r -> [ Css.border_right_color ]
+    | Bs_b -> [ Css.border_bottom_color ]
+    | Bs_l -> [ Css.border_left_color ]
+
+  let border_side_color_style side value =
+    let sides = setters_of_side side in
+    let apply c = style (List.map (fun set -> set c) sides) in
+    match value with
+    | Bsc_named (color, shade) ->
+        if is_custom_color color then apply (to_css color shade)
+        else
+          let color_var = color_var color shade in
+          let color_value = get_color_value color shade in
+          let decl, color_ref = Var.binding color_var color_value in
+          style
+            (decl :: List.map (fun set -> set (Var color_ref : Css.color)) sides)
+    | Bsc_bracket (_, css_color) -> apply css_color
+    | Bsc_transparent -> apply (Css.hex "#0000")
+    | Bsc_current -> apply Current
 
   (** Accent color utilities *)
 
@@ -2459,6 +2519,7 @@ module Handler = struct
         in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
+    | Border_side_color (side, value) -> border_side_color_style side value
     | Border (color, shade) -> border_color' color shade
     | Border_opacity (color, shade, opacity) ->
         border_with_opacity color shade opacity
@@ -2588,6 +2649,7 @@ module Handler = struct
     | Border_current -> 0
     | Border_current_opacity _ -> 0
     | Border_bracket_color _ -> 0
+    | Border_side_color _ -> 0
     | Border_bracket_color_opacity _ -> 0
     | Accent (color, shade) ->
         (* All accent colors use the same suborder (50000) to allow alphabetical
@@ -2730,6 +2792,24 @@ module Handler = struct
     | Border_current_opacity opacity ->
         "border-current" ^ opacity_suffix opacity
     | Border_bracket_color (v, _) -> "border-[" ^ v ^ "]"
+    | Border_side_color (side, value) ->
+        let s =
+          match side with
+          | Bs_t -> "t"
+          | Bs_r -> "r"
+          | Bs_b -> "b"
+          | Bs_l -> "l"
+        in
+        let v =
+          match value with
+          | Bsc_named (c, shade) ->
+              if is_base_color c || is_custom_color c then color_to_string c
+              else color_to_string c ^ "-" ^ string_of_int shade
+          | Bsc_bracket (orig, _) -> "[" ^ orig ^ "]"
+          | Bsc_transparent -> "transparent"
+          | Bsc_current -> "current"
+        in
+        "border-" ^ s ^ "-" ^ v
     | Border_bracket_color_opacity (v, _, opacity) ->
         "border-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Accent (c, shade) ->
