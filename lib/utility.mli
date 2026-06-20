@@ -57,10 +57,18 @@ type base = ..
 (** Base utility type without modifiers - extensible variant *)
 
 (** Unified utility type with modifiers support *)
-type t = Base of base | Modified of Style.modifier * t | Group of t list
+type t =
+  | Base of base
+  | Modified of Style.modifier * t
+  | Group of t list
+  | Important of t
 
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t. *)
+
+val important : t -> t
+(** [important u] marks every declaration [u] emits as [!important] (the [!]
+    utility prefix). *)
 
 val pp : t -> string
 (** [pp u] is a human-readable representation of [u] for debugging. *)

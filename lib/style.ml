@@ -261,6 +261,35 @@ let style ?(rules = None) ?(property_rules = Css.empty) ?merge_key
     ?pseudo_suffix props =
   Style { props; rules; property_rules; merge_key; pseudo_suffix }
 
+(* Mark the property declarations a style emits as !important (the [!] utility
+   prefix), recursing through modifiers, groups and nested rules. Custom
+   properties (theme tokens such as the spacing and tw- variables) are left
+   untouched -- like Tailwind, [!] applies to the visible declaration, not the
+   variables it pulls in. *)
+let mark_important_decl d =
+  match Css.custom_declaration_name d with
+  | Some _ -> d
+  | None -> Css.important d
+
+let rec important_stmt stmt =
+  match Css.as_rule stmt with
+  | Some (selector, decls, nested) ->
+      Css.rule ~selector
+        ~nested:(List.map important_stmt nested)
+        (List.map mark_important_decl decls)
+  | None -> stmt
+
+let rec map_important = function
+  | Style s ->
+      Style
+        {
+          s with
+          props = List.map mark_important_decl s.props;
+          rules = Option.map (List.map important_stmt) s.rules;
+        }
+  | Modified (m, t) -> Modified (m, map_important t)
+  | Group ts -> Group (List.map map_important ts)
+
 let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
 
 let pp_nth prefix expr =

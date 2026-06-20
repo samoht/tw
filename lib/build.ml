@@ -1077,6 +1077,7 @@ let has_pseudo_elements tw_classes =
     | Utility.Base _ -> false
     | Utility.Modified (modifier, u) -> has_pseudo modifier || check_utility u
     | Utility.Group us -> List.exists check_utility us
+    | Utility.Important u -> check_utility u
   in
   List.exists check_utility tw_classes
 
@@ -1227,8 +1228,8 @@ let default_config = { base = true; forms = None; layers = true }
 
 let to_css ?(config = default_config) tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
-     name it already builds, so [order_of_base] looks it up instead of re-parsing
-     the class string while building/sorting rules. *)
+     name it already builds, so [order_of_base] looks it up instead of
+     re-parsing the class string while building/sorting rules. *)
   let order_map = Hashtbl.create 256 in
   let selector_props =
     List.concat_map (Rule.outputs ~order_tbl:order_map) tw_classes

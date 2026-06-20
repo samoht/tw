@@ -680,6 +680,7 @@ let rec has_responsive_modifier = function
   | Utility.Modified (Responsive _, _) -> true
   | Utility.Modified (_, t) -> has_responsive_modifier t
   | Utility.Group styles -> List.exists has_responsive_modifier styles
+  | Utility.Important t -> has_responsive_modifier t
 
 (* Validate no nested responsive modifiers *)
 let validate_no_nested_responsive styles =
