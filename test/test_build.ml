@@ -279,6 +279,23 @@ let check_space_reverse_after_transforms () =
   check bool "--tw-translate-x before --tw-space-y-reverse" true
     (index_of "--tw-translate-x" < index_of "--tw-space-y-reverse")
 
+(* Regression: content-none uses a literal [content: none] and must NOT register
+   @property --tw-content, matching Tailwind (which emits it only for content
+   utilities that reference var(--tw-content), and for before/after
+   pseudo-elements). The value variant content-["x"] does reference the var and
+   keeps the @property rule. *)
+let check_content_none_no_property () =
+  let none_names =
+    property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content_none ])
+  in
+  check bool "content-none emits no @property --tw-content" false
+    (List.mem "--tw-content" none_names);
+  let value_names =
+    property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content "x" ])
+  in
+  check bool "content value keeps @property --tw-content" true
+    (List.mem "--tw-content" value_names)
+
 let test_resolve_dependencies () =
   (* Dependency resolution is now handled automatically by
      Css.vars_of_declarations This test is kept for compatibility but
@@ -763,6 +780,8 @@ let tests =
     test_case "@property trailing and order" `Quick check_property_rules_order;
     test_case "@property space-reverse after transforms" `Quick
       check_space_reverse_after_transforms;
+    test_case "content-none emits no @property --tw-content" `Quick
+      check_content_none_no_property;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
       test_inline_no_vars_defaults;
