@@ -104,9 +104,30 @@ let test_rounded_sm_default () =
     "rounded-sm default is .25rem" true
     (Astring.String.is_infix ~affix:"--radius-sm: .25rem" css)
 
+(* Per-side/corner full radius inlines the infinite value (matching the
+   all-corners variant and Tailwind's calc(infinity*1px)), not a --radius-full
+   token that defaulted to the wrong 9999px. *)
+let test_rounded_side_full_inlined () =
+  let css =
+    match Tw.of_string "rounded-l-full" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.fail "could not parse rounded-l-full"
+  in
+  Alcotest.(check bool)
+    "rounded-l-full inlines the infinite radius" true
+    (Astring.String.is_infix ~affix:"3.40282e38px" css);
+  Alcotest.(check bool)
+    "rounded-l-full emits no --radius-full token" false
+    (Astring.String.is_infix ~affix:"--radius-full" css);
+  Alcotest.(check bool)
+    "rounded-l-full is not the old 9999px" false
+    (Astring.String.is_infix ~affix:"9999px" css)
+
 let tests =
   [
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
+    test_case "rounded-l-full inlined radius" `Quick
+      test_rounded_side_full_inlined;
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick
