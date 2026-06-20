@@ -1,0 +1,7 @@
+# tailwind_gen drives the reference tailwindcss CLI for differential tests; it
+# is dev-only (never in the JS bundle), so Fmt is fine there. Relax the lib/
+# disallowed_modules ban (E221) for that one file only -- every other file here
+# stays under the ban.
+[[rules]]
+files = ["tailwind_gen.ml"]
+exclude = ["E221"]

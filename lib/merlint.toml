@@ -1,0 +1,3 @@
+# Core library must not depend on Fmt/Format/Printf (JS bundle size);
+# use the Pp module. lib/tools is dev-only and exempt via its own merlint.toml.
+disallowed_modules = ["Fmt", "Format", "Printf"]
