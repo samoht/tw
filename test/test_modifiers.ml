@@ -306,6 +306,13 @@ let test_important_prefix () =
   | Ok u ->
       Alcotest.(check string) "md:!flex class round-trips" "md:!flex" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.fail m);
+  (* v4 trailing form keeps the suffix in the class name *)
+  Alcotest.(check bool)
+    "flex! marks display important" true
+    (Astring.String.is_infix ~affix:"display:flex!important" (css "flex!"));
+  (match Tw.of_string "flex!" with
+  | Ok u -> Alcotest.(check string) "flex! class round-trips" "flex!" (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.fail m);
   Alcotest.(check bool)
     "!p-4 leaves the --spacing theme token normal" false
     (Astring.String.is_infix ~affix:"--spacing:.25rem!important" (css "!p-4"))

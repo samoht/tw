@@ -61,14 +61,14 @@ type t =
   | Base of base
   | Modified of Style.modifier * t
   | Group of t list
-  | Important of t
+  | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
 
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t. *)
 
-val important : t -> t
-(** [important u] marks every declaration [u] emits as [!important] (the [!]
-    utility prefix). *)
+val important : ?suffix:bool -> t -> t
+(** [important ?suffix u] marks every declaration [u] emits as [!important]: the
+    [!] utility prefix, or the v4 trailing [!] form when [suffix] is [true]. *)
 
 val pp : t -> string
 (** [pp u] is a human-readable representation of [u] for debugging. *)
