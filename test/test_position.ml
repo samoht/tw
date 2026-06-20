@@ -17,6 +17,17 @@ let test_position_utilities () =
   check "relative";
   check "sticky"
 
+(* Arbitrary values round-trip verbatim in the class name: the leading zero of
+   0.67rem (and the sign of negatives) is preserved, not re-serialised to a
+   normalised .67rem that would no longer match the HTML class. *)
+let test_arbitrary_roundtrip () =
+  check "top-[0.67rem]";
+  check "right-[-0.9rem]";
+  check "bottom-[5rem]";
+  check "left-[0.5rem]";
+  check "inset-[0.25rem]";
+  check "inset-x-[0.5rem]"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -31,6 +42,7 @@ let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
     test_case "negative top" `Quick test_negative;
+    test_case "arbitrary value roundtrip" `Quick test_arbitrary_roundtrip;
     test_case "position utilities" `Quick test_position_utilities;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
