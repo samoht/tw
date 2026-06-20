@@ -100,10 +100,29 @@ let test_bg_arbitrary_url () =
       "bg-[url(/img/x.png)]";
     ]
 
+(* Arbitrary rgb()/rgba() gradient stops set the gradient colour rather than
+   being silently dropped as a position (they used to produce no
+   --tw-gradient-from). *)
+let test_gradient_rgba_stop () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "from-[rgba(...)] sets --tw-gradient-from" true
+    (Astring.String.is_infix ~affix:"--tw-gradient-from"
+       (css_of "from-[rgba(5,74,218,0.60)]"));
+  Alcotest.(check bool)
+    "to-[rgb(...)] sets --tw-gradient-to" true
+    (Astring.String.is_infix ~affix:"--tw-gradient-to"
+       (css_of "to-[rgb(16,26,50,0.60)]"))
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
+    test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;

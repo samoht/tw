@@ -71,6 +71,8 @@ module Handler = struct
     | Gc_bracket_color_var_opacity of string * Color.opacity_modifier
     | Gc_bracket_var of string
     | Gc_bracket_var_opacity of string * Color.opacity_modifier
+    | Gc_bracket_color of string
+    | Gc_bracket_color_opacity of string * Color.opacity_modifier
 
   (* Gradient position source *)
   type gradient_position_source = Gp_pct of float | Gp_bracket of string
@@ -242,6 +244,9 @@ module Handler = struct
               "[color:" ^ v ^ "]" ^ opacity_suffix opacity
           | Gc_bracket_var v -> "[" ^ v ^ "]"
           | Gc_bracket_var_opacity (v, opacity) ->
+              "[" ^ v ^ "]" ^ opacity_suffix opacity
+          | Gc_bracket_color v -> "[" ^ v ^ "]"
+          | Gc_bracket_color_opacity (v, opacity) ->
               "[" ^ v ^ "]" ^ opacity_suffix opacity
         in
         prefix ^ color_class src
@@ -1246,6 +1251,10 @@ module Handler = struct
     | Gc_bracket_color_var v | Gc_bracket_color_var_opacity (v, _) ->
         color_var_ref v
     | Gc_bracket_var v | Gc_bracket_var_opacity (v, _) -> color_var_ref v
+    | Gc_bracket_color v | Gc_bracket_color_opacity (v, _) -> (
+        match Color.parse_bracket_color v with
+        | Some c -> c
+        | None -> Css.Transparent)
     | Gc_named _ | Gc_named_opacity _ -> assert false
 
   (** Extract opacity from a gradient_color_source, if present *)
@@ -1253,7 +1262,8 @@ module Handler = struct
     | Gc_current_opacity o
     | Gc_bracket_hex_opacity (_, o)
     | Gc_bracket_color_var_opacity (_, o)
-    | Gc_bracket_var_opacity (_, o) ->
+    | Gc_bracket_var_opacity (_, o)
+    | Gc_bracket_color_opacity (_, o) ->
         Some o
     | _ -> None
 
@@ -1544,6 +1554,8 @@ module Handler = struct
                    (String.sub inner 1 (String.length inner - 1), opacity))
             else if Parse.is_var inner then
               gc (Gc_bracket_var_opacity (inner, opacity))
+            else if Color.parse_bracket_color inner <> None then
+              gc (Gc_bracket_color_opacity (inner, opacity))
             else Error (`Msg "Invalid gradient bracket with opacity")
         | _ -> (
             (* Named color with opacity *)
@@ -1560,6 +1572,8 @@ module Handler = struct
         else if String.length inner > 0 && inner.[0] = '#' then
           gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
         else if Parse.is_var inner then gc (Gc_bracket_var inner)
+        else if Color.parse_bracket_color inner <> None then
+          gc (Gc_bracket_color inner)
         else gp (Gp_bracket inner)
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
