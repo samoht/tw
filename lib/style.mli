@@ -224,8 +224,8 @@ type modifier =
           token and the resolved selector template ([&] is the own class). *)
   | Container_style of string * Css.Container.t
       (** [has-a:] — a [@custom-variant] whose body is a container query: the
-          class-name token and the structural container condition (so [not-]
-          can negate it soundly). *)
+          class-name token and the structural container condition (so [not-] can
+          negate it soundly). *)
   | Prose_element of string
       (** [prose-X:] — prose element variant for targeting specific HTML
           elements within prose content *)
@@ -275,3 +275,7 @@ val style :
       multiple rules with descendant selectors).
     - [property_rules]: Optional CSS property rules needed by this utility.
     - [props]: CSS properties to apply. *)
+
+val map_important : t -> t
+(** [map_important t] marks every declaration [t] emits as [!important] (the [!]
+    utility prefix), recursing through modifiers, groups and nested rules. *)

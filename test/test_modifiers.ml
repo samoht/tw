@@ -286,8 +286,33 @@ let test_motion_reduce_transition_none () =
   check bool "should NOT have shorthand transition: none 0s" false has_shorthand
 
 (* Test suite *)
+(* The [!] prefix marks the utility's own declarations !important, leaves theme
+   tokens (--spacing) normal, preserves the class name, and nests under a
+   modifier (md:!flex). *)
+let test_important_prefix () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.fail m
+  in
+  let flex = css "!flex" in
+  Alcotest.(check bool)
+    "!flex marks display important" true
+    (Astring.String.is_infix ~affix:"display:flex!important" flex);
+  (match Tw.of_string "!flex" with
+  | Ok u -> Alcotest.(check string) "!flex class round-trips" "!flex" (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.fail m);
+  (match Tw.of_string "md:!flex" with
+  | Ok u ->
+      Alcotest.(check string) "md:!flex class round-trips" "md:!flex" (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.fail m);
+  Alcotest.(check bool)
+    "!p-4 leaves the --spacing theme token normal" false
+    (Astring.String.is_infix ~affix:"--spacing:.25rem!important" (css "!p-4"))
+
 let tests =
   [
+    test_case "important prefix" `Quick test_important_prefix;
     test_case "has_responsive_modifier" `Quick test_has_responsive_modifier;
     test_case "validate_no_nested_responsive" `Quick
       test_validate_no_nested_responsive;
