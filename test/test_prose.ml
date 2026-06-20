@@ -60,10 +60,24 @@ let test_inline_styles () =
   let inline_gray = to_inline_style [ prose_gray ] in
   Alcotest.(check string) "prose-gray has no inline styles" "" inline_gray
 
+(* prose-invert remaps the palette to the inverted vars; prose-orange overrides
+   the link accent colours. Both used to be no-ops / unknown. *)
+let test_color_variants () =
+  let invert = Css.to_string (to_css ~base:false [ prose_invert ]) in
+  Alcotest.(check bool)
+    "prose-invert remaps body to the invert var" true
+    (Astring.String.is_infix ~affix:"var(--tw-prose-invert-body)" invert);
+  let orange = Css.to_string (to_css ~base:false [ prose_orange ]) in
+  Alcotest.(check bool)
+    "prose-orange sets the link accent" true
+    (Astring.String.is_infix ~affix:"--tw-prose-links" orange
+    && Astring.String.is_infix ~affix:"--tw-prose-invert-links" orange)
+
 let suite =
   ( "prose",
     [
       Alcotest.test_case "classes" `Quick test_classes;
+      Alcotest.test_case "color variants" `Quick test_color_variants;
       Alcotest.test_case "combinations" `Quick test_combinations;
       Alcotest.test_case "CSS generation" `Quick test_css_generation;
       Alcotest.test_case "inline styles" `Quick test_inline_styles;
