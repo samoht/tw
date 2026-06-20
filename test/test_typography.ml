@@ -76,6 +76,10 @@ let test_line_height () =
   List.iter
     (fun v -> check ("leading-" ^ v))
     [
+      "0";
+      "1";
+      "2";
+      "11";
       "3";
       "4";
       "5";
@@ -227,10 +231,6 @@ let of_string_invalid () =
   (* Invalid font weight *)
   fail_maybe [ "text"; "middle" ];
   (* Invalid text alignment *)
-  fail_maybe [ "leading"; "11" ];
-  (* Invalid line height *)
-  fail_maybe [ "leading"; "2" ];
-  (* Invalid line height *)
   fail_maybe [ "tracking"; "tightest" ];
   (* Invalid letter spacing *)
   fail_maybe [ "unknown" ]
@@ -275,14 +275,23 @@ let test_tracking_normal_unit () =
 (* Numeric leading derives from the spacing scale in v4.3.1 (not a --leading-N
    theme token). *)
 let test_numeric_leading_spacing () =
-  let css =
-    match Tw.of_string "leading-6" with
+  let css cls =
+    match Tw.of_string cls with
     | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
-    | Error _ -> Alcotest.fail "could not parse leading-6"
+    | Error _ -> Alcotest.failf "could not parse %s" cls
   in
-  Alcotest.(check bool)
-    "leading-6 uses calc(var(--spacing)*6)" true
-    (Astring.String.is_infix ~affix:"calc(var(--spacing)*6)" css)
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " -> " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  (* Any non-negative N is accepted; N>=2 scales spacing, 1 is bare, 0 is 0. *)
+  has "leading-6" "calc(var(--spacing)*6)";
+  has "leading-2" "calc(var(--spacing)*2)";
+  has "leading-11" "calc(var(--spacing)*11)";
+  has "leading-1" "line-height:var(--spacing)";
+  has "leading-0" "line-height:0"
 
 (* leading-none has no v4.3 theme token, so it inlines line-height: 1 rather
    than minting a --leading-none var. *)
