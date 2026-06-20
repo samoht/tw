@@ -1528,9 +1528,10 @@ let shade_and_opacity_of_strings = function
 
 module Handler = struct
   (* Per-side border colour: which physical border edge a border-{side}-{color}
-     utility paints. (border-x/border-y map to the logical inline/block colour
-     properties and aren't handled here yet.) *)
-  type border_side = Bs_t | Bs_r | Bs_b | Bs_l
+     utility paints. Bs_x is the logical inline axis (border-inline-color);
+     border-y (block axis) needs a border-block-color setter cascade does not
+     expose yet, so it is not handled here. *)
+  type border_side = Bs_t | Bs_r | Bs_b | Bs_l | Bs_x
 
   (* The colour value of a border-{side}-{color}: a named theme colour, an
      arbitrary bracket colour, or a keyword. *)
@@ -1806,9 +1807,15 @@ module Handler = struct
         | None -> Error (`Msg ("Invalid border bracket value: " ^ base_inner)))
     | "border" :: side :: rest
       when rest <> []
-           && match side with "t" | "r" | "b" | "l" -> true | _ -> false -> (
+           && match side with "t" | "r" | "b" | "l" | "x" -> true | _ -> false
+      -> (
         let bs =
-          match side with "t" -> Bs_t | "r" -> Bs_r | "b" -> Bs_b | _ -> Bs_l
+          match side with
+          | "t" -> Bs_t
+          | "r" -> Bs_r
+          | "b" -> Bs_b
+          | "x" -> Bs_x
+          | _ -> Bs_l
         in
         match rest with
         | [ "transparent" ] -> Ok (Border_side_color (bs, Bsc_transparent))
@@ -2047,6 +2054,8 @@ module Handler = struct
     | Bs_r -> [ Css.border_right_color ]
     | Bs_b -> [ Css.border_bottom_color ]
     | Bs_l -> [ Css.border_left_color ]
+    | Bs_x ->
+        [ (fun c -> Css.border_inline_color (Css.logical_border_color c)) ]
 
   let border_side_color_style side value =
     let sides = setters_of_side side in
@@ -2799,6 +2808,7 @@ module Handler = struct
           | Bs_r -> "r"
           | Bs_b -> "b"
           | Bs_l -> "l"
+          | Bs_x -> "x"
         in
         let v =
           match value with

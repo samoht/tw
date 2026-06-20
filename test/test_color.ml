@@ -206,7 +206,11 @@ let test_border_side_color () =
        (css "border-l-red-500"));
   Alcotest.(check bool)
     "border-l-2 is still a width" true
-    (Astring.String.is_infix ~affix:"border-left-width: 2px" (css "border-l-2"))
+    (Astring.String.is_infix ~affix:"border-left-width: 2px" (css "border-l-2"));
+  Alcotest.(check bool)
+    "border-x-red-500 uses the logical inline color" true
+    (Astring.String.is_infix ~affix:"border-inline-color:"
+       (css "border-x-red-500"))
 
 (* Test suite *)
 let tests =
