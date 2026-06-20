@@ -93,8 +93,17 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"effects suborder matches Tailwind" shuffled
 
+(* shadow-2xl's default shadow alpha is .25 (#00000040) in v4, not the .10
+   (#0000001a) the smaller shadows use. *)
+let test_shadow_2xl_alpha () =
+  let css = Tw.to_css ~base:false [ Tw.shadow_2xl ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "shadow-2xl uses #00000040 alpha" true
+    (Astring.String.is_infix ~affix:"#00000040" css)
+
 let tests =
   [
+    test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;

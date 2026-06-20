@@ -357,7 +357,7 @@ module Handler = struct
           (Zero, Px 20., Some (Px 25.), Some (Px (-5.)), "#0000001a");
           (Zero, Px 8., Some (Px 10.), Some (Px (-6.)), "#0000001a");
         ]
-    | Sh_2xl -> [ (Zero, Px 25., Some (Px 50.), Some (Px (-12.)), "#0000001a") ]
+    | Sh_2xl -> [ (Zero, Px 25., Some (Px 50.), Some (Px (-12.)), "#00000040") ]
 
   let shape_shadow_value shape =
     let data = shadow_shape_data shape in
