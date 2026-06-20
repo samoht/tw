@@ -242,6 +242,7 @@ module Handler = struct
     | (* Outline utilities *)
       Outline
     | Outline_0
+    | Outline_width of int (* outline-1, outline-2, outline-4, outline-8 *)
     | Outline_width_bracket of string (* outline-[12px], outline-[1.5], etc. *)
     | Outline_width_var of string (* outline-[length:var(...)], etc. *)
     (* Outline style utilities (dashed, dotted, etc.) are in
@@ -1352,6 +1353,20 @@ module Handler = struct
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width Zero ]
 
+  (* Outline numeric width: outline-1, outline-2, outline-4, outline-8 *)
+  let outline_width_style n =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    style ~property_rules:property_rule
+      [
+        Css.outline_style (Css.Var oref);
+        Css.outline_width (Px (float_of_int n));
+      ]
+
   (* Outline bracket width: outline-[12px], outline-[1.5], outline-[50%] *)
   let outline_width_bracket_style inner =
     let oref = Var.reference outline_style_var in
@@ -1712,6 +1727,7 @@ module Handler = struct
     (* Outline utilities *)
     | Outline -> outline ()
     | Outline_0 -> outline_0
+    | Outline_width n -> outline_width_style n
     | Outline_width_bracket v -> outline_width_bracket_style v
     | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
@@ -1851,8 +1867,9 @@ module Handler = struct
     | Outline_hidden -> 1990
     | Outline -> 1999
     | Outline_0 -> 2000
-    | Outline_width_bracket _ -> 2001
-    | Outline_width_var _ -> 2002
+    | Outline_width n -> 2000 + n
+    | Outline_width_bracket _ -> 2009
+    | Outline_width_var _ -> 2010
     (* Outline styles come after colors (which are in Color handler at
        priority 23 > borders priority 19, so they naturally sort after) *)
     (* Outline offset — negatives before positives *)
@@ -2085,6 +2102,8 @@ module Handler = struct
         | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
+    | [ "outline"; (("1" | "2" | "4" | "8") as n) ] ->
+        Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         let starts prefix s =
@@ -2344,6 +2363,7 @@ module Handler = struct
         prefix ^ "-[" ^ value ^ "]"
     | Outline -> "outline"
     | Outline_0 -> "outline-0"
+    | Outline_width n -> "outline-" ^ string_of_int n
     | Outline_width_bracket v -> "outline-[" ^ v ^ "]"
     | Outline_width_var v -> "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
