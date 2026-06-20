@@ -227,15 +227,6 @@ module Handler = struct
   let w_min' = style [ width Min_content ]
   let w_max' = style [ width Max_content ]
   let w_fit' = style [ width Fit_content ]
-  let w_1_2' = style [ width (Pct 50.0) ]
-  let w_1_3' = style [ width (Pct 33.3333) ]
-  let w_2_3' = style [ width (Pct 66.6667) ]
-  let w_1_4' = style [ width (Pct 25.0) ]
-  let w_3_4' = style [ width (Pct 75.0) ]
-  let w_1_5' = style [ width (Pct 20.0) ]
-  let w_2_5' = style [ width (Pct 40.0) ]
-  let w_3_5' = style [ width (Pct 60.0) ]
-  let w_4_5' = style [ width (Pct 80.0) ]
 
   (* Int-based width function for Tailwind scale (n * 0.25rem) *)
 
@@ -259,15 +250,6 @@ module Handler = struct
   let h_min' = style [ height Min_content ]
   let h_max' = style [ height Max_content ]
   let h_fit' = style [ height Fit_content ]
-  let h_1_2' = style [ height (Pct 50.0) ]
-  let h_1_3' = style [ height (Pct 33.3333) ]
-  let h_2_3' = style [ height (Pct 66.6667) ]
-  let h_1_4' = style [ height (Pct 25.0) ]
-  let h_3_4' = style [ height (Pct 75.0) ]
-  let h_1_5' = style [ height (Pct 20.0) ]
-  let h_2_5' = style [ height (Pct 40.0) ]
-  let h_3_5' = style [ height (Pct 60.0) ]
-  let h_4_5' = style [ height (Pct 80.0) ]
 
   (* Int-based height function for Tailwind scale (n * 0.25rem) *)
 
@@ -425,20 +407,22 @@ module Handler = struct
 
   (* Int-based max-height function for Tailwind scale (n * 0.25rem) *)
 
-  let fraction_table =
-    [
-      ("1/2", 50.0);
-      ("1/3", 33.3333);
-      ("2/3", 66.6667);
-      ("1/4", 25.0);
-      ("3/4", 75.0);
-      ("1/5", 20.0);
-      ("2/5", 40.0);
-      ("3/5", 60.0);
-      ("4/5", 80.0);
-      ("1/6", 16.6667);
-      ("5/6", 83.3333);
-    ]
+  (* A Tailwind sizing fraction [n/m] resolves to [n/m * 100%]. Tailwind emits
+     calc(n / m * 100%) and folds it to 6 significant figures (e.g. 33.3333,
+     8.33333); we emit the percentage rounded the same way so the two match.
+     Denominators follow Tailwind's scale. *)
+  let fraction_pct frac =
+    match String.split_on_char '/' frac with
+    | [ n; m ] -> (
+        match (int_of_string_opt n, int_of_string_opt m) with
+        | Some n, Some m
+          when m > 0 && n > 0 && n < m && List.mem m [ 2; 3; 4; 5; 6; 12 ] ->
+            let pct = float_of_int n /. float_of_int m *. 100. in
+            let digits = 6. -. Float.ceil (Float.log10 pct) in
+            let factor = 10. ** digits in
+            Some (Float.round (pct *. factor) /. factor)
+        | _ -> None)
+    | _ -> None
 
   let aspect_auto' = style [ Css.aspect_ratio Auto ]
 
@@ -469,17 +453,9 @@ module Handler = struct
     | W_fit -> w_fit'
     | W_spacing n -> w' (`Rem n)
     | W_fraction f -> (
-        match f with
-        | "1/2" -> w_1_2'
-        | "1/3" -> w_1_3'
-        | "2/3" -> w_2_3'
-        | "1/4" -> w_1_4'
-        | "3/4" -> w_3_4'
-        | "1/5" -> w_1_5'
-        | "2/5" -> w_2_5'
-        | "3/5" -> w_3_5'
-        | "4/5" -> w_4_5'
-        | _ -> failwith ("Unknown width fraction: " ^ f))
+        match fraction_pct f with
+        | Some pct -> style [ width (Pct pct) ]
+        | None -> failwith ("Unknown width fraction: " ^ f))
     | W_arbitrary (_, len) -> style [ width len ]
     | W_dvw -> style [ width (Dvw 100.) ]
     | W_lvw -> style [ width (Lvw 100.) ]
@@ -497,17 +473,9 @@ module Handler = struct
     | H_fit -> h_fit'
     | H_spacing n -> h' (`Rem n)
     | H_fraction f -> (
-        match f with
-        | "1/2" -> h_1_2'
-        | "1/3" -> h_1_3'
-        | "2/3" -> h_2_3'
-        | "1/4" -> h_1_4'
-        | "3/4" -> h_3_4'
-        | "1/5" -> h_1_5'
-        | "2/5" -> h_2_5'
-        | "3/5" -> h_3_5'
-        | "4/5" -> h_4_5'
-        | _ -> failwith ("Unknown height fraction: " ^ f))
+        match fraction_pct f with
+        | Some pct -> style [ height (Pct pct) ]
+        | None -> failwith ("Unknown height fraction: " ^ f))
     | H_arbitrary (_, len) -> style [ height len ]
     | H_dvh -> style [ height (Dvh 100.) ]
     | H_lvh -> style [ height (Lvh 100.) ]
@@ -608,7 +576,7 @@ module Handler = struct
     | Size_arbitrary (_, len) -> style [ width len; height len ]
     (* inline-size utilities *)
     | Inline_fraction f -> (
-        match List.assoc_opt f fraction_table with
+        match fraction_pct f with
         | Some pct -> style [ inline_size (Pct pct) ]
         | None -> failwith ("Unknown inline-size fraction: " ^ f))
     | Inline_spacing n -> spacing_utility inline_size n
@@ -648,7 +616,7 @@ module Handler = struct
         style [ decl; max_inline_size (Var ref_) ]
     (* block-size utilities *)
     | Block_fraction f -> (
-        match List.assoc_opt f fraction_table with
+        match fraction_pct f with
         | Some pct -> style [ block_size (Pct pct) ]
         | None -> failwith ("Unknown block-size fraction: " ^ f))
     | Block_spacing n -> spacing_utility block_size n
@@ -728,7 +696,7 @@ module Handler = struct
     | "svw" -> Ok W_svw
     | "xl" -> Ok W_xl
     | frac when String.contains frac '/' ->
-        if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
+        if fraction_pct frac <> None then Ok (W_fraction frac)
         else err_invalid_value "width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -752,7 +720,7 @@ module Handler = struct
     | "svh" -> Ok H_svh
     | "lh" -> Ok H_lh
     | frac when String.contains frac '/' ->
-        if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
+        if fraction_pct frac <> None then Ok (H_fraction frac)
         else err_invalid_value "height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -863,7 +831,7 @@ module Handler = struct
     | "max" -> Ok Size_max
     | "fit" -> Ok Size_fit
     | frac when String.contains frac '/' ->
-        if List.mem_assoc frac fraction_table then Ok (Size_fraction frac)
+        if fraction_pct frac <> None then Ok (Size_fraction frac)
         else err_invalid_value "size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -886,7 +854,7 @@ module Handler = struct
     | "svw" -> Ok Inline_svw
     | "xl" -> Ok Inline_xl
     | frac when String.contains frac '/' ->
-        if List.mem_assoc frac fraction_table then Ok (Inline_fraction frac)
+        if fraction_pct frac <> None then Ok (Inline_fraction frac)
         else err_invalid_value "inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -940,7 +908,7 @@ module Handler = struct
     | "screen" -> Ok Block_screen
     | "svh" -> Ok Block_svh
     | frac when String.contains frac '/' ->
-        if List.mem_assoc frac fraction_table then Ok (Block_fraction frac)
+        if fraction_pct frac <> None then Ok (Block_fraction frac)
         else err_invalid_value "block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with

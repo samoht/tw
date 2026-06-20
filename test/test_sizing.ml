@@ -187,9 +187,32 @@ let test_fractional_spacing () =
   has "size-0.5" "calc(var(--spacing) * .5)";
   has "h-2.5" "height: calc(var(--spacing) * 2.5)"
 
+(* Fractional sizing accepts any n/m with a Tailwind denominator (2,3,4,5,6,12),
+   not just the originally hardcoded handful; the percentage matches the CLI's
+   folded calc(n/m*100%) at 6 significant figures. *)
+let test_general_fractions () =
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " contains " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css_of cls))
+  in
+  has "w-4/12" "width: 33.3333%";
+  has "w-8/12" "width: 66.6667%";
+  has "w-1/12" "width: 8.33333%";
+  has "h-2/6" "height: 33.3333%";
+  let rejected cls =
+    match Tw.of_string cls with
+    | Error _ -> ()
+    | Ok _ -> Alcotest.fail ("expected rejection of " ^ cls)
+  in
+  rejected "w-1/7";
+  rejected "w-13/12"
+
 let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
+    test_case "general fractions" `Quick test_general_fractions;
     test_case "widths" `Quick test_widths;
     test_case "heights" `Quick test_heights;
     test_case "min sizes" `Quick test_min_sizes;

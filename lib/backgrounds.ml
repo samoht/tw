@@ -32,6 +32,16 @@ module Handler = struct
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
 
+  (* An arbitrary url() value may already carry its own quotes (url('a.png') /
+     url("a.png")). Drop a matching outer pair so the typed [Url] pretty-printer
+     canonicalises it instead of double-wrapping it into the broken
+     url("'a.png'"). *)
+  let strip_outer_quotes s =
+    let n = String.length s in
+    if n >= 2 && (s.[0] = '\'' || s.[0] = '"') && s.[n - 1] = s.[0] then
+      String.sub s 1 (n - 2)
+    else s
+
   type position_name =
     | Pos_bottom
     | Pos_bottom_left
@@ -1342,7 +1352,8 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_url url -> style [ Css.background_image (Url url) ]
+    | Bg_bracket_url url ->
+        style [ Css.background_image (Url (strip_outer_quotes url)) ]
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in

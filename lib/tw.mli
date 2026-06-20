@@ -3143,6 +3143,12 @@ val prose_gray : t
 val prose_slate : t
 (** [prose_slate] uses the slate prose color theme. *)
 
+val prose_invert : t
+(** [prose_invert] remaps the prose palette to its inverted (dark) variant. *)
+
+val prose_orange : t
+(** [prose_orange] uses the orange accent (link) prose color theme. *)
+
 (** {2 Prose markers}
 
     Convenience utilities to apply marker classes used by prose selectors. *)

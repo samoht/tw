@@ -123,38 +123,38 @@ module Handler = struct
     | Neg_inset_y_full
     | Inset_y_3_4
     | Inset of int
-    | Inset_arbitrary of Css.length
+    | Inset_arbitrary of string * Css.length
     | Inset_named of string (* Custom property reference like inset-shadowned *)
     | Inset_x of int
-    | Inset_x_arbitrary of Css.length
+    | Inset_x_arbitrary of string * Css.length
     | Inset_x_named of string
     | Inset_y of int
-    | Inset_y_arbitrary of Css.length
+    | Inset_y_arbitrary of string * Css.length
     | Inset_y_named of string
     (* Logical position utilities: inset-s, inset-e, inset-bs, inset-be *)
     | Inset_s of int
-    | Inset_s_arbitrary of Css.length
+    | Inset_s_arbitrary of string * Css.length
     | Inset_s_named of string
     | Inset_s_auto
     | Inset_s_full
     | Neg_inset_s_full
     | Inset_s_3_4
     | Inset_e of int
-    | Inset_e_arbitrary of Css.length
+    | Inset_e_arbitrary of string * Css.length
     | Inset_e_named of string
     | Inset_e_auto
     | Inset_e_full
     | Neg_inset_e_full
     | Inset_e_3_4
     | Inset_bs of int
-    | Inset_bs_arbitrary of Css.length
+    | Inset_bs_arbitrary of string * Css.length
     | Inset_bs_named of string
     | Inset_bs_auto
     | Inset_bs_full
     | Neg_inset_bs_full
     | Inset_bs_3_4
     | Inset_be of int
-    | Inset_be_arbitrary of Css.length
+    | Inset_be_arbitrary of string * Css.length
     | Inset_be_named of string
     | Inset_be_auto
     | Inset_be_full
@@ -166,21 +166,21 @@ module Handler = struct
     | Top_full
     | Neg_top_full
     | Top_3_4
-    | Top_arbitrary of Css.length
+    | Top_arbitrary of string * Css.length
     | Top_named of string
     | Right of int
     | Right_auto
     | Right_full
     | Neg_right_full
     | Right_3_4
-    | Right_arbitrary of Css.length
+    | Right_arbitrary of string * Css.length
     | Right_named of string
     | Bottom of int
     | Bottom_auto
     | Bottom_full
     | Neg_bottom_full
     | Bottom_3_4
-    | Bottom_arbitrary of Css.length
+    | Bottom_arbitrary of string * Css.length
     | Bottom_named of string
     | Left of int
     | Left_1_2
@@ -188,7 +188,7 @@ module Handler = struct
     | Left_full
     | Neg_left_full
     | Left_3_4
-    | Left_arbitrary of Css.length
+    | Left_arbitrary of string * Css.length
     | Neg_left_arbitrary of string * Css.length
       (* raw bracket suffix kept for the class name; value is negated *)
     | Left_named of string
@@ -241,21 +241,21 @@ module Handler = struct
     | Inset n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset [ value ] ])
-    | Inset_arbitrary len -> style [ Css.inset [ len ] ]
+    | Inset_arbitrary (_, len) -> style [ Css.inset [ len ] ]
     | Inset_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset [ value ] ])
     | Inset_x n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline [ value ] ])
-    | Inset_x_arbitrary len -> style [ Css.inset_inline [ len ] ]
+    | Inset_x_arbitrary (_, len) -> style [ Css.inset_inline [ len ] ]
     | Inset_x_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_inline [ value ] ])
     | Inset_y n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block [ value ] ])
-    | Inset_y_arbitrary len -> style [ Css.inset_block [ len ] ]
+    | Inset_y_arbitrary (_, len) -> style [ Css.inset_block [ len ] ]
     | Inset_y_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_block [ value ] ])
@@ -263,7 +263,7 @@ module Handler = struct
     | Inset_s n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_start value ])
-    | Inset_s_arbitrary len -> style [ Css.inset_inline_start len ]
+    | Inset_s_arbitrary (_, len) -> style [ Css.inset_inline_start len ]
     | Inset_s_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_inline_start value ])
@@ -275,7 +275,7 @@ module Handler = struct
     | Inset_e n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_end value ])
-    | Inset_e_arbitrary len -> style [ Css.inset_inline_end len ]
+    | Inset_e_arbitrary (_, len) -> style [ Css.inset_inline_end len ]
     | Inset_e_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_inline_end value ])
@@ -287,7 +287,7 @@ module Handler = struct
     | Inset_bs n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block_start value ])
-    | Inset_bs_arbitrary len -> style [ Css.inset_block_start len ]
+    | Inset_bs_arbitrary (_, len) -> style [ Css.inset_block_start len ]
     | Inset_bs_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_block_start value ])
@@ -299,7 +299,7 @@ module Handler = struct
     | Inset_be n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block_end value ])
-    | Inset_be_arbitrary len -> style [ Css.inset_block_end len ]
+    | Inset_be_arbitrary (_, len) -> style [ Css.inset_block_end len ]
     | Inset_be_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.inset_block_end value ])
@@ -315,7 +315,7 @@ module Handler = struct
     | Top_full -> style [ Css.top (Pct 100.0) ]
     | Neg_top_full -> style [ Css.top (Pct (-100.0)) ]
     | Top_3_4 -> style [ Css.top (Pct 75.0) ]
-    | Top_arbitrary len -> style [ Css.top len ]
+    | Top_arbitrary (_, len) -> style [ Css.top len ]
     | Top_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.top value ])
@@ -326,7 +326,7 @@ module Handler = struct
     | Right_full -> style [ Css.right (Pct 100.0) ]
     | Neg_right_full -> style [ Css.right (Pct (-100.0)) ]
     | Right_3_4 -> style [ Css.right (Pct 75.0) ]
-    | Right_arbitrary len -> style [ Css.right len ]
+    | Right_arbitrary (_, len) -> style [ Css.right len ]
     | Right_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.right value ])
@@ -337,7 +337,7 @@ module Handler = struct
     | Bottom_full -> style [ Css.bottom (Pct 100.0) ]
     | Neg_bottom_full -> style [ Css.bottom (Pct (-100.0)) ]
     | Bottom_3_4 -> style [ Css.bottom (Pct 75.0) ]
-    | Bottom_arbitrary len -> style [ Css.bottom len ]
+    | Bottom_arbitrary (_, len) -> style [ Css.bottom len ]
     | Bottom_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.bottom value ])
@@ -349,7 +349,7 @@ module Handler = struct
     | Left_full -> style [ Css.left (Pct 100.0) ]
     | Neg_left_full -> style [ Css.left (Pct (-100.0)) ]
     | Left_3_4 -> style [ Css.left (Pct 75.0) ]
-    | Left_arbitrary len -> style [ Css.left len ]
+    | Left_arbitrary (_, len) -> style [ Css.left len ]
     | Neg_left_arbitrary (_, len) -> style [ Css.left len ]
     | Left_named name ->
         let decl, value = named_inset_value name in
@@ -521,7 +521,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_x x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_x_arbitrary len)
+            | Ok len -> Ok (Inset_x_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_x_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "x"; n ] ->
@@ -531,7 +531,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_y x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_y_arbitrary len)
+            | Ok len -> Ok (Inset_y_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_y_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "y"; n ] ->
@@ -546,7 +546,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_s x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_s_arbitrary len)
+            | Ok len -> Ok (Inset_s_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_s_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "s"; n ] ->
@@ -561,7 +561,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_e x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_e_arbitrary len)
+            | Ok len -> Ok (Inset_e_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_e_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "e"; n ] ->
@@ -576,7 +576,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_bs x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_bs_arbitrary len)
+            | Ok len -> Ok (Inset_bs_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_bs_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "bs"; n ] ->
@@ -591,7 +591,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_be x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_be_arbitrary len)
+            | Ok len -> Ok (Inset_be_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_be_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "be"; n ] ->
@@ -603,7 +603,7 @@ module Handler = struct
         | Ok x -> Ok (Inset x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Inset_arbitrary len)
+            | Ok len -> Ok (Inset_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; n ] ->
@@ -618,7 +618,7 @@ module Handler = struct
         | Ok x -> Ok (Top x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Top_arbitrary len)
+            | Ok len -> Ok (Top_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Top_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "top"; n ] ->
@@ -632,7 +632,7 @@ module Handler = struct
         | Ok x -> Ok (Right x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Right_arbitrary len)
+            | Ok len -> Ok (Right_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Right_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "right"; n ] ->
@@ -646,7 +646,7 @@ module Handler = struct
         | Ok x -> Ok (Bottom x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Bottom_arbitrary len)
+            | Ok len -> Ok (Bottom_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Bottom_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "bottom"; n ] ->
@@ -661,7 +661,7 @@ module Handler = struct
         | Ok x -> Ok (Left x)
         | Error _ -> (
             match parse_bracket_length n with
-            | Ok len -> Ok (Left_arbitrary len)
+            | Ok len -> Ok (Left_arbitrary (n, len))
             | Error _ when Parse.is_valid_theme_name n -> Ok (Left_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "left"; n ] -> (
@@ -710,27 +710,23 @@ module Handler = struct
     | Inset n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-" ^ string_of_int (abs n)
-    | Inset_arbitrary len ->
-        "inset-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_arbitrary (raw, _) -> "inset-" ^ raw
     | Inset_named name -> "inset-" ^ name
     | Inset_x n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-x-" ^ string_of_int (abs n)
-    | Inset_x_arbitrary len ->
-        "inset-x-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_x_arbitrary (raw, _) -> "inset-x-" ^ raw
     | Inset_x_named name -> "inset-x-" ^ name
     | Inset_y n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-y-" ^ string_of_int (abs n)
-    | Inset_y_arbitrary len ->
-        "inset-y-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_y_arbitrary (raw, _) -> "inset-y-" ^ raw
     | Inset_y_named name -> "inset-y-" ^ name
     (* inset-s = inset-inline-start *)
     | Inset_s n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-s-" ^ string_of_int (abs n)
-    | Inset_s_arbitrary len ->
-        "inset-s-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_s_arbitrary (raw, _) -> "inset-s-" ^ raw
     | Inset_s_named name -> "inset-s-" ^ name
     | Inset_s_auto -> "inset-s-auto"
     | Inset_s_full -> "inset-s-full"
@@ -740,8 +736,7 @@ module Handler = struct
     | Inset_e n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-e-" ^ string_of_int (abs n)
-    | Inset_e_arbitrary len ->
-        "inset-e-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_e_arbitrary (raw, _) -> "inset-e-" ^ raw
     | Inset_e_named name -> "inset-e-" ^ name
     | Inset_e_auto -> "inset-e-auto"
     | Inset_e_full -> "inset-e-full"
@@ -751,8 +746,7 @@ module Handler = struct
     | Inset_bs n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-bs-" ^ string_of_int (abs n)
-    | Inset_bs_arbitrary len ->
-        "inset-bs-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_bs_arbitrary (raw, _) -> "inset-bs-" ^ raw
     | Inset_bs_named name -> "inset-bs-" ^ name
     | Inset_bs_auto -> "inset-bs-auto"
     | Inset_bs_full -> "inset-bs-full"
@@ -762,8 +756,7 @@ module Handler = struct
     | Inset_be n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-be-" ^ string_of_int (abs n)
-    | Inset_be_arbitrary len ->
-        "inset-be-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Inset_be_arbitrary (raw, _) -> "inset-be-" ^ raw
     | Inset_be_named name -> "inset-be-" ^ name
     | Inset_be_auto -> "inset-be-auto"
     | Inset_be_full -> "inset-be-full"
@@ -777,8 +770,7 @@ module Handler = struct
     | Top n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "top-" ^ string_of_int (abs n)
-    | Top_arbitrary len ->
-        "top-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Top_arbitrary (raw, _) -> "top-" ^ raw
     | Top_named name -> "top-" ^ name
     | Right_3_4 -> "right-3/4"
     | Right_auto -> "right-auto"
@@ -787,8 +779,7 @@ module Handler = struct
     | Right n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "right-" ^ string_of_int (abs n)
-    | Right_arbitrary len ->
-        "right-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Right_arbitrary (raw, _) -> "right-" ^ raw
     | Right_named name -> "right-" ^ name
     | Bottom_3_4 -> "bottom-3/4"
     | Bottom_auto -> "bottom-auto"
@@ -797,8 +788,7 @@ module Handler = struct
     | Bottom n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "bottom-" ^ string_of_int (abs n)
-    | Bottom_arbitrary len ->
-        "bottom-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Bottom_arbitrary (raw, _) -> "bottom-" ^ raw
     | Bottom_named name -> "bottom-" ^ name
     | Left_1_2 -> "left-1/2"
     | Left_3_4 -> "left-3/4"
@@ -808,8 +798,7 @@ module Handler = struct
     | Left n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "left-" ^ string_of_int (abs n)
-    | Left_arbitrary len ->
-        "left-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) len ^ "]"
+    | Left_arbitrary (raw, _) -> "left-" ^ raw
     | Neg_left_arbitrary (raw, _) -> "-left-" ^ raw
     | Left_named name -> "left-" ^ name
     | Start_3_4 -> "start-3/4"

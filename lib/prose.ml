@@ -1748,6 +1748,42 @@ let color_theme_bindings theme_name =
   | "stone" -> [] (* TODO: Add stone theme bindings *)
   | _ -> []
 
+(* prose-invert remaps every --tw-prose-* to its --tw-prose-invert-*
+   counterpart, the way Tailwind's [.prose-invert] does. *)
+let invert_remap_bindings =
+  bind_prose_vars
+    [
+      (prose_body_var, Css.Var (snd theme.invert_body));
+      (prose_headings_var, Css.Var (snd theme.invert_headings));
+      (prose_lead_var, Css.Var (snd theme.invert_lead));
+      (prose_links_var, Css.Var (snd theme.invert_links));
+      (prose_bold_var, Css.Var (snd theme.invert_bold));
+      (prose_counters_var, Css.Var (snd theme.invert_counters));
+      (prose_bullets_var, Css.Var (snd theme.invert_bullets));
+      (prose_hr_var, Css.Var (snd theme.invert_hr));
+      (prose_quotes_var, Css.Var (snd theme.invert_quotes));
+      (prose_quote_borders_var, Css.Var (snd theme.invert_quote_borders));
+      (prose_captions_var, Css.Var (snd theme.invert_captions));
+      (prose_kbd_var, Css.Var (snd theme.invert_kbd));
+      (prose_kbd_shadows_var, Css.Var (snd theme.invert_kbd_shadows));
+      (prose_code_var, Css.Var (snd theme.invert_code));
+      (prose_pre_code_var, Css.Var (snd theme.invert_pre_code));
+      (prose_pre_bg_var, Css.Var (snd theme.invert_pre_bg));
+      (prose_th_borders_var, Css.Var (snd theme.invert_th_borders));
+      (prose_td_borders_var, Css.Var (snd theme.invert_td_borders));
+    ]
+
+(* Accent colour themes (prose-orange, ...) only override the link colours,
+   normal and inverted. Values taken from the Tailwind typography plugin. *)
+let accent_color_bindings = function
+  | "orange" ->
+      bind_prose_vars
+        [
+          (prose_links_var, Css.oklch 64.6 0.222 41.116);
+          (prose_invert_links_var, Css.oklch 70.5 0.213 47.604);
+        ]
+  | _ -> []
+
 let to_css_rules variant =
   match variant with
   | `Base -> base_prose_rules ()
@@ -1785,6 +1821,18 @@ let to_css_rules variant =
           ~selector:(Css.Selector.class_ "prose-stone")
           (color_theme_bindings "stone");
       ]
+  | `Invert ->
+      [
+        Css.rule
+          ~selector:(Css.Selector.class_ "prose-invert")
+          invert_remap_bindings;
+      ]
+  | `Orange ->
+      [
+        Css.rule
+          ~selector:(Css.Selector.class_ "prose-orange")
+          (accent_color_bindings "orange");
+      ]
 
 let pp = function
   | `Base -> "Base"
@@ -1797,6 +1845,8 @@ let pp = function
   | `Zinc -> "Zinc"
   | `Neutral -> "Neutral"
   | `Stone -> "Stone"
+  | `Invert -> "Invert"
+  | `Orange -> "Orange"
 
 (** Prose utility constructors *)
 let prose_style variant =
@@ -1906,6 +1956,7 @@ module Color_Handler = struct
     | Prose_neutral
     | Prose_stone
     | Prose_invert
+    | Prose_orange
 
   (** Extensible variant for prose color utilities *)
   type Utility.base += Self of t
@@ -1923,7 +1974,8 @@ module Color_Handler = struct
     | Prose_zinc -> prose_style `Zinc
     | Prose_neutral -> prose_style `Neutral
     | Prose_stone -> prose_style `Stone
-    | Prose_invert -> niet
+    | Prose_invert -> prose_style `Invert
+    | Prose_orange -> prose_style `Orange
 
   let to_class = function
     | Prose_gray -> "prose-gray"
@@ -1932,6 +1984,7 @@ module Color_Handler = struct
     | Prose_neutral -> "prose-neutral"
     | Prose_stone -> "prose-stone"
     | Prose_invert -> "prose-invert"
+    | Prose_orange -> "prose-orange"
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -1942,6 +1995,7 @@ module Color_Handler = struct
     | [ "prose"; "neutral" ] -> Ok Prose_neutral
     | [ "prose"; "stone" ] -> Ok Prose_stone
     | [ "prose"; "invert" ] -> Ok Prose_invert
+    | [ "prose"; "orange" ] -> Ok Prose_orange
     | _ -> Error (`Msg "Not a prose color utility")
 
   let suborder = function
@@ -1952,6 +2006,7 @@ module Color_Handler = struct
     | Prose_neutral -> 30003
     | Prose_stone -> 30004
     | Prose_invert -> 30005
+    | Prose_orange -> 30006
 end
 
 (** Register both handlers with Utility system *)
@@ -1973,5 +2028,7 @@ let prose_slate = color_utility Color_Handler.Prose_slate
 let prose_zinc = color_utility Color_Handler.Prose_zinc
 let prose_neutral = color_utility Color_Handler.Prose_neutral
 let prose_stone = color_utility Color_Handler.Prose_stone
+let prose_invert = color_utility Color_Handler.Prose_invert
+let prose_orange = color_utility Color_Handler.Prose_orange
 let prose_lead = utility Handler.Lead
 let not_prose = utility Handler.Not_prose
