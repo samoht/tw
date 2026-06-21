@@ -533,40 +533,54 @@ let extract_var_fallbacks expected =
 (** Set theme value overrides for non-spacing root vars from expected CSS. This
     enables utilities like z-auto and order-first to produce custom declarations
     in the :root, :host block when [@config] theme is used. *)
-let setup_theme_overrides config expected =
-  Tw.Var.clear_theme_values ();
+let theme_overrides_of config expected =
   match config with
   | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
       let root_vars = extract_root_vars expected in
-      List.iter
-        (fun (name, value) ->
-          (* Skip numbered spacing (spacing-N) and tw- vars handled via scheme.
-             Named spacings like spacing-big are passed through. *)
-          let is_numbered_spacing =
-            String.length name > 8
-            && String.sub name 0 8 = "spacing-"
-            &&
-            let rest = String.sub name 8 (String.length name - 8) in
-            match int_of_string_opt rest with Some _ -> true | None -> false
-          in
-          let is_bare_spacing = name = "spacing" in
-          let is_tw_var =
-            String.length name > 3 && String.sub name 0 3 = "tw-"
-          in
-          if not (is_numbered_spacing || is_bare_spacing || is_tw_var) then
-            Tw.Var.set_theme_value name value)
-        root_vars;
+      let base =
+        List.filter
+          (fun (name, _) ->
+            (* Skip numbered spacing (spacing-N) and tw- vars handled via
+               scheme. Named spacings like spacing-big are passed through. *)
+            let is_numbered_spacing =
+              String.length name > 8
+              && String.sub name 0 8 = "spacing-"
+              &&
+              let rest = String.sub name 8 (String.length name - 8) in
+              match int_of_string_opt rest with Some _ -> true | None -> false
+            in
+            let is_bare_spacing = name = "spacing" in
+            let is_tw_var =
+              String.length name > 3 && String.sub name 0 3 = "tw-"
+            in
+            not (is_numbered_spacing || is_bare_spacing || is_tw_var))
+          root_vars
+      in
       (* For theme-reference mode, also extract var(--name, fallback) patterns
          from expected CSS. This provides fallback values for opacity modifiers
          and other cases where the @theme block isn't in our test format. *)
       if config = Theme_reference || config = Theme_inline_reference then
         let var_fallbacks = extract_var_fallbacks expected in
-        List.iter
-          (fun (name, fallback) ->
-            if Tw.Var.theme_value name = None then
-              Tw.Var.set_theme_value name fallback)
-          var_fallbacks
-  | No_theme -> ()
+        let extra =
+          List.filter
+            (fun (name, _) -> not (List.mem_assoc name base))
+            var_fallbacks
+        in
+        base @ extra
+      else base
+  | No_theme -> []
+
+(* Set theme value overrides for non-spacing root vars from expected CSS. This
+   enables utilities like z-auto and order-first to produce custom declarations
+   in the :root, :host block when [@config] theme is used. The same overrides
+   are threaded into the scheme's token_overrides (see run_test_case); the
+   global hashtbl remains only for the [Var.binding] theme-layer emission until
+   that seam is migrated. *)
+let setup_theme_overrides config expected =
+  Tw.Var.clear_theme_values ();
+  List.iter
+    (fun (name, value) -> Tw.Var.set_theme_value name value)
+    (theme_overrides_of config expected)
 
 (** Extract custom breakpoints by matching input class modifiers with px values
     from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
@@ -795,6 +809,12 @@ let run_test_case test () =
         updated_scheme)
     in
     setup_theme_overrides test.config test.expected;
+    (* Thread the same @theme token overrides into the scheme so utilities read
+       them from ~theme rather than the Var global. *)
+    let scheme =
+      Tw.Scheme.with_overrides scheme
+        (theme_overrides_of test.config test.expected)
+    in
     let theme, theme_defaults = theme_config test.config test.expected in
     let parsed, rejected =
       List.fold_left
