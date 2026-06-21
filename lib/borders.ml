@@ -1534,7 +1534,7 @@ module Handler = struct
     | Some len -> style (make_decls len)
     | None -> style (make_decls (Px 0.))
 
-  let to_style : t -> Style.t = function
+  let to_style _theme : t -> Style.t = function
     (* Border width utilities *)
     | Border -> border_default ()
     | Border_0 -> border_0
@@ -2430,7 +2430,7 @@ module Outline_style_handler = struct
   let name = "outline_style"
   let priority = 26
 
-  let to_style = function
+  let to_style _theme = function
     | Dashed ->
         let decl, _ = Var.binding Handler.outline_style_var Css.Dashed in
         style [ decl; Css.outline_style Css.Dashed ]

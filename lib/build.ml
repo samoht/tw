@@ -1055,7 +1055,7 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
 
 (* Extract variables, set var names, and property rules from all utilities *)
 let extract_vars_and_rules utilities =
-  let styles = List.map Utility.to_style utilities in
+  let styles = List.map (Utility.to_style Scheme.default) utilities in
   let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
@@ -1177,7 +1177,7 @@ let sort_keyframes_by_var_order keyframes =
 (** Build all CSS layers from utilities and rules *)
 let layers ~layers ~include_base ?forms ~selector_props ~sorted_rules tw_classes
     statements =
-  let styles = List.map Utility.to_style tw_classes in
+  let styles = List.map (Utility.to_style Scheme.default) tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
   in
@@ -1271,7 +1271,7 @@ let rec collect_declarations acc = function
   | Style.Group ts -> List.fold_left collect_declarations acc ts
 
 let to_inline_style utilities =
-  let styles = List.map Utility.to_style utilities in
+  let styles = List.map (Utility.to_style Scheme.default) utilities in
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_vars =
     List.filter (fun d -> Css.custom_declaration_name d = None) all_props

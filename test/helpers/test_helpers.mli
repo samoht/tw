@@ -134,9 +134,6 @@ module type Handler = sig
 
   val to_class : t -> string
   (** [to_class v] converts to a class name. *)
-
-  val to_style : t -> Tw.Style.t
-  (** [to_style v] converts to a style. *)
 end
 
 val check_handler_roundtrip : (module Handler) -> string -> unit

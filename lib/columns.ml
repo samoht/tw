@@ -60,7 +60,7 @@ module Handler = struct
       map (fun n -> Css.Pct n) (drop 1)
     else None
 
-  let to_style = function
+  let to_style _theme = function
     | Columns_auto -> (
         let var_name = "columns-auto" in
         let ref =

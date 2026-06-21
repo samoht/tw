@@ -19,7 +19,7 @@ module Handler = struct
   let priority = 4
   let grid = style [ display Grid ]
   let inline_grid = style [ display Inline_grid ]
-  let to_style = function Grid -> grid | Inline_grid -> inline_grid
+  let to_style _theme = function Grid -> grid | Inline_grid -> inline_grid
 
   let suborder = function
     (* Alphabetical among all display utilities (shared priority 4). block=1,

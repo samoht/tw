@@ -131,7 +131,7 @@ module Handler = struct
   let order_last () = themed_order "order-last" 9999
   let order_none = style [ order (Int 0) ]
 
-  let to_style = function
+  let to_style _theme = function
     | Flex_1 -> flex_1
     | Flex_auto -> flex_auto
     | Flex_initial -> flex_initial

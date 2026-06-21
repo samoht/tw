@@ -707,7 +707,7 @@ module Handler = struct
     let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~property_rules (common_decls @ composite_decls)
 
-  let to_style = function
+  let to_style _theme = function
     | Mask_position (Top, pos_end, value) ->
         build_directional_style Top pos_end value
     | Mask_position (Right, pos_end, value) ->

@@ -203,7 +203,7 @@ module Handler = struct
         in
         style ~property_rules ~rules:(Some ordered) []
 
-  let to_style = function
+  let to_style _theme = function
     | Width_auto -> style [ Css.scrollbar_width Auto ]
     | Width_none -> style [ Css.scrollbar_width None ]
     | Width_thin -> style [ Css.scrollbar_width Thin ]

@@ -460,7 +460,7 @@ module Handler = struct
     in
     style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
 
-  let to_style = function
+  let to_style _theme = function
     | Transition_none -> transition_none
     | Transition_all -> transition_all ()
     | Transition_colors -> transition_colors ()

@@ -1079,7 +1079,7 @@ module Typography_early = struct
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
 
-  let to_style = function
+  let to_style _theme = function
     | Text_xs -> text_xs ()
     | Text_sm -> text_sm ()
     | Text_base -> text_base ()
@@ -2640,7 +2640,7 @@ module Typography_late = struct
   let stacked_fractions =
     font_variant_numeric_utility `Fraction Stacked_fractions
 
-  let to_style = function
+  let to_style _theme = function
     | Decoration_color (color, None) -> decoration_color color
     | Decoration_color (color, Some shade) -> decoration_color ~shade color
     | Decoration_color_opacity (color, shade, opacity) ->

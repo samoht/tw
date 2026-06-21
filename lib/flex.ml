@@ -19,7 +19,7 @@ module Handler = struct
   let priority = 4
   let flex = style [ display Flex ]
   let inline_flex = style [ display Inline_flex ]
-  let to_style = function Flex -> flex | Inline_flex -> inline_flex
+  let to_style _theme = function Flex -> flex | Inline_flex -> inline_flex
 
   let suborder = function
     (* Alphabetical among all display utilities (shared priority 4). block=1,

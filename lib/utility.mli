@@ -83,8 +83,9 @@ module type Handler = sig
   val name : string
   (** Name of this utility handler. *)
 
-  val to_style : t -> Style.t
-  (** [to_style u] converts utility [u] to a style. *)
+  val to_style : Scheme.t -> t -> Style.t
+  (** [to_style theme u] converts utility [u] to a style, reading any theme
+      values it needs from [theme]. *)
 
   val priority : int
   (** Priority for ordering utilities. *)
@@ -110,8 +111,9 @@ val base_of_strings : string list -> (base, [ `Msg of string ]) result
 (** [base_of_strings parts] parses a list of string parts into a base utility.
     Deprecated: use base_of_class. For backward compatibility with tests. *)
 
-val base_to_style : base -> Style.t
-(** [base_to_style u] converts a base utility (without modifiers) to Style.t. *)
+val base_to_style : Scheme.t -> base -> Style.t
+(** [base_to_style theme u] converts a base utility (without modifiers) to
+    Style.t, reading theme values from [theme]. *)
 
 val name_of_base : base -> string
 (** [name_of_base u] returns the utility name. *)
@@ -119,8 +121,9 @@ val name_of_base : base -> string
 val class_of_base : base -> string
 (** [class_of_base u] returns the CSS class name for a base utility. *)
 
-val to_style : t -> Style.t
-(** [to_style u] converts Utility.t (with modifiers) to Style.t. *)
+val to_style : Scheme.t -> t -> Style.t
+(** [to_style theme u] converts Utility.t (with modifiers) to Style.t, reading
+    theme values from [theme]. *)
 
 val to_class : t -> string
 (** [to_class u] converts Utility.t (with modifiers) to class name string. *)

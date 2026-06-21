@@ -17,7 +17,7 @@ module Handler = struct
     | Content -> "field-sizing-content"
     | Fixed -> "field-sizing-fixed"
 
-  let to_style = function
+  let to_style _theme = function
     | Content -> style [ field_sizing Content ]
     | Fixed -> style [ field_sizing Fixed ]
 

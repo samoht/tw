@@ -2465,7 +2465,7 @@ module Handler = struct
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
     | other -> other
 
-  let to_style = function
+  let to_style _theme = function
     | Bg (color, shade) -> bg' color shade
     | Bg_opacity (color, shade, opacity) ->
         (* 100% opacity: same as base color, no @supports needed *)

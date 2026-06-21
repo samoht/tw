@@ -678,7 +678,7 @@ let test_style_rules_props () =
     let name = "test"
     let priority = 0
     let to_class _t = "test"
-    let to_style _t = style
+    let to_style _theme _t = style
     let suborder _t = 0
     let of_class _ = Error (`Msg "test utility")
   end in

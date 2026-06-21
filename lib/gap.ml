@@ -285,7 +285,7 @@ module Handler = struct
     if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
     else s
 
-  let to_style t =
+  let to_style _theme t =
     match t with
     | Gap { axis; value } -> gap_value axis value
     | Space { negative; axis; value } -> (

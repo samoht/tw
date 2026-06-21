@@ -2043,7 +2043,7 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Prose -> prose_style `Base
     | Prose_sm -> prose_style `Sm
     | Prose_lg -> prose_style `Lg
@@ -2107,7 +2107,7 @@ module Color_Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Prose_gray -> prose_style `Gray
     | Prose_slate -> prose_style `Slate
     | Prose_zinc -> prose_style `Zinc

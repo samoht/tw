@@ -107,7 +107,7 @@ module Handler = struct
     style ~property_rules:contain_property_rules
       [ decl; contain composable_contain_value ]
 
-  let to_style = function
+  let to_style _theme = function
     | None -> style [ contain Css.None ]
     | Strict -> style [ contain Css.Strict ]
     | Content -> style [ contain Css.Content ]

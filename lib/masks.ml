@@ -307,7 +307,7 @@ module Handler = struct
           (parse_pos_val v)
     | _ -> None
 
-  let to_style = function
+  let to_style _theme = function
     | Mask_none -> mask_none
     | Mask_add -> mask_add
     | Mask_exclude -> mask_exclude

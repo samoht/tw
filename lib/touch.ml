@@ -94,7 +94,7 @@ module Handler = struct
 
   (* Handler functions derived from maps *)
   let to_class t = List.assoc t to_class_map
-  let to_style t = (List.assoc t to_style_map) ()
+  let to_style _theme t = (List.assoc t to_style_map) ()
   let suborder t = List.assoc t suborder_map
 
   let of_class cls =

@@ -16,7 +16,7 @@ module Handler = struct
     | Tab n -> "tab-" ^ string_of_int n
     | Tab_arbitrary (raw, _) -> "tab-" ^ raw
 
-  let to_style = function
+  let to_style _theme = function
     | Tab n -> style [ Css.tab_size n ]
     | Tab_arbitrary (_, v) -> style [ Css.tab_size_value v ]
 

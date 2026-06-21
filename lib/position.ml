@@ -211,7 +211,7 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Position_static -> style [ position Static ]
     | Position_relative -> style [ position Relative ]
     | Position_absolute -> style [ position Absolute ]

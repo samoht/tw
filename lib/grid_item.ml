@@ -185,7 +185,7 @@ module Handler = struct
 
   let row_end_named s = grid_row_end_themed_style ("grid-row-end-" ^ s) ()
 
-  let to_style = function
+  let to_style _theme = function
     | Col n -> col n
     | Neg_col n -> neg_col n
     | Col_arbitrary s -> col_arbitrary s

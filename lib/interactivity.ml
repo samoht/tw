@@ -158,7 +158,7 @@ module Handler = struct
   let scheme_only_dark_s = style [ color_scheme Only_dark ]
   let scheme_only_light_s = style [ color_scheme Only_light ]
 
-  let to_style = function
+  let to_style _theme = function
     | Select_none -> select_none_s
     | Select_text -> select_text_s
     | Select_all -> select_all_s

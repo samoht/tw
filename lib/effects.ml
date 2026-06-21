@@ -1981,7 +1981,7 @@ module Handler = struct
   let bg_blend_color = style [ background_blend_mode Color ]
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
 
-  let to_style = function
+  let to_style _theme = function
     | Shadow_none -> shadow_none
     | Shadow_2xs -> shadow_2xs
     | Shadow_xs -> shadow_xs

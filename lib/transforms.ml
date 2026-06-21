@@ -1064,7 +1064,7 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
     | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a

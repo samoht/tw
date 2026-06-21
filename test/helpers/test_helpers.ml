@@ -321,7 +321,6 @@ module type Handler = sig
 
   val of_class : string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
-  val to_style : t -> Tw.Style.t
 end
 
 (** Generic handler test - checks that parsing and pretty-printing round-trip

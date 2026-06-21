@@ -151,7 +151,7 @@ module Handler = struct
     | `Be -> margin_block_end
 
   (** Convert margin utility to style *)
-  let to_style { negative; axis; value } =
+  let to_style _theme { negative; axis; value } =
     let prop = prop_for_axis axis in
     match value with
     | Arbitrary len ->

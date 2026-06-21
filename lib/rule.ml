@@ -1805,5 +1805,5 @@ let outputs ?order_tbl util =
         handle_group class_name util_inner styles extract_with_class
   in
   let class_name = Utility.to_class util in
-  let style = Utility.to_style util in
+  let style = Utility.to_style Scheme.default util in
   extract_with_class class_name util style

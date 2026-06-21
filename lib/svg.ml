@@ -163,7 +163,7 @@ module Handler = struct
       match float_of_string_opt num_str with Some f -> Pct f | None -> Pct 0.
     else match float_of_string_opt inner with Some f -> Px f | None -> Px 0.
 
-  let to_style = function
+  let to_style _theme = function
     | Fill_none -> style Css.[ fill None ]
     | Fill_inherit -> style Css.[ fill Inherit ]
     | Fill_transparent -> style Css.[ fill (Color (Css.hex "0000")) ]

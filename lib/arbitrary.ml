@@ -63,7 +63,7 @@ module Handler = struct
   let name = "arbitrary"
   let priority = 36
 
-  let to_style (Color_opacity { property; value; opacity }) =
+  let to_style _theme (Color_opacity { property; value; opacity }) =
     match (color_property_of_name property, parse_css_color value) with
     | Some prop, Some color -> (
         match opacity with

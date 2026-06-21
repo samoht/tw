@@ -26,7 +26,7 @@ module Handler = struct
     | Forced_color_adjust_auto -> "forced-color-adjust-auto"
     | Forced_color_adjust_none -> "forced-color-adjust-none"
 
-  let to_style = function
+  let to_style _theme = function
     | Forced_color_adjust_auto -> style [ forced_color_adjust Auto ]
     | Forced_color_adjust_none -> style [ forced_color_adjust None ]
 

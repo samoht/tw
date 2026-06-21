@@ -49,7 +49,7 @@ module Handler = struct
   let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) flex_data
   let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) flex_data
   let of_class_map = List.map (fun (t, s, _, _) -> ("flex-" ^ s, t)) flex_data
-  let to_style t = (List.assoc t to_style_map) ()
+  let to_style _theme t = (List.assoc t to_style_map) ()
   let suborder t = List.assoc t suborder_map
   let to_class t = List.assoc t to_class_map
 

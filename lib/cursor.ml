@@ -115,7 +115,7 @@ module Handler = struct
     | Cursor_theme name -> "cursor-" ^ name
     | t -> List.assoc t to_class_map
 
-  let to_style = function
+  let to_style _theme = function
     | Cursor_bracket_var s ->
         let inner = Parse.extract_var_name s in
         let ref : Css.cursor Css.var = Var.bracket inner in

@@ -453,7 +453,7 @@ module Handler = struct
 
   let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
 
-  let to_style = function
+  let to_style _theme = function
     (* Width utilities *)
     | W_auto -> w_auto'
     | W_px -> w_px'

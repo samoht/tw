@@ -1276,7 +1276,7 @@ module Handler = struct
         Some o
     | _ -> None
 
-  let to_style = function
+  let to_style _theme = function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | Gradient_color (target, src) -> (

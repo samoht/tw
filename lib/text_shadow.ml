@@ -438,7 +438,7 @@ module Handler = struct
 
   (* ============ Style dispatch ============ *)
 
-  let to_style = function
+  let to_style _theme = function
     | Text_shadow_none ->
         style ~property_rules:text_shadow_property_rules
           [ Css.text_shadow Css.None ]

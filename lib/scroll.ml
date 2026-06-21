@@ -107,7 +107,7 @@ module Handler = struct
     | Padding, Bs -> Css.scroll_padding_block_start len
     | Padding, Be -> Css.scroll_padding_block_end len
 
-  let to_style { kind; negative; axis; value } =
+  let to_style _theme { kind; negative; axis; value } =
     match value with
     | Spacing n ->
         let decl, len = spacing_to_decl_len ~negative n in

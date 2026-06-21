@@ -14,7 +14,7 @@ module Handler = struct
   let suborder = function Border -> 0 | Content -> 1
   let to_class = function Border -> "box-border" | Content -> "box-content"
 
-  let to_style = function
+  let to_style _theme = function
     | Border -> style [ box_sizing Border_box ]
     | Content -> style [ box_sizing Content_box ]
 

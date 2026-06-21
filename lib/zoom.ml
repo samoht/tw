@@ -19,7 +19,7 @@ module Handler = struct
     | Zoom_pct n -> "zoom-" ^ num_to_string n
     | Zoom_arbitrary (raw, _) -> "zoom-" ^ raw
 
-  let to_style = function
+  let to_style _theme = function
     | Zoom_pct n -> style [ Css.zoom (Pct n) ]
     | Zoom_arbitrary (_, v) -> style [ Css.zoom v ]
 

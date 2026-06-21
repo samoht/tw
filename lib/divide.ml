@@ -385,7 +385,7 @@ module Handler = struct
         "divide-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
-  let to_style = function
+  let to_style _theme = function
     | Divide_x n ->
         let class_name =
           if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n

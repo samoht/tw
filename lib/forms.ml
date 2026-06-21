@@ -342,7 +342,7 @@ module Handler = struct
     in
     style ~rules:(Some rules) []
 
-  let to_style = function
+  let to_style _theme = function
     | Form_input -> form_input
     | Form_checkbox -> form_checkbox
     | Form_radio -> form_radio
@@ -476,7 +476,7 @@ module Select = struct
     in
     style ~rules:(Some rules) []
 
-  let to_style = function
+  let to_style _theme = function
     | Form_select -> form_select
     | Form_textarea -> form_textarea
 

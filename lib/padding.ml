@@ -112,7 +112,7 @@ module Handler = struct
         let bare_name = Parse.extract_var_name var_str in
         style [ prop (Var (Var.bracket bare_name)) ]
 
-  let to_style t =
+  let to_style _theme t =
     match t.axis with
     | `All -> apply_prop_list padding t.value
     | `X -> apply_prop_list padding_inline t.value

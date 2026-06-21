@@ -290,7 +290,7 @@ module Handler = struct
     in
     style [ theme_decl; Css.animation (Css.Var theme_ref) ]
 
-  let to_style = function
+  let to_style _theme = function
     | Animate_none -> animate_none ()
     | Animate_spin -> animate_spin ()
     | Animate_ping -> animate_ping ()

@@ -52,7 +52,7 @@ module Handler = struct
         in
         "clip-[polygon(" ^ coords ^ ")]"
 
-  let to_style = function Clip_polygon points -> clip_polygon' points
+  let to_style _theme = function Clip_polygon points -> clip_polygon' points
   let suborder = function Clip_polygon _ -> 0
   let of_class _class_name = Error (`Msg "Not a clipping utility")
 end

@@ -20,7 +20,7 @@ module Screen_reader_handler = struct
 
   let to_class = function Sr_only -> "sr-only" | Not_sr_only -> "not-sr-only"
 
-  let to_style = function
+  let to_style _theme = function
     | Sr_only ->
         (* Property order matches Tailwind: clip-path, white-space,
            border-width, width, height, margin, padding, position, overflow *)
@@ -401,7 +401,7 @@ module Handler = struct
     | Break_inside_avoid_column -> "break-inside-avoid-column"
     | Break_inside_avoid_page -> "break-inside-avoid-page"
 
-  let to_style = function
+  let to_style _theme = function
     | Block -> style [ display Block ]
     | Inline -> style [ display Inline ]
     | Inline_block -> style [ display Inline_block ]

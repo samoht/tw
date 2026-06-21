@@ -322,7 +322,7 @@ module Handler = struct
     style [ decl; Css.grid_auto_rows (Css.Length len) ]
 
   (** Convert grid template utility to style *)
-  let to_style = function
+  let to_style _theme = function
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none ()
     | Grid_cols_subgrid -> grid_cols_subgrid

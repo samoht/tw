@@ -1020,7 +1020,7 @@ module Handler = struct
           style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
       | Error _ -> style []
 
-  let to_style = function
+  let to_style _theme = function
     | Filter -> filter_
     | Filter_none -> filter_none
     | Filter_arbitrary s -> filter_arbitrary s

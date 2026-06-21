@@ -165,7 +165,7 @@ module Handler = struct
       ~property_rules:(Css.concat property_rules)
       [ decl_y; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
-  let to_style = function
+  let to_style _theme = function
     | Border_collapse -> style [ Css.border_collapse Collapse ]
     | Border_separate -> style [ Css.border_collapse Separate ]
     | Border_spacing n -> border_spacing_style n
