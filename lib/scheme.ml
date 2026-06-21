@@ -40,8 +40,23 @@ type t = {
       (** Explicit breakpoint values in px. Key is breakpoint name (e.g., "sm").
           When defined, responsive media queries use [@media (min-width: Xpx)]
           instead of rem-based values. *)
+  token_overrides : (string * string) list;
+      (** Per-render theme token overrides (from a [@theme] block). Key is the
+          variable name without the leading [--] (e.g. "text-shadow-2xs"), value
+          is the CSS string. Threaded replacement for the global
+          [Var.theme_value_overrides]. *)
 }
 (** Theme scheme configuration *)
+
+(** Process-global registry of theme token DEFAULTS (the v4.3.1 baseline).
+    Populated once at module-init by the utilities that own theme tokens
+    (replaces the [Var.theme_ref_registry] defaults). Defaults are static, so
+    they live here rather than in the per-render {!t}; overrides are threaded via
+    {!t.token_overrides}. *)
+let default_tokens : (string, string) Hashtbl.t = Hashtbl.create 64
+
+let register_default_token name css = Hashtbl.replace default_tokens name css
+let token_default name = Hashtbl.find_opt default_tokens name
 
 (** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
     v4 default) *)
@@ -54,6 +69,7 @@ let default : t =
     default_border_width = 1;
     default_outline_width = 1;
     breakpoints = [];
+    token_overrides = [];
   }
 
 let pp t =
@@ -101,3 +117,17 @@ let has_explicit_radius scheme name = Option.is_some (radius scheme name)
 
 (** Lookup a breakpoint px value in the scheme *)
 let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
+
+(** Lookup a per-render theme token override (from a [@theme] block). *)
+let token_override scheme name = List.assoc_opt name scheme.token_overrides
+
+(** Resolve a theme token: override (if any) else the registered default. *)
+let token scheme name =
+  match token_override scheme name with
+  | Some _ as v -> v
+  | None -> token_default name
+
+(** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
+    on top of any existing token overrides (new entries win). *)
+let with_overrides scheme overrides =
+  { scheme with token_overrides = overrides @ scheme.token_overrides }

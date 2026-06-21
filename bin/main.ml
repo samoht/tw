@@ -54,6 +54,7 @@ let setup_test_scheme () =
       default_border_width = 1;
       default_outline_width = 1;
       breakpoints = [];
+      token_overrides = [];
     }
   in
   Tw.Color.Handler.set_scheme scheme;
