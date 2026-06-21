@@ -717,6 +717,19 @@ let extract_custom_breakpoints classes expected =
       List.combine names pxs
   | _ -> []
 
+(* Parity accounting, accumulated across every upstream case and printed as a
+   report after the run. The old runner dropped classes [Tw.of_string] rejected
+   with [filter_map ... -> None], so a class tw cannot parse left no trace.
+   These counters make rejection explicit. A rejection is harmless when the
+   case's CSS still matches (Tailwind also emits nothing for that class -- many
+   upstream cases bundle negative tests, e.g. [animate-not-found], with valid
+   classes); a rejection that breaks parity already fails the CSS diff below,
+   and that failure now names the rejected classes. *)
+let stat_total_classes = ref 0
+let stat_parsed = ref 0
+let stat_rejected = ref 0
+let stat_expected_empty_cases = ref 0
+
 let run_test_case test () =
   if test.classes = [] then ()
   else (
@@ -778,12 +791,20 @@ let run_test_case test () =
       Tw.Modifiers.register_custom_breakpoints custom_bps);
     setup_theme_overrides test.config test.expected;
     let theme, theme_defaults = theme_config test.config test.expected in
-    let utilities =
-      List.filter_map
-        (fun cls ->
-          match Tw.of_string cls with Ok u -> Some u | Error _ -> None)
-        test.classes
+    let parsed, rejected =
+      List.fold_left
+        (fun (ok, bad) cls ->
+          match Tw.of_string cls with
+          | Ok u -> (u :: ok, bad)
+          | Error (`Msg m) -> (ok, (cls, m) :: bad))
+        ([], []) test.classes
     in
+    let utilities = List.rev parsed in
+    let rejected = List.rev rejected in
+    stat_total_classes := !stat_total_classes + List.length test.classes;
+    stat_parsed := !stat_parsed + List.length utilities;
+    stat_rejected := !stat_rejected + List.length rejected;
+    if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
       else Some (Tw.to_css ~base:false ~layers:false utilities)
@@ -821,10 +842,23 @@ let run_test_case test () =
               |> Css.resolve_theme ~theme ~theme_defaults
               |> Css.to_string ~indent:2 |> String.trim
         in
+        (* When a class tw rejected is a candidate cause of the mismatch, name
+           it so the diff is not the only clue (the old runner dropped it
+           silently). *)
+        let rejected_note =
+          match rejected with
+          | [] -> ""
+          | _ ->
+              Fmt.str "\n\ntw rejected %d class(es):\n%s" (List.length rejected)
+                (String.concat "\n"
+                   (List.map
+                      (fun (cls, m) -> Fmt.str "  %s -- %s" cls m)
+                      rejected))
+        in
         Alcotest.fail
-          (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s"
+          (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s%s"
              (String.concat " " test.classes)
-             (Buffer.contents buf) expected got))
+             (Buffer.contents buf) expected got rejected_note))
 
 (* Guards [colors_close]: a documented stale fixture pair is accepted, but a
    near-miss the previous [abs (x - y) <= 2] blanket would have wrongly accepted
@@ -840,6 +874,16 @@ let test_color_tolerance () =
   Alcotest.(check bool)
     "unrelated near colour rejected" false
     (colors_close "#123456" "#123458")
+
+let print_parity_report () =
+  Fmt.epr "@.=== upstream parity report ===@.";
+  Fmt.epr "classes: %d total, %d parsed, %d rejected@." !stat_total_classes
+    !stat_parsed !stat_rejected;
+  Fmt.epr "cases with empty expected CSS: %d@." !stat_expected_empty_cases;
+  Fmt.epr
+    "(a rejection is harmless when the case's CSS still matches; one that \
+     breaks parity fails the CSS diff and names the rejected classes)@.";
+  Fmt.epr "==============================@."
 
 let file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in
@@ -866,6 +910,7 @@ let () =
 
   let total = List.length utility_tests + List.length variant_tests in
   Fmt.epr "Running %d upstream tests...@." total;
+  at_exit print_parity_report;
 
   let utility_cases =
     List.map
