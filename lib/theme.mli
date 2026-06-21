@@ -16,13 +16,15 @@ val spacing_n_var : int -> Css.length Var.theme
 (** [spacing_n_var n] creates the [--spacing-n] variable for explicit spacing
     values. *)
 
-val spacing_calc : int -> Css.declaration * Css.length
-(** [spacing_calc n] returns the theme declaration and a length for [n].
+val spacing_calc : ?theme:Scheme.t -> int -> Css.declaration * Css.length
+(** [spacing_calc ?theme n] returns the theme declaration and a length for [n].
 
-    When the current scheme has an explicit spacing for [|n|], returns
-    [var(--spacing-|n|)] (or [calc(var(--spacing-|n|) * -1)] for negatives).
-    Otherwise returns [calc(var(--spacing) * n)]. *)
+    When the scheme ([theme] when given, else the global) has an explicit
+    spacing for [|n|], returns [var(--spacing-|n|)] (or
+    [calc(var(--spacing-|n|) * -1)] for negatives). Otherwise returns
+    [calc(var(--spacing) * n)]. *)
 
-val spacing_calc_float : float -> Css.declaration * Css.length
-(** [spacing_calc_float n] is like {!spacing_calc} but accepts float multipliers
-    such as [2.5] for classes like [my-2.5]. *)
+val spacing_calc_float :
+  ?theme:Scheme.t -> float -> Css.declaration * Css.length
+(** [spacing_calc_float ?theme n] is like {!spacing_calc} but accepts float
+    multipliers such as [2.5] for classes like [my-2.5]. *)
