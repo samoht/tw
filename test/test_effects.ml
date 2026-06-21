@@ -6,6 +6,8 @@ let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)
 let of_string_valid () =
   (* Box shadow *)
   check "shadow";
+  check "shadow-2xs";
+  check "shadow-xs";
   check "shadow-sm";
   check "shadow-md";
   check "shadow-lg";
@@ -101,9 +103,24 @@ let test_shadow_2xl_alpha () =
     "shadow-2xl uses #00000040 alpha" true
     (Astring.String.is_infix ~affix:"#00000040" css)
 
+(* The two smallest box-shadow sizes (alpha .05 = #0000000d): 2xs is a single 0
+   1px shadow with no blur, xs is 0 1px 2px 0. *)
+let test_shadow_small_sizes () =
+  let css u = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
+  Alcotest.(check bool)
+    "shadow-2xs uses #0000000d" true
+    (Astring.String.is_infix ~affix:"#0000000d" (css Tw.shadow_2xs));
+  Alcotest.(check bool)
+    "shadow-xs uses #0000000d" true
+    (Astring.String.is_infix ~affix:"#0000000d" (css Tw.shadow_xs));
+  Alcotest.(check bool)
+    "shadow-xs has a 2px blur" true
+    (Astring.String.is_infix ~affix:"1px 2px" (css Tw.shadow_xs))
+
 let tests =
   [
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
+    test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;

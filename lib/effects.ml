@@ -19,7 +19,15 @@ module Handler = struct
     let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
     if a = 255 then rgb else rgb ^ hex_byte a
 
-  type shadow_shape = Sh_sm | Sh_default | Sh_md | Sh_lg | Sh_xl | Sh_2xl
+  type shadow_shape =
+    | Two_xs
+    | Xs
+    | Sm
+    | Default
+    | Md
+    | Lg
+    | Xl
+    | Two_xl
 
   type inset_shadow_shape =
     | Ish_sm
@@ -39,6 +47,8 @@ module Handler = struct
   type t =
     (* Shadows — shape utilities *)
     | Shadow_none
+    | Shadow_2xs
+    | Shadow_xs
     | Shadow_sm
     | Shadow
     | Shadow_md
@@ -332,32 +342,34 @@ module Handler = struct
       (Css.length * Css.length * Css.length option * Css.length option * string)
       list =
     match shape with
-    | Sh_sm ->
+    | Two_xs -> [ (Zero, Px 1., None, None, "#0000000d") ]
+    | Xs -> [ (Zero, Px 1., Some (Px 2.), Some Zero, "#0000000d") ]
+    | Sm ->
         [
           (Zero, Px 1., Some (Px 3.), Some Zero, "#0000001a");
           (Zero, Px 1., Some (Px 2.), Some (Px (-1.)), "#0000001a");
         ]
-    | Sh_default ->
+    | Default ->
         [
           (Zero, Px 1., Some (Px 3.), Some Zero, "#0000001a");
           (Zero, Px 1., Some (Px 2.), Some (Px (-1.)), "#0000001a");
         ]
-    | Sh_md ->
+    | Md ->
         [
           (Zero, Px 4., Some (Px 6.), Some (Px (-1.)), "#0000001a");
           (Zero, Px 2., Some (Px 4.), Some (Px (-2.)), "#0000001a");
         ]
-    | Sh_lg ->
+    | Lg ->
         [
           (Zero, Px 10., Some (Px 15.), Some (Px (-3.)), "#0000001a");
           (Zero, Px 4., Some (Px 6.), Some (Px (-4.)), "#0000001a");
         ]
-    | Sh_xl ->
+    | Xl ->
         [
           (Zero, Px 20., Some (Px 25.), Some (Px (-5.)), "#0000001a");
           (Zero, Px 8., Some (Px 10.), Some (Px (-6.)), "#0000001a");
         ]
-    | Sh_2xl -> [ (Zero, Px 25., Some (Px 50.), Some (Px (-12.)), "#00000040") ]
+    | Two_xl -> [ (Zero, Px 25., Some (Px 50.), Some (Px (-12.)), "#00000040") ]
 
   let shape_shadow_value shape =
     let data = shadow_shape_data shape in
@@ -415,12 +427,14 @@ module Handler = struct
     style ~property_rules:shadow_property_rules
       [ shadow_alpha_decl percent; d_shadow; box_shadow_composition v_shadow ]
 
-  let shadow_sm = shadow_shape_style Sh_sm
-  let shadow = shadow_shape_style Sh_default
-  let shadow_md = shadow_shape_style Sh_md
-  let shadow_lg = shadow_shape_style Sh_lg
-  let shadow_xl = shadow_shape_style Sh_xl
-  let shadow_2xl = shadow_shape_style Sh_2xl
+  let shadow_2xs = shadow_shape_style Two_xs
+  let shadow_xs = shadow_shape_style Xs
+  let shadow_sm = shadow_shape_style Sm
+  let shadow = shadow_shape_style Default
+  let shadow_md = shadow_shape_style Md
+  let shadow_lg = shadow_shape_style Lg
+  let shadow_xl = shadow_shape_style Xl
+  let shadow_2xl = shadow_shape_style Two_xl
 
   let shadow_inner =
     (* Define inset shadow variable *)
@@ -1969,6 +1983,8 @@ module Handler = struct
 
   let to_style = function
     | Shadow_none -> shadow_none
+    | Shadow_2xs -> shadow_2xs
+    | Shadow_xs -> shadow_xs
     | Shadow_sm -> shadow_sm
     | Shadow -> shadow
     | Shadow_md -> shadow_md
@@ -2378,13 +2394,15 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none
+    | [ "shadow"; "2xs" ] -> Ok Shadow_2xs
+    | [ "shadow"; "xs" ] -> Ok Shadow_xs
     | [ "shadow"; "sm" ] -> Ok Shadow_sm
     | [ "shadow" ] -> Ok Shadow
     | [ base ] when String.starts_with ~prefix:"shadow/" base -> (
         let _, opacity = Color.parse_opacity_modifier base in
         match opacity with
         | Color.No_opacity -> err_not_utility
-        | op -> Ok (Shadow_shape_opacity (Sh_default, op)))
+        | op -> Ok (Shadow_shape_opacity (Default, op)))
     | [ "shadow"; "md" ] -> Ok Shadow_md
     | [ "shadow"; "lg" ] -> Ok Shadow_lg
     | [ "shadow"; "xl" ] -> Ok Shadow_xl
@@ -2408,11 +2426,13 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
-        | "sm", op -> Ok (Shadow_shape_opacity (Sh_sm, op))
-        | "md", op -> Ok (Shadow_shape_opacity (Sh_md, op))
-        | "lg", op -> Ok (Shadow_shape_opacity (Sh_lg, op))
-        | "xl", op -> Ok (Shadow_shape_opacity (Sh_xl, op))
-        | "2xl", op -> Ok (Shadow_shape_opacity (Sh_2xl, op))
+        | "2xs", op -> Ok (Shadow_shape_opacity (Two_xs, op))
+        | "xs", op -> Ok (Shadow_shape_opacity (Xs, op))
+        | "sm", op -> Ok (Shadow_shape_opacity (Sm, op))
+        | "md", op -> Ok (Shadow_shape_opacity (Md, op))
+        | "lg", op -> Ok (Shadow_shape_opacity (Lg, op))
+        | "xl", op -> Ok (Shadow_shape_opacity (Xl, op))
+        | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
         | _ -> err_not_utility)
     | [ "shadow"; color; shade ] -> (
         let shade_str, opacity = Color.parse_opacity_modifier shade in
@@ -2605,6 +2625,8 @@ module Handler = struct
 
   let to_class = function
     | Shadow_none -> "shadow-none"
+    | Shadow_2xs -> "shadow-2xs"
+    | Shadow_xs -> "shadow-xs"
     | Shadow_sm -> "shadow-sm"
     | Shadow -> "shadow"
     | Shadow_md -> "shadow-md"
@@ -2617,12 +2639,14 @@ module Handler = struct
         "shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity op
     | Shadow_shape_opacity (shape, op) ->
         (match shape with
-          | Sh_sm -> "shadow-sm"
-          | Sh_default -> "shadow"
-          | Sh_md -> "shadow-md"
-          | Sh_lg -> "shadow-lg"
-          | Sh_xl -> "shadow-xl"
-          | Sh_2xl -> "shadow-2xl")
+          | Two_xs -> "shadow-2xs"
+          | Xs -> "shadow-xs"
+          | Sm -> "shadow-sm"
+          | Default -> "shadow"
+          | Md -> "shadow-md"
+          | Lg -> "shadow-lg"
+          | Xl -> "shadow-xl"
+          | Two_xl -> "shadow-2xl")
         ^ "/" ^ Color.pp_opacity op
     | Shadow_color (c, s) -> "shadow-" ^ Color.pp c ^ "-" ^ string_of_int s
     | Shadow_color_opacity (c, s, op) ->
@@ -2810,9 +2834,9 @@ module Handler = struct
     | Shadow_shape_opacity _ -> 29991
     (* Shadow shape utilities — all same suborder, natural_compare decides
        within-group order: bracket values ([) sort before named (none/sm/xl) *)
-    | Shadow | Shadow_2xl | Shadow_inner | Shadow_lg | Shadow_md | Shadow_none
-    | Shadow_sm | Shadow_xl | Shadow_arbitrary _ | Shadow_bracket_shadow _
-    | Shadow_bracket_var _ ->
+    | Shadow | Shadow_2xs | Shadow_xs | Shadow_2xl | Shadow_inner | Shadow_lg
+    | Shadow_md | Shadow_none | Shadow_sm | Shadow_xl | Shadow_arbitrary _
+    | Shadow_bracket_shadow _ | Shadow_bracket_var _ ->
         30000
     (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
@@ -2931,6 +2955,8 @@ let utility x = Utility.base (Self x)
 let order u = Some (Utility.order u)
 let mix_blend_luminosity = utility Mix_blend_luminosity
 let shadow_none = utility Shadow_none
+let shadow_2xs = utility Shadow_2xs
+let shadow_xs = utility Shadow_xs
 let shadow_sm = utility Shadow_sm
 let shadow = utility Shadow
 let shadow_md = utility Shadow_md
