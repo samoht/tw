@@ -647,9 +647,10 @@ module Handler = struct
 
   (* ============ Shadow color utilities ============ *)
 
-  let shadow_color_hex ~property_prefix c shade =
+  let shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         (* Check property-scoped theme value first *)
@@ -664,9 +665,9 @@ module Handler = struct
                 let rgb = Color.oklch_to_rgb oklch in
                 Color.rgb_to_hex rgb))
 
-  let set_shadow_color c shade =
+  let set_shadow_color ?theme c shade =
     let hex_value =
-      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
@@ -684,10 +685,10 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_shadow_color_opacity c shade opacity =
+  let set_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
     let hex_value =
-      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
@@ -1162,9 +1163,10 @@ module Handler = struct
 
   (* ============ Inset shadow color utilities ============ *)
 
-  let inset_shadow_color_hex ~property_prefix c shade =
+  let inset_shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         let prop_name = property_prefix ^ "-" ^ color_name in
@@ -1178,9 +1180,10 @@ module Handler = struct
                 let rgb = Color.oklch_to_rgb oklch in
                 Color.rgb_to_hex rgb))
 
-  let set_inset_shadow_color c shade =
+  let set_inset_shadow_color ?theme c shade =
     let hex_value =
-      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
+        shade
     in
     let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
@@ -1198,10 +1201,11 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_inset_shadow_color_opacity c shade opacity =
+  let set_inset_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
     let hex_value =
-      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
+        shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ =
@@ -1413,7 +1417,9 @@ module Handler = struct
 
   (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
-  let ring_default () = ring_internal !current_scheme.default_ring_width
+  let ring_default ?theme () =
+    let scheme = match theme with Some t -> t | None -> !current_scheme in
+    ring_internal scheme.Scheme.default_ring_width
 
   let inset_ring_internal width_px =
     let spread : Css.length = Px (float_of_int width_px) in
@@ -1484,9 +1490,9 @@ module Handler = struct
     let d, _ = Var.binding ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
-  let ring_color_with_opacity color shade opacity =
+  let ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
         let cvar =
@@ -1584,9 +1590,9 @@ module Handler = struct
       | None -> None
 
   (* Ring-offset color utilities *)
-  let ring_offset_color_with_opacity color shade opacity =
+  let ring_offset_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ =
           Var.binding ring_offset_color_var (Css.hex hex_alpha)
@@ -1730,9 +1736,9 @@ module Handler = struct
     let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
-  let inset_ring_color_with_opacity color shade opacity =
+  let inset_ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ =
           Var.binding inset_ring_color_var (Css.hex hex_alpha)
@@ -1981,7 +1987,28 @@ module Handler = struct
   let bg_blend_color = style [ background_blend_mode Color ]
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
 
-  let to_style _theme = function
+  let to_style theme =
+    let set_shadow_color c shade = set_shadow_color ~theme c shade in
+    let set_shadow_color_opacity c shade opacity =
+      set_shadow_color_opacity ~theme c shade opacity
+    in
+    let set_inset_shadow_color c shade =
+      set_inset_shadow_color ~theme c shade
+    in
+    let set_inset_shadow_color_opacity c shade opacity =
+      set_inset_shadow_color_opacity ~theme c shade opacity
+    in
+    let ring_color_with_opacity color shade opacity =
+      ring_color_with_opacity ~theme color shade opacity
+    in
+    let ring_offset_color_with_opacity color shade opacity =
+      ring_offset_color_with_opacity ~theme color shade opacity
+    in
+    let inset_ring_color_with_opacity color shade opacity =
+      inset_ring_color_with_opacity ~theme color shade opacity
+    in
+    let ring_default () = ring_default ~theme () in
+    function
     | Shadow_none -> shadow_none
     | Shadow_2xs -> shadow_2xs
     | Shadow_xs -> shadow_xs
