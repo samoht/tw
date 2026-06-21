@@ -1617,16 +1617,8 @@ module Handler = struct
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
 
-  (** Current scheme for color generation. Default uses oklch/color-mix. *)
-  let current_scheme : Scheme.t ref = ref Scheme.default
-
-  (** Set the current scheme for color generation *)
-  let set_scheme scheme = current_scheme := scheme
-
-  (** Resolve the scheme to read from: the explicitly threaded [theme] when
-      given, otherwise the current global scheme. Migration scaffold while
-      callers move from the global to the threaded [Scheme.t]. *)
-  let resolve_scheme = function Some s -> s | None -> !current_scheme
+  (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
+  let resolve_scheme = function Some s -> s | None -> Scheme.default
 
   (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
       defined before [open Css] to use the outer [color] type. *)
@@ -2027,8 +2019,8 @@ module Handler = struct
       let cv, color_value =
         if has_property_scoped then
           ( property_color_var ~property_prefix:"text-color" color shade,
-            property_color_value ?theme ~property_prefix:"text-color" color shade
-          )
+            property_color_value ?theme ~property_prefix:"text-color" color
+              shade )
         else (color_var color shade, get_color_value ?theme color shade)
       in
       let decl, color_ref = Var.binding cv color_value in
@@ -2962,8 +2954,6 @@ let pp_opacity = function
   | Opacity_named name -> name
   | Opacity_var v -> "[" ^ v ^ "]"
 
-let current_scheme () = !Handler.current_scheme
-let scheme () = !Handler.current_scheme
 let shorten_hex_str = shorten_hex_str
 let bracket_color_to_custom = Handler.bracket_color_to_custom
 let css_color_to_hex = Handler.css_color_to_hex

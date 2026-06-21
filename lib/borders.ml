@@ -17,16 +17,8 @@
 
 module Css = Cascade.Css
 
-(* Current scheme for radius overrides *)
-let current_scheme : Scheme.t ref = ref Scheme.default
-
-(* Set the current scheme for radius generation *)
-let set_scheme scheme = current_scheme := scheme
-
-(* Resolve the scheme to read from: the threaded [theme] when given, else the
-   global. Migration scaffold while the radius/width helpers move onto the
-   explicitly threaded scheme. *)
-let resolve_scheme = function Some s -> s | None -> !current_scheme
+(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
+let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 type rounded_position =
   | Rp_all

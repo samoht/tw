@@ -5,12 +5,6 @@
 
 module Css = Cascade.Css
 
-(* Current scheme for default border width *)
-let current_scheme : Scheme.t ref = ref Scheme.default
-
-(* Set the current scheme for divide generation *)
-let set_scheme scheme = current_scheme := scheme
-
 module Handler = struct
   open Style
 
@@ -387,7 +381,9 @@ module Handler = struct
     | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style theme =
-    let divide_color_style color shade = divide_color_style ~theme color shade in
+    let divide_color_style color shade =
+      divide_color_style ~theme color shade
+    in
     let divide_color_opacity_style color shade opacity =
       divide_color_opacity_style ~theme color shade opacity
     in

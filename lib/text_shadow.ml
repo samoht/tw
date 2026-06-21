@@ -185,7 +185,7 @@ module Handler = struct
 
   let color_hex ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     match Scheme.hex_color scheme color_name with
     | Some h -> h
     | Stdlib.Option.None -> (

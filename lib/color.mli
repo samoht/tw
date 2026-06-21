@@ -217,9 +217,6 @@ val hex_to_oklab_alpha : string -> float -> Css.color
     with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
     where the color is known at compile time. *)
 
-val current_scheme : unit -> Scheme.t
-(** [current_scheme ()] returns the current color scheme. *)
-
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
@@ -341,11 +338,6 @@ val suborder_with_shade : string -> int
 
 module Handler : sig
   include Utility.Handler
-
-  val set_scheme : Scheme.t -> unit
-  (** Set the current scheme for color generation. When a color is defined as
-      hex in the scheme, opacity modifiers will use hex+alpha fallback instead
-      of color-mix. *)
 end
 
 (** {1 Color with Opacity Helpers}
@@ -432,6 +424,3 @@ val css_color_to_hex : Css.color -> Css.color option
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
-
-val scheme : unit -> Scheme.t
-(** [scheme ()] returns the current color scheme reference. *)

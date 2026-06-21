@@ -693,7 +693,7 @@ module Handler = struct
 
   let drop_shadow_color ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Color.current_scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     match Scheme.hex_color scheme color_name with
     | Option.Some hex ->
         let color_ref : Css.color Css.var =
@@ -724,7 +724,7 @@ module Handler = struct
 
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Color.current_scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     match Scheme.hex_color scheme color_name with
     | Option.Some hex ->
         let percent = Color.opacity_to_percent opacity in

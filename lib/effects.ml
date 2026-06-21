@@ -2,9 +2,6 @@
 
 module Css = Cascade.Css
 
-let current_scheme : Scheme.t ref = ref Scheme.default
-let set_scheme scheme = current_scheme := scheme
-
 module Handler = struct
   open Style
 
@@ -649,7 +646,7 @@ module Handler = struct
 
   let shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
@@ -1165,7 +1162,7 @@ module Handler = struct
 
   let inset_shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
@@ -1418,7 +1415,7 @@ module Handler = struct
   (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
   let ring_default ?theme () =
-    let scheme = match theme with Some t -> t | None -> !current_scheme in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     ring_internal scheme.Scheme.default_ring_width
 
   let inset_ring_internal width_px =

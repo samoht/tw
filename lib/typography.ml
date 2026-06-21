@@ -2031,7 +2031,7 @@ module Typography_late = struct
 
   let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
     let color_name = Color.scheme_color_name color shade in
     match Scheme.hex_color scheme color_name with
     | Some hex_value ->

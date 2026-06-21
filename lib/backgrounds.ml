@@ -952,13 +952,11 @@ module Handler = struct
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
      Fallback rule with hex alpha (for scheme colors) 2. @supports block with
      color-mix using theme variable 3. Separate rule with --tw-gradient-stops *)
-  let gradient_color_opacity ?theme ~prefix ~set_var ?(shade = 500) color opacity
-      =
+  let gradient_color_opacity ?theme ~prefix ~set_var ?(shade = 500) color
+      opacity =
     let percent = Color.opacity_to_percent opacity in
     let color_name = Color.scheme_color_name color shade in
-    let scheme =
-      match theme with Some t -> t | None -> Color.current_scheme ()
-    in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -1429,8 +1427,7 @@ module Handler = struct
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
-    | Bg_opacity (color, shade, opacity) ->
-        bg_with_opacity color shade opacity
+    | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
     | Bg_bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]

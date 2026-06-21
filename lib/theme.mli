@@ -2,9 +2,6 @@
 
 module Css = Cascade.Css
 
-val set_scheme : Scheme.t -> unit
-(** [set_scheme s] sets the current scheme used by spacing calculations. *)
-
 val spacing_var : Css.length Var.theme
 (** [spacing_var] is the shared [--spacing] variable used across padding,
     margin, positioning, etc. *)

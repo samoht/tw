@@ -11,16 +11,8 @@ module Css = Cascade.Css
 
 (** {1 Spacing Variables} *)
 
-(* Current scheme for spacing overrides *)
-let current_scheme : Scheme.t ref = ref Scheme.default
-
-(* Set the current scheme for spacing generation *)
-let set_scheme scheme = current_scheme := scheme
-
-(* Resolve the scheme to read from: the threaded [theme] when given, else the
-   global. Migration scaffold while spacing callers move onto the threaded
-   scheme. *)
-let resolve_scheme = function Some s -> s | None -> !current_scheme
+(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
+let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 (* Shared spacing variable used across padding, margin, positioning, etc.
    Tailwind v4 uses a single --spacing: 0.25rem variable and calc() for

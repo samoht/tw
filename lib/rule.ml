@@ -146,9 +146,7 @@ module Rules_selector = struct
     transform selector
 end
 
-let current_scheme = ref Scheme.default
-let set_scheme scheme = current_scheme := scheme
-let resolve_scheme = function Some s -> s | None -> !current_scheme
+let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 let breakpoint_rem = function
   | `Sm -> 40.
