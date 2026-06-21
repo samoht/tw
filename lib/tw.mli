@@ -2256,6 +2256,12 @@ val rounded_bl_full : t
 val shadow_none : t
 (** [shadow_none] removes the shadow. *)
 
+val shadow_2xs : t
+(** [shadow_2xs] applies the smallest shadow. *)
+
+val shadow_xs : t
+(** [shadow_xs] applies an extra-small shadow. *)
+
 val shadow_sm : t
 (** [shadow_sm] applies a subtle shadow for cards. *)
 

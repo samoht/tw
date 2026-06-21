@@ -22,6 +22,12 @@ module Handler : Utility.Handler
 val shadow_none : t
 (** [shadow_none] applies no shadow. *)
 
+val shadow_2xs : t
+(** [shadow_2xs] applies the smallest shadow. *)
+
+val shadow_xs : t
+(** [shadow_xs] applies an extra-small shadow. *)
+
 val shadow_sm : t
 (** [shadow_sm] applies a small shadow. *)
 
