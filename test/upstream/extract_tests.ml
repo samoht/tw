@@ -6,24 +6,33 @@
     - Utility class names
     - Expected CSS output from toMatchInlineSnapshot
 
-    {2 Generating utilities.txt}
+    {2 Generating the fixtures}
 
-    The [utilities.txt] file is generated from the upstream Tailwind CSS test
-    suite. To regenerate it:
+    The parity target is Tailwind CSS {b v4.3.1} (the version pinned in
+    [package.json] and enforced by [Tailwind_gen.required_version]). The
+    committed [utilities.txt] and [variants.txt] were generated from the v4.3.1
+    line of the upstream test suite -- specifically commit [5e9f66e4]
+    ([v4.3.1-7]); a few cases (e.g. auto-cols) differ between the bare [v4.3.1]
+    tag and that commit, so regenerate from the same ref to avoid spurious
+    diffs. To regenerate:
 
     {v
-    # Clone tailwindcss repo (or use existing clone)
+    # Clone tailwindcss (or use an existing clone) at the v4.3.1 line
     git clone https://github.com/tailwindlabs/tailwindcss.git /tmp/tailwindcss
-    cd /tmp/tailwindcss && git checkout v4.1.8  # or desired version
+    cd /tmp/tailwindcss && git checkout v4.3.1
 
-    # Extract tests
+    # Extract both fixtures
     dune exec test/upstream/extract_tests.exe -- \
       /tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
       > test/upstream/utilities.txt
+    dune exec test/upstream/extract_tests.exe -- \
+      /tmp/tailwindcss/packages/tailwindcss/src/variants.test.ts \
+      > test/upstream/variants.txt
     v}
 
-    {b Do NOT edit utilities.txt directly.} If test expectations need updating,
-    regenerate from a newer Tailwind version or fix the extraction script.
+    {b Do NOT edit the .txt fixtures directly.} If test expectations need
+    updating, regenerate from the pinned Tailwind version or fix the extraction
+    script.
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
