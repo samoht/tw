@@ -161,3 +161,8 @@ val check_parts : (module Handler) -> string list -> unit
 val check_invalid_parts : (module Handler) -> string list -> unit
 (** [check_invalid_parts h parts] concatenates parts with "-" and tests that
     parsing fails. *)
+
+val check_typed_class : string -> Tw.t -> unit
+(** [check_typed_class cls value] checks that the typed constructor [value]
+    pretty-prints to [cls] and that [cls] round-trips back through
+    [Tw.of_string]. *)

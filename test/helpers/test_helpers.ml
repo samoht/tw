@@ -360,3 +360,14 @@ let check_parts (module H : Handler) parts =
 let check_invalid_parts (module H : Handler) parts =
   let class_name = String.concat "-" parts in
   check_invalid_input (module H) class_name
+
+(** [check_typed_class cls value] checks that the typed constructor [value]
+    pretty-prints to class name [cls] and that [cls] round-trips back through
+    [Tw.of_string] to the same name. Used to pin newly exposed typed
+    constructors against the string parser. *)
+let check_typed_class cls value =
+  Alcotest.(check string) cls cls (Tw.pp value);
+  match Tw.of_string cls with
+  | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
+  | Error (`Msg m) ->
+      Alcotest.failf "%s: parser rejected its own class: %s" cls m
