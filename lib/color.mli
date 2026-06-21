@@ -198,9 +198,11 @@ val property_color_var :
 (** [property_color_var ~property_prefix color shade] gets or creates a
     property-scoped color variable (e.g., [--border-color-blue-500]). *)
 
-val property_color_value : property_prefix:string -> color -> int -> Css.color
-(** [property_color_value ~property_prefix color shade] returns the CSS color
-    value for a property-scoped color variable. *)
+val property_color_value :
+  ?theme:Scheme.t -> property_prefix:string -> color -> int -> Css.color
+(** [property_color_value ?theme ~property_prefix color shade] returns the CSS
+    color value for a property-scoped color variable, reading scheme colors from
+    [theme] when given (default: the current global scheme). *)
 
 val scheme_color_name : color -> int -> string
 (** [scheme_color_name color shade] returns the scheme color name (e.g.,

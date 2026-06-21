@@ -1623,6 +1623,11 @@ module Handler = struct
   (** Set the current scheme for color generation *)
   let set_scheme scheme = current_scheme := scheme
 
+  (** Resolve the scheme to read from: the explicitly threaded [theme] when
+      given, otherwise the current global scheme. Migration scaffold while
+      callers move from the global to the threaded [Scheme.t]. *)
+  let resolve_scheme = function Some s -> s | None -> !current_scheme
+
   (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
       defined before [open Css] to use the outer [color] type. *)
   let scheme_color_name (c : color) shade =
@@ -1633,9 +1638,9 @@ module Handler = struct
 
   (** Get the color value for a color and shade, checking scheme first. When
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
-  let get_color_value (c : color) shade =
+  let get_color_value ?theme (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
@@ -1668,13 +1673,13 @@ module Handler = struct
   (** Get the color value for use with color variables. Checks for
       property-scoped theme value first, then scheme, then generic theme value,
       then converts from oklch as fallback. *)
-  let property_color_value ~property_prefix (c : color) shade =
+  let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
     match Var.theme_value prop_name with
     | Some value -> Css.hex value
     | None -> (
-        match Scheme.hex_color !current_scheme color_name with
+        match Scheme.hex_color (resolve_scheme theme) color_name with
         | Some hex -> Css.hex hex
         | None -> (
             (* Check theme value overrides for standard color name *)
