@@ -5,6 +5,7 @@ module Css = Cascade.Css
 (* Capture project Pp helpers before open Css shadows Pp with Css.Pp. *)
 let pp_float = Pp.float
 let pp_str = Pp.str
+let pp_hex_byte = Pp.hex_byte
 
 module Handler = struct
   open Style
@@ -128,21 +129,119 @@ module Handler = struct
 
   (* ============ Shape definitions ============ *)
 
+  (* v4.3.1 default text-shadow scale (the values the bare CLI emits). 2xs/xs
+     are single shadows; sm/md/lg are 3-shadow stacks. *)
   let shape_shadows (shape : shape) :
       (length * length * length option * string) list =
     match shape with
-    | S_2xs -> [ ((Px 0. : length), Px 1., Some (Px 0.), "#0000001a") ]
-    | S_xs -> [ ((Px 0. : length), Px 1., Some (Px 1.), "#0000001a") ]
+    | S_2xs -> [ ((Px 0. : length), Px 1., Some (Px 0.), "#00000026") ]
+    | S_xs -> [ ((Px 0. : length), Px 1., Some (Px 1.), "#00000033") ]
     | S_sm ->
         [
-          ((Px 0. : length), Px 1., Some (Px 2.), "#0000000f");
-          (Px 0., Px 2., Some (Px 2.), "#0000000f");
+          ((Px 0. : length), Px 1., Some (Px 0.), "#00000013");
+          (Px 0., Px 1., Some (Px 1.), "#00000013");
+          (Px 0., Px 2., Some (Px 2.), "#00000013");
         ]
-    | S_md -> [ ((Px 0. : length), Px 2., Some (Px 4.), "#0000001a") ]
-    | S_lg -> [ ((Px 0. : length), Px 4., Some (Px 8.), "#0000001a") ]
+    | S_md ->
+        [
+          ((Px 0. : length), Px 1., Some (Px 1.), "#0000001a");
+          (Px 0., Px 1., Some (Px 2.), "#0000001a");
+          (Px 0., Px 2., Some (Px 4.), "#0000001a");
+        ]
+    | S_lg ->
+        [
+          ((Px 0. : length), Px 1., Some (Px 2.), "#0000001a");
+          (Px 0., Px 3., Some (Px 2.), "#0000001a");
+          (Px 0., Px 4., Some (Px 8.), "#0000001a");
+        ]
 
-  let shape_text_shadow shape =
-    let shadows = shape_shadows shape in
+  (* Theme token name for a shape's scale value (matches the @theme keys, e.g.
+     --text-shadow-2xs). *)
+  let shape_token = function
+    | S_2xs -> "text-shadow-2xs"
+    | S_xs -> "text-shadow-xs"
+    | S_sm -> "text-shadow-sm"
+    | S_md -> "text-shadow-md"
+    | S_lg -> "text-shadow-lg"
+
+  (* Parse a theme shadow-list override (e.g. "0px 1px 0px rgb(0 0 0 / 0.1), 0px
+     2px 2px rgb(0 0 0 / 0.06)") into the same (h, v, blur, hex) tuples
+     [shape_shadows] returns. Splits on top-level commas, then for each shadow
+     takes the leading length tokens and converts the trailing colour to a hex
+     string. *)
+  let hex_string_of_color (s : string) : string =
+    match Css.parse_color s with
+    | Some c -> (
+        match Color.css_color_to_hex c with
+        | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }) ->
+            let bh = pp_hex_byte in
+            "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
+        | _ -> s)
+    | None -> s
+
+  let parse_shadow_list (s : string) :
+      (length * length * length option * string) list =
+    let split_top_level str =
+      let buf = Buffer.create 32 and acc = ref [] and depth = ref 0 in
+      String.iter
+        (fun c ->
+          if c = '(' then (
+            incr depth;
+            Buffer.add_char buf c)
+          else if c = ')' then (
+            decr depth;
+            Buffer.add_char buf c)
+          else if c = ',' && !depth = 0 then (
+            acc := Buffer.contents buf :: !acc;
+            Buffer.clear buf)
+          else Buffer.add_char buf c)
+        str;
+      acc := Buffer.contents buf :: !acc;
+      List.rev_map String.trim !acc
+    in
+    let parse_len str : length option =
+      match str with
+      | "0" -> Some (Zero : length)
+      | _ ->
+          let n = String.length str in
+          let cut suf = String.sub str 0 (n - String.length suf) in
+          if Filename.check_suffix str "px" then
+            Option.map
+              (fun f -> (Px f : length))
+              (float_of_string_opt (cut "px"))
+          else if Filename.check_suffix str "rem" then
+            Option.map
+              (fun f -> (Rem f : length))
+              (float_of_string_opt (cut "rem"))
+          else None
+    in
+    let parse_one shadow =
+      let toks = String.split_on_char ' ' shadow |> List.filter (( <> ) "") in
+      let rec take_lengths acc = function
+        | t :: rest -> (
+            match parse_len t with
+            | Some l -> take_lengths (l :: acc) rest
+            | None -> (List.rev acc, t :: rest))
+        | [] -> (List.rev acc, [])
+      in
+      let lengths, color_toks = take_lengths [] toks in
+      let color = hex_string_of_color (String.concat " " color_toks) in
+      match lengths with
+      | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
+      | [ h; v; blur ] -> Some (h, v, Some blur, color)
+      | _ -> Stdlib.Option.None
+    in
+    List.filter_map parse_one (split_top_level s)
+
+  (* Shadows for a shape: a threaded [@theme] override if present, else the
+     v4.3.1 default scale. *)
+  let shadows_for ?theme shape =
+    match Scheme.theme_value theme (shape_token shape) with
+    | Some override -> parse_shadow_list override
+    | None -> shape_shadows shape
+
+  let shape_text_shadow ?theme shape =
+    let shadows = shadows_for ?theme shape in
     let text_shadows =
       List.map
         (fun (h, v, blur, fallback_hex) ->
@@ -158,8 +257,8 @@ module Handler = struct
     | [ single ] -> Css.text_shadow single
     | multiple -> Css.text_shadows multiple
 
-  let shape_text_shadow_opacity shape opacity =
-    let shadows = shape_shadows shape in
+  let shape_text_shadow_opacity ?theme shape opacity =
+    let shadows = shadows_for ?theme shape in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
     let text_shadows =
@@ -443,6 +542,10 @@ module Handler = struct
     let set_color c shade = set_color ~theme c shade in
     let set_color_opacity c shade opacity =
       set_color_opacity ~theme c shade opacity
+    in
+    let shape_text_shadow shape = shape_text_shadow ~theme shape in
+    let shape_text_shadow_opacity shape opacity =
+      shape_text_shadow_opacity ~theme shape opacity
     in
     function
     | Text_shadow_none ->
