@@ -2004,7 +2004,7 @@ module Typography_late = struct
     let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ text_decoration_thickness (Var var_ref) ]
 
-  let decoration_color ?(shade = 500) (color : Color.color) =
+  let decoration_color ?theme ?(shade = 500) (color : Color.color) =
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
       style
@@ -2018,8 +2018,8 @@ module Typography_late = struct
           shade
       in
       let color_value =
-        Color.property_color_value ~property_prefix:"text-decoration-color"
-          color shade
+        Color.property_color_value ?theme
+          ~property_prefix:"text-decoration-color" color shade
       in
       let color_decl, color_ref = Var.binding color_var color_value in
       style
@@ -2029,9 +2029,9 @@ module Typography_late = struct
           text_decoration_color (Css.Var color_ref);
         ]
 
-  let decoration_color_with_opacity (color : Color.color) shade opacity =
+  let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let scheme = Color.scheme () in
+    let scheme = match theme with Some t -> t | None -> Color.scheme () in
     let color_name = Color.scheme_color_name color shade in
     match Scheme.hex_color scheme color_name with
     | Some hex_value ->
@@ -2640,7 +2640,12 @@ module Typography_late = struct
   let stacked_fractions =
     font_variant_numeric_utility `Fraction Stacked_fractions
 
-  let to_style _theme = function
+  let to_style theme =
+    let decoration_color ?shade color = decoration_color ~theme ?shade color in
+    let decoration_color_with_opacity color shade opacity =
+      decoration_color_with_opacity ~theme color shade opacity
+    in
+    function
     | Decoration_color (color, None) -> decoration_color color
     | Decoration_color (color, Some shade) -> decoration_color ~shade color
     | Decoration_color_opacity (color, shade, opacity) ->
