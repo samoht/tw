@@ -245,8 +245,8 @@ module Handler = struct
 
   (* Generate a theme-layer declaration for a theme variable if its value is
      set. This produces the --name: value entry for the :root, :host block. *)
-  let theme_decl_if_set name =
-    match Var.theme_value name with
+  let theme_decl_if_set ?theme name =
+    match Scheme.theme_value theme name with
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
@@ -255,20 +255,20 @@ module Handler = struct
      generates a theme-layer declaration for the theme variable. Returns a
      function (unit -> Style.t) so that theme_decl_if_set is evaluated lazily at
      utility evaluation time, not at module init time. *)
-  let set_filter_var_theme var_name theme_name
+  let set_filter_var_theme ?theme var_name theme_name
       (make_filter : Css.length -> Css.filter) () =
     let ref_ : Css.length Css.var = Var.theme_ref theme_name in
     style ~property_rules:filter_property_rules
-      (theme_decl_if_set theme_name
+      (theme_decl_if_set ?theme theme_name
       @ [
           filter_var_decl var_name (make_filter (Var ref_));
           filter composable_filter_chain;
         ])
 
-  let blur_none () =
-    match Var.theme_value "blur-none" with
+  let blur_none ?theme () =
+    match Scheme.theme_value theme "blur-none" with
     | Some _ ->
-        set_filter_var_theme "--tw-blur" "blur-none" (fun l -> Blur l) ()
+        set_filter_var_theme ?theme "--tw-blur" "blur-none" (fun l -> Blur l) ()
     | None ->
         style
           [
@@ -500,9 +500,9 @@ module Handler = struct
      two-shadow stack inlined as a literal (no [--drop-shadow] theme var). When
      a custom theme overrides [--drop-shadow] with a single shadow value, it is
      referenced via [drop-shadow(var(--drop-shadow))] instead. *)
-  let drop_shadow_override () =
+  let drop_shadow_override ?theme () =
     style ~property_rules:filter_property_rules
-      (theme_decl_if_set "drop-shadow"
+      (theme_decl_if_set ?theme "drop-shadow"
       @ [
           bind_drop_shadow_size
             (drop_shadow_filter Zero (Px 1.) (Some (Px 1.))
@@ -539,9 +539,9 @@ module Handler = struct
         filter composable_filter_chain;
       ]
 
-  let drop_shadow_ () =
-    match Var.theme_value "drop-shadow" with
-    | Some _ -> drop_shadow_override ()
+  let drop_shadow_ ?theme () =
+    match Scheme.theme_value theme "drop-shadow" with
+    | Some _ -> drop_shadow_override ?theme ()
     | None -> drop_shadow_default ()
 
   (* A sized drop-shadow utility: [drop-shadow-{sm,md,lg,xl,2xl}].
@@ -601,9 +601,9 @@ module Handler = struct
      [--drop-shadow-<name>] theme value. Parses the theme value into one or more
      shadow bodies, hoists each colour into [--tw-drop-shadow-color], and
      references the token from [--tw-drop-shadow]. *)
-  let drop_shadow_named name =
+  let drop_shadow_named ?theme name =
     let theme_name = "drop-shadow-" ^ name in
-    match Var.theme_value theme_name with
+    match Scheme.theme_value theme theme_name with
     | None -> style []
     | Some value ->
         let cursor = Cascade.Cursor.of_string value in
@@ -712,7 +712,7 @@ module Handler = struct
         Group
           [
             style ~rules:(Option.Some [ supports_block ])
-              (theme_decl_if_set ("color-" ^ color_name)
+              (theme_decl_if_set ?theme ("color-" ^ color_name)
               @ [ bind_drop_shadow_color (Css.hex hex) ]);
             style ~property_rules:filter_property_rules
               [ bind_drop_shadow drop_shadow_size_ref ];
@@ -748,7 +748,7 @@ module Handler = struct
         Group
           [
             style ~rules:(Option.Some [ supports_block ])
-              (theme_decl_if_set ("color-" ^ color_name)
+              (theme_decl_if_set ?theme ("color-" ^ color_name)
               @ [ bind_drop_shadow_color (Css.hex hex_with_alpha) ]);
             style ~property_rules:filter_property_rules
               [ bind_drop_shadow drop_shadow_size_ref ];
@@ -758,7 +758,7 @@ module Handler = struct
           ("drop-shadow color not found in scheme: "
           ^ Color.scheme_color_name c shade)
 
-  let drop_shadow_opacity opacity =
+  let drop_shadow_opacity ?theme opacity =
     let alpha_str =
       match opacity with
       | Color.Opacity_percent p -> string_of_int (int_of_float p) ^ "%"
@@ -769,7 +769,7 @@ module Handler = struct
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
     style ~property_rules:filter_property_rules
-      (theme_decl_if_set "drop-shadow"
+      (theme_decl_if_set ?theme "drop-shadow"
       @ [
           Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
             alpha_str;
@@ -819,7 +819,7 @@ module Handler = struct
         backdrop_filter composable_backdrop_filter_chain;
       ]
 
-  let set_backdrop_var_theme var_name theme_name
+  let set_backdrop_var_theme ?theme var_name theme_name
       (make_filter : Css.length -> Css.filter) () =
     (* Tailwind uses themeKeys: ['--backdrop-X', '--X'] fallback. Check
        backdrop-specific theme first, then base theme. *)
@@ -832,33 +832,36 @@ module Handler = struct
       else None
     in
     let actual_theme_name =
-      match Var.theme_value theme_name with
+      match Scheme.theme_value theme theme_name with
       | Some _ -> theme_name
       | None -> (
           match fallback_name with
           | Some fb -> (
-              match Var.theme_value fb with Some _ -> fb | None -> theme_name)
+              match Scheme.theme_value theme fb with
+              | Some _ -> fb
+              | None -> theme_name)
           | None -> theme_name)
     in
     let ref_ : Css.length Css.var = Var.theme_ref actual_theme_name in
     style ~property_rules:backdrop_filter_property_rules
-      (theme_decl_if_set actual_theme_name
+      (theme_decl_if_set ?theme actual_theme_name
       @ [
           filter_var_decl var_name (make_filter (Var ref_));
           Css.webkit_backdrop_filter composable_backdrop_filter_chain;
           backdrop_filter composable_backdrop_filter_chain;
         ])
 
-  let backdrop_blur_none () =
-    match Var.theme_value "backdrop-blur-none" with
+  let backdrop_blur_none ?theme () =
+    match Scheme.theme_value theme "backdrop-blur-none" with
     | Some _ ->
-        set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-none"
+        set_backdrop_var_theme ?theme "--tw-backdrop-blur" "backdrop-blur-none"
           (fun l -> Blur l)
           ()
     | None -> (
-        match Var.theme_value "blur-none" with
+        match Scheme.theme_value theme "blur-none" with
         | Some _ ->
-            set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-none"
+            set_backdrop_var_theme ?theme "--tw-backdrop-blur"
+              "backdrop-blur-none"
               (fun l -> Blur l)
               ()
         | None ->
@@ -1027,6 +1030,11 @@ module Handler = struct
     let drop_shadow_color_opacity c shade opacity =
       drop_shadow_color_opacity ~theme c shade opacity
     in
+    let blur_none () = blur_none ~theme () in
+    let drop_shadow_ () = drop_shadow_ ~theme () in
+    let drop_shadow_named name = drop_shadow_named ~theme name in
+    let drop_shadow_opacity op = drop_shadow_opacity ~theme op in
+    let backdrop_blur_none () = backdrop_blur_none ~theme () in
     function
     | Filter -> filter_
     | Filter_none -> filter_none

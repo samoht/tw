@@ -43,7 +43,7 @@ module Handler = struct
         (Some decl, len)
     | `Named name -> (
         let prop_name = "spacing-" ^ name in
-        match Var.theme_value prop_name with
+        match Scheme.theme_value theme prop_name with
         | Some value_str ->
             let decl =
               Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
@@ -83,9 +83,9 @@ module Handler = struct
         let decl, len = spacing_to_decl_len ?theme ~negative:false s in
         style (Option.to_list decl @ [ prop [ len ] ])
 
-  let named_margin_value name : Css.declaration option * Css.length =
+  let named_margin_value ?theme name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
-    match Var.theme_value prop_name with
+    match Scheme.theme_value theme prop_name with
     | Some value_str ->
         let decl =
           Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
@@ -154,6 +154,7 @@ module Handler = struct
     let mbe m = v ~theme margin_block_end m in
     let margin_util_neg prop s = margin_util_neg ~theme prop s in
     let margin_list_util_neg prop s = margin_list_util_neg ~theme prop s in
+    let named_margin_value name = named_margin_value ~theme name in
     let prop = prop_for_axis axis in
     match value with
     | Arbitrary len ->

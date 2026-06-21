@@ -652,10 +652,10 @@ module Handler = struct
     | Stdlib.Option.None -> (
         (* Check property-scoped theme value first *)
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.theme_value prop_name with
+        match Scheme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Var.theme_value ("color-" ^ color_name) with
+            match Scheme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -668,7 +668,7 @@ module Handler = struct
     in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -690,7 +690,7 @@ module Handler = struct
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1167,10 +1167,10 @@ module Handler = struct
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.theme_value prop_name with
+        match Scheme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Var.theme_value ("color-" ^ color_name) with
+            match Scheme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -1184,7 +1184,7 @@ module Handler = struct
     in
     let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"inset-box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1209,7 +1209,7 @@ module Handler = struct
       Var.binding inset_shadow_color_var (Css.hex hex_with_alpha)
     in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"inset-box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1476,9 +1476,9 @@ module Handler = struct
     in
     style [ decl ]
 
-  let ring_color color shade =
+  let ring_color ?theme color shade =
     let cvar =
-      Color.property_color_var ~property_prefix:"ring-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"ring-color" color shade
@@ -1493,7 +1493,7 @@ module Handler = struct
     | Some hex_alpha ->
         let fallback, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
         let cvar =
-          Color.property_color_var ~property_prefix:"ring-color" color shade
+          Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
         in
         let color_value =
           Color.property_color_value ~property_prefix:"ring-color" color shade
@@ -1512,7 +1512,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_color color shade
+    | None -> ring_color ?theme color shade
 
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
@@ -1529,11 +1529,11 @@ module Handler = struct
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
-  let ring_offset_color color shade =
+  let ring_offset_color ?theme color shade =
     (* Sets --tw-ring-offset-color to reference theme color variable. Uses
        property-scoped variable: --ring-offset-color-blue-500 *)
     let color_theme_var =
-      Color.property_color_var ~property_prefix:"ring-offset-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"ring-offset-color" color
@@ -1595,7 +1595,7 @@ module Handler = struct
           Var.binding ring_offset_color_var (Css.hex hex_alpha)
         in
         let cvar =
-          Color.property_color_var ~property_prefix:"ring-offset-color" color
+          Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color
             shade
         in
         let color_value =
@@ -1616,7 +1616,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_offset_color color shade
+    | None -> ring_offset_color ?theme color shade
 
   let ring_offset_transparent =
     let d, _ = Var.binding ring_offset_color_var Css.Transparent in
@@ -1722,9 +1722,9 @@ module Handler = struct
       [ fallback ]
 
   (* Inset-ring utilities *)
-  let inset_ring_color color shade =
+  let inset_ring_color ?theme color shade =
     let cvar =
-      Color.property_color_var ~property_prefix:"inset-ring-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"inset-ring-color" color shade
@@ -1741,7 +1741,7 @@ module Handler = struct
           Var.binding inset_ring_color_var (Css.hex hex_alpha)
         in
         let cvar =
-          Color.property_color_var ~property_prefix:"inset-ring-color" color
+          Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color
             shade
         in
         let color_value =
@@ -1762,7 +1762,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> inset_ring_color color shade
+    | None -> inset_ring_color ?theme color shade
 
   let inset_ring_transparent =
     let d, _ = Var.binding inset_ring_color_var Css.Transparent in
@@ -2005,6 +2005,9 @@ module Handler = struct
       inset_ring_color_with_opacity ~theme color shade opacity
     in
     let ring_default () = ring_default ~theme () in
+    let ring_color color shade = ring_color ~theme color shade in
+    let ring_offset_color color shade = ring_offset_color ~theme color shade in
+    let inset_ring_color color shade = inset_ring_color ~theme color shade in
     function
     | Shadow_none -> shadow_none
     | Shadow_2xs -> shadow_2xs

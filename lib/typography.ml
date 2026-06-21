@@ -898,8 +898,8 @@ module Typography_early = struct
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
-  let leading_none () =
-    match Var.theme_value "leading-none" with
+  let leading_none ?theme () =
+    match Scheme.theme_value theme "leading-none" with
     | Some _ -> leading_with_theme_var leading_none_var (Num 1.0)
     | None ->
         (* Tailwind v4.3 ships no --leading-none token, so inline the literal
@@ -917,9 +917,9 @@ module Typography_early = struct
   let leading_relaxed = leading_with_theme_var leading_relaxed_var (Num 1.625)
   let leading_loose = leading_with_theme_var leading_loose_var (Num 2.0)
 
-  let leading n =
+  let leading ?theme n =
     let name = "leading-" ^ string_of_int n in
-    match Var.theme_value name with
+    match Scheme.theme_value theme name with
     | Some _ ->
         (* A theme overrides --leading-N: reference it like a named leading. *)
         let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
@@ -1079,7 +1079,10 @@ module Typography_early = struct
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
 
-  let to_style _theme = function
+  let to_style theme =
+    let leading_none () = leading_none ~theme () in
+    let leading n = leading ~theme n in
+    function
     | Text_xs -> text_xs ()
     | Text_sm -> text_sm ()
     | Text_base -> text_base ()
@@ -2014,8 +2017,8 @@ module Typography_late = struct
         ]
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"text-decoration-color" color
-          shade
+        Color.property_color_var ?theme ~property_prefix:"text-decoration-color"
+          color shade
       in
       let color_value =
         Color.property_color_value ?theme
@@ -2058,8 +2061,8 @@ module Typography_late = struct
     | None ->
         (* No scheme hex: use property-scoped variable *)
         let color_var =
-          Color.property_color_var ~property_prefix:"text-decoration-color"
-            color shade
+          Color.property_color_var ?theme
+            ~property_prefix:"text-decoration-color" color shade
         in
         let color_value =
           Color.property_color_value ~property_prefix:"text-decoration-color"
@@ -2293,8 +2296,8 @@ module Typography_late = struct
     in
     style ~property_rules [ channel_decl; letter_spacing direct_neg ]
 
-  let underline_offset_auto () =
-    match Var.theme_value "text-underline-offset-auto" with
+  let underline_offset_auto ?theme () =
+    match Scheme.theme_value theme "text-underline-offset-auto" with
     | Some _ ->
         let decl, ref_ =
           Var.binding underline_offset_auto_var (Auto : Css.length)
@@ -2375,8 +2378,8 @@ module Typography_late = struct
         overflow Hidden;
       ]
 
-  let line_clamp_none_style () =
-    match Var.theme_value "line-clamp-none" with
+  let line_clamp_none_style ?theme () =
+    match Scheme.theme_value theme "line-clamp-none" with
     | Some value_str -> (
         match int_of_string_opt value_str with
         | Some n ->
@@ -2442,10 +2445,10 @@ module Typography_late = struct
     let c : Css.content = Css.Var content_ref in
     style ~property_rules [ content_decl; Css.content c ]
 
-  let content_named name =
+  let content_named ?theme name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
-      match Var.theme_value var_name with
+      match Scheme.theme_value theme var_name with
       | Some _ ->
           let tv = Var.theme Css.Content var_name ~order:(6, 60) in
           let theme_decl, theme_ref = Var.binding tv (String "") in
@@ -2473,14 +2476,14 @@ module Typography_late = struct
   let align_sub = style [ vertical_align Sub ]
   let align_super = style [ vertical_align Super ]
 
-  let list_none () =
+  let list_none ?theme () =
     let var_name = "list-style-type-none" in
     let ref =
       Var.theme_ref var_name
         ~default:(None : Css.list_style_type)
         ~default_css:"none"
     in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
@@ -2503,14 +2506,14 @@ module Typography_late = struct
     let ref : Css.list_style_image Css.var = Var.bracket inner in
     style [ list_style_image (Var ref) ]
 
-  let list_image_none () =
+  let list_image_none ?theme () =
     let var_name = "list-style-image-none" in
     let ref =
       Var.theme_ref var_name
         ~default:(None : Css.list_style_image)
         ~default_css:"none"
     in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
@@ -2645,6 +2648,11 @@ module Typography_late = struct
     let decoration_color_with_opacity color shade opacity =
       decoration_color_with_opacity ~theme color shade opacity
     in
+    let underline_offset_auto () = underline_offset_auto ~theme () in
+    let line_clamp_none_style () = line_clamp_none_style ~theme () in
+    let content_named name = content_named ~theme name in
+    let list_none () = list_none ~theme () in
+    let list_image_none () = list_image_none ~theme () in
     function
     | Decoration_color (color, None) -> decoration_color color
     | Decoration_color (color, Some shade) -> decoration_color ~shade color

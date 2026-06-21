@@ -1640,10 +1640,10 @@ module Handler = struct
       value exists (e.g., [--accent-color-blue-500]) and if so creates a
       property-scoped variable. Otherwise falls back to the generic
       [--color-{name}] variable. *)
-  let property_color_var ~property_prefix (c : color) shade =
+  let property_color_var ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Var.theme_value prop_name with
+    match Scheme.theme_value theme prop_name with
     | Some _ -> (
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
@@ -1668,7 +1668,7 @@ module Handler = struct
   let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Var.theme_value prop_name with
+    match Scheme.theme_value theme prop_name with
     | Some value -> Css.hex value
     | None -> (
         match Scheme.hex_color (resolve_scheme theme) color_name with
@@ -1676,7 +1676,7 @@ module Handler = struct
         | None -> (
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
-            match Var.theme_value std_name with
+            match Scheme.theme_value theme std_name with
             | Some value -> Css.hex value
             | None -> to_css c (if is_base_color c then 500 else shade)))
 
@@ -2015,10 +2015,10 @@ module Handler = struct
     else
       let color_name = scheme_color_name color shade in
       let prop_name = "text-color-" ^ color_name in
-      let has_property_scoped = Var.theme_value prop_name <> None in
+      let has_property_scoped = Scheme.theme_value theme prop_name <> None in
       let cv, color_value =
         if has_property_scoped then
-          ( property_color_var ~property_prefix:"text-color" color shade,
+          ( property_color_var ?theme ~property_prefix:"text-color" color shade,
             property_color_value ?theme ~property_prefix:"text-color" color
               shade )
         else (color_var color shade, get_color_value ?theme color shade)
@@ -2079,7 +2079,7 @@ module Handler = struct
       style [ Css.accent_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"accent-color" color shade
+        property_color_var ?theme ~property_prefix:"accent-color" color shade
       in
       let color_value =
         property_color_value ?theme ~property_prefix:"accent-color" color shade
@@ -2099,7 +2099,7 @@ module Handler = struct
       style [ Css.caret_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"caret-color" color shade
+        property_color_var ?theme ~property_prefix:"caret-color" color shade
       in
       let color_value =
         property_color_value ?theme ~property_prefix:"caret-color" color shade
@@ -2119,7 +2119,7 @@ module Handler = struct
       style [ Css.outline_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"outline-color" color shade
+        property_color_var ?theme ~property_prefix:"outline-color" color shade
       in
       let color_value =
         property_color_value ?theme ~property_prefix:"outline-color" color shade
@@ -2297,7 +2297,8 @@ module Handler = struct
           (* Non-scheme color: use property-scoped variable if prefix given *)
           let color_var =
             match property_prefix with
-            | Some prefix -> property_color_var ~property_prefix:prefix c shade
+            | Some prefix ->
+                property_color_var ?theme ~property_prefix:prefix c shade
             | Stdlib.Option.None -> color_var c shade
           in
           let color_value =
@@ -2337,7 +2338,8 @@ module Handler = struct
       if not (is_custom_color c) then
         let color_name = scheme_color_name c shade in
         let prop_name = "text-color-" ^ color_name in
-        if Var.theme_value prop_name <> None then Some "text-color" else None
+        if Scheme.theme_value theme prop_name <> None then Some "text-color"
+        else None
       else None
     in
     color_with_opacity_style ?theme ~property:Css.color ?property_prefix c shade
@@ -3066,8 +3068,10 @@ let stroke_current_with_opacity opacity =
     ~property:(fun color -> Css.stroke (Css.Color color))
     opacity
 
-let divide_opacity_via_property ~selector c shade percent =
-  let cvar = property_color_var ~property_prefix:"border-color" c shade in
+let divide_opacity_via_property ?theme ~selector c shade percent =
+  let cvar =
+    property_color_var ?theme ~property_prefix:"border-color" c shade
+  in
   let color_value =
     property_color_value ~property_prefix:"border-color" c shade
   in
@@ -3137,7 +3141,7 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
           color_mix_supports_stmts ~stmts:[ supports_rule ]
         in
         Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
-    | None -> divide_opacity_via_property ~selector c shade percent
+    | None -> divide_opacity_via_property ?theme ~selector c shade percent
 
 let divide_with_opacity ?theme c shade opacity selector =
   divide_with_opacity_selector ?theme ~selector c shade opacity
@@ -3200,9 +3204,9 @@ let bg_with_opacity ?theme c shade opacity =
     theme defines a var reference (e.g., "var(--custom-opacity)"), use
     [Var_fallback] with the inner var name. Otherwise fall back to the
     conventional [name-opacity] pattern. *)
-let opacity_fallback_for_theme_value var_name bare : Css.percentage Css.fallback
-    =
-  match Var.theme_value var_name with
+let opacity_fallback_for_theme_value ?theme var_name bare :
+    Css.percentage Css.fallback =
+  match Scheme.theme_value theme var_name with
   | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in
@@ -3219,7 +3223,7 @@ let opacity_fallback_for_theme_value var_name bare : Css.percentage Css.fallback
   | None -> Css.Var_fallback (bare ^ "-opacity")
 
 (** Background currentColor with opacity *)
-let bg_current_with_opacity opacity =
+let bg_current_with_opacity ?theme opacity =
   let open Handler in
   let fallback_decl = Css.background_color Css.Current in
   let oklab_color =
@@ -3227,7 +3231,7 @@ let bg_current_with_opacity opacity =
     | Opacity_named name ->
         let bare = Parse.extract_var_name name in
         let var_name = "opacity-" ^ bare in
-        let fallback = opacity_fallback_for_theme_value var_name bare in
+        let fallback = opacity_fallback_for_theme_value ?theme var_name bare in
         Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
           Css.Current Css.Transparent
     | Opacity_var var_str ->

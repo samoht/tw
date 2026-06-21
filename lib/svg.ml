@@ -69,7 +69,7 @@ module Handler = struct
       style [ Css.fill (Css.Color css_color) ]
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"fill" color shade
+        Color.property_color_var ?theme ~property_prefix:"fill" color shade
       in
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"fill" color shade
@@ -84,7 +84,7 @@ module Handler = struct
       style [ Css.stroke (Css.Color css_color) ]
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"stroke" color shade
+        Color.property_color_var ?theme ~property_prefix:"stroke" color shade
       in
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"stroke" color shade

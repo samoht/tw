@@ -189,7 +189,7 @@ module Handler = struct
     match Scheme.hex_color scheme color_name with
     | Some h -> h
     | Stdlib.Option.None -> (
-        match Var.theme_value ("color-" ^ color_name) with
+        match Scheme.theme_value theme ("color-" ^ color_name) with
         | Some h -> h
         | Stdlib.Option.None ->
             let oklch = Color.to_oklch c shade in

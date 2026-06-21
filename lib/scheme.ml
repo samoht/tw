@@ -51,8 +51,8 @@ type t = {
 (** Process-global registry of theme token DEFAULTS (the v4.3.1 baseline).
     Populated once at module-init by the utilities that own theme tokens
     (replaces the [Var.theme_ref_registry] defaults). Defaults are static, so
-    they live here rather than in the per-render {!t}; overrides are threaded via
-    {!t.token_overrides}. *)
+    they live here rather than in the per-render {!t}; overrides are threaded
+    via {!t.token_overrides}. *)
 let default_tokens : (string, string) Hashtbl.t = Hashtbl.create 64
 
 let register_default_token name css = Hashtbl.replace default_tokens name css
@@ -120,6 +120,12 @@ let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
 
 (** Lookup a per-render theme token override (from a [@theme] block). *)
 let token_override scheme name = List.assoc_opt name scheme.token_overrides
+
+(** [theme_value theme name] looks up a per-render token override from the
+    optionally-threaded [theme] ([None] when no theme is threaded). Threaded
+    replacement for the global [Var.theme_value]. *)
+let theme_value theme name =
+  match theme with Some s -> token_override s name | None -> None
 
 (** Resolve a theme token: override (if any) else the registered default. *)
 let token scheme name =

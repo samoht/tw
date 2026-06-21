@@ -74,8 +74,8 @@ let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 
 (* Generate z-auto style: either theme var with custom declaration, or bare
    theme_ref fallback *)
-let z_auto_style () =
-  match Var.theme_value "z-index-auto" with
+let z_auto_style ?theme () =
+  match Scheme.theme_value theme "z-index-auto" with
   | Some value_str ->
       (* Parse theme value as z_index *)
       let z_value : Css.z_index =
@@ -401,7 +401,9 @@ module Handler = struct
     | Break_inside_avoid_column -> "break-inside-avoid-column"
     | Break_inside_avoid_page -> "break-inside-avoid-page"
 
-  let to_style _theme = function
+  let to_style theme =
+    let z_auto_style () = z_auto_style ~theme () in
+    function
     | Block -> style [ display Block ]
     | Inline -> style [ display Inline ]
     | Inline_block -> style [ display Inline_block ]
@@ -475,7 +477,7 @@ module Handler = struct
               ("object-position-top-right", Top_right, "right top")
           | _ -> assert false
         in
-        match Var.theme_value name with
+        match Scheme.theme_value (Some theme) name with
         | Some value ->
             let theme_decl =
               Css.custom_property ~layer:"theme" ("--" ^ name) value

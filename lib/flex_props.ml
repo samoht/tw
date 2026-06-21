@@ -95,9 +95,9 @@ module Handler = struct
     let pct_value = Float.round (raw *. 10000.0) /. 10000.0 in
     style [ flex_basis (Pct pct_value) ]
 
-  let basis_named_style name =
+  let basis_named_style ?theme name =
     let var_name = "container-" ^ name in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value_str ->
         let decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value_str
@@ -119,19 +119,23 @@ module Handler = struct
   (* Order *)
   let order_style n = style [ order (Int n) ]
 
-  let themed_order name default =
-    match Var.theme_value name with
+  let themed_order ?theme name default =
+    match Scheme.theme_value theme name with
     | None -> style [ order (Int default) ]
     | Some value ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value in
         let var_ref = Css.var_ref ~layer:"theme" name in
         style [ decl; order (Var var_ref) ]
 
-  let order_first () = themed_order "order-first" (-9999)
-  let order_last () = themed_order "order-last" 9999
+  let order_first ?theme () = themed_order ?theme "order-first" (-9999)
+  let order_last ?theme () = themed_order ?theme "order-last" 9999
   let order_none = style [ order (Int 0) ]
 
-  let to_style _theme = function
+  let to_style theme =
+    let basis_named_style name = basis_named_style ~theme name in
+    let order_first () = order_first ~theme () in
+    let order_last () = order_last ~theme () in
+    function
     | Flex_1 -> flex_1
     | Flex_auto -> flex_auto
     | Flex_initial -> flex_initial

@@ -570,13 +570,13 @@ module Handler = struct
 
     style ~property_rules declarations
 
-  let bg' ?(shade = 500) color =
+  let bg' ?theme ?(shade = 500) color =
     let bg_var_name =
       let base = Color.pp color in
       if Color.is_base_color color then "background-color-" ^ base
       else "background-color-" ^ base ^ "-" ^ string_of_int shade
     in
-    match Var.theme_value bg_var_name with
+    match Scheme.theme_value theme bg_var_name with
     | Some theme_val ->
         (* Property-scoped bg color: --background-color-<name> *)
         let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in
@@ -1284,6 +1284,7 @@ module Handler = struct
     let bg_with_opacity c shade opacity =
       Color.bg_with_opacity ~theme c shade opacity
     in
+    let bg' ?(shade = 500) color = bg' ~theme ~shade color in
     function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
@@ -1425,7 +1426,7 @@ module Handler = struct
         let c = Color.bracket_color_to_custom orig in
         bg_with_opacity c 500 opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
-    | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
+    | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
     | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
     | Bg_bracket_length inner -> (

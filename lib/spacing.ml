@@ -40,9 +40,9 @@ let pp_margin_suffix : margin -> string = function
 let named_spacing_ref name : Css.length =
   Css.Var (Var.bracket ("spacing-" ^ name))
 
-let named_spacing_binding name : Css.declaration option * Css.length =
+let named_spacing_binding ?theme name : Css.declaration option * Css.length =
   let prop_name = "spacing-" ^ name in
-  match Var.theme_value prop_name with
+  match Scheme.theme_value theme prop_name with
   | Some value_str ->
       let decl =
         Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str

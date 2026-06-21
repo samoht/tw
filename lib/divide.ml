@@ -170,7 +170,8 @@ module Handler = struct
       style ~rules:(Some [ rule ]) []
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"border-color" color shade
+        Color.property_color_var ?theme ~property_prefix:"border-color" color
+          shade
       in
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"border-color" color

@@ -115,7 +115,7 @@ module Handler = struct
     | Cursor_theme name -> "cursor-" ^ name
     | t -> List.assoc t to_class_map
 
-  let to_style _theme = function
+  let to_style theme = function
     | Cursor_bracket_var s ->
         let inner = Parse.extract_var_name s in
         let ref : Css.cursor Css.var = Var.bracket inner in
@@ -127,7 +127,7 @@ module Handler = struct
             ~default:(Auto : Css.cursor)
             ~default_css:"auto"
         in
-        match Var.theme_value var_name with
+        match Scheme.theme_value (Some theme) var_name with
         | Some value ->
             let theme_decl =
               Css.custom_property ~layer:"theme" ("--" ^ var_name) value

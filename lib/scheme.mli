@@ -63,7 +63,13 @@ val token_default : string -> string option
 (** [token_default name] returns the registered baseline default for [name]. *)
 
 val token_override : t -> string -> string option
-(** [token_override t name] returns the per-render override for [name], if any. *)
+(** [token_override t name] returns the per-render override for [name], if any.
+*)
+
+val theme_value : t option -> string -> string option
+(** [theme_value theme name] looks up a per-render token override from the
+    optionally-threaded [theme] ([None] when no theme is threaded). Threaded
+    replacement for the global [Var.theme_value]. *)
 
 val token : t -> string -> string option
 (** [token t name] resolves a theme token: override (if any) else default. *)

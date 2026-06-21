@@ -85,9 +85,9 @@ module Handler = struct
     let prop_decl = property value in
     style [ theme_decl; prop_decl ]
 
-  let grid_cols_none () =
+  let grid_cols_none ?theme () =
     let var_name = "grid-template-columns-none" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_columns value
     | None -> style [ Css.grid_template_columns None ]
 
@@ -270,9 +270,9 @@ module Handler = struct
           Css.grid_template_rows (Repeat (Count n, [ Min_max (Zero, Fr 1.0) ]));
         ]
 
-  let grid_rows_none () =
+  let grid_rows_none ?theme () =
     let var_name = "grid-template-rows-none" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_rows value
     | None -> style [ Css.grid_template_rows None ]
 
@@ -283,9 +283,9 @@ module Handler = struct
   let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
   let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
 
-  let auto_cols_auto () =
+  let auto_cols_auto ?theme () =
     let var_name = "grid-auto-columns-auto" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_columns value
     | None -> style [ Css.grid_auto_columns Auto ]
 
@@ -304,9 +304,9 @@ module Handler = struct
 
   (** {1 Grid Auto Rows} *)
 
-  let auto_rows_auto () =
+  let auto_rows_auto ?theme () =
     let var_name = "grid-auto-rows-auto" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_rows value
     | None -> style [ Css.grid_auto_rows Auto ]
 
@@ -325,6 +325,10 @@ module Handler = struct
   let to_style theme =
     let auto_cols_spacing n = auto_cols_spacing ~theme n in
     let auto_rows_spacing n = auto_rows_spacing ~theme n in
+    let grid_cols_none () = grid_cols_none ~theme () in
+    let grid_rows_none () = grid_rows_none ~theme () in
+    let auto_cols_auto () = auto_cols_auto ~theme () in
+    let auto_rows_auto () = auto_rows_auto ~theme () in
     function
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none ()
