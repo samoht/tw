@@ -108,10 +108,24 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"layout suborder matches Tailwind" shuffled
 
+(* Visibility, float and break-* typed constructors are newly exposed in tw.mli;
+   check they agree with the parser on class names. *)
+let test_typed () =
+  Test_helpers.check_typed_class "visible" Tw.visible;
+  Test_helpers.check_typed_class "invisible" Tw.invisible;
+  Test_helpers.check_typed_class "collapse" Tw.collapse;
+  Test_helpers.check_typed_class "float-left" Tw.float_left;
+  Test_helpers.check_typed_class "float-start" Tw.float_start;
+  Test_helpers.check_typed_class "float-none" Tw.float_none;
+  Test_helpers.check_typed_class "break-after-page" Tw.break_after_page;
+  Test_helpers.check_typed_class "break-before-column" Tw.break_before_column;
+  Test_helpers.check_typed_class "break-inside-avoid" Tw.break_inside_avoid
+
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
     test_case "visibility" `Quick test_visibility;
+    test_case "typed constructors" `Quick test_typed;
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;

@@ -71,10 +71,20 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"transforms suborder matches Tailwind" shuffled
 
+(* skew_x/skew_y (int) and the transform-origin constructors are newly exposed
+   in tw.mli; check they agree with the parser on class names. *)
+let test_typed () =
+  Test_helpers.check_typed_class "skew-x-3" (Tw.skew_x 3);
+  Test_helpers.check_typed_class "skew-y-6" (Tw.skew_y 6);
+  Test_helpers.check_typed_class "origin-center" Tw.origin_center;
+  Test_helpers.check_typed_class "origin-top-right" Tw.origin_top_right;
+  Test_helpers.check_typed_class "origin-bottom-left" Tw.origin_bottom_left
+
 let tests =
   [
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
+    test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]

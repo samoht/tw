@@ -224,22 +224,119 @@ val aspect_ratio : int -> int -> t
 (** {2 Columns}
     @see <https://tailwindcss.com/docs/columns> Columns *)
 
-(** TODO: Implement multi-column layout utilities. *)
+val columns : int -> t
+(** [columns n] sets [column-count: n] for multi-column layout. *)
+
+val columns_auto : t
+(** [columns_auto] sets [column-count: auto]. *)
+
+val columns_3xs : t
+(** [columns_3xs] sets [column-width] to the [--container-3xs] size. *)
+
+val columns_2xs : t
+(** [columns_2xs] sets [column-width] to the [--container-2xs] size. *)
+
+val columns_xs : t
+(** [columns_xs] sets [column-width] to the [--container-xs] size. *)
+
+val columns_sm : t
+(** [columns_sm] sets [column-width] to the [--container-sm] size. *)
+
+val columns_md : t
+(** [columns_md] sets [column-width] to the [--container-md] size. *)
+
+val columns_lg : t
+(** [columns_lg] sets [column-width] to the [--container-lg] size. *)
+
+val columns_xl : t
+(** [columns_xl] sets [column-width] to the [--container-xl] size. *)
+
+val columns_2xl : t
+(** [columns_2xl] sets [column-width] to the [--container-2xl] size. *)
+
+val columns_3xl : t
+(** [columns_3xl] sets [column-width] to the [--container-3xl] size. *)
+
+val columns_4xl : t
+(** [columns_4xl] sets [column-width] to the [--container-4xl] size. *)
+
+val columns_5xl : t
+(** [columns_5xl] sets [column-width] to the [--container-5xl] size. *)
+
+val columns_6xl : t
+(** [columns_6xl] sets [column-width] to the [--container-6xl] size. *)
+
+val columns_7xl : t
+(** [columns_7xl] sets [column-width] to the [--container-7xl] size. *)
 
 (** {2 Break After}
     @see <https://tailwindcss.com/docs/break-after> Break After *)
 
-(** TODO: Implement break-after utilities. *)
+val break_after_auto : t
+(** [break_after_auto] sets [break-after: auto]. *)
+
+val break_after_avoid : t
+(** [break_after_avoid] sets [break-after: avoid]. *)
+
+val break_after_all : t
+(** [break_after_all] sets [break-after: all]. *)
+
+val break_after_avoid_page : t
+(** [break_after_avoid_page] sets [break-after: avoid-page]. *)
+
+val break_after_page : t
+(** [break_after_page] sets [break-after: page]. *)
+
+val break_after_left : t
+(** [break_after_left] sets [break-after: left]. *)
+
+val break_after_right : t
+(** [break_after_right] sets [break-after: right]. *)
+
+val break_after_column : t
+(** [break_after_column] sets [break-after: column]. *)
 
 (** {2 Break Before}
     @see <https://tailwindcss.com/docs/break-before> Break Before *)
 
-(** TODO: Implement break-before utilities. *)
+val break_before_auto : t
+(** [break_before_auto] sets [break-before: auto]. *)
+
+val break_before_avoid : t
+(** [break_before_avoid] sets [break-before: avoid]. *)
+
+val break_before_all : t
+(** [break_before_all] sets [break-before: all]. *)
+
+val break_before_avoid_page : t
+(** [break_before_avoid_page] sets [break-before: avoid-page]. *)
+
+val break_before_page : t
+(** [break_before_page] sets [break-before: page]. *)
+
+val break_before_left : t
+(** [break_before_left] sets [break-before: left]. *)
+
+val break_before_right : t
+(** [break_before_right] sets [break-before: right]. *)
+
+val break_before_column : t
+(** [break_before_column] sets [break-before: column]. *)
 
 (** {2 Break Inside}
     @see <https://tailwindcss.com/docs/break-inside> Break Inside *)
 
-(** TODO: Implement break-inside utilities. *)
+val break_inside_auto : t
+(** [break_inside_auto] sets [break-inside: auto]. *)
+
+val break_inside_avoid : t
+(** [break_inside_avoid] sets [break-inside: avoid]. *)
+
+val break_inside_avoid_page : t
+(** [break_inside_avoid_page] sets [break-inside: avoid-page]. *)
+
+val break_inside_avoid_column : t
+(** [break_inside_avoid_column] sets [break-inside: avoid-column]. *)
 
 (** {2 Box Decoration Break}
     @see <https://tailwindcss.com/docs/box-decoration-break>
@@ -251,11 +348,6 @@ val box_decoration_clone : t
 
 val box_decoration_slice : t
 (** [box_decoration_slice] slices the box decoration across fragment boxes. *)
-
-(** {2 Box Sizing}
-    @see <https://tailwindcss.com/docs/box-sizing> Box Sizing *)
-
-(** TODO: Implement box-sizing utilities. *)
 
 (** {2 Display}
     @see <https://tailwindcss.com/docs/display> Display *)
@@ -281,7 +373,20 @@ val hidden : t
 (** {2 Float}
     @see <https://tailwindcss.com/docs/float> Float *)
 
-(** TODO: Implement float utilities. *)
+val float_left : t
+(** [float_left] sets [float: left]. *)
+
+val float_right : t
+(** [float_right] sets [float: right]. *)
+
+val float_none : t
+(** [float_none] sets [float: none]. *)
+
+val float_start : t
+(** [float_start] sets [float: inline-start]. *)
+
+val float_end : t
+(** [float_end] sets [float: inline-end]. *)
 
 (** {2 Clear}
     @see <https://tailwindcss.com/docs/clear> Clear *)
@@ -503,7 +608,14 @@ val left_1_2 : t
 (** {2 Visibility}
     @see <https://tailwindcss.com/docs/visibility> Visibility *)
 
-(** TODO: Implement visibility utilities. *)
+val visible : t
+(** [visible] sets [visibility: visible]. *)
+
+val invisible : t
+(** [invisible] sets [visibility: hidden] while preserving layout space. *)
+
+val collapse : t
+(** [collapse] sets [visibility: collapse]. *)
 
 (** {2 Z-Index}
     @see <https://tailwindcss.com/docs/z-index> Z-Index *)
@@ -2342,12 +2454,86 @@ val ring_color : ?opacity:int -> ?shade:int -> color -> t
 (** {2 Text Shadow}
     @see <https://tailwindcss.com/docs/text-shadow> Text Shadow *)
 
-(** TODO: Implement text-shadow utilities. *)
+val text_shadow_none : t
+(** [text_shadow_none] removes the text shadow ([text-shadow: none]). *)
+
+val text_shadow_2xs : t
+(** [text_shadow_2xs] applies the 2xs text shadow. *)
+
+val text_shadow_xs : t
+(** [text_shadow_xs] applies the xs text shadow. *)
+
+val text_shadow_sm : t
+(** [text_shadow_sm] applies the small text shadow. *)
+
+val text_shadow : t
+(** [text_shadow] applies the default (md) text shadow. *)
+
+val text_shadow_md : t
+(** [text_shadow_md] applies the medium text shadow. *)
+
+val text_shadow_lg : t
+(** [text_shadow_lg] applies the large text shadow. *)
+
+val text_shadow_arbitrary : string -> t
+(** [text_shadow_arbitrary s] sets an arbitrary [text-shadow] value [s]. *)
 
 (** {2 Mix Blend Mode}
     @see <https://tailwindcss.com/docs/mix-blend-mode> Mix Blend Mode *)
 
-(** TODO: Implement mix-blend-mode utilities. *)
+val mix_blend_normal : t
+(** [mix_blend_normal] sets [mix-blend-mode: normal]. *)
+
+val mix_blend_multiply : t
+(** [mix_blend_multiply] sets [mix-blend-mode: multiply]. *)
+
+val mix_blend_screen : t
+(** [mix_blend_screen] sets [mix-blend-mode: screen]. *)
+
+val mix_blend_overlay : t
+(** [mix_blend_overlay] sets [mix-blend-mode: overlay]. *)
+
+val mix_blend_darken : t
+(** [mix_blend_darken] sets [mix-blend-mode: darken]. *)
+
+val mix_blend_lighten : t
+(** [mix_blend_lighten] sets [mix-blend-mode: lighten]. *)
+
+val mix_blend_color_dodge : t
+(** [mix_blend_color_dodge] sets [mix-blend-mode: color-dodge]. *)
+
+val mix_blend_color_burn : t
+(** [mix_blend_color_burn] sets [mix-blend-mode: color-burn]. *)
+
+val mix_blend_hard_light : t
+(** [mix_blend_hard_light] sets [mix-blend-mode: hard-light]. *)
+
+val mix_blend_soft_light : t
+(** [mix_blend_soft_light] sets [mix-blend-mode: soft-light]. *)
+
+val mix_blend_difference : t
+(** [mix_blend_difference] sets [mix-blend-mode: difference]. *)
+
+val mix_blend_exclusion : t
+(** [mix_blend_exclusion] sets [mix-blend-mode: exclusion]. *)
+
+val mix_blend_hue : t
+(** [mix_blend_hue] sets [mix-blend-mode: hue]. *)
+
+val mix_blend_saturation : t
+(** [mix_blend_saturation] sets [mix-blend-mode: saturation]. *)
+
+val mix_blend_color : t
+(** [mix_blend_color] sets [mix-blend-mode: color]. *)
+
+val mix_blend_luminosity : t
+(** [mix_blend_luminosity] sets [mix-blend-mode: luminosity]. *)
+
+val mix_blend_plus_darker : t
+(** [mix_blend_plus_darker] sets [mix-blend-mode: plus-darker]. *)
+
+val mix_blend_plus_lighter : t
+(** [mix_blend_plus_lighter] sets [mix-blend-mode: plus-lighter]. *)
 
 (** {2 Background Blend Mode}
     @see <https://tailwindcss.com/docs/background-blend-mode>
@@ -2358,47 +2544,152 @@ val ring_color : ?opacity:int -> ?shade:int -> color -> t
 (** {2 Mask Clip}
     @see <https://tailwindcss.com/docs/mask-clip> Mask Clip *)
 
-(** TODO: Implement mask-clip utilities. *)
+val mask_clip_border : t
+(** [mask_clip_border] sets [mask-clip: border-box]. *)
+
+val mask_clip_padding : t
+(** [mask_clip_padding] sets [mask-clip: padding-box]. *)
+
+val mask_clip_content : t
+(** [mask_clip_content] sets [mask-clip: content-box]. *)
+
+val mask_clip_fill : t
+(** [mask_clip_fill] sets [mask-clip: fill-box]. *)
+
+val mask_clip_stroke : t
+(** [mask_clip_stroke] sets [mask-clip: stroke-box]. *)
+
+val mask_clip_view : t
+(** [mask_clip_view] sets [mask-clip: view-box]. *)
+
+val mask_no_clip : t
+(** [mask_no_clip] sets [mask-clip: no-clip]. *)
 
 (** {2 Mask Composite}
     @see <https://tailwindcss.com/docs/mask-composite> Mask Composite *)
 
-(** TODO: Implement mask-composite utilities. *)
+val mask_add : t
+(** [mask_add] sets [mask-composite: add]. *)
+
+val mask_subtract : t
+(** [mask_subtract] sets [mask-composite: subtract]. *)
+
+val mask_intersect : t
+(** [mask_intersect] sets [mask-composite: intersect]. *)
+
+val mask_exclude : t
+(** [mask_exclude] sets [mask-composite: exclude]. *)
 
 (** {2 Mask Image}
     @see <https://tailwindcss.com/docs/mask-image> Mask Image *)
 
-(** TODO: Implement mask-image utilities. *)
+val mask_none : t
+(** [mask_none] sets [mask-image: none]. *)
 
 (** {2 Mask Mode}
     @see <https://tailwindcss.com/docs/mask-mode> Mask Mode *)
 
-(** TODO: Implement mask-mode utilities. *)
+val mask_alpha : t
+(** [mask_alpha] sets [mask-mode: alpha]. *)
+
+val mask_luminance : t
+(** [mask_luminance] sets [mask-mode: luminance]. *)
+
+val mask_match : t
+(** [mask_match] sets [mask-mode: match-source]. *)
 
 (** {2 Mask Origin}
     @see <https://tailwindcss.com/docs/mask-origin> Mask Origin *)
 
-(** TODO: Implement mask-origin utilities. *)
+val mask_origin_border : t
+(** [mask_origin_border] sets [mask-origin: border-box]. *)
+
+val mask_origin_padding : t
+(** [mask_origin_padding] sets [mask-origin: padding-box]. *)
+
+val mask_origin_content : t
+(** [mask_origin_content] sets [mask-origin: content-box]. *)
+
+val mask_origin_fill : t
+(** [mask_origin_fill] sets [mask-origin: fill-box]. *)
+
+val mask_origin_stroke : t
+(** [mask_origin_stroke] sets [mask-origin: stroke-box]. *)
+
+val mask_origin_view : t
+(** [mask_origin_view] sets [mask-origin: view-box]. *)
 
 (** {2 Mask Position}
     @see <https://tailwindcss.com/docs/mask-position> Mask Position *)
 
-(** TODO: Implement mask-position utilities. *)
+val mask_center : t
+(** [mask_center] sets [mask-position: center]. *)
+
+val mask_top : t
+(** [mask_top] sets [mask-position: center top]. *)
+
+val mask_top_left : t
+(** [mask_top_left] sets [mask-position: 0 0]. *)
+
+val mask_top_right : t
+(** [mask_top_right] sets [mask-position: 100% 0]. *)
+
+val mask_bottom : t
+(** [mask_bottom] sets [mask-position: center bottom]. *)
+
+val mask_bottom_left : t
+(** [mask_bottom_left] sets [mask-position: 0 100%]. *)
+
+val mask_bottom_right : t
+(** [mask_bottom_right] sets [mask-position: 100% 100%]. *)
+
+val mask_left : t
+(** [mask_left] sets [mask-position: 0]. *)
+
+val mask_right : t
+(** [mask_right] sets [mask-position: 100%]. *)
 
 (** {2 Mask Repeat}
     @see <https://tailwindcss.com/docs/mask-repeat> Mask Repeat *)
 
-(** TODO: Implement mask-repeat utilities. *)
+val mask_repeat : t
+(** [mask_repeat] sets [mask-repeat: repeat]. *)
+
+val mask_no_repeat : t
+(** [mask_no_repeat] sets [mask-repeat: no-repeat]. *)
+
+val mask_repeat_x : t
+(** [mask_repeat_x] sets [mask-repeat: repeat-x]. *)
+
+val mask_repeat_y : t
+(** [mask_repeat_y] sets [mask-repeat: repeat-y]. *)
+
+val mask_repeat_round : t
+(** [mask_repeat_round] sets [mask-repeat: round]. *)
+
+val mask_repeat_space : t
+(** [mask_repeat_space] sets [mask-repeat: space]. *)
 
 (** {2 Mask Size}
     @see <https://tailwindcss.com/docs/mask-size> Mask Size *)
 
-(** TODO: Implement mask-size utilities. *)
+val mask_auto : t
+(** [mask_auto] sets [mask-size: auto]. *)
+
+val mask_cover : t
+(** [mask_cover] sets [mask-size: cover]. *)
+
+val mask_contain : t
+(** [mask_contain] sets [mask-size: contain]. *)
 
 (** {2 Mask Type}
     @see <https://tailwindcss.com/docs/mask-type> Mask Type *)
 
-(** TODO: Implement mask-type utilities. *)
+val mask_type_alpha : t
+(** [mask_type_alpha] sets [mask-type: alpha]. *)
+
+val mask_type_luminance : t
+(** [mask_type_luminance] sets [mask-type: luminance]. *)
 
 (** {1 Filters} *)
 
@@ -2541,7 +2832,11 @@ val table_fixed : t
 (** {2 Caption Side}
     @see <https://tailwindcss.com/docs/caption-side> Caption Side *)
 
-(** TODO: Implement caption-side utilities. *)
+val caption_top : t
+(** [caption_top] sets [caption-side: top]. *)
+
+val caption_bottom : t
+(** [caption_bottom] sets [caption-side: bottom]. *)
 
 (** {1 Transitions & Animations} *)
 
@@ -2689,7 +2984,11 @@ val scale : int -> t
 (** {2 Skew}
     @see <https://tailwindcss.com/docs/skew> Skew *)
 
-(** TODO: Implement skew utilities. *)
+val skew_x : int -> t
+(** [skew_x n] adds [skewX(n deg)] to the transform chain. *)
+
+val skew_y : int -> t
+(** [skew_y n] adds [skewY(n deg)] to the transform chain. *)
 
 (** {2 Transform}
     @see <https://tailwindcss.com/docs/transform> Transform *)
@@ -2706,7 +3005,32 @@ val transform_gpu : t
 (** {2 Transform Origin}
     @see <https://tailwindcss.com/docs/transform-origin> Transform Origin *)
 
-(** TODO: Implement transform-origin (2D) utilities. *)
+val origin_center : t
+(** [origin_center] sets [transform-origin: center]. *)
+
+val origin_top : t
+(** [origin_top] sets [transform-origin: top]. *)
+
+val origin_bottom : t
+(** [origin_bottom] sets [transform-origin: bottom]. *)
+
+val origin_left : t
+(** [origin_left] sets [transform-origin: left]. *)
+
+val origin_right : t
+(** [origin_right] sets [transform-origin: right]. *)
+
+val origin_top_left : t
+(** [origin_top_left] sets [transform-origin: top left]. *)
+
+val origin_top_right : t
+(** [origin_top_right] sets [transform-origin: top right]. *)
+
+val origin_bottom_left : t
+(** [origin_bottom_left] sets [transform-origin: bottom left]. *)
+
+val origin_bottom_right : t
+(** [origin_bottom_right] sets [transform-origin: bottom right]. *)
 
 (** {2 Transform Style}
     @see <https://tailwindcss.com/docs/transform-style> Transform Style *)
@@ -2876,7 +3200,23 @@ val caret_transparent : t
 (** {2 Color Scheme}
     @see <https://tailwindcss.com/docs/color-scheme> Color Scheme *)
 
-(** TODO: Implement color-scheme utilities. *)
+val scheme_normal : t
+(** [scheme_normal] sets [color-scheme: normal]. *)
+
+val scheme_light : t
+(** [scheme_light] sets [color-scheme: light]. *)
+
+val scheme_dark : t
+(** [scheme_dark] sets [color-scheme: dark]. *)
+
+val scheme_light_dark : t
+(** [scheme_light_dark] sets [color-scheme: light dark]. *)
+
+val scheme_only_light : t
+(** [scheme_only_light] sets [color-scheme: only light]. *)
+
+val scheme_only_dark : t
+(** [scheme_only_dark] sets [color-scheme: only dark]. *)
 
 (** {2 Cursor}
     @see <https://tailwindcss.com/docs/cursor> Cursor *)
@@ -2902,7 +3242,11 @@ val cursor_not_allowed : t
 (** {2 Field Sizing}
     @see <https://tailwindcss.com/docs/field-sizing> Field Sizing *)
 
-(** TODO: Implement field-sizing utilities. *)
+val field_sizing_content : t
+(** [field_sizing_content] sets [field-sizing: content]. *)
+
+val field_sizing_fixed : t
+(** [field_sizing_fixed] sets [field-sizing: fixed]. *)
 
 (** {2 User Select}
     @see <https://tailwindcss.com/docs/user-select> User Select *)
@@ -3035,12 +3379,75 @@ val divide_y_reverse : t
 (** {2 Scroll Margin}
     @see <https://tailwindcss.com/docs/scroll-margin> Scroll Margin *)
 
-(** TODO: Implement scroll-margin utilities. *)
+val scroll_m : float -> t
+(** [scroll_m n] sets [scroll-margin] to [n] spacing units (negative allowed).
+*)
+
+val scroll_mx : float -> t
+(** [scroll_mx n] sets [scroll-margin-inline] to [n] spacing units. *)
+
+val scroll_my : float -> t
+(** [scroll_my n] sets [scroll-margin-block] to [n] spacing units. *)
+
+val scroll_mt : float -> t
+(** [scroll_mt n] sets [scroll-margin-top] to [n] spacing units. *)
+
+val scroll_mr : float -> t
+(** [scroll_mr n] sets [scroll-margin-right] to [n] spacing units. *)
+
+val scroll_mb : float -> t
+(** [scroll_mb n] sets [scroll-margin-bottom] to [n] spacing units. *)
+
+val scroll_ml : float -> t
+(** [scroll_ml n] sets [scroll-margin-left] to [n] spacing units. *)
+
+val scroll_ms : float -> t
+(** [scroll_ms n] sets [scroll-margin-inline-start] to [n] spacing units. *)
+
+val scroll_me : float -> t
+(** [scroll_me n] sets [scroll-margin-inline-end] to [n] spacing units. *)
+
+val scroll_mbs : float -> t
+(** [scroll_mbs n] sets [scroll-margin-block-start] to [n] spacing units. *)
+
+val scroll_mbe : float -> t
+(** [scroll_mbe n] sets [scroll-margin-block-end] to [n] spacing units. *)
 
 (** {2 Scroll Padding}
     @see <https://tailwindcss.com/docs/scroll-padding> Scroll Padding *)
 
-(** TODO: Implement scroll-padding utilities. *)
+val scroll_p : float -> t
+(** [scroll_p n] sets [scroll-padding] to [n] spacing units. *)
+
+val scroll_px : float -> t
+(** [scroll_px n] sets [scroll-padding-inline] to [n] spacing units. *)
+
+val scroll_py : float -> t
+(** [scroll_py n] sets [scroll-padding-block] to [n] spacing units. *)
+
+val scroll_pt : float -> t
+(** [scroll_pt n] sets [scroll-padding-top] to [n] spacing units. *)
+
+val scroll_pr : float -> t
+(** [scroll_pr n] sets [scroll-padding-right] to [n] spacing units. *)
+
+val scroll_pb : float -> t
+(** [scroll_pb n] sets [scroll-padding-bottom] to [n] spacing units. *)
+
+val scroll_pl : float -> t
+(** [scroll_pl n] sets [scroll-padding-left] to [n] spacing units. *)
+
+val scroll_ps : float -> t
+(** [scroll_ps n] sets [scroll-padding-inline-start] to [n] spacing units. *)
+
+val scroll_pe : float -> t
+(** [scroll_pe n] sets [scroll-padding-inline-end] to [n] spacing units. *)
+
+val scroll_pbs : float -> t
+(** [scroll_pbs n] sets [scroll-padding-block-start] to [n] spacing units. *)
+
+val scroll_pbe : float -> t
+(** [scroll_pbe n] sets [scroll-padding-block-end] to [n] spacing units. *)
 
 (** {2 Appearance}
     @see <https://tailwindcss.com/docs/appearance> Appearance *)

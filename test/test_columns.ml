@@ -40,11 +40,21 @@ let test_columns_arbitrary_width () =
     "columns-[16rem] sets columns: 16rem" true
     (Astring.String.is_infix ~affix:"columns:16rem" css)
 
+(* The typed constructors (newly exposed in tw.mli) must agree with the parser
+   on class names, including the [int] argument of [columns]. *)
+let test_typed () =
+  Test_helpers.check_typed_class "columns-3" (Tw.columns 3);
+  Test_helpers.check_typed_class "columns-auto" Tw.columns_auto;
+  Test_helpers.check_typed_class "columns-xs" Tw.columns_xs;
+  Test_helpers.check_typed_class "columns-2xl" Tw.columns_2xl;
+  Test_helpers.check_typed_class "columns-7xl" Tw.columns_7xl
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
+      Alcotest.test_case "typed constructors" `Quick test_typed;
     ]
 
 let suite = ("columns", tests)
