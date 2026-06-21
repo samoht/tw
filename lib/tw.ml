@@ -64,11 +64,11 @@ include Contain
 include Scroll
 include Arbitrary
 
-let to_css ?(base = Build.default_config.base) ?forms
+let to_css ?theme ?(base = Build.default_config.base) ?forms
     ?(layers = Build.default_config.layers) utilities =
-  Build.to_css ~config:{ base; forms; layers } utilities
+  Build.to_css ?theme ~config:{ base; forms; layers } utilities
 
-let to_inline_style utilities = Build.to_inline_style utilities
+let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)

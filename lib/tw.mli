@@ -3624,8 +3624,9 @@ val str : string -> t list
     For dynamic styles that change at runtime, use [to_inline_style] to generate
     CSS properties directly for the style attribute. *)
 
-val to_inline_style : t list -> string
-(** [to_inline_style styles] generates inline CSS for the style attribute.
+val to_inline_style : ?theme:Scheme.t -> t list -> string
+(** [to_inline_style ?theme styles] generates inline CSS for the style
+    attribute.
 
     {b Note:} This generates {i only} the CSS properties for the given styles,
     without any Tailwind reset/prelude. The reset is only included in
@@ -3693,9 +3694,11 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
-val to_css : ?base:bool -> ?forms:bool -> ?layers:bool -> t list -> Css.t
-(** [to_css ?base ?forms ?layers styles] generates a CSS stylesheet for the
-    given styles.
+val to_css :
+  ?theme:Scheme.t -> ?base:bool -> ?forms:bool -> ?layers:bool -> t list -> Css.t
+(** [to_css ?theme ?base ?forms ?layers styles] generates a CSS stylesheet for
+    the given styles. [theme] (default {!Scheme.default}) supplies the theme
+    values utilities read while generating CSS.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 

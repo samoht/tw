@@ -40,15 +40,17 @@ type config = {
 val default_config : config
 (** The default configuration. Base layer enabled. *)
 
-val to_css : ?config:config -> Utility.t list -> Css.t
-(** [to_css ?config utilities] generates a full CSS stylesheet for [utilities].
-    This is the main entry point for the library. Rendering concerns such as
-    inlining and optimization are handled by {!Css.to_string}. *)
+val to_css : ?theme:Scheme.t -> ?config:config -> Utility.t list -> Css.t
+(** [to_css ?theme ?config utilities] generates a full CSS stylesheet for
+    [utilities]. This is the main entry point for the library. [theme] (default
+    {!Scheme.default}) supplies the theme values utilities read while generating
+    CSS. Rendering concerns such as inlining and optimization are handled by
+    {!Css.to_string}. *)
 
-val to_inline_style : Utility.t list -> string
-(** [to_inline_style utilities] returns a CSS [style] attribute string (e.g.
-    ["color: red; font-size: 1rem"]) suitable for embedding in HTML. Custom
-    properties are stripped; only concrete declarations are included. *)
+val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string
+(** [to_inline_style ?theme utilities] returns a CSS [style] attribute string
+    (e.g. ["color: red; font-size: 1rem"]) suitable for embedding in HTML.
+    Custom properties are stripped; only concrete declarations are included. *)
 
 (** {1 Layer building} *)
 

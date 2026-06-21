@@ -1054,8 +1054,8 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables, set var names, and property rules from all utilities *)
-let extract_vars_and_rules utilities =
-  let styles = List.map (Utility.to_style Scheme.default) utilities in
+let extract_vars_and_rules theme utilities =
+  let styles = List.map (Utility.to_style theme) utilities in
   let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
@@ -1175,11 +1175,11 @@ let sort_keyframes_by_var_order keyframes =
       else String.compare name1 name2 (* Stable sort for same order *))
 
 (** Build all CSS layers from utilities and rules *)
-let layers ~layers ~include_base ?forms ~selector_props ~sorted_rules tw_classes
-    statements =
-  let styles = List.map (Utility.to_style Scheme.default) tw_classes in
+let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
+    tw_classes statements =
+  let styles = List.map (Utility.to_style theme) tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
-    extract_vars_and_rules tw_classes
+    extract_vars_and_rules theme tw_classes
   in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
@@ -1231,13 +1231,13 @@ type config = { base : bool; forms : bool option; layers : bool }
 
 let default_config = { base = true; forms = None; layers = true }
 
-let to_css ?(config = default_config) tw_classes =
+let to_css ?(theme = Scheme.default) ?(config = default_config) tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
      re-parsing the class string while building/sorting rules. *)
   let order_map = Hashtbl.create 256 in
   let selector_props =
-    List.concat_map (Rule.outputs ~order_tbl:order_map) tw_classes
+    List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
@@ -1245,8 +1245,8 @@ let to_css ?(config = default_config) tw_classes =
   let sorted_rules = sorted_indexed_rules order_map selector_props in
   let statements = List.map indexed_rule_to_statement sorted_rules in
   let layer_results =
-    layers ~layers:config.layers ~include_base:config.base ?forms:config.forms
-      ~selector_props ~sorted_rules tw_classes statements
+    layers ~theme ~layers:config.layers ~include_base:config.base
+      ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
   in
   Css.concat layer_results
 
@@ -1270,8 +1270,8 @@ let rec collect_declarations acc = function
   | Style.Modified (_, t) -> collect_declarations acc t
   | Style.Group ts -> List.fold_left collect_declarations acc ts
 
-let to_inline_style utilities =
-  let styles = List.map (Utility.to_style Scheme.default) utilities in
+let to_inline_style ?(theme = Scheme.default) utilities =
+  let styles = List.map (Utility.to_style theme) utilities in
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_vars =
     List.filter (fun d -> Css.custom_declaration_name d = None) all_props

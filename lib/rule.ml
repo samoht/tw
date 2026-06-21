@@ -1772,7 +1772,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
-let outputs ?order_tbl util =
+let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
         (* Record the base utility's order under the class name we already built,
@@ -1805,5 +1805,5 @@ let outputs ?order_tbl util =
         handle_group class_name util_inner styles extract_with_class
   in
   let class_name = Utility.to_class util in
-  let style = Utility.to_style Scheme.default util in
+  let style = Utility.to_style theme util in
   extract_with_class class_name util style
