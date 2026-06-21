@@ -19832,11 +19832,11 @@ text-shadow-2xs text-shadow-[#0088cc] text-shadow-[#0088cc]/50 text-shadow-[#008
 
     .text-shadow-sm\/25 {
       --tw-text-shadow-alpha: 25%;
-      text-shadow: 0px 1px 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .25)), 0px 2px 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .25));
+      text-shadow: 0px 1px 0px var(--tw-text-shadow-color, oklab(0% 0 0 / .25)), 0px 1px 1px var(--tw-text-shadow-color, oklab(0% 0 0 / .25)), 0px 2px 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .25));
     }
 
     .text-shadow-2xs {
-      text-shadow: 0px 1px 0px var(--tw-text-shadow-color, #0000001a);
+      text-shadow: 0px 1px 0px var(--tw-text-shadow-color, #00000026);
     }
 
     .text-shadow-\[\#0088cc\] {
@@ -20054,7 +20054,7 @@ text-shadow-2xs text-shadow-[#0088cc] text-shadow-[#0088cc]/50 text-shadow-[#008
     }
 
     .text-shadow-sm {
-      text-shadow: 0px 1px 2px var(--tw-text-shadow-color, #0000000f), 0px 2px 2px var(--tw-text-shadow-color, #0000000f);
+      text-shadow: 0px 1px 0px var(--tw-text-shadow-color, #00000013), 0px 1px 1px var(--tw-text-shadow-color, #00000013), 0px 2px 2px var(--tw-text-shadow-color, #00000013);
     }
 
     .text-shadow-transparent {

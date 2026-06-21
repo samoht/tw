@@ -130,16 +130,29 @@ module Handler = struct
 
   let shape_shadows (shape : shape) :
       (length * length * length option * string) list =
+    (* Values match Tailwind v4.3.1: 2xs/xs are single shadows, sm/md/lg are
+       three-shadow stacks. Alpha hex: .15=#26, .2=#33, .075=#13, .1=#1a. *)
     match shape with
-    | S_2xs -> [ ((Px 0. : length), Px 1., Some (Px 0.), "#0000001a") ]
-    | S_xs -> [ ((Px 0. : length), Px 1., Some (Px 1.), "#0000001a") ]
+    | S_2xs -> [ ((Px 0. : length), Px 1., Some (Px 0.), "#00000026") ]
+    | S_xs -> [ ((Px 0. : length), Px 1., Some (Px 1.), "#00000033") ]
     | S_sm ->
         [
-          ((Px 0. : length), Px 1., Some (Px 2.), "#0000000f");
-          (Px 0., Px 2., Some (Px 2.), "#0000000f");
+          ((Px 0. : length), Px 1., Some (Px 0.), "#00000013");
+          (Px 0., Px 1., Some (Px 1.), "#00000013");
+          (Px 0., Px 2., Some (Px 2.), "#00000013");
         ]
-    | S_md -> [ ((Px 0. : length), Px 2., Some (Px 4.), "#0000001a") ]
-    | S_lg -> [ ((Px 0. : length), Px 4., Some (Px 8.), "#0000001a") ]
+    | S_md ->
+        [
+          ((Px 0. : length), Px 1., Some (Px 1.), "#0000001a");
+          (Px 0., Px 1., Some (Px 2.), "#0000001a");
+          (Px 0., Px 2., Some (Px 4.), "#0000001a");
+        ]
+    | S_lg ->
+        [
+          ((Px 0. : length), Px 1., Some (Px 2.), "#0000001a");
+          (Px 0., Px 3., Some (Px 2.), "#0000001a");
+          (Px 0., Px 4., Some (Px 8.), "#0000001a");
+        ]
 
   let shape_text_shadow shape =
     let shadows = shape_shadows shape in
@@ -520,7 +533,7 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "shadow"; "none" ] -> Ok Text_shadow_none
-    | [ "text"; "shadow" ] -> Ok (Text_shadow_shape S_md)
+    (* Tailwind v4 has no bare [text-shadow]; sizes are 2xs..lg. *)
     | [ "text"; "shadow"; size_str ] -> (
         let base, opacity = Color.parse_opacity_modifier size_str in
         let shape_opt =
@@ -583,20 +596,14 @@ module Handler = struct
     | S_2xs -> "2xs"
     | S_xs -> "xs"
     | S_sm -> "sm"
-    | S_md -> ""
+    | S_md -> "md"
     | S_lg -> "lg"
 
   let to_class = function
     | Text_shadow_none -> "text-shadow-none"
-    | Text_shadow_shape S_md -> "text-shadow"
     | Text_shadow_shape shape -> "text-shadow-" ^ shape_to_string shape
     | Text_shadow_shape_opacity (shape, opacity) ->
-        let base =
-          match shape with
-          | S_md -> "text-shadow"
-          | _ -> "text-shadow-" ^ shape_to_string shape
-        in
-        base ^ "/" ^ Color.pp_opacity opacity
+        "text-shadow-" ^ shape_to_string shape ^ "/" ^ Color.pp_opacity opacity
     | Text_shadow_color (c, shade) ->
         "text-shadow-" ^ Color.color_to_string c
         ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
