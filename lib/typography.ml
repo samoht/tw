@@ -1393,6 +1393,7 @@ module Typography_late = struct
     | (* Content *)
       Content_none
     | Content of string
+    | Content_squote of string (* single-quoted arbitrary: content-['x'] *)
     | Content_named of string
 
   type Utility.base += Self of t
@@ -1643,15 +1644,19 @@ module Typography_late = struct
     | "content" :: rest ->
         let joined = String.concat "-" rest in
         (* Parse arbitrary value syntax: content-["value"] -> value *)
-        if
+        let bracket_quoted q =
           String.length joined >= 4
           && String.get joined 0 = '['
-          && String.get joined 1 = '"'
+          && String.get joined 1 = q
           && String.get joined (String.length joined - 1) = ']'
-          && String.get joined (String.length joined - 2) = '"'
-        then
+          && String.get joined (String.length joined - 2) = q
+        in
+        if bracket_quoted '"' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)
+        else if bracket_quoted '\'' then
+          let value = String.sub joined 2 (String.length joined - 4) in
+          Ok (Content_squote value)
         else if Spacing.is_named_spacing joined then Ok (Content_named joined)
         else if Parse.is_valid_theme_name joined then Ok (Content joined)
         else err_not_utility
@@ -1802,6 +1807,7 @@ module Typography_late = struct
     | Line_clamp_none -> "line-clamp-none"
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
+    | Content_squote s -> "content-['" ^ s ^ "']"
     | Content_named s -> "content-" ^ s
 
   (** {1 Ordering Support} *)
@@ -1952,6 +1958,7 @@ module Typography_late = struct
     (* Content *)
     | Content_none -> 13000
     | Content _ -> 10001
+    | Content_squote _ -> 10001
     | Content_named _ -> 10002
 
   (* Shared utility implementations *)
@@ -2423,6 +2430,18 @@ module Typography_late = struct
     let property_rules = Var.property_rules content_var in
     style ~property_rules [ content_decl; content (Css.Var content_ref) ]
 
+  let content_squote s =
+    (* Single-quoted arbitrary content (content-['x']) keeps the single
+       quote. *)
+    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let quoted : Css.content =
+      Css.Quoted { value; quote = '\''; repr = None }
+    in
+    let content_decl, content_ref = Var.binding content_var quoted in
+    let property_rules = Var.property_rules content_var in
+    let c : Css.content = Css.Var content_ref in
+    style ~property_rules [ content_decl; Css.content c ]
+
   let content_named name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
@@ -2783,6 +2802,7 @@ module Typography_late = struct
     | Line_clamp_none -> line_clamp_none_style ()
     | Content_none -> content_none
     | Content s -> content s
+    | Content_squote s -> content_squote s
     | Content_named name -> content_named name
 end
 
