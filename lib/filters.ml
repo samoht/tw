@@ -691,9 +691,10 @@ module Handler = struct
         bind_drop_shadow drop_shadow_size_ref;
       ]
 
-  let drop_shadow_color c shade =
+  let drop_shadow_color ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.current_scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Color.current_scheme () in
+    match Scheme.hex_color scheme color_name with
     | Option.Some hex ->
         let color_ref : Css.color Css.var =
           Var.bracket ("color-" ^ color_name)
@@ -721,9 +722,10 @@ module Handler = struct
           ("drop-shadow color not found in scheme: "
           ^ Color.scheme_color_name c shade)
 
-  let drop_shadow_color_opacity c shade opacity =
+  let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.current_scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Color.current_scheme () in
+    match Scheme.hex_color scheme color_name with
     | Option.Some hex ->
         let percent = Color.opacity_to_percent opacity in
         let hex_with_alpha = Color.hex_with_alpha hex percent in
@@ -1020,7 +1022,12 @@ module Handler = struct
           style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
       | Error _ -> style []
 
-  let to_style _theme = function
+  let to_style theme =
+    let drop_shadow_color c shade = drop_shadow_color ~theme c shade in
+    let drop_shadow_color_opacity c shade opacity =
+      drop_shadow_color_opacity ~theme c shade opacity
+    in
+    function
     | Filter -> filter_
     | Filter_none -> filter_none
     | Filter_arbitrary s -> filter_arbitrary s
