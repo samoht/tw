@@ -317,14 +317,15 @@ let test_leading_none_inline () =
 (* A text size must honor a --text-N--line-height theme override at use time,
    not bake in the spacing-derived default at module load. *)
 let test_text_line_height_override () =
-  Tw.Var.clear_theme_values ();
-  Tw.Var.set_theme_value "text-sm--line-height" "1.25rem";
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("text-sm--line-height", "1.25rem") ]
+  in
   let css =
     match Tw.of_string "text-sm" with
-    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Tw.to_css ~theme [ u ] |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.fail "could not parse text-sm"
   in
-  Tw.Var.clear_theme_values ();
   Alcotest.(check bool)
     "text-sm honors --text-sm--line-height override" true
     (Astring.String.is_infix ~affix:"--text-sm--line-height:1.25rem" css)

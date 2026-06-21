@@ -278,14 +278,8 @@ let v : type a r.
       | _, _, Some f -> f (* Use provided fallback *)
       | _ -> Css.None (* No fallback *)
     in
-    let decl, var =
-      Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
-        ?runtime name kind value
-    in
-    match ((role : r role), Hashtbl.find_opt theme_value_overrides name) with
-    | Theme, Some css ->
-        (Css.custom_property ?layer:layer_name ("--" ^ name) css, var)
-    | _ -> (decl, var)
+    Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
+      ?runtime name kind value
   in
   { kind; name; role; binding; property; fallback }
 

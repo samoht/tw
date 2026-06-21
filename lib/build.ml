@@ -563,6 +563,22 @@ let extract_non_tw_custom_declarations selector_props =
   (* Return in original insertion order *)
   List.rev !insertion_order
 
+(* Substitute per-render [@theme] token overrides into extracted theme-layer
+   declarations. This is the threaded replacement for the override seam that
+   used to live in [Var.binding]: a Theme-role variable whose token is
+   overridden in [theme] emits the override value instead of its registered
+   default. [custom_declaration_name] returns the full [--name] form; the scheme
+   keys overrides by the bare name. *)
+let apply_token_override theme decl =
+  match Css.custom_declaration_name decl with
+  | Some full_name
+    when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
+      let bare = String.sub full_name 2 (String.length full_name - 2) in
+      match Scheme.token_override theme bare with
+      | Some css -> Css.custom_property ~layer:"theme" full_name css
+      | None -> decl)
+  | _ -> decl
+
 (* Check if declaration name is a default font family indirection *)
 let is_default_family_name = function
   | "default-font-family" | "default-mono-font-family" -> true
@@ -631,8 +647,12 @@ let theme_layer_rule ~layers = function
       else Css.v [ rule ]
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
-let theme_layer_of_props ?(layers = true) ?(default_decls = []) selector_props =
-  let extracted = extract_non_tw_custom_declarations selector_props in
+let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
+    ?(default_decls = []) selector_props =
+  let extracted =
+    extract_non_tw_custom_declarations selector_props
+    |> List.map (apply_token_override theme)
+  in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
   (* Filter defaults to remove duplicates of extracted vars *)
@@ -1115,7 +1135,7 @@ type layers_result = {
   property_rules : Css.statement list;
 }
 
-let individual_layers ~layers ~include_base ~forms_base first_usage_order
+let individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
     selector_props all_property_statements statements =
   let theme_defaults =
     let font_defaults =
@@ -1129,7 +1149,8 @@ let individual_layers ~layers ~include_base ~forms_base first_usage_order
     font_defaults @ transition_defaults
   in
   let theme_layer =
-    theme_layer_of_props ~layers ~default_decls:theme_defaults selector_props
+    theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults
+      selector_props
   in
   let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
   let properties_layer, property_rules =
@@ -1209,7 +1230,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
      flag, so utility presence must not auto-enable the global base. *)
   let forms_base = match forms with Some f -> f | None -> false in
   let individual =
-    individual_layers ~layers ~include_base ~forms_base first_usage_order
+    individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
       selector_props all_property_statements statements
   in
   let keyframes =
