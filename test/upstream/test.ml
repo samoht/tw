@@ -318,12 +318,8 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
 
 let setup_scheme_for_test expected =
   let scheme = scheme_from_expected_css expected in
-  Tw.Color.Handler.set_scheme scheme;
-  Tw.Theme.set_scheme scheme;
-  Tw.Borders.set_scheme scheme;
-  Tw.Effects.set_scheme scheme;
-  Tw.Divide.set_scheme scheme;
-  Tw.Rule.set_scheme scheme;
+  (* The scheme is threaded into Tw.to_css via ~theme below; the per-module
+     set_scheme globals are no longer used for rendering. *)
   (* Register custom breakpoints for modifier parsing *)
   let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
   let custom_bps =
@@ -795,7 +791,6 @@ let run_test_case test () =
             breakpoints = base_scheme.breakpoints @ custom_bps;
           }
         in
-        Tw.Rule.set_scheme updated_scheme;
         Tw.Modifiers.register_custom_breakpoints custom_bps;
         updated_scheme)
     in

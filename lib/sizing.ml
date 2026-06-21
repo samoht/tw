@@ -207,7 +207,7 @@ module Handler = struct
     let decl, spacing_value = Theme.spacing_calc_float ?theme (n *. 4.) in
     style (decl :: [ css_prop spacing_value ])
 
-  let w' size =
+  let w' ?theme size =
     match size with
     | `None -> style [ width (Px 0.) ]
     | `Xs -> style [ width (Rem 0.5) ]
@@ -218,7 +218,7 @@ module Handler = struct
     | `Xl_2 -> style [ width (Rem 4.0) ]
     | `Xl_3 -> style [ width (Rem 6.0) ]
     | `Full -> style [ width (Pct 100.0) ]
-    | `Rem n -> spacing_utility width n
+    | `Rem n -> spacing_utility ?theme width n
 
   let w_auto' = style [ width Auto ]
   let w_px' = style [ width (Px 1.0) ]
@@ -230,7 +230,7 @@ module Handler = struct
 
   (* Int-based width function for Tailwind scale (n * 0.25rem) *)
 
-  let h' size =
+  let h' ?theme size =
     match size with
     | `None -> style [ height (Px 0.) ]
     | `Xs -> style [ height (Rem 0.5) ]
@@ -241,7 +241,7 @@ module Handler = struct
     | `Xl_2 -> style [ height (Rem 4.0) ]
     | `Xl_3 -> style [ height (Rem 6.0) ]
     | `Full -> style [ height (Pct 100.0) ]
-    | `Rem n -> spacing_utility height n
+    | `Rem n -> spacing_utility ?theme height n
 
   let h_auto' = style [ height Auto ]
   let h_px' = style [ height (Px 1.0) ]
@@ -253,7 +253,7 @@ module Handler = struct
 
   (* Int-based height function for Tailwind scale (n * 0.25rem) *)
 
-  let min_w' size =
+  let min_w' ?theme size =
     match size with
     | `None -> style [ min_width (Px 0.) ]
     | `Xs -> style [ min_width (Rem 0.5) ]
@@ -264,7 +264,7 @@ module Handler = struct
     | `Xl_2 -> style [ min_width (Rem 4.0) ]
     | `Xl_3 -> style [ min_width (Rem 6.0) ]
     | `Full -> style [ min_width (Pct 100.0) ]
-    | `Rem n -> spacing_utility min_width n
+    | `Rem n -> spacing_utility ?theme min_width n
 
   let min_w_0' = style [ min_width (Px 0.) ]
   let min_w_full' = style [ min_width (Pct 100.0) ]
@@ -274,7 +274,7 @@ module Handler = struct
 
   (* Int-based min-width function for Tailwind scale (n * 0.25rem) *)
 
-  let max_w' size =
+  let max_w' ?theme size =
     match size with
     | `None -> style [ max_width None ]
     | `Xs -> style [ max_width (Rem 20.0) ]
@@ -285,7 +285,7 @@ module Handler = struct
     | `Xl_2 -> style [ max_width (Rem 42.0) ]
     | `Xl_3 -> style [ max_width (Rem 48.0) ]
     | `Full -> style [ max_width (Pct 100.0) ]
-    | `Rem n -> spacing_utility max_width n
+    | `Rem n -> spacing_utility ?theme max_width n
 
   (* Named width theme variable *)
   let width_xl = Var.theme Css.Length "width-xl" ~order:(5, 20)
@@ -377,7 +377,7 @@ module Handler = struct
 
   (* Int-based max-width function for Tailwind scale (n * 0.25rem) *)
 
-  let min_h' size =
+  let min_h' ?theme size =
     match size with
     | `None -> style [ min_height (Px 0.) ]
     | `Xs -> style [ min_height (Rem 0.5) ]
@@ -388,7 +388,7 @@ module Handler = struct
     | `Xl_2 -> style [ min_height (Rem 4.0) ]
     | `Xl_3 -> style [ min_height (Rem 6.0) ]
     | `Full -> style [ min_height (Pct 100.0) ]
-    | `Rem n -> spacing_utility min_height n
+    | `Rem n -> spacing_utility ?theme min_height n
 
   let min_h_0' = style [ min_height (Px 0.) ]
   let min_h_full' = style [ min_height (Pct 100.0) ]
@@ -399,7 +399,7 @@ module Handler = struct
 
   (* Int-based min-height function for Tailwind scale (n * 0.25rem) *)
 
-  let max_h' size =
+  let max_h' ?theme size =
     match size with
     | `None -> style [ max_height None ]
     | `Xs -> style [ max_height (Rem 0.5) ]
@@ -410,7 +410,7 @@ module Handler = struct
     | `Xl_2 -> style [ max_height (Rem 4.0) ]
     | `Xl_3 -> style [ max_height (Rem 6.0) ]
     | `Full -> style [ max_height (Pct 100.0) ]
-    | `Rem n -> spacing_utility max_height n
+    | `Rem n -> spacing_utility ?theme max_height n
 
   let max_h_none' = style [ max_height None ]
   let max_h_full' = style [ max_height (Pct 100.0) ]
@@ -455,6 +455,12 @@ module Handler = struct
 
   let to_style theme =
     let spacing_utility css_prop n = spacing_utility ~theme css_prop n in
+    let w' size = w' ~theme size in
+    let h' size = h' ~theme size in
+    let min_w' size = min_w' ~theme size in
+    let max_w' size = max_w' ~theme size in
+    let min_h' size = min_h' ~theme size in
+    let max_h' size = max_h' ~theme size in
     function
     (* Width utilities *)
     | W_auto -> w_auto'
