@@ -118,11 +118,32 @@ let test_gradient_rgba_stop () =
     (Astring.String.is_infix ~affix:"--tw-gradient-to"
        (css_of "to-[rgb(16,26,50,0.60)]"))
 
+(* A gradient stop-position utility (from-10%) registers the whole
+   --tw-gradient-* @property family, like the colour utilities, matching the
+   CLI. It used to register only the three *-position properties. *)
+let test_gradient_stop_position_properties () =
+  let css =
+    match Tw.of_string "from-10%" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.fail "could not parse from-10%"
+  in
+  Alcotest.(check bool)
+    "from-10% sets --tw-gradient-from-position" true
+    (Astring.String.is_infix ~affix:"--tw-gradient-from-position: 10%" css);
+  Alcotest.(check bool)
+    "from-10% registers @property --tw-gradient-from" true
+    (Astring.String.is_infix ~affix:"@property --tw-gradient-from" css);
+  Alcotest.(check bool)
+    "from-10% registers @property --tw-gradient-stops" true
+    (Astring.String.is_infix ~affix:"@property --tw-gradient-stops" css)
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;
+    test_case "gradient stop-position @property family" `Quick
+      test_gradient_stop_position_properties;
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;

@@ -1193,8 +1193,17 @@ module Handler = struct
     | Gradient_to -> ("to-", gradient_to_var, gradient_to_position_var)
 
   (* Shared @property rules for gradient positions *)
+  (* A gradient stop-position utility (from-10% etc.) registers the whole
+     --tw-gradient-* @property family, like the colour utilities do, matching
+     Tailwind (which declares the gradient properties as a unit). *)
   let gradient_position_property_rules () =
     [
+      Var.property_rule gradient_position_var;
+      Var.property_rule gradient_from_var;
+      Var.property_rule gradient_via_var;
+      Var.property_rule gradient_to_var;
+      Var.property_rule gradient_stops_var;
+      Var.property_rule gradient_via_stops_var;
       Var.property_rule gradient_from_position_var;
       Var.property_rule gradient_via_position_var;
       Var.property_rule gradient_to_position_var;
