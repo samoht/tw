@@ -122,7 +122,7 @@ module Handler = struct
 
   (* Return (declarations placed on the rule, optional @supports rules) that set
      [set_var] to the resolved colour. *)
-  let value_decls ~set_var ~prop_name spec :
+  let value_decls ?theme ~set_var ~prop_name spec :
       Css.declaration list * Css.statement list =
     match spec with
     (* Tailwind keeps these keywords literal in the custom property, where
@@ -141,7 +141,7 @@ module Handler = struct
     | Theme (color, shade, op) ->
         let percent = Color.opacity_to_percent op in
         let fallback_hex =
-          match Color.hex_alpha_color color shade op with
+          match Color.hex_alpha_color ?theme color shade op with
           | Some h -> h
           | None -> "#000000"
         in
@@ -176,8 +176,10 @@ module Handler = struct
         in
         ([ fst (Var.binding set_var oklab) ], [])
 
-  let compose ~set_var ~prop_name spec =
-    let main_decls, supports_rules = value_decls ~set_var ~prop_name spec in
+  let compose ?theme ~set_var ~prop_name spec =
+    let main_decls, supports_rules =
+      value_decls ?theme ~set_var ~prop_name spec
+    in
     let scrollbar_color_decl =
       Css.scrollbar_color
         (Colors
@@ -203,7 +205,9 @@ module Handler = struct
         in
         style ~property_rules ~rules:(Some ordered) []
 
-  let to_style _theme = function
+  let to_style theme =
+    let compose ~set_var ~prop_name s = compose ~theme ~set_var ~prop_name s in
+    function
     | Width_auto -> style [ Css.scrollbar_width Auto ]
     | Width_none -> style [ Css.scrollbar_width None ]
     | Width_thin -> style [ Css.scrollbar_width Thin ]
