@@ -520,7 +520,9 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "shadow"; "none" ] -> Ok Text_shadow_none
-    | [ "text"; "shadow" ] -> Ok (Text_shadow_shape S_md)
+    (* Bare `text-shadow` is not a utility in v4 (no `--text-shadow` token); the
+       named scale is `text-shadow-{2xs,xs,sm,md,lg}`. *)
+    | [ "text"; "shadow" ] -> err_not_utility
     | [ "text"; "shadow"; size_str ] -> (
         let base, opacity = Color.parse_opacity_modifier size_str in
         let shape_opt =
@@ -583,20 +585,14 @@ module Handler = struct
     | S_2xs -> "2xs"
     | S_xs -> "xs"
     | S_sm -> "sm"
-    | S_md -> ""
+    | S_md -> "md"
     | S_lg -> "lg"
 
   let to_class = function
     | Text_shadow_none -> "text-shadow-none"
-    | Text_shadow_shape S_md -> "text-shadow"
     | Text_shadow_shape shape -> "text-shadow-" ^ shape_to_string shape
     | Text_shadow_shape_opacity (shape, opacity) ->
-        let base =
-          match shape with
-          | S_md -> "text-shadow"
-          | _ -> "text-shadow-" ^ shape_to_string shape
-        in
-        base ^ "/" ^ Color.pp_opacity opacity
+        "text-shadow-" ^ shape_to_string shape ^ "/" ^ Color.pp_opacity opacity
     | Text_shadow_color (c, shade) ->
         "text-shadow-" ^ Color.color_to_string c
         ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
@@ -647,7 +643,6 @@ let text_shadow_none = utility Text_shadow_none
 let text_shadow_2xs = utility (Text_shadow_shape S_2xs)
 let text_shadow_xs = utility (Text_shadow_shape S_xs)
 let text_shadow_sm = utility (Text_shadow_shape S_sm)
-let text_shadow = utility (Text_shadow_shape S_md)
 let text_shadow_md = utility (Text_shadow_shape S_md)
 let text_shadow_lg = utility (Text_shadow_shape S_lg)
 let text_shadow_arbitrary arb = utility (Text_shadow_arbitrary arb)
