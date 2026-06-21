@@ -3149,6 +3149,15 @@ val prose_gray : t
 val prose_slate : t
 (** [prose_slate] uses the slate prose color theme. *)
 
+val prose_zinc : t
+(** [prose_zinc] uses the zinc prose color theme. *)
+
+val prose_neutral : t
+(** [prose_neutral] uses the neutral prose color theme. *)
+
+val prose_stone : t
+(** [prose_stone] uses the stone prose color theme. *)
+
 val prose_invert : t
 (** [prose_invert] remaps the prose palette to its inverted (dark) variant. *)
 
