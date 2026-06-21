@@ -41,13 +41,13 @@ module Handler = struct
 
   (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
   *)
-  let spacing_to_decl_len ~negative n : Css.declaration * Css.length =
+  let spacing_to_decl_len ?theme ~negative n : Css.declaration * Css.length =
     if n = 0.0 then
       let decl, _ = Var.binding Theme.spacing_var (Css.Rem 0.25) in
       (decl, Css.Px 0.)
     else
       let mult = if negative then -.n else n in
-      Theme.spacing_calc_float mult
+      Theme.spacing_calc_float ?theme mult
 
   let try_parse_length inner =
     let unit_table : (string * int * (float -> Css.length)) list =
@@ -107,7 +107,10 @@ module Handler = struct
     | Padding, Bs -> Css.scroll_padding_block_start len
     | Padding, Be -> Css.scroll_padding_block_end len
 
-  let to_style _theme { kind; negative; axis; value } =
+  let to_style theme { kind; negative; axis; value } =
+    let spacing_to_decl_len ~negative n =
+      spacing_to_decl_len ~theme ~negative n
+    in
     match value with
     | Spacing n ->
         let decl, len = spacing_to_decl_len ~negative n in

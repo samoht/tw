@@ -55,14 +55,14 @@ module Handler = struct
       "tw-border-spacing-y"
 
   (** Get spacing value - uses theme variable var(--spacing-N) *)
-  let spacing_value n =
-    let decl, len = Theme.spacing_calc_float n in
+  let spacing_value ?theme n =
+    let decl, len = Theme.spacing_calc_float ?theme n in
     (decl, len)
 
   (** border-spacing: sets both x and y variables and outputs two-value
       border-spacing *)
-  let border_spacing_style n =
-    let spacing_decl, spacing_len = spacing_value n in
+  let border_spacing_style ?theme n =
+    let spacing_decl, spacing_len = spacing_value ?theme n in
     (* Set --tw-border-spacing-x and --tw-border-spacing-y to the spacing
        value *)
     let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
@@ -84,8 +84,8 @@ module Handler = struct
       ]
 
   (** border-spacing-x: sets only x variable *)
-  let border_spacing_x_style n =
-    let spacing_decl, spacing_len = spacing_value n in
+  let border_spacing_x_style ?theme n =
+    let spacing_decl, spacing_len = spacing_value ?theme n in
     let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
     let _, y_ref = Var.binding border_spacing_y_var Zero in
     let property_rules =
@@ -104,8 +104,8 @@ module Handler = struct
       ]
 
   (** border-spacing-y: sets only y variable *)
-  let border_spacing_y_style n =
-    let spacing_decl, spacing_len = spacing_value n in
+  let border_spacing_y_style ?theme n =
+    let spacing_decl, spacing_len = spacing_value ?theme n in
     let _, x_ref = Var.binding border_spacing_x_var Zero in
     let decl_y, y_ref = Var.binding border_spacing_y_var spacing_len in
     let property_rules =
@@ -165,7 +165,11 @@ module Handler = struct
       ~property_rules:(Css.concat property_rules)
       [ decl_y; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
-  let to_style _theme = function
+  let to_style theme =
+    let border_spacing_style n = border_spacing_style ~theme n in
+    let border_spacing_x_style n = border_spacing_x_style ~theme n in
+    let border_spacing_y_style n = border_spacing_y_style ~theme n in
+    function
     | Border_collapse -> style [ Css.border_collapse Collapse ]
     | Border_separate -> style [ Css.border_collapse Separate ]
     | Border_spacing n -> border_spacing_style n

@@ -298,8 +298,8 @@ module Handler = struct
 
   (* [auto-cols-<n>] sizes implicit columns to a spacing-scaled track,
      [grid-auto-columns: calc(var(--spacing) * n)]. *)
-  let auto_cols_spacing n =
-    let decl, len = Theme.spacing_calc_float n in
+  let auto_cols_spacing ?theme n =
+    let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_columns (Css.Length len) ]
 
   (** {1 Grid Auto Rows} *)
@@ -317,12 +317,15 @@ module Handler = struct
   let auto_rows_arbitrary s =
     style [ Css.grid_auto_rows (parse_arbitrary_grid_template_exn s) ]
 
-  let auto_rows_spacing n =
-    let decl, len = Theme.spacing_calc_float n in
+  let auto_rows_spacing ?theme n =
+    let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_rows (Css.Length len) ]
 
   (** Convert grid template utility to style *)
-  let to_style _theme = function
+  let to_style theme =
+    let auto_cols_spacing n = auto_cols_spacing ~theme n in
+    let auto_rows_spacing n = auto_rows_spacing ~theme n in
+    function
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none ()
     | Grid_cols_subgrid -> grid_cols_subgrid

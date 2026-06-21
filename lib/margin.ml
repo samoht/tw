@@ -30,7 +30,7 @@ module Handler = struct
   (** Convert spacing to (declaration option, length) using
       Theme.spacing_calc_float. For rem values, checks scheme for explicit
       spacing variables. *)
-  let spacing_to_decl_len ~negative (s : Style.spacing) :
+  let spacing_to_decl_len ?theme ~negative (s : Style.spacing) :
       Css.declaration option * length =
     match s with
     | `Px ->
@@ -66,34 +66,22 @@ module Handler = struct
     | `Rem f ->
         let n = f /. 0.25 in
         let n = if negative then -.n else n in
-        let decl, len = Theme.spacing_calc_float n in
+        let decl, len = Theme.spacing_calc_float ?theme n in
         (Some decl, len)
 
-  let v (prop : length -> declaration) (m : margin) =
+  let v ?theme (prop : length -> declaration) (m : margin) =
     match m with
     | `Auto -> style [ prop Auto ]
     | #Style.spacing as s ->
-        let decl, len = spacing_to_decl_len ~negative:false s in
+        let decl, len = spacing_to_decl_len ?theme ~negative:false s in
         style (Option.to_list decl @ [ prop len ])
 
-  let vs (prop : length list -> declaration) (m : margin) =
+  let vs ?theme (prop : length list -> declaration) (m : margin) =
     match m with
     | `Auto -> style [ prop [ Auto ] ]
     | #Style.spacing as s ->
-        let decl, len = spacing_to_decl_len ~negative:false s in
+        let decl, len = spacing_to_decl_len ?theme ~negative:false s in
         style (Option.to_list decl @ [ prop [ len ] ])
-
-  let m_fn = vs margin
-  let mx = v margin_inline
-  let my = v margin_block
-  let mt = v margin_top
-  let mr = v margin_right
-  let mb = v margin_bottom
-  let ml = v margin_left
-  let ms = v margin_inline_start
-  let me = v margin_inline_end
-  let mbs = v margin_block_start
-  let mbe = v margin_block_end
 
   let named_margin_value name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
@@ -114,13 +102,14 @@ module Handler = struct
 
   (** {1 Conversion Functions} *)
 
-  let margin_util_neg (prop : length -> declaration) (s : Style.spacing) =
-    let decl, len = spacing_to_decl_len ~negative:true s in
+  let margin_util_neg ?theme (prop : length -> declaration) (s : Style.spacing)
+      =
+    let decl, len = spacing_to_decl_len ?theme ~negative:true s in
     style (Option.to_list decl @ [ prop len ])
 
-  let margin_list_util_neg (prop : length list -> declaration)
+  let margin_list_util_neg ?theme (prop : length list -> declaration)
       (s : Style.spacing) =
-    let decl, len = spacing_to_decl_len ~negative:true s in
+    let decl, len = spacing_to_decl_len ?theme ~negative:true s in
     style (Option.to_list decl @ [ prop [ len ] ])
 
   let spacing_value_order = function
@@ -151,7 +140,20 @@ module Handler = struct
     | `Be -> margin_block_end
 
   (** Convert margin utility to style *)
-  let to_style _theme { negative; axis; value } =
+  let to_style theme { negative; axis; value } =
+    let m_fn m = vs ~theme margin m in
+    let mx m = v ~theme margin_inline m in
+    let my m = v ~theme margin_block m in
+    let mt m = v ~theme margin_top m in
+    let mr m = v ~theme margin_right m in
+    let mb m = v ~theme margin_bottom m in
+    let ml m = v ~theme margin_left m in
+    let ms m = v ~theme margin_inline_start m in
+    let me m = v ~theme margin_inline_end m in
+    let mbs m = v ~theme margin_block_start m in
+    let mbe m = v ~theme margin_block_end m in
+    let margin_util_neg prop s = margin_util_neg ~theme prop s in
+    let margin_list_util_neg prop s = margin_list_util_neg ~theme prop s in
     let prop = prop_for_axis axis in
     match value with
     | Arbitrary len ->

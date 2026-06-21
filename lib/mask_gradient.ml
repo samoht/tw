@@ -101,9 +101,9 @@ module Handler = struct
   let position_end_name = function From -> "from" | To -> "to"
 
   (* Format the position value as CSS *)
-  let format_position_value = function
+  let format_position_value ?theme = function
     | Spacing n ->
-        let _, len = Theme.spacing_calc_float n in
+        let _, len = Theme.spacing_calc_float ?theme n in
         Css.Pp.to_string ~minify:false Css.pp_length len
     | Percent p ->
         if Float.is_integer p then pp_int (int_of_float p) ^ "%"
@@ -315,10 +315,10 @@ module Handler = struct
     | Conic -> conic_property_rules
 
   (* Build the style for a directional mask position *)
-  let build_directional_style dir pos_end value =
+  let build_directional_style ?theme dir pos_end value =
     let dir_name = direction_name dir in
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     (* The variable being set *)
     let var_name = "--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position" in
@@ -338,9 +338,9 @@ module Handler = struct
     style ~property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-x (both left and right) *)
-  let build_x_style pos_end value =
+  let build_x_style ?theme pos_end value =
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -362,9 +362,9 @@ module Handler = struct
     style ~property_rules:x_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-y (both top and bottom) *)
-  let build_y_style pos_end value =
+  let build_y_style ?theme pos_end value =
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -386,9 +386,9 @@ module Handler = struct
     style ~property_rules:y_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-linear (generic linear gradient) *)
-  let build_linear_style pos_end value =
+  let build_linear_style ?theme pos_end value =
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -405,9 +405,9 @@ module Handler = struct
     style ~property_rules:linear_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-radial position *)
-  let build_radial_style pos_end value =
+  let build_radial_style ?theme pos_end value =
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -481,9 +481,9 @@ module Handler = struct
           ]
 
   (* Build the style for mask-conic position *)
-  let build_conic_style pos_end value =
+  let build_conic_style ?theme pos_end value =
     let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value value in
+    let pos_value = format_position_value ?theme value in
 
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -707,7 +707,22 @@ module Handler = struct
     let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~property_rules (common_decls @ composite_decls)
 
-  let to_style _theme = function
+  let to_style theme =
+    let build_directional_style dir pos_end value =
+      build_directional_style ~theme dir pos_end value
+    in
+    let build_x_style pos_end value = build_x_style ~theme pos_end value in
+    let build_y_style pos_end value = build_y_style ~theme pos_end value in
+    let build_linear_style pos_end value =
+      build_linear_style ~theme pos_end value
+    in
+    let build_radial_style pos_end value =
+      build_radial_style ~theme pos_end value
+    in
+    let build_conic_style pos_end value =
+      build_conic_style ~theme pos_end value
+    in
+    function
     | Mask_position (Top, pos_end, value) ->
         build_directional_style Top pos_end value
     | Mask_position (Right, pos_end, value) ->

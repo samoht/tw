@@ -94,7 +94,8 @@ let named_inset_value name : Css.declaration * Css.length =
 
 (* Create a spacing value using calc(var(--spacing) * n). Returns the theme
    declaration and a length that references the variable. *)
-let spacing_value n : Css.declaration * Css.length = Theme.spacing_calc n
+let spacing_value ?theme n : Css.declaration * Css.length =
+  Theme.spacing_calc ?theme n
 
 module Handler = struct
   open Style
@@ -211,7 +212,9 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style _theme = function
+  let to_style theme =
+    let spacing_value n = spacing_value ~theme n in
+    function
     | Position_static -> style [ position Static ]
     | Position_relative -> style [ position Relative ]
     | Position_absolute -> style [ position Absolute ]

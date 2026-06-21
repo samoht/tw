@@ -203,8 +203,8 @@ module Handler = struct
       in rem units (e.g., 16.0 for w-64). We convert to class units by
       multiplying by 4, since --spacing is 0.25rem. Uses calc(var(--spacing) *
       n) for Tailwind v4 compatibility. *)
-  let spacing_utility css_prop n =
-    let decl, spacing_value = Theme.spacing_calc_float (n *. 4.) in
+  let spacing_utility ?theme css_prop n =
+    let decl, spacing_value = Theme.spacing_calc_float ?theme (n *. 4.) in
     style (decl :: [ css_prop spacing_value ])
 
   let w' size =
@@ -453,7 +453,9 @@ module Handler = struct
 
   let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
 
-  let to_style _theme = function
+  let to_style theme =
+    let spacing_utility css_prop n = spacing_utility ~theme css_prop n in
+    function
     (* Width utilities *)
     | W_auto -> w_auto'
     | W_px -> w_px'
@@ -563,7 +565,7 @@ module Handler = struct
     | Size_max -> style [ width Max_content; height Max_content ]
     | Size_fit -> style [ width Fit_content; height Fit_content ]
     | Size_spacing n ->
-        let decl, spacing_value = Theme.spacing_calc_float (n *. 4.) in
+        let decl, spacing_value = Theme.spacing_calc_float ~theme (n *. 4.) in
         style (decl :: [ width spacing_value; height spacing_value ])
     | Size_fraction f -> (
         match

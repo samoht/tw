@@ -58,8 +58,8 @@ module Handler = struct
 
   (** Convert spacing to (declaration option, length) using
       Theme.spacing_calc_float. *)
-  let spacing_to_decl_len (s : Style.spacing) : Css.declaration option * length
-      =
+  let spacing_to_decl_len ?theme (s : Style.spacing) :
+      Css.declaration option * length =
     match s with
     | `Px ->
         let len : length = Px 1. in
@@ -72,15 +72,16 @@ module Handler = struct
     | `Named name -> Spacing.named_spacing_binding name
     | `Rem f ->
         let n = f /. 0.25 in
-        let decl, len = Theme.spacing_calc_float n in
+        let decl, len = Theme.spacing_calc_float ?theme n in
         (Some decl, len)
 
-  let v_spacing (prop : length -> declaration) (s : Style.spacing) =
-    let decl, len = spacing_to_decl_len s in
+  let v_spacing ?theme (prop : length -> declaration) (s : Style.spacing) =
+    let decl, len = spacing_to_decl_len ?theme s in
     style (Option.to_list decl @ [ prop len ])
 
-  let vs_spacing (prop : length list -> declaration) (s : Style.spacing) =
-    let decl, len = spacing_to_decl_len s in
+  let vs_spacing ?theme (prop : length list -> declaration) (s : Style.spacing)
+      =
+    let decl, len = spacing_to_decl_len ?theme s in
     style (Option.to_list decl @ [ prop [ len ] ])
 
   let spacing_value_order = function
@@ -96,23 +97,25 @@ module Handler = struct
     | Arbitrary _ -> 20000
     | Arbitrary_var _ -> 20000
 
-  let apply_prop_list (prop : length list -> declaration) value =
+  let apply_prop_list ?theme (prop : length list -> declaration) value =
     match value with
-    | Standard s -> vs_spacing prop s
+    | Standard s -> vs_spacing ?theme prop s
     | Arbitrary len -> style [ prop [ len ] ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop [ Var (Var.bracket bare_name) ] ]
 
-  let apply_prop (prop : length -> declaration) value =
+  let apply_prop ?theme (prop : length -> declaration) value =
     match value with
-    | Standard s -> v_spacing prop s
+    | Standard s -> v_spacing ?theme prop s
     | Arbitrary len -> style [ prop len ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop (Var (Var.bracket bare_name)) ]
 
-  let to_style _theme t =
+  let to_style theme t =
+    let apply_prop_list prop value = apply_prop_list ~theme prop value in
+    let apply_prop prop value = apply_prop ~theme prop value in
     match t.axis with
     | `All -> apply_prop_list padding t.value
     | `X -> apply_prop_list padding_inline t.value
