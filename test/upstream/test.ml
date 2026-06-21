@@ -331,7 +331,8 @@ let setup_scheme_for_test expected =
       (fun (name, _) -> not (List.mem name standard_names))
       scheme.breakpoints
   in
-  Tw.Modifiers.register_custom_breakpoints custom_bps
+  Tw.Modifiers.register_custom_breakpoints custom_bps;
+  scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -734,7 +735,7 @@ let stat_expected_empty_cases = ref 0
 let run_test_case test () =
   if test.classes = [] then ()
   else (
-    setup_scheme_for_test test.expected;
+    let base_scheme = setup_scheme_for_test test.expected in
     (* Register any matchVariant custom variants for this test. Directive form:
        "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
     let parse_variant_directive d =
@@ -781,15 +782,23 @@ let run_test_case test () =
       (List.filter_map parse_variant_directive test.variants);
     Tw.Modifiers.register_container_variants
       (List.filter_map parse_container_directive test.variants);
-    (* Register custom breakpoints before parsing classes *)
+    (* Register custom breakpoints before parsing classes. The resulting scheme
+       (base plus any custom breakpoints) is the one threaded to [Tw.to_css]
+       below via [~theme]. *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
-    if custom_bps <> [] then (
-      let scheme = scheme_from_expected_css test.expected in
-      let updated_scheme =
-        { scheme with breakpoints = scheme.breakpoints @ custom_bps }
-      in
-      Tw.Rule.set_scheme updated_scheme;
-      Tw.Modifiers.register_custom_breakpoints custom_bps);
+    let scheme =
+      if custom_bps = [] then base_scheme
+      else (
+        let updated_scheme =
+          {
+            base_scheme with
+            breakpoints = base_scheme.breakpoints @ custom_bps;
+          }
+        in
+        Tw.Rule.set_scheme updated_scheme;
+        Tw.Modifiers.register_custom_breakpoints custom_bps;
+        updated_scheme)
+    in
     setup_theme_overrides test.config test.expected;
     let theme, theme_defaults = theme_config test.config test.expected in
     let parsed, rejected =
@@ -808,7 +817,7 @@ let run_test_case test () =
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
-      else Some (Tw.to_css ~base:false ~layers:false utilities)
+      else Some (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities)
     in
     let our_css =
       match our_stylesheet with
