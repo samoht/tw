@@ -2000,14 +2000,14 @@ module Handler = struct
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
-  let bg' c shade =
+  let bg' ?theme c shade =
     if is_custom_color c then
       let css_color = to_css c shade in
       style [ Css.background_color css_color ]
     else
       (* Use shared color variable to match tailwindcss output exactly. *)
       let cv = color_var c shade in
-      let color_value = get_color_value c shade in
+      let color_value = get_color_value ?theme c shade in
       let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
@@ -2016,7 +2016,7 @@ module Handler = struct
 
   (** Text color utilities *)
 
-  let text' color shade =
+  let text' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.color css_color ]
@@ -2027,8 +2027,9 @@ module Handler = struct
       let cv, color_value =
         if has_property_scoped then
           ( property_color_var ~property_prefix:"text-color" color shade,
-            property_color_value ~property_prefix:"text-color" color shade )
-        else (color_var color shade, get_color_value color shade)
+            property_color_value ?theme ~property_prefix:"text-color" color shade
+          )
+        else (color_var color shade, get_color_value ?theme color shade)
       in
       let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.color (Var color_ref) ])
@@ -2039,13 +2040,13 @@ module Handler = struct
 
   (** Border color utilities *)
 
-  let border_color' color shade =
+  let border_color' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.border_color css_color ]
     else
       let color_var = color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_value = get_color_value ?theme color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
 
