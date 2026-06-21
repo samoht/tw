@@ -952,10 +952,13 @@ module Handler = struct
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
      Fallback rule with hex alpha (for scheme colors) 2. @supports block with
      color-mix using theme variable 3. Separate rule with --tw-gradient-stops *)
-  let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
+  let gradient_color_opacity ?theme ~prefix ~set_var ?(shade = 500) color opacity
+      =
     let percent = Color.opacity_to_percent opacity in
     let color_name = Color.scheme_color_name color shade in
-    let scheme = Color.current_scheme () in
+    let scheme =
+      match theme with Some t -> t | None -> Color.current_scheme ()
+    in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -1276,7 +1279,14 @@ module Handler = struct
         Some o
     | _ -> None
 
-  let to_style _theme = function
+  let to_style theme =
+    let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
+      gradient_color_opacity ~theme ~prefix ~set_var ~shade color opacity
+    in
+    let bg_with_opacity c shade opacity =
+      Color.bg_with_opacity ~theme c shade opacity
+    in
+    function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | Gradient_color (target, src) -> (
@@ -1415,12 +1425,12 @@ module Handler = struct
         style [ Css.background_color c ]
     | Bg_bracket_color_opacity (orig, _, opacity) ->
         let c = Color.bracket_color_to_custom orig in
-        Color.bg_with_opacity c 500 opacity
+        bg_with_opacity c 500 opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
     | Bg_opacity (color, shade, opacity) ->
-        Color.bg_with_opacity color shade opacity
+        bg_with_opacity color shade opacity
     | Bg_bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
