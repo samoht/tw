@@ -68,6 +68,9 @@ type case = {
   classes : string list;
   expected : string;
   variants : string list;  (** [matchVariant] directive lines for this test. *)
+  theme_vars : (string * string) list;
+      (** [@theme] token overrides (name, value) captured from the test's CSS
+          template by the extractor (e.g. text-shadow sizes Tailwind inlines). *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -102,6 +105,7 @@ let read_test_cases filename =
     close_in ic;
     let tests = ref [] in
     let current_variants = ref [] in
+    let current_theme_vars = ref [] in
     let lines = String.split_on_char '\n' content in
     let parse_config_line line =
       let line = String.trim line in
@@ -117,6 +121,7 @@ let read_test_cases filename =
           if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
             let name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
+            current_theme_vars := [];
             parse_config name No_theme rest)
           else parse rest
     and parse_config name default_config lines =
@@ -135,6 +140,18 @@ let read_test_cases filename =
             current_variants :=
               String.sub tl 9 (String.length tl - 9) :: !current_variants;
             parse_variants name config rest)
+          else if String.length tl >= 11 && String.sub tl 0 11 = "@theme-var " then (
+            (* "@theme-var <name> <value>" -- split on the first space. *)
+            let rest_str = String.sub tl 11 (String.length tl - 11) in
+            (match String.index_opt rest_str ' ' with
+            | Some i ->
+                let n = String.sub rest_str 0 i in
+                let v =
+                  String.sub rest_str (i + 1) (String.length rest_str - i - 1)
+                in
+                current_theme_vars := (n, v) :: !current_theme_vars
+            | None -> ());
+            parse_variants name config rest)
           else parse_classes name config (line :: rest)
     and parse_classes name config lines =
       match lines with
@@ -150,6 +167,7 @@ let read_test_cases filename =
             (* New test without classes *)
             let new_name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
+            current_theme_vars := [];
             parse_config new_name No_theme rest)
           else
             let classes = split_classes line in
@@ -177,6 +195,7 @@ let read_test_cases filename =
                 classes;
                 expected;
                 variants = List.rev !current_variants;
+                theme_vars = List.rev !current_theme_vars;
               }
               :: !tests
       | line :: rest ->
@@ -190,6 +209,7 @@ let read_test_cases filename =
                   classes;
                   expected;
                   variants = List.rev !current_variants;
+                  theme_vars = List.rev !current_theme_vars;
                 }
                 :: !tests;
             parse rest)
@@ -813,7 +833,7 @@ let run_test_case test () =
        them from ~theme rather than the Var global. *)
     let scheme =
       Tw.Scheme.with_overrides scheme
-        (theme_overrides_of test.config test.expected)
+        (test.theme_vars @ theme_overrides_of test.config test.expected)
     in
     let theme, theme_defaults = theme_config test.config test.expected in
     let parsed, rejected =

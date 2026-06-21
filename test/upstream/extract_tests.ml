@@ -118,6 +118,11 @@ type test_case = {
   expected : string option;
   variants : string list;
       (** [matchVariant] directives, e.g. ["is-data ..."]. *)
+  theme_vars : (string * string) list;
+      (** [@theme] token declarations ([--name: value]) from the test's CSS
+          template. Captures tokens (e.g. [text-shadow-2xs]) that Tailwind
+          inlines into utilities rather than emitting to [:root], so the runner
+          can reconstruct the test's theme as token overrides. *)
 }
 
 (* Parse [matchVariant('name', (value) => `template`, { values: {...} })] calls
@@ -214,6 +219,14 @@ let parse_file filename =
   let match_variant_use = Re.Pcre.regexp {|matchVariant\(\s*'([^']+)'|} in
   let custom_variant_use = Re.Pcre.regexp {|@custom-variant\s+([A-Za-z0-9_-]+)|} in
   let current_variant_names = ref [] in
+  (* Capture [@theme] token declarations [--name: value;]. [in_theme]/[theme_depth]
+     track the brace nesting of the active [@theme {...}] block within a
+     compileCss template. *)
+  let current_theme_vars = ref [] in
+  let in_theme = ref false in
+  let theme_depth = ref 0 in
+  let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
+  let theme_var_re = Re.Pcre.regexp {|^\s*--([A-Za-z0-9-]+)\s*:\s*(.+?)\s*;\s*$|} in
 
   let flush_test name expected =
     let classes =
@@ -226,10 +239,20 @@ let parse_file filename =
     in
     if classes <> [] then
       tests :=
-        { name; config = !current_config; classes; expected; variants }
+        {
+          name;
+          config = !current_config;
+          classes;
+          expected;
+          variants;
+          theme_vars = List.rev !current_theme_vars;
+        }
         :: !tests;
     current_classes := [];
-    current_variant_names := []
+    current_variant_names := [];
+    current_theme_vars := [];
+    in_theme := false;
+    theme_depth := 0
   in
 
   List.iter
@@ -272,6 +295,24 @@ let parse_file filename =
           else if Re.execp theme_ref_re line then
             current_config := Theme_reference
           else if Re.execp theme_re line then current_config := Theme;
+
+          (* Capture [@theme] token declarations. Enter on the opener line,
+             capture [--name: value;] lines, exit when braces balance. *)
+          if (not !in_theme) && Re.execp theme_open_re line then (
+            in_theme := true;
+            theme_depth := 0);
+          if !in_theme then (
+            (match Re.exec_opt theme_var_re line with
+            | Some g ->
+                current_theme_vars :=
+                  (Re.Group.get g 1, Re.Group.get g 2) :: !current_theme_vars
+            | None -> ());
+            String.iter
+              (fun c ->
+                if c = '{' then incr theme_depth
+                else if c = '}' then decr theme_depth)
+              line;
+            if !theme_depth <= 0 then in_theme := false);
 
           (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
@@ -367,6 +408,9 @@ let () =
       Fmt.pr "# %s@." test.name;
       Fmt.pr "@config %s@." (config_to_string test.config);
       List.iter (fun v -> Fmt.pr "@variant %s@." v) test.variants;
+      List.iter
+        (fun (n, v) -> Fmt.pr "@theme-var %s %s@." n v)
+        test.theme_vars;
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->

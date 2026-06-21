@@ -1064,6 +1064,11 @@ print/foo:flex
 <<<>>>
 # default breakpoints
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-md 768px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-xl 1280px
+@theme-var breakpoint-2xl 1536px
 2xl:flex lg:flex md:flex sm:flex xl:flex
 ---
 
@@ -1100,12 +1105,18 @@ print/foo:flex
 <<<>>>
 # default breakpoints
 @config theme-reference
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-md 768px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-xl 1280px
+@theme-var breakpoint-2xl 1536px
 2xl/foo:flex lg/foo:flex md/foo:flex sm/foo:flex xl/foo:flex
 ---
 
 <<<>>>
 # custom breakpoint
 @config theme
+@theme-var breakpoint-10xl 5000px
 10xl:flex
 ---
 
@@ -1118,6 +1129,9 @@ print/foo:flex
 <<<>>>
 # max-*
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 max-lg:flex max-md:flex max-sm:flex
 ---
 
@@ -1142,12 +1156,18 @@ max-lg:flex max-md:flex max-sm:flex
 <<<>>>
 # max-*
 @config theme-reference
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 max-lg/foo:flex max-md/foo:flex max-sm/foo:flex
 ---
 
 <<<>>>
 # min-*
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 min-lg:flex min-md:flex min-sm:flex
 ---
 
@@ -1172,12 +1192,20 @@ min-lg:flex min-md:flex min-sm:flex
 <<<>>>
 # min-*
 @config theme-reference
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 min-lg/foo:flex min-md/foo:flex min-sm/foo:flex
 ---
 
 <<<>>>
 # sorting stacked min-* and max-* variants
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
+@theme-var breakpoint-xl 1280px
+@theme-var breakpoint-xs 280px
 min-md:max-lg:flex min-sm:max-lg:flex min-sm:max-xl:flex min-xs:max-sm:flex
 ---
 
@@ -1214,6 +1242,9 @@ min-md:max-lg:flex min-sm:max-lg:flex min-sm:max-xl:flex min-xs:max-sm:flex
 <<<>>>
 # stacked min-* and max-* variants should come after unprefixed variants
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 md:flex min-md:max-lg:flex min-sm:max-lg:flex sm:flex
 ---
 
@@ -1244,6 +1275,9 @@ md:flex min-md:max-lg:flex min-sm:max-lg:flex sm:flex
 <<<>>>
 # min, max and unprefixed breakpoints
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-md 768px
 lg-sm-potato:flex lg:flex max-[1000px]:flex max-lg-sm-potato:flex max-lg:flex max-md:flex max-sm:flex md:flex min-[700px]:flex min-lg-sm-potato:flex min-lg:flex min-md:flex min-sm:flex sm:flex
 ---
 
@@ -1484,6 +1518,7 @@ supports-[(display:grid)_and_font-format(opentype)]/foo:grid supports-[display:g
 <<<>>>
 # not
 @config theme
+@theme-var breakpoint-sm 640px
 group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checked:flex group-not-device-hocus:flex group-not-hocus/parent-name:flex group-not-hocus:flex group-not-hover:flex not-[:checked]:flex not-[@media(orientation:portrait)]:flex not-[@media_(orientation:landscape)]:flex not-[@media_not_(orientation:portrait)]:flex not-[@media_print]:flex not-active:flex not-aria-selected:flex not-autofill:flex not-checked:flex not-contrast-less:flex not-contrast-more:flex not-dark:flex not-data-foo:flex not-default:flex not-device-hocus:flex not-disabled:flex not-empty:flex not-enabled:flex not-even:flex not-first-of-type:flex not-first:flex not-focus-visible:flex not-focus-within:flex not-focus:flex not-forced-colors:flex not-has-checked:flex not-hocus:flex not-hover:flex not-in-range:flex not-indeterminate:flex not-inert:flex not-invalid:flex not-landscape:flex not-last-of-type:flex not-last:flex not-ltr:flex not-max-[130px]:flex not-max-sm:flex not-min-[130px]:flex not-min-sm:flex not-motion-reduce:flex not-motion-safe:flex not-noscript:flex not-nth-2:flex not-odd:flex not-only-of-type:flex not-only:flex not-open:flex not-optional:flex not-out-of-range:flex not-placeholder-shown:flex not-portrait:flex not-print:flex not-read-only:flex not-required:flex not-rtl:flex not-sm:flex not-supports-grid:flex not-target:flex not-valid:flex not-visited:flex peer-not-[:checked]/sibling-name:flex peer-not-[:checked]:flex peer-not-checked:flex peer-not-hocus/sibling-name:flex peer-not-hocus:flex
 ---
 
@@ -1960,6 +1995,11 @@ nth--3:flex nth-3/foo:flex nth-[2n+1]/foo:flex nth-[2n+1_of_.foo]/foo:flex nth-l
 <<<>>>
 # variant order
 @config theme
+@theme-var breakpoint-sm 640px
+@theme-var breakpoint-md 768px
+@theme-var breakpoint-lg 1024px
+@theme-var breakpoint-xl 1280px
+@theme-var breakpoint-2xl 1536px
 2xl:flex [&_p]:flex active:flex after:flex aria-[custom=true]:flex aria-busy:flex aria-checked:flex aria-disabled:flex aria-expanded:flex aria-hidden:flex aria-pressed:flex aria-readonly:flex aria-required:flex aria-selected:flex autofill:flex backdrop:flex before:flex checked:flex contrast-less:flex contrast-more:flex dark:flex data-[custom=true]:flex data-custom:flex default:flex details-content:flex disabled:flex empty:flex enabled:flex even:flex file:flex first-letter:flex first-line:flex first-of-type:flex first:flex focus-visible:flex focus-within:flex focus:flex forced-colors:flex group-hover:flex has-[:hover]:flex hover:flex in-range:flex indeterminate:flex invalid:flex landscape:flex last-of-type:flex last:flex lg:flex ltr:flex marker:flex md:flex motion-reduce:flex motion-safe:flex odd:flex only-of-type:flex only:flex open:flex optional:flex out-of-range:flex peer-hover:flex placeholder-shown:flex placeholder:flex portrait:flex print:flex read-only:flex required:flex rtl:flex selection:flex sm:flex supports-[display:flex]:flex target:flex valid:flex visited:flex xl:flex
 ---
 
