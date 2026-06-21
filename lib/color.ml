@@ -2081,7 +2081,7 @@ module Handler = struct
 
   (** Accent color utilities *)
 
-  let accent' color shade =
+  let accent' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.accent_color css_color ]
@@ -2090,7 +2090,7 @@ module Handler = struct
         property_color_var ~property_prefix:"accent-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"accent-color" color shade
+        property_color_value ?theme ~property_prefix:"accent-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
@@ -2101,7 +2101,7 @@ module Handler = struct
 
   (** Caret color utilities *)
 
-  let caret' color shade =
+  let caret' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.caret_color css_color ]
@@ -2110,7 +2110,7 @@ module Handler = struct
         property_color_var ~property_prefix:"caret-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"caret-color" color shade
+        property_color_value ?theme ~property_prefix:"caret-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.caret_color (Var color_ref) ])
@@ -2121,7 +2121,7 @@ module Handler = struct
 
   (** Outline color utilities *)
 
-  let outline' color shade =
+  let outline' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.outline_color css_color ]
@@ -2130,7 +2130,7 @@ module Handler = struct
         property_color_var ~property_prefix:"outline-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"outline-color" color shade
+        property_color_value ?theme ~property_prefix:"outline-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.outline_color (Var color_ref) ])
@@ -2252,8 +2252,8 @@ module Handler = struct
       - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
       - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
         has color-mix(oklab) *)
-  let color_with_opacity_style ~property ?property_prefix ?merge_key c shade
-      opacity =
+  let color_with_opacity_style ?theme ~property ?property_prefix ?merge_key c
+      shade opacity =
     let percent = opacity_to_percent opacity in
     if is_custom_color c then
       (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
@@ -2272,7 +2272,7 @@ module Handler = struct
       let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
       style ?merge_key [ property oklab_value ]
     else
-      let scheme = !current_scheme in
+      let scheme = resolve_scheme theme in
       let color_name = scheme_color_name c shade in
       (* Check if color is defined as hex in the scheme *)
       match Scheme.hex_color scheme color_name with
@@ -2311,7 +2311,7 @@ module Handler = struct
           let color_value =
             match property_prefix with
             | Some prefix ->
-                property_color_value ~property_prefix:prefix c shade
+                property_color_value ?theme ~property_prefix:prefix c shade
             | Stdlib.Option.None ->
                 to_css c (if is_base_color c then 500 else shade)
           in
@@ -2335,12 +2335,12 @@ module Handler = struct
             [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
-  let bg_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.background_color
+  let bg_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.background_color
       ~property_prefix:"background-color" c shade opacity
 
   (** Text color with opacity *)
-  let text_with_opacity c shade opacity =
+  let text_with_opacity ?theme c shade opacity =
     let property_prefix =
       if not (is_custom_color c) then
         let color_name = scheme_color_name c shade in
@@ -2348,26 +2348,26 @@ module Handler = struct
         if Var.theme_value prop_name <> None then Some "text-color" else None
       else None
     in
-    color_with_opacity_style ~property:Css.color ?property_prefix c shade
+    color_with_opacity_style ?theme ~property:Css.color ?property_prefix c shade
       opacity
 
   (** Border color with opacity *)
-  let border_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.border_color c shade opacity
+  let border_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
 
   (** Accent color with opacity *)
-  let accent_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.accent_color
+  let accent_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.accent_color
       ~property_prefix:"accent-color" c shade opacity
 
   (** Caret color with opacity *)
-  let caret_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.caret_color
+  let caret_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.caret_color
       ~property_prefix:"caret-color" c shade opacity
 
   (** Outline color with opacity *)
-  let outline_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.outline_color
+  let outline_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.outline_color
       ~property_prefix:"outline-color" c shade opacity
 
   (** Current color with opacity using color-mix with progressive enhancement *)
@@ -2471,7 +2471,34 @@ module Handler = struct
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
     | other -> other
 
-  let to_style _theme = function
+  let to_style theme =
+    (* Shadow the scheme-reading colour helpers with theme-applied versions so
+       the match arms below read from the explicitly threaded scheme. *)
+    let bg' color shade = bg' ~theme color shade in
+    let text' color shade = text' ~theme color shade in
+    let border_color' color shade = border_color' ~theme color shade in
+    let accent' color shade = accent' ~theme color shade in
+    let caret' color shade = caret' ~theme color shade in
+    let outline' color shade = outline' ~theme color shade in
+    let bg_with_opacity color shade opacity =
+      bg_with_opacity ~theme color shade opacity
+    in
+    let text_with_opacity color shade opacity =
+      text_with_opacity ~theme color shade opacity
+    in
+    let border_with_opacity color shade opacity =
+      border_with_opacity ~theme color shade opacity
+    in
+    let accent_with_opacity color shade opacity =
+      accent_with_opacity ~theme color shade opacity
+    in
+    let caret_with_opacity color shade opacity =
+      caret_with_opacity ~theme color shade opacity
+    in
+    let outline_with_opacity color shade opacity =
+      outline_with_opacity ~theme color shade opacity
+    in
+    function
     | Bg (color, shade) -> bg' color shade
     | Bg_opacity (color, shade, opacity) ->
         (* 100% opacity: same as base color, no @supports needed *)
