@@ -183,9 +183,10 @@ module Handler = struct
 
   (* ============ Color-setting styles ============ *)
 
-  let color_hex c shade =
+  let color_hex ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Color.scheme () in
+    match Scheme.hex_color scheme color_name with
     | Some h -> h
     | Stdlib.Option.None -> (
         match Var.theme_value ("color-" ^ color_name) with
@@ -195,8 +196,8 @@ module Handler = struct
             let rgb = Color.oklch_to_rgb oklch in
             Color.rgb_to_hex rgb)
 
-  let set_color c shade =
-    let hex_value = color_hex c shade in
+  let set_color ?theme c shade =
+    let hex_value = color_hex ?theme c shade in
     let base_decl, _ = Var.binding text_shadow_color_var (Css.hex hex_value) in
     let theme_color_var = Color.color_var c shade in
     let theme_decl, color_ref =
@@ -211,9 +212,9 @@ module Handler = struct
     style ~rules:(Some [ supports_block ])
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
-  let set_color_opacity c shade opacity =
+  let set_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex_value = color_hex c shade in
+    let hex_value = color_hex ?theme c shade in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ =
       Var.binding text_shadow_color_var (Css.hex hex_with_alpha)
@@ -438,7 +439,12 @@ module Handler = struct
 
   (* ============ Style dispatch ============ *)
 
-  let to_style _theme = function
+  let to_style theme =
+    let set_color c shade = set_color ~theme c shade in
+    let set_color_opacity c shade opacity =
+      set_color_opacity ~theme c shade opacity
+    in
+    function
     | Text_shadow_none ->
         style ~property_rules:text_shadow_property_rules
           [ Css.text_shadow Css.None ]
