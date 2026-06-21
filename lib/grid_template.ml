@@ -20,8 +20,8 @@ module Css = Cascade.Css
 module Handler = struct
   open Style
 
-  (* Bind tw's [Pp.float : float -> string] before [open Css] shadows [Pp]
-     with cascade's context-based [Css.Pp]. *)
+  (* Bind tw's [Pp.float : float -> string] before [open Css] shadows [Pp] with
+     cascade's context-based [Css.Pp]. *)
   let pp_float = Pp.float
 
   open Css
@@ -121,39 +121,123 @@ module Handler = struct
       | Some n -> Some (Px (float_of_int n))
       | None -> None
 
-  let parse_single_track value : Css.grid_template option =
-    match parse_arbitrary_length value with
-    | Some (Px n) -> Some (Px n)
-    | Some (Rem n) -> Some (Rem n)
-    | Some (Em n) -> Some (Em n)
-    | Some (Pct n) -> Some (Pct n)
-    | Some (Vw n) -> Some (Vw n)
-    | Some (Vh n) -> Some (Vh n)
-    | Some _ -> None
-    | None ->
-        let len = String.length value in
-        if len >= 2 && String.sub value (len - 2) 2 = "fr" then
-          match float_of_string_opt (String.sub value 0 (len - 2)) with
-          | Some n -> Some (Fr n)
-          | None -> None
-        else if value = "auto" then Some Auto
-        else if value = "min-content" then Some Min_content
-        else if value = "max-content" then Some Max_content
-        else None
+  let rec all_some = function
+    | [] -> Some []
+    | x :: xs -> (
+        match (x, all_some xs) with
+        | Some v, Some vs -> Some (v :: vs)
+        | _ -> None)
+
+  (* Split [s] on [sep] only at the top nesting level, so separators inside
+     repeat()/minmax()/fit-content() are preserved. *)
+  let split_top_level sep s =
+    let len = String.length s in
+    let buf = Buffer.create len in
+    let rec loop i depth acc =
+      if i >= len then List.rev (Buffer.contents buf :: acc)
+      else
+        let c = s.[i] in
+        if c = '(' then (
+          Buffer.add_char buf c;
+          loop (i + 1) (depth + 1) acc)
+        else if c = ')' then (
+          Buffer.add_char buf c;
+          loop (i + 1) (max 0 (depth - 1)) acc)
+        else if c = sep && depth = 0 then (
+          let part = Buffer.contents buf in
+          Buffer.clear buf;
+          loop (i + 1) depth (part :: acc))
+        else (
+          Buffer.add_char buf c;
+          loop (i + 1) depth acc)
+    in
+    loop 0 0 []
+
+  (* If [value] is [name(...)], return the inner argument string. *)
+  let fn_args name value =
+    let nl = String.length name and vl = String.length value in
+    if
+      vl > nl + 1
+      && String.sub value 0 nl = name
+      && value.[nl] = '('
+      && value.[vl - 1] = ')'
+    then Some (String.sub value (nl + 1) (vl - nl - 2))
+    else None
+
+  let parse_track_keyword value : Css.grid_template option =
+    (* Unitless zero stays bare (minmax(0,1fr)), not 0px. *)
+    if value = "0" then Some Css.Zero
+    else
+      match parse_arbitrary_length value with
+      | Some (Px n) -> Some (Px n)
+      | Some (Rem n) -> Some (Rem n)
+      | Some (Em n) -> Some (Em n)
+      | Some (Pct n) -> Some (Pct n)
+      | Some (Vw n) -> Some (Vw n)
+      | Some (Vh n) -> Some (Vh n)
+      | Some _ -> None
+      | None ->
+          let len = String.length value in
+          if len >= 2 && String.sub value (len - 2) 2 = "fr" then
+            match float_of_string_opt (String.sub value 0 (len - 2)) with
+            | Some n -> Some (Fr n)
+            | None -> None
+          else if value = "auto" then Some Auto
+          else if value = "min-content" then Some Min_content
+          else if value = "max-content" then Some Max_content
+          else None
+
+  (* A single grid track: a length/keyword, or one of the grid functions
+     minmax()/fit-content()/repeat() (which may nest). *)
+  let rec parse_single_track value : Css.grid_template option =
+    match fn_args "minmax" value with
+    | Some inner -> (
+        match List.map String.trim (split_top_level ',' inner) with
+        | [ a; b ] -> (
+            match (parse_single_track a, parse_single_track b) with
+            | Some ta, Some tb -> Some (Css.Min_max (ta, tb))
+            | _ -> None)
+        | _ -> None)
+    | None -> (
+        match fn_args "fit-content" value with
+        | Some inner -> (
+            match parse_arbitrary_length (String.trim inner) with
+            | Some l -> Some (Css.Fit_content l)
+            | None -> None)
+        | None -> (
+            match fn_args "repeat" value with
+            | Some inner -> parse_repeat inner
+            | None -> parse_track_keyword value))
+
+  and parse_repeat inner =
+    match split_top_level ',' inner with
+    | count_s :: rest when rest <> [] -> (
+        let count =
+          match String.trim count_s with
+          | "auto-fill" -> Some Css.Auto_fill
+          | "auto-fit" -> Some Css.Auto_fit
+          | n -> (
+              match int_of_string_opt n with
+              | Some i -> Some (Css.Count i)
+              | None -> None)
+        in
+        (* The track list after the count is space-separated (underscores in the
+           bracket); commas only separated count from the list. *)
+        let tracks =
+          String.concat "," rest |> split_top_level '_'
+          |> List.filter (fun s -> s <> "")
+          |> List.map String.trim
+        in
+        match (count, all_some (List.map parse_single_track tracks)) with
+        | Some c, Some ts -> Some (Css.Repeat (c, ts))
+        | _ -> None)
+    | _ -> None
 
   let parse_arbitrary_grid_template s : Css.grid_template option =
     let value = String.trim s in
-    (* Tailwind converts underscores to spaces in bracket values *)
-    let parts =
-      String.split_on_char '_' value |> List.filter (fun s -> s <> "")
-    in
-    let rec all_some = function
-      | [] -> Some []
-      | x :: xs -> (
-          match (x, all_some xs) with
-          | Some v, Some vs -> Some (v :: vs)
-          | _ -> None)
-    in
+    (* Underscores are spaces in bracket values; split tracks at the top level
+       so functions like repeat(2,1fr_2fr) keep their inner underscores. *)
+    let parts = split_top_level '_' value |> List.filter (fun s -> s <> "") in
     match parts with
     | [] -> None
     | [ single ] -> parse_single_track single
