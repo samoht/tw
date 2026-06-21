@@ -925,7 +925,12 @@ let collect_all_property_rules vars_from_utilities set_var_names
     vars_needing_property vars_from_utilities
     |> List.filter (fun (Css.V v) ->
         let var_name = "--" ^ Css.var_name v in
-        Strings.mem var_name set_names_set)
+        (* --tw-content is special: Tailwind emits @property --tw-content (and
+           its universal seed) only for before/after pseudo-elements, never for
+           the content-* utilities that merely set the variable. The pseudo path
+           adds it explicitly via has_pseudo_elements, so exclude it from the
+           set-based auto-collection here. *)
+        var_name <> "--tw-content" && Strings.mem var_name set_names_set)
   in
   let explicit_names = property_names_of explicit_property_rules_statements in
   let generated_rules = property_rules_for needing_property explicit_names in

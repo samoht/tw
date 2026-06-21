@@ -2407,10 +2407,14 @@ module Typography_late = struct
             overflow Visible;
           ]
 
+  (* content-none sets --tw-content: none and uses a literal [content: none], so
+     it never references var(--tw-content) and Tailwind emits no @property rule
+     for it (unlike the value/theme variants below, which do reference the var).
+     The set-based auto-collection is suppressed for --tw-content in
+     build.ml. *)
   let content_none =
     let content_decl, _content_ref = Var.binding content_var None in
-    let property_rules = Var.property_rules content_var in
-    style ~property_rules [ content_decl; content None ]
+    style [ content_decl; content None ]
 
   let content s =
     (* Convert underscores to spaces in content values *)
