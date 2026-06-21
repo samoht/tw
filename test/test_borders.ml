@@ -141,6 +141,19 @@ let test_outline_widths () =
     "outline-3 is not a utility" true
     (match Tw.of_string "outline-3" with Error _ -> true | Ok _ -> false)
 
+(* Arbitrary outline-offset lengths (outline-offset-[3px]) emit the length,
+   alongside the var() form (outline-offset-[var(--x)]). *)
+let test_outline_offset_arbitrary () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "outline-offset-[3px] emits outline-offset: 3px" true
+    (Astring.String.is_infix ~affix:"outline-offset: 3px"
+       (css "outline-offset-[3px]"))
+
 (* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
    plus the side border-style var; they used to be unknown classes. *)
 let test_border_side_arbitrary_width () =
@@ -164,6 +177,8 @@ let tests =
     test_case "rounded-l-full inlined radius" `Quick
       test_rounded_side_full_inlined;
     test_case "outline numeric widths" `Quick test_outline_widths;
+    test_case "outline-offset arbitrary length" `Quick
+      test_outline_offset_arbitrary;
     test_case "border side arbitrary widths" `Quick
       test_border_side_arbitrary_width;
     test_case "borders of_string - valid values" `Quick of_string_valid;

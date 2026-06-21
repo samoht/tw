@@ -256,6 +256,7 @@ module Handler = struct
     | Outline_offset_4
     | Outline_offset_8
     | Outline_offset_var of string (* outline-offset-[var(--value)] *)
+    | Outline_offset_arbitrary of string (* outline-offset-[3px] *)
     | Neg_outline_offset_1
     | Neg_outline_offset_2
     | Neg_outline_offset_4
@@ -1746,6 +1747,10 @@ module Handler = struct
     | Outline_offset_4 -> outline_offset_4
     | Outline_offset_8 -> outline_offset_8
     | Outline_offset_var v -> outline_offset_var_style v
+    | Outline_offset_arbitrary v -> (
+        match parse_length v with
+        | Some l -> style [ Css.outline_offset l ]
+        | None -> style [ Css.outline_offset (Px 0.) ])
     | Neg_outline_offset_1 -> neg_outline_offset_1
     | Neg_outline_offset_2 -> neg_outline_offset_2
     | Neg_outline_offset_4 -> neg_outline_offset_4
@@ -1897,6 +1902,7 @@ module Handler = struct
     | Outline_offset_4 -> 2213
     | Outline_offset_8 -> 2214
     | Outline_offset_var _ -> 2215
+    | Outline_offset_arbitrary _ -> 2215
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -2154,6 +2160,8 @@ module Handler = struct
     | [ "outline"; "offset"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Outline_offset_var inner)
+        else if parse_length inner <> None then
+          Ok (Outline_offset_arbitrary inner)
         else err_not_utility
     | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
     | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
@@ -2396,6 +2404,7 @@ module Handler = struct
     | Outline_offset_4 -> "outline-offset-4"
     | Outline_offset_8 -> "outline-offset-8"
     | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"
+    | Outline_offset_arbitrary v -> "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset_1 -> "-outline-offset-1"
     | Neg_outline_offset_2 -> "-outline-offset-2"
     | Neg_outline_offset_4 -> "-outline-offset-4"

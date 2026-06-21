@@ -547,11 +547,16 @@ module Handler = struct
     | [ "duration"; n ] ->
         Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
     | [ "delay"; n ] when String.length n > 0 && n.[0] = '[' ->
-        (* Arbitrary delay: delay-[300ms] *)
+        (* Arbitrary delay: delay-[300ms], delay-[var(--d)] *)
         let len = String.length n in
         if len > 2 && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          if String.ends_with ~suffix:"ms" inner then
+          if Parse.is_var inner then
+            let dref : Css.duration Css.var =
+              Var.bracket (Parse.extract_var_name inner)
+            in
+            Ok (Delay_arbitrary (inner, (Css.Var dref : Css.duration)))
+          else if String.ends_with ~suffix:"ms" inner then
             let num = String.sub inner 0 (String.length inner - 2) in
             match float_of_string_opt num with
             | Some _ ->
