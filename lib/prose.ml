@@ -1737,15 +1737,154 @@ let slate_invert_bindings =
     (prose_invert_td_borders_var, Css.oklch 37.2 0.044 257.287);
   ]
 
+(* Zinc theme: normal bindings *)
+let zinc_normal_bindings =
+  [
+    (prose_body_var, Css.oklch 37.0 0.013 285.805);
+    (prose_headings_var, Css.oklch 21.0 0.006 285.885);
+    (prose_lead_var, Css.oklch 44.2 0.017 285.786);
+    (prose_links_var, Css.oklch 21.0 0.006 285.885);
+    (prose_bold_var, Css.oklch 21.0 0.006 285.885);
+    (prose_counters_var, Css.oklch 55.2 0.016 285.938);
+    (prose_bullets_var, Css.oklch 87.1 0.006 286.286);
+    (prose_hr_var, Css.oklch 92.0 0.004 286.32);
+    (prose_quotes_var, Css.oklch 21.0 0.006 285.885);
+    (prose_quote_borders_var, Css.oklch 92.0 0.004 286.32);
+    (prose_captions_var, Css.oklch 55.2 0.016 285.938);
+    (prose_kbd_var, Css.oklch 21.0 0.006 285.885);
+    (prose_kbd_shadows_var, Css.oklaba 21.0 0.00164225 (-0.00577088) 0.1);
+    (prose_code_var, Css.oklch 21.0 0.006 285.885);
+    (prose_pre_code_var, Css.oklch 92.0 0.004 286.32);
+    (prose_pre_bg_var, Css.oklch 27.4 0.006 286.033);
+    (prose_th_borders_var, Css.oklch 87.1 0.006 286.286);
+    (prose_td_borders_var, Css.oklch 92.0 0.004 286.32);
+  ]
+
+(* Zinc theme: invert bindings *)
+let zinc_invert_bindings =
+  [
+    (prose_invert_body_var, Css.oklch 87.1 0.006 286.286);
+    (prose_invert_headings_var, Css.hex "fff");
+    (prose_invert_lead_var, Css.oklch 70.5 0.015 286.067);
+    (prose_invert_links_var, Css.hex "fff");
+    (prose_invert_bold_var, Css.hex "fff");
+    (prose_invert_counters_var, Css.oklch 70.5 0.015 286.067);
+    (prose_invert_bullets_var, Css.oklch 44.2 0.017 285.786);
+    (prose_invert_hr_var, Css.oklch 37.0 0.013 285.805);
+    (prose_invert_quotes_var, Css.oklch 96.7 0.001 286.375);
+    (prose_invert_quote_borders_var, Css.oklch 37.0 0.013 285.805);
+    (prose_invert_captions_var, Css.oklch 70.5 0.015 286.067);
+    (prose_invert_kbd_var, Css.hex "fff");
+    (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
+    (prose_invert_code_var, Css.hex "fff");
+    (prose_invert_pre_code_var, Css.oklch 87.1 0.006 286.286);
+    (prose_invert_pre_bg_var, Css.hex "00000080");
+    (prose_invert_th_borders_var, Css.oklch 44.2 0.017 285.786);
+    (prose_invert_td_borders_var, Css.oklch 37.0 0.013 285.805);
+  ]
+
+(* Neutral theme: normal bindings *)
+let neutral_normal_bindings =
+  [
+    (prose_body_var, Css.oklch 37.1 0.0 0.0);
+    (prose_headings_var, Css.oklch 20.5 0.0 0.0);
+    (prose_lead_var, Css.oklch 43.9 0.0 0.0);
+    (prose_links_var, Css.oklch 20.5 0.0 0.0);
+    (prose_bold_var, Css.oklch 20.5 0.0 0.0);
+    (prose_counters_var, Css.oklch 55.6 0.0 0.0);
+    (prose_bullets_var, Css.oklch 87.0 0.0 0.0);
+    (prose_hr_var, Css.oklch 92.2 0.0 0.0);
+    (prose_quotes_var, Css.oklch 20.5 0.0 0.0);
+    (prose_quote_borders_var, Css.oklch 92.2 0.0 0.0);
+    (prose_captions_var, Css.oklch 55.6 0.0 0.0);
+    (prose_kbd_var, Css.oklch 20.5 0.0 0.0);
+    (prose_kbd_shadows_var, Css.oklaba 20.5 0.0 0.0 0.1);
+    (prose_code_var, Css.oklch 20.5 0.0 0.0);
+    (prose_pre_code_var, Css.oklch 92.2 0.0 0.0);
+    (prose_pre_bg_var, Css.oklch 26.9 0.0 0.0);
+    (prose_th_borders_var, Css.oklch 87.0 0.0 0.0);
+    (prose_td_borders_var, Css.oklch 92.2 0.0 0.0);
+  ]
+
+(* Neutral theme: invert bindings *)
+let neutral_invert_bindings =
+  [
+    (prose_invert_body_var, Css.oklch 87.0 0.0 0.0);
+    (prose_invert_headings_var, Css.hex "fff");
+    (prose_invert_lead_var, Css.oklch 70.8 0.0 0.0);
+    (prose_invert_links_var, Css.hex "fff");
+    (prose_invert_bold_var, Css.hex "fff");
+    (prose_invert_counters_var, Css.oklch 70.8 0.0 0.0);
+    (prose_invert_bullets_var, Css.oklch 43.9 0.0 0.0);
+    (prose_invert_hr_var, Css.oklch 37.1 0.0 0.0);
+    (prose_invert_quotes_var, Css.oklch 97.0 0.0 0.0);
+    (prose_invert_quote_borders_var, Css.oklch 37.1 0.0 0.0);
+    (prose_invert_captions_var, Css.oklch 70.8 0.0 0.0);
+    (prose_invert_kbd_var, Css.hex "fff");
+    (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
+    (prose_invert_code_var, Css.hex "fff");
+    (prose_invert_pre_code_var, Css.oklch 87.0 0.0 0.0);
+    (prose_invert_pre_bg_var, Css.hex "00000080");
+    (prose_invert_th_borders_var, Css.oklch 43.9 0.0 0.0);
+    (prose_invert_td_borders_var, Css.oklch 37.1 0.0 0.0);
+  ]
+
+(* Stone theme: normal bindings *)
+let stone_normal_bindings =
+  [
+    (prose_body_var, Css.oklch 37.4 0.01 67.558);
+    (prose_headings_var, Css.oklch 21.6 0.006 56.043);
+    (prose_lead_var, Css.oklch 44.4 0.011 73.639);
+    (prose_links_var, Css.oklch 21.6 0.006 56.043);
+    (prose_bold_var, Css.oklch 21.6 0.006 56.043);
+    (prose_counters_var, Css.oklch 55.3 0.013 58.071);
+    (prose_bullets_var, Css.oklch 86.9 0.005 56.366);
+    (prose_hr_var, Css.oklch 92.3 0.003 48.717);
+    (prose_quotes_var, Css.oklch 21.6 0.006 56.043);
+    (prose_quote_borders_var, Css.oklch 92.3 0.003 48.717);
+    (prose_captions_var, Css.oklch 55.3 0.013 58.071);
+    (prose_kbd_var, Css.oklch 21.6 0.006 56.043);
+    (prose_kbd_shadows_var, Css.oklaba 21.6 0.00335142 0.00497674 0.1);
+    (prose_code_var, Css.oklch 21.6 0.006 56.043);
+    (prose_pre_code_var, Css.oklch 92.3 0.003 48.717);
+    (prose_pre_bg_var, Css.oklch 26.8 0.007 34.298);
+    (prose_th_borders_var, Css.oklch 86.9 0.005 56.366);
+    (prose_td_borders_var, Css.oklch 92.3 0.003 48.717);
+  ]
+
+(* Stone theme: invert bindings *)
+let stone_invert_bindings =
+  [
+    (prose_invert_body_var, Css.oklch 86.9 0.005 56.366);
+    (prose_invert_headings_var, Css.hex "fff");
+    (prose_invert_lead_var, Css.oklch 70.9 0.01 56.259);
+    (prose_invert_links_var, Css.hex "fff");
+    (prose_invert_bold_var, Css.hex "fff");
+    (prose_invert_counters_var, Css.oklch 70.9 0.01 56.259);
+    (prose_invert_bullets_var, Css.oklch 44.4 0.011 73.639);
+    (prose_invert_hr_var, Css.oklch 37.4 0.01 67.558);
+    (prose_invert_quotes_var, Css.oklch 97.0 0.001 106.424);
+    (prose_invert_quote_borders_var, Css.oklch 37.4 0.01 67.558);
+    (prose_invert_captions_var, Css.oklch 70.9 0.01 56.259);
+    (prose_invert_kbd_var, Css.hex "fff");
+    (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
+    (prose_invert_code_var, Css.hex "fff");
+    (prose_invert_pre_code_var, Css.oklch 86.9 0.005 56.366);
+    (prose_invert_pre_bg_var, Css.hex "00000080");
+    (prose_invert_th_borders_var, Css.oklch 44.4 0.011 73.639);
+    (prose_invert_td_borders_var, Css.oklch 37.4 0.01 67.558);
+  ]
+
 (* Helper to create color variable bindings for color themes - returns
    declarations *)
 let color_theme_bindings theme_name =
   match theme_name with
   | "gray" -> bind_prose_vars (gray_normal_bindings @ gray_invert_bindings)
   | "slate" -> bind_prose_vars (slate_normal_bindings @ slate_invert_bindings)
-  | "zinc" -> [] (* TODO: Add zinc theme bindings *)
-  | "neutral" -> [] (* TODO: Add neutral theme bindings *)
-  | "stone" -> [] (* TODO: Add stone theme bindings *)
+  | "zinc" -> bind_prose_vars (zinc_normal_bindings @ zinc_invert_bindings)
+  | "neutral" ->
+      bind_prose_vars (neutral_normal_bindings @ neutral_invert_bindings)
+  | "stone" -> bind_prose_vars (stone_normal_bindings @ stone_invert_bindings)
   | _ -> []
 
 (* prose-invert remaps every --tw-prose-* to its --tw-prose-invert-*
@@ -1999,12 +2138,14 @@ module Color_Handler = struct
     | _ -> Error (`Msg "Not a prose color utility")
 
   let suborder = function
-    (* Prose color utilities come after text colors (20000-29999) *)
+    (* Prose color utilities come after text colors (20000-29999). The gray
+       ramps sort alphabetically by class name, matching Tailwind's order (gray,
+       neutral, slate, stone, zinc), then invert and orange. *)
     | Prose_gray -> 30000
-    | Prose_slate -> 30001
-    | Prose_zinc -> 30002
-    | Prose_neutral -> 30003
-    | Prose_stone -> 30004
+    | Prose_neutral -> 30001
+    | Prose_slate -> 30002
+    | Prose_stone -> 30003
+    | Prose_zinc -> 30004
     | Prose_invert -> 30005
     | Prose_orange -> 30006
 end

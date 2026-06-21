@@ -73,6 +73,31 @@ let test_color_variants () =
     (Astring.String.is_infix ~affix:"--tw-prose-links" orange
     && Astring.String.is_infix ~affix:"--tw-prose-invert-links" orange)
 
+(* Real-CLI parity for the typography plugin. Until now prose had no comparison
+   against the actual @tailwindcss/typography output (always enabled in
+   Tailwind_gen) -- only checks of tw's own structure -- so the README's "fully
+   supported" claim was unproven for the plugin. check_ordering_matches does a
+   full canonical diff against the real CLI and fails on any difference, exactly
+   as the forms suite does. *)
+let test_size_parity () =
+  Test_helpers.check_ordering_matches ~test_name:"prose sizes match Tailwind"
+    [ prose; prose_sm; prose_lg; prose_xl; prose_2xl ]
+
+(* Covers the five gray ramps (zinc/neutral/stone were stubs emitting nothing
+   before this commit's parent), the invert remap and the orange accent. *)
+let test_color_theme_parity () =
+  Test_helpers.check_ordering_matches
+    ~test_name:"prose colour themes match Tailwind"
+    [
+      prose_gray;
+      prose_slate;
+      prose_zinc;
+      prose_neutral;
+      prose_stone;
+      prose_invert;
+      prose_orange;
+    ]
+
 let suite =
   ( "prose",
     [
@@ -81,4 +106,7 @@ let suite =
       Alcotest.test_case "combinations" `Quick test_combinations;
       Alcotest.test_case "CSS generation" `Quick test_css_generation;
       Alcotest.test_case "inline styles" `Quick test_inline_styles;
+      Alcotest.test_case "size parity with Tailwind" `Quick test_size_parity;
+      Alcotest.test_case "colour theme parity with Tailwind" `Quick
+        test_color_theme_parity;
     ] )
