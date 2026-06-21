@@ -354,13 +354,15 @@ end
     enhancement. They produce a fallback declaration plus a [\@supports] block
     for color-mix. *)
 
-val fill_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [fill_with_opacity color shade opacity] generates fill style with opacity.
-*)
+val fill_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [fill_with_opacity ?theme color shade opacity] generates fill style with
+    opacity, reading scheme colours from [theme] when given. *)
 
-val stroke_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [stroke_with_opacity color shade opacity] generates stroke style with
-    opacity. *)
+val stroke_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [stroke_with_opacity ?theme color shade opacity] generates stroke style with
+    opacity, reading scheme colours from [theme] when given. *)
 
 val fill_current_with_opacity : opacity_modifier -> Style.t
 (** [fill_current_with_opacity opacity] generates fill currentColor with
@@ -371,8 +373,13 @@ val stroke_current_with_opacity : opacity_modifier -> Style.t
     opacity. *)
 
 val divide_with_opacity :
-  color -> int -> opacity_modifier -> Css.Selector.t -> Style.t
-(** [divide_with_opacity color shade opacity selector] generates divide
+  ?theme:Scheme.t ->
+  color ->
+  int ->
+  opacity_modifier ->
+  Css.Selector.t ->
+  Style.t
+(** [divide_with_opacity ?theme color shade opacity selector] generates divide
     border-color with opacity using the given selector. *)
 
 val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
@@ -387,15 +394,17 @@ val pp_opacity : opacity_modifier -> string
     modifier for use in class names. E.g., Opacity_percent 50. -> "50",
     Opacity_arbitrary 0.5 -> "[0.5]". *)
 
-val hex_alpha_color : color -> int -> opacity_modifier -> string option
-(** [hex_alpha_color color shade opacity] returns a hex color with alpha if the
-    color is defined in the scheme, otherwise None. This is useful for
+val hex_alpha_color :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> string option
+(** [hex_alpha_color ?theme color shade opacity] returns a hex color with alpha
+    if the color is defined in the scheme, otherwise None. This is useful for
     properties where Tailwind outputs simple hex+alpha without [@supports]. *)
 
-val bg_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [bg_with_opacity color shade opacity] generates background-color style with
-    opacity. Scheme-aware: uses hex+alpha fallback with theme variable in
-    [\@supports] block. *)
+val bg_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [bg_with_opacity ?theme color shade opacity] generates background-color
+    style with opacity. Scheme-aware: uses hex+alpha fallback with theme
+    variable in [\@supports] block. *)
 
 val bg_current_with_opacity : opacity_modifier -> Style.t
 (** [bg_current_with_opacity opacity] generates background-color currentColor

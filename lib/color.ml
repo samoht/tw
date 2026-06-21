@@ -2970,11 +2970,11 @@ let css_color_to_hex = Handler.css_color_to_hex
 let parse_bracket_color = Handler.parse_bracket_color
 let round_n = round_n
 
-let hex_alpha_color c shade opacity =
+let hex_alpha_color ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let color_name = scheme_color_name c shade in
-  match Scheme.hex_color !current_scheme color_name with
+  match Scheme.hex_color (resolve_scheme theme) color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
   | None -> None
 
@@ -3014,7 +3014,7 @@ let oklab_with_supports ~property ~fallback_decl c shade percent =
   let supports_block = color_mix_supports ~decls:[ theme_decl; oklab_decl ] in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-let generic_color_with_opacity ~property c shade opacity =
+let generic_color_with_opacity ?theme ~property c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if is_custom_color c then
@@ -3024,7 +3024,7 @@ let generic_color_with_opacity ~property c shade opacity =
     Style.style [ property oklab_value ]
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let fallback_decl =
           property (Css.hex (hex_with_alpha hex_value percent))
@@ -3054,13 +3054,13 @@ let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   Style.style ?merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Fill/stroke helpers for SVG utilities *)
-let fill_with_opacity c shade opacity =
-  generic_color_with_opacity
+let fill_with_opacity ?theme c shade opacity =
+  generic_color_with_opacity ?theme
     ~property:(fun color -> Css.fill (Css.Color color))
     c shade opacity
 
-let stroke_with_opacity c shade opacity =
-  generic_color_with_opacity
+let stroke_with_opacity ?theme c shade opacity =
+  generic_color_with_opacity ?theme
     ~property:(fun color -> Css.stroke (Css.Color color))
     c shade opacity
 
@@ -3117,7 +3117,7 @@ let bg_opacity_via_property c shade percent =
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Divide helpers with custom selector *)
-let divide_with_opacity_selector ~selector c shade opacity =
+let divide_with_opacity_selector ?theme ~selector c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if is_custom_color c then
@@ -3128,7 +3128,7 @@ let divide_with_opacity_selector ~selector c shade opacity =
     Style.style ~rules:(Some [ rule ]) []
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let hex_alpha = hex_with_alpha hex_value percent in
         let fallback_rule =
@@ -3149,8 +3149,8 @@ let divide_with_opacity_selector ~selector c shade opacity =
         Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
     | None -> divide_opacity_via_property ~selector c shade percent
 
-let divide_with_opacity c shade opacity selector =
-  divide_with_opacity_selector ~selector c shade opacity
+let divide_with_opacity ?theme c shade opacity selector =
+  divide_with_opacity_selector ?theme ~selector c shade opacity
 
 let divide_current_with_opacity_selector ~selector opacity =
   let open Handler in
@@ -3171,7 +3171,7 @@ let divide_current_with_opacity opacity selector =
 
 (** Background color with opacity - scheme-aware. Uses hex+alpha fallback with
     theme variable in [@supports] block. *)
-let bg_with_opacity c shade opacity =
+let bg_with_opacity ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if percent >= 100.0 then
@@ -3188,7 +3188,7 @@ let bg_with_opacity c shade opacity =
     Style.style [ Css.background_color oklab_value ]
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let fallback_decl =
           Css.background_color (Css.hex (hex_with_alpha hex_value percent))
