@@ -106,6 +106,18 @@ let test_aspect_css () =
   Alcotest.check bool "has 16/9" true
     (Astring.String.is_infix ~affix:"16/9" css)
 
+(* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
+   var(--aspect-square) with a stray --aspect-square theme token that bare
+   Tailwind does not define. *)
+let test_aspect_square_inlined () =
+  let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.pp ~minify:true in
+  Alcotest.check bool "aspect-square inlines the ratio" true
+    (Astring.String.is_infix ~affix:"aspect-ratio:1" css);
+  Alcotest.check bool "aspect-square references no var" false
+    (Astring.String.is_infix ~affix:"var(--aspect-square)" css);
+  Alcotest.check bool "aspect-square emits no --aspect-square token" false
+    (Astring.String.is_infix ~affix:"--aspect-square" css)
+
 (** Test that the programmatic API generates correct class names *)
 let test_class_generation () =
   let open Tw in
@@ -233,6 +245,7 @@ let tests =
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
+    test_case "aspect-square inlined 1/1" `Quick test_aspect_square_inlined;
     test_case "class generation" `Quick test_class_generation;
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
