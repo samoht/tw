@@ -26,6 +26,7 @@ module Handler = struct
     | Columns_6xl
     | Columns_7xl
     | Columns_arbitrary of int
+    | Columns_arbitrary_len of string (* columns-[16rem] *)
     | Columns_bracket_var of string
 
   type Utility.base += Self of t
@@ -38,6 +39,26 @@ module Handler = struct
   let columns_with_var var default_value =
     let decl, ref_ = Var.binding var default_value in
     style [ decl; columns (Width (Var ref_)) ]
+
+  (* Parse an arbitrary column width (columns-[16rem]). *)
+  let parse_columns_length str : Css.length option =
+    let len = String.length str in
+    let drop n = float_of_string_opt (String.sub str 0 (len - n)) in
+    let map (f : float -> Css.length) = function
+      | Some n -> Some (f n)
+      | None -> None
+    in
+    if len > 3 && String.sub str (len - 3) 3 = "rem" then
+      map (fun n -> Css.Rem n) (drop 3)
+    else if len > 2 && String.sub str (len - 2) 2 = "px" then
+      map (fun n -> Css.Px n) (drop 2)
+    else if len > 2 && String.sub str (len - 2) 2 = "em" then
+      map (fun n -> Css.Em n) (drop 2)
+    else if len > 2 && String.sub str (len - 2) 2 = "vw" then
+      map (fun n -> Css.Vw n) (drop 2)
+    else if len > 1 && str.[len - 1] = '%' then
+      map (fun n -> Css.Pct n) (drop 1)
+    else None
 
   let to_style = function
     | Columns_auto -> (
@@ -69,6 +90,10 @@ module Handler = struct
     | Columns_6xl -> columns_with_var Sizing.container_6xl (Rem 72.0)
     | Columns_7xl -> columns_with_var Sizing.container_7xl (Rem 80.0)
     | Columns_arbitrary n -> style [ columns (Count n) ]
+    | Columns_arbitrary_len s -> (
+        match parse_columns_length s with
+        | Some l -> style [ columns (Width l) ]
+        | None -> style [ columns Auto ])
     | Columns_bracket_var s ->
         let inner = Parse.extract_var_name s in
         let ref : Css.columns_value Css.var = Var.bracket inner in
@@ -113,6 +138,7 @@ module Handler = struct
       | Columns_6xl -> "6xl"
       | Columns_7xl -> "7xl"
       | Columns_arbitrary n -> "[" ^ string_of_int n ^ "]"
+      | Columns_arbitrary_len s -> "[" ^ s ^ "]"
       | Columns_bracket_var _ -> "[z"
     in
     string_to_sortkey suffix
@@ -142,6 +168,8 @@ module Handler = struct
           let inner = String.sub n 1 (len - 2) in
           match int_of_string_opt inner with
           | Some i -> Ok (Columns_arbitrary i)
+          | None when parse_columns_length inner <> None ->
+              Ok (Columns_arbitrary_len inner)
           | None -> Error (`Msg "Invalid columns arbitrary value")
         else
           match int_of_string_opt n with
@@ -166,6 +194,7 @@ module Handler = struct
     | Columns_6xl -> "columns-6xl"
     | Columns_7xl -> "columns-7xl"
     | Columns_arbitrary n -> "columns-[" ^ string_of_int n ^ "]"
+    | Columns_arbitrary_len s -> "columns-[" ^ s ^ "]"
     | Columns_bracket_var s -> "columns-[" ^ s ^ "]"
 end
 

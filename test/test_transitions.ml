@@ -12,6 +12,9 @@ let test_roundtrip () =
   check "duration-300";
   check "delay-150";
   check "delay-300";
+  (* Arbitrary delay accepts both time units and var(). *)
+  check "delay-[300ms]";
+  check "delay-[var(--d)]";
   check "ease-linear";
   check "ease-in";
   check "ease-out";
