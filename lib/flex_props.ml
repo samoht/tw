@@ -31,6 +31,7 @@ module Handler = struct
     (* Basis *)
     | Basis_0
     | Basis_1
+    | Basis_spacing of int
     | Basis_auto
     | Basis_full
     | Basis_fraction of int * int
@@ -151,6 +152,7 @@ module Handler = struct
     | Flex_shrink_arbitrary n -> style [ flex_shrink (float_of_int n) ]
     | Basis_0 -> basis_0
     | Basis_1 -> basis_1
+    | Basis_spacing n -> basis_spacing n
     | Basis_auto -> basis_auto
     | Basis_full -> basis_full
     | Basis_fraction (n, m) -> basis_fraction_style n m
@@ -208,6 +210,7 @@ module Handler = struct
     | Basis_arbitrary _ -> 42000
     | Basis_0 -> 43000
     | Basis_1 -> 43001
+    | Basis_spacing _ -> 43001
     | Basis_auto -> 43002
     | Basis_full -> 43003
     | Basis_named _ -> 44000
@@ -262,11 +265,14 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "basis"; value ] -> (
-        match parse_fraction value with
-        | Some (n, m) -> Ok (Basis_fraction (n, m))
-        | None ->
-            if Spacing.is_named_spacing value then Ok (Basis_named value)
-            else err_not_utility)
+        match int_of_string_opt value with
+        | Some n when n >= 0 -> Ok (Basis_spacing n)
+        | _ -> (
+            match parse_fraction value with
+            | Some (n, m) -> Ok (Basis_fraction (n, m))
+            | None ->
+                if Spacing.is_named_spacing value then Ok (Basis_named value)
+                else err_not_utility))
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
@@ -337,6 +343,7 @@ module Handler = struct
     (* Basis *)
     | Basis_0 -> "basis-0"
     | Basis_1 -> "basis-1"
+    | Basis_spacing n -> "basis-" ^ string_of_int n
     | Basis_auto -> "basis-auto"
     | Basis_full -> "basis-full"
     | Basis_fraction (n, m) ->
