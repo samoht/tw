@@ -54,6 +54,26 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches ~test_name:"gap suborder matches Tailwind"
     shuffled
 
+let require_parse class_name =
+  match Tw.of_string class_name with
+  | Ok u -> u
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" class_name m
+
+(* gap and space interleave in Tailwind's property-registration order: .gap-4
+   comes before :where(.space-x-2 > :not(:last-child)). *)
+let mixed_gap_space_order_matches_tailwind () =
+  [ "gap-4"; "space-x-2" ] |> List.map require_parse
+  |> Test_helpers.check_ordering_matches
+       ~test_name:"mixed gap/space order matches Tailwind"
+
+(* gap-x (column-gap) sorts before gap-y (row-gap) regardless of arbitrary vs
+   standard values. *)
+let mixed_gap_axis_arbitrary_order_matches_tailwind () =
+  [ "gap-4"; "gap-x-[4px]"; "gap-y-1.5" ]
+  |> List.map require_parse
+  |> Test_helpers.check_ordering_matches
+       ~test_name:"mixed gap axis arbitrary order matches Tailwind"
+
 (** Test that CSS values use the correct spacing multiplier. gap-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
@@ -74,6 +94,10 @@ let tests =
     test_case "gap of_string - valid values" `Quick of_string_valid;
     test_case "gap of_string - invalid values" `Quick of_string_invalid;
     test_case "gap suborder matches Tailwind" `Quick suborder_matches_tailwind;
+    test_case "mixed gap/space order matches Tailwind" `Quick
+      mixed_gap_space_order_matches_tailwind;
+    test_case "mixed gap axis arbitrary order matches Tailwind" `Quick
+      mixed_gap_axis_arbitrary_order_matches_tailwind;
     test_case "gap CSS values" `Quick test_css_values;
   ]
 

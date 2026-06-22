@@ -15,8 +15,8 @@ module Handler = struct
     | Gap of { axis : [ `All | `X | `Y ]; value : gap_value }
     | Space of { negative : bool; axis : [ `X | `Y ]; value : spacing }
     | Space_arb of { axis : [ `X | `Y ]; value : Css.length; raw : string }
-        (* [raw] is the original bracketed token (e.g. "[-0]"), kept verbatim
-           for the class name since [value] normalises away signed zero. *)
+      (* [raw] is the original bracketed token (e.g. "[-0]"), kept verbatim for
+         the class name since [value] normalises away signed zero. *)
     | Space_x_reverse
     | Space_y_reverse
 
@@ -249,13 +249,14 @@ module Handler = struct
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
+  (* Relative value order within one axis: px, then the rem scale ascending (max
+     ~960 at gap-96), then full and named. Kept compact so a whole axis fits in
+     a band well under 10000. *)
   let spacing_value_order = function
     | `Px -> 1
-    | `Full -> 10000
-    | `Named _ -> 20000
-    | `Rem f ->
-        let units = f /. 0.25 in
-        int_of_float (units *. 10.)
+    | `Rem f -> int_of_float (f /. 0.25 *. 10.)
+    | `Full -> 1000
+    | `Named _ -> 1100
 
   (* space-x-reverse utility sets --tw-space-x-reverse: 1 on children *)
   let space_x_reverse_style () =
@@ -314,25 +315,33 @@ module Handler = struct
 
   let gap_value_order = function
     | Standard s -> spacing_value_order s
-    | Arbitrary _ -> 50000
-    | Arbitrary_var _ -> 55000
+    | Arbitrary _ -> 2000
+    | Arbitrary_var _ -> 2100
+
+  (* gap and space share priority 17 with the alignment utilities. Tailwind
+     emits them in CSS-property registration order, which interleaves the two
+     families between justify-items and place-self: gap (all) -> margin-block
+     (space-y) -> column-gap (gap-x) -> margin-inline (space-x) -> row-gap
+     (gap-y) Each property gets a 10000-wide band starting at 1000 (above
+     justify-items at <=75, below place-self at 76000); values sort within the
+     band. *)
+  let gap_rank = function `All -> 0 | `X -> 2 | `Y -> 4
+  let space_rank = function `Y -> 1 | `X -> 3
+  let band r = 1000 + (r * 10000)
+
+  (* Within a space band: negatives (ascending magnitude) come first, then
+     positive standards, then arbitrary (3000) and reverse (3100). *)
+  let space_value_order ~negative value =
+    if negative then spacing_value_order value
+    else 1500 + spacing_value_order value
 
   let suborder = function
-    | Gap { axis; value } ->
-        let axis_offset =
-          match axis with `All -> 0 | `X -> 20000 | `Y -> 40000
-        in
-        25000 + axis_offset + gap_value_order value
+    | Gap { axis; value } -> band (gap_rank axis) + gap_value_order value
     | Space { negative; axis; value } ->
-        let neg_offset = if negative then -100000 else 0 in
-        let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
-        20000 + neg_offset + axis_offset + spacing_value_order value
-    | Space_arb { axis; _ } ->
-        let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
-        70000 + axis_offset
-    (* Reverse utilities come after their regular counterparts *)
-    | Space_x_reverse -> 130000
-    | Space_y_reverse -> 140000
+        band (space_rank axis) + space_value_order ~negative value
+    | Space_arb { axis; _ } -> band (space_rank axis) + 3000
+    | Space_x_reverse -> band (space_rank `X) + 3100
+    | Space_y_reverse -> band (space_rank `Y) + 3100
 
   let pp_gap_value_suffix = function
     | Standard s -> Spacing.pp_spacing_suffix s
@@ -378,11 +387,11 @@ module Handler = struct
         match float_of_string_opt n with
         | Some f -> Some (Arbitrary (Css.Rem f))
         | None -> None
-      else (
+      else
         (* Unitless zero ([0], [-0]) is a valid CSS length. *)
         match float_of_string_opt inner with
         | Some f when f = 0.0 -> Some (Arbitrary Css.Zero)
-        | _ -> None)
+        | _ -> None
     else None
 
   let parse_gap_value value =
