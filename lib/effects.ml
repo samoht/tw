@@ -107,6 +107,7 @@ module Handler = struct
     | Ring_md
     | Ring_lg
     | Ring_xl
+    | Ring_width of int
     | Ring_inset
     | Ring_color of Color.color * int
     | Ring_color_opacity of Color.color * int * Color.opacity_modifier
@@ -2078,6 +2079,7 @@ module Handler = struct
     | Ring_md -> ring_default ()
     | Ring_lg -> ring_lg
     | Ring_xl -> ring_xl
+    | Ring_width w -> ring_internal w
     | Ring_inset -> ring_inset
     | Ring_color (color, shade) -> ring_color color shade
     | Ring_color_opacity (color, shade, opacity) ->
@@ -2536,6 +2538,9 @@ module Handler = struct
     | [ "ring"; "2" ] -> Ok Ring_sm
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
+    | [ "ring"; n ]
+      when (match int_of_string_opt n with Some w -> w > 0 | None -> false) ->
+        Ok (Ring_width (int_of_string n))
     | [ "ring"; "inset" ] -> Ok Ring_inset
     | [ "ring"; "transparent" ] -> Ok Ring_transparent
     | [ "ring"; "inherit" ] -> Ok Ring_inherit
@@ -2738,6 +2743,7 @@ module Handler = struct
     | Ring_md -> "ring"
     | Ring_lg -> "ring-4"
     | Ring_xl -> "ring-8"
+    | Ring_width w -> "ring-" ^ string_of_int w
     | Ring_inset -> "ring-inset"
     | Ring_color (color, shade) ->
         "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
@@ -2947,6 +2953,7 @@ module Handler = struct
     | Ring_sm -> 40003
     | Ring_lg -> 40004
     | Ring_xl -> 40005
+    | Ring_width _ -> 40005
     | Ring_bracket_length _ -> 40010
     | Ring_color _ | Ring_color_opacity _ | Ring_transparent | Ring_current
     | Ring_current_opacity _ | Ring_inherit | Ring_bracket_color _
