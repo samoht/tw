@@ -38,6 +38,10 @@ let test_ring_of_string_valid () =
   check "ring-2";
   check "ring-4";
   check "ring-8";
+  (* v4 accepts any bare integer width, not just the fixed scale *)
+  check "ring-3";
+  check "ring-5";
+  check "ring-12";
   check "ring-inset"
 
 let test_filters_css_generation () =
