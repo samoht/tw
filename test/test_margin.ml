@@ -43,9 +43,25 @@ let of_string_invalid () =
     check_invalid_input (module Tw.Margin.Handler) class_name
   in
 
-  fail_maybe [ "m" ]
-(* Missing value - note: m-<name> is valid in Tailwind v4 as named spacing
-   var *)
+  fail_maybe [ "m" ];
+  (* Named spacing is valid only when the theme defines --spacing-<name>; stray
+     source tokens like my-form / mt-big must not parse as utilities. *)
+  fail_maybe [ "my"; "form" ];
+  fail_maybe [ "mt"; "big" ];
+  fail_maybe [ "mx"; "foo" ]
+
+(* my-<name> parses only when the theme defines the spacing token, matching
+   Tailwind; without it the class is rejected (see [of_string_invalid]). *)
+let named_spacing_requires_theme_token () =
+  let themed =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
+  in
+  (match Tw.Margin.Handler.of_class themed "my-form" with
+  | Ok _ -> ()
+  | Error (`Msg m) -> Alcotest.failf "my-form with theme rejected: %s" m);
+  match Tw.Margin.Handler.of_class Tw.Scheme.default "my-form" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "my-form without theme token should be rejected"
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -81,6 +97,8 @@ let tests =
   [
     test_case "margin of_string - valid values" `Quick of_string_valid;
     test_case "margin of_string - invalid values" `Quick of_string_invalid;
+    test_case "named spacing requires theme token" `Quick
+      named_spacing_requires_theme_token;
     test_case "margin suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "margin CSS values" `Quick test_css_values;

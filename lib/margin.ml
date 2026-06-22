@@ -317,10 +317,16 @@ module Handler = struct
     | "ms" | "me" | "mbs" | "mbe" -> true
     | _ -> false
 
+  (* A named margin (mx-big) is valid only when the theme actually defines the
+     [--spacing-<name>] token; otherwise a stray source token like [my-form]
+     would parse as a utility and emit a bogus var(). *)
+  let is_named_spacing theme name =
+    Scheme.theme_value theme ("spacing-" ^ name) <> None
+
   (** Parse value to standard or named margin *)
-  let parse_value ~is_negative value =
+  let parse_value ?theme ~is_negative value =
     let allow_auto = not is_negative in
-    match Spacing.parse_value_string ~allow_auto value with
+    match Spacing.parse_value_string ?theme ~allow_auto value with
     | Some (#spacing as spacing_val) ->
         Some
           {
@@ -330,13 +336,16 @@ module Handler = struct
           }
     | Some `Auto when not is_negative ->
         Some { negative = false; axis = `All; value = Standard `Auto }
-    | None when (not is_negative) && Parse.is_valid_theme_name value ->
+    | None
+      when (not is_negative)
+           && Parse.is_valid_theme_name value
+           && is_named_spacing theme value ->
         (* Try as a named spacing: mx-big *)
         Some { negative = false; axis = `All; value = Named value }
     | _ -> None
 
   (** Parse string parts to margin utility using shared logic *)
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)
@@ -352,14 +361,15 @@ module Handler = struct
     (* Handle extended axes (ms, me, mbs, mbe) with values *)
     | [ prefix; value ] when is_extended_margin_prefix prefix -> (
         match
-          (axis_of_prefix_ext prefix, parse_value ~is_negative:false value)
+          ( axis_of_prefix_ext prefix,
+            parse_value ~theme ~is_negative:false value )
         with
         | Some axis, Some t -> Ok { t with axis }
         | _ -> Error (`Msg "Not a margin utility"))
     (* Handle negative extended axes: -ms-4 *)
     | [ ""; prefix; value ] when is_extended_margin_prefix prefix -> (
         match
-          (axis_of_prefix_ext prefix, parse_value ~is_negative:true value)
+          (axis_of_prefix_ext prefix, parse_value ~theme ~is_negative:true value)
         with
         | Some axis, Some t -> Ok { t with axis }
         | _ -> Error (`Msg "Not a margin utility"))
@@ -388,10 +398,13 @@ module Handler = struct
                     | `Be -> `Be
                   in
                   let allow_auto = not is_negative in
-                  match Spacing.parse_value_string ~allow_auto value with
+                  match Spacing.parse_value_string ~theme ~allow_auto value with
                   | None ->
                       (* Try as a named spacing: mx-big, -mx-big *)
-                      if Parse.is_valid_theme_name value then
+                      if
+                        Parse.is_valid_theme_name value
+                        && is_named_spacing (Some theme) value
+                      then
                         Ok { negative = is_negative; axis; value = Named value }
                       else Error (`Msg "Not a margin utility")
                   | Some (#spacing as spacing_val) ->

@@ -28,6 +28,25 @@ let test_arbitrary_roundtrip () =
   check "inset-[0.25rem]";
   check "inset-x-[0.5rem]"
 
+(* A named inset (top-header) parses only when the theme defines --inset-<name>
+   or --spacing-<name>; stray source tokens like top-level / bottom-right must
+   be rejected rather than emitting a bogus placeholder value. *)
+let named_inset_requires_theme_token () =
+  let reject c =
+    match Tw.Position.Handler.of_class Tw.Scheme.default c with
+    | Error _ -> ()
+    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  in
+  reject "top-level";
+  reject "bottom-right";
+  reject "left-junk";
+  let themed =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("inset-header", "2rem") ]
+  in
+  match Tw.Position.Handler.of_class themed "top-header" with
+  | Ok _ -> ()
+  | Error (`Msg m) -> Alcotest.failf "top-header with theme rejected: %s" m
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -44,6 +63,8 @@ let tests =
     test_case "negative top" `Quick test_negative;
     test_case "arbitrary value roundtrip" `Quick test_arbitrary_roundtrip;
     test_case "position utilities" `Quick test_position_utilities;
+    test_case "named inset requires theme token" `Quick
+      named_inset_requires_theme_token;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
