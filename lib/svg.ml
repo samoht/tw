@@ -63,31 +63,31 @@ module Handler = struct
     | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
   (* Fill color style with scheme support *)
-  let fill_color_style color shade =
+  let fill_color_style ?theme color shade =
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
       style [ Css.fill (Css.Color css_color) ]
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"fill" color shade
+        Color.property_color_var ?theme ~property_prefix:"fill" color shade
       in
       let color_value =
-        Color.property_color_value ~property_prefix:"fill" color shade
+        Color.property_color_value ?theme ~property_prefix:"fill" color shade
       in
       let theme_decl, color_ref = Var.binding color_var color_value in
       style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
 
   (* Stroke color style with scheme support *)
-  let stroke_color_style color shade =
+  let stroke_color_style ?theme color shade =
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
       style [ Css.stroke (Css.Color css_color) ]
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"stroke" color shade
+        Color.property_color_var ?theme ~property_prefix:"stroke" color shade
       in
       let color_value =
-        Color.property_color_value ~property_prefix:"stroke" color shade
+        Color.property_color_value ?theme ~property_prefix:"stroke" color shade
       in
       let theme_decl, color_ref = Var.binding color_var color_value in
       style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
@@ -163,7 +163,12 @@ module Handler = struct
       match float_of_string_opt num_str with Some f -> Pct f | None -> Pct 0.
     else match float_of_string_opt inner with Some f -> Px f | None -> Px 0.
 
-  let to_style = function
+  let to_style theme =
+    let fill_color_style color shade = fill_color_style ~theme color shade in
+    let stroke_color_style color shade =
+      stroke_color_style ~theme color shade
+    in
+    function
     | Fill_none -> style Css.[ fill None ]
     | Fill_inherit -> style Css.[ fill Inherit ]
     | Fill_transparent -> style Css.[ fill (Color (Css.hex "0000")) ]
@@ -171,7 +176,7 @@ module Handler = struct
     | Fill_current_opacity opacity -> Color.fill_current_with_opacity opacity
     | Fill_color (color, shade) -> fill_color_style color shade
     | Fill_color_opacity (color, shade, opacity) ->
-        Color.fill_with_opacity color shade opacity
+        Color.fill_with_opacity ~theme color shade opacity
     | Fill_bracket_color (_, css_color) ->
         bracket_color_style ~property:Css.fill css_color
     | Fill_bracket_color_opacity (_, css_color, opacity) ->
@@ -191,7 +196,7 @@ module Handler = struct
         Color.stroke_current_with_opacity opacity
     | Stroke_color (color, shade) -> stroke_color_style color shade
     | Stroke_color_opacity (color, shade, opacity) ->
-        Color.stroke_with_opacity color shade opacity
+        Color.stroke_with_opacity ~theme color shade opacity
     | Stroke_bracket_color (_, css_color) ->
         bracket_color_style ~property:Css.stroke css_color
     | Stroke_bracket_color_opacity (_, css_color, opacity) ->
@@ -391,7 +396,7 @@ module Handler = struct
       Ok (Stroke_width_bracket inner)
     else err_not_utility
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "fill"; "none" ] -> Ok Fill_none
@@ -399,17 +404,18 @@ module Handler = struct
     | [ "fill"; "transparent" ] -> Ok Fill_transparent
     | [ "fill"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity -> Ok Fill_current
         | _ -> Ok (Fill_current_opacity opacity))
     | [ "fill"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_bracket_fill v
     | "fill" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Fill_color_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -422,16 +428,17 @@ module Handler = struct
     | [ "stroke"; "transparent" ] -> Ok Stroke_transparent
     | [ "stroke"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity -> Ok Stroke_current
         | _ -> Ok (Stroke_current_opacity opacity))
     | [ "stroke"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         (* Bracket value: could be color or width *)
-        let base_str, _ = Color.parse_opacity_modifier v in
+        let base_str, _ = Color.parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let normalized =
           String.map (fun c -> if c = '_' then ' ' else c) base_inner
@@ -450,7 +457,7 @@ module Handler = struct
         | Some width -> Ok (Stroke_width width)
         | None -> err_not_utility)
     | "stroke" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Stroke_color_opacity (color, shade, opacity))
         | Error e -> Error e)

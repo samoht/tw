@@ -56,7 +56,7 @@ module Handler = struct
   let container_named_style name =
     style [ Css.Declaration.container ~type_:Inline_size name ]
 
-  let to_style = function
+  let to_style _theme = function
     | Layout_container -> layout_container_style
     | Container -> container_query
     | Container_normal -> container_normal_style
@@ -68,7 +68,7 @@ module Handler = struct
     | Container_normal -> 2
     | Layout_container -> 3 (* After @container utilities *)
 
-  let of_class = function
+  let of_class _theme = function
     | "container" -> Ok Layout_container
     | "@container" -> Ok Container
     | "@container-normal" -> Ok Container_normal

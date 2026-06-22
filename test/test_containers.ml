@@ -1,7 +1,7 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Containers.Handler.of_class class_name with
+  match Tw.Containers.Handler.of_class Tw.Scheme.default class_name with
   | Ok t ->
       check string "containers class" class_name
         (Tw.Containers.Handler.to_class t)
@@ -30,7 +30,7 @@ let test_of_string_invalid () =
   (* Invalid container utilities *)
   let test_invalid input =
     let class_name = String.concat "-" input in
-    match Tw.Containers.Handler.of_class class_name with
+    match Tw.Containers.Handler.of_class Tw.Scheme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in

@@ -16,10 +16,10 @@ module type Handler = sig
   type base += Self of t
 
   val name : string
-  val to_style : t -> Style.t
+  val to_style : Scheme.t -> t -> Style.t
   val priority : int
   val suborder : t -> int
-  val of_class : string -> (t, [ `Msg of string ]) result
+  val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
 end
 
@@ -51,22 +51,22 @@ let class_of_base u =
   | Some class_name -> class_name
   | None -> failwith "name_of_base"
 
-let base_of_class class_name =
+let base_of_class theme class_name =
   let rec try_handlers = function
     | [] -> Error (`Msg "Unknown utility")
     | H (module M) :: rest -> (
-        match M.of_class class_name with
+        match M.of_class theme class_name with
         | Ok x -> Ok (M.Self x)
         | Error _ -> try_handlers rest)
   in
   try_handlers !handlers
 
 (* Keep for backward compatibility with tests *)
-let base_of_strings parts =
+let base_of_strings theme parts =
   let class_name = String.concat "-" parts in
-  base_of_class class_name
+  base_of_class theme class_name
 
-let base_to_style u =
+let base_to_style theme u =
   let rec try_handlers = function
     | [] ->
         prerr_endline
@@ -75,15 +75,15 @@ let base_to_style u =
           "Unknown utility type - handler not registered. This is a bug in the \
            utility system."
     | H (module M) :: rest -> (
-        match u with M.Self x -> M.to_style x | _ -> try_handlers rest)
+        match u with M.Self x -> M.to_style theme x | _ -> try_handlers rest)
   in
   try_handlers !handlers
 
-let rec to_style = function
-  | Base u -> base_to_style u
-  | Modified (m, u) -> Style.Modified (m, to_style u)
-  | Group us -> Style.Group (List.map to_style us)
-  | Important (_, u) -> Style.map_important (to_style u)
+let rec to_style theme = function
+  | Base u -> base_to_style theme u
+  | Modified (m, u) -> Style.Modified (m, to_style theme u)
+  | Group us -> Style.Group (List.map (to_style theme) us)
+  | Important (_, u) -> Style.map_important (to_style theme u)
 
 let rec to_class = function
   | Base u -> class_of_base u

@@ -795,8 +795,8 @@ module Handler = struct
     style ~property_rules:props
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
-  let perspective_none () =
-    match Var.theme_value "perspective-none" with
+  let perspective_none ?theme () =
+    match Scheme.theme_value theme "perspective-none" with
     | Some value_str ->
         let len : Css.length =
           if String.ends_with ~suffix:"px" value_str then
@@ -818,8 +818,9 @@ module Handler = struct
 
   let perspective_arbitrary len = style [ Css.perspective len ]
 
-  let po_with_ref name (default : Css.perspective_origin) default_css () =
-    match Var.theme_value name with
+  let po_with_ref ?theme name (default : Css.perspective_origin) default_css ()
+      =
+    match Scheme.theme_value theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.perspective_origin =
@@ -844,34 +845,36 @@ module Handler = struct
             Css.theme_guarded ~var_name:name (Css.perspective perspective_ref);
           ]
 
-  let perspective_origin_center () =
-    po_with_ref "perspective-origin-center" Center "center" ()
+  let perspective_origin_center ?theme () =
+    po_with_ref ?theme "perspective-origin-center" Center "center" ()
 
-  let perspective_origin_top () =
-    po_with_ref "perspective-origin-top" Top "top" ()
+  let perspective_origin_top ?theme () =
+    po_with_ref ?theme "perspective-origin-top" Top "top" ()
 
-  let perspective_origin_bottom () =
-    po_with_ref "perspective-origin-bottom" Bottom "bottom" ()
+  let perspective_origin_bottom ?theme () =
+    po_with_ref ?theme "perspective-origin-bottom" Bottom "bottom" ()
 
-  let perspective_origin_left () =
-    po_with_ref "perspective-origin-left" (Single Zero) "0" ()
+  let perspective_origin_left ?theme () =
+    po_with_ref ?theme "perspective-origin-left" (Single Zero) "0" ()
 
-  let perspective_origin_right () =
-    po_with_ref "perspective-origin-right" (Single (Pct 100.)) "100%" ()
+  let perspective_origin_right ?theme () =
+    po_with_ref ?theme "perspective-origin-right" (Single (Pct 100.)) "100%" ()
 
-  let perspective_origin_top_left () =
-    po_with_ref "perspective-origin-top-left" (XY (Zero, Zero)) "0 0" ()
+  let perspective_origin_top_left ?theme () =
+    po_with_ref ?theme "perspective-origin-top-left" (XY (Zero, Zero)) "0 0" ()
 
-  let perspective_origin_top_right () =
-    po_with_ref "perspective-origin-top-right" (XY (Pct 100., Zero)) "100% 0" ()
+  let perspective_origin_top_right ?theme () =
+    po_with_ref ?theme "perspective-origin-top-right"
+      (XY (Pct 100., Zero))
+      "100% 0" ()
 
-  let perspective_origin_bottom_left () =
-    po_with_ref "perspective-origin-bottom-left"
+  let perspective_origin_bottom_left ?theme () =
+    po_with_ref ?theme "perspective-origin-bottom-left"
       (XY (Zero, Pct 100.))
       "0 100%" ()
 
-  let perspective_origin_bottom_right () =
-    po_with_ref "perspective-origin-bottom-right"
+  let perspective_origin_bottom_right ?theme () =
+    po_with_ref ?theme "perspective-origin-bottom-right"
       (XY (Pct 100., Pct 100.))
       "100% 100%" ()
 
@@ -903,8 +906,9 @@ module Handler = struct
       Tailwind v4 uses theme variable references for origin utilities when theme
       variables are defined. *)
 
-  let origin_with_ref name (default : Css.transform_origin) default_css () =
-    match Var.theme_value name with
+  let origin_with_ref ?theme name (default : Css.transform_origin) default_css
+      () =
+    match Scheme.theme_value theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.transform_origin Css.var =
@@ -917,34 +921,38 @@ module Handler = struct
         in
         style [ transform_origin v ]
 
-  let origin_center () =
-    origin_with_ref "transform-origin-center" Center "center" ()
+  let origin_center ?theme () =
+    origin_with_ref ?theme "transform-origin-center" Center "center" ()
 
-  let origin_top () = origin_with_ref "transform-origin-top" Top "top" ()
+  let origin_top ?theme () =
+    origin_with_ref ?theme "transform-origin-top" Top "top" ()
 
-  let origin_bottom () =
-    origin_with_ref "transform-origin-bottom" Bottom "bottom" ()
+  let origin_bottom ?theme () =
+    origin_with_ref ?theme "transform-origin-bottom" Bottom "bottom" ()
 
-  let origin_left () = origin_with_ref "transform-origin-left" (X Zero) "0" ()
+  let origin_left ?theme () =
+    origin_with_ref ?theme "transform-origin-left" (X Zero) "0" ()
 
-  let origin_right () =
-    origin_with_ref "transform-origin-right" (X (Pct 100.)) "100%" ()
+  let origin_right ?theme () =
+    origin_with_ref ?theme "transform-origin-right" (X (Pct 100.)) "100%" ()
 
-  let origin_top_left () =
-    origin_with_ref "transform-origin-top-left" (XY (Zero, Zero)) "0 0" ()
+  let origin_top_left ?theme () =
+    origin_with_ref ?theme "transform-origin-top-left"
+      (XY (Zero, Zero))
+      "0 0" ()
 
-  let origin_top_right () =
-    origin_with_ref "transform-origin-top-right"
+  let origin_top_right ?theme () =
+    origin_with_ref ?theme "transform-origin-top-right"
       (XY (Pct 100., Zero))
       "100% 0" ()
 
-  let origin_bottom_left () =
-    origin_with_ref "transform-origin-bottom-left"
+  let origin_bottom_left ?theme () =
+    origin_with_ref ?theme "transform-origin-bottom-left"
       (XY (Zero, Pct 100.))
       "0 100%" ()
 
-  let origin_bottom_right () =
-    origin_with_ref "transform-origin-bottom-right"
+  let origin_bottom_right ?theme () =
+    origin_with_ref ?theme "transform-origin-bottom-right"
       (XY (Pct 100., Pct 100.))
       "100% 100%" ()
 
@@ -1064,7 +1072,35 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style theme =
+    let perspective_none () = perspective_none ~theme () in
+    let perspective_origin_center () = perspective_origin_center ~theme () in
+    let perspective_origin_top () = perspective_origin_top ~theme () in
+    let perspective_origin_bottom () = perspective_origin_bottom ~theme () in
+    let perspective_origin_left () = perspective_origin_left ~theme () in
+    let perspective_origin_right () = perspective_origin_right ~theme () in
+    let perspective_origin_top_left () =
+      perspective_origin_top_left ~theme ()
+    in
+    let perspective_origin_top_right () =
+      perspective_origin_top_right ~theme ()
+    in
+    let perspective_origin_bottom_left () =
+      perspective_origin_bottom_left ~theme ()
+    in
+    let perspective_origin_bottom_right () =
+      perspective_origin_bottom_right ~theme ()
+    in
+    let origin_center () = origin_center ~theme () in
+    let origin_top () = origin_top ~theme () in
+    let origin_bottom () = origin_bottom ~theme () in
+    let origin_left () = origin_left ~theme () in
+    let origin_right () = origin_right ~theme () in
+    let origin_top_left () = origin_top_left ~theme () in
+    let origin_top_right () = origin_top_right ~theme () in
+    let origin_bottom_left () = origin_bottom_left ~theme () in
+    let origin_bottom_right () = origin_bottom_right ~theme () in
+    function
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
     | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a
@@ -1311,7 +1347,7 @@ module Handler = struct
         | _ -> None)
     | _ -> None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "rotate"; n ] when Parse.is_bare_var n ->

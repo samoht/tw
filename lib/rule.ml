@@ -146,8 +146,7 @@ module Rules_selector = struct
     transform selector
 end
 
-let current_scheme = ref Scheme.default
-let set_scheme scheme = current_scheme := scheme
+let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 let breakpoint_rem = function
   | `Sm -> 40.
@@ -189,24 +188,24 @@ let negate_media = function
 
 (** Get the media condition for a breakpoint, using px from scheme if available,
     otherwise rem. *)
-let breakpoint_condition bp =
+let breakpoint_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint !current_scheme name with
+  match Scheme.breakpoint (resolve_scheme theme) name with
   | Some px -> media_min_width_px px
   | None -> media_min_width_rem (breakpoint_rem bp)
 
 (** Get the negated media condition for max-* breakpoints. *)
-let breakpoint_not_condition bp =
+let breakpoint_not_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint !current_scheme name with
+  match Scheme.breakpoint (resolve_scheme theme) name with
   | Some px -> media_not_min_width_px px
   | None -> media_not_min_width_rem (breakpoint_rem bp)
 
 (** Get the media condition and class prefix for a responsive modifier. *)
-let responsive_modifier_condition = function
+let responsive_modifier_condition ?theme = function
   | Style.Responsive bp ->
       let prefix = string_of_breakpoint bp in
-      (breakpoint_condition bp, prefix)
+      (breakpoint_condition ?theme bp, prefix)
   | Style.Min_responsive bp ->
       let prefix =
         match bp with
@@ -216,7 +215,7 @@ let responsive_modifier_condition = function
         | `Xl -> "min-xl"
         | `Xl_2 -> "min-2xl"
       in
-      (breakpoint_condition bp, prefix)
+      (breakpoint_condition ?theme bp, prefix)
   | Style.Max_responsive bp ->
       let prefix =
         match bp with
@@ -226,7 +225,7 @@ let responsive_modifier_condition = function
         | `Xl -> "max-xl"
         | `Xl_2 -> "max-2xl"
       in
-      (breakpoint_not_condition bp, prefix)
+      (breakpoint_not_condition ?theme bp, prefix)
   | Style.Min_arbitrary px ->
       let px_str =
         if Float.is_integer px then Int.to_string (Float.to_int px)
@@ -247,21 +246,21 @@ let responsive_modifier_condition = function
       (Css.media_not_min_width_length l, "max-[" ^ len_str ^ "]")
   | Style.Custom_responsive name ->
       let px =
-        match Scheme.breakpoint !current_scheme name with
+        match Scheme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
       (media_min_width_px px, name)
   | Style.Min_custom name ->
       let px =
-        match Scheme.breakpoint !current_scheme name with
+        match Scheme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
       (media_min_width_px px, "min-" ^ name)
   | Style.Max_custom name ->
       let px =
-        match Scheme.breakpoint !current_scheme name with
+        match Scheme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
@@ -281,10 +280,10 @@ let media_rule_with_prefix prefix condition base_class selector props =
   media_query ~condition ~selector:new_selector ~props
     ~base_class:modified_class ()
 
-let responsive_rule breakpoint base_class selector props =
+let responsive_rule ?theme breakpoint base_class selector props =
   media_rule_with_prefix
     (string_of_breakpoint breakpoint)
-    (breakpoint_condition breakpoint)
+    (breakpoint_condition ?theme breakpoint)
     base_class selector props
 
 let responsive_breakpoint_prefix prefix breakpoint =
@@ -298,16 +297,16 @@ let responsive_breakpoint_prefix prefix breakpoint =
   in
   prefix ^ "-" ^ suffix
 
-let min_responsive_rule breakpoint base_class selector props =
+let min_responsive_rule ?theme breakpoint base_class selector props =
   media_rule_with_prefix
     (responsive_breakpoint_prefix "min" breakpoint)
-    (breakpoint_condition breakpoint)
+    (breakpoint_condition ?theme breakpoint)
     base_class selector props
 
-let max_responsive_rule breakpoint base_class selector props =
+let max_responsive_rule ?theme breakpoint base_class selector props =
   media_rule_with_prefix
     (responsive_breakpoint_prefix "max" breakpoint)
-    (breakpoint_not_condition breakpoint)
+    (breakpoint_not_condition ?theme breakpoint)
     base_class selector props
 
 let arbitrary_px_string px =
@@ -341,26 +340,28 @@ let max_arbitrary_length_rule l base_class selector props =
     (Css.media_not_min_width_length l)
     l base_class selector props
 
-let custom_breakpoint name =
-  match Scheme.breakpoint !current_scheme name with
+let custom_breakpoint ?theme name =
+  match Scheme.breakpoint (resolve_scheme theme) name with
   | Some px -> px
   | None -> failwith ("unknown custom breakpoint: " ^ name)
 
-let custom_media_rule prefix condition_of_px name base_class selector props =
-  let px = custom_breakpoint name in
+let custom_media_rule ?theme prefix condition_of_px name base_class selector
+    props =
+  let px = custom_breakpoint ?theme name in
   media_rule_with_prefix (prefix name) (condition_of_px px) base_class selector
     props
 
-let custom_responsive_rule name base_class selector props =
-  custom_media_rule Fun.id media_min_width_px name base_class selector props
+let custom_responsive_rule ?theme name base_class selector props =
+  custom_media_rule ?theme Fun.id media_min_width_px name base_class selector
+    props
 
-let min_custom_rule name base_class selector props =
-  custom_media_rule
+let min_custom_rule ?theme name base_class selector props =
+  custom_media_rule ?theme
     (fun name -> "min-" ^ name)
     media_min_width_px name base_class selector props
 
-let max_custom_rule name base_class selector props =
-  custom_media_rule
+let max_custom_rule ?theme name base_class selector props =
+  custom_media_rule ?theme
     (fun name -> "max-" ^ name)
     media_not_min_width_px name base_class selector props
 
@@ -1001,7 +1002,7 @@ let not_media_rule ~nvo ~condition modified_class props =
 (** Handle :not() pseudo-class modifier: dispatches to the right rule type based
     on the inner modifier. Returns a list of rules since some modifiers (like
     hover) produce both a selector rule and a media rule. *)
-let handle_not_modifier inner_modifier base_class _selector props =
+let handle_not_modifier ?theme inner_modifier base_class _selector props =
   let modified_class =
     "not-" ^ not_class_prefix inner_modifier ^ ":" ^ base_class
   in
@@ -1033,11 +1034,12 @@ let handle_not_modifier inner_modifier base_class _selector props =
       ]
   | Style.Responsive bp | Style.Min_responsive bp ->
       not_media_rule ~nvo
-        ~condition:(breakpoint_not_condition bp)
+        ~condition:(breakpoint_not_condition ?theme bp)
         modified_class props
   | Style.Max_responsive bp ->
-      not_media_rule ~nvo ~condition:(breakpoint_condition bp) modified_class
-        props
+      not_media_rule ~nvo
+        ~condition:(breakpoint_condition ?theme bp)
+        modified_class props
   | Style.Min_arbitrary px ->
       not_media_rule ~nvo
         ~condition:(media_not_min_width_px px)
@@ -1403,8 +1405,8 @@ let custom_variant_rule token template base_class props =
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
-let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
-    props =
+let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier base_class
+    selector props =
   match modifier with
   (* Data modifiers *)
   | Style.Data_state _ | Style.Data_variant _ ->
@@ -1431,11 +1433,11 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_supports_modifier condition_str base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
-      responsive_rule breakpoint base_class selector props
+      responsive_rule ?theme breakpoint base_class selector props
   | Style.Min_responsive breakpoint ->
-      min_responsive_rule breakpoint base_class selector props
+      min_responsive_rule ?theme breakpoint base_class selector props
   | Style.Max_responsive breakpoint ->
-      max_responsive_rule breakpoint base_class selector props
+      max_responsive_rule ?theme breakpoint base_class selector props
   | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
   | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
   | Style.Min_arbitrary_length l ->
@@ -1443,9 +1445,9 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Max_arbitrary_length l ->
       max_arbitrary_length_rule l base_class selector props
   | Style.Custom_responsive name ->
-      custom_responsive_rule name base_class selector props
-  | Style.Min_custom name -> min_custom_rule name base_class selector props
-  | Style.Max_custom name -> max_custom_rule name base_class selector props
+      custom_responsive_rule ?theme name base_class selector props
+  | Style.Min_custom name -> min_custom_rule ?theme name base_class selector props
+  | Style.Max_custom name -> max_custom_rule ?theme name base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not(), :not-bracket, group-not, peer-not — handled in
      apply_modifier_to_rule for multi-rule support *)
@@ -1517,6 +1519,9 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_fallback_modifier ~inner_has_hover modifier base_class selector
         props
 
+let modifier_to_rule ?inner_has_hover modifier base_class selector props =
+  modifier_to_rule_themed ?inner_has_hover modifier base_class selector props
+
 (** Generate pseudo-element rules with separate selectors for browser
     compatibility. An invalid pseudo-element in a comma list causes the entire
     rule to be dropped, so each variant gets its own rule. *)
@@ -1534,8 +1539,8 @@ let pseudo_element_rules ~pseudo_selectors bc props prefix =
 (** Apply a modifier to a Media_query rule by wrapping it in an outer media
     query. Handles media-like modifiers, responsive modifiers, and falls back to
     returning the rule unchanged. *)
-let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
-    ~base_class ~nested =
+let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
+    ~props ~base_class ~nested =
   let bc = Option.value base_class ~default:"" in
   let modified_base_selector = Modifiers.to_selector modifier bc in
   let modified_class =
@@ -1563,7 +1568,9 @@ let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
       | Style.Min_arbitrary _ | Style.Max_arbitrary _
       | Style.Min_arbitrary_length _ | Style.Max_arbitrary_length _
       | Style.Custom_responsive _ | Style.Min_custom _ | Style.Max_custom _ ->
-          let outer_condition, _ = responsive_modifier_condition modifier in
+          let outer_condition, _ =
+            responsive_modifier_condition ?theme modifier
+          in
           wrap_in_media outer_condition
       | _ ->
           [
@@ -1580,7 +1587,7 @@ let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
 
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
-let apply_modifier_to_rule modifier = function
+let apply_modifier_to_rule ?theme modifier = function
   | Regular { selector; props; base_class; has_hover; _ } -> (
       let bc = Option.value base_class ~default:"" in
       match modifier with
@@ -1596,7 +1603,7 @@ let apply_modifier_to_rule modifier = function
       | Style.Not inner_modifier -> (
           match inner_modifier with
           | Style.In_bracket content -> handle_not_in_bracket content bc props
-          | _ -> handle_not_modifier inner_modifier bc selector props)
+          | _ -> handle_not_modifier ?theme inner_modifier bc selector props)
       | Style.Not_bracket content -> handle_not_bracket content bc props
       | Style.In_bracket content -> handle_in_bracket content bc props
       | Style.In_data attr -> handle_in_data attr bc props
@@ -1615,18 +1622,18 @@ let apply_modifier_to_rule modifier = function
       | _ -> (
           try
             [
-              modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
-                props;
+              modifier_to_rule_themed ?theme ~inner_has_hover:has_hover modifier
+                bc selector props;
             ]
           with Invalid_argument _ -> []))
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
-      apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
-        ~base_class ~nested
+      apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
+        ~props ~base_class ~nested
   | other -> [ other ]
 
 (* Handle Modified style by recursively extracting and applying modifier *)
-let handle_modified util_inner modifier base_style extract_fn =
+let handle_modified ?theme util_inner modifier base_style extract_fn =
   (* Strip the outermost modifier if it matches the one being applied, to avoid
      doubled prefixes like .focus\:focus\:ring. But preserve inner modifiers for
      nested cases like dark [ aria_selected [...] ] ->
@@ -1642,7 +1649,7 @@ let handle_modified util_inner modifier base_style extract_fn =
   in
   let base_class_name = Utility.to_class inner_util in
   let base_rules = extract_fn base_class_name inner_util style in
-  List.concat_map (apply_modifier_to_rule modifier) base_rules
+  List.concat_map (apply_modifier_to_rule ?theme modifier) base_rules
 
 (* Handle Group style by extracting each item *)
 let handle_group class_name util_inner styles extract_fn =
@@ -1772,7 +1779,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
-let outputs ?order_tbl util =
+let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
         (* Record the base utility's order under the class name we already built,
@@ -1800,10 +1807,10 @@ let outputs ?order_tbl util =
             extract_style_with_rules ~sel ~class_name ?merge_key ~props
               rule_list)
     | Style.Modified (modifier, base_style) ->
-        handle_modified util_inner modifier base_style extract_with_class
+        handle_modified ~theme util_inner modifier base_style extract_with_class
     | Style.Group styles ->
         handle_group class_name util_inner styles extract_with_class
   in
   let class_name = Utility.to_class util in
-  let style = Utility.to_style util in
+  let style = Utility.to_style theme util in
   extract_with_class class_name util style

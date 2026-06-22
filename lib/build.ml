@@ -44,7 +44,7 @@ let extract_base_utility class_name_no_pseudo =
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =
   let parts = String.split_on_char '-' base_utility in
-  match Utility.base_of_strings parts with
+  match Utility.base_of_strings Scheme.default parts with
   | Ok u -> Utility.order u
   | Error _ ->
       (* Some selectors (like .group, .peer, .container) are marker classes that
@@ -72,7 +72,7 @@ let selector_props_pairs rules =
           let order =
             match base_class with
             | Some class_name -> (
-                match Utility.base_of_class class_name with
+                match Utility.base_of_class Scheme.default class_name with
                 | Ok u -> Utility.order u
                 | Error _ ->
                     (* base_class doesn't parse as a utility (e.g. "group"
@@ -308,7 +308,7 @@ let order_of_base order_map base_class selector =
       | Some order -> adjust_pseudo class_name order
       | None -> (
           let parts = String.split_on_char '-' base_utility in
-          match Utility.base_of_strings parts with
+          match Utility.base_of_strings Scheme.default parts with
           | Ok u -> adjust_pseudo class_name (Utility.order u)
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
@@ -563,6 +563,22 @@ let extract_non_tw_custom_declarations selector_props =
   (* Return in original insertion order *)
   List.rev !insertion_order
 
+(* Substitute per-render [@theme] token overrides into extracted theme-layer
+   declarations. This is the threaded replacement for the override seam that
+   used to live in [Var.binding]: a Theme-role variable whose token is
+   overridden in [theme] emits the override value instead of its registered
+   default. [custom_declaration_name] returns the full [--name] form; the scheme
+   keys overrides by the bare name. *)
+let apply_token_override theme decl =
+  match Css.custom_declaration_name decl with
+  | Some full_name
+    when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
+      let bare = String.sub full_name 2 (String.length full_name - 2) in
+      match Scheme.token_override theme bare with
+      | Some css -> Css.custom_property ~layer:"theme" full_name css
+      | None -> decl)
+  | _ -> decl
+
 (* Check if declaration name is a default font family indirection *)
 let is_default_family_name = function
   | "default-font-family" | "default-mono-font-family" -> true
@@ -631,8 +647,12 @@ let theme_layer_rule ~layers = function
       else Css.v [ rule ]
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
-let theme_layer_of_props ?(layers = true) ?(default_decls = []) selector_props =
-  let extracted = extract_non_tw_custom_declarations selector_props in
+let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
+    ?(default_decls = []) selector_props =
+  let extracted =
+    extract_non_tw_custom_declarations selector_props
+    |> List.map (apply_token_override theme)
+  in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
   (* Filter defaults to remove duplicates of extracted vars *)
@@ -1054,8 +1074,8 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables, set var names, and property rules from all utilities *)
-let extract_vars_and_rules utilities =
-  let styles = List.map Utility.to_style utilities in
+let extract_vars_and_rules theme utilities =
+  let styles = List.map (Utility.to_style theme) utilities in
   let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
@@ -1115,7 +1135,7 @@ type layers_result = {
   property_rules : Css.statement list;
 }
 
-let individual_layers ~layers ~include_base ~forms_base first_usage_order
+let individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
     selector_props all_property_statements statements =
   let theme_defaults =
     let font_defaults =
@@ -1129,7 +1149,8 @@ let individual_layers ~layers ~include_base ~forms_base first_usage_order
     font_defaults @ transition_defaults
   in
   let theme_layer =
-    theme_layer_of_props ~layers ~default_decls:theme_defaults selector_props
+    theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults
+      selector_props
   in
   let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
   let properties_layer, property_rules =
@@ -1175,11 +1196,11 @@ let sort_keyframes_by_var_order keyframes =
       else String.compare name1 name2 (* Stable sort for same order *))
 
 (** Build all CSS layers from utilities and rules *)
-let layers ~layers ~include_base ?forms ~selector_props ~sorted_rules tw_classes
-    statements =
-  let styles = List.map Utility.to_style tw_classes in
+let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
+    tw_classes statements =
+  let styles = List.map (Utility.to_style theme) tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
-    extract_vars_and_rules tw_classes
+    extract_vars_and_rules theme tw_classes
   in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
@@ -1209,7 +1230,7 @@ let layers ~layers ~include_base ?forms ~selector_props ~sorted_rules tw_classes
      flag, so utility presence must not auto-enable the global base. *)
   let forms_base = match forms with Some f -> f | None -> false in
   let individual =
-    individual_layers ~layers ~include_base ~forms_base first_usage_order
+    individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
       selector_props all_property_statements statements
   in
   let keyframes =
@@ -1231,13 +1252,13 @@ type config = { base : bool; forms : bool option; layers : bool }
 
 let default_config = { base = true; forms = None; layers = true }
 
-let to_css ?(config = default_config) tw_classes =
+let to_css ?(theme = Scheme.default) ?(config = default_config) tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
      re-parsing the class string while building/sorting rules. *)
   let order_map = Hashtbl.create 256 in
   let selector_props =
-    List.concat_map (Rule.outputs ~order_tbl:order_map) tw_classes
+    List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
@@ -1245,8 +1266,8 @@ let to_css ?(config = default_config) tw_classes =
   let sorted_rules = sorted_indexed_rules order_map selector_props in
   let statements = List.map indexed_rule_to_statement sorted_rules in
   let layer_results =
-    layers ~layers:config.layers ~include_base:config.base ?forms:config.forms
-      ~selector_props ~sorted_rules tw_classes statements
+    layers ~theme ~layers:config.layers ~include_base:config.base
+      ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
   in
   Css.concat layer_results
 
@@ -1270,8 +1291,8 @@ let rec collect_declarations acc = function
   | Style.Modified (_, t) -> collect_declarations acc t
   | Style.Group ts -> List.fold_left collect_declarations acc ts
 
-let to_inline_style utilities =
-  let styles = List.map Utility.to_style utilities in
+let to_inline_style ?(theme = Scheme.default) utilities =
+  let styles = List.map (Utility.to_style theme) utilities in
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_vars =
     List.filter (fun d -> Css.custom_declaration_name d = None) all_props

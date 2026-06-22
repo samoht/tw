@@ -85,9 +85,9 @@ module Handler = struct
     let prop_decl = property value in
     style [ theme_decl; prop_decl ]
 
-  let grid_cols_none () =
+  let grid_cols_none ?theme () =
     let var_name = "grid-template-columns-none" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_columns value
     | None -> style [ Css.grid_template_columns None ]
 
@@ -270,9 +270,9 @@ module Handler = struct
           Css.grid_template_rows (Repeat (Count n, [ Min_max (Zero, Fr 1.0) ]));
         ]
 
-  let grid_rows_none () =
+  let grid_rows_none ?theme () =
     let var_name = "grid-template-rows-none" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_rows value
     | None -> style [ Css.grid_template_rows None ]
 
@@ -283,9 +283,9 @@ module Handler = struct
   let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
   let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
 
-  let auto_cols_auto () =
+  let auto_cols_auto ?theme () =
     let var_name = "grid-auto-columns-auto" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_columns value
     | None -> style [ Css.grid_auto_columns Auto ]
 
@@ -298,15 +298,15 @@ module Handler = struct
 
   (* [auto-cols-<n>] sizes implicit columns to a spacing-scaled track,
      [grid-auto-columns: calc(var(--spacing) * n)]. *)
-  let auto_cols_spacing n =
-    let decl, len = Theme.spacing_calc_float n in
+  let auto_cols_spacing ?theme n =
+    let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_columns (Css.Length len) ]
 
   (** {1 Grid Auto Rows} *)
 
-  let auto_rows_auto () =
+  let auto_rows_auto ?theme () =
     let var_name = "grid-auto-rows-auto" in
-    match Var.theme_value var_name with
+    match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_rows value
     | None -> style [ Css.grid_auto_rows Auto ]
 
@@ -317,12 +317,19 @@ module Handler = struct
   let auto_rows_arbitrary s =
     style [ Css.grid_auto_rows (parse_arbitrary_grid_template_exn s) ]
 
-  let auto_rows_spacing n =
-    let decl, len = Theme.spacing_calc_float n in
+  let auto_rows_spacing ?theme n =
+    let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_rows (Css.Length len) ]
 
   (** Convert grid template utility to style *)
-  let to_style = function
+  let to_style theme =
+    let auto_cols_spacing n = auto_cols_spacing ~theme n in
+    let auto_rows_spacing n = auto_rows_spacing ~theme n in
+    let grid_cols_none () = grid_cols_none ~theme () in
+    let grid_rows_none () = grid_rows_none ~theme () in
+    let auto_cols_auto () = auto_cols_auto ~theme () in
+    let auto_rows_auto () = auto_rows_auto ~theme () in
+    function
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none ()
     | Grid_cols_subgrid -> grid_cols_subgrid
@@ -383,7 +390,7 @@ module Handler = struct
     | Auto_rows_max -> 15104
     | Auto_rows_min -> 15105
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none

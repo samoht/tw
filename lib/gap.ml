@@ -42,7 +42,8 @@ module Handler = struct
 
   (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
   *)
-  let spacing_to_decl_len (s : spacing) : Css.declaration option * length =
+  let spacing_to_decl_len ?theme (s : spacing) : Css.declaration option * length
+      =
     match s with
     | `Px ->
         let len : length = Px 1. in
@@ -57,20 +58,20 @@ module Handler = struct
         (None, len)
     | `Rem f ->
         let n = f /. 0.25 in
-        let decl, len = Theme.spacing_calc_float n in
+        let decl, len = Theme.spacing_calc_float ?theme n in
         (Some decl, len)
 
-  let gap_standard (s : spacing) =
-    let decl, len = spacing_to_decl_len s in
+  let gap_standard ?theme (s : spacing) =
+    let decl, len = spacing_to_decl_len ?theme s in
     let gap_value = Lengths { row_gap = Some len; column_gap = Some len } in
     style (Option.to_list decl @ [ gap gap_value ])
 
-  let gap_x_standard (s : spacing) =
-    let decl, len = spacing_to_decl_len s in
+  let gap_x_standard ?theme (s : spacing) =
+    let decl, len = spacing_to_decl_len ?theme s in
     style (Option.to_list decl @ [ column_gap len ])
 
-  let gap_y_standard (s : spacing) =
-    let decl, len = spacing_to_decl_len s in
+  let gap_y_standard ?theme (s : spacing) =
+    let decl, len = spacing_to_decl_len ?theme s in
     style (Option.to_list decl @ [ row_gap len ])
 
   let gap_arb len =
@@ -84,13 +85,13 @@ module Handler = struct
     let bare_name = Parse.extract_var_name var_str in
     Css.Var (Var.bracket bare_name)
 
-  let gap_value axis (v : gap_value) =
+  let gap_value ?theme axis (v : gap_value) =
     match v with
     | Standard s -> (
         match axis with
-        | `All -> gap_standard s
-        | `X -> gap_x_standard s
-        | `Y -> gap_y_standard s)
+        | `All -> gap_standard ?theme s
+        | `X -> gap_x_standard ?theme s
+        | `Y -> gap_y_standard ?theme s)
     | Arbitrary len -> (
         match axis with
         | `All -> gap_arb len
@@ -121,7 +122,7 @@ module Handler = struct
     let end_expr = Css.Calc.(mul base one_minus_reverse) in
     ((Css.Calc start_expr : Css.length), (Css.Calc end_expr : Css.length))
 
-  let space_x n =
+  let space_x ?theme n =
     (* [Float.sign_bit] (not [n < 0.0]) so negative zero keeps its sign: the
        class [-space-x-0] must render [.-space-x-0], distinct from [.space-x-0],
        even though the value collapses to the same [margin-inline: 0]. *)
@@ -134,7 +135,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float ?theme n in
     let reverse_decl, reverse_ref =
       Var.binding space_x_reverse_var (Css.Num 0.0)
     in
@@ -156,7 +157,7 @@ module Handler = struct
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
-  let space_y n =
+  let space_y ?theme n =
     (* See [space_x]: negative zero ([-space-y-0]) must keep its sign. *)
     let negative = Float.sign_bit n in
     let abs_n = Float.abs n in
@@ -167,7 +168,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float n in
+    let spacing_decl, spacing_len = Theme.spacing_calc_float ?theme n in
     let reverse_decl, reverse_ref =
       Var.binding space_y_reverse_var (Css.Num 0.0)
     in
@@ -285,7 +286,10 @@ module Handler = struct
     if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
     else s
 
-  let to_style t =
+  let to_style theme t =
+    let gap_value axis value = gap_value ~theme axis value in
+    let space_x n = space_x ~theme n in
+    let space_y n = space_y ~theme n in
     match t with
     | Gap { axis; value } -> gap_value axis value
     | Space { negative; axis; value } -> (
@@ -391,7 +395,7 @@ module Handler = struct
           else if value = "full" then Some (Standard `Full)
           else None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function

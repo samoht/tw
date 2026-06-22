@@ -60,7 +60,7 @@ module Handler = struct
       map (fun n -> Css.Pct n) (drop 1)
     else None
 
-  let to_style = function
+  let to_style theme = function
     | Columns_auto -> (
         let var_name = "columns-auto" in
         let ref =
@@ -68,7 +68,7 @@ module Handler = struct
             ~default:(Auto : Css.columns_value)
             ~default_css:"auto"
         in
-        match Var.theme_value var_name with
+        match Scheme.theme_value (Some theme) var_name with
         | Some value ->
             let theme_decl =
               Css.custom_property ~layer:"theme" ("--" ^ var_name) value
@@ -143,7 +143,7 @@ module Handler = struct
     in
     string_to_sortkey suffix
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "columns"; "auto" ] -> Ok Columns_auto

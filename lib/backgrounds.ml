@@ -570,13 +570,13 @@ module Handler = struct
 
     style ~property_rules declarations
 
-  let bg' ?(shade = 500) color =
+  let bg' ?theme ?(shade = 500) color =
     let bg_var_name =
       let base = Color.pp color in
       if Color.is_base_color color then "background-color-" ^ base
       else "background-color-" ^ base ^ "-" ^ string_of_int shade
     in
-    match Var.theme_value bg_var_name with
+    match Scheme.theme_value theme bg_var_name with
     | Some theme_val ->
         (* Property-scoped bg color: --background-color-<name> *)
         let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in
@@ -952,10 +952,11 @@ module Handler = struct
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
      Fallback rule with hex alpha (for scheme colors) 2. @supports block with
      color-mix using theme variable 3. Separate rule with --tw-gradient-stops *)
-  let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
+  let gradient_color_opacity ?theme ~prefix ~set_var ?(shade = 500) color
+      opacity =
     let percent = Color.opacity_to_percent opacity in
     let color_name = Color.scheme_color_name color shade in
-    let scheme = Color.current_scheme () in
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -1276,7 +1277,15 @@ module Handler = struct
         Some o
     | _ -> None
 
-  let to_style = function
+  let to_style theme =
+    let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
+      gradient_color_opacity ~theme ~prefix ~set_var ~shade color opacity
+    in
+    let bg_with_opacity c shade opacity =
+      Color.bg_with_opacity ~theme c shade opacity
+    in
+    let bg' ?(shade = 500) color = bg' ~theme ~shade color in
+    function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | Gradient_color (target, src) -> (
@@ -1415,12 +1424,11 @@ module Handler = struct
         style [ Css.background_color c ]
     | Bg_bracket_color_opacity (orig, _, opacity) ->
         let c = Color.bracket_color_to_custom orig in
-        Color.bg_with_opacity c 500 opacity
+        bg_with_opacity c 500 opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
-    | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
+    | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
-    | Bg_opacity (color, shade, opacity) ->
-        Color.bg_with_opacity color shade opacity
+    | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
     | Bg_bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
@@ -1519,14 +1527,14 @@ module Handler = struct
     | None -> (s, None)
 
   (** Parse gradient color/position from token list for a given target *)
-  let parse_gradient_color target rest =
+  let parse_gradient_color ?theme target rest =
     let gc src = Ok (Gradient_color (target, src)) in
     let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
     (* Keywords *)
     | [ "current" ] -> gc Gc_current
     | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ?theme current_str in
         gc (Gc_current_opacity opacity)
     | [ "inherit" ] -> gc Gc_inherit
     | [ "transparent" ] -> gc Gc_transparent
@@ -1538,7 +1546,9 @@ module Handler = struct
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
     | [ bracket_opacity ] when has_opacity bracket_opacity -> (
-        let base, opacity_opt = Color.parse_opacity_modifier bracket_opacity in
+        let base, opacity_opt =
+          Color.parse_opacity_modifier ?theme bracket_opacity
+        in
         match opacity_opt with
         | Color.No_opacity when Parse.is_bracket_value bracket_opacity ->
             (* No valid opacity found — treat as plain bracket *)
@@ -1568,7 +1578,7 @@ module Handler = struct
             else Error (`Msg "Invalid gradient bracket with opacity")
         | _ -> (
             (* Named color with opacity *)
-            match Color.shade_and_opacity_of_strings rest with
+            match Color.shade_and_opacity_of_strings ?theme rest with
             | Ok (color, shade, opacity) ->
                 gc (Gc_named_opacity (color, shade, opacity))
             | Error e -> Error e))
@@ -1586,7 +1596,7 @@ module Handler = struct
         else gp (Gp_bracket inner)
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
+        match Color.shade_and_opacity_of_strings ?theme rest with
         | Ok (color, shade, opacity) ->
             gc (Gc_named_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1596,7 +1606,7 @@ module Handler = struct
         | Ok (color, shade) -> gc (Gc_named (color, shade))
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "gradient"; "to"; "b" ] -> Ok (Bg_gradient_to Bottom)
@@ -1619,7 +1629,7 @@ module Handler = struct
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Bg_current
         | Color.No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
@@ -1840,16 +1850,16 @@ module Handler = struct
                       else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
         )
     | "bg" :: rest when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
+        match Color.shade_and_opacity_of_strings ~theme rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
-    | "from" :: rest -> parse_gradient_color Gradient_from rest
-    | "via" :: rest -> parse_gradient_color Gradient_via rest
-    | "to" :: rest -> parse_gradient_color Gradient_to rest
+    | "from" :: rest -> parse_gradient_color ~theme Gradient_from rest
+    | "via" :: rest -> parse_gradient_color ~theme Gradient_via rest
+    | "to" :: rest -> parse_gradient_color ~theme Gradient_to rest
     | _ -> Error (`Msg "Unknown background class")
 end
 

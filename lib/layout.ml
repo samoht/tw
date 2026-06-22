@@ -20,7 +20,7 @@ module Screen_reader_handler = struct
 
   let to_class = function Sr_only -> "sr-only" | Not_sr_only -> "not-sr-only"
 
-  let to_style = function
+  let to_style _theme = function
     | Sr_only ->
         (* Property order matches Tailwind: clip-path, white-space,
            border-width, width, height, margin, padding, position, overflow *)
@@ -59,7 +59,7 @@ module Screen_reader_handler = struct
             overflow Visible;
           ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "sr"; "only" ] -> Ok Sr_only
@@ -67,15 +67,15 @@ module Screen_reader_handler = struct
     | _ -> Error (`Msg "Not a screen reader utility")
 end
 
-(* Theme variable for z-index-auto. When a theme override is set (e.g., via
-   set_theme_value "z-index-auto" "42"), produces a custom declaration
-   --z-index-auto: 42 in the :root, :host block. *)
+(* Theme variable for z-index-auto. When the threaded theme overrides this token
+   (e.g. an [@theme] block sets [--z-index-auto: 42]), produces a custom
+   declaration --z-index-auto: 42 in the :root, :host block. *)
 let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 
 (* Generate z-auto style: either theme var with custom declaration, or bare
    theme_ref fallback *)
-let z_auto_style () =
-  match Var.theme_value "z-index-auto" with
+let z_auto_style ?theme () =
+  match Scheme.theme_value theme "z-index-auto" with
   | Some value_str ->
       (* Parse theme value as z_index *)
       let z_value : Css.z_index =
@@ -401,7 +401,9 @@ module Handler = struct
     | Break_inside_avoid_column -> "break-inside-avoid-column"
     | Break_inside_avoid_page -> "break-inside-avoid-page"
 
-  let to_style = function
+  let to_style theme =
+    let z_auto_style () = z_auto_style ~theme () in
+    function
     | Block -> style [ display Block ]
     | Inline -> style [ display Inline ]
     | Inline_block -> style [ display Inline_block ]
@@ -475,7 +477,7 @@ module Handler = struct
               ("object-position-top-right", Top_right, "right top")
           | _ -> assert false
         in
-        match Var.theme_value name with
+        match Scheme.theme_value (Some theme) name with
         | Some value ->
             let theme_decl =
               Css.custom_property ~layer:"theme" ("--" ^ name) value
@@ -540,7 +542,7 @@ module Handler = struct
 
   (** {1 Parsing Functions} *)
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "block" ] -> Ok Block

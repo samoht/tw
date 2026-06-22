@@ -107,7 +107,7 @@ module Handler = struct
     style ~property_rules:contain_property_rules
       [ decl; contain composable_contain_value ]
 
-  let to_style = function
+  let to_style _theme = function
     | None -> style [ contain Css.None ]
     | Strict -> style [ contain Css.Strict ]
     | Content -> style [ contain Css.Content ]
@@ -139,7 +139,7 @@ module Handler = struct
   let of_class_map =
     List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data
 
-  let of_class class_name =
+  let of_class _theme class_name =
     match List.assoc_opt class_name of_class_map with
     | Some t -> Ok t
     | None ->

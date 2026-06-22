@@ -64,11 +64,11 @@ include Contain
 include Scroll
 include Arbitrary
 
-let to_css ?(base = Build.default_config.base) ?forms
+let to_css ?theme ?(base = Build.default_config.base) ?forms
     ?(layers = Build.default_config.layers) utilities =
-  Build.to_css ~config:{ base; forms; layers } utilities
+  Build.to_css ?theme ~config:{ base; forms; layers } utilities
 
-let to_inline_style utilities = Build.to_inline_style utilities
+let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
@@ -95,7 +95,7 @@ let split_whitespace s =
   List.rev !tokens
 
 (* Parse a single class string into a Tw.t *)
-let of_string class_str =
+let of_string ?(theme = Scheme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   (* The [!] important marker sits right next to the utility: the v3 prefix
      ([!flex], [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its
@@ -108,7 +108,7 @@ let of_string class_str =
       (`Suffix, String.sub base_class 0 (n - 1))
     else (`None, base_class)
   in
-  match Utility.base_of_class base_class with
+  match Utility.base_of_class theme base_class with
   | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
   | Ok base_utility -> (
       (* Wrap [important] around the base before applying modifiers, so a

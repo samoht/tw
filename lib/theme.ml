@@ -11,11 +11,8 @@ module Css = Cascade.Css
 
 (** {1 Spacing Variables} *)
 
-(* Current scheme for spacing overrides *)
-let current_scheme : Scheme.t ref = ref Scheme.default
-
-(* Set the current scheme for spacing generation *)
-let set_scheme scheme = current_scheme := scheme
+(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
+let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 (* Shared spacing variable used across padding, margin, positioning, etc.
    Tailwind v4 uses a single --spacing: 0.25rem variable and calc() for
@@ -32,10 +29,10 @@ let spacing_n_var n = Var.theme Css.Length ("spacing-" ^ Pp.int n) ~order:(3, n)
    returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.
    Otherwise returns calc(var(--spacing) * n). Returns the theme declaration and
    the length. *)
-let spacing_calc n : Css.declaration * Css.length =
+let spacing_calc ?theme n : Css.declaration * Css.length =
   let abs_n = abs n in
   let is_negative = n < 0 in
-  match Scheme.spacing !current_scheme abs_n with
+  match Scheme.spacing (resolve_scheme theme) abs_n with
   | Some explicit_length ->
       (* Scheme has explicit spacing: use var(--spacing-|n|) *)
       let spacing_n = spacing_n_var abs_n in
@@ -81,14 +78,14 @@ let spacing_calc n : Css.declaration * Css.length =
 (* Create a spacing length value for float multipliers like 2.5. For integer
    values, checks scheme for explicit spacing. Otherwise uses calc. This handles
    cases like my-2.5 which need calc(var(--spacing) * 2.5). *)
-let spacing_calc_float (n : float) : Css.declaration * Css.length =
+let spacing_calc_float ?theme (n : float) : Css.declaration * Css.length =
   let abs_n = Float.abs n in
   let is_negative = n < 0.0 in
   (* Check if this is an integer value that might have explicit spacing *)
   let is_integer = Float.is_integer abs_n in
   if is_integer then
     (* Use integer version which checks scheme *)
-    spacing_calc (int_of_float n)
+    spacing_calc ?theme (int_of_float n)
   else
     (* Fractional value: always use calc *)
     let decl, spacing_ref = Var.binding spacing_var spacing_base in

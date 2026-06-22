@@ -68,6 +68,10 @@ type case = {
   classes : string list;
   expected : string;
   variants : string list;  (** [matchVariant] directive lines for this test. *)
+  theme_vars : (string * string) list;
+      (** [@theme] token overrides (name, value) captured from the test's CSS
+          template by the extractor (e.g. text-shadow sizes Tailwind inlines).
+      *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -102,6 +106,7 @@ let read_test_cases filename =
     close_in ic;
     let tests = ref [] in
     let current_variants = ref [] in
+    let current_theme_vars = ref [] in
     let lines = String.split_on_char '\n' content in
     let parse_config_line line =
       let line = String.trim line in
@@ -117,6 +122,7 @@ let read_test_cases filename =
           if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
             let name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
+            current_theme_vars := [];
             parse_config name No_theme rest)
           else parse rest
     and parse_config name default_config lines =
@@ -135,6 +141,19 @@ let read_test_cases filename =
             current_variants :=
               String.sub tl 9 (String.length tl - 9) :: !current_variants;
             parse_variants name config rest)
+          else if String.length tl >= 11 && String.sub tl 0 11 = "@theme-var "
+          then (
+            (* "@theme-var <name> <value>" -- split on the first space. *)
+            let rest_str = String.sub tl 11 (String.length tl - 11) in
+            (match String.index_opt rest_str ' ' with
+            | Some i ->
+                let n = String.sub rest_str 0 i in
+                let v =
+                  String.sub rest_str (i + 1) (String.length rest_str - i - 1)
+                in
+                current_theme_vars := (n, v) :: !current_theme_vars
+            | None -> ());
+            parse_variants name config rest)
           else parse_classes name config (line :: rest)
     and parse_classes name config lines =
       match lines with
@@ -150,6 +169,7 @@ let read_test_cases filename =
             (* New test without classes *)
             let new_name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
+            current_theme_vars := [];
             parse_config new_name No_theme rest)
           else
             let classes = split_classes line in
@@ -177,6 +197,7 @@ let read_test_cases filename =
                 classes;
                 expected;
                 variants = List.rev !current_variants;
+                theme_vars = List.rev !current_theme_vars;
               }
               :: !tests
       | line :: rest ->
@@ -190,6 +211,7 @@ let read_test_cases filename =
                   classes;
                   expected;
                   variants = List.rev !current_variants;
+                  theme_vars = List.rev !current_theme_vars;
                 }
                 :: !tests;
             parse rest)
@@ -313,16 +335,13 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     default_border_width;
     default_outline_width;
     breakpoints;
+    token_overrides = [];
   }
 
 let setup_scheme_for_test expected =
   let scheme = scheme_from_expected_css expected in
-  Tw.Color.Handler.set_scheme scheme;
-  Tw.Theme.set_scheme scheme;
-  Tw.Borders.set_scheme scheme;
-  Tw.Effects.set_scheme scheme;
-  Tw.Divide.set_scheme scheme;
-  Tw.Rule.set_scheme scheme;
+  (* The scheme is threaded into Tw.to_css via ~theme below; the per-module
+     set_scheme globals are no longer used for rendering. *)
   (* Register custom breakpoints for modifier parsing *)
   let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
   let custom_bps =
@@ -330,7 +349,8 @@ let setup_scheme_for_test expected =
       (fun (name, _) -> not (List.mem name standard_names))
       scheme.breakpoints
   in
-  Tw.Modifiers.register_custom_breakpoints custom_bps
+  Tw.Modifiers.register_custom_breakpoints custom_bps;
+  scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -532,43 +552,47 @@ let extract_var_fallbacks expected =
       with Not_found | Failure _ -> None)
     matches
 
+(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
+   runtime [--tw-*] vars). These must NOT become token overrides: doing so would
+   emit them verbatim as raw custom properties instead of through their typed
+   binding (e.g. [--spacing: 0.25rem] instead of the normalized [.25rem]). Named
+   spacings like [spacing-big] are passed through. *)
+
 (** Set theme value overrides for non-spacing root vars from expected CSS. This
     enables utilities like z-auto and order-first to produce custom declarations
     in the :root, :host block when [@config] theme is used. *)
-let setup_theme_overrides config expected =
-  Tw.Var.clear_theme_values ();
+let is_scheme_typed_var name =
+  let is_numbered_spacing =
+    String.length name > 8
+    && String.sub name 0 8 = "spacing-"
+    &&
+    let rest = String.sub name 8 (String.length name - 8) in
+    match int_of_string_opt rest with Some _ -> true | None -> false
+  in
+  let is_bare_spacing = name = "spacing" in
+  let is_tw_var = String.length name > 3 && String.sub name 0 3 = "tw-" in
+  is_numbered_spacing || is_bare_spacing || is_tw_var
+
+let theme_overrides_of config expected =
   match config with
   | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
       let root_vars = extract_root_vars expected in
-      List.iter
-        (fun (name, value) ->
-          (* Skip numbered spacing (spacing-N) and tw- vars handled via scheme.
-             Named spacings like spacing-big are passed through. *)
-          let is_numbered_spacing =
-            String.length name > 8
-            && String.sub name 0 8 = "spacing-"
-            &&
-            let rest = String.sub name 8 (String.length name - 8) in
-            match int_of_string_opt rest with Some _ -> true | None -> false
-          in
-          let is_bare_spacing = name = "spacing" in
-          let is_tw_var =
-            String.length name > 3 && String.sub name 0 3 = "tw-"
-          in
-          if not (is_numbered_spacing || is_bare_spacing || is_tw_var) then
-            Tw.Var.set_theme_value name value)
-        root_vars;
+      let base =
+        List.filter (fun (name, _) -> not (is_scheme_typed_var name)) root_vars
+      in
       (* For theme-reference mode, also extract var(--name, fallback) patterns
          from expected CSS. This provides fallback values for opacity modifiers
          and other cases where the @theme block isn't in our test format. *)
       if config = Theme_reference || config = Theme_inline_reference then
         let var_fallbacks = extract_var_fallbacks expected in
-        List.iter
-          (fun (name, fallback) ->
-            if Tw.Var.theme_value name = None then
-              Tw.Var.set_theme_value name fallback)
-          var_fallbacks
-  | No_theme -> ()
+        let extra =
+          List.filter
+            (fun (name, _) -> not (List.mem_assoc name base))
+            var_fallbacks
+        in
+        base @ extra
+      else base
+  | No_theme -> []
 
 (** Extract custom breakpoints by matching input class modifiers with px values
     from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
@@ -732,8 +756,8 @@ let stat_expected_empty_cases = ref 0
 
 let run_test_case test () =
   if test.classes = [] then ()
-  else (
-    setup_scheme_for_test test.expected;
+  else
+    let base_scheme = setup_scheme_for_test test.expected in
     (* Register any matchVariant custom variants for this test. Directive form:
        "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
     let parse_variant_directive d =
@@ -780,21 +804,43 @@ let run_test_case test () =
       (List.filter_map parse_variant_directive test.variants);
     Tw.Modifiers.register_container_variants
       (List.filter_map parse_container_directive test.variants);
-    (* Register custom breakpoints before parsing classes *)
+    (* Register custom breakpoints before parsing classes. The resulting scheme
+       (base plus any custom breakpoints) is the one threaded to [Tw.to_css]
+       below via [~theme]. *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
-    if custom_bps <> [] then (
-      let scheme = scheme_from_expected_css test.expected in
-      let updated_scheme =
-        { scheme with breakpoints = scheme.breakpoints @ custom_bps }
+    let scheme =
+      if custom_bps = [] then base_scheme
+      else
+        let updated_scheme =
+          {
+            base_scheme with
+            breakpoints = base_scheme.breakpoints @ custom_bps;
+          }
+        in
+        Tw.Modifiers.register_custom_breakpoints custom_bps;
+        updated_scheme
+    in
+    (* Thread the @theme token overrides into the scheme so utilities read them
+       from ~theme (parse and render); the Var global is no longer consulted. *)
+    let scheme =
+      (* [theme_overrides_of] derives values from the expected [:root] (already
+         normalized as Tailwind emits them), so it must win over the raw
+         [@theme-var] source values for theme-layer emission; [test.theme_vars]
+         is the fallback for tokens not present in the expected [:root] (e.g.
+         inlined [@theme] blocks like text-shadow). *)
+      let theme_vars =
+        List.filter
+          (fun (name, _) -> not (is_scheme_typed_var name))
+          test.theme_vars
       in
-      Tw.Rule.set_scheme updated_scheme;
-      Tw.Modifiers.register_custom_breakpoints custom_bps);
-    setup_theme_overrides test.config test.expected;
+      Tw.Scheme.with_overrides scheme
+        (theme_overrides_of test.config test.expected @ theme_vars)
+    in
     let theme, theme_defaults = theme_config test.config test.expected in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
-          match Tw.of_string cls with
+          match Tw.of_string ~theme:scheme cls with
           | Ok u -> (u :: ok, bad)
           | Error (`Msg m) -> (ok, (cls, m) :: bad))
         ([], []) test.classes
@@ -807,7 +853,7 @@ let run_test_case test () =
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
-      else Some (Tw.to_css ~base:false ~layers:false utilities)
+      else Some (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities)
     in
     let our_css =
       match our_stylesheet with
@@ -858,7 +904,7 @@ let run_test_case test () =
         Alcotest.fail
           (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s%s"
              (String.concat " " test.classes)
-             (Buffer.contents buf) expected got rejected_note))
+             (Buffer.contents buf) expected got rejected_note)
 
 (* Guards [colors_close]: a documented stale fixture pair is accepted, but a
    near-miss the previous [abs (x - y) <= 2] blanket would have wrongly accepted

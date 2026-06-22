@@ -347,11 +347,11 @@ module Handler = struct
   let of_class_map = List.map (fun (t, cls, _, _) -> (cls, t)) alignment_data
 
   (* Handler functions derived from maps *)
-  let to_style t = List.assoc t to_style_map
+  let to_style _theme t = List.assoc t to_style_map
   let to_class t = List.assoc t to_class_map
   let suborder t = List.assoc t suborder_map
 
-  let of_class cls =
+  let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
     | None -> Error (`Msg "Not an alignment utility")

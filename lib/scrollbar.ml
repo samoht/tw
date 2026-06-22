@@ -122,7 +122,7 @@ module Handler = struct
 
   (* Return (declarations placed on the rule, optional @supports rules) that set
      [set_var] to the resolved colour. *)
-  let value_decls ~set_var ~prop_name spec :
+  let value_decls ?theme ~set_var ~prop_name spec :
       Css.declaration list * Css.statement list =
     match spec with
     (* Tailwind keeps these keywords literal in the custom property, where
@@ -141,7 +141,7 @@ module Handler = struct
     | Theme (color, shade, op) ->
         let percent = Color.opacity_to_percent op in
         let fallback_hex =
-          match Color.hex_alpha_color color shade op with
+          match Color.hex_alpha_color ?theme color shade op with
           | Some h -> h
           | None -> "#000000"
         in
@@ -176,8 +176,10 @@ module Handler = struct
         in
         ([ fst (Var.binding set_var oklab) ], [])
 
-  let compose ~set_var ~prop_name spec =
-    let main_decls, supports_rules = value_decls ~set_var ~prop_name spec in
+  let compose ?theme ~set_var ~prop_name spec =
+    let main_decls, supports_rules =
+      value_decls ?theme ~set_var ~prop_name spec
+    in
     let scrollbar_color_decl =
       Css.scrollbar_color
         (Colors
@@ -203,7 +205,9 @@ module Handler = struct
         in
         style ~property_rules ~rules:(Some ordered) []
 
-  let to_style = function
+  let to_style theme =
+    let compose ~set_var ~prop_name s = compose ~theme ~set_var ~prop_name s in
+    function
     | Width_auto -> style [ Css.scrollbar_width Auto ]
     | Width_none -> style [ Css.scrollbar_width None ]
     | Width_thin -> style [ Css.scrollbar_width Thin ]
@@ -215,24 +219,25 @@ module Handler = struct
 
   let has_opacity s = String.contains s '/'
 
-  let parse_color mk rest =
+  let parse_color ?theme mk rest =
     match rest with
     | [ "inherit" ] -> Ok (mk Inherit)
     | [ "transparent" ] -> Ok (mk Transparent)
     | [ current_str ] when String.starts_with ~prefix:"current" current_str -> (
-        let _, op = Color.parse_opacity_modifier current_str in
+        let _, op = Color.parse_opacity_modifier ?theme current_str in
         match op with
         | Color.No_opacity -> Ok (mk Current)
         | _ -> Error (`Msg "Not a scrollbar utility"))
-    | [ v ] when Parse.is_bracket_value (fst (Color.parse_opacity_modifier v))
+    | [ v ]
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ?theme v))
       -> (
-        let base, op = Color.parse_opacity_modifier v in
+        let base, op = Color.parse_opacity_modifier ?theme v in
         let inner = Parse.bracket_inner base in
         match Color.parse_bracket_color inner with
         | Some c -> Ok (mk (Bracket (base, c, op)))
         | None -> Error (`Msg "Not a scrollbar utility"))
     | parts when List.exists has_opacity parts -> (
-        match Color.shade_and_opacity_of_strings parts with
+        match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
     | parts -> (
@@ -240,7 +245,7 @@ module Handler = struct
         | Ok (c, shade) -> Ok (mk (Theme (c, shade, Color.No_opacity)))
         | Error e -> Error e)
 
-  let of_class class_name =
+  let of_class theme class_name =
     match Parse.split_class class_name with
     | [ "scrollbar"; "auto" ] -> Ok Width_auto
     | [ "scrollbar"; "none" ] -> Ok Width_none
@@ -248,8 +253,10 @@ module Handler = struct
     | [ "scrollbar"; "gutter"; "auto" ] -> Ok Gutter_auto
     | [ "scrollbar"; "gutter"; "stable" ] -> Ok Gutter_stable
     | [ "scrollbar"; "gutter"; "both" ] -> Ok Gutter_both
-    | "scrollbar" :: "thumb" :: rest -> parse_color (fun s -> Thumb s) rest
-    | "scrollbar" :: "track" :: rest -> parse_color (fun s -> Track s) rest
+    | "scrollbar" :: "thumb" :: rest ->
+        parse_color ~theme (fun s -> Thumb s) rest
+    | "scrollbar" :: "track" :: rest ->
+        parse_color ~theme (fun s -> Track s) rest
     | _ -> Error (`Msg "Not a scrollbar utility")
 end
 

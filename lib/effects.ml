@@ -2,9 +2,6 @@
 
 module Css = Cascade.Css
 
-let current_scheme : Scheme.t ref = ref Scheme.default
-let set_scheme scheme = current_scheme := scheme
-
 module Handler = struct
   open Style
 
@@ -647,30 +644,31 @@ module Handler = struct
 
   (* ============ Shadow color utilities ============ *)
 
-  let shadow_color_hex ~property_prefix c shade =
+  let shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         (* Check property-scoped theme value first *)
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.theme_value prop_name with
+        match Scheme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Var.theme_value ("color-" ^ color_name) with
+            match Scheme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
                 let rgb = Color.oklch_to_rgb oklch in
                 Color.rgb_to_hex rgb))
 
-  let set_shadow_color c shade =
+  let set_shadow_color ?theme c shade =
     let hex_value =
-      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -684,15 +682,15 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_shadow_color_opacity c shade opacity =
+  let set_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
     let hex_value =
-      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1162,29 +1160,31 @@ module Handler = struct
 
   (* ============ Inset shadow color utilities ============ *)
 
-  let inset_shadow_color_hex ~property_prefix c shade =
+  let inset_shadow_color_hex ?theme ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
-    match Scheme.hex_color (Color.scheme ()) color_name with
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    match Scheme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.theme_value prop_name with
+        match Scheme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Var.theme_value ("color-" ^ color_name) with
+            match Scheme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
                 let rgb = Color.oklch_to_rgb oklch in
                 Color.rgb_to_hex rgb))
 
-  let set_inset_shadow_color c shade =
+  let set_inset_shadow_color ?theme c shade =
     let hex_value =
-      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
+        shade
     in
     let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"inset-box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1198,17 +1198,18 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
-  let set_inset_shadow_color_opacity c shade opacity =
+  let set_inset_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
     let hex_value =
-      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
+        shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ =
       Var.binding inset_shadow_color_var (Css.hex hex_with_alpha)
     in
     let theme_color_var =
-      Color.property_color_var ~property_prefix:"inset-box-shadow-color" c shade
+      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color" c shade
     in
     let theme_decl, color_ref =
       Var.binding theme_color_var (Css.hex hex_value)
@@ -1413,7 +1414,9 @@ module Handler = struct
 
   (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
-  let ring_default () = ring_internal !current_scheme.default_ring_width
+  let ring_default ?theme () =
+    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    ring_internal scheme.Scheme.default_ring_width
 
   let inset_ring_internal width_px =
     let spread : Css.length = Px (float_of_int width_px) in
@@ -1473,9 +1476,9 @@ module Handler = struct
     in
     style [ decl ]
 
-  let ring_color color shade =
+  let ring_color ?theme color shade =
     let cvar =
-      Color.property_color_var ~property_prefix:"ring-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"ring-color" color shade
@@ -1484,13 +1487,13 @@ module Handler = struct
     let d, _ = Var.binding ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
-  let ring_color_with_opacity color shade opacity =
+  let ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
         let cvar =
-          Color.property_color_var ~property_prefix:"ring-color" color shade
+          Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
         in
         let color_value =
           Color.property_color_value ~property_prefix:"ring-color" color shade
@@ -1509,7 +1512,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_color color shade
+    | None -> ring_color ?theme color shade
 
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
@@ -1526,11 +1529,11 @@ module Handler = struct
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
-  let ring_offset_color color shade =
+  let ring_offset_color ?theme color shade =
     (* Sets --tw-ring-offset-color to reference theme color variable. Uses
        property-scoped variable: --ring-offset-color-blue-500 *)
     let color_theme_var =
-      Color.property_color_var ~property_prefix:"ring-offset-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"ring-offset-color" color
@@ -1584,15 +1587,15 @@ module Handler = struct
       | None -> None
 
   (* Ring-offset color utilities *)
-  let ring_offset_color_with_opacity color shade opacity =
+  let ring_offset_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ =
           Var.binding ring_offset_color_var (Css.hex hex_alpha)
         in
         let cvar =
-          Color.property_color_var ~property_prefix:"ring-offset-color" color
+          Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color
             shade
         in
         let color_value =
@@ -1613,7 +1616,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_offset_color color shade
+    | None -> ring_offset_color ?theme color shade
 
   let ring_offset_transparent =
     let d, _ = Var.binding ring_offset_color_var Css.Transparent in
@@ -1719,9 +1722,9 @@ module Handler = struct
       [ fallback ]
 
   (* Inset-ring utilities *)
-  let inset_ring_color color shade =
+  let inset_ring_color ?theme color shade =
     let cvar =
-      Color.property_color_var ~property_prefix:"inset-ring-color" color shade
+      Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color shade
     in
     let color_value =
       Color.property_color_value ~property_prefix:"inset-ring-color" color shade
@@ -1730,15 +1733,15 @@ module Handler = struct
     let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
-  let inset_ring_color_with_opacity color shade opacity =
+  let inset_ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color ?theme color shade opacity with
     | Some hex_alpha ->
         let fallback, _ =
           Var.binding inset_ring_color_var (Css.hex hex_alpha)
         in
         let cvar =
-          Color.property_color_var ~property_prefix:"inset-ring-color" color
+          Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color
             shade
         in
         let color_value =
@@ -1759,7 +1762,7 @@ module Handler = struct
             ]
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> inset_ring_color color shade
+    | None -> inset_ring_color ?theme color shade
 
   let inset_ring_transparent =
     let d, _ = Var.binding inset_ring_color_var Css.Transparent in
@@ -1981,7 +1984,31 @@ module Handler = struct
   let bg_blend_color = style [ background_blend_mode Color ]
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
 
-  let to_style = function
+  let to_style theme =
+    let set_shadow_color c shade = set_shadow_color ~theme c shade in
+    let set_shadow_color_opacity c shade opacity =
+      set_shadow_color_opacity ~theme c shade opacity
+    in
+    let set_inset_shadow_color c shade =
+      set_inset_shadow_color ~theme c shade
+    in
+    let set_inset_shadow_color_opacity c shade opacity =
+      set_inset_shadow_color_opacity ~theme c shade opacity
+    in
+    let ring_color_with_opacity color shade opacity =
+      ring_color_with_opacity ~theme color shade opacity
+    in
+    let ring_offset_color_with_opacity color shade opacity =
+      ring_offset_color_with_opacity ~theme color shade opacity
+    in
+    let inset_ring_color_with_opacity color shade opacity =
+      inset_ring_color_with_opacity ~theme color shade opacity
+    in
+    let ring_default () = ring_default ~theme () in
+    let ring_color color shade = ring_color ~theme color shade in
+    let ring_offset_color color shade = ring_offset_color ~theme color shade in
+    let inset_ring_color color shade = inset_ring_color ~theme color shade in
+    function
     | Shadow_none -> shadow_none
     | Shadow_2xs -> shadow_2xs
     | Shadow_xs -> shadow_xs
@@ -2390,7 +2417,7 @@ module Handler = struct
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
           | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity)))
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none
@@ -2399,7 +2426,7 @@ module Handler = struct
     | [ "shadow"; "sm" ] -> Ok Shadow_sm
     | [ "shadow" ] -> Ok Shadow
     | [ base ] when String.starts_with ~prefix:"shadow/" base -> (
-        let _, opacity = Color.parse_opacity_modifier base in
+        let _, opacity = Color.parse_opacity_modifier ~theme base in
         match opacity with
         | Color.No_opacity -> err_not_utility
         | op -> Ok (Shadow_shape_opacity (Default, op)))
@@ -2412,7 +2439,7 @@ module Handler = struct
     | [ "shadow"; "transparent" ] -> Ok Shadow_transparent
     | [ "shadow"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Shadow_current
         | Color.No_opacity -> err_not_utility
@@ -2423,7 +2450,7 @@ module Handler = struct
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_shadow_bracket v
     | [ "shadow"; name ] when String.contains name '/' -> (
-        let base, opacity = Color.parse_opacity_modifier name in
+        let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
         | "2xs", op -> Ok (Shadow_shape_opacity (Two_xs, op))
@@ -2435,7 +2462,7 @@ module Handler = struct
         | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
         | _ -> err_not_utility)
     | [ "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2446,7 +2473,7 @@ module Handler = struct
     | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
     | [ "inset"; "shadow" ] -> Ok Inset_shadow
     | [ base ] when String.starts_with ~prefix:"inset-shadow/" base -> (
-        let _, opacity = Color.parse_opacity_modifier base in
+        let _, opacity = Color.parse_opacity_modifier ~theme base in
         match opacity with
         | Color.No_opacity -> err_not_utility
         | op -> Ok (Inset_shadow_shape_opacity (Ish_default, op)))
@@ -2458,7 +2485,7 @@ module Handler = struct
     | [ "inset"; "shadow"; "transparent" ] -> Ok Inset_shadow_transparent
     | [ "inset"; "shadow"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_shadow_current
         | Color.No_opacity -> err_not_utility
@@ -2469,7 +2496,7 @@ module Handler = struct
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_inset_shadow_bracket v
     | [ "inset"; "shadow"; name ] when String.contains name '/' -> (
-        let base, opacity = Color.parse_opacity_modifier name in
+        let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
@@ -2479,7 +2506,7 @@ module Handler = struct
         | "2xl", op -> Ok (Inset_shadow_shape_opacity (Ish_2xl, op))
         | _ -> err_not_utility)
     | [ "inset"; "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2514,7 +2541,7 @@ module Handler = struct
     | [ "ring"; "inherit" ] -> Ok Ring_inherit
     | [ "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_current
         | Color.No_opacity -> err_not_utility
@@ -2528,7 +2555,7 @@ module Handler = struct
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
     | [ "ring"; "offset"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_offset_current
         | Color.No_opacity -> err_not_utility
@@ -2545,7 +2572,7 @@ module Handler = struct
     | [ "ring"; color; shade ] -> (
         (* Check for opacity modifier in shade (e.g., "500/50" or
            "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2553,7 +2580,7 @@ module Handler = struct
             | _ -> Ok (Ring_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "ring"; "offset"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2565,7 +2592,7 @@ module Handler = struct
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
     | [ "inset"; "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_ring_current
         | Color.No_opacity -> err_not_utility
@@ -2580,7 +2607,7 @@ module Handler = struct
         | Ok width -> Ok (Inset_ring_width width)
         | Error _ -> err_not_utility)
     | [ "inset"; "ring"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with

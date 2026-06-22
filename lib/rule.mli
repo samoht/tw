@@ -17,21 +17,15 @@
 
 open Cascade
 
-(** {1 Scheme}
-
-    The scheme determines whether responsive breakpoints are expressed as
-    [rem]-based media queries (default) or [px]-based ones (when a custom scheme
-    with pixel breakpoints is active). *)
-
-val set_scheme : Scheme.t -> unit
-(** [set_scheme s] installs [s] as the active breakpoint scheme. Call once at
-    application start if the default rem breakpoints are not appropriate. *)
-
 (** {1 Rule extraction} *)
 
 val outputs :
-  ?order_tbl:(string, int * int) Hashtbl.t -> Utility.t -> Output.t list
-(** [outputs u] extracts the CSS rules for utility [u].
+  ?theme:Scheme.t ->
+  ?order_tbl:(string, int * int) Hashtbl.t ->
+  Utility.t ->
+  Output.t list
+(** [outputs ?theme u] extracts the CSS rules for utility [u], reading any theme
+    values it needs from [theme] (default {!Scheme.default}).
 
     Returns a list because a single utility can produce more than one rule — for
     example a container utility emits one plain rule plus one [@media] rule per

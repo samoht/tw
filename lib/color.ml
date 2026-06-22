@@ -1451,7 +1451,7 @@ type opacity_modifier =
   | Opacity_var of string (* e.g., /[var(--x)] - var ref used as percentage *)
 
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
-let parse_opacity_modifier s =
+let parse_opacity_modifier ?theme s =
   match String.index_opt s '/' with
   | None -> (s, No_opacity)
   | Some idx -> (
@@ -1484,7 +1484,7 @@ let parse_opacity_modifier s =
                (e.g., /half when --opacity-half exists) *)
             if
               Parse.is_valid_theme_name opacity_str
-              && Var.theme_value ("opacity-" ^ opacity_str) <> None
+              && Scheme.theme_value theme ("opacity-" ^ opacity_str) <> None
             then (base, Opacity_named opacity_str)
             else (s, No_opacity))
 
@@ -1506,9 +1506,11 @@ let shade_of_strings = function
 
 (* Parse color, shade, and optional opacity modifier from string list. Handles
    formats like ["red"; "500/50"] or ["red"; "500/[0.5]"] *)
-let shade_and_opacity_of_strings = function
+let shade_and_opacity_of_strings ?theme = function
   | [ color_str; shade_opacity_str ] -> (
-      let shade_str, opacity = parse_opacity_modifier shade_opacity_str in
+      let shade_str, opacity =
+        parse_opacity_modifier ?theme shade_opacity_str
+      in
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
@@ -1517,7 +1519,7 @@ let shade_and_opacity_of_strings = function
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
   | [ color_str ] -> (
       (* Could be "current/50" or just "black" *)
-      let base_str, opacity = parse_opacity_modifier color_str in
+      let base_str, opacity = parse_opacity_modifier ?theme color_str in
       match of_string base_str with
       | Ok color -> Ok (color, 500, opacity)
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
@@ -1617,11 +1619,8 @@ module Handler = struct
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
 
-  (** Current scheme for color generation. Default uses oklch/color-mix. *)
-  let current_scheme : Scheme.t ref = ref Scheme.default
-
-  (** Set the current scheme for color generation *)
-  let set_scheme scheme = current_scheme := scheme
+  (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
+  let resolve_scheme = function Some s -> s | None -> Scheme.default
 
   (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
       defined before [open Css] to use the outer [color] type. *)
@@ -1633,9 +1632,9 @@ module Handler = struct
 
   (** Get the color value for a color and shade, checking scheme first. When
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
-  let get_color_value (c : color) shade =
+  let get_color_value ?theme (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
@@ -1643,10 +1642,10 @@ module Handler = struct
       value exists (e.g., [--accent-color-blue-500]) and if so creates a
       property-scoped variable. Otherwise falls back to the generic
       [--color-{name}] variable. *)
-  let property_color_var ~property_prefix (c : color) shade =
+  let property_color_var ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Var.theme_value prop_name with
+    match Scheme.theme_value theme prop_name with
     | Some _ -> (
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
@@ -1668,18 +1667,18 @@ module Handler = struct
   (** Get the color value for use with color variables. Checks for
       property-scoped theme value first, then scheme, then generic theme value,
       then converts from oklch as fallback. *)
-  let property_color_value ~property_prefix (c : color) shade =
+  let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Var.theme_value prop_name with
+    match Scheme.theme_value theme prop_name with
     | Some value -> Css.hex value
     | None -> (
-        match Scheme.hex_color !current_scheme color_name with
+        match Scheme.hex_color (resolve_scheme theme) color_name with
         | Some hex -> Css.hex hex
         | None -> (
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
-            match Var.theme_value std_name with
+            match Scheme.theme_value theme std_name with
             | Some value -> Css.hex value
             | None -> to_css c (if is_base_color c then 500 else shade)))
 
@@ -1714,19 +1713,19 @@ module Handler = struct
         | Ok c -> Some (to_css c 500)
         | Error _ -> None
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Bg_current
         | No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
         | _ -> Ok (Bg_current_opacity opacity))
     | "bg" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: color_parts -> (
@@ -1737,7 +1736,7 @@ module Handler = struct
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Text_current
         | No_opacity -> Error (`Msg ("Invalid text: " ^ current_str))
@@ -1745,8 +1744,9 @@ module Handler = struct
     | [ "text"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let starts prefix s =
           String.length s >= String.length prefix
@@ -1774,7 +1774,7 @@ module Handler = struct
               )
           | None -> Error (`Msg ("Invalid text bracket value: " ^ base_inner)))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Text_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1785,7 +1785,7 @@ module Handler = struct
     | [ "border"; "transparent" ] -> Ok Border_transparent
     | [ "border"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Border_current
         | No_opacity -> Error (`Msg ("Invalid border: " ^ current_str))
@@ -1793,8 +1793,9 @@ module Handler = struct
     | [ "border"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1834,7 +1835,7 @@ module Handler = struct
                 Ok (Border_side_color (bs, Bsc_named (color, shade)))
             | Error e -> Error e))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Border_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1846,7 +1847,7 @@ module Handler = struct
     | [ "accent"; "inherit" ] -> Ok Accent_inherit
     | [ "accent"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Accent_current
         | No_opacity -> Error (`Msg ("Invalid accent: " ^ current_str))
@@ -1854,8 +1855,9 @@ module Handler = struct
     | [ "accent"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1867,7 +1869,7 @@ module Handler = struct
             )
         | None -> Error (`Msg ("Invalid accent bracket value: " ^ base_inner)))
     | "accent" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Accent_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1879,7 +1881,7 @@ module Handler = struct
     | [ "caret"; "transparent" ] -> Ok Caret_transparent
     | [ "caret"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Caret_current
         | No_opacity -> Error (`Msg ("Invalid caret: " ^ current_str))
@@ -1887,8 +1889,9 @@ module Handler = struct
     | [ "caret"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1900,7 +1903,7 @@ module Handler = struct
             )
         | None -> Error (`Msg ("Invalid caret bracket value: " ^ base_inner)))
     | "caret" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Caret_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1912,7 +1915,7 @@ module Handler = struct
     | [ "outline"; "inherit" ] -> Ok Outline_inherit
     | [ "outline"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Outline_current
         | No_opacity -> Error (`Msg ("Invalid outline: " ^ current_str))
@@ -1920,8 +1923,9 @@ module Handler = struct
     | [ "outline"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let starts prefix s =
           String.length s >= String.length prefix
@@ -1950,7 +1954,7 @@ module Handler = struct
           | None ->
               Error (`Msg ("Invalid outline bracket value: " ^ base_inner)))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Outline_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1962,7 +1966,7 @@ module Handler = struct
     | [ "placeholder"; "inherit" ] -> Ok Placeholder_inherit
     | [ "placeholder"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Placeholder_current
         | No_opacity -> Error (`Msg ("Invalid placeholder: " ^ current_str))
@@ -1970,8 +1974,9 @@ module Handler = struct
     | [ "placeholder"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1985,7 +1990,7 @@ module Handler = struct
         | None ->
             Error (`Msg ("Invalid placeholder bracket value: " ^ base_inner)))
     | "placeholder" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Placeholder_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1995,14 +2000,14 @@ module Handler = struct
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
-  let bg' c shade =
+  let bg' ?theme c shade =
     if is_custom_color c then
       let css_color = to_css c shade in
       style [ Css.background_color css_color ]
     else
       (* Use shared color variable to match tailwindcss output exactly. *)
       let cv = color_var c shade in
-      let color_value = get_color_value c shade in
+      let color_value = get_color_value ?theme c shade in
       let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
@@ -2011,19 +2016,20 @@ module Handler = struct
 
   (** Text color utilities *)
 
-  let text' color shade =
+  let text' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.color css_color ]
     else
       let color_name = scheme_color_name color shade in
       let prop_name = "text-color-" ^ color_name in
-      let has_property_scoped = Var.theme_value prop_name <> None in
+      let has_property_scoped = Scheme.theme_value theme prop_name <> None in
       let cv, color_value =
         if has_property_scoped then
-          ( property_color_var ~property_prefix:"text-color" color shade,
-            property_color_value ~property_prefix:"text-color" color shade )
-        else (color_var color shade, get_color_value color shade)
+          ( property_color_var ?theme ~property_prefix:"text-color" color shade,
+            property_color_value ?theme ~property_prefix:"text-color" color
+              shade )
+        else (color_var color shade, get_color_value ?theme color shade)
       in
       let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.color (Var color_ref) ])
@@ -2034,13 +2040,13 @@ module Handler = struct
 
   (** Border color utilities *)
 
-  let border_color' color shade =
+  let border_color' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.border_color css_color ]
     else
       let color_var = color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_value = get_color_value ?theme color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
 
@@ -2075,16 +2081,16 @@ module Handler = struct
 
   (** Accent color utilities *)
 
-  let accent' color shade =
+  let accent' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.accent_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"accent-color" color shade
+        property_color_var ?theme ~property_prefix:"accent-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"accent-color" color shade
+        property_color_value ?theme ~property_prefix:"accent-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
@@ -2095,16 +2101,16 @@ module Handler = struct
 
   (** Caret color utilities *)
 
-  let caret' color shade =
+  let caret' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.caret_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"caret-color" color shade
+        property_color_var ?theme ~property_prefix:"caret-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"caret-color" color shade
+        property_color_value ?theme ~property_prefix:"caret-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.caret_color (Var color_ref) ])
@@ -2115,16 +2121,16 @@ module Handler = struct
 
   (** Outline color utilities *)
 
-  let outline' color shade =
+  let outline' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
       style [ Css.outline_color css_color ]
     else
       let color_var =
-        property_color_var ~property_prefix:"outline-color" color shade
+        property_color_var ?theme ~property_prefix:"outline-color" color shade
       in
       let color_value =
-        property_color_value ~property_prefix:"outline-color" color shade
+        property_color_value ?theme ~property_prefix:"outline-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.outline_color (Var color_ref) ])
@@ -2246,8 +2252,8 @@ module Handler = struct
       - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
       - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
         has color-mix(oklab) *)
-  let color_with_opacity_style ~property ?property_prefix ?merge_key c shade
-      opacity =
+  let color_with_opacity_style ?theme ~property ?property_prefix ?merge_key c
+      shade opacity =
     let percent = opacity_to_percent opacity in
     if is_custom_color c then
       (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
@@ -2266,7 +2272,7 @@ module Handler = struct
       let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
       style ?merge_key [ property oklab_value ]
     else
-      let scheme = !current_scheme in
+      let scheme = resolve_scheme theme in
       let color_name = scheme_color_name c shade in
       (* Check if color is defined as hex in the scheme *)
       match Scheme.hex_color scheme color_name with
@@ -2299,13 +2305,14 @@ module Handler = struct
           (* Non-scheme color: use property-scoped variable if prefix given *)
           let color_var =
             match property_prefix with
-            | Some prefix -> property_color_var ~property_prefix:prefix c shade
+            | Some prefix ->
+                property_color_var ?theme ~property_prefix:prefix c shade
             | Stdlib.Option.None -> color_var c shade
           in
           let color_value =
             match property_prefix with
             | Some prefix ->
-                property_color_value ~property_prefix:prefix c shade
+                property_color_value ?theme ~property_prefix:prefix c shade
             | Stdlib.Option.None ->
                 to_css c (if is_base_color c then 500 else shade)
           in
@@ -2329,39 +2336,40 @@ module Handler = struct
             [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
-  let bg_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.background_color
+  let bg_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.background_color
       ~property_prefix:"background-color" c shade opacity
 
   (** Text color with opacity *)
-  let text_with_opacity c shade opacity =
+  let text_with_opacity ?theme c shade opacity =
     let property_prefix =
       if not (is_custom_color c) then
         let color_name = scheme_color_name c shade in
         let prop_name = "text-color-" ^ color_name in
-        if Var.theme_value prop_name <> None then Some "text-color" else None
+        if Scheme.theme_value theme prop_name <> None then Some "text-color"
+        else None
       else None
     in
-    color_with_opacity_style ~property:Css.color ?property_prefix c shade
+    color_with_opacity_style ?theme ~property:Css.color ?property_prefix c shade
       opacity
 
   (** Border color with opacity *)
-  let border_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.border_color c shade opacity
+  let border_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
 
   (** Accent color with opacity *)
-  let accent_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.accent_color
+  let accent_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.accent_color
       ~property_prefix:"accent-color" c shade opacity
 
   (** Caret color with opacity *)
-  let caret_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.caret_color
+  let caret_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.caret_color
       ~property_prefix:"caret-color" c shade opacity
 
   (** Outline color with opacity *)
-  let outline_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.outline_color
+  let outline_with_opacity ?theme c shade opacity =
+    color_with_opacity_style ?theme ~property:Css.outline_color
       ~property_prefix:"outline-color" c shade opacity
 
   (** Current color with opacity using color-mix with progressive enhancement *)
@@ -2465,7 +2473,34 @@ module Handler = struct
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
     | other -> other
 
-  let to_style = function
+  let to_style theme =
+    (* Shadow the scheme-reading colour helpers with theme-applied versions so
+       the match arms below read from the explicitly threaded scheme. *)
+    let bg' color shade = bg' ~theme color shade in
+    let text' color shade = text' ~theme color shade in
+    let border_color' color shade = border_color' ~theme color shade in
+    let accent' color shade = accent' ~theme color shade in
+    let caret' color shade = caret' ~theme color shade in
+    let outline' color shade = outline' ~theme color shade in
+    let bg_with_opacity color shade opacity =
+      bg_with_opacity ~theme color shade opacity
+    in
+    let text_with_opacity color shade opacity =
+      text_with_opacity ~theme color shade opacity
+    in
+    let border_with_opacity color shade opacity =
+      border_with_opacity ~theme color shade opacity
+    in
+    let accent_with_opacity color shade opacity =
+      accent_with_opacity ~theme color shade opacity
+    in
+    let caret_with_opacity color shade opacity =
+      caret_with_opacity ~theme color shade opacity
+    in
+    let outline_with_opacity color shade opacity =
+      outline_with_opacity ~theme color shade opacity
+    in
+    function
     | Bg (color, shade) -> bg' color shade
     | Bg_opacity (color, shade, opacity) ->
         (* 100% opacity: same as base color, no @supports needed *)
@@ -2929,19 +2964,17 @@ let pp_opacity = function
   | Opacity_named name -> name
   | Opacity_var v -> "[" ^ v ^ "]"
 
-let current_scheme () = !Handler.current_scheme
-let scheme () = !Handler.current_scheme
 let shorten_hex_str = shorten_hex_str
 let bracket_color_to_custom = Handler.bracket_color_to_custom
 let css_color_to_hex = Handler.css_color_to_hex
 let parse_bracket_color = Handler.parse_bracket_color
 let round_n = round_n
 
-let hex_alpha_color c shade opacity =
+let hex_alpha_color ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let color_name = scheme_color_name c shade in
-  match Scheme.hex_color !current_scheme color_name with
+  match Scheme.hex_color (resolve_scheme theme) color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
   | None -> None
 
@@ -2981,7 +3014,7 @@ let oklab_with_supports ~property ~fallback_decl c shade percent =
   let supports_block = color_mix_supports ~decls:[ theme_decl; oklab_decl ] in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-let generic_color_with_opacity ~property c shade opacity =
+let generic_color_with_opacity ?theme ~property c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if is_custom_color c then
@@ -2991,7 +3024,7 @@ let generic_color_with_opacity ~property c shade opacity =
     Style.style [ property oklab_value ]
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let fallback_decl =
           property (Css.hex (hex_with_alpha hex_value percent))
@@ -3021,13 +3054,13 @@ let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   Style.style ?merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Fill/stroke helpers for SVG utilities *)
-let fill_with_opacity c shade opacity =
-  generic_color_with_opacity
+let fill_with_opacity ?theme c shade opacity =
+  generic_color_with_opacity ?theme
     ~property:(fun color -> Css.fill (Css.Color color))
     c shade opacity
 
-let stroke_with_opacity c shade opacity =
-  generic_color_with_opacity
+let stroke_with_opacity ?theme c shade opacity =
+  generic_color_with_opacity ?theme
     ~property:(fun color -> Css.stroke (Css.Color color))
     c shade opacity
 
@@ -3043,8 +3076,10 @@ let stroke_current_with_opacity opacity =
     ~property:(fun color -> Css.stroke (Css.Color color))
     opacity
 
-let divide_opacity_via_property ~selector c shade percent =
-  let cvar = property_color_var ~property_prefix:"border-color" c shade in
+let divide_opacity_via_property ?theme ~selector c shade percent =
+  let cvar =
+    property_color_var ?theme ~property_prefix:"border-color" c shade
+  in
   let color_value =
     property_color_value ~property_prefix:"border-color" c shade
   in
@@ -3084,7 +3119,7 @@ let bg_opacity_via_property c shade percent =
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Divide helpers with custom selector *)
-let divide_with_opacity_selector ~selector c shade opacity =
+let divide_with_opacity_selector ?theme ~selector c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if is_custom_color c then
@@ -3095,7 +3130,7 @@ let divide_with_opacity_selector ~selector c shade opacity =
     Style.style ~rules:(Some [ rule ]) []
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let hex_alpha = hex_with_alpha hex_value percent in
         let fallback_rule =
@@ -3114,10 +3149,10 @@ let divide_with_opacity_selector ~selector c shade opacity =
           color_mix_supports_stmts ~stmts:[ supports_rule ]
         in
         Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
-    | None -> divide_opacity_via_property ~selector c shade percent
+    | None -> divide_opacity_via_property ?theme ~selector c shade percent
 
-let divide_with_opacity c shade opacity selector =
-  divide_with_opacity_selector ~selector c shade opacity
+let divide_with_opacity ?theme c shade opacity selector =
+  divide_with_opacity_selector ?theme ~selector c shade opacity
 
 let divide_current_with_opacity_selector ~selector opacity =
   let open Handler in
@@ -3138,7 +3173,7 @@ let divide_current_with_opacity opacity selector =
 
 (** Background color with opacity - scheme-aware. Uses hex+alpha fallback with
     theme variable in [@supports] block. *)
-let bg_with_opacity c shade opacity =
+let bg_with_opacity ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if percent >= 100.0 then
@@ -3155,7 +3190,7 @@ let bg_with_opacity c shade opacity =
     Style.style [ Css.background_color oklab_value ]
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
+    match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let fallback_decl =
           Css.background_color (Css.hex (hex_with_alpha hex_value percent))
@@ -3177,9 +3212,9 @@ let bg_with_opacity c shade opacity =
     theme defines a var reference (e.g., "var(--custom-opacity)"), use
     [Var_fallback] with the inner var name. Otherwise fall back to the
     conventional [name-opacity] pattern. *)
-let opacity_fallback_for_theme_value var_name bare : Css.percentage Css.fallback
-    =
-  match Var.theme_value var_name with
+let opacity_fallback_for_theme_value ?theme var_name bare :
+    Css.percentage Css.fallback =
+  match Scheme.theme_value theme var_name with
   | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in
@@ -3196,7 +3231,7 @@ let opacity_fallback_for_theme_value var_name bare : Css.percentage Css.fallback
   | None -> Css.Var_fallback (bare ^ "-opacity")
 
 (** Background currentColor with opacity *)
-let bg_current_with_opacity opacity =
+let bg_current_with_opacity ?theme opacity =
   let open Handler in
   let fallback_decl = Css.background_color Css.Current in
   let oklab_color =
@@ -3204,7 +3239,7 @@ let bg_current_with_opacity opacity =
     | Opacity_named name ->
         let bare = Parse.extract_var_name name in
         let var_name = "opacity-" ^ bare in
-        let fallback = opacity_fallback_for_theme_value var_name bare in
+        let fallback = opacity_fallback_for_theme_value ?theme var_name bare in
         Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
           Css.Current Css.Transparent
     | Opacity_var var_str ->

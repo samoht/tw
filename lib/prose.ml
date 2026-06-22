@@ -2043,7 +2043,7 @@ module Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Prose -> prose_style `Base
     | Prose_sm -> prose_style `Sm
     | Prose_lg -> prose_style `Lg
@@ -2061,7 +2061,7 @@ module Handler = struct
     | Lead -> "lead"
     | Not_prose -> "not-prose"
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "prose" ] -> Ok Prose
@@ -2107,7 +2107,7 @@ module Color_Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style = function
+  let to_style _theme = function
     | Prose_gray -> prose_style `Gray
     | Prose_slate -> prose_style `Slate
     | Prose_zinc -> prose_style `Zinc
@@ -2125,7 +2125,7 @@ module Color_Handler = struct
     | Prose_invert -> "prose-invert"
     | Prose_orange -> "prose-orange"
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "prose"; "gray" ] -> Ok Prose_gray

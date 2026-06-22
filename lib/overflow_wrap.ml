@@ -25,12 +25,12 @@ module Handler = struct
     | Break_word -> "wrap-break-word"
     | Anywhere -> "wrap-anywhere"
 
-  let to_style = function
+  let to_style _theme = function
     | Normal -> style [ overflow_wrap Normal ]
     | Break_word -> style [ overflow_wrap Break_word ]
     | Anywhere -> style [ overflow_wrap Anywhere ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "wrap"; "normal" ] -> Ok Normal

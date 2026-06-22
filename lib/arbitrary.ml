@@ -63,7 +63,7 @@ module Handler = struct
   let name = "arbitrary"
   let priority = 36
 
-  let to_style (Color_opacity { property; value; opacity }) =
+  let to_style theme (Color_opacity { property; value; opacity }) =
     match (color_property_of_name property, parse_css_color value) with
     | Some prop, Some color -> (
         match opacity with
@@ -71,12 +71,12 @@ module Handler = struct
             let bare = Parse.extract_var_name name in
             let var_name = "opacity-" ^ bare in
             let fallback =
-              Color.opacity_fallback_for_theme_value var_name bare
+              Color.opacity_fallback_for_theme_value ~theme var_name bare
             in
             (* srgb fallback: resolve the theme value to get the actual
                percentage *)
             let srgb_percent =
-              match Var.theme_value var_name with
+              match Scheme.theme_value (Some theme) var_name with
               | Some v -> (
                   match float_of_string_opt (String.trim v) with
                   | Some f -> f *. 100.0
@@ -181,7 +181,7 @@ module Handler = struct
     in
     "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix
 
-  let of_class class_name =
+  let of_class theme class_name =
     (* Must start with [ and contain : *)
     let len = String.length class_name in
     if len < 3 || class_name.[0] <> '[' then err_not_utility
@@ -252,7 +252,9 @@ module Handler = struct
                     | _ ->
                         if
                           Parse.is_valid_theme_name op_part
-                          && Var.theme_value ("opacity-" ^ op_part) <> None
+                          && Scheme.theme_value (Some theme)
+                               ("opacity-" ^ op_part)
+                             <> None
                         then Color.Opacity_named op_part
                         else Color.No_opacity
                 else Color.No_opacity

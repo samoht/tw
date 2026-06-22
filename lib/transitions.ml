@@ -90,11 +90,13 @@ module Handler = struct
   (* Theme declarations for the default transition vars. These go into :root,
      :host when transition utilities are used. Only included when theme values
      are set, so @config none tests don't get the :root, :host block. *)
-  let default_theme_decls () =
+  let default_theme_decls ?theme () =
     let has_timing =
-      Var.theme_value "default-transition-timing-function" <> None
+      Scheme.theme_value theme "default-transition-timing-function" <> None
     in
-    let has_duration = Var.theme_value "default-transition-duration" <> None in
+    let has_duration =
+      Scheme.theme_value theme "default-transition-duration" <> None
+    in
     let timing =
       if has_timing then
         let d, _ =
@@ -111,7 +113,7 @@ module Handler = struct
     in
     timing @ duration
 
-  let transition () =
+  let transition ?theme () =
     (* Use typed variable names for gradient properties *)
     let gradient_from_name =
       Var.css_name Backgrounds.Handler.gradient_from_var
@@ -119,7 +121,7 @@ module Handler = struct
     let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
     style
-      (default_theme_decls ()
+      (default_theme_decls ?theme ()
       @ [
           Css.transition_property
             [
@@ -151,9 +153,9 @@ module Handler = struct
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_all () =
+  let transition_all ?theme () =
     style
-      (default_theme_decls ()
+      (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.All ];
           Css.transition_timing_function (Css.Var ease_ref);
@@ -165,7 +167,7 @@ module Handler = struct
     Var.theme Css.Transition_property_value "transition-property-colors"
       ~order:(8, 3)
 
-  let transition_colors () =
+  let transition_colors ?theme () =
     let gradient_from_name =
       Var.css_name Backgrounds.Handler.gradient_from_var
     in
@@ -173,7 +175,9 @@ module Handler = struct
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
     (* When --transition-property-colors is set in theme, use the var reference;
        otherwise inline the full property list *)
-    let has_theme_var = Var.theme_value "transition-property-colors" <> None in
+    let has_theme_var =
+      Scheme.theme_value theme "transition-property-colors" <> None
+    in
     let extra_decls, (transition_props : Css.transition_property_value list) =
       if has_theme_var then
         let colors_decl, colors_ref =
@@ -210,15 +214,18 @@ module Handler = struct
           ] )
     in
     style
-      (default_theme_decls () @ extra_decls
+      (default_theme_decls ?theme ()
+      @ extra_decls
       @ [
           Css.transition_property transition_props;
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_opacity () =
-    let has_theme_var = Var.theme_value "transition-property-opacity" <> None in
+  let transition_opacity ?theme () =
+    let has_theme_var =
+      Scheme.theme_value theme "transition-property-opacity" <> None
+    in
     let extra_decls, (transition_props : Css.transition_property_value list) =
       if has_theme_var then
         let opacity_decl, opacity_ref =
@@ -228,25 +235,26 @@ module Handler = struct
       else ([], [ Css.Property "opacity" ])
     in
     style
-      (default_theme_decls () @ extra_decls
+      (default_theme_decls ?theme ()
+      @ extra_decls
       @ [
           Css.transition_property transition_props;
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_shadow () =
+  let transition_shadow ?theme () =
     style
-      (default_theme_decls ()
+      (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.Property "box-shadow" ];
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_transform () =
+  let transition_transform ?theme () =
     style
-      (default_theme_decls ()
+      (default_theme_decls ?theme ()
       @ [
           Css.transition_property
             [
@@ -259,14 +267,14 @@ module Handler = struct
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_arbitrary s =
+  let transition_arbitrary ?theme s =
     if Parse.is_var s then
       let bare_name = Parse.extract_var_name s in
       let ref_ : Css.transition_property_value Css.var =
         Var.bracket bare_name
       in
       style
-        (default_theme_decls ()
+        (default_theme_decls ?theme ()
         @ [
             Css.transition_property [ Css.Var ref_ ];
             Css.transition_timing_function (Css.Var ease_ref);
@@ -280,7 +288,7 @@ module Handler = struct
         |> List.map (fun p -> Css.Property (String.trim p))
       in
       style
-        (default_theme_decls ()
+        (default_theme_decls ?theme ()
         @ [
             Css.transition_property props;
             Css.transition_timing_function (Css.Var ease_ref);
@@ -314,10 +322,10 @@ module Handler = struct
   let ease_linear_var =
     Var.theme Css.Timing_function "ease-linear" ~order:(7, 12)
 
-  let ease_linear () =
+  let ease_linear ?theme () =
     (* Tailwind uses the raw 'linear' keyword by default, but uses
        var(--ease-linear) when the theme defines --ease-linear. *)
-    match Var.theme_value "ease-linear" with
+    match Scheme.theme_value theme "ease-linear" with
     | Some _ ->
         let theme_decl, ease_linear_ref =
           Var.binding ease_linear_var Css.Linear
@@ -460,7 +468,16 @@ module Handler = struct
     in
     style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
 
-  let to_style = function
+  let to_style theme =
+    let transition_all () = transition_all ~theme () in
+    let transition_colors () = transition_colors ~theme () in
+    let transition_opacity () = transition_opacity ~theme () in
+    let transition_shadow () = transition_shadow ~theme () in
+    let transition_transform () = transition_transform ~theme () in
+    let transition () = transition ~theme () in
+    let transition_arbitrary s = transition_arbitrary ~theme s in
+    let ease_linear () = ease_linear ~theme () in
+    function
     | Transition_none -> transition_none
     | Transition_all -> transition_all ()
     | Transition_colors -> transition_colors ()
@@ -508,7 +525,7 @@ module Handler = struct
 
   let ( >|= ) = Parse.( >|= )
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "transition"; "none" ] -> Ok Transition_none

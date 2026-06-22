@@ -17,11 +17,11 @@ module Handler = struct
     | Content -> "field-sizing-content"
     | Fixed -> "field-sizing-fixed"
 
-  let to_style = function
+  let to_style _theme = function
     | Content -> style [ field_sizing Content ]
     | Fixed -> style [ field_sizing Fixed ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "field"; "sizing"; "content" ] -> Ok Content

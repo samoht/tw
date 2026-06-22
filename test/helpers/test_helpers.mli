@@ -129,14 +129,11 @@ val shuffle : 'a list -> 'a list
 module type Handler = sig
   type t
 
-  val of_class : string -> (t, [ `Msg of string ]) result
-  (** [of_class s] parses a class name. *)
+  val of_class : Tw.Scheme.t -> string -> (t, [ `Msg of string ]) result
+  (** [of_class theme s] parses a class name. *)
 
   val to_class : t -> string
   (** [to_class v] converts to a class name. *)
-
-  val to_style : t -> Tw.Style.t
-  (** [to_style v] converts to a style. *)
 end
 
 val check_handler_roundtrip : (module Handler) -> string -> unit

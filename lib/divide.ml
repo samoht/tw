@@ -5,12 +5,6 @@
 
 module Css = Cascade.Css
 
-(* Current scheme for default border width *)
-let current_scheme : Scheme.t ref = ref Scheme.default
-
-(* Set the current scheme for divide generation *)
-let set_scheme scheme = current_scheme := scheme
-
 module Handler = struct
   open Style
 
@@ -161,7 +155,7 @@ module Handler = struct
   (* Divide color utilities use nested rules with :where(.divide-X >
      :not(:last-child)) We construct the full class name in the selector like
      space-x-reverse does. *)
-  let divide_color_style color shade =
+  let divide_color_style ?theme color shade =
     let class_name =
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
@@ -176,10 +170,12 @@ module Handler = struct
       style ~rules:(Some [ rule ]) []
     else
       let color_var =
-        Color.property_color_var ~property_prefix:"border-color" color shade
+        Color.property_color_var ?theme ~property_prefix:"border-color" color
+          shade
       in
       let color_value =
-        Color.property_color_value ~property_prefix:"border-color" color shade
+        Color.property_color_value ?theme ~property_prefix:"border-color" color
+          shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       let rule =
@@ -316,7 +312,7 @@ module Handler = struct
     | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
   (* Divide color with opacity using Color helpers *)
-  let divide_color_opacity_style color shade opacity =
+  let divide_color_opacity_style ?theme color shade opacity =
     let base_class_name =
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
@@ -326,7 +322,7 @@ module Handler = struct
       Css.Selector.(
         where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
     in
-    Color.divide_with_opacity color shade opacity selector
+    Color.divide_with_opacity ?theme color shade opacity selector
 
   let divide_current_opacity_style opacity =
     let class_name = "divide-current" ^ opacity_suffix opacity in
@@ -385,18 +381,25 @@ module Handler = struct
         "divide-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
-  let to_style = function
+  let to_style theme =
+    let divide_color_style color shade =
+      divide_color_style ~theme color shade
+    in
+    let divide_color_opacity_style color shade opacity =
+      divide_color_opacity_style ~theme color shade opacity
+    in
+    function
     | Divide_x n ->
         let class_name =
           if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
         in
-        let w = if n = 1 then !current_scheme.default_border_width else n in
+        let w = if n = 1 then theme.Scheme.default_border_width else n in
         divide_x_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_y n ->
         let class_name =
           if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
         in
-        let w = if n = 1 then !current_scheme.default_border_width else n in
+        let w = if n = 1 then theme.Scheme.default_border_width else n in
         divide_y_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_x_arb len ->
         let class_name = to_class (Divide_x_arb len) in
@@ -456,7 +459,7 @@ module Handler = struct
       else None
     else None
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "divide"; "x" ] -> Ok (Divide_x 1)
@@ -484,14 +487,15 @@ module Handler = struct
         Ok (Divide_style (Stdlib.Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Divide_current
         | Color.No_opacity -> Error (`Msg ("Invalid divide: " ^ current_str))
         | _ -> Ok (Divide_current_opacity opacity))
     | [ "divide"; v ]
-      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
-        let base_str, opacity = Color.parse_opacity_modifier v in
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ~theme v))
+      ->
+        let base_str, opacity = Color.parse_opacity_modifier ~theme v in
         let inner = Parse.bracket_inner base_str in
         let normalized =
           String.map (fun c -> if c = '_' then ' ' else c) inner
@@ -513,16 +517,17 @@ module Handler = struct
           | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))
         else Error (`Msg ("Invalid divide bracket value: " ^ inner))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Divide_color_opacity (color, shade, opacity))
         | Error _ ->
             (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
-            let base, opacity = Color.parse_opacity_modifier name in
+            let base, opacity = Color.parse_opacity_modifier ~theme name in
             if
-              Var.theme_value ("color-" ^ base) <> None
-              || Var.theme_value ("border-color-" ^ base) <> None
+              Scheme.theme_value (Some theme) ("color-" ^ base) <> None
+              || Scheme.theme_value (Some theme) ("border-color-" ^ base)
+                 <> None
             then Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
@@ -533,8 +538,9 @@ module Handler = struct
                theme values *)
             let name = String.concat "-" color_parts in
             if
-              Var.theme_value ("color-" ^ name) <> None
-              || Var.theme_value ("border-color-" ^ name) <> None
+              Scheme.theme_value (Some theme) ("color-" ^ name) <> None
+              || Scheme.theme_value (Some theme) ("border-color-" ^ name)
+                 <> None
             then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")

@@ -39,28 +39,7 @@ type gen_opts = {
   quiet : bool;
   css_mode : Tw.Css.mode;
   backend : backend;
-  test_scheme : bool;
 }
-
-(* Set up the test scheme matching Tailwind's test @theme. This uses hex colors
-   and explicit spacing variables. *)
-let setup_test_scheme () =
-  let scheme : Tw.Scheme.t =
-    {
-      colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
-      spacing = [ (4, Css.Rem 1.0) ];
-      radius = [];
-      default_ring_width = 1;
-      default_border_width = 1;
-      default_outline_width = 1;
-      breakpoints = [];
-    }
-  in
-  Tw.Color.Handler.set_scheme scheme;
-  Tw.Theme.set_scheme scheme;
-  Tw.Borders.set_scheme scheme;
-  Tw.Effects.set_scheme scheme;
-  Tw.Divide.set_scheme scheme
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -119,7 +98,6 @@ let diff_single_class class_str ~(opts : gen_opts) =
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
 let process_single_class class_str flag ~(opts : gen_opts) =
-  if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
   | Diff -> diff_single_class class_str ~opts
   | Tailwind -> (
@@ -213,7 +191,6 @@ let native_files paths flag ~(opts : gen_opts) =
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
 let process_files paths flag ~(opts : gen_opts) =
-  if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
   | Diff -> diff_files paths ~opts
   | Tailwind -> (
@@ -237,7 +214,7 @@ let process_files paths flag ~(opts : gen_opts) =
   | Native -> native_files paths flag ~opts
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    ~test_scheme paths =
+    paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -257,7 +234,6 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       quiet;
       css_mode = resolved_css_mode;
       backend;
-      test_scheme;
     }
   in
   match single_class with
@@ -330,13 +306,6 @@ let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
   Arg.(value & pos_all file [] & info [] ~docv:"PATH" ~doc)
 
-let test_scheme_flag =
-  let doc =
-    "Use Tailwind test scheme (hex colors like #ef4444 for red-500, explicit \
-     spacing variables). Matches Tailwind's test @theme configuration."
-  in
-  Arg.(value & flag & info [ "test-scheme" ] ~doc)
-
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
   let man =
@@ -376,10 +345,10 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q backend test_scheme paths ->
+        (const (fun s b css_m m o q backend paths ->
              tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
-               ~test_scheme paths)
+               paths)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
-        $ quiet_flag $ backend_vflag $ test_scheme_flag $ paths_arg))
+        $ quiet_flag $ backend_vflag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)

@@ -342,7 +342,7 @@ module Handler = struct
     in
     style ~rules:(Some rules) []
 
-  let to_style = function
+  let to_style _theme = function
     | Form_input -> form_input
     | Form_checkbox -> form_checkbox
     | Form_radio -> form_radio
@@ -352,7 +352,7 @@ module Handler = struct
     | Form_radio -> 1
     | Form_input -> 2
 
-  let of_class = function
+  let of_class _theme = function
     | "form-input" -> Ok Form_input
     | "form-checkbox" -> Ok Form_checkbox
     | "form-radio" -> Ok Form_radio
@@ -476,13 +476,13 @@ module Select = struct
     in
     style ~rules:(Some rules) []
 
-  let to_style = function
+  let to_style _theme = function
     | Form_select -> form_select
     | Form_textarea -> form_textarea
 
   let suborder = function Form_select -> 0 | Form_textarea -> 1
 
-  let of_class = function
+  let of_class _theme = function
     | "form-select" -> Ok Form_select
     | "form-textarea" -> Ok Form_textarea
     | _ -> Error (`Msg "Not a form select utility")

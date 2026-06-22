@@ -40,6 +40,10 @@ type t = {
       (** Explicit breakpoint values in px. Key is breakpoint name (e.g., "sm").
           When defined, responsive media queries use [@media (min-width: Xpx)]
           instead of rem-based values. *)
+  token_overrides : (string * string) list;
+      (** Per-render theme token overrides (from a [@theme] block). Key is the
+          variable name without the leading [--]; value is the CSS string.
+          Threaded replacement for the global [Var.theme_value_overrides]. *)
 }
 (** Theme scheme configuration *)
 
@@ -49,6 +53,30 @@ val pp : t -> string
 val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
     (matches Tailwind v4 default). *)
+
+val register_default_token : string -> string -> unit
+(** [register_default_token name css] registers the v4.3.1 baseline default CSS
+    for theme token [name] (without [--]) in the process-global registry. Called
+    once at module-init by the utility that owns the token. *)
+
+val token_default : string -> string option
+(** [token_default name] returns the registered baseline default for [name]. *)
+
+val token_override : t -> string -> string option
+(** [token_override t name] returns the per-render override for [name], if any.
+*)
+
+val theme_value : t option -> string -> string option
+(** [theme_value theme name] looks up a per-render token override from the
+    optionally-threaded [theme] ([None] when no theme is threaded). Threaded
+    replacement for the global [Var.theme_value]. *)
+
+val token : t -> string -> string option
+(** [token t name] resolves a theme token: override (if any) else default. *)
+
+val with_overrides : t -> (string * string) list -> t
+(** [with_overrides t overrides] applies [overrides] on top of [t]'s existing
+    token overrides (new entries win). *)
 
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)

@@ -194,13 +194,20 @@ val color_var : color -> int -> Css.color Var.theme
     given color and shade. *)
 
 val property_color_var :
-  property_prefix:string -> color -> int -> Css.color Var.theme
-(** [property_color_var ~property_prefix color shade] gets or creates a
-    property-scoped color variable (e.g., [--border-color-blue-500]). *)
+  ?theme:Scheme.t ->
+  property_prefix:string ->
+  color ->
+  int ->
+  Css.color Var.theme
+(** [property_color_var ?theme ~property_prefix color shade] gets or creates a
+    property-scoped color variable (e.g., [--border-color-blue-500]), checking
+    [theme] for a property-scoped token override when given. *)
 
-val property_color_value : property_prefix:string -> color -> int -> Css.color
-(** [property_color_value ~property_prefix color shade] returns the CSS color
-    value for a property-scoped color variable. *)
+val property_color_value :
+  ?theme:Scheme.t -> property_prefix:string -> color -> int -> Css.color
+(** [property_color_value ?theme ~property_prefix color shade] returns the CSS
+    color value for a property-scoped color variable, reading scheme colors from
+    [theme] when given (default: the current global scheme). *)
 
 val scheme_color_name : color -> int -> string
 (** [scheme_color_name color shade] returns the scheme color name (e.g.,
@@ -215,17 +222,15 @@ val hex_to_oklab_alpha : string -> float -> Css.color
     with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
     where the color is known at compile time. *)
 
-val current_scheme : unit -> Scheme.t
-(** [current_scheme ()] returns the current color scheme. *)
-
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
 
 val opacity_fallback_for_theme_value :
-  string -> string -> Css.percentage Css.fallback
-(** [opacity_fallback_for_theme_value var_name bare] determines the appropriate
-    fallback for an opacity theme variable. *)
+  ?theme:Scheme.t -> string -> string -> Css.percentage Css.fallback
+(** [opacity_fallback_for_theme_value ?theme var_name bare] determines the
+    appropriate fallback for an opacity theme variable, reading token overrides
+    from [theme] when given. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -306,20 +311,24 @@ type opacity_modifier =
   | Opacity_var of string
       (** e.g., /[var(--x)] - var ref used directly as percentage *)
 
-val parse_opacity_modifier : string -> string * opacity_modifier
-(** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns
-    the base string and the opacity modifier. Example: "500/50" -> ("500",
-    Opacity_percent 50.0). *)
+val parse_opacity_modifier :
+  ?theme:Scheme.t -> string -> string * opacity_modifier
+(** [parse_opacity_modifier ?theme s] parses an opacity modifier from a string.
+    Returns the base string and the opacity modifier. Example: "500/50" ->
+    ("500", Opacity_percent 50.0). Named opacities are validated at parse time
+    against the [@theme] tokens in [theme]. *)
 
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
 
 val shade_and_opacity_of_strings :
-  string list -> (color * int * opacity_modifier, [ `Msg of string ]) result
-(** [shade_and_opacity_of_strings parts] parses a color, shade, and optional
-    opacity modifier from a list of strings. Example: ["blue"; "500/50"] -> Ok
-    (Blue, 500, Opacity_percent 50.0). *)
+  ?theme:Scheme.t ->
+  string list ->
+  (color * int * opacity_modifier, [ `Msg of string ]) result
+(** [shade_and_opacity_of_strings ?theme parts] parses a color, shade, and
+    optional opacity modifier from a list of strings. Example:
+    ["blue"; "500/50"] -> Ok (Blue, 500, Opacity_percent 50.0). *)
 
 val theme_order : string -> int * int
 (** [theme_order c] returns the theme layer order for a color variable. *)
@@ -339,11 +348,6 @@ val suborder_with_shade : string -> int
 
 module Handler : sig
   include Utility.Handler
-
-  val set_scheme : Scheme.t -> unit
-  (** Set the current scheme for color generation. When a color is defined as
-      hex in the scheme, opacity modifiers will use hex+alpha fallback instead
-      of color-mix. *)
 end
 
 (** {1 Color with Opacity Helpers}
@@ -352,13 +356,15 @@ end
     enhancement. They produce a fallback declaration plus a [\@supports] block
     for color-mix. *)
 
-val fill_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [fill_with_opacity color shade opacity] generates fill style with opacity.
-*)
+val fill_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [fill_with_opacity ?theme color shade opacity] generates fill style with
+    opacity, reading scheme colours from [theme] when given. *)
 
-val stroke_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [stroke_with_opacity color shade opacity] generates stroke style with
-    opacity. *)
+val stroke_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [stroke_with_opacity ?theme color shade opacity] generates stroke style with
+    opacity, reading scheme colours from [theme] when given. *)
 
 val fill_current_with_opacity : opacity_modifier -> Style.t
 (** [fill_current_with_opacity opacity] generates fill currentColor with
@@ -369,8 +375,13 @@ val stroke_current_with_opacity : opacity_modifier -> Style.t
     opacity. *)
 
 val divide_with_opacity :
-  color -> int -> opacity_modifier -> Css.Selector.t -> Style.t
-(** [divide_with_opacity color shade opacity selector] generates divide
+  ?theme:Scheme.t ->
+  color ->
+  int ->
+  opacity_modifier ->
+  Css.Selector.t ->
+  Style.t
+(** [divide_with_opacity ?theme color shade opacity selector] generates divide
     border-color with opacity using the given selector. *)
 
 val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
@@ -385,19 +396,21 @@ val pp_opacity : opacity_modifier -> string
     modifier for use in class names. E.g., Opacity_percent 50. -> "50",
     Opacity_arbitrary 0.5 -> "[0.5]". *)
 
-val hex_alpha_color : color -> int -> opacity_modifier -> string option
-(** [hex_alpha_color color shade opacity] returns a hex color with alpha if the
-    color is defined in the scheme, otherwise None. This is useful for
+val hex_alpha_color :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> string option
+(** [hex_alpha_color ?theme color shade opacity] returns a hex color with alpha
+    if the color is defined in the scheme, otherwise None. This is useful for
     properties where Tailwind outputs simple hex+alpha without [@supports]. *)
 
-val bg_with_opacity : color -> int -> opacity_modifier -> Style.t
-(** [bg_with_opacity color shade opacity] generates background-color style with
-    opacity. Scheme-aware: uses hex+alpha fallback with theme variable in
-    [\@supports] block. *)
+val bg_with_opacity :
+  ?theme:Scheme.t -> color -> int -> opacity_modifier -> Style.t
+(** [bg_with_opacity ?theme color shade opacity] generates background-color
+    style with opacity. Scheme-aware: uses hex+alpha fallback with theme
+    variable in [\@supports] block. *)
 
-val bg_current_with_opacity : opacity_modifier -> Style.t
-(** [bg_current_with_opacity opacity] generates background-color currentColor
-    with opacity using color-mix progressive enhancement. *)
+val bg_current_with_opacity : ?theme:Scheme.t -> opacity_modifier -> Style.t
+(** [bg_current_with_opacity ?theme opacity] generates background-color
+    currentColor with opacity using color-mix progressive enhancement. *)
 
 val rgb_to_oklab : rgb -> float * float * float
 (** [rgb_to_oklab rgb] converts RGB to OKLab (L, a, b) components. *)
@@ -421,6 +434,3 @@ val css_color_to_hex : Css.color -> Css.color option
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
-
-val scheme : unit -> Scheme.t
-(** [scheme ()] returns the current color scheme reference. *)

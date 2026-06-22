@@ -35,10 +35,10 @@ module Handler = struct
   (* Match Tailwind ordering: animations after transforms, before cursor *)
   let priority = 10
 
-  let animate_none () =
+  let animate_none ?theme () =
     (* If theme defines --animate-none, use the theme variable. Otherwise use
        animation: none directly. *)
-    match Var.theme_value "animate-none" with
+    match Scheme.theme_value theme "animate-none" with
     | Some _ ->
         let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
         let none_animation : Css.animation =
@@ -63,7 +63,7 @@ module Handler = struct
      9-11) *)
   let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 13)
 
-  let animate_spin () =
+  let animate_spin ?theme () =
     let spin_animation : Css.animation =
       Css.Shorthand
         {
@@ -81,7 +81,7 @@ module Handler = struct
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
     (* Only include @keyframes when theme doesn't define the animation *)
     let rules =
-      if Var.theme_value "animate-spin" <> opt_none then opt_none
+      if Scheme.theme_value theme "animate-spin" <> opt_none then opt_none
       else
         opt_some
           [
@@ -102,7 +102,7 @@ module Handler = struct
      animate-spin (7, 13) *)
   let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 14)
 
-  let animate_ping () =
+  let animate_ping ?theme () =
     let ping_animation : Css.animation =
       Css.Shorthand
         {
@@ -119,7 +119,7 @@ module Handler = struct
     in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
     let rules =
-      if Var.theme_value "animate-ping" <> opt_none then opt_none
+      if Scheme.theme_value theme "animate-ping" <> opt_none then opt_none
       else
         opt_some
           [
@@ -144,7 +144,7 @@ module Handler = struct
      animate-ping (7, 14) *)
   let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 15)
 
-  let animate_pulse () =
+  let animate_pulse ?theme () =
     let pulse_animation : Css.animation =
       Css.Shorthand
         {
@@ -161,7 +161,7 @@ module Handler = struct
     in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
     let rules =
-      if Var.theme_value "animate-pulse" <> opt_none then opt_none
+      if Scheme.theme_value theme "animate-pulse" <> opt_none then opt_none
       else
         opt_some
           [
@@ -183,7 +183,7 @@ module Handler = struct
   let animate_bounce_var =
     Var.theme Css.Animation "animate-bounce" ~order:(7, 16)
 
-  let animate_bounce () =
+  let animate_bounce ?theme () =
     let bounce_animation : Css.animation =
       Css.Shorthand
         {
@@ -202,7 +202,7 @@ module Handler = struct
       Var.binding animate_bounce_var bounce_animation
     in
     let rules =
-      if Var.theme_value "animate-bounce" <> opt_none then opt_none
+      if Scheme.theme_value theme "animate-bounce" <> opt_none then opt_none
       else
         opt_some
           [
@@ -290,7 +290,13 @@ module Handler = struct
     in
     style [ theme_decl; Css.animation (Css.Var theme_ref) ]
 
-  let to_style = function
+  let to_style theme =
+    let animate_none () = animate_none ~theme () in
+    let animate_spin () = animate_spin ~theme () in
+    let animate_ping () = animate_ping ~theme () in
+    let animate_pulse () = animate_pulse ~theme () in
+    let animate_bounce () = animate_bounce ~theme () in
+    function
     | Animate_none -> animate_none ()
     | Animate_spin -> animate_spin ()
     | Animate_ping -> animate_ping ()
@@ -308,7 +314,7 @@ module Handler = struct
     | Animate_pulse -> 5
     | Animate_spin -> 6
 
-  let of_class class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "animate"; "none" ] -> Ok Animate_none
@@ -323,7 +329,8 @@ module Handler = struct
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
-          if Var.theme_value var_name <> None then Ok (Animate_named value)
+          if Scheme.theme_value (Some theme) var_name <> None then
+            Ok (Animate_named value)
           else Error (`Msg "Not an animation utility")
     | _ -> Error (`Msg "Not an animation utility")
 

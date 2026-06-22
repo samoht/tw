@@ -8,7 +8,9 @@ let check_late = check_handler_roundtrip (module Tw.Typography.Typography_late)
 
 (* Try both handlers - the utility could be in either *)
 let check class_name =
-  match Tw.Typography.Typography_early.of_class class_name with
+  match
+    Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
+  with
   | Ok _ -> check_early class_name
   | Error _ -> check_late class_name
 
@@ -197,10 +199,12 @@ let test_text_bracket_size_valid () =
 
 let test_text_bracket_size_invalid () =
   let bad input =
-    match Tw.Typography.Typography_early.of_class input with
+    match Tw.Typography.Typography_early.of_class Tw.Scheme.default input with
     | Ok _ -> Alcotest.fail ("Expected early handler to reject: " ^ input)
     | Error _ -> (
-        match Tw.Typography.Typography_late.of_class input with
+        match
+          Tw.Typography.Typography_late.of_class Tw.Scheme.default input
+        with
         | Ok _ -> Alcotest.fail ("Expected late handler to reject: " ^ input)
         | Error _ -> ())
   in
@@ -216,13 +220,17 @@ let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
     (* Both handlers should reject the input *)
-    (match Tw.Typography.Typography_early.of_class class_name with
+    (match
+       Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
+     with
     | Error _ -> ()
     | Ok _ ->
         Alcotest.fail
           (String.concat ""
              [ "Expected early handler to reject: "; class_name ]));
-    match Tw.Typography.Typography_late.of_class class_name with
+    match
+      Tw.Typography.Typography_late.of_class Tw.Scheme.default class_name
+    with
     | Error _ -> ()
     | Ok _ ->
         Alcotest.fail
@@ -317,14 +325,15 @@ let test_leading_none_inline () =
 (* A text size must honor a --text-N--line-height theme override at use time,
    not bake in the spacing-derived default at module load. *)
 let test_text_line_height_override () =
-  Tw.Var.clear_theme_values ();
-  Tw.Var.set_theme_value "text-sm--line-height" "1.25rem";
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("text-sm--line-height", "1.25rem") ]
+  in
   let css =
     match Tw.of_string "text-sm" with
-    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Tw.to_css ~theme [ u ] |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.fail "could not parse text-sm"
   in
-  Tw.Var.clear_theme_values ();
   Alcotest.(check bool)
     "text-sm honors --text-sm--line-height override" true
     (Astring.String.is_infix ~affix:"--text-sm--line-height:1.25rem" css)
