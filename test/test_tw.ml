@@ -202,6 +202,270 @@ let check_exact_match tw_styles =
 let check tw_style = check_exact_match [ tw_style ]
 let check_list tw_styles = check_exact_match tw_styles
 
+(* ===== UPSTREAM PARSE PARITY ============================================= *)
+
+type upstream_case = {
+  source : string;
+  name : string;
+  config : upstream_config;
+  variants : string list;
+  classes : string list;
+  expected : string;
+}
+
+and upstream_config =
+  | Theme
+  | Theme_inline
+  | Theme_reference
+  | Theme_inline_reference
+  | No_theme
+  | Run
+
+let upstream_config_of_string = function
+  | "theme" -> Theme
+  | "theme-inline" -> Theme_inline
+  | "theme-reference" -> Theme_reference
+  | "theme-inline-reference" -> Theme_inline_reference
+  | "none" -> No_theme
+  | "run" -> Run
+  | _ -> No_theme
+
+let split_classes line =
+  let len = String.length line in
+  let buf = Buffer.create 64 in
+  let acc = ref [] in
+  let depth = ref 0 in
+  for i = 0 to len - 1 do
+    let c = line.[i] in
+    if c = '[' then (
+      incr depth;
+      Buffer.add_char buf c)
+    else if c = ']' then (
+      decr depth;
+      Buffer.add_char buf c)
+    else if c = ' ' && !depth = 0 then (
+      let s = Buffer.contents buf in
+      if s <> "" then acc := s :: !acc;
+      Buffer.clear buf)
+    else Buffer.add_char buf c
+  done;
+  let s = Buffer.contents buf in
+  if s <> "" then acc := s :: !acc;
+  List.rev !acc
+
+let fixture_path filename =
+  (* Found at [upstream/<f>] under the dune sandbox (see the test/dune deps), or
+     [test/upstream/<f>] when run from the repo root. *)
+  [
+    filename;
+    Filename.concat "upstream" filename;
+    Filename.concat "test/upstream" filename;
+  ]
+  |> List.find_opt Sys.file_exists
+  |> Option.value ~default:filename
+
+let find_separator lines =
+  let rec go before = function
+    | [] -> None
+    | line :: rest ->
+        if String.trim line = "---" then Some (List.rev before, rest)
+        else go (line :: before) rest
+  in
+  go [] lines
+
+let parse_upstream_block source block =
+  let lines = String.split_on_char '\n' block in
+  match find_separator lines with
+  | None -> None
+  | Some (before, after) ->
+      let before = List.map String.trim before in
+      let name =
+        before
+        |> List.find_opt (String.starts_with ~prefix:"# ")
+        |> Option.map (fun s -> String.sub s 2 (String.length s - 2))
+        |> Option.value ~default:"<unnamed>"
+      in
+      let variants =
+        before
+        |> List.filter_map (fun s ->
+            if String.starts_with ~prefix:"@variant " s then
+              Some (String.sub s 9 (String.length s - 9))
+            else None)
+      in
+      let config =
+        before
+        |> List.find_opt (String.starts_with ~prefix:"@config ")
+        |> Option.map (fun s ->
+            String.sub s 8 (String.length s - 8) |> upstream_config_of_string)
+        |> Option.value ~default:No_theme
+      in
+      let class_line =
+        before
+        |> List.filter (fun s ->
+            s <> ""
+            && (not (String.starts_with ~prefix:"# " s))
+            && (not (String.starts_with ~prefix:"@config " s))
+            && not (String.starts_with ~prefix:"@variant " s))
+        |> List.rev
+        |> List.find_opt (fun _ -> true)
+      in
+      let classes = Option.value ~default:"" class_line |> split_classes in
+      let expected = after |> String.concat "\n" |> String.trim in
+      Some { source; name; config; variants; classes; expected }
+
+let read_upstream_cases filename =
+  let path = fixture_path filename in
+  let ic = open_in path in
+  let content = really_input_string ic (in_channel_length ic) in
+  close_in ic;
+  content
+  |> Astring.String.cuts ~sep:"<<<>>>"
+  |> List.filter_map (parse_upstream_block filename)
+
+let register_upstream_variant_directives directives =
+  let parse_variant_directive d =
+    match String.split_on_char ' ' d with
+    | "container" :: _ -> None
+    | name :: template :: pairs ->
+        let values =
+          List.filter_map
+            (fun kv ->
+              match String.index_opt kv '=' with
+              | Some i ->
+                  let k = String.sub kv 0 i in
+                  let v = String.sub kv (i + 1) (String.length kv - i - 1) in
+                  Some ((if k = "DEFAULT" then "" else k), v)
+              | None -> None)
+            pairs
+        in
+        Some (name, Tw.Modifiers.{ values; template })
+    | _ -> None
+  in
+  let parse_container_directive d =
+    let container_of_header header =
+      match String.index_opt header ' ' with
+      | Some i ->
+          let first = String.sub header 0 i in
+          let rest = String.sub header (i + 1) (String.length header - i - 1) in
+          if first <> "not" && not (String.contains first '(') then
+            Css.Container.Named (first, Css.Container.of_string rest)
+          else Css.Container.of_string header
+      | None -> Css.Container.of_string header
+    in
+    match String.split_on_char ' ' d with
+    | "container" :: name :: (_ :: _ as rest) -> (
+        let header = String.concat " " rest in
+        try Some (name, container_of_header header) with _ -> None)
+    | _ -> None
+  in
+  Tw.Modifiers.register_custom_variants
+    (List.filter_map parse_variant_directive directives);
+  Tw.Modifiers.register_container_variants
+    (List.filter_map parse_container_directive directives)
+
+let upstream_positive_cases filename =
+  read_upstream_cases filename
+  |> List.filter (fun c -> c.expected <> "" && c.classes <> [])
+
+let extract_root_vars expected =
+  let pattern = Re.Pcre.regexp {|--([a-zA-Z0-9_-]+):\s*([^;}]+)|} in
+  Re.all pattern expected
+  |> List.filter_map (fun m ->
+      try
+        let name = Re.Group.get m 1 in
+        let value = String.trim (Re.Group.get m 2) in
+        Some (name, value)
+      with Not_found | Failure _ -> None)
+
+let extract_var_fallbacks expected =
+  let pattern =
+    Re.Pcre.regexp
+      {|var\(--([a-zA-Z0-9_-]+),\s*(var\(--[a-zA-Z0-9_-]+\)|[^)]+)\)|}
+  in
+  Re.all pattern expected
+  |> List.filter_map (fun m ->
+      try
+        let name = Re.Group.get m 1 in
+        let fallback = String.trim (Re.Group.get m 2) in
+        Some (name, fallback)
+      with Not_found | Failure _ -> None)
+
+(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
+   runtime [--tw-*] vars); they must not become token overrides. *)
+let is_scheme_typed_var name =
+  let is_numbered_spacing =
+    String.length name > 8
+    && String.sub name 0 8 = "spacing-"
+    &&
+    let rest = String.sub name 8 (String.length name - 8) in
+    match int_of_string_opt rest with Some _ -> true | None -> false
+  in
+  let is_bare_spacing = name = "spacing" in
+  let is_tw_var = String.length name > 3 && String.sub name 0 3 = "tw-" in
+  is_numbered_spacing || is_bare_spacing || is_tw_var
+
+(* Build the per-test scheme from the @theme tokens in the expected CSS, so
+   of_string validates custom tokens against the threaded theme. *)
+let upstream_scheme config expected =
+  let overrides =
+    match config with
+    | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
+        let base =
+          extract_root_vars expected
+          |> List.filter (fun (name, _) -> not (is_scheme_typed_var name))
+        in
+        if config = Theme_reference || config = Theme_inline_reference then
+          let extra =
+            extract_var_fallbacks expected
+            |> List.filter (fun (name, _) -> not (List.mem_assoc name base))
+          in
+          base @ extra
+        else base
+    | No_theme -> []
+  in
+  Tw.Scheme.with_overrides Tw.Scheme.default overrides
+
+let class_is_emitted expected cls =
+  String.contains expected '.'
+  && Astring.String.is_infix
+       ~affix:("." ^ Tw.Rule.escape_class_name cls)
+       expected
+
+let check_upstream_positive_fixture_parse filename () =
+  let cases = upstream_positive_cases filename in
+  Tw.Modifiers.register_custom_breakpoints
+    [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
+  let rejected =
+    cases
+    |> List.concat_map (fun c ->
+        register_upstream_variant_directives c.variants;
+        let theme = upstream_scheme c.config c.expected in
+        c.classes
+        |> List.filter (class_is_emitted c.expected)
+        |> List.filter_map (fun cls ->
+            match Tw.of_string ~theme cls with
+            | Ok _ -> None
+            | Error (`Msg msg) -> Some (c, cls, msg)))
+  in
+  match rejected with
+  | [] -> ()
+  | _ ->
+      let rec take n xs =
+        match (n, xs) with
+        | 0, _ | _, [] -> []
+        | n, x :: rest -> x :: take (n - 1) rest
+      in
+      let sample =
+        rejected |> take 30
+        |> List.map (fun (c, cls, msg) ->
+            Fmt.str "%s / %s / %s: %s" c.source c.name cls msg)
+        |> String.concat "\n"
+      in
+      Alcotest.fail
+        (Fmt.str
+           "Unparsed upstream classes that Tailwind emitted (%d rejected).\n%s"
+           (List.length rejected) sample)
+
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
 
 let empty_test () =
@@ -877,6 +1141,10 @@ let property_order_duration_first () =
 let core_tests =
   [
     test_case "empty test" `Quick empty_test;
+    test_case "upstream utilities parse parity" `Quick
+      (check_upstream_positive_fixture_parse "utilities.txt");
+    test_case "upstream variants parse parity" `Quick
+      (check_upstream_positive_fixture_parse "variants.txt");
     test_case "responsive classes" `Slow responsive_classes;
     test_case "states" `Slow states;
     test_case "negative spacing" `Slow negative_spacing;

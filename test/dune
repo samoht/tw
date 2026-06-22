@@ -12,4 +12,7 @@
   tw_tools
   cascade
   cascade.diff
-  test_helpers))
+  test_helpers)
+ (deps
+  upstream/utilities.txt
+  upstream/variants.txt))
