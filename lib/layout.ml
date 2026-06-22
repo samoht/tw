@@ -67,9 +67,9 @@ module Screen_reader_handler = struct
     | _ -> Error (`Msg "Not a screen reader utility")
 end
 
-(* Theme variable for z-index-auto. When a theme override is set (e.g., via
-   set_theme_value "z-index-auto" "42"), produces a custom declaration
-   --z-index-auto: 42 in the :root, :host block. *)
+(* Theme variable for z-index-auto. When the threaded theme overrides this token
+   (e.g. an [@theme] block sets [--z-index-auto: 42]), produces a custom
+   declaration --z-index-auto: 42 in the :root, :host block. *)
 let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 
 (* Generate z-auto style: either theme var with custom declaration, or bare

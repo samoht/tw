@@ -468,8 +468,8 @@ module Handler = struct
      [--drop-shadow-<size>] design token in the theme layer and references it
      from [--tw-drop-shadow]. These tokens sort after border-radius (order 7)
      and before blur (order 8). Bound via [Var.binding] so the theme declaration
-     is always emitted with its default value and stays overridable through
-     [set_theme_value]. *)
+     is always emitted with its default value and stays overridable through an
+     [@theme] token override threaded via [Scheme.t]. *)
   let drop_shadow_sm_var = Var.theme Css.Shadow "drop-shadow-sm" ~order:(7, 9)
   let drop_shadow_md_var = Var.theme Css.Shadow "drop-shadow-md" ~order:(7, 10)
   let drop_shadow_lg_var = Var.theme Css.Shadow "drop-shadow-lg" ~order:(7, 11)
