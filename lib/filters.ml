@@ -38,6 +38,7 @@ module Handler = struct
     | Hue_rotate_arbitrary of Css.angle
     | Neg_hue_rotate_arbitrary of Css.angle
     | Drop_shadow
+    | Drop_shadow_xs
     | Drop_shadow_sm
     | Drop_shadow_md
     | Drop_shadow_lg
@@ -470,6 +471,7 @@ module Handler = struct
      and before blur (order 8). Bound via [Var.binding] so the theme declaration
      is always emitted with its default value and stays overridable through an
      [@theme] token override threaded via [Scheme.t]. *)
+  let drop_shadow_xs_var = Var.theme Css.Shadow "drop-shadow-xs" ~order:(7, 8)
   let drop_shadow_sm_var = Var.theme Css.Shadow "drop-shadow-sm" ~order:(7, 9)
   let drop_shadow_md_var = Var.theme Css.Shadow "drop-shadow-md" ~order:(7, 10)
   let drop_shadow_lg_var = Var.theme Css.Shadow "drop-shadow-lg" ~order:(7, 11)
@@ -563,6 +565,10 @@ module Handler = struct
         bind_drop_shadow (drop_shadow_theme_ref name);
         filter composable_filter_chain;
       ]
+
+  let drop_shadow_xs_ () =
+    drop_shadow_sized drop_shadow_xs_var "drop-shadow-xs" ~h:Zero ~v:(Px 1.)
+      ~blur:(Px 1.) ~color:(Css.hex "#0000000d") ()
 
   let drop_shadow_sm_ () =
     drop_shadow_sized drop_shadow_sm_var "drop-shadow-sm" ~h:Zero ~v:(Px 1.)
@@ -1065,6 +1071,7 @@ module Handler = struct
     | Hue_rotate_arbitrary angle -> hue_rotate_arbitrary angle
     | Neg_hue_rotate_arbitrary angle -> neg_hue_rotate_arbitrary angle
     | Drop_shadow -> drop_shadow_ ()
+    | Drop_shadow_xs -> drop_shadow_xs_ ()
     | Drop_shadow_sm -> drop_shadow_sm_ ()
     | Drop_shadow_md -> drop_shadow_md_ ()
     | Drop_shadow_lg -> drop_shadow_lg_ ()
@@ -1142,6 +1149,7 @@ module Handler = struct
     | Drop_shadow_lg -> 2704
     | Drop_shadow_md -> 2705
     | Drop_shadow_sm -> 2706
+    | Drop_shadow_xs -> 2706
     | Drop_shadow_xl -> 2707
     | Drop_shadow_none -> 2708
     | Drop_shadow_inherit -> 2709
@@ -1261,6 +1269,7 @@ module Handler = struct
         | op -> Ok (Drop_shadow_opacity op))
     (* Drop shadow *)
     | [ "drop"; "shadow" ] -> Ok Drop_shadow
+    | [ "drop"; "shadow"; "xs" ] -> Ok Drop_shadow_xs
     | [ "drop"; "shadow"; "sm" ] -> Ok Drop_shadow_sm
     | [ "drop"; "shadow"; "md" ] -> Ok Drop_shadow_md
     | [ "drop"; "shadow"; "lg" ] -> Ok Drop_shadow_lg
@@ -1418,6 +1427,7 @@ module Handler = struct
     | Neg_hue_rotate_arbitrary angle ->
         "-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
     | Drop_shadow -> "drop-shadow"
+    | Drop_shadow_xs -> "drop-shadow-xs"
     | Drop_shadow_sm -> "drop-shadow-sm"
     | Drop_shadow_md -> "drop-shadow-md"
     | Drop_shadow_lg -> "drop-shadow-lg"
