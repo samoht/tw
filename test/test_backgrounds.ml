@@ -98,6 +98,9 @@ let test_bg_arbitrary_url () =
       "bg-[url('/img/x.png')]";
       "bg-[url(\"/img/x.png\")]";
       "bg-[url(/img/x.png)]";
+      (* The image: data-type hint forces background-image; the url() must not
+         be mis-read as a var (it used to emit var(--url(/img/x.png))). *)
+      "bg-[image:url(/img/x.png)]";
     ]
 
 (* Arbitrary rgb()/rgba() gradient stops set the gradient colour rather than

@@ -129,6 +129,9 @@ module Handler = struct
     | Bg_bracket_image_var of string
     (* Bracket notation: bg-[url(...)] → background-image *)
     | Bg_bracket_url of string
+    (* Bracket notation: bg-[image:url(...)] → background-image (image: hint
+       forces background-image; selector keeps the image: form) *)
+    | Bg_bracket_image_url of string
     (* Bracket notation: bg-[url:var(--x)] → background-image *)
     | Bg_bracket_url_var of string
     (* Bracket notation: bg-[linear-gradient(...)] → background-image *)
@@ -309,6 +312,7 @@ module Handler = struct
     | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
+    | Bg_bracket_image_url v -> "bg-[image:url(" ^ v ^ ")]"
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
     | Bg_bracket_linear_gradient v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_color_var_opacity (v, opacity) ->
@@ -1382,6 +1386,8 @@ module Handler = struct
         style [ Css.background_image (Var var_ref) ]
     | Bg_bracket_url url ->
         style [ Css.background_image (Url (strip_outer_quotes url)) ]
+    | Bg_bracket_image_url url ->
+        style [ Css.background_image (Url (strip_outer_quotes url)) ]
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -1490,6 +1496,7 @@ module Handler = struct
     | Bg_bracket_image_var _ -> 210010
     | Bg_bracket_linear_gradient _ -> 210011
     | Bg_bracket_url _ -> 210012
+    | Bg_bracket_image_url _ -> 210012
     | Bg_bracket_url_var _ -> 210013
     | Bg_none -> 210020
     (* bg-size: bracket before named; length before size for merge order *)
@@ -1822,9 +1829,12 @@ module Handler = struct
                 (Bg_bracket_color_var
                    (String.sub inner 6 (String.length inner - 6)))
           | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
-              Ok
-                (Bg_bracket_image_var
-                   (String.sub inner 6 (String.length inner - 6)))
+              (* The [image:] data-type hint forces a background-image. The value
+                 may be a [url(...)] literal or a [var(...)] reference. *)
+              let v = String.sub inner 6 (String.length inner - 6) in
+              if String.length v > 4 && String.sub v 0 4 = "url(" then
+                Ok (Bg_bracket_image_url (String.sub v 4 (String.length v - 5)))
+              else Ok (Bg_bracket_image_var v)
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
               Ok
                 (Bg_bracket_url_var
