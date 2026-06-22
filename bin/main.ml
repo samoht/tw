@@ -39,25 +39,7 @@ type gen_opts = {
   quiet : bool;
   css_mode : Tw.Css.mode;
   backend : backend;
-  test_scheme : bool;
 }
-
-(* The test scheme matching Tailwind's test @theme: hex colors and explicit
-   spacing variables. Threaded into to_css via ~theme under --test-scheme. *)
-let test_scheme : Tw.Scheme.t =
-  {
-    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
-    spacing = [ (4, Css.Rem 1.0) ];
-    radius = [];
-    default_ring_width = 1;
-    default_border_width = 1;
-    default_outline_width = 1;
-    breakpoints = [];
-    token_overrides = [];
-  }
-
-let theme_of (opts : gen_opts) =
-  if opts.test_scheme then test_scheme else Tw.Scheme.default
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -96,7 +78,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     in
     let tw_styles = parse_classes ~warn:false class_str in
     let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~theme:(theme_of opts) ~base:true styles in
+    let stylesheet = Tw.to_css ~base:true styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
       Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -139,9 +121,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       | [] when class_str <> "" ->
           `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
       | _ ->
-          let stylesheet =
-            Tw.to_css ~theme:(theme_of opts) ~base:include_base styles
-          in
+          let stylesheet = Tw.to_css ~base:include_base styles in
           print_string (render_css ~opts stylesheet);
           `Ok ())
 
@@ -182,7 +162,7 @@ let diff_files paths ~(opts : gen_opts) =
         ~forms:true all_classes
     in
     let tw_styles = parse_known_candidates all_classes |> List.map snd in
-    let stylesheet = Tw.to_css ~theme:(theme_of opts) ~base:true tw_styles in
+    let stylesheet = Tw.to_css ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
       Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -203,9 +183,7 @@ let native_files paths flag ~(opts : gen_opts) =
     in
     let known = parse_known_candidates all_classes in
     let tw_styles = List.map snd known in
-    let stylesheet =
-      Tw.to_css ~theme:(theme_of opts) ~base:include_base tw_styles
-    in
+    let stylesheet = Tw.to_css ~base:include_base tw_styles in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count:(List.length known);
@@ -236,7 +214,7 @@ let process_files paths flag ~(opts : gen_opts) =
   | Native -> native_files paths flag ~opts
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    ~test_scheme paths =
+    paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -256,7 +234,6 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       quiet;
       css_mode = resolved_css_mode;
       backend;
-      test_scheme;
     }
   in
   match single_class with
@@ -329,13 +306,6 @@ let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
   Arg.(value & pos_all file [] & info [] ~docv:"PATH" ~doc)
 
-let test_scheme_flag =
-  let doc =
-    "Use Tailwind test scheme (hex colors like #ef4444 for red-500, explicit \
-     spacing variables). Matches Tailwind's test @theme configuration."
-  in
-  Arg.(value & flag & info [ "test-scheme" ] ~doc)
-
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
   let man =
@@ -375,10 +345,10 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q backend test_scheme paths ->
+        (const (fun s b css_m m o q backend paths ->
              tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
-               ~test_scheme paths)
+               paths)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
-        $ quiet_flag $ backend_vflag $ test_scheme_flag $ paths_arg))
+        $ quiet_flag $ backend_vflag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)
