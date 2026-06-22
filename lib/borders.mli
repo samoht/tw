@@ -103,40 +103,49 @@ val border_3xl : t
 val border_full : t
 (** [border_full] is a semantic width alias – 8px. *)
 
-val rounded_none : t
-(** [rounded_none] sets no border radius. *)
-
-val rounded_sm : t
-(** [rounded_sm] sets a small border radius. *)
-
 val rounded : t
 (** [rounded] sets the default border radius. *)
 
+val rounded_none : t
+(** [rounded_none] sets no border radius. *)
+
+val rounded_xs : t
+(** [rounded_xs] sets extra-small rounding for all corners. *)
+
+val rounded_sm : t
+(** [rounded_sm] sets small rounding for all corners. *)
+
 val rounded_md : t
-(** [rounded_md] sets a medium border radius. *)
+(** [rounded_md] sets medium rounding for all corners. *)
 
 val rounded_lg : t
-(** [rounded_lg] sets a large border radius. *)
+(** [rounded_lg] sets large rounding for all corners. *)
 
 val rounded_xl : t
-(** [rounded_xl] sets an extra-large border radius. *)
+(** [rounded_xl] sets extra large rounding for all corners. *)
 
 val rounded_2xl : t
-(** [rounded_2xl] sets a 2× extra-large border radius. *)
+(** [rounded_2xl] sets 2× rounding for all corners. *)
 
 val rounded_3xl : t
-(** [rounded_3xl] sets a 3× extra-large border radius. *)
+(** [rounded_3xl] sets 3× rounding for all corners. *)
+
+val rounded_4xl : t
+(** [rounded_4xl] sets 4× rounding for all corners. *)
 
 val rounded_full : t
-(** [rounded_full] sets a fully rounded (max) border radius. *)
+(** [rounded_full] sets full rounding for all corners. *)
 
 (** {2 Side-specific border radius} *)
 
 val rounded_t : t
-(** [rounded_t] rounds top corners with default radius. *)
+(** [rounded_t] sets default radius on top corners. *)
 
 val rounded_t_none : t
 (** [rounded_t_none] sets no rounding on top corners. *)
+
+val rounded_t_xs : t
+(** [rounded_t_xs] sets extra-small rounding on top corners. *)
 
 val rounded_t_sm : t
 (** [rounded_t_sm] sets small rounding on top corners. *)
@@ -156,14 +165,20 @@ val rounded_t_2xl : t
 val rounded_t_3xl : t
 (** [rounded_t_3xl] sets 3× rounding on top corners. *)
 
+val rounded_t_4xl : t
+(** [rounded_t_4xl] sets 4× rounding on top corners. *)
+
 val rounded_t_full : t
 (** [rounded_t_full] sets full rounding on top corners. *)
 
 val rounded_r : t
-(** [rounded_r] rounds right corners with default radius. *)
+(** [rounded_r] sets default radius on right corners. *)
 
 val rounded_r_none : t
 (** [rounded_r_none] sets no rounding on right corners. *)
+
+val rounded_r_xs : t
+(** [rounded_r_xs] sets extra-small rounding on right corners. *)
 
 val rounded_r_sm : t
 (** [rounded_r_sm] sets small rounding on right corners. *)
@@ -183,14 +198,20 @@ val rounded_r_2xl : t
 val rounded_r_3xl : t
 (** [rounded_r_3xl] sets 3× rounding on right corners. *)
 
+val rounded_r_4xl : t
+(** [rounded_r_4xl] sets 4× rounding on right corners. *)
+
 val rounded_r_full : t
 (** [rounded_r_full] sets full rounding on right corners. *)
 
 val rounded_b : t
-(** [rounded_b] rounds bottom corners with default radius. *)
+(** [rounded_b] sets default radius on bottom corners. *)
 
 val rounded_b_none : t
 (** [rounded_b_none] sets no rounding on bottom corners. *)
+
+val rounded_b_xs : t
+(** [rounded_b_xs] sets extra-small rounding on bottom corners. *)
 
 val rounded_b_sm : t
 (** [rounded_b_sm] sets small rounding on bottom corners. *)
@@ -210,14 +231,20 @@ val rounded_b_2xl : t
 val rounded_b_3xl : t
 (** [rounded_b_3xl] sets 3× rounding on bottom corners. *)
 
+val rounded_b_4xl : t
+(** [rounded_b_4xl] sets 4× rounding on bottom corners. *)
+
 val rounded_b_full : t
 (** [rounded_b_full] sets full rounding on bottom corners. *)
 
 val rounded_l : t
-(** [rounded_l] rounds left corners with default radius. *)
+(** [rounded_l] sets default radius on left corners. *)
 
 val rounded_l_none : t
 (** [rounded_l_none] sets no rounding on left corners. *)
+
+val rounded_l_xs : t
+(** [rounded_l_xs] sets extra-small rounding on left corners. *)
 
 val rounded_l_sm : t
 (** [rounded_l_sm] sets small rounding on left corners. *)
@@ -237,16 +264,22 @@ val rounded_l_2xl : t
 val rounded_l_3xl : t
 (** [rounded_l_3xl] sets 3× rounding on left corners. *)
 
+val rounded_l_4xl : t
+(** [rounded_l_4xl] sets 4× rounding on left corners. *)
+
 val rounded_l_full : t
 (** [rounded_l_full] sets full rounding on left corners. *)
 
 (** {2 Corner-specific border radius} *)
 
 val rounded_tl : t
-(** [rounded_tl] rounds the top-left corner with default radius. *)
+(** [rounded_tl] sets default radius on top-left corner. *)
 
 val rounded_tl_none : t
 (** [rounded_tl_none] sets no rounding on top-left corner. *)
+
+val rounded_tl_xs : t
+(** [rounded_tl_xs] sets extra-small rounding on top-left corner. *)
 
 val rounded_tl_sm : t
 (** [rounded_tl_sm] sets small rounding on top-left corner. *)
@@ -266,14 +299,20 @@ val rounded_tl_2xl : t
 val rounded_tl_3xl : t
 (** [rounded_tl_3xl] sets 3× rounding on top-left corner. *)
 
+val rounded_tl_4xl : t
+(** [rounded_tl_4xl] sets 4× rounding on top-left corner. *)
+
 val rounded_tl_full : t
 (** [rounded_tl_full] sets full rounding on top-left corner. *)
 
 val rounded_tr : t
-(** [rounded_tr] rounds the top-right corner with default radius. *)
+(** [rounded_tr] sets default radius on top-right corner. *)
 
 val rounded_tr_none : t
 (** [rounded_tr_none] sets no rounding on top-right corner. *)
+
+val rounded_tr_xs : t
+(** [rounded_tr_xs] sets extra-small rounding on top-right corner. *)
 
 val rounded_tr_sm : t
 (** [rounded_tr_sm] sets small rounding on top-right corner. *)
@@ -293,14 +332,20 @@ val rounded_tr_2xl : t
 val rounded_tr_3xl : t
 (** [rounded_tr_3xl] sets 3× rounding on top-right corner. *)
 
+val rounded_tr_4xl : t
+(** [rounded_tr_4xl] sets 4× rounding on top-right corner. *)
+
 val rounded_tr_full : t
 (** [rounded_tr_full] sets full rounding on top-right corner. *)
 
 val rounded_br : t
-(** [rounded_br] rounds the bottom-right corner with default radius. *)
+(** [rounded_br] sets default radius on bottom-right corner. *)
 
 val rounded_br_none : t
 (** [rounded_br_none] sets no rounding on bottom-right corner. *)
+
+val rounded_br_xs : t
+(** [rounded_br_xs] sets extra-small rounding on bottom-right corner. *)
 
 val rounded_br_sm : t
 (** [rounded_br_sm] sets small rounding on bottom-right corner. *)
@@ -320,14 +365,20 @@ val rounded_br_2xl : t
 val rounded_br_3xl : t
 (** [rounded_br_3xl] sets 3× rounding on bottom-right corner. *)
 
+val rounded_br_4xl : t
+(** [rounded_br_4xl] sets 4× rounding on bottom-right corner. *)
+
 val rounded_br_full : t
 (** [rounded_br_full] sets full rounding on bottom-right corner. *)
 
 val rounded_bl : t
-(** [rounded_bl] rounds the bottom-left corner with default radius. *)
+(** [rounded_bl] sets default radius on bottom-left corner. *)
 
 val rounded_bl_none : t
 (** [rounded_bl_none] sets no rounding on bottom-left corner. *)
+
+val rounded_bl_xs : t
+(** [rounded_bl_xs] sets extra-small rounding on bottom-left corner. *)
 
 val rounded_bl_sm : t
 (** [rounded_bl_sm] sets small rounding on bottom-left corner. *)
@@ -347,16 +398,22 @@ val rounded_bl_2xl : t
 val rounded_bl_3xl : t
 (** [rounded_bl_3xl] sets 3× rounding on bottom-left corner. *)
 
+val rounded_bl_4xl : t
+(** [rounded_bl_4xl] sets 4× rounding on bottom-left corner. *)
+
 val rounded_bl_full : t
 (** [rounded_bl_full] sets full rounding on bottom-left corner. *)
 
 (** {2 Logical property rounded utilities - start (inline-start)} *)
 
 val rounded_s : t
-(** [rounded_s] rounds inline-start corners with default radius. *)
+(** [rounded_s] sets default radius on inline-start corners. *)
 
 val rounded_s_none : t
 (** [rounded_s_none] sets no rounding on inline-start corners. *)
+
+val rounded_s_xs : t
+(** [rounded_s_xs] sets extra-small rounding on inline-start corners. *)
 
 val rounded_s_sm : t
 (** [rounded_s_sm] sets small rounding on inline-start corners. *)
@@ -376,16 +433,22 @@ val rounded_s_2xl : t
 val rounded_s_3xl : t
 (** [rounded_s_3xl] sets 3× rounding on inline-start corners. *)
 
+val rounded_s_4xl : t
+(** [rounded_s_4xl] sets 4× rounding on inline-start corners. *)
+
 val rounded_s_full : t
 (** [rounded_s_full] sets full rounding on inline-start corners. *)
 
 (** {2 Logical property rounded utilities - end (inline-end)} *)
 
 val rounded_e : t
-(** [rounded_e] rounds inline-end corners with default radius. *)
+(** [rounded_e] sets default radius on inline-end corners. *)
 
 val rounded_e_none : t
 (** [rounded_e_none] sets no rounding on inline-end corners. *)
+
+val rounded_e_xs : t
+(** [rounded_e_xs] sets extra-small rounding on inline-end corners. *)
 
 val rounded_e_sm : t
 (** [rounded_e_sm] sets small rounding on inline-end corners. *)
@@ -405,16 +468,22 @@ val rounded_e_2xl : t
 val rounded_e_3xl : t
 (** [rounded_e_3xl] sets 3× rounding on inline-end corners. *)
 
+val rounded_e_4xl : t
+(** [rounded_e_4xl] sets 4× rounding on inline-end corners. *)
+
 val rounded_e_full : t
 (** [rounded_e_full] sets full rounding on inline-end corners. *)
 
 (** {2 Logical corner rounded utilities} *)
 
 val rounded_ss : t
-(** [rounded_ss] rounds start-start corner with default radius. *)
+(** [rounded_ss] sets default radius on start-start corner. *)
 
 val rounded_ss_none : t
 (** [rounded_ss_none] sets no rounding on start-start corner. *)
+
+val rounded_ss_xs : t
+(** [rounded_ss_xs] sets extra-small rounding on start-start corner. *)
 
 val rounded_ss_sm : t
 (** [rounded_ss_sm] sets small rounding on start-start corner. *)
@@ -434,14 +503,20 @@ val rounded_ss_2xl : t
 val rounded_ss_3xl : t
 (** [rounded_ss_3xl] sets 3× rounding on start-start corner. *)
 
+val rounded_ss_4xl : t
+(** [rounded_ss_4xl] sets 4× rounding on start-start corner. *)
+
 val rounded_ss_full : t
 (** [rounded_ss_full] sets full rounding on start-start corner. *)
 
 val rounded_se : t
-(** [rounded_se] rounds start-end corner with default radius. *)
+(** [rounded_se] sets default radius on start-end corner. *)
 
 val rounded_se_none : t
 (** [rounded_se_none] sets no rounding on start-end corner. *)
+
+val rounded_se_xs : t
+(** [rounded_se_xs] sets extra-small rounding on start-end corner. *)
 
 val rounded_se_sm : t
 (** [rounded_se_sm] sets small rounding on start-end corner. *)
@@ -461,14 +536,20 @@ val rounded_se_2xl : t
 val rounded_se_3xl : t
 (** [rounded_se_3xl] sets 3× rounding on start-end corner. *)
 
+val rounded_se_4xl : t
+(** [rounded_se_4xl] sets 4× rounding on start-end corner. *)
+
 val rounded_se_full : t
 (** [rounded_se_full] sets full rounding on start-end corner. *)
 
 val rounded_ee : t
-(** [rounded_ee] rounds end-end corner with default radius. *)
+(** [rounded_ee] sets default radius on end-end corner. *)
 
 val rounded_ee_none : t
 (** [rounded_ee_none] sets no rounding on end-end corner. *)
+
+val rounded_ee_xs : t
+(** [rounded_ee_xs] sets extra-small rounding on end-end corner. *)
 
 val rounded_ee_sm : t
 (** [rounded_ee_sm] sets small rounding on end-end corner. *)
@@ -488,14 +569,20 @@ val rounded_ee_2xl : t
 val rounded_ee_3xl : t
 (** [rounded_ee_3xl] sets 3× rounding on end-end corner. *)
 
+val rounded_ee_4xl : t
+(** [rounded_ee_4xl] sets 4× rounding on end-end corner. *)
+
 val rounded_ee_full : t
 (** [rounded_ee_full] sets full rounding on end-end corner. *)
 
 val rounded_es : t
-(** [rounded_es] rounds end-start corner with default radius. *)
+(** [rounded_es] sets default radius on end-start corner. *)
 
 val rounded_es_none : t
 (** [rounded_es_none] sets no rounding on end-start corner. *)
+
+val rounded_es_xs : t
+(** [rounded_es_xs] sets extra-small rounding on end-start corner. *)
 
 val rounded_es_sm : t
 (** [rounded_es_sm] sets small rounding on end-start corner. *)
@@ -514,6 +601,9 @@ val rounded_es_2xl : t
 
 val rounded_es_3xl : t
 (** [rounded_es_3xl] sets 3× rounding on end-start corner. *)
+
+val rounded_es_4xl : t
+(** [rounded_es_4xl] sets 4× rounding on end-start corner. *)
 
 val rounded_es_full : t
 (** [rounded_es_full] sets full rounding on end-start corner. *)

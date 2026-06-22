@@ -28,12 +28,14 @@ let of_string_valid () =
 
   check "rounded";
   check "rounded-none";
+  check "rounded-xs";
   check "rounded-sm";
   check "rounded-md";
   check "rounded-lg";
   check "rounded-xl";
   check "rounded-2xl";
   check "rounded-3xl";
+  check "rounded-4xl";
   check "rounded-full";
 
   check "rounded-t";
@@ -47,7 +49,10 @@ let of_string_valid () =
   check "rounded-bl";
 
   check "rounded-t-lg";
-  check "rounded-tl-2xl"
+  check "rounded-t-xs";
+  check "rounded-tl-2xl";
+  check "rounded-ee-4xl";
+  check "rounded-tl-xs"
 
 let of_string_invalid () =
   (* Invalid border values *)
@@ -61,8 +66,6 @@ let of_string_invalid () =
   (* Invalid style *)
   fail_maybe [ "border"; "z" ];
   (* Invalid side *)
-  fail_maybe [ "rounded"; "4xl" ];
-  (* Invalid size *)
   fail_maybe [ "rounded"; "z" ];
   (* Invalid corner *)
   fail_maybe [ "unknown" ]
@@ -103,6 +106,28 @@ let test_rounded_sm_default () =
   Alcotest.(check bool)
     "rounded-sm default is .25rem" true
     (Astring.String.is_infix ~affix:"--radius-sm: .25rem" css)
+
+(* rounded-xs is a v4.3.1 addition: references var(--radius-xs) and emits the
+   .125rem default token. *)
+let test_rounded_xs () =
+  let css = Tw.to_css ~base:false [ Tw.rounded_xs ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "rounded-xs default is .125rem" true
+    (Astring.String.is_infix ~affix:"--radius-xs: .125rem" css);
+  Alcotest.(check bool)
+    "rounded-xs references var(--radius-xs)" true
+    (Astring.String.is_infix ~affix:"border-radius: var(--radius-xs)" css)
+
+(* rounded-4xl is a v4.3.1 addition: references var(--radius-4xl) and emits the
+   2rem default token. *)
+let test_rounded_4xl () =
+  let css = Tw.to_css ~base:false [ Tw.rounded_4xl ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "rounded-4xl default is 2rem" true
+    (Astring.String.is_infix ~affix:"--radius-4xl: 2rem" css);
+  Alcotest.(check bool)
+    "rounded-4xl references var(--radius-4xl)" true
+    (Astring.String.is_infix ~affix:"border-radius: var(--radius-4xl)" css)
 
 (* Per-side/corner full radius inlines the infinite value (matching the
    all-corners variant and Tailwind's calc(infinity*1px)), not a --radius-full
@@ -174,6 +199,8 @@ let test_border_side_arbitrary_width () =
 let tests =
   [
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
+    test_case "rounded-xs default radius" `Quick test_rounded_xs;
+    test_case "rounded-4xl default radius" `Quick test_rounded_4xl;
     test_case "rounded-l-full inlined radius" `Quick
       test_rounded_side_full_inlined;
     test_case "outline numeric widths" `Quick test_outline_widths;
