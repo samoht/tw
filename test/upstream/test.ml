@@ -904,7 +904,7 @@ let run_test_case test () =
         Alcotest.fail
           (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s%s"
              (String.concat " " test.classes)
-             (Buffer.contents buf) expected got rejected_note))
+             (Buffer.contents buf) expected got rejected_note)
 
 (* Guards [colors_close]: a documented stale fixture pair is accepted, but a
    near-miss the previous [abs (x - y) <= 2] blanket would have wrongly accepted
