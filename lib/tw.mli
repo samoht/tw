@@ -2110,6 +2110,9 @@ val outline_offset_8 : t
 val rounded_none : t
 (** [rounded_none] sets sharp corners (0px). *)
 
+val rounded_xs : t
+(** [rounded_xs] sets extra-small rounding (2px). *)
+
 val rounded_sm : t
 (** [rounded_sm] sets subtle rounding (2px). *)
 
@@ -2131,6 +2134,9 @@ val rounded_2xl : t
 val rounded_3xl : t
 (** [rounded_3xl] sets 3× rounded corners (24px). *)
 
+val rounded_4xl : t
+(** [rounded_4xl] sets 4× rounded corners (32px). *)
+
 val rounded_full : t
 (** [rounded_full] sets fully rounded corners (9999px). Makes circles/pills. *)
 
@@ -2143,6 +2149,9 @@ val rounded_t : t
 
 val rounded_t_none : t
 (** [rounded_t_none] sets no rounding on top corners. *)
+
+val rounded_t_xs : t
+(** [rounded_t_xs] sets extra-small rounding on top corners. *)
 
 val rounded_t_sm : t
 (** [rounded_t_sm] sets subtle rounding on top corners. *)
@@ -2162,6 +2171,9 @@ val rounded_t_2xl : t
 val rounded_t_3xl : t
 (** [rounded_t_3xl] sets 3× rounding on top corners. *)
 
+val rounded_t_4xl : t
+(** [rounded_t_4xl] sets 4× rounding on top corners. *)
+
 val rounded_t_full : t
 (** [rounded_t_full] sets full rounding on top corners. *)
 
@@ -2170,6 +2182,9 @@ val rounded_r : t
 
 val rounded_r_none : t
 (** [rounded_r_none] sets no rounding on right corners. *)
+
+val rounded_r_xs : t
+(** [rounded_r_xs] sets extra-small rounding on right corners. *)
 
 val rounded_r_sm : t
 (** [rounded_r_sm] sets subtle rounding on right corners. *)
@@ -2189,6 +2204,9 @@ val rounded_r_2xl : t
 val rounded_r_3xl : t
 (** [rounded_r_3xl] sets 3× rounding on right corners. *)
 
+val rounded_r_4xl : t
+(** [rounded_r_4xl] sets 4× rounding on right corners. *)
+
 val rounded_r_full : t
 (** [rounded_r_full] sets full rounding on right corners. *)
 
@@ -2197,6 +2215,9 @@ val rounded_b : t
 
 val rounded_b_none : t
 (** [rounded_b_none] sets no rounding on bottom corners. *)
+
+val rounded_b_xs : t
+(** [rounded_b_xs] sets extra-small rounding on bottom corners. *)
 
 val rounded_b_sm : t
 (** [rounded_b_sm] sets subtle rounding on bottom corners. *)
@@ -2216,6 +2237,9 @@ val rounded_b_2xl : t
 val rounded_b_3xl : t
 (** [rounded_b_3xl] sets 3× rounding on bottom corners. *)
 
+val rounded_b_4xl : t
+(** [rounded_b_4xl] sets 4× rounding on bottom corners. *)
+
 val rounded_b_full : t
 (** [rounded_b_full] sets full rounding on bottom corners. *)
 
@@ -2224,6 +2248,9 @@ val rounded_l : t
 
 val rounded_l_none : t
 (** [rounded_l_none] sets no rounding on left corners. *)
+
+val rounded_l_xs : t
+(** [rounded_l_xs] sets extra-small rounding on left corners. *)
 
 val rounded_l_sm : t
 (** [rounded_l_sm] sets subtle rounding on left corners. *)
@@ -2243,6 +2270,9 @@ val rounded_l_2xl : t
 val rounded_l_3xl : t
 (** [rounded_l_3xl] sets 3× rounding on left corners. *)
 
+val rounded_l_4xl : t
+(** [rounded_l_4xl] sets 4× rounding on left corners. *)
+
 val rounded_l_full : t
 (** [rounded_l_full] sets full rounding on left corners. *)
 
@@ -2255,6 +2285,9 @@ val rounded_tl : t
 
 val rounded_tl_none : t
 (** [rounded_tl_none] sets no rounding on top-left corner. *)
+
+val rounded_tl_xs : t
+(** [rounded_tl_xs] sets extra-small rounding on top-left corner. *)
 
 val rounded_tl_sm : t
 (** [rounded_tl_sm] sets subtle rounding on top-left corner. *)
@@ -2274,6 +2307,9 @@ val rounded_tl_2xl : t
 val rounded_tl_3xl : t
 (** [rounded_tl_3xl] sets 3× rounding on top-left corner. *)
 
+val rounded_tl_4xl : t
+(** [rounded_tl_4xl] sets 4× rounding on top-left corner. *)
+
 val rounded_tl_full : t
 (** [rounded_tl_full] sets full rounding on top-left corner. *)
 
@@ -2282,6 +2318,9 @@ val rounded_tr : t
 
 val rounded_tr_none : t
 (** [rounded_tr_none] sets no rounding on top-right corner. *)
+
+val rounded_tr_xs : t
+(** [rounded_tr_xs] sets extra-small rounding on top-right corner. *)
 
 val rounded_tr_sm : t
 (** [rounded_tr_sm] sets subtle rounding on top-right corner. *)
@@ -2301,6 +2340,9 @@ val rounded_tr_2xl : t
 val rounded_tr_3xl : t
 (** [rounded_tr_3xl] sets 3× rounding on top-right corner. *)
 
+val rounded_tr_4xl : t
+(** [rounded_tr_4xl] sets 4× rounding on top-right corner. *)
+
 val rounded_tr_full : t
 (** [rounded_tr_full] sets full rounding on top-right corner. *)
 
@@ -2309,6 +2351,9 @@ val rounded_br : t
 
 val rounded_br_none : t
 (** [rounded_br_none] sets no rounding on bottom-right corner. *)
+
+val rounded_br_xs : t
+(** [rounded_br_xs] sets extra-small rounding on bottom-right corner. *)
 
 val rounded_br_sm : t
 (** [rounded_br_sm] sets subtle rounding on bottom-right corner. *)
@@ -2328,6 +2373,9 @@ val rounded_br_2xl : t
 val rounded_br_3xl : t
 (** [rounded_br_3xl] sets 3× rounding on bottom-right corner. *)
 
+val rounded_br_4xl : t
+(** [rounded_br_4xl] sets 4× rounding on bottom-right corner. *)
+
 val rounded_br_full : t
 (** [rounded_br_full] sets full rounding on bottom-right corner. *)
 
@@ -2336,6 +2384,9 @@ val rounded_bl : t
 
 val rounded_bl_none : t
 (** [rounded_bl_none] sets no rounding on bottom-left corner. *)
+
+val rounded_bl_xs : t
+(** [rounded_bl_xs] sets extra-small rounding on bottom-left corner. *)
 
 val rounded_bl_sm : t
 (** [rounded_bl_sm] sets subtle rounding on bottom-left corner. *)
@@ -2354,6 +2405,9 @@ val rounded_bl_2xl : t
 
 val rounded_bl_3xl : t
 (** [rounded_bl_3xl] sets 3× rounding on bottom-left corner. *)
+
+val rounded_bl_4xl : t
+(** [rounded_bl_4xl] sets 4× rounding on bottom-left corner. *)
 
 val rounded_bl_full : t
 (** [rounded_bl_full] sets full rounding on bottom-left corner. *)
@@ -3697,7 +3751,12 @@ module Var = Var
 (* Version module is now in the css library *)
 
 val to_css :
-  ?theme:Scheme.t -> ?base:bool -> ?forms:bool -> ?layers:bool -> t list -> Css.t
+  ?theme:Scheme.t ->
+  ?base:bool ->
+  ?forms:bool ->
+  ?layers:bool ->
+  t list ->
+  Css.t
 (** [to_css ?theme ?base ?forms ?layers styles] generates a CSS stylesheet for
     the given styles. [theme] (default {!Scheme.default}) supplies the theme
     values utilities read while generating CSS.
