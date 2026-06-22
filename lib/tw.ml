@@ -109,7 +109,22 @@ let of_string ?(theme = Scheme.default) class_str =
     else (`None, base_class)
   in
   match Utility.base_of_class theme base_class with
-  | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
+  | Error _ ->
+      (* An arbitrary-property class ([prop:value]) that no handler accepted
+         gets actionable feedback: only colour properties with an /opacity
+         modifier are emitted today. *)
+      if
+        String.length base_class > 2
+        && base_class.[0] = '['
+        && String.contains base_class ':'
+      then
+        Error
+          (`Msg
+             ("Unsupported arbitrary property '" ^ class_str
+            ^ "': only colour properties with an /opacity modifier are emitted \
+               (e.g. [color:var(--x)]/50); plain [--name:value] declarations \
+               and non-colour properties are not yet supported"))
+      else Error (`Msg ("Unknown class: " ^ class_str))
   | Ok base_utility -> (
       (* Wrap [important] around the base before applying modifiers, so a
          responsive/state prefix stays outermost: md:!flex -> md:(!flex). *)

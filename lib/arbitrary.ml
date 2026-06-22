@@ -63,123 +63,182 @@ module Handler = struct
   let name = "arbitrary"
   let priority = 36
 
+  (* Render a known colour-property declaration ([color], [background-color],
+     ...) with a parsed colour value and an /opacity modifier. *)
+  let color_opacity_render theme prop color opacity =
+    match opacity with
+    | Color.Opacity_named name ->
+        let bare = Parse.extract_var_name name in
+        let var_name = "opacity-" ^ bare in
+        let fallback =
+          Color.opacity_fallback_for_theme_value ~theme var_name bare
+        in
+        (* srgb fallback: resolve the theme value to get the actual
+           percentage *)
+        let srgb_percent =
+          match Scheme.theme_value (Some theme) var_name with
+          | Some v -> (
+              match float_of_string_opt (String.trim v) with
+              | Some f -> f *. 100.0
+              | None -> 100.0)
+          | None -> 100.0
+        in
+        let srgb_fallback =
+          Css.color_mix ~in_space:Srgb ~percent1:srgb_percent color
+            Css.Transparent
+        in
+        let fallback_decl = prop srgb_fallback in
+        let oklab_color =
+          Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
+            color Css.Transparent
+        in
+        let oklab_decl = prop oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.Opacity_percent p ->
+        let srgb_fallback =
+          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
+        in
+        let fallback_decl = prop srgb_fallback in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
+        in
+        let oklab_decl = prop oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.Opacity_arbitrary f ->
+        let p = f *. 100.0 in
+        let srgb_fallback =
+          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
+        in
+        let fallback_decl = prop srgb_fallback in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
+        in
+        let oklab_decl = prop oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.Opacity_bracket_percent p ->
+        let srgb_fallback =
+          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
+        in
+        let fallback_decl = prop srgb_fallback in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
+        in
+        let oklab_decl = prop oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.Opacity_var var_str ->
+        let bare = Parse.extract_var_name var_str in
+        let srgb_fallback =
+          Css.color_mix_var_percent ~in_space:Srgb ~var_name:bare color
+            Css.Transparent
+        in
+        let fallback_decl = prop srgb_fallback in
+        let oklab_color =
+          Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare color
+            Css.Transparent
+        in
+        let oklab_decl = prop oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.No_opacity -> style [ prop color ]
+
+  (* A var-valued colour with /opacity: oklab color-mix under @supports, with an
+     srgb fallback. The fallback resolves the var against the theme when known
+     (Tailwind inlines the resolved colour), else keeps the raw var (matching
+     Tailwind for non-theme vars). [emit] places the colour on the target
+     property ([prop] for a known property, [Css.var] for a custom one). *)
+  let color_var_opacity_style theme (emit : Css.color -> Css.declaration) value
+      opacity =
+    let bare = Parse.extract_var_name value in
+    let var_ref : Css.color Css.var = Var.bracket bare in
+    let percent = Color.opacity_to_percent opacity in
+    let oklab_decl =
+      emit
+        (Css.color_mix ~in_space:Oklab (Css.Var var_ref) Css.Transparent
+           ~percent1:percent)
+    in
+    (* The srgb fallback inlines the resolved theme colour when known (matching
+       Tailwind), else keeps the raw var. Emitting the referenced [--token] into
+       @layer theme needs the registering theme-var mechanism (see
+       [Color.color_var]); arbitrary references via [Var.bracket] don't trigger
+       it, so theme-var-referencing values still differ in the theme layer (the
+       same gap as [backgrounds.ml]'s bg-[color:var(--token)]). *)
+    let fallback =
+      match Scheme.theme_value (Some theme) bare with
+      | Some v -> (
+          match Css.parse_color (String.trim v) with
+          | Some c ->
+              emit
+                (Css.color_mix ~in_space:Srgb c Css.Transparent
+                   ~percent1:percent)
+          | None -> emit (Css.Var var_ref : Css.color))
+      | None -> emit (Css.Var var_ref : Css.color)
+    in
+    let supports =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports ]) [ fallback ]
+
+  (* Place a colour on the declaration's target property: a known colour
+     property uses its typed constructor; a custom property ([--name]) uses the
+     typed [Css.var] form (kept in the utilities layer), never a token
+     stream. *)
+  let color_emitter property : (Css.color -> Css.declaration) option =
+    match color_property_of_name property with
+    | Some prop -> Some prop
+    | None ->
+        if String.length property > 2 && String.sub property 0 2 = "--" then
+          let name = String.sub property 2 (String.length property - 2) in
+          Some (fun c -> fst (Css.var ~layer:"utilities" name Css.Color c))
+        else None
+
   let to_style theme (Color_opacity { property; value; opacity }) =
-    match (color_property_of_name property, parse_css_color value) with
-    | Some prop, Some color -> (
-        match opacity with
-        | Color.Opacity_named name ->
-            let bare = Parse.extract_var_name name in
-            let var_name = "opacity-" ^ bare in
-            let fallback =
-              Color.opacity_fallback_for_theme_value ~theme var_name bare
-            in
-            (* srgb fallback: resolve the theme value to get the actual
-               percentage *)
-            let srgb_percent =
-              match Scheme.theme_value (Some theme) var_name with
-              | Some v -> (
-                  match float_of_string_opt (String.trim v) with
-                  | Some f -> f *. 100.0
-                  | None -> 100.0)
-              | None -> 100.0
-            in
-            let srgb_fallback =
-              Css.color_mix ~in_space:Srgb ~percent1:srgb_percent color
-                Css.Transparent
-            in
-            let fallback_decl = prop srgb_fallback in
-            let oklab_color =
-              Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
-                color Css.Transparent
-            in
-            let oklab_decl = prop oklab_color in
-            let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-            in
-            style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-        | Color.Opacity_percent p ->
-            let srgb_fallback =
-              Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-            in
-            let fallback_decl = prop srgb_fallback in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-            in
-            let oklab_decl = prop oklab_color in
-            let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-            in
-            style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-        | Color.Opacity_arbitrary f ->
-            let p = f *. 100.0 in
-            let srgb_fallback =
-              Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-            in
-            let fallback_decl = prop srgb_fallback in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-            in
-            let oklab_decl = prop oklab_color in
-            let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-            in
-            style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-        | Color.Opacity_bracket_percent p ->
-            let srgb_fallback =
-              Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-            in
-            let fallback_decl = prop srgb_fallback in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-            in
-            let oklab_decl = prop oklab_color in
-            let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-            in
-            style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-        | Color.Opacity_var var_str ->
-            let bare = Parse.extract_var_name var_str in
-            let srgb_fallback =
-              Css.color_mix_var_percent ~in_space:Srgb ~var_name:bare color
-                Css.Transparent
-            in
-            let fallback_decl = prop srgb_fallback in
-            let oklab_color =
-              Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare color
-                Css.Transparent
-            in
-            let oklab_decl = prop oklab_color in
-            let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-            in
-            style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-        | Color.No_opacity -> style [ prop color ])
-    | _ ->
-        invalid_arg
-          ("Invalid arbitrary color property: " ^ property ^ ":" ^ value)
+    match color_emitter property with
+    (* of_class only accepts renderable colour declarations; defensive. *)
+    | None -> style []
+    | Some emit -> (
+        match parse_css_color value with
+        | Some color -> color_opacity_render theme emit color opacity
+        | None ->
+            if Parse.is_var value then
+              color_var_opacity_style theme emit value opacity
+            else style [])
 
   let suborder _ = 0
 
+  let opacity_suffix = function
+    | Color.No_opacity -> ""
+    | Color.Opacity_percent p ->
+        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
+        else "/" ^ Pp.float p
+    | Color.Opacity_bracket_percent p ->
+        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
+        else "/[" ^ Pp.float p ^ "%]"
+    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
+    | Color.Opacity_named name -> "/" ^ name
+    | Color.Opacity_var v -> "/[" ^ v ^ "]"
+
   let to_class (Color_opacity { property; value; opacity }) =
-    let opacity_suffix =
-      match opacity with
-      | Color.No_opacity -> ""
-      | Color.Opacity_percent p ->
-          if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-          else "/" ^ Pp.float p
-      | Color.Opacity_bracket_percent p ->
-          if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-          else "/[" ^ Pp.float p ^ "%]"
-      | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-      | Color.Opacity_named name -> "/" ^ name
-      | Color.Opacity_var v -> "/[" ^ v ^ "]"
-    in
-    "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix
+    "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix opacity
 
   let of_class theme class_name =
     (* Must start with [ and contain : *)
@@ -259,11 +318,24 @@ module Handler = struct
                         else Color.No_opacity
                 else Color.No_opacity
               in
-              if opacity = Color.No_opacity && opacity_str = "" then
+              let is_custom =
+                String.length property > 2 && String.sub property 0 2 = "--"
+              in
+              let is_colour_value =
+                Parse.is_var value || parse_css_color value <> None
+              in
+              if is_custom then
+                (* Custom property: only the color-mix /opacity form is rendered
+                   type-safely. The plain [--name:value] form (and non-colour
+                   values) need a cascade value parser and are deferred. *)
+                if opacity <> Color.No_opacity && is_colour_value then
+                  Ok (Color_opacity { property; value; opacity })
+                else err_not_utility
+              else if color_property_of_name property = None then
+                (* A non-colour standard property ([mask-type:...]) needs a
+                   typed arbitrary-declaration constructor; deferred. *)
                 err_not_utility
-              else if
-                opacity = Color.No_opacity && String.length opacity_str > 0
-              then err_not_utility
+              else if opacity = Color.No_opacity then err_not_utility
               else Ok (Color_opacity { property; value; opacity }))
 end
 
