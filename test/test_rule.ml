@@ -107,8 +107,28 @@ let test_modifier_to_rule () =
       check bool "marked as hover" true has_hover
   | _ -> fail "Expected Regular rule for hover"
 
+(* Arbitrary selector variants whose remainder starts with a combinator
+   ([&>div], [&+p], [&~p]) used to crash the renderer with a Cascade
+   Parse_error: the code forced a descendant combine and re-parsed ">div", which
+   the selector reader rejects. They must flatten to the combinator selector. *)
+let test_arbitrary_selector_combinator () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check bool "[&>div:first-child] keeps the child combinator" true
+    (Astring.String.is_infix ~affix:"> div:first-child"
+       (css "[&>div:first-child]:ring-2"));
+  check bool "[&+p] keeps the adjacent-sibling combinator" true
+    (Astring.String.is_infix ~affix:"+ p" (css "[&+p]:underline"));
+  check bool "[&_p] still flattens to a descendant" true
+    (Astring.String.is_infix ~affix:"]\\:underline p" (css "[&_p]:underline"))
+
 let tests =
   [
+    test_case "arbitrary selector combinator variants" `Quick
+      test_arbitrary_selector_combinator;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
