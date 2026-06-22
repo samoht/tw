@@ -20,6 +20,9 @@ let of_string_valid () =
   (* Basis *)
   check "basis-0";
   check "basis-1";
+  (* v4 accepts any bare integer (spacing scale), not just 0/1 *)
+  check "basis-3";
+  check "basis-7";
   check "basis-auto";
   check "basis-full";
 
