@@ -853,7 +853,7 @@ let run_test_case test () =
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
-          match Tw.of_string cls with
+          match Tw.of_string ~theme:scheme cls with
           | Ok u -> (u :: ok, bad)
           | Error (`Msg m) -> (ok, (cls, m) :: bad))
         ([], []) test.classes

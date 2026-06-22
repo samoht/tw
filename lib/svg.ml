@@ -396,7 +396,7 @@ module Handler = struct
       Ok (Stroke_width_bracket inner)
     else err_not_utility
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "fill"; "none" ] -> Ok Fill_none
@@ -404,17 +404,18 @@ module Handler = struct
     | [ "fill"; "transparent" ] -> Ok Fill_transparent
     | [ "fill"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity -> Ok Fill_current
         | _ -> Ok (Fill_current_opacity opacity))
     | [ "fill"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_bracket_fill v
     | "fill" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Fill_color_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -427,16 +428,17 @@ module Handler = struct
     | [ "stroke"; "transparent" ] -> Ok Stroke_transparent
     | [ "stroke"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity -> Ok Stroke_current
         | _ -> Ok (Stroke_current_opacity opacity))
     | [ "stroke"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         (* Bracket value: could be color or width *)
-        let base_str, _ = Color.parse_opacity_modifier v in
+        let base_str, _ = Color.parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let normalized =
           String.map (fun c -> if c = '_' then ' ' else c) base_inner
@@ -455,7 +457,7 @@ module Handler = struct
         | Some width -> Ok (Stroke_width width)
         | None -> err_not_utility)
     | "stroke" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Stroke_color_opacity (color, shade, opacity))
         | Error e -> Error e)

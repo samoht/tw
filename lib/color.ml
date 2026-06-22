@@ -1451,7 +1451,7 @@ type opacity_modifier =
   | Opacity_var of string (* e.g., /[var(--x)] - var ref used as percentage *)
 
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
-let parse_opacity_modifier s =
+let parse_opacity_modifier ?theme s =
   match String.index_opt s '/' with
   | None -> (s, No_opacity)
   | Some idx -> (
@@ -1484,7 +1484,7 @@ let parse_opacity_modifier s =
                (e.g., /half when --opacity-half exists) *)
             if
               Parse.is_valid_theme_name opacity_str
-              && Var.theme_value ("opacity-" ^ opacity_str) <> None
+              && Scheme.theme_value theme ("opacity-" ^ opacity_str) <> None
             then (base, Opacity_named opacity_str)
             else (s, No_opacity))
 
@@ -1506,9 +1506,11 @@ let shade_of_strings = function
 
 (* Parse color, shade, and optional opacity modifier from string list. Handles
    formats like ["red"; "500/50"] or ["red"; "500/[0.5]"] *)
-let shade_and_opacity_of_strings = function
+let shade_and_opacity_of_strings ?theme = function
   | [ color_str; shade_opacity_str ] -> (
-      let shade_str, opacity = parse_opacity_modifier shade_opacity_str in
+      let shade_str, opacity =
+        parse_opacity_modifier ?theme shade_opacity_str
+      in
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
@@ -1517,7 +1519,7 @@ let shade_and_opacity_of_strings = function
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
   | [ color_str ] -> (
       (* Could be "current/50" or just "black" *)
-      let base_str, opacity = parse_opacity_modifier color_str in
+      let base_str, opacity = parse_opacity_modifier ?theme color_str in
       match of_string base_str with
       | Ok color -> Ok (color, 500, opacity)
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
@@ -1711,19 +1713,19 @@ module Handler = struct
         | Ok c -> Some (to_css c 500)
         | Error _ -> None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Bg_current
         | No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
         | _ -> Ok (Bg_current_opacity opacity))
     | "bg" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: color_parts -> (
@@ -1734,7 +1736,7 @@ module Handler = struct
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Text_current
         | No_opacity -> Error (`Msg ("Invalid text: " ^ current_str))
@@ -1742,8 +1744,9 @@ module Handler = struct
     | [ "text"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let starts prefix s =
           String.length s >= String.length prefix
@@ -1771,7 +1774,7 @@ module Handler = struct
               )
           | None -> Error (`Msg ("Invalid text bracket value: " ^ base_inner)))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Text_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1782,7 +1785,7 @@ module Handler = struct
     | [ "border"; "transparent" ] -> Ok Border_transparent
     | [ "border"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Border_current
         | No_opacity -> Error (`Msg ("Invalid border: " ^ current_str))
@@ -1790,8 +1793,9 @@ module Handler = struct
     | [ "border"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1831,7 +1835,7 @@ module Handler = struct
                 Ok (Border_side_color (bs, Bsc_named (color, shade)))
             | Error e -> Error e))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Border_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1843,7 +1847,7 @@ module Handler = struct
     | [ "accent"; "inherit" ] -> Ok Accent_inherit
     | [ "accent"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Accent_current
         | No_opacity -> Error (`Msg ("Invalid accent: " ^ current_str))
@@ -1851,8 +1855,9 @@ module Handler = struct
     | [ "accent"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1864,7 +1869,7 @@ module Handler = struct
             )
         | None -> Error (`Msg ("Invalid accent bracket value: " ^ base_inner)))
     | "accent" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Accent_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1876,7 +1881,7 @@ module Handler = struct
     | [ "caret"; "transparent" ] -> Ok Caret_transparent
     | [ "caret"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Caret_current
         | No_opacity -> Error (`Msg ("Invalid caret: " ^ current_str))
@@ -1884,8 +1889,9 @@ module Handler = struct
     | [ "caret"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1897,7 +1903,7 @@ module Handler = struct
             )
         | None -> Error (`Msg ("Invalid caret bracket value: " ^ base_inner)))
     | "caret" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Caret_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1909,7 +1915,7 @@ module Handler = struct
     | [ "outline"; "inherit" ] -> Ok Outline_inherit
     | [ "outline"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Outline_current
         | No_opacity -> Error (`Msg ("Invalid outline: " ^ current_str))
@@ -1917,8 +1923,9 @@ module Handler = struct
     | [ "outline"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         let starts prefix s =
           String.length s >= String.length prefix
@@ -1947,7 +1954,7 @@ module Handler = struct
           | None ->
               Error (`Msg ("Invalid outline bracket value: " ^ base_inner)))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Outline_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1959,7 +1966,7 @@ module Handler = struct
     | [ "placeholder"; "inherit" ] -> Ok Placeholder_inherit
     | [ "placeholder"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier ~theme current_str in
         match opacity with
         | No_opacity when base = "current" -> Ok Placeholder_current
         | No_opacity -> Error (`Msg ("Invalid placeholder: " ^ current_str))
@@ -1967,8 +1974,9 @@ module Handler = struct
     | [ "placeholder"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) -> (
-        let base_str, opacity = parse_opacity_modifier v in
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v))
+      -> (
+        let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         match parse_bracket_color base_inner with
         | Some css_color -> (
@@ -1982,7 +1990,7 @@ module Handler = struct
         | None ->
             Error (`Msg ("Invalid placeholder bracket value: " ^ base_inner)))
     | "placeholder" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings color_parts with
+        match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Placeholder_opacity (color, shade, opacity))
         | Error e -> Error e)

@@ -2417,7 +2417,7 @@ module Handler = struct
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
           | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity)))
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none
@@ -2426,7 +2426,7 @@ module Handler = struct
     | [ "shadow"; "sm" ] -> Ok Shadow_sm
     | [ "shadow" ] -> Ok Shadow
     | [ base ] when String.starts_with ~prefix:"shadow/" base -> (
-        let _, opacity = Color.parse_opacity_modifier base in
+        let _, opacity = Color.parse_opacity_modifier ~theme base in
         match opacity with
         | Color.No_opacity -> err_not_utility
         | op -> Ok (Shadow_shape_opacity (Default, op)))
@@ -2439,7 +2439,7 @@ module Handler = struct
     | [ "shadow"; "transparent" ] -> Ok Shadow_transparent
     | [ "shadow"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Shadow_current
         | Color.No_opacity -> err_not_utility
@@ -2450,7 +2450,7 @@ module Handler = struct
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_shadow_bracket v
     | [ "shadow"; name ] when String.contains name '/' -> (
-        let base, opacity = Color.parse_opacity_modifier name in
+        let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
         | "2xs", op -> Ok (Shadow_shape_opacity (Two_xs, op))
@@ -2462,7 +2462,7 @@ module Handler = struct
         | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
         | _ -> err_not_utility)
     | [ "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2473,7 +2473,7 @@ module Handler = struct
     | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
     | [ "inset"; "shadow" ] -> Ok Inset_shadow
     | [ base ] when String.starts_with ~prefix:"inset-shadow/" base -> (
-        let _, opacity = Color.parse_opacity_modifier base in
+        let _, opacity = Color.parse_opacity_modifier ~theme base in
         match opacity with
         | Color.No_opacity -> err_not_utility
         | op -> Ok (Inset_shadow_shape_opacity (Ish_default, op)))
@@ -2485,7 +2485,7 @@ module Handler = struct
     | [ "inset"; "shadow"; "transparent" ] -> Ok Inset_shadow_transparent
     | [ "inset"; "shadow"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_shadow_current
         | Color.No_opacity -> err_not_utility
@@ -2496,7 +2496,7 @@ module Handler = struct
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_inset_shadow_bracket v
     | [ "inset"; "shadow"; name ] when String.contains name '/' -> (
-        let base, opacity = Color.parse_opacity_modifier name in
+        let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
@@ -2506,7 +2506,7 @@ module Handler = struct
         | "2xl", op -> Ok (Inset_shadow_shape_opacity (Ish_2xl, op))
         | _ -> err_not_utility)
     | [ "inset"; "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2541,7 +2541,7 @@ module Handler = struct
     | [ "ring"; "inherit" ] -> Ok Ring_inherit
     | [ "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_current
         | Color.No_opacity -> err_not_utility
@@ -2555,7 +2555,7 @@ module Handler = struct
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
     | [ "ring"; "offset"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_offset_current
         | Color.No_opacity -> err_not_utility
@@ -2572,7 +2572,7 @@ module Handler = struct
     | [ "ring"; color; shade ] -> (
         (* Check for opacity modifier in shade (e.g., "500/50" or
            "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2580,7 +2580,7 @@ module Handler = struct
             | _ -> Ok (Ring_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "ring"; "offset"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with
@@ -2592,7 +2592,7 @@ module Handler = struct
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
     | [ "inset"; "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_ring_current
         | Color.No_opacity -> err_not_utility
@@ -2607,7 +2607,7 @@ module Handler = struct
         | Ok width -> Ok (Inset_ring_width width)
         | Error _ -> err_not_utility)
     | [ "inset"; "ring"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with

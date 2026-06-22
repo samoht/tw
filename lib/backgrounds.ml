@@ -1527,14 +1527,14 @@ module Handler = struct
     | None -> (s, None)
 
   (** Parse gradient color/position from token list for a given target *)
-  let parse_gradient_color target rest =
+  let parse_gradient_color ?theme target rest =
     let gc src = Ok (Gradient_color (target, src)) in
     let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
     (* Keywords *)
     | [ "current" ] -> gc Gc_current
     | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let _, opacity = Color.parse_opacity_modifier ?theme current_str in
         gc (Gc_current_opacity opacity)
     | [ "inherit" ] -> gc Gc_inherit
     | [ "transparent" ] -> gc Gc_transparent
@@ -1546,7 +1546,9 @@ module Handler = struct
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
     | [ bracket_opacity ] when has_opacity bracket_opacity -> (
-        let base, opacity_opt = Color.parse_opacity_modifier bracket_opacity in
+        let base, opacity_opt =
+          Color.parse_opacity_modifier ?theme bracket_opacity
+        in
         match opacity_opt with
         | Color.No_opacity when Parse.is_bracket_value bracket_opacity ->
             (* No valid opacity found — treat as plain bracket *)
@@ -1576,7 +1578,7 @@ module Handler = struct
             else Error (`Msg "Invalid gradient bracket with opacity")
         | _ -> (
             (* Named color with opacity *)
-            match Color.shade_and_opacity_of_strings rest with
+            match Color.shade_and_opacity_of_strings ?theme rest with
             | Ok (color, shade, opacity) ->
                 gc (Gc_named_opacity (color, shade, opacity))
             | Error e -> Error e))
@@ -1594,7 +1596,7 @@ module Handler = struct
         else gp (Gp_bracket inner)
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
+        match Color.shade_and_opacity_of_strings ?theme rest with
         | Ok (color, shade, opacity) ->
             gc (Gc_named_opacity (color, shade, opacity))
         | Error e -> Error e)
@@ -1604,7 +1606,7 @@ module Handler = struct
         | Ok (color, shade) -> gc (Gc_named (color, shade))
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "gradient"; "to"; "b" ] -> Ok (Bg_gradient_to Bottom)
@@ -1627,7 +1629,7 @@ module Handler = struct
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Bg_current
         | Color.No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
@@ -1848,16 +1850,16 @@ module Handler = struct
                       else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
         )
     | "bg" :: rest when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
+        match Color.shade_and_opacity_of_strings ~theme rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
-    | "from" :: rest -> parse_gradient_color Gradient_from rest
-    | "via" :: rest -> parse_gradient_color Gradient_via rest
-    | "to" :: rest -> parse_gradient_color Gradient_to rest
+    | "from" :: rest -> parse_gradient_color ~theme Gradient_from rest
+    | "via" :: rest -> parse_gradient_color ~theme Gradient_via rest
+    | "to" :: rest -> parse_gradient_color ~theme Gradient_to rest
     | _ -> Error (`Msg "Unknown background class")
 end
 

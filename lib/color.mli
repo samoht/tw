@@ -311,21 +311,24 @@ type opacity_modifier =
   | Opacity_var of string
       (** e.g., /[var(--x)] - var ref used directly as percentage *)
 
-val parse_opacity_modifier : string -> string * opacity_modifier
-(** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns
-    the base string and the opacity modifier. Example: "500/50" -> ("500",
-    Opacity_percent 50.0). Named opacities are validated at parse time against
-    the theme tokens registered via {!Var.set_theme_value}. *)
+val parse_opacity_modifier :
+  ?theme:Scheme.t -> string -> string * opacity_modifier
+(** [parse_opacity_modifier ?theme s] parses an opacity modifier from a string.
+    Returns the base string and the opacity modifier. Example: "500/50" ->
+    ("500", Opacity_percent 50.0). Named opacities are validated at parse time
+    against the [@theme] tokens in [theme]. *)
 
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
 
 val shade_and_opacity_of_strings :
-  string list -> (color * int * opacity_modifier, [ `Msg of string ]) result
-(** [shade_and_opacity_of_strings parts] parses a color, shade, and optional
-    opacity modifier from a list of strings. Example: ["blue"; "500/50"] -> Ok
-    (Blue, 500, Opacity_percent 50.0). *)
+  ?theme:Scheme.t ->
+  string list ->
+  (color * int * opacity_modifier, [ `Msg of string ]) result
+(** [shade_and_opacity_of_strings ?theme parts] parses a color, shade, and
+    optional opacity modifier from a list of strings. Example:
+    ["blue"; "500/50"] -> Ok (Blue, 500, Opacity_percent 50.0). *)
 
 val theme_order : string -> int * int
 (** [theme_order c] returns the theme layer order for a color variable. *)

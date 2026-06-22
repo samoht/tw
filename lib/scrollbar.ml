@@ -219,24 +219,25 @@ module Handler = struct
 
   let has_opacity s = String.contains s '/'
 
-  let parse_color mk rest =
+  let parse_color ?theme mk rest =
     match rest with
     | [ "inherit" ] -> Ok (mk Inherit)
     | [ "transparent" ] -> Ok (mk Transparent)
     | [ current_str ] when String.starts_with ~prefix:"current" current_str -> (
-        let _, op = Color.parse_opacity_modifier current_str in
+        let _, op = Color.parse_opacity_modifier ?theme current_str in
         match op with
         | Color.No_opacity -> Ok (mk Current)
         | _ -> Error (`Msg "Not a scrollbar utility"))
-    | [ v ] when Parse.is_bracket_value (fst (Color.parse_opacity_modifier v))
+    | [ v ]
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ?theme v))
       -> (
-        let base, op = Color.parse_opacity_modifier v in
+        let base, op = Color.parse_opacity_modifier ?theme v in
         let inner = Parse.bracket_inner base in
         match Color.parse_bracket_color inner with
         | Some c -> Ok (mk (Bracket (base, c, op)))
         | None -> Error (`Msg "Not a scrollbar utility"))
     | parts when List.exists has_opacity parts -> (
-        match Color.shade_and_opacity_of_strings parts with
+        match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
     | parts -> (
@@ -244,7 +245,7 @@ module Handler = struct
         | Ok (c, shade) -> Ok (mk (Theme (c, shade, Color.No_opacity)))
         | Error e -> Error e)
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     match Parse.split_class class_name with
     | [ "scrollbar"; "auto" ] -> Ok Width_auto
     | [ "scrollbar"; "none" ] -> Ok Width_none
@@ -252,8 +253,10 @@ module Handler = struct
     | [ "scrollbar"; "gutter"; "auto" ] -> Ok Gutter_auto
     | [ "scrollbar"; "gutter"; "stable" ] -> Ok Gutter_stable
     | [ "scrollbar"; "gutter"; "both" ] -> Ok Gutter_both
-    | "scrollbar" :: "thumb" :: rest -> parse_color (fun s -> Thumb s) rest
-    | "scrollbar" :: "track" :: rest -> parse_color (fun s -> Track s) rest
+    | "scrollbar" :: "thumb" :: rest ->
+        parse_color ~theme (fun s -> Thumb s) rest
+    | "scrollbar" :: "track" :: rest ->
+        parse_color ~theme (fun s -> Track s) rest
     | _ -> Error (`Msg "Not a scrollbar utility")
 end
 

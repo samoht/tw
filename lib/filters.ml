@@ -1197,7 +1197,7 @@ module Handler = struct
     | Backdrop_sepia n -> 20000 + (100 - n)
     | Backdrop_sepia_arbitrary _ -> 20500
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "filter" ] -> Ok Filter
@@ -1255,7 +1255,7 @@ module Handler = struct
     (* Drop shadow with opacity modifier on the base: drop-shadow/25 *)
     | [ "drop"; s ] when String.length s > 7 && String.sub s 0 7 = "shadow/"
       -> (
-        let _, opacity = Color.parse_opacity_modifier s in
+        let _, opacity = Color.parse_opacity_modifier ~theme s in
         match opacity with
         | Color.No_opacity -> err_not_utility
         | op -> Ok (Drop_shadow_opacity op))
@@ -1273,12 +1273,13 @@ module Handler = struct
         Ok (Drop_shadow_arbitrary s)
     | "drop" :: "shadow" :: rest -> (
         let full = String.concat "-" rest in
-        let base, opacity = Color.parse_opacity_modifier full in
+        let base, opacity = Color.parse_opacity_modifier ~theme full in
         match opacity with
         | Color.No_opacity -> (
             (* Try to parse as color *)
             match
-              Color.shade_and_opacity_of_strings (String.split_on_char '-' base)
+              Color.shade_and_opacity_of_strings ~theme
+                (String.split_on_char '-' base)
             with
             | Ok (c, shade, Color.No_opacity) ->
                 Ok (Drop_shadow_color (c, shade))

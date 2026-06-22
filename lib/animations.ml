@@ -314,7 +314,7 @@ module Handler = struct
     | Animate_pulse -> 5
     | Animate_spin -> 6
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "animate"; "none" ] -> Ok Animate_none
@@ -329,7 +329,8 @@ module Handler = struct
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
-          if Var.theme_value var_name <> None then Ok (Animate_named value)
+          if Scheme.theme_value (Some theme) var_name <> None then
+            Ok (Animate_named value)
           else Error (`Msg "Not an animation utility")
     | _ -> Error (`Msg "Not an animation utility")
 

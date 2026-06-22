@@ -1406,7 +1406,7 @@ module Typography_late = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "underline" ] -> Ok Underline
@@ -1424,7 +1424,7 @@ module Typography_late = struct
     | [ "decoration"; "inherit" ] -> Ok Decoration_inherit
     | [ "decoration"; n ] -> (
         (* Parse opacity modifier first *)
-        let base_str, opacity = Color.parse_opacity_modifier n in
+        let base_str, opacity = Color.parse_opacity_modifier ~theme n in
         (* Check for "current" with optional opacity *)
         match (base_str, opacity) with
         | "current", Color.No_opacity -> Ok Decoration_current
@@ -1494,7 +1494,7 @@ module Typography_late = struct
     | [ "decoration"; color; shade ] -> (
         (* Check for opacity modifier in shade (e.g., "500/50" or
            "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
         | Ok c, Ok s -> (
             match opacity with

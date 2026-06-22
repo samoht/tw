@@ -520,6 +520,12 @@ val theme_value : string -> string option
 val clear_theme_values : unit -> unit
 (** [clear_theme_values ()] removes all theme value overrides. *)
 
+val theme_value_overrides_list : unit -> (string * string) list
+(** [theme_value_overrides_list ()] returns all registered theme value overrides
+    as (name, value) pairs. Transitional bridge: lets {!Tw.of_string} build a
+    default {!Scheme.t} from the global overrides while parse-time callers
+    migrate to passing a threaded theme explicitly. *)
+
 val binding :
   ('a, [< `Theme | `Property_default | `Channel ]) t ->
   ?fallback:'a Css.fallback ->

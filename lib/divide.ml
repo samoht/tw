@@ -459,7 +459,7 @@ module Handler = struct
       else None
     else None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "divide"; "x" ] -> Ok (Divide_x 1)
@@ -487,14 +487,15 @@ module Handler = struct
         Ok (Divide_style (Stdlib.Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Divide_current
         | Color.No_opacity -> Error (`Msg ("Invalid divide: " ^ current_str))
         | _ -> Ok (Divide_current_opacity opacity))
     | [ "divide"; v ]
-      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
-        let base_str, opacity = Color.parse_opacity_modifier v in
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ~theme v))
+      ->
+        let base_str, opacity = Color.parse_opacity_modifier ~theme v in
         let inner = Parse.bracket_inner base_str in
         let normalized =
           String.map (fun c -> if c = '_' then ' ' else c) inner
@@ -516,16 +517,17 @@ module Handler = struct
           | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))
         else Error (`Msg ("Invalid divide bracket value: " ^ inner))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Divide_color_opacity (color, shade, opacity))
         | Error _ ->
             (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
-            let base, opacity = Color.parse_opacity_modifier name in
+            let base, opacity = Color.parse_opacity_modifier ~theme name in
             if
-              Var.theme_value ("color-" ^ base) <> None
-              || Var.theme_value ("border-color-" ^ base) <> None
+              Scheme.theme_value (Some theme) ("color-" ^ base) <> None
+              || Scheme.theme_value (Some theme) ("border-color-" ^ base)
+                 <> None
             then Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
@@ -536,8 +538,9 @@ module Handler = struct
                theme values *)
             let name = String.concat "-" color_parts in
             if
-              Var.theme_value ("color-" ^ name) <> None
-              || Var.theme_value ("border-color-" ^ name) <> None
+              Scheme.theme_value (Some theme) ("color-" ^ name) <> None
+              || Scheme.theme_value (Some theme) ("border-color-" ^ name)
+                 <> None
             then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")

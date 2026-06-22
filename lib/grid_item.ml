@@ -290,7 +290,7 @@ module Handler = struct
       Some (String.map (fun c -> if c = '_' then ' ' else c) inner)
     else None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "col"; "auto" ] -> Ok Col_auto
@@ -314,7 +314,8 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.theme_value ("grid-column-start-" ^ n) <> None
+              && Scheme.theme_value (Some theme) ("grid-column-start-" ^ n)
+                 <> None
             then Ok (Col_start_named n)
             else err_not_utility)
     | [ ""; "col"; "start"; n ] -> (
@@ -333,7 +334,8 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.theme_value ("grid-column-end-" ^ n) <> None
+              && Scheme.theme_value (Some theme) ("grid-column-end-" ^ n)
+                 <> None
             then Ok (Col_end_named n)
             else err_not_utility)
     | [ ""; "col"; "end"; n ] -> (
@@ -390,7 +392,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.theme_value ("grid-row-start-" ^ n) <> None
+              && Scheme.theme_value (Some theme) ("grid-row-start-" ^ n) <> None
             then Ok (Row_start_named n)
             else err_not_utility)
     | [ ""; "row"; "start"; n ] -> (
@@ -409,7 +411,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.theme_value ("grid-row-end-" ^ n) <> None
+              && Scheme.theme_value (Some theme) ("grid-row-end-" ^ n) <> None
             then Ok (Row_end_named n)
             else err_not_utility)
     | [ ""; "row"; "end"; n ] -> (

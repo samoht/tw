@@ -181,7 +181,7 @@ module Handler = struct
     in
     "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     (* Must start with [ and contain : *)
     let len = String.length class_name in
     if len < 3 || class_name.[0] <> '[' then err_not_utility
@@ -252,7 +252,9 @@ module Handler = struct
                     | _ ->
                         if
                           Parse.is_valid_theme_name op_part
-                          && Var.theme_value ("opacity-" ^ op_part) <> None
+                          && Scheme.theme_value (Some theme)
+                               ("opacity-" ^ op_part)
+                             <> None
                         then Color.Opacity_named op_part
                         else Color.No_opacity
                 else Color.No_opacity

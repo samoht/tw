@@ -625,7 +625,7 @@ module Handler = struct
     in
     has_length_unit inner && not has_typed_prefix
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "shadow"; "none" ] -> Ok Text_shadow_none
@@ -633,7 +633,7 @@ module Handler = struct
        named scale is `text-shadow-{2xs,xs,sm,md,lg}`. *)
     | [ "text"; "shadow" ] -> err_not_utility
     | [ "text"; "shadow"; size_str ] -> (
-        let base, opacity = Color.parse_opacity_modifier size_str in
+        let base, opacity = Color.parse_opacity_modifier ~theme size_str in
         let shape_opt =
           match base with
           | "2xs" -> Some S_2xs
@@ -678,7 +678,7 @@ module Handler = struct
         | _ -> err_not_utility)
     | "text" :: "shadow" :: color_parts when List.exists has_opacity color_parts
       -> (
-        match Color.shade_and_opacity_of_strings color_parts with
+        match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Text_shadow_color_opacity (color, shade, opacity))
         | Error e -> Error e)
