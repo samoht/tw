@@ -29,7 +29,12 @@ let of_string_valid () =
   check "space-x-2";
   check "space-y-4";
   check "-space-x-1";
-  check "-space-y-2"
+  check "-space-y-2";
+  (* px-valued space, both signs *)
+  check "space-x-px";
+  check "space-y-px";
+  check "-space-x-px";
+  check "-space-y-px"
 
 let of_string_invalid () =
   let fail_maybe = Test_helpers.check_invalid_parts (module Tw.Gap.Handler) in
@@ -74,6 +79,23 @@ let mixed_gap_axis_arbitrary_order_matches_tailwind () =
   |> Test_helpers.check_ordering_matches
        ~test_name:"mixed gap axis arbitrary order matches Tailwind"
 
+(* space-x-px / -space-x-px use a literal +/-1px gap (no --spacing multiple),
+   wrapped in the reverse calc like the numeric variants. *)
+let test_space_px_values () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.check bool "space-x-px uses 1px gap" true
+    (Astring.String.is_infix ~affix:"calc(1px * var(--tw-space-x-reverse))"
+       (css "space-x-px"));
+  Alcotest.check bool "-space-x-px uses -1px gap" true
+    (Astring.String.is_infix ~affix:"calc(-1px * var(--tw-space-x-reverse))"
+       (css "-space-x-px"));
+  Alcotest.check bool "space-x-px sets no --spacing" false
+    (Astring.String.is_infix ~affix:"--spacing" (css "space-x-px"))
+
 (** Test that CSS values use the correct spacing multiplier. gap-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
@@ -98,6 +120,7 @@ let tests =
       mixed_gap_space_order_matches_tailwind;
     test_case "mixed gap axis arbitrary order matches Tailwind" `Quick
       mixed_gap_axis_arbitrary_order_matches_tailwind;
+    test_case "space-px CSS values" `Quick test_space_px_values;
     test_case "gap CSS values" `Quick test_css_values;
   ]
 

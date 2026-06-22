@@ -157,6 +157,38 @@ module Handler = struct
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
+  (* space-x-px / space-y-px: the gap is a literal 1px (not a spacing multiple),
+     so there is no --spacing declaration; the reverse mechanism wraps ±1px
+     directly, matching Tailwind. *)
+  let space_px ~axis ~negative
+      (reverse_var : Css.number_percentage Var.property_default)
+      ~margin_start_decl ~margin_end_decl =
+    let axis_str = match axis with `X -> "x" | `Y -> "y" in
+    let class_name =
+      (if negative then "-space-" else "space-") ^ axis_str ^ "-px"
+    in
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
+    let spacing_len : length = if negative then Px (-1.) else Px 1. in
+    let reverse_decl, reverse_ref = Var.binding reverse_var (Css.Num 0.0) in
+    let reverse_var_name = Css.var_name reverse_ref in
+    let margin_start, margin_end =
+      space_margin_calcs ~spacing_len ~reverse_var_name
+    in
+    let property_rules =
+      [ Var.property_rule reverse_var ] |> List.filter_map Fun.id
+    in
+    let rule =
+      Css.rule ~selector
+        [
+          reverse_decl;
+          margin_start_decl margin_start;
+          margin_end_decl margin_end;
+        ]
+    in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
+
   let space_y ?theme n =
     (* See [space_x]: negative zero ([-space-y-0]) must keep its sign. *)
     let negative = Float.sign_bit n in
@@ -293,6 +325,16 @@ module Handler = struct
     let space_y n = space_y ~theme n in
     match t with
     | Gap { axis; value } -> gap_value axis value
+    | Space { negative; axis; value = `Px } -> (
+        match axis with
+        | `X ->
+            space_px ~axis:`X ~negative space_x_reverse_var
+              ~margin_start_decl:margin_inline_start
+              ~margin_end_decl:margin_inline_end
+        | `Y ->
+            space_px ~axis:`Y ~negative space_y_reverse_var
+              ~margin_start_decl:margin_block_start
+              ~margin_end_decl:margin_block_end)
     | Space { negative; axis; value } -> (
         let n =
           match value with
@@ -422,6 +464,8 @@ module Handler = struct
           | None -> err_not_utility)
       | [ "space"; "x"; value ] -> (
           if value = "reverse" then Ok Space_x_reverse
+          else if value = "px" then
+            Ok (Space { negative = false; axis = `X; value = `Px })
           else
             match parse_gap_arbitrary value with
             | Some (Arbitrary len) ->
@@ -439,6 +483,8 @@ module Handler = struct
                 | Error _ -> err_not_utility))
       | [ "space"; "y"; value ] -> (
           if value = "reverse" then Ok Space_y_reverse
+          else if value = "px" then
+            Ok (Space { negative = false; axis = `Y; value = `Px })
           else
             match parse_gap_arbitrary value with
             | Some (Arbitrary len) ->
@@ -455,17 +501,25 @@ module Handler = struct
                          })
                 | Error _ -> err_not_utility))
       | [ ""; "space"; "x"; value ] -> (
-          match Parse.spacing_value ~name:"space-x" value with
-          | Ok n ->
-              Ok
-                (Space { negative = true; axis = `X; value = `Rem (n *. 0.25) })
-          | Error _ -> err_not_utility)
+          if value = "px" then
+            Ok (Space { negative = true; axis = `X; value = `Px })
+          else
+            match Parse.spacing_value ~name:"space-x" value with
+            | Ok n ->
+                Ok
+                  (Space
+                     { negative = true; axis = `X; value = `Rem (n *. 0.25) })
+            | Error _ -> err_not_utility)
       | [ ""; "space"; "y"; value ] -> (
-          match Parse.spacing_value ~name:"space-y" value with
-          | Ok n ->
-              Ok
-                (Space { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
-          | Error _ -> err_not_utility)
+          if value = "px" then
+            Ok (Space { negative = true; axis = `Y; value = `Px })
+          else
+            match Parse.spacing_value ~name:"space-y" value with
+            | Ok n ->
+                Ok
+                  (Space
+                     { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
+            | Error _ -> err_not_utility)
       | _ -> err_not_utility
     in
     parse_class parts
