@@ -18,10 +18,13 @@
 
         let name = "example"
         let priority = 4
-        let to_style = function Block -> Style.style [ Css.display Css.Block ]
+
+        let to_style _theme = function
+          | Block -> Style.style [ Css.display Css.Block ]
+
         let suborder = function Block -> 0
 
-        let of_class = function
+        let of_class _theme = function
           | "example-block" -> Ok Block
           | _ -> Error (`Msg "Not an example utility")
 

@@ -94,16 +94,8 @@ let split_whitespace s =
   flush ();
   List.rev !tokens
 
-(* Default parse-time theme. Transitional bridge: callers that do not pass an
-   explicit [~theme] (e.g. parse-parity test runners that still seed the global
-   [Var] overrides) get a scheme built from those overrides, so custom-token
-   validation keeps working while they migrate to threading a theme. *)
-let default_parse_theme () =
-  Scheme.with_overrides Scheme.default (Var.theme_value_overrides_list ())
-
 (* Parse a single class string into a Tw.t *)
-let of_string ?theme class_str =
-  let theme = match theme with Some t -> t | None -> default_parse_theme () in
+let of_string ?(theme = Scheme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   (* The [!] important marker sits right next to the utility: the v3 prefix
      ([!flex], [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its

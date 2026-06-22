@@ -167,20 +167,6 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
-(* Theme value overrides: maps var name -> CSS string value. When set,
-   theme-backed utilities emit the override in the theme layer while still using
-   typed variable references in utility declarations. *)
-let theme_value_overrides : (string, string) Hashtbl.t = Hashtbl.create 16
-
-let set_theme_value name value =
-  Hashtbl.replace theme_value_overrides name value
-
-let theme_value name = Hashtbl.find_opt theme_value_overrides name
-let clear_theme_values () = Hashtbl.clear theme_value_overrides
-
-let theme_value_overrides_list () =
-  Hashtbl.fold (fun k v acc -> (k, v) :: acc) theme_value_overrides []
-
 (* Convert a [Css.kind] witness to the matching [Css.Properties.kind]. *)
 let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   let open Css in
