@@ -646,12 +646,48 @@ let theme_layer_rule ~layers = function
       if layers then Css.v [ Css.layer ~name:"theme" [ rule ] ]
       else Css.v [ rule ]
 
+(* Every var() referenced anywhere in a utility's output (top-level props and
+   nested @media/@supports). *)
+let var_names_of_output = function
+  | Regular { props; nested; _ } | Media_query { props; nested; _ } ->
+      Css.vars_of_declarations props @ Css.vars_of_rules nested
+  | Container_query { props; _ }
+  | Starting_style { props; _ }
+  | Supports_query { props; _ } ->
+      Css.vars_of_declarations props
+
+(* Theme tokens referenced via var() (e.g. an arbitrary [color:var(--color-red-
+   500)]) must appear in @layer theme, but the extractor above only collects
+   tokens utilities SET. Emit the catalogued colour tokens those references name
+   (typed value + canonical order via [Color.Handler.theme_color_decl]). Other
+   token kinds need a general typed value parser and are left for now. [exclude]
+   holds the already-emitted (set) token names. *)
+let referenced_theme_decls ~theme ~exclude selector_props =
+  selector_props
+  |> List.concat_map var_names_of_output
+  |> List.map Css.any_var_name
+  |> List.sort_uniq String.compare
+  |> List.filter_map (fun full ->
+      if
+        String.length full <= 2
+        || String.sub full 0 2 <> "--"
+        || Strings.mem full exclude
+      then None
+      else
+        let bare = String.sub full 2 (String.length full - 2) in
+        Color.Handler.theme_color_decl ~theme bare)
+
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
   let extracted =
     extract_non_tw_custom_declarations selector_props
     |> List.map (apply_token_override theme)
+  in
+  let extracted =
+    extracted
+    @ referenced_theme_decls ~theme ~exclude:(names_set_of extracted)
+        selector_props
   in
   let pre_defaults, post_defaults = split_defaults default_decls in
 

@@ -348,6 +348,13 @@ val suborder_with_shade : string -> int
 
 module Handler : sig
   include Utility.Handler
+
+  val theme_color_decl : ?theme:Scheme.t -> string -> Css.declaration option
+  (** [theme_color_decl ?theme name] is the [\@layer theme] declaration for the
+      colour token [name] (e.g. ["color-red-500"]), or [None] when [name] is not
+      a catalogued colour token. Lets the build emit colour tokens that are only
+      referenced via [var()] (e.g. by an arbitrary [color:var(--color-red-500)])
+      rather than set by a colour utility. *)
 end
 
 (** {1 Color with Opacity Helpers}

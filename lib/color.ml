@@ -1638,6 +1638,24 @@ module Handler = struct
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
+  (* The theme-layer declaration for a colour token named like "color-red-500",
+     or None when the name is not a catalogued colour token. [color_var]
+     registers the token's canonical order and [get_color_value] supplies the
+     typed value, so the result matches what a colour utility would emit. Used
+     to emit tokens that arbitrary values reference via var() but that no colour
+     utility set. *)
+  let theme_color_decl ?theme name =
+    if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
+    else
+      let rest = String.sub name 6 (String.length name - 6) in
+      match shade_of_strings (String.split_on_char '-' rest) with
+      | Ok (c, shade) when not (is_custom_color c) ->
+          let decl, _ =
+            Var.binding (color_var c shade) (get_color_value ?theme c shade)
+          in
+          Some decl
+      | _ -> None
+
   (** Get a color variable for a property. Checks if a property-scoped theme
       value exists (e.g., [--accent-color-blue-500]) and if so creates a
       property-scoped variable. Otherwise falls back to the generic
