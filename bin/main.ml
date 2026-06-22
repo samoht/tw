@@ -70,6 +70,13 @@ let render_css ~(opts : gen_opts) stylesheet =
   in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
+(* Surface of_string's specific message (e.g. the actionable arbitrary-property
+   feedback) for a single unknown class; fall back to a generic message. *)
+let unknown_class_error class_str =
+  match Tw.of_string class_str with
+  | Error (`Msg m) -> Fmt.str "Error: %s" m
+  | Ok _ -> Fmt.str "Error: Unknown class: %s" class_str
+
 let diff_single_class class_str ~(opts : gen_opts) =
   try
     let legacy_css =
@@ -88,7 +95,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     | [] when class_str = "" ->
         print_diff_result " (empty/base only)" diff;
         `Ok ()
-    | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+    | [] -> `Error (false, unknown_class_error class_str)
     | _ ->
         print_diff_result
           (Fmt.str " between Tailwind and tw for '%s'" class_str)
@@ -118,8 +125,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       let tw_styles = parse_classes ~warn:false class_str in
       let styles = match tw_styles with [] -> [] | s -> s in
       match tw_styles with
-      | [] when class_str <> "" ->
-          `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+      | [] when class_str <> "" -> `Error (false, unknown_class_error class_str)
       | _ ->
           let stylesheet = Tw.to_css ~base:include_base styles in
           print_string (render_css ~opts stylesheet);
