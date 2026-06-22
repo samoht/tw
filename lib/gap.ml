@@ -395,7 +395,7 @@ module Handler = struct
           else if value = "full" then Some (Standard `Full)
           else None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function

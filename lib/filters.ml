@@ -1197,7 +1197,7 @@ module Handler = struct
     | Backdrop_sepia n -> 20000 + (100 - n)
     | Backdrop_sepia_arbitrary _ -> 20500
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "filter" ] -> Ok Filter

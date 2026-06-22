@@ -390,7 +390,7 @@ module Handler = struct
     | Auto_rows_max -> 15104
     | Auto_rows_min -> 15105
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none

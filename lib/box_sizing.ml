@@ -18,7 +18,7 @@ module Handler = struct
     | Border -> style [ box_sizing Border_box ]
     | Content -> style [ box_sizing Content_box ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "box"; "border" ] -> Ok Border

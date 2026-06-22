@@ -3591,8 +3591,10 @@ val to_classes : t list -> string
 val pp : t -> string
 (** [pp style] generates a class name from a style. *)
 
-val of_string : string -> (t, [ `Msg of string ]) result
-(** [of_string class_str] parses a Tailwind class string into a style.
+val of_string : ?theme:Scheme.t -> string -> (t, [ `Msg of string ]) result
+(** [of_string ?theme class_str] parses a Tailwind class string into a style.
+    [theme] (default {!Scheme.default}) is consulted to validate custom tokens
+    such as named colors and opacities defined in an [@theme] block.
 
     Example:
     {[

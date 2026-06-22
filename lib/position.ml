@@ -496,7 +496,7 @@ module Handler = struct
     | End_full -> 952
     | End n -> 1000 + n
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "static" ] -> Ok Position_static

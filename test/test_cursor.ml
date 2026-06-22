@@ -3,7 +3,7 @@ open Tw.Cursor.Handler
 
 let check parts =
   let expected = String.concat "-" parts in
-  match of_class expected with
+  match of_class Tw.Scheme.default expected with
   | Ok result ->
       Alcotest.check string "cursor class name" expected (to_class result)
   | Error (`Msg msg) -> fail msg
@@ -24,7 +24,7 @@ let of_string_valid () =
 let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match of_class class_name with
+    match of_class Tw.Scheme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in

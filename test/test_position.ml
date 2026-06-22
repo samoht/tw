@@ -1,7 +1,7 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Position.Handler.of_class class_name with
+  match Tw.Position.Handler.of_class Tw.Scheme.default class_name with
   | Ok util ->
       check string "positioning class" class_name
         (Tw.Position.Handler.to_class util)

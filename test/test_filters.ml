@@ -1,7 +1,7 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Filters.Handler.of_class class_name with
+  match Tw.Filters.Handler.of_class Tw.Scheme.default class_name with
   | Ok u ->
       check string "filters class" class_name (Tw.Filters.Handler.to_class u)
   | Error (`Msg msg) -> fail msg

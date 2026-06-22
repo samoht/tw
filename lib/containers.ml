@@ -68,7 +68,7 @@ module Handler = struct
     | Container_normal -> 2
     | Layout_container -> 3 (* After @container utilities *)
 
-  let of_class = function
+  let of_class _theme = function
     | "container" -> Ok Layout_container
     | "@container" -> Ok Container
     | "@container-normal" -> Ok Container_normal

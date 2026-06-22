@@ -500,7 +500,7 @@ module Handler = struct
     | Mask_size_bracket _ -> 407
     | Mask_size_bracket_var _ -> 408
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "mask"; "none" ] -> Ok Mask_none

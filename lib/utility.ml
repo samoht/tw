@@ -19,7 +19,7 @@ module type Handler = sig
   val to_style : Scheme.t -> t -> Style.t
   val priority : int
   val suborder : t -> int
-  val of_class : string -> (t, [ `Msg of string ]) result
+  val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
 end
 
@@ -51,20 +51,20 @@ let class_of_base u =
   | Some class_name -> class_name
   | None -> failwith "name_of_base"
 
-let base_of_class class_name =
+let base_of_class theme class_name =
   let rec try_handlers = function
     | [] -> Error (`Msg "Unknown utility")
     | H (module M) :: rest -> (
-        match M.of_class class_name with
+        match M.of_class theme class_name with
         | Ok x -> Ok (M.Self x)
         | Error _ -> try_handlers rest)
   in
   try_handlers !handlers
 
 (* Keep for backward compatibility with tests *)
-let base_of_strings parts =
+let base_of_strings theme parts =
   let class_name = String.concat "-" parts in
-  base_of_class class_name
+  base_of_class theme class_name
 
 let base_to_style theme u =
   let rec try_handlers = function

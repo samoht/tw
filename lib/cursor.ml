@@ -154,7 +154,7 @@ module Handler = struct
     | Cursor_theme name -> theme_suborder name
     | t -> List.assoc t suborder_map
 
-  let of_class cls =
+  let of_class _theme cls =
     let parts = Parse.split_class cls in
     match parts with
     | [ "cursor"; value ] when Parse.is_bracket_var value ->

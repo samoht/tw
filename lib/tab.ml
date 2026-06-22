@@ -36,7 +36,7 @@ module Handler = struct
           | None -> None)
     else None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     match Parse.split_class class_name with
     | [ "tab"; n ] -> (
         match int_of_string_opt n with

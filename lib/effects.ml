@@ -2417,7 +2417,7 @@ module Handler = struct
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
           | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity)))
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none

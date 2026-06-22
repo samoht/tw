@@ -44,7 +44,7 @@ let extract_base_utility class_name_no_pseudo =
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =
   let parts = String.split_on_char '-' base_utility in
-  match Utility.base_of_strings parts with
+  match Utility.base_of_strings Scheme.default parts with
   | Ok u -> Utility.order u
   | Error _ ->
       (* Some selectors (like .group, .peer, .container) are marker classes that
@@ -72,7 +72,7 @@ let selector_props_pairs rules =
           let order =
             match base_class with
             | Some class_name -> (
-                match Utility.base_of_class class_name with
+                match Utility.base_of_class Scheme.default class_name with
                 | Ok u -> Utility.order u
                 | Error _ ->
                     (* base_class doesn't parse as a utility (e.g. "group"
@@ -308,7 +308,7 @@ let order_of_base order_map base_class selector =
       | Some order -> adjust_pseudo class_name order
       | None -> (
           let parts = String.split_on_char '-' base_utility in
-          match Utility.base_of_strings parts with
+          match Utility.base_of_strings Scheme.default parts with
           | Ok u -> adjust_pseudo class_name (Utility.order u)
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)

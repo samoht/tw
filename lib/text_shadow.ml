@@ -625,7 +625,7 @@ module Handler = struct
     in
     has_length_unit inner && not has_typed_prefix
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "shadow"; "none" ] -> Ok Text_shadow_none

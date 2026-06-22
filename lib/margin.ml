@@ -336,7 +336,7 @@ module Handler = struct
     | _ -> None
 
   (** Parse string parts to margin utility using shared logic *)
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)

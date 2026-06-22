@@ -59,7 +59,7 @@ module Screen_reader_handler = struct
             overflow Visible;
           ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "sr"; "only" ] -> Ok Sr_only
@@ -542,7 +542,7 @@ module Handler = struct
 
   (** {1 Parsing Functions} *)
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "block" ] -> Ok Block

@@ -459,7 +459,7 @@ module Handler = struct
       else None
     else None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "divide"; "x" ] -> Ok (Divide_x 1)

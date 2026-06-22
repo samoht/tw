@@ -396,7 +396,7 @@ module Handler = struct
       Ok (Stroke_width_bracket inner)
     else err_not_utility
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "fill"; "none" ] -> Ok Fill_none

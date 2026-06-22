@@ -30,7 +30,7 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a grid display utility")
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "grid" ] -> Ok Grid

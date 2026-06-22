@@ -1711,7 +1711,7 @@ module Handler = struct
         | Ok c -> Some (to_css c 500)
         | Error _ -> None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent

@@ -1347,7 +1347,7 @@ module Handler = struct
         | _ -> None)
     | _ -> None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "rotate"; n ] when Parse.is_bare_var n ->

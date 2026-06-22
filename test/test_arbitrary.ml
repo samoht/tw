@@ -2,7 +2,7 @@ open Alcotest
 open Tw.Arbitrary.Handler
 
 let check input =
-  match of_class input with
+  match of_class Tw.Scheme.default input with
   | Ok result ->
       Alcotest.check string "arbitrary class name" input (to_class result)
   | Error (`Msg msg) -> fail msg
@@ -14,7 +14,7 @@ let of_string_valid () =
 
 let of_string_invalid () =
   let fail_maybe input =
-    match of_class input with
+    match of_class Tw.Scheme.default input with
     | Ok _ -> fail ("Expected error for: " ^ input)
     | Error _ -> ()
   in

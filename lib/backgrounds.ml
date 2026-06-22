@@ -1604,7 +1604,7 @@ module Handler = struct
         | Ok (color, shade) -> gc (Gc_named (color, shade))
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "gradient"; "to"; "b" ] -> Ok (Bg_gradient_to Bottom)

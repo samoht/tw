@@ -21,7 +21,7 @@ module Handler = struct
     | Content -> style [ field_sizing Content ]
     | Fixed -> style [ field_sizing Fixed ]
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "field"; "sizing"; "content" ] -> Ok Content

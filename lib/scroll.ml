@@ -214,7 +214,7 @@ module Handler = struct
     | "be" -> Some Be
     | _ -> None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* scroll-m-4, scroll-p-4, scroll-mx-4, scroll-py-4, etc. *)

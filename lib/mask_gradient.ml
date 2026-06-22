@@ -871,7 +871,7 @@ module Handler = struct
                  ("Invalid mask-" ^ direction_short dir ^ "-"
                 ^ position_end_name pos_end ^ " value")))
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* mask-t-from-*, mask-t-to-* *)

@@ -200,7 +200,7 @@ module Handler = struct
     | Border_spacing_y n -> 2032 + int_of_float (n *. 10.)
     | Border_spacing_y_arb _ -> 3000
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "border"; "collapse" ] -> Ok Border_collapse

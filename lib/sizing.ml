@@ -992,7 +992,7 @@ module Handler = struct
         | _ -> err_not_utility)
     | _ -> err_not_utility
 
-  let of_class class_name =
+  let of_class _theme class_name =
     match Parse.split_class class_name with
     | [ "w"; value ] -> parse_w value
     | [ "h"; value ] -> parse_h value

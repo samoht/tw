@@ -93,8 +93,9 @@ module type Handler = sig
   val suborder : t -> int
   (** [suborder u] is the suborder within the same priority. *)
 
-  val of_class : string -> (t, [ `Msg of string ]) result
-  (** [of_class name] parses class [name] into a utility. *)
+  val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
+  (** [of_class theme name] parses class [name] into a utility, consulting
+      [theme] for custom token validation (e.g. named colors and opacities). *)
 
   val to_class : t -> string
   (** [to_class u] is the CSS class name for utility [u]. *)
@@ -103,13 +104,15 @@ end
 val register : (module Handler with type t = 'a) -> unit
 (** [register h] registers a utility handler module. *)
 
-val base_of_class : string -> (base, [ `Msg of string ]) result
-(** [base_of_class class_name] parses a class name into a base utility (without
-    modifiers). For internal use by the Tw module. *)
+val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
+(** [base_of_class theme class_name] parses a class name into a base utility
+    (without modifiers). For internal use by the Tw module. *)
 
-val base_of_strings : string list -> (base, [ `Msg of string ]) result
-(** [base_of_strings parts] parses a list of string parts into a base utility.
-    Deprecated: use base_of_class. For backward compatibility with tests. *)
+val base_of_strings :
+  Scheme.t -> string list -> (base, [ `Msg of string ]) result
+(** [base_of_strings theme parts] parses a list of string parts into a base
+    utility. Deprecated: use base_of_class. For backward compatibility with
+    tests. *)
 
 val base_to_style : Scheme.t -> base -> Style.t
 (** [base_to_style theme u] converts a base utility (without modifiers) to

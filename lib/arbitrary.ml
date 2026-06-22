@@ -181,7 +181,7 @@ module Handler = struct
     in
     "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix
 
-  let of_class class_name =
+  let of_class _theme class_name =
     (* Must start with [ and contain : *)
     let len = String.length class_name in
     if len < 3 || class_name.[0] <> '[' then err_not_utility

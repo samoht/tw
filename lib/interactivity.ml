@@ -248,7 +248,7 @@ module Handler = struct
     | Scheme_only_dark -> 44
     | Scheme_only_light -> 45
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "select"; "none" ] -> Ok Select_none

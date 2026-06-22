@@ -525,7 +525,7 @@ module Handler = struct
 
   let ( >|= ) = Parse.( >|= )
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "transition"; "none" ] -> Ok Transition_none

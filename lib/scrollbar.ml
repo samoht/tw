@@ -244,7 +244,7 @@ module Handler = struct
         | Ok (c, shade) -> Ok (mk (Theme (c, shade, Color.No_opacity)))
         | Error e -> Error e)
 
-  let of_class class_name =
+  let of_class _theme class_name =
     match Parse.split_class class_name with
     | [ "scrollbar"; "auto" ] -> Ok Width_auto
     | [ "scrollbar"; "none" ] -> Ok Width_none

@@ -485,7 +485,7 @@ module Typography_early = struct
           if List.mem s known_leading_names then Stdlib.Option.Some (Lh_named s)
           else Stdlib.Option.None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "xs" ] -> Ok Text_xs
@@ -1406,7 +1406,7 @@ module Typography_late = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "underline" ] -> Ok Underline

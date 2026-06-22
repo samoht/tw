@@ -290,7 +290,7 @@ module Handler = struct
       Some (String.map (fun c -> if c = '_' then ' ' else c) inner)
     else None
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "col"; "auto" ] -> Ok Col_auto

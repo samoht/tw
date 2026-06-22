@@ -62,7 +62,7 @@ let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Effects.Handler.of_class class_name with
+    match Tw.Effects.Handler.of_class Tw.Scheme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in

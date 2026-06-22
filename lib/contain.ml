@@ -139,7 +139,7 @@ module Handler = struct
   let of_class_map =
     List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data
 
-  let of_class class_name =
+  let of_class _theme class_name =
     match List.assoc_opt class_name of_class_map with
     | Some t -> Ok t
     | None ->

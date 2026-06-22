@@ -1949,7 +1949,7 @@ module Handler = struct
     | Outline_offset_var _ -> 2215
     | Outline_offset_arbitrary _ -> 2215
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "border" ] -> Ok Border
@@ -2501,7 +2501,7 @@ module Outline_style_handler = struct
 
   let err_not_utility = Error (`Msg "Not an outline style utility")
 
-  let of_class class_name =
+  let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "outline"; "dashed" ] -> Ok Dashed
