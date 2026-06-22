@@ -14,9 +14,6 @@ val text_shadow_xs : t
 val text_shadow_sm : t
 (** [text_shadow_sm] is the [text-shadow-sm] utility. *)
 
-val text_shadow : t
-(** [text_shadow] is the default [text-shadow] utility. *)
-
 val text_shadow_md : t
 (** [text_shadow_md] is the [text-shadow-md] utility. *)
 

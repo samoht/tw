@@ -2466,9 +2466,6 @@ val text_shadow_xs : t
 val text_shadow_sm : t
 (** [text_shadow_sm] applies the small text shadow. *)
 
-val text_shadow : t
-(** [text_shadow] applies the default (md) text shadow. *)
-
 val text_shadow_md : t
 (** [text_shadow_md] applies the medium text shadow. *)
 
