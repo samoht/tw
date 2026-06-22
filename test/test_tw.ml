@@ -209,6 +209,10 @@ type upstream_case = {
   name : string;
   config : upstream_config;
   variants : string list;
+  theme_vars : (string * string) list;
+      (** [@theme-var name value] token declarations captured from the fixture;
+          they must be threaded into the per-case scheme so custom tokens (e.g.
+          a themed [--inset-shadow]) validate. *)
   classes : string list;
   expected : string;
 }
@@ -292,6 +296,22 @@ let parse_upstream_block source block =
               Some (String.sub s 9 (String.length s - 9))
             else None)
       in
+      let theme_vars =
+        before
+        |> List.filter_map (fun s ->
+            if String.starts_with ~prefix:"@theme-var " s then
+              (* "@theme-var <name> <value>": split on the first space. *)
+              let rest = String.sub s 11 (String.length s - 11) in
+              match String.index_opt rest ' ' with
+              | Some i ->
+                  let n = String.sub rest 0 i in
+                  let v =
+                    String.sub rest (i + 1) (String.length rest - i - 1)
+                  in
+                  Some (n, v)
+              | None -> None
+            else None)
+      in
       let config =
         before
         |> List.find_opt (String.starts_with ~prefix:"@config ")
@@ -305,13 +325,14 @@ let parse_upstream_block source block =
             s <> ""
             && (not (String.starts_with ~prefix:"# " s))
             && (not (String.starts_with ~prefix:"@config " s))
-            && not (String.starts_with ~prefix:"@variant " s))
+            && (not (String.starts_with ~prefix:"@variant " s))
+            && not (String.starts_with ~prefix:"@theme-var " s))
         |> List.rev
         |> List.find_opt (fun _ -> true)
       in
       let classes = Option.value ~default:"" class_line |> split_classes in
       let expected = after |> String.concat "\n" |> String.trim in
-      Some { source; name; config; variants; classes; expected }
+      Some { source; name; config; variants; theme_vars; classes; expected }
 
 let read_upstream_cases filename =
   let path = fixture_path filename in
@@ -406,7 +427,7 @@ let is_scheme_typed_var name =
 
 (* Build the per-test scheme from the @theme tokens in the expected CSS, so
    of_string validates custom tokens against the threaded theme. *)
-let upstream_scheme config expected =
+let upstream_scheme config theme_vars expected =
   let overrides =
     match config with
     | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
@@ -422,6 +443,18 @@ let upstream_scheme config expected =
           base @ extra
         else base
     | No_theme -> []
+  in
+  (* Thread the fixture's explicit [@theme-var] declarations too. Some tokens
+     (e.g. a themed [--inset-shadow]) are inlined by Tailwind and never appear
+     as [:root] vars, so they cannot be recovered from [expected] alone. *)
+  let overrides =
+    let extra =
+      theme_vars
+      |> List.filter (fun (name, _) ->
+          (not (is_scheme_typed_var name))
+          && not (List.mem_assoc name overrides))
+    in
+    overrides @ extra
   in
   Tw.Scheme.with_overrides Tw.Scheme.default overrides
 
@@ -439,7 +472,7 @@ let check_upstream_positive_fixture_parse filename () =
     cases
     |> List.concat_map (fun c ->
         register_upstream_variant_directives c.variants;
-        let theme = upstream_scheme c.config c.expected in
+        let theme = upstream_scheme c.config c.theme_vars c.expected in
         c.classes
         |> List.filter (class_is_emitted c.expected)
         |> List.filter_map (fun cls ->

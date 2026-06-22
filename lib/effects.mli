@@ -50,23 +50,20 @@ val shadow_inner : t
 val inset_shadow_none : t
 (** [inset_shadow_none] removes the inset shadow. *)
 
+val inset_shadow_2xs : t
+(** [inset_shadow_2xs] applies the smallest inset shadow ([inset 0 1px]). *)
+
+val inset_shadow_xs : t
+(** [inset_shadow_xs] applies an extra-small inset shadow ([inset 0 1px 1px]).
+*)
+
 val inset_shadow_sm : t
-(** [inset_shadow_sm] applies a small inset shadow. *)
+(** [inset_shadow_sm] applies a small inset shadow ([inset 0 2px 4px]). *)
 
 val inset_shadow : t
-(** [inset_shadow] applies the default inset shadow. *)
-
-val inset_shadow_md : t
-(** [inset_shadow_md] applies a medium inset shadow. *)
-
-val inset_shadow_lg : t
-(** [inset_shadow_lg] applies a large inset shadow. *)
-
-val inset_shadow_xl : t
-(** [inset_shadow_xl] applies an extra-large inset shadow. *)
-
-val inset_shadow_2xl : t
-(** [inset_shadow_2xl] applies a 2× extra-large inset shadow. *)
+(** [inset_shadow] applies the inset shadow defined by the [--inset-shadow]
+    theme token. It has no default value: it is only a valid class when the
+    active theme defines that token. *)
 
 val opacity : int -> t
 (** [opacity n] sets opacity to n%. *)
