@@ -759,8 +759,29 @@ let check_spacing_zero_prune () =
     "p-0 drops unused --spacing" false
     (Astring.String.is_infix ~affix:"--spacing" css)
 
+(* A utility that only REFERENCES a theme colour token via var() (here an
+   arbitrary bg-[color:var(--color-red-500)]) must still emit that token in
+   @layer theme; the build used to collect only tokens utilities set. A
+   non-theme var stays out. *)
+let test_referenced_theme_token () =
+  let css cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "parse %s: %s" cls m
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+  in
+  (* The "--token:" form (a declaration) appears only when the token is SET in
+     @layer theme; the references are "var(--token)". *)
+  check bool "referenced --color-red-500 is emitted in theme" true
+    (Astring.String.is_infix ~affix:"--color-red-500:"
+       (css "bg-[color:var(--color-red-500)]/50"));
+  check bool "non-theme --my-color is not emitted" false
+    (Astring.String.is_infix ~affix:"--my-color:"
+       (css "bg-[color:var(--my-color)]/50"))
+
 let tests =
   [
+    test_case "referenced theme token emitted" `Quick
+      test_referenced_theme_token;
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
