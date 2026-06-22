@@ -594,18 +594,6 @@ let theme_overrides_of config expected =
       else base
   | No_theme -> []
 
-(* Set theme value overrides for non-spacing root vars from expected CSS. This
-   enables utilities like z-auto and order-first to produce custom declarations
-   in the :root, :host block when [@config] theme is used. The same overrides
-   are threaded into the scheme's token_overrides (see run_test_case); the
-   global hashtbl remains only for the [Var.binding] theme-layer emission until
-   that seam is migrated. *)
-let setup_theme_overrides config expected =
-  Tw.Var.clear_theme_values ();
-  List.iter
-    (fun (name, value) -> Tw.Var.set_theme_value name value)
-    (theme_overrides_of config expected)
-
 (** Extract custom breakpoints by matching input class modifiers with px values
     from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
     within min-/max- prefixes (e.g. "min-xs:max-sm:flex"). *)
@@ -832,9 +820,8 @@ let run_test_case test () =
         Tw.Modifiers.register_custom_breakpoints custom_bps;
         updated_scheme
     in
-    setup_theme_overrides test.config test.expected;
-    (* Thread the same @theme token overrides into the scheme so utilities read
-       them from ~theme rather than the Var global. *)
+    (* Thread the @theme token overrides into the scheme so utilities read them
+       from ~theme (parse and render); the Var global is no longer consulted. *)
     let scheme =
       (* [theme_overrides_of] derives values from the expected [:root] (already
          normalized as Tailwind emits them), so it must win over the raw
