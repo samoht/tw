@@ -10,6 +10,21 @@ let test_blur () =
   check "blur-sm";
   check "blur-2xl"
 
+(* drop-shadow-xs is a v4.3.1 default size (0 1px 1px, alpha .05); it
+   round-trips and references the --drop-shadow-xs theme token. *)
+let test_drop_shadow_xs () =
+  check "drop-shadow-xs";
+  let css =
+    Tw.to_css [ Result.get_ok (Tw.of_string "drop-shadow-xs") ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "references var(--drop-shadow-xs)" true
+    (Astring.String.is_infix ~affix:"var(--drop-shadow-xs)" css);
+  Alcotest.(check bool)
+    "emits --drop-shadow-xs default" true
+    (Astring.String.is_infix ~affix:"--drop-shadow-xs:" css)
+
 let test_backdrop () =
   check "backdrop-opacity-50";
   check "backdrop-invert"
@@ -38,6 +53,7 @@ let test_backdrop_blur_token () =
 let tests =
   [
     test_case "blur" `Quick test_blur;
+    test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "backdrop" `Quick test_backdrop;
     test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick
