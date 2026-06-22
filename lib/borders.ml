@@ -48,6 +48,7 @@ module Handler = struct
     | Border_2
     | Border_4
     | Border_8
+    | Border_width of int
     | Border_width_bracket of string
     | Border_side_width_bracket of string * string
       (* side ("t"/"r"/"b"/"l"), arbitrary width inner: border-t-[1px] *)
@@ -301,6 +302,8 @@ module Handler = struct
   let border_2 = make_border_util [ Css.border_width (Px 2.) ]
   let border_4 = make_border_util [ Css.border_width (Px 4.) ]
   let border_8 = make_border_util [ Css.border_width (Px 8.) ]
+
+  let border_n n = make_border_util [ Css.border_width (Px (float_of_int n)) ]
 
   let parse_border_width inner : Css.border_width =
     if
@@ -1586,6 +1589,7 @@ module Handler = struct
     | Border_2 -> border_2
     | Border_4 -> border_4
     | Border_8 -> border_8
+    | Border_width n -> border_n n
     | Border_width_bracket v -> border_width_bracket_style v
     | Border_side_width_bracket (side, inner) ->
         let w = parse_border_width inner in
@@ -1881,6 +1885,7 @@ module Handler = struct
     | Border_2 -> 1002
     | Border_4 -> 1003
     | Border_8 -> 1004
+    | Border_width n -> 1001 + n
     | Border_width_bracket _ -> 1005
     (* Per-side arbitrary widths join their side's group (1200-1399), sorting
        after that side's numeric widths, matching Tailwind. *)
@@ -1957,6 +1962,9 @@ module Handler = struct
     | [ "border"; "2" ] -> Ok Border_2
     | [ "border"; "4" ] -> Ok Border_4
     | [ "border"; "8" ] -> Ok Border_8
+    | [ "border"; n ]
+      when (match int_of_string_opt n with Some w -> w > 0 | None -> false) ->
+        Ok (Border_width (int_of_string n))
     | [ "border"; "t" ] -> Ok Border_t
     | [ "border"; "r" ] -> Ok Border_r
     | [ "border"; "b" ] -> Ok Border_b
@@ -2174,7 +2182,8 @@ module Handler = struct
         | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
-    | [ "outline"; (("1" | "2" | "4" | "8") as n) ] ->
+    | [ "outline"; n ]
+      when (match int_of_string_opt n with Some w -> w > 0 | None -> false) ->
         Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
@@ -2236,6 +2245,7 @@ module Handler = struct
     | Border_2 -> "border-2"
     | Border_4 -> "border-4"
     | Border_8 -> "border-8"
+    | Border_width n -> "border-" ^ string_of_int n
     | Border_width_bracket v -> "border-[" ^ v ^ "]"
     | Border_side_width_bracket (side, inner) ->
         "border-" ^ side ^ "-[" ^ inner ^ "]"

@@ -9,6 +9,11 @@ let of_string_valid () =
   check "border-2";
   check "border-4";
   check "border-8";
+  (* v4 accepts any bare integer width, not just the fixed scale *)
+  check "border-1";
+  check "border-3";
+  check "outline-3";
+  check "outline-5";
 
   check "border-t";
   check "border-r";
@@ -55,8 +60,6 @@ let of_string_invalid () =
     Test_helpers.check_invalid_parts (module Tw.Borders.Handler)
   in
 
-  fail_maybe [ "border"; "3" ];
-  (* Invalid width *)
   fail_maybe [ "border"; "invalid" ];
   (* Invalid style *)
   fail_maybe [ "border"; "z" ];
@@ -138,8 +141,8 @@ let test_outline_widths () =
     "outline-1 emits outline-width: 1px" true
     (Astring.String.is_infix ~affix:"outline-width: 1px" (css "outline-1"));
   Alcotest.(check bool)
-    "outline-3 is not a utility" true
-    (match Tw.of_string "outline-3" with Error _ -> true | Ok _ -> false)
+    "outline-3 emits outline-width: 3px (v4 bare integer)" true
+    (Astring.String.is_infix ~affix:"outline-width: 3px" (css "outline-3"))
 
 (* Arbitrary outline-offset lengths (outline-offset-[3px]) emit the length,
    alongside the var() form (outline-offset-[var(--x)]). *)
