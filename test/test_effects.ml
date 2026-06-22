@@ -117,10 +117,72 @@ let test_shadow_small_sizes () =
     "shadow-xs has a 2px blur" true
     (Astring.String.is_infix ~affix:"1px 2px" (css Tw.shadow_xs))
 
+(* The v4.3.1 default inset-shadow scale is inset-shadow-{2xs,xs,sm} plus
+   inset-shadow-none. Bare inset-shadow and md/lg/xl/2xl do not exist. *)
+let test_inset_shadow_roundtrip () =
+  check "inset-shadow-none";
+  check "inset-shadow-2xs";
+  check "inset-shadow-xs";
+  check "inset-shadow-sm"
+
+let test_inset_shadow_invalid () =
+  (* Bare inset-shadow has no v4.3.1 default token, and md/lg/xl/2xl were
+     removed from the scale. *)
+  Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow";
+  Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow-md";
+  Test_helpers.check_invalid_input
+    (module Tw.Effects.Handler)
+    "inset-shadow-2xl"
+
+(* The default scale (alpha .05 = #0000000d): 2xs is a single inset shadow with
+   no blur ([inset 0 1px]); sm is [inset 0 2px 4px]. *)
+let test_inset_shadow_default_scale () =
+  let css cls =
+    Tw.to_css ~base:false [ Result.get_ok (Tw.of_string cls) ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "inset-shadow-2xs uses #0000000d" true
+    (Astring.String.is_infix ~affix:"#0000000d" (css "inset-shadow-2xs"));
+  Alcotest.(check bool)
+    "inset-shadow-2xs has no blur ([inset 0 1px])" true
+    (Astring.String.is_infix ~affix:"inset 0 1px var(" (css "inset-shadow-2xs"));
+  Alcotest.(check bool)
+    "inset-shadow-sm is [inset 0 2px 4px]" true
+    (Astring.String.is_infix ~affix:"inset 0 2px 4px" (css "inset-shadow-sm"))
+
+(* A threaded @theme override for an inset-shadow token flows through to the
+   inlined value. The default inset-shadow-sm is [inset 0 2px 4px]; with the
+   override below it becomes [inset 0 1px 1px], which is impossible without
+   theme threading. *)
+let test_inset_shadow_theme_override () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
+  in
+  let css =
+    Tw.to_css ~theme ~base:false
+      [ Result.get_ok (Tw.of_string ~theme "inset-shadow-sm") ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "inset-shadow-sm @theme override flows to [inset 0 1px 1px]" true
+    (Astring.String.is_infix ~affix:"inset 0 1px 1px" css);
+  Alcotest.(check bool)
+    "inset-shadow-sm @theme override drops the default [inset 0 2px 4px]" false
+    (Astring.String.is_infix ~affix:"inset 0 2px 4px" css)
+
 let tests =
   [
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
+    test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;
+    test_case "inset-shadow invalid (bare/md/2xl)" `Quick
+      test_inset_shadow_invalid;
+    test_case "inset-shadow default scale (v4.3.1)" `Quick
+      test_inset_shadow_default_scale;
+    test_case "inset-shadow @theme override threads through" `Quick
+      test_inset_shadow_theme_override;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;

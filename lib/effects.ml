@@ -26,13 +26,7 @@ module Handler = struct
     | Xl
     | Two_xl
 
-  type inset_shadow_shape =
-    | Ish_sm
-    | Ish_default
-    | Ish_md
-    | Ish_lg
-    | Ish_xl
-    | Ish_2xl
+  type inset_shadow_shape = Ish_2xs | Ish_xs | Ish_sm
 
   (* Color in an arbitrary shadow value *)
   type arbitrary =
@@ -70,14 +64,14 @@ module Handler = struct
     | Shadow_bracket_color_var_opacity of string * Color.opacity_modifier
     | Shadow_bracket_shadow of string (* shadow-[shadow:...] type hint *)
     | Shadow_bracket_var of string
-    (* Inset shadows *)
+    (* Inset shadows. The named scale is inset-shadow-{2xs,xs,sm}; bare
+       `inset-shadow` is only valid when a threaded @theme defines the
+       --inset-shadow token (v4.3.1 has no default for it). *)
     | Inset_shadow_none
+    | Inset_shadow_2xs
+    | Inset_shadow_xs
     | Inset_shadow_sm
     | Inset_shadow
-    | Inset_shadow_md
-    | Inset_shadow_lg
-    | Inset_shadow_xl
-    | Inset_shadow_2xl
     | Inset_shadow_arbitrary of string (* For inset-shadow-[12px_12px_#color] *)
     | Inset_shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Inset_shadow_shape_opacity of inset_shadow_shape * Color.opacity_modifier
@@ -822,53 +816,18 @@ module Handler = struct
 
   (* Inset shadow utilities - sets --tw-inset-shadow and composites
      box-shadow *)
-  type inset_shadow_size = [ `None | `Sm | `Default | `Md | `Lg | `Xl | `Xxl ]
 
-  let inset_shadow_internal (size : inset_shadow_size) =
-    (* Inset shadow sizes matching Tailwind v4: inset-shadow-none: 0 0 #0000
-       inset-shadow-sm: inset 0 1px 1px color inset-shadow: inset 0 2px 4px
-       color inset-shadow-md: inset 0 4px 6px color inset-shadow-lg: inset 0 4px
-       8px color inset-shadow-xl: inset 0 6px 10px color inset-shadow-2xl: inset
-       0 8px 25px color *)
-    let color_ref =
-      Var.reference_with_fallback inset_shadow_color_var (Css.hex "#0000000d")
-    in
-    let inset_value =
-      match size with
-      | `None ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero
-            ~color:(Css.hex "#0000") ()
-      | `Sm ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
-            ~color:(Var color_ref) ()
-      | `Default ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 2.) ~blur:(Px 4.)
-            ~color:(Var color_ref) ()
-      | `Md ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
-            ~color:(Var color_ref) ()
-      | `Lg ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 8.)
-            ~color:(Var color_ref) ()
-      | `Xl ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 6.) ~blur:(Px 10.)
-            ~color:(Var color_ref) ()
-      | `Xxl ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 8.) ~blur:(Px 25.)
-            ~color:(Var color_ref) ()
-    in
-
-    (* Set --tw-inset-shadow variable *)
+  (* Compose a built --tw-inset-shadow value into the full box-shadow stack.
+     Shared by the named scale, the bare themed utility and
+     inset-shadow-none. *)
+  let inset_shadow_compose inset_value =
     let d_inset_shadow, v_inset_shadow =
       Var.binding inset_shadow_var inset_value
     in
-
-    (* Reference other shadow variables through @property defaults *)
     let v_inset_ring = Var.reference inset_ring_shadow_var in
     let v_ring_offset = Var.reference ring_offset_shadow_var in
     let v_ring = Var.reference ring_shadow_var in
     let v_shadow = Var.reference shadow_var in
-
     let box_shadow_vars : Css.shadow list =
       [
         Css.Var v_inset_shadow;
@@ -878,39 +837,124 @@ module Handler = struct
         Css.Var v_shadow;
       ]
     in
-
-    (* Collect property rules *)
-    let property_rules =
-      [
-        Var.property_rule shadow_var;
-        Var.property_rule shadow_color_var;
-        Var.property_rule shadow_alpha_var;
-        Var.property_rule inset_shadow_var;
-        Var.property_rule inset_shadow_color_var;
-        Var.property_rule inset_shadow_alpha_var;
-        Var.property_rule ring_color_var;
-        Var.property_rule ring_shadow_var;
-        Var.property_rule inset_ring_color_var;
-        Var.property_rule inset_ring_shadow_var;
-        Var.property_rule ring_inset_var;
-        Var.property_rule ring_offset_width_var;
-        Var.property_rule ring_offset_color_var;
-        Var.property_rule ring_offset_shadow_var;
-      ]
-      |> List.filter_map (fun x -> x)
-    in
-
-    style
-      ~property_rules:(Css.concat property_rules)
+    style ~property_rules:shadow_property_rules
       [ d_inset_shadow; Css.box_shadows box_shadow_vars ]
 
-  let inset_shadow_none = inset_shadow_internal `None
-  let inset_shadow_sm = inset_shadow_internal `Sm
-  let inset_shadow = inset_shadow_internal `Default
-  let inset_shadow_md = inset_shadow_internal `Md
-  let inset_shadow_lg = inset_shadow_internal `Lg
-  let inset_shadow_xl = inset_shadow_internal `Xl
-  let inset_shadow_2xl = inset_shadow_internal `Xxl
+  (* v4.3.1 default inset-shadow scale (verified against the bare CLI). The
+     named utilities are inset-shadow-{2xs,xs,sm}; each is a single inset
+     shadow. The alpha is .05 (#0000000d). 2xs has no blur. *)
+  let inset_shadow_shape_data (shape : inset_shadow_shape) :
+      Css.length * Css.length * Css.length option * string =
+    match shape with
+    | Ish_2xs -> (Zero, Px 1., None, "#0000000d")
+    | Ish_xs -> (Zero, Px 1., Some (Px 1.), "#0000000d")
+    | Ish_sm -> (Zero, Px 2., Some (Px 4.), "#0000000d")
+
+  (* Theme token name for a shape's scale value (matches the @theme keys, e.g.
+     --inset-shadow-sm). *)
+  let inset_shadow_shape_token = function
+    | Ish_2xs -> "inset-shadow-2xs"
+    | Ish_xs -> "inset-shadow-xs"
+    | Ish_sm -> "inset-shadow-sm"
+
+  (* Parse a theme override for an inset-shadow token (e.g. "inset 0 2px 4px
+     rgb(0 0 0 / 0.05)") into the (h, v, blur, hex) tuple
+     [inset_shadow_shape_data] returns. Drops a leading "inset" keyword, takes
+     the leading length tokens, then converts the trailing colour to a hex
+     string. *)
+  let parse_inset_shadow_override (s : string) :
+      (Css.length * Css.length * Css.length option * string) option =
+    let hex_string_of_color (str : string) : string =
+      match Css.parse_color str with
+      | Some c -> (
+          match Color.css_color_to_hex c with
+          | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ })
+            ->
+              let bh = hex_byte in
+              "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
+          | _ -> str)
+      | None -> str
+    in
+    let parse_len str : Css.length option =
+      match str with
+      | "0" -> Some (Zero : Css.length)
+      | _ ->
+          let n = String.length str in
+          let cut suf = String.sub str 0 (n - String.length suf) in
+          if Filename.check_suffix str "px" then
+            Option.map
+              (fun f -> (Px f : Css.length))
+              (float_of_string_opt (cut "px"))
+          else if Filename.check_suffix str "rem" then
+            Option.map
+              (fun f -> (Rem f : Css.length))
+              (float_of_string_opt (cut "rem"))
+          else None
+    in
+    let toks =
+      String.split_on_char ' ' s
+      |> List.filter (( <> ) "")
+      |> List.filter (( <> ) "inset")
+    in
+    let rec take_lengths acc = function
+      | t :: rest -> (
+          match parse_len t with
+          | Some l -> take_lengths (l :: acc) rest
+          | None -> (List.rev acc, t :: rest))
+      | [] -> (List.rev acc, [])
+    in
+    let lengths, color_toks = take_lengths [] toks in
+    let hex = hex_string_of_color (String.concat " " color_toks) in
+    match lengths with
+    | [ h; v ] -> Some (h, v, None, hex)
+    | [ h; v; blur ] -> Some (h, v, Some blur, hex)
+    | _ -> None
+
+  (* (h, v, blur, hex) for a named shape: a threaded @theme override if present,
+     else the v4.3.1 default scale. *)
+  let inset_shadow_data_for ?theme shape =
+    match Scheme.theme_value theme (inset_shadow_shape_token shape) with
+    | Some override -> (
+        match parse_inset_shadow_override override with
+        | Some data -> data
+        | None -> inset_shadow_shape_data shape)
+    | None -> inset_shadow_shape_data shape
+
+  let inset_shadow_shape_style ?theme shape =
+    let h_offset, v_offset, blur, fallback_hex =
+      inset_shadow_data_for ?theme shape
+    in
+    let color_ref =
+      Var.reference_with_fallback inset_shadow_color_var (Css.hex fallback_hex)
+    in
+    let inset_value =
+      Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
+    in
+    inset_shadow_compose inset_value
+
+  let inset_shadow_none =
+    inset_shadow_compose
+      (Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero
+         ~color:(Css.hex "#0000") ())
+
+  (* Bare `inset-shadow` reads the threaded --inset-shadow token (it has no
+     v4.3.1 default; of_class only reaches here when the token is defined). *)
+  let inset_shadow_themed ?theme () =
+    let h_offset, v_offset, blur, fallback_hex =
+      match Scheme.theme_value theme "inset-shadow" with
+      | Some override -> (
+          match parse_inset_shadow_override override with
+          | Some data -> data
+          | None -> (Zero, Px 2., Some (Px 4.), "#0000000d"))
+      | None -> (Zero, Px 2., Some (Px 4.), "#0000000d")
+    in
+    let color_ref =
+      Var.reference_with_fallback inset_shadow_color_var (Css.hex fallback_hex)
+    in
+    let inset_value =
+      Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
+    in
+    inset_shadow_compose inset_value
 
   (* ============ Inset shadow helpers ============ *)
 
@@ -991,21 +1035,11 @@ module Handler = struct
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
     | Stdlib.Option.None -> inset_shadow_none
 
-  let inset_shadow_shape_data (shape : inset_shadow_shape) :
-      Css.length * Css.length * Css.length option * string =
-    match shape with
-    | Ish_sm -> (Zero, Px 1., Some (Px 1.), "#0000000d")
-    | Ish_default -> (Zero, Px 2., Some (Px 4.), "#0000000d")
-    | Ish_md -> (Zero, Px 4., Some (Px 6.), "#0000000d")
-    | Ish_lg -> (Zero, Px 4., Some (Px 8.), "#0000000d")
-    | Ish_xl -> (Zero, Px 6., Some (Px 10.), "#0000000d")
-    | Ish_2xl -> (Zero, Px 8., Some (Px 25.), "#0000000d")
-
-  let inset_shadow_shape_opacity_style shape opacity =
+  let inset_shadow_shape_opacity_style ?theme shape opacity =
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
     let h_offset, v_offset, blur, fallback_hex =
-      inset_shadow_shape_data shape
+      inset_shadow_data_for ?theme shape
     in
     let base_hex =
       if String.length fallback_hex = 9 then String.sub fallback_hex 0 7
@@ -2037,17 +2071,15 @@ module Handler = struct
     | Shadow_bracket_shadow s -> shadow_raw_var s
     | Shadow_bracket_var v -> shadow_raw_var v
     | Inset_shadow_none -> inset_shadow_none
-    | Inset_shadow_sm -> inset_shadow_sm
-    | Inset_shadow -> inset_shadow
-    | Inset_shadow_md -> inset_shadow_md
-    | Inset_shadow_lg -> inset_shadow_lg
-    | Inset_shadow_xl -> inset_shadow_xl
-    | Inset_shadow_2xl -> inset_shadow_2xl
+    | Inset_shadow_2xs -> inset_shadow_shape_style ~theme Ish_2xs
+    | Inset_shadow_xs -> inset_shadow_shape_style ~theme Ish_xs
+    | Inset_shadow_sm -> inset_shadow_shape_style ~theme Ish_sm
+    | Inset_shadow -> inset_shadow_themed ~theme ()
     | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
     | Inset_shadow_arbitrary_opacity (arb, op) ->
         inset_shadow_arbitrary_opacity arb op
     | Inset_shadow_shape_opacity (shape, op) ->
-        inset_shadow_shape_opacity_style shape op
+        inset_shadow_shape_opacity_style ~theme shape op
     | Inset_shadow_color (c, s) -> set_inset_shadow_color c s
     | Inset_shadow_color_opacity (c, s, op) ->
         set_inset_shadow_color_opacity c s op
@@ -2470,17 +2502,16 @@ module Handler = struct
             | _ -> Ok (Shadow_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
+    | [ "inset"; "shadow"; "2xs" ] -> Ok Inset_shadow_2xs
+    | [ "inset"; "shadow"; "xs" ] -> Ok Inset_shadow_xs
     | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
-    | [ "inset"; "shadow" ] -> Ok Inset_shadow
-    | [ base ] when String.starts_with ~prefix:"inset-shadow/" base -> (
-        let _, opacity = Color.parse_opacity_modifier ~theme base in
-        match opacity with
-        | Color.No_opacity -> err_not_utility
-        | op -> Ok (Inset_shadow_shape_opacity (Ish_default, op)))
-    | [ "inset"; "shadow"; "md" ] -> Ok Inset_shadow_md
-    | [ "inset"; "shadow"; "lg" ] -> Ok Inset_shadow_lg
-    | [ "inset"; "shadow"; "xl" ] -> Ok Inset_shadow_xl
-    | [ "inset"; "shadow"; "2xl" ] -> Ok Inset_shadow_2xl
+    (* Bare `inset-shadow` has no v4.3.1 default token; accept it only when a
+       threaded @theme defines --inset-shadow. inset-shadow-{md,lg,xl,2xl} do
+       not exist in v4.3.1 and fall through to err_not_utility. *)
+    | [ "inset"; "shadow" ]
+      when Scheme.theme_value (Some theme) "inset-shadow" <> None ->
+        Ok Inset_shadow
+    | [ "inset"; "shadow" ] -> err_not_utility
     | [ "inset"; "shadow"; "inherit" ] -> Ok Inset_shadow_inherit
     | [ "inset"; "shadow"; "transparent" ] -> Ok Inset_shadow_transparent
     | [ "inset"; "shadow"; current_str ]
@@ -2499,11 +2530,9 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
         | _, Color.No_opacity -> err_not_utility
+        | "2xs", op -> Ok (Inset_shadow_shape_opacity (Ish_2xs, op))
+        | "xs", op -> Ok (Inset_shadow_shape_opacity (Ish_xs, op))
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
-        | "md", op -> Ok (Inset_shadow_shape_opacity (Ish_md, op))
-        | "lg", op -> Ok (Inset_shadow_shape_opacity (Ish_lg, op))
-        | "xl", op -> Ok (Inset_shadow_shape_opacity (Ish_xl, op))
-        | "2xl", op -> Ok (Inset_shadow_shape_opacity (Ish_2xl, op))
         | _ -> err_not_utility)
     | [ "inset"; "shadow"; color; shade ] -> (
         let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
@@ -2692,23 +2721,18 @@ module Handler = struct
     | Shadow_bracket_shadow s -> "shadow-[shadow:" ^ s ^ "]"
     | Shadow_bracket_var v -> "shadow-[" ^ v ^ "]"
     | Inset_shadow_none -> "inset-shadow-none"
+    | Inset_shadow_2xs -> "inset-shadow-2xs"
+    | Inset_shadow_xs -> "inset-shadow-xs"
     | Inset_shadow_sm -> "inset-shadow-sm"
     | Inset_shadow -> "inset-shadow"
-    | Inset_shadow_md -> "inset-shadow-md"
-    | Inset_shadow_lg -> "inset-shadow-lg"
-    | Inset_shadow_xl -> "inset-shadow-xl"
-    | Inset_shadow_2xl -> "inset-shadow-2xl"
     | Inset_shadow_arbitrary arb -> "inset-shadow-[" ^ arb ^ "]"
     | Inset_shadow_arbitrary_opacity (arb, op) ->
         "inset-shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity op
     | Inset_shadow_shape_opacity (shape, op) ->
         (match shape with
-          | Ish_sm -> "inset-shadow-sm"
-          | Ish_default -> "inset-shadow"
-          | Ish_md -> "inset-shadow-md"
-          | Ish_lg -> "inset-shadow-lg"
-          | Ish_xl -> "inset-shadow-xl"
-          | Ish_2xl -> "inset-shadow-2xl")
+          | Ish_2xs -> "inset-shadow-2xs"
+          | Ish_xs -> "inset-shadow-xs"
+          | Ish_sm -> "inset-shadow-sm")
         ^ "/" ^ Color.pp_opacity op
     | Inset_shadow_color (c, s) ->
         "inset-shadow-" ^ Color.pp c ^ "-" ^ string_of_int s
@@ -2890,9 +2914,8 @@ module Handler = struct
     | Inset_shadow_shape_opacity _ -> 30991
     (* Inset shadow shape utilities — all same suborder, natural_compare
        decides *)
-    | Inset_shadow | Inset_shadow_2xl | Inset_shadow_lg | Inset_shadow_md
-    | Inset_shadow_none | Inset_shadow_sm | Inset_shadow_xl
-    | Inset_shadow_arbitrary _ | Inset_shadow_bracket_shadow _
+    | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
+    | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_bracket_shadow _
     | Inset_shadow_bracket_var _ ->
         31000
     (* Inset shadow color utilities *)
@@ -2992,12 +3015,10 @@ let shadow_xl = utility Shadow_xl
 let shadow_2xl = utility Shadow_2xl
 let shadow_inner = utility Shadow_inner
 let inset_shadow_none = utility Inset_shadow_none
+let inset_shadow_2xs = utility Inset_shadow_2xs
+let inset_shadow_xs = utility Inset_shadow_xs
 let inset_shadow_sm = utility Inset_shadow_sm
 let inset_shadow = utility Inset_shadow
-let inset_shadow_md = utility Inset_shadow_md
-let inset_shadow_lg = utility Inset_shadow_lg
-let inset_shadow_xl = utility Inset_shadow_xl
-let inset_shadow_2xl = utility Inset_shadow_2xl
 let ring_inset = utility Ring_inset
 let ring_none = utility Ring_none
 let ring_xs = utility Ring_xs
