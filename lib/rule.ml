@@ -1368,20 +1368,25 @@ let handle_group_peer_named inner name base_class props =
 (* Arbitrary selector: [&_p] → .class p *)
 let arbitrary_selector_rule content base_class props =
   let open Css.Selector in
+  (* In arbitrary variants, [_] denotes a space. *)
   let s = String.map (fun c -> if c = '_' then ' ' else c) content in
   let modified_class = "[" ^ content ^ "]:" ^ base_class in
-  let parts = String.split_on_char '&' s in
   let sel =
-    match parts with
-    | [ ""; rest ] ->
-        let rest = String.trim rest in
-        if rest = "" then Class modified_class
-        else
-          let descendant_sel =
-            Css.Selector.read (Cascade.Cursor.of_string rest)
-          in
-          combine (Class modified_class) Descendant descendant_sel
-    | _ -> Class modified_class
+    if String.contains s '&' then (
+      (* Replace each [&] anchor with this utility's own class and parse the
+         whole selector, so combinators ([&>div], [&+p], [&~p]), compounds
+         ([&:hover]) and trailing anchors ([input&]) all flatten correctly. A
+         naive split-on-[&] + Descendant combine mis-parses any remainder that
+         starts with a combinator. *)
+      let class_str = Css.Selector.to_string (Class modified_class) in
+      let buf = Buffer.create (String.length s + String.length class_str) in
+      String.iter
+        (fun c ->
+          if c = '&' then Buffer.add_string buf class_str
+          else Buffer.add_char buf c)
+        s;
+      Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf)))
+    else Class modified_class
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
@@ -1405,8 +1410,8 @@ let custom_variant_rule token template base_class props =
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
-let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier base_class
-    selector props =
+let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
+    base_class selector props =
   match modifier with
   (* Data modifiers *)
   | Style.Data_state _ | Style.Data_variant _ ->
@@ -1446,8 +1451,10 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier base_clas
       max_arbitrary_length_rule l base_class selector props
   | Style.Custom_responsive name ->
       custom_responsive_rule ?theme name base_class selector props
-  | Style.Min_custom name -> min_custom_rule ?theme name base_class selector props
-  | Style.Max_custom name -> max_custom_rule ?theme name base_class selector props
+  | Style.Min_custom name ->
+      min_custom_rule ?theme name base_class selector props
+  | Style.Max_custom name ->
+      max_custom_rule ?theme name base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not(), :not-bracket, group-not, peer-not — handled in
      apply_modifier_to_rule for multi-rule support *)
@@ -1782,8 +1789,9 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
 let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
-        (* Record the base utility's order under the class name we already built,
-           so the caller does not have to re-derive it from the string. *)
+        (* Record the base utility's order under the class name we already
+           built, so the caller does not have to re-derive it from the
+           string. *)
         (match (order_tbl, util_inner) with
         | Some tbl, Utility.Base b ->
             if not (Hashtbl.mem tbl class_name) then
