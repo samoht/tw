@@ -42,7 +42,28 @@ let test_ring_of_string_valid () =
   check "ring-3";
   check "ring-5";
   check "ring-12";
-  check "ring-inset"
+  check "ring-inset";
+  (* shadeless theme colours, with and without /opacity *)
+  check "ring-black";
+  check "ring-white/10";
+  check "inset-ring-black";
+  check "inset-ring-white/10"
+
+(* ring-black / ring-white (shadeless theme colours) parse with an optional
+   /opacity; a shaded colour without a shade (ring-red) stays rejected. *)
+let test_ring_shadeless_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.check bool "ring-black sets ring color" true
+    (Astring.String.is_infix ~affix:"--tw-ring-color" (css "ring-black"));
+  Alcotest.check bool "ring-white/10 uses color-mix" true
+    (Astring.String.is_infix ~affix:"color-mix" (css "ring-white/10"));
+  match Tw.of_string "ring-red" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "ring-red (no shade) should be rejected"
 
 let test_filters_css_generation () =
   (* Spot-check a few filter/backdrop utilities *)
@@ -206,6 +227,7 @@ let tests =
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
     test_case "ring-inset @property family" `Quick
       test_ring_inset_property_rules;
+    test_case "ring shadeless color opacity" `Quick test_ring_shadeless_color;
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

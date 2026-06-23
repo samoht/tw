@@ -2994,7 +2994,12 @@ let hex_alpha_color ?theme c shade opacity =
   let color_name = scheme_color_name c shade in
   match Scheme.hex_color (resolve_scheme theme) color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
-  | None -> None
+  | None ->
+      (* Shadeless base colours (black/white) have no scheme entry but a known
+         hex, so an /opacity modifier still resolves to a colour. *)
+      if is_base_color c then
+        Some (hex_with_alpha (to_oklch_css c shade) percent)
+      else None
 
 let color_mix_supports_condition = Handler.color_mix_supports_condition
 
