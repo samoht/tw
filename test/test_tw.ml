@@ -1052,6 +1052,15 @@ let paren_var_shorthand () =
   Alcotest.(check bool)
     "selector is not the bracket form" false
     (Astring.String.is_infix ~affix:"var\\(--w\\)\\]" out);
+  (* fallback form keeps the default inside var() *)
+  Alcotest.(check bool)
+    "top-(--top,0) keeps the fallback" true
+    (Astring.String.is_infix ~affix:"top: var(--top,0)" (css "top-(--top,0)"));
+  (* typed hint maps to the bracket typed form *)
+  Alcotest.(check bool)
+    "font-(family-name:--font-x) sets font-family: var(--font-x)" true
+    (Astring.String.is_infix ~affix:"font-family: var(--font-x)"
+       (css "font-(family-name:--font-x)"));
   (* round-trips the class name through of_string -> to_class *)
   match Tw.of_string "p-(--p)" with
   | Ok u ->
