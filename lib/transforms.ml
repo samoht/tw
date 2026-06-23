@@ -42,19 +42,23 @@ module Handler = struct
     | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
       Translate_full
+    | Translate_px
     | Translate_1_2
     | Translate_fraction of int * int
     | Translate_arbitrary of Css.length
     | (* Negative translate utilities *)
       Neg_translate_arbitrary of string
     | Neg_translate_full
+    | Neg_translate_px
     | Neg_translate_fraction of int * int
     | Neg_translate_x_arbitrary of string
     | Neg_translate_x_full
+    | Neg_translate_x_px
     | Neg_translate_x_1_2
     | Neg_translate_x_fraction of int * int
     | Neg_translate_y_arbitrary of string
     | Neg_translate_y_full
+    | Neg_translate_y_px
     | Neg_translate_y_1_2
     | Neg_translate_y_fraction of int * int
     | (* 3D Transforms *)
@@ -475,19 +479,27 @@ module Handler = struct
     let axis_decl, _ = Var.binding tw_translate_y_var len in
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
-  let neg_translate_x_arbitrary_style s =
-    let bare_name = Parse.extract_var_name s in
-    let neg_len : Css.length =
-      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+  (* Negated arbitrary length from a bracket inner: a var() becomes
+     calc(var(--x) * -1); a plain length (110%, 10px) is parsed and negated the
+     same way, matching Tailwind's calc(<value> * -1). *)
+  let neg_arbitrary_len s : Css.length =
+    let as_var () : Css.length =
+      Calc (Calc.mul (Calc.var (Parse.extract_var_name s)) (Calc.float (-1.)))
     in
+    if Parse.is_var s then as_var ()
+    else
+      match Css.parse_length s with
+      | Some l ->
+          (Calc (Calc.mul (Calc.length l) (Calc.float (-1.))) : Css.length)
+      | None -> as_var ()
+
+  let neg_translate_x_arbitrary_style s =
+    let neg_len = neg_arbitrary_len s in
     let axis_decl, _ = Var.binding tw_translate_x_var neg_len in
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_y_arbitrary_style s =
-    let bare_name = Parse.extract_var_name s in
-    let neg_len : Css.length =
-      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
-    in
+    let neg_len = neg_arbitrary_len s in
     let axis_decl, _ = Var.binding tw_translate_y_var neg_len in
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
@@ -597,12 +609,34 @@ module Handler = struct
     in
     style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
 
-  let neg_translate_arbitrary_style s =
-    (* Parse var name and negate: calc(var(--value) * -1) *)
-    let bare_name = Parse.extract_var_name s in
-    let neg_len : Css.length =
-      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+  let translate_px =
+    let dx, _ = Var.binding tw_translate_x_var (Px 1.0) in
+    let dy, _ = Var.binding tw_translate_y_var (Px 1.0) in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
+
+  let neg_translate_px =
+    let dx, _ = Var.binding tw_translate_x_var (Px (-1.0)) in
+    let dy, _ = Var.binding tw_translate_y_var (Px (-1.0)) in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
+
+  let neg_translate_x_px =
+    let axis_decl, _ = Var.binding tw_translate_x_var (Px (-1.0)) in
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
+
+  let neg_translate_y_px =
+    let axis_decl, _ = Var.binding tw_translate_y_var (Px (-1.0)) in
+    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
+
+  let neg_translate_arbitrary_style s =
+    let neg_len = neg_arbitrary_len s in
     let dx, _ = Var.binding tw_translate_x_var neg_len in
     let dy, _ = Var.binding tw_translate_y_var neg_len in
     let props =
@@ -1118,11 +1152,15 @@ module Handler = struct
     | Translate_y_arbitrary len -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate_full -> translate_full
+    | Translate_px -> translate_px
     | Translate_1_2 -> translate_1_2
     | Translate_fraction (num, denom) -> translate_fraction num denom
     | Translate_arbitrary len -> translate_arbitrary len
     | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
+    | Neg_translate_px -> neg_translate_px
+    | Neg_translate_x_px -> neg_translate_x_px
+    | Neg_translate_y_px -> neg_translate_y_px
     | Neg_translate_fraction (num, denom) -> neg_translate_fraction num denom
     | Neg_translate_x_arbitrary s -> neg_translate_x_arbitrary_style s
     | Neg_translate_x_full -> neg_translate_x_full
@@ -1227,11 +1265,15 @@ module Handler = struct
     (* Combined translate utilities: negative first, then positive *)
     | Neg_translate_arbitrary _ -> 85
     | Neg_translate_full -> 86
+    | Neg_translate_px -> 86
+    | Neg_translate_x_px -> 86
+    | Neg_translate_y_px -> 86
     | Neg_translate_fraction _ -> 86
     | Translate_1_2 -> 87
     | Translate_fraction _ -> 87
     | Translate_arbitrary _ -> 89
     | Translate_full -> 91
+    | Translate_px -> 91
     (* Translate utilities come first *)
     | Neg_translate_x_arbitrary _ -> 100
     | Neg_translate_x_full -> 101
@@ -1403,6 +1445,7 @@ module Handler = struct
     | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
+    | [ "translate"; "px" ] -> Ok Translate_px
     | [ "translate"; "1/2" ] -> Ok Translate_1_2
     | [ "translate"; n ] when String.contains n '/' -> (
         match parse_fraction n with
@@ -1422,35 +1465,38 @@ module Handler = struct
         | Error _ -> err_not_utility)
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
-    | [ ""; "translate"; value ] when Parse.is_bracket_var value ->
+    | [ ""; "translate"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_arbitrary inner)
     | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
+    | [ ""; "translate"; "px" ] -> Ok Neg_translate_px
     | [ ""; "translate"; n ] when String.contains n '/' -> (
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_fraction (num, denom))
         | None -> err_not_utility)
-    | [ ""; "translate"; "x"; value ] when Parse.is_bracket_var value ->
+    | [ ""; "translate"; "x"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_x_arbitrary inner)
     | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
+    | [ ""; "translate"; "x"; "px" ] -> Ok Neg_translate_x_px
     | [ ""; "translate"; "x"; n ] when String.contains n '/' -> (
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_x_fraction (num, denom))
         | None -> err_not_utility)
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
-    | [ ""; "translate"; "y"; value ] when Parse.is_bracket_var value ->
+    | [ ""; "translate"; "y"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_y_arbitrary inner)
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
+    | [ ""; "translate"; "y"; "px" ] -> Ok Neg_translate_y_px
     | [ ""; "translate"; "y"; n ] when String.contains n '/' -> (
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_y_fraction (num, denom))
         | None -> err_not_utility)
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
-    | [ ""; "translate"; "z"; value ] when Parse.is_bracket_var value ->
+    | [ ""; "translate"; "z"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_z_arbitrary inner)
     | [ ""; "translate"; "z"; "px" ] -> Ok Neg_translate_z_px
@@ -1693,12 +1739,16 @@ module Handler = struct
     | Neg_translate_z_px -> "-translate-z-px"
     | Translate_3d -> "translate-3d"
     | Translate_full -> "translate-full"
+    | Translate_px -> "translate-px"
     | Translate_1_2 -> "translate-1/2"
     | Translate_fraction (num, denom) ->
         "translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
     | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
+    | Neg_translate_px -> "-translate-px"
+    | Neg_translate_x_px -> "-translate-x-px"
+    | Neg_translate_y_px -> "-translate-y-px"
     | Neg_translate_fraction (num, denom) ->
         "-translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Neg_translate_x_arbitrary s -> "-translate-x-[" ^ s ^ "]"
