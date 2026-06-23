@@ -134,7 +134,7 @@ else
   # Summary: exit 0 means identical, non-zero means differ.
   # Show the first 40 lines of output so the terminal doesn't get flooded.
   set +e
-  NO_COLOR=1 "$CASCADE_BIN" diff --diff=semantic "$TAILWIND_OUT" "$TW_OUT" > "$BENCH/cascade-diff.out" 2>&1
+  NO_COLOR=1 "$CASCADE_BIN" diff --diff=canonical "$TAILWIND_OUT" "$TW_OUT" > "$BENCH/cascade-diff.out" 2>&1
   rc=$?
   set -e
   if [ $rc -eq 0 ]; then
@@ -152,4 +152,4 @@ echo "## Artefacts"
 echo "  tw          -> $TW_OUT"
 echo "  tailwindcss -> $TAILWIND_OUT"
 echo "  cascade diff -> $BENCH/cascade-diff.out"
-echo "  rerun diff   : cascade diff --diff=semantic $TAILWIND_OUT $TW_OUT | less -R"
+echo "  rerun diff   : cascade diff --diff=canonical $TAILWIND_OUT $TW_OUT | less -R"
