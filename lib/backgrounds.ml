@@ -127,6 +127,9 @@ module Handler = struct
     | Bg_bracket_var of string
     (* Bracket notation: bg-[image:var(--x)] → background-image *)
     | Bg_bracket_image_var of string
+    (* Bracket notation: bg-[image:<gradient/literal>] → background-image, with
+       the image: hint kept in the class name *)
+    | Bg_bracket_image of string
     (* Bracket notation: bg-[url(...)] → background-image *)
     | Bg_bracket_url of string
     (* Bracket notation: bg-[image:url(...)] → background-image (image: hint
@@ -319,6 +322,7 @@ module Handler = struct
     | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
     | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
+    | Bg_bracket_image v -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
     | Bg_bracket_image_url v -> "bg-[image:url(" ^ v ^ ")]"
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
@@ -1419,6 +1423,18 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
+    | Bg_bracket_image v -> (
+        let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
+        match Css.parse_background_image css_str with
+        | Some [ img ] ->
+            style [ Css.background_image (Css.minify_background_image img) ]
+        | Some imgs ->
+            style
+              [
+                Css.background_image
+                  (Css.List (List.map Css.minify_background_image imgs));
+              ]
+        | None -> style [])
     | Bg_bracket_url url ->
         style [ Css.background_image (Url (strip_outer_quotes url)) ]
     | Bg_bracket_image_url url ->
@@ -1534,6 +1550,7 @@ module Handler = struct
     | Bg_clip_text -> 150003
     (* Bracket image variants — before bg-none *)
     | Bg_bracket_image_var _ -> 210010
+    | Bg_bracket_image _ -> 210011
     | Bg_bracket_linear_gradient _ -> 210011
     | Bg_bracket_url _ -> 210012
     | Bg_bracket_image_url _ -> 210012
@@ -1876,11 +1893,13 @@ module Handler = struct
                    (String.sub inner 6 (String.length inner - 6)))
           | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
               (* The [image:] data-type hint forces a background-image. The
-                 value may be a [url(...)] literal or a [var(...)] reference. *)
+                 value is a [url(...)] literal, a [var(...)] reference, or a
+                 literal image (e.g. a gradient). *)
               let v = String.sub inner 6 (String.length inner - 6) in
               if String.length v > 4 && String.sub v 0 4 = "url(" then
                 Ok (Bg_bracket_image_url (String.sub v 4 (String.length v - 5)))
-              else Ok (Bg_bracket_image_var v)
+              else if Parse.is_var v then Ok (Bg_bracket_image_var v)
+              else Ok (Bg_bracket_image v)
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
               Ok
                 (Bg_bracket_url_var
