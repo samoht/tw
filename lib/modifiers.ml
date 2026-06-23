@@ -1565,11 +1565,19 @@ let simple_modifiers =
     ("hocus", Hocus);
     ("device-hocus", Device_hocus);
     (* Container queries *)
+    ("@3xs", Container Container_3xs);
+    ("@2xs", Container Container_2xs);
+    ("@xs", Container Container_xs);
     ("@sm", Container Container_sm);
     ("@md", Container Container_md);
     ("@lg", Container Container_lg);
     ("@xl", Container Container_xl);
     ("@2xl", Container Container_2xl);
+    ("@3xl", Container Container_3xl);
+    ("@4xl", Container Container_4xl);
+    ("@5xl", Container Container_5xl);
+    ("@6xl", Container Container_6xl);
+    ("@7xl", Container Container_7xl);
   ]
 
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
