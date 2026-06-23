@@ -4,6 +4,12 @@ open Cascade
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 
+type container_cmp =
+  | Cq_min
+  | Cq_max
+      (** Container-query direction: [Cq_min] is [width >= v], [Cq_max] is
+          [width < v]. *)
+
 type container_query =
   | Container_3xs
   | Container_2xs
@@ -19,6 +25,12 @@ type container_query =
   | Container_6xl
   | Container_7xl
   | Container_named of string * int
+  | Container_size of container_cmp * container_query
+      (** [@min-<size>] / [@max-<size>]; the inner query is a bare named size.
+      *)
+  | Container_len of Css.length  (** [@[<len>]]: [width >= len]. *)
+  | Container_len_cmp of container_cmp * Css.length
+      (** [@min-[<len>]] / [@max-[<len>]]. *)
 
 type modifier =
   | Hover
@@ -270,6 +282,10 @@ val pp_nth : string -> string -> string
 
 val pp_modifier : modifier -> string
 (** [pp_modifier m] converts a modifier to its string representation. *)
+
+val container_size_name : container_query -> string
+(** [container_size_name q] is the class-name suffix (after the leading [@]) for
+    a container query, e.g. ["md"], ["max-lg"], ["min-[20rem]"]. *)
 
 val style :
   ?rules:Css.statement list option ->

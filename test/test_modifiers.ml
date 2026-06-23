@@ -387,7 +387,8 @@ let test_pp_modifier_strings () =
   check string "pp not-hover" "not-hover" (pp_modifier (Not Hover))
 
 (* The full container-query size scale (@3xs .. @7xl) emits a container query at
-   the right min-width; @xs and @3xl+ used to be unknown modifiers. *)
+   the right threshold, using Tailwind v4's range syntax ([width >= 20rem]); @xs
+   and @3xl+ used to be unknown modifiers. *)
 let test_container_query_scale () =
   let css cls =
     match Tw.of_string cls with
@@ -395,13 +396,36 @@ let test_container_query_scale () =
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "@xs:flex is a 20rem container query" true
-    (Astring.String.is_infix ~affix:"@container (min-width: 20rem)"
+    (Astring.String.is_infix ~affix:"@container (width >= 20rem)"
        (css "@xs:flex"));
   check bool "@3xl:flex is a 48rem container query" true
-    (Astring.String.is_infix ~affix:"@container (min-width: 48rem)"
+    (Astring.String.is_infix ~affix:"@container (width >= 48rem)"
        (css "@3xl:flex"));
   check string "@xs round-trips" "@xs:p-4"
     (Tw.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
+
+(* @max-<size> negates the min query, and @min-/@max-[<len>] and bare @[<len>]
+   accept arbitrary lengths. All used to be unknown modifiers. *)
+let test_container_query_min_max () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "@min-md:flex" "@container (width >= 28rem)";
+  has "@max-md:flex" "@container (not (width >= 28rem))";
+  has "@min-[20rem]:flex" "@container (width >= 20rem)";
+  has "@max-[40rem]:flex" "@container (not (width >= 40rem))";
+  has "@[480px]:flex" "@container (width >= 480px)";
+  check string "@max-md round-trips" "@max-md:p-4"
+    (Tw.Utility.to_class (Option.get (apply [ "@max-md" ] (p 4))));
+  check string "@min-[20rem] round-trips" "@min-[20rem]:p-4"
+    (Tw.Utility.to_class (Option.get (apply [ "@min-[20rem]" ] (p 4))));
+  check string "@[480px] round-trips" "@[480px]:p-4"
+    (Tw.Utility.to_class (Option.get (apply [ "@[480px]" ] (p 4))))
 
 (* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
@@ -525,6 +549,7 @@ let tests =
       test_case "of_string parsing" `Quick test_of_string_parsing;
       test_case "pp_modifier strings" `Quick test_pp_modifier_strings;
       test_case "container query scale" `Quick test_container_query_scale;
+      test_case "container query min/max" `Quick test_container_query_min_max;
       test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
