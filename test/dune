@@ -13,6 +13,4 @@
   cascade
   cascade.diff
   test_helpers)
- (deps
-  upstream/utilities.txt
-  upstream/variants.txt))
+ (deps upstream/utilities.txt upstream/variants.txt))

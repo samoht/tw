@@ -31,9 +31,10 @@ val outputs :
     example a container utility emits one plain rule plus one [@media] rule per
     breakpoint.
 
-    [?order_tbl], when given, is populated with [class name -> (priority,
-    suborder)] for each base utility encountered, reusing the class strings built
-    here so callers need not re-derive the order from the class name. *)
+    [?order_tbl], when given, is populated with
+    [class name -> (priority, suborder)] for each base utility encountered,
+    reusing the class strings built here so callers need not re-derive the order
+    from the class name. *)
 
 (** {1 Modifier dispatch}
 

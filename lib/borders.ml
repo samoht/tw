@@ -171,7 +171,6 @@ module Handler = struct
   let border_2 = make_border_util [ Css.border_width (Px 2.) ]
   let border_4 = make_border_util [ Css.border_width (Px 4.) ]
   let border_8 = make_border_util [ Css.border_width (Px 8.) ]
-
   let border_n n = make_border_util [ Css.border_width (Px (float_of_int n)) ]
 
   let parse_border_width inner : Css.border_width =
@@ -839,7 +838,7 @@ module Handler = struct
     | [ "border"; "4" ] -> Ok Border_4
     | [ "border"; "8" ] -> Ok Border_8
     | [ "border"; n ]
-      when (match int_of_string_opt n with Some w -> w > 0 | None -> false) ->
+      when match int_of_string_opt n with Some w -> w > 0 | None -> false ->
         Ok (Border_width (int_of_string n))
     | [ "border"; "t" ] -> Ok Border_t
     | [ "border"; "r" ] -> Ok Border_r
@@ -913,7 +912,7 @@ module Handler = struct
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
     | [ "outline"; n ]
-      when (match int_of_string_opt n with Some w -> w > 0 | None -> false) ->
+      when match int_of_string_opt n with Some w -> w > 0 | None -> false ->
         Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in

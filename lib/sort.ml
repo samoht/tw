@@ -210,8 +210,8 @@ let extract_media_sort_key = function
   | _ -> (0, 0.)
 
 (* Precompute the sort keys for a rule's own and nested media conditions, so the
-   comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing the
-   query on every comparison. See [media_key]/[nested_media_key]. *)
+   comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing
+   the query on every comparison. See [media_key]/[nested_media_key]. *)
 let media_sort_keys rule_type nested =
   let media_key =
     match rule_type with `Media c -> Some (Css.Media.sort_key c) | _ -> None
