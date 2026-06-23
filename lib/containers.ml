@@ -117,21 +117,37 @@ let at_container_named name = utility (Container_named name)
 
 (** Convert a container query modifier to a structured Container.t condition *)
 let container_query_to_condition = function
+  | Style.Container_3xs -> Css.Container.Min_width_rem 16.
+  | Style.Container_2xs -> Css.Container.Min_width_rem 18.
+  | Style.Container_xs -> Css.Container.Min_width_rem 20.
   | Style.Container_sm -> Css.Container.Min_width_rem 24.
   | Style.Container_md -> Css.Container.Min_width_rem 28.
   | Style.Container_lg -> Css.Container.Min_width_rem 32.
   | Style.Container_xl -> Css.Container.Min_width_rem 36.
   | Style.Container_2xl -> Css.Container.Min_width_rem 42.
+  | Style.Container_3xl -> Css.Container.Min_width_rem 48.
+  | Style.Container_4xl -> Css.Container.Min_width_rem 56.
+  | Style.Container_5xl -> Css.Container.Min_width_rem 64.
+  | Style.Container_6xl -> Css.Container.Min_width_rem 72.
+  | Style.Container_7xl -> Css.Container.Min_width_rem 80.
   | Style.Container_named ("", width) -> Css.Container.Min_width_px width
   | Style.Container_named (name, width) ->
       Css.Container.Named (name, Min_width_px width)
 
 let container_query_to_class_prefix = function
+  | Style.Container_3xs -> "@3xs"
+  | Style.Container_2xs -> "@2xs"
+  | Style.Container_xs -> "@xs"
   | Style.Container_sm -> "@sm"
   | Style.Container_md -> "@md"
   | Style.Container_lg -> "@lg"
   | Style.Container_xl -> "@xl"
   | Style.Container_2xl -> "@2xl"
+  | Style.Container_3xl -> "@3xl"
+  | Style.Container_4xl -> "@4xl"
+  | Style.Container_5xl -> "@5xl"
+  | Style.Container_6xl -> "@6xl"
+  | Style.Container_7xl -> "@7xl"
   | Style.Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
   | Style.Container_named (name, width) ->
       "@" ^ name ^ "/" ^ string_of_int width

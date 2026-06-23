@@ -5,11 +5,19 @@ open Cascade
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 
 type container_query =
+  | Container_3xs
+  | Container_2xs
+  | Container_xs
   | Container_sm
   | Container_md
   | Container_lg
   | Container_xl
   | Container_2xl
+  | Container_3xl
+  | Container_4xl
+  | Container_5xl
+  | Container_6xl
+  | Container_7xl
   | Container_named of string * int
 
 type modifier =

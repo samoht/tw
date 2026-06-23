@@ -386,6 +386,23 @@ let test_pp_modifier_strings () =
   check string "pp before" "before" (pp_modifier Pseudo_before);
   check string "pp not-hover" "not-hover" (pp_modifier (Not Hover))
 
+(* The full container-query size scale (@3xs .. @7xl) emits a container query at
+   the right min-width; @xs and @3xl+ used to be unknown modifiers. *)
+let test_container_query_scale () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check bool "@xs:flex is a 20rem container query" true
+    (Astring.String.is_infix ~affix:"@container (min-width: 20rem)"
+       (css "@xs:flex"));
+  check bool "@3xl:flex is a 48rem container query" true
+    (Astring.String.is_infix ~affix:"@container (min-width: 48rem)"
+       (css "@3xl:flex"));
+  check string "@xs round-trips" "@xs:p-4"
+    (Tw.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
+
 (* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
   let u1 = apply [ "has-[.x]" ] (p 4) in
@@ -507,6 +524,7 @@ let tests =
       test_case "is_hover flags" `Quick test_is_hover;
       test_case "of_string parsing" `Quick test_of_string_parsing;
       test_case "pp_modifier strings" `Quick test_pp_modifier_strings;
+      test_case "container query scale" `Quick test_container_query_scale;
       test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
