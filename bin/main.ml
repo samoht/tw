@@ -39,6 +39,11 @@ type gen_opts = {
   quiet : bool;
   css_mode : Tw.Css.mode;
   backend : backend;
+  diff_mode : Cascade_diff.Css_compare.mode;
+      (** Comparison mode for --diff. [`Canonical] (default) ignores selector
+          regrouping/reordering and is right for real-world parity sweeps;
+          [`Auto]/[`Tree] (structural) reports regrouping, for tests that target
+          it. *)
 }
 
 let eval_flag flag ~default =
@@ -88,7 +93,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     let stylesheet = Tw.to_css ~base:true styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
         legacy_css our_css
     in
     match tw_styles with
@@ -171,7 +176,7 @@ let diff_files paths ~(opts : gen_opts) =
     let stylesheet = Tw.to_css ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
         legacy_css our_css
     in
     print_diff_result "" diff;
@@ -220,7 +225,7 @@ let process_files paths flag ~(opts : gen_opts) =
   | Native -> native_files paths flag ~opts
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    paths =
+    ~diff_mode paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -240,6 +245,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       quiet;
       css_mode = resolved_css_mode;
       backend;
+      diff_mode;
     }
   in
   match single_class with
@@ -283,19 +289,32 @@ let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
   Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
 
-let backend_vflag =
+let tailwind_flag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
-  let doc_diff =
-    "Compare tw output with real Tailwind CSS (shows differences). Forces \
-     --variables --base --minify for comparison."
+  Arg.(value & flag & info [ "tailwind" ] ~doc:doc_tailwind)
+
+let diff_flag =
+  let doc = "Compare tw output with real Tailwind CSS." in
+  Arg.(value & flag & info [ "diff" ] ~doc)
+
+let diff_mode_arg =
+  let doc =
+    "CSS comparison mode for --diff: canonical (default, ignores selector \
+     regrouping/reordering, right for real-world parity sweeps), auto, \
+     tree/structural (reports regrouping), or string."
+  in
+  let mode_conv =
+    Arg.enum
+      [
+        ("canonical", `Canonical);
+        ("auto", `Auto);
+        ("tree", `Tree);
+        ("structural", `Tree);
+        ("string", `String);
+      ]
   in
   Arg.(
-    value
-    & vflag Native
-        [
-          (Tailwind, info [ "tailwind" ] ~doc:doc_tailwind);
-          (Diff, info [ "diff" ] ~doc:doc_diff);
-        ])
+    value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
 let css_mode_vflag =
   let doc_inline = "Inline mode: resolve values (no variables), no layers." in
@@ -341,8 +360,10 @@ let cmd =
       `Pre "  tw --minify --optimize index.html src/";
       `P "Use real Tailwind CSS:";
       `Pre "  tw -s bg-blue-500 --tailwind";
-      `P "Compare tw output with real Tailwind CSS (minified and optimized):";
-      `Pre "  tw -s prose-sm --diff";
+      `P "Compare tw output with real Tailwind CSS:";
+      `Pre "  tw -s prose-sm --diff --diff-mode=canonical";
+      `P "Use structural diff output when regrouping/order is relevant:";
+      `Pre "  tw -s prose-sm --diff --diff-mode=tree";
       `S Manpage.s_see_also;
       `P "https://tailwindcss.com";
     ]
@@ -351,10 +372,28 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q backend paths ->
+        (const (fun s b css_m m o q tailwind diff diff_mode paths ->
+             let backend, diff_mode =
+               if diff then (Diff, diff_mode)
+               else
+                 let backend = if tailwind then Tailwind else Native in
+                 (backend, `Canonical)
+             in
              tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
-               paths)
+               ~diff_mode paths)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
-        $ quiet_flag $ backend_vflag $ paths_arg))
+        $ quiet_flag $ tailwind_flag $ diff_flag $ diff_mode_arg $ paths_arg))
 
-let () = exit (Cmd.eval cmd)
+let normalize_argv argv =
+  argv |> Array.to_list
+  |> List.concat_map (fun arg ->
+      let prefix = "--diff=" in
+      let prefix_len = String.length prefix in
+      if String.length arg > prefix_len && String.sub arg 0 prefix_len = prefix
+      then
+        let mode = String.sub arg prefix_len (String.length arg - prefix_len) in
+        [ "--diff"; "--diff-mode=" ^ mode ]
+      else [ arg ])
+  |> Array.of_list
+
+let () = exit (Cmd.eval ~argv:(normalize_argv Sys.argv) cmd)
