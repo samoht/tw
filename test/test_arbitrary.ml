@@ -14,7 +14,13 @@ let of_string_valid () =
   (* var-valued colours and custom properties with /opacity round-trip *)
   check "[color:var(--my-color)]/50";
   check "[--x:#ff0000]/50";
-  check "[--gradient-bg:var(--color-black)]/15"
+  check "[--gradient-bg:var(--color-black)]/15";
+  (* Plain custom-property declarations and non-colour standard properties parse
+     via the cascade declaration parser. *)
+  check "[--foo:bar]";
+  check "[mask-type:luminance]";
+  check "[display:flex]";
+  check "[color:red]"
 
 let of_string_invalid () =
   let fail_maybe input =
@@ -25,13 +31,7 @@ let of_string_invalid () =
   fail_maybe "";
   fail_maybe "color:red";
   fail_maybe "[invalid]";
-  fail_maybe "[]";
-  (* No opacity = not handled by this handler *)
-  fail_maybe "[color:red]";
-  (* Plain custom-property declarations and non-colour standard properties need
-     a typed cascade value parser; deferred (rejected, never crash). *)
-  fail_maybe "[--foo:bar]";
-  fail_maybe "[mask-type:luminance]"
+  fail_maybe "[]"
 
 let css cls =
   match Tw.of_string cls with
