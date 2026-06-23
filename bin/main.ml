@@ -131,13 +131,36 @@ let process_single_class class_str flag ~(opts : gen_opts) =
           print_string (render_css ~opts stylesheet);
           `Ok ())
 
+(* Source extensions scanned when a directory is given. Covers the markup and
+   component formats Tailwind class strings appear in, plus the JS/TS family and
+   markdown/registry data files real-world repos keep classes in. *)
+let scanned_extensions =
+  [
+    ".html";
+    ".eml";
+    ".ml";
+    ".re";
+    ".jsx";
+    ".tsx";
+    ".vue";
+    ".svelte";
+    ".ts";
+    ".js";
+    ".mjs";
+    ".cjs";
+    ".mdx";
+    ".md";
+    ".astro";
+    ".php";
+    ".erb";
+    ".json";
+  ]
+
 let collect_files paths =
   List.concat_map
     (fun path ->
       if Sys.file_exists path then
-        if Sys.is_directory path then
-          files path
-            [ ".html"; ".eml"; ".ml"; ".re"; ".jsx"; ".tsx"; ".vue"; ".svelte" ]
+        if Sys.is_directory path then files path scanned_extensions
         else [ path ]
       else [])
     paths
@@ -156,6 +179,31 @@ let parse_known_candidates candidates =
       | Error _ -> None)
     candidates
 
+(* True when [needle] occurs in [haystack]; a small Stdlib-only substring check
+   for candidate-classification reporting. *)
+let contains_sub ~needle haystack =
+  let nl = String.length needle and hl = String.length haystack in
+  if nl = 0 then true
+  else if nl > hl then false
+  else
+    let rec at i =
+      if i + nl > hl then false
+      else if String.sub haystack i nl = needle then true
+      else at (i + 1)
+    in
+    at 0
+
+(* Print a classification section: a count line and up to [limit] sample
+   classes, so corpus output separates real gaps from scanner noise. *)
+let print_candidate_section ~label ?(limit = 30) classes =
+  match classes with
+  | [] -> ()
+  | _ ->
+      Fmt.pr "@.%s (%d):@." label (List.length classes);
+      List.iteri (fun i c -> if i < limit then Fmt.pr "  %s@." c) classes;
+      if List.length classes > limit then
+        Fmt.pr "  ... and %d more@." (List.length classes - limit)
+
 let diff_files paths ~(opts : gen_opts) =
   try
     let all_files = collect_files paths in
@@ -163,11 +211,29 @@ let diff_files paths ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
+    (* Classify candidates: parseable by tw (known) vs rejected (unknown). *)
+    let known, unknown =
+      List.partition_map
+        (fun cls ->
+          match Tw.of_string cls with
+          | Ok u -> Left (cls, u)
+          | Error _ -> Right cls)
+        all_classes
+    in
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true all_classes
     in
-    let tw_styles = parse_known_candidates all_classes |> List.map snd in
+    (* Candidates tw renders but Tailwind (default theme) emits no rule for:
+       likely scanner noise or theme-dependent tokens, not real parity gaps. *)
+    let tw_only =
+      List.filter_map
+        (fun (cls, _) ->
+          let sel = "." ^ Tw.Rule.escape_class_name cls in
+          if contains_sub ~needle:sel legacy_css then None else Some cls)
+        known
+    in
+    let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
@@ -175,6 +241,10 @@ let diff_files paths ~(opts : gen_opts) =
         legacy_css our_css
     in
     print_diff_result "" diff;
+    print_candidate_section ~label:"tw rejected these candidates" unknown;
+    print_candidate_section
+      ~label:"accepted by tw but not emitted by Tailwind (default theme)"
+      tw_only;
     `Ok ()
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
