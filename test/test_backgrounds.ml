@@ -22,6 +22,33 @@ let test_gradient_colors () =
   Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
   Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
 
+(* Bare bg-radial / bg-conic (and bg-conic-{angle}) set --tw-gradient-position
+   to the default oklab interpolation and the matching gradient image; they used
+   to be unknown classes (only the /interp and bracket forms were handled). *)
+let test_radial_conic () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-radial emits radial-gradient" true
+    (Astring.String.is_infix ~affix:"radial-gradient(var(--tw-gradient-stops))"
+       (css "bg-radial"));
+  Alcotest.(check bool)
+    "bg-conic emits conic-gradient" true
+    (Astring.String.is_infix ~affix:"conic-gradient(var(--tw-gradient-stops))"
+       (css "bg-conic"));
+  Alcotest.(check bool)
+    "bg-radial sets position in oklab" true
+    (Astring.String.is_infix ~affix:"--tw-gradient-position: in oklab"
+       (css "bg-radial"));
+  Alcotest.(check bool)
+    "bg-conic-180 sets from 180deg" true
+    (Astring.String.is_infix
+       ~affix:"--tw-gradient-position: from 180deg in oklab"
+       (css "bg-conic-180"))
+
 let test_of_string_invalid () =
   (* Invalid background utilities *)
   let test_invalid =
@@ -148,6 +175,7 @@ let tests =
     test_case "gradient stop-position @property family" `Quick
       test_gradient_stop_position_properties;
     test_case "gradient direction" `Quick test_gradient_direction;
+    test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick
