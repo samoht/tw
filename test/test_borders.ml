@@ -182,6 +182,24 @@ let test_outline_offset_arbitrary () =
     (Astring.String.is_infix ~affix:"outline-offset: 3px"
        (css "outline-offset-[3px]"))
 
+(* outline-hidden's forced-colors reset is its own @media block; under a state
+   modifier (focus, focus-within) the block must use the modified selector, not
+   the bare .outline-hidden, and stay grouped with the regular rule. It used to
+   keep the bare selector and reorder before the regular rule. *)
+let test_outline_hidden_modifier_forced_colors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "focus:outline-hidden" in
+  Alcotest.(check bool)
+    "forced-colors block uses the focus-modified selector" true
+    (Astring.String.is_infix ~affix:".focus\\:outline-hidden:focus" out);
+  Alcotest.(check bool)
+    "forced-colors block is not the bare .outline-hidden" false
+    (Astring.String.is_infix ~affix:" .outline-hidden " out)
+
 (* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
    plus the side border-style var; they used to be unknown classes. *)
 let test_border_side_arbitrary_width () =
@@ -209,6 +227,8 @@ let tests =
     test_case "outline numeric widths" `Quick test_outline_widths;
     test_case "outline-offset arbitrary length" `Quick
       test_outline_offset_arbitrary;
+    test_case "outline-hidden modifier forced-colors" `Quick
+      test_outline_hidden_modifier_forced_colors;
     test_case "border side arbitrary widths" `Quick
       test_border_side_arbitrary_width;
     test_case "borders of_string - valid values" `Quick of_string_valid;
