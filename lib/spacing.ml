@@ -106,14 +106,22 @@ let is_named_spacing value =
   c >= 'a' && c <= 'z'
 
 (** Parse a spacing value from a string, with optional support for auto *)
-let parse_value_string ~allow_auto value : margin option =
+let parse_value_string ?theme ~allow_auto value : margin option =
   if value = "px" then Some `Px
   else if value = "full" then Some `Full
   else if allow_auto && value = "auto" then Some `Auto
   else
     match Parse.spacing_value ~name:"spacing" value with
     | Ok f -> Some (`Rem (f *. 0.25))
-    | Error _ -> if is_named_spacing value then Some (`Named value) else None
+    | Error _ ->
+        (* A named spacing (mx-big) is valid only when the theme defines the
+           [--spacing-<name>] token; without that gate a stray source token like
+           [my-form] would parse as a utility. *)
+        if
+          is_named_spacing value
+          && Scheme.theme_value theme ("spacing-" ^ value) <> None
+        then Some (`Named value)
+        else None
 
 type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
 (** Parse axis from a prefix string *)

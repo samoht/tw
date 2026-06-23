@@ -92,12 +92,17 @@ type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
 (** Axis for spacing utilities (all, x, y, top, right, bottom, left,
     inline-start, inline-end, block-start, block-end) *)
 
-val parse_value_string : allow_auto:bool -> string -> Style.margin option
-(** [parse_value_string ~allow_auto value] parses a spacing value string (px,
-    full, auto, or numeric).
+val parse_value_string :
+  ?theme:Scheme.t -> allow_auto:bool -> string -> Style.margin option
+(** [parse_value_string ?theme ~allow_auto value] parses a spacing value string
+    (px, full, auto, numeric, or a named token).
 
+    @param theme
+      Theme used to validate a named spacing ([mx-big]): a name is accepted only
+      when [--spacing-<name>] is defined, so stray source tokens do not parse as
+      utilities.
     @param allow_auto Whether to accept "auto" as a valid value
-    @param value The string to parse ("px", "full", "auto", or a number)
+    @param value The string to parse ("px", "full", "auto", a number, or a name)
     @return Parsed margin value or None if invalid. *)
 
 val axis_of_prefix : string -> axis option

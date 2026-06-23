@@ -496,7 +496,15 @@ module Handler = struct
     | End_full -> 952
     | End n -> 1000 + n
 
-  let of_class _theme class_name =
+  (* A named inset (top-header) is valid only when the theme defines the token.
+     Tailwind resolves the name against the [--inset-*] namespace, then falls
+     back to [--spacing-*]; without this gate a stray source token like
+     [top-level] would parse as a utility and emit a bogus value. *)
+  let is_named_inset theme n =
+    Scheme.theme_value (Some theme) ("inset-" ^ n) <> None
+    || Scheme.theme_value (Some theme) ("spacing-" ^ n) <> None
+
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "static" ] -> Ok Position_static
@@ -525,7 +533,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_x_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_x_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_x_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "x"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_x (-x))
@@ -535,7 +545,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_y_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_y_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_y_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "y"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_y (-x))
@@ -550,7 +562,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_s_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_s_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_s_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "s"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_s (-x))
@@ -565,7 +579,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_e_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_e_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_e_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "e"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_e (-x))
@@ -580,7 +596,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_bs_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_bs_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_bs_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "bs"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_bs (-x))
@@ -595,7 +613,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_be_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_be_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_be_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "be"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_be (-x))
@@ -607,7 +627,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Inset_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
@@ -622,7 +644,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Top_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Top_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Top_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "top"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
@@ -636,7 +660,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Right_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Right_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Right_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "right"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
@@ -650,7 +676,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Bottom_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Bottom_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Bottom_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "bottom"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
@@ -665,7 +693,9 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Left_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n -> Ok (Left_named n)
+            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
+              ->
+                Ok (Left_named n)
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "left"; n ] -> (
         match int_of_string_with_sign n with
