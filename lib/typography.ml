@@ -1397,7 +1397,7 @@ module Typography_late = struct
       Content_none
     | Content of string
     | Content_squote of string (* single-quoted arbitrary: content-['x'] *)
-    | Content_named of string
+    | Content_named of string (* content-<token> defined in the @theme *)
 
   type Utility.base += Self of t
 
@@ -1654,14 +1654,19 @@ module Typography_late = struct
           && String.get joined (String.length joined - 1) = ']'
           && String.get joined (String.length joined - 2) = q
         in
+        (* v4 has content-none, arbitrary content-[...], and content-<token>
+           when the @theme defines --content-<token>. A bare word like
+           content-wrapper with no such token is not a utility (it used to be
+           wrongly accepted). Unquoted brackets (content-[counter(x)]) need a
+           raw-token representation and are left for a follow-up. *)
         if bracket_quoted '"' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)
         else if bracket_quoted '\'' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content_squote value)
-        else if Spacing.is_named_spacing joined then Ok (Content_named joined)
-        else if Parse.is_valid_theme_name joined then Ok (Content joined)
+        else if Scheme.theme_value (Some theme) ("content-" ^ joined) <> None
+        then Ok (Content_named joined)
         else err_not_utility
     | _ -> err_not_utility
 
@@ -2433,18 +2438,8 @@ module Typography_late = struct
     let property_rules = Var.property_rules content_var in
     style ~property_rules [ content_decl; content (Css.Var content_ref) ]
 
-  let content_squote s =
-    (* Single-quoted arbitrary content (content-['x']) keeps the single
-       quote. *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    let quoted : Css.content =
-      Css.Quoted { value; quote = '\''; repr = None }
-    in
-    let content_decl, content_ref = Var.binding content_var quoted in
-    let property_rules = Var.property_rules content_var in
-    let c : Css.content = Css.Var content_ref in
-    style ~property_rules [ content_decl; Css.content c ]
-
+  (* content-<token> referencing a --content-<token> theme value (of_class only
+     builds this when the token exists in the theme). *)
   let content_named ?theme name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
@@ -2466,6 +2461,18 @@ module Typography_late = struct
     let property_rules = Var.property_rules content_var in
     let c : Css.content = Css.Var content_ref in
     style ~property_rules (content_decl @ [ Css.content c ])
+
+  let content_squote s =
+    (* Single-quoted arbitrary content (content-['x']) keeps the single
+       quote. *)
+    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let quoted : Css.content =
+      Css.Quoted { value; quote = '\''; repr = None }
+    in
+    let content_decl, content_ref = Var.binding content_var quoted in
+    let property_rules = Var.property_rules content_var in
+    let c : Css.content = Css.Var content_ref in
+    style ~property_rules [ content_decl; Css.content c ]
 
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]
