@@ -47,9 +47,10 @@ type gen_opts = {
       (** Path to the project's CSS entrypoint, fed verbatim to the real
           Tailwind backend so both sides share the project config. *)
   diff_mode : Cascade_diff.Css_compare.mode;
-      (** Comparison mode for --diff. [`Canonical] (semantic) ignores selector
+      (** Comparison mode for --diff. [`Canonical] (default) ignores selector
           regrouping/reordering and is right for real-world parity sweeps;
-          [`Auto] (structural) reports regrouping, for tests that target it. *)
+          [`Auto]/[`Tree] (structural) reports regrouping, for tests that target
+          it. *)
 }
 
 let read_file path =
@@ -58,71 +59,56 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* Extract @theme token overrides ([(bare-name, value)]) from a project CSS
-   entrypoint, so tw renders with the same tokens Tailwind reads from it. This
-   reads name->value strings from the config (consumed by
-   Scheme.with_overrides); it does not synthesise CSS values. Handles [@theme],
-   [@theme inline], etc. *)
-let theme_overrides_of_css css =
+(* Rewrite each Tailwind [@theme [modifiers] {] header to a [:root {] rule.
+   Cascade's parser accepts [@theme] but drops its body (it is not a standard
+   at-rule), so this swaps only the at-rule keyword and its modifiers up to the
+   opening brace; the declarations themselves are left for the real parser. *)
+let theme_blocks_as_root css =
   let len = String.length css in
-  let acc = ref [] in
-  (* Parse "--name: value;" declarations inside [s.[lo .. hi)] (one @theme
-     body). *)
-  let parse_block lo hi =
-    let i = ref lo in
-    while !i < hi do
-      (* Skip to the next custom-property declaration. *)
-      if !i + 1 < hi && css.[!i] = '-' && css.[!i + 1] = '-' then begin
-        let name_start = !i in
-        while !i < hi && css.[!i] <> ':' && css.[!i] <> '}' do
-          incr i
-        done;
-        if !i < hi && css.[!i] = ':' then begin
-          let name =
-            String.trim (String.sub css name_start (!i - name_start))
-          in
-          incr i;
-          let val_start = !i in
-          while !i < hi && css.[!i] <> ';' && css.[!i] <> '}' do
-            incr i
-          done;
-          let value = String.trim (String.sub css val_start (!i - val_start)) in
-          (* Drop the leading "--" for the Scheme override key. *)
-          if String.length name > 2 then
-            acc := (String.sub name 2 (String.length name - 2), value) :: !acc
-        end
-      end
-      else incr i
-    done
-  in
-  (* Walk @theme blocks, matching braces to find each body. *)
+  let buf = Buffer.create len in
   let i = ref 0 in
   while !i < len do
     if !i + 6 <= len && String.sub css !i 6 = "@theme" then begin
-      (* Advance to the block's opening brace. *)
+      (* Skip the header up to the block's opening brace. *)
       let j = ref (!i + 6) in
       while !j < len && css.[!j] <> '{' && css.[!j] <> ';' do
         incr j
       done;
       if !j < len && css.[!j] = '{' then begin
-        let body_start = !j + 1 in
-        let depth = ref 1 in
-        let k = ref body_start in
-        while !k < len && !depth > 0 do
-          (match css.[!k] with
-          | '{' -> incr depth
-          | '}' -> decr depth
-          | _ -> ());
-          if !depth > 0 then incr k
-        done;
-        parse_block body_start !k;
-        i := !k + 1
+        Buffer.add_string buf ":root ";
+        i := !j (* keep the '{' and the body verbatim *)
       end
-      else i := !j + 1
+      else begin
+        Buffer.add_char buf css.[!i];
+        incr i
+      end
     end
-    else incr i
+    else begin
+      Buffer.add_char buf css.[!i];
+      incr i
+    end
   done;
-  List.rev !acc
+  Buffer.contents buf
+
+(* Extract @theme token overrides ([(bare-name, value)]) from a project CSS
+   entrypoint, so tw renders with the same tokens Tailwind reads from it. The
+   declarations are parsed by cascade (after the @theme -> :root header swap);
+   the resulting name/value strings feed Scheme.with_overrides. *)
+let theme_overrides_of_css css =
+  match Css.of_string (theme_blocks_as_root css) with
+  | Error _ -> []
+  | Ok parse ->
+      Css.rules_of_statements (Css.statements parse.Css.stylesheet)
+      |> List.concat_map (fun (_sel, decls) ->
+          List.filter_map
+            (fun d ->
+              match Css.custom_declaration_name d with
+              | Some n when String.length n > 2 && String.sub n 0 2 = "--" ->
+                  Some
+                    ( String.sub n 2 (String.length n - 2),
+                      Css.declaration_value d )
+              | _ -> None)
+            decls)
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -398,13 +384,13 @@ let diff_flag =
 
 let diff_mode_arg =
   let doc =
-    "CSS comparison mode for --diff: semantic (canonical compare; default), \
-     auto, tree/structural, or string."
+    "CSS comparison mode for --diff: canonical (default, ignores selector \
+     regrouping/reordering, right for real-world parity sweeps), auto, \
+     tree/structural (reports regrouping), or string."
   in
   let mode_conv =
     Arg.enum
       [
-        ("semantic", `Canonical);
         ("canonical", `Canonical);
         ("auto", `Auto);
         ("tree", `Tree);
@@ -460,7 +446,7 @@ let cmd =
       `P "Use real Tailwind CSS:";
       `Pre "  tw -s bg-blue-500 --tailwind";
       `P "Compare tw output with real Tailwind CSS:";
-      `Pre "  tw -s prose-sm --diff --diff-mode=semantic";
+      `Pre "  tw -s prose-sm --diff --diff-mode=canonical";
       `P "Use structural diff output when regrouping/order is relevant:";
       `Pre "  tw -s prose-sm --diff --diff-mode=tree";
       `S Manpage.s_see_also;
