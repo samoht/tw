@@ -1580,13 +1580,20 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
           in
           wrap_in_media outer_condition
       | _ ->
+          (* State/pseudo modifiers (focus, hover, ...) don't add an outer media
+             condition; they rewrite the inner rule's selector so a utility
+             whose own output is a media block (e.g. outline-hidden's
+             forced-colors reset) gets the modified selector inside the block.
+             The base_class is updated to the modified class so this media stays
+             grouped with the utility's regular rule (same-utility order),
+             rather than being treated as a different utility and reordered. *)
           [
             Media_query
               {
                 condition = inner_condition;
-                selector;
+                selector = new_selector;
                 props;
-                base_class;
+                base_class = Some modified_class;
                 nested;
                 not_order = 0;
               };
