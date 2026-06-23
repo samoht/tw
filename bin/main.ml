@@ -3,11 +3,11 @@ open Cascade_diff
 open Cmdliner
 
 (* Parse a whitespace-separated string of classes *)
-let parse_classes ?(warn = true) classes_str =
+let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
   let class_names = Tw_tools.Source_scan.split_whitespace classes_str in
   List.filter_map
     (fun cls ->
-      match Tw.of_string cls with
+      match Tw.of_string ~theme cls with
       | Ok style -> Some style
       | Error _ ->
           if warn then Fmt.epr "Warning: Unknown class '%s'@." cls;
@@ -39,7 +39,90 @@ type gen_opts = {
   quiet : bool;
   css_mode : Tw.Css.mode;
   backend : backend;
+  theme : Tw.Scheme.t;
+      (** Theme used by tw's renderer, built from the project's --input-css so a
+          --diff over a real repo compares against the same [@theme] Tailwind
+          uses. Defaults to {!Tw.Scheme.default}. *)
+  input_css : string option;
+      (** Path to the project's CSS entrypoint, fed verbatim to the real
+          Tailwind backend so both sides share the project config. *)
+  diff_mode : Cascade_diff.Css_compare.mode;
+      (** Comparison mode for --diff. [`Canonical] (semantic) ignores selector
+          regrouping/reordering and is right for real-world parity sweeps;
+          [`Auto] (structural) reports regrouping, for tests that target it. *)
 }
+
+let read_file path =
+  let ic = open_in_bin path in
+  Fun.protect
+    ~finally:(fun () -> close_in ic)
+    (fun () -> really_input_string ic (in_channel_length ic))
+
+(* Extract @theme token overrides ([(bare-name, value)]) from a project CSS
+   entrypoint, so tw renders with the same tokens Tailwind reads from it. This
+   reads name->value strings from the config (consumed by
+   Scheme.with_overrides); it does not synthesise CSS values. Handles [@theme],
+   [@theme inline], etc. *)
+let theme_overrides_of_css css =
+  let len = String.length css in
+  let acc = ref [] in
+  (* Parse "--name: value;" declarations inside [s.[lo .. hi)] (one @theme
+     body). *)
+  let parse_block lo hi =
+    let i = ref lo in
+    while !i < hi do
+      (* Skip to the next custom-property declaration. *)
+      if !i + 1 < hi && css.[!i] = '-' && css.[!i + 1] = '-' then begin
+        let name_start = !i in
+        while !i < hi && css.[!i] <> ':' && css.[!i] <> '}' do
+          incr i
+        done;
+        if !i < hi && css.[!i] = ':' then begin
+          let name =
+            String.trim (String.sub css name_start (!i - name_start))
+          in
+          incr i;
+          let val_start = !i in
+          while !i < hi && css.[!i] <> ';' && css.[!i] <> '}' do
+            incr i
+          done;
+          let value = String.trim (String.sub css val_start (!i - val_start)) in
+          (* Drop the leading "--" for the Scheme override key. *)
+          if String.length name > 2 then
+            acc := (String.sub name 2 (String.length name - 2), value) :: !acc
+        end
+      end
+      else incr i
+    done
+  in
+  (* Walk @theme blocks, matching braces to find each body. *)
+  let i = ref 0 in
+  while !i < len do
+    if !i + 6 <= len && String.sub css !i 6 = "@theme" then begin
+      (* Advance to the block's opening brace. *)
+      let j = ref (!i + 6) in
+      while !j < len && css.[!j] <> '{' && css.[!j] <> ';' do
+        incr j
+      done;
+      if !j < len && css.[!j] = '{' then begin
+        let body_start = !j + 1 in
+        let depth = ref 1 in
+        let k = ref body_start in
+        while !k < len && !depth > 0 do
+          (match css.[!k] with
+          | '{' -> incr depth
+          | '}' -> decr depth
+          | _ -> ());
+          if !depth > 0 then incr k
+        done;
+        parse_block body_start !k;
+        i := !k + 1
+      end
+      else i := !j + 1
+    end
+    else incr i
+  done;
+  List.rev !acc
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -81,14 +164,14 @@ let diff_single_class class_str ~(opts : gen_opts) =
   try
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
-        ~forms:true [ class_str ]
+        ~forms:true ?input_css:opts.input_css [ class_str ]
     in
-    let tw_styles = parse_classes ~warn:false class_str in
+    let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
     let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~base:true styles in
+    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
         legacy_css our_css
     in
     match tw_styles with
@@ -148,10 +231,10 @@ let print_stats ~quiet ~candidate_count ~known_count =
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
-let parse_known_candidates candidates =
+let parse_known_candidates ?(theme = Tw.Scheme.default) candidates =
   List.filter_map
     (fun cls ->
-      match Tw.of_string cls with
+      match Tw.of_string ~theme cls with
       | Ok style -> Some (cls, style)
       | Error _ -> None)
     candidates
@@ -165,13 +248,15 @@ let diff_files paths ~(opts : gen_opts) =
     in
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
-        ~forms:true all_classes
+        ~forms:true ?input_css:opts.input_css all_classes
     in
-    let tw_styles = parse_known_candidates all_classes |> List.map snd in
-    let stylesheet = Tw.to_css ~base:true tw_styles in
+    let tw_styles =
+      parse_known_candidates ~theme:opts.theme all_classes |> List.map snd
+    in
+    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
         legacy_css our_css
     in
     print_diff_result "" diff;
@@ -220,7 +305,7 @@ let process_files paths flag ~(opts : gen_opts) =
   | Native -> native_files paths flag ~opts
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    paths =
+    ~input_css ~diff_mode paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -233,6 +318,16 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
   (* Diff mode forces minified output; Cascade handles semantic comparison. *)
   let resolved_minify = match backend with Diff -> true | _ -> minify in
   let resolved_optimize = optimize in
+  (* Build the renderer theme from the project's CSS entrypoint (its @theme), so
+     a --diff over a real repo compares against the same tokens Tailwind
+     uses. *)
+  let css_content = Option.map read_file input_css in
+  let theme =
+    match css_content with
+    | None -> Tw.Scheme.default
+    | Some css ->
+        Tw.Scheme.with_overrides Tw.Scheme.default (theme_overrides_of_css css)
+  in
   let opts : gen_opts =
     {
       minify = resolved_minify;
@@ -240,6 +335,9 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       quiet;
       css_mode = resolved_css_mode;
       backend;
+      theme;
+      input_css = css_content;
+      diff_mode;
     }
   in
   match single_class with
@@ -283,19 +381,39 @@ let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
   Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
 
-let backend_vflag =
+let input_css_arg =
+  let doc =
+    "Project CSS entrypoint to feed to Tailwind during --diff. @theme blocks \
+     are also used to configure tw's renderer."
+  in
+  Arg.(value & opt (some file) None & info [ "input-css" ] ~docv:"CSS" ~doc)
+
+let tailwind_flag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
-  let doc_diff =
-    "Compare tw output with real Tailwind CSS (shows differences). Forces \
-     --variables --base --minify for comparison."
+  Arg.(value & flag & info [ "tailwind" ] ~doc:doc_tailwind)
+
+let diff_flag =
+  let doc = "Compare tw output with real Tailwind CSS." in
+  Arg.(value & flag & info [ "diff" ] ~doc)
+
+let diff_mode_arg =
+  let doc =
+    "CSS comparison mode for --diff: semantic (canonical compare; default), \
+     auto, tree/structural, or string."
+  in
+  let mode_conv =
+    Arg.enum
+      [
+        ("semantic", `Canonical);
+        ("canonical", `Canonical);
+        ("auto", `Auto);
+        ("tree", `Tree);
+        ("structural", `Tree);
+        ("string", `String);
+      ]
   in
   Arg.(
-    value
-    & vflag Native
-        [
-          (Tailwind, info [ "tailwind" ] ~doc:doc_tailwind);
-          (Diff, info [ "diff" ] ~doc:doc_diff);
-        ])
+    value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
 let css_mode_vflag =
   let doc_inline = "Inline mode: resolve values (no variables), no layers." in
@@ -341,8 +459,10 @@ let cmd =
       `Pre "  tw --minify --optimize index.html src/";
       `P "Use real Tailwind CSS:";
       `Pre "  tw -s bg-blue-500 --tailwind";
-      `P "Compare tw output with real Tailwind CSS (minified and optimized):";
-      `Pre "  tw -s prose-sm --diff";
+      `P "Compare tw output with real Tailwind CSS:";
+      `Pre "  tw -s prose-sm --diff --diff-mode=semantic";
+      `P "Use structural diff output when regrouping/order is relevant:";
+      `Pre "  tw -s prose-sm --diff --diff-mode=tree";
       `S Manpage.s_see_also;
       `P "https://tailwindcss.com";
     ]
@@ -351,10 +471,29 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q backend paths ->
+        (const (fun s b css_m m o q tailwind diff diff_mode input_css paths ->
+             let backend, diff_mode =
+               if diff then (Diff, diff_mode)
+               else
+                 let backend = if tailwind then Tailwind else Native in
+                 (backend, `Canonical)
+             in
              tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
-               paths)
+               ~diff_mode ~input_css paths)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
-        $ quiet_flag $ backend_vflag $ paths_arg))
+        $ quiet_flag $ tailwind_flag $ diff_flag $ diff_mode_arg $ input_css_arg
+        $ paths_arg))
 
-let () = exit (Cmd.eval cmd)
+let normalize_argv argv =
+  argv |> Array.to_list
+  |> List.concat_map (fun arg ->
+      let prefix = "--diff=" in
+      let prefix_len = String.length prefix in
+      if String.length arg > prefix_len && String.sub arg 0 prefix_len = prefix
+      then
+        let mode = String.sub arg prefix_len (String.length arg - prefix_len) in
+        [ "--diff"; "--diff-mode=" ^ mode ]
+      else [ arg ])
+  |> Array.of_list
+
+let () = exit (Cmd.eval ~argv:(normalize_argv Sys.argv) cmd)

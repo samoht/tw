@@ -5,7 +5,7 @@ let write_file path content =
   output_string oc content;
   close_out oc
 
-let tailwind_files ?(forms = false) temp_dir classnames =
+let tailwind_files ?(forms = false) ?input_css temp_dir classnames =
   (* Feed candidates to the extractor verbatim, space-separated, as raw file
      text rather than inside an HTML class attribute. An attribute forces
      escaping one quote style into an HTML entity, and Tailwind's extractor
@@ -14,16 +14,23 @@ let tailwind_files ?(forms = false) temp_dir classnames =
      preserves both single and double quotes exactly as a real source file
      would, so arbitrary url() and content-["..."] values round-trip. *)
   let html_content = String.concat " " classnames in
+  (* When the caller supplies a project CSS entrypoint, use it verbatim so the
+     real Tailwind reads the project's @theme/@plugin/@config; otherwise
+     synthesise the default import. *)
   let input_css_content =
-    if forms then
-      (* forms plugin with strategy: 'class' requires a config file *)
-      "@import \"tailwindcss\";\n\
-       @plugin \"@tailwindcss/typography\";\n\
-       @config \"./tailwind.config.js\";"
-    else "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
+    match input_css with
+    | Some content -> content
+    | None ->
+        if forms then
+          (* forms plugin with strategy: 'class' requires a config file *)
+          "@import \"tailwindcss\";\n\
+           @plugin \"@tailwindcss/typography\";\n\
+           @config \"./tailwind.config.js\";"
+        else "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
   in
-  (* Generate tailwind.config.js when forms plugin is needed *)
-  (if forms then
+  (* Generate tailwind.config.js when forms plugin is needed (only for the
+     synthesised input; a supplied entrypoint carries its own config). *)
+  (if forms && input_css = None then
      let config_content =
        {|import forms from '@tailwindcss/forms'
 
@@ -228,7 +235,7 @@ let has_forms_class classnames =
     (fun cls -> String.length cls >= 5 && String.sub cls 0 5 = "form-")
     classnames
 
-let generate ?(minify = false) ?(optimize = true) ?forms classnames =
+let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   check_tailwindcss_available ();
 
   let dir = temp_dir () in
@@ -243,7 +250,7 @@ let generate ?(minify = false) ?(optimize = true) ?forms classnames =
       | Some f -> f && classnames <> []
       | None -> has_forms_class classnames
     in
-    tailwind_files ~forms:use_forms dir classnames;
+    tailwind_files ~forms:use_forms ?input_css dir classnames;
 
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in
