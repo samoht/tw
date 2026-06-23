@@ -47,6 +47,25 @@ let named_inset_requires_theme_token () =
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "top-header with theme rejected: %s" m
 
+(* Arbitrary var() insets (top-[var(--t)], inset-[var(--i)]) reference the var
+   directly; they used to be unknown classes because the bracket parser only
+   accepted numeric lengths. *)
+let test_arbitrary_var () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "top-[var(--t)] sets top: var(--t)" true
+    (Astring.String.is_infix ~affix:"top: var(--t)" (css "top-[var(--t)]"));
+  Alcotest.(check bool)
+    "inset-[var(--i)] sets inset: var(--i)" true
+    (Astring.String.is_infix ~affix:"inset: var(--i)" (css "inset-[var(--i)]"));
+  (* round-trips the class name *)
+  check "top-[var(--t)]";
+  check "left-[var(--l)]"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -65,6 +84,7 @@ let tests =
     test_case "position utilities" `Quick test_position_utilities;
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
+    test_case "arbitrary var insets" `Quick test_arbitrary_var;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
