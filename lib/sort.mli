@@ -79,9 +79,9 @@ val media_sort_keys :
   | `Supports of Css.Supports.t ] ->
   Css.statement list ->
   Css.Media.key option * Css.Media.key option
-(** [media_sort_keys rule_type nested] is the
-    [(media_key, nested_media_key)] pair stored on an {!type-indexed_rule},
-    computed once so comparisons never re-serialize a media query. *)
+(** [media_sort_keys rule_type nested] is the [(media_key, nested_media_key)]
+    pair stored on an {!type-indexed_rule}, computed once so comparisons never
+    re-serialize a media query. *)
 
 (** {1 Sorting} *)
 
