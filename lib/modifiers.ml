@@ -1944,11 +1944,73 @@ let try_prose_element s =
     if is_prose_element_name name then Some (Prose_element name) else None
   else None
 
+(* Parse the container-query modifier forms that are not plain table entries:
+   [@min-<size>], [@max-<size>], [@\[<len>\]], [@min-\[<len>\]], and
+   [@max-\[<len>\]]. The bare [@<size>] forms are in [simple_modifiers]. *)
+let container_size_of_string = function
+  | "3xs" -> Some Container_3xs
+  | "2xs" -> Some Container_2xs
+  | "xs" -> Some Container_xs
+  | "sm" -> Some Container_sm
+  | "md" -> Some Container_md
+  | "lg" -> Some Container_lg
+  | "xl" -> Some Container_xl
+  | "2xl" -> Some Container_2xl
+  | "3xl" -> Some Container_3xl
+  | "4xl" -> Some Container_4xl
+  | "5xl" -> Some Container_5xl
+  | "6xl" -> Some Container_6xl
+  | "7xl" -> Some Container_7xl
+  | _ -> None
+
+let try_container_query s =
+  (* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
+  let bracketed prefix mk =
+    let plen = String.length prefix and slen = String.length s in
+    if
+      slen > plen + 2
+      && String.sub s 0 plen = prefix
+      && s.[plen] = '['
+      && s.[slen - 1] = ']'
+    then
+      match Css.parse_length (String.sub s (plen + 1) (slen - plen - 2)) with
+      | Some len -> Some (mk len)
+      | None -> None
+    else None
+  in
+  (* Match ["<prefix><size>"] against the named size scale. *)
+  let sized prefix cmp =
+    let plen = String.length prefix in
+    if String.length s > plen && String.sub s 0 plen = prefix then
+      match
+        container_size_of_string (String.sub s plen (String.length s - plen))
+      with
+      | Some q -> Some (Container (Container_size (cmp, q)))
+      | None -> None
+    else None
+  in
+  if String.length s < 2 || s.[0] <> '@' then None
+  else
+    List.find_map
+      (fun f -> f ())
+      [
+        (fun () -> bracketed "@" (fun len -> Container (Container_len len)));
+        (fun () ->
+          bracketed "@min-" (fun len ->
+              Container (Container_len_cmp (Cq_min, len))));
+        (fun () ->
+          bracketed "@max-" (fun len ->
+              Container (Container_len_cmp (Cq_max, len))));
+        (fun () -> sized "@min-" Cq_min);
+        (fun () -> sized "@max-" Cq_max);
+      ]
+
 (* Parse a modifier string into a typed Style.modifier *)
 let parse_modifier s : modifier option =
   let fns =
     [
       (fun () -> List.assoc_opt s simple_modifiers);
+      (fun () -> try_container_query s);
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);

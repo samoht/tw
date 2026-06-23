@@ -3,6 +3,7 @@
 module Css = Cascade.Css
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
+type container_cmp = Cq_min | Cq_max
 
 type container_query =
   | Container_3xs
@@ -19,6 +20,9 @@ type container_query =
   | Container_6xl
   | Container_7xl
   | Container_named of string * int
+  | Container_size of container_cmp * container_query
+  | Container_len of Css.length
+  | Container_len_cmp of container_cmp * Css.length
 
 type modifier =
   | Hover
@@ -303,6 +307,33 @@ let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
 let pp_nth prefix expr =
   if is_numeric expr then prefix ^ "-" ^ expr else prefix ^ "-[" ^ expr ^ "]"
 
+let container_cmp_prefix = function Cq_min -> "min-" | Cq_max -> "max-"
+
+(* The class-name suffix (after the leading [@]) for a container query. *)
+let rec container_size_name = function
+  | Container_3xs -> "3xs"
+  | Container_2xs -> "2xs"
+  | Container_xs -> "xs"
+  | Container_sm -> "sm"
+  | Container_md -> "md"
+  | Container_lg -> "lg"
+  | Container_xl -> "xl"
+  | Container_2xl -> "2xl"
+  | Container_3xl -> "3xl"
+  | Container_4xl -> "4xl"
+  | Container_5xl -> "5xl"
+  | Container_6xl -> "6xl"
+  | Container_7xl -> "7xl"
+  | Container_named (n, size) -> n ^ "/" ^ string_of_int size
+  | Container_size (cmp, inner) ->
+      container_cmp_prefix cmp ^ container_size_name inner
+  | Container_len l ->
+      "[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
+  | Container_len_cmp (cmp, l) ->
+      container_cmp_prefix cmp ^ "["
+      ^ Css.Pp.to_string (Css.pp_length ~always:true) l
+      ^ "]"
+
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function
   | Hover -> "hover"
@@ -341,21 +372,7 @@ let rec pp_modifier = function
       "min-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
   | Max_arbitrary_length l ->
       "max-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
-  | Container Container_3xs -> "@3xs"
-  | Container Container_2xs -> "@2xs"
-  | Container Container_xs -> "@xs"
-  | Container Container_sm -> "@sm"
-  | Container Container_md -> "@md"
-  | Container Container_lg -> "@lg"
-  | Container Container_xl -> "@xl"
-  | Container Container_2xl -> "@2xl"
-  | Container Container_3xl -> "@3xl"
-  | Container Container_4xl -> "@4xl"
-  | Container Container_5xl -> "@5xl"
-  | Container Container_6xl -> "@6xl"
-  | Container Container_7xl -> "@7xl"
-  | Container (Container_named (n, size)) ->
-      String.concat "" [ "@"; n; "/"; string_of_int size ]
+  | Container q -> "@" ^ container_size_name q
   | Group_hover -> "group-hover"
   | Group_focus -> "group-focus"
   | Peer_hover -> "peer-hover"
