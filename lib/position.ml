@@ -4,34 +4,37 @@ module Css = Cascade.Css
 
 (** {1 Helper Functions} *)
 
-(* Parse a bracket value like [4px] and return a Css.length *)
+(* Parse a bracket value like [4px] or [var(--x)] and return a Css.length *)
 let parse_bracket_length s : (Css.length, _) result =
   if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
     let inner = String.sub s 1 (String.length s - 2) in
-    let slen = String.length inner in
-    let i = ref 0 in
-    while
-      !i < slen
-      && (inner.[!i] = '-'
-         || inner.[!i] = '.'
-         || (inner.[!i] >= '0' && inner.[!i] <= '9'))
-    do
-      incr i
-    done;
-    let num_s = String.sub inner 0 !i in
-    let unit_s = String.sub inner !i (slen - !i) in
-    match Float.of_string_opt num_s with
-    | None -> Error (`Msg ("Invalid number: " ^ num_s))
-    | Some n -> (
-        let open Css in
-        match unit_s with
-        | "px" -> Ok (Px n)
-        | "rem" -> Ok (Rem n)
-        | "em" -> Ok (Em n)
-        | "%" -> Ok (Pct n)
-        | "vw" -> Ok (Vw n)
-        | "vh" -> Ok (Vh n)
-        | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
+    if Parse.is_var inner then
+      Ok (Css.Var (Var.bracket (Parse.extract_var_name inner)) : Css.length)
+    else
+      let slen = String.length inner in
+      let i = ref 0 in
+      while
+        !i < slen
+        && (inner.[!i] = '-'
+           || inner.[!i] = '.'
+           || (inner.[!i] >= '0' && inner.[!i] <= '9'))
+      do
+        incr i
+      done;
+      let num_s = String.sub inner 0 !i in
+      let unit_s = String.sub inner !i (slen - !i) in
+      match Float.of_string_opt num_s with
+      | None -> Error (`Msg ("Invalid number: " ^ num_s))
+      | Some n -> (
+          let open Css in
+          match unit_s with
+          | "px" -> Ok (Px n)
+          | "rem" -> Ok (Rem n)
+          | "em" -> Ok (Em n)
+          | "%" -> Ok (Pct n)
+          | "vw" -> Ok (Vw n)
+          | "vh" -> Ok (Vh n)
+          | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
   else Error (`Msg ("Not a bracket value: " ^ s))
 
 (* Negate an inset length: simple units flip sign directly; var()/calc() and
