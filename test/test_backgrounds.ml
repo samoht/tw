@@ -87,6 +87,28 @@ let test_of_string_invalid () =
   test_invalid [ "unknown"; "red" ]
 (* Unknown prefix *)
 
+(* bg-[image:<gradient>] emits the literal background-image; it used to wrap the
+   value in a bogus var(--radial-gradient(...)). var() and url() image values
+   are unchanged. *)
+let test_bracket_image_literal () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-[image:radial-gradient(...)] emits the literal gradient" true
+    (Astring.String.is_infix ~affix:"background-image: radial-gradient("
+       (css "bg-[image:radial-gradient(white,black)]"));
+  Alcotest.(check bool)
+    "no bogus var() wrapping" false
+    (Astring.String.is_infix ~affix:"var(--radial-gradient"
+       (css "bg-[image:radial-gradient(white,black)]"));
+  Alcotest.(check bool)
+    "bg-[image:var(--x)] still references the var" true
+    (Astring.String.is_infix ~affix:"background-image: var(--x)"
+       (css "bg-[image:var(--x)]"))
+
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
@@ -175,6 +197,7 @@ let tests =
     test_case "gradient stop-position @property family" `Quick
       test_gradient_stop_position_properties;
     test_case "gradient direction" `Quick test_gradient_direction;
+    test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
