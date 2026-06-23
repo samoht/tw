@@ -7,9 +7,15 @@ type t =
   | Modified of Style.modifier * t
   | Group of t list
   | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
+  | Aliased of string * t
+      (** [Aliased (class_name, u)] renders as [u] but reports [class_name] from
+          {!to_class}, so the emitted selector matches the source spelling. Used
+          for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
+          but keeps its own class name. *)
 
 let base x = Base x
 let important ?(suffix = false) x = Important (suffix, x)
+let alias class_name u = Aliased (class_name, u)
 
 module type Handler = sig
   type t
@@ -84,6 +90,7 @@ let rec to_style theme = function
   | Modified (m, u) -> Style.Modified (m, to_style theme u)
   | Group us -> Style.Group (List.map (to_style theme) us)
   | Important (_, u) -> Style.map_important (to_style theme u)
+  | Aliased (_, u) -> to_style theme u
 
 let rec to_class = function
   | Base u -> class_of_base u
@@ -98,12 +105,14 @@ let rec to_class = function
   | Group us -> String.concat " " (List.map to_class us)
   | Important (suffix, u) ->
       if suffix then to_class u ^ "!" else "!" ^ to_class u
+  | Aliased (class_name, _) -> class_name
 
 let rec pp = function
   | Base u -> "Base " ^ class_of_base u
   | Modified (m, u) -> "Modified (" ^ Style.pp_modifier m ^ ", " ^ pp u ^ ")"
   | Group us -> "Group [" ^ String.concat "; " (List.map pp us) ^ "]"
   | Important (_, u) -> "Important (" ^ pp u ^ ")"
+  | Aliased (class_name, u) -> "Aliased (" ^ class_name ^ ", " ^ pp u ^ ")"
 
 let order (u : base) : int * int =
   let rec try_handlers = function

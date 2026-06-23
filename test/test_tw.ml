@@ -1031,6 +1031,34 @@ let style_combination () =
       then Alcotest.failf "Missing class %s in combined CSS" class_name)
     expected_classes
 
+(* The v4 [prop-(--x)] shorthand is [prop-[var(--x)]] in value but keeps its own
+   class name in the selector. It works for any utility that accepts the bracket
+   var form, and round-trips the paren spelling. *)
+let paren_var_shorthand () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  (* value is var(--x) *)
+  Alcotest.(check bool)
+    "w-(--w) sets width: var(--w)" true
+    (Astring.String.is_infix ~affix:"width: var(--w)" (css "w-(--w)"));
+  (* selector keeps the paren spelling, not the bracket form *)
+  let out = css "w-(--w)" in
+  Alcotest.(check bool)
+    "selector keeps (--w) spelling" true
+    (Astring.String.is_infix ~affix:{|.w-\(--w\)|} out);
+  Alcotest.(check bool)
+    "selector is not the bracket form" false
+    (Astring.String.is_infix ~affix:"var\\(--w\\)\\]" out);
+  (* round-trips the class name through of_string -> to_class *)
+  match Tw.of_string "p-(--p)" with
+  | Ok u ->
+      Alcotest.(check string)
+        "p-(--p) round-trips" "p-(--p)" (Tw.to_classes [ u ])
+  | Error (`Msg m) -> Alcotest.failf "p-(--p): %s" m
+
 let all_colors_grays () =
   check_list
     (bg_shades slate shades @ bg_shades gray shades @ bg_shades zinc shades
@@ -1240,6 +1268,7 @@ let core_tests =
     test_case "precedence states" `Slow precedence_states;
     test_case "inline styles" `Slow inline_styles;
     test_case "style combination" `Slow style_combination;
+    test_case "paren var shorthand" `Quick paren_var_shorthand;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;

@@ -65,9 +65,18 @@ type t =
   | Modified of Style.modifier * t
   | Group of t list
   | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
+  | Aliased of string * t
+      (** [Aliased (class_name, u)] renders as [u] but reports [class_name] from
+          {!to_class}, so the emitted selector matches the source spelling. Used
+          for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
+          but keeps its own class name. *)
 
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t. *)
+
+val alias : string -> t -> t
+(** [alias class_name u] is [u] with its class name overridden to [class_name]
+    (see {!constructor-Aliased}). *)
 
 val important : ?suffix:bool -> t -> t
 (** [important ?suffix u] marks every declaration [u] emits as [!important]: the
