@@ -25,6 +25,23 @@ let test_drop_shadow_xs () =
     "emits --drop-shadow-xs default" true
     (Astring.String.is_infix ~affix:"--drop-shadow-xs:" css)
 
+(* drop-shadow-<color> resolves the colour itself (oklch) for the srgb fallback
+   instead of requiring a scheme hex; it used to raise on the default theme
+   (which has no hex colours). *)
+let test_drop_shadow_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "drop-shadow-red-500 sets the drop-shadow color" true
+    (Astring.String.is_infix ~affix:"--tw-drop-shadow-color"
+       (css "drop-shadow-red-500"));
+  Alcotest.(check bool)
+    "drop-shadow-red-500/50 uses color-mix" true
+    (Astring.String.is_infix ~affix:"color-mix" (css "drop-shadow-red-500/50"))
+
 let test_backdrop () =
   check "backdrop-opacity-50";
   check "backdrop-invert"
@@ -54,6 +71,7 @@ let tests =
   [
     test_case "blur" `Quick test_blur;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
+    test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
     test_case "backdrop" `Quick test_backdrop;
     test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick
