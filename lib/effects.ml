@@ -2585,6 +2585,21 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_ring_bracket `Ring v
+    (* Shadeless theme colours (ring-black, ring-white, with optional /opacity);
+       shaded colours like ring-red need an explicit shade and use the 3-part
+       arm below. *)
+    | [ "ring"; v ]
+      when let base, _ = Color.parse_opacity_modifier ~theme v in
+           match Color.of_string base with
+           | Ok c -> Color.is_shadeless c
+           | Error _ -> false -> (
+        let base, opacity = Color.parse_opacity_modifier ~theme v in
+        match Color.of_string base with
+        | Ok c -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_color (c, 500))
+            | _ -> Ok (Ring_color_opacity (c, 500, opacity)))
+        | Error _ -> err_not_utility)
     | [ "ring"; "offset"; "transparent" ] -> Ok Ring_offset_transparent
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
     | [ "ring"; "offset"; current_str ]
@@ -2636,6 +2651,19 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_ring_bracket `Inset_ring v
+    (* Shadeless theme colours (inset-ring-black, with optional /opacity). *)
+    | [ "inset"; "ring"; v ]
+      when let base, _ = Color.parse_opacity_modifier ~theme v in
+           match Color.of_string base with
+           | Ok c -> Color.is_shadeless c
+           | Error _ -> false -> (
+        let base, opacity = Color.parse_opacity_modifier ~theme v in
+        match Color.of_string base with
+        | Ok c -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Inset_ring_color (c, 500))
+            | _ -> Ok (Inset_ring_color_opacity (c, 500, opacity)))
+        | Error _ -> err_not_utility)
     | [ "inset"; "ring"; n ] -> (
         match Parse.int_any n with
         | Ok width -> Ok (Inset_ring_width width)
@@ -2770,10 +2798,14 @@ module Handler = struct
     | Ring_width w -> "ring-" ^ string_of_int w
     | Ring_inset -> "ring-inset"
     | Ring_color (color, shade) ->
-        "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        if Color.is_shadeless color then "ring-" ^ Color.pp color
+        else "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Ring_color_opacity (color, shade, opacity) ->
-        "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
-        ^ Color.pp_opacity opacity
+        let base =
+          if Color.is_shadeless color then "ring-" ^ Color.pp color
+          else "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        in
+        base ^ "/" ^ Color.pp_opacity opacity
     | Ring_transparent -> "ring-transparent"
     | Ring_current -> "ring-current"
     | Ring_current_opacity o -> "ring-current/" ^ Color.pp_opacity o
@@ -2810,10 +2842,14 @@ module Handler = struct
     | Ring_offset_bracket_var_opacity (v, o) ->
         "ring-offset-[" ^ v ^ "]/" ^ Color.pp_opacity o
     | Inset_ring_color (color, shade) ->
-        "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        if Color.is_shadeless color then "inset-ring-" ^ Color.pp color
+        else "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Inset_ring_color_opacity (color, shade, opacity) ->
-        "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
-        ^ Color.pp_opacity opacity
+        let base =
+          if Color.is_shadeless color then "inset-ring-" ^ Color.pp color
+          else "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        in
+        base ^ "/" ^ Color.pp_opacity opacity
     | Inset_ring_transparent -> "inset-ring-transparent"
     | Inset_ring_current -> "inset-ring-current"
     | Inset_ring_current_opacity o -> "inset-ring-current/" ^ Color.pp_opacity o
