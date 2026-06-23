@@ -57,6 +57,9 @@ module Handler = struct
         value : string;
         opacity : Color.opacity_modifier;
       }
+    | Parsed_decl of { property : string; value : string }
+  (* Plain [property:value] (no /opacity), parsed by cascade into a typed,
+     var-tracking declaration. *)
 
   type Utility.base += Self of t
 
@@ -211,17 +214,45 @@ module Handler = struct
           Some (fun c -> fst (Css.var ~layer:"utilities" name Css.Color c))
         else None
 
-  let to_style theme (Color_opacity { property; value; opacity }) =
-    match color_emitter property with
-    (* of_class only accepts renderable colour declarations; defensive. *)
-    | None -> style []
-    | Some emit -> (
-        match parse_css_color value with
-        | Some color -> color_opacity_render theme emit color opacity
-        | None ->
-            if Parse.is_var value then
-              color_var_opacity_style theme emit value opacity
-            else style [])
+  (* Arbitrary values use [_] for spaces (Tailwind); a literal underscore is
+     escaped as [\_]. *)
+  let unescape_value value =
+    let b = Buffer.create (String.length value) in
+    let n = String.length value in
+    let i = ref 0 in
+    while !i < n do
+      if value.[!i] = '\\' && !i + 1 < n && value.[!i + 1] = '_' then (
+        Buffer.add_char b '_';
+        incr i)
+      else if value.[!i] = '_' then Buffer.add_char b ' '
+      else Buffer.add_char b value.[!i];
+      incr i
+    done;
+    Buffer.contents b
+
+  let to_style theme t =
+    match t with
+    | Parsed_decl { property; value } -> (
+        (* [~layer:"utilities"] only affects a custom property; it keeps the
+           declaration in the utilities layer (the build's theme/utilities
+           filter drops layerless custom properties). *)
+        match
+          Css.parse_declaration ~layer:"utilities" property
+            (unescape_value value)
+        with
+        | Some decl -> style [ decl ]
+        | None -> style [])
+    | Color_opacity { property; value; opacity } -> (
+        match color_emitter property with
+        (* of_class only accepts renderable colour declarations; defensive. *)
+        | None -> style []
+        | Some emit -> (
+            match parse_css_color value with
+            | Some color -> color_opacity_render theme emit color opacity
+            | None ->
+                if Parse.is_var value then
+                  color_var_opacity_style theme emit value opacity
+                else style []))
 
   let suborder _ = 0
 
@@ -237,8 +268,10 @@ module Handler = struct
     | Color.Opacity_named name -> "/" ^ name
     | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
-  let to_class (Color_opacity { property; value; opacity }) =
-    "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix opacity
+  let to_class = function
+    | Color_opacity { property; value; opacity } ->
+        "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix opacity
+    | Parsed_decl { property; value } -> "[" ^ property ^ ":" ^ value ^ "]"
 
   let of_class theme class_name =
     (* Must start with [ and contain : *)
@@ -266,7 +299,7 @@ module Handler = struct
           in
           match find_colon 0 with
           | None -> err_not_utility
-          | Some colon_pos ->
+          | Some colon_pos -> (
               let property = String.sub inner 0 colon_pos in
               let value =
                 String.sub inner (colon_pos + 1)
@@ -318,25 +351,23 @@ module Handler = struct
                         else Color.No_opacity
                 else Color.No_opacity
               in
-              let is_custom =
-                String.length property > 2 && String.sub property 0 2 = "--"
-              in
               let is_colour_value =
                 Parse.is_var value || parse_css_color value <> None
               in
-              if is_custom then
-                (* Custom property: only the color-mix /opacity form is rendered
-                   type-safely. The plain [--name:value] form (and non-colour
-                   values) need a cascade value parser and are deferred. *)
-                if opacity <> Color.No_opacity && is_colour_value then
+              if opacity <> Color.No_opacity then
+                (* The /opacity form wraps the value in color-mix, so it needs a
+                   colour target (known colour property or custom property) and
+                   a colour value. Non-colour cases are rejected (Tailwind
+                   blindly color-mixes them, which is meaningless). *)
+                if color_emitter property <> None && is_colour_value then
                   Ok (Color_opacity { property; value; opacity })
                 else err_not_utility
-              else if color_property_of_name property = None then
-                (* A non-colour standard property ([mask-type:...]) needs a
-                   typed arbitrary-declaration constructor; deferred. *)
-                err_not_utility
-              else if opacity = Color.No_opacity then err_not_utility
-              else Ok (Color_opacity { property; value; opacity }))
+              else
+                (* Plain [property:value]: any property whose value cascade can
+                   parse becomes a typed declaration. *)
+                match Css.parse_declaration property (unescape_value value) with
+                | Some _ -> Ok (Parsed_decl { property; value })
+                | None -> err_not_utility))
 end
 
 let () = Utility.register (module Handler)
