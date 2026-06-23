@@ -154,9 +154,9 @@ let parse_match_variants content =
   tbl
 
 (* Parse [@custom-variant <name> { @container <header> { @slot } }] blocks into
-   directive strings ["container <name> <header>"], e.g.
-   ["container has-c foo style(--c)"]. The runner registers these as structural
-   container-query variants. *)
+   directive strings ["container <name> <header>"], e.g. ["container has-c foo
+   style(--c)"]. The runner registers these as structural container-query
+   variants. *)
 let parse_custom_variant_containers content =
   let re =
     Re.Pcre.regexp
@@ -217,16 +217,20 @@ let parse_file filename =
     (fun k v -> Hashtbl.replace variant_defs k v)
     (parse_custom_variant_containers content);
   let match_variant_use = Re.Pcre.regexp {|matchVariant\(\s*'([^']+)'|} in
-  let custom_variant_use = Re.Pcre.regexp {|@custom-variant\s+([A-Za-z0-9_-]+)|} in
+  let custom_variant_use =
+    Re.Pcre.regexp {|@custom-variant\s+([A-Za-z0-9_-]+)|}
+  in
   let current_variant_names = ref [] in
-  (* Capture [@theme] token declarations [--name: value;]. [in_theme]/[theme_depth]
-     track the brace nesting of the active [@theme {...}] block within a
-     compileCss template. *)
+  (* Capture [@theme] token declarations [--name: value;].
+     [in_theme]/[theme_depth] track the brace nesting of the active [@theme
+     {...}] block within a compileCss template. *)
   let current_theme_vars = ref [] in
   let in_theme = ref false in
   let theme_depth = ref 0 in
   let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
-  let theme_var_re = Re.Pcre.regexp {|^\s*--([A-Za-z0-9-]+)\s*:\s*(.+?)\s*;\s*$|} in
+  let theme_var_re =
+    Re.Pcre.regexp {|^\s*--([A-Za-z0-9-]+)\s*:\s*(.+?)\s*;\s*$|}
+  in
 
   let flush_test name expected =
     let classes =
@@ -408,9 +412,7 @@ let () =
       Fmt.pr "# %s@." test.name;
       Fmt.pr "@config %s@." (config_to_string test.config);
       List.iter (fun v -> Fmt.pr "@variant %s@." v) test.variants;
-      List.iter
-        (fun (n, v) -> Fmt.pr "@theme-var %s %s@." n v)
-        test.theme_vars;
+      List.iter (fun (n, v) -> Fmt.pr "@theme-var %s %s@." n v) test.theme_vars;
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->
