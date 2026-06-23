@@ -11,6 +11,30 @@ let test_translate_rotate () =
   check "translate-x-4";
   check "rotate-90"
 
+(* translate-px (all axes) and the negative px / arbitrary-value variants used
+   to be unknown classes: only the per-axis px and positive arbitrary forms
+   parsed, and negatives only accepted [var(...)] brackets, not lengths like
+   [110%]. *)
+let test_translate_px_and_neg_arbitrary () =
+  check "translate-px";
+  check "-translate-px";
+  check "-translate-x-px";
+  check "-translate-y-px";
+  check "-translate-y-[110%]";
+  check "-translate-x-[3px]";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "translate-px sets both axes to 1px" true
+    (Astring.String.is_infix ~affix:"--tw-translate-x: 1px" (css "translate-px"));
+  Alcotest.(check bool)
+    "-translate-y-[110%] negates the value" true
+    (Astring.String.is_infix ~affix:"calc(110% * -1)"
+       (css "-translate-y-[110%]"))
+
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
@@ -83,6 +107,8 @@ let test_typed () =
 let tests =
   [
     test_case "translate+rotate" `Quick test_translate_rotate;
+    test_case "translate-px and negative arbitrary" `Quick
+      test_translate_px_and_neg_arbitrary;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
