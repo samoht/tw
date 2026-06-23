@@ -700,69 +700,70 @@ module Handler = struct
   let drop_shadow_color ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
-    | Option.Some hex ->
-        let color_ref : Css.color Css.var =
-          Var.bracket ("color-" ^ color_name)
-        in
-        let supports_decl =
-          bind_drop_shadow_color
-            (Css.color_mix_var_percent ~in_space:Oklab
-               ~var_name:"tw-drop-shadow-alpha" (Css.Var color_ref)
-               Css.Transparent)
-        in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
-        in
-        Group
-          [
-            style ~rules:(Option.Some [ supports_block ])
-              (theme_decl_if_set ?theme ("color-" ^ color_name)
-              @ [ bind_drop_shadow_color (Css.hex hex) ]);
-            style ~property_rules:filter_property_rules
-              [ bind_drop_shadow drop_shadow_size_ref ];
-          ]
-    | Option.None ->
-        invalid_arg
-          ("drop-shadow color not found in scheme: "
-          ^ Color.scheme_color_name c shade)
+    (* srgb fallback: the scheme hex when defined, else the colour resolved
+       directly (oklch), matching Tailwind. The default scheme has no hex
+       colours, so the old [Scheme.hex_color]-only path raised on every
+       drop-shadow-<color>. *)
+    let fallback_color =
+      match Scheme.hex_color scheme color_name with
+      | Option.Some hex -> Css.hex hex
+      | Option.None -> Color.to_css c shade
+    in
+    let color_ref : Css.color Css.var = Var.bracket ("color-" ^ color_name) in
+    let supports_decl =
+      bind_drop_shadow_color
+        (Css.color_mix_var_percent ~in_space:Oklab
+           ~var_name:"tw-drop-shadow-alpha" (Css.Var color_ref) Css.Transparent)
+    in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
+    in
+    Group
+      [
+        style ~rules:(Option.Some [ supports_block ])
+          (theme_decl_if_set ?theme ("color-" ^ color_name)
+          @ [ bind_drop_shadow_color fallback_color ]);
+        style ~property_rules:filter_property_rules
+          [ bind_drop_shadow drop_shadow_size_ref ];
+      ]
 
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
-    | Option.Some hex ->
-        let percent = Color.opacity_to_percent opacity in
-        let hex_with_alpha = Color.hex_with_alpha hex percent in
-        let color_ref : Css.color Css.var =
-          Var.bracket ("color-" ^ color_name)
-        in
-        let supports_decl =
-          let inner =
-            Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-              ~percent1:percent
-          in
-          bind_drop_shadow_color
-            (Css.color_mix_var_percent ~in_space:Oklab
-               ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent)
-        in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
-        in
-        Group
-          [
-            style ~rules:(Option.Some [ supports_block ])
-              (theme_decl_if_set ?theme ("color-" ^ color_name)
-              @ [ bind_drop_shadow_color (Css.hex hex_with_alpha) ]);
-            style ~property_rules:filter_property_rules
-              [ bind_drop_shadow drop_shadow_size_ref ];
-          ]
-    | Option.None ->
-        invalid_arg
-          ("drop-shadow color not found in scheme: "
-          ^ Color.scheme_color_name c shade)
+    let percent = Color.opacity_to_percent opacity in
+    (* srgb fallback: a scheme hex gets a hex+alpha; without one (the default
+       scheme) mix the resolved colour in srgb, matching Tailwind. The old path
+       raised when the scheme had no hex. *)
+    let fallback_color =
+      match Scheme.hex_color scheme color_name with
+      | Option.Some hex -> Css.hex (Color.hex_with_alpha hex percent)
+      | Option.None ->
+          Css.color_mix ~in_space:Srgb (Color.to_css c shade) Css.Transparent
+            ~percent1:percent
+    in
+    let color_ref : Css.color Css.var = Var.bracket ("color-" ^ color_name) in
+    let supports_decl =
+      let inner =
+        Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+          ~percent1:percent
+      in
+      bind_drop_shadow_color
+        (Css.color_mix_var_percent ~in_space:Oklab
+           ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent)
+    in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
+    in
+    Group
+      [
+        style ~rules:(Option.Some [ supports_block ])
+          (theme_decl_if_set ?theme ("color-" ^ color_name)
+          @ [ bind_drop_shadow_color fallback_color ]);
+        style ~property_rules:filter_property_rules
+          [ bind_drop_shadow drop_shadow_size_ref ];
+      ]
 
   let drop_shadow_opacity ?theme opacity =
     let alpha_str =
