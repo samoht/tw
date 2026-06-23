@@ -95,22 +95,32 @@ let split_whitespace s =
   List.rev !tokens
 
 (* The v4 [prop-(--x)] shorthand is [prop-[var(--x)]] in value but keeps its own
-   class name. Rewrite the trailing [(--x)] to [[var(--x)]] for parsing; the
-   original spelling is restored via [Utility.alias]. Returns [None] when there
-   is no paren shorthand. *)
+   class name. Rewrite the trailing [(...)] to its bracket form for parsing; the
+   original spelling is restored via [Utility.alias]. Handles the bare var
+   [(--x)] / [(--x,fallback)] -> [[var(--x...)]] and the typed
+   [(family-name:--x)] -> [[family-name:var(--x)]] forms. Returns [None] when
+   there is no paren shorthand. *)
 let normalize_paren_var base_class =
   let n = String.length base_class in
   if n > 4 && base_class.[n - 1] = ')' then
     match String.rindex_opt base_class '(' with
-    | Some lp
-      when lp > 0
-           && base_class.[lp - 1] = '-'
-           && lp + 2 < n
-           && base_class.[lp + 1] = '-'
-           && base_class.[lp + 2] = '-' ->
+    | Some lp when lp > 0 && base_class.[lp - 1] = '-' -> (
         let prefix = String.sub base_class 0 lp in
         let inner = String.sub base_class (lp + 1) (n - lp - 2) in
-        Some (prefix ^ "[var(" ^ inner ^ ")]")
+        let ilen = String.length inner in
+        if ilen > 1 && inner.[0] = '-' && inner.[1] = '-' then
+          (* bare var (with optional ,fallback) *)
+          Some (prefix ^ "[var(" ^ inner ^ ")]")
+        else
+          (* typed hint: <type>:--name[,fallback] *)
+          match String.index_opt inner ':' with
+          | Some ci
+            when ci + 2 < ilen && inner.[ci + 1] = '-' && inner.[ci + 2] = '-'
+            ->
+              let typ = String.sub inner 0 ci in
+              let v = String.sub inner (ci + 1) (ilen - ci - 1) in
+              Some (prefix ^ "[" ^ typ ^ ":var(" ^ v ^ ")]")
+          | _ -> None)
     | _ -> None
   else None
 
