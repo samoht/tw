@@ -62,6 +62,20 @@ let test_filters_css_generation () =
   Alcotest.check bool "has backdrop-filter property" true
     (Astring.String.is_infix ~affix:"backdrop-filter:" css)
 
+(* ring-inset registers the ring/shadow @property family, like the other ring
+   utilities; it used to emit only the --tw-ring-inset declaration. *)
+let test_ring_inset_property_rules () =
+  let open Tw in
+  let css =
+    match of_string "ring-inset" with
+    | Ok u -> to_css ~base:false [ u ] |> Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "ring-inset: %s" m
+  in
+  Alcotest.check bool "ring-inset sets --tw-ring-inset" true
+    (Astring.String.is_infix ~affix:"--tw-ring-inset: inset" css);
+  Alcotest.check bool "ring-inset registers @property --tw-ring-shadow" true
+    (Astring.String.is_infix ~affix:"@property --tw-ring-shadow" css)
+
 let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
@@ -190,6 +204,8 @@ let tests =
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
+    test_case "ring-inset @property family" `Quick
+      test_ring_inset_property_rules;
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
