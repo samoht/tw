@@ -28,7 +28,7 @@
    (run
     %{bin:cascade}
     diff
-    --diff=semantic
+    --diff=canonical
     --prune-unused-custom-props
     colors.css
     tailwind.css))))

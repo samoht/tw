@@ -34,7 +34,7 @@
    (run
     %{bin:cascade}
     diff
-    --diff=semantic
+    --diff=canonical
     --prune-unused-custom-props
     landing.css
     tailwind.css))))
