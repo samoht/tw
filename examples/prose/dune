@@ -49,7 +49,7 @@
    (run
     %{bin:cascade}
     diff
-    --diff=semantic
+    --diff=canonical
     --prune-unused-custom-props
     tailwind.css
     prose.css))))
