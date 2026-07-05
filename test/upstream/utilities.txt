@@ -17936,7 +17936,7 @@ animate-none
     
 <<<>>>
 # filter
-@config theme-inline
+@config theme
 @theme-var spacing 0.25rem
 @theme-var blur-xl 24px
 @theme-var color-red-500 #ef4444
@@ -18771,7 +18771,7 @@ transition transition-[var(--value)] transition-all transition-colors transition
     
 <<<>>>
 # transition
-@config theme-inline
+@config run
 @theme-var default-transition-timing-function ease
 @theme-var default-transition-duration 100ms
 transition transition-all transition-colors
@@ -20103,7 +20103,7 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
     
 <<<>>>
 # text
-@config theme-inline-reference
+@config run
 @theme-var text-sm 0.875rem
 -text-[#0088cc] -text-[#0088cc]/50 -text-[#0088cc]/[0.5] -text-[#0088cc]/[50%] -text-current -text-current/50 -text-current/[0.5] -text-current/[50%] -text-inherit -text-red-500 -text-red-500/50 -text-red-500/[0.5] -text-red-500/[50%] -text-sm -text-sm/6 -text-sm/[4px] -text-transparent text text-[10px]/foo text-sm/foo
 ---

@@ -212,6 +212,13 @@ let parse_file filename =
   let state = ref Outside in
   let current_classes = ref [] in
   let current_config = ref No_theme in
+  (* A single test can mix a keep [@theme { ... }] block with an inline [@theme
+     inline { ... }] block (e.g. filter: keep the sizes, inline
+     [--drop-shadow-multi]). The keep block wins the config so the runner keeps
+     those tokens (deriving the keep-set from the expected CSS) and inlines only
+     the ones the fixture actually inlined; tagging such a case [theme-inline]
+     would hand the runner an empty keep-set and inline everything. *)
+  let saw_keep_theme = ref false in
   let variant_defs = parse_match_variants content in
   Hashtbl.iter
     (fun k v -> Hashtbl.replace variant_defs k v)
@@ -266,13 +273,16 @@ let parse_file filename =
           match Re.exec_opt test_pattern line with
           | Some groups ->
               current_config := No_theme;
+              saw_keep_theme := false;
               state := In_test (Re.Group.get groups 1)
           | None -> ())
       | In_test name ->
           (* Detect compileCss/run calls to track theme configuration.
              compileCss() resets config (each call has its own @theme). run()
              uses built-in defaults. *)
-          if Re.execp compile_css_re line then current_config := No_theme
+          if Re.execp compile_css_re line then (
+            current_config := No_theme;
+            saw_keep_theme := false)
           else if Re.execp run_call_re line then current_config := Run;
 
           (* Record any matchVariant plugin used by this test so the runner can
@@ -292,13 +302,16 @@ let parse_file filename =
 
           (* Detect @theme variants within compileCss CSS templates. Most
              specific patterns checked first to avoid partial matches. *)
-          if Re.execp theme_inline_ref_re line then
-            current_config := Theme_inline_reference
-          else if Re.execp theme_inline_re line then
-            current_config := Theme_inline
-          else if Re.execp theme_ref_re line then
-            current_config := Theme_reference
-          else if Re.execp theme_re line then current_config := Theme;
+          if Re.execp theme_inline_ref_re line then (
+            if not !saw_keep_theme then current_config := Theme_inline_reference)
+          else if Re.execp theme_inline_re line then (
+            if not !saw_keep_theme then current_config := Theme_inline)
+          else if Re.execp theme_ref_re line then (
+            saw_keep_theme := true;
+            current_config := Theme_reference)
+          else if Re.execp theme_re line then (
+            saw_keep_theme := true;
+            current_config := Theme);
 
           (* Capture [@theme] token declarations. Enter on the opener line,
              capture [--name: value;] lines, exit when braces balance. *)
