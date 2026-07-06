@@ -33,7 +33,7 @@
    (run
     %{bin:cascade}
     diff
-    --diff=semantic
+    --diff=canonical
     --prune-unused-custom-props
     dashboard.css
     tailwind.css))))
