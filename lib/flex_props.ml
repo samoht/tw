@@ -24,10 +24,14 @@ module Handler = struct
     | Flex_grow
     | Flex_grow_0
     | Flex_grow_arbitrary of int (* grow-[123] *)
+    | Flex_grow_legacy (* flex-grow (deprecated alias, keeps its class name) *)
+    | Flex_grow_0_legacy (* flex-grow-0 *)
     (* Shrink *)
     | Flex_shrink
     | Flex_shrink_0
     | Flex_shrink_arbitrary of int (* shrink-[123] *)
+    | Flex_shrink_legacy (* flex-shrink *)
+    | Flex_shrink_0_legacy (* flex-shrink-0 *)
     (* Basis *)
     | Basis_0
     | Basis_1
@@ -147,9 +151,13 @@ module Handler = struct
     | Flex_grow -> flex_grow_utility
     | Flex_grow_0 -> flex_grow_0_utility
     | Flex_grow_arbitrary n -> style [ flex_grow (float_of_int n) ]
+    | Flex_grow_legacy -> flex_grow_utility
+    | Flex_grow_0_legacy -> flex_grow_0_utility
     | Flex_shrink -> flex_shrink_utility
     | Flex_shrink_0 -> flex_shrink_0_utility
     | Flex_shrink_arbitrary n -> style [ flex_shrink (float_of_int n) ]
+    | Flex_shrink_legacy -> flex_shrink_utility
+    | Flex_shrink_0_legacy -> flex_shrink_0_utility
     | Basis_0 -> basis_0
     | Basis_1 -> basis_1
     | Basis_spacing n -> basis_spacing n
@@ -197,11 +205,15 @@ module Handler = struct
     | Flex_auto -> 10000
     | Flex_initial -> 10001
     | Flex_none -> 10002
-    (* Shrink *)
+    (* Shrink - legacy flex-shrink* sorts before the canonical shrink* *)
+    | Flex_shrink_legacy -> 19998
+    | Flex_shrink_0_legacy -> 19999
     | Flex_shrink -> 20000
     | Flex_shrink_0 -> 20001
     | Flex_shrink_arbitrary _ -> 20002
-    (* Grow *)
+    (* Grow - legacy flex-grow* sorts before the canonical grow* *)
+    | Flex_grow_legacy -> 29998
+    | Flex_grow_0_legacy -> 29999
     | Flex_grow -> 30000
     | Flex_grow_0 -> 30001
     | Flex_grow_arbitrary _ -> 30002
@@ -233,15 +245,19 @@ module Handler = struct
     | [ "flex"; "auto" ] -> Ok Flex_auto
     | [ "flex"; "initial" ] -> Ok Flex_initial
     | [ "flex"; "none" ] -> Ok Flex_none
-    | [ "flex"; "grow" ] | [ "grow" ] -> Ok Flex_grow
-    | [ "flex"; "grow"; "0" ] | [ "grow"; "0" ] -> Ok Flex_grow_0
+    | [ "flex"; "grow" ] -> Ok Flex_grow_legacy
+    | [ "grow" ] -> Ok Flex_grow
+    | [ "flex"; "grow"; "0" ] -> Ok Flex_grow_0_legacy
+    | [ "grow"; "0" ] -> Ok Flex_grow_0
     | [ "grow"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match int_of_string_opt inner with
         | Some i -> Ok (Flex_grow_arbitrary i)
         | None -> err_not_utility)
-    | [ "flex"; "shrink" ] | [ "shrink" ] -> Ok Flex_shrink
-    | [ "flex"; "shrink"; "0" ] | [ "shrink"; "0" ] -> Ok Flex_shrink_0
+    | [ "flex"; "shrink" ] -> Ok Flex_shrink_legacy
+    | [ "shrink" ] -> Ok Flex_shrink
+    | [ "flex"; "shrink"; "0" ] -> Ok Flex_shrink_0_legacy
+    | [ "shrink"; "0" ] -> Ok Flex_shrink_0
     | [ "shrink"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match int_of_string_opt inner with
@@ -332,14 +348,19 @@ module Handler = struct
     | Flex_n n -> "flex-" ^ string_of_int n
     | Flex_fraction (n, m) -> "flex-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Flex_arbitrary n -> "flex-[" ^ string_of_int n ^ "]"
-    (* Grow - Tailwind v4 uses shorter names *)
+    (* Grow - Tailwind v4 uses shorter names; the flex-* spellings are kept as
+       deprecated aliases that preserve their class name *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"
     | Flex_grow_arbitrary n -> "grow-[" ^ string_of_int n ^ "]"
+    | Flex_grow_legacy -> "flex-grow"
+    | Flex_grow_0_legacy -> "flex-grow-0"
     (* Shrink - Tailwind v4 uses shorter names *)
     | Flex_shrink -> "shrink"
     | Flex_shrink_0 -> "shrink-0"
     | Flex_shrink_arbitrary n -> "shrink-[" ^ string_of_int n ^ "]"
+    | Flex_shrink_legacy -> "flex-shrink"
+    | Flex_shrink_0_legacy -> "flex-shrink-0"
     (* Basis *)
     | Basis_0 -> "basis-0"
     | Basis_1 -> "basis-1"
