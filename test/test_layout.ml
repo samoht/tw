@@ -59,6 +59,50 @@ let test_screen_reader () =
   check_class "sr-only" Tw.Layout.sr_only;
   check_class "not-sr-only" Tw.Layout.not_sr_only
 
+(* Tailwind emits sr-only's declarations in a fixed order (position first,
+   clip-path/white-space/border-width last). Keep byte parity so the optimized
+   output matches Tailwind. *)
+let test_sr_only_declaration_order () =
+  let css = Tw.to_css [ Tw.sr_only ] in
+  let full = Tw.Css.to_string ~minify:true css in
+  (* Scope the search to the .sr-only rule body (the preflight base layer has
+     its own width/position declarations). *)
+  let body =
+    match Astring.String.find_sub ~sub:".sr-only{" full with
+    | None -> Alcotest.fail "sr-only rule not found"
+    | Some start -> (
+        let rest = String.sub full start (String.length full - start) in
+        match String.index_opt rest '}' with
+        | Some e -> String.sub rest 0 e
+        | None -> rest)
+  in
+  let idx name =
+    match Astring.String.find_sub ~sub:name body with
+    | Some i -> i
+    | None -> Alcotest.failf "sr-only missing declaration %S" name
+  in
+  let order =
+    [
+      "position:";
+      "width:";
+      "height:";
+      "padding:";
+      "margin:";
+      "overflow:";
+      "clip-path:";
+      "white-space:";
+      "border-width:";
+    ]
+  in
+  ignore
+    (List.fold_left
+       (fun prev name ->
+         let i = idx name in
+         if i <= prev then
+           Alcotest.failf "sr-only declaration %S out of order" name;
+         i)
+       (-1) order)
+
 let test_layout_container () =
   (* Test that container generates .container rule with width: 100% *)
   let css = Tw.to_css [ Tw.container ] in
@@ -129,6 +173,7 @@ let tests =
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
+    test_case "sr-only declaration order" `Quick test_sr_only_declaration_order;
     test_case "layout container" `Quick test_layout_container;
     test_case "layout container vs @container" `Quick
       test_container_vs_at_container;
