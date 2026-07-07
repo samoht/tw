@@ -663,21 +663,29 @@ module Handler = struct
         match (wl, hl) with
         | Some w, Some h -> Some (Css.background_size (Size (w, h)))
         | _ -> None)
-    | [ v ] ->
-        let parse_len s =
-          if String.ends_with ~suffix:"px" s then
-            let n =
-              String.sub s 0 (String.length s - 2) |> float_of_string_opt
+    | [ v ] -> (
+        (* Keywords are valid background-size values even under a [length:...]
+           hint (Tailwind emits e.g. bg-[length:cover] as
+           background-size:cover). *)
+        match v with
+        | "cover" -> Some (Css.background_size Cover)
+        | "contain" -> Some (Css.background_size Contain)
+        | "auto" -> Some (Css.background_size Auto)
+        | _ ->
+            let parse_len s =
+              if String.ends_with ~suffix:"px" s then
+                let n =
+                  String.sub s 0 (String.length s - 2) |> float_of_string_opt
+                in
+                Option.map (fun f -> (Length (Px f) : Css.background_size)) n
+              else if String.ends_with ~suffix:"%" s then
+                let n =
+                  String.sub s 0 (String.length s - 1) |> float_of_string_opt
+                in
+                Option.map (fun f -> (Length (Pct f) : Css.background_size)) n
+              else None
             in
-            Option.map (fun f -> (Length (Px f) : Css.background_size)) n
-          else if String.ends_with ~suffix:"%" s then
-            let n =
-              String.sub s 0 (String.length s - 1) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Length (Pct f) : Css.background_size)) n
-          else None
-        in
-        Option.map Css.background_size (parse_len v)
+            Option.map Css.background_size (parse_len v))
     | _ -> None
 
   (* Parse a bracket position value like "120px_120px" or "120px" or "50%" *)
