@@ -144,12 +144,32 @@ let test_opacity_color_variant_no_leak () =
   check bool "hover:text-red-500/50 leaks no bare .text-red" false
     (Astring.String.is_infix ~affix:".text-red" (css "hover:text-red-500/50"))
 
+(* Regression: a stacked hover:dark:* variant must keep the @media (hover:hover)
+   wrapper (nested inside the dark media), matching Tailwind. tw used to emit a
+   bare @media (dark) block, so the hover style also applied on touch
+   devices. *)
+let test_hover_dark_media_wrapper () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let s = css "hover:dark:text-white" in
+  check bool "hover:dark keeps @media (hover:hover)" true
+    (Astring.String.is_infix ~affix:"@media (hover:hover)" s
+    || Astring.String.is_infix ~affix:"@media(hover:hover)" s);
+  check bool "hover:dark keeps the dark media" true
+    (Astring.String.is_infix ~affix:"prefers-color-scheme:dark" s
+    || Astring.String.is_infix ~affix:"prefers-color-scheme: dark" s)
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
     test_case "opacity color variant does not leak base rule" `Quick
       test_opacity_color_variant_no_leak;
+    test_case "hover:dark keeps hover media wrapper" `Quick
+      test_hover_dark_media_wrapper;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
