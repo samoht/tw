@@ -90,6 +90,24 @@ let test_of_string_invalid () =
 (* bg-[image:<gradient>] emits the literal background-image; it used to wrap the
    value in a bogus var(--radial-gradient(...)). var() and url() image values
    are unchanged. *)
+(* Regression: keyword background-size values under a [length:...] hint
+   (bg-[length:cover]) used to fall through to background-size:auto because
+   parse_bracket_size only handled numeric lengths. *)
+let test_bracket_length_keywords () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-[length:cover] emits background-size: cover" true
+    (Astring.String.is_infix ~affix:"background-size: cover"
+       (css "bg-[length:cover]"));
+  Alcotest.(check bool)
+    "bg-[length:contain] emits background-size: contain" true
+    (Astring.String.is_infix ~affix:"background-size: contain"
+       (css "bg-[length:contain]"))
+
 let test_bracket_image_literal () =
   let css cls =
     match Tw.of_string cls with
@@ -198,6 +216,7 @@ let tests =
       test_gradient_stop_position_properties;
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
+    test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
