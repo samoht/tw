@@ -783,6 +783,172 @@ let first_usage_order set_var_names =
     set_var_names;
   seen
 
+(* Tailwind emits @property rules in a fixed order that mirrors the declaration
+   order of the composition variables in its source, independent of which
+   utilities the stylesheet actually uses. This table encodes that canonical
+   order; it is the primary key when sorting the properties layer so the output
+   matches Tailwind regardless of first-usage order. Variables not listed here
+   are tw-specific (e.g. scrollbar) and Tailwind never emits them, so they sort
+   after the known ones via the legacy family/first-usage comparison. *)
+let canonical_property_order =
+  [
+    "tw-border-spacing-x";
+    "tw-border-spacing-y";
+    "tw-translate-x";
+    "tw-translate-y";
+    "tw-translate-z";
+    "tw-scale-x";
+    "tw-scale-y";
+    "tw-scale-z";
+    "tw-rotate-x";
+    "tw-rotate-y";
+    "tw-rotate-z";
+    "tw-skew-x";
+    "tw-skew-y";
+    "tw-pan-x";
+    "tw-pan-y";
+    "tw-pinch-zoom";
+    "tw-scroll-snap-strictness";
+    "tw-space-y-reverse";
+    "tw-space-x-reverse";
+    "tw-divide-x-reverse";
+    "tw-border-style";
+    "tw-divide-y-reverse";
+    "tw-gradient-position";
+    "tw-gradient-from";
+    "tw-gradient-via";
+    "tw-gradient-to";
+    "tw-gradient-stops";
+    "tw-gradient-via-stops";
+    "tw-gradient-from-position";
+    "tw-gradient-via-position";
+    "tw-gradient-to-position";
+    "tw-mask-linear";
+    "tw-mask-radial";
+    "tw-mask-conic";
+    "tw-mask-left";
+    "tw-mask-right";
+    "tw-mask-bottom";
+    "tw-mask-top";
+    "tw-mask-top-from-position";
+    "tw-mask-top-to-position";
+    "tw-mask-top-from-color";
+    "tw-mask-top-to-color";
+    "tw-mask-right-from-position";
+    "tw-mask-right-to-position";
+    "tw-mask-right-from-color";
+    "tw-mask-right-to-color";
+    "tw-mask-bottom-from-position";
+    "tw-mask-bottom-to-position";
+    "tw-mask-bottom-from-color";
+    "tw-mask-bottom-to-color";
+    "tw-mask-left-from-position";
+    "tw-mask-left-to-position";
+    "tw-mask-left-from-color";
+    "tw-mask-left-to-color";
+    "tw-mask-linear-position";
+    "tw-mask-linear-from-position";
+    "tw-mask-linear-to-position";
+    "tw-mask-linear-from-color";
+    "tw-mask-linear-to-color";
+    "tw-mask-radial-from-position";
+    "tw-mask-radial-to-position";
+    "tw-mask-radial-from-color";
+    "tw-mask-radial-to-color";
+    "tw-mask-radial-shape";
+    "tw-mask-radial-size";
+    "tw-mask-radial-position";
+    "tw-mask-conic-position";
+    "tw-mask-conic-from-position";
+    "tw-mask-conic-to-position";
+    "tw-mask-conic-from-color";
+    "tw-mask-conic-to-color";
+    "tw-leading";
+    "tw-font-weight";
+    "tw-tracking";
+    "tw-ordinal";
+    "tw-slashed-zero";
+    "tw-numeric-figure";
+    "tw-numeric-spacing";
+    "tw-numeric-fraction";
+    "tw-shadow";
+    "tw-shadow-color";
+    "tw-shadow-alpha";
+    "tw-inset-shadow";
+    "tw-inset-shadow-color";
+    "tw-inset-shadow-alpha";
+    "tw-ring-color";
+    "tw-ring-shadow";
+    "tw-inset-ring-color";
+    "tw-inset-ring-shadow";
+    "tw-ring-inset";
+    "tw-ring-offset-width";
+    "tw-ring-offset-color";
+    "tw-ring-offset-shadow";
+    "tw-outline-style";
+    "tw-blur";
+    "tw-brightness";
+    "tw-contrast";
+    "tw-grayscale";
+    "tw-hue-rotate";
+    "tw-invert";
+    "tw-opacity";
+    "tw-saturate";
+    "tw-sepia";
+    "tw-drop-shadow";
+    "tw-drop-shadow-color";
+    "tw-drop-shadow-alpha";
+    "tw-drop-shadow-size";
+    "tw-backdrop-blur";
+    "tw-backdrop-brightness";
+    "tw-backdrop-contrast";
+    "tw-backdrop-grayscale";
+    "tw-backdrop-hue-rotate";
+    "tw-backdrop-invert";
+    "tw-backdrop-opacity";
+    "tw-backdrop-saturate";
+    "tw-backdrop-sepia";
+    "tw-duration";
+    "tw-ease";
+    "tw-contain-size";
+    "tw-contain-layout";
+    "tw-contain-paint";
+    "tw-contain-style";
+    "tw-content";
+    "tw-text-shadow-color";
+    "tw-text-shadow-alpha";
+  ]
+
+let canonical_property_rank =
+  let tbl = Hashtbl.create 256 in
+  List.iteri (fun i name -> Hashtbl.replace tbl name i) canonical_property_order;
+  fun name ->
+    (* Names from the properties layer include the -- prefix; strip it to match
+       the registry-style keys used in the table. *)
+    let name =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    Hashtbl.find_opt tbl name
+
+(* The space/divide reverse flags and border-style share one @property block but
+   interleave by first-usage rather than a fixed order: divide-x emits x-reverse
+   then border-style, divide-y emits y-reverse, so a divide-y-only sheet lists
+   divide-y-reverse before border-style. Their canonical ranks fix the block's
+   position; within the block, order by first usage. *)
+let border_block_var name =
+  let name =
+    if String.starts_with ~prefix:"--" name then
+      String.sub name 2 (String.length name - 2)
+    else name
+  in
+  match name with
+  | "tw-space-x-reverse" | "tw-space-y-reverse" | "tw-divide-x-reverse"
+  | "tw-divide-y-reverse" | "tw-border-style" ->
+      true
+  | _ -> false
+
 (* Get property order from static registry. *)
 let property_order_from name =
   match Var.property_order name with
@@ -875,12 +1041,21 @@ let sort_properties_by_order first_usage_order initial_values =
     | None -> 10000
   in
   let cmp (n1, _) (n2, _) =
-    let fam1 = Var.family n1 in
-    let fam2 = Var.family n2 in
-    let po1 = property_order_from n1 in
-    let po2 = property_order_from n2 in
-    compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
-      fam2
+    match (canonical_property_rank n1, canonical_property_rank n2) with
+    | Some _, Some _ when border_block_var n1 && border_block_var n2 ->
+        compare (get_first_usage n1) (get_first_usage n2)
+    | Some r1, Some r2 -> compare r1 r2
+    (* Known Tailwind variables always precede tw-specific ones (scrollbar,
+       etc.), which Tailwind never emits. *)
+    | Some _, None -> -1
+    | None, Some _ -> 1
+    | None, None ->
+        let fam1 = Var.family n1 in
+        let fam2 = Var.family n2 in
+        let po1 = property_order_from n1 in
+        let po2 = property_order_from n2 in
+        compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2
+          fam1 fam2
   in
   List.sort cmp initial_values
 
@@ -1030,34 +1205,39 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   |> List.sort (fun s1 s2 ->
       match (Css.as_property s1, Css.as_property s2) with
       | ( Some (Css.Property_info { name = n1; _ }),
-          Some (Css.Property_info { name = n2; _ }) ) ->
-          let fam1 = Var.family n1 in
-          let fam2 = Var.family n2 in
-          let po1 = property_order_from n1 in
-          let po2 = property_order_from n2 in
-          (* Variables with no family and negative property_order (e.g.
-             --tw-space-x-reverse) always come before family variables *)
-          let no_family_negative_first =
-            match (fam1, fam2) with
-            | None, Some _ when po1 < 0 -> -1
-            | Some _, None when po2 < 0 -> 1
-            | _ -> 0
-          in
-          if no_family_negative_first <> 0 then no_family_negative_first
-          else if
-            uses_direct_property_order fam1 && uses_direct_property_order fam2
-          then
-            if fam1 = fam2 && fam1 = Some `Border then
-              (* Border family: use first-usage order to match Tailwind's
-                 per-utility declaration ordering. *)
+          Some (Css.Property_info { name = n2; _ }) ) -> (
+          match (canonical_property_rank n1, canonical_property_rank n2) with
+          | Some _, Some _ when border_block_var n1 && border_block_var n2 ->
               compare (get_first_usage n1) (get_first_usage n2)
-            else
-              (* All other families and cross-family: use property_order. *)
-              compare po1 po2
-          else
-            let fo1 = get_family_order n1 in
-            let fo2 = get_family_order n2 in
-            if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+          | Some r1, Some r2 -> compare r1 r2
+          (* Known Tailwind variables always precede tw-specific ones. *)
+          | Some _, None -> -1
+          | None, Some _ -> 1
+          | None, None ->
+              let fam1 = Var.family n1 in
+              let fam2 = Var.family n2 in
+              let po1 = property_order_from n1 in
+              let po2 = property_order_from n2 in
+              (* Variables with no family and negative property_order always
+                 come before family variables *)
+              let no_family_negative_first =
+                match (fam1, fam2) with
+                | None, Some _ when po1 < 0 -> -1
+                | Some _, None when po2 < 0 -> 1
+                | _ -> 0
+              in
+              if no_family_negative_first <> 0 then no_family_negative_first
+              else if
+                uses_direct_property_order fam1
+                && uses_direct_property_order fam2
+              then
+                if fam1 = fam2 && fam1 = Some `Border then
+                  compare (get_first_usage n1) (get_first_usage n2)
+                else compare po1 po2
+              else
+                let fo1 = get_family_order n1 in
+                let fo2 = get_family_order n2 in
+                if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2)
       | _ -> 0)
 
 (** Deduplicate keyframes by name, keeping first occurrence, then convert to CSS

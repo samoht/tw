@@ -279,6 +279,69 @@ let check_space_reverse_after_transforms () =
   check bool "--tw-translate-x before --tw-space-y-reverse" true
     (index_of "--tw-translate-x" < index_of "--tw-space-y-reverse")
 
+(* Regression: @property rules follow Tailwind's fixed canonical order, not the
+   stylesheet's first-usage order. Three composition variables were previously
+   misplaced by the family/first-usage sort: --tw-border-spacing-* sorted last,
+   --tw-tracking sorted after the backdrop filters, and --tw-outline-style
+   sorted with the border group instead of after the ring group. *)
+let check_canonical_property_order () =
+  let outline =
+    match Tw.of_string "outline" with
+    | Ok u -> u
+    | Error (`Msg m) -> fail ("outline: " ^ m)
+  in
+  let sheet =
+    Tw.to_css ~base:false ~layers:true
+      [
+        Tw.border_spacing 2.;
+        Tw.translate_x 4;
+        Tw.font_bold;
+        Tw.tracking_wide;
+        Tw.ring;
+        outline;
+        Tw.blur;
+      ]
+  in
+  let names = property_rule_names sheet in
+  let index_of n =
+    let rec loop i = function
+      | [] -> fail (n ^ " missing from @property rules")
+      | x :: _ when x = n -> i
+      | _ :: t -> loop (i + 1) t
+    in
+    loop 0 names
+  in
+  check bool "--tw-border-spacing-x before --tw-translate-x" true
+    (index_of "--tw-border-spacing-x" < index_of "--tw-translate-x");
+  check bool "--tw-tracking immediately after --tw-font-weight" true
+    (index_of "--tw-tracking" = index_of "--tw-font-weight" + 1);
+  check bool "--tw-outline-style after --tw-ring-shadow" true
+    (index_of "--tw-ring-shadow" < index_of "--tw-outline-style");
+  check bool "--tw-outline-style before --tw-blur" true
+    (index_of "--tw-outline-style" < index_of "--tw-blur")
+
+(* Regression: the space/divide reverse flags and --tw-border-style share one
+   @property block ordered by first usage, not by their fixed canonical rank.
+   divide-y emits --tw-divide-y-reverse before --tw-border-style; the canonical
+   table (which lists border-style first) must not override that. *)
+let check_border_block_first_usage () =
+  let divide_y =
+    match Tw.of_string "divide-y" with Ok u -> u | Error (`Msg m) -> fail m
+  in
+  let names =
+    property_rule_names (Tw.to_css ~base:false ~layers:true [ divide_y ])
+  in
+  let index_of n =
+    let rec loop i = function
+      | [] -> fail (n ^ " missing from @property rules")
+      | x :: _ when x = n -> i
+      | _ :: t -> loop (i + 1) t
+    in
+    loop 0 names
+  in
+  check bool "--tw-divide-y-reverse before --tw-border-style" true
+    (index_of "--tw-divide-y-reverse" < index_of "--tw-border-style")
+
 (* Regression: content-none uses a literal [content: none] and must NOT register
    @property --tw-content, matching Tailwind (which emits it only for content
    utilities that reference var(--tw-content), and for before/after
@@ -801,6 +864,9 @@ let tests =
     test_case "@property trailing and order" `Quick check_property_rules_order;
     test_case "@property space-reverse after transforms" `Quick
       check_space_reverse_after_transforms;
+    test_case "@property canonical order" `Quick check_canonical_property_order;
+    test_case "@property border block first usage" `Quick
+      check_border_block_first_usage;
     test_case "content-none emits no @property --tw-content" `Quick
       check_content_none_no_property;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
