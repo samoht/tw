@@ -22,10 +22,16 @@ module Screen_reader_handler = struct
 
   let to_style _theme = function
     | Sr_only ->
-        (* Property order matches Tailwind: clip-path, white-space,
-           border-width, width, height, margin, padding, position, overflow *)
+        (* Property order matches Tailwind: position, width, height, padding,
+           margin, overflow, clip-path, white-space, border-width *)
         style
           [
+            Css.position Absolute;
+            width (Px 1.);
+            height (Px 1.);
+            padding [ Zero ];
+            margin [ Px (-1.) ];
+            overflow Hidden;
             clip_path
               (Css.Clip_path_inset
                  {
@@ -37,26 +43,20 @@ module Screen_reader_handler = struct
                  });
             white_space Nowrap;
             border_width Zero;
-            width (Px 1.);
-            height (Px 1.);
-            margin [ Px (-1.) ];
-            padding [ Zero ];
-            Css.position Absolute;
-            overflow Hidden;
           ]
     | Not_sr_only ->
-        (* Property order matches Tailwind: clip-path, white-space, width,
-           height, margin, padding, position, overflow *)
+        (* Property order matches Tailwind: position, width, height, padding,
+           margin, overflow, clip-path, white-space *)
         style
           [
-            clip_path Css.Clip_path_none;
-            white_space Normal;
+            Css.position Static;
             width Auto;
             height Auto;
-            margin [ Zero ];
             padding [ Zero ];
-            Css.position Static;
+            margin [ Zero ];
             overflow Visible;
+            clip_path Css.Clip_path_none;
+            white_space Normal;
           ]
 
   let of_class _theme class_name =
