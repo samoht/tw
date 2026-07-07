@@ -125,10 +125,31 @@ let test_arbitrary_selector_combinator () =
   check bool "[&_p] still flattens to a descendant" true
     (Astring.String.is_infix ~affix:"]\\:underline p" (css "[&_p]:underline"))
 
+(* Regression: an opacity color emits a progressive-enhancement @supports block.
+   Under a variant, that block must stay scoped to the variant instead of
+   leaking a bare base-class rule. dark:text-white/80 previously emitted a
+   top-level .text-white/80 @supports rule alongside the correct
+   .dark:text-white/80. *)
+let test_opacity_color_variant_no_leak () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  (* The base class must never appear as a standalone selector (".text-white");
+     only the variant-decorated ".dark\:text-white" / ".hover\:text-red" is
+     allowed. *)
+  check bool "dark:text-white/80 leaks no bare .text-white" false
+    (Astring.String.is_infix ~affix:".text-white" (css "dark:text-white/80"));
+  check bool "hover:text-red-500/50 leaks no bare .text-red" false
+    (Astring.String.is_infix ~affix:".text-red" (css "hover:text-red-500/50"))
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "opacity color variant does not leak base rule" `Quick
+      test_opacity_color_variant_no_leak;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
