@@ -17,6 +17,13 @@ let of_string_valid () =
   check "shrink";
   check "shrink-0";
 
+  (* Deprecated v3 spellings keep their own class name (not folded into the
+     shorter grow/shrink), so the emitted selector matches the source class *)
+  check "flex-grow";
+  check "flex-grow-0";
+  check "flex-shrink";
+  check "flex-shrink-0";
+
   (* Basis *)
   check "basis-0";
   check "basis-1";
