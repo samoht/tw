@@ -45,13 +45,15 @@ module Handler = struct
   let priority = 4
   let err_not_utility = Error (`Msg "Not a table utility")
 
-  (** CSS variables for border-spacing - initialized to 0 in properties layer *)
+  (** CSS variables for border-spacing - initialized to 0 in the properties
+      layer. Tailwind emits these first; a negative property_order with no
+      family sorts them ahead of every other composition variable. *)
   let border_spacing_x_var =
-    Var.property_default Css.Length ~initial:Zero ~property_order:20
+    Var.property_default Css.Length ~initial:Zero ~property_order:(-2)
       "tw-border-spacing-x"
 
   let border_spacing_y_var =
-    Var.property_default Css.Length ~initial:Zero ~property_order:21
+    Var.property_default Css.Length ~initial:Zero ~property_order:(-1)
       "tw-border-spacing-y"
 
   (** Get spacing value - uses theme variable var(--spacing-N) *)

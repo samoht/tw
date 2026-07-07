@@ -279,6 +279,43 @@ let check_space_reverse_after_transforms () =
   check bool "--tw-translate-x before --tw-space-y-reverse" true
     (index_of "--tw-translate-x" < index_of "--tw-space-y-reverse")
 
+let index_of_prop names n =
+  let rec loop i = function
+    | [] -> fail (n ^ " missing from @property rules")
+    | x :: _ when x = n -> i
+    | _ :: t -> loop (i + 1) t
+  in
+  loop 0 names
+
+(* Regression: Tailwind emits @property --tw-border-spacing-* first in @layer
+   properties, ahead of the transforms. A negative property_order with no family
+   sorts them there. *)
+let check_border_spacing_first () =
+  let names =
+    property_rule_names
+      (Tw.to_css ~base:false ~layers:true
+         [ Tw.border_spacing 2.; Tw.translate_x 4; Tw.blur ])
+  in
+  let index_of = index_of_prop names in
+  check bool "--tw-border-spacing-x before --tw-translate-x" true
+    (index_of "--tw-border-spacing-x" < index_of "--tw-translate-x")
+
+(* Regression: @property --tw-outline-style sorts after the ring group and
+   before the filters, not with the border-style block. *)
+let check_outline_style_after_ring () =
+  let outline =
+    match Tw.of_string "outline" with Ok u -> u | Error (`Msg m) -> fail m
+  in
+  let names =
+    property_rule_names
+      (Tw.to_css ~base:false ~layers:true [ outline; Tw.ring; Tw.blur ])
+  in
+  let index_of = index_of_prop names in
+  check bool "--tw-outline-style after --tw-ring-shadow" true
+    (index_of "--tw-ring-shadow" < index_of "--tw-outline-style");
+  check bool "--tw-outline-style before --tw-blur" true
+    (index_of "--tw-outline-style" < index_of "--tw-blur")
+
 (* Regression: content-none uses a literal [content: none] and must NOT register
    @property --tw-content, matching Tailwind (which emits it only for content
    utilities that reference var(--tw-content), and for before/after
@@ -801,6 +838,9 @@ let tests =
     test_case "@property trailing and order" `Quick check_property_rules_order;
     test_case "@property space-reverse after transforms" `Quick
       check_space_reverse_after_transforms;
+    test_case "@property border-spacing first" `Quick check_border_spacing_first;
+    test_case "@property outline-style after ring" `Quick
+      check_outline_style_after_ring;
     test_case "content-none emits no @property --tw-content" `Quick
       check_content_none_no_property;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
