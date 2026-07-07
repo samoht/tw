@@ -1601,7 +1601,7 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
 
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
-let apply_modifier_to_rule ?theme modifier = function
+let rec apply_modifier_to_rule ?theme modifier = function
   | Regular { selector; props; base_class; has_hover; _ } -> (
       let bc = Option.value base_class ~default:"" in
       match modifier with
@@ -1644,7 +1644,40 @@ let apply_modifier_to_rule ?theme modifier = function
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
         ~props ~base_class ~nested
+  | Supports_query { condition; selector; props; base_class; merge_key; _ } ->
+      apply_modifier_to_supports_query ?theme modifier ~condition ~selector
+        ~props ~base_class ~merge_key
   | other -> [ other ]
+
+(* Apply a modifier to a [@supports] rule (the progressive-enhancement block an
+   opacity color or gradient emits). The modifier is applied to the inner rule
+   as if it were a plain rule, reusing all the modifier machinery (selector
+   rewriting, hover/responsive media, ...); each result is then re-wrapped in
+   [@supports]. Without this the block would keep the base class and leak a bare
+   rule outside the variant. *)
+and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
+    ~base_class ~merge_key =
+  let inner = regular ~selector ~props ?base_class ?merge_key () in
+  let wrap_supports_in_media outer sel p bc nested =
+    (* Nest the @supports inside a media query so the block stays scoped to the
+       variant. *)
+    let supports_stmt = Css.supports ~condition [ Css.rule ~selector:sel p ] in
+    media_query ~condition:outer ~selector:sel ~props:[] ?base_class:bc
+      ~nested:(supports_stmt :: nested) ()
+  in
+  apply_modifier_to_rule ?theme modifier inner
+  |> List.map (function
+    | Regular { selector; props; base_class; has_hover; _ } ->
+        (* A bare hover: rule carries [has_hover] instead of an outer media;
+           wrap the @supports in @media (hover:hover) to match. *)
+        if has_hover then
+          wrap_supports_in_media hover_media selector props base_class []
+        else
+          supports_query ~condition ~selector ~props ?base_class ?merge_key ()
+    | Media_query { condition = outer; selector; props; base_class; nested; _ }
+      ->
+        wrap_supports_in_media outer selector props base_class nested
+    | other -> other)
 
 (* Handle Modified style by recursively extracting and applying modifier *)
 let handle_modified ?theme util_inner modifier base_style extract_fn =
