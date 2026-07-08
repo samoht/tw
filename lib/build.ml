@@ -650,7 +650,10 @@ let theme_layer_rule ~layers = function
    nested @media/@supports). *)
 let var_names_of_output = function
   | Regular { props; nested; _ } | Media_query { props; nested; _ } ->
-      Css.vars_of_declarations props @ Css.vars_of_rules nested
+      (* [nested] can hold @media statements (compound variants like
+         hover:dark:) whose rules reference theme vars; recurse fully so those
+         references are collected and their theme tokens declared. *)
+      Css.vars_of_declarations props @ Css.vars_of_stylesheet (Css.v nested)
   | Container_query { props; _ }
   | Starting_style { props; _ }
   | Supports_query { props; _ } ->

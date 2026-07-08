@@ -1579,10 +1579,19 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
             responsive_modifier_condition ?theme modifier
           in
           wrap_in_media outer_condition
+      | _ when Modifiers.is_hover modifier ->
+          (* hover: gates on hover-capable devices via @media (hover:hover).
+             Applied to an inner media block (e.g. dark:), it must nest as
+             @media (hover:hover) { @media (dark) { .sel:hover { props } } };
+             dropping the wrapper makes the hover style apply on touch. *)
+          [
+            media_query ~condition:hover_media ~selector:new_selector ~props:[]
+              ~base_class:modified_class ~nested:[ inner_media ] ();
+          ]
       | _ ->
-          (* State/pseudo modifiers (focus, hover, ...) don't add an outer media
-             condition; they rewrite the inner rule's selector so a utility
-             whose own output is a media block (e.g. outline-hidden's
+          (* Other state/pseudo modifiers (focus, active, ...) don't add an
+             outer media condition; they rewrite the inner rule's selector so a
+             utility whose own output is a media block (e.g. outline-hidden's
              forced-colors reset) gets the modified selector inside the block.
              The base_class is updated to the modified class so this media stays
              grouped with the utility's regular rule (same-utility order),

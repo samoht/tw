@@ -83,6 +83,20 @@ let check_properties_layer () =
   check bool "has --tw-ring-offset-width" true
     (List.mem "--tw-ring-offset-width" vars)
 
+(* Regression: a theme color referenced only inside a compound variant's nested
+   media (hover:dark:text-white puts var(--color-white) two media levels deep)
+   must still be declared in the theme layer. The var collection used to stop at
+   the first level and miss it, so --color-white got pruned. *)
+let check_compound_variant_theme_var () =
+  let u =
+    match Tw.of_string "hover:dark:text-white" with
+    | Ok u -> u
+    | Error (`Msg m) -> fail m
+  in
+  let css = Tw.to_css ~base:false ~layers:true [ u ] in
+  check bool "theme layer declares --color-white" true
+    (has_var_in_layer "--color-white" "theme" css)
+
 let check_css_variables_with_base () =
   let config = { Tw.Build.base = true; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [] in
@@ -789,6 +803,8 @@ let tests =
       check_conflict_order;
     test_case "properties layer generation" `Quick check_properties_layer;
     test_case "to_css variables with base" `Quick check_css_variables_with_base;
+    test_case "compound variant theme var" `Quick
+      check_compound_variant_theme_var;
     test_case "to_css variables without base" `Quick
       check_css_variables_without_base;
     test_case "to_css inline with base" `Quick check_css_inline_with_base;
