@@ -216,21 +216,24 @@ module Handler = struct
         | true, _, `Auto -> failwith "Negative auto margin not supported")
 
   let suborder { negative; axis; value } =
-    let neg_offset = if negative then -5000000 else 0 in
-    let side_offset =
+    (* Tailwind orders margins by side first, then sign (negatives before
+       positives within a side), then value. Side spacing (1_000_000) exceeds
+       the sign+value range so the tiers never cross. *)
+    let side_index =
       match axis with
       | `All -> 0
-      | `X -> 100000
-      | `Y -> 200000
-      | `S -> 300000
-      | `E -> 400000
-      | `T -> 500000
-      | `R -> 600000
-      | `B -> 700000
-      | `L -> 800000
-      | `Bs -> 900000
-      | `Be -> 1000000
+      | `X -> 1
+      | `Y -> 2
+      | `S -> 3
+      | `E -> 4
+      | `T -> 5
+      | `R -> 6
+      | `B -> 7
+      | `L -> 8
+      | `Bs -> 9
+      | `Be -> 10
     in
+    let sign_offset = if negative then 0 else 200000 in
     let value_order =
       match value with
       | Standard m -> margin_value_order m
@@ -238,7 +241,7 @@ module Handler = struct
       | Arbitrary_var _ -> 55000
       | Named _ -> 60000 (* after arbitrary *)
     in
-    neg_offset + side_offset + value_order
+    (side_index * 1000000) + sign_offset + value_order
 
   let pp_float n =
     (* Format float without trailing dot: 4. -> 4, 4.5 -> 4.5 *)

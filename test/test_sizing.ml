@@ -181,6 +181,23 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"sizing suborder matches Tailwind" shuffled
 
+(* Tailwind interleaves spacing and fractions by magnitude: w-0.5, w-1, w-1.5,
+   w-1/2, w-1/3, w-2, w-2/3, w-3/4. tw used to sort all fractions ahead of all
+   spacing (a flat offset), reversing conflicting rules (both set width). *)
+let fraction_interleave_matches_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
+  in
+  let utilities =
+    List.map mk
+      [ "w-0.5"; "w-1"; "w-1.5"; "w-2"; "w-1/2"; "w-1/3"; "w-2/3"; "w-3/4" ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"sizing fraction interleave matches Tailwind"
+    (Test_helpers.shuffle utilities)
+
 let css_of cls =
   match Tw.of_string cls with
   | Ok s -> Tw.to_css ~base:false [ s ] |> Css.to_string
@@ -249,6 +266,8 @@ let tests =
     test_case "class generation" `Quick test_class_generation;
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "sizing fraction interleave matches Tailwind" `Quick
+      fraction_interleave_matches_tailwind;
   ]
 
 let suite = ("sizing", tests)

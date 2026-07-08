@@ -1034,190 +1034,233 @@ module Handler = struct
     in
     (integer * 4) + frac_order
 
-  let suborder = function
-    (* Tailwind ordering within each utility group:
-       fractions → spacing → arbitrary → keywords (alphabetical) *)
-    (* Height utilities (0-99999) *)
-    | H_fraction f -> (
-        match String.split_on_char '/' f with
-        | [ num; _ ] -> ( try int_of_string num * 10 with Failure _ -> 999)
-        | _ -> 999)
-    | H_spacing n -> 1000 + spacing_suborder n
-    | H_arbitrary _ -> 5000
-    | H_auto -> 6000
-    | H_dvh -> 6001
-    | H_fit -> 6002
-    | H_full -> 6003
-    | H_lh -> 6004
-    | H_lvh -> 6005
-    | H_max -> 6006
-    | H_min -> 6007
-    | H_px -> 6008
-    | H_screen -> 6009
-    | H_svh -> 6010
-    (* Max-height utilities (100000-199999) *)
-    | Max_h_spacing n -> 100000 + spacing_suborder n
-    | Max_h_arbitrary _ -> 105000
-    | Max_h_dvh -> 106000
-    | Max_h_fit -> 106001
-    | Max_h_full -> 106002
-    | Max_h_lh -> 106003
-    | Max_h_lvh -> 106004
-    | Max_h_max -> 106005
-    | Max_h_min -> 106006
-    | Max_h_none -> 106007
-    | Max_h_screen -> 106008
-    | Max_h_svh -> 106009
-    (* Min-height utilities (200000-299999) *)
-    | Min_h_0 -> 200000
-    | Min_h_spacing n -> 200000 + spacing_suborder n
-    | Min_h_arbitrary _ -> 205000
-    | Min_h_auto -> 206000
-    | Min_h_dvh -> 206001
-    | Min_h_fit -> 206002
-    | Min_h_full -> 206003
-    | Min_h_lh -> 206004
-    | Min_h_lvh -> 206005
-    | Min_h_max -> 206006
-    | Min_h_min -> 206007
-    | Min_h_screen -> 206008
-    | Min_h_svh -> 206009
-    (* Width utilities (300000-399999) *)
-    | W_fraction _ -> 300000
-    | W_spacing n -> 301000 + spacing_suborder n
-    | W_arbitrary _ -> 305000
-    | W_auto -> 306000
-    | W_dvw -> 306001
-    | W_fit -> 306002
-    | W_full -> 306003
-    | W_lvw -> 306004
-    | W_max -> 306005
-    | W_min -> 306006
-    | W_px -> 306007
-    | W_screen -> 306008
-    | W_svw -> 306009
-    | W_xl -> 306010
-    (* Max-width utilities (400000-499999) *)
-    | Max_w_spacing n -> 400000 + spacing_suborder n
-    | Max_w_arbitrary _ -> 405000
-    | Max_w_2xl -> 406000
-    | Max_w_3xl -> 406001
-    | Max_w_4xl -> 406002
-    | Max_w_5xl -> 406003
-    | Max_w_6xl -> 406004
-    | Max_w_7xl -> 406005
-    | Max_w_fit -> 406006
-    | Max_w_full -> 406007
-    | Max_w_lg -> 406008
-    | Max_w_max -> 406009
-    | Max_w_md -> 406010
-    | Max_w_min -> 406011
-    | Max_w_none -> 406012
-    | Max_w_prose -> 406013
-    | Max_w_screen_2xl -> 406014
-    | Max_w_screen_lg -> 406015
-    | Max_w_screen_md -> 406016
-    | Max_w_screen_sm -> 406017
-    | Max_w_screen_xl -> 406018
-    | Max_w_sm -> 406019
-    | Max_w_xl -> 406020
-    | Max_w_xs -> 406021
-    (* Min-width utilities (500000-599999) *)
-    | Min_w_0 -> 500000
-    | Min_w_spacing n -> 500000 + spacing_suborder n
-    | Min_w_arbitrary _ -> 505000
-    | Min_w_auto -> 506000
-    | Min_w_fit -> 506001
-    | Min_w_full -> 506002
-    | Min_w_max -> 506003
-    | Min_w_min -> 506004
-    | Min_w_xl -> 506005
-    (* Size utilities (600000-699999) *)
-    | Size_fraction _ -> 600000
-    | Size_spacing n -> 601000 + spacing_suborder n
-    | Size_arbitrary _ -> 605000
-    | Size_auto -> 606000
-    | Size_fit -> 606001
-    | Size_full -> 606002
-    | Size_max -> 606003
-    | Size_min -> 606004
-    (* inline-size utilities (700000-749999) *)
-    | Inline_fraction _ -> 700000
-    | Inline_spacing n -> 701000 + spacing_suborder n
-    | Inline_arbitrary _ -> 705000
-    | Inline_auto -> 706000
-    | Inline_dvw -> 706001
-    | Inline_fit -> 706002
-    | Inline_full -> 706003
-    | Inline_lvw -> 706004
-    | Inline_max -> 706005
-    | Inline_min -> 706006
-    | Inline_screen -> 706007
-    | Inline_svw -> 706008
-    | Inline_xl -> 706009
-    (* min-inline-size utilities (750000-779999) *)
-    | Min_inline_spacing n -> 750000 + spacing_suborder n
-    | Min_inline_arbitrary _ -> 755000
-    | Min_inline_auto -> 756000
-    | Min_inline_fit -> 756001
-    | Min_inline_full -> 756002
-    | Min_inline_max -> 756003
-    | Min_inline_min -> 756004
-    | Min_inline_xl -> 756005
-    (* max-inline-size utilities (780000-799999) *)
-    | Max_inline_spacing n -> 780000 + spacing_suborder n
-    | Max_inline_arbitrary _ -> 785000
-    | Max_inline_fit -> 786000
-    | Max_inline_full -> 786001
-    | Max_inline_max -> 786002
-    | Max_inline_none -> 786003
-    | Max_inline_xl -> 786004
-    (* block-size utilities (800000-849999) *)
-    | Block_fraction _ -> 800000
-    | Block_spacing n -> 801000 + spacing_suborder n
-    | Block_arbitrary _ -> 805000
-    | Block_auto -> 806000
-    | Block_dvh -> 806001
-    | Block_fit -> 806002
-    | Block_full -> 806003
-    | Block_lh -> 806004
-    | Block_lvh -> 806005
-    | Block_max -> 806006
-    | Block_min -> 806007
-    | Block_screen -> 806008
-    | Block_svh -> 806009
-    (* min-block-size utilities (850000-879999) *)
-    | Min_block_spacing n -> 850000 + spacing_suborder n
-    | Min_block_arbitrary _ -> 855000
-    | Min_block_auto -> 856000
-    | Min_block_dvh -> 856001
-    | Min_block_fit -> 856002
-    | Min_block_full -> 856003
-    | Min_block_lh -> 856004
-    | Min_block_lvh -> 856005
-    | Min_block_max -> 856006
-    | Min_block_min -> 856007
-    | Min_block_screen -> 856008
-    | Min_block_svh -> 856009
-    (* max-block-size utilities (880000-899999) *)
-    | Max_block_spacing n -> 880000 + spacing_suborder n
-    | Max_block_arbitrary _ -> 885000
-    | Max_block_dvh -> 886000
-    | Max_block_fit -> 886001
-    | Max_block_full -> 886002
-    | Max_block_lh -> 886003
-    | Max_block_lvh -> 886004
-    | Max_block_max -> 886005
-    | Max_block_min -> 886006
-    | Max_block_none -> 886007
-    | Max_block_screen -> 886008
-    | Max_block_svh -> 886009
-    (* Aspect utilities (900000-): ratios → brackets → keywords *)
-    | Aspect_ratio (w, h) -> 900000 + int_of_float (w *. 10.) + int_of_float h
-    | Aspect_bracket (w, h) -> 901000 + int_of_float (w *. 10.) + int_of_float h
-    | Aspect_auto -> 902000
-    | Aspect_square -> 902001
-    | Aspect_video -> 902002
+  (* Tailwind interleaves spacing values and fractions within a sizing family by
+     the integer part of their magnitude (spacing value or fraction numerator):
+     e.g. w-0.5, w-1, w-1.5, w-1/2, w-1/3, w-2, w-2/3, w-3/4. Spacing sorts by
+     value, fractions of numerator n come just after the spacing values with
+     that integer part, ordered by denominator. Both stay well under the
+     per-family arbitrary offset (5_000_000). *)
+  let spacing_value_order n = spacing_suborder n * 100
+
+  (* A spacing value is stored as rem (class number * 0.25). A fraction n/m has
+     numerator [n], whose class number is [n], so [spacing_suborder (n *. 0.25)]
+     puts it on the spacing scale. [+ 4] steps to the next class boundary
+     (spacing_suborder for an integer class k is 4k); [- 50 + m] pulls it just
+     before that boundary, after every floor-n spacing value, by denominator. *)
+  let fraction_value_order f =
+    match String.split_on_char '/' f with
+    | [ n; m ] -> (
+        match (int_of_string_opt n, int_of_string_opt m) with
+        | Some n, Some m ->
+            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 50 + m
+        | _ -> 490000)
+    | _ -> 490000
+
+  (* Per-family base; families keep their previous relative order but with wide
+     (10M) bands so the interleaved spacing/fraction range never overflows. *)
+  let arbitrary_off = 5_000_000
+  let keyword_off = 6_000_000
+
+  let suborder =
+    (* Family bases are 10M apart so the interleaved spacing/fraction range (<
+       5M) and arbitrary/keyword offsets never overflow into the next family.
+       Within a family: spacing/fractions interleaved by magnitude, then
+       arbitrary, then keywords (alphabetical). *)
+    let h = 0 in
+    let max_h = 10_000_000 in
+    let min_h = 20_000_000 in
+    let w = 30_000_000 in
+    let max_w = 40_000_000 in
+    let min_w = 50_000_000 in
+    let size = 60_000_000 in
+    let inline = 70_000_000 in
+    let min_inline = 80_000_000 in
+    let max_inline = 90_000_000 in
+    let block = 100_000_000 in
+    let min_block = 110_000_000 in
+    let max_block = 120_000_000 in
+    let aspect = 130_000_000 in
+    function
+    (* Height *)
+    | H_fraction f -> h + fraction_value_order f
+    | H_spacing n -> h + spacing_value_order n
+    | H_arbitrary _ -> h + arbitrary_off
+    | H_auto -> h + keyword_off + 0
+    | H_dvh -> h + keyword_off + 1
+    | H_fit -> h + keyword_off + 2
+    | H_full -> h + keyword_off + 3
+    | H_lh -> h + keyword_off + 4
+    | H_lvh -> h + keyword_off + 5
+    | H_max -> h + keyword_off + 6
+    | H_min -> h + keyword_off + 7
+    | H_px -> h + keyword_off + 8
+    | H_screen -> h + keyword_off + 9
+    | H_svh -> h + keyword_off + 10
+    (* Max-height *)
+    | Max_h_spacing n -> max_h + spacing_value_order n
+    | Max_h_arbitrary _ -> max_h + arbitrary_off
+    | Max_h_dvh -> max_h + keyword_off + 0
+    | Max_h_fit -> max_h + keyword_off + 1
+    | Max_h_full -> max_h + keyword_off + 2
+    | Max_h_lh -> max_h + keyword_off + 3
+    | Max_h_lvh -> max_h + keyword_off + 4
+    | Max_h_max -> max_h + keyword_off + 5
+    | Max_h_min -> max_h + keyword_off + 6
+    | Max_h_none -> max_h + keyword_off + 7
+    | Max_h_screen -> max_h + keyword_off + 8
+    | Max_h_svh -> max_h + keyword_off + 9
+    (* Min-height *)
+    | Min_h_0 -> min_h + 0
+    | Min_h_spacing n -> min_h + spacing_value_order n
+    | Min_h_arbitrary _ -> min_h + arbitrary_off
+    | Min_h_auto -> min_h + keyword_off + 0
+    | Min_h_dvh -> min_h + keyword_off + 1
+    | Min_h_fit -> min_h + keyword_off + 2
+    | Min_h_full -> min_h + keyword_off + 3
+    | Min_h_lh -> min_h + keyword_off + 4
+    | Min_h_lvh -> min_h + keyword_off + 5
+    | Min_h_max -> min_h + keyword_off + 6
+    | Min_h_min -> min_h + keyword_off + 7
+    | Min_h_screen -> min_h + keyword_off + 8
+    | Min_h_svh -> min_h + keyword_off + 9
+    (* Width *)
+    | W_fraction f -> w + fraction_value_order f
+    | W_spacing n -> w + spacing_value_order n
+    | W_arbitrary _ -> w + arbitrary_off
+    | W_auto -> w + keyword_off + 0
+    | W_dvw -> w + keyword_off + 1
+    | W_fit -> w + keyword_off + 2
+    | W_full -> w + keyword_off + 3
+    | W_lvw -> w + keyword_off + 4
+    | W_max -> w + keyword_off + 5
+    | W_min -> w + keyword_off + 6
+    | W_px -> w + keyword_off + 7
+    | W_screen -> w + keyword_off + 8
+    | W_svw -> w + keyword_off + 9
+    | W_xl -> w + keyword_off + 10
+    (* Max-width *)
+    | Max_w_spacing n -> max_w + spacing_value_order n
+    | Max_w_arbitrary _ -> max_w + arbitrary_off
+    | Max_w_2xl -> max_w + keyword_off + 0
+    | Max_w_3xl -> max_w + keyword_off + 1
+    | Max_w_4xl -> max_w + keyword_off + 2
+    | Max_w_5xl -> max_w + keyword_off + 3
+    | Max_w_6xl -> max_w + keyword_off + 4
+    | Max_w_7xl -> max_w + keyword_off + 5
+    | Max_w_fit -> max_w + keyword_off + 6
+    | Max_w_full -> max_w + keyword_off + 7
+    | Max_w_lg -> max_w + keyword_off + 8
+    | Max_w_max -> max_w + keyword_off + 9
+    | Max_w_md -> max_w + keyword_off + 10
+    | Max_w_min -> max_w + keyword_off + 11
+    | Max_w_none -> max_w + keyword_off + 12
+    | Max_w_prose -> max_w + keyword_off + 13
+    | Max_w_screen_2xl -> max_w + keyword_off + 14
+    | Max_w_screen_lg -> max_w + keyword_off + 15
+    | Max_w_screen_md -> max_w + keyword_off + 16
+    | Max_w_screen_sm -> max_w + keyword_off + 17
+    | Max_w_screen_xl -> max_w + keyword_off + 18
+    | Max_w_sm -> max_w + keyword_off + 19
+    | Max_w_xl -> max_w + keyword_off + 20
+    | Max_w_xs -> max_w + keyword_off + 21
+    (* Min-width *)
+    | Min_w_0 -> min_w + 0
+    | Min_w_spacing n -> min_w + spacing_value_order n
+    | Min_w_arbitrary _ -> min_w + arbitrary_off
+    | Min_w_auto -> min_w + keyword_off + 0
+    | Min_w_fit -> min_w + keyword_off + 1
+    | Min_w_full -> min_w + keyword_off + 2
+    | Min_w_max -> min_w + keyword_off + 3
+    | Min_w_min -> min_w + keyword_off + 4
+    | Min_w_xl -> min_w + keyword_off + 5
+    (* Size *)
+    | Size_fraction f -> size + fraction_value_order f
+    | Size_spacing n -> size + spacing_value_order n
+    | Size_arbitrary _ -> size + arbitrary_off
+    | Size_auto -> size + keyword_off + 0
+    | Size_fit -> size + keyword_off + 1
+    | Size_full -> size + keyword_off + 2
+    | Size_max -> size + keyword_off + 3
+    | Size_min -> size + keyword_off + 4
+    (* inline-size *)
+    | Inline_fraction f -> inline + fraction_value_order f
+    | Inline_spacing n -> inline + spacing_value_order n
+    | Inline_arbitrary _ -> inline + arbitrary_off
+    | Inline_auto -> inline + keyword_off + 0
+    | Inline_dvw -> inline + keyword_off + 1
+    | Inline_fit -> inline + keyword_off + 2
+    | Inline_full -> inline + keyword_off + 3
+    | Inline_lvw -> inline + keyword_off + 4
+    | Inline_max -> inline + keyword_off + 5
+    | Inline_min -> inline + keyword_off + 6
+    | Inline_screen -> inline + keyword_off + 7
+    | Inline_svw -> inline + keyword_off + 8
+    | Inline_xl -> inline + keyword_off + 9
+    (* min-inline-size *)
+    | Min_inline_spacing n -> min_inline + spacing_value_order n
+    | Min_inline_arbitrary _ -> min_inline + arbitrary_off
+    | Min_inline_auto -> min_inline + keyword_off + 0
+    | Min_inline_fit -> min_inline + keyword_off + 1
+    | Min_inline_full -> min_inline + keyword_off + 2
+    | Min_inline_max -> min_inline + keyword_off + 3
+    | Min_inline_min -> min_inline + keyword_off + 4
+    | Min_inline_xl -> min_inline + keyword_off + 5
+    (* max-inline-size *)
+    | Max_inline_spacing n -> max_inline + spacing_value_order n
+    | Max_inline_arbitrary _ -> max_inline + arbitrary_off
+    | Max_inline_fit -> max_inline + keyword_off + 0
+    | Max_inline_full -> max_inline + keyword_off + 1
+    | Max_inline_max -> max_inline + keyword_off + 2
+    | Max_inline_none -> max_inline + keyword_off + 3
+    | Max_inline_xl -> max_inline + keyword_off + 4
+    (* block-size *)
+    | Block_fraction f -> block + fraction_value_order f
+    | Block_spacing n -> block + spacing_value_order n
+    | Block_arbitrary _ -> block + arbitrary_off
+    | Block_auto -> block + keyword_off + 0
+    | Block_dvh -> block + keyword_off + 1
+    | Block_fit -> block + keyword_off + 2
+    | Block_full -> block + keyword_off + 3
+    | Block_lh -> block + keyword_off + 4
+    | Block_lvh -> block + keyword_off + 5
+    | Block_max -> block + keyword_off + 6
+    | Block_min -> block + keyword_off + 7
+    | Block_screen -> block + keyword_off + 8
+    | Block_svh -> block + keyword_off + 9
+    (* min-block-size *)
+    | Min_block_spacing n -> min_block + spacing_value_order n
+    | Min_block_arbitrary _ -> min_block + arbitrary_off
+    | Min_block_auto -> min_block + keyword_off + 0
+    | Min_block_dvh -> min_block + keyword_off + 1
+    | Min_block_fit -> min_block + keyword_off + 2
+    | Min_block_full -> min_block + keyword_off + 3
+    | Min_block_lh -> min_block + keyword_off + 4
+    | Min_block_lvh -> min_block + keyword_off + 5
+    | Min_block_max -> min_block + keyword_off + 6
+    | Min_block_min -> min_block + keyword_off + 7
+    | Min_block_screen -> min_block + keyword_off + 8
+    | Min_block_svh -> min_block + keyword_off + 9
+    (* max-block-size *)
+    | Max_block_spacing n -> max_block + spacing_value_order n
+    | Max_block_arbitrary _ -> max_block + arbitrary_off
+    | Max_block_dvh -> max_block + keyword_off + 0
+    | Max_block_fit -> max_block + keyword_off + 1
+    | Max_block_full -> max_block + keyword_off + 2
+    | Max_block_lh -> max_block + keyword_off + 3
+    | Max_block_lvh -> max_block + keyword_off + 4
+    | Max_block_max -> max_block + keyword_off + 5
+    | Max_block_min -> max_block + keyword_off + 6
+    | Max_block_none -> max_block + keyword_off + 7
+    | Max_block_screen -> max_block + keyword_off + 8
+    | Max_block_svh -> max_block + keyword_off + 9
+    (* Aspect: ratios -> brackets -> keywords *)
+    | Aspect_ratio (rw, rh) ->
+        aspect + int_of_float (rw *. 10.) + int_of_float rh
+    | Aspect_bracket (rw, rh) ->
+        aspect + 1000 + int_of_float (rw *. 10.) + int_of_float rh
+    | Aspect_auto -> aspect + 2000
+    | Aspect_square -> aspect + 2001
+    | Aspect_video -> aspect + 2002
 
   let to_class = function
     (* Width utilities *)

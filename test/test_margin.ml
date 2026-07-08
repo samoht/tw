@@ -75,6 +75,35 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"margin suborder matches Tailwind" shuffled
 
+(* Tailwind orders margins by side first, then sign (negative before positive
+   within a side), then value: e.g. m-0, -mt-1, mt-2, -ml-1, ml-2. tw used to
+   sort all negatives ahead of all positives, which both diverged from Tailwind
+   and reversed the cascade for conflicting rules (.m-0 vs .-ml-4). *)
+let negative_suborder_matches_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
+  in
+  let utilities =
+    List.map mk
+      [
+        "m-0";
+        "m-2";
+        "-m-1";
+        "-m-4";
+        "mt-2";
+        "-mt-1";
+        "ml-2";
+        "-ml-1";
+        "-mr-1";
+        "mb-4";
+      ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"negative margin suborder matches Tailwind"
+    (Test_helpers.shuffle utilities)
+
 (** Test that CSS values use the correct spacing multiplier. m-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
@@ -101,6 +130,8 @@ let tests =
       named_spacing_requires_theme_token;
     test_case "margin suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "negative margin suborder matches Tailwind" `Quick
+      negative_suborder_matches_tailwind;
     test_case "margin CSS values" `Quick test_css_values;
   ]
 
