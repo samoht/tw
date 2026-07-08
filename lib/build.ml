@@ -1199,7 +1199,9 @@ let individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
       let layer, prop_rules =
         properties_layer first_usage_order all_property_statements
       in
-      if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
+      match Css.statements layer with
+      | [] -> (None, prop_rules)
+      | _ -> (Some layer, prop_rules)
   in
   let utilities_layer = utilities_layer ~layers ~statements in
   { theme_layer; base_layer; properties_layer; utilities_layer; property_rules }

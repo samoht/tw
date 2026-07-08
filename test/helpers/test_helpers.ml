@@ -258,13 +258,18 @@ let selectors_in_media_sel ~condition css =
           match Css.as_rule s with Some (sel, _, _) -> Some sel | None -> None)
         stmts
 
+let selector_eq a b =
+  String.equal (Css.Selector.to_string a) (Css.Selector.to_string b)
+
 let has_selector_in_media_sel ~condition ~selector css =
   selectors_in_media_sel ~condition css
-  |> List.exists (fun sel -> sel = selector)
+  |> List.exists (fun sel -> selector_eq sel selector)
 
 let count_selector_in_media_sel ~condition ~selector css =
   selectors_in_media_sel ~condition css
-  |> List.fold_left (fun acc sel -> if sel = selector then acc + 1 else acc) 0
+  |> List.fold_left
+       (fun acc sel -> if selector_eq sel selector then acc + 1 else acc)
+       0
 
 (** Check if inline style contains a specific property *)
 let inline_has_property prop_name inline_style =

@@ -1407,9 +1407,24 @@ let custom_variant_rule token template base_class props =
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
+(* Rewrite [selector] for [modifier] and emit a single regular rule under the
+   modified class. The common shape for modifiers that only decorate the
+   selector (no outer media/supports wrapper). *)
+
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
+let modified_selector_rule modifier base_class selector props =
+  let modified_base_selector = Modifiers.to_selector modifier base_class in
+  let modified_class =
+    Rules_selector.extract_modified_class_name modified_base_selector base_class
+  in
+  let new_selector =
+    Rules_selector.transform_selector_with_modifier modified_base_selector
+      base_class modified_class selector
+  in
+  regular ~selector:new_selector ~props ~base_class:modified_class ()
+
 let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
     base_class selector props =
   match modifier with
@@ -1417,16 +1432,7 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
   | Style.Data_state _ | Style.Data_variant _ ->
       route_data_modifier modifier base_class selector props
   | Style.Data_custom _ ->
-      let modified_base_selector = Modifiers.to_selector modifier base_class in
-      let modified_class =
-        Rules_selector.extract_modified_class_name modified_base_selector
-          base_class
-      in
-      let new_selector =
-        Rules_selector.transform_selector_with_modifier modified_base_selector
-          base_class modified_class selector
-      in
-      regular ~selector:new_selector ~props ~base_class:modified_class ()
+      modified_selector_rule modifier base_class selector props
   (* Media-like modifiers: dark, motion, contrast, print, orientation,
      forced-colors, inverted-colors, pointer, any-pointer, noscript *)
   | _ when Option.is_some (media_condition_of_modifier modifier) ->
@@ -1597,15 +1603,8 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
              grouped with the utility's regular rule (same-utility order),
              rather than being treated as a different utility and reordered. *)
           [
-            Media_query
-              {
-                condition = inner_condition;
-                selector = new_selector;
-                props;
-                base_class = Some modified_class;
-                nested;
-                not_order = 0;
-              };
+            media_query ~condition:inner_condition ~selector:new_selector ~props
+              ~base_class:modified_class ~nested ();
           ])
 
 (* Extract selector and properties from a single Utility *)

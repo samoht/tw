@@ -396,8 +396,8 @@ val page :
     - [title] is the page title
     - [tw_css] controls how the CSS is delivered (see {!type:tw_css}). Defaults
       to [Link "tw.css"], which references the CSS through a cache-busted
-      [<link>] tag in the HTML head. Use [Inline] to embed the CSS in the
-      document and avoid an extra HTTP request.
+      [<link>] tag in the HTML head. Use {!constructor-Inline} to embed the CSS
+      in the document and avoid an extra HTTP request.
     - [forms] explicitly enables the [\@tailwindcss/forms] plugin base layer,
       mirroring Tailwind's [\@plugin] opt-in. When omitted, the forms base is
       auto-detected from forms utility usage (like prose styling).
@@ -413,7 +413,7 @@ val html : page -> string
 val css : page -> string option * Tw.Css.t
 (** [css page] extracts the CSS filename and stylesheet from a page result. The
     filename is [Some file] when the page links to an external stylesheet
-    ([Link file]) and [None] when the CSS is inlined ([Inline]). *)
+    ([Link file]) and [None] when the CSS is inlined ({!constructor-Inline}). *)
 
 (** {1 Livereload module}
 
