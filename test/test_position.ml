@@ -76,6 +76,41 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"position suborder matches Tailwind" shuffled
 
+(* Tailwind orders inset values negative-first (ascending magnitude), then
+   positives with fractions interleaved by numerator, then arbitrary, then
+   keywords: inset-0, inset-1, inset-2, inset-4, inset-40, inset-3/4, -inset-1,
+   -inset-4, -inset-full. tw used a too-tight band where a numeric value (e.g.
+   inset-40) overflowed past the arbitrary/keyword offset and into the next
+   family, and sorted fractions ahead of all numerics. *)
+let inset_value_order_matches_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
+  in
+  let utilities =
+    List.map mk
+      [
+        "inset-0";
+        "inset-1";
+        "inset-2";
+        "inset-4";
+        "inset-40";
+        "inset-3/4";
+        "-inset-1";
+        "-inset-4";
+        "inset-auto";
+        "inset-full";
+        "-inset-full";
+        "bottom-24";
+        "bottom-40";
+        "bottom-[5rem]";
+      ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"inset value order matches Tailwind"
+    (Test_helpers.shuffle utilities)
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
@@ -87,6 +122,8 @@ let tests =
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "inset value order matches Tailwind" `Quick
+      inset_value_order_matches_tailwind;
   ]
 
 let suite = ("position", tests)

@@ -379,125 +379,157 @@ module Handler = struct
      - small suborder 2. Negative percentage (-inset-full) 3. Fractions
      (inset-3/4) 4. Positive numeric (inset-4) 5. Arbitrary (inset-[4px]) 6.
      auto (inset-auto) 7. full (inset-full) 8. named (inset-shadowned) *)
-  let suborder = function
+  (* Within an inset family Tailwind orders: negative numeric (ascending by
+     magnitude), then negative full, then positives with fractions interleaved
+     by numerator (inset-1, inset-1/2, inset-2, inset-3/4, inset-4), then
+     arbitrary, then keywords (auto, full) then named. The offsets below are
+     spaced far enough apart that a numeric value (up to ~96) never overflows
+     into the next tier or family: family bands are 1_000_000 apart. *)
+  let neg_num n = abs n * 10 (* 0 .. ~960 *)
+  let neg_arb_off = 490_000 (* negative arbitrary before negative full *)
+  let neg_full_off = 500_000
+  let pos_off = 600_000
+  let pos_int n = pos_off + (n * 10)
+  let pos_frac num den = pos_off + (num * 10) + 1 + den
+  let arb_off = 800_000
+  let auto_off = 900_000
+  let full_off = 900_001
+  let named_off = 900_002
+
+  let suborder =
+    let inset = 1_000_000 in
+    let inset_x = 2_000_000 in
+    let inset_y = 3_000_000 in
+    let inset_s = 4_000_000 in
+    let inset_e = 5_000_000 in
+    let inset_bs = 6_000_000 in
+    let inset_be = 7_000_000 in
+    let top = 8_000_000 in
+    let right = 9_000_000 in
+    let bottom = 10_000_000 in
+    let left = 11_000_000 in
+    let start = 12_000_000 in
+    let e = 13_000_000 in
+    function
     | Position_absolute -> 0
     | Position_fixed -> 1
     | Position_relative -> 2
     | Position_static -> 3
     | Position_sticky -> 4
-    | Inset_0 -> 100
-    | Inset_x_0 -> 101
-    | Inset_y_0 -> 102
-    | Inset n when n < 0 ->
-        50 + abs n (* negative numeric first: -inset-4 = 54 *)
-    | Neg_inset_full -> 60 (* negative full after negative numeric *)
-    | Inset_3_4 -> 103 (* fractions *)
-    | Inset n -> 104 + n (* positive numeric: inset-4 = 108 *)
-    | Inset_arbitrary _ -> 120 (* arbitrary after numeric *)
-    | Inset_auto -> 125
-    | Inset_full -> 130
-    | Inset_named _ -> 135
-    | Neg_inset_x_full -> 145
-    | Inset_x_3_4 -> 150
-    | Inset_x n when n < 0 -> 140 + abs n
-    | Inset_x n -> 155 + n
-    | Inset_x_arbitrary _ -> 160
-    | Inset_x_auto -> 165
-    | Inset_x_full -> 170
-    | Inset_x_named _ -> 175
-    | Neg_inset_y_full -> 185
-    | Inset_y_3_4 -> 190
-    | Inset_y n when n < 0 -> 180 + abs n
-    | Inset_y n -> 195 + n
-    | Inset_y_arbitrary _ -> 200
-    | Inset_y_auto -> 205
-    | Inset_y_full -> 210
-    | Inset_y_named _ -> 215
-    (* inset-s suborders - follows same pattern as inset: negative numeric,
-       neg_full, 3/4, positive, arbitrary, auto, full, named *)
-    | Inset_s n when n < 0 -> 220 (* all negative numeric together *)
-    | Neg_inset_s_full -> 221
-    | Inset_s_3_4 -> 222
-    | Inset_s n -> 223 + n
-    | Inset_s_arbitrary _ -> 240
-    | Inset_s_auto -> 241
-    | Inset_s_full -> 242
-    | Inset_s_named _ -> 243
-    (* inset-e suborders *)
-    | Inset_e n when n < 0 -> 250
-    | Neg_inset_e_full -> 251
-    | Inset_e_3_4 -> 252
-    | Inset_e n -> 253 + n
-    | Inset_e_arbitrary _ -> 270
-    | Inset_e_auto -> 271
-    | Inset_e_full -> 272
-    | Inset_e_named _ -> 273
-    (* inset-bs suborders *)
-    | Inset_bs n when n < 0 -> 280
-    | Neg_inset_bs_full -> 281
-    | Inset_bs_3_4 -> 282
-    | Inset_bs n -> 283 + n
-    | Inset_bs_arbitrary _ -> 300
-    | Inset_bs_auto -> 301
-    | Inset_bs_full -> 302
-    | Inset_bs_named _ -> 303
-    (* inset-be suborders *)
-    | Inset_be n when n < 0 -> 310
-    | Neg_inset_be_full -> 311
-    | Inset_be_3_4 -> 312
-    | Inset_be n -> 313 + n
-    | Inset_be_arbitrary _ -> 330
-    | Inset_be_auto -> 331
-    | Inset_be_full -> 332
-    | Inset_be_named _ -> 333
-    (* top suborders - negative, neg_full, 3/4, positive, arbitrary, auto, full,
-       named *)
-    | Top n when n < 0 -> 400
-    | Neg_top_full -> 401
-    | Top_1_2 -> 402
-    | Top_3_4 -> 403
-    | Top n -> 404 + n
-    | Top_arbitrary _ -> 420
-    | Top_auto -> 421
-    | Top_full -> 422
-    | Top_named _ -> 423
-    (* right suborders *)
-    | Right n when n < 0 -> 500
-    | Neg_right_full -> 501
-    | Right_3_4 -> 502
-    | Right n -> 504 + n
-    | Right_arbitrary _ -> 520
-    | Right_auto -> 521
-    | Right_full -> 522
-    | Right_named _ -> 523
-    (* bottom suborders *)
-    | Bottom n when n < 0 -> 600
-    | Neg_bottom_full -> 601
-    | Bottom_3_4 -> 602
-    | Bottom n -> 604 + n
-    | Bottom_arbitrary _ -> 620
-    | Bottom_auto -> 621
-    | Bottom_full -> 622
-    | Bottom_named _ -> 623
-    (* left suborders *)
-    | Left n when n < 0 -> 700
-    | Neg_left_arbitrary _ -> 701
-    | Neg_left_full -> 702
-    | Left_1_2 -> 703
-    | Left_3_4 -> 704
-    | Left n -> 705 + n
-    | Left_arbitrary _ -> 730
-    | Left_auto -> 731
-    | Left_full -> 732
-    | Left_named _ -> 733
-    | Start_3_4 -> 850
-    | Start_auto -> 851
-    | Start_full -> 852
-    | Start n -> 950 + n
-    | End_3_4 -> 950
-    | End_auto -> 951
-    | End_full -> 952
-    | End n -> 1000 + n
+    (* inset *)
+    | Inset n when n < 0 -> inset + neg_num n
+    | Neg_inset_full -> inset + neg_full_off
+    | Inset_0 -> inset + pos_int 0
+    | Inset_3_4 -> inset + pos_frac 3 4
+    | Inset n -> inset + pos_int n
+    | Inset_arbitrary _ -> inset + arb_off
+    | Inset_auto -> inset + auto_off
+    | Inset_full -> inset + full_off
+    | Inset_named _ -> inset + named_off
+    (* inset-x *)
+    | Neg_inset_x_full -> inset_x + neg_full_off
+    | Inset_x_0 -> inset_x + pos_int 0
+    | Inset_x_3_4 -> inset_x + pos_frac 3 4
+    | Inset_x n when n < 0 -> inset_x + neg_num n
+    | Inset_x n -> inset_x + pos_int n
+    | Inset_x_arbitrary _ -> inset_x + arb_off
+    | Inset_x_auto -> inset_x + auto_off
+    | Inset_x_full -> inset_x + full_off
+    | Inset_x_named _ -> inset_x + named_off
+    (* inset-y *)
+    | Neg_inset_y_full -> inset_y + neg_full_off
+    | Inset_y_0 -> inset_y + pos_int 0
+    | Inset_y_3_4 -> inset_y + pos_frac 3 4
+    | Inset_y n when n < 0 -> inset_y + neg_num n
+    | Inset_y n -> inset_y + pos_int n
+    | Inset_y_arbitrary _ -> inset_y + arb_off
+    | Inset_y_auto -> inset_y + auto_off
+    | Inset_y_full -> inset_y + full_off
+    | Inset_y_named _ -> inset_y + named_off
+    (* inset-s *)
+    | Inset_s n when n < 0 -> inset_s + neg_num n
+    | Neg_inset_s_full -> inset_s + neg_full_off
+    | Inset_s_3_4 -> inset_s + pos_frac 3 4
+    | Inset_s n -> inset_s + pos_int n
+    | Inset_s_arbitrary _ -> inset_s + arb_off
+    | Inset_s_auto -> inset_s + auto_off
+    | Inset_s_full -> inset_s + full_off
+    | Inset_s_named _ -> inset_s + named_off
+    (* inset-e *)
+    | Inset_e n when n < 0 -> inset_e + neg_num n
+    | Neg_inset_e_full -> inset_e + neg_full_off
+    | Inset_e_3_4 -> inset_e + pos_frac 3 4
+    | Inset_e n -> inset_e + pos_int n
+    | Inset_e_arbitrary _ -> inset_e + arb_off
+    | Inset_e_auto -> inset_e + auto_off
+    | Inset_e_full -> inset_e + full_off
+    | Inset_e_named _ -> inset_e + named_off
+    (* inset-bs *)
+    | Inset_bs n when n < 0 -> inset_bs + neg_num n
+    | Neg_inset_bs_full -> inset_bs + neg_full_off
+    | Inset_bs_3_4 -> inset_bs + pos_frac 3 4
+    | Inset_bs n -> inset_bs + pos_int n
+    | Inset_bs_arbitrary _ -> inset_bs + arb_off
+    | Inset_bs_auto -> inset_bs + auto_off
+    | Inset_bs_full -> inset_bs + full_off
+    | Inset_bs_named _ -> inset_bs + named_off
+    (* inset-be *)
+    | Inset_be n when n < 0 -> inset_be + neg_num n
+    | Neg_inset_be_full -> inset_be + neg_full_off
+    | Inset_be_3_4 -> inset_be + pos_frac 3 4
+    | Inset_be n -> inset_be + pos_int n
+    | Inset_be_arbitrary _ -> inset_be + arb_off
+    | Inset_be_auto -> inset_be + auto_off
+    | Inset_be_full -> inset_be + full_off
+    | Inset_be_named _ -> inset_be + named_off
+    (* top *)
+    | Top n when n < 0 -> top + neg_num n
+    | Neg_top_full -> top + neg_full_off
+    | Top_1_2 -> top + pos_frac 1 2
+    | Top_3_4 -> top + pos_frac 3 4
+    | Top n -> top + pos_int n
+    | Top_arbitrary _ -> top + arb_off
+    | Top_auto -> top + auto_off
+    | Top_full -> top + full_off
+    | Top_named _ -> top + named_off
+    (* right *)
+    | Right n when n < 0 -> right + neg_num n
+    | Neg_right_full -> right + neg_full_off
+    | Right_3_4 -> right + pos_frac 3 4
+    | Right n -> right + pos_int n
+    | Right_arbitrary _ -> right + arb_off
+    | Right_auto -> right + auto_off
+    | Right_full -> right + full_off
+    | Right_named _ -> right + named_off
+    (* bottom *)
+    | Bottom n when n < 0 -> bottom + neg_num n
+    | Neg_bottom_full -> bottom + neg_full_off
+    | Bottom_3_4 -> bottom + pos_frac 3 4
+    | Bottom n -> bottom + pos_int n
+    | Bottom_arbitrary _ -> bottom + arb_off
+    | Bottom_auto -> bottom + auto_off
+    | Bottom_full -> bottom + full_off
+    | Bottom_named _ -> bottom + named_off
+    (* left *)
+    | Left n when n < 0 -> left + neg_num n
+    | Neg_left_arbitrary _ -> left + neg_arb_off
+    | Neg_left_full -> left + neg_full_off
+    | Left_1_2 -> left + pos_frac 1 2
+    | Left_3_4 -> left + pos_frac 3 4
+    | Left n -> left + pos_int n
+    | Left_arbitrary _ -> left + arb_off
+    | Left_auto -> left + auto_off
+    | Left_full -> left + full_off
+    | Left_named _ -> left + named_off
+    (* start / end *)
+    | Start_3_4 -> start + pos_frac 3 4
+    | Start_auto -> start + auto_off
+    | Start_full -> start + full_off
+    | Start n -> start + pos_int n
+    | End_3_4 -> e + pos_frac 3 4
+    | End_auto -> e + auto_off
+    | End_full -> e + full_off
+    | End n -> e + pos_int n
 
   (* A named inset (top-header) is valid only when the theme defines the token.
      Tailwind resolves the name against the [--inset-*] namespace, then falls
