@@ -124,20 +124,21 @@ let normalize_paren_var base_class =
     | _ -> None
   else None
 
+(* Split the [!] important marker off the base class: the v3 prefix ([!flex],
+   [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its form in the
+   generated selector so it matches the source class. *)
+let split_importance base_class =
+  let n = String.length base_class in
+  if n > 1 && base_class.[0] = '!' then
+    (`Prefix, String.sub base_class 1 (n - 1))
+  else if n > 1 && base_class.[n - 1] = '!' then
+    (`Suffix, String.sub base_class 0 (n - 1))
+  else (`None, base_class)
+
 (* Parse a single class string into a Tw.t *)
 let of_string ?(theme = Scheme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
-  (* The [!] important marker sits right next to the utility: the v3 prefix
-     ([!flex], [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its
-     form in the generated selector so it matches the source class. *)
-  let importance, base_class =
-    let n = String.length base_class in
-    if n > 1 && base_class.[0] = '!' then
-      (`Prefix, String.sub base_class 1 (n - 1))
-    else if n > 1 && base_class.[n - 1] = '!' then
-      (`Suffix, String.sub base_class 0 (n - 1))
-    else (`None, base_class)
-  in
+  let importance, base_class = split_importance base_class in
   (* Wrap [important] around the base before applying modifiers, so a
      responsive/state prefix stays outermost: md:!flex -> md:(!flex). An
      optional [alias] sits inside importance so [w-(--w)!] keeps both forms. *)
