@@ -957,6 +957,30 @@ let test_border_width_color_ordering () =
   Test_helpers.check_ordering_matches
     ~test_name:"border width and color ordering" utilities
 
+let test_container_order () =
+  (* .container sorts by its width property (after the position group, before
+     margin), not first in the utilities layer. *)
+  let classes = [ "container"; "sr-only"; "z-0"; "top-0"; "m-4"; "w-4" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"container width-property order" utilities
+
+let test_arbitrary_vs_named_order () =
+  (* Within a variant block, arbitrary values sort by their raw class name ('['
+     = 0x5b, before lowercase letters), so dark:bg-[#...] precedes
+     dark:bg-<name>. *)
+  let classes =
+    [
+      "dark:bg-[#0D2C2E]";
+      "dark:bg-gray-400";
+      "dark:bg-white";
+      "dark:bg-transparent";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"arbitrary before named within variant" utilities
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1057,6 +1081,9 @@ let tests =
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
       test_border_width_color_ordering;
+    test_case "container width-property order" `Slow test_container_order;
+    test_case "arbitrary before named within family" `Slow
+      test_arbitrary_vs_named_order;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
     test_case "rules_of_grouped prose merging bug" `Quick

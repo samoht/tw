@@ -47,10 +47,9 @@ type indexed_rule = {
       (** Precomputed [(variant prefix, effective inner order)], built with
           {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
           per comparison. *)
-  normalized_base_class : string;
-      (** Precomputed [normalize_for_sort base_class] ([""] when there is no
-          base class), so [compare_indexed_rules] does not re-map it per
-          comparison. *)
+  base_class_key : string;
+      (** The rule's base class ([""] when it has none), used by
+          [compare_indexed_rules] as the lexicographic sort key. *)
   media_key : Css.Media.key option;
       (** Precomputed sort key of the rule's own media condition (the [`Media]
           case of {!field-rule_type}), [None] otherwise. Comparisons use this
@@ -61,10 +60,6 @@ type indexed_rule = {
 
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
-
-val normalize_for_sort : string -> string
-(** [normalize_for_sort s] rewrites separator characters so base classes sort in
-    Tailwind order. Stored per rule in {!field-normalized_base_class}. *)
 
 val variant_sort_key : string option -> Css.statement list -> string * int
 (** [variant_sort_key base_class nested] is the
