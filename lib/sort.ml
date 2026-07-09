@@ -975,8 +975,18 @@ let compare_variant_ordered r1 r2 =
                     | _ ->
                         (* Complex rules (prose's descendant selectors) keep
                            base class + source order so a component stays one
-                           block. *)
-                        compare_by_base_class r1 r2)
+                           block. Arbitrary values in a variant, e.g.
+                           hover:from-[rgba(5,...)] vs
+                           hover:from-[rgba(14,...)], share a prefix and differ
+                           only in the numeric part, so order those numerically
+                           like Tailwind. Identical base classes (prose's :where
+                           rules all key on "prose") tie at 0 and fall back to
+                           source order, unchanged. *)
+                        let class_cmp =
+                          natural_compare r1.base_class_key r2.base_class_key
+                        in
+                        if class_cmp <> 0 then class_cmp
+                        else Int.compare r1.index r2.index)
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
