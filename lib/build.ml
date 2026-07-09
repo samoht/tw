@@ -838,14 +838,61 @@ let uses_direct_property_order = function
 (* Variables without families (e.g. --tw-ease) are NOT direct; get_family_order
    returns 1000 for None, placing them last *)
 
-let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
-    fam2 =
-  (* Variables with negative property_order and no family come FIRST *)
-  match (fam1, po1 < 0, fam2, po2 < 0) with
-  | None, true, None, true -> compare po1 po2
-  | None, true, _, _ -> -1
-  | _, _, None, true -> 1
-  | Some `Gradient, _, Some `Gradient, _ ->
+(* Canonical CSS-property rank for a [--tw-*] variable, following Tailwind's
+   property order. It is the primary [@property] emission key across families:
+   [--tw-font-weight] (font-weight) before [--tw-outline-style] (outline) before
+   [--tw-blur] (filter), regardless of which utility the input declared first.
+   Variables sharing a rank (e.g. the box-shadow group) keep their existing
+   within-group suborder (property_order / first-usage), which is already
+   Tailwind-correct because such variables share one local property_order scope.
+   The [`Border] family spans several properties, so split it by name. *)
+let canonical_property_rank name =
+  match Var.family name with
+  | Some (`Translate | `Scale | `Rotate | `Skew) -> 16 (* transform *)
+  | Some `Gradient -> 28 (* background-image *)
+  | Some `Leading -> 39 (* line-height *)
+  | Some `Font_weight -> 40
+  | Some `Tracking -> 41 (* letter-spacing *)
+  | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring) -> 51 (* box-shadow *)
+  | Some `Filter -> 53
+  | Some `Drop_shadow -> 54 (* drop-shadow() comes after the other filters *)
+  | Some `Backdrop_filter -> 55
+  | Some `Duration -> 56 (* transition *)
+  | Some `Content -> 57
+  | Some `Text_shadow -> 59 (* text-shadow @property is emitted last *)
+  | Some `Border ->
+      (* The Border family spans several @property slots. The reverse flags sit
+         just after the transform block; border-style and outline are far
+         later. *)
+      if String.starts_with ~prefix:"--tw-outline" name then 52 (* outline *)
+      else if String.starts_with ~prefix:"--tw-space" name then 17
+      else if String.starts_with ~prefix:"--tw-divide" name then 18
+      else 27 (* border-style *)
+  | None -> 1000
+
+(* The transform block (translate/scale/rotate/skew) and duration order relative
+   to each other by first-usage, not canonical property order: the same pair can
+   flip depending on which utility declares its variable first (see the "scale
+   first" vs "duration first" cases). Every other family follows canonical
+   order. *)
+let in_transform_group = function
+  | Some (`Translate | `Scale | `Rotate | `Skew | `Duration) -> true
+  | _ -> false
+
+(* Two variables order by first-usage rather than canonical property rank when
+   both are in the transform block, or both are Border-family: the Border family
+   interleaves its reverse flags with border-style per declaration order
+   (divide-x emits x-reverse then border-style, divide-y emits y-reverse). *)
+let families_order_by_first_usage fam1 fam2 =
+  (in_transform_group fam1 && in_transform_group fam2)
+  || (fam1 = Some `Border && fam2 = Some `Border)
+
+(* Order two @property-emitting variables sharing the same canonical property
+   rank (the within-group suborder). *)
+let compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2 po1
+    po2 fam1 fam2 =
+  match (fam1, fam2) with
+  | Some `Gradient, Some `Gradient ->
       compare (gradient_family_index n1) (gradient_family_index n2)
   | _ when uses_direct_property_order fam1 && uses_direct_property_order fam2 ->
       if fam1 = fam2 && fam1 = Some `Border then
@@ -854,13 +901,34 @@ let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
            divide-y emits y-reverse, so the combined order interleaves them). *)
         compare (get_first_usage n1) (get_first_usage n2)
       else
-        (* All other families (Ring, Inset_ring, Shadow, etc.) and cross-family
-           comparisons use property_order for the carefully chosen ordering. *)
+        (* Other families sharing a rank (Ring/Inset_ring/Shadow, the filters)
+           share one local property_order scope, so use it directly. *)
         compare po1 po2
   | _ ->
       let fo1 = get_family_order n1 in
       let fo2 = get_family_order n2 in
       if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+
+let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
+    fam2 =
+  (* Variables with negative property_order and no family come FIRST *)
+  match (fam1, po1 < 0, fam2, po2 < 0) with
+  | None, true, None, true -> compare po1 po2
+  | None, true, _, _ -> -1
+  | _, _, None, true -> 1
+  | _ when families_order_by_first_usage fam1 fam2 ->
+      compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2
+        po1 po2 fam1 fam2
+  | _ ->
+      (* Across families, follow canonical CSS property order; within a rank,
+         keep the group's own suborder. *)
+      let cr =
+        compare (canonical_property_rank n1) (canonical_property_rank n2)
+      in
+      if cr <> 0 then cr
+      else
+        compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2
+          po1 po2 fam1 fam2
 
 let sort_properties_by_order first_usage_order initial_values =
   let family_order = family_order first_usage_order in
@@ -1047,20 +1115,20 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
             | _ -> 0
           in
           if no_family_negative_first <> 0 then no_family_negative_first
-          else if
-            uses_direct_property_order fam1 && uses_direct_property_order fam2
-          then
-            if fam1 = fam2 && fam1 = Some `Border then
-              (* Border family: use first-usage order to match Tailwind's
-                 per-utility declaration ordering. *)
-              compare (get_first_usage n1) (get_first_usage n2)
-            else
-              (* All other families and cross-family: use property_order. *)
-              compare po1 po2
+          else if families_order_by_first_usage fam1 fam2 then
+            (* transform/duration order by first-usage among themselves *)
+            compare_property_vars_same_rank ~get_family_order ~get_first_usage
+              n1 n2 po1 po2 fam1 fam2
           else
-            let fo1 = get_family_order n1 in
-            let fo2 = get_family_order n2 in
-            if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+            (* Across families, follow canonical CSS property order; within a
+               rank, keep the group's own suborder. *)
+            let cr =
+              compare (canonical_property_rank n1) (canonical_property_rank n2)
+            in
+            if cr <> 0 then cr
+            else
+              compare_property_vars_same_rank ~get_family_order ~get_first_usage
+                n1 n2 po1 po2 fam1 fam2
       | _ -> 0)
 
 (** Deduplicate keyframes by name, keeping first occurrence, then convert to CSS
