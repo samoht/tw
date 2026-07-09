@@ -1006,6 +1006,41 @@ let test_variant_arbitrary_numeric_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"variant arbitrary values sort numerically" utilities
 
+let test_compound_variant_highest_component () =
+  (* A stacked variant sorts into the group of its highest-order component,
+     after that group's base rules, matching Tailwind. dark:md:block (dark > md)
+     and contrast-more:dark:text-white (dark > contrast-more) both sort with the
+     dark rules, after the plain dark rules, even though one has dark as its
+     outer token and the other as its inner token. *)
+  let classes =
+    [
+      "dark:flex";
+      "dark:font-semibold";
+      "dark:md:block";
+      "contrast-more:underline";
+      "contrast-more:dark:text-white";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"compound variant highest component" utilities
+
+let test_compound_variant_same_multiset () =
+  (* group-[&_p]:hover and hover:group-[&_p] apply the same variant multiset in
+     different nesting orders, so Tailwind gives them the same sort position and
+     they collapse into one block. *)
+  let classes =
+    [
+      "group-[&_p]:flex";
+      "group-[&_p]:hover:flex";
+      "hover:group-[&_p]:flex";
+      "hover:group-[&_p]:hover:flex";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"compound variant same multiset" utilities
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1113,6 +1148,10 @@ let tests =
       test_variant_same_suborder_tiebreak;
     test_case "variant arbitrary values sort numerically" `Slow
       test_variant_arbitrary_numeric_order;
+    test_case "compound variant highest component" `Slow
+      test_compound_variant_highest_component;
+    test_case "compound variant same multiset" `Slow
+      test_compound_variant_same_multiset;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
     test_case "rules_of_grouped prose merging bug" `Quick

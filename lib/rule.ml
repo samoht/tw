@@ -1568,9 +1568,12 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
     Css.media ~condition:inner_condition (inner_rule :: nested)
   in
   let wrap_in_media condition =
+    (* Use the modified class (e.g. "dark:md:block") as the wrapped rule's base
+       class, not the inner rule's original one ("md:block"), so the sort sees
+       the full variant stack and orders it by its highest-order component. *)
     [
-      media_query ~condition ~selector:new_selector ~props:[] ?base_class
-        ~nested:[ inner_media ] ();
+      media_query ~condition ~selector:new_selector ~props:[]
+        ~base_class:modified_class ~nested:[ inner_media ] ();
     ]
   in
   match media_condition_of_modifier modifier with
