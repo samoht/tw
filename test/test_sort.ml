@@ -981,6 +981,15 @@ let test_arbitrary_vs_named_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"arbitrary before named within variant" utilities
 
+let test_variant_same_suborder_tiebreak () =
+  (* Two arbitrary values of the same utility in a variant block have equal
+     (priority, suborder); they must tie-break by selector, matching Tailwind's
+     alphabetical order (dark:bg-[#003357] before dark:bg-[#0D2C2E]). *)
+  let classes = [ "dark:bg-[#0D2C2E]"; "dark:bg-[#003357]" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"variant same-suborder tiebreak" utilities
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1084,6 +1093,8 @@ let tests =
     test_case "container width-property order" `Slow test_container_order;
     test_case "arbitrary before named within family" `Slow
       test_arbitrary_vs_named_order;
+    test_case "variant same-suborder tiebreak" `Slow
+      test_variant_same_suborder_tiebreak;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
     test_case "rules_of_grouped prose merging bug" `Quick
