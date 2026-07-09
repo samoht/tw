@@ -1206,6 +1206,15 @@ let property_order_duration_first () =
   (* When scale is only via hover, duration should come before scale *)
   check_list Tw.[ transform; duration 300; hover [ scale 105 ] ]
 
+let property_order_cross_family () =
+  (* Across non-transform families, @property follows canonical CSS property
+     order regardless of which utility declares the variable: line-height,
+     font-weight and letter-spacing before outline-style. *)
+  check_list
+    (List.map
+       (fun c -> Result.get_ok (Tw.of_string c))
+       [ "outline"; "font-normal"; "leading-snug"; "tracking-wide" ])
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -1238,6 +1247,8 @@ let core_tests =
     test_case "property order: scale first" `Slow property_order_scale_first;
     test_case "property order: duration first" `Slow
       property_order_duration_first;
+    test_case "property order: cross-family canonical" `Slow
+      property_order_cross_family;
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;
