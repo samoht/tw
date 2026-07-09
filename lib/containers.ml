@@ -16,7 +16,9 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority = -1 (* Container appears first in utilities layer *)
+  let priority = 1
+  (* Tailwind orders .container by its width property: after the position group
+     (inset, z-index) and before margin. *)
 
   let to_class = function
     | Layout_container -> "container"

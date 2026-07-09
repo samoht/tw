@@ -54,10 +54,9 @@ type indexed_rule = {
   variant_key : string * int;
       (* Precomputed (variant prefix, effective inner order) - see
          [variant_sort_key]. Read by [compare_variant_ordered]. *)
-  normalized_base_class : string;
-      (* Precomputed [normalize_for_sort base_class] ("" when no base class),
-         read by [compare_by_base_class] instead of re-mapping per
-         comparison. *)
+  base_class_key : string;
+      (* The rule's base class ("" when it has none), read by
+         [compare_by_base_class] as the lexicographic sort key. *)
   media_key : Css.Media.key option;
       (* Precomputed sort key of the rule's own media condition (the [`Media]
          case of [rule_type]); [None] otherwise. Lets media comparisons use
@@ -732,18 +731,11 @@ let compare_starting_rules = compare_by_order_then_index
 (* Main Rule Comparison *)
 (* ======================================================================== *)
 
-(* Normalize base_class for lexicographic comparison *)
-let normalize_for_sort s =
-  String.map
-    (function
-      | '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | ':' -> '!' | c -> c)
-    s
-
-(* Compare by normalized base_class (precomputed in [add_index]), then index *)
+(* Compare by base class (precomputed in [add_index]), then index. Tailwind
+   sorts same-family variants by the raw class name (ASCII), so compare
+   as-is. *)
 let compare_by_base_class r1 r2 =
-  let class_cmp =
-    String.compare r1.normalized_base_class r2.normalized_base_class
-  in
+  let class_cmp = String.compare r1.base_class_key r2.base_class_key in
   if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
 
 (* Sort key for supports modifier variants: named before bracket *)
@@ -902,25 +894,11 @@ let bracket_content_key p =
       else 1 (* combinator/ampersand/other *)
   | _ -> 1
 
-(** Check if a prefix is an aria-/data- attribute variant where underscores
-    represent spaces. *)
-let is_attr_variant p =
-  Parse.has_prefix ~prefix:"aria-[" p
-  || Parse.has_prefix ~prefix:"data-[" p
-  || Parse.has_prefix ~prefix:"group-aria-[" p
-  || Parse.has_prefix ~prefix:"group-data-[" p
-  || Parse.has_prefix ~prefix:"peer-aria-[" p
-  || Parse.has_prefix ~prefix:"peer-data-[" p
-
-(** Compare two bracket-containing variant prefixes. Sorts by bracket content
-    type (pseudo-class before combinator), then by normalized name for
-    aria-/data- attributes, or plain string comparison otherwise. *)
+(** Compare two bracket-containing variant prefixes: by bracket content type
+    (pseudo-class before combinator), then by raw name. *)
 let compare_both_bracket_prefixes p1 p2 =
   let bk_cmp = Int.compare (bracket_content_key p1) (bracket_content_key p2) in
-  if bk_cmp <> 0 then bk_cmp
-  else if is_attr_variant p1 || is_attr_variant p2 then
-    String.compare (normalize_for_sort p1) (normalize_for_sort p2)
-  else String.compare p1 p2
+  if bk_cmp <> 0 then bk_cmp else String.compare p1 p2
 
 (** Compare variant prefixes for bracket ordering. Named variants (has-checked)
     sort before bracket variants (has-[:checked]) within the same variant group.
