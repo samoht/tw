@@ -930,7 +930,7 @@ let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
   | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
       compare_supports_by_key r1 r2
-  | _ ->
+  | _ -> (
       let vo_cmp = Int.compare r1.variant_order r2.variant_order in
       if vo_cmp <> 0 then vo_cmp
       else
@@ -963,7 +963,20 @@ let compare_variant_ordered r1 r2 =
                 if prio_cmp <> 0 then prio_cmp
                 else
                   let sub_cmp = Int.compare s1 s2 in
-                  if sub_cmp <> 0 then sub_cmp else compare_by_base_class r1 r2
+                  if sub_cmp <> 0 then sub_cmp
+                  else
+                    match (r1.selector_kind, r2.selector_kind) with
+                    | Simple, Simple ->
+                        (* Same priority/suborder simple rules (e.g. two
+                           arbitrary bg colors) break ties by selector like the
+                           regular layer, matching Tailwind's alphabetical
+                           order. *)
+                        natural_compare r1.selector_str r2.selector_str
+                    | _ ->
+                        (* Complex rules (prose's descendant selectors) keep
+                           base class + source order so a component stays one
+                           block. *)
+                        compare_by_base_class r1 r2)
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
