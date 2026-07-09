@@ -990,6 +990,17 @@ let test_variant_same_suborder_tiebreak () =
   Test_helpers.check_ordering_matches
     ~test_name:"variant same-suborder tiebreak" utilities
 
+let test_compound_variant_order () =
+  (* A compound variant that nests a responsive breakpoint inside another
+     variant (dark:md:block -> @media dark { @media md { ... } }) must sort by
+     its outermost variant (dark), after the base dark: rules, not by the inner
+     breakpoint (md). Tailwind emits dark:flex and dark:font-semibold before
+     dark:md:block. *)
+  let classes = [ "dark:flex"; "dark:font-semibold"; "dark:md:block" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"compound variant sorts by outer variant" utilities
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1095,6 +1106,8 @@ let tests =
       test_arbitrary_vs_named_order;
     test_case "variant same-suborder tiebreak" `Slow
       test_variant_same_suborder_tiebreak;
+    test_case "compound variant sorts by outer variant" `Slow
+      test_compound_variant_order;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
     test_case "rules_of_grouped prose merging bug" `Quick
