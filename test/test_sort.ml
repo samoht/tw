@@ -990,6 +990,22 @@ let test_variant_same_suborder_tiebreak () =
   Test_helpers.check_ordering_matches
     ~test_name:"variant same-suborder tiebreak" utilities
 
+let test_variant_arbitrary_numeric_order () =
+  (* Arbitrary values in a variant block (hover:from-[rgba(5,...)] etc.) must
+     order numerically like the regular layer, not lexically: rgba(5,...) sorts
+     before rgba(14,...) and rgba(255,...). A lexical sort would place
+     rgba(14,...) and rgba(255,...) first because '1' and '2' precede '5'. *)
+  let classes =
+    [
+      "hover:from-[rgba(14,220,174,0.60)]";
+      "hover:from-[rgba(5,74,218,0.60)]";
+      "hover:from-[rgba(255,0,64,0.60)]";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"variant arbitrary values sort numerically" utilities
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1095,6 +1111,8 @@ let tests =
       test_arbitrary_vs_named_order;
     test_case "variant same-suborder tiebreak" `Slow
       test_variant_same_suborder_tiebreak;
+    test_case "variant arbitrary values sort numerically" `Slow
+      test_variant_arbitrary_numeric_order;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
     test_case "rules_of_grouped prose merging bug" `Quick
