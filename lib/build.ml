@@ -369,6 +369,7 @@ let add_index triples =
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
+      let variant_order = Rule.compute_variant_order base_class sel in
       ({
          index = i;
          rule_type = typ;
@@ -382,8 +383,9 @@ let add_index triples =
          base_class;
          merge_key;
          not_order;
-         variant_order = Rule.compute_variant_order base_class sel;
+         variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
+         variant_orders = Sort.variant_order_list base_class variant_order;
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;

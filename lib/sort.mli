@@ -47,6 +47,11 @@ type indexed_rule = {
       (** Precomputed [(variant prefix, effective inner order)], built with
           {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
           per comparison. *)
+  variant_orders : (int * int) list;
+      (** The rule's variant order keys sorted descending, built with
+          {!variant_order_list}. Compared lexicographically by
+          [compare_indexed_rules] so a stacked variant sorts into the group of
+          its highest-order component. *)
   base_class_key : string;
       (** The rule's base class ([""] when it has none), used by
           [compare_indexed_rules] as the lexicographic sort key. *)
@@ -65,6 +70,12 @@ val variant_sort_key : string option -> Css.statement list -> string * int
 (** [variant_sort_key base_class nested] is the
     [(variant prefix, effective inner variant order)] pair stored in
     {!field-variant_key}. *)
+
+val variant_order_list : string option -> int -> (int * int) list
+(** [variant_order_list base_class variant_order] is the descending list of
+    variant order keys stored in {!field-variant_orders}. [variant_order] is the
+    scalar fallback for selector-derived variants with no order-bearing prefix.
+*)
 
 val media_sort_keys :
   [ `Regular

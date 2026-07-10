@@ -54,6 +54,13 @@ type indexed_rule = {
   variant_key : string * int;
       (* Precomputed (variant prefix, effective inner order) - see
          [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  variant_orders : (int * int) list;
+      (* The rule's variant order keys sorted descending - see
+         [variant_order_list]. Compared lexicographically by
+         [compare_variant_ordered] so a stacked variant sorts into the group of
+         its highest-order component, after that group's base rules, and two
+         stacks with the same variant multiset (e.g. group:hover and
+         hover:group) get identical keys. *)
   base_class_key : string;
       (* The rule's base class ("" when it has none), read by
          [compare_by_base_class] as the lexicographic sort key. *)
@@ -884,6 +891,56 @@ let variant_sort_key base_class nested =
   let prefix = variant_prefix base_class in
   (prefix, effective_ivo_of nested prefix)
 
+(* One modifier token's sort key: its variant order, paired with the inner
+   pseudo order for group-/peer- wrappers so group-focus and group-has (both
+   order 500) keep their focus-before-has order. Non-wrapper tokens use 0. *)
+let token_order_key token =
+  let primary = Modifiers.variant_order_of_prefix token in
+  let secondary =
+    if
+      Parse.has_prefix ~prefix:"group-" token
+      || Parse.has_prefix ~prefix:"peer-" token
+    then strip_group_peer_vo token
+    else 0
+  in
+  (primary, secondary)
+
+(* The variant order keys of a class's modifier stack, sorted descending.
+   Tailwind sorts a candidate by this list compared lexicographically ascending,
+   so a stacked variant sorts into the group of its highest-order component and
+   after that group's base rules, and two stacks with the same variant multiset
+   (group:hover vs hover:group) get identical keys. Falls back to the scalar
+   [variant_order] for selector-derived variants (before:/after:) that carry no
+   order-bearing prefix in the base class. *)
+let variant_order_list base_class variant_order =
+  let from_bc =
+    match base_class with
+    | None -> []
+    | Some bc ->
+        let modifiers, _ = Modifiers.of_string bc in
+        List.filter_map
+          (fun m ->
+            let ((primary, _) as key) = token_order_key m in
+            if primary > 0 then Some key else None)
+          modifiers
+        |> List.sort (fun a b -> compare b a)
+  in
+  match from_bc with
+  | [] when variant_order > 0 -> [ (variant_order, 0) ]
+  | l -> l
+
+(* Compare two descending variant-order-key lists lexicographically, ascending
+   on the first differing key, with a shorter (prefix) list sorting first so
+   base rules precede the compounds built on them. *)
+let rec compare_variant_order_lists l1 l2 =
+  match (l1, l2) with
+  | [], [] -> 0
+  | [], _ -> -1
+  | _, [] -> 1
+  | a :: r1, b :: r2 ->
+      let c = compare a b in
+      if c <> 0 then c else compare_variant_order_lists r1 r2
+
 (** Classify bracket content: pseudo-class brackets ([:checked]) sort before
     combinator/ampersand brackets ([&>img], [+img], etc.). *)
 let bracket_content_key p =
@@ -931,62 +988,63 @@ let compare_variant_ordered r1 r2 =
   | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
       compare_supports_by_key r1 r2
   | _ -> (
-      let vo_cmp = Int.compare r1.variant_order r2.variant_order in
-      if vo_cmp <> 0 then vo_cmp
+      let list_cmp =
+        compare_variant_order_lists r1.variant_orders r2.variant_orders
+      in
+      if list_cmp <> 0 then list_cmp
       else
-        let p1_prefix, ivo1 = r1.variant_key in
-        let p2_prefix, ivo2 = r2.variant_key in
-        let ivo_cmp = Int.compare ivo1 ivo2 in
-        if ivo_cmp <> 0 then ivo_cmp
+        let p1_prefix, _ = r1.variant_key in
+        let p2_prefix, _ = r2.variant_key in
+        (* The descending variant-order lists tie (same variant multiset). The
+           remaining keys order within that group: a nested breakpoint or hover,
+           the media condition itself (sm before md), then the prefix and the
+           utility's own priority. *)
+        let nested_cmp =
+          Int.compare
+            (nested_order r1.rule_type r1.nested)
+            (nested_order r2.rule_type r2.nested)
+        in
+        if nested_cmp <> 0 then nested_cmp
         else
-          let nested_cmp =
-            Int.compare
-              (nested_order r1.rule_type r1.nested)
-              (nested_order r2.rule_type r2.nested)
+          let media_cmp =
+            match (r1.media_key, r2.media_key) with
+            | Some k1, Some k2 ->
+                let cmp = Css.Media.compare_keys k1 k2 in
+                if cmp <> 0 then cmp else compare_nested_media r1 r2
+            | _ -> 0
           in
-          if nested_cmp <> 0 then nested_cmp
+          if media_cmp <> 0 then media_cmp
           else
-            let media_cmp =
-              match (r1.media_key, r2.media_key) with
-              | Some k1, Some k2 ->
-                  let cmp = Css.Media.compare_keys k1 k2 in
-                  if cmp <> 0 then cmp else compare_nested_media r1 r2
-              | _ -> 0
-            in
-            if media_cmp <> 0 then media_cmp
+            let prefix_cmp = compare_bracket_prefixes p1_prefix p2_prefix in
+            if prefix_cmp <> 0 then prefix_cmp
             else
-              let prefix_cmp = compare_bracket_prefixes p1_prefix p2_prefix in
-              if prefix_cmp <> 0 then prefix_cmp
+              let p1, s1 = r1.order and p2, s2 = r2.order in
+              let prio_cmp = Int.compare p1 p2 in
+              if prio_cmp <> 0 then prio_cmp
               else
-                let p1, s1 = r1.order and p2, s2 = r2.order in
-                let prio_cmp = Int.compare p1 p2 in
-                if prio_cmp <> 0 then prio_cmp
+                let sub_cmp = Int.compare s1 s2 in
+                if sub_cmp <> 0 then sub_cmp
                 else
-                  let sub_cmp = Int.compare s1 s2 in
-                  if sub_cmp <> 0 then sub_cmp
-                  else
-                    match (r1.selector_kind, r2.selector_kind) with
-                    | Simple, Simple ->
-                        (* Same priority/suborder simple rules (e.g. two
-                           arbitrary bg colors) break ties by selector like the
-                           regular layer, matching Tailwind's alphabetical
-                           order. *)
-                        natural_compare r1.selector_str r2.selector_str
-                    | _ ->
-                        (* Complex rules (prose's descendant selectors) keep
-                           base class + source order so a component stays one
-                           block. Arbitrary values in a variant, e.g.
-                           hover:from-[rgba(5,...)] vs
-                           hover:from-[rgba(14,...)], share a prefix and differ
-                           only in the numeric part, so order those numerically
-                           like Tailwind. Identical base classes (prose's :where
-                           rules all key on "prose") tie at 0 and fall back to
-                           source order, unchanged. *)
-                        let class_cmp =
-                          natural_compare r1.base_class_key r2.base_class_key
-                        in
-                        if class_cmp <> 0 then class_cmp
-                        else Int.compare r1.index r2.index)
+                  match (r1.selector_kind, r2.selector_kind) with
+                  | Simple, Simple ->
+                      (* Same priority/suborder simple rules (e.g. two arbitrary
+                         bg colors) break ties by selector like the regular
+                         layer, matching Tailwind's alphabetical order. *)
+                      natural_compare r1.selector_str r2.selector_str
+                  | _ ->
+                      (* Complex rules (prose's descendant selectors) keep base
+                         class + source order so a component stays one block.
+                         Arbitrary values in a variant, e.g.
+                         hover:from-[rgba(5,...)] vs hover:from-[rgba(14,...)],
+                         share a prefix and differ only in the numeric part, so
+                         order those numerically like Tailwind. Identical base
+                         classes (prose's :where rules all key on "prose") tie
+                         at 0 and fall back to source order, unchanged. *)
+                      let class_cmp =
+                        natural_compare r1.base_class_key r2.base_class_key
+                      in
+                      if class_cmp <> 0 then class_cmp
+                      else Int.compare r1.index r2.index)
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
