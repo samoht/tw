@@ -1005,6 +1005,60 @@ let test_arbitrary_named_by_suffix () =
   Test_helpers.check_ordering_matches
     ~test_name:"arbitrary value sorts by suffix within family" utilities
 
+let test_rounded_position_order () =
+  (* Border-radius position groups sort by the CSS corners they write, matching
+     Tailwind: the physical ones grouped by first corner clockwise -- top, then
+     left, then right, then bottom (t, l, tl, r, tr, b, br, bl). rounded-l and
+     rounded-b both write border-bottom-left-radius, so the order is
+     render-affecting. Asserted directly on the emitted order because the
+     ordering helper compares unoptimized output where the conflict is
+     hidden. *)
+  let classes =
+    [
+      "rounded-t-full";
+      "rounded-l-full";
+      "rounded-tl-full";
+      "rounded-r-full";
+      "rounded-b-full";
+      "rounded-bl-full";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i =
+      if i + n > h then -1
+      else if String.sub css i n = needle then i
+      else go (i + 1)
+    in
+    go 0
+  in
+  let check_before a b =
+    let pa = position a and pb = position b in
+    Alcotest.check Alcotest.bool
+      (Printf.sprintf "%s before %s" a b)
+      true
+      (pa >= 0 && pb >= 0 && pa < pb)
+  in
+  check_before ".rounded-t-full" ".rounded-l-full";
+  check_before ".rounded-l-full" ".rounded-tl-full";
+  check_before ".rounded-tl-full" ".rounded-r-full";
+  check_before ".rounded-r-full" ".rounded-b-full";
+  check_before ".rounded-b-full" ".rounded-bl-full"
+
+let test_margin_value_order () =
+  (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
+     keywords auto < full < px. -ml-4 and -ml-px conflict on margin-left, so the
+     order matters; a lexical/legacy order put px before the numbers. *)
+  let classes =
+    [
+      "ml-0"; "ml-1"; "ml-4"; "ml-[3px]"; "ml-auto"; "ml-px"; "-ml-4"; "-ml-px";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches ~test_name:"margin value order" utilities
+
 let test_variant_same_suborder_tiebreak () =
   (* Two arbitrary values of the same utility in a variant block have equal
      (priority, suborder); they must tie-break by selector, matching Tailwind's
@@ -1170,6 +1224,8 @@ let tests =
       test_arbitrary_vs_named_order;
     test_case "arbitrary value sorts by suffix within family" `Slow
       test_arbitrary_named_by_suffix;
+    test_case "rounded position order" `Slow test_rounded_position_order;
+    test_case "margin value order" `Slow test_margin_value_order;
     test_case "variant same-suborder tiebreak" `Slow
       test_variant_same_suborder_tiebreak;
     test_case "variant arbitrary values sort numerically" `Slow
