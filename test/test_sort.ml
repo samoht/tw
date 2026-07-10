@@ -981,6 +981,30 @@ let test_arbitrary_vs_named_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"arbitrary before named within variant" utilities
 
+let test_arbitrary_named_by_suffix () =
+  (* Within a utility family, an arbitrary value sorts by its raw suffix like a
+     named one, not always first: '[' is above digits and below letters, so
+     rotate-180 precedes rotate-[-10deg], and max-w-3xl precedes max-w-[50%]
+     which precedes max-w-sm. Arbitrary values order among themselves by value
+     (rotate-[5deg] before rotate-[200deg]). *)
+  let classes =
+    [
+      "rotate-90";
+      "rotate-180";
+      "rotate-[-10deg]";
+      "rotate-[5deg]";
+      "rotate-[200deg]";
+      "max-w-3xl";
+      "max-w-[6%]";
+      "max-w-[50%]";
+      "max-w-sm";
+      "max-w-xs";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"arbitrary value sorts by suffix within family" utilities
+
 let test_variant_same_suborder_tiebreak () =
   (* Two arbitrary values of the same utility in a variant block have equal
      (priority, suborder); they must tie-break by selector, matching Tailwind's
@@ -1144,6 +1168,8 @@ let tests =
     test_case "container width-property order" `Slow test_container_order;
     test_case "arbitrary before named within family" `Slow
       test_arbitrary_vs_named_order;
+    test_case "arbitrary value sorts by suffix within family" `Slow
+      test_arbitrary_named_by_suffix;
     test_case "variant same-suborder tiebreak" `Slow
       test_variant_same_suborder_tiebreak;
     test_case "variant arbitrary values sort numerically" `Slow

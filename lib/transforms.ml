@@ -1314,8 +1314,11 @@ module Handler = struct
     | Neg_rotate_arbitrary _ -> 799
     | Rotate_bare_var _ -> 800
     | Rotate n -> 801 + n
-    | Rotate_3d_arbitrary _ -> 898
-    | Rotate_arbitrary _ -> 899
+    (* An arbitrary rotate sorts after every named rotate ('[' > any digit), so
+       it must sit past the largest [Rotate n] (rotate-180 -> 801 + 180 = 981),
+       not mid-range. *)
+    | Rotate_3d_arbitrary _ -> 982
+    | Rotate_arbitrary _ -> 983
     | Neg_rotate_x_bare_var _ -> 900
     | Neg_rotate_x_arbitrary _ -> 949
     | Rotate_x_bare_var _ -> 950
