@@ -2074,15 +2074,16 @@ module Handler = struct
     | _ -> Error (`Msg "Not a prose size utility")
 
   let suborder = function
-    (* Prose size utilities appear between my-* (200000-299999) and mt-*
-       (300000+). Place them at 290000+ to come after all my-* utilities. *)
-    | Prose -> 290000
-    | Prose_2xl -> 290001 (* Alphabetical: 2xl before lg, sm, xl *)
-    | Prose_lg -> 290002
-    | Prose_sm -> 290003
-    | Prose_xl -> 290004
-    | Lead -> 290005
-    | Not_prose -> 290006
+    (* Prose sorts among the priority-2 margin utilities exactly where Tailwind
+       puts it: after the inline-end margins (me-*, ~4.2-4.3M) and before the
+       top margins (mt-*, negatives at 5.0M). *)
+    | Prose -> 4650000
+    | Prose_2xl -> 4650001 (* Alphabetical: 2xl before lg, sm, xl *)
+    | Prose_lg -> 4650002
+    | Prose_sm -> 4650003
+    | Prose_xl -> 4650004
+    | Lead -> 4650005
+    | Not_prose -> 4650006
 end
 
 (* Handler for prose color variants - priority 21 *)
