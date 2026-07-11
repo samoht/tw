@@ -742,22 +742,27 @@ module Handler = struct
     (* Border radius utilities - flat suborder per position group for natural
        sort by class name *)
     | Rounded (pos, _) -> (
+        (* Position groups sort by the CSS properties they write, matching
+           Tailwind: the logical corners (start/end) first, then the physical
+           ones grouped by their first corner clockwise -- top, then left, then
+           right, then bottom. Values within a group share a suborder and
+           tie-break by class name. *)
         match pos with
         | Rp_all -> 0
+        | Rp_s -> 10
+        | Rp_ss -> 20
+        | Rp_e -> 30
+        | Rp_se -> 40
+        | Rp_ee -> 50
+        | Rp_es -> 60
         | Rp_t -> 100
-        | Rp_r -> 110
-        | Rp_b -> 120
-        | Rp_l -> 130
-        | Rp_tl -> 200
-        | Rp_tr -> 210
-        | Rp_br -> 220
-        | Rp_bl -> 230
-        | Rp_s -> 240
-        | Rp_e -> 250
-        | Rp_ss -> 260
-        | Rp_se -> 270
-        | Rp_ee -> 280
-        | Rp_es -> 290)
+        | Rp_l -> 110
+        | Rp_tl -> 120
+        | Rp_r -> 130
+        | Rp_tr -> 140
+        | Rp_b -> 150
+        | Rp_br -> 160
+        | Rp_bl -> 170)
     (* Border width utilities (1000-1099) *)
     | Border -> 1000
     | Border_0 -> 1001

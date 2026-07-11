@@ -112,16 +112,21 @@ module Handler = struct
     let decl, len = spacing_to_decl_len ?theme ~negative:true s in
     style (Option.to_list decl @ [ prop [ len ] ])
 
+  (* Spacing keywords sort by their suffix's first character, matching
+     Tailwind's raw order after the numeric rem values: auto ('a') < a named
+     spacing like big ('b') < full ('f') < px ('p'). *)
+  let keyword_order c = 100000 + Char.code c
+
   let spacing_value_order = function
-    | `Px -> 1
-    | `Full -> 10000
-    | `Named _ -> 150000 (* after auto (99999) *)
     | `Rem f ->
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
+    | `Named s -> keyword_order (if String.length s > 0 then s.[0] else '~')
+    | `Full -> keyword_order 'f'
+    | `Px -> keyword_order 'p'
 
   let margin_value_order = function
-    | `Auto -> 99999 (* Auto comes after numeric values in Tailwind *)
+    | `Auto -> keyword_order 'a'
     | #spacing as s -> spacing_value_order s
 
   (* Get the CSS property function for an axis *)
