@@ -1059,6 +1059,35 @@ let test_margin_value_order () =
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches ~test_name:"margin value order" utilities
 
+let test_prose_margin_order () =
+  (* prose is a priority-2 utility that sorts among the margin utilities exactly
+     where Tailwind puts it: after the inline-end margins me-, before the top
+     margins mt-. .prose :where(p) is specificity (0,1,0) -- :where() zeroes
+     specificity -- so it ties a margin utility like m-auto and both write
+     margin-top; the relative order is render-affecting for a p.m-auto inside
+     .prose. Asserted directly on the emitted order. *)
+  let classes = [ "me-4"; "prose"; "mt-4" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i =
+      if i + n > h then -1
+      else if String.sub css i n = needle then i
+      else go (i + 1)
+    in
+    go 0
+  in
+  let check_before a b =
+    let pa = position a and pb = position b in
+    Alcotest.check Alcotest.bool
+      (Printf.sprintf "%s before %s" a b)
+      true
+      (pa >= 0 && pb >= 0 && pa < pb)
+  in
+  check_before ".me-4" ".prose";
+  check_before ".prose" ".mt-4"
+
 let test_variant_same_suborder_tiebreak () =
   (* Two arbitrary values of the same utility in a variant block have equal
      (priority, suborder); they must tie-break by selector, matching Tailwind's
@@ -1226,6 +1255,7 @@ let tests =
       test_arbitrary_named_by_suffix;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "margin value order" `Slow test_margin_value_order;
+    test_case "prose margin order" `Slow test_prose_margin_order;
     test_case "variant same-suborder tiebreak" `Slow
       test_variant_same_suborder_tiebreak;
     test_case "variant arbitrary values sort numerically" `Slow
