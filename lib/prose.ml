@@ -2104,7 +2104,7 @@ module Color_Handler = struct
   (** Priority for prose color utilities *)
   let name = "prose-color"
 
-  let priority _ = 23 (* Same as color utilities *)
+  let priority _ = 25 (* Same as color utilities *)
 
   (** {1 Utility Conversion Functions} *)
 

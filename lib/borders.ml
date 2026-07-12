@@ -1092,7 +1092,7 @@ module Outline_style_handler = struct
   type Utility.base += Self of t
 
   let name = "outline_style"
-  let priority _ = 26
+  let priority _ = 28
 
   let to_style _theme = function
     | Dashed ->

@@ -42,7 +42,7 @@ module Handler = struct
   let name = "transitions"
 
   let priority _ =
-    30 (* Transition utilities come after all other styling utilities *)
+    32 (* Transition utilities come after all other styling utilities *)
 
   (* Theme variables for default transition settings. Duration has lower order
      (8,0) so it appears before timing-function (8,1) in the theme layer output,

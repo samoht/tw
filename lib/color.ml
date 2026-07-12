@@ -1711,7 +1711,7 @@ module Handler = struct
   open Css
 
   let name = "color"
-  let priority _ = 23
+  let priority _ = 25
 
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'

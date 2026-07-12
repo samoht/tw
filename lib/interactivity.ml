@@ -64,7 +64,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "interactivity"
-  let priority _ = 29
+  let priority _ = 31
   let select_none_s = style [ webkit_user_select None; user_select None ]
   let select_text_s = style [ webkit_user_select Text; user_select Text ]
   let select_all_s = style [ webkit_user_select All; user_select All ]

@@ -86,7 +86,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "filters"
-  let priority _ = 28
+  let priority _ = 30
 
   (* Register filter variables in the Var system for @property generation *)
   let blur_var =
