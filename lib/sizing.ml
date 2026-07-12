@@ -1066,13 +1066,14 @@ module Handler = struct
        5M) and arbitrary/keyword offsets never overflow into the next family.
        Within a family: spacing/fractions interleaved by magnitude, then
        arbitrary, then keywords (alphabetical). *)
-    let h = 0 in
-    let max_h = 10_000_000 in
-    let min_h = 20_000_000 in
-    let w = 30_000_000 in
-    let max_w = 40_000_000 in
-    let min_w = 50_000_000 in
-    let size = 60_000_000 in
+    (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
+    let size = 0 in
+    let h = 10_000_000 in
+    let max_h = 20_000_000 in
+    let min_h = 30_000_000 in
+    let w = 40_000_000 in
+    let max_w = 50_000_000 in
+    let min_w = 60_000_000 in
     let inline = 70_000_000 in
     let min_inline = 80_000_000 in
     let max_inline = 90_000_000 in
