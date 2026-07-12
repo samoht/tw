@@ -1941,8 +1941,8 @@ module Typography_late = struct
     (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
        text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
        a suborder above alignment/gap's range. *)
-    | Text_clip -> 9000
-    | Text_ellipsis -> 9001
+    | Text_clip -> 8320
+    | Text_ellipsis -> 8321
     | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
     (* Text wrap - alphabetical order *)
     | Text_balance -> 9100
