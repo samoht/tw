@@ -42,7 +42,7 @@ module Handler = struct
   (** Priority for table utilities - comes before layout utilities *)
   let name = "tables"
 
-  let priority _ = 4
+  let priority _ = 8
   let err_not_utility = Error (`Msg "Not a table utility")
 
   (** CSS variables for border-spacing - initialized to 0 in the properties
