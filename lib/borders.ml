@@ -133,7 +133,20 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "borders"
-  let priority _ = 19
+
+  (* border-width/color/radius sort at priority 19. outline-* (canonical rank
+     ~92) comes much later - after box-shadow and ring (effects, priority 27),
+     before the filters (priority 30) - so the outline variants return priority
+     28. *)
+  let priority = function
+    | Outline | Outline_0 | Outline_width _ | Outline_width_bracket _
+    | Outline_width_var _ | Outline_hidden | Outline_offset_0 | Outline_offset_1
+    | Outline_offset_2 | Outline_offset_4 | Outline_offset_8
+    | Outline_offset_var _ | Outline_offset_arbitrary _ | Neg_outline_offset_1
+    | Neg_outline_offset_2 | Neg_outline_offset_4 | Neg_outline_offset_8
+    | Neg_outline_offset_var _ ->
+        28
+    | _ -> 19
 
   (* Create border style variable with @property for utilities that reference
      it. Position 6 to match Tailwind's order after translate (0-2) and scale
