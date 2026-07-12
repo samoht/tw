@@ -16,7 +16,7 @@ module Handler = struct
       4 and are ordered alphabetically by suborder. *)
   let name = "grid"
 
-  let priority = 4
+  let priority _ = 4
   let grid = style [ display Grid ]
   let inline_grid = style [ display Inline_grid ]
   let to_style _theme = function Grid -> grid | Inline_grid -> inline_grid

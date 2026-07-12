@@ -37,7 +37,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "scroll"
-  let priority = 2
+  let priority _ = 2
 
   (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
   *)

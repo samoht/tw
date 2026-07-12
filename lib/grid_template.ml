@@ -62,7 +62,7 @@ module Handler = struct
   let name = "grid_template"
 
   (* Before flex_props (16) and alignment/gap (17) *)
-  let priority = 15
+  let priority _ = 15
 
   let grid_cols n =
     if n < 1 || n > 999 then

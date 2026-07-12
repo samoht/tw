@@ -24,7 +24,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "touch"
-  let priority = 14
+  let priority _ = 14
 
   (* CSS Variables for composable touch-action values *)
   let tw_pan_x_var =

@@ -341,7 +341,7 @@ module Typography_early = struct
   type Utility.base += Self of t
 
   let name = "typography_early"
-  let priority = 22
+  let priority _ = 22
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
@@ -1402,7 +1402,7 @@ module Typography_late = struct
   type Utility.base += Self of t
 
   let name = "typography_late"
-  let priority = 24
+  let priority _ = 24
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 

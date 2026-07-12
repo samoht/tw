@@ -9,7 +9,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "zoom"
-  let priority = 2
+  let priority _ = 2
   let suborder = function Zoom_pct _ -> 0 | Zoom_arbitrary _ -> 1
 
   let num_to_string n =

@@ -23,7 +23,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "gap"
-  let priority = 17
+  let priority _ = 17
 
   (* Space reverse variables for flex-reverse support. Property order 2/3 places
      these after the transform group but before --tw-divide-*-reverse (4/5) and

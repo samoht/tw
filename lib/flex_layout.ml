@@ -23,7 +23,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "flex_layout"
-  let priority = 16
+  let priority _ = 16
 
   let flex_data =
     [

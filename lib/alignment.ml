@@ -121,7 +121,7 @@ module Handler = struct
      alignment: suborder 0-999 (before gap's 25000+) - Self alignment: suborder
      50000+ (after gap) *)
   (* Same priority as gap; comes after flex_props *)
-  let priority = 17
+  let priority _ = 17
   let justify_start = style [ justify_content Flex_start ]
   let justify_end = style [ justify_content Flex_end ]
   let justify_center = style [ justify_content Center ]

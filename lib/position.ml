@@ -211,7 +211,7 @@ module Handler = struct
   let name = "position"
 
   (** Priority for position utilities *)
-  let priority = 0
+  let priority _ = 0
 
   (** {1 Utility Conversion Functions} *)
 

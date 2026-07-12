@@ -16,7 +16,7 @@ module Handler = struct
       4 and are ordered alphabetically by suborder. *)
   let name = "flex"
 
-  let priority = 4
+  let priority _ = 4
   let flex = style [ display Flex ]
   let inline_flex = style [ display Inline_flex ]
   let to_style _theme = function Flex -> flex | Inline_flex -> inline_flex

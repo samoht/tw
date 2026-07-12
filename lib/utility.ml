@@ -23,7 +23,7 @@ module type Handler = sig
 
   val name : string
   val to_style : Scheme.t -> t -> Style.t
-  val priority : int
+  val priority : t -> int
   val suborder : t -> int
   val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
@@ -122,7 +122,7 @@ let order (u : base) : int * int =
            utility system."
     | H (module M) :: rest -> (
         match u with
-        | M.Self x -> (M.priority, M.suborder x)
+        | M.Self x -> (M.priority x, M.suborder x)
         | _ -> try_handlers rest)
   in
   try_handlers !handlers

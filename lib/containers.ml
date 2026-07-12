@@ -16,7 +16,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority = 1
+  let priority _ = 1
   (* Tailwind orders .container by its width property: after the position group
      (inset, z-index) and before margin. *)
 
@@ -68,7 +68,10 @@ module Handler = struct
     | Container_named _ -> 0
     | Container -> 1
     | Container_normal -> 2
-    | Layout_container -> 3 (* After @container utilities *)
+    (* The .container utility (rank 15) sorts after grid_item's grid-column /
+       grid-row utilities (priority 1, suborder up to ~2000), and after the
+       @container query utilities above. *)
+    | Layout_container -> 9_000_000
 
   let of_class _theme = function
     | "container" -> Ok Layout_container

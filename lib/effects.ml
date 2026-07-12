@@ -178,7 +178,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "effects"
-  let priority = 25
+  let priority _ = 25
 
   (* Shadow variables with property registration. Order: translate (0-2), scale
      (3-5), border-style (6), gradients (7-15), font-weight (16), shadows

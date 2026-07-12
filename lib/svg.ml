@@ -47,7 +47,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "svg"
-  let priority = 30
+  let priority _ = 30
 
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
