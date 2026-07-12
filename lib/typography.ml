@@ -1884,9 +1884,11 @@ module Typography_late = struct
     | Neg_tracking_var _ -> 8250
     | Tracking_arbitrary _ -> 8255
     | Tracking_var _ -> 8260
-    | Tracking_tighter -> 8300
+    (* Alphabetical by class name: normal, tight, tighter, wide, wider,
+       widest *)
+    | Tracking_normal -> 8300
     | Tracking_tight -> 8301
-    | Tracking_normal -> 8302
+    | Tracking_tighter -> 8302
     | Tracking_wide -> 8303
     | Tracking_wider -> 8304
     | Tracking_widest -> 8305

@@ -784,35 +784,33 @@ module Handler = struct
     | Border_8 -> 1004
     | Border_width n -> 1001 + n
     | Border_width_bracket _ -> 1005
-    (* Per-side arbitrary widths join their side's group (1200-1399), sorting
-       after that side's numeric widths, matching Tailwind. *)
+    (* Border sides are side-major (Tailwind groups each side's bare width, its
+       numeric widths and its arbitrary width together): t, r, b, l, then x, y.
+       Within a side: bare, 0, 2, 4, 8, arbitrary. *)
     | Border_side_width_bracket (side, _) -> (
-        match side with "t" -> 1204 | "r" -> 1214 | "b" -> 1224 | _ -> 1234)
-    (* Border side/axis utilities (1100-1199) - clockwise from top: t, r, b,
-       l *)
+        match side with "t" -> 1105 | "r" -> 1115 | "b" -> 1125 | _ -> 1135)
     | Border_t -> 1100
-    | Border_r -> 1101
-    | Border_b -> 1102
-    | Border_l -> 1103
-    | Border_x -> 1104
-    | Border_y -> 1105
-    (* Border side utilities with widths (1200-1399) *)
-    | Border_t_0 -> 1200
-    | Border_t_2 -> 1201
-    | Border_t_4 -> 1202
-    | Border_t_8 -> 1203
-    | Border_r_0 -> 1210
-    | Border_r_2 -> 1211
-    | Border_r_4 -> 1212
-    | Border_r_8 -> 1213
-    | Border_b_0 -> 1220
-    | Border_b_2 -> 1221
-    | Border_b_4 -> 1222
-    | Border_b_8 -> 1223
-    | Border_l_0 -> 1230
-    | Border_l_2 -> 1231
-    | Border_l_4 -> 1232
-    | Border_l_8 -> 1233
+    | Border_t_0 -> 1101
+    | Border_t_2 -> 1102
+    | Border_t_4 -> 1103
+    | Border_t_8 -> 1104
+    | Border_r -> 1110
+    | Border_r_0 -> 1111
+    | Border_r_2 -> 1112
+    | Border_r_4 -> 1113
+    | Border_r_8 -> 1114
+    | Border_b -> 1120
+    | Border_b_0 -> 1121
+    | Border_b_2 -> 1122
+    | Border_b_4 -> 1123
+    | Border_b_8 -> 1124
+    | Border_l -> 1130
+    | Border_l_0 -> 1131
+    | Border_l_2 -> 1132
+    | Border_l_4 -> 1133
+    | Border_l_8 -> 1134
+    | Border_x -> 1140
+    | Border_y -> 1150
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
