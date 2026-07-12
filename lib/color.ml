@@ -2720,20 +2720,21 @@ module Handler = struct
     | Text_bracket_typed_var _ -> 8370
     | Text_bracket_typed_var_opacity _ -> 8370
     | Border (color, shade) ->
-        (* All border colors share suborder 5000 (priority 19, after
-           border-width and border-style in borders.ml) so they sort
-           alphabetically, matching Tailwind. *)
+        (* Border colors share suborder 1500 with borders.ml's named border
+           colors (Border_color), at priority 19, so named and arbitrary tie and
+           sort together by class name - matching Tailwind. *)
         let _ = (color, shade) in
-        5000
+        1500
     | Border_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        5000
-    | Border_transparent -> 5000
-    | Border_current -> 5000
-    | Border_current_opacity _ -> 5000
-    | Border_bracket_color _ -> 5000
-    | Border_side_color _ -> 5000
-    | Border_bracket_color_opacity _ -> 5000
+        1500
+    | Border_transparent -> 1500
+    | Border_current -> 1500
+    | Border_current_opacity _ -> 1500
+    | Border_bracket_color _ -> 1500
+    | Border_bracket_color_opacity _ -> 1500
+    (* Per-side border colors sort after the all-sides colors. *)
+    | Border_side_color _ -> 1600
     | Accent (color, shade) ->
         (* All accent colors use the same suborder (50000) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
