@@ -683,9 +683,10 @@ module Typography_early = struct
     | Font_bracket_family_name _ -> 1500
     (* Bracket font weights come before named font weights *)
     (* Font family - comes between text-align and text-size *)
-    | Font_sans -> 1501
-    | Font_serif -> 1502
-    | Font_mono -> 1503
+    (* Alphabetical by class name: mono, sans, serif *)
+    | Font_mono -> 1501
+    | Font_sans -> 1502
+    | Font_serif -> 1503
     (* Bracket font-size with line-height modifier — before named sizes *)
     | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
