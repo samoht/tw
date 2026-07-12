@@ -1712,13 +1712,18 @@ module Handler = struct
 
   let name = "color"
 
-  (* Non-text color families (accent, caret, ...) sort at priority 25.
-     text-color (the `color` property, canonical rank ~86) interleaves inside
-     the late-typography block - after text-transform, before font-style/italic
-     - so the Text_* variants return priority 26 with a suborder in that gap.
-     Text_opacity leads the match so the type resolves to the color [t] rather
-     than [Css.user_select] (which also has a [Text] constructor). *)
+  (* Color families sort at their property's canonical rank, not together:
+     border-color (rank ~65) joins border-width/style at priority 19; text-color
+     (the `color` property, rank ~86) interleaves inside the late-typography
+     block, after text-transform and before font-style, at priority 26. The rest
+     (accent, caret, ...) stay at 25. [_opacity] variants lead each group so the
+     type resolves to the color [t] rather than the shadowed [Css.Border] /
+     [Css.user_select] [Text] constructors. *)
   let priority = function
+    | Border_opacity _ | Border _ | Border_transparent | Border_current
+    | Border_current_opacity _ | Border_bracket_color _ | Border_side_color _
+    | Border_bracket_color_opacity _ ->
+        19
     | Text_opacity _ | Text _ | Text_transparent | Text_current
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
     | Text_bracket_color_opacity _ | Text_bracket_var _
@@ -2715,19 +2720,20 @@ module Handler = struct
     | Text_bracket_typed_var _ -> 8370
     | Text_bracket_typed_var_opacity _ -> 8370
     | Border (color, shade) ->
-        (* All border colors use the same suborder (0) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
+        (* All border colors share suborder 5000 (priority 19, after
+           border-width and border-style in borders.ml) so they sort
+           alphabetically, matching Tailwind. *)
         let _ = (color, shade) in
-        0
+        5000
     | Border_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        0
-    | Border_transparent -> 0
-    | Border_current -> 0
-    | Border_current_opacity _ -> 0
-    | Border_bracket_color _ -> 0
-    | Border_side_color _ -> 0
-    | Border_bracket_color_opacity _ -> 0
+        5000
+    | Border_transparent -> 5000
+    | Border_current -> 5000
+    | Border_current_opacity _ -> 5000
+    | Border_bracket_color _ -> 5000
+    | Border_side_color _ -> 5000
+    | Border_bracket_color_opacity _ -> 5000
     | Accent (color, shade) ->
         (* All accent colors use the same suborder (50000) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
