@@ -1711,7 +1711,21 @@ module Handler = struct
   open Css
 
   let name = "color"
-  let priority _ = 25
+
+  (* Non-text color families (accent, caret, ...) sort at priority 25.
+     text-color (the `color` property, canonical rank ~86) interleaves inside
+     the late-typography block - after text-transform, before font-style/italic
+     - so the Text_* variants return priority 26 with a suborder in that gap.
+     Text_opacity leads the match so the type resolves to the color [t] rather
+     than [Css.user_select] (which also has a [Text] constructor). *)
+  let priority = function
+    | Text_opacity _ | Text _ | Text_transparent | Text_current
+    | Text_current_opacity _ | Text_inherit | Text_bracket_color _
+    | Text_bracket_color_opacity _ | Text_bracket_var _
+    | Text_bracket_var_opacity _ | Text_bracket_typed_var _
+    | Text_bracket_typed_var_opacity _ ->
+        26
+    | _ -> 25
 
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
@@ -2665,10 +2679,10 @@ module Handler = struct
         with_pseudo Css.Selector.Placeholder
           (color_with_opacity_style ~property:Css.color c 500 opacity)
 
-  (* Suborder determines order within the color priority group. Tailwind orders:
-     border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
-     (20000-29999) NOTE: Bg must be first pattern to infer local type t vs
-     shadowed Css.Border *)
+  (* Suborder for the non-text color families: border (0-9999) then bg
+     (10000-19999). text-color runs at priority 26 (see [priority]) with a fixed
+     suborder inside the late-typography block. NOTE: Bg must be first pattern
+     to infer local type t vs shadowed Css.Border. *)
   let suborder = function
     | Bg (color, shade) ->
         (* All background colors use the same suborder (10000) to allow
@@ -2682,23 +2696,24 @@ module Handler = struct
     | Bg_current -> 10000
     | Bg_current_opacity _ -> 10000
     | Text (color, shade) ->
-        (* All text colors use the same suborder (20000) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
+        (* All text colors share suborder 8370 (priority 26, after
+           text-transform and before font-style) so they sort alphabetically,
+           matching Tailwind. *)
         let _ = (color, shade) in
-        20000
+        8370
     | Text_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        20000
-    | Text_transparent -> 20000
-    | Text_current -> 20000
-    | Text_current_opacity _ -> 20000
-    | Text_inherit -> 20000
-    | Text_bracket_color _ -> 20000
-    | Text_bracket_color_opacity _ -> 20000
-    | Text_bracket_var _ -> 20000
-    | Text_bracket_var_opacity _ -> 20000
-    | Text_bracket_typed_var _ -> 20000
-    | Text_bracket_typed_var_opacity _ -> 20000
+        8370
+    | Text_transparent -> 8370
+    | Text_current -> 8370
+    | Text_current_opacity _ -> 8370
+    | Text_inherit -> 8370
+    | Text_bracket_color _ -> 8370
+    | Text_bracket_color_opacity _ -> 8370
+    | Text_bracket_var _ -> 8370
+    | Text_bracket_var_opacity _ -> 8370
+    | Text_bracket_typed_var _ -> 8370
+    | Text_bracket_typed_var_opacity _ -> 8370
     | Border (color, shade) ->
         (* All border colors use the same suborder (0) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
