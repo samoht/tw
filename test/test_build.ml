@@ -42,7 +42,7 @@ let check_conflict_order () =
 
   (* Test basic selector parsing *)
   let prio, sub = Tw.Build.conflict_order ".p-4" in
-  check int "p-4 priority" 21 prio;
+  check int "p-4 priority" 23 prio;
 
   (* Padding priority *)
 
@@ -56,7 +56,7 @@ let check_conflict_order () =
   let bg_prio, _ = Tw.Build.conflict_order ".bg-blue-500" in
   check bool "margin before background" true (m4_prio < bg_prio);
   (* bg-blue-500 is a background color (priority 20), which comes before Padding
-     (priority 21) *)
+     (priority 23) *)
   check bool "background color before padding" true (bg_prio < prio);
 
   (* Test unknown utility gets high priority *)

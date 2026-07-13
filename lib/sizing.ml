@@ -1066,13 +1066,14 @@ module Handler = struct
        5M) and arbitrary/keyword offsets never overflow into the next family.
        Within a family: spacing/fractions interleaved by magnitude, then
        arbitrary, then keywords (alphabetical). *)
-    let h = 0 in
-    let max_h = 10_000_000 in
-    let min_h = 20_000_000 in
-    let w = 30_000_000 in
-    let max_w = 40_000_000 in
-    let min_w = 50_000_000 in
-    let size = 60_000_000 in
+    (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
+    let size = 0 in
+    let h = 10_000_000 in
+    let max_h = 20_000_000 in
+    let min_h = 30_000_000 in
+    let w = 40_000_000 in
+    let max_w = 50_000_000 in
+    let min_w = 60_000_000 in
     let inline = 70_000_000 in
     let min_inline = 80_000_000 in
     let max_inline = 90_000_000 in
@@ -1139,33 +1140,33 @@ module Handler = struct
     | W_svw -> w + keyword_off + 9
     | W_xl -> w + keyword_off + 10
     (* Max-width *)
-    | Max_w_spacing n -> max_w + spacing_value_order n
-    (* Named sizes sort by raw suffix: the digit-prefixed sizes (2xl..7xl) come
-       before an arbitrary value ('[' > digits), which comes before the
-       letter-prefixed sizes ('[' < 'f'). *)
-    | Max_w_2xl -> max_w + keyword_off + 0
-    | Max_w_3xl -> max_w + keyword_off + 1
-    | Max_w_4xl -> max_w + keyword_off + 2
-    | Max_w_5xl -> max_w + keyword_off + 3
-    | Max_w_6xl -> max_w + keyword_off + 4
-    | Max_w_7xl -> max_w + keyword_off + 5
-    | Max_w_arbitrary _ -> max_w + keyword_off + 6
-    | Max_w_fit -> max_w + keyword_off + 7
-    | Max_w_full -> max_w + keyword_off + 8
-    | Max_w_lg -> max_w + keyword_off + 9
-    | Max_w_max -> max_w + keyword_off + 10
-    | Max_w_md -> max_w + keyword_off + 11
-    | Max_w_min -> max_w + keyword_off + 12
-    | Max_w_none -> max_w + keyword_off + 13
-    | Max_w_prose -> max_w + keyword_off + 14
-    | Max_w_screen_2xl -> max_w + keyword_off + 15
-    | Max_w_screen_lg -> max_w + keyword_off + 16
-    | Max_w_screen_md -> max_w + keyword_off + 17
-    | Max_w_screen_sm -> max_w + keyword_off + 18
-    | Max_w_screen_xl -> max_w + keyword_off + 19
-    | Max_w_sm -> max_w + keyword_off + 20
-    | Max_w_xl -> max_w + keyword_off + 21
-    | Max_w_xs -> max_w + keyword_off + 22
+    (* Tailwind orders max-width in three bands: the container scale sizes
+       (2xl..7xl) by number, then the numeric spacing values, then an arbitrary
+       value, then the letter-prefixed keywords alphabetically. *)
+    | Max_w_2xl -> max_w + 0
+    | Max_w_3xl -> max_w + 1
+    | Max_w_4xl -> max_w + 2
+    | Max_w_5xl -> max_w + 3
+    | Max_w_6xl -> max_w + 4
+    | Max_w_7xl -> max_w + 5
+    | Max_w_spacing n -> max_w + 1_000_000 + spacing_value_order n
+    | Max_w_arbitrary _ -> max_w + arbitrary_off
+    | Max_w_fit -> max_w + keyword_off + 0
+    | Max_w_full -> max_w + keyword_off + 1
+    | Max_w_lg -> max_w + keyword_off + 2
+    | Max_w_max -> max_w + keyword_off + 3
+    | Max_w_md -> max_w + keyword_off + 4
+    | Max_w_min -> max_w + keyword_off + 5
+    | Max_w_none -> max_w + keyword_off + 6
+    | Max_w_prose -> max_w + keyword_off + 7
+    | Max_w_screen_2xl -> max_w + keyword_off + 8
+    | Max_w_screen_lg -> max_w + keyword_off + 9
+    | Max_w_screen_md -> max_w + keyword_off + 10
+    | Max_w_screen_sm -> max_w + keyword_off + 11
+    | Max_w_screen_xl -> max_w + keyword_off + 12
+    | Max_w_sm -> max_w + keyword_off + 13
+    | Max_w_xl -> max_w + keyword_off + 14
+    | Max_w_xs -> max_w + keyword_off + 15
     (* Min-width *)
     | Min_w_0 -> min_w + 0
     | Min_w_spacing n -> min_w + spacing_value_order n

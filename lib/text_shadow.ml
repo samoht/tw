@@ -38,7 +38,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "text_shadow"
-  let priority _ = 35
+  let priority _ = 36
 
   let text_shadow_color_var =
     Var.channel ~needs_property:true ~property_order:35 ~family:`Text_shadow

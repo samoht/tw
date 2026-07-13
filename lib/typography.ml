@@ -341,7 +341,12 @@ module Typography_early = struct
   type Utility.base += Self of t
 
   let name = "typography_early"
-  let priority _ = 22
+
+  (* Most early-typography families (text-align, font, leading) sort at priority
+     24. font-style (italic) is canonically later (rank 87, after tracking/
+     whitespace/text-transform), so it joins the late handler's band at priority
+     26 via a suborder just above text-transform (~8360). *)
+  let priority = function Italic | Not_italic -> 26 | _ -> 24
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
@@ -678,9 +683,10 @@ module Typography_early = struct
     | Font_bracket_family_name _ -> 1500
     (* Bracket font weights come before named font weights *)
     (* Font family - comes between text-align and text-size *)
-    | Font_sans -> 1501
-    | Font_serif -> 1502
-    | Font_mono -> 1503
+    (* Alphabetical by class name: mono, sans, serif *)
+    | Font_mono -> 1501
+    | Font_sans -> 1502
+    | Font_serif -> 1503
     (* Bracket font-size with line-height modifier — before named sizes *)
     | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
@@ -745,8 +751,8 @@ module Typography_early = struct
     | Font_features_var _ -> 5000
     | Font_features_bare_var _ -> 5000
     (* Italic *)
-    | Italic -> 7001
-    | Not_italic -> 7002
+    | Italic -> 8380
+    | Not_italic -> 8381
 
   (* Text utilities use theme record for line height variable reference *)
   let text_size_utility (size_var : Css.length Var.theme)
@@ -1402,7 +1408,25 @@ module Typography_late = struct
   type Utility.base += Self of t
 
   let name = "typography_late"
-  let priority _ = 24
+
+  (* Most late-typography families (decoration, tracking, whitespace,
+     word-break) sort at priority 26. Three occupy earlier canonical slots:
+     list-style (rank 48, by cursor/resize at priority 11),
+     text-overflow/truncate (rank 62, just before overflow at priority 18), and
+     vertical-align (rank 80, right after text-align in the early handler at
+     priority 24). *)
+  let priority = function
+    | List_none | List_disc | List_decimal | List_inside | List_outside
+    | List_image_none | List_image_url _ | List_bracket_var _
+    | List_image_bracket_var _ ->
+        11
+    | Truncate -> 17
+    | Align_baseline | Align_top | Align_middle | Align_bottom | Align_sub
+    | Align_super | Align_text_top | Align_text_bottom | Align_arbitrary_var _
+      ->
+        24
+    | _ -> 26
+
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
@@ -1837,10 +1861,10 @@ module Typography_late = struct
     | Decoration_bracket_var _ -> 4200
     | Decoration_bracket_var_opacity _ -> 4200
     (* Text decoration lines - suborder >= 8000 (alphabetical) *)
-    | Line_through -> 8000
-    | No_underline -> 8001
-    | Overline -> 8002
-    | Underline -> 8003
+    | Line_through -> 8400
+    | No_underline -> 8401
+    | Overline -> 8402
+    | Underline -> 8403
     (* Decoration styles - same suborder, sorted by class name *)
     | Decoration_solid -> 8100
     | Decoration_double -> 8100
@@ -1861,44 +1885,48 @@ module Typography_late = struct
     | Neg_tracking_var _ -> 8250
     | Tracking_arbitrary _ -> 8255
     | Tracking_var _ -> 8260
-    | Tracking_tighter -> 8300
+    (* Alphabetical by class name: normal, tight, tighter, wide, wider,
+       widest *)
+    | Tracking_normal -> 8300
     | Tracking_tight -> 8301
-    | Tracking_normal -> 8302
+    | Tracking_tighter -> 8302
     | Tracking_wide -> 8303
     | Tracking_wider -> 8304
     | Tracking_widest -> 8305
     (* Text transform - alphabetical order *)
-    | Capitalize -> 8400
-    | Lowercase -> 8401
-    | Normal_case -> 8402
-    | Uppercase -> 8403
+    | Capitalize -> 8360
+    | Lowercase -> 8361
+    | Normal_case -> 8362
+    | Uppercase -> 8363
     (* Whitespace - alphabetical order *)
-    | Whitespace_break_spaces -> 8500
-    | Whitespace_normal -> 8501
-    | Whitespace_nowrap -> 8502
-    | Whitespace_pre -> 8503
-    | Whitespace_pre_line -> 8504
-    | Whitespace_pre_wrap -> 8505
-    (* Vertical align - alphabetical order *)
-    | Align_arbitrary_var _ -> 8600
-    | Align_baseline -> 8600
-    | Align_bottom -> 8601
-    | Align_middle -> 8602
-    | Align_sub -> 8603
-    | Align_super -> 8604
-    | Align_text_bottom -> 8605
-    | Align_text_top -> 8606
-    | Align_top -> 8607
-    (* List utilities - alphabetical order *)
-    | List_bracket_var _ -> 8699
-    | List_decimal -> 8700
-    | List_disc -> 8701
-    | List_image_bracket_var _ -> 8698
-    | List_image_none -> 8702
-    | List_inside -> 8703
-    | List_none -> 8704
-    | List_outside -> 8705
-    | List_image_url _ -> 8706
+    | Whitespace_break_spaces -> 8330
+    | Whitespace_normal -> 8331
+    | Whitespace_nowrap -> 8332
+    | Whitespace_pre -> 8333
+    | Whitespace_pre_line -> 8334
+    | Whitespace_pre_wrap -> 8335
+    (* Vertical align (priority 24) - between text-align (~1005) and font-family
+       (~1501) in the early handler's suborder space. Alphabetical. *)
+    | Align_arbitrary_var _ -> 1200
+    | Align_baseline -> 1200
+    | Align_bottom -> 1201
+    | Align_middle -> 1202
+    | Align_sub -> 1203
+    | Align_super -> 1204
+    | Align_text_bottom -> 1205
+    | Align_text_top -> 1206
+    | Align_top -> 1207
+    (* List utilities (priority 11) - after resize (~1M), before appearance
+       (~3M). Alphabetical. *)
+    | List_bracket_var _ -> 2_000_000 + 8699
+    | List_decimal -> 2_000_000 + 8700
+    | List_disc -> 2_000_000 + 8701
+    | List_image_bracket_var _ -> 2_000_000 + 8698
+    | List_image_none -> 2_000_000 + 8702
+    | List_inside -> 2_000_000 + 8703
+    | List_none -> 2_000_000 + 8704
+    | List_outside -> 2_000_000 + 8705
+    | List_image_url _ -> 2_000_000 + 8706
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
     | Underline_offset_neg_var _ -> 59990
@@ -1911,21 +1939,23 @@ module Typography_late = struct
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
     (* Antialiased *)
-    | Antialiased -> 70000
-    | Subpixel_antialiased -> 70001
-    (* Text overflow - alphabetical order: text-clip, text-ellipsis, truncate *)
-    | Text_clip -> 9000
-    | Text_ellipsis -> 9001
-    | Truncate -> 9002
+    | Antialiased -> 8700
+    | Subpixel_antialiased -> 8701
+    (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
+       text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
+       a suborder above alignment/gap's range. *)
+    | Text_clip -> 8320
+    | Text_ellipsis -> 8321
+    | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
     (* Text wrap - alphabetical order *)
     | Text_balance -> 9100
     | Text_nowrap -> 9101
     | Text_pretty -> 9102
     | Text_wrap -> 9103
     (* Break utilities *)
-    | Break_normal -> 9200
-    | Break_words -> 9201
-    | Break_all -> 9202
+    | Break_normal -> 8310
+    | Break_words -> 8311
+    | Break_all -> 8312
     | Break_keep -> 9203
     (* Overflow wrap *)
     | Overflow_wrap_normal -> 9300

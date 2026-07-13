@@ -64,7 +64,18 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "interactivity"
-  let priority _ = 29
+
+  (* Most interactivity utilities (user-select, will-change, scroll-snap, ...)
+     sort late (priority 31). resize (canonical rank 47) and appearance (rank
+     49) belong right after cursor (priority 11), around list-style (rank 48);
+     they return priority 11 with a suborder above cursor's range (<1000),
+     leaving a gap for list-style at ~2M. *)
+  let priority = function
+    | Resize | Resize_none | Resize_x | Resize_y | Appearance_auto
+    | Appearance_none ->
+        11
+    | _ -> 31
+
   let select_none_s = style [ webkit_user_select None; user_select None ]
   let select_text_s = style [ webkit_user_select Text; user_select Text ]
   let select_all_s = style [ webkit_user_select All; user_select All ]
@@ -226,14 +237,16 @@ module Handler = struct
     | Snap_start -> 19
     | Snap_x -> 20
     | Snap_y -> 21
-    | Resize -> 22
-    | Resize_none -> 23
-    | Resize_x -> 24
-    | Resize_y -> 25
+    (* resize (priority 11) - after cursor (<1000), before list-style (~2M) *)
+    | Resize -> 1_000_000 + 22
+    | Resize_none -> 1_000_000 + 23
+    | Resize_x -> 1_000_000 + 24
+    | Resize_y -> 1_000_000 + 25
     | Pointer_events_auto -> 26
     | Pointer_events_none -> 27
-    | Appearance_auto -> 28
-    | Appearance_none -> 29
+    (* appearance (priority 11) - after list-style (~2M) *)
+    | Appearance_auto -> 3_000_000 + 28
+    | Appearance_none -> 3_000_000 + 29
     | Will_change_auto -> 31
     | Will_change_contents -> 32
     | Will_change_scroll -> 33

@@ -36,10 +36,17 @@ let extract_base_utility class_name_no_pseudo =
           find_last_colon (i + 1) bracket_depth paren_depth (Some i)
       | _ -> find_last_colon (i + 1) bracket_depth paren_depth last_colon
   in
-  match find_last_colon 0 0 0 None with
-  | Some colon_pos ->
-      String.sub class_name_no_pseudo (colon_pos + 1) (len - colon_pos - 1)
-  | None -> class_name_no_pseudo
+  let base =
+    match find_last_colon 0 0 0 None with
+    | Some colon_pos ->
+        String.sub class_name_no_pseudo (colon_pos + 1) (len - colon_pos - 1)
+    | None -> class_name_no_pseudo
+  in
+  (* Strip a leading [!] important marker so [!flex] orders like [flex] rather
+     than failing to parse and falling to the default (last) order. *)
+  if String.length base > 0 && base.[0] = '!' then
+    String.sub base 1 (String.length base - 1)
+  else base
 
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =

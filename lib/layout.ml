@@ -210,6 +210,15 @@ module Handler = struct
     | Neg_z _ | Z_0 | Z _ | Z_10 | Z_20 | Z_30 | Z_40 | Z_50 | Neg_z_arbitrary _
     | Z_arbitrary _ | Z_auto ->
         0
+    (* object-fit / object-position (rank ~72): after svg fill/stroke (21),
+       before padding (23). *)
+    | Object_contain | Object_cover | Object_fill | Object_none
+    | Object_scale_down | Object_center | Object_top | Object_bottom
+    | Object_left | Object_right | Object_bottom_left | Object_bottom_right
+    | Object_left_bottom | Object_left_top | Object_right_bottom
+    | Object_right_top | Object_top_left | Object_top_right | Object_arbitrary _
+      ->
+        22
     | _ -> 4
 
   let suborder = function

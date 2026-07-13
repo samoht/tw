@@ -20,7 +20,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "contain"
-  let priority _ = 32
+  let priority _ = 34
 
   (* Single source of truth: (handler, class_suffix, suborder) for
      non-arbitrary. Composable utilities (inline-size, layout, paint, size,

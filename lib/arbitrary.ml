@@ -64,7 +64,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "arbitrary"
-  let priority _ = 36
+  let priority _ = 37
 
   (* Render a known colour-property declaration ([color], [background-color],
      ...) with a parsed colour value and an /opacity modifier. *)

@@ -19,7 +19,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "padding"
-  let priority _ = 21
+  let priority _ = 23
 
   let pp_float n =
     let s = string_of_float n in
