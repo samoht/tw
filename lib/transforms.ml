@@ -136,7 +136,7 @@ module Handler = struct
   let name = "transforms"
 
   (* Match Tailwind ordering: transforms before animations and cursor *)
-  let priority = 9
+  let priority _ = 9
 
   (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
      utility. These variables contain the full transform function values, e.g.:

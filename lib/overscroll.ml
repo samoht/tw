@@ -32,7 +32,7 @@ module Handler = struct
   let name = "overscroll"
 
   (* Same priority as overflow (18) - these are related utilities *)
-  let priority = 18
+  let priority _ = 18
 
   (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
   let overscroll_data =

@@ -54,8 +54,15 @@ module Handler = struct
 
   let name = "flex_props"
 
-  (** Priority 7 - after sizing (6), before transforms (9) *)
-  let priority = 7
+  (* flex/grow/shrink/basis are the flexbox family (priority 7 - after sizing,
+     before transforms). order- occupies an early canonical slot (rank 13, right
+     after z-index), so it returns priority 0 with a suborder above z-index's
+     ~20M band and below container (priority 1). *)
+  let priority = function
+    | Order _ | Neg_order _ | Neg_order_arbitrary _ | Order_arbitrary _
+    | Order_first | Order_last | Order_none ->
+        0
+    | _ -> 7
 
   (* Flex shortcuts *)
   let flex_1 = style [ flex (Grow (Number 1.0)) ]
@@ -182,15 +189,16 @@ module Handler = struct
     | Order_none -> order_none
 
   let suborder : t -> int = function
-    (* Order - comes first in Tailwind's output. Ordering: negative first, then
-       positive, then first/last/none, then arbitrary *)
-    | Neg_order n -> n (* negative comes first *)
-    | Neg_order_arbitrary _ -> 50 (* negative arbitrary after negative ints *)
-    | Order n -> 100 + n
-    | Order_arbitrary _ -> 150
-    | Order_first -> 200
-    | Order_last -> 201
-    | Order_none -> 202
+    (* Order (priority 0) - after z-index (~20M band in layout.ml), before
+       container (priority 1). Ordering: negative first, then positive, then
+       first/last/none, then arbitrary. *)
+    | Neg_order n -> 21_000_000 + n (* negative comes first *)
+    | Neg_order_arbitrary _ -> 21_000_000 + 50
+    | Order n -> 21_000_000 + 100 + n
+    | Order_arbitrary _ -> 21_000_000 + 150
+    | Order_first -> 21_000_000 + 200
+    | Order_last -> 21_000_000 + 201
+    | Order_none -> 21_000_000 + 202
     (* Tailwind flex order: flex-1 < fractions < numbers < auto < initial <
        none. Note: flex-* utilities come AFTER order-* utilities *)
     | Flex_1 -> 1000

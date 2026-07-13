@@ -74,7 +74,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "mask_gradient"
-  let priority = 21
+  let priority _ = 21
 
   let direction_name = function
     | Top -> "top"

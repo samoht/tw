@@ -35,7 +35,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "scrollbar"
-  let priority = 2
+  let priority _ = 2
 
   let alpha_order s =
     let v = ref 0 in

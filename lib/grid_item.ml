@@ -94,7 +94,7 @@ module Handler = struct
   let name = "grid_item"
 
   (** Priority 1 - before margin (priority 2) *)
-  let priority = 1
+  let priority _ = 1
 
   let col n = style [ grid_column (Num n, Auto) ]
   let neg_col n = style [ grid_column (Num (-n), Auto) ]

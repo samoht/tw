@@ -23,7 +23,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "margin"
-  let priority = 2
+  let priority _ = 2
 
   (** {2 Typed Margin Utilities} *)
 

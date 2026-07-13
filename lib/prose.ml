@@ -2039,7 +2039,7 @@ module Handler = struct
   (** Priority for prose size utilities *)
   let name = "prose"
 
-  let priority = 2 (* Same as margin to allow interleaving by suborder *)
+  let priority _ = 2 (* Same as margin to allow interleaving by suborder *)
 
   (** {1 Utility Conversion Functions} *)
 
@@ -2104,7 +2104,7 @@ module Color_Handler = struct
   (** Priority for prose color utilities *)
   let name = "prose-color"
 
-  let priority = 23 (* Same as color utilities *)
+  let priority _ = 23 (* Same as color utilities *)
 
   (** {1 Utility Conversion Functions} *)
 

@@ -197,7 +197,7 @@ module Handler = struct
 
   (** Priority 6: Sizing utilities (w-*, h-*, max-w-*, etc.) come before
       flex-1/flex-col etc. in Tailwind's order. *)
-  let priority = 6
+  let priority _ = 6
 
   (** Helper to create spacing-based utilities with consistent pattern. [n] is
       in rem units (e.g., 16.0 for w-64). We convert to class units by
@@ -1621,7 +1621,7 @@ let aspect_ratio w h = utility (Aspect_ratio (float_of_int w, float_of_int h))
 
 (* Order exposure for this module *)
 let order (u : Utility.base) =
-  match u with Self x -> Some (priority, suborder x) | _ -> None
+  match u with Self x -> Some (priority x, suborder x) | _ -> None
 
 (* Export container theme variables for use by other modules (e.g., Columns) *)
 let container_3xs = Handler.container_3xs

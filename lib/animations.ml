@@ -33,7 +33,7 @@ module Handler = struct
   let name = "animations"
 
   (* Match Tailwind ordering: animations after transforms, before cursor *)
-  let priority = 10
+  let priority _ = 10
 
   let animate_none ?theme () =
     (* If theme defines --animate-none, use the theme variable. Otherwise use

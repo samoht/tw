@@ -10,7 +10,10 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "box_sizing"
-  let priority = 2
+
+  (* box-sizing (rank 25) sorts after margin/prose (priority 2) and before the
+     display family (priority 4). *)
+  let priority _ = 3
   let suborder = function Border -> 0 | Content -> 1
   let to_class = function Border -> "box-border" | Content -> "box-content"
 

@@ -32,7 +32,7 @@ module Handler = struct
   let name = "overflow"
 
   (* Overflow comes after alignment (17) in Tailwind's utility ordering. *)
-  let priority = 18
+  let priority _ = 18
 
   (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
   let overflow_data =

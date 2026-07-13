@@ -10,7 +10,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "clipping"
-  let priority = 26
+  let priority _ = 26
 
   (** Convert float percentage pairs to typed length pairs for clip-path polygon
   *)

@@ -75,7 +75,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "masks"
-  let priority = 21 (* After backgrounds, before filters *)
+  let priority _ = 21 (* After backgrounds, before filters *)
 
   (* Helper to create webkit + standard declarations for mask properties *)
 

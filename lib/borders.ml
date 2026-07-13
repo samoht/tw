@@ -133,7 +133,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "borders"
-  let priority = 19
+  let priority _ = 19
 
   (* Create border style variable with @property for utilities that reference
      it. Position 6 to match Tailwind's order after translate (0-2) and scale
@@ -1092,7 +1092,7 @@ module Outline_style_handler = struct
   type Utility.base += Self of t
 
   let name = "outline_style"
-  let priority = 26
+  let priority _ = 26
 
   let to_style _theme = function
     | Dashed ->

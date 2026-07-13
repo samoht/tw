@@ -11,7 +11,7 @@ module Screen_reader_handler = struct
   type Utility.base += Self of t
 
   let name = "screen_reader"
-  let priority = 0
+  let priority _ = 0
 
   let suborder = function
     (* Negative suborders to appear before absolute (suborder 0) *)
@@ -198,12 +198,19 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  (** Priority for layout utilities. Set to 4 for display utilities (block,
-      inline, inline-block, hidden). All display utilities share priority 4 to
-      group together and sort alphabetically. *)
   let name = "layout"
 
-  let priority = 4
+  (* Most layout utilities are the display family (priority 4). Visibility and
+     z-index occupy distinct canonical positions in Tailwind's order, so they
+     return their own priority: visibility comes first (rank 0), z-index right
+     after inset (rank 12) via priority 0 with a suborder above inset's range
+     (position.ml uses up to ~13M) and below container (priority 1). *)
+  let priority = function
+    | Collapse | Invisible | Visible -> 0
+    | Neg_z _ | Z_0 | Z _ | Z_10 | Z_20 | Z_30 | Z_40 | Z_50 | Neg_z_arbitrary _
+    | Z_arbitrary _ | Z_auto ->
+        0
+    | _ -> 4
 
   let suborder = function
     (* Display utilities - ordered alphabetically per Tailwind. Gaps left for
@@ -230,26 +237,27 @@ module Handler = struct
     | Table_header_group -> 21
     | Table_row -> 22
     | Table_row_group -> 23
-    (* Visibility - alphabetical order: collapse, invisible, visible *)
-    | Collapse -> 100
-    | Invisible -> 101
-    | Visible -> 102
+    (* Visibility (priority 0) - first in Tailwind's order, before sr-only
+       (suborder -2). Alphabetical: collapse, invisible, visible. *)
+    | Collapse -> -20
+    | Invisible -> -19
+    | Visible -> -18
     (* Isolation - order: isolate, isolation-auto *)
     | Isolate -> 200
     | Isolation_auto -> 201
-    (* Z-index - order: negative first, then positive, then arbitrary, then
-       auto *)
-    | Neg_z n -> 500 + n (* -z-50 = 550, -z-10 = 510 *)
-    | Z_0 -> 600
-    | Z n -> 601 + n (* z-10 = 611 *)
-    | Z_10 -> 611
-    | Z_20 -> 621
-    | Z_30 -> 631
-    | Z_40 -> 641
-    | Z_50 -> 651
-    | Neg_z_arbitrary _ -> 560
-    | Z_arbitrary _ -> 700
-    | Z_auto -> 750
+    (* Z-index (priority 0) - after inset (up to ~13M in position.ml), before
+       container (priority 1). Order: negative, positive, arbitrary, auto. *)
+    | Neg_z n -> 20_000_000 + 500 + n (* -z-50, -z-10 *)
+    | Z_0 -> 20_000_000 + 600
+    | Z n -> 20_000_000 + 601 + n (* z-10 *)
+    | Z_10 -> 20_000_000 + 611
+    | Z_20 -> 20_000_000 + 621
+    | Z_30 -> 20_000_000 + 631
+    | Z_40 -> 20_000_000 + 641
+    | Z_50 -> 20_000_000 + 651
+    | Neg_z_arbitrary _ -> 20_000_000 + 560
+    | Z_arbitrary _ -> 20_000_000 + 700
+    | Z_auto -> 20_000_000 + 750
     (* Object fit *)
     | Object_contain -> 600
     | Object_cover -> 601

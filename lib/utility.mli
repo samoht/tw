@@ -17,7 +17,7 @@
         type Utility.base += Self of t
 
         let name = "example"
-        let priority = 4
+        let priority _ = 4
 
         let to_style _theme = function
           | Block -> Style.style [ Css.display Css.Block ]
@@ -99,8 +99,10 @@ module type Handler = sig
   (** [to_style theme u] converts utility [u] to a style, reading any theme
       values it needs from [theme]. *)
 
-  val priority : int
-  (** Priority for ordering utilities. *)
+  val priority : t -> int
+  (** [priority u] is the primary ordering key for utility [u]. Usually a module
+      constant ([let priority _ = n]); modules whose variants span several
+      canonical families (e.g. layout) return per-variant values. *)
 
   val suborder : t -> int
   (** [suborder u] is the suborder within the same priority. *)

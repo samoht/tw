@@ -114,7 +114,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "forms"
-  let priority = 3
+  let priority _ = 3
 
   let form_input =
     let open Css in
@@ -372,7 +372,7 @@ module Select = struct
   type Utility.base += Self of t
 
   let name = "forms_select"
-  let priority = 8 (* After sizing (6), flex_props (7) *)
+  let priority _ = 8 (* After sizing (6), flex_props (7) *)
 
   let form_textarea =
     let open Css in

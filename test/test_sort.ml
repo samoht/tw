@@ -392,66 +392,49 @@ let test_priority_order_per_group () =
   Test_helpers.check_ordering_matches
     ~test_name:"priority order matches Tailwind" utilities
 
-(* Verify Handler.priority values are in correct relative order *)
+(* Verify utility families emit in Tailwind's canonical order. Priority is now
+   per-variant (visibility, z-index and order live in modules whose other
+   variants sort elsewhere), so this asserts the emitted rule order directly
+   rather than poking module-level priority constants. *)
 let test_handler_priority_ordering () =
-  (* Get priority values directly from Handler modules. Note: Some modules
-     (Prose, Display, Tables) don't expose Handler in their .mli, so we skip
-     them in this test. Their ordering is still verified by
-     test_priority_order_per_group which compares against Tailwind output. *)
-  let position_prio = Tw.Position.Handler.priority in
-  let margin_prio = Tw.Margin.Handler.priority in
-  let layout_prio = Tw.Layout.Handler.priority in
-  let flex_prio = Tw.Flex.Handler.priority in
-  let grid_prio = Tw.Grid.Handler.priority in
-  let sizing_prio = Tw.Sizing.Handler.priority in
-  let cursor_prio = Tw.Cursor.Handler.priority in
-  let grid_template_prio = Tw.Grid_template.Handler.priority in
-  let alignment_prio = Tw.Alignment.Handler.priority in
-  let gap_prio = Tw.Gap.Handler.priority in
-  let border_prio = Tw.Borders.Handler.priority in
-  let bg_prio = Tw.Backgrounds.Handler.priority in
-  let padding_prio = Tw.Padding.Handler.priority in
-  let typography_early_prio = Tw.Typography.Typography_early.priority in
-  let typography_late_prio = Tw.Typography.Typography_late.priority in
-  let color_prio = Tw.Color.Handler.priority in
-  let effect_prio = Tw.Effects.Handler.priority in
-  let transform_prio = Tw.Transforms.Handler.priority in
-  let animation_prio = Tw.Animations.Handler.priority in
-  let filter_prio = Tw.Filters.Handler.priority in
-
-  (* Verify priority ordering - mostly total order with one exception: display
-     utilities (layout, flex, grid, tables) all share priority 4 *)
-  check bool "position < margin" true (position_prio < margin_prio);
-  (* prose priority 3 skipped - Handler not exposed *)
-  check bool "margin < layout" true (margin_prio < layout_prio);
-  (* Display utilities all share priority 4: layout, flex, grid, tables. They
-     are ordered by suborder instead of priority. *)
-  check bool "layout = flex" true (layout_prio = flex_prio);
-  check bool "flex = grid" true (flex_prio = grid_prio);
-  check bool "grid < sizing" true (grid_prio < sizing_prio);
-  check bool "sizing < flex_props" true
-    (sizing_prio < Tw.Flex_props.Handler.priority);
-  check bool "flex_props < transform" true
-    (Tw.Flex_props.Handler.priority < transform_prio);
-  check bool "transform < animation" true (transform_prio < animation_prio);
-  check bool "animation < cursor" true (animation_prio < cursor_prio);
-  check bool "cursor < grid_template" true (cursor_prio < grid_template_prio);
-  check bool "grid_template < flex_layout" true
-    (grid_template_prio < Tw.Flex_layout.Handler.priority);
-  check bool "flex_layout < alignment" true
-    (Tw.Flex_layout.Handler.priority < alignment_prio);
-  (* Alignment and gap share priority 15, differentiated by suborder *)
-  check bool "alignment = gap" true (alignment_prio = gap_prio);
-  check bool "gap < border" true (gap_prio < border_prio);
-  check bool "border < bg" true (border_prio < bg_prio);
-  check bool "bg < padding" true (bg_prio < padding_prio);
-  check bool "padding < typography_early" true
-    (padding_prio < typography_early_prio);
-  check bool "typography_early < color" true (typography_early_prio < color_prio);
-  check bool "color < typography_late" true (color_prio < typography_late_prio);
-  check bool "typography_late < effect" true (typography_late_prio < effect_prio);
-  check bool "effect < filter" true (effect_prio < filter_prio)
-(* display and tables priority checked in test_priority_order_per_group *)
+  let classes =
+    [
+      "collapse";
+      "sr-only";
+      "absolute";
+      "inset-0";
+      "z-10";
+      "order-1";
+      "col-span-2";
+      "container";
+      "m-4";
+      "box-border";
+      "flex";
+      "h-4";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i =
+      if i + n > h then -1
+      else if String.sub css i n = needle then i
+      else go (i + 1)
+    in
+    go 0
+  in
+  let rec check_chain = function
+    | a :: (b :: _ as rest) ->
+        let pa = position ("." ^ a) and pb = position ("." ^ b) in
+        check bool
+          (Printf.sprintf "%s before %s" a b)
+          true
+          (pa >= 0 && pb >= 0 && pa < pb);
+        check_chain rest
+    | _ -> ()
+  in
+  check_chain classes
 
 (* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =

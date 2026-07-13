@@ -52,7 +52,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "cursor"
-  let priority = 11
+  let priority _ = 11
 
   (* Single source of truth: (handler, class_suffix, css_value) *)
   (* Alphabetically ordered - suborder derived from position *)

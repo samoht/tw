@@ -727,7 +727,7 @@ let test_style_rules_props () =
     type Tw.Utility.base += Self of t
 
     let name = "test"
-    let priority = 0
+    let priority _ = 0
     let to_class _t = "test"
     let to_style _theme _t = style
     let suborder _t = 0

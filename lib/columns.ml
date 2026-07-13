@@ -32,7 +32,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "columns"
-  let priority = 12
+  let priority _ = 12
 
   (* Helper to create a columns style with a container variable. Container theme
      variables are exported from Sizing module. *)
