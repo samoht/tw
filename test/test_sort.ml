@@ -428,7 +428,7 @@ let test_handler_priority_ordering () =
     | a :: (b :: _ as rest) ->
         let pa = position ("." ^ a) and pb = position ("." ^ b) in
         check bool
-          (Printf.sprintf "%s before %s" a b)
+          (Fmt.str "%s before %s" a b)
           true
           (pa >= 0 && pb >= 0 && pa < pb);
         check_chain rest
@@ -1020,7 +1020,7 @@ let test_rounded_position_order () =
   let check_before a b =
     let pa = position a and pb = position b in
     Alcotest.check Alcotest.bool
-      (Printf.sprintf "%s before %s" a b)
+      (Fmt.str "%s before %s" a b)
       true
       (pa >= 0 && pb >= 0 && pa < pb)
   in
@@ -1064,7 +1064,7 @@ let test_prose_margin_order () =
   let check_before a b =
     let pa = position a and pb = position b in
     Alcotest.check Alcotest.bool
-      (Printf.sprintf "%s before %s" a b)
+      (Fmt.str "%s before %s" a b)
       true
       (pa >= 0 && pb >= 0 && pa < pb)
   in

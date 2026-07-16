@@ -268,7 +268,7 @@ let fixture_path filename =
   |> List.find_opt Sys.file_exists
   |> Option.value ~default:filename
 
-let find_separator lines =
+let separator lines =
   let rec go before = function
     | [] -> None
     | line :: rest ->
@@ -279,7 +279,7 @@ let find_separator lines =
 
 let parse_upstream_block source block =
   let lines = String.split_on_char '\n' block in
-  match find_separator lines with
+  match separator lines with
   | None -> None
   | Some (before, after) ->
       let before = List.map String.trim before in
@@ -376,7 +376,7 @@ let register_upstream_variant_directives directives =
     match String.split_on_char ' ' d with
     | "container" :: name :: (_ :: _ as rest) -> (
         let header = String.concat " " rest in
-        try Some (name, container_of_header header) with _ -> None)
+        try Some (name, container_of_header header) with Failure _ -> None)
     | _ -> None
   in
   Tw.Modifiers.register_custom_variants
@@ -494,10 +494,9 @@ let check_upstream_positive_fixture_parse filename () =
             Fmt.str "%s / %s / %s: %s" c.source c.name cls msg)
         |> String.concat "\n"
       in
-      Alcotest.fail
-        (Fmt.str
-           "Unparsed upstream classes that Tailwind emitted (%d rejected).\n%s"
-           (List.length rejected) sample)
+      Alcotest.failf
+        "Unparsed upstream classes that Tailwind emitted (%d rejected).\n%s"
+        (List.length rejected) sample
 
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
 
