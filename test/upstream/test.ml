@@ -797,7 +797,7 @@ let run_test_case test () =
       match String.split_on_char ' ' d with
       | "container" :: name :: (_ :: _ as rest) -> (
           let header = String.concat " " rest in
-          try Some (name, container_of_header header) with _ -> None)
+          try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
     Tw.Modifiers.register_custom_variants

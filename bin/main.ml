@@ -416,43 +416,43 @@ let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
   Arg.(value & pos_all file [] & info [] ~docv:"PATH" ~doc)
 
+let man =
+  [
+    `S Manpage.s_description;
+    `P "tw is a tool that generates CSS from Tailwind-like utility classes.";
+    `P
+      "It can generate CSS for a single class using -s (no base styles by \
+       default), or scan files/directories and generate a complete stylesheet \
+       (with base styles by default).";
+    `S Manpage.s_examples;
+    `P "Generate CSS for a single class (no Base layer by default):";
+    `Pre "  tw -s bg-blue-500";
+    `P "Generate CSS for a single class with the Base layer:";
+    `Pre "  tw -s bg-blue-500 --base";
+    `P "Scan files and generate CSS (with the Base layer by default):";
+    `Pre "  tw index.html src/";
+    `P "Scan files and generate CSS without the Base layer:";
+    `Pre "  tw --no-base index.html src/";
+    `P "Generate inline mode (no variables, no layers):";
+    `Pre "  tw --inline index.html src/";
+    `P "Generate minified CSS:";
+    `Pre "  tw --minify index.html src/";
+    `P "Generate optimized CSS (rule merging/deduplication):";
+    `Pre "  tw --optimize index.html src/";
+    `P "Generate both minified and optimized CSS:";
+    `Pre "  tw --minify --optimize index.html src/";
+    `P "Use real Tailwind CSS:";
+    `Pre "  tw -s bg-blue-500 --tailwind";
+    `P "Compare tw output with real Tailwind CSS:";
+    `Pre "  tw -s prose-sm --diff --diff-mode=canonical";
+    `P "Use structural diff output when regrouping/order is relevant:";
+    `Pre "  tw -s prose-sm --diff --diff-mode=tree";
+    `S Manpage.s_see_also;
+    `P "https://tailwindcss.com";
+  ]
+
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
-  let man =
-    [
-      `S Manpage.s_description;
-      `P "tw is a tool that generates CSS from Tailwind-like utility classes.";
-      `P
-        "It can generate CSS for a single class using -s (no base styles by \
-         default), or scan files/directories and generate a complete \
-         stylesheet (with base styles by default).";
-      `S Manpage.s_examples;
-      `P "Generate CSS for a single class (no Base layer by default):";
-      `Pre "  tw -s bg-blue-500";
-      `P "Generate CSS for a single class with the Base layer:";
-      `Pre "  tw -s bg-blue-500 --base";
-      `P "Scan files and generate CSS (with the Base layer by default):";
-      `Pre "  tw index.html src/";
-      `P "Scan files and generate CSS without the Base layer:";
-      `Pre "  tw --no-base index.html src/";
-      `P "Generate inline mode (no variables, no layers):";
-      `Pre "  tw --inline index.html src/";
-      `P "Generate minified CSS:";
-      `Pre "  tw --minify index.html src/";
-      `P "Generate optimized CSS (rule merging/deduplication):";
-      `Pre "  tw --optimize index.html src/";
-      `P "Generate both minified and optimized CSS:";
-      `Pre "  tw --minify --optimize index.html src/";
-      `P "Use real Tailwind CSS:";
-      `Pre "  tw -s bg-blue-500 --tailwind";
-      `P "Compare tw output with real Tailwind CSS:";
-      `Pre "  tw -s prose-sm --diff --diff-mode=canonical";
-      `P "Use structural diff output when regrouping/order is relevant:";
-      `Pre "  tw -s prose-sm --diff --diff-mode=tree";
-      `S Manpage.s_see_also;
-      `P "https://tailwindcss.com";
-    ]
-  in
   let info = Cmd.info "tw" ~version:"0.1.0" ~doc ~man in
   Cmd.v info
     Term.(
