@@ -14,7 +14,7 @@ depends: [
   "cascade"
   "cmdliner"
   "fmt"
-  "re"
+  "re" {with-test}
   "uutf"
   "brr" {>= "0.0.6"}
   "js_of_ocaml"
