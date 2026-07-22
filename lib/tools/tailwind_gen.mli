@@ -24,6 +24,9 @@ val check_tailwindcss_available : unit -> unit
 (** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
     @raise Failure if Tailwind CSS is not available or not v4. *)
 
+val available : unit -> bool
+(** [available ()] is [true] iff the required tailwindcss CLI is installed. *)
+
 val with_stats : (unit -> 'a) -> 'a
 (** [with_stats f] runs function [f] and prints Tailwind CSS generation
     statistics afterward. *)

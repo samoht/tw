@@ -16,6 +16,7 @@
 
 (rule
  (targets tailwind.css)
+ (enabled_if %{bin-available:npx})
  (deps index.html input.css ../../package-lock.json)
  (action
   (run
@@ -34,6 +35,7 @@
 
 (rule
  (alias runtest)
+ (enabled_if %{bin-available:npx})
  (deps forms.css tailwind.css)
  (action
   (setenv
