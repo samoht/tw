@@ -31,6 +31,9 @@ let our_css utilities =
   Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
 
 let tailwind_css ?(forms = false) classnames =
+  (* Parity tests need the pinned tailwindcss CLI; skip where it is absent (e.g.
+     opam-repo-ci has no node). *)
+  if not (Tw_tools.Tailwind_gen.available ()) then Alcotest.skip ();
   Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
 
 let check_ordering_fails ?(forms = false) utilities =

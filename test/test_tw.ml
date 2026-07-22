@@ -121,6 +121,9 @@ let css_testable =
     String.equal
 
 let check_exact_match tw_styles =
+  (* Parity tests need the pinned tailwindcss CLI; skip where it is absent (e.g.
+     opam-repo-ci has no node). *)
+  if not (Tw_tools.Tailwind_gen.available ()) then Alcotest.skip ();
   (* Prepare classnames and raw CSS strings outside the try to use in
      handlers *)
   let tw_styles = match tw_styles with [] -> [] | styles -> styles in

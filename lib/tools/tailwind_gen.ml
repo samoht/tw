@@ -169,6 +169,12 @@ let check_tailwindcss_available () =
       availability_result := Some result;
       match result with Ok () -> () | Error e -> raise e)
 
+let available () =
+  try
+    check_tailwindcss_available ();
+    true
+  with Failure _ -> false
+
 (* Statistics tracking *)
 module Stats = struct
   let total_time = ref 0.0

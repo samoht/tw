@@ -16,6 +16,7 @@
 
 (rule
  (targets tailwind.css)
+ (enabled_if %{bin-available:npx})
  (deps index.html ../../package-lock.json)
  (action
   (run npx tailwindcss --content index.html -o %{targets} --minify))
@@ -26,6 +27,7 @@
 
 (rule
  (alias runtest)
+ (enabled_if %{bin-available:npx})
  (deps landing.css tailwind.css)
  (action
   (setenv
