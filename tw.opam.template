@@ -1,3 +1,0 @@
-pin-depends: [
-  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#01159e579f3d6e7647d938ccbdfc32862cd7aba0" ]
-]

@@ -11,7 +11,7 @@ bug-reports: "https://github.com/samoht/tw/issues"
 depends: [
   "ocaml" {>= "5.2"}
   "dune" {>= "3.21"}
-  "cascade"
+  "cascade" {>= "1.0.0"}
   "cmdliner"
   "fmt"
   "re" {with-test}
@@ -42,6 +42,3 @@ build: [
 ]
 dev-repo: "git+https://github.com/samoht/tw.git"
 x-maintenance-intent: ["(latest)"]
-pin-depends: [
-  [ "cascade.dev" "git+https://github.com/samoht/cascade.git#01159e579f3d6e7647d938ccbdfc32862cd7aba0" ]
-]
