@@ -25,7 +25,7 @@
  (depends
   (ocaml (>= 5.2))
   dune
-  cascade
+  (cascade (>= 1.0.0))
   cmdliner
   fmt
   (re :with-test)
