@@ -8,7 +8,9 @@
 (rule
  (alias runtest)
  (enabled_if
-  (= %{context_name} "default"))
+  (and
+   (= %{context_name} "default")
+   %{bin-available:node}))
  (action
   (run node -e "require('./%{dep:test.bc.js}')")))
 
