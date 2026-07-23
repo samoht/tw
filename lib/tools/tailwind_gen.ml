@@ -48,12 +48,13 @@ export default {
 let availability_result = ref None
 let tailwind_command = ref None
 
-(* The fixtures and utility expectations target Tailwind v4.3.1 (see CLAUDE.md).
-   The unit spacing multiplier changed between v4.2 (calc(var(--spacing) * 1))
-   and v4.3 (bare var(--spacing)), so an older native binary yields a stale
-   reference. We therefore use a native tailwindcss only when it is at least
-   this version, and otherwise fall back to the pinned node_modules build. *)
-let required_version = (4, 3, 1)
+(* The reference build must be the exact Tailwind version tw tracks: a different
+   release changes default tokens (e.g. the v4.2 -> v4.3 unit-spacing change,
+   [calc(var(--spacing) * 1)] to a bare [var(--spacing)]), so an off-version
+   binary yields a stale reference. We use a native tailwindcss only when it
+   matches this version, and otherwise fall back to the pinned node_modules
+   build. *)
+let required_version = (4, 3, 3)
 
 let parse_version v =
   let to_int s =
