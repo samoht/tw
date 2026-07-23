@@ -189,6 +189,15 @@ val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
 
+val is_valid_shade : color -> int -> bool
+(** [is_valid_shade color shade] checks that [shade] is one the Tailwind palette
+    defines for [color]. Shadeless colors accept any shade (it is ignored). *)
+
+val check_shade : utility:string -> color -> int -> unit
+(** [check_shade ~utility color shade] raises [Invalid_argument] if
+    [is_valid_shade color shade] is false. [utility] names the constructor in
+    the error message. *)
+
 val color_var : color -> int -> Css.color Var.theme
 (** [color_var color shade] gets or creates a memoized color variable for the
     given color and shade. *)

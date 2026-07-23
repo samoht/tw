@@ -1952,6 +1952,7 @@ let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
 
 let bg ?opacity ?(shade = 500) color =
+  Color.check_shade ~utility:"bg" color shade;
   match opacity with
   | None -> utility (Bg (color, shade))
   | Some pct ->
@@ -1961,10 +1962,13 @@ let bg ?opacity ?(shade = 500) color =
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =
+  Color.check_shade ~utility:"from_color" color shade;
   utility (Gradient_color (Gradient_from, Gc_named (color, shade)))
 
 let via_color ?(shade = 500) color =
+  Color.check_shade ~utility:"via_color" color shade;
   utility (Gradient_color (Gradient_via, Gc_named (color, shade)))
 
 let to_color ?(shade = 500) color =
+  Color.check_shade ~utility:"to_color" color shade;
   utility (Gradient_color (Gradient_to, Gc_named (color, shade)))
