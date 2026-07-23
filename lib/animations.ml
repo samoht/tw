@@ -15,6 +15,37 @@ module Css = Cascade.Css
 let opt_none : 'a option = None
 let opt_some x : 'a option = Some x
 
+(* Does [value] use [name] as an animation name? Splits on the shorthand's
+   separators so a substring of a longer ident or a function argument does not
+   count. *)
+let references_animation value name =
+  let buf = Buffer.create 16 in
+  let words = ref [] in
+  let flush () =
+    if Buffer.length buf > 0 then begin
+      words := Buffer.contents buf :: !words;
+      Buffer.clear buf
+    end
+  in
+  String.iter
+    (fun c ->
+      match c with
+      | ' ' | ',' | '\t' | '\n' | '(' | ')' -> flush ()
+      | c -> Buffer.add_char buf c)
+    value;
+  flush ();
+  List.mem name !words
+
+(* Tailwind emits the built-in [@keyframes] whenever the resolved animation
+   still references it, including when a project theme redefines the token to an
+   animation of the same name. Only a value naming a different animation drops
+   them. *)
+let keyframes_rules ?theme ~token ~name rules =
+  match Scheme.theme_value theme token with
+  | None -> opt_some rules
+  | Some value ->
+      if references_animation value name then opt_some rules else opt_none
+
 module Handler = struct
   open Style
   open Css
@@ -79,22 +110,18 @@ module Handler = struct
         }
     in
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
-    (* Only include @keyframes when theme doesn't define the animation *)
     let rules =
-      if Scheme.theme_value theme "animate-spin" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "spin"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.To ];
-                  declarations =
-                    [ Css.Declaration.transform (Rotate (Deg 360.)) ];
-                };
-              ];
-          ]
+      keyframes_rules ?theme ~token:"animate-spin" ~name:"spin"
+        [
+          Css.keyframes "spin"
+            [
+              {
+                Css.Stylesheet.selector =
+                  Css.Keyframe.Positions [ Css.Keyframe.To ];
+                declarations = [ Css.Declaration.transform (Rotate (Deg 360.)) ];
+              };
+            ];
+        ]
     in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
 
@@ -119,24 +146,22 @@ module Handler = struct
     in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
     let rules =
-      if Scheme.theme_value theme "animate-ping" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "ping"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions
-                      [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
-                  declarations =
-                    [
-                      Css.Declaration.opacity (Opacity_number 0.0);
-                      Css.Declaration.transform (Scale (Num 2.0, opt_none));
-                    ];
-                };
-              ];
-          ]
+      keyframes_rules ?theme ~token:"animate-ping" ~name:"ping"
+        [
+          Css.keyframes "ping"
+            [
+              {
+                Css.Stylesheet.selector =
+                  Css.Keyframe.Positions
+                    [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
+                declarations =
+                  [
+                    Css.Declaration.opacity (Opacity_number 0.0);
+                    Css.Declaration.transform (Scale (Num 2.0, opt_none));
+                  ];
+              };
+            ];
+        ]
     in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
 
@@ -161,20 +186,17 @@ module Handler = struct
     in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
     let rules =
-      if Scheme.theme_value theme "animate-pulse" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "pulse"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  declarations =
-                    [ Css.Declaration.opacity (Opacity_number 0.5) ];
-                };
-              ];
-          ]
+      keyframes_rules ?theme ~token:"animate-pulse" ~name:"pulse"
+        [
+          Css.keyframes "pulse"
+            [
+              {
+                Css.Stylesheet.selector =
+                  Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
+                declarations = [ Css.Declaration.opacity (Opacity_number 0.5) ];
+              };
+            ];
+        ]
     in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
@@ -202,35 +224,33 @@ module Handler = struct
       Var.binding animate_bounce_var bounce_animation
     in
     let rules =
-      if Scheme.theme_value theme "animate-bounce" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "bounce"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions
-                      [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
-                  declarations =
-                    [
-                      Css.Declaration.animation_timing_function
-                        (Cubic_bezier (0.8, 0., 1., 1.));
-                      Css.Declaration.transform (Translate_y (Pct (-25.)));
-                    ];
-                };
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  declarations =
-                    [
-                      Css.Declaration.animation_timing_function
-                        (Cubic_bezier (0., 0., 0.2, 1.));
-                      Css.Declaration.transform None;
-                    ];
-                };
-              ];
-          ]
+      keyframes_rules ?theme ~token:"animate-bounce" ~name:"bounce"
+        [
+          Css.keyframes "bounce"
+            [
+              {
+                Css.Stylesheet.selector =
+                  Css.Keyframe.Positions
+                    [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
+                declarations =
+                  [
+                    Css.Declaration.animation_timing_function
+                      (Cubic_bezier (0.8, 0., 1., 1.));
+                    Css.Declaration.transform (Translate_y (Pct (-25.)));
+                  ];
+              };
+              {
+                Css.Stylesheet.selector =
+                  Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
+                declarations =
+                  [
+                    Css.Declaration.animation_timing_function
+                      (Cubic_bezier (0., 0., 0.2, 1.));
+                    Css.Declaration.transform None;
+                  ];
+              };
+            ];
+        ]
     in
     style ~rules [ theme_decl; Css.animation (Css.Var bounce_var) ]
 

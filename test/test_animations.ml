@@ -103,6 +103,26 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"animations suborder matches Tailwind" shuffled
 
+(* Redefining --animate-ping in a project [@theme] must not drop the built-in
+   keyframes: the value still names [ping], so Tailwind keeps emitting
+   [@keyframes ping], and without them the animation never runs. *)
+let test_keyframes_survive_theme_override () =
+  let theme =
+    {
+      Tw.Scheme.default with
+      token_overrides =
+        [ ("animate-ping", "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite") ];
+    }
+  in
+  let css = Css.to_string ~minify:true (Tw.to_css ~theme [ Tw.animate_ping ]) in
+  let contains needle =
+    let n = String.length needle and l = String.length css in
+    let rec go i = i + n <= l && (String.sub css i n = needle || go (i + 1)) in
+    go 0
+  in
+  Alcotest.check bool "@keyframes ping survives a theme override" true
+    (contains "@keyframes ping")
+
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
@@ -110,6 +130,8 @@ let tests =
     test_case "duration + delay" `Quick test_duration_delay;
     test_case "animation CSS output" `Quick test_animation_css;
     test_case "transition CSS output" `Quick test_transition_css;
+    test_case "keyframes survive a theme override" `Quick
+      test_keyframes_survive_theme_override;
     test_case "animations suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
