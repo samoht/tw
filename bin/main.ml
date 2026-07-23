@@ -46,6 +46,9 @@ type gen_opts = {
   input_css : string option;
       (** Path to the project's CSS entrypoint, fed verbatim to the real
           Tailwind backend so both sides share the project config. *)
+  input_css_path : string option;
+      (** The entrypoint's own path, so tw can compile it (its rules and its
+          relative [@import]s), not just read its [@theme]. *)
   diff_mode : Cascade_diff.Css_compare.mode;
       (** Comparison mode for --diff. [`Canonical] (default) ignores selector
           regrouping/reordering and is right for real-world parity sweeps;
@@ -109,6 +112,109 @@ let theme_overrides_of_css css =
                       Css.declaration_value d )
               | _ -> None)
             decls)
+
+(* [@import "tailwindcss"] (and its subpath forms) is the package entry, not a
+   file on disk: it marks where the generated theme/base/utilities belong. *)
+let is_tailwind_import url =
+  let u = Css.decode_import_url url in
+  u = "tailwindcss" || String.starts_with ~prefix:"tailwindcss/" u
+
+(* Tailwind extends [@import] with options CSS has no grammar for
+   ([theme(static)], [source(none)], [prefix(tw)]). A CSS parser reads the
+   trailing prelude as a media-query list, fails on it, and drops the whole
+   statement, taking the import marker with it. Strip those options so the
+   import survives as a plain one. *)
+let strip_tailwind_import_options css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let opt_at i =
+    List.find_opt
+      (fun k ->
+        i + String.length k <= len && String.sub css i (String.length k) = k)
+      [ "theme("; "source("; "prefix(" ]
+  in
+  let rec skip_group i depth =
+    if i >= len then i
+    else if css.[i] = '(' then skip_group (i + 1) (depth + 1)
+    else if css.[i] = ')' then
+      if depth = 1 then i + 1 else skip_group (i + 1) (depth - 1)
+    else skip_group (i + 1) depth
+  in
+  let rec go i in_import =
+    if i >= len then ()
+    else if (not in_import) && i + 7 <= len && String.sub css i 7 = "@import"
+    then begin
+      Buffer.add_string buf "@import";
+      go (i + 7) true
+    end
+    else if in_import && css.[i] = ';' then begin
+      Buffer.add_char buf ';';
+      go (i + 1) false
+    end
+    else
+      match if in_import then opt_at i else None with
+      | Some k -> go (skip_group (i + String.length k) 1) in_import
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1) in_import
+  in
+  go 0 false;
+  Buffer.contents buf
+
+(* Preload every transitively-referenced stylesheet, keyed by the URL resolved
+   against its importer, which is what the inliner looks up. Mirrors cascade's
+   own filesystem loader. A package import has no file and stays unresolved on
+   purpose, so the splice below can find it. *)
+let preload_imports ~base_url stylesheet =
+  let imports = Hashtbl.create 16 in
+  let rec scan_under base sheet =
+    let loader = Css.Context.loader ~base_url:base () in
+    Css.fold (scan_stmt loader) () sheet
+  and scan_stmt loader () stmt =
+    match Css.as_import stmt with
+    | Some ir when not (is_tailwind_import ir.url) ->
+        handle loader (Css.decode_import_url ir.url)
+    | _ -> ()
+  and handle loader url =
+    match Css.Context.resolve_url loader url with
+    | Error _ -> ()
+    | Ok resolved -> (
+        if not (Hashtbl.mem imports resolved) then
+          match read_file resolved with
+          | exception Sys_error _ -> ()
+          | content -> (
+              Hashtbl.add imports resolved content;
+              match Css.of_string content with
+              | Ok inner -> scan_under resolved inner.Css.stylesheet
+              | Error _ -> ()))
+  in
+  scan_under base_url stylesheet;
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) imports []
+
+(* Compile the project's CSS entrypoint instead of only reading its [@theme].
+   Tailwind treats that file as the stylesheet: its own rules and its relative
+   [@import]s are part of the output, and [@import "tailwindcss"] is where the
+   generated sheet goes. Reading it for tokens alone silently dropped every rule
+   the project wrote. *)
+let splice_into_entrypoint ~path generated =
+  match read_file path with
+  | exception Sys_error _ -> generated
+  | raw -> (
+      let css = strip_tailwind_import_options raw in
+      match Css.of_string css with
+      | Error _ -> generated
+      | Ok p ->
+          let imports = preload_imports ~base_url:path p.Css.stylesheet in
+          let loader = Css.Context.loader ~base_url:path ~imports () in
+          let inlined = Css.inline_imports loader p.Css.stylesheet in
+          Css.statements inlined
+          |> List.concat_map (fun stmt ->
+              match stmt with
+              | Cascade.Stylesheet.Import { url; _ } when is_tailwind_import url
+                ->
+                  Css.statements generated
+              | s -> [ s ])
+          |> Css.v)
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -261,6 +367,11 @@ let native_files paths flag ~(opts : gen_opts) =
     let known = parse_known_candidates all_classes in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~base:include_base tw_styles in
+    let stylesheet =
+      match opts.input_css_path with
+      | Some path -> splice_into_entrypoint ~path stylesheet
+      | None -> stylesheet
+    in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count:(List.length known);
@@ -323,6 +434,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       backend;
       theme;
       input_css = css_content;
+      input_css_path = input_css;
       diff_mode;
     }
   in
