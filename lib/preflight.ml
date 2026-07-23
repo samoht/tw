@@ -261,7 +261,11 @@ let table_resets () =
 (** Interactive elements *)
 let interactive_resets () =
   [
-    rule ~selector:Moz_focusring
+    (* Tailwind v4.3.2 scoped this reset to non-iframe elements. *)
+    rule
+      ~selector:
+        Selector.(
+          Compound [ Moz_focusring; Where [ Not [ element "iframe" ] ] ])
       [ outline (Shorthand { width = None; style = Some Auto; color = None }) ];
     rule ~selector:(Selector.element "progress") [ vertical_align Baseline ];
     rule ~selector:(Selector.element "summary") [ display List_item ];
