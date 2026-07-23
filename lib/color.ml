@@ -1001,9 +1001,16 @@ let to_oklch_css color shade =
       | Some value -> value
       | None -> "oklch(0% 0 0)" (* Fallback *))
 
+(* Tailwind writes the powerless hue of an achromatic colour as [none] rather
+   than a number. Keeping the component missing matters: a numeric hue lets the
+   value fold to a plain hex, and interpolation would take hue 0 instead of the
+   other colour's hue. *)
+let css_color_of_oklch (o : oklch) : Css.color =
+  if o.c = 0.0 then Css.oklch_none_hue o.l o.c else Css.oklch o.l o.c o.h
+
 let oklch_node_of color shade =
   let oklch = to_oklch color shade in
-  Css.oklch oklch.l oklch.c oklch.h
+  css_color_of_oklch oklch
 
 (* The palette ([Red], [Blue], ...) is a fixed set of (colour, shade) pairs and
    its oklch nodes are immutable, so materialise each node once and share it
@@ -1018,7 +1025,7 @@ let palette_nodes =
        (fun (color, palette) ->
          List.iter
            (fun (shade, o) ->
-             Hashtbl.replace table (color, shade) (Css.oklch o.l o.c o.h))
+             Hashtbl.replace table (color, shade) (css_color_of_oklch o))
            palette)
        [
          (Gray, Tailwind.gray);
@@ -1061,7 +1068,7 @@ let to_css color shade =
         else hex
       in
       Css.hex ("#" ^ shorten_hex_str hex_value)
-  | Oklch oklch -> Css.oklch oklch.l oklch.c oklch.h
+  | Oklch oklch -> css_color_of_oklch oklch
   | Css c -> c
   | Rgb _ | Theme_named _ -> oklch_node_of color shade
   | _ -> (
@@ -3092,8 +3099,7 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
     | None ->
         let oklch = to_oklch c shade in
         let fallback_color =
-          Css.color_mix ~in_space:Srgb
-            (Css.oklch oklch.l oklch.c oklch.h)
+          Css.color_mix ~in_space:Srgb (css_color_of_oklch oklch)
             Css.Transparent ~percent1:percent
         in
         oklab_with_supports ~property ~fallback_decl:(property fallback_color) c
