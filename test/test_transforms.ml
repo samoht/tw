@@ -104,8 +104,19 @@ let test_typed () =
   Test_helpers.check_typed_class "origin-top-right" Tw.origin_top_right;
   Test_helpers.check_typed_class "origin-bottom-left" Tw.origin_bottom_left
 
+(* [--tw-translate-*] is a custom property, an opaque token stream where [0] and
+   [0px] are different tokens, so the zero has to keep its unit. Leaving it to
+   the length-level zero fold emits a bare [0] and diverges from Tailwind. *)
+let test_translate_zero_keeps_unit () =
+  let css = Tw.to_css ~base:false [ Tw.translate_x 0 ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "translate-x-0 writes 0px" true
+    (Astring.String.is_infix ~affix:"--tw-translate-x: 0px" css)
+
 let tests =
   [
+    test_case "translate zero keeps its unit" `Quick
+      test_translate_zero_keeps_unit;
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
