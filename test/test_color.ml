@@ -225,8 +225,26 @@ let test_invalid_shade () =
   ignore (Tw.bg ~shade:250 (Tw.hex "#aabbcc"))
 
 (* Test suite *)
+(* An achromatic palette colour must keep a [none] hue. A numeric hue renders
+   the same but folds to a plain hex, which pins the hue that interpolation is
+   meant to take from the other colour. *)
+let test_achromatic_none_hue () =
+  let css =
+    Css.to_string ~minify:true (Tw.to_css [ Tw.bg ~shade:500 Tw.neutral ])
+  in
+  let contains needle =
+    let n = String.length needle and l = String.length css in
+    let rec go i = i + n <= l && (String.sub css i n = needle || go (i + 1)) in
+    go 0
+  in
+  Alcotest.check Alcotest.bool "neutral-500 keeps a none hue" true
+    (contains "none");
+  Alcotest.check Alcotest.bool "neutral-500 did not fold to hex" false
+    (contains "#737373")
+
 let tests =
   [
+    ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);

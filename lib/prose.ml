@@ -1786,47 +1786,47 @@ let zinc_invert_bindings =
 (* Neutral theme: normal bindings *)
 let neutral_normal_bindings =
   [
-    (prose_body_var, Css.oklch 37.1 0.0 0.0);
-    (prose_headings_var, Css.oklch 20.5 0.0 0.0);
-    (prose_lead_var, Css.oklch 43.9 0.0 0.0);
-    (prose_links_var, Css.oklch 20.5 0.0 0.0);
-    (prose_bold_var, Css.oklch 20.5 0.0 0.0);
-    (prose_counters_var, Css.oklch 55.6 0.0 0.0);
-    (prose_bullets_var, Css.oklch 87.0 0.0 0.0);
-    (prose_hr_var, Css.oklch 92.2 0.0 0.0);
-    (prose_quotes_var, Css.oklch 20.5 0.0 0.0);
-    (prose_quote_borders_var, Css.oklch 92.2 0.0 0.0);
-    (prose_captions_var, Css.oklch 55.6 0.0 0.0);
-    (prose_kbd_var, Css.oklch 20.5 0.0 0.0);
+    (prose_body_var, Css.oklch_none_hue 37.1 0.0);
+    (prose_headings_var, Css.oklch_none_hue 20.5 0.0);
+    (prose_lead_var, Css.oklch_none_hue 43.9 0.0);
+    (prose_links_var, Css.oklch_none_hue 20.5 0.0);
+    (prose_bold_var, Css.oklch_none_hue 20.5 0.0);
+    (prose_counters_var, Css.oklch_none_hue 55.6 0.0);
+    (prose_bullets_var, Css.oklch_none_hue 87.0 0.0);
+    (prose_hr_var, Css.oklch_none_hue 92.2 0.0);
+    (prose_quotes_var, Css.oklch_none_hue 20.5 0.0);
+    (prose_quote_borders_var, Css.oklch_none_hue 92.2 0.0);
+    (prose_captions_var, Css.oklch_none_hue 55.6 0.0);
+    (prose_kbd_var, Css.oklch_none_hue 20.5 0.0);
     (prose_kbd_shadows_var, Css.oklaba 20.5 0.0 0.0 0.1);
-    (prose_code_var, Css.oklch 20.5 0.0 0.0);
-    (prose_pre_code_var, Css.oklch 92.2 0.0 0.0);
-    (prose_pre_bg_var, Css.oklch 26.9 0.0 0.0);
-    (prose_th_borders_var, Css.oklch 87.0 0.0 0.0);
-    (prose_td_borders_var, Css.oklch 92.2 0.0 0.0);
+    (prose_code_var, Css.oklch_none_hue 20.5 0.0);
+    (prose_pre_code_var, Css.oklch_none_hue 92.2 0.0);
+    (prose_pre_bg_var, Css.oklch_none_hue 26.9 0.0);
+    (prose_th_borders_var, Css.oklch_none_hue 87.0 0.0);
+    (prose_td_borders_var, Css.oklch_none_hue 92.2 0.0);
   ]
 
 (* Neutral theme: invert bindings *)
 let neutral_invert_bindings =
   [
-    (prose_invert_body_var, Css.oklch 87.0 0.0 0.0);
+    (prose_invert_body_var, Css.oklch_none_hue 87.0 0.0);
     (prose_invert_headings_var, Css.hex "fff");
-    (prose_invert_lead_var, Css.oklch 70.8 0.0 0.0);
+    (prose_invert_lead_var, Css.oklch_none_hue 70.8 0.0);
     (prose_invert_links_var, Css.hex "fff");
     (prose_invert_bold_var, Css.hex "fff");
-    (prose_invert_counters_var, Css.oklch 70.8 0.0 0.0);
-    (prose_invert_bullets_var, Css.oklch 43.9 0.0 0.0);
-    (prose_invert_hr_var, Css.oklch 37.1 0.0 0.0);
-    (prose_invert_quotes_var, Css.oklch 97.0 0.0 0.0);
-    (prose_invert_quote_borders_var, Css.oklch 37.1 0.0 0.0);
-    (prose_invert_captions_var, Css.oklch 70.8 0.0 0.0);
+    (prose_invert_counters_var, Css.oklch_none_hue 70.8 0.0);
+    (prose_invert_bullets_var, Css.oklch_none_hue 43.9 0.0);
+    (prose_invert_hr_var, Css.oklch_none_hue 37.1 0.0);
+    (prose_invert_quotes_var, Css.oklch_none_hue 97.0 0.0);
+    (prose_invert_quote_borders_var, Css.oklch_none_hue 37.1 0.0);
+    (prose_invert_captions_var, Css.oklch_none_hue 70.8 0.0);
     (prose_invert_kbd_var, Css.hex "fff");
     (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
     (prose_invert_code_var, Css.hex "fff");
-    (prose_invert_pre_code_var, Css.oklch 87.0 0.0 0.0);
+    (prose_invert_pre_code_var, Css.oklch_none_hue 87.0 0.0);
     (prose_invert_pre_bg_var, Css.hex "00000080");
-    (prose_invert_th_borders_var, Css.oklch 43.9 0.0 0.0);
-    (prose_invert_td_borders_var, Css.oklch 37.1 0.0 0.0);
+    (prose_invert_th_borders_var, Css.oklch_none_hue 43.9 0.0);
+    (prose_invert_td_borders_var, Css.oklch_none_hue 37.1 0.0);
   ]
 
 (* Stone theme: normal bindings *)
