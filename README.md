@@ -6,6 +6,9 @@ the same typed variable-and-layer pipeline Tailwind uses, producing
 byte-for-byte identical output. Unknown utilities are caught at compile time,
 and nothing depends on Node.js, PostCSS, or the Tailwind CLI at run time.
 
+**Tracked version:** `tw` targets **Tailwind CSS v4.3.3** (the latest release).
+Its generated CSS is checked byte-for-byte against that exact version.
+
 ```ocaml
 open Tw
 

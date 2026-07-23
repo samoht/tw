@@ -13,6 +13,7 @@ depends: [
   "dune" {>= "3.21"}
   "cascade" {>= "1.0.0"}
   "cmdliner"
+  "dune-build-info"
   "fmt"
   "re" {with-test}
   "uutf"
