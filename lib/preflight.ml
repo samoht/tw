@@ -90,11 +90,18 @@ let var_ref (type a)
 
 (** HTML and body defaults *)
 let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =
+  (* Mirrors [Typography.default_sans_stack]; Tailwind v4.3.2 system-font
+     stack. *)
   let fallback_stack : font_family =
     List
       [
-        Ui_sans_serif;
-        System_ui;
+        Name "-apple-system";
+        Name "BlinkMacSystemFont";
+        Segoe_ui;
+        Roboto;
+        Helvetica_neue;
+        Noto_sans;
+        Arial;
         Sans_serif;
         Apple_color_emoji;
         Segoe_ui_emoji;
