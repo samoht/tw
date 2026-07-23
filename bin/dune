@@ -1,4 +1,4 @@
 (executable
  (public_name tw)
  (name main)
- (libraries tw cascade cascade.diff tw_tools cmdliner fmt))
+ (libraries tw tw.info cascade cascade.diff tw_tools cmdliner fmt))

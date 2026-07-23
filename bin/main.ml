@@ -453,7 +453,7 @@ let man =
 
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
-  let info = Cmd.info "tw" ~version:"0.1.0" ~doc ~man in
+  let info = Cmd.info "tw" ~version:Tw_info.version ~doc ~man in
   Cmd.v info
     Term.(
       ret

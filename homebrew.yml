@@ -1,0 +1,15 @@
+handle: samoht
+
+storage:
+  bucket: homebrew-bottles
+  region: fr-par
+  profile: homebrew-samoht
+
+tap:
+  clone_url: https://github.com/samoht/homebrew-tap.git
+  push_url: git@github.com:samoht/homebrew-tap
+
+packages:
+  - name: tw
+    target: bin/main.exe
+    description: "Type-safe Tailwind CSS v4 in OCaml"

@@ -27,6 +27,7 @@
   dune
   (cascade (>= 1.0.0))
   cmdliner
+  dune-build-info
   fmt
   (re :with-test)
   uutf
