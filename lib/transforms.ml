@@ -413,11 +413,18 @@ module Handler = struct
     let spacing_decl, spacing_ref =
       Var.binding Theme.spacing_var (Css.Rem 0.25)
     in
+    (* [calc(var(--spacing) * 0)] is zero whatever the spacing is, and Tailwind
+       writes that zero with a unit. The target is a [--tw-*] custom property,
+       an opaque token stream where [0] and [0px] are not the same token, so the
+       unit has to be written here rather than left to length-level zero
+       folding. *)
     let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (float_of_int n)))
+      if n = 0 then Css.Px 0.
+      else
+        Css.Calc
+          (Css.Calc.mul
+             (Css.Calc.length (Css.Var spacing_ref))
+             (Css.Calc.float (float_of_int n)))
     in
     let axis_decl, _ = Var.binding axis_var spacing_value in
     style ~property_rules:translate_props
