@@ -216,11 +216,18 @@ let default_font_family_var =
 let default_mono_font_family_var =
   Var.theme Css.Font_family "default-mono-font-family" ~order:(9, 1)
 
+(* Tailwind v4.3.2 replaced the [ui-sans-serif, system-ui, ...] default with the
+   platform system-font stack. *)
 let default_sans_stack : Css.font_family =
   List
     [
-      Ui_sans_serif;
-      System_ui;
+      Name "-apple-system";
+      Name "BlinkMacSystemFont";
+      Segoe_ui;
+      Roboto;
+      Helvetica_neue;
+      Noto_sans;
+      Arial;
       Sans_serif;
       Apple_color_emoji;
       Segoe_ui_emoji;
