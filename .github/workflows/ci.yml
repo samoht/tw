@@ -32,6 +32,12 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      # tw and cascade are developed together, so CI tracks cascade's main
+      # rather than its last opam release. Drop this once a release carries
+      # what tw needs.
+      - name: Pin cascade to main
+        run: opam pin add -n cascade https://github.com/samoht/cascade.git#main
+
       - name: Install dependencies
         run: opam install . --deps-only --with-test -y
 
