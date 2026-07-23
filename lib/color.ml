@@ -1203,6 +1203,18 @@ let is_theme_named = function Theme_named _ -> true | _ -> false
 (* Check if a color should NOT have a shade suffix in class names *)
 let is_shadeless c = is_base_color c || is_custom_color c || is_theme_named c
 
+(* The shades the Tailwind v4 palette defines for named colors *)
+let palette_shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
+
+let is_valid_shade color shade =
+  is_shadeless color || List.mem shade palette_shades
+
+let check_shade ~utility color shade =
+  if not (is_valid_shade color shade) then
+    invalid_arg
+      (utility ^ ": " ^ pp color ^ " has no shade " ^ string_of_int shade
+     ^ " (valid shades: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950)")
+
 (** {1 Color Application Utilities} *)
 
 (** Background color utilities *)
@@ -1494,7 +1506,8 @@ let shade_of_strings = function
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
-          | Some shade when shade >= 0 -> Ok (color, shade)
+          | Some shade when shade >= 0 && is_valid_shade color shade ->
+              Ok (color, shade)
           | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
   | [ color_str ] -> (
@@ -1514,7 +1527,8 @@ let shade_and_opacity_of_strings ?theme = function
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
-          | Some shade when shade >= 0 -> Ok (color, shade, opacity)
+          | Some shade when shade >= 0 && is_valid_shade color shade ->
+              Ok (color, shade, opacity)
           | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
   | [ color_str ] -> (
@@ -3307,18 +3321,21 @@ let bg_current_with_opacity ?theme opacity =
 let utility x = Utility.base (Self x)
 
 let bg ?opacity ?(shade = 500) color =
+  check_shade ~utility:"bg" color shade;
   match opacity with
   | None -> utility (Bg (color, shade))
   | Some pct ->
       utility (Bg_opacity (color, shade, Opacity_percent (Float.of_int pct)))
 
 let text ?opacity ?(shade = 500) color =
+  check_shade ~utility:"text" color shade;
   match opacity with
   | None -> utility (Text (color, shade))
   | Some pct ->
       utility (Text_opacity (color, shade, Opacity_percent (Float.of_int pct)))
 
 let border_color ?opacity ?(shade = 500) color =
+  check_shade ~utility:"border_color" color shade;
   match opacity with
   | None -> utility (Border (color, shade))
   | Some pct ->
@@ -3334,6 +3351,7 @@ let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 
 let accent ?opacity ?(shade = 500) color =
+  check_shade ~utility:"accent" color shade;
   match opacity with
   | None -> utility (Accent (color, shade))
   | Some pct ->
@@ -3344,6 +3362,7 @@ let accent_current = utility Accent_current
 let accent_inherit = utility Accent_inherit
 
 let caret ?opacity ?(shade = 500) color =
+  check_shade ~utility:"caret" color shade;
   match opacity with
   | None -> utility (Caret (color, shade))
   | Some pct ->

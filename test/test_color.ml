@@ -212,10 +212,23 @@ let test_border_side_color () =
     (Astring.String.is_infix ~affix:"border-inline-color:"
        (css "border-x-red-500"))
 
+let test_invalid_shade () =
+  Alcotest.check_raises "bg ~shade:250 gray raises at construction"
+    (Invalid_argument
+       "bg: gray has no shade 250 (valid shades: 50, 100, 200, 300, 400, 500, \
+        600, 700, 800, 900, 950)") (fun () -> ignore (Tw.bg ~shade:250 Tw.gray));
+  (match Tw.of_string "bg-gray-250" with
+  | Error (`Msg _) -> ()
+  | Ok _ -> Alcotest.fail "bg-gray-250 should not parse");
+  (* Valid shades still construct, and shadeless colors ignore the shade *)
+  ignore (Tw.bg ~shade:200 Tw.gray);
+  ignore (Tw.bg ~shade:250 (Tw.hex "#aabbcc"))
+
 (* Test suite *)
 let tests =
   [
     ("Per-side border colors", `Quick, test_border_side_color);
+    ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);

@@ -3072,6 +3072,7 @@ let ring_lg = utility Ring_lg
 let ring_xl = utility Ring_xl
 
 let ring_color ?opacity ?(shade = 500) color =
+  Color.check_shade ~utility:"ring_color" color shade;
   match opacity with
   | None -> utility (Ring_color (color, shade))
   | Some pct ->

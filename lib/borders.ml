@@ -1180,6 +1180,7 @@ let border_none = utility Border_none
 (** {1 Border Color Utilities} *)
 
 let border_color ?opacity ?(shade = 500) color =
+  Color.check_shade ~utility:"border_color" color shade;
   match opacity with
   | None -> utility (Border_color (color, shade))
   | Some pct -> Color.border_color ~opacity:pct ~shade color

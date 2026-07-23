@@ -2909,6 +2909,7 @@ let leading n = utility_early (Typography_early.Leading n)
 let utility_late x = Utility.base (Typography_late.Self x)
 
 let decoration_color ?(shade = 500) color =
+  Color.check_shade ~utility:"decoration_color" color shade;
   utility_late (Typography_late.Decoration_color (color, Some shade))
 
 let underline = utility_late Typography_late.Underline

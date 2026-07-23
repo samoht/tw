@@ -472,7 +472,8 @@ let () = Utility.register (module Handler)
 
 open Handler
 
-let color_util property color ?(shade = 500) () =
+let color_util name property color ?(shade = 500) () =
+  Color.check_shade ~utility:name color shade;
   let var_name =
     if Color.is_base_color color then "color-" ^ Color.to_name color
     else "color-" ^ Color.to_name color ^ "-" ^ string_of_int shade
@@ -484,8 +485,8 @@ let color_util property color ?(shade = 500) () =
   Style.style [ def; property (Css.Color (Css.Var css_var) : Css.svg_paint) ]
 
 let utility x = Utility.base (Self x)
-let fill = color_util Css.fill
-let stroke = color_util Css.stroke
+let fill = color_util "fill" Css.fill
+let stroke = color_util "stroke" Css.stroke
 let fill_none = utility Fill_none
 let fill_current = utility Fill_current
 let stroke_none = utility Stroke_none
