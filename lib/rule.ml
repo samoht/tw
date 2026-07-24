@@ -155,6 +155,17 @@ let breakpoint_rem = function
   | `Xl -> 80.
   | `Xl_2 -> 96.
 
+(* Publish the breakpoints through the theme-token registry so [theme()] in a
+   project's CSS resolves against the same values the [sm:]/[md:] variants use.
+   [Scheme.token] then answers for [--breakpoint-*] without a second table. *)
+let () =
+  List.iter
+    (fun bp ->
+      Scheme.register_default_token
+        ("breakpoint-" ^ string_of_breakpoint bp)
+        (Css.Pp.to_string Css.pp_length (Css.Rem (breakpoint_rem bp))))
+    [ `Sm; `Md; `Lg; `Xl; `Xl_2 ]
+
 let media_min_width_px px = Css.media_min_width_length (Css.Px px)
 let media_min_width_rem rem = Css.media_min_width_length (Css.Rem rem)
 let media_not_min_width_px px = Css.media_not_min_width_length (Css.Px px)
