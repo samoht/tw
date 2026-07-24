@@ -13,6 +13,7 @@ module Handler = struct
     | (* 2D Transforms *)
       Rotate of int
     | Rotate_arbitrary of Css.angle
+    | Rotate_none
     | Rotate_3d_arbitrary of float * float * float * Css.angle
     | Rotate_bare_var of string
     | Neg_rotate_bare_var of string
@@ -42,6 +43,7 @@ module Handler = struct
     | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
       Translate_full
+    | Translate_none
     | Translate_px
     | Translate_1_2
     | Translate_fraction of int * int
@@ -85,6 +87,7 @@ module Handler = struct
     | Scale_z of int
     | Scale_z_arbitrary of string
     | Scale_3d
+    | Scale_none
     | Perspective_none
     | Perspective_dramatic
     | Perspective_normal
@@ -1144,6 +1147,7 @@ module Handler = struct
     function
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
+    | Rotate_none -> style [ Css.rotate None ]
     | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a
     | Rotate_bare_var name -> rotate_bare_var name
     | Neg_rotate_bare_var name -> neg_rotate_bare_var name
@@ -1159,6 +1163,7 @@ module Handler = struct
     | Translate_y_arbitrary len -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate_full -> translate_full
+    | Translate_none -> style [ Css.translate None ]
     | Translate_px -> translate_px
     | Translate_1_2 -> translate_1_2
     | Translate_fraction (num, denom) -> translate_fraction num denom
@@ -1194,6 +1199,7 @@ module Handler = struct
     | Scale_z n -> scale_z n
     | Scale_z_arbitrary s -> scale_z_arbitrary s
     | Scale_3d -> scale_3d
+    | Scale_none -> style [ Css.scale None ]
     | Skew_x n -> skew_x n
     | Skew_x_arbitrary a -> skew_x_arbitrary a
     | Skew_y n -> skew_y n
@@ -1280,6 +1286,7 @@ module Handler = struct
     | Translate_fraction _ -> 87
     | Translate_arbitrary _ -> 89
     | Translate_full -> 91
+    | Translate_none -> 91
     | Translate_px -> 91
     (* Translate utilities come first *)
     | Neg_translate_x_arbitrary _ -> 100
@@ -1316,6 +1323,7 @@ module Handler = struct
     | Scale_z n -> 700 + n
     | Scale_z_arbitrary _ -> 799
     | Scale_3d -> 750
+    | Scale_none -> 750
     (* Rotate utilities - negative before positive, bare var before int/arb *)
     | Neg_rotate_bare_var _ -> 750
     | Neg_rotate_arbitrary _ -> 799
@@ -1326,6 +1334,7 @@ module Handler = struct
        not mid-range. *)
     | Rotate_3d_arbitrary _ -> 982
     | Rotate_arbitrary _ -> 983
+    | Rotate_none -> 983
     | Neg_rotate_x_bare_var _ -> 900
     | Neg_rotate_x_arbitrary _ -> 949
     | Rotate_x_bare_var _ -> 950
@@ -1429,6 +1438,7 @@ module Handler = struct
             match parse_bracket_angle n with
             | Ok a -> Ok (Rotate_arbitrary a)
             | Error _ -> err_not_utility))
+    | [ "rotate"; "none" ] -> Ok Rotate_none
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
@@ -1455,6 +1465,7 @@ module Handler = struct
     | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
+    | [ "translate"; "none" ] -> Ok Translate_none
     | [ "translate"; "px" ] -> Ok Translate_px
     | [ "translate"; "1/2" ] -> Ok Translate_1_2
     | [ "translate"; n ] when String.contains n '/' -> (
@@ -1533,6 +1544,7 @@ module Handler = struct
             | None -> err_not_utility)
         | _ -> err_not_utility)
     | [ "scale"; "3d" ] -> Ok Scale_3d
+    | [ "scale"; "none" ] -> Ok Scale_none
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
     | [ "scale"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_number n with
@@ -1718,6 +1730,7 @@ module Handler = struct
   let to_class = function
     | Rotate n -> neg_class "rotate-" n
     | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
+    | Rotate_none -> "rotate-none"
     | Rotate_3d_arbitrary (x, y, z, a) ->
         let pp f =
           let s = string_of_float f in
@@ -1749,6 +1762,7 @@ module Handler = struct
     | Neg_translate_z_px -> "-translate-z-px"
     | Translate_3d -> "translate-3d"
     | Translate_full -> "translate-full"
+    | Translate_none -> "translate-none"
     | Translate_px -> "translate-px"
     | Translate_1_2 -> "translate-1/2"
     | Translate_fraction (num, denom) ->
@@ -1795,6 +1809,7 @@ module Handler = struct
     | Scale_z n -> neg_class "scale-z-" n
     | Scale_z_arbitrary s -> "scale-z-[" ^ s ^ "]"
     | Scale_3d -> "scale-3d"
+    | Scale_none -> "scale-none"
     | Skew_x n -> neg_class "skew-x-" n
     | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
     | Skew_y n -> neg_class "skew-y-" n

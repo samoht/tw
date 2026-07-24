@@ -9,7 +9,11 @@ let check class_name =
 
 let test_translate_rotate () =
   check "translate-x-4";
-  check "rotate-90"
+  check "rotate-90";
+  (* the v4.3.3 none keyword on each transform property *)
+  check "translate-none";
+  check "rotate-none";
+  check "scale-none"
 
 (* translate-px (all axes) and the negative px / arbitrary-value variants used
    to be unknown classes: only the per-axis px and positive arbitrary forms
