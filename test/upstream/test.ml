@@ -454,7 +454,14 @@ let canonical_stylesheet_css css = String.trim css
    regression of a unit or two -- defeating the comparison -- so prefer an
    explicit allowlist that only the known stale fixtures match. *)
 let known_stale_colors =
-  [ ("#0288cc40", "#0088cc40"); ("#0288cc80", "#0088cc80") ]
+  [
+    ("#0288cc40", "#0088cc40");
+    ("#0288cc80", "#0088cc80");
+    (* --alpha(red/20%): the fixture stores oklab at 3 decimals (oklab(62.7955%
+       .224 .125/.2)), which round-trips to #ff0404 rather than the exact
+       #ff0000; tw and LightningCSS both produce the exact colour. *)
+    ("#ff040433", "#f003");
+  ]
 
 let colors_close expected actual =
   let e = String.trim expected and a = String.trim actual in
@@ -914,6 +921,9 @@ let test_color_tolerance () =
   Alcotest.(check bool)
     "stale fixture pair tolerated" true
     (colors_close "#0288cc80" "#0088cc80");
+  Alcotest.(check bool)
+    "3-decimal oklab red skew tolerated" true
+    (colors_close "#ff040433" "#f003");
   Alcotest.(check bool)
     "one-unit red skew rejected" false
     (colors_close "#0188cc80" "#0088cc80");
