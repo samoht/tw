@@ -32,6 +32,13 @@ let of_string_valid () =
   check "basis-7";
   check "basis-auto";
   check "basis-full";
+  (* container scale, including the digit-led names is_named_spacing rejects *)
+  check "basis-xs";
+  check "basis-xl";
+  check "basis-2xs";
+  check "basis-3xs";
+  check "basis-2xl";
+  check "basis-7xl";
 
   (* Order *)
   check "order-0";
@@ -55,6 +62,8 @@ let of_string_invalid () =
 
   fail_maybe [ "flex"; "invalid" ];
   fail_maybe [ "basis" ];
+  (* not a container-scale name *)
+  fail_maybe [ "basis"; "4xs" ];
   (* Missing value *)
   fail_maybe [ "order" ];
   fail_maybe []
