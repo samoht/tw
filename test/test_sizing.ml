@@ -34,7 +34,10 @@ let test_widths () =
   check "w-2xs";
   check "w-3xs";
   check "w-2xl";
-  check "w-7xl"
+  check "w-7xl";
+  check "w-dvh";
+  check "w-lvh";
+  check "w-svh"
 
 let test_heights () =
   (* both viewport axes on every height family, plus the px step *)

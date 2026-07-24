@@ -24,6 +24,9 @@ module Handler = struct
     | W_fraction of string
     | W_arbitrary of string * Css.length
     | W_dvw (* 100dvw - dynamic viewport width *)
+    | W_dvh
+    | W_lvh
+    | W_svh
     | W_lvw (* 100lvw - large viewport width *)
     | W_svw (* 100svw - small viewport width *)
     | W_container of string (* width: var(--container-<name>) *)
@@ -584,6 +587,9 @@ module Handler = struct
         | None -> failwith ("Unknown width fraction: " ^ f))
     | W_arbitrary (_, len) -> style [ width len ]
     | W_dvw -> style [ width (Dvw 100.) ]
+    | W_dvh -> style [ width (Dvh 100.) ]
+    | W_lvh -> style [ width (Lvh 100.) ]
+    | W_svh -> style [ width (Svh 100.) ]
     | W_lvw -> style [ width (Lvw 100.) ]
     | W_svw -> style [ width (Svw 100.) ]
     | W_container name -> (
@@ -898,6 +904,9 @@ module Handler = struct
     | "max" -> Ok W_max
     | "fit" -> Ok W_fit
     | "dvw" -> Ok W_dvw
+    | "dvh" -> Ok W_dvh
+    | "lvh" -> Ok W_lvh
+    | "svh" -> Ok W_svh
     | "lvw" -> Ok W_lvw
     | "svw" -> Ok W_svw
     | name when container_binding name <> None -> Ok (W_container name)
@@ -1377,6 +1386,9 @@ module Handler = struct
     | W_arbitrary _ -> w + arbitrary_off
     | W_auto -> w + keyword_off + 0
     | W_dvw -> w + keyword_off + 1
+    | W_dvh -> w + keyword_off + 1
+    | W_lvh -> w + keyword_off + 1
+    | W_svh -> w + keyword_off + 1
     | W_fit -> w + keyword_off + 2
     | W_full -> w + keyword_off + 3
     | W_lvw -> w + keyword_off + 4
@@ -1566,6 +1578,9 @@ module Handler = struct
     | W_fraction f -> "w-" ^ f
     | W_arbitrary (raw, _) -> "w-[" ^ raw ^ "]"
     | W_dvw -> "w-dvw"
+    | W_dvh -> "w-dvh"
+    | W_lvh -> "w-lvh"
+    | W_svh -> "w-svh"
     | W_lvw -> "w-lvw"
     | W_svw -> "w-svw"
     | W_container name -> "w-" ^ name
