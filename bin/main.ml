@@ -308,11 +308,44 @@ let expand_spacing_fn css =
   go 0;
   Buffer.contents buf
 
-let apply_variants css =
+(* Tailwind's [theme(--token)] inlines the token's value. It is not CSS, and it
+   appears in places a [var()] could not stand anyway, such as a media query
+   condition. An unknown token is left alone rather than guessed at. *)
+let resolve_theme_fn ~theme css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 6 <= len && String.sub css i 6 = "theme(" then begin
+      let body, next = block_paren_at css (i + 5) in
+      let name = String.trim body in
+      let bare =
+        if String.length name > 2 && String.sub name 0 2 = "--" then
+          String.sub name 2 (String.length name - 2)
+        else name
+      in
+      match Tw.Scheme.token theme bare with
+      | Some value ->
+          Buffer.add_string buf value;
+          go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+    end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+let apply_variants ~theme css =
   let css, defs = take_custom_variants css in
   (* A project declaration wins over the built-in of the same name. *)
   let defs = defs @ builtin_variants in
-  expand_spacing_fn (expand_variants ~depth:0 defs css)
+  resolve_theme_fn ~theme
+    (expand_spacing_fn (expand_variants ~depth:0 defs css))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -349,11 +382,11 @@ let preload_imports ~base_url stylesheet =
    [@import]s are part of the output, and [@import "tailwindcss"] is where the
    generated sheet goes. Reading it for tokens alone silently dropped every rule
    the project wrote. *)
-let splice_into_entrypoint ~path generated =
+let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let css = apply_variants (strip_tailwind_import_options raw) in
+      let css = apply_variants ~theme (strip_tailwind_import_options raw) in
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->
@@ -543,7 +576,7 @@ let native_files paths flag ~(opts : gen_opts) =
     let stylesheet = Tw.to_css ~base:include_base tw_styles in
     let stylesheet =
       match opts.input_css_path with
-      | Some path -> splice_into_entrypoint ~path stylesheet
+      | Some path -> splice_into_entrypoint ~theme:opts.theme ~path stylesheet
       | None -> stylesheet
     in
     print_string (render_css ~opts stylesheet);
