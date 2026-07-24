@@ -102,6 +102,10 @@ module Handler = struct
 
   (* Format the position value as CSS *)
   let format_position_value ?theme = function
+    | Spacing 0. ->
+        (* A mask stop is a <length-percentage>; the zero spacing step keeps its
+           unit ([0px]) here, where a bare [0] would be the folded length. *)
+        "0px"
     | Spacing n ->
         let _, len = Theme.spacing_calc_float ?theme n in
         Css.Pp.to_string ~minify:false Css.pp_length len
