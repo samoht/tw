@@ -1756,20 +1756,65 @@ module Handler = struct
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
 
+  (* Tailwind's [--alpha(<color>/<pct>)] inside an arbitrary value is
+     [color-mix(in oklab, <color> <pct>, transparent)]. *)
+
   (** Parse a bracket inner string into a typed [Css.color], if it represents a
       valid color. Handles hex strings (with [#] prefix), CSS color functions
       like [rgb(...)], [hsl(...)], etc., and named Tailwind colors (which are
       converted to their CSS representation via [to_css]). Returns [None] for
       non-color values. *)
-  let parse_bracket_color (inner : string) : Css.color option =
-    if String.length inner > 0 && inner.[0] = '#' then Some (Css.hex inner)
-    else
-      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
-      if Parse.is_css_color_fn normalized then Css.parse_color normalized
-      else
-        match color_of_string inner with
-        | Ok c -> Some (to_css c 500)
-        | Error _ -> None
+  let parse_alpha_call inner =
+    let prefix = "--alpha(" in
+    let pl = String.length prefix and n = String.length inner in
+    if n > pl && String.sub inner 0 pl = prefix && inner.[n - 1] = ')' then
+      let body = String.sub inner pl (n - pl - 1) in
+      match String.rindex_opt body '/' with
+      | Some i ->
+          Some
+            ( String.sub body 0 i,
+              String.sub body (i + 1) (String.length body - i - 1) )
+      | None -> None
+    else None
+
+  let rec parse_bracket_color (inner : string) : Css.color option =
+    match parse_alpha_call inner with
+    | Some (color_str, pct_str) -> (
+        let pct =
+          let t = String.trim pct_str in
+          let t =
+            if String.length t > 0 && t.[String.length t - 1] = '%' then
+              String.sub t 0 (String.length t - 1)
+            else t
+          in
+          float_of_string_opt t
+        in
+        (* the inner colour is a raw CSS colour ([red] is the keyword, not the
+           red-500 palette entry); fall back to the palette only if CSS does not
+           know it. *)
+        let color =
+          let normalized =
+            String.map (fun c -> if c = '_' then ' ' else c) color_str
+          in
+          match Css.parse_color normalized with
+          | Some c -> Some c
+          | None -> parse_bracket_color color_str
+        in
+        match (pct, color) with
+        | Some pct, Some c ->
+            Some (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)
+        | _ -> None)
+    | None -> (
+        if String.length inner > 0 && inner.[0] = '#' then Some (Css.hex inner)
+        else
+          let normalized =
+            String.map (fun c -> if c = '_' then ' ' else c) inner
+          in
+          if Parse.is_css_color_fn normalized then Css.parse_color normalized
+          else
+            match color_of_string inner with
+            | Ok c -> Some (to_css c 500)
+            | Error _ -> None)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
