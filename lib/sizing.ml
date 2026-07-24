@@ -26,7 +26,7 @@ module Handler = struct
     | W_dvw (* 100dvw - dynamic viewport width *)
     | W_lvw (* 100lvw - large viewport width *)
     | W_svw (* 100svw - small viewport width *)
-    | W_xl (* width: var(--width-xl) *)
+    | W_container of string (* width: var(--container-<name>) *)
     (* Height utilities *)
     | H_auto
     | H_full
@@ -288,7 +288,6 @@ module Handler = struct
     | `Rem n -> spacing_utility ?theme max_width n
 
   (* Named width theme variable *)
-  let width_xl = Var.theme Css.Length "width-xl" ~order:(5, 20)
 
   (* Container size theme variables - ordered from smallest to largest *)
   let container_3xs = Var.theme Css.Length "container-3xs" ~order:(5, 0)
@@ -304,6 +303,40 @@ module Handler = struct
   let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 10)
   let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 11)
   let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 12)
+
+  (* The container scale doubles as the named width scale in v4. Map a name to
+     its theme var and default, and to its position in the scale. *)
+  let container_binding = function
+    | "3xs" -> Some (container_3xs, (Rem 16.0 : length))
+    | "2xs" -> Some (container_2xs, Rem 18.0)
+    | "xs" -> Some (container_xs, Rem 20.0)
+    | "sm" -> Some (container_sm, Rem 24.0)
+    | "md" -> Some (container_md, Rem 28.0)
+    | "lg" -> Some (container_lg, Rem 32.0)
+    | "xl" -> Some (container_xl, Rem 36.0)
+    | "2xl" -> Some (container_2xl, Rem 42.0)
+    | "3xl" -> Some (container_3xl, Rem 48.0)
+    | "4xl" -> Some (container_4xl, Rem 56.0)
+    | "5xl" -> Some (container_5xl, Rem 64.0)
+    | "6xl" -> Some (container_6xl, Rem 72.0)
+    | "7xl" -> Some (container_7xl, Rem 80.0)
+    | _ -> None
+
+  let container_order = function
+    | "3xs" -> 0
+    | "2xs" -> 1
+    | "xs" -> 2
+    | "sm" -> 3
+    | "md" -> 4
+    | "lg" -> 5
+    | "xl" -> 6
+    | "2xl" -> 7
+    | "3xl" -> 8
+    | "4xl" -> 9
+    | "5xl" -> 10
+    | "6xl" -> 11
+    | "7xl" -> 12
+    | _ -> 99
 
   (* Breakpoint theme vars, referenced by the (v3) max-w-screen-* utilities.
      Negative suborders keep them before --container-* in the theme layer, as
@@ -479,9 +512,22 @@ module Handler = struct
     | W_dvw -> style [ width (Dvw 100.) ]
     | W_lvw -> style [ width (Lvw 100.) ]
     | W_svw -> style [ width (Svw 100.) ]
-    | W_xl ->
-        let decl, ref_ = Var.binding width_xl (Rem 36.0) in
-        style [ decl; width (Var ref_) ]
+    | W_container name -> (
+        (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
+           otherwise to the --container-<name> scale (the default). *)
+        match Scheme.theme_value (Some theme) ("width-" ^ name) with
+        | Some v ->
+            let decl =
+              Css.custom_property ~layer:"theme" ("--width-" ^ name) v
+            in
+            style [ decl; width (Var (Var.theme_ref ("width-" ^ name))) ]
+        | None -> (
+            match container_binding name with
+            | Some (v, d) ->
+                let decl, ref_ = Var.binding v d in
+                style [ decl; width (Var ref_) ]
+            | None ->
+                style [ width (Var (Var.theme_ref ("container-" ^ name))) ]))
     (* Height utilities *)
     | H_auto -> h_auto'
     | H_px -> h_px'
@@ -713,7 +759,7 @@ module Handler = struct
     | "dvw" -> Ok W_dvw
     | "lvw" -> Ok W_lvw
     | "svw" -> Ok W_svw
-    | "xl" -> Ok W_xl
+    | name when container_binding name <> None -> Ok (W_container name)
     | frac when String.contains frac '/' ->
         if fraction_pct frac <> None then Ok (W_fraction frac)
         else err_invalid_value "width fraction" frac
@@ -1138,7 +1184,7 @@ module Handler = struct
     | W_px -> w + keyword_off + 7
     | W_screen -> w + keyword_off + 8
     | W_svw -> w + keyword_off + 9
-    | W_xl -> w + keyword_off + 10
+    | W_container name -> w + keyword_off + 10 + container_order name
     (* Max-width *)
     (* Tailwind orders max-width in three bands: the container scale sizes
        (2xl..7xl) by number, then the numeric spacing values, then an arbitrary
@@ -1281,7 +1327,7 @@ module Handler = struct
     | W_dvw -> "w-dvw"
     | W_lvw -> "w-lvw"
     | W_svw -> "w-svw"
-    | W_xl -> "w-xl"
+    | W_container name -> "w-" ^ name
     (* Height utilities *)
     | H_auto -> "h-auto"
     | H_full -> "h-full"

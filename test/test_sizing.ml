@@ -25,7 +25,16 @@ let test_widths () =
   check "w-10";
   check "w-32";
   check "w-64";
-  check "w-96"
+  check "w-96";
+  (* container scale: named width sizes read the container theme var, including
+     the digit-led names, and the whole scale beyond xl *)
+  check "w-xs";
+  check "w-sm";
+  check "w-xl";
+  check "w-2xs";
+  check "w-3xs";
+  check "w-2xl";
+  check "w-7xl"
 
 let test_heights () =
   check "h-0";
