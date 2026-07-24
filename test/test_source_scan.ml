@@ -41,6 +41,21 @@ let test_tw_str_html_space () =
     [ "flex"; "items-center"; "p-4" ]
     (Tw.str "flex\titems-center\np-4" |> List.map Tw.pp)
 
+(* A [ that opens an arbitrary value is followed immediately by its content, as
+   in [text-[13px]]. A [ followed by whitespace is a plain array bracket, like
+   the JS [rows={[ ... ]] in a docs table: consuming it as one candidate would
+   swallow every class named inside the array. *)
+let test_scan_bracket_before_whitespace () =
+  let source =
+    {|<ApiTable rows={[
+    ["accent-inherit", "accent-color: inherit;"],
+    ["accent-current", "accent-color: currentColor;"],
+  ]} />|}
+  in
+  check_strings "classes inside the array survive"
+    [ "accent-current"; "accent-inherit" ]
+    (known_classes source)
+
 let tests =
   [
     test_case "split whitespace" `Quick test_split_whitespace;
@@ -48,6 +63,8 @@ let tests =
     test_case "scan JS static classes" `Quick test_scan_js_static_classes;
     test_case "scan UTF-8 source" `Quick test_scan_utf8_source;
     test_case "Tw.str splits HTML whitespace" `Quick test_tw_str_html_space;
+    test_case "bracket before whitespace is not a candidate" `Quick
+      test_scan_bracket_before_whitespace;
   ]
 
 let suite = ("source_scan", tests)
