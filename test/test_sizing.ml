@@ -51,6 +51,14 @@ let test_heights () =
 let test_min_sizes () =
   check "min-w-0";
   check "min-w-full";
+  (* container scale across the logical sizing families, digit-led names too *)
+  check "min-w-xl";
+  check "min-w-2xl";
+  check "min-w-2xs";
+  check "min-w-7xl";
+  check "inline-2xl";
+  check "min-inline-3xl";
+  check "max-inline-2xs";
   check "min-h-0";
   check "min-h-screen"
 
@@ -95,6 +103,8 @@ let of_string_invalid () =
   test_invalid [ "min"; "z"; "4" ];
   (* Invalid dimension *)
   test_invalid [ "max"; "w"; "8xl" ];
+  (* not a container-scale name *)
+  test_invalid [ "inline"; "4xs" ];
   (* Invalid max size *)
   test_invalid [ "max"; "w"; "screen"; "3xl" ];
   (* Invalid screen size *)
