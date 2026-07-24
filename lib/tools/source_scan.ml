@@ -47,10 +47,14 @@ let is_candidate_start d i =
   | c when is_ascii_digit c -> true
   | 0x2d | 0x21 | 0x40 | 0x2a -> true
   | 0x5b ->
+      (* [ opens an arbitrary value ([color:red]) or property, whose first
+         character is neither a quote nor whitespace. [ followed by whitespace
+         is a plain array bracket ([rows={[ ...]), not a candidate: consuming it
+         as one would swallow every class named inside the array. *)
       i + 1 < Array.length d.chars
       &&
       let next = char_at d (i + 1) in
-      next <> 0x22 && next <> 0x27 && next <> 0x60
+      next <> 0x22 && next <> 0x27 && next <> 0x60 && not (is_whitespace next)
   | _ -> false
 
 let is_candidate_char = function
