@@ -730,7 +730,17 @@ let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
       if (not typography) && is_prose_class cls then None
       else
         match Tw.of_string ~theme cls with
-        | Ok style -> Some (cls, style)
+        | Ok style -> (
+            (* A handler may accept a class at parse yet raise when it renders
+               an arbitrary value it cannot serialise, as the docs'
+               [prop-[<value>]] placeholders do. Such a class produces no rule,
+               so drop it rather than let it abort the whole sheet. *)
+            match Tw.to_css ~theme [ style ] with
+            | (_ : Css.t) -> Some (cls, style)
+            | exception
+                (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
+              ->
+                None)
         | Error _ -> None)
     candidates
 
