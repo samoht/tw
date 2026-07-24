@@ -768,7 +768,10 @@ module Handler = struct
   let drop_shadow_opacity ?theme opacity =
     let alpha_str =
       match opacity with
-      | Color.Opacity_percent p -> string_of_int (int_of_float p) ^ "%"
+      | Color.Opacity_percent p ->
+          (* keep a fractional alpha (/12.5 -> 12.5%), do not truncate to 12% *)
+          if Float.is_integer p then string_of_int (int_of_float p) ^ "%"
+          else Css.Pp.string_of_float p ^ "%"
       | _ -> "100%"
     in
     let percent =
