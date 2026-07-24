@@ -41,6 +41,9 @@ module Handler = struct
     | H_dvh (* 100dvh - dynamic viewport height *)
     | H_lvh (* 100lvh - large viewport height *)
     | H_svh (* 100svh - small viewport height *)
+    | H_dvw
+    | H_lvw
+    | H_svw
     | H_lh (* 1lh - line height *)
     (* Min-width utilities *)
     | Min_w_0
@@ -88,6 +91,10 @@ module Handler = struct
     | Min_h_dvh
     | Min_h_lvh
     | Min_h_svh
+    | Min_h_px
+    | Min_h_dvw
+    | Min_h_lvw
+    | Min_h_svw
     | Min_h_lh
     | Min_h_spacing of float
     | Min_h_arbitrary of string * Css.length
@@ -101,6 +108,10 @@ module Handler = struct
     | Max_h_dvh
     | Max_h_lvh
     | Max_h_svh
+    | Max_h_px
+    | Max_h_dvw
+    | Max_h_lvw
+    | Max_h_svw
     | Max_h_lh
     | Max_h_spacing of float
     | Max_h_arbitrary of string * Css.length
@@ -545,6 +556,9 @@ module Handler = struct
     | H_dvh -> style [ height (Dvh 100.) ]
     | H_lvh -> style [ height (Lvh 100.) ]
     | H_svh -> style [ height (Svh 100.) ]
+    | H_dvw -> style [ height (Dvw 100.) ]
+    | H_lvw -> style [ height (Lvw 100.) ]
+    | H_svw -> style [ height (Svw 100.) ]
     | H_lh -> style [ height (Lh 1.) ]
     (* Min-width utilities *)
     | Min_w_0 -> min_w_0'
@@ -598,6 +612,10 @@ module Handler = struct
     | Min_h_dvh -> style [ min_height (Dvh 100.) ]
     | Min_h_lvh -> style [ min_height (Lvh 100.) ]
     | Min_h_svh -> style [ min_height (Svh 100.) ]
+    | Min_h_px -> style [ min_height (Px 1.0) ]
+    | Min_h_dvw -> style [ min_height (Dvw 100.) ]
+    | Min_h_lvw -> style [ min_height (Lvw 100.) ]
+    | Min_h_svw -> style [ min_height (Svw 100.) ]
     | Min_h_lh -> style [ min_height (Lh 1.) ]
     | Min_h_spacing n -> min_h' (`Rem n)
     | Min_h_arbitrary (_, len) -> style [ min_height len ]
@@ -611,6 +629,10 @@ module Handler = struct
     | Max_h_dvh -> style [ max_height (Dvh 100.) ]
     | Max_h_lvh -> style [ max_height (Lvh 100.) ]
     | Max_h_svh -> style [ max_height (Svh 100.) ]
+    | Max_h_px -> style [ max_height (Px 1.0) ]
+    | Max_h_dvw -> style [ max_height (Dvw 100.) ]
+    | Max_h_lvw -> style [ max_height (Lvw 100.) ]
+    | Max_h_svw -> style [ max_height (Svw 100.) ]
     | Max_h_lh -> style [ max_height (Lh 1.) ]
     | Max_h_spacing n -> max_h' (`Rem n)
     | Max_h_arbitrary (_, len) -> style [ max_height len ]
@@ -801,6 +823,9 @@ module Handler = struct
     | "dvh" -> Ok H_dvh
     | "lvh" -> Ok H_lvh
     | "svh" -> Ok H_svh
+    | "dvw" -> Ok H_dvw
+    | "lvw" -> Ok H_lvw
+    | "svw" -> Ok H_svw
     | "lh" -> Ok H_lh
     | frac when String.contains frac '/' ->
         if fraction_pct frac <> None then Ok (H_fraction frac)
@@ -842,6 +867,10 @@ module Handler = struct
     | "dvh" -> Ok Min_h_dvh
     | "lvh" -> Ok Min_h_lvh
     | "svh" -> Ok Min_h_svh
+    | "px" -> Ok Min_h_px
+    | "dvw" -> Ok Min_h_dvw
+    | "lvw" -> Ok Min_h_lvw
+    | "svw" -> Ok Min_h_svw
     | "lh" -> Ok Min_h_lh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -897,6 +926,10 @@ module Handler = struct
     | "dvh" -> Ok Max_h_dvh
     | "lvh" -> Ok Max_h_lvh
     | "svh" -> Ok Max_h_svh
+    | "px" -> Ok Max_h_px
+    | "dvw" -> Ok Max_h_dvw
+    | "lvw" -> Ok Max_h_lvw
+    | "svw" -> Ok Max_h_svw
     | "lh" -> Ok Max_h_lh
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
@@ -1161,6 +1194,9 @@ module Handler = struct
     | H_px -> h + keyword_off + 8
     | H_screen -> h + keyword_off + 9
     | H_svh -> h + keyword_off + 10
+    | H_dvw -> h + keyword_off + 10
+    | H_lvw -> h + keyword_off + 10
+    | H_svw -> h + keyword_off + 10
     (* Max-height *)
     | Max_h_spacing n -> max_h + spacing_value_order n
     | Max_h_arbitrary _ -> max_h + arbitrary_off
@@ -1174,6 +1210,10 @@ module Handler = struct
     | Max_h_none -> max_h + keyword_off + 7
     | Max_h_screen -> max_h + keyword_off + 8
     | Max_h_svh -> max_h + keyword_off + 9
+    | Max_h_px -> max_h + keyword_off + 9
+    | Max_h_dvw -> max_h + keyword_off + 9
+    | Max_h_lvw -> max_h + keyword_off + 9
+    | Max_h_svw -> max_h + keyword_off + 9
     (* Min-height *)
     | Min_h_0 -> min_h + 0
     | Min_h_spacing n -> min_h + spacing_value_order n
@@ -1188,6 +1228,10 @@ module Handler = struct
     | Min_h_min -> min_h + keyword_off + 7
     | Min_h_screen -> min_h + keyword_off + 8
     | Min_h_svh -> min_h + keyword_off + 9
+    | Min_h_px -> min_h + keyword_off + 9
+    | Min_h_dvw -> min_h + keyword_off + 9
+    | Min_h_lvw -> min_h + keyword_off + 9
+    | Min_h_svw -> min_h + keyword_off + 9
     (* Width *)
     | W_fraction f -> w + fraction_value_order f
     | W_spacing n -> w + spacing_value_order n
@@ -1363,6 +1407,9 @@ module Handler = struct
     | H_lh -> "h-lh"
     | H_lvh -> "h-lvh"
     | H_svh -> "h-svh"
+    | H_dvw -> "h-dvw"
+    | H_lvw -> "h-lvw"
+    | H_svw -> "h-svw"
     (* Min-width utilities *)
     | Min_w_0 -> "min-w-0"
     | Min_w_full -> "min-w-full"
@@ -1409,6 +1456,10 @@ module Handler = struct
     | Min_h_dvh -> "min-h-dvh"
     | Min_h_lvh -> "min-h-lvh"
     | Min_h_svh -> "min-h-svh"
+    | Min_h_px -> "min-h-px"
+    | Min_h_dvw -> "min-h-dvw"
+    | Min_h_lvw -> "min-h-lvw"
+    | Min_h_svw -> "min-h-svw"
     | Min_h_lh -> "min-h-lh"
     | Min_h_spacing n -> "min-h-" ^ class_float (n *. 4.)
     | Min_h_arbitrary (raw, _) -> "min-h-[" ^ raw ^ "]"
@@ -1422,6 +1473,10 @@ module Handler = struct
     | Max_h_dvh -> "max-h-dvh"
     | Max_h_lvh -> "max-h-lvh"
     | Max_h_svh -> "max-h-svh"
+    | Max_h_px -> "max-h-px"
+    | Max_h_dvw -> "max-h-dvw"
+    | Max_h_lvw -> "max-h-lvw"
+    | Max_h_svw -> "max-h-svw"
     | Max_h_lh -> "max-h-lh"
     | Max_h_spacing n -> "max-h-" ^ class_float (n *. 4.)
     | Max_h_arbitrary (raw, _) -> "max-h-[" ^ raw ^ "]"
