@@ -1,5 +1,7 @@
 (lang dune 3.21)
 
+(cram enable)
+
 (using mdx 0.2)
 
 (name tw)
