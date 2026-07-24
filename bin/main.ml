@@ -187,6 +187,21 @@ let block_at css i =
   in
   scan i 0
 
+(* Body of the [( ... )] starting at [i] (the paren), and the index after it. *)
+let block_paren_at css i =
+  let len = String.length css in
+  let rec scan j depth =
+    if j >= len then (String.sub css (i + 1) (len - i - 1), len)
+    else
+      match css.[j] with
+      | '(' -> scan (j + 1) (depth + 1)
+      | ')' ->
+          if depth = 1 then (String.sub css (i + 1) (j - i - 1), j + 1)
+          else scan (j + 1) (depth - 1)
+      | _ -> scan (j + 1) depth
+  in
+  scan i 0
+
 (* [@at-keyword NAME {] header starting at [i]: the name and the brace index. *)
 let at_rule_header css i keyword =
   let len = String.length css in
@@ -272,11 +287,32 @@ and fill_slots template body =
   go 0;
   Buffer.contents buf
 
+(* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
+   so a parser rejects the declaration and it drops out of the output. *)
+let expand_spacing_fn css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 10 <= len && String.sub css i 10 = "--spacing(" then begin
+      let body, next = block_paren_at css (i + 9) in
+      Buffer.add_string buf
+        (String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
+      go next
+    end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
 let apply_variants css =
   let css, defs = take_custom_variants css in
   (* A project declaration wins over the built-in of the same name. *)
   let defs = defs @ builtin_variants in
-  expand_variants ~depth:0 defs css
+  expand_spacing_fn (expand_variants ~depth:0 defs css)
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
