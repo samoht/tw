@@ -30,3 +30,13 @@ A project [@custom-variant] wins over the built-in, and is not emitted itself:
   $ tw --minify --input-css custom.css index.html | grep -c 'custom-variant'
   0
   [1]
+
+[--spacing(N)] is Tailwind shorthand for the spacing scale, so a CSS parser
+rejects the declaration and it drops out of the output entirely.
+
+  $ cat > sp.css <<EOF
+  > @import "tailwindcss";
+  > .gap { margin-left: --spacing(6) }
+  > EOF
+  $ tw --minify --input-css sp.css index.html | grep -c '\.gap{margin-left:calc(var(--spacing)\*6)}'
+  1
