@@ -22,6 +22,10 @@ type color =
   | Zinc
   | Neutral
   | Stone
+  | Mauve
+  | Olive
+  | Mist
+  | Taupe
   | Red
   | Orange
   | Amber
@@ -94,6 +98,11 @@ val neutral : color
 (** [neutral] is the base neutral color. *)
 
 val stone : color
+val mauve : color
+val olive : color
+val mist : color
+
+val taupe : color
 (** [stone] is the base stone color. *)
 
 val red : color
