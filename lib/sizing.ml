@@ -169,6 +169,11 @@ module Handler = struct
     | Min_inline_auto
     | Min_inline_fit
     | Min_inline_full
+    | Min_inline_screen
+    | Min_inline_px
+    | Min_inline_svw
+    | Min_inline_lvw
+    | Min_inline_dvw
     | Min_inline_max
     | Min_inline_min
     | Min_inline_container of string
@@ -177,6 +182,12 @@ module Handler = struct
     | Max_inline_arbitrary of string * Css.length
     | Max_inline_fit
     | Max_inline_full
+    | Max_inline_min
+    | Max_inline_screen
+    | Max_inline_px
+    | Max_inline_svw
+    | Max_inline_lvw
+    | Max_inline_dvw
     | Max_inline_max
     | Max_inline_none
     | Max_inline_container of string
@@ -201,6 +212,7 @@ module Handler = struct
     | Min_block_dvh
     | Min_block_fit
     | Min_block_full
+    | Min_block_px
     | Min_block_lh
     | Min_block_lvh
     | Min_block_max
@@ -213,6 +225,7 @@ module Handler = struct
     | Max_block_dvh
     | Max_block_fit
     | Max_block_full
+    | Max_block_px
     | Max_block_lh
     | Max_block_lvh
     | Max_block_max
@@ -769,6 +782,11 @@ module Handler = struct
     | Min_inline_auto -> style [ min_inline_size Auto ]
     | Min_inline_fit -> style [ min_inline_size Fit_content ]
     | Min_inline_full -> style [ min_inline_size (Pct 100.) ]
+    | Min_inline_screen -> style [ min_inline_size (Vw 100.0) ]
+    | Min_inline_px -> style [ min_inline_size (Px 1.0) ]
+    | Min_inline_svw -> style [ min_inline_size (Svw 100.) ]
+    | Min_inline_lvw -> style [ min_inline_size (Lvw 100.) ]
+    | Min_inline_dvw -> style [ min_inline_size (Dvw 100.) ]
     | Min_inline_max -> style [ min_inline_size Max_content ]
     | Min_inline_min -> style [ min_inline_size Min_content ]
     | Min_inline_container name -> (
@@ -784,6 +802,12 @@ module Handler = struct
     | Max_inline_arbitrary (_, len) -> style [ max_inline_size len ]
     | Max_inline_fit -> style [ max_inline_size Fit_content ]
     | Max_inline_full -> style [ max_inline_size (Pct 100.) ]
+    | Max_inline_min -> style [ max_inline_size Min_content ]
+    | Max_inline_screen -> style [ max_inline_size (Vw 100.0) ]
+    | Max_inline_px -> style [ max_inline_size (Px 1.0) ]
+    | Max_inline_svw -> style [ max_inline_size (Svw 100.) ]
+    | Max_inline_lvw -> style [ max_inline_size (Lvw 100.) ]
+    | Max_inline_dvw -> style [ max_inline_size (Dvw 100.) ]
     | Max_inline_max -> style [ max_inline_size Max_content ]
     | Max_inline_none -> style [ max_inline_size None ]
     | Max_inline_container name -> (
@@ -818,6 +842,7 @@ module Handler = struct
     | Min_block_dvh -> style [ min_block_size (Dvh 100.) ]
     | Min_block_fit -> style [ min_block_size Fit_content ]
     | Min_block_full -> style [ min_block_size (Pct 100.) ]
+    | Min_block_px -> style [ min_block_size (Px 1.0) ]
     | Min_block_lh -> style [ min_block_size (Lh 1.) ]
     | Min_block_lvh -> style [ min_block_size (Lvh 100.) ]
     | Min_block_max -> style [ min_block_size Max_content ]
@@ -830,6 +855,7 @@ module Handler = struct
     | Max_block_dvh -> style [ max_block_size (Dvh 100.) ]
     | Max_block_fit -> style [ max_block_size Fit_content ]
     | Max_block_full -> style [ max_block_size (Pct 100.) ]
+    | Max_block_px -> style [ max_block_size (Px 1.0) ]
     | Max_block_lh -> style [ max_block_size (Lh 1.) ]
     | Max_block_lvh -> style [ max_block_size (Lvh 100.) ]
     | Max_block_max -> style [ max_block_size Max_content ]
@@ -1085,6 +1111,11 @@ module Handler = struct
     | "auto" -> Ok Min_inline_auto
     | "fit" -> Ok Min_inline_fit
     | "full" -> Ok Min_inline_full
+    | "screen" -> Ok Min_inline_screen
+    | "px" -> Ok Min_inline_px
+    | "svw" -> Ok Min_inline_svw
+    | "lvw" -> Ok Min_inline_lvw
+    | "dvw" -> Ok Min_inline_dvw
     | "max" -> Ok Min_inline_max
     | "min" -> Ok Min_inline_min
     | name when container_binding name <> None -> Ok (Min_inline_container name)
@@ -1100,6 +1131,12 @@ module Handler = struct
   let parse_max_inline = function
     | "fit" -> Ok Max_inline_fit
     | "full" -> Ok Max_inline_full
+    | "min" -> Ok Max_inline_min
+    | "screen" -> Ok Max_inline_screen
+    | "px" -> Ok Max_inline_px
+    | "svw" -> Ok Max_inline_svw
+    | "lvw" -> Ok Max_inline_lvw
+    | "dvw" -> Ok Max_inline_dvw
     | "max" -> Ok Max_inline_max
     | "none" -> Ok Max_inline_none
     | name when container_binding name <> None -> Ok (Max_inline_container name)
@@ -1140,6 +1177,7 @@ module Handler = struct
     | "dvh" -> Ok Min_block_dvh
     | "fit" -> Ok Min_block_fit
     | "full" -> Ok Min_block_full
+    | "px" -> Ok Min_block_px
     | "lh" -> Ok Min_block_lh
     | "lvh" -> Ok Min_block_lvh
     | "max" -> Ok Min_block_max
@@ -1159,6 +1197,7 @@ module Handler = struct
     | "dvh" -> Ok Max_block_dvh
     | "fit" -> Ok Max_block_fit
     | "full" -> Ok Max_block_full
+    | "px" -> Ok Max_block_px
     | "lh" -> Ok Max_block_lh
     | "lvh" -> Ok Max_block_lvh
     | "max" -> Ok Max_block_max
@@ -1439,6 +1478,11 @@ module Handler = struct
     | Min_inline_auto -> min_inline + keyword_off + 0
     | Min_inline_fit -> min_inline + keyword_off + 1
     | Min_inline_full -> min_inline + keyword_off + 2
+    | Min_inline_screen -> min_inline + keyword_off + 2
+    | Min_inline_px -> min_inline + keyword_off + 2
+    | Min_inline_svw -> min_inline + keyword_off + 2
+    | Min_inline_lvw -> min_inline + keyword_off + 2
+    | Min_inline_dvw -> min_inline + keyword_off + 2
     | Min_inline_max -> min_inline + keyword_off + 3
     | Min_inline_min -> min_inline + keyword_off + 4
     | Min_inline_container name ->
@@ -1448,6 +1492,12 @@ module Handler = struct
     | Max_inline_arbitrary _ -> max_inline + arbitrary_off
     | Max_inline_fit -> max_inline + keyword_off + 0
     | Max_inline_full -> max_inline + keyword_off + 1
+    | Max_inline_min -> max_inline + keyword_off + 1
+    | Max_inline_screen -> max_inline + keyword_off + 1
+    | Max_inline_px -> max_inline + keyword_off + 1
+    | Max_inline_svw -> max_inline + keyword_off + 1
+    | Max_inline_lvw -> max_inline + keyword_off + 1
+    | Max_inline_dvw -> max_inline + keyword_off + 1
     | Max_inline_max -> max_inline + keyword_off + 2
     | Max_inline_none -> max_inline + keyword_off + 3
     | Max_inline_container name ->
@@ -1473,6 +1523,7 @@ module Handler = struct
     | Min_block_dvh -> min_block + keyword_off + 1
     | Min_block_fit -> min_block + keyword_off + 2
     | Min_block_full -> min_block + keyword_off + 3
+    | Min_block_px -> min_block + keyword_off + 3
     | Min_block_lh -> min_block + keyword_off + 4
     | Min_block_lvh -> min_block + keyword_off + 5
     | Min_block_max -> min_block + keyword_off + 6
@@ -1485,6 +1536,7 @@ module Handler = struct
     | Max_block_dvh -> max_block + keyword_off + 0
     | Max_block_fit -> max_block + keyword_off + 1
     | Max_block_full -> max_block + keyword_off + 2
+    | Max_block_px -> max_block + keyword_off + 2
     | Max_block_lh -> max_block + keyword_off + 3
     | Max_block_lvh -> max_block + keyword_off + 4
     | Max_block_max -> max_block + keyword_off + 5
@@ -1659,6 +1711,11 @@ module Handler = struct
     | Min_inline_auto -> "min-inline-auto"
     | Min_inline_fit -> "min-inline-fit"
     | Min_inline_full -> "min-inline-full"
+    | Min_inline_screen -> "min-inline-screen"
+    | Min_inline_px -> "min-inline-px"
+    | Min_inline_svw -> "min-inline-svw"
+    | Min_inline_lvw -> "min-inline-lvw"
+    | Min_inline_dvw -> "min-inline-dvw"
     | Min_inline_max -> "min-inline-max"
     | Min_inline_min -> "min-inline-min"
     | Min_inline_container name -> "min-inline-" ^ name
@@ -1667,6 +1724,12 @@ module Handler = struct
     | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
     | Max_inline_fit -> "max-inline-fit"
     | Max_inline_full -> "max-inline-full"
+    | Max_inline_min -> "max-inline-min"
+    | Max_inline_screen -> "max-inline-screen"
+    | Max_inline_px -> "max-inline-px"
+    | Max_inline_svw -> "max-inline-svw"
+    | Max_inline_lvw -> "max-inline-lvw"
+    | Max_inline_dvw -> "max-inline-dvw"
     | Max_inline_max -> "max-inline-max"
     | Max_inline_none -> "max-inline-none"
     | Max_inline_container name -> "max-inline-" ^ name
@@ -1691,6 +1754,7 @@ module Handler = struct
     | Min_block_dvh -> "min-block-dvh"
     | Min_block_fit -> "min-block-fit"
     | Min_block_full -> "min-block-full"
+    | Min_block_px -> "min-block-px"
     | Min_block_lh -> "min-block-lh"
     | Min_block_lvh -> "min-block-lvh"
     | Min_block_max -> "min-block-max"
@@ -1703,6 +1767,7 @@ module Handler = struct
     | Max_block_dvh -> "max-block-dvh"
     | Max_block_fit -> "max-block-fit"
     | Max_block_full -> "max-block-full"
+    | Max_block_px -> "max-block-px"
     | Max_block_lh -> "max-block-lh"
     | Max_block_lvh -> "max-block-lvh"
     | Max_block_max -> "max-block-max"

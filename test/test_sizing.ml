@@ -89,6 +89,14 @@ let test_max_sizes () =
   check "min-w-dvw";
   check "min-w-px";
   check "min-w-screen";
+  (* logical inline/block max and min families *)
+  check "max-inline-dvw";
+  check "max-inline-screen";
+  check "max-inline-min";
+  check "min-inline-svw";
+  check "min-inline-px";
+  check "max-block-px";
+  check "min-block-px";
   check "max-w-full";
   check "max-w-screen-sm";
   check "max-h-4";
