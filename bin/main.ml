@@ -161,11 +161,198 @@ let strip_tailwind_import_options css =
   go 0 false;
   Buffer.contents buf
 
+(* Tailwind's [@custom-variant NAME { ... @slot; ... }] declares a variant, and
+   [@variant NAME { decls }] applies it inside author CSS. Both are Tailwind
+   syntax, so a CSS parser drops them and the declarations they guard vanish.
+   Expanding here keeps the [&] nesting for cascade to flatten.
+
+   Only the built-in [dark] is known without a declaration; other names need one
+   in the entrypoint. *)
+
+let builtin_variants =
+  [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
+
+(* Body of the [{ ... }] starting at [i] (the brace), and the index after it. *)
+let block_at css i =
+  let len = String.length css in
+  let rec scan j depth =
+    if j >= len then (String.sub css (i + 1) (len - i - 1), len)
+    else
+      match css.[j] with
+      | '{' -> scan (j + 1) (depth + 1)
+      | '}' ->
+          if depth = 1 then (String.sub css (i + 1) (j - i - 1), j + 1)
+          else scan (j + 1) (depth - 1)
+      | _ -> scan (j + 1) depth
+  in
+  scan i 0
+
+(* Body of the [( ... )] starting at [i] (the paren), and the index after it. *)
+let block_paren_at css i =
+  let len = String.length css in
+  let rec scan j depth =
+    if j >= len then (String.sub css (i + 1) (len - i - 1), len)
+    else
+      match css.[j] with
+      | '(' -> scan (j + 1) (depth + 1)
+      | ')' ->
+          if depth = 1 then (String.sub css (i + 1) (j - i - 1), j + 1)
+          else scan (j + 1) (depth - 1)
+      | _ -> scan (j + 1) depth
+  in
+  scan i 0
+
+(* [@at-keyword NAME {] header starting at [i]: the name and the brace index. *)
+let at_rule_header css i keyword =
+  let len = String.length css in
+  let klen = String.length keyword in
+  if i + klen > len || String.sub css i klen <> keyword then None
+  else
+    let rec brace j =
+      if j >= len then None
+      else if css.[j] = '{' then
+        Some (String.trim (String.sub css (i + klen) (j - i - klen)), j)
+      else if css.[j] = ';' then None
+      else brace (j + 1)
+    in
+    brace (i + klen)
+
+(* Pull out the [@custom-variant] declarations, dropping them from the CSS:
+   Tailwind does not emit them either. *)
+let take_custom_variants css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let defs = ref [] in
+  let rec go i =
+    if i >= len then ()
+    else
+      match at_rule_header css i "@custom-variant" with
+      | Some (name, brace) when name <> "" ->
+          let body, next = block_at css brace in
+          defs := (name, body) :: !defs;
+          go next
+      | _ ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  (Buffer.contents buf, !defs)
+
+(* Replace [@variant NAME { decls }] with the variant's body, substituting the
+   declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
+   the recursion re-runs over the result. *)
+let rec expand_variants ~depth defs css =
+  if depth > 8 then css
+  else
+    let len = String.length css in
+    let buf = Buffer.create len in
+    let changed = ref false in
+    let rec go i =
+      if i >= len then ()
+      else
+        match at_rule_header css i "@variant" with
+        | Some (name, brace) when List.mem_assoc name defs ->
+            let body, next = block_at css brace in
+            let template = List.assoc name defs in
+            changed := true;
+            Buffer.add_string buf (fill_slots template body);
+            go next
+        | _ ->
+            Buffer.add_char buf css.[i];
+            go (i + 1)
+    in
+    go 0;
+    let out = Buffer.contents buf in
+    if !changed then expand_variants ~depth:(depth + 1) defs out else out
+
+and fill_slots template body =
+  let len = String.length template in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 5 <= len && String.sub template i 5 = "@slot" then begin
+      Buffer.add_string buf body;
+      (* swallow the terminating [;] so the slot does not leave a stray one *)
+      let j = ref (i + 5) in
+      while !j < len && (template.[!j] = ' ' || template.[!j] = '\n') do
+        incr j
+      done;
+      go (if !j < len && template.[!j] = ';' then !j + 1 else !j)
+    end
+    else begin
+      Buffer.add_char buf template.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+(* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
+   so a parser rejects the declaration and it drops out of the output. *)
+let expand_spacing_fn css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 10 <= len && String.sub css i 10 = "--spacing(" then begin
+      let body, next = block_paren_at css (i + 9) in
+      Buffer.add_string buf
+        (String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
+      go next
+    end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+(* Tailwind's [theme(--token)] inlines the token's value. It is not CSS, and it
+   appears in places a [var()] could not stand anyway, such as a media query
+   condition. An unknown token is left alone rather than guessed at. *)
+let resolve_theme_fn ~theme css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 6 <= len && String.sub css i 6 = "theme(" then begin
+      let body, next = block_paren_at css (i + 5) in
+      let name = String.trim body in
+      let bare =
+        if String.length name > 2 && String.sub name 0 2 = "--" then
+          String.sub name 2 (String.length name - 2)
+        else name
+      in
+      match Tw.Scheme.token theme bare with
+      | Some value ->
+          Buffer.add_string buf value;
+          go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+    end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+let apply_variants ?(extra_defs = []) ~theme css =
+  let css, defs = take_custom_variants css in
+  let defs = defs @ extra_defs in
+  (* A project declaration wins over the built-in of the same name. *)
+  let defs = defs @ builtin_variants in
+  resolve_theme_fn ~theme
+    (expand_spacing_fn (expand_variants ~depth:0 defs css))
+
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
    own filesystem loader. A package import has no file and stays unresolved on
    purpose, so the splice below can find it. *)
-let preload_imports ~base_url stylesheet =
+let preload_imports ~transform ~base_url stylesheet =
   let imports = Hashtbl.create 16 in
   let rec scan_under base sheet =
     let loader = Css.Context.loader ~base_url:base () in
@@ -183,6 +370,7 @@ let preload_imports ~base_url stylesheet =
           match read_file resolved with
           | exception Sys_error _ -> ()
           | content -> (
+              let content = transform content in
               Hashtbl.add imports resolved content;
               match Css.of_string content with
               | Ok inner -> scan_under resolved inner.Css.stylesheet
@@ -196,17 +384,33 @@ let preload_imports ~base_url stylesheet =
    [@import]s are part of the output, and [@import "tailwindcss"] is where the
    generated sheet goes. Reading it for tokens alone silently dropped every rule
    the project wrote. *)
-let splice_into_entrypoint ~path generated =
+let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let css = strip_tailwind_import_options raw in
+      let css = apply_variants ~theme (strip_tailwind_import_options raw) in
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->
-          let imports = preload_imports ~base_url:path p.Css.stylesheet in
+          (* An imported file uses the same Tailwind syntax, and its [@variant]s
+             may be declared in the entrypoint, so it gets the same treatment
+             with those declarations in scope. *)
+          let _, entry_defs =
+            take_custom_variants (strip_tailwind_import_options raw)
+          in
+          let transform body =
+            apply_variants ~extra_defs:entry_defs ~theme
+              (strip_tailwind_import_options body)
+          in
+          let imports =
+            preload_imports ~transform ~base_url:path p.Css.stylesheet
+          in
           let loader = Css.Context.loader ~base_url:path ~imports () in
-          let inlined = Css.inline_imports loader p.Css.stylesheet in
+          (* Tailwind flattens the author's nesting, including what the expanded
+             variants introduce, so match that shape. *)
+          let inlined =
+            Css.flatten_nesting (Css.inline_imports loader p.Css.stylesheet)
+          in
           Css.statements inlined
           |> List.concat_map (fun stmt ->
               match stmt with
@@ -311,8 +515,25 @@ let collect_files paths =
     (fun path ->
       if Sys.file_exists path then
         if Sys.is_directory path then
+          (* Classes live outside component sources too: a docs site keeps most
+             of its markup in .md/.mdx, and plain .ts/.js hold class strings
+             just as .tsx does. Skipping them emits a fraction of the utilities
+             the project uses, with nothing to say so. *)
           files path
-            [ ".html"; ".eml"; ".ml"; ".re"; ".jsx"; ".tsx"; ".vue"; ".svelte" ]
+            [
+              ".html";
+              ".eml";
+              ".ml";
+              ".re";
+              ".js";
+              ".jsx";
+              ".ts";
+              ".tsx";
+              ".vue";
+              ".svelte";
+              ".md";
+              ".mdx";
+            ]
         else [ path ]
       else [])
     paths
@@ -323,12 +544,40 @@ let print_stats ~quiet ~candidate_count ~known_count =
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
-let parse_known_candidates ?(theme = Tw.Scheme.default) candidates =
+(* [prose] comes from @tailwindcss/typography, which Tailwind only applies when
+   the entrypoint asks for it. A project that styles [.prose] itself, as
+   tailwindcss.com does, gets the plugin's whole stylesheet on top otherwise. *)
+let declares_plugin css name =
+  match css with
+  | None -> false
+  | Some css ->
+      let needle = "@tailwindcss/" ^ name in
+      let n = String.length needle and l = String.length css in
+      let rec go i =
+        i + n <= l && (String.sub css i n = needle || go (i + 1))
+      in
+      go 0
+
+let is_prose_class cls =
+  cls = "prose"
+  || String.starts_with ~prefix:"prose-" cls
+  ||
+  (* variants keep the utility at the end: [lg:prose-sm] *)
+  match String.rindex_opt cls ':' with
+  | Some i ->
+      let bare = String.sub cls (i + 1) (String.length cls - i - 1) in
+      bare = "prose" || String.starts_with ~prefix:"prose-" bare
+  | None -> false
+
+let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
+  let typography = declares_plugin input_css "typography" in
   List.filter_map
     (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok style -> Some (cls, style)
-      | Error _ -> None)
+      if (not typography) && is_prose_class cls then None
+      else
+        match Tw.of_string ~theme cls with
+        | Ok style -> Some (cls, style)
+        | Error _ -> None)
     candidates
 
 let diff_files paths ~(opts : gen_opts) =
@@ -343,7 +592,9 @@ let diff_files paths ~(opts : gen_opts) =
         ~forms:true ?input_css:opts.input_css all_classes
     in
     let tw_styles =
-      parse_known_candidates ~theme:opts.theme all_classes |> List.map snd
+      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
+        all_classes
+      |> List.map snd
     in
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
@@ -364,12 +615,12 @@ let native_files paths flag ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
-    let known = parse_known_candidates all_classes in
+    let known = parse_known_candidates ?input_css:opts.input_css all_classes in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~base:include_base tw_styles in
     let stylesheet =
       match opts.input_css_path with
-      | Some path -> splice_into_entrypoint ~path stylesheet
+      | Some path -> splice_into_entrypoint ~theme:opts.theme ~path stylesheet
       | None -> stylesheet
     in
     print_string (render_css ~opts stylesheet);
