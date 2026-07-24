@@ -311,8 +311,25 @@ let collect_files paths =
     (fun path ->
       if Sys.file_exists path then
         if Sys.is_directory path then
+          (* Classes live outside component sources too: a docs site keeps most
+             of its markup in .md/.mdx, and plain .ts/.js hold class strings
+             just as .tsx does. Skipping them emits a fraction of the utilities
+             the project uses, with nothing to say so. *)
           files path
-            [ ".html"; ".eml"; ".ml"; ".re"; ".jsx"; ".tsx"; ".vue"; ".svelte" ]
+            [
+              ".html";
+              ".eml";
+              ".ml";
+              ".re";
+              ".js";
+              ".jsx";
+              ".ts";
+              ".tsx";
+              ".vue";
+              ".svelte";
+              ".md";
+              ".mdx";
+            ]
         else [ path ]
       else [])
     paths
