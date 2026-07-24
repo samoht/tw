@@ -161,6 +161,123 @@ let strip_tailwind_import_options css =
   go 0 false;
   Buffer.contents buf
 
+(* Tailwind's [@custom-variant NAME { ... @slot; ... }] declares a variant, and
+   [@variant NAME { decls }] applies it inside author CSS. Both are Tailwind
+   syntax, so a CSS parser drops them and the declarations they guard vanish.
+   Expanding here keeps the [&] nesting for cascade to flatten.
+
+   Only the built-in [dark] is known without a declaration; other names need one
+   in the entrypoint. *)
+
+let builtin_variants =
+  [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
+
+(* Body of the [{ ... }] starting at [i] (the brace), and the index after it. *)
+let block_at css i =
+  let len = String.length css in
+  let rec scan j depth =
+    if j >= len then (String.sub css (i + 1) (len - i - 1), len)
+    else
+      match css.[j] with
+      | '{' -> scan (j + 1) (depth + 1)
+      | '}' ->
+          if depth = 1 then (String.sub css (i + 1) (j - i - 1), j + 1)
+          else scan (j + 1) (depth - 1)
+      | _ -> scan (j + 1) depth
+  in
+  scan i 0
+
+(* [@at-keyword NAME {] header starting at [i]: the name and the brace index. *)
+let at_rule_header css i keyword =
+  let len = String.length css in
+  let klen = String.length keyword in
+  if i + klen > len || String.sub css i klen <> keyword then None
+  else
+    let rec brace j =
+      if j >= len then None
+      else if css.[j] = '{' then
+        Some (String.trim (String.sub css (i + klen) (j - i - klen)), j)
+      else if css.[j] = ';' then None
+      else brace (j + 1)
+    in
+    brace (i + klen)
+
+(* Pull out the [@custom-variant] declarations, dropping them from the CSS:
+   Tailwind does not emit them either. *)
+let take_custom_variants css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let defs = ref [] in
+  let rec go i =
+    if i >= len then ()
+    else
+      match at_rule_header css i "@custom-variant" with
+      | Some (name, brace) when name <> "" ->
+          let body, next = block_at css brace in
+          defs := (name, body) :: !defs;
+          go next
+      | _ ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  (Buffer.contents buf, !defs)
+
+(* Replace [@variant NAME { decls }] with the variant's body, substituting the
+   declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
+   the recursion re-runs over the result. *)
+let rec expand_variants ~depth defs css =
+  if depth > 8 then css
+  else
+    let len = String.length css in
+    let buf = Buffer.create len in
+    let changed = ref false in
+    let rec go i =
+      if i >= len then ()
+      else
+        match at_rule_header css i "@variant" with
+        | Some (name, brace) when List.mem_assoc name defs ->
+            let body, next = block_at css brace in
+            let template = List.assoc name defs in
+            changed := true;
+            Buffer.add_string buf (fill_slots template body);
+            go next
+        | _ ->
+            Buffer.add_char buf css.[i];
+            go (i + 1)
+    in
+    go 0;
+    let out = Buffer.contents buf in
+    if !changed then expand_variants ~depth:(depth + 1) defs out else out
+
+and fill_slots template body =
+  let len = String.length template in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 5 <= len && String.sub template i 5 = "@slot" then begin
+      Buffer.add_string buf body;
+      (* swallow the terminating [;] so the slot does not leave a stray one *)
+      let j = ref (i + 5) in
+      while !j < len && (template.[!j] = ' ' || template.[!j] = '\n') do
+        incr j
+      done;
+      go (if !j < len && template.[!j] = ';' then !j + 1 else !j)
+    end
+    else begin
+      Buffer.add_char buf template.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+let apply_variants css =
+  let css, defs = take_custom_variants css in
+  (* A project declaration wins over the built-in of the same name. *)
+  let defs = defs @ builtin_variants in
+  expand_variants ~depth:0 defs css
+
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
    own filesystem loader. A package import has no file and stays unresolved on
@@ -200,13 +317,17 @@ let splice_into_entrypoint ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let css = strip_tailwind_import_options raw in
+      let css = apply_variants (strip_tailwind_import_options raw) in
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->
           let imports = preload_imports ~base_url:path p.Css.stylesheet in
           let loader = Css.Context.loader ~base_url:path ~imports () in
-          let inlined = Css.inline_imports loader p.Css.stylesheet in
+          (* Tailwind flattens the author's nesting, including what the expanded
+             variants introduce, so match that shape. *)
+          let inlined =
+            Css.flatten_nesting (Css.inline_imports loader p.Css.stylesheet)
+          in
           Css.statements inlined
           |> List.concat_map (fun stmt ->
               match stmt with
