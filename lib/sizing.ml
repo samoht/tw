@@ -51,7 +51,7 @@ module Handler = struct
     | Min_w_auto
     | Min_w_spacing of float
     | Min_w_arbitrary of string * Css.length
-    | Min_w_xl (* min-width: var(--container-xl) *)
+    | Min_w_container of string (* min-width: var(--container-<name>) *)
     (* Max-width utilities *)
     | Max_w_none
     | Max_w_xs
@@ -126,7 +126,7 @@ module Handler = struct
     | Inline_min
     | Inline_screen
     | Inline_svw
-    | Inline_xl
+    | Inline_container of string
     (* min-inline-size utilities *)
     | Min_inline_spacing of float
     | Min_inline_arbitrary of string * Css.length
@@ -135,7 +135,7 @@ module Handler = struct
     | Min_inline_full
     | Min_inline_max
     | Min_inline_min
-    | Min_inline_xl
+    | Min_inline_container of string
     (* max-inline-size utilities *)
     | Max_inline_spacing of float
     | Max_inline_arbitrary of string * Css.length
@@ -143,7 +143,7 @@ module Handler = struct
     | Max_inline_full
     | Max_inline_max
     | Max_inline_none
-    | Max_inline_xl
+    | Max_inline_container of string
     (* block-size utilities *)
     | Block_fraction of string
     | Block_spacing of float
@@ -555,9 +555,13 @@ module Handler = struct
     | Min_w_auto -> style [ min_width Auto ]
     | Min_w_spacing n -> min_w' (`Rem n)
     | Min_w_arbitrary (_, len) -> style [ min_width len ]
-    | Min_w_xl ->
-        let decl, ref_ = Var.binding container_xl (Rem 36.0) in
-        style [ decl; min_width (Var ref_) ]
+    | Min_w_container name -> (
+        match container_binding name with
+        | Some (v, d) ->
+            let decl, ref_ = Var.binding v d in
+            style [ decl; min_width (Var ref_) ]
+        | None ->
+            style [ min_width (Var (Var.theme_ref ("container-" ^ name))) ])
     (* Max-width utilities *)
     | Max_w_none -> max_w_none'
     | Max_w_xs -> max_w_xs'
@@ -655,9 +659,13 @@ module Handler = struct
     | Inline_min -> style [ inline_size Min_content ]
     | Inline_screen -> style [ inline_size (Vw 100.) ]
     | Inline_svw -> style [ inline_size (Svw 100.) ]
-    | Inline_xl ->
-        let decl, ref_ = Var.binding container_xl (Rem 36.0) in
-        style [ decl; inline_size (Var ref_) ]
+    | Inline_container name -> (
+        match container_binding name with
+        | Some (v, d) ->
+            let decl, ref_ = Var.binding v d in
+            style [ decl; inline_size (Var ref_) ]
+        | None ->
+            style [ inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
     (* min-inline-size utilities *)
     | Min_inline_spacing n -> spacing_utility min_inline_size n
     | Min_inline_arbitrary (_, len) -> style [ min_inline_size len ]
@@ -666,9 +674,14 @@ module Handler = struct
     | Min_inline_full -> style [ min_inline_size (Pct 100.) ]
     | Min_inline_max -> style [ min_inline_size Max_content ]
     | Min_inline_min -> style [ min_inline_size Min_content ]
-    | Min_inline_xl ->
-        let decl, ref_ = Var.binding container_xl (Rem 36.0) in
-        style [ decl; min_inline_size (Var ref_) ]
+    | Min_inline_container name -> (
+        match container_binding name with
+        | Some (v, d) ->
+            let decl, ref_ = Var.binding v d in
+            style [ decl; min_inline_size (Var ref_) ]
+        | None ->
+            style
+              [ min_inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
     (* max-inline-size utilities *)
     | Max_inline_spacing n -> spacing_utility max_inline_size n
     | Max_inline_arbitrary (_, len) -> style [ max_inline_size len ]
@@ -676,9 +689,14 @@ module Handler = struct
     | Max_inline_full -> style [ max_inline_size (Pct 100.) ]
     | Max_inline_max -> style [ max_inline_size Max_content ]
     | Max_inline_none -> style [ max_inline_size None ]
-    | Max_inline_xl ->
-        let decl, ref_ = Var.binding container_xl (Rem 36.0) in
-        style [ decl; max_inline_size (Var ref_) ]
+    | Max_inline_container name -> (
+        match container_binding name with
+        | Some (v, d) ->
+            let decl, ref_ = Var.binding v d in
+            style [ decl; max_inline_size (Var ref_) ]
+        | None ->
+            style
+              [ max_inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
     (* block-size utilities *)
     | Block_fraction f -> (
         match fraction_pct f with
@@ -803,7 +821,7 @@ module Handler = struct
     | "max" -> Ok Min_w_max
     | "fit" -> Ok Min_w_fit
     | "auto" -> Ok Min_w_auto
-    | "xl" -> Ok Min_w_xl
+    | name when container_binding name <> None -> Ok (Min_w_container name)
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_w_arbitrary (raw, len))
@@ -917,7 +935,7 @@ module Handler = struct
     | "min" -> Ok Inline_min
     | "screen" -> Ok Inline_screen
     | "svw" -> Ok Inline_svw
-    | "xl" -> Ok Inline_xl
+    | name when container_binding name <> None -> Ok (Inline_container name)
     | frac when String.contains frac '/' ->
         if fraction_pct frac <> None then Ok (Inline_fraction frac)
         else err_invalid_value "inline-size fraction" frac
@@ -936,7 +954,7 @@ module Handler = struct
     | "full" -> Ok Min_inline_full
     | "max" -> Ok Min_inline_max
     | "min" -> Ok Min_inline_min
-    | "xl" -> Ok Min_inline_xl
+    | name when container_binding name <> None -> Ok (Min_inline_container name)
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_inline_arbitrary (raw, len))
@@ -951,7 +969,7 @@ module Handler = struct
     | "full" -> Ok Max_inline_full
     | "max" -> Ok Max_inline_max
     | "none" -> Ok Max_inline_none
-    | "xl" -> Ok Max_inline_xl
+    | name when container_binding name <> None -> Ok (Max_inline_container name)
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_inline_arbitrary (raw, len))
@@ -1222,7 +1240,7 @@ module Handler = struct
     | Min_w_full -> min_w + keyword_off + 2
     | Min_w_max -> min_w + keyword_off + 3
     | Min_w_min -> min_w + keyword_off + 4
-    | Min_w_xl -> min_w + keyword_off + 5
+    | Min_w_container name -> min_w + keyword_off + 5 + container_order name
     (* Size *)
     | Size_fraction f -> size + fraction_value_order f
     | Size_spacing n -> size + spacing_value_order n
@@ -1245,7 +1263,7 @@ module Handler = struct
     | Inline_min -> inline + keyword_off + 6
     | Inline_screen -> inline + keyword_off + 7
     | Inline_svw -> inline + keyword_off + 8
-    | Inline_xl -> inline + keyword_off + 9
+    | Inline_container name -> inline + keyword_off + 9 + container_order name
     (* min-inline-size *)
     | Min_inline_spacing n -> min_inline + spacing_value_order n
     | Min_inline_arbitrary _ -> min_inline + arbitrary_off
@@ -1254,7 +1272,8 @@ module Handler = struct
     | Min_inline_full -> min_inline + keyword_off + 2
     | Min_inline_max -> min_inline + keyword_off + 3
     | Min_inline_min -> min_inline + keyword_off + 4
-    | Min_inline_xl -> min_inline + keyword_off + 5
+    | Min_inline_container name ->
+        min_inline + keyword_off + 5 + container_order name
     (* max-inline-size *)
     | Max_inline_spacing n -> max_inline + spacing_value_order n
     | Max_inline_arbitrary _ -> max_inline + arbitrary_off
@@ -1262,7 +1281,8 @@ module Handler = struct
     | Max_inline_full -> max_inline + keyword_off + 1
     | Max_inline_max -> max_inline + keyword_off + 2
     | Max_inline_none -> max_inline + keyword_off + 3
-    | Max_inline_xl -> max_inline + keyword_off + 4
+    | Max_inline_container name ->
+        max_inline + keyword_off + 4 + container_order name
     (* block-size *)
     | Block_fraction f -> block + fraction_value_order f
     | Block_spacing n -> block + spacing_value_order n
@@ -1352,7 +1372,7 @@ module Handler = struct
     | Min_w_auto -> "min-w-auto"
     | Min_w_spacing n -> "min-w-" ^ class_float (n *. 4.)
     | Min_w_arbitrary (raw, _) -> "min-w-[" ^ raw ^ "]"
-    | Min_w_xl -> "min-w-xl"
+    | Min_w_container name -> "min-w-" ^ name
     (* Max-width utilities *)
     | Max_w_none -> "max-w-none"
     | Max_w_xs -> "max-w-xs"
@@ -1427,7 +1447,7 @@ module Handler = struct
     | Inline_min -> "inline-min"
     | Inline_screen -> "inline-screen"
     | Inline_svw -> "inline-svw"
-    | Inline_xl -> "inline-xl"
+    | Inline_container name -> "inline-" ^ name
     (* min-inline-size utilities *)
     | Min_inline_spacing n -> "min-inline-" ^ class_float (n *. 4.)
     | Min_inline_arbitrary (raw, _) -> "min-inline-[" ^ raw ^ "]"
@@ -1436,7 +1456,7 @@ module Handler = struct
     | Min_inline_full -> "min-inline-full"
     | Min_inline_max -> "min-inline-max"
     | Min_inline_min -> "min-inline-min"
-    | Min_inline_xl -> "min-inline-xl"
+    | Min_inline_container name -> "min-inline-" ^ name
     (* max-inline-size utilities *)
     | Max_inline_spacing n -> "max-inline-" ^ class_float (n *. 4.)
     | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
@@ -1444,7 +1464,7 @@ module Handler = struct
     | Max_inline_full -> "max-inline-full"
     | Max_inline_max -> "max-inline-max"
     | Max_inline_none -> "max-inline-none"
-    | Max_inline_xl -> "max-inline-xl"
+    | Max_inline_container name -> "max-inline-" ^ name
     (* block-size utilities *)
     | Block_fraction f -> "block-" ^ f
     | Block_spacing n -> "block-" ^ class_float (n *. 4.)
