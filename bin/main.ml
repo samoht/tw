@@ -340,8 +340,9 @@ let resolve_theme_fn ~theme css =
   go 0;
   Buffer.contents buf
 
-let apply_variants ~theme css =
+let apply_variants ?(extra_defs = []) ~theme css =
   let css, defs = take_custom_variants css in
+  let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. *)
   let defs = defs @ builtin_variants in
   resolve_theme_fn ~theme
@@ -351,7 +352,7 @@ let apply_variants ~theme css =
    against its importer, which is what the inliner looks up. Mirrors cascade's
    own filesystem loader. A package import has no file and stays unresolved on
    purpose, so the splice below can find it. *)
-let preload_imports ~base_url stylesheet =
+let preload_imports ~transform ~base_url stylesheet =
   let imports = Hashtbl.create 16 in
   let rec scan_under base sheet =
     let loader = Css.Context.loader ~base_url:base () in
@@ -369,6 +370,7 @@ let preload_imports ~base_url stylesheet =
           match read_file resolved with
           | exception Sys_error _ -> ()
           | content -> (
+              let content = transform content in
               Hashtbl.add imports resolved content;
               match Css.of_string content with
               | Ok inner -> scan_under resolved inner.Css.stylesheet
@@ -390,7 +392,19 @@ let splice_into_entrypoint ~theme ~path generated =
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->
-          let imports = preload_imports ~base_url:path p.Css.stylesheet in
+          (* An imported file uses the same Tailwind syntax, and its [@variant]s
+             may be declared in the entrypoint, so it gets the same treatment
+             with those declarations in scope. *)
+          let _, entry_defs =
+            take_custom_variants (strip_tailwind_import_options raw)
+          in
+          let transform body =
+            apply_variants ~extra_defs:entry_defs ~theme
+              (strip_tailwind_import_options body)
+          in
+          let imports =
+            preload_imports ~transform ~base_url:path p.Css.stylesheet
+          in
           let loader = Css.Context.loader ~base_url:path ~imports () in
           (* Tailwind flattens the author's nesting, including what the expanded
              variants introduce, so match that shape. *)
