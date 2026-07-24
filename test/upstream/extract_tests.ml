@@ -8,18 +8,15 @@
 
     {2 Generating the fixtures}
 
-    The parity target is Tailwind CSS {b v4.3.1} (the version pinned in
-    [package.json] and enforced by [Tailwind_gen.required_version]). The
-    committed [utilities.txt] and [variants.txt] were generated from the v4.3.1
-    line of the upstream test suite -- specifically commit [5e9f66e4]
-    ([v4.3.1-7]); a few cases (e.g. auto-cols) differ between the bare [v4.3.1]
-    tag and that commit, so regenerate from the same ref to avoid spurious
-    diffs. To regenerate:
+    The parity target is Tailwind CSS {b v4.3.3} (the version enforced by
+    [Tailwind_gen.required_version]). The committed [utilities.txt] and
+    [variants.txt] were generated from the [v4.3.3] tag of the upstream test
+    suite. To regenerate:
 
     {v
-    # Clone tailwindcss (or use an existing clone) at the v4.3.1 line
+    # Clone tailwindcss (or use an existing clone) at the v4.3.3 tag
     git clone https://github.com/tailwindlabs/tailwindcss.git /tmp/tailwindcss
-    cd /tmp/tailwindcss && git checkout v4.3.1
+    cd /tmp/tailwindcss && git checkout v4.3.3
 
     # Extract both fixtures
     dune exec test/upstream/extract_tests.exe -- \
