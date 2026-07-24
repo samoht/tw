@@ -544,12 +544,40 @@ let print_stats ~quiet ~candidate_count ~known_count =
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
-let parse_known_candidates ?(theme = Tw.Scheme.default) candidates =
+(* [prose] comes from @tailwindcss/typography, which Tailwind only applies when
+   the entrypoint asks for it. A project that styles [.prose] itself, as
+   tailwindcss.com does, gets the plugin's whole stylesheet on top otherwise. *)
+let declares_plugin css name =
+  match css with
+  | None -> false
+  | Some css ->
+      let needle = "@tailwindcss/" ^ name in
+      let n = String.length needle and l = String.length css in
+      let rec go i =
+        i + n <= l && (String.sub css i n = needle || go (i + 1))
+      in
+      go 0
+
+let is_prose_class cls =
+  cls = "prose"
+  || String.starts_with ~prefix:"prose-" cls
+  ||
+  (* variants keep the utility at the end: [lg:prose-sm] *)
+  match String.rindex_opt cls ':' with
+  | Some i ->
+      let bare = String.sub cls (i + 1) (String.length cls - i - 1) in
+      bare = "prose" || String.starts_with ~prefix:"prose-" bare
+  | None -> false
+
+let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
+  let typography = declares_plugin input_css "typography" in
   List.filter_map
     (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok style -> Some (cls, style)
-      | Error _ -> None)
+      if (not typography) && is_prose_class cls then None
+      else
+        match Tw.of_string ~theme cls with
+        | Ok style -> Some (cls, style)
+        | Error _ -> None)
     candidates
 
 let diff_files paths ~(opts : gen_opts) =
@@ -564,7 +592,9 @@ let diff_files paths ~(opts : gen_opts) =
         ~forms:true ?input_css:opts.input_css all_classes
     in
     let tw_styles =
-      parse_known_candidates ~theme:opts.theme all_classes |> List.map snd
+      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
+        all_classes
+      |> List.map snd
     in
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
@@ -585,7 +615,7 @@ let native_files paths flag ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
-    let known = parse_known_candidates all_classes in
+    let known = parse_known_candidates ?input_css:opts.input_css all_classes in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~base:include_base tw_styles in
     let stylesheet =
