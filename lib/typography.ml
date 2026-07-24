@@ -429,6 +429,9 @@ module Typography_early = struct
     in
     find 0 0
 
+  (* Tailwind's [--spacing(N)] inside an arbitrary value reads the spacing
+     scale: [text-[--spacing(2)]] is [font-size: calc(var(--spacing) * 2)]. *)
+
   (** Does [inner] look like something we can emit as a font-size? Accepts typed
       prefix (length/percentage/absolute-size/relative-size), font-size keyword
       (medium, xxx-large, larger, ...), length with unit (16px, 1rem, 1.5em,
@@ -436,6 +439,13 @@ module Typography_early = struct
       recognised keywords -- e.g. a bare "1A202C" is not a valid font-size: a
       length must carry a unit and a hex color must start with "#" (CSS Color
       §5.4.6). *)
+  let parse_spacing_call s =
+    let prefix = "--spacing(" in
+    let pl = String.length prefix and n = String.length s in
+    if n > pl && String.sub s 0 pl = prefix && s.[n - 1] = ')' then
+      float_of_string_opt (String.sub s pl (n - pl - 1))
+    else Stdlib.Option.None
+
   let is_valid_bracket_font_size (inner : string) : bool =
     match split_type_prefix inner with
     | Some (prefix, _)
@@ -453,7 +463,8 @@ module Typography_early = struct
                 len > 6
                 && String.sub inner 0 6 = "clamp("
                 && inner.[len - 1] = ')'
-                || Parse.is_var inner))
+                || Parse.is_var inner
+                || parse_spacing_call inner <> Stdlib.Option.None))
 
   (** Check if bracket content looks like a color (should go to color handler).
   *)
@@ -1063,31 +1074,36 @@ module Typography_early = struct
       Caller must have already passed [inner] through
       [is_valid_bracket_font_size]. *)
   let bracket_font_size_decls inner =
-    match split_type_prefix inner with
-    | Stdlib.Option.Some (prefix, value)
-      when prefix = "absolute-size" || prefix = "relative-size"
-           || prefix = "length" || prefix = "percentage" ->
-        if Parse.is_var value then
-          let bare = Parse.extract_var_name value in
-          [ font_size (Css.Var (Var.bracket bare)) ]
-        else [ font_size (Css.Var (Var.bracket value)) ]
-    | _ -> (
-        match font_size_keyword inner with
-        | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
-        | Stdlib.Option.None -> (
-            match try_parse_length_value inner with
-            | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
+    match parse_spacing_call inner with
+    | Stdlib.Option.Some n ->
+        let decl, len = Theme.spacing_calc_float n in
+        [ decl; font_size len ]
+    | Stdlib.Option.None -> (
+        match split_type_prefix inner with
+        | Stdlib.Option.Some (prefix, value)
+          when prefix = "absolute-size" || prefix = "relative-size"
+               || prefix = "length" || prefix = "percentage" ->
+            if Parse.is_var value then
+              let bare = Parse.extract_var_name value in
+              [ font_size (Css.Var (Var.bracket bare)) ]
+            else [ font_size (Css.Var (Var.bracket value)) ]
+        | _ -> (
+            match font_size_keyword inner with
+            | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
             | Stdlib.Option.None -> (
-                match Css.parse_length inner with
+                match try_parse_length_value inner with
                 | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
-                | Stdlib.Option.None ->
-                    if Parse.is_var inner then
-                      let bare = Parse.extract_var_name inner in
-                      [ font_size (Css.Var (Var.bracket bare)) ]
-                    else
-                      invalid_arg
-                        ("bracket_font_size_decls: not a valid font-size \
-                          value: " ^ inner))))
+                | Stdlib.Option.None -> (
+                    match Css.parse_length inner with
+                    | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
+                    | Stdlib.Option.None ->
+                        if Parse.is_var inner then
+                          let bare = Parse.extract_var_name inner in
+                          [ font_size (Css.Var (Var.bracket bare)) ]
+                        else
+                          invalid_arg
+                            ("bracket_font_size_decls: not a valid font-size \
+                              value: " ^ inner)))))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
