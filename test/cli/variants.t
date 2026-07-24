@@ -40,3 +40,22 @@ rejects the declaration and it drops out of the output entirely.
   > EOF
   $ tw --minify --input-css sp.css index.html | grep -c '\.gap{margin-left:calc(var(--spacing)\*6)}'
   1
+
+[theme(--token)] inlines the token's value; a media query condition could not
+hold a var() anyway.
+
+  $ cat > th.css <<EOF
+  > @import "tailwindcss";
+  > @media (width <= theme(--breakpoint-sm)) { .b { color: red } }
+  > EOF
+  $ tw --minify --input-css th.css index.html | grep -c '@media(width<=40rem){\.b{color:red}}'
+  1
+
+An unknown token is left alone rather than guessed at:
+
+  $ cat > un.css <<EOF
+  > @import "tailwindcss";
+  > .u { color: theme(--nope-not-a-token) }
+  > EOF
+  $ tw --minify --input-css un.css index.html | grep -c 'theme(--nope-not-a-token)'
+  1
