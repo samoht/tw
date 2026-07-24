@@ -246,6 +246,14 @@ module Handler = struct
         | _ -> None)
     | _ -> None
 
+  (* The container scale, whose digit-led names ([2xl], [3xs])
+     [is_named_spacing] rejects. *)
+  let is_container_size = function
+    | "3xs" | "2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl"
+    | "5xl" | "6xl" | "7xl" ->
+        true
+    | _ -> false
+
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -295,7 +303,11 @@ module Handler = struct
             match parse_fraction value with
             | Some (n, m) -> Ok (Basis_fraction (n, m))
             | None ->
-                if Spacing.is_named_spacing value then Ok (Basis_named value)
+                (* A container-scale name may lead with a digit ([2xl], [3xs]),
+                   which [is_named_spacing] rejects; [basis] emits
+                   [var(--container-<name>)] for the whole scale. *)
+                if Spacing.is_named_spacing value || is_container_size value
+                then Ok (Basis_named value)
                 else err_not_utility))
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
