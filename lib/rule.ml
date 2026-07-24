@@ -814,9 +814,15 @@ let normalize_supports_condition condition_str =
   else if String.contains cond ':' then
     (* Property: value → wrap in parens *)
     "(" ^ cond ^ ")"
-  else
+  else if String.contains cond '(' then
     (* Function call like font-format(opentype) or var(--test) *)
     cond
+  else
+    (* Bare property name: backdrop-filter -> (backdrop-filter: var(--tw)), the
+       same expansion as the bare custom property above. A lone identifier is
+       not a condition the CSS grammar has a production for, so leaving it
+       raised a parse error out of the scanner. *)
+    "(" ^ cond ^ ": var(--tw))"
 
 (** Handle [@supports] modifier: builds modified class name, updates selector,
     normalizes condition, and emits a supports query rule. *)
