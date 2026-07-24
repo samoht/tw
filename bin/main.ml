@@ -340,13 +340,167 @@ let resolve_theme_fn ~theme css =
   go 0;
   Buffer.contents buf
 
+(* Split a selector on its top-level commas, so each part can be rewritten on
+   its own. A comma inside [:where(...)] or an attribute test is not a
+   separator. *)
+let selector_parts s =
+  let len = String.length s in
+  let parts = ref [] and start = ref 0 in
+  let rec go i depth =
+    if i >= len then parts := String.sub s !start (len - !start) :: !parts
+    else
+      match s.[i] with
+      | '\\' -> go (i + 2) depth
+      | '(' | '[' -> go (i + 1) (depth + 1)
+      | ')' | ']' -> go (i + 1) (depth - 1)
+      | ',' when depth = 0 ->
+          parts := String.sub s !start (i - !start) :: !parts;
+          start := i + 1;
+          go (i + 1) depth
+      | _ -> go (i + 1) depth
+  in
+  go 0 0;
+  List.rev !parts
+
+(* [to_css] heads a utility's selector with the utility's own class, and a
+   variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
+   Swapping that class for [&] turns the rule into a nested one the author's
+   selector can host, so a variant survives [@apply] without being reimplemented
+   here. *)
+let nest_on_ampersand sel =
+  (* the class token runs to the first delimiter a backslash does not escape, so
+     [dark\:fill-gray-400] stays one token *)
+  let rec class_end part i =
+    if i >= String.length part then i
+    else
+      match part.[i] with
+      | '\\' -> class_end part (i + 2)
+      | ' ' | '.' | '#' | ':' | '[' | '>' | '+' | '~' | ')' | '*' -> i
+      | _ -> class_end part (i + 1)
+  in
+  let rewrite part =
+    let part = String.trim part in
+    let n = String.length part in
+    if n = 0 || part.[0] <> '.' then part
+    else
+      let stop = min (class_end part 1) n in
+      String.concat "" [ "&"; String.sub part stop (n - stop) ]
+  in
+  Cascade.Selector.to_string ~minify:true sel
+  |> selector_parts |> List.map rewrite |> String.concat ","
+  |> Cascade.Selector.of_string
+
+(* Peel the leading variant prefixes a project declared with [@custom-variant].
+   They cannot go through [Tw.of_string], which only knows the built-in
+   variants, so they are re-emitted as [@variant] blocks for [expand_variants]
+   to expand. A [:] inside [[&>*]] is not a separator. *)
+let peel_declared_variants defs name =
+  let len = String.length name in
+  let rec seg_end i depth =
+    if i >= len then i
+    else
+      match name.[i] with
+      | '[' | '(' -> seg_end (i + 1) (depth + 1)
+      | ']' | ')' -> seg_end (i + 1) (depth - 1)
+      | ':' when depth = 0 -> i
+      | _ -> seg_end (i + 1) depth
+  in
+  let rec go i acc =
+    let stop = seg_end i 0 in
+    if stop >= len then (List.rev acc, String.sub name i (len - i))
+    else
+      let seg = String.sub name i (stop - i) in
+      if List.mem_assoc seg defs then go (stop + 1) (seg :: acc)
+      else (List.rev acc, String.sub name i (len - i))
+  in
+  go 0 []
+
+let nested_utilities ~theme names =
+  let of_name n =
+    match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
+  in
+  match List.filter_map of_name names with
+  | [] -> ""
+  | styles ->
+      let sheet =
+        Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
+      in
+      (* [to_css] also emits the theme block the utilities read from. It belongs
+         at the top of the sheet, not inside the rule that applied them. *)
+      let from_utility stmt =
+        match Css.statement_selector stmt with
+        | None -> true
+        | Some sel ->
+            let s = Cascade.Selector.to_string ~minify:true sel in
+            String.length s > 0 && s.[0] = '.'
+      in
+      Css.statements sheet |> List.filter from_utility
+      |> Css.map (fun sel decls ->
+          Css.rule ~selector:(nest_on_ampersand sel) decls)
+      |> Css.v |> Css.to_string ~minify:true
+
+(* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
+   not CSS, so the at-rule drops out and takes the whole rule with it once the
+   rule is left empty. *)
+let expand_apply ~theme ~defs css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let ident c =
+    (c >= 'a' && c <= 'z')
+    || (c >= 'A' && c <= 'Z')
+    || (c >= '0' && c <= '9')
+    || c = '-' || c = '_'
+  in
+  let rec go i =
+    if i >= len then ()
+    else if
+      i + 6 <= len
+      && String.sub css i 6 = "@apply"
+      && (i = 0 || not (ident css.[i - 1]))
+    then begin
+      let stop = ref (i + 6) in
+      while !stop < len && css.[!stop] <> ';' && css.[!stop] <> '}' do
+        incr stop
+      done;
+      let names =
+        String.sub css (i + 6) (!stop - i - 6)
+        |> String.split_on_char ' '
+        |> List.concat_map (String.split_on_char '\n')
+        |> List.map String.trim
+        |> List.filter (fun n -> n <> "")
+      in
+      let emit name =
+        let variants, bare = peel_declared_variants defs name in
+        let body = nested_utilities ~theme [ bare ] in
+        if body = "" then ()
+        else begin
+          List.iter
+            (fun v ->
+              Buffer.add_string buf (String.concat "" [ "@variant "; v; "{" ]))
+            variants;
+          Buffer.add_string buf body;
+          List.iter (fun _ -> Buffer.add_char buf '}') variants
+        end
+      in
+      List.iter emit names;
+      go (if !stop < len && css.[!stop] = ';' then !stop + 1 else !stop)
+    end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
 let apply_variants ?(extra_defs = []) ~theme css =
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. *)
   let defs = defs @ builtin_variants in
   resolve_theme_fn ~theme
-    (expand_spacing_fn (expand_variants ~depth:0 defs css))
+    (expand_spacing_fn
+       (expand_variants ~depth:0 defs (expand_apply ~theme ~defs css)))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
