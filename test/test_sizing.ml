@@ -80,6 +80,15 @@ let test_max_sizes () =
   check "max-w-xl";
   check "max-w-2xl";
   check "max-w-7xl";
+  check "max-w-2xs";
+  check "max-w-3xs";
+  check "max-w-dvw";
+  check "max-w-svh";
+  check "max-w-px";
+  check "max-w-screen";
+  check "min-w-dvw";
+  check "min-w-px";
+  check "min-w-screen";
   check "max-w-full";
   check "max-w-screen-sm";
   check "max-h-4";
@@ -88,6 +97,9 @@ let test_max_sizes () =
 
 let test_square_sizes () =
   check "size-0";
+  check "size-dvw";
+  check "size-svh";
+  check "size-px";
   check "size-4";
   check "size-full";
   check "size-1/2"
