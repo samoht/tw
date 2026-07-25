@@ -117,17 +117,10 @@ module Handler = struct
     (* Outline style utilities (dashed, dotted, etc.) are in
        Outline_style_handler *)
     | Outline_hidden
-    | Outline_offset_0
-    | Outline_offset_1
-    | Outline_offset_2
-    | Outline_offset_4
-    | Outline_offset_8
+    | Outline_offset of int
     | Outline_offset_var of string (* outline-offset-[var(--value)] *)
     | Outline_offset_arbitrary of string (* outline-offset-[3px] *)
-    | Neg_outline_offset_1
-    | Neg_outline_offset_2
-    | Neg_outline_offset_4
-    | Neg_outline_offset_8
+    | Neg_outline_offset of int
     | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
 
   type Utility.base += Self of t
@@ -140,10 +133,8 @@ module Handler = struct
      28. *)
   let priority = function
     | Outline | Outline_0 | Outline_width _ | Outline_width_bracket _
-    | Outline_width_var _ | Outline_hidden | Outline_offset_0 | Outline_offset_1
-    | Outline_offset_2 | Outline_offset_4 | Outline_offset_8
-    | Outline_offset_var _ | Outline_offset_arbitrary _ | Neg_outline_offset_1
-    | Neg_outline_offset_2 | Neg_outline_offset_4 | Neg_outline_offset_8
+    | Outline_width_var _ | Outline_hidden | Outline_offset _
+    | Outline_offset_var _ | Outline_offset_arbitrary _ | Neg_outline_offset _
     | Neg_outline_offset_var _ ->
         28
     | _ -> 19
@@ -606,12 +597,8 @@ module Handler = struct
     in
     style ~rules:(Some [ media_rule ]) [ decl; Css.outline_style Css.None ]
 
-  (* Outline offset *)
-  let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]
-  let outline_offset_1 = style [ Css.outline_offset (Px 1.) ]
-  let outline_offset_2 = style [ Css.outline_offset (Px 2.) ]
-  let outline_offset_4 = style [ Css.outline_offset (Px 4.) ]
-  let outline_offset_8 = style [ Css.outline_offset (Px 8.) ]
+  (* Outline offset accepts any bare integer, like the border widths. *)
+  let outline_offset_px n = style [ Css.outline_offset (Px (float_of_int n)) ]
 
   (* Negative outline offset - use calc(Npx * -1) format *)
   let neg_outline_offset n =
@@ -619,11 +606,6 @@ module Handler = struct
       Calc (Expr (Val (Px (float_of_int n)), Mul, Num (-1.)))
     in
     style [ Css.outline_offset calc ]
-
-  let neg_outline_offset_1 = neg_outline_offset 1
-  let neg_outline_offset_2 = neg_outline_offset 2
-  let neg_outline_offset_4 = neg_outline_offset 4
-  let neg_outline_offset_8 = neg_outline_offset 8
 
   let outline_offset_var_style v =
     let bare_name = Parse.extract_var_name v in
@@ -701,20 +683,13 @@ module Handler = struct
     | Outline_width_bracket v -> outline_width_bracket_style v
     | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
-    | Outline_offset_0 -> outline_offset_0
-    | Outline_offset_1 -> outline_offset_1
-    | Outline_offset_2 -> outline_offset_2
-    | Outline_offset_4 -> outline_offset_4
-    | Outline_offset_8 -> outline_offset_8
+    | Outline_offset n -> outline_offset_px n
     | Outline_offset_var v -> outline_offset_var_style v
     | Outline_offset_arbitrary v -> (
         match parse_length v with
         | Some l -> style [ Css.outline_offset l ]
         | None -> style [ Css.outline_offset (Px 0.) ])
-    | Neg_outline_offset_1 -> neg_outline_offset_1
-    | Neg_outline_offset_2 -> neg_outline_offset_2
-    | Neg_outline_offset_4 -> neg_outline_offset_4
-    | Neg_outline_offset_8 -> neg_outline_offset_8
+    | Neg_outline_offset n -> neg_outline_offset n
     | Neg_outline_offset_var v -> neg_outline_offset_var_style v
 
   let err_not_utility = Error (`Msg "Not a border utility")
@@ -836,17 +811,10 @@ module Handler = struct
     (* Outline styles come after colors (which are in Color handler at
        priority 23 > borders priority 19, so they naturally sort after) *)
     (* Outline offset — negatives before positives *)
-    | Neg_outline_offset_1 -> 2200
-    | Neg_outline_offset_2 -> 2201
-    | Neg_outline_offset_4 -> 2202
-    | Neg_outline_offset_8 -> 2203
-    | Neg_outline_offset_var _ -> 2204
-    | Outline_offset_0 -> 2210
-    | Outline_offset_1 -> 2211
-    | Outline_offset_2 -> 2212
-    | Outline_offset_4 -> 2213
-    | Outline_offset_8 -> 2214
-    | Outline_offset_var _ -> 2215
+    | Neg_outline_offset n -> 2200 + n
+    | Neg_outline_offset_var _ -> 2209
+    | Outline_offset n -> 2210 + n
+    | Outline_offset_var _ -> 2299
     | Outline_offset_arbitrary _ -> 2215
 
   let of_class _theme class_name =
@@ -966,11 +934,10 @@ module Handler = struct
         else if parse_length inner <> None then
           Ok (Outline_offset_arbitrary inner)
         else err_not_utility
-    | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
-    | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
-    | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
-    | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
-    | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
+    | [ "outline"; "offset"; n ] -> (
+        match int_of_string_opt n with
+        | Some i when i >= 0 -> Ok (Outline_offset i)
+        | _ -> err_not_utility)
     (* Negative outline offset: -outline-offset-N starts with empty string *)
     | "" :: "outline" :: "offset" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
@@ -979,11 +946,8 @@ module Handler = struct
           if Parse.is_var inner then Ok (Neg_outline_offset_var inner)
           else err_not_utility
         else
-          match value with
-          | "1" -> Ok Neg_outline_offset_1
-          | "2" -> Ok Neg_outline_offset_2
-          | "4" -> Ok Neg_outline_offset_4
-          | "8" -> Ok Neg_outline_offset_8
+          match int_of_string_opt value with
+          | Some i when i > 0 -> Ok (Neg_outline_offset i)
           | _ -> err_not_utility)
     (* ring* handled in Effects *)
     | _ -> err_not_utility
@@ -1073,17 +1037,10 @@ module Handler = struct
     | Outline_width_bracket v -> "outline-[" ^ v ^ "]"
     | Outline_width_var v -> "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
-    | Outline_offset_0 -> "outline-offset-0"
-    | Outline_offset_1 -> "outline-offset-1"
-    | Outline_offset_2 -> "outline-offset-2"
-    | Outline_offset_4 -> "outline-offset-4"
-    | Outline_offset_8 -> "outline-offset-8"
+    | Outline_offset n -> "outline-offset-" ^ string_of_int n
     | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"
     | Outline_offset_arbitrary v -> "outline-offset-[" ^ v ^ "]"
-    | Neg_outline_offset_1 -> "-outline-offset-1"
-    | Neg_outline_offset_2 -> "-outline-offset-2"
-    | Neg_outline_offset_4 -> "-outline-offset-4"
-    | Neg_outline_offset_8 -> "-outline-offset-8"
+    | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
     | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
 end
 
@@ -1412,8 +1369,8 @@ let rounded_es_full = utility (Rounded (Rp_es, Rsz_full))
 
 let outline = utility Outline
 let outline_none = outline_style_utility Outline_style_handler.None_
-let outline_offset_0 = utility Outline_offset_0
-let outline_offset_1 = utility Outline_offset_1
-let outline_offset_2 = utility Outline_offset_2
-let outline_offset_4 = utility Outline_offset_4
-let outline_offset_8 = utility Outline_offset_8
+let outline_offset_0 = utility (Outline_offset 0)
+let outline_offset_1 = utility (Outline_offset 1)
+let outline_offset_2 = utility (Outline_offset 2)
+let outline_offset_4 = utility (Outline_offset 4)
+let outline_offset_8 = utility (Outline_offset 8)
