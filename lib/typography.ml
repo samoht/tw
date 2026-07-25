@@ -1417,6 +1417,9 @@ module Typography_late = struct
     | Stacked_fractions
     | (* Indent and line clamp *)
       Indent of float
+    | Indent_neg of float
+    | Indent_px
+    | Indent_neg_px
     | Indent_arbitrary of string
     | Indent_neg_arbitrary of string
     | Line_clamp of int
@@ -1673,6 +1676,8 @@ module Typography_late = struct
     | [ "tabular"; "nums" ] -> Ok Tabular_nums
     | [ "diagonal"; "fractions" ] -> Ok Diagonal_fractions
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
+    | [ "indent"; "px" ] -> Ok Indent_px
+    | [ ""; "indent"; "px" ] -> Ok Indent_neg_px
     | [ "indent"; n ] when Parse.is_bracket_value n ->
         Ok (Indent_arbitrary (Parse.bracket_inner n))
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
@@ -1680,6 +1685,10 @@ module Typography_late = struct
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
         | Ok f -> Ok (Indent f)
+        | Error _ -> err_not_utility)
+    | [ ""; "indent"; n ] -> (
+        match Parse.spacing_value ~name:"indent" n with
+        | Ok f -> Ok (Indent_neg f)
         | Error _ -> err_not_utility)
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
@@ -1855,6 +1864,9 @@ module Typography_late = struct
     | Diagonal_fractions -> "diagonal-fractions"
     | Stacked_fractions -> "stacked-fractions"
     | Indent n -> "indent-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
+    | Indent_neg n -> "-indent-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
+    | Indent_px -> "indent-px"
+    | Indent_neg_px -> "-indent-px"
     | Indent_arbitrary s -> "indent-[" ^ s ^ "]"
     | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
@@ -2010,7 +2022,10 @@ module Typography_late = struct
     | Tabular_nums -> 9707
     | Normal_nums -> 9708
     (* Indent and line clamp *)
+    | Indent_neg n -> 9700 + int_of_float (n *. 10.)
+    | Indent_neg_px -> 9799
     | Indent n -> 9800 + int_of_float (n *. 10.)
+    | Indent_px -> 9801
     | Indent_arbitrary _ -> 9800
     | Indent_neg_arbitrary _ -> 9800
     | Line_clamp n -> 10000 + n
@@ -2868,6 +2883,9 @@ module Typography_late = struct
     | Diagonal_fractions -> diagonal_fractions
     | Stacked_fractions -> stacked_fractions
     | Indent n -> indent n
+    | Indent_neg n -> indent (-.n)
+    | Indent_px -> style [ text_indent_length (Length (Px 1.)) ]
+    | Indent_neg_px -> style [ text_indent_length (Length (Px (-1.))) ]
     | Indent_arbitrary s -> indent_arbitrary s
     | Indent_neg_arbitrary s -> indent_neg_arbitrary s
     | Line_clamp n -> line_clamp n
