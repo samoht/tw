@@ -22,6 +22,10 @@ type color =
   | Zinc
   | Neutral
   | Stone
+  | Mauve
+  | Olive
+  | Mist
+  | Taupe
   | Red
   | Orange
   | Amber
@@ -437,6 +441,66 @@ module Tailwind = struct
       (950, { l = 14.7; c = 0.004; h = 49.25 });
     ]
 
+  let mauve =
+    [
+      (50, { l = 98.5; c = 0.0; h = 0.0 });
+      (100, { l = 96.0; c = 0.003; h = 325.6 });
+      (200, { l = 92.2; c = 0.005; h = 325.62 });
+      (300, { l = 86.5; c = 0.012; h = 325.68 });
+      (400, { l = 71.1; c = 0.019; h = 323.02 });
+      (500, { l = 54.2; c = 0.034; h = 322.5 });
+      (600, { l = 43.5; c = 0.029; h = 321.78 });
+      (700, { l = 36.4; c = 0.029; h = 323.89 });
+      (800, { l = 26.3; c = 0.024; h = 320.12 });
+      (900, { l = 21.2; c = 0.019; h = 322.12 });
+      (950, { l = 14.5; c = 0.008; h = 326.0 });
+    ]
+
+  let olive =
+    [
+      (50, { l = 98.8; c = 0.003; h = 106.5 });
+      (100, { l = 96.6; c = 0.005; h = 106.5 });
+      (200, { l = 93.0; c = 0.007; h = 106.5 });
+      (300, { l = 88.0; c = 0.011; h = 106.6 });
+      (400, { l = 73.7; c = 0.021; h = 106.9 });
+      (500, { l = 58.0; c = 0.031; h = 107.3 });
+      (600, { l = 46.6; c = 0.025; h = 107.3 });
+      (700, { l = 39.4; c = 0.023; h = 107.4 });
+      (800, { l = 28.6; c = 0.016; h = 107.4 });
+      (900, { l = 22.8; c = 0.013; h = 107.4 });
+      (950, { l = 15.3; c = 0.006; h = 107.1 });
+    ]
+
+  let mist =
+    [
+      (50, { l = 98.7; c = 0.002; h = 197.1 });
+      (100, { l = 96.3; c = 0.002; h = 197.1 });
+      (200, { l = 92.5; c = 0.005; h = 214.3 });
+      (300, { l = 87.2; c = 0.007; h = 219.6 });
+      (400, { l = 72.3; c = 0.014; h = 214.4 });
+      (500, { l = 56.0; c = 0.021; h = 213.5 });
+      (600, { l = 45.0; c = 0.017; h = 213.2 });
+      (700, { l = 37.8; c = 0.015; h = 216.0 });
+      (800, { l = 27.5; c = 0.011; h = 216.9 });
+      (900, { l = 21.8; c = 0.008; h = 223.9 });
+      (950, { l = 14.8; c = 0.004; h = 228.8 });
+    ]
+
+  let taupe =
+    [
+      (50, { l = 98.6; c = 0.002; h = 67.8 });
+      (100, { l = 96.0; c = 0.002; h = 17.2 });
+      (200, { l = 92.2; c = 0.005; h = 34.3 });
+      (300, { l = 86.8; c = 0.007; h = 39.5 });
+      (400, { l = 71.4; c = 0.014; h = 41.2 });
+      (500, { l = 54.7; c = 0.021; h = 43.1 });
+      (600, { l = 43.8; c = 0.017; h = 39.3 });
+      (700, { l = 36.7; c = 0.016; h = 35.7 });
+      (800, { l = 26.8; c = 0.011; h = 36.5 });
+      (900, { l = 21.4; c = 0.009; h = 43.1 });
+      (950, { l = 14.7; c = 0.004; h = 49.3 });
+    ]
+
   let orange =
     [
       (50, { l = 98.0; c = 0.016; h = 73.684 });
@@ -667,6 +731,10 @@ module Tailwind = struct
       match String.lowercase_ascii color_name with
       | "gray" -> gray
       | "slate" -> slate
+      | "mauve" -> mauve
+      | "olive" -> olive
+      | "mist" -> mist
+      | "taupe" -> taupe
       | "zinc" -> zinc
       | "neutral" -> neutral
       | "stone" -> stone
@@ -776,6 +844,10 @@ let black = Black
 let white = White
 let gray = Gray
 let slate = Slate
+let mauve = Mauve
+let olive = Olive
+let mist = Mist
+let taupe = Taupe
 let zinc = Zinc
 let neutral = Neutral
 let stone = Stone
@@ -810,6 +882,10 @@ let of_string_exn = function
   | "white" -> White
   | "gray" -> Gray
   | "slate" -> Slate
+  | "mauve" -> Mauve
+  | "olive" -> Olive
+  | "mist" -> Mist
+  | "taupe" -> Taupe
   | "zinc" -> Zinc
   | "neutral" -> Neutral
   | "stone" -> Stone
@@ -837,6 +913,10 @@ let of_string = function
   | "white" -> Ok White
   | "gray" -> Ok Gray
   | "slate" -> Ok Slate
+  | "mauve" -> Ok Mauve
+  | "olive" -> Ok Olive
+  | "mist" -> Ok Mist
+  | "taupe" -> Ok Taupe
   | "zinc" -> Ok Zinc
   | "neutral" -> Ok Neutral
   | "stone" -> Ok Stone
@@ -934,6 +1014,10 @@ let to_oklch color shade =
         | Zinc -> "zinc"
         | Neutral -> "neutral"
         | Stone -> "stone"
+        | Mauve -> "mauve"
+        | Olive -> "olive"
+        | Mist -> "mist"
+        | Taupe -> "taupe"
         | Red -> "red"
         | Orange -> "orange"
         | Amber -> "amber"
@@ -978,6 +1062,10 @@ let to_oklch_css color shade =
         | Zinc -> "zinc"
         | Neutral -> "neutral"
         | Stone -> "stone"
+        | Mauve -> "mauve"
+        | Olive -> "olive"
+        | Mist -> "mist"
+        | Taupe -> "taupe"
         | Red -> "red"
         | Orange -> "orange"
         | Amber -> "amber"
@@ -1033,6 +1121,10 @@ let palette_nodes =
          (Zinc, Tailwind.zinc);
          (Neutral, Tailwind.neutral);
          (Stone, Tailwind.stone);
+         (Mauve, Tailwind.mauve);
+         (Olive, Tailwind.olive);
+         (Mist, Tailwind.mist);
+         (Taupe, Tailwind.taupe);
          (Red, Tailwind.red);
          (Orange, Tailwind.orange);
          (Amber, Tailwind.amber);
@@ -1084,6 +1176,10 @@ let named_color_name = function
   | Zinc -> "zinc"
   | Neutral -> "neutral"
   | Stone -> "stone"
+  | Mauve -> "mauve"
+  | Olive -> "olive"
+  | Mist -> "mist"
+  | Taupe -> "taupe"
   | Red -> "red"
   | Orange -> "orange"
   | Amber -> "amber"
@@ -1400,6 +1496,10 @@ let color_to_string (c : color) : string =
   | Zinc -> "zinc"
   | Neutral -> "neutral"
   | Stone -> "stone"
+  | Mauve -> "mauve"
+  | Olive -> "olive"
+  | Mist -> "mist"
+  | Taupe -> "taupe"
   | Red -> "red"
   | Orange -> "orange"
   | Amber -> "amber"

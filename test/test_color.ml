@@ -242,6 +242,25 @@ let test_achromatic_none_hue () =
   Alcotest.check Alcotest.bool "neutral-500 did not fold to hex" false
     (contains "#737373")
 
+(* v4.3.3 added four colour families to the default theme (mauve/mist/olive/
+   taupe). Each utility reads var(--color-<family>-<shade>). *)
+let test_v433_color_families () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " uses " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-mauve-500" "var(--color-mauve-500)";
+  has "text-olive-700" "var(--color-olive-700)";
+  has "border-mist-200" "var(--color-mist-200)";
+  has "bg-taupe-950" "var(--color-taupe-950)"
+
 let tests =
   [
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
@@ -254,6 +273,7 @@ let tests =
     ("Edge cases", `Quick, test_edge_cases);
     ("Color accuracy", `Quick, accuracy);
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
+    ("v4.3.3 colour families", `Quick, test_v433_color_families);
   ]
 
 let suite = ("color", tests)
