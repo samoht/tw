@@ -1653,8 +1653,19 @@ module Handler = struct
   (* Per-side border colour: which physical border edge a border-{side}-{color}
      utility paints. Bs_x is the logical inline axis (border-inline-color) and
      Bs_y the block axis (border-block-color); Bs_s / Bs_e are the inline start
-     / end edges (border-inline-start-color / border-inline-end-color). *)
-  type border_side = Bs_t | Bs_r | Bs_b | Bs_l | Bs_x | Bs_y | Bs_s | Bs_e
+     / end edges and Bs_bs / Bs_be the block start / end edges
+     (border-{inline,block}-{start,end}-color). *)
+  type border_side =
+    | Bs_t
+    | Bs_r
+    | Bs_b
+    | Bs_l
+    | Bs_x
+    | Bs_y
+    | Bs_s
+    | Bs_e
+    | Bs_bs
+    | Bs_be
 
   (* The colour value of a border-{side}-{color}: a named theme colour, an
      arbitrary bracket colour, or a keyword. *)
@@ -2013,7 +2024,7 @@ module Handler = struct
       when rest <> []
            &&
            match side with
-           | "t" | "r" | "b" | "l" | "x" | "y" | "s" | "e" -> true
+           | "t" | "r" | "b" | "l" | "x" | "y" | "s" | "e" | "bs" | "be" -> true
            | _ -> false -> (
         let bs =
           match side with
@@ -2024,6 +2035,8 @@ module Handler = struct
           | "y" -> Bs_y
           | "s" -> Bs_s
           | "e" -> Bs_e
+          | "bs" -> Bs_bs
+          | "be" -> Bs_be
           | _ -> Bs_l
         in
         match rest with
@@ -2273,6 +2286,8 @@ module Handler = struct
     | Bs_y -> [ (fun c -> Css.border_block_color (Css.logical_border_color c)) ]
     | Bs_s -> [ Css.border_inline_start_color ]
     | Bs_e -> [ Css.border_inline_end_color ]
+    | Bs_bs -> [ Css.border_block_start_color ]
+    | Bs_be -> [ Css.border_block_end_color ]
 
   let border_side_color_style side value =
     let sides = setters_of_side side in
@@ -3061,6 +3076,8 @@ module Handler = struct
           | Bs_y -> "y"
           | Bs_s -> "s"
           | Bs_e -> "e"
+          | Bs_bs -> "bs"
+          | Bs_be -> "be"
         in
         let v =
           match value with

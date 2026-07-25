@@ -222,7 +222,15 @@ let test_border_side_color () =
   Alcotest.(check bool)
     "border-e-red-500 uses the inline-end color" true
     (Astring.String.is_infix ~affix:"border-inline-end-color:"
-       (css "border-e-red-500"))
+       (css "border-e-red-500"));
+  Alcotest.(check bool)
+    "border-bs-red-500 uses the block-start color" true
+    (Astring.String.is_infix ~affix:"border-block-start-color:"
+       (css "border-bs-red-500"));
+  Alcotest.(check bool)
+    "border-be-red-500 uses the block-end color" true
+    (Astring.String.is_infix ~affix:"border-block-end-color:"
+       (css "border-be-red-500"))
 
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
