@@ -100,6 +100,30 @@ let named_inset_value name : Css.declaration * Css.length =
 let spacing_value ?theme n : Css.declaration * Css.length =
   Theme.spacing_calc ?theme n
 
+(* A position fraction [n/m] resolves to [n/m * 100%], folded to 6 significant
+   figures like Tailwind (mirrors [Sizing]'s fraction handling, including the
+   supported denominators). *)
+let frac_num_den frac =
+  match String.split_on_char '/' frac with
+  | [ n; m ] -> (
+      match (int_of_string_opt n, int_of_string_opt m) with
+      | Some n, Some m
+        when m > 0 && n > 0 && n < m && List.mem m [ 2; 3; 4; 5; 6; 10; 12 ] ->
+          Some (n, m)
+      | _ -> None)
+  | _ -> None
+
+let frac_valid frac = frac_num_den frac <> None
+
+let frac_pct frac =
+  match frac_num_den frac with
+  | Some (n, m) ->
+      let pct = float_of_int n /. float_of_int m *. 100. in
+      let digits = 6. -. Float.ceil (Float.log10 pct) in
+      let factor = 10. ** digits in
+      Float.round (pct *. factor) /. factor
+  | None -> 0.
+
 module Handler = struct
   open Style
   open Css
@@ -117,11 +141,11 @@ module Handler = struct
     | Inset_auto
     | Inset_full
     | Neg_inset_full
-    | Inset_3_4
+    | Inset_fraction of string
     | Inset_x_auto
     | Inset_x_full
     | Neg_inset_x_full
-    | Inset_x_3_4
+    | Inset_x_fraction of string
     | Inset_y_auto
     | Inset_y_full
     | Neg_inset_y_full
@@ -165,18 +189,17 @@ module Handler = struct
     | Neg_inset_be_full
     | Inset_be_3_4
     | Top of int
-    | Top_1_2
+    | Top_fraction of string
     | Top_auto
     | Top_full
     | Neg_top_full
-    | Top_3_4
     | Top_arbitrary of string * Css.length
     | Top_named of string
     | Right of int
     | Right_auto
     | Right_full
     | Neg_right_full
-    | Right_3_4
+    | Right_fraction of string
     | Right_arbitrary of string * Css.length
     | Right_named of string
     | Bottom of int
@@ -187,11 +210,10 @@ module Handler = struct
     | Bottom_arbitrary of string * Css.length
     | Bottom_named of string
     | Left of int
-    | Left_1_2
+    | Left_fraction of string
     | Left_auto
     | Left_full
     | Neg_left_full
-    | Left_3_4
     | Left_arbitrary of string * Css.length
     | Neg_left_arbitrary of string * Css.length
       (* raw bracket suffix kept for the class name; value is negated *)
@@ -235,11 +257,11 @@ module Handler = struct
     | Inset_auto -> style [ Css.inset [ Auto ] ]
     | Inset_full -> style [ Css.inset [ Pct 100.0 ] ]
     | Neg_inset_full -> style [ Css.inset [ Pct (-100.0) ] ]
-    | Inset_3_4 -> style [ Css.inset [ Pct 75.0 ] ]
+    | Inset_fraction f -> style [ Css.inset [ Pct (frac_pct f) ] ]
     | Inset_x_auto -> style [ Css.inset_inline [ Auto ] ]
     | Inset_x_full -> style [ Css.inset_inline [ Pct 100.0 ] ]
     | Neg_inset_x_full -> style [ Css.inset_inline [ Pct (-100.0) ] ]
-    | Inset_x_3_4 -> style [ Css.inset_inline [ Pct 75.0 ] ]
+    | Inset_x_fraction f -> style [ Css.inset_inline [ Pct (frac_pct f) ] ]
     | Inset_y_auto -> style [ Css.inset_block [ Auto ] ]
     | Inset_y_full -> style [ Css.inset_block [ Pct 100.0 ] ]
     | Neg_inset_y_full -> style [ Css.inset_block [ Pct (-100.0) ] ]
@@ -316,11 +338,10 @@ module Handler = struct
     | Top n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.top value ])
-    | Top_1_2 -> style [ Css.top (Pct 50.0) ]
+    | Top_fraction f -> style [ Css.top (Pct (frac_pct f)) ]
     | Top_auto -> style [ Css.top Auto ]
     | Top_full -> style [ Css.top (Pct 100.0) ]
     | Neg_top_full -> style [ Css.top (Pct (-100.0)) ]
-    | Top_3_4 -> style [ Css.top (Pct 75.0) ]
     | Top_arbitrary (_, len) -> style [ Css.top len ]
     | Top_named name ->
         let decl, value = named_inset_value name in
@@ -331,7 +352,7 @@ module Handler = struct
     | Right_auto -> style [ Css.right Auto ]
     | Right_full -> style [ Css.right (Pct 100.0) ]
     | Neg_right_full -> style [ Css.right (Pct (-100.0)) ]
-    | Right_3_4 -> style [ Css.right (Pct 75.0) ]
+    | Right_fraction f -> style [ Css.right (Pct (frac_pct f)) ]
     | Right_arbitrary (_, len) -> style [ Css.right len ]
     | Right_named name ->
         let decl, value = named_inset_value name in
@@ -350,11 +371,10 @@ module Handler = struct
     | Left n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.left value ])
-    | Left_1_2 -> style [ Css.left (Pct 50.0) ]
+    | Left_fraction f -> style [ Css.left (Pct (frac_pct f)) ]
     | Left_auto -> style [ Css.left Auto ]
     | Left_full -> style [ Css.left (Pct 100.0) ]
     | Neg_left_full -> style [ Css.left (Pct (-100.0)) ]
-    | Left_3_4 -> style [ Css.left (Pct 75.0) ]
     | Left_arbitrary (_, len) -> style [ Css.left len ]
     | Neg_left_arbitrary (_, len) -> style [ Css.left len ]
     | Left_named name ->
@@ -391,6 +411,10 @@ module Handler = struct
   let pos_off = 600_000
   let pos_int n = pos_off + (n * 10)
   let pos_frac num den = pos_off + (num * 10) + 1 + den
+
+  let pos_frac_str f =
+    match frac_num_den f with Some (n, m) -> pos_frac n m | None -> pos_off
+
   let arb_off = 800_000
   let auto_off = 900_000
   let full_off = 900_001
@@ -420,7 +444,7 @@ module Handler = struct
     | Inset n when n < 0 -> inset + neg_num n
     | Neg_inset_full -> inset + neg_full_off
     | Inset_0 -> inset + pos_int 0
-    | Inset_3_4 -> inset + pos_frac 3 4
+    | Inset_fraction f -> inset + pos_frac_str f
     | Inset n -> inset + pos_int n
     | Inset_arbitrary _ -> inset + arb_off
     | Inset_auto -> inset + auto_off
@@ -429,7 +453,7 @@ module Handler = struct
     (* inset-x *)
     | Neg_inset_x_full -> inset_x + neg_full_off
     | Inset_x_0 -> inset_x + pos_int 0
-    | Inset_x_3_4 -> inset_x + pos_frac 3 4
+    | Inset_x_fraction f -> inset_x + pos_frac_str f
     | Inset_x n when n < 0 -> inset_x + neg_num n
     | Inset_x n -> inset_x + pos_int n
     | Inset_x_arbitrary _ -> inset_x + arb_off
@@ -485,8 +509,7 @@ module Handler = struct
     (* top *)
     | Top n when n < 0 -> top + neg_num n
     | Neg_top_full -> top + neg_full_off
-    | Top_1_2 -> top + pos_frac 1 2
-    | Top_3_4 -> top + pos_frac 3 4
+    | Top_fraction f -> top + pos_frac_str f
     | Top n -> top + pos_int n
     | Top_arbitrary _ -> top + arb_off
     | Top_auto -> top + auto_off
@@ -495,7 +518,7 @@ module Handler = struct
     (* right *)
     | Right n when n < 0 -> right + neg_num n
     | Neg_right_full -> right + neg_full_off
-    | Right_3_4 -> right + pos_frac 3 4
+    | Right_fraction f -> right + pos_frac_str f
     | Right n -> right + pos_int n
     | Right_arbitrary _ -> right + arb_off
     | Right_auto -> right + auto_off
@@ -514,8 +537,7 @@ module Handler = struct
     | Left n when n < 0 -> left + neg_num n
     | Neg_left_arbitrary _ -> left + neg_arb_off
     | Neg_left_full -> left + neg_full_off
-    | Left_1_2 -> left + pos_frac 1 2
-    | Left_3_4 -> left + pos_frac 3 4
+    | Left_fraction f -> left + pos_frac_str f
     | Left n -> left + pos_int n
     | Left_arbitrary _ -> left + arb_off
     | Left_auto -> left + auto_off
@@ -553,11 +575,11 @@ module Handler = struct
     | [ "inset"; "auto" ] -> Ok Inset_auto
     | [ "inset"; "full" ] -> Ok Inset_full
     | [ ""; "inset"; "full" ] -> Ok Neg_inset_full
-    | [ "inset"; "3/4" ] -> Ok Inset_3_4
+    | [ "inset"; frac ] when frac_valid frac -> Ok (Inset_fraction frac)
     | [ "inset"; "x"; "auto" ] -> Ok Inset_x_auto
     | [ "inset"; "x"; "full" ] -> Ok Inset_x_full
     | [ ""; "inset"; "x"; "full" ] -> Ok Neg_inset_x_full
-    | [ "inset"; "x"; "3/4" ] -> Ok Inset_x_3_4
+    | [ "inset"; "x"; frac ] when frac_valid frac -> Ok (Inset_x_fraction frac)
     | [ "inset"; "y"; "auto" ] -> Ok Inset_y_auto
     | [ "inset"; "y"; "full" ] -> Ok Inset_y_full
     | [ ""; "inset"; "y"; "full" ] -> Ok Neg_inset_y_full
@@ -668,8 +690,7 @@ module Handler = struct
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
-    | [ "top"; "1/2" ] -> Ok Top_1_2
-    | [ "top"; "3/4" ] -> Ok Top_3_4
+    | [ "top"; frac ] when frac_valid frac -> Ok (Top_fraction frac)
     | [ "top"; "auto" ] -> Ok Top_auto
     | [ "top"; "full" ] -> Ok Top_full
     | [ ""; "top"; "full" ] -> Ok Neg_top_full
@@ -685,7 +706,7 @@ module Handler = struct
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "top"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
-    | [ "right"; "3/4" ] -> Ok Right_3_4
+    | [ "right"; frac ] when frac_valid frac -> Ok (Right_fraction frac)
     | [ "right"; "auto" ] -> Ok Right_auto
     | [ "right"; "full" ] -> Ok Right_full
     | [ ""; "right"; "full" ] -> Ok Neg_right_full
@@ -717,8 +738,7 @@ module Handler = struct
             | Error _ -> Error (`Msg "invalid")))
     | [ ""; "bottom"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
-    | [ "left"; "1/2" ] -> Ok Left_1_2
-    | [ "left"; "3/4" ] -> Ok Left_3_4
+    | [ "left"; frac ] when frac_valid frac -> Ok (Left_fraction frac)
     | [ "left"; "auto" ] -> Ok Left_auto
     | [ "left"; "full" ] -> Ok Left_full
     | [ ""; "left"; "full" ] -> Ok Neg_left_full
@@ -766,11 +786,11 @@ module Handler = struct
     | Inset_auto -> "inset-auto"
     | Inset_full -> "inset-full"
     | Neg_inset_full -> "-inset-full"
-    | Inset_3_4 -> "inset-3/4"
+    | Inset_fraction f -> "inset-" ^ f
     | Inset_x_auto -> "inset-x-auto"
     | Inset_x_full -> "inset-x-full"
     | Neg_inset_x_full -> "-inset-x-full"
-    | Inset_x_3_4 -> "inset-x-3/4"
+    | Inset_x_fraction f -> "inset-x-" ^ f
     | Inset_y_auto -> "inset-y-auto"
     | Inset_y_full -> "inset-y-full"
     | Neg_inset_y_full -> "-inset-y-full"
@@ -830,8 +850,7 @@ module Handler = struct
     | Inset_be_full -> "inset-be-full"
     | Neg_inset_be_full -> "-inset-be-full"
     | Inset_be_3_4 -> "inset-be-3/4"
-    | Top_1_2 -> "top-1/2"
-    | Top_3_4 -> "top-3/4"
+    | Top_fraction f -> "top-" ^ f
     | Top_auto -> "top-auto"
     | Top_full -> "top-full"
     | Neg_top_full -> "-top-full"
@@ -840,7 +859,7 @@ module Handler = struct
         prefix ^ "top-" ^ string_of_int (abs n)
     | Top_arbitrary (raw, _) -> "top-" ^ raw
     | Top_named name -> "top-" ^ name
-    | Right_3_4 -> "right-3/4"
+    | Right_fraction f -> "right-" ^ f
     | Right_auto -> "right-auto"
     | Right_full -> "right-full"
     | Neg_right_full -> "-right-full"
@@ -858,8 +877,7 @@ module Handler = struct
         prefix ^ "bottom-" ^ string_of_int (abs n)
     | Bottom_arbitrary (raw, _) -> "bottom-" ^ raw
     | Bottom_named name -> "bottom-" ^ name
-    | Left_1_2 -> "left-1/2"
-    | Left_3_4 -> "left-3/4"
+    | Left_fraction f -> "left-" ^ f
     | Left_auto -> "left-auto"
     | Left_full -> "left-full"
     | Neg_left_full -> "-left-full"
@@ -906,5 +924,5 @@ let top n = utility (Top n)
 let right n = utility (Right n)
 let bottom n = utility (Bottom n)
 let left n = utility (Left n)
-let top_1_2 = utility Top_1_2
-let left_1_2 = utility Left_1_2
+let top_1_2 = utility (Top_fraction "1/2")
+let left_1_2 = utility (Left_fraction "1/2")

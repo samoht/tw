@@ -17,6 +17,18 @@ let test_position_utilities () =
   check "relative";
   check "sticky"
 
+(* Fractions resolve to a percentage on the inset/top/right/left families,
+   including arbitrary numerators/denominators (not just 1/2 and 3/4). *)
+let test_fractions () =
+  check "inset-1/2";
+  check "inset-x-1/2";
+  check "top-1/2";
+  check "top-3/4";
+  check "right-1/2";
+  check "left-1/2";
+  check "left-1/5";
+  check "left-2/3"
+
 (* Arbitrary values round-trip verbatim in the class name: the leading zero of
    0.67rem (and the sign of negatives) is preserved, not re-serialised to a
    normalised .67rem that would no longer match the HTML class. *)
@@ -117,6 +129,7 @@ let tests =
     test_case "negative top" `Quick test_negative;
     test_case "arbitrary value roundtrip" `Quick test_arbitrary_roundtrip;
     test_case "position utilities" `Quick test_position_utilities;
+    test_case "position fractions" `Quick test_fractions;
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
