@@ -48,6 +48,14 @@ module Handler = struct
     (* Min-width utilities *)
     | Min_w_0
     | Min_w_full
+    | Min_w_dvh
+    | Min_w_dvw
+    | Min_w_lvh
+    | Min_w_lvw
+    | Min_w_svh
+    | Min_w_svw
+    | Min_w_px
+    | Min_w_screen
     | Min_w_min
     | Min_w_max
     | Min_w_fit
@@ -68,6 +76,16 @@ module Handler = struct
     | Max_w_5xl
     | Max_w_6xl
     | Max_w_7xl
+    | Max_w_2xs
+    | Max_w_3xs
+    | Max_w_dvh
+    | Max_w_dvw
+    | Max_w_lvh
+    | Max_w_lvw
+    | Max_w_svh
+    | Max_w_svw
+    | Max_w_px
+    | Max_w_screen
     | Max_w_full
     | Max_w_min
     | Max_w_max
@@ -118,6 +136,13 @@ module Handler = struct
     (* Size utilities (both width and height) *)
     | Size_auto
     | Size_full
+    | Size_dvh
+    | Size_dvw
+    | Size_lvh
+    | Size_lvw
+    | Size_svh
+    | Size_svw
+    | Size_px
     | Size_min
     | Size_max
     | Size_fit
@@ -279,6 +304,14 @@ module Handler = struct
 
   let min_w_0' = style [ min_width (Px 0.) ]
   let min_w_full' = style [ min_width (Pct 100.0) ]
+  let min_w_dvh' = style [ min_width (Dvh 100.) ]
+  let min_w_dvw' = style [ min_width (Dvw 100.) ]
+  let min_w_lvh' = style [ min_width (Lvh 100.) ]
+  let min_w_lvw' = style [ min_width (Lvw 100.) ]
+  let min_w_svh' = style [ min_width (Svh 100.) ]
+  let min_w_svw' = style [ min_width (Svw 100.) ]
+  let min_w_px' = style [ min_width (Px 1.0) ]
+  let min_w_screen' = style [ min_width (Vw 100.0) ]
   let min_w_min' = style [ min_width Min_content ]
   let min_w_max' = style [ min_width Max_content ]
   let min_w_fit' = style [ min_width Fit_content ]
@@ -404,6 +437,23 @@ module Handler = struct
     style [ decl; max_width (Var ref_) ]
 
   let max_w_full' = style [ max_width (Pct 100.0) ]
+
+  let max_w_2xs' =
+    let decl, ref_ = Var.binding container_2xs (Rem 18.0) in
+    style [ decl; max_width (Var ref_) ]
+
+  let max_w_3xs' =
+    let decl, ref_ = Var.binding container_3xs (Rem 16.0) in
+    style [ decl; max_width (Var ref_) ]
+
+  let max_w_dvh' = style [ max_width (Dvh 100.) ]
+  let max_w_dvw' = style [ max_width (Dvw 100.) ]
+  let max_w_lvh' = style [ max_width (Lvh 100.) ]
+  let max_w_lvw' = style [ max_width (Lvw 100.) ]
+  let max_w_svh' = style [ max_width (Svh 100.) ]
+  let max_w_svw' = style [ max_width (Svw 100.) ]
+  let max_w_px' = style [ max_width (Px 1.0) ]
+  let max_w_screen' = style [ max_width (Vw 100.0) ]
   let max_w_min' = style [ max_width Min_content ]
   let max_w_max' = style [ max_width Max_content ]
   let max_w_fit' = style [ max_width Fit_content ]
@@ -563,6 +613,14 @@ module Handler = struct
     (* Min-width utilities *)
     | Min_w_0 -> min_w_0'
     | Min_w_full -> min_w_full'
+    | Min_w_dvh -> min_w_dvh'
+    | Min_w_dvw -> min_w_dvw'
+    | Min_w_lvh -> min_w_lvh'
+    | Min_w_lvw -> min_w_lvw'
+    | Min_w_svh -> min_w_svh'
+    | Min_w_svw -> min_w_svw'
+    | Min_w_px -> min_w_px'
+    | Min_w_screen -> min_w_screen'
     | Min_w_min -> min_w_min'
     | Min_w_max -> min_w_max'
     | Min_w_fit -> min_w_fit'
@@ -584,6 +642,16 @@ module Handler = struct
     | Max_w_lg -> max_w_lg'
     | Max_w_xl -> max_w_xl'
     | Max_w_2xl -> max_w_2xl'
+    | Max_w_2xs -> max_w_2xs'
+    | Max_w_3xs -> max_w_3xs'
+    | Max_w_dvh -> max_w_dvh'
+    | Max_w_dvw -> max_w_dvw'
+    | Max_w_lvh -> max_w_lvh'
+    | Max_w_lvw -> max_w_lvw'
+    | Max_w_svh -> max_w_svh'
+    | Max_w_svw -> max_w_svw'
+    | Max_w_px -> max_w_px'
+    | Max_w_screen -> max_w_screen'
     | Max_w_3xl -> max_w_3xl'
     | Max_w_4xl -> max_w_4xl'
     | Max_w_5xl -> max_w_5xl'
@@ -639,6 +707,13 @@ module Handler = struct
     (* Size utilities *)
     | Size_auto -> style [ width Auto; height Auto ]
     | Size_full -> style [ width (Pct 100.0); height (Pct 100.0) ]
+    | Size_dvh -> style [ width (Dvh 100.); height (Dvh 100.) ]
+    | Size_dvw -> style [ width (Dvw 100.); height (Dvw 100.) ]
+    | Size_lvh -> style [ width (Lvh 100.); height (Lvh 100.) ]
+    | Size_lvw -> style [ width (Lvw 100.); height (Lvw 100.) ]
+    | Size_svh -> style [ width (Svh 100.); height (Svh 100.) ]
+    | Size_svw -> style [ width (Svw 100.); height (Svw 100.) ]
+    | Size_px -> style [ width (Px 1.0); height (Px 1.0) ]
     | Size_min -> style [ width Min_content; height Min_content ]
     | Size_max -> style [ width Max_content; height Max_content ]
     | Size_fit -> style [ width Fit_content; height Fit_content ]
@@ -842,6 +917,14 @@ module Handler = struct
   let parse_min_w = function
     | "0" -> Ok Min_w_0
     | "full" -> Ok Min_w_full
+    | "dvh" -> Ok Min_w_dvh
+    | "dvw" -> Ok Min_w_dvw
+    | "lvh" -> Ok Min_w_lvh
+    | "lvw" -> Ok Min_w_lvw
+    | "svh" -> Ok Min_w_svh
+    | "svw" -> Ok Min_w_svw
+    | "px" -> Ok Min_w_px
+    | "screen" -> Ok Min_w_screen
     | "min" -> Ok Min_w_min
     | "max" -> Ok Min_w_max
     | "fit" -> Ok Min_w_fit
@@ -894,6 +977,16 @@ module Handler = struct
     | "5xl" -> Ok Max_w_5xl
     | "6xl" -> Ok Max_w_6xl
     | "7xl" -> Ok Max_w_7xl
+    | "2xs" -> Ok Max_w_2xs
+    | "3xs" -> Ok Max_w_3xs
+    | "dvh" -> Ok Max_w_dvh
+    | "dvw" -> Ok Max_w_dvw
+    | "lvh" -> Ok Max_w_lvh
+    | "lvw" -> Ok Max_w_lvw
+    | "svh" -> Ok Max_w_svh
+    | "svw" -> Ok Max_w_svw
+    | "px" -> Ok Max_w_px
+    | "screen" -> Ok Max_w_screen
     | "full" -> Ok Max_w_full
     | "min" -> Ok Max_w_min
     | "max" -> Ok Max_w_max
@@ -943,6 +1036,13 @@ module Handler = struct
   let parse_size = function
     | "auto" -> Ok Size_auto
     | "full" -> Ok Size_full
+    | "dvh" -> Ok Size_dvh
+    | "dvw" -> Ok Size_dvw
+    | "lvh" -> Ok Size_lvh
+    | "lvw" -> Ok Size_lvw
+    | "svh" -> Ok Size_svh
+    | "svw" -> Ok Size_svw
+    | "px" -> Ok Size_px
     | "min" -> Ok Size_min
     | "max" -> Ok Size_max
     | "fit" -> Ok Size_fit
@@ -1252,6 +1352,16 @@ module Handler = struct
        (2xl..7xl) by number, then the numeric spacing values, then an arbitrary
        value, then the letter-prefixed keywords alphabetically. *)
     | Max_w_2xl -> max_w + 0
+    | Max_w_2xs -> max_w + 0
+    | Max_w_3xs -> max_w + 0
+    | Max_w_dvh -> max_w + 0
+    | Max_w_dvw -> max_w + 0
+    | Max_w_lvh -> max_w + 0
+    | Max_w_lvw -> max_w + 0
+    | Max_w_svh -> max_w + 0
+    | Max_w_svw -> max_w + 0
+    | Max_w_px -> max_w + 0
+    | Max_w_screen -> max_w + 0
     | Max_w_3xl -> max_w + 1
     | Max_w_4xl -> max_w + 2
     | Max_w_5xl -> max_w + 3
@@ -1282,6 +1392,14 @@ module Handler = struct
     | Min_w_auto -> min_w + keyword_off + 0
     | Min_w_fit -> min_w + keyword_off + 1
     | Min_w_full -> min_w + keyword_off + 2
+    | Min_w_dvh -> min_w + keyword_off + 2
+    | Min_w_dvw -> min_w + keyword_off + 2
+    | Min_w_lvh -> min_w + keyword_off + 2
+    | Min_w_lvw -> min_w + keyword_off + 2
+    | Min_w_svh -> min_w + keyword_off + 2
+    | Min_w_svw -> min_w + keyword_off + 2
+    | Min_w_px -> min_w + keyword_off + 2
+    | Min_w_screen -> min_w + keyword_off + 2
     | Min_w_max -> min_w + keyword_off + 3
     | Min_w_min -> min_w + keyword_off + 4
     | Min_w_container name -> min_w + keyword_off + 5 + container_order name
@@ -1292,6 +1410,13 @@ module Handler = struct
     | Size_auto -> size + keyword_off + 0
     | Size_fit -> size + keyword_off + 1
     | Size_full -> size + keyword_off + 2
+    | Size_dvh -> size + keyword_off + 2
+    | Size_dvw -> size + keyword_off + 2
+    | Size_lvh -> size + keyword_off + 2
+    | Size_lvw -> size + keyword_off + 2
+    | Size_svh -> size + keyword_off + 2
+    | Size_svw -> size + keyword_off + 2
+    | Size_px -> size + keyword_off + 2
     | Size_max -> size + keyword_off + 3
     | Size_min -> size + keyword_off + 4
     (* inline-size *)
@@ -1413,6 +1538,14 @@ module Handler = struct
     (* Min-width utilities *)
     | Min_w_0 -> "min-w-0"
     | Min_w_full -> "min-w-full"
+    | Min_w_dvh -> "min-w-dvh"
+    | Min_w_dvw -> "min-w-dvw"
+    | Min_w_lvh -> "min-w-lvh"
+    | Min_w_lvw -> "min-w-lvw"
+    | Min_w_svh -> "min-w-svh"
+    | Min_w_svw -> "min-w-svw"
+    | Min_w_px -> "min-w-px"
+    | Min_w_screen -> "min-w-screen"
     | Min_w_min -> "min-w-min"
     | Min_w_max -> "min-w-max"
     | Min_w_fit -> "min-w-fit"
@@ -1428,6 +1561,16 @@ module Handler = struct
     | Max_w_lg -> "max-w-lg"
     | Max_w_xl -> "max-w-xl"
     | Max_w_2xl -> "max-w-2xl"
+    | Max_w_2xs -> "max-w-2xs"
+    | Max_w_3xs -> "max-w-3xs"
+    | Max_w_dvh -> "max-w-dvh"
+    | Max_w_dvw -> "max-w-dvw"
+    | Max_w_lvh -> "max-w-lvh"
+    | Max_w_lvw -> "max-w-lvw"
+    | Max_w_svh -> "max-w-svh"
+    | Max_w_svw -> "max-w-svw"
+    | Max_w_px -> "max-w-px"
+    | Max_w_screen -> "max-w-screen"
     | Max_w_3xl -> "max-w-3xl"
     | Max_w_4xl -> "max-w-4xl"
     | Max_w_5xl -> "max-w-5xl"
@@ -1483,6 +1626,13 @@ module Handler = struct
     (* Size utilities *)
     | Size_auto -> "size-auto"
     | Size_full -> "size-full"
+    | Size_dvh -> "size-dvh"
+    | Size_dvw -> "size-dvw"
+    | Size_lvh -> "size-lvh"
+    | Size_lvw -> "size-lvw"
+    | Size_svh -> "size-svh"
+    | Size_svw -> "size-svw"
+    | Size_px -> "size-px"
     | Size_min -> "size-min"
     | Size_max -> "size-max"
     | Size_fit -> "size-fit"
