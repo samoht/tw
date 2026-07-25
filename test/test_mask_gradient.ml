@@ -23,7 +23,23 @@ let test_roundtrip () =
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Mask_gradient.Handler) "mask-foo"
 
+(* A mask stop is a <length-percentage>: the zero spacing step keeps its unit
+   (0px), not a bare 0, which is what Tailwind emits. *)
+let test_from_zero_keeps_unit () =
+  let css =
+    match Tw.of_string "mask-t-from-0" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "mask-t-from-0: %s" m
+  in
+  Alcotest.(check bool)
+    "from-position is 0px, not bare 0" true
+    (Astring.String.is_infix ~affix:"--tw-mask-top-from-position:0px" css)
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
+  @ [
+      Alcotest.test_case "from-0 keeps its px unit" `Quick
+        test_from_zero_keeps_unit;
+    ]
 
 let suite = ("mask_gradient", tests)

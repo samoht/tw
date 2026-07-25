@@ -42,6 +42,18 @@ let test_drop_shadow_color () =
     "drop-shadow-red-500/50 uses color-mix" true
     (Astring.String.is_infix ~affix:"color-mix" (css "drop-shadow-red-500/50"))
 
+(* A fractional opacity modifier keeps its fraction: drop-shadow/12.5 -> alpha
+   12.5%, not the truncated 12%. *)
+let test_drop_shadow_fractional_alpha () =
+  let css =
+    match Tw.of_string "drop-shadow/12.5" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "drop-shadow/12.5: %s" m
+  in
+  Alcotest.(check bool)
+    "alpha is 12.5%, not 12%" true
+    (Astring.String.is_infix ~affix:"--tw-drop-shadow-alpha:12.5%" css)
+
 let test_backdrop () =
   check "backdrop-opacity-50";
   check "backdrop-invert"
@@ -72,6 +84,8 @@ let tests =
     test_case "blur" `Quick test_blur;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
+    test_case "drop-shadow fractional alpha" `Quick
+      test_drop_shadow_fractional_alpha;
     test_case "backdrop" `Quick test_backdrop;
     test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick

@@ -354,6 +354,25 @@ let test_text_line_height_override () =
     "text-sm honors --text-sm--line-height override" true
     (Astring.String.is_infix ~affix:"--text-sm--line-height:1.25rem" css)
 
+(* Tailwind's [--spacing(N)] and [--alpha(<color>/<pct>)] are usable inside an
+   arbitrary value. Verified against the real v4.3.3 CLI, which emits
+   [calc(var(--spacing) * 2)] and [color-mix(in oklab, red 20%,
+   transparent)]. *)
+let test_text_bracket_functions () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "text-[--spacing(2)] is a spacing calc" true
+    (Astring.String.is_infix ~affix:"calc(var(--spacing)*2)"
+       (css "text-[--spacing(2)]"));
+  Alcotest.(check bool)
+    "text-[--alpha(red/20%)] is a color-mix" true
+    (Astring.String.is_infix ~affix:"color-mix(in oklab,red 20%,transparent)"
+       (css "text-[--alpha(red/20%)]"))
+
 let tests =
   [
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
@@ -384,6 +403,8 @@ let tests =
       test_text_bracket_size_valid;
     test_case "text-[<font-size>] invalid values" `Quick
       test_text_bracket_size_invalid;
+    test_case "text-[--spacing()/--alpha()] functions" `Quick
+      test_text_bracket_functions;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

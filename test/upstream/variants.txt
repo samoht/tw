@@ -1785,6 +1785,16 @@ data-[]:flex data-[foo_^_=_"bar"]:flex data-[potato=salad]/foo:flex data-disable
 ---
 
 <<<>>>
+# data
+@config run
+aria-[état]:flex data-[état]:flex
+---
+
+    .aria-\[état\]\:flex[aria-état], .data-\[état\]\:flex[data-état] {
+      display: flex;
+    }
+    
+<<<>>>
 # portrait
 @config run
 portrait:flex
