@@ -1651,10 +1651,10 @@ let shade_and_opacity_of_strings ?theme = function
 
 module Handler = struct
   (* Per-side border colour: which physical border edge a border-{side}-{color}
-     utility paints. Bs_x is the logical inline axis (border-inline-color);
-     border-y (block axis) needs a border-block-color setter cascade does not
-     expose yet, so it is not handled here. *)
-  type border_side = Bs_t | Bs_r | Bs_b | Bs_l | Bs_x
+     utility paints. Bs_x is the logical inline axis (border-inline-color) and
+     Bs_y the block axis (border-block-color); Bs_s / Bs_e are the inline start
+     / end edges (border-inline-start-color / border-inline-end-color). *)
+  type border_side = Bs_t | Bs_r | Bs_b | Bs_l | Bs_x | Bs_y | Bs_s | Bs_e
 
   (* The colour value of a border-{side}-{color}: a named theme colour, an
      arbitrary bracket colour, or a keyword. *)
@@ -2011,14 +2011,19 @@ module Handler = struct
         | None -> Error (`Msg ("Invalid border bracket value: " ^ base_inner)))
     | "border" :: side :: rest
       when rest <> []
-           && match side with "t" | "r" | "b" | "l" | "x" -> true | _ -> false
-      -> (
+           &&
+           match side with
+           | "t" | "r" | "b" | "l" | "x" | "y" | "s" | "e" -> true
+           | _ -> false -> (
         let bs =
           match side with
           | "t" -> Bs_t
           | "r" -> Bs_r
           | "b" -> Bs_b
           | "x" -> Bs_x
+          | "y" -> Bs_y
+          | "s" -> Bs_s
+          | "e" -> Bs_e
           | _ -> Bs_l
         in
         match rest with
@@ -2265,6 +2270,9 @@ module Handler = struct
     | Bs_l -> [ Css.border_left_color ]
     | Bs_x ->
         [ (fun c -> Css.border_inline_color (Css.logical_border_color c)) ]
+    | Bs_y -> [ (fun c -> Css.border_block_color (Css.logical_border_color c)) ]
+    | Bs_s -> [ Css.border_inline_start_color ]
+    | Bs_e -> [ Css.border_inline_end_color ]
 
   let border_side_color_style side value =
     let sides = setters_of_side side in
@@ -3050,6 +3058,9 @@ module Handler = struct
           | Bs_b -> "b"
           | Bs_l -> "l"
           | Bs_x -> "x"
+          | Bs_y -> "y"
+          | Bs_s -> "s"
+          | Bs_e -> "e"
         in
         let v =
           match value with
