@@ -64,6 +64,7 @@ module Handler = struct
     | Min_w_fit
     | Min_w_auto
     | Min_w_spacing of float
+    | Min_w_fraction of string
     | Min_w_arbitrary of string * Css.length
     | Min_w_container of string (* min-width: var(--container-<name>) *)
     (* Max-width utilities *)
@@ -100,6 +101,7 @@ module Handler = struct
     | Max_w_screen_xl
     | Max_w_screen_2xl
     | Max_w_spacing of float
+    | Max_w_fraction of string
     | Max_w_arbitrary of string * Css.length
     (* Min-height utilities *)
     | Min_h_0
@@ -118,6 +120,7 @@ module Handler = struct
     | Min_h_svw
     | Min_h_lh
     | Min_h_spacing of float
+    | Min_h_fraction of string
     | Min_h_arbitrary of string * Css.length
     (* Max-height utilities *)
     | Max_h_none
@@ -135,6 +138,7 @@ module Handler = struct
     | Max_h_svw
     | Max_h_lh
     | Max_h_spacing of float
+    | Max_h_fraction of string
     | Max_h_arbitrary of string * Css.length
     (* Size utilities (both width and height) *)
     | Size_auto
@@ -540,7 +544,8 @@ module Handler = struct
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
         | Some n, Some m
-          when m > 0 && n > 0 && n < m && List.mem m [ 2; 3; 4; 5; 6; 12 ] ->
+          when m > 0 && n > 0 && n < m && List.mem m [ 2; 3; 4; 5; 6; 10; 12 ]
+          ->
             let pct = float_of_int n /. float_of_int m *. 100. in
             let digits = 6. -. Float.ceil (Float.log10 pct) in
             let factor = 10. ** digits in
@@ -645,6 +650,10 @@ module Handler = struct
     | Min_w_fit -> min_w_fit'
     | Min_w_auto -> style [ min_width Auto ]
     | Min_w_spacing n -> min_w' (`Rem n)
+    | Min_w_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ min_width (Pct pct) ]
+        | None -> failwith ("Unknown min-width fraction: " ^ f))
     | Min_w_arbitrary (_, len) -> style [ min_width len ]
     | Min_w_container name -> (
         match container_binding name with
@@ -687,6 +696,10 @@ module Handler = struct
     | Max_w_screen_xl -> max_w_screen_xl'
     | Max_w_screen_2xl -> max_w_screen_2xl'
     | Max_w_spacing n -> max_w' (`Rem n)
+    | Max_w_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ max_width (Pct pct) ]
+        | None -> failwith ("Unknown max-width fraction: " ^ f))
     | Max_w_arbitrary (_, len) -> style [ max_width len ]
     (* Min-height utilities *)
     | Min_h_0 -> min_h_0'
@@ -705,6 +718,10 @@ module Handler = struct
     | Min_h_svw -> style [ min_height (Svw 100.) ]
     | Min_h_lh -> style [ min_height (Lh 1.) ]
     | Min_h_spacing n -> min_h' (`Rem n)
+    | Min_h_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ min_height (Pct pct) ]
+        | None -> failwith ("Unknown min-height fraction: " ^ f))
     | Min_h_arbitrary (_, len) -> style [ min_height len ]
     (* Max-height utilities *)
     | Max_h_none -> max_h_none'
@@ -722,6 +739,10 @@ module Handler = struct
     | Max_h_svw -> style [ max_height (Svw 100.) ]
     | Max_h_lh -> style [ max_height (Lh 1.) ]
     | Max_h_spacing n -> max_h' (`Rem n)
+    | Max_h_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ max_height (Pct pct) ]
+        | None -> failwith ("Unknown max-height fraction: " ^ f))
     | Max_h_arbitrary (_, len) -> style [ max_height len ]
     (* Size utilities *)
     | Size_auto -> style [ width Auto; height Auto ]
@@ -965,6 +986,9 @@ module Handler = struct
     | "fit" -> Ok Min_w_fit
     | "auto" -> Ok Min_w_auto
     | name when container_binding name <> None -> Ok (Min_w_container name)
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Min_w_fraction frac)
+        else err_invalid_value "min-width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_w_arbitrary (raw, len))
@@ -990,6 +1014,9 @@ module Handler = struct
     | "lvw" -> Ok Min_h_lvw
     | "svw" -> Ok Min_h_svw
     | "lh" -> Ok Min_h_lh
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Min_h_fraction frac)
+        else err_invalid_value "min-height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_h_arbitrary (raw, len))
@@ -1027,6 +1054,9 @@ module Handler = struct
     | "max" -> Ok Max_w_max
     | "fit" -> Ok Max_w_fit
     | "prose" -> Ok Max_w_prose
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Max_w_fraction frac)
+        else err_invalid_value "max-width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_w_arbitrary (raw, len))
@@ -1059,6 +1089,9 @@ module Handler = struct
     | "lvw" -> Ok Max_h_lvw
     | "svw" -> Ok Max_h_svw
     | "lh" -> Ok Max_h_lh
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Max_h_fraction frac)
+        else err_invalid_value "max-height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_h_arbitrary (raw, len))
@@ -1347,6 +1380,7 @@ module Handler = struct
     | H_svw -> h + keyword_off + 10
     (* Max-height *)
     | Max_h_spacing n -> max_h + spacing_value_order n
+    | Max_h_fraction f -> max_h + fraction_value_order f
     | Max_h_arbitrary _ -> max_h + arbitrary_off
     | Max_h_dvh -> max_h + keyword_off + 0
     | Max_h_fit -> max_h + keyword_off + 1
@@ -1365,6 +1399,7 @@ module Handler = struct
     (* Min-height *)
     | Min_h_0 -> min_h + 0
     | Min_h_spacing n -> min_h + spacing_value_order n
+    | Min_h_fraction f -> min_h + fraction_value_order f
     | Min_h_arbitrary _ -> min_h + arbitrary_off
     | Min_h_auto -> min_h + keyword_off + 0
     | Min_h_dvh -> min_h + keyword_off + 1
@@ -1419,6 +1454,7 @@ module Handler = struct
     | Max_w_6xl -> max_w + 4
     | Max_w_7xl -> max_w + 5
     | Max_w_spacing n -> max_w + 1_000_000 + spacing_value_order n
+    | Max_w_fraction f -> max_w + fraction_value_order f
     | Max_w_arbitrary _ -> max_w + arbitrary_off
     | Max_w_fit -> max_w + keyword_off + 0
     | Max_w_full -> max_w + keyword_off + 1
@@ -1439,6 +1475,7 @@ module Handler = struct
     (* Min-width *)
     | Min_w_0 -> min_w + 0
     | Min_w_spacing n -> min_w + spacing_value_order n
+    | Min_w_fraction f -> min_w + fraction_value_order f
     | Min_w_arbitrary _ -> min_w + arbitrary_off
     | Min_w_auto -> min_w + keyword_off + 0
     | Min_w_fit -> min_w + keyword_off + 1
@@ -1618,6 +1655,7 @@ module Handler = struct
     | Min_w_fit -> "min-w-fit"
     | Min_w_auto -> "min-w-auto"
     | Min_w_spacing n -> "min-w-" ^ class_float (n *. 4.)
+    | Min_w_fraction f -> "min-w-" ^ f
     | Min_w_arbitrary (raw, _) -> "min-w-[" ^ raw ^ "]"
     | Min_w_container name -> "min-w-" ^ name
     (* Max-width utilities *)
@@ -1654,6 +1692,7 @@ module Handler = struct
     | Max_w_screen_xl -> "max-w-screen-xl"
     | Max_w_screen_2xl -> "max-w-screen-2xl"
     | Max_w_spacing n -> "max-w-" ^ class_float (n *. 4.)
+    | Max_w_fraction f -> "max-w-" ^ f
     | Max_w_arbitrary (raw, _) -> "max-w-[" ^ raw ^ "]"
     (* Min-height utilities *)
     | Min_h_0 -> "min-h-0"
@@ -1672,6 +1711,7 @@ module Handler = struct
     | Min_h_svw -> "min-h-svw"
     | Min_h_lh -> "min-h-lh"
     | Min_h_spacing n -> "min-h-" ^ class_float (n *. 4.)
+    | Min_h_fraction f -> "min-h-" ^ f
     | Min_h_arbitrary (raw, _) -> "min-h-[" ^ raw ^ "]"
     (* Max-height utilities *)
     | Max_h_none -> "max-h-none"
@@ -1689,6 +1729,7 @@ module Handler = struct
     | Max_h_svw -> "max-h-svw"
     | Max_h_lh -> "max-h-lh"
     | Max_h_spacing n -> "max-h-" ^ class_float (n *. 4.)
+    | Max_h_fraction f -> "max-h-" ^ f
     | Max_h_arbitrary (raw, _) -> "max-h-[" ^ raw ^ "]"
     (* Size utilities *)
     | Size_auto -> "size-auto"

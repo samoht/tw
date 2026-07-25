@@ -11,6 +11,7 @@ let test_widths () =
   check "w-px";
   check "w-0.5";
   check "w-1/2";
+  check "w-9/10";
   check "w-1/3";
   check "w-2/3";
   check "w-1/4";
@@ -72,7 +73,12 @@ let test_min_sizes () =
   check "min-inline-3xl";
   check "max-inline-2xs";
   check "min-h-0";
-  check "min-h-screen"
+  check "min-h-screen";
+  (* fractions resolve to a percentage on the min families *)
+  check "min-w-1/2";
+  check "min-w-2/3";
+  check "min-h-1/2";
+  check "min-h-3/4"
 
 let test_max_sizes () =
   check "max-w-none";
@@ -104,7 +110,12 @@ let test_max_sizes () =
   check "max-w-screen-sm";
   check "max-h-4";
   check "max-h-full";
-  check "max-h-screen"
+  check "max-h-screen";
+  (* fractions resolve to a percentage on the max families *)
+  check "max-w-1/2";
+  check "max-w-1/3";
+  check "max-h-1/2";
+  check "max-h-3/4"
 
 let test_square_sizes () =
   check "size-0";
