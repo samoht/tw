@@ -1963,6 +1963,26 @@ let container_size_of_string = function
   | "7xl" -> Some Container_7xl
   | _ -> None
 
+(* A container-query arbitrary value may reference a theme token, e.g.
+   [@min-[theme(--breakpoint-lg)]]. [theme(--breakpoint-lg)] resolves to the
+   [--breakpoint-lg] default (64rem) via the same token table the [lg:] variant
+   publishes, so a plain length parse falls back to token resolution. *)
+let parse_container_length content =
+  match Css.parse_length content with
+  | Some _ as len -> len
+  | None ->
+      let s = String.trim content in
+      let n = String.length s in
+      if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
+        let inner = String.trim (String.sub s 6 (n - 7)) in
+        let name =
+          if String.length inner >= 2 && String.sub inner 0 2 = "--" then
+            String.sub inner 2 (String.length inner - 2)
+          else inner
+        in
+        Option.bind (Scheme.token_default name) Css.parse_length
+      else None
+
 let try_container_query s =
   (* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
   let bracketed prefix mk =
@@ -1973,7 +1993,9 @@ let try_container_query s =
       && s.[plen] = '['
       && s.[slen - 1] = ']'
     then
-      match Css.parse_length (String.sub s (plen + 1) (slen - plen - 2)) with
+      match
+        parse_container_length (String.sub s (plen + 1) (slen - plen - 2))
+      with
       | Some len -> Some (mk len)
       | None -> None
     else None
