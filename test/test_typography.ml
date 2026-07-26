@@ -137,7 +137,11 @@ let test_list_style () =
   check "list-outside";
   check "list-image-none"
 
-let test_text_indent () = check "indent-4"
+let test_text_indent () =
+  check "indent-4";
+  check "-indent-8";
+  check "indent-px";
+  check "-indent-px"
 
 let test_vertical_align () =
   check "align-baseline";
