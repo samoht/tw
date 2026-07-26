@@ -246,6 +246,7 @@ module Handler = struct
     | Aspect_video
     | Aspect_ratio of float * float (* aspect-4/3, aspect-8.5/11 *)
     | Aspect_bracket of float * float (* aspect-[10/9] *)
+    | Aspect_bracket_num of string (* aspect-[1.333] single number *)
 
   type Utility.base += Self of t
 
@@ -896,6 +897,7 @@ module Handler = struct
     | Aspect_video -> aspect_video'
     | Aspect_ratio (w, h) -> aspect_ratio' w h
     | Aspect_bracket (w, h) -> aspect_ratio' w h
+    | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
 
   let err_not_utility = Error (`Msg "Not a sizing utility")
 
@@ -1289,9 +1291,16 @@ module Handler = struct
     | [ "aspect"; "auto" ] -> Ok Aspect_auto
     | [ "aspect"; "square" ] -> Ok Aspect_square
     | [ "aspect"; "video" ] -> Ok Aspect_video
-    | [ "aspect"; value ] when Parse.is_bracket_value value ->
-        parse_aspect_ratio (Parse.bracket_inner value) (fun w h ->
-            Aspect_bracket (w, h))
+    | [ "aspect"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match parse_aspect_ratio inner (fun w h -> Aspect_bracket (w, h)) with
+        | Ok _ as ok -> ok
+        | Error _ -> (
+            (* A bare number arbitrary ratio (aspect-[1.333]) is a single-value
+               aspect-ratio, which minifies to just the number. *)
+            match float_of_string_opt inner with
+            | Some f when f > 0. -> Ok (Aspect_bracket_num inner)
+            | _ -> err_not_utility))
     | [ "aspect"; value ] ->
         parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
     | _ -> err_not_utility
@@ -1598,6 +1607,8 @@ module Handler = struct
         aspect + int_of_float (rw *. 10.) + int_of_float rh
     | Aspect_bracket (rw, rh) ->
         aspect + 1000 + int_of_float (rw *. 10.) + int_of_float rh
+    | Aspect_bracket_num s ->
+        aspect + 1000 + int_of_float (float_of_string s *. 10.) + 1
     | Aspect_auto -> aspect + 2000
     | Aspect_square -> aspect + 2001
     | Aspect_video -> aspect + 2002
@@ -1847,6 +1858,7 @@ module Handler = struct
           else string_of_float f
         in
         "aspect-[" ^ num w ^ "/" ^ num h ^ "]"
+    | Aspect_bracket_num s -> "aspect-[" ^ s ^ "]"
 end
 
 open Handler

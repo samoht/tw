@@ -168,6 +168,21 @@ let test_aspect_css () =
   Alcotest.check bool "has 16/9" true
     (Astring.String.is_infix ~affix:"16/9" css)
 
+(* A bare-number arbitrary ratio (aspect-[1.333]) is a single-value
+   aspect-ratio; it minifies to just the number, and round-trips. *)
+let test_aspect_bracket_number () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "aspect-[1.333] is aspect-ratio:1.333" true
+    (Astring.String.is_infix ~affix:"aspect-ratio:1.333" (css "aspect-[1.333]"));
+  Alcotest.(check string)
+    "aspect-[1.333] round-trips" "aspect-[1.333]"
+    (Tw.pp (Result.get_ok (Tw.of_string "aspect-[1.333]")))
+
 (* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
    var(--aspect-square) with a stray --aspect-square theme token that bare
    Tailwind does not define. *)
@@ -324,6 +339,7 @@ let tests =
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
+    test_case "aspect bracket number" `Quick test_aspect_bracket_number;
     test_case "aspect-square inlined 1/1" `Quick test_aspect_square_inlined;
     test_case "class generation" `Quick test_class_generation;
     test_case "sizing suborder matches Tailwind" `Quick
