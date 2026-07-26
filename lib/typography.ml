@@ -1429,6 +1429,8 @@ module Typography_late = struct
       Content_none
     | Content of string
     | Content_squote of string (* single-quoted arbitrary: content-['x'] *)
+    | Content_raw of string * Css.content
+      (* unquoted arbitrary: content-[attr(before)]; raw class text + value *)
     | Content_named of string (* content-<token> defined in the @theme *)
 
   type Utility.base += Self of t
@@ -1713,8 +1715,8 @@ module Typography_late = struct
         (* v4 has content-none, arbitrary content-[...], and content-<token>
            when the @theme defines --content-<token>. A bare word like
            content-wrapper with no such token is not a utility (it used to be
-           wrongly accepted). Unquoted brackets (content-[counter(x)]) need a
-           raw-token representation and are left for a follow-up. *)
+           wrongly accepted). An unquoted bracket (content-[attr(before)])
+           carries a function value, parsed as a content list. *)
         if bracket_quoted '"' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)
@@ -1723,6 +1725,20 @@ module Typography_late = struct
           Ok (Content_squote value)
         else if Scheme.theme_value (Some theme) ("content-" ^ joined) <> None
         then Ok (Content_named joined)
+        else if
+          String.length joined >= 2
+          && String.get joined 0 = '['
+          && String.get joined (String.length joined - 1) = ']'
+        then begin
+          let inner = String.sub joined 1 (String.length joined - 2) in
+          let spaced = String.map (fun c -> if c = '_' then ' ' else c) inner in
+          match
+            Cascade.Cursor.try_parse_full_err Css.Properties.read_content
+              (Cascade.Cursor.of_string spaced)
+          with
+          | Ok value -> Ok (Content_raw (inner, value))
+          | Error _ -> err_not_utility
+        end
         else err_not_utility
     | _ -> err_not_utility
 
@@ -1875,6 +1891,7 @@ module Typography_late = struct
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
     | Content_squote s -> "content-['" ^ s ^ "']"
+    | Content_raw (s, _) -> "content-[" ^ s ^ "]"
     | Content_named s -> "content-" ^ s
 
   (** {1 Ordering Support} *)
@@ -2035,6 +2052,7 @@ module Typography_late = struct
     | Content_none -> 13000
     | Content _ -> 10001
     | Content_squote _ -> 10001
+    | Content_raw _ -> 10001
     | Content_named _ -> 10002
 
   (* Shared utility implementations *)
@@ -2542,6 +2560,13 @@ module Typography_late = struct
     let c : Css.content = Css.Var content_ref in
     style ~property_rules [ content_decl; Css.content c ]
 
+  (* Unquoted arbitrary content (content-[attr(before)]) binds the parsed value
+     verbatim. *)
+  let content_raw (value : Css.content) =
+    let content_decl, content_ref = Var.binding content_var value in
+    let property_rules = Var.property_rules content_var in
+    style ~property_rules [ content_decl; Css.content (Css.Var content_ref) ]
+
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]
   let align_middle = style [ vertical_align Middle ]
@@ -2893,6 +2918,7 @@ module Typography_late = struct
     | Line_clamp_none -> line_clamp_none_style ()
     | Content_none -> content_none
     | Content s -> content s
+    | Content_raw (_, c) -> content_raw c
     | Content_squote s -> content_squote s
     | Content_named name -> content_named name
 end

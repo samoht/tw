@@ -182,7 +182,19 @@ let test_content () =
      double-quoted form already worked, the single-quoted form used to mangle to
      content-[["x"]]. *)
   check "content-[\"x\"]";
-  check "content-['x']"
+  check "content-['x']";
+  (* unquoted function values *)
+  check "content-[attr(before)]";
+  check "content-[counter(x)]";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "content-[attr(before)] binds attr() to --tw-content" true
+    (Astring.String.is_infix ~affix:"--tw-content:attr(before)"
+       (css "content-[attr(before)]"))
 
 (* content-<token> parses only when the @theme defines --content-<token>; a bare
    word like content-wrapper with no token is rejected (it used to parse as a
