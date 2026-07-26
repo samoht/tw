@@ -779,9 +779,12 @@ let native_files paths flag ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
-    let known = parse_known_candidates ?input_css:opts.input_css all_classes in
+    let known =
+      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
+        all_classes
+    in
     let tw_styles = List.map snd known in
-    let stylesheet = Tw.to_css ~base:include_base tw_styles in
+    let stylesheet = Tw.to_css ~theme:opts.theme ~base:include_base tw_styles in
     let stylesheet =
       match opts.input_css_path with
       | Some path -> splice_into_entrypoint ~theme:opts.theme ~path stylesheet

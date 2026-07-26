@@ -27,3 +27,18 @@ The generated utility is spliced in where the package import sat:
 
   $ tw --minify --input-css app.css index.html | grep -c '\.flex{display:flex}'
   1
+
+A utility named after a custom @theme token resolves against the entrypoint's
+theme, so an animate-* utility uses the project's --animate-* value:
+
+  $ cat > anim.css <<EOF
+  > @import "tailwindcss";
+  > @theme { --animate-wiggle: wiggle 1s ease-in-out infinite; }
+  > EOF
+
+  $ cat > page.html <<EOF
+  > <div class="animate-wiggle"></div>
+  > EOF
+
+  $ tw --minify --input-css anim.css page.html | grep -c '\.animate-wiggle{animation:var(--animate-wiggle)}'
+  1
