@@ -14,6 +14,11 @@ let of_string_valid () =
   check "border-3";
   check "outline-3";
   check "outline-5";
+  (* outline-offset accepts any bare integer, positive and negative *)
+  check "outline-offset-6";
+  check "outline-offset-3";
+  check "-outline-offset-6";
+  check "-outline-offset-1";
 
   check "border-t";
   check "border-r";
