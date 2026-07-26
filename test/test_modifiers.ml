@@ -420,6 +420,10 @@ let test_container_query_min_max () =
   has "@min-[20rem]:flex" "@container (width >= 20rem)";
   has "@max-[40rem]:flex" "@container (not (width >= 40rem))";
   has "@[480px]:flex" "@container (width >= 480px)";
+  (* A theme(--breakpoint-lg) arbitrary value resolves to the breakpoint the
+     [lg:] variant uses (64rem). *)
+  has "@min-[theme(--breakpoint-lg)]:flex" "@container (width >= 64rem)";
+  has "@max-[theme(--breakpoint-lg)]:flex" "@container (not (width >= 64rem))";
   check string "@max-md round-trips" "@max-md:p-4"
     (Tw.Utility.to_class (Option.get (apply [ "@max-md" ] (p 4))));
   check string "@min-[20rem] round-trips" "@min-[20rem]:p-4"
