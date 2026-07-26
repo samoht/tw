@@ -135,6 +135,75 @@ let split_importance base_class =
     (`Suffix, String.sub base_class 0 (n - 1))
   else (`None, base_class)
 
+(* Resolve a Tailwind theme() dot-path to its static value:
+   colors.<name>.<shade> (optionally with a /<alpha> suffix) becomes the
+   colour's oklch value, and spacing.<n> becomes <n * 0.25>rem. Returns None for
+   paths not resolved. *)
+let theme_resolve_path inner =
+  let path, alpha =
+    match String.index_opt inner '/' with
+    | Some k ->
+        ( String.sub inner 0 k,
+          Some (String.sub inner (k + 1) (String.length inner - k - 1)) )
+    | None -> (inner, None)
+  in
+  match String.split_on_char '.' path with
+  | [ "colors"; name; shade ] -> (
+      match (Color.of_string name, int_of_string_opt shade) with
+      | Ok c, Some sh ->
+          let base = Color.to_oklch_css c sh in
+          Some
+            (match alpha with
+            | Some a
+              when String.length base > 0 && base.[String.length base - 1] = ')'
+              ->
+                (* oklch(L C H) -> oklch(L C H / a); cascade folds the alpha
+                   form to Tailwind's oklab(...) under canonical comparison. *)
+                String.concat ""
+                  [ String.sub base 0 (String.length base - 1); " / "; a; ")" ]
+            | _ -> base)
+      | _ -> None)
+  | [ "spacing"; n ] -> (
+      match float_of_string_opt n with
+      | Some nf ->
+          let rem = nf *. 0.25 in
+          let s =
+            if Float.is_integer rem then string_of_int (int_of_float rem)
+            else string_of_float rem
+          in
+          Some (String.concat "" [ s; "rem" ])
+      | None -> None)
+  | _ -> None
+
+(* Replace each theme(<path>) in a class string with its resolved value, spaces
+   re-encoded as [_] so downstream arbitrary-value decoding treats them as
+   spaces. Unresolved theme() calls are left verbatim. *)
+let resolve_theme_functions s =
+  let buf = Buffer.create (String.length s) in
+  let n = String.length s in
+  let i = ref 0 in
+  while !i < n do
+    if !i + 6 <= n && String.sub s !i 6 = "theme(" then begin
+      let j = ref (!i + 6) and depth = ref 1 in
+      while !j < n && !depth > 0 do
+        if s.[!j] = '(' then incr depth else if s.[!j] = ')' then decr depth;
+        if !depth > 0 then incr j
+      done;
+      let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
+      (match theme_resolve_path inner with
+      | Some v ->
+          Buffer.add_string buf
+            (String.map (fun c -> if c = ' ' then '_' else c) v)
+      | None -> Buffer.add_string buf (String.sub s !i (!j + 1 - !i)));
+      i := if !j < n then !j + 1 else n
+    end
+    else begin
+      Buffer.add_char buf s.[!i];
+      incr i
+    end
+  done;
+  Buffer.contents buf
+
 (* Parse a single class string into a Tw.t *)
 let of_string ?(theme = Scheme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
@@ -159,8 +228,14 @@ let of_string ?(theme = Scheme.default) class_str =
     | Some u -> Ok u
     | None -> Error (`Msg ("Unknown modifier in: " ^ class_str))
   in
-  match Utility.base_of_class theme base_class with
-  | Ok base_utility -> finish base_utility
+  (* Resolve theme() dot-paths for dispatch, keeping the original spelling as
+     the class-name alias so the utility still round-trips. *)
+  let resolved_base = resolve_theme_functions base_class in
+  let theme_alias =
+    if resolved_base = base_class then None else Some base_class
+  in
+  match Utility.base_of_class theme resolved_base with
+  | Ok base_utility -> finish ?alias:theme_alias base_utility
   | Error _ -> (
       (* Fallback: the v4 [prop-(--x)] shorthand for handlers that accept the
          [prop-[var(--x)]] form but not the paren spelling directly. Handlers
