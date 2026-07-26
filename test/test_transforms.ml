@@ -117,10 +117,37 @@ let test_translate_zero_keeps_unit () =
     "translate-x-0 writes 0px" true
     (Astring.String.is_infix ~affix:"--tw-translate-x: 0px" css)
 
+(* Bare-integer translate-N / -translate-N set both axes to calc(var(--spacing)
+   * n); they used to be unknown classes (only the per-axis translate-x-N /
+   translate-y-N parsed). *)
+let test_translate_spacing () =
+  check "translate-2";
+  check "translate-8";
+  check "translate-60";
+  check "-translate-4";
+  check "-translate-6";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "translate-2 sets both axes" true
+    (Astring.String.is_infix ~affix:"--tw-translate-x: calc(var(--spacing) * 2)"
+       (css "translate-2")
+    && Astring.String.is_infix
+         ~affix:"--tw-translate-y: calc(var(--spacing) * 2)" (css "translate-2")
+    );
+  Alcotest.(check bool)
+    "-translate-4 negates the multiplier" true
+    (Astring.String.is_infix
+       ~affix:"--tw-translate-x: calc(var(--spacing) * -4)" (css "-translate-4"))
+
 let tests =
   [
     test_case "translate zero keeps its unit" `Quick
       test_translate_zero_keeps_unit;
+    test_case "translate spacing (both axes)" `Quick test_translate_spacing;
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
