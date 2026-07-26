@@ -1210,15 +1210,23 @@ let handle_not_bracket content base_class props =
         ~props ~base_class:modified_class ();
     ]
   else
-    (* Unknown bracket content - treat as raw selector *)
+    (* Arbitrary selector content: [_] is a space and [&] is the utility's own
+       element, which inside a negation becomes the universal selector. So
+       [not-[.os-macos_&]] negates the descendant context [.os-macos &] as
+       [:not(.os-macos <star>)]. Parse the transformed string as a selector so
+       combinators and compounds flatten, rather than escaping it as a single
+       class name. *)
+    let sel_str =
+      content
+      |> String.map (fun c -> if c = '_' then ' ' else c)
+      |> String.split_on_char '&' |> String.concat "*"
+    in
+    let inner = Css.Selector.read (Cascade.Cursor.of_string sel_str) in
     [
       regular ~not_order:nvo
         ~selector:
           (Css.Selector.compound
-             [
-               Css.Selector.Class modified_class;
-               Css.Selector.Not [ Css.Selector.Class content ];
-             ])
+             [ Css.Selector.Class modified_class; Css.Selector.Not [ inner ] ])
         ~props ~base_class:modified_class ();
     ]
 

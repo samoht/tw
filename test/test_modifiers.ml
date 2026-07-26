@@ -541,10 +541,29 @@ let test_nested_modifier_css_generation () =
       Alcotest.failf "Nested modifier CSS parse failed:\n%s"
         (Cascade.Error.to_string e)
 
+(* not-[<selector>] with an arbitrary selector parses [_] as a space and [&] as
+   the element, which becomes the universal selector inside the negation (so
+   not-[.os-macos_&]:block negates the descendant context as a :not over
+   .os-macos descendants). It used to escape the bracket content as one class
+   name instead. *)
+let test_not_bracket_arbitrary_selector () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check bool "not-[.os-macos_&]:block negates the descendant context" true
+    (Astring.String.is_infix ~affix:":not(.os-macos *)"
+       (css "not-[.os-macos_&]:block"));
+  check bool "not-[.foo]:block negates a plain class" true
+    (Astring.String.is_infix ~affix:":not(.foo)" (css "not-[.foo]:block"))
+
 (* Extend the suite with new tests *)
 let tests =
   tests
   @ [
+      test_case "not-[selector] arbitrary negation" `Quick
+        test_not_bracket_arbitrary_selector;
       test_case "is_hover flags" `Quick test_is_hover;
       test_case "of_string parsing" `Quick test_of_string_parsing;
       test_case "pp_modifier strings" `Quick test_pp_modifier_strings;
