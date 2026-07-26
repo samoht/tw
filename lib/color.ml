@@ -3215,7 +3215,12 @@ let hex_alpha_color ?theme c shade opacity =
          hex, so an /opacity modifier still resolves to a colour. *)
       if is_base_color c then
         Some (hex_with_alpha (to_oklch_css c shade) percent)
-      else None
+      else
+        (* A theme that binds palette colours to var references has no scheme
+           hex; convert through oklch so the /opacity modifier still resolves,
+           as [color_with_opacity_style] does for bg/text/border. *)
+        let hex_value = rgb_to_hex (oklch_to_rgb (to_oklch c shade)) in
+        Some (hex_with_alpha hex_value percent)
 
 let color_mix_supports_condition = Handler.color_mix_supports_condition
 
