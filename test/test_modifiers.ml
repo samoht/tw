@@ -562,12 +562,30 @@ let test_not_bracket_arbitrary_selector () =
   check bool "not-[.foo]:block negates a plain class" true
     (Astring.String.is_infix ~affix:":not(.foo)" (css "not-[.foo]:block"))
 
+(* A group/peer arbitrary variant whose [&] anchor is preceded by a context
+   (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
+   rather than dropping it down to just :where(.group). *)
+let test_group_arbitrary_prefix () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check bool "group-[:nth-of-type(3)_&] keeps the prefix" true
+    (Astring.String.is_infix ~affix:":is(:nth-of-type(3) :where(.group) *)"
+       (css "group-[:nth-of-type(3)_&]:block"));
+  check bool "group-[&_p] anchor-first still works" true
+    (Astring.String.is_infix ~affix:":is(:where(.group) p *)"
+       (css "group-[&_p]:block"))
+
 (* Extend the suite with new tests *)
 let tests =
   tests
   @ [
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
+      test_case "group arbitrary prefix anchor" `Quick
+        test_group_arbitrary_prefix;
       test_case "is_hover flags" `Quick test_is_hover;
       test_case "of_string parsing" `Quick test_of_string_parsing;
       test_case "pp_modifier strings" `Quick test_pp_modifier_strings;
