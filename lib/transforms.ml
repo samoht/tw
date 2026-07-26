@@ -42,14 +42,16 @@ module Handler = struct
     | Translate_x_fraction of int * int
     | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
-      Translate_full
+      Translate of int
+    | Translate_full
     | Translate_none
     | Translate_px
     | Translate_1_2
     | Translate_fraction of int * int
     | Translate_arbitrary of Css.length
     | (* Negative translate utilities *)
-      Neg_translate_arbitrary of string
+      Neg_translate of int
+    | Neg_translate_arbitrary of string
     | Neg_translate_full
     | Neg_translate_px
     | Neg_translate_fraction of int * int
@@ -593,6 +595,27 @@ module Handler = struct
         [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
     style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
+
+  (* Combined spacing translate (translate-N / -translate-N): both axes bound to
+     calc(var(--spacing) * n); a negative n renders the "* -n" multiplier. *)
+  let translate_spacing n =
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var (Css.Rem 0.25)
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float (float_of_int n)))
+    in
+    let dx, _ = Var.binding tw_translate_x_var spacing_value in
+    let dy, _ = Var.binding tw_translate_y_var spacing_value in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (spacing_decl :: dx :: dy :: [ translate_xy_refs ])
 
   let translate_1_2 =
     (* Tailwind outputs calc(1 / 2 * 100%) rather than 50% *)
@@ -1162,6 +1185,8 @@ module Handler = struct
     | Translate_y_px -> translate_y_px
     | Translate_y_arbitrary len -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
+    | Translate n -> translate_spacing n
+    | Neg_translate n -> translate_spacing (-n)
     | Translate_full -> translate_full
     | Translate_none -> style [ Css.translate None ]
     | Translate_px -> translate_px
@@ -1275,19 +1300,26 @@ module Handler = struct
     | Transform_cpu -> 2002
     | Transform_gpu -> 2003
     | Transform_none -> 2004
-    (* Combined translate utilities: negative first, then positive *)
-    | Neg_translate_arbitrary _ -> 85
-    | Neg_translate_full -> 86
-    | Neg_translate_px -> 86
-    | Neg_translate_x_px -> 86
-    | Neg_translate_y_px -> 86
-    | Neg_translate_fraction _ -> 86
-    | Translate_1_2 -> 87
-    | Translate_fraction _ -> 87
-    | Translate_arbitrary _ -> 89
-    | Translate_full -> 91
-    | Translate_none -> 91
-    | Translate_px -> 91
+    (* Combined translate (CSS `translate`): negatives first, positives second.
+       Within a sign Tailwind orders by class name, so one shared suborder plus
+       the string tiebreak already sorts fractions before small integers before
+       full/px. Positive integers need an explicit magnitude key (32 + n)
+       because lexical order puts translate-8 after translate-45; the spacing
+       scale on real sites keeps 32 + n below the translate-x band at 100. *)
+    | Neg_translate _ -> 20
+    | Neg_translate_arbitrary _ -> 20
+    | Neg_translate_full -> 20
+    | Neg_translate_px -> 20
+    | Neg_translate_x_px -> 20
+    | Neg_translate_y_px -> 20
+    | Neg_translate_fraction _ -> 20
+    | Translate_1_2 -> 31
+    | Translate_fraction _ -> 31
+    | Translate n -> 32 + n
+    | Translate_arbitrary _ -> 95
+    | Translate_full -> 96
+    | Translate_px -> 97
+    | Translate_none -> 98
     (* Translate utilities come first *)
     | Neg_translate_x_arbitrary _ -> 100
     | Neg_translate_x_full -> 101
@@ -1473,6 +1505,8 @@ module Handler = struct
         | Some (num, denom) -> Ok (Translate_fraction (num, denom))
         | None -> err_not_utility)
     | [ "translate"; "3d" ] -> Ok Translate_3d
+    | [ "translate"; n ] when not (Parse.is_bracket_value n) ->
+        Parse.int_any n >|= fun n -> Translate n
     | "translate" :: rest
       when match rest with
            | [] | [ "x"; _ ] | [ "y"; _ ] | [ "z"; _ ] | [ "full" ] | [ "1/2" ]
@@ -1495,6 +1529,7 @@ module Handler = struct
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_fraction (num, denom))
         | None -> err_not_utility)
+    | [ ""; "translate"; n ] -> Parse.int_any n >|= fun n -> Neg_translate n
     | [ ""; "translate"; "x"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_x_arbitrary inner)
@@ -1761,6 +1796,8 @@ module Handler = struct
     | Neg_translate_z_arbitrary s -> "-translate-z-[" ^ s ^ "]"
     | Neg_translate_z_px -> "-translate-z-px"
     | Translate_3d -> "translate-3d"
+    | Translate n -> "translate-" ^ string_of_int n
+    | Neg_translate n -> "-translate-" ^ string_of_int n
     | Translate_full -> "translate-full"
     | Translate_none -> "translate-none"
     | Translate_px -> "translate-px"
