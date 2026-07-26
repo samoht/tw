@@ -704,20 +704,25 @@ module Handler = struct
     in
     match parts with
     | [ x; y ] -> (
-        (* Two values - but Tailwind seems to collapse to single in some
-           cases *)
+        (* Each axis is a keyword edge (left/right/top/bottom/center, normalised
+           to its percentage) or a length. *)
         let parse_len s : Css.length option =
-          if String.ends_with ~suffix:"px" s then
-            let n =
-              String.sub s 0 (String.length s - 2) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Css.Px f : Css.length)) n
-          else if String.ends_with ~suffix:"%" s then
-            let n =
-              String.sub s 0 (String.length s - 1) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Css.Pct f : Css.length)) n
-          else None
+          match s with
+          | "left" | "top" -> Some (Css.Pct 0.)
+          | "center" -> Some (Css.Pct 50.)
+          | "right" | "bottom" -> Some (Css.Pct 100.)
+          | _ ->
+              if String.ends_with ~suffix:"px" s then
+                let n =
+                  String.sub s 0 (String.length s - 2) |> float_of_string_opt
+                in
+                Option.map (fun f -> (Css.Px f : Css.length)) n
+              else if String.ends_with ~suffix:"%" s then
+                let n =
+                  String.sub s 0 (String.length s - 1) |> float_of_string_opt
+                in
+                Option.map (fun f -> (Css.Pct f : Css.length)) n
+              else None
         in
         let xl = parse_len x in
         let yl = parse_len y in
