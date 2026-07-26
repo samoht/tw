@@ -108,6 +108,23 @@ let test_bracket_length_keywords () =
     (Astring.String.is_infix ~affix:"background-size: contain"
        (css "bg-[length:contain]"))
 
+(* A two-axis bg-position bracket mixes a keyword edge with a length, e.g.
+   bg-position-[center_-100px] -> background-position: 50% -100px. *)
+let test_bg_position_bracket_keyword_length () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-position-[center_-100px] keeps both axes" true
+    (Astring.String.is_infix ~affix:"background-position: 50% -100px"
+       (css "bg-position-[center_-100px]"));
+  Alcotest.(check bool)
+    "bg-position-[left_top] normalises keywords" true
+    (Astring.String.is_infix ~affix:"background-position: 0% 0%"
+       (css "bg-position-[left_top]"))
+
 let test_bracket_image_literal () =
   let css cls =
     match Tw.of_string cls with
@@ -217,6 +234,8 @@ let tests =
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
+    test_case "bg-position bracket keyword+length" `Quick
+      test_bg_position_bracket_keyword_length;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
