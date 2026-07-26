@@ -27,7 +27,31 @@ let test_fractions () =
   check "right-1/2";
   check "left-1/2";
   check "left-1/5";
-  check "left-2/3"
+  check "left-2/3";
+  (* negative and improper fractions *)
+  check "-left-1/2";
+  check "-top-1/3";
+  check "-inset-x-1/2";
+  check "left-6/5";
+  check "-left-6/5"
+
+(* Negative fractions negate the percentage; an improper fraction resolves past
+   100% (6/5 -> 120%). *)
+let test_negative_and_improper_fractions () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "-left-6/5 is -120%" true
+    (Astring.String.is_infix ~affix:"left: -120%" (css "-left-6/5"));
+  Alcotest.(check bool)
+    "left-6/5 is 120%" true
+    (Astring.String.is_infix ~affix:"left: 120%" (css "left-6/5"));
+  Alcotest.(check bool)
+    "-inset-x-1/2 is -50%" true
+    (Astring.String.is_infix ~affix:"inset-inline: -50%" (css "-inset-x-1/2"))
 
 (* Arbitrary values round-trip verbatim in the class name: the leading zero of
    0.67rem (and the sign of negatives) is preserved, not re-serialised to a
@@ -130,6 +154,8 @@ let tests =
     test_case "arbitrary value roundtrip" `Quick test_arbitrary_roundtrip;
     test_case "position utilities" `Quick test_position_utilities;
     test_case "position fractions" `Quick test_fractions;
+    test_case "negative and improper fractions" `Quick
+      test_negative_and_improper_fractions;
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
