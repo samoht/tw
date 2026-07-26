@@ -61,6 +61,12 @@ let test_ring_shadeless_color () =
     (Astring.String.is_infix ~affix:"--tw-ring-color" (css "ring-black"));
   Alcotest.check bool "ring-white/10 uses color-mix" true
     (Astring.String.is_infix ~affix:"color-mix" (css "ring-white/10"));
+  (* Palette colours (blue-500) also apply the /opacity modifier on a var-ref
+     theme; the ring family resolves it via oklab like bg/text do. *)
+  Alcotest.check bool "ring-blue-500/50 applies opacity" true
+    (Astring.String.is_infix ~affix:"color-mix" (css "ring-blue-500/50"));
+  Alcotest.check bool "inset-ring-gray-950/10 applies opacity" true
+    (Astring.String.is_infix ~affix:"color-mix" (css "inset-ring-gray-950/10"));
   match Tw.of_string "ring-red" with
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "ring-red (no shade) should be rejected"
