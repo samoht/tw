@@ -76,6 +76,8 @@ module Handler = struct
     | Border_l
     | Border_x
     | Border_y
+    | Border_x_width of int
+    | Border_y_width of int
     | (* Border side utilities with widths *)
       Border_t_0
     | Border_t_2
@@ -243,23 +245,24 @@ module Handler = struct
     make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 1.) ])
 
-  let border_x =
-    make_side_util (fun border_var ->
-        [
-          border_left_style (Var border_var);
-          border_left_width (Px 1.);
-          border_right_style (Var border_var);
-          border_right_width (Px 1.);
-        ])
+  (* v4 axis borders paint the logical inline and block axes via the
+     border-inline and border-block longhands, not the two physical edges. *)
+  let border_inline_axis border_var w =
+    [
+      border_inline_style (Var border_var);
+      border_inline_width (logical_border_width (Px w));
+    ]
 
-  let border_y =
-    make_side_util (fun border_var ->
-        [
-          border_top_style (Var border_var);
-          border_top_width (Px 1.);
-          border_bottom_style (Var border_var);
-          border_bottom_width (Px 1.);
-        ])
+  let border_block_axis border_var w =
+    [
+      border_block_style (Var border_var);
+      border_block_width (logical_border_width (Px w));
+    ]
+
+  let border_x = make_side_util (fun v -> border_inline_axis v 1.)
+  let border_y = make_side_util (fun v -> border_block_axis v 1.)
+  let border_x_width n = make_side_util (fun v -> border_inline_axis v n)
+  let border_y_width n = make_side_util (fun v -> border_block_axis v n)
 
   (** Border side utilities with specific widths *)
   let border_t_0 =
@@ -646,6 +649,8 @@ module Handler = struct
     | Border_l -> border_l
     | Border_x -> border_x
     | Border_y -> border_y
+    | Border_x_width n -> border_x_width (float_of_int n)
+    | Border_y_width n -> border_y_width (float_of_int n)
     (* Border side utilities with widths *)
     | Border_t_0 -> border_t_0
     | Border_t_2 -> border_t_2
@@ -785,7 +790,9 @@ module Handler = struct
     | Border_l_4 -> 1133
     | Border_l_8 -> 1134
     | Border_x -> 1140
+    | Border_x_width n -> 1140 + n
     | Border_y -> 1150
+    | Border_y_width n -> 1150 + n
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
@@ -834,6 +841,10 @@ module Handler = struct
     | [ "border"; "l" ] -> Ok Border_l
     | [ "border"; "x" ] -> Ok Border_x
     | [ "border"; "y" ] -> Ok Border_y
+    | [ "border"; "x"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_x_width (int_of_string n))
+    | [ "border"; "y"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_y_width (int_of_string n))
     | [ "border"; "t"; "0" ] -> Ok Border_t_0
     | [ "border"; "t"; "2" ] -> Ok Border_t_2
     | [ "border"; "t"; "4" ] -> Ok Border_t_4
@@ -968,6 +979,8 @@ module Handler = struct
     | Border_l -> "border-l"
     | Border_x -> "border-x"
     | Border_y -> "border-y"
+    | Border_x_width n -> "border-x-" ^ string_of_int n
+    | Border_y_width n -> "border-y-" ^ string_of_int n
     | Border_t_0 -> "border-t-0"
     | Border_t_2 -> "border-t-2"
     | Border_t_4 -> "border-t-4"

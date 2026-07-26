@@ -29,6 +29,10 @@ let of_string_valid () =
 
   check "border-t-2";
   check "border-r-4";
+  check "border-x-4";
+  check "border-y-2";
+  check "border-x-0";
+  check "border-y-8";
 
   check "border-solid";
   check "border-dashed";
