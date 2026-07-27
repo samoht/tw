@@ -893,7 +893,14 @@ let replace_first ~needle ~by hay =
 let builtin_variant_template ~theme name =
   let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
   if body = "" then None
-  else replace_first ~needle:"float:none" ~by:"@slot;" body
+  else
+    (* A media variant wraps the probe in a bare [&], which would add a nesting
+       level the utility's own body cannot survive: its [@variant before] and
+       the [@supports] an opacity colour emits end up three deep and the sheet
+       no longer parses. Drop that level by putting the slot in its place. *)
+    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
+    | Some t -> Some t
+    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 (* A candidate the project's own declarations govern: it carries a declared
    variant, or it is a declared utility. *)
