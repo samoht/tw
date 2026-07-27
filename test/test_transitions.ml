@@ -18,14 +18,34 @@ let test_roundtrip () =
   check "ease-linear";
   check "ease-in";
   check "ease-out";
-  check "ease-in-out"
+  check "ease-in-out";
+  (* the initial keyword resets the duration/ease channel *)
+  check "duration-initial";
+  check "ease-initial"
 
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "duration";
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "delay";
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "ease"
 
+(* duration-initial / ease-initial reset their channel var to the CSS initial
+   keyword. *)
+let test_initial_resets () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "duration-initial sets --tw-duration:initial" true
+    (Astring.String.is_infix ~affix:"--tw-duration:initial"
+       (css "duration-initial"));
+  Alcotest.(check bool)
+    "ease-initial sets --tw-ease:initial" true
+    (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
+  @ [ Alcotest.test_case "initial resets" `Quick test_initial_resets ]
 
 let suite = ("transitions", tests)

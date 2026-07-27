@@ -524,6 +524,12 @@ val binding :
       (e.g., text-xs references --tw-leading with --text-xs--line-height as
       fallback). *)
 
+val binding_initial :
+  ('a, [< `Property_default | `Channel ]) t -> Css.declaration
+(** [binding_initial var] resets the channel to the CSS-wide [initial] keyword
+    ([--name: initial]). Used by the [*-initial] and [via-none] utilities, which
+    clear a channel var instead of setting it to a typed value. *)
+
 val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
 (** [reference var] creates a reference to a variable. For ref_only and
     property_default variables only. *)
