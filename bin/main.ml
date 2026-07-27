@@ -771,6 +771,54 @@ let diff_files paths ~(opts : gen_opts) =
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
+(* Read the [@custom-variant] declarations from the entrypoint. A project can
+   redefine a built-in variant here (e.g. class-based [dark]), which must apply
+   to the whole utility set, not only the author's own CSS. *)
+let entry_variant_defs = function
+  | None -> []
+  | Some path -> (
+      match read_file path with
+      | exception Sys_error _ -> []
+      | raw -> snd (take_custom_variants (strip_tailwind_import_options raw)))
+
+(* A candidate leads with a project-declared variant. *)
+let leads_with_declared_variant defs cls =
+  match peel_declared_variants defs cls with [], _ -> false | _ -> true
+
+(* Utilities whose leading variant a project redefined via [@custom-variant]
+   (e.g. a class-based [dark:]) cannot go through [Tw.of_string], which only
+   knows the built-in [@media (prefers-color-scheme: dark)] form. Route them
+   through the same [@variant] expansion the author CSS uses: wrap the bare
+   utility's declarations under the escaped class and the declared variant, then
+   let cascade flatten the nesting into the project's selector. *)
+let custom_routed_utilities ~theme ~defs candidates =
+  let one cls =
+    match peel_declared_variants defs cls with
+    | [], _ -> None
+    | variants, bare ->
+        let body = nested_utilities ~theme [ bare ] in
+        if body = "" then None
+        else
+          let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
+          let wrapped =
+            List.fold_right
+              (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
+              variants body
+          in
+          Some (String.concat "" [ class_sel; "{"; wrapped; "}" ])
+  in
+  match List.filter_map one candidates with
+  | [] -> (0, [])
+  | blocks -> (
+      let css = expand_variants ~depth:0 defs (String.concat "" blocks) in
+      match
+        Css.of_string (String.concat "" [ "@layer utilities{"; css; "}" ])
+      with
+      | Error _ -> (0, [])
+      | Ok p ->
+          ( List.length blocks,
+            Css.statements (Css.flatten_nesting p.Css.stylesheet) ))
+
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
   try
@@ -779,12 +827,23 @@ let native_files paths flag ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
+    let defs = entry_variant_defs opts.input_css_path in
+    let routed, normal =
+      List.partition (leads_with_declared_variant defs) all_classes
+    in
     let known =
-      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
-        all_classes
+      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
     in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:include_base tw_styles in
+    let routed_count, routed_stmts =
+      custom_routed_utilities ~theme:opts.theme ~defs routed
+    in
+    let stylesheet =
+      match routed_stmts with
+      | [] -> stylesheet
+      | extra -> Css.v (Css.statements stylesheet @ extra)
+    in
     let stylesheet =
       match opts.input_css_path with
       | Some path -> splice_into_entrypoint ~theme:opts.theme ~path stylesheet
@@ -792,7 +851,7 @@ let native_files paths flag ~(opts : gen_opts) =
     in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
-      ~known_count:(List.length known);
+      ~known_count:(List.length known + routed_count);
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
