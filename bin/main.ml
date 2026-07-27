@@ -390,11 +390,9 @@ let nest_on_ampersand sel =
   |> selector_parts |> List.map rewrite |> String.concat ","
   |> Cascade.Selector.of_string
 
-(* Peel the leading variant prefixes a project declared with [@custom-variant].
-   They cannot go through [Tw.of_string], which only knows the built-in
-   variants, so they are re-emitted as [@variant] blocks for [expand_variants]
-   to expand. A [:] inside [[&>*]] is not a separator. *)
-let peel_declared_variants defs name =
+(* Split a class name on its variant separators. A [:] inside [[&>*]] or [(--x)]
+   is part of the segment, not a separator. *)
+let variant_segments name =
   let len = String.length name in
   let rec seg_end i depth =
     if i >= len then i
@@ -407,13 +405,28 @@ let peel_declared_variants defs name =
   in
   let rec go i acc =
     let stop = seg_end i 0 in
-    if stop >= len then (List.rev acc, String.sub name i (len - i))
-    else
-      let seg = String.sub name i (stop - i) in
-      if List.mem_assoc seg defs then go (stop + 1) (seg :: acc)
-      else (List.rev acc, String.sub name i (len - i))
+    let seg = String.sub name i (stop - i) in
+    if stop >= len then List.rev (seg :: acc) else go (stop + 1) (seg :: acc)
   in
   go 0 []
+
+(* Separate the variants a project declared with [@custom-variant] from the rest
+   of the class. They cannot go through [Tw.of_string], which only knows the
+   built-in variants, so they are re-emitted as [@variant] blocks for
+   [expand_variants] to expand. A declared variant is picked out wherever it
+   sits in the chain — [lg:dark:flex] as much as [dark:lg:flex] — and the
+   built-in prefixes stay attached to the utility, which keeps their media
+   queries wrapped around the declared variant's selector. *)
+let split_declared_variants defs name =
+  match variant_segments name with
+  | [] | [ _ ] -> ([], name)
+  | segs ->
+      let bare = List.nth segs (List.length segs - 1) in
+      let prefix = List.filteri (fun i _ -> i < List.length segs - 1) segs in
+      let declared, builtin =
+        List.partition (fun s -> List.mem_assoc s defs) prefix
+      in
+      (declared, String.concat ":" (builtin @ [ bare ]))
 
 let nested_utilities ~theme names =
   let of_name n =
@@ -470,7 +483,7 @@ let expand_apply ~theme ~defs css =
         |> List.filter (fun n -> n <> "")
       in
       let emit name =
-        let variants, bare = peel_declared_variants defs name in
+        let variants, bare = split_declared_variants defs name in
         let body = nested_utilities ~theme [ bare ] in
         if body = "" then ()
         else begin
@@ -781,11 +794,11 @@ let entry_variant_defs = function
       | exception Sys_error _ -> []
       | raw -> snd (take_custom_variants (strip_tailwind_import_options raw)))
 
-(* A candidate leads with a project-declared variant. *)
-let leads_with_declared_variant defs cls =
-  match peel_declared_variants defs cls with [], _ -> false | _ -> true
+(* A candidate carries a project-declared variant. *)
+let has_declared_variant defs cls =
+  match split_declared_variants defs cls with [], _ -> false | _ -> true
 
-(* Utilities whose leading variant a project redefined via [@custom-variant]
+(* Utilities carrying a variant the project redefined via [@custom-variant]
    (e.g. a class-based [dark:]) cannot go through [Tw.of_string], which only
    knows the built-in [@media (prefers-color-scheme: dark)] form. Route them
    through the same [@variant] expansion the author CSS uses: wrap the bare
@@ -793,7 +806,7 @@ let leads_with_declared_variant defs cls =
    let cascade flatten the nesting into the project's selector. *)
 let custom_routed_utilities ~theme ~defs candidates =
   let one cls =
-    match peel_declared_variants defs cls with
+    match split_declared_variants defs cls with
     | [], _ -> None
     | variants, bare ->
         let body = nested_utilities ~theme [ bare ] in
@@ -829,7 +842,7 @@ let native_files paths flag ~(opts : gen_opts) =
     in
     let defs = entry_variant_defs opts.input_css_path in
     let routed, normal =
-      List.partition (leads_with_declared_variant defs) all_classes
+      List.partition (has_declared_variant defs) all_classes
     in
     let known =
       parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
