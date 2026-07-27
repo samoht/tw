@@ -463,6 +463,42 @@ let preprocess_has_selector s =
   done;
   Buffer.contents buf
 
+(* The selector a has-shorthand name stands for. [has-<state>] takes the same
+   state names as the group/peer variants and matches what that state matches,
+   so most map straight to their pseudo-class. *)
+let resolve_has_shorthand = function
+  | "hocus" -> ":hover, :focus"
+  | "open" -> ":is([open], :popover-open, :open)"
+  | "inert" -> ":is([inert], [inert] *)"
+  | "odd" -> ":nth-child(odd)"
+  | "even" -> ":nth-child(even)"
+  | "first" -> ":first-child"
+  | "last" -> ":last-child"
+  | "only" -> ":only-child"
+  | s when Style.is_data_attr_name s -> "[" ^ s ^ "]"
+  | s -> ":" ^ s
+
+(* The [:has()] argument a has-variant matches, from the spelling the modifier
+   stored: a state name resolves to its pseudo-class, anything else is already a
+   selector. *)
+let has_inner_selector raw =
+  let str =
+    if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
+  in
+  Css.Selector.read_relative
+    (Cascade.Cursor.of_string (preprocess_has_selector str))
+
+(* The relative selector a group/peer has-variant scopes to:
+   [:where(.group):has(<inner>) *]. *)
+let has_anchor_rel ~anchor ~combinator ?name inner =
+  let open Css.Selector in
+  let anchor_class =
+    match name with Some n -> anchor ^ "/" ^ n | None -> anchor
+  in
+  combine
+    (compound [ where [ Class anchor_class ]; has [ inner ] ])
+    combinator universal
+
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
     selector_str base_class props =
   let open Css.Selector in
@@ -484,13 +520,9 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
       let class_name =
         "group-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
-      let group_class =
-        match name with Some n -> "group/" ^ n | None -> "group"
-      in
       let rel =
-        combine
-          (compound [ where [ Class group_class ]; has [ parsed_selector ] ])
-          Descendant universal
+        has_anchor_rel ~anchor:"group" ~combinator:Descendant ?name
+          parsed_selector
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
@@ -500,13 +532,9 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
       let class_name =
         "peer-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
-      let peer_class =
-        match name with Some n -> "peer/" ^ n | None -> "peer"
-      in
       let rel =
-        combine
-          (compound [ where [ Class peer_class ]; has [ parsed_selector ] ])
-          Subsequent_sibling universal
+        has_anchor_rel ~anchor:"peer" ~combinator:Subsequent_sibling ?name
+          parsed_selector
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
@@ -733,20 +761,6 @@ let route_data_bracket_modifier modifier base_class props =
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ~not_order ()
-
-(* The selector a has-shorthand name stands for. [has-<state>] takes the same
-   state names as the group/peer variants and matches what that state matches,
-   so most map straight to their pseudo-class. *)
-let resolve_has_shorthand = function
-  | "hocus" -> ":hover, :focus"
-  | "open" -> ":is([open], :popover-open, :open)"
-  | "inert" -> ":is([inert], [inert] *)"
-  | "odd" -> ":nth-child(odd)"
-  | "even" -> ":nth-child(even)"
-  | "first" -> ":first-child"
-  | "last" -> ":last-child"
-  | "only" -> ":only-child"
-  | s -> ":" ^ s
 
 (* Route :has() variants to appropriate handler *)
 let route_has_modifier modifier base_class props =
@@ -1051,20 +1065,27 @@ let extract_not_conditions inner_modifier base_class =
   | Style.Hocus | Style.Device_hocus ->
       [ Css.Selector.Hover; Css.Selector.Focus ]
   | Style.Has selector_str ->
-      let pseudo_str =
-        if String.length selector_str > 0 && selector_str.[0] = ':' then
-          String.sub selector_str 1 (String.length selector_str - 1)
-        else selector_str
-      in
-      let inner_sel =
-        match pseudo_str with
-        | "checked" -> Css.Selector.Checked
-        | "hover" -> Css.Selector.Hover
-        | "focus" -> Css.Selector.Focus
-        | "disabled" -> Css.Selector.Disabled
-        | _ -> Css.Selector.Class (":" ^ pseudo_str)
-      in
-      [ Css.Selector.Has [ inner_sel ] ]
+      [ Css.Selector.Has [ has_inner_selector selector_str ] ]
+  (* [not-group-has-X] negates the whole scoped relative selector, not just its
+     [:has()] part. *)
+  | Style.Group_has (selector_str, name) ->
+      [
+        Css.Selector.is_
+          [
+            has_anchor_rel ~anchor:"group" ~combinator:Css.Selector.Descendant
+              ?name
+              (has_inner_selector selector_str);
+          ];
+      ]
+  | Style.Peer_has (selector_str, name) ->
+      [
+        Css.Selector.is_
+          [
+            has_anchor_rel ~anchor:"peer"
+              ~combinator:Css.Selector.Subsequent_sibling ?name
+              (has_inner_selector selector_str);
+          ];
+      ]
   | Style.Data_custom (attr, "") ->
       [ Css.Selector.attribute ("data-" ^ attr) Presence ]
   | Style.Data_custom (attr, value) ->

@@ -380,8 +380,23 @@ let group_state_modifiers =
 
 (* Valid has-shorthand names. These are stored as-is (without : prefix) so they
    remain distinct from bracket forms like has-[:checked]. *)
+(* [has-data-lg] matches an attribute rather than a state, but spells itself the
+   same way, so it is a shorthand too. *)
+let is_data_attr_name name =
+  String.length name > 5
+  && String.sub name 0 5 = "data-"
+  && String.for_all
+       (fun c ->
+         (c >= 'a' && c <= 'z')
+         || (c >= 'A' && c <= 'Z')
+         || (c >= '0' && c <= '9')
+         || c = '-' || c = '_')
+       (String.sub name 5 (String.length name - 5))
+
 let is_has_shorthand name =
-  name = "hocus" || List.mem_assoc name group_state_modifiers
+  name = "hocus"
+  || List.mem_assoc name group_state_modifiers
+  || is_data_attr_name name
 
 let has_part selector =
   if is_has_shorthand selector then selector else "[" ^ selector ^ "]"

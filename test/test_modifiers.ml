@@ -499,6 +499,27 @@ let test_named_anchor_and_bare_data () =
     (Astring.String.is_infix ~affix:"@media(hover:hover)"
        (css "group-hover/edit:underline"))
 
+(* [has-data-lg] matches an attribute rather than a state but spells itself the
+   same way, and [not-] composes over any variant, including a scoped
+   [group-has-]: the negation wraps the whole relative selector. *)
+let test_has_data_and_not_composition () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "has-data-lg:opacity-40" ".has-data-lg\\:opacity-40:has([data-lg])";
+  has "group-has-data-lg:opacity-40"
+    ".group-has-data-lg\\:opacity-40:is(:where(.group):has([data-lg]) *)";
+  has "not-group-has-data-lg:opacity-40"
+    ".not-group-has-data-lg\\:opacity-40:not(:is(:where(.group):has([data-lg]) \
+     *))";
+  has "not-peer-has-checked:opacity-0"
+    ".not-peer-has-checked\\:opacity-0:not(:is(:where(.peer):has(:checked)~*))"
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -649,6 +670,8 @@ let tests =
       test_case "has state shorthands" `Quick test_has_state_shorthands;
       test_case "named anchor and bare data" `Quick
         test_named_anchor_and_bare_data;
+      test_case "has-data and not- composition" `Quick
+        test_has_data_and_not_composition;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick

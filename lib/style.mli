@@ -29,8 +29,8 @@ type container_query =
       (** [@min-<size>] / [@max-<size>]; the inner query is a bare named size.
       *)
   | Container_len of string * Css.length
-      (** [@[<len>]]: [width >= len]. Carries the raw bracket token so the
-          class name round-trips. *)
+      (** [@[<len>]]: [width >= len]. Carries the raw bracket token so the class
+          name round-trips. *)
   | Container_len_cmp of container_cmp * string * Css.length
       (** [@min-[<len>]] / [@max-[<len>]]. *)
 
@@ -291,13 +291,16 @@ val group_state_modifiers : (string * modifier) list
     modifier it stands for. Variants that take a state name — [group-*],
     [peer-*], [has-*] — share this table. *)
 
+val is_data_attr_name : string -> bool
+(** [is_data_attr_name name] is whether [name] is a [data-<attr>] shorthand. *)
+
 val is_has_shorthand : string -> bool
 (** [is_has_shorthand name] is whether [name] is a state name a [has-*] variant
     accepts, as opposed to a bracketed CSS selector. *)
 
 val has_part : string -> string
-(** [has_part s] is the class-name fragment a [has-*] variant spells [s] with:
-    a state name bare, a CSS selector in brackets. *)
+(** [has_part s] is the class-name fragment a [has-*] variant spells [s] with: a
+    state name bare, a CSS selector in brackets. *)
 
 val pp_modifier : modifier -> string
 (** [pp_modifier m] converts a modifier to its string representation. *)
