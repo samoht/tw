@@ -415,12 +415,17 @@ let peel_declared_variants defs name =
   in
   go 0 []
 
+(* The declarations of [names], rewritten to nest under the [&] of whatever rule
+   applies them, plus the statements that must stay at the top of the sheet. A
+   [@layer properties] block holds the initial value of the variables the
+   utilities set, on the universal selector: nested under an author rule it
+   would come out as [.box *], so it is hoisted instead. *)
 let nested_utilities ~theme names =
   let of_name n =
     match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
   in
   match List.filter_map of_name names with
-  | [] -> ""
+  | [] -> ("", "")
   | styles ->
       let sheet =
         Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
@@ -434,10 +439,25 @@ let nested_utilities ~theme names =
             let s = Cascade.Selector.to_string ~minify:true sel in
             String.length s > 0 && s.[0] = '.'
       in
-      Css.statements sheet |> List.filter from_utility
-      |> Css.map (fun sel decls ->
-          Css.rule ~selector:(nest_on_ampersand sel) decls)
-      |> Css.v |> Css.to_string ~minify:true
+      let hoisted, nestable =
+        Css.statements sheet |> List.filter from_utility
+        |> List.partition (fun stmt -> Css.as_layer stmt <> None)
+      in
+      let render stmts =
+        stmts
+        |> Css.map (fun sel decls ->
+            Css.rule ~selector:(nest_on_ampersand sel) decls)
+        |> Css.v |> Css.to_string ~minify:true
+      in
+      (render nestable, Css.to_string ~minify:true (Css.v hoisted))
+
+(* Append [s] unless it is already there: every utility that sets the same
+   variable brings back the same hoisted block. *)
+let add_once buf seen s =
+  if s <> "" && not (List.mem s !seen) then begin
+    seen := s :: !seen;
+    Buffer.add_string buf s
+  end
 
 (* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
    not CSS, so the at-rule drops out and takes the whole rule with it once the
@@ -445,6 +465,8 @@ let nested_utilities ~theme names =
 let expand_apply ~theme ~defs css =
   let len = String.length css in
   let buf = Buffer.create len in
+  let hoisted = Buffer.create 0 in
+  let seen = ref [] in
   let ident c =
     (c >= 'a' && c <= 'z')
     || (c >= 'A' && c <= 'Z')
@@ -471,7 +493,8 @@ let expand_apply ~theme ~defs css =
       in
       let emit name =
         let variants, bare = peel_declared_variants defs name in
-        let body = nested_utilities ~theme [ bare ] in
+        let body, top = nested_utilities ~theme [ bare ] in
+        add_once hoisted seen top;
         if body = "" then ()
         else begin
           List.iter
@@ -491,6 +514,9 @@ let expand_apply ~theme ~defs css =
     end
   in
   go 0;
+  (* The hoisted blocks go last: their layer is ordered by the sheet's [@layer]
+     statement, not by where they sit. *)
+  Buffer.add_buffer buf hoisted;
   Buffer.contents buf
 
 let apply_variants ?(extra_defs = []) ~theme css =
