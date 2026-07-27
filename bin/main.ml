@@ -485,7 +485,7 @@ let add_once buf seen s =
 (* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
-let expand_apply ~theme ~defs css =
+let expand_apply ~theme ~defs ?(udefs = []) css =
   let len = String.length css in
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
@@ -516,7 +516,13 @@ let expand_apply ~theme ~defs css =
       in
       let emit name =
         let variants, bare = split_declared_variants defs name in
-        let body, top = nested_utilities ~theme [ bare ] in
+        (* [@apply line-t] names a utility the project declared, whose body is
+           author CSS in its own right. *)
+        let body, top =
+          match List.assoc_opt bare udefs with
+          | Some decls -> (decls, "")
+          | None -> nested_utilities ~theme [ bare ]
+        in
         add_once hoisted seen top;
         if body = "" then ()
         else begin
@@ -542,15 +548,20 @@ let expand_apply ~theme ~defs css =
   Buffer.add_buffer buf hoisted;
   Buffer.contents buf
 
-let apply_variants ?(extra_defs = []) ~theme css =
+let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   let css, _ = take_custom_utilities css in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. *)
   let defs = defs @ builtin_variants in
+  (* A declared utility's body may [@apply] another one, so keep expanding until
+     nothing is left (bounded, in case two reference each other). *)
+  let rec expand depth css =
+    let out = expand_apply ~theme ~defs ~udefs css in
+    if depth >= 4 || String.equal out css then out else expand (depth + 1) out
+  in
   resolve_theme_fn ~theme
-    (expand_spacing_fn
-       (expand_variants ~depth:0 defs (expand_apply ~theme ~defs css)))
+    (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css)))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -835,11 +846,61 @@ let entry_defs take = function
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities
 
+(* The names an [@variant NAME {] header uses inside a body. *)
+let variant_names_in css =
+  let len = String.length css in
+  let rec go i acc =
+    if i >= len then List.rev acc
+    else
+      match at_rule_header css i "@variant" with
+      | Some (name, brace) when name <> "" -> go (brace + 1) (name :: acc)
+      | _ -> go (i + 1) acc
+  in
+  go 0 []
+
+(* The escaped class with its declarations under the [@variant]s that wrap
+   it. *)
+let wrapped_block cls variants body =
+  let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
+  let wrapped =
+    List.fold_right
+      (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
+      variants body
+  in
+  String.concat "" [ class_sel; "{"; wrapped; "}" ]
+
+(* Replace the first occurrence of [needle] in [hay]. *)
+let replace_first ~needle ~by hay =
+  let n = String.length needle and h = String.length hay in
+  let rec at i =
+    if i + n > h then None
+    else if String.sub hay i n = needle then Some i
+    else at (i + 1)
+  in
+  match at 0 with
+  | None -> None
+  | Some i ->
+      Some
+        (String.concat ""
+           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
+
+(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
+   variants, but only as part of a whole utility, so derive the wrapper from
+   what it emits around a probe with a single declaration and put [@slot] where
+   that declaration was. This is what lets a project's [@utility] carry a
+   built-in prefix, which the [@variant] machinery otherwise only has templates
+   for when the project declared it. *)
+let builtin_variant_template ~theme name =
+  let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
+  if body = "" then None
+  else replace_first ~needle:"float:none" ~by:"@slot;" body
+
 (* A candidate the project's own declarations govern: it carries a declared
    variant, or it is a declared utility. *)
 let is_custom_routed ~defs ~udefs cls =
   let variants, bare = split_declared_variants defs cls in
-  variants <> [] || List.mem_assoc bare udefs
+  let segs = variant_segments bare in
+  variants <> [] || List.mem_assoc (List.nth segs (List.length segs - 1)) udefs
 
 (* Candidates the built-in generator cannot produce: a variant the project
    redefined via [@custom-variant] (e.g. a class-based [dark:]), which
@@ -852,34 +913,56 @@ let is_custom_routed ~defs ~udefs cls =
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
+  (* Templates derived on demand for the built-in variants a declared utility is
+     prefixed with. *)
+  let derived = Hashtbl.create 8 in
+  let template name =
+    match Hashtbl.find_opt derived name with
+    | Some t -> t
+    | None ->
+        let t = builtin_variant_template ~theme name in
+        Hashtbl.add derived name t;
+        t
+  in
   let one cls =
     let variants, bare = split_declared_variants defs cls in
-    let body =
-      match List.assoc_opt bare udefs with
-      | Some decls -> decls
-      | None when variants = [] -> ""
-      | None ->
-          let body, top = nested_utilities ~theme [ bare ] in
-          add_once hoisted seen top;
-          body
-    in
-    if body = "" then None
-    else
-      let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
-      let wrapped =
-        List.fold_right
-          (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
-          variants body
-      in
-      Some (String.concat "" [ class_sel; "{"; wrapped; "}" ])
+    (* [bare] still carries the built-in prefixes; the utility itself is its
+       last segment. *)
+    let segs = variant_segments bare in
+    let name = List.nth segs (List.length segs - 1) in
+    let builtin = List.filteri (fun i _ -> i < List.length segs - 1) segs in
+    match List.assoc_opt name udefs with
+    | Some decls ->
+        (* A declared utility means nothing to [Tw.of_string], so every prefix
+           has to become a [@variant], the built-in ones included. *)
+        if List.for_all (fun v -> template v <> None) builtin then
+          Some (wrapped_block cls (variants @ builtin) decls)
+        else None
+    | None when variants = [] -> None
+    | None ->
+        let body, top = nested_utilities ~theme [ bare ] in
+        add_once hoisted seen top;
+        if body = "" then None else Some (wrapped_block cls variants body)
   in
   match List.filter_map one candidates with
   | [] -> (0, [])
   | blocks -> (
+      (* A [@variant] inside a declared utility's body names a built-in too. *)
+      List.iter
+        (fun (_, body) ->
+          List.iter (fun name -> ignore (template name)) (variant_names_in body))
+        udefs;
+      let extra_defs =
+        defs
+        @ Hashtbl.fold
+            (fun name t acc ->
+              match t with Some t -> (name, t) :: acc | None -> acc)
+            derived []
+      in
       (* A [@utility] body is author CSS: it may hold [@apply], [@variant] and
          the [--spacing()]/[theme()] shorthands. *)
       let css =
-        apply_variants ~extra_defs:defs ~theme
+        apply_variants ~extra_defs ~udefs ~theme
           (String.concat "" (blocks @ [ Buffer.contents hoisted ]))
       in
       match Css.of_string css with
