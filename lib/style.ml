@@ -21,8 +21,8 @@ type container_query =
   | Container_7xl
   | Container_named of string * int
   | Container_size of container_cmp * container_query
-  | Container_len of Css.length
-  | Container_len_cmp of container_cmp * Css.length
+  | Container_len of string * Css.length
+  | Container_len_cmp of container_cmp * string * Css.length
 
 type modifier =
   | Hover
@@ -327,12 +327,11 @@ let rec container_size_name = function
   | Container_named (n, size) -> n ^ "/" ^ string_of_int size
   | Container_size (cmp, inner) ->
       container_cmp_prefix cmp ^ container_size_name inner
-  | Container_len l ->
-      "[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
-  | Container_len_cmp (cmp, l) ->
-      container_cmp_prefix cmp ^ "["
-      ^ Css.Pp.to_string (Css.pp_length ~always:true) l
-      ^ "]"
+  (* The raw bracket token, not the parsed length: [theme(--breakpoint-lg)]
+     must not come back as its resolved [64rem]. *)
+  | Container_len (raw, _) -> "[" ^ raw ^ "]"
+  | Container_len_cmp (cmp, raw, _) ->
+      container_cmp_prefix cmp ^ "[" ^ raw ^ "]"
 
 (* Convert modifier to string prefix *)
 (* Map of simple state names to base modifiers for compound variant parsing *)

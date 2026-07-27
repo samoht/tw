@@ -179,8 +179,8 @@ let container_query_to_condition q =
       Css.Container.Named (name, geq (Css.Values.Px (float_of_int width)))
   | Style.Container_size (cmp, inner) ->
       width_cond cmp (rem (Option.value ~default:0. (container_size_rem inner)))
-  | Style.Container_len len -> geq len
-  | Style.Container_len_cmp (cmp, len) -> width_cond cmp len
+  | Style.Container_len (_, len) -> geq len
+  | Style.Container_len_cmp (cmp, _, len) -> width_cond cmp len
 
 let container_query_to_class_prefix = function
   | Style.Container_3xs -> "@3xs"

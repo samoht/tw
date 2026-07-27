@@ -70,9 +70,34 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"containers suborder matches Tailwind" shuffled
 
+(* A container-query variant keeps the raw bracket token in its class name, and
+   an outer variant wraps it rather than replacing it: the composition used to
+   fall through, so [sm:@max-md:X] lost its breakpoint entirely. *)
+let test_container_variant_composition () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* [theme()] resolves in the condition but not in the class name *)
+  has "@min-[theme(--breakpoint-lg)]:hidden"
+    ".\\@min-\\[theme\\(--breakpoint-lg\\)\\]\\:hidden";
+  has "@min-[theme(--breakpoint-lg)]:hidden" "@container(width>=64rem)";
+  (* an outer breakpoint stays outside the container query *)
+  has "sm:@max-[40rem]:inline-block"
+    "@media(min-width:40rem){@container not \
+     (width>=40rem){.sm\\:\\@max-\\[40rem\\]\\:inline-block";
+  (* two container queries nest *)
+  has "@sm:@max-md:flex-col"
+    "@container(width>=24rem){@container not (width>=28rem)"
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
+    test_case "variant composition" `Quick test_container_variant_composition;
     test_case "name" `Quick test_container_name;
     test_case "multiple named containers" `Quick test_multiple_named_containers;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;

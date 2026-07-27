@@ -431,10 +431,13 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
   in
   let condition = Containers.container_query_to_condition query in
   if inner_has_hover then
-    container_query ~condition ~selector:new_selector ~props:[] ~base_class
+    container_query ~condition ~selector:new_selector ~props:[]
+      ~base_class:modified_class
       ~nested:(nested_hover ~selector:new_selector ~props)
       ()
-  else container_query ~condition ~selector:new_selector ~props ~base_class ()
+  else
+    container_query ~condition ~selector:new_selector ~props
+      ~base_class:modified_class ()
 
 (** Preprocess a has-[...] selector string for CSS parsing. Replaces & with *
     (nesting reference) and ensures combinators (+, >, ~) have proper spacing.
@@ -1763,7 +1766,39 @@ let rec apply_modifier_to_rule ?theme modifier = function
   | Supports_query { condition; selector; props; base_class; merge_key; _ } ->
       apply_modifier_to_supports_query ?theme modifier ~condition ~selector
         ~props ~base_class ~merge_key
+  | Container_query { condition; selector; props; base_class; nested } ->
+      apply_modifier_to_container_query ?theme modifier ~condition ~selector
+        ~props ~base_class ~nested
   | other -> [ other ]
+
+(* Apply a modifier to a [@container] rule, the way the [@supports] case does:
+   run it on the inner rule so all the selector and media machinery applies,
+   then put each result back inside [@container]. Without this an outer variant
+   fell through and vanished -- [sm:@max-md:X] lost its breakpoint entirely. *)
+and apply_modifier_to_container_query ?theme modifier ~condition ~selector
+    ~props ~base_class ~nested =
+  let inner = regular ~selector ~props ?base_class ~nested () in
+  let contained sel p = Css.container ~condition [ Css.rule ~selector:sel p ] in
+  apply_modifier_to_rule ?theme modifier inner
+  |> List.map (function
+    | Regular { selector; props; base_class; has_hover; nested; _ } ->
+        if has_hover then
+          media_query ~condition:hover_media ~selector ~props:[] ?base_class
+            ~nested:(contained selector props :: nested)
+            ()
+        else container_query ~condition ~selector ~props ?base_class ~nested ()
+    | Media_query { condition = outer; selector; props; base_class; nested; _ }
+      ->
+        (* Tailwind keeps the outer query outside and nests the container. *)
+        media_query ~condition:outer ~selector ~props:[] ?base_class
+          ~nested:(contained selector props :: nested)
+          ()
+    | Container_query { condition = outer; selector; props; base_class; nested }
+      ->
+        container_query ~condition:outer ~selector ~props:[] ?base_class
+          ~nested:(contained selector props :: nested)
+          ()
+    | other -> other)
 
 (* Apply a modifier to a [@supports] rule (the progressive-enhancement block an
    opacity color or gradient emits). The modifier is applied to the inner rule
