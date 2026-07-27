@@ -224,9 +224,25 @@ let test_gradient_stop_position_properties () =
     "from-10% registers @property --tw-gradient-stops" true
     (Astring.String.is_infix ~affix:"@property --tw-gradient-stops" css)
 
+(* A var() background colour with an alpha modifier defers the alpha to
+   color-mix: the variable's value is unknown at build time, so it cannot be
+   folded into a literal colour. *)
+let test_bg_var_opacity () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "bg-[var(--x)]/50 mixes at run time" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
+       (css_of "bg-[var(--x)]/50"))
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
+    test_case "bg var color with opacity" `Quick test_bg_var_opacity;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;
     test_case "gradient stop-position @property family" `Quick

@@ -1870,16 +1870,16 @@ module Handler = struct
               if String.length inner > 6 && String.sub inner 0 6 = "color:" then
                 let var_str = String.sub inner 6 (String.length inner - 6) in
                 Ok (Bg_bracket_color_var_opacity (var_str, opacity))
+              else if Parse.is_var inner then
+                (* A var() holds an unknown colour, so the alpha has to be
+                   applied at run time by color-mix, not folded here. *)
+                Ok (Bg_bracket_var_opacity (inner, opacity))
               else
                 match Color.parse_bracket_color inner with
                 | Some css_color ->
                     Ok (Bg_bracket_color_opacity (inner, css_color, opacity))
                 | None ->
-                    if Parse.is_var inner then
-                      Ok (Bg_bracket_var_opacity (inner, opacity))
-                    else
-                      Error
-                        (`Msg ("Unknown bg bracket value: " ^ bracket_stuff)))
+                    Error (`Msg ("Unknown bg bracket value: " ^ bracket_stuff)))
           | None -> Error (`Msg ("Invalid opacity: " ^ bracket_stuff))
         else
           (* Regular bracket notation: bg-[...] *)
