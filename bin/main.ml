@@ -217,16 +217,17 @@ let at_rule_header css i keyword =
     in
     brace (i + klen)
 
-(* Pull out the [@custom-variant] declarations, dropping them from the CSS:
-   Tailwind does not emit them either. *)
-let take_custom_variants css =
+(* Pull out the [@KEYWORD NAME { ... }] declarations, dropping them from the
+   CSS: they declare something for the generator, and Tailwind does not emit
+   them either. *)
+let take_named_defs keyword css =
   let len = String.length css in
   let buf = Buffer.create len in
   let defs = ref [] in
   let rec go i =
     if i >= len then ()
     else
-      match at_rule_header css i "@custom-variant" with
+      match at_rule_header css i keyword with
       | Some (name, brace) when name <> "" ->
           let body, next = block_at css brace in
           defs := (name, body) :: !defs;
@@ -237,6 +238,15 @@ let take_custom_variants css =
   in
   go 0;
   (Buffer.contents buf, !defs)
+
+let take_custom_variants css = take_named_defs "@custom-variant" css
+
+(* [@utility NAME { ... }] declares a project's own utility class. Only the
+   static form is read here; the functional [@utility NAME-* { ... }] one needs
+   [--value()]/[--modifier()] resolution. *)
+let take_custom_utilities css =
+  let css, defs = take_named_defs "@utility" css in
+  (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
 
 (* Replace [@variant NAME { decls }] with the variant's body, substituting the
    declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
@@ -533,6 +543,7 @@ let expand_apply ~theme ~defs css =
   Buffer.contents buf
 
 let apply_variants ?(extra_defs = []) ~theme css =
+  let css, _ = take_custom_utilities css in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. *)
@@ -810,58 +821,93 @@ let diff_files paths ~(opts : gen_opts) =
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
-(* Read the [@custom-variant] declarations from the entrypoint. A project can
-   redefine a built-in variant here (e.g. class-based [dark]), which must apply
-   to the whole utility set, not only the author's own CSS. *)
-let entry_variant_defs = function
+(* Read the entrypoint's [@custom-variant] and [@utility] declarations. A
+   project can redefine a built-in variant here (e.g. class-based [dark]) or
+   declare a utility of its own; both govern the whole utility set, not only the
+   author's own CSS. *)
+let entry_defs take = function
   | None -> []
   | Some path -> (
       match read_file path with
       | exception Sys_error _ -> []
-      | raw -> snd (take_custom_variants (strip_tailwind_import_options raw)))
+      | raw -> snd (take (strip_tailwind_import_options raw)))
 
-(* A candidate carries a project-declared variant. *)
-let has_declared_variant defs cls =
-  match split_declared_variants defs cls with [], _ -> false | _ -> true
+let entry_variant_defs = entry_defs take_custom_variants
+let entry_utility_defs = entry_defs take_custom_utilities
 
-(* Utilities carrying a variant the project redefined via [@custom-variant]
-   (e.g. a class-based [dark:]) cannot go through [Tw.of_string], which only
-   knows the built-in [@media (prefers-color-scheme: dark)] form. Route them
-   through the same [@variant] expansion the author CSS uses: wrap the bare
-   utility's declarations under the escaped class and the declared variant, then
-   let cascade flatten the nesting into the project's selector. *)
-let custom_routed_utilities ~theme ~defs candidates =
+(* A candidate the project's own declarations govern: it carries a declared
+   variant, or it is a declared utility. *)
+let is_custom_routed ~defs ~udefs cls =
+  let variants, bare = split_declared_variants defs cls in
+  variants <> [] || List.mem_assoc bare udefs
+
+(* Candidates the built-in generator cannot produce: a variant the project
+   redefined via [@custom-variant] (e.g. a class-based [dark:]), which
+   [Tw.of_string] only knows in its built-in [@media (prefers-color-scheme:
+   dark)] form, and a class the project declared with [@utility], which
+   [Tw.of_string] does not know at all. Both go through the same expansion the
+   author CSS uses: the declarations land under the escaped class, wrapped in
+   the declared variants, and cascade flattens the nesting into the project's
+   selector. *)
+let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
   let one cls =
-    match split_declared_variants defs cls with
-    | [], _ -> None
-    | variants, bare ->
-        let body, top = nested_utilities ~theme [ bare ] in
-        add_once hoisted seen top;
-        if body = "" then None
-        else
-          let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
-          let wrapped =
-            List.fold_right
-              (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
-              variants body
-          in
-          Some (String.concat "" [ class_sel; "{"; wrapped; "}" ])
+    let variants, bare = split_declared_variants defs cls in
+    let body =
+      match List.assoc_opt bare udefs with
+      | Some decls -> decls
+      | None when variants = [] -> ""
+      | None ->
+          let body, top = nested_utilities ~theme [ bare ] in
+          add_once hoisted seen top;
+          body
+    in
+    if body = "" then None
+    else
+      let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
+      let wrapped =
+        List.fold_right
+          (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
+          variants body
+      in
+      Some (String.concat "" [ class_sel; "{"; wrapped; "}" ])
   in
   match List.filter_map one candidates with
   | [] -> (0, [])
   | blocks -> (
-      let css = expand_variants ~depth:0 defs (String.concat "" blocks) in
-      match
-        Css.of_string
-          (String.concat ""
-             [ "@layer utilities{"; css; "}"; Buffer.contents hoisted ])
-      with
+      (* A [@utility] body is author CSS: it may hold [@apply], [@variant] and
+         the [--spacing()]/[theme()] shorthands. *)
+      let css =
+        apply_variants ~extra_defs:defs ~theme
+          (String.concat "" (blocks @ [ Buffer.contents hoisted ]))
+      in
+      match Css.of_string css with
       | Error _ -> (0, [])
       | Ok p ->
+          let stmts = Css.statements (Css.flatten_nesting p.Css.stylesheet) in
+          (* [@layer properties] and [@property] sit beside the utilities layer,
+             not in it: nested, the first would become [utilities.properties].
+             Each comes back once per utility that sets the variable. *)
+          let hoisted_stmts, rules =
+            List.partition
+              (fun s -> Css.as_layer s <> None || Css.as_property s <> None)
+              stmts
+          in
+          let seen = Hashtbl.create 8 in
+          let hoisted_stmts =
+            List.filter
+              (fun s ->
+                let k = Css.to_string ~minify:true (Css.v [ s ]) in
+                if Hashtbl.mem seen k then false
+                else begin
+                  Hashtbl.add seen k ();
+                  true
+                end)
+              hoisted_stmts
+          in
           ( List.length blocks,
-            Css.statements (Css.flatten_nesting p.Css.stylesheet) ))
+            Css.layer ~name:"utilities" rules :: hoisted_stmts ))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
@@ -872,8 +918,9 @@ let native_files paths flag ~(opts : gen_opts) =
       |> List.sort_uniq String.compare
     in
     let defs = entry_variant_defs opts.input_css_path in
+    let udefs = entry_utility_defs opts.input_css_path in
     let routed, normal =
-      List.partition (has_declared_variant defs) all_classes
+      List.partition (is_custom_routed ~defs ~udefs) all_classes
     in
     let known =
       parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
@@ -881,7 +928,7 @@ let native_files paths flag ~(opts : gen_opts) =
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:include_base tw_styles in
     let routed_count, routed_stmts =
-      custom_routed_utilities ~theme:opts.theme ~defs routed
+      custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
     in
     let stylesheet =
       match routed_stmts with
