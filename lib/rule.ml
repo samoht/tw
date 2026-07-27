@@ -1531,7 +1531,18 @@ let arbitrary_selector_rule content base_class props =
           else Buffer.add_char buf c)
         s;
       Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf)))
-    else Class modified_class
+    else
+      (* No anchor: the selector compounds onto the utility's own class. A type
+         selector cannot follow a class in a compound, so it goes in an [:is()];
+         anything else ([.line], [[data-x]], [:hover]) attaches directly. *)
+      let is_type_selector =
+        match s.[0] with
+        | 'a' .. 'z' | 'A' .. 'Z' -> true
+        | _ | (exception _) -> false
+      in
+      let inner = Css.Selector.read (Cascade.Cursor.of_string s) in
+      let inner = if is_type_selector then is_ [ inner ] else inner in
+      compound [ Class modified_class; inner ]
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 

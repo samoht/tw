@@ -182,10 +182,31 @@ let test_outer_variant_over_child_and_pseudo () =
   has "hover:*:underline" ":is(.hover\\:\\*\\:underline:hover>*)";
   has "*:*:grow" ":is(:is(.\\*\\:\\*\\:grow>*)>*)"
 
+(* An arbitrary variant with no [&] anchor compounds onto the utility's own
+   class: [[.line]] attaches directly, a type selector goes in an [:is()] since
+   it cannot follow a class. One that is not a single compound ([[>img]]) is not
+   a variant at all. *)
+let test_bare_arbitrary_selector_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "[.line]:block" ".\\[\\.line\\]\\:block.line";
+  has "[code]:pr-4" ".\\[code\\]\\:pr-4:is(code)";
+  has "**:[code]:pr-4" ":is(.\\*\\*\\:\\[code\\]\\:pr-4 *):is(code)";
+  check bool "[>img] is not a variant" true
+    (Result.is_error (Tw.of_string "[>img]:flex"))
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "bare arbitrary selector variant" `Quick
+      test_bare_arbitrary_selector_variant;
     test_case "outer variant over child and pseudo-element" `Quick
       test_outer_variant_over_child_and_pseudo;
     test_case "opacity color variant does not leak base rule" `Quick
