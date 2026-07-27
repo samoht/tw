@@ -92,7 +92,10 @@ module Handler = struct
     | Scale_none
     | Perspective_none
     | Perspective_dramatic
+    | Perspective_near
     | Perspective_normal
+    | Perspective_midrange
+    | Perspective_distant
     | Perspective_arbitrary of Css.length
     | (* Perspective origin *)
       Perspective_origin_center
@@ -197,15 +200,24 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
       Css.Transform "tw-skew-y"
 
-  (* Perspective theme variables *)
+  (* Perspective theme variables, ordered by value to match Tailwind's theme *)
   let perspective_dramatic_var =
     Var.theme Css.Length "perspective-dramatic" ~order:(7, 13)
 
+  let perspective_near_var =
+    Var.theme Css.Length "perspective-near" ~order:(7, 14)
+
   let perspective_normal_var =
-    Var.theme Css.Length "perspective-normal" ~order:(7, 14)
+    Var.theme Css.Length "perspective-normal" ~order:(7, 15)
+
+  let perspective_midrange_var =
+    Var.theme Css.Length "perspective-midrange" ~order:(7, 16)
+
+  let perspective_distant_var =
+    Var.theme Css.Length "perspective-distant" ~order:(7, 17)
 
   let perspective_none_var =
-    Var.theme Css.Length "perspective-none" ~order:(7, 15)
+    Var.theme Css.Length "perspective-none" ~order:(7, 18)
 
   (** {1 Helpers} *)
 
@@ -879,8 +891,20 @@ module Handler = struct
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
     style (decl :: [ Css.perspective (Var r) ])
 
+  let perspective_near =
+    let decl, r = Var.binding perspective_near_var (Px 300.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
   let perspective_normal =
     let decl, r = Var.binding perspective_normal_var (Px 500.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_midrange =
+    let decl, r = Var.binding perspective_midrange_var (Px 800.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_distant =
+    let decl, r = Var.binding perspective_distant_var (Px 1200.0) in
     style (decl :: [ Css.perspective (Var r) ])
 
   let perspective_arbitrary len = style [ Css.perspective len ]
@@ -1248,7 +1272,10 @@ module Handler = struct
     | Neg_rotate_z_arbitrary a -> neg_rotate_z_arbitrary a
     | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
+    | Perspective_near -> perspective_near
     | Perspective_normal -> perspective_normal
+    | Perspective_midrange -> perspective_midrange
+    | Perspective_distant -> perspective_distant
     | Perspective_arbitrary len -> perspective_arbitrary len
     | Perspective_origin_center -> perspective_origin_center ()
     | Perspective_origin_top -> perspective_origin_top ()
@@ -1395,6 +1422,9 @@ module Handler = struct
     | Perspective_dramatic -> 1400
     | Perspective_none -> 1401
     | Perspective_normal -> 1402
+    | Perspective_near -> 1403
+    | Perspective_midrange -> 1404
+    | Perspective_distant -> 1405
     | Perspective_origin_arbitrary _ -> 1499
     | Perspective_origin_bottom -> 1500
     | Perspective_origin_bottom_left -> 1501
@@ -1683,7 +1713,10 @@ module Handler = struct
     | [ ""; "skew"; n ] -> Parse.int_pos ~name:"skew" n >|= fun n -> Skew (-n)
     | [ "perspective"; "none" ] -> Ok Perspective_none
     | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
+    | [ "perspective"; "near" ] -> Ok Perspective_near
     | [ "perspective"; "normal" ] -> Ok Perspective_normal
+    | [ "perspective"; "midrange" ] -> Ok Perspective_midrange
+    | [ "perspective"; "distant" ] -> Ok Perspective_distant
     | "perspective" :: rest
       when match rest with "origin" :: _ | [] -> false | _ -> true -> (
         let value = String.concat "-" rest in
@@ -1870,7 +1903,10 @@ module Handler = struct
     | Neg_rotate_z_arbitrary a -> "-rotate-z-" ^ pp_angle_bracket a
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
+    | Perspective_near -> "perspective-near"
     | Perspective_normal -> "perspective-normal"
+    | Perspective_midrange -> "perspective-midrange"
+    | Perspective_distant -> "perspective-distant"
     | Perspective_arbitrary len ->
         "perspective-[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
     | Perspective_origin_center -> "perspective-origin-center"
@@ -1939,7 +1975,10 @@ let rotate_z n = utility (Rotate_z n)
 let scale_z n = utility (Scale_z n)
 let perspective_none = utility Perspective_none
 let perspective_dramatic = utility Perspective_dramatic
+let perspective_near = utility Perspective_near
 let perspective_normal = utility Perspective_normal
+let perspective_midrange = utility Perspective_midrange
+let perspective_distant = utility Perspective_distant
 let neg_translate_x_1_2 = utility Neg_translate_x_1_2
 let neg_translate_y_1_2 = utility Neg_translate_y_1_2
 let perspective_origin_center = utility Perspective_origin_center
