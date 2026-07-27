@@ -445,6 +445,31 @@ let test_apply_bracketed_has () =
   check string "peer-has class" "peer-has-[.z]:bg-blue-500"
     (Tw.Utility.to_class (Option.get u3))
 
+(* [has-<state>] takes the same state names as the group/peer variants, not just
+   checked: the name resolves to the pseudo-class that state matches, and
+   has-hover keeps the pointer gate hover itself carries. *)
+let test_has_state_shorthands () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has_infix affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has_infix ".has-focus\\:flex:has(:focus)" "has-focus:flex";
+  has_infix ".has-focus-visible\\:flex:has(:focus-visible)"
+    "has-focus-visible:flex";
+  has_infix ".has-first\\:flex:has(:first-child)" "has-first:flex";
+  has_infix ".has-odd\\:flex:has(:nth-child(odd))" "has-odd:flex";
+  has_infix ".group-has-focus\\:flex:is(:where(.group):has(:focus) *)"
+    "group-has-focus:flex";
+  check bool "has-hover keeps the pointer gate" true
+    (Astring.String.is_infix ~affix:"@media(hover:hover)" (css "has-hover:flex"));
+  (* the class name round-trips through the shorthand, not the bracket form *)
+  check string "has-focus round-trips" "has-focus:flex"
+    (Tw.pp (Result.get_ok (Tw.of_string "has-focus:flex")))
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -592,6 +617,7 @@ let tests =
       test_case "container query scale" `Quick test_container_query_scale;
       test_case "container query min/max" `Quick test_container_query_min_max;
       test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
+      test_case "has state shorthands" `Quick test_has_state_shorthands;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick

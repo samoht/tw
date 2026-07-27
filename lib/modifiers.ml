@@ -957,6 +957,10 @@ let of_string class_str =
   | cls :: modifiers -> (List.rev modifiers, cls)
 
 (* Convert modifier to its string prefix *)
+let group_state_modifiers = Style.group_state_modifiers
+let is_has_shorthand = Style.is_has_shorthand
+let has_part = Style.has_part
+
 let rec pp_modifier = function
   | Hover -> "hover"
   | Focus -> "focus"
@@ -1013,11 +1017,15 @@ let rec pp_modifier = function
       "max-[" ^ px_str ^ "px]"
   | Container query -> Containers.container_query_to_class_prefix query
   | Not m -> "not-" ^ pp_modifier m
-  | Has selector -> "has-[" ^ selector ^ "]"
-  | Group_has (selector, None) -> "group-has-[" ^ selector ^ "]"
-  | Group_has (selector, Some name) -> "group-has-[" ^ selector ^ "]/" ^ name
-  | Peer_has (selector, None) -> "peer-has-[" ^ selector ^ "]"
-  | Peer_has (selector, Some name) -> "peer-has-[" ^ selector ^ "]/" ^ name
+  (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
+     CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
+  | Has selector -> "has-" ^ has_part selector
+  | Group_has (selector, None) -> "group-has-" ^ has_part selector
+  | Group_has (selector, Some name) ->
+      "group-has-" ^ has_part selector ^ "/" ^ name
+  | Peer_has (selector, None) -> "peer-has-" ^ has_part selector
+  | Peer_has (selector, Some name) ->
+      "peer-has-" ^ has_part selector ^ "/" ^ name
   | Starting -> "starting"
   | Focus_within -> "focus-within"
   | Focus_visible -> "focus-visible"
@@ -1716,10 +1724,6 @@ let parse_group_peer_not_inner rest =
         | Some m -> Some (m, None)
         | None -> None)
 
-(* Valid has-shorthand names. These are stored as-is (without : prefix) so they
-   remain distinct from bracket forms like has-[:checked]. *)
-let is_has_shorthand = function "checked" | "hocus" -> true | _ -> false
-
 (* Extract name suffix from "rest" after prefix, e.g. "checked/name" ->
    ("checked", Some "name") *)
 let split_name rest =
@@ -1764,46 +1768,6 @@ let try_has_shorthand s =
     let base, name = split_name rest in
     if is_has_shorthand base then Some (Peer_has (base, name)) else None
   else None
-
-(* Map of simple state names to base modifiers for compound variant parsing *)
-let group_state_modifiers =
-  [
-    ("hover", Hover);
-    ("focus", Focus);
-    ("active", Active);
-    ("visited", Visited);
-    ("disabled", Disabled);
-    ("checked", Checked);
-    ("empty", Empty);
-    ("required", Required);
-    ("valid", Valid);
-    ("invalid", Invalid);
-    ("indeterminate", Indeterminate);
-    ("default", Default);
-    ("open", Open);
-    ("target", Target);
-    ("optional", Optional);
-    ("read-only", Read_only);
-    ("read-write", Read_write);
-    ("inert", Inert);
-    ("user-valid", User_valid);
-    ("user-invalid", User_invalid);
-    ("placeholder-shown", Placeholder_shown);
-    ("autofill", Autofill);
-    ("in-range", In_range);
-    ("out-of-range", Out_of_range);
-    ("focus-within", Focus_within);
-    ("focus-visible", Focus_visible);
-    ("enabled", Enabled);
-    ("first", First);
-    ("last", Last);
-    ("only", Only);
-    ("odd", Odd);
-    ("even", Even);
-    ("first-of-type", First_of_type);
-    ("last-of-type", Last_of_type);
-    ("only-of-type", Only_of_type);
-  ]
 
 (* Try to parse compound named group variants: not-group-STATE/name,
    has-group-STATE/name, in-group-STATE/name, group-peer-STATE/name *)
