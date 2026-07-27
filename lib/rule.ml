@@ -670,14 +670,22 @@ let _is_data_shorthand_name = function
 let route_data_bracket_modifier modifier base_class props =
   let kind, raw_str, name_opt =
     match modifier with
-    | Style.Data_bracket s -> (`Data, s, None)
+    | Style.Data_bracket s -> (`Data, "[" ^ s ^ "]", None)
     | Style.Group_data (s, n) -> (`Group_data, s, n)
     | Style.Peer_data (s, n) -> (`Peer_data, s, n)
     | _ -> failwith "Invalid data bracket modifier"
   in
-  let attr_name, attr_match, attr_flag = parse_data_expr raw_str in
+  (* [raw_str] is the spelling: [[state=open]] bracketed, [dragging] bare. The
+     expression to parse is the same either way. *)
+  let expr =
+    let n = String.length raw_str in
+    if n > 1 && raw_str.[0] = '[' && raw_str.[n - 1] = ']' then
+      String.sub raw_str 1 (n - 2)
+    else raw_str
+  in
+  let attr_name, attr_match, attr_flag = parse_data_expr expr in
   let open Css.Selector in
-  let class_part = "[" ^ raw_str ^ "]" in
+  let class_part = raw_str in
   let not_order = 20 in
   match kind with
   | `Data ->
@@ -1415,6 +1423,38 @@ let named_group_rel name pseudo =
     (compound [ where [ Class ("group/" ^ name) ]; pseudo ])
     Descendant universal
 
+(* [group-X/name] / [peer-X/name]: a state variant scoped to a named anchor. The
+   anchor's own [hover] must still gate on the pointer, so the rule carries
+   [has_hover] like a plain [group-hover] does. *)
+let named_anchor_rule ~anchor ~combinator inner name base_class props =
+  let open Css.Selector in
+  let modified_class =
+    String.concat ""
+      [ anchor; "-"; Modifiers.pp_modifier inner; "/"; name; ":"; base_class ]
+  in
+  let rel =
+    combine
+      (compound
+         [
+           where [ Class (anchor ^ "/" ^ name) ];
+           pseudo_selector_of_modifier inner;
+         ])
+      combinator universal
+  in
+  let sel = compound [ Class modified_class; is_ [ rel ] ] in
+  [
+    regular ~selector:sel ~props ~base_class:modified_class
+      ~has_hover:(Modifiers.is_hover inner) ();
+  ]
+
+let handle_named_group inner name base_class props =
+  named_anchor_rule ~anchor:"group" ~combinator:Css.Selector.Descendant inner
+    name base_class props
+
+let handle_named_peer inner name base_class props =
+  named_anchor_rule ~anchor:"peer" ~combinator:Css.Selector.Subsequent_sibling
+    inner name base_class props
+
 (** Handle not-group-STATE/name compound variant *)
 let named_group_modified_class prefix inner name base_class =
   let inner_str = Modifiers.pp_modifier inner in
@@ -1744,6 +1784,9 @@ let rec apply_modifier_to_rule ?theme modifier = function
           handle_group_not_modifier inner name_opt bc props
       | Style.Peer_not (inner, name_opt) ->
           handle_peer_not_modifier inner name_opt bc props
+      | Style.Named_group (inner, name) ->
+          handle_named_group inner name bc props
+      | Style.Named_peer (inner, name) -> handle_named_peer inner name bc props
       | Style.Not_named_group (inner, name) ->
           handle_not_named_group inner name bc props
       | Style.Has_named_group (inner, name) ->
