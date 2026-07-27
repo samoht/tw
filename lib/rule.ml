@@ -112,17 +112,37 @@ module Rules_selector = struct
               of_ )
     | other -> other
 
-  (* Extract class name from a modified selector (with or without
-     pseudo-class). *)
+  (* The class a modifier's selector carries — the base class with the variant
+     prefixed. It does not always sit at the top: the child variant nests it
+     inside an [:is] with a child combinator, and a group variant puts the
+     anchor class beside it. So look for the class derived from [base_class]
+     anywhere in the selector, rather than taking whichever one comes first. *)
   let extract_modified_class_name modified_base_selector base_class =
-    match modified_base_selector with
-    | Css.Selector.Class cls -> cls
-    | Css.Selector.Compound selectors ->
-        List.find_map
-          (function Css.Selector.Class cls -> Some cls | _ -> None)
-          selectors
-        |> Option.value ~default:base_class
-    | _ -> base_class
+    let derived cls =
+      String.equal cls base_class
+      || String.length cls > String.length base_class + 1
+         && String.equal
+              (String.sub cls
+                 (String.length cls - String.length base_class - 1)
+                 (String.length base_class + 1))
+              (":" ^ base_class)
+    in
+    let rec find sel =
+      match sel with
+      | Css.Selector.Class cls when derived cls -> Some cls
+      | Css.Selector.Compound sels
+      | Css.Selector.List sels
+      | Css.Selector.Is sels
+      | Css.Selector.Where sels
+      | Css.Selector.Not sels
+      | Css.Selector.Has sels ->
+          List.find_map find sels
+      | Css.Selector.Combined (a, _, b) -> (
+          match find a with Some _ as r -> r | None -> find b)
+      | Css.Selector.Relative (_, b) -> find b
+      | _ -> None
+    in
+    Option.value (find modified_base_selector) ~default:base_class
 
   (* Transform selector by applying modifier to base class and updating
      descendants. *)
@@ -141,6 +161,14 @@ module Rules_selector = struct
           Css.Selector.Compound (List.map transform selectors)
       | Css.Selector.List selectors ->
           Css.Selector.List (List.map transform selectors)
+      (* The child and descendant variants bury the class inside an [:is], so an
+         outer variant has to reach into it to prefix the class in place. *)
+      | Css.Selector.Is selectors ->
+          Css.Selector.Is (List.map transform selectors)
+      | Css.Selector.Where selectors ->
+          Css.Selector.Where (List.map transform selectors)
+      | Css.Selector.Relative (comb, sel) ->
+          Css.Selector.Relative (comb, transform sel)
       | other -> other
     in
     transform selector
@@ -805,6 +833,18 @@ let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
   in
   let has_hover = Modifiers.is_hover modifier || inner_has_hover in
   regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover ()
+
+(* [before:]/[after:] always carry a content declaration. They report the class
+   they prefixed, not the bare one, so an outer variant can find it in the
+   selector and prefix its own name in turn. *)
+let handle_pseudo_element_modifier modifier base_class props =
+  let sel = Modifiers.to_selector modifier base_class in
+  let content_decl = Css.content (Var (Var.reference Typography.content_var)) in
+  let modified_class =
+    Rules_selector.extract_modified_class_name sel base_class
+  in
+  regular ~selector:sel ~props:(content_decl :: props)
+    ~base_class:modified_class ()
 
 (** Normalize a supports condition string into a valid CSS [@supports]
     condition. Converts underscores to spaces and wraps in parens as needed. *)
@@ -1523,11 +1563,7 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
         props
   (* Pseudo-elements ::before and ::after - always prepend content property *)
   | Style.Pseudo_before | Style.Pseudo_after ->
-      let sel = Modifiers.to_selector modifier base_class in
-      let content_ref = Var.reference Typography.content_var in
-      let content_decl = Css.content (Var content_ref) in
-      let final_props = content_decl :: props in
-      regular ~selector:sel ~props:final_props ~base_class ()
+      handle_pseudo_element_modifier modifier base_class props
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class props
   | Style.Custom_variant (token, template) ->
