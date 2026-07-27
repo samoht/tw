@@ -142,7 +142,7 @@ module Handler = struct
       else
         (* Full length grammar (percent, container units, calc), raw kept for
            round-trip. *)
-        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        match Css.parse_length (Parse.decode_arbitrary_value inner) with
         | Some l -> Some (Arbitrary (inner, l))
         | None -> None
     else None

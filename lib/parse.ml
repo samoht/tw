@@ -165,8 +165,37 @@ let normalize_css_math_operators s =
   done;
   Buffer.contents buf
 
+(* Tailwind's [--spacing(N)] shorthand: the spacing scale as a function. It is
+   not CSS, so a value holding it fails to parse and the utility drops out. *)
+let expand_spacing_fn s =
+  let len = String.length s in
+  let buf = Buffer.create len in
+  let rec close_paren i depth =
+    if i >= len then (len, len)
+    else
+      match s.[i] with
+      | '(' -> close_paren (i + 1) (depth + 1)
+      | ')' when depth = 1 -> (i, i + 1)
+      | ')' -> close_paren (i + 1) (depth - 1)
+      | _ -> close_paren (i + 1) depth
+  in
+  let rec go i =
+    if i >= len then ()
+    else if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
+      let stop, next = close_paren (i + 9) 0 in
+      let n = String.sub s (i + 10) (stop - i - 10) in
+      Buffer.add_string buf
+        (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
+      go next)
+    else (
+      Buffer.add_char buf s.[i];
+      go (i + 1))
+  in
+  go 0;
+  Buffer.contents buf
+
 let decode_arbitrary_value s =
-  s |> decode_underscores |> normalize_css_math_operators
+  s |> decode_underscores |> expand_spacing_fn |> normalize_css_math_operators
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("

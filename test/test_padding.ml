@@ -95,8 +95,27 @@ let test_arbitrary_length_grammar () =
   check "px-[50%]";
   check "p-[calc(var(--spacing-6)-1px)]"
 
+(* Tailwind's [--spacing(N)] shorthand can appear inside an arbitrary value; it
+   is not CSS, so the whole utility used to drop out. Expanding it also has to
+   pull [--spacing] into the theme layer, which only colour tokens reached. *)
+let test_arbitrary_spacing_fn () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let s = css "py-[calc(--spacing(2)+1px)]" in
+  Alcotest.(check bool)
+    "expands to the spacing scale" true
+    (Astring.String.is_infix
+       ~affix:"padding-block:calc(calc(var(--spacing)*2) + 1px)" s);
+  Alcotest.(check bool)
+    "declares --spacing" true
+    (Astring.String.is_infix ~affix:"--spacing:.25rem" s)
+
 let tests =
   [
+    test_case "arbitrary --spacing()" `Quick test_arbitrary_spacing_fn;
     test_case "padding of_string - valid values" `Quick of_string_valid;
     test_case "padding of_string - invalid values" `Quick of_string_invalid;
     test_case "padding suborder matches Tailwind" `Quick
