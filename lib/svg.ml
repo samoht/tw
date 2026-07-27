@@ -452,10 +452,8 @@ module Handler = struct
     | [ "stroke"; "0" ] -> Ok Stroke_0
     | [ "stroke"; "1" ] -> Ok Stroke_1
     | [ "stroke"; "2" ] -> Ok Stroke_2
-    | [ "stroke"; n ] -> (
-        match int_of_string_opt n with
-        | Some width -> Ok (Stroke_width width)
-        | None -> err_not_utility)
+    | [ "stroke"; n ] when int_of_string_opt n <> None ->
+        Ok (Stroke_width (int_of_string n))
     | "stroke" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
