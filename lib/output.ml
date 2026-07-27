@@ -26,6 +26,7 @@ type t =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      nested : Css.statement list;
     }
   | Starting_style of {
       selector : Css.Selector.t;
@@ -58,8 +59,8 @@ let media_query ~condition ~selector ~props ?base_class ?(nested = [])
     ?(not_order = 0) () =
   Media_query { condition; selector; props; base_class; nested; not_order }
 
-let container_query ~condition ~selector ~props ?base_class () =
-  Container_query { condition; selector; props; base_class }
+let container_query ~condition ~selector ~props ?base_class ?(nested = []) () =
+  Container_query { condition; selector; props; base_class; nested }
 
 let starting_style ~selector ~props ?base_class () =
   Starting_style { selector; props; base_class }

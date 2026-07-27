@@ -267,8 +267,12 @@ let indexed_rule_to_statement (r : Sort.indexed_rule) =
         Css.media ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Container condition ->
-      Css.container ~condition
-        [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
+      (* As for [`Media]: a compound like [@md:hover:] carries the inner hover
+         query in [nested] and has no declarations of its own. *)
+      if filtered_nested <> [] then Css.container ~condition filtered_nested
+      else
+        Css.container ~condition
+          [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Supports condition ->
       Css.supports ~condition
         [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
@@ -351,10 +355,10 @@ let rule_to_triple order_map = function
       in
       triple (`Media condition) ~selector ~props ~order ~nested ~base_class
         ~merge_key:None ~not_order
-  | Container_query { condition; selector; props; base_class } ->
+  | Container_query { condition; selector; props; base_class; nested } ->
       triple (`Container condition) ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested:[] ~base_class ~merge_key:None ~not_order:0
+        ~nested ~base_class ~merge_key:None ~not_order:0
   | Starting_style { selector; props; base_class } ->
       triple `Starting ~selector ~props
         ~order:(order_of_base order_map base_class selector)
@@ -542,30 +546,26 @@ let extract_non_tw_custom_declarations selector_props =
   let theme_vars = Hashtbl.create 32 in
   let insertion_order = ref [] in
 
+  let add_props props =
+    Css.custom_declarations ~layer:"theme" props
+    |> List.iter (fun decl ->
+        match Css.custom_declaration_name decl with
+        | Some name when not (Hashtbl.mem theme_vars name) ->
+            Hashtbl.add theme_vars name decl;
+            insertion_order := decl :: !insertion_order
+        | _ -> ())
+  in
   selector_props
   |> List.iter (function
-    | Regular { props; nested; _ } ->
-        (* Extract from top-level props *)
-        Css.custom_declarations ~layer:"theme" props
-        |> List.iter (fun decl ->
-            match Css.custom_declaration_name decl with
-            | Some name when not (Hashtbl.mem theme_vars name) ->
-                Hashtbl.add theme_vars name decl;
-                insertion_order := decl :: !insertion_order
-            | _ -> ());
-        (* Extract from nested statements *)
+    (* A compound variant like [md:hover:] holds its declarations in [nested],
+       so the tokens they declare are only reachable through it. *)
+    | Regular { props; nested; _ }
+    | Media_query { props; nested; _ }
+    | Container_query { props; nested; _ } ->
+        add_props props;
         extract_theme_from_statements theme_vars insertion_order nested
-    | Media_query { props; _ }
-    | Container_query { props; _ }
-    | Starting_style { props; _ }
-    | Supports_query { props; _ } ->
-        Css.custom_declarations ~layer:"theme" props
-        |> List.iter (fun decl ->
-            match Css.custom_declaration_name decl with
-            | Some name when not (Hashtbl.mem theme_vars name) ->
-                Hashtbl.add theme_vars name decl;
-                insertion_order := decl :: !insertion_order
-            | _ -> ()));
+    | Starting_style { props; _ } | Supports_query { props; _ } ->
+        add_props props);
   (* Return in original insertion order *)
   List.rev !insertion_order
 
@@ -660,9 +660,9 @@ let var_names_of_output = function
          hover:dark:) whose rules reference theme vars; recurse fully so those
          references are collected and their theme tokens declared. *)
       Css.vars_of_declarations props @ Css.vars_of_stylesheet (Css.v nested)
-  | Container_query { props; _ }
-  | Starting_style { props; _ }
-  | Supports_query { props; _ } ->
+  | Container_query { props; nested; _ } ->
+      Css.vars_of_declarations props @ Css.vars_of_stylesheet (Css.v nested)
+  | Starting_style { props; _ } | Supports_query { props; _ } ->
       Css.vars_of_declarations props
 
 (* Theme tokens referenced via var() (e.g. an arbitrary [color:var(--color-red-
