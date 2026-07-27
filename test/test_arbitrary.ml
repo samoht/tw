@@ -38,6 +38,19 @@ let css cls =
   | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
   | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
 
+(* An arbitrary [property:value] normalises omitted whitespace around calc
+   operators, like the utility form: [margin:calc(100%-10px)] emits margin:
+   calc(100% - 10px). *)
+let test_property_calc_operators () =
+  Alcotest.(check bool)
+    "[margin:calc(100%-10px)] spaces the operator" true
+    (Astring.String.is_infix ~affix:"margin: calc(100% - 10px)"
+       (css "[margin:calc(100%-10px)]"));
+  Alcotest.(check bool)
+    "[width:calc(var(--a)-var(--b))] spaces the operator" true
+    (Astring.String.is_infix ~affix:"width: calc(var(--a) - var(--b))"
+       (css "[width:calc(var(--a)-var(--b))]"))
+
 (* A var-valued colour with /opacity used to raise invalid_arg; it now emits an
    oklab color-mix under @supports, with a fallback, type-safely. *)
 let test_var_color_opacity () =
@@ -75,6 +88,8 @@ let tests =
   [
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
+    test_case "property value calc operators" `Quick
+      test_property_calc_operators;
     test_case "var-valued colour with opacity" `Quick test_var_color_opacity;
     test_case "custom property with opacity" `Quick test_custom_prop_opacity;
     test_case "deferred and var inputs never crash" `Quick test_no_crash;

@@ -238,7 +238,7 @@ module Handler = struct
            filter drops layerless custom properties). *)
         match
           Css.parse_declaration ~layer:"utilities" property
-            (unescape_value value)
+            (Parse.normalize_css_math_operators (unescape_value value))
         with
         | Some decl -> style [ decl ]
         | None -> style [])
@@ -365,7 +365,10 @@ module Handler = struct
               else
                 (* Plain [property:value]: any property whose value cascade can
                    parse becomes a typed declaration. *)
-                match Css.parse_declaration property (unescape_value value) with
+                match
+                  Css.parse_declaration property
+                    (Parse.normalize_css_math_operators (unescape_value value))
+                with
                 | Some _ -> Ok (Parsed_decl { property; value })
                 | None -> err_not_utility))
 end

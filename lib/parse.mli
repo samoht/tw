@@ -59,6 +59,11 @@ val decode_arbitrary_value : string -> string
     spaces and normalizes omitted whitespace around binary [+] and [-] operators
     inside CSS math functions such as [calc()]. *)
 
+val normalize_css_math_operators : string -> string
+(** [normalize_css_math_operators s] inserts the spaces CSS math functions
+    (calc/min/max/...) require around binary [+] and [-], e.g.
+    [calc(var(--a)-var(--b))] becomes [calc(var(--a) - var(--b))]. *)
+
 val is_var : string -> bool
 (** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
     bracket content (without surrounding brackets). *)
