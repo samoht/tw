@@ -675,7 +675,17 @@ module Handler = struct
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_arbitrary inner)
               | op -> Ok (Text_shadow_arbitrary_opacity (inner, op)))
-        | _ -> err_not_utility)
+        (* Not a size: a shadeless colour, which the multi-segment colour cases
+           below never see because it fits in this single segment. *)
+        | Stdlib.Option.None, Color.No_opacity -> (
+            match Color.shade_of_strings [ base ] with
+            | Ok (color, shade) -> Ok (Text_shadow_color (color, shade))
+            | Error e -> Error e)
+        | Stdlib.Option.None, op -> (
+            match Color.shade_of_strings [ base ] with
+            | Ok (color, shade) ->
+                Ok (Text_shadow_color_opacity (color, shade, op))
+            | Error e -> Error e))
     | "text" :: "shadow" :: color_parts when List.exists has_opacity color_parts
       -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with

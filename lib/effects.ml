@@ -2494,7 +2494,11 @@ module Handler = struct
         | "lg", op -> Ok (Shadow_shape_opacity (Lg, op))
         | "xl", op -> Ok (Shadow_shape_opacity (Xl, op))
         | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
-        | _ -> err_not_utility)
+        (* Not a size: a shadeless colour with an alpha, e.g. shadow-white/10 *)
+        | base, op -> (
+            match Color.shade_of_strings [ base ] with
+            | Ok (c, s) -> Ok (Shadow_color_opacity (c, s, op))
+            | Error _ -> err_not_utility))
     | [ "shadow"; color; shade ] -> (
         let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
@@ -2503,6 +2507,11 @@ module Handler = struct
             | Color.No_opacity -> Ok (Shadow_color (c, s))
             | _ -> Ok (Shadow_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
+    (* A shadeless colour has no shade segment: shadow-white, shadow-black. *)
+    | [ "shadow"; color ] -> (
+        match Color.shade_of_strings [ color ] with
+        | Ok (c, s) -> Ok (Shadow_color (c, s))
+        | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
     | [ "inset"; "shadow"; "2xs" ] -> Ok Inset_shadow_2xs
     | [ "inset"; "shadow"; "xs" ] -> Ok Inset_shadow_xs
@@ -2535,7 +2544,10 @@ module Handler = struct
         | "2xs", op -> Ok (Inset_shadow_shape_opacity (Ish_2xs, op))
         | "xs", op -> Ok (Inset_shadow_shape_opacity (Ish_xs, op))
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
-        | _ -> err_not_utility)
+        | base, op -> (
+            match Color.shade_of_strings [ base ] with
+            | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
+            | Error _ -> err_not_utility))
     | [ "inset"; "shadow"; color; shade ] -> (
         let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
         match (Color.of_string color, Parse.int_any shade_str) with
@@ -2544,6 +2556,10 @@ module Handler = struct
             | Color.No_opacity -> Ok (Inset_shadow_color (c, s))
             | _ -> Ok (Inset_shadow_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
+    | [ "inset"; "shadow"; color ] -> (
+        match Color.shade_of_strings [ color ] with
+        | Ok (c, s) -> Ok (Inset_shadow_color (c, s))
+        | Error _ -> err_not_utility)
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->
         let len = String.length n in
         if len > 2 && n.[len - 1] = ']' then
@@ -2712,6 +2728,10 @@ module Handler = struct
     | [ "bg"; "blend"; "luminosity" ] -> Ok Bg_blend_luminosity
     | _ -> err_not_utility
 
+  (* A shadeless colour (white, black, a theme name) takes no shade suffix. *)
+  let color_shade c s =
+    Color.pp c ^ if Color.is_shadeless c then "" else "-" ^ string_of_int s
+
   let to_class = function
     | Shadow_none -> "shadow-none"
     | Shadow_2xs -> "shadow-2xs"
@@ -2737,10 +2757,9 @@ module Handler = struct
           | Xl -> "shadow-xl"
           | Two_xl -> "shadow-2xl")
         ^ "/" ^ Color.pp_opacity op
-    | Shadow_color (c, s) -> "shadow-" ^ Color.pp c ^ "-" ^ string_of_int s
+    | Shadow_color (c, s) -> "shadow-" ^ color_shade c s
     | Shadow_color_opacity (c, s, op) ->
-        "shadow-" ^ Color.pp c ^ "-" ^ string_of_int s ^ "/"
-        ^ Color.pp_opacity op
+        "shadow-" ^ color_shade c s ^ "/" ^ Color.pp_opacity op
     | Shadow_current -> "shadow-current"
     | Shadow_current_opacity op -> "shadow-current/" ^ Color.pp_opacity op
     | Shadow_inherit -> "shadow-inherit"
@@ -2767,11 +2786,9 @@ module Handler = struct
           | Ish_xs -> "inset-shadow-xs"
           | Ish_sm -> "inset-shadow-sm")
         ^ "/" ^ Color.pp_opacity op
-    | Inset_shadow_color (c, s) ->
-        "inset-shadow-" ^ Color.pp c ^ "-" ^ string_of_int s
+    | Inset_shadow_color (c, s) -> "inset-shadow-" ^ color_shade c s
     | Inset_shadow_color_opacity (c, s, op) ->
-        "inset-shadow-" ^ Color.pp c ^ "-" ^ string_of_int s ^ "/"
-        ^ Color.pp_opacity op
+        "inset-shadow-" ^ color_shade c s ^ "/" ^ Color.pp_opacity op
     | Inset_shadow_current -> "inset-shadow-current"
     | Inset_shadow_current_opacity op ->
         "inset-shadow-current/" ^ Color.pp_opacity op
