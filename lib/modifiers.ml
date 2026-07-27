@@ -262,6 +262,15 @@ let parse_arbitrary_selector_content content anchor =
         combine
           (combine (where [ anchor ]) Descendant element_sel)
           Descendant universal
+  | [ before; "" ] when String.trim before <> "" ->
+      (* "<prefix> &" → <prefix> :where(.group) * — the [&] anchor is preceded
+         by an ancestor context (e.g. [:nth-of-type(3)_&]). *)
+      let prefix_sel =
+        Css.Selector.read (Cascade.Cursor.of_string (String.trim before))
+      in
+      combine
+        (combine prefix_sel Descendant (where [ anchor ]))
+        Descendant universal
   | _ ->
       (* Fallback — just use the anchor as descendant *)
       combine (where [ anchor ]) Descendant universal
