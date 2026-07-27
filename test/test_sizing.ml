@@ -326,6 +326,14 @@ let test_max_w_screen () =
     "max-w-screen-xl defines --breakpoint-xl: 80rem" true
     (Astring.String.is_infix ~affix:"--breakpoint-xl: 80rem" xl)
 
+(* Arbitrary sizes accept compact calc() (the bracket value is normalized before
+   going through the length grammar). *)
+let test_arbitrary_calc () =
+  Alcotest.(check bool)
+    "w-[calc(100vh-4rem)] spaces the operator" true
+    (Astring.String.is_infix ~affix:"width: calc(100vh - 4rem)"
+       (css_of "w-[calc(100vh-4rem)]"))
+
 let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
@@ -337,6 +345,7 @@ let tests =
     test_case "max sizes" `Quick test_max_sizes;
     test_case "square sizes" `Quick test_square_sizes;
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
+    test_case "arbitrary calc sizes" `Quick test_arbitrary_calc;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
     test_case "aspect bracket number" `Quick test_aspect_bracket_number;

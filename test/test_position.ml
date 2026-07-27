@@ -102,6 +102,24 @@ let test_arbitrary_var () =
   check "top-[var(--t)]";
   check "left-[var(--l)]"
 
+(* Arbitrary calc() insets go through the full length grammar (the bracket
+   parser used to accept only plain <number><unit>). *)
+let test_arbitrary_calc () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "left-[calc(5%-2px)] spaces the operator" true
+    (Astring.String.is_infix ~affix:"left: calc(5% - 2px)"
+       (css "left-[calc(5%-2px)]"));
+  Alcotest.(check bool)
+    "left-[calc(50%+var(--offset))] keeps the var" true
+    (Astring.String.is_infix ~affix:"left: calc(50% + var(--offset))"
+       (css "left-[calc(50%+var(--offset))]"));
+  check "left-[calc(5%-2px)]"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -159,6 +177,7 @@ let tests =
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
+    test_case "arbitrary calc insets" `Quick test_arbitrary_calc;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "inset value order matches Tailwind" `Quick
