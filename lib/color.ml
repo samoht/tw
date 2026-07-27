@@ -1671,6 +1671,7 @@ module Handler = struct
      arbitrary bracket colour, or a keyword. *)
   type border_side_color =
     | Bsc_named of color * int
+    | Bsc_named_opacity of color * int * opacity_modifier
     | Bsc_bracket of string * Css.color
     | Bsc_transparent
     | Bsc_current
@@ -2057,6 +2058,13 @@ module Handler = struct
             | Some css_color ->
                 Ok (Border_side_color (bs, Bsc_bracket (inner, css_color)))
             | None -> Error (`Msg ("Invalid border side bracket: " ^ v)))
+        | color_parts when List.exists has_opacity color_parts -> (
+            match shade_and_opacity_of_strings ~theme color_parts with
+            | Ok (color, shade, opacity) ->
+                Ok
+                  (Border_side_color
+                     (bs, Bsc_named_opacity (color, shade, opacity)))
+            | Error e -> Error e)
         | color_parts -> (
             match shade_of_strings color_parts with
             | Ok (color, shade) ->
@@ -2296,22 +2304,6 @@ module Handler = struct
     | Bs_bs -> [ Css.border_block_start_color ]
     | Bs_be -> [ Css.border_block_end_color ]
 
-  let border_side_color_style side value =
-    let sides = setters_of_side side in
-    let apply c = style (List.map (fun set -> set c) sides) in
-    match value with
-    | Bsc_named (color, shade) ->
-        if is_custom_color color then apply (to_css color shade)
-        else
-          let color_var = color_var color shade in
-          let color_value = get_color_value color shade in
-          let decl, color_ref = Var.binding color_var color_value in
-          style
-            (decl :: List.map (fun set -> set (Var color_ref : Css.color)) sides)
-    | Bsc_bracket (_, css_color) -> apply css_color
-    | Bsc_transparent -> apply (Css.hex "#0000")
-    | Bsc_current -> apply Current
-
   (** Accent color utilities *)
 
   let accent' ?theme color shade =
@@ -2480,13 +2472,17 @@ module Handler = struct
   let color_mix_supports_condition =
     Css.Supports.property "color" "color-mix(in lab, red, red)"
 
+  (* The same colour set on several properties at once: a per-side border colour
+     on the [x]/[y] axes needs two. *)
+
   (** Generate color with opacity using progressive enhancement. Output depends
       on scheme:
       - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
       - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
         has color-mix(oklab) *)
-  let color_with_opacity_style ?theme ~property ?property_prefix ?merge_key c
+  let colors_with_opacity_style ?theme ~properties ?property_prefix ?merge_key c
       shade opacity =
+    let property_decls value = List.map (fun set -> set value) properties in
     let percent = opacity_to_percent opacity in
     if is_custom_color c then
       (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
@@ -2503,7 +2499,7 @@ module Handler = struct
       in
       let alpha = percent /. 100.0 in
       let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-      style ?merge_key [ property oklab_value ]
+      style ?merge_key (property_decls oklab_value)
     else
       let scheme = resolve_scheme theme in
       let color_name = scheme_color_name c shade in
@@ -2513,7 +2509,7 @@ module Handler = struct
           (* Scheme has hex color: use hex+alpha fallback with top-level
              @supports *)
           let hex_with_alpha = hex_with_alpha hex_value percent in
-          let fallback_decl = property (Css.hex hex_with_alpha) in
+          let fallback_decls = property_decls (Css.hex hex_with_alpha) in
           (* Theme declaration for the variable *)
           let color_var = color_var c shade in
           let theme_decl, color_ref =
@@ -2525,15 +2521,17 @@ module Handler = struct
             Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
               ~percent1:percent
           in
-          let oklab_decl = property oklab_color in
           (* Create @supports block with oklab version as top-level rule. Use
              placeholder selector that rules.ml replaces with actual class. *)
           let supports_block =
             Css.supports ~condition:color_mix_supports_condition
-              [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+              [
+                Css.rule ~selector:(Css.Selector.class_ "_")
+                  (property_decls oklab_color);
+              ]
           in
           style ?merge_key ~rules:(Some [ supports_block ])
-            [ theme_decl; fallback_decl ]
+            (theme_decl :: fallback_decls)
       | None ->
           (* Non-scheme color: use property-scoped variable if prefix given *)
           let color_var =
@@ -2554,19 +2552,26 @@ module Handler = struct
           let rgb = oklch_to_rgb oklch in
           let hex_value = rgb_to_hex rgb in
           let hex_with_alpha_str = hex_with_alpha hex_value percent in
-          let fallback_decl = property (Css.hex hex_with_alpha_str) in
+          let fallback_decls = property_decls (Css.hex hex_with_alpha_str) in
           let theme_decl, color_ref = Var.binding color_var color_value in
           let oklab_color =
             Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
               ~percent1:percent
           in
-          let oklab_decl = property oklab_color in
           let supports_block =
             Css.supports ~condition:color_mix_supports_condition
-              [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+              [
+                Css.rule ~selector:(Css.Selector.class_ "_")
+                  (property_decls oklab_color);
+              ]
           in
           style ?merge_key ~rules:(Some [ supports_block ])
-            [ theme_decl; fallback_decl ]
+            (theme_decl :: fallback_decls)
+
+  let color_with_opacity_style ?theme ~property ?property_prefix ?merge_key c
+      shade opacity =
+    colors_with_opacity_style ?theme ~properties:[ property ] ?property_prefix
+      ?merge_key c shade opacity
 
   (** Background color with opacity *)
   let bg_with_opacity ?theme c shade opacity =
@@ -2589,6 +2594,24 @@ module Handler = struct
   (** Border color with opacity *)
   let border_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
+
+  let border_side_color_style side value =
+    let sides = setters_of_side side in
+    let apply c = style (List.map (fun set -> set c) sides) in
+    match value with
+    | Bsc_named (color, shade) ->
+        if is_custom_color color then apply (to_css color shade)
+        else
+          let color_var = color_var color shade in
+          let color_value = get_color_value color shade in
+          let decl, color_ref = Var.binding color_var color_value in
+          style
+            (decl :: List.map (fun set -> set (Var color_ref : Css.color)) sides)
+    | Bsc_named_opacity (color, shade, opacity) ->
+        colors_with_opacity_style ~properties:sides color shade opacity
+    | Bsc_bracket (_, css_color) -> apply css_color
+    | Bsc_transparent -> apply (Css.hex "#0000")
+    | Bsc_current -> apply Current
 
   (** Accent color with opacity *)
   let accent_with_opacity ?theme c shade opacity =
@@ -3091,6 +3114,10 @@ module Handler = struct
           | Bsc_named (c, shade) ->
               if is_base_color c || is_custom_color c then color_to_string c
               else color_to_string c ^ "-" ^ string_of_int shade
+          | Bsc_named_opacity (c, shade, opacity) ->
+              (if is_base_color c || is_custom_color c then color_to_string c
+               else color_to_string c ^ "-" ^ string_of_int shade)
+              ^ opacity_suffix opacity
           | Bsc_bracket (orig, _) -> "[" ^ orig ^ "]"
           | Bsc_transparent -> "transparent"
           | Bsc_current -> "current"

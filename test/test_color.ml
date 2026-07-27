@@ -257,6 +257,26 @@ let test_border_color_var () =
     "border-(--pattern-fg) round-trips" "border-(--pattern-fg)"
     (Tw.pp (Result.get_ok (Tw.of_string "border-(--pattern-fg)")))
 
+(* A per-side border color takes an alpha modifier, like the all-sides one.
+   border-b-white/5 used to be an unknown class. *)
+let test_border_side_color_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "border-b-white/5" "border-bottom-color:#ffffff0d";
+  has "border-b-white/5"
+    "border-bottom-color:color-mix(in oklab,var(--color-white) 5%,transparent)";
+  (* an axis sets both of its sides *)
+  has "border-x-pink-400/30" "border-inline-color:";
+  Alcotest.(check string)
+    "border-b-white/5 round-trips" "border-b-white/5"
+    (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
+
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
     (Invalid_argument
@@ -311,6 +331,7 @@ let tests =
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
+    ("Border side color opacity", `Quick, test_border_side_color_opacity);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
