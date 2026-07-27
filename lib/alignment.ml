@@ -71,6 +71,7 @@ module Handler = struct
       Justify_items_start
     | Justify_items_end
     | Justify_items_center
+    | Justify_items_normal
     | Justify_items_stretch
     | Justify_items_center_safe
     | Justify_items_end_safe
@@ -167,6 +168,7 @@ module Handler = struct
   let justify_items_end = style [ justify_items End ]
   let justify_items_center = style [ justify_items Center ]
   let justify_items_stretch = style [ justify_items Stretch ]
+  let justify_items_normal = style [ justify_items Normal ]
   let justify_items_center_safe = style [ justify_items Safe_center ]
   let justify_items_end_safe = style [ justify_items Safe_end ]
   let justify_self_auto = style [ justify_self Auto ]
@@ -260,6 +262,7 @@ module Handler = struct
       (Justify_items_end, "justify-items-end", justify_items_end, 72);
       (Justify_items_center, "justify-items-center", justify_items_center, 70);
       (Justify_items_stretch, "justify-items-stretch", justify_items_stretch, 75);
+      (Justify_items_normal, "justify-items-normal", justify_items_normal, 73);
       ( Justify_items_center_safe,
         "justify-items-center-safe",
         justify_items_center_safe,
@@ -412,6 +415,7 @@ let justify_items_start = utility Justify_items_start
 let justify_items_end = utility Justify_items_end
 let justify_items_center = utility Justify_items_center
 let justify_items_stretch = utility Justify_items_stretch
+let justify_items_normal = utility Justify_items_normal
 let justify_items_center_safe = utility Justify_items_center_safe
 let justify_items_end_safe = utility Justify_items_end_safe
 

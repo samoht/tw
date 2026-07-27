@@ -119,6 +119,9 @@ val justify_items_center : t
 val justify_items_stretch : t
 (** [justify_items_stretch] stretches items to fill. *)
 
+val justify_items_normal : t
+(** [justify_items_normal] uses the normal justification (the default). *)
+
 val justify_items_center_safe : t
 (** [justify_items_center_safe] justifies items to center with safe overflow. *)
 

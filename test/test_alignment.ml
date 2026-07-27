@@ -40,6 +40,7 @@ let of_string_valid () =
   check "justify-items-end";
   check "justify-items-center";
   check "justify-items-stretch";
+  check "justify-items-normal";
 
   (* Justify self *)
   check "justify-self-auto";
