@@ -1277,6 +1277,16 @@ let try_has_shorthand s =
     if is_has_shorthand base then Some (Peer_has (base, name)) else None
   else None
 
+(* A bare arbitrary variant with no [&] anchor compounds onto the utility's own
+   class, so it has to be a single compound selector: [[code]] and [[.line]] are
+   fine, [[>img]] and [[@media_print]] are not. *)
+let is_compound_selector inner =
+  (match inner.[0] with
+    | 'a' .. 'z' | 'A' .. 'Z' | '.' | '#' | '[' | ':' | '*' -> true
+    | _ | (exception _) -> false)
+  && not
+       (String.exists (fun c -> c = '_' || c = '>' || c = '+' || c = '~') inner)
+
 (* A plain identifier: what a group/peer name or a bare data attribute may be
    spelled with. *)
 let is_plain_ident str =
@@ -1431,12 +1441,12 @@ let bracket_value_patterns s =
           if sel <> "" && String.contains sel '&' then Some sel else None)
         (fun sel -> Peer_arbitrary sel));
     (fun () ->
-      if
-        String.length s >= 3
-        && s.[0] = '['
-        && s.[String.length s - 1] = ']'
-        && String.contains s '&'
-      then Some (Arbitrary_selector (String.sub s 1 (String.length s - 2)))
+      if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']'
+      then
+        let inner = String.sub s 1 (String.length s - 2) in
+        if String.contains inner '&' || is_compound_selector inner then
+          Some (Arbitrary_selector inner)
+        else None
       else None);
   ]
 
