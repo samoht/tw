@@ -520,6 +520,28 @@ let test_has_data_and_not_composition () =
   has "not-peer-has-checked:opacity-0"
     ".not-peer-has-checked\\:opacity-0:not(:is(:where(.peer):has(:checked)~*))"
 
+(* A bracket [has-] argument is one relative selector, so a list inside it goes
+   in an [:is()]; a bare type selector keeps its brackets in the class name
+   rather than being read as a state name. And [group-not-] takes any variant as
+   its inner, not just the simple states. *)
+let test_has_bracket_arguments () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "has-[[data-a],[data-b]]:block" ":has(:is([data-a], [data-b]))";
+  has "has-[a]:block" ".has-\\[a\\]\\:block:has(a)";
+  has "group-has-[a]:block"
+    ".group-has-\\[a\\]\\:block:is(:where(.group):has(a) *)";
+  has "group-not-has-[[data-hover],[data-focus]]:block"
+    ":not(:has(:is([data-hover], [data-focus])))";
+  (* the hocus shorthand really is two selectors and stays a list *)
+  has "has-hocus:flex" ":has(:hover,:focus)"
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -672,6 +694,7 @@ let tests =
         test_named_anchor_and_bare_data;
       test_case "has-data and not- composition" `Quick
         test_has_data_and_not_composition;
+      test_case "has bracket arguments" `Quick test_has_bracket_arguments;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick

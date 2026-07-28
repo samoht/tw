@@ -485,8 +485,13 @@ let has_inner_selector raw =
   let str =
     if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
   in
-  Css.Selector.read_relative
-    (Cascade.Cursor.of_string (preprocess_has_selector str))
+  match
+    Css.Selector.read_relative
+      (Cascade.Cursor.of_string (preprocess_has_selector str))
+  with
+  | Css.Selector.List sels when not (Style.is_has_shorthand raw) ->
+      Css.Selector.is_ sels
+  | sel -> sel
 
 (* The relative selector a group/peer has-variant scopes to:
    [:where(.group):has(<inner>) *]. *)
@@ -504,7 +509,11 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let parsed_selector =
-    Css.Selector.read_relative (Cascade.Cursor.of_string processed)
+    match Css.Selector.read_relative (Cascade.Cursor.of_string processed) with
+    (* A bracket list is one relative selector, so it goes in an [:is()]. The
+       [hocus] shorthand is genuinely two, and stays a list. *)
+    | List sels when shorthand = None -> is_ sels
+    | sel -> sel
   in
   let has_part s =
     match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"
@@ -771,18 +780,11 @@ let route_has_modifier modifier base_class props =
     | Style.Peer_has (s, name) -> (`Peer_has, s, name)
     | _ -> failwith "Invalid has modifier"
   in
-  (* Shorthand forms like "checked" are stored without colon prefix. Bracket
-     forms like ":checked" start with colon or other CSS chars. *)
-  let is_shorthand =
-    raw_str <> ""
-    && raw_str.[0] <> ':'
-    && raw_str.[0] <> '&'
-    && raw_str.[0] <> '+'
-    && raw_str.[0] <> '>'
-    && raw_str.[0] <> '~'
-    && raw_str.[0] <> '.'
-    && not (String.contains raw_str ' ')
-  in
+  (* A shorthand is one of the state names, spelled bare; anything else was
+     written in brackets and keeps them in the class name. Deciding this by
+     punctuation alone read a bare type selector like [has-[a]] as the state
+     name [a] and dropped the brackets. *)
+  let is_shorthand = Style.is_has_shorthand raw_str in
   let selector_str =
     if is_shorthand then resolve_has_shorthand raw_str else raw_str
   in

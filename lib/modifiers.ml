@@ -2056,6 +2056,7 @@ let rec parse_modifier s : modifier option =
       (fun () -> try_in_modifier s);
       (fun () -> try_not_in_modifier s);
       (fun () -> try_group_peer_not s);
+      (fun () -> try_group_peer_not_variant s);
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
       (fun () -> try_container_variant s);
@@ -2071,6 +2072,25 @@ let rec parse_modifier s : modifier option =
     ]
   in
   List.find_map (fun f -> f ()) fns
+
+(* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
+   its own. The reading above only knows the simple state names and a bare
+   bracket. *)
+and try_group_peer_not_variant s =
+  let try_prefix prefix make =
+    let plen = String.length prefix in
+    if String.length s <= plen || String.sub s 0 plen <> prefix then None
+    else
+      let base, name =
+        split_name (String.sub s plen (String.length s - plen))
+      in
+      match parse_modifier base with
+      | Some m when is_not_compatible m -> Some (make m name)
+      | Some _ | None -> None
+  in
+  match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
+  | Some _ as r -> r
+  | None -> try_prefix "peer-not-" (fun i n -> Peer_not (i, n))
 
 and try_not_of_modifier s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
