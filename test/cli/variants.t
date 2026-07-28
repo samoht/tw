@@ -105,3 +105,28 @@ that class is the one the declared variant has to decorate.
   1
   $ tw --minify --input-css darkclass.css dv.html | grep -c 'divide-gray-800:where'
   1
+
+Only [dark] had a built-in template, so every other built-in [@variant] used in
+author CSS was dropped along with the declarations it guarded. The template is
+derived from tw's own output for the named variant, so a responsive one wraps
+its body in the breakpoint's media query:
+
+  $ cat > sm.css <<EOF
+  > @import "tailwindcss";
+  > .box { color: red; @variant sm { font-size: 0.875rem } }
+  > EOF
+  $ tw --minify --input-css sm.css index.html | grep -cF '@media(min-width:40rem){.box{font-size:.875rem}}'
+  1
+  $ tw --minify --input-css sm.css index.html | grep -cF '.box{color:red}'
+  1
+
+A variant that names nothing tw knows leaves the block alone rather than
+guessing:
+
+  $ cat > nope.css <<EOF
+  > @import "tailwindcss";
+  > .box { @variant not-a-variant { color: red } }
+  > EOF
+  $ tw --minify --input-css nope.css index.html | grep -c 'color:red'
+  0
+  [1]

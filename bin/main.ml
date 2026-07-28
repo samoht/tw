@@ -680,12 +680,67 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   Buffer.add_buffer buf hoisted;
   Buffer.contents buf
 
+(* The names an [@variant NAME {] header uses inside a body. *)
+let variant_names_in css =
+  let len = String.length css in
+  let rec go i acc =
+    if i >= len then List.rev acc
+    else
+      match at_rule_header css i "@variant" with
+      | Some (name, brace) when name <> "" -> go (brace + 1) (name :: acc)
+      | _ -> go (i + 1) acc
+  in
+  go 0 []
+
+(* Replace the first occurrence of [needle] in [hay]. *)
+let replace_first ~needle ~by hay =
+  let n = String.length needle and h = String.length hay in
+  let rec at i =
+    if i + n > h then None
+    else if String.sub hay i n = needle then Some i
+    else at (i + 1)
+  in
+  match at 0 with
+  | None -> None
+  | Some i ->
+      Some
+        (String.concat ""
+           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
+
+(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
+   variants, but only as part of a whole utility, so derive the wrapper from
+   what it emits around a probe with a single declaration and put [@slot] where
+   that declaration was. This is what lets a project's [@utility] carry a
+   built-in prefix, which the [@variant] machinery otherwise only has templates
+   for when the project declared it. *)
+let builtin_variant_template ~theme name =
+  let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
+  if body = "" then None
+  else
+    (* A media variant wraps the probe in a bare [&], which would add a nesting
+       level the utility's own body cannot survive: its [@variant before] and
+       the [@supports] an opacity colour emits end up three deep and the sheet
+       no longer parses. Drop that level by putting the slot in its place. *)
+    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
+    | Some t -> Some t
+    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
+
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   let css, _ = take_custom_utilities css in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
-  (* A project declaration wins over the built-in of the same name. *)
-  let defs = defs @ builtin_variants in
+  (* A project declaration wins over the built-in of the same name. Any other
+     built-in the CSS names has its template derived from tw's own output for a
+     probe utility, so [@variant sm] is not silently dropped along with the
+     declarations it guards. *)
+  let derived =
+    variant_names_in css
+    |> List.sort_uniq String.compare
+    |> List.filter (fun n -> not (List.mem_assoc n defs))
+    |> List.filter_map (fun n ->
+        Option.map (fun t -> (n, t)) (builtin_variant_template ~theme n))
+  in
+  let defs = defs @ builtin_variants @ derived in
   (* A declared utility's body may [@apply] another one, so keep expanding until
      nothing is left (bounded, in case two reference each other). *)
   let rec expand depth css =
@@ -1000,18 +1055,6 @@ let entry_defs take = function
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities
 
-(* The names an [@variant NAME {] header uses inside a body. *)
-let variant_names_in css =
-  let len = String.length css in
-  let rec go i acc =
-    if i >= len then List.rev acc
-    else
-      match at_rule_header css i "@variant" with
-      | Some (name, brace) when name <> "" -> go (brace + 1) (name :: acc)
-      | _ -> go (i + 1) acc
-  in
-  go 0 []
-
 (* The escaped class with its declarations under the [@variant]s that wrap
    it. *)
 let wrapped_block cls variants body =
@@ -1022,39 +1065,6 @@ let wrapped_block cls variants body =
       variants body
   in
   String.concat "" [ class_sel; "{"; wrapped; "}" ]
-
-(* Replace the first occurrence of [needle] in [hay]. *)
-let replace_first ~needle ~by hay =
-  let n = String.length needle and h = String.length hay in
-  let rec at i =
-    if i + n > h then None
-    else if String.sub hay i n = needle then Some i
-    else at (i + 1)
-  in
-  match at 0 with
-  | None -> None
-  | Some i ->
-      Some
-        (String.concat ""
-           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
-
-(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
-   variants, but only as part of a whole utility, so derive the wrapper from
-   what it emits around a probe with a single declaration and put [@slot] where
-   that declaration was. This is what lets a project's [@utility] carry a
-   built-in prefix, which the [@variant] machinery otherwise only has templates
-   for when the project declared it. *)
-let builtin_variant_template ~theme name =
-  let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
-  if body = "" then None
-  else
-    (* A media variant wraps the probe in a bare [&], which would add a nesting
-       level the utility's own body cannot survive: its [@variant before] and
-       the [@supports] an opacity colour emits end up three deep and the sheet
-       no longer parses. Drop that level by putting the slot in its place. *)
-    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
-    | Some t -> Some t
-    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 (* A candidate the project's own declarations govern: it carries a declared
    variant, or it is a declared utility. *)
