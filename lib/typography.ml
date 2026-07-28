@@ -2658,9 +2658,9 @@ module Typography_late = struct
     style ~property_rules (content_decl @ [ Css.content c ])
 
   let content_squote s =
-    (* Single-quoted arbitrary content (content-['x']) keeps the single
-       quote. *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    (* Single-quoted arbitrary content (content-['x']) keeps the single quote.
+       [_] is a space and [\_] a literal underscore. *)
+    let value = Parse.decode_underscores s in
     let quoted : Css.content =
       Css.Quoted { value; quote = '\''; repr = None }
     in

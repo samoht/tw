@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Read `\_` in an arbitrary value as a literal underscore, not an escaped
+  space: `content-['Hello\_World']` gave `"Hello World"` (#231)
+- Accept any CSS length in `bg-size-[...]`; only `px` and `%` were read,
+  so `bg-size-[8rem]` fell back to `auto` (#231)
+- Emit a plain `0px` for the zero spacing step, as Tailwind does (#231)
+
 - Emit the shadow, inset-shadow, text-shadow and leading scales under
   `theme(static)`, and derive `--default-font-feature-settings` from the
   `--font-sans--font-feature-settings` a project declares (#231)

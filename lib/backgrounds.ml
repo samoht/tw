@@ -635,34 +635,15 @@ module Handler = struct
   let bg_position' pos = style [ Css.background_position pos ]
 
   (* Parse a bracket size value like "120px_120px" or "120px" *)
+  (* [bg-size-[8rem]] and [bg-[length:120px_120px]] take any CSS length, so read
+     them with the value parser rather than a hand-rolled unit table. *)
   let parse_bracket_size inner =
     let parts =
       String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
     in
     match parts with
     | [ w; h ] -> (
-        (* Two values: width height *)
-        let parse_len s =
-          if String.ends_with ~suffix:"px" s then
-            let n =
-              String.sub s 0 (String.length s - 2) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Css.Px f : Css.length)) n
-          else if String.ends_with ~suffix:"%" s then
-            let n =
-              String.sub s 0 (String.length s - 1) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Css.Pct f : Css.length)) n
-          else if String.ends_with ~suffix:"rem" s then
-            let n =
-              String.sub s 0 (String.length s - 3) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Css.Rem f : Css.length)) n
-          else None
-        in
-        let wl = parse_len w in
-        let hl = parse_len h in
-        match (wl, hl) with
+        match (Css.parse_length w, Css.parse_length h) with
         | Some w, Some h -> Some (Css.background_size (Size (w, h)))
         | _ -> None)
     | [ v ] -> (
@@ -674,20 +655,9 @@ module Handler = struct
         | "contain" -> Some (Css.background_size Contain)
         | "auto" -> Some (Css.background_size Auto)
         | _ ->
-            let parse_len s =
-              if String.ends_with ~suffix:"px" s then
-                let n =
-                  String.sub s 0 (String.length s - 2) |> float_of_string_opt
-                in
-                Option.map (fun f -> (Length (Px f) : Css.background_size)) n
-              else if String.ends_with ~suffix:"%" s then
-                let n =
-                  String.sub s 0 (String.length s - 1) |> float_of_string_opt
-                in
-                Option.map (fun f -> (Length (Pct f) : Css.background_size)) n
-              else None
-            in
-            Option.map Css.background_size (parse_len v))
+            Option.map
+              (fun l -> Css.background_size (Length l))
+              (Css.parse_length v))
     | _ -> None
 
   (* Parse a bracket position value like "120px_120px" or "120px" or "50%" *)
