@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Accept any CSS length in `mask-position-[...]`; only `px` and `%` were
+  read, so `mask-position-[8rem_2rem]` fell back to `center` (#231)
+
 - Write the keyword for `list-none`, `list-image-none` and `columns-auto`
   when no `@theme` defines the token; they referenced a variable nothing
   declared (#231)

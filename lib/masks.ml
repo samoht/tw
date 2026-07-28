@@ -277,35 +277,32 @@ module Handler = struct
           (parse_size_val v)
     | _ -> None
 
-  let parse_bracket_position inner =
-    let parts =
-      String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
+  (* A mask position is one or two components. Lengths go through the value
+     parser rather than a hand-rolled unit table, so every unit works. *)
+  let parse_bracket_position inner : Css.declaration list option =
+    let one entry : Css.position_value option =
+      match
+        String.split_on_char '_' entry |> List.filter (fun s -> s <> "")
+      with
+      | [ x; y ] -> (
+          match (Css.parse_length x, Css.parse_length y) with
+          | Some xv, Some yv -> Some (XY (xv, yv))
+          | _ -> None)
+      | [ v ] ->
+          Option.map
+            (fun (l : Css.length) : Css.position_value -> Single l)
+            (Css.parse_length v)
+      | _ -> None
     in
-    let parse_pos_val s : Css.position_value option =
-      if String.ends_with ~suffix:"px" s then
-        let n = String.sub s 0 (String.length s - 2) |> float_of_string_opt in
-        Option.map (fun f -> (Css.Single (Px f) : Css.position_value)) n
-      else if String.ends_with ~suffix:"%" s then
-        let n = String.sub s 0 (String.length s - 1) |> float_of_string_opt in
-        Option.map (fun f -> (Css.Single (Pct f) : Css.position_value)) n
-      else None
-    in
-    match parts with
-    | [ x; y ] -> (
-        match (parse_bracket_len x, parse_bracket_len y) with
-        | Some xv, Some yv ->
-            Some
-              [
-                Css.webkit_mask_position [ Css.XY (xv, yv) ];
-                Css.mask_position [ Css.XY (xv, yv) ];
-              ]
-        | _ -> None)
-    | [ v ] ->
-        Option.map
-          (fun pv ->
-            [ Css.webkit_mask_position [ pv ]; Css.mask_position [ pv ] ])
-          (parse_pos_val v)
-    | _ -> None
+    (* A comma-separated list of positions is valid CSS but [mask_position]
+       renders the list space-separated, so it would emit an invalid value;
+       leave it unparsed until cascade takes a list. *)
+    if String.contains inner ',' then None
+    else
+      Option.map
+        (fun pv ->
+          [ Css.webkit_mask_position [ pv ]; Css.mask_position [ pv ] ])
+        (one inner)
 
   let to_style _theme = function
     | Mask_none -> mask_none
