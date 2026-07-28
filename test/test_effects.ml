@@ -217,8 +217,27 @@ let test_inset_shadow_theme_override () =
     "inset-shadow-sm @theme override drops the default [inset 0 2px 4px]" false
     (Astring.String.is_infix ~affix:"inset 0 2px 4px" css)
 
+(* A shadeless colour has no shade segment, so shadow-white never reached the
+   colour parse: the size cases claimed the segment and rejected it. The class
+   name drops the shade too, or it comes back as shadow-white-500. *)
+let test_shadeless_shadow_colors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "shadow-white" ".shadow-white{--tw-shadow-color:#fff}";
+  has "shadow-white/10" ".shadow-white\\/10{--tw-shadow-color:#ffffff1a}";
+  has "inset-shadow-white" ".inset-shadow-white{--tw-inset-shadow-color:#fff}";
+  has "inset-shadow-white/20"
+    ".inset-shadow-white\\/20{--tw-inset-shadow-color:#fff3}"
+
 let tests =
   [
+    test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;
