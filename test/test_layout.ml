@@ -173,6 +173,23 @@ let test_typed () =
   Test_helpers.check_typed_class "break-before-column" Tw.break_before_column;
   Test_helpers.check_typed_class "break-inside-avoid" Tw.break_inside_avoid
 
+(* [object-[50%]] is a position, not a variable name: it used to come out as
+   [object-position: var(--50)]. [z-auto] writes the keyword, since no theme
+   declares [--z-index-auto]. *)
+let test_object_and_z_values () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "object-[50%]" "object-position:50%";
+  has "object-[10px_20px]" "object-position:10px 20px";
+  has "object-[var(--x)]" "object-position:var(--x)";
+  has "z-auto" "z-index:auto"
+
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
@@ -180,6 +197,8 @@ let tests =
     test_case "box-decoration-break" `Quick test_box_decoration_break;
     test_case "typed constructors" `Quick test_typed;
     test_case "z-index" `Quick test_z_index;
+    test_case "object-position and z-auto values" `Quick
+      test_object_and_z_values;
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
     test_case "sr-only declaration order" `Quick test_sr_only_declaration_order;

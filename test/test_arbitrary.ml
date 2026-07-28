@@ -101,12 +101,21 @@ let test_no_crash () =
       "[mask-type:luminance]";
     ]
 
+(* Tailwind's [--spacing(N)] shorthand reads the spacing scale, so it has to be
+   expanded here too: the value used to reach the sheet verbatim. *)
+let test_property_spacing_fn () =
+  Alcotest.(check bool)
+    "[--gap:--spacing(10)] reads the spacing scale" true
+    (Astring.String.is_infix ~affix:"--gap: calc(var(--spacing) * 10)"
+       (css "[--gap:--spacing(10)]"))
+
 let tests =
   [
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
     test_case "property value calc operators" `Quick
       test_property_calc_operators;
+    test_case "property value --spacing()" `Quick test_property_spacing_fn;
     test_case "theme() dot-notation" `Quick test_theme_dot_notation;
     test_case "var-valued colour with opacity" `Quick test_var_color_opacity;
     test_case "custom property with opacity" `Quick test_custom_prop_opacity;

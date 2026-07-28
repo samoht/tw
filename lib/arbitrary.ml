@@ -216,20 +216,6 @@ module Handler = struct
 
   (* Arbitrary values use [_] for spaces (Tailwind); a literal underscore is
      escaped as [\_]. *)
-  let unescape_value value =
-    let b = Buffer.create (String.length value) in
-    let n = String.length value in
-    let i = ref 0 in
-    while !i < n do
-      if value.[!i] = '\\' && !i + 1 < n && value.[!i + 1] = '_' then (
-        Buffer.add_char b '_';
-        incr i)
-      else if value.[!i] = '_' then Buffer.add_char b ' '
-      else Buffer.add_char b value.[!i];
-      incr i
-    done;
-    Buffer.contents b
-
   let to_style theme t =
     match t with
     | Parsed_decl { property; value } -> (
@@ -238,7 +224,7 @@ module Handler = struct
            filter drops layerless custom properties). *)
         match
           Css.parse_declaration ~layer:"utilities" property
-            (Parse.normalize_css_math_operators (unescape_value value))
+            (Parse.decode_arbitrary_value value)
         with
         | Some decl -> style [ decl ]
         | None -> style [])
@@ -367,7 +353,7 @@ module Handler = struct
                    parse becomes a typed declaration. *)
                 match
                   Css.parse_declaration property
-                    (Parse.normalize_css_math_operators (unescape_value value))
+                    (Parse.decode_arbitrary_value value)
                 with
                 | Some _ -> Ok (Parsed_decl { property; value })
                 | None -> err_not_utility))

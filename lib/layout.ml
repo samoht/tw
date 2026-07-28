@@ -85,15 +85,24 @@ let z_auto_style ?theme () =
       in
       let decl, ref = Var.binding z_index_auto_var z_value in
       Style.style [ decl; Css.z_index (Var ref) ]
-  | None ->
-      Style.style
-        [
-          Css.z_index
-            (Var
-               (Var.theme_ref "z-index-auto"
-                  ~default:(Auto : Css.z_index)
-                  ~default_css:"auto"));
-        ]
+  (* Without a theme override Tailwind writes the keyword, not a reference to a
+     token nothing declares. *)
+  | None -> Style.style [ Css.z_index Auto ]
+
+(* An [object-[...]] value that is not a var() reference is a position: one or
+   two lengths, with [_] for the space. *)
+let parse_object_position raw : Css.position_value option =
+  let decoded = Parse.decode_arbitrary_value raw in
+  match String.split_on_char ' ' decoded |> List.filter (fun s -> s <> "") with
+  | [ x; y ] -> (
+      match (Css.parse_length x, Css.parse_length y) with
+      | Some xv, Some yv -> Some (XY (xv, yv))
+      | _ -> None)
+  | [ v ] ->
+      Option.map
+        (fun (l : Css.length) : Css.position_value -> Single l)
+        (Css.parse_length v)
+  | _ -> None
 
 module Handler = struct
   open Style
@@ -510,10 +519,15 @@ module Handler = struct
         (* Without a theme override Tailwind writes the keyword, not a reference
            to a token nothing declares. *)
         | None -> style [ object_position default ])
-    | Object_arbitrary var_str ->
-        let bare_name = Parse.extract_var_name var_str in
-        let pos_ref : Css.position_value Css.var = Var.bracket bare_name in
-        style [ object_position (Var pos_ref) ]
+    | Object_arbitrary raw -> (
+        (* Only a var() reference names a variable; anything else is a position
+           value, which [object-[50%]] used to turn into [var(--50)]. *)
+        match parse_object_position raw with
+        | Some pos -> style [ object_position pos ]
+        | None ->
+            let bare_name = Parse.extract_var_name raw in
+            let pos_ref : Css.position_value Css.var = Var.bracket bare_name in
+            style [ object_position (Var pos_ref) ])
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]

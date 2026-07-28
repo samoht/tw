@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Read `object-[50%]` as a position; it emitted `object-position: var(--50)`
+  (#231)
+- Write `z-index: auto` for `z-auto`, which referenced a variable nothing
+  declares (#231)
+- Expand Tailwind's `--spacing(N)` in an arbitrary property value, as in
+  `[--gap:--spacing(10)]` (#231)
+
 - Fix `not-in-data-*`, which negated the utility's own class instead of the
   ancestor relation, and keep the inner variant's selector under `not-*`
   (#231)
