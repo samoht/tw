@@ -222,6 +222,10 @@ type modifier =
       (** [group-aria-X/name] — group aria variant with optional name *)
   | Peer_aria of string * string option
       (** [peer-aria-X/name] — peer aria variant with optional name *)
+  | Named_group of modifier * string
+      (** [group-X/name] — a state variant on a named group *)
+  | Named_peer of modifier * string
+      (** [peer-X/name] — a state variant on a named peer *)
   | Not_named_group of modifier * string
       (** [not-group-X/name] — negate named group variant *)
   | Has_named_group of modifier * string
@@ -327,8 +331,8 @@ let rec container_size_name = function
   | Container_named (n, size) -> n ^ "/" ^ string_of_int size
   | Container_size (cmp, inner) ->
       container_cmp_prefix cmp ^ container_size_name inner
-  (* The raw bracket token, not the parsed length: [theme(--breakpoint-lg)]
-     must not come back as its resolved [64rem]. *)
+  (* The raw bracket token, not the parsed length: [theme(--breakpoint-lg)] must
+     not come back as its resolved [64rem]. *)
   | Container_len (raw, _) -> "[" ^ raw ^ "]"
   | Container_len_cmp (cmp, raw, _) ->
       container_cmp_prefix cmp ^ "[" ^ raw ^ "]"
@@ -605,12 +609,15 @@ let rec pp_modifier = function
   | Peer_not (inner, Some name) ->
       String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
   | Data_bracket expr -> "data-[" ^ expr ^ "]"
-  | Group_data (expr, None) -> "group-data-[" ^ expr ^ "]"
-  | Group_data (expr, Some name) ->
-      String.concat "" [ "group-data-["; expr; "]/"; name ]
-  | Peer_data (expr, None) -> "peer-data-[" ^ expr ^ "]"
-  | Peer_data (expr, Some name) ->
-      String.concat "" [ "peer-data-["; expr; "]/"; name ]
+  (* The spelling as written: [[dragging]] for the bracket form, [dragging] for
+     the bare shorthand. Both mean the same attribute, but the class names
+     differ. *)
+  | Group_data (spelling, None) -> "group-data-" ^ spelling
+  | Group_data (spelling, Some name) ->
+      String.concat "" [ "group-data-"; spelling; "/"; name ]
+  | Peer_data (spelling, None) -> "peer-data-" ^ spelling
+  | Peer_data (spelling, Some name) ->
+      String.concat "" [ "peer-data-"; spelling; "/"; name ]
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) ->
@@ -618,6 +625,10 @@ let rec pp_modifier = function
   | Peer_aria (expr, None) -> "peer-aria-" ^ expr
   | Peer_aria (expr, Some name) ->
       String.concat "" [ "peer-aria-"; expr; "/"; name ]
+  | Named_group (inner, name) ->
+      String.concat "" [ "group-"; pp_modifier inner; "/"; name ]
+  | Named_peer (inner, name) ->
+      String.concat "" [ "peer-"; pp_modifier inner; "/"; name ]
   | Not_named_group (inner, name) ->
       "not-group-" ^ pp_modifier inner ^ "/" ^ name
   | Has_named_group (inner, name) ->

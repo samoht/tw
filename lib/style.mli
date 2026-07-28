@@ -232,6 +232,10 @@ type modifier =
       (** [group-aria-X/name] — group aria variant with optional name *)
   | Peer_aria of string * string option
       (** [peer-aria-X/name] — peer aria variant with optional name *)
+  | Named_group of modifier * string
+      (** [group-X/name] — a state variant on a named group *)
+  | Named_peer of modifier * string
+      (** [peer-X/name] — a state variant on a named peer *)
   | Not_named_group of modifier * string
       (** [not-group-X/name] — negate named group variant *)
   | Has_named_group of modifier * string

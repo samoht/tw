@@ -470,6 +470,35 @@ let test_has_state_shorthands () =
   check string "has-focus round-trips" "has-focus:flex"
     (Tw.pp (Result.get_ok (Tw.of_string "has-focus:flex")))
 
+(* A named anchor works on any state variant, not just the has/aria/data ones:
+   group-hover/edit scopes to .group\/edit. And a data variant takes the bare
+   attribute shorthand under group-/peer- too, keeping a class name distinct
+   from the bracket spelling. *)
+let test_named_anchor_and_bare_data () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "group-hover/edit:underline"
+    ".group-hover\\/edit\\:underline:is(:where(.group\\/edit):hover *)";
+  has "group-focus/option:underline"
+    ".group-focus\\/option\\:underline:is(:where(.group\\/option):focus *)";
+  has "peer-checked/draft:block"
+    ".peer-checked\\/draft\\:block:is(:where(.peer\\/draft):checked~*)";
+  has "group-data-modified:italic"
+    ".group-data-modified\\:italic:is(:where(.group)[data-modified] *)";
+  (* the bracket spelling keeps its own class name *)
+  has "group-data-[modified]:italic"
+    ".group-data-\\[modified\\]\\:italic:is(:where(.group)[data-modified] *)";
+  (* group-hover gates on the pointer, as a plain hover does *)
+  check bool "group-hover/edit keeps the pointer gate" true
+    (Astring.String.is_infix ~affix:"@media(hover:hover)"
+       (css "group-hover/edit:underline"))
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -618,6 +647,8 @@ let tests =
       test_case "container query min/max" `Quick test_container_query_min_max;
       test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
       test_case "has state shorthands" `Quick test_has_state_shorthands;
+      test_case "named anchor and bare data" `Quick
+        test_named_anchor_and_bare_data;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick

@@ -1178,15 +1178,17 @@ let rec pp_modifier = function
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
   | Data_bracket expr -> "data-[" ^ expr ^ "]"
-  | Group_data (expr, None) -> "group-data-[" ^ expr ^ "]"
-  | Group_data (expr, Some name) -> "group-data-[" ^ expr ^ "]/" ^ name
-  | Peer_data (expr, None) -> "peer-data-[" ^ expr ^ "]"
-  | Peer_data (expr, Some name) -> "peer-data-[" ^ expr ^ "]/" ^ name
+  | Group_data (spelling, None) -> "group-data-" ^ spelling
+  | Group_data (spelling, Some name) -> "group-data-" ^ spelling ^ "/" ^ name
+  | Peer_data (spelling, None) -> "peer-data-" ^ spelling
+  | Peer_data (spelling, Some name) -> "peer-data-" ^ spelling ^ "/" ^ name
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) -> "group-aria-" ^ expr ^ "/" ^ name
   | Peer_aria (expr, None) -> "peer-aria-" ^ expr
   | Peer_aria (expr, Some name) -> "peer-aria-" ^ expr ^ "/" ^ name
+  | Named_group (inner, name) -> "group-" ^ pp_modifier inner ^ "/" ^ name
+  | Named_peer (inner, name) -> "peer-" ^ pp_modifier inner ^ "/" ^ name
   | Not_named_group (inner, name) ->
       "not-group-" ^ pp_modifier inner ^ "/" ^ name
   | Has_named_group (inner, name) ->
@@ -1230,6 +1232,72 @@ let extract_bracket_content ~prefix s =
   else None
 
 (* Extract bracketed content allowing an optional /name suffix *)
+(* Extract name suffix from "rest" after prefix, e.g. "checked/name" ->
+   ("checked", Some "name") *)
+let split_name rest =
+  match String.index_opt rest '/' with
+  | Some i ->
+      let base = String.sub rest 0 i in
+      let name = String.sub rest (i + 1) (String.length rest - i - 1) in
+      if name <> "" then (base, Some name) else (rest, None)
+  | None -> (rest, None)
+
+(* Try parsing has-shorthand modifiers like has-checked,
+   group-has-checked/name *)
+(* Known aria shorthand names that map to [aria-X=true] *)
+let is_aria_shorthand = function
+  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
+  | "readonly" | "required" | "selected" ->
+      true
+  | _ -> false
+
+(* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
+let try_aria_shorthand s =
+  if String.length s > 11 && String.sub s 0 11 = "group-aria-" then
+    let rest = String.sub s 11 (String.length s - 11) in
+    let base, name = split_name rest in
+    if is_aria_shorthand base then Some (Group_aria (base, name)) else None
+  else if String.length s > 10 && String.sub s 0 10 = "peer-aria-" then
+    let rest = String.sub s 10 (String.length s - 10) in
+    let base, name = split_name rest in
+    if is_aria_shorthand base then Some (Peer_aria (base, name)) else None
+  else None
+
+let try_has_shorthand s =
+  if String.length s > 4 && String.sub s 0 4 = "has-" then
+    let rest = String.sub s 4 (String.length s - 4) in
+    if is_has_shorthand rest then Some (Has rest) else None
+  else if String.length s > 10 && String.sub s 0 10 = "group-has-" then
+    let rest = String.sub s 10 (String.length s - 10) in
+    let base, name = split_name rest in
+    if is_has_shorthand base then Some (Group_has (base, name)) else None
+  else if String.length s > 9 && String.sub s 0 9 = "peer-has-" then
+    let rest = String.sub s 9 (String.length s - 9) in
+    let base, name = split_name rest in
+    if is_has_shorthand base then Some (Peer_has (base, name)) else None
+  else None
+
+(* A plain identifier: what a group/peer name or a bare data attribute may be
+   spelled with. *)
+let is_plain_ident str =
+  str <> ""
+  && String.for_all
+       (fun c ->
+         (c >= 'a' && c <= 'z')
+         || (c >= 'A' && c <= 'Z')
+         || (c >= '0' && c <= '9')
+         || c = '-' || c = '_')
+       str
+
+(* [group-data-dragging] is [group-data-[dragging]] with a different spelling,
+   so it keeps its own class name. *)
+let try_bare_data s prefix make =
+  let plen = String.length prefix in
+  if String.length s <= plen || String.sub s 0 plen <> prefix then None
+  else
+    let base, name = split_name (String.sub s plen (String.length s - plen)) in
+    if is_plain_ident base then Some (make base name) else None
+
 let extract_bracket_content_with_name ~prefix s =
   if String.starts_with ~prefix s then
     let rest =
@@ -1311,8 +1379,14 @@ let bracket_named_patterns s =
     (fun () -> try_named "group-aria-[" (fun e n -> Group_aria (e, n)));
     (fun () -> try_named "peer-aria-[" (fun e n -> Peer_aria (e, n)));
     (fun () -> try_pattern "aria-[" (fun expr -> Aria_bracket expr));
-    (fun () -> try_named "group-data-[" (fun e n -> Group_data (e, n)));
-    (fun () -> try_named "peer-data-[" (fun e n -> Peer_data (e, n)));
+    (fun () ->
+      try_named "group-data-[" (fun e n -> Group_data ("[" ^ e ^ "]", n)));
+    (fun () ->
+      try_named "peer-data-[" (fun e n -> Peer_data ("[" ^ e ^ "]", n)));
+    (* Bare shorthand: [group-data-dragging] is [group-data-[dragging]] with a
+       different spelling, so it keeps its own class name. *)
+    (fun () -> try_bare_data s "group-data-" (fun e n -> Group_data (e, n)));
+    (fun () -> try_bare_data s "peer-data-" (fun e n -> Peer_data (e, n)));
     (fun () ->
       let* expr = extract_bracket_content ~prefix:"data-[" s in
       if expr = "" then None else Some (Data_bracket expr));
@@ -1724,51 +1798,6 @@ let parse_group_peer_not_inner rest =
         | Some m -> Some (m, None)
         | None -> None)
 
-(* Extract name suffix from "rest" after prefix, e.g. "checked/name" ->
-   ("checked", Some "name") *)
-let split_name rest =
-  match String.index_opt rest '/' with
-  | Some i ->
-      let base = String.sub rest 0 i in
-      let name = String.sub rest (i + 1) (String.length rest - i - 1) in
-      if name <> "" then (base, Some name) else (rest, None)
-  | None -> (rest, None)
-
-(* Try parsing has-shorthand modifiers like has-checked,
-   group-has-checked/name *)
-(* Known aria shorthand names that map to [aria-X=true] *)
-let is_aria_shorthand = function
-  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
-  | "readonly" | "required" | "selected" ->
-      true
-  | _ -> false
-
-(* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
-let try_aria_shorthand s =
-  if String.length s > 11 && String.sub s 0 11 = "group-aria-" then
-    let rest = String.sub s 11 (String.length s - 11) in
-    let base, name = split_name rest in
-    if is_aria_shorthand base then Some (Group_aria (base, name)) else None
-  else if String.length s > 10 && String.sub s 0 10 = "peer-aria-" then
-    let rest = String.sub s 10 (String.length s - 10) in
-    let base, name = split_name rest in
-    if is_aria_shorthand base then Some (Peer_aria (base, name)) else None
-  else None
-
-let try_has_shorthand s =
-  if String.length s > 4 && String.sub s 0 4 = "has-" then
-    let rest = String.sub s 4 (String.length s - 4) in
-    if is_has_shorthand rest then Some (Has rest) else None
-  else if String.length s > 10 && String.sub s 0 10 = "group-has-" then
-    let rest = String.sub s 10 (String.length s - 10) in
-    let base, name = split_name rest in
-    if is_has_shorthand base then Some (Group_has (base, name)) else None
-  else if String.length s > 9 && String.sub s 0 9 = "peer-has-" then
-    let rest = String.sub s 9 (String.length s - 9) in
-    let base, name = split_name rest in
-    if is_has_shorthand base then Some (Peer_has (base, name)) else None
-  else None
-
 (* Try to parse compound named group variants: not-group-STATE/name,
    has-group-STATE/name, in-group-STATE/name, group-peer-STATE/name *)
 let try_compound_named_group s =
@@ -1778,23 +1807,26 @@ let try_compound_named_group s =
       let rest = String.sub s plen (String.length s - plen) in
       let base, name_opt = split_name rest in
       match name_opt with
-      | Some name -> (
+      (* [group-hover/[]] is not a name Tailwind accepts. *)
+      | Some name when is_plain_ident name -> (
           match List.assoc_opt base group_state_modifiers with
           | Some m -> Some (make m name)
           | None -> None)
-      | None -> None
+      | Some _ | None -> None
     else None
   in
-  match try_match "not-group-" (fun m n -> Not_named_group (m, n)) with
-  | Some _ as r -> r
-  | None -> (
-      match try_match "has-group-" (fun m n -> Has_named_group (m, n)) with
-      | Some _ as r -> r
-      | None -> (
-          match try_match "in-group-" (fun m n -> In_named_group (m, n)) with
-          | Some _ as r -> r
-          | None -> try_match "group-peer-" (fun m n -> Group_peer_named (m, n))
-          ))
+  (* Longest prefix first: [group-peer-X/n] must not be read as [group-] with
+     the state [peer-X]. *)
+  List.find_map
+    (fun f -> f ())
+    [
+      (fun () -> try_match "not-group-" (fun m n -> Not_named_group (m, n)));
+      (fun () -> try_match "has-group-" (fun m n -> Has_named_group (m, n)));
+      (fun () -> try_match "in-group-" (fun m n -> In_named_group (m, n)));
+      (fun () -> try_match "group-peer-" (fun m n -> Group_peer_named (m, n)));
+      (fun () -> try_match "group-" (fun m n -> Named_group (m, n)));
+      (fun () -> try_match "peer-" (fun m n -> Named_peer (m, n)));
+    ]
 
 (* Try in-* pattern: in-[selector] or in-data-attr *)
 let try_in_modifier s =
