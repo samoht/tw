@@ -41,6 +41,7 @@ type t = {
           When defined, responsive media queries use [@media (min-width: Xpx)]
           instead of rem-based values. *)
   token_overrides : (string * string) list;
+  inline_tokens : string list;
       (** Per-render theme token overrides (from a [@theme] block). Key is the
           variable name without the leading [--] (e.g. "text-shadow-2xs"), value
           is the CSS string. Threaded replacement for the global
@@ -70,6 +71,7 @@ let default : t =
     default_outline_width = 1;
     breakpoints = [];
     token_overrides = [];
+    inline_tokens = [];
   }
 
 let pp t =
@@ -135,5 +137,11 @@ let token scheme name =
 
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)
-let with_overrides scheme overrides =
-  { scheme with token_overrides = overrides @ scheme.token_overrides }
+let with_overrides ?(inline = []) scheme overrides =
+  {
+    scheme with
+    token_overrides = overrides @ scheme.token_overrides;
+    inline_tokens = inline @ scheme.inline_tokens;
+  }
+
+let is_inline_token scheme name = List.mem name scheme.inline_tokens

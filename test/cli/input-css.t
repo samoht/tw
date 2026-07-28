@@ -60,3 +60,25 @@ the token it declared:
   $ tw --minify --input-css font.css font.html | grep -c 'font-awesome'
   0
   [1]
+
+An [@theme inline] token has no declaration of its own: the utility carries
+the value. A self-referential one is the exception, since inlining it would
+leave the reference dangling.
+
+  $ cat > inline.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme inline {
+  >   --font-a: var(--font-a);
+  >   --font-b: var(--font-ext), system-ui;
+  > }
+  > EOF
+  $ cat > inline.html <<EOF
+  > <div class="font-a font-b"></div>
+  > EOF
+  $ tw --minify --input-css inline.css inline.html | grep -cF '.font-b{font-family:var(--font-ext),system-ui}'
+  1
+  $ tw --minify --input-css inline.css inline.html | grep -c -- '--font-b:'
+  0
+  [1]
+  $ tw --minify --input-css inline.css inline.html | grep -cF -- '--font-a:var(--font-a)'
+  1

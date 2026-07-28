@@ -929,16 +929,30 @@ module Typography_early = struct
     style [ sans_decl; font_family (Css.Var sans_ref) ]
 
   (* [font-source] reads --font-source from the theme; the token has to be
-     there, or a stray source word would parse as a utility. *)
+     there, or a stray source word would parse as a utility.
+
+     An [@theme inline] token has no declaration of its own, so the utility
+     carries the value instead of a reference to it. A self-referential one
+     ([--font-a: var(--font-a)]) is the exception: inlining it would leave the
+     reference dangling, so the token keeps its declaration. *)
   let font_named theme name =
-    match Scheme.theme_value (Some theme) ("font-" ^ name) with
+    let token = "font-" ^ name in
+    match Scheme.theme_value (Some theme) token with
     | None -> style []
     | Some raw -> (
         match Css.parse_font_family raw with
         | None -> style []
         | Some family ->
-            let decl, ref = Var.binding (font_named_var name) family in
-            style [ decl; font_family (Css.Var ref) ])
+            let self_referential =
+              match family with
+              | Css.Var v -> Css.var_name v = token
+              | _ -> false
+            in
+            if Scheme.is_inline_token theme token && not self_referential then
+              style [ font_family family ]
+            else
+              let decl, ref = Var.binding (font_named_var name) family in
+              style [ decl; font_family (Css.Var ref) ])
 
   let italic = style [ font_style Italic ]
   let not_italic = style [ font_style Normal ]

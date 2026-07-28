@@ -62,10 +62,12 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* Rewrite each Tailwind [@theme [modifiers] {] header to a [:root {] rule.
+(* Rewrite each Tailwind [@theme [modifiers] {] header to a rule selector.
    Cascade's parser accepts [@theme] but drops its body (it is not a standard
    at-rule), so this swaps only the at-rule keyword and its modifiers up to the
-   opening brace; the declarations themselves are left for the real parser. *)
+   opening brace; the declarations themselves are left for the real parser.
+   [@theme inline] becomes [:root inline] so the modifier survives as part of
+   the selector, which is all [theme_overrides_of_css] reads it for. *)
 let theme_blocks_as_root css =
   let len = String.length css in
   let buf = Buffer.create len in
@@ -78,7 +80,11 @@ let theme_blocks_as_root css =
         incr j
       done;
       if !j < len && css.[!j] = '{' then begin
-        Buffer.add_string buf ":root ";
+        let modifiers = String.sub css (!i + 6) (!j - !i - 6) in
+        let inline =
+          List.mem "inline" (String.split_on_char ' ' (String.trim modifiers))
+        in
+        Buffer.add_string buf (if inline then ":root inline " else ":root ");
         i := !j (* keep the '{' and the body verbatim *)
       end
       else begin
@@ -93,16 +99,17 @@ let theme_blocks_as_root css =
   done;
   Buffer.contents buf
 
-(* Extract @theme token overrides ([(bare-name, value)]) from a project CSS
-   entrypoint, so tw renders with the same tokens Tailwind reads from it. The
-   declarations are parsed by cascade (after the @theme -> :root header swap);
-   the resulting name/value strings feed Scheme.with_overrides. *)
+(* Extract @theme token overrides from a project CSS entrypoint, so tw renders
+   with the same tokens Tailwind reads from it: the [(bare-name, value)] pairs,
+   and the names among them that came from an [@theme inline] block. The
+   declarations are parsed by cascade (after the @theme header swap); the
+   resulting strings feed Scheme.with_overrides. *)
 let theme_overrides_of_css css =
   match Css.of_string (theme_blocks_as_root css) with
-  | Error _ -> []
+  | Error _ -> ([], [])
   | Ok parse ->
-      Css.rules_of_statements (Css.statements parse.Css.stylesheet)
-      |> List.concat_map (fun (_sel, decls) ->
+      let block (sel, decls) =
+        let names =
           List.filter_map
             (fun d ->
               match Css.custom_declaration_name d with
@@ -111,7 +118,19 @@ let theme_overrides_of_css css =
                     ( String.sub n 2 (String.length n - 2),
                       Css.declaration_value d )
               | _ -> None)
-            decls)
+            decls
+        in
+        let inline =
+          String.ends_with ~suffix:"inline"
+            (Cascade.Selector.to_string ~minify:true sel)
+        in
+        (names, if inline then List.map fst names else [])
+      in
+      let blocks =
+        List.map block
+          (Css.rules_of_statements (Css.statements parse.Css.stylesheet))
+      in
+      (List.concat_map fst blocks, List.concat_map snd blocks)
 
 (* [@import "tailwindcss"] (and its subpath forms) is the package entry, not a
    file on disk: it marks where the generated theme/base/utilities belong. *)
@@ -1092,7 +1111,8 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     match css_content with
     | None -> Tw.Scheme.default
     | Some css ->
-        Tw.Scheme.with_overrides Tw.Scheme.default (theme_overrides_of_css css)
+        let overrides, inline = theme_overrides_of_css css in
+        Tw.Scheme.with_overrides ~inline Tw.Scheme.default overrides
   in
   let opts : gen_opts =
     {

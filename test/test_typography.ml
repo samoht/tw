@@ -233,7 +233,21 @@ let test_named_font_family () =
   Alcotest.(check bool)
     "font-source references its token" true
     (Astring.String.is_infix ~affix:"font-family:var(--font-source)"
-       (css themed "font-source"))
+       (css themed "font-source"));
+  let inline =
+    Tw.Scheme.with_overrides
+      ~inline:[ "font-source"; "font-self" ]
+      Tw.Scheme.default
+      [ ("font-source", "Georgia, serif"); ("font-self", "var(--font-self)") ]
+  in
+  Alcotest.(check bool)
+    "an inline token is inlined" true
+    (Astring.String.is_infix ~affix:"font-family:Georgia,serif"
+       (css inline "font-source"));
+  Alcotest.(check bool)
+    "a self-referential inline token keeps its declaration" true
+    (Astring.String.is_infix ~affix:"--font-self:var(--font-self)"
+       (css inline "font-self"))
 
 (* text-[<value>] accepts values that CSS font-size accepts: lengths with a
    unit, percentages, font-size keywords (larger/smaller/xxx-large/...),
