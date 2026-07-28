@@ -390,8 +390,27 @@ let test_text_bracket_functions () =
     (Astring.String.is_infix ~affix:"color-mix(in oklab,red 20%,transparent)"
        (css "text-[--alpha(red/20%)]"))
 
+(* A bracket list-style value is read with the CSS parser rather than a
+   hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
+   unknown classes. *)
+let test_bracket_list_style () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "list-[square]" "list-style-type:square";
+  has "list-image-[url(/carrot.png)]" "list-style-image:url(/carrot.png)";
+  Alcotest.(check bool)
+    "an unknown counter style is rejected" true
+    (Result.is_error (Tw.of_string "list-[nonsense-style]"))
+
 let tests =
   [
+    test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading-none inline" `Quick test_leading_none_inline;

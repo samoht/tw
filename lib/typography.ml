@@ -1353,10 +1353,12 @@ module Typography_late = struct
     | List_disc
     | List_decimal
     | List_bracket_var of string
+    | List_bracket of string * Css.list_style_type
     | List_inside
     | List_outside
     | List_image_none
     | List_image_bracket_var of string
+    | List_image_bracket of string * Css.list_style_image
     | List_image_url of string
     | (* Underline offset *)
       Underline_offset_auto
@@ -1447,7 +1449,7 @@ module Typography_late = struct
   let priority = function
     | List_none | List_disc | List_decimal | List_inside | List_outside
     | List_image_none | List_image_url _ | List_bracket_var _
-    | List_image_bracket_var _ ->
+    | List_image_bracket_var _ | List_bracket _ | List_image_bracket _ ->
         11
     | Truncate -> 17
     | Align_baseline | Align_top | Align_middle | Align_bottom | Align_sub
@@ -1593,6 +1595,13 @@ module Typography_late = struct
     | [ "align"; "super" ] -> Ok Align_super
     | [ "list"; value ] when Parse.is_bracket_var value ->
         Ok (List_bracket_var (Parse.bracket_inner value))
+    | [ "list"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match
+          Css.parse_list_style_type (Parse.decode_arbitrary_value inner)
+        with
+        | Some t -> Ok (List_bracket (inner, t))
+        | None -> err_not_utility)
     | [ "list"; "none" ] -> Ok List_none
     | [ "list"; "disc" ] -> Ok List_disc
     | [ "list"; "decimal" ] -> Ok List_decimal
@@ -1601,6 +1610,13 @@ module Typography_late = struct
     | [ "list"; "image"; "none" ] -> Ok List_image_none
     | [ "list"; "image"; value ] when Parse.is_bracket_var value ->
         Ok (List_image_bracket_var (Parse.bracket_inner value))
+    | [ "list"; "image"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match
+          Css.parse_list_style_image (Parse.decode_arbitrary_value inner)
+        with
+        | Some i -> Ok (List_image_bracket (inner, i))
+        | None -> err_not_utility)
     | "list" :: "image" :: rest when rest <> [] ->
         let url = String.concat "-" rest in
         if Parse.is_valid_theme_name url then Ok (List_image_url url)
@@ -1814,10 +1830,12 @@ module Typography_late = struct
     | List_disc -> "list-disc"
     | List_decimal -> "list-decimal"
     | List_bracket_var s -> "list-[" ^ s ^ "]"
+    | List_bracket (raw, _) -> "list-[" ^ raw ^ "]"
     | List_inside -> "list-inside"
     | List_outside -> "list-outside"
     | List_image_none -> "list-image-none"
     | List_image_bracket_var s -> "list-image-[" ^ s ^ "]"
+    | List_image_bracket (raw, _) -> "list-image-[" ^ raw ^ "]"
     | List_image_url url -> "list-image-" ^ url
     | Underline_offset_auto -> "underline-offset-auto"
     | Underline_offset_0 -> "underline-offset-0"
@@ -1974,9 +1992,11 @@ module Typography_late = struct
     (* List utilities (priority 11) - after resize (~1M), before appearance
        (~3M). Alphabetical. *)
     | List_bracket_var _ -> 2_000_000 + 8699
+    | List_bracket _ -> 2_000_000 + 8699
     | List_decimal -> 2_000_000 + 8700
     | List_disc -> 2_000_000 + 8701
     | List_image_bracket_var _ -> 2_000_000 + 8698
+    | List_image_bracket _ -> 2_000_000 + 8698
     | List_image_none -> 2_000_000 + 8702
     | List_inside -> 2_000_000 + 8703
     | List_none -> 2_000_000 + 8704
@@ -2844,10 +2864,12 @@ module Typography_late = struct
     | List_disc -> list_disc
     | List_decimal -> list_decimal
     | List_bracket_var s -> list_bracket_var s
+    | List_bracket (_, t) -> style [ list_style_type t ]
     | List_inside -> list_inside
     | List_outside -> list_outside
     | List_image_none -> list_image_none ()
     | List_image_bracket_var s -> list_image_bracket_var s
+    | List_image_bracket (_, i) -> style [ list_style_image i ]
     | List_image_url url -> list_image_url url
     | Underline_offset_auto -> underline_offset_auto ()
     | Underline_offset_0 -> underline_offset_0
