@@ -2043,7 +2043,7 @@ let try_container_query s =
       ]
 
 (* Parse a modifier string into a typed Style.modifier *)
-let parse_modifier s : modifier option =
+let rec parse_modifier s : modifier option =
   let fns =
     [
       (fun () -> List.assoc_opt s simple_modifiers);
@@ -2064,9 +2064,20 @@ let parse_modifier s : modifier option =
       (fun () -> try_prose_element s);
       (fun () -> try_custom_breakpoint s);
       (fun () -> try_custom_variant s);
+      (* Last: a [not-] over any other variant negates the selector it produces.
+         The readings above come first because several [not-] spellings need
+         their own handling. *)
+      (fun () -> try_not_of_modifier s);
     ]
   in
   List.find_map (fun f -> f ()) fns
+
+and try_not_of_modifier s =
+  if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
+  else
+    match parse_modifier (String.sub s 4 (String.length s - 4)) with
+    | Some m when is_not_compatible m -> Some (Not m)
+    | Some _ | None -> None
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
