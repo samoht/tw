@@ -271,6 +271,13 @@ let parse_arbitrary_selector_content content anchor =
       combine
         (combine prefix_sel Descendant (where [ anchor ]))
         Descendant universal
+  | [ single ] when String.trim single <> "" ->
+      (* No [&]: a bare compound like [[.is-published]] attaches to the anchor,
+         giving [:where(.group).is-published *]. *)
+      let extra =
+        Css.Selector.read (Cascade.Cursor.of_string (String.trim single))
+      in
+      combine (compound [ where [ anchor ]; extra ]) Descendant universal
   | _ ->
       (* Fallback — just use the anchor as descendant *)
       combine (where [ anchor ]) Descendant universal
@@ -1447,12 +1454,16 @@ let bracket_value_patterns s =
     (fun () ->
       try_with "group-["
         (fun sel ->
-          if sel <> "" && String.contains sel '&' then Some sel else None)
+          if sel <> "" && (String.contains sel '&' || is_compound_selector sel)
+          then Some sel
+          else None)
         (fun sel -> Group_arbitrary sel));
     (fun () ->
       try_with "peer-["
         (fun sel ->
-          if sel <> "" && String.contains sel '&' then Some sel else None)
+          if sel <> "" && (String.contains sel '&' || is_compound_selector sel)
+          then Some sel
+          else None)
         (fun sel -> Peer_arbitrary sel));
     (fun () -> try_bracket_at_rule s);
     (fun () ->

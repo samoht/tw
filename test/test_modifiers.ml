@@ -542,6 +542,23 @@ let test_has_bracket_arguments () =
   (* the hocus shorthand really is two selectors and stays a list *)
   has "has-hocus:flex" ":has(:hover,:focus)"
 
+(* A group or peer bracket without an [&] attaches its compound to the anchor:
+   group-[.is-published] scopes to a .group that also has that class. It used to
+   be an unknown class, since the anchor had to be spelled. *)
+let test_anchor_bracket_without_ampersand () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "group-[.is-published]:block" ":is(:where(.group).is-published *)";
+  has "peer-[.is-dirty]:block" ":is(:where(.peer).is-dirty~*)";
+  (* the spelled anchor still works *)
+  has "group-[&:hover]:block" ":is(:where(.group):hover *)"
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -695,6 +712,8 @@ let tests =
       test_case "has-data and not- composition" `Quick
         test_has_data_and_not_composition;
       test_case "has bracket arguments" `Quick test_has_bracket_arguments;
+      test_case "anchor bracket without ampersand" `Quick
+        test_anchor_bracket_without_ampersand;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick
