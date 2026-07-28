@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Reject an arbitrary filter amount that is not a number, a percentage or a
+  var; `brightness-[abc]` emitted `brightness(0)` (#231)
+
 - `shadow-inner` sets `--tw-shadow` and composes like the other shadow
   shapes; it wrote `box-shadow` directly, so a ring or inset shadow beside it
   was dropped and its `@property` rules were missing (#231)
