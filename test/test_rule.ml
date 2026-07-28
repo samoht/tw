@@ -272,10 +272,36 @@ let test_in_state_variant () =
   (* in-hover gates on the pointer, as hover itself does *)
   has "in-hover:flex" "@media(hover:hover)"
 
+(* [before:]/[after:] add the content declaration the pseudo-element needs, but
+   a content-* utility already brings its own: adding a second one left it
+   declared twice. A utility that sets content to something else (content-none)
+   still gets the var indirection. *)
+let test_pseudo_element_content_once () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let occurrences sub str =
+    let n = String.length sub in
+    let rec go i acc =
+      if i + n > String.length str then acc
+      else if String.sub str i n = sub then go (i + n) (acc + 1)
+      else go (i + 1) acc
+    in
+    go 0 0
+  in
+  check int "content declared once" 1
+    (occurrences "content:var(--tw-content)" (css "after:content-['x']"));
+  check int "a plain utility still gets one" 1
+    (occurrences "content:var(--tw-content)" (css "after:underline"))
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "pseudo-element content once" `Quick
+      test_pseudo_element_content_once;
     test_case "in-state variant" `Quick test_in_state_variant;
     test_case "bracketed at-rule variant" `Quick test_bracketed_at_rule_variant;
     test_case "opacity @supports under a variant" `Quick
