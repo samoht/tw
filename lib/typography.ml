@@ -1374,6 +1374,7 @@ module Typography_late = struct
     | Subpixel_antialiased
     | (* Text overflow *)
       Text_ellipsis
+    | Overflow_ellipsis (* legacy alias for text-ellipsis, keeps its name *)
     | Text_clip
     | Truncate
     | (* Text wrap *)
@@ -1635,6 +1636,7 @@ module Typography_late = struct
     | [ "antialiased" ] -> Ok Antialiased
     | [ "subpixel"; "antialiased" ] -> Ok Subpixel_antialiased
     | [ "text"; "ellipsis" ] -> Ok Text_ellipsis
+    | [ "overflow"; "ellipsis" ] -> Ok Overflow_ellipsis
     | [ "text"; "clip" ] -> Ok Text_clip
     | [ "truncate" ] -> Ok Truncate
     | [ "text"; "wrap" ] -> Ok Text_wrap
@@ -1844,6 +1846,7 @@ module Typography_late = struct
     | Antialiased -> "antialiased"
     | Subpixel_antialiased -> "subpixel-antialiased"
     | Text_ellipsis -> "text-ellipsis"
+    | Overflow_ellipsis -> "overflow-ellipsis"
     | Text_clip -> "text-clip"
     | Truncate -> "truncate"
     | Text_wrap -> "text-wrap"
@@ -1998,6 +2001,7 @@ module Typography_late = struct
        a suborder above alignment/gap's range. *)
     | Text_clip -> 8320
     | Text_ellipsis -> 8321
+    | Overflow_ellipsis -> 8321
     | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
     (* Text wrap - alphabetical order *)
     | Text_balance -> 9100
@@ -2872,6 +2876,7 @@ module Typography_late = struct
     | Antialiased -> antialiased
     | Subpixel_antialiased -> subpixel_antialiased
     | Text_ellipsis -> text_ellipsis
+    | Overflow_ellipsis -> text_ellipsis
     | Text_clip -> text_clip
     | Truncate -> truncate
     | Text_wrap -> text_wrap

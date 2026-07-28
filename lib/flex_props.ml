@@ -23,6 +23,7 @@ module Handler = struct
     (* Grow *)
     | Flex_grow
     | Flex_grow_0
+    | Flex_grow_n of int (* grow-N where N is any integer *)
     | Flex_grow_arbitrary of int (* grow-[123] *)
     | Flex_grow_legacy (* flex-grow (deprecated alias, keeps its class name) *)
     | Flex_grow_0_legacy (* flex-grow-0 *)
@@ -157,6 +158,7 @@ module Handler = struct
     | Flex_arbitrary n -> flex_n_style n
     | Flex_grow -> flex_grow_utility
     | Flex_grow_0 -> flex_grow_0_utility
+    | Flex_grow_n n -> style [ flex_grow (float_of_int n) ]
     | Flex_grow_arbitrary n -> style [ flex_grow (float_of_int n) ]
     | Flex_grow_legacy -> flex_grow_utility
     | Flex_grow_0_legacy -> flex_grow_0_utility
@@ -224,6 +226,7 @@ module Handler = struct
     | Flex_grow_0_legacy -> 29999
     | Flex_grow -> 30000
     | Flex_grow_0 -> 30001
+    | Flex_grow_n n -> 30000 + n
     | Flex_grow_arbitrary _ -> 30002
     (* Basis: fractions → arbitrary → keywords alphabetical → named *)
     | Basis_fraction (n, m) -> 40000 + (n * 10) + m
@@ -270,6 +273,10 @@ module Handler = struct
         match int_of_string_opt inner with
         | Some i -> Ok (Flex_grow_arbitrary i)
         | None -> err_not_utility)
+    | [ "grow"; n ] -> (
+        match int_of_string_opt n with
+        | Some i when i > 0 -> Ok (Flex_grow_n i)
+        | _ -> err_not_utility)
     | [ "flex"; "shrink" ] -> Ok Flex_shrink_legacy
     | [ "shrink" ] -> Ok Flex_shrink
     | [ "flex"; "shrink"; "0" ] -> Ok Flex_shrink_0_legacy
@@ -372,6 +379,7 @@ module Handler = struct
        deprecated aliases that preserve their class name *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"
+    | Flex_grow_n n -> "grow-" ^ string_of_int n
     | Flex_grow_arbitrary n -> "grow-[" ^ string_of_int n ^ "]"
     | Flex_grow_legacy -> "flex-grow"
     | Flex_grow_0_legacy -> "flex-grow-0"
