@@ -65,7 +65,7 @@ module Handler = struct
     | Mask_bracket_url of string
     | Mask_bracket_url_var of string
     | Mask_bracket_var of string
-    | Mask_bracket_linear_gradient of string
+    | Mask_bracket_image of string
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
     | Mask_position_bracket of string
     | Mask_position_bracket_var of string
@@ -401,7 +401,7 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Mask_bracket_linear_gradient v -> (
+    | Mask_bracket_image v -> (
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
         match Css.parse_background_image css_str with
         | Some (img :: _) ->
@@ -444,7 +444,7 @@ module Handler = struct
 
   let suborder = function
     | Mask_bracket_image_var _ -> 100
-    | Mask_bracket_linear_gradient _ -> 101
+    | Mask_bracket_image _ -> 101
     | Mask_bracket_url _ -> 102
     | Mask_bracket_url_var _ -> 103
     | Mask_bracket_var _ -> 104
@@ -499,6 +499,15 @@ module Handler = struct
     | Mask_position_bracket_var _ -> 512
     | Mask_size_bracket _ -> 407
     | Mask_size_bracket_var _ -> 408
+
+  (* [mask-[<image>]] takes any background-image value, so what makes one is
+     whether the value parser accepts it, not which gradient function it
+     names. *)
+  let is_image_value inner =
+    let css_str = String.map (fun c -> if c = '_' then ' ' else c) inner in
+    match Css.parse_background_image css_str with
+    | Some (_ :: _) -> true
+    | _ -> false
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -586,11 +595,8 @@ module Handler = struct
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
             let url_content = String.sub inner 4 (String.length inner - 5) in
             Ok (Mask_bracket_url url_content)
-        | _
-          when String.length inner > 16
-               && String.sub inner 0 16 = "linear-gradient(" ->
-            Ok (Mask_bracket_linear_gradient inner)
         | _ when Parse.is_var inner -> Ok (Mask_bracket_var inner)
+        | _ when is_image_value inner -> Ok (Mask_bracket_image inner)
         | _ ->
             if parse_bracket_position inner <> None then
               Ok (Mask_bracket_position inner)
@@ -649,7 +655,7 @@ module Handler = struct
     | Mask_bracket_url url -> "mask-[url(" ^ url ^ ")]"
     | Mask_bracket_url_var v -> "mask-[url:" ^ v ^ "]"
     | Mask_bracket_var v -> "mask-[" ^ v ^ "]"
-    | Mask_bracket_linear_gradient v -> "mask-[" ^ v ^ "]"
+    | Mask_bracket_image v -> "mask-[" ^ v ^ "]"
     | Mask_position_bracket v -> "mask-position-[" ^ v ^ "]"
     | Mask_position_bracket_var v -> "mask-position-[" ^ v ^ "]"
     | Mask_size_bracket v -> "mask-size-[" ^ v ^ "]"

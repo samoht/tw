@@ -45,8 +45,26 @@ let test_typed () =
   Test_helpers.check_typed_class "mask-cover" Tw.mask_cover;
   Test_helpers.check_typed_class "mask-type-alpha" Tw.mask_type_alpha
 
+(* [mask-[<image>]] takes any background-image, not only a linear-gradient. *)
+let test_bracket_image () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "radial-gradient reaches mask-image" true
+    (Astring.String.is_infix ~affix:"mask-image:radial-gradient(white,black)"
+       (css "mask-[radial-gradient(white,black)]"));
+  check "mask-[radial-gradient(white,black)]";
+  check "mask-[conic-gradient(white,black)]";
+  check "mask-[linear-gradient(white,black)]"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
-  @ [ Alcotest.test_case "typed constructors" `Quick test_typed ]
+  @ [
+      Alcotest.test_case "typed constructors" `Quick test_typed;
+      Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
+    ]
 
 let suite = ("masks", tests)

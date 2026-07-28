@@ -1771,6 +1771,12 @@ module Handler = struct
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
+  (* The theme-layer declaration for a palette colour together with the typed
+     reference to it, so a utility outside this module can both emit the token
+     and point at it. *)
+  let color_binding ?theme c shade =
+    Var.binding (color_var c shade) (get_color_value ?theme c shade)
+
   (* The theme-layer declaration for a colour token named like "color-red-500",
      or None when the name is not a catalogued colour token. [color_var]
      registers the token's canonical order and [get_color_value] supplies the

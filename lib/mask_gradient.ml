@@ -64,6 +64,10 @@ module Handler = struct
       (* (--var) or (length:--var) → sets position to var(--var) *)
     | Mask_color_ref of direction * position_end * string
       (* (color:--var) → sets color to var(--var) *)
+    | Mask_stop_color of direction * position_end * Color.color * int
+      (* a palette entry as the stop colour *)
+    | Mask_stop_keyword of direction * position_end * Css.color * string
+      (* transparent / current as the stop colour *)
     | Mask_linear_angle of mask_angle
     | Mask_conic_angle of mask_angle
     | Mask_radial (* just mask-radial with no position *)
@@ -572,7 +576,7 @@ module Handler = struct
     style ~property_rules:conic_property_rules (decls @ composite_decls)
 
   (* Build directional var ref/color ref declarations for a single direction *)
-  let single_dir_var_decls dir_name pos_name prop var_name =
+  let single_dir_value_decls dir_name pos_name prop value =
     [
       custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
         (gradient_for_direction
@@ -584,8 +588,11 @@ module Handler = struct
            | d -> failwith ("unexpected direction " ^ d)));
       custom_property ~layer:"utilities"
         ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-" ^ prop)
-        ("var(" ^ var_name ^ ")");
+        value;
     ]
+
+  let single_dir_var_decls dir_name pos_name prop var_name =
+    single_dir_value_decls dir_name pos_name prop ("var(" ^ var_name ^ ")")
 
   (* Helper to get the stops + gradient decls for a gradient-type direction *)
   let stops_based_decls dir_name stops_decl gradient_decl =
@@ -656,38 +663,39 @@ module Handler = struct
     let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~merge_key ~property_rules (common_decls @ composite_decls)
 
-  (* Build the style for parenthesized var reference setting color *)
-  let build_color_ref_style dir pos_end var_name =
+  (* The stop colour, as a CSS value: [var(--color-black)] for a palette entry,
+     the keyword itself for [transparent] / [current]. *)
+  let build_color_value_style dir pos_end value =
     let pos_name = position_end_name pos_end in
     let property_rules = property_rules_for_direction dir in
     let dir_decls =
       match dir with
       | X ->
-          single_dir_var_decls "right" pos_name "color" var_name
-          @ single_dir_var_decls "left" pos_name "color" var_name
+          single_dir_value_decls "right" pos_name "color" value
+          @ single_dir_value_decls "left" pos_name "color" value
       | Y ->
-          single_dir_var_decls "top" pos_name "color" var_name
-          @ single_dir_var_decls "bottom" pos_name "color" var_name
+          single_dir_value_decls "top" pos_name "color" value
+          @ single_dir_value_decls "bottom" pos_name "color" value
       | Linear ->
           stops_based_decls "linear" linear_stops_decl linear_gradient_decl
           @ [
               custom_property ~layer:"utilities"
                 ("--tw-mask-linear-" ^ pos_name ^ "-color")
-                ("var(" ^ var_name ^ ")");
+                value;
             ]
       | Radial ->
           stops_based_decls "radial" radial_stops_decl radial_gradient_decl
           @ [
               custom_property ~layer:"utilities"
                 ("--tw-mask-radial-" ^ pos_name ^ "-color")
-                ("var(" ^ var_name ^ ")");
+                value;
             ]
       | Conic ->
           stops_based_decls "conic" conic_stops_decl conic_gradient_decl
           @ [
               custom_property ~layer:"utilities"
                 ("--tw-mask-conic-" ^ pos_name ^ "-color")
-                ("var(" ^ var_name ^ ")");
+                value;
             ]
       | _ ->
           let dir_name = direction_name dir in
@@ -696,7 +704,7 @@ module Handler = struct
               (gradient_for_direction dir);
             custom_property ~layer:"utilities"
               ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-color")
-              ("var(" ^ var_name ^ ")");
+              value;
           ]
     in
     let linear_decl =
@@ -710,6 +718,18 @@ module Handler = struct
     in
     let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~property_rules (common_decls @ composite_decls)
+
+  (* A named stop colour points at its palette token, and carries the token's
+     own theme declaration along so the sheet defines what it references. *)
+  let build_stop_color_style ?theme dir pos_end c shade =
+    let decl, token = Color.Handler.color_binding ?theme c shade in
+    let value = Pp.to_string (Css.Values.pp_var Css.pp_color) token in
+    match build_color_value_style dir pos_end value with
+    | Style.Style st -> Style.Style { st with props = decl :: st.props }
+    | other -> other
+
+  let build_color_ref_style dir pos_end var_name =
+    build_color_value_style dir pos_end ("var(" ^ var_name ^ ")")
 
   let to_style theme =
     let build_directional_style dir pos_end value =
@@ -750,8 +770,14 @@ module Handler = struct
         build_var_ref_style dir pos_end var_name
     | Mask_color_ref (dir, pos_end, var_name) ->
         build_color_ref_style dir pos_end var_name
+    | Mask_stop_color (dir, pos_end, c, shade) ->
+        build_stop_color_style ~theme dir pos_end c shade
+    | Mask_stop_keyword (dir, pos_end, value, _) ->
+        build_color_value_style dir pos_end (Pp.to_string Css.pp_color value)
 
   let suborder = function
+    | Mask_stop_keyword (dir, pos_end, _, _)
+    | Mask_stop_color (dir, pos_end, _, _)
     | Mask_color_ref (dir, pos_end, _) ->
         let dir_offset =
           match dir with
@@ -869,11 +895,29 @@ module Handler = struct
     | None -> (
         match parse_value suffix with
         | Some value -> Ok (Mask_position (dir, pos_end, value))
-        | None ->
-            Error
-              (`Msg
-                 ("Invalid mask-" ^ direction_short dir ^ "-"
-                ^ position_end_name pos_end ^ " value")))
+        | None -> (
+            (* A stop is either a position or a colour, and the two share the
+               syntax slot, so a colour name is the last thing tried. *)
+            let keyword k =
+              Some (Mask_stop_keyword (dir, pos_end, k, String.concat "-" rest))
+            in
+            let stop =
+              match rest with
+              | [ "transparent" ] -> keyword Css.Transparent
+              | [ "current" ] -> keyword Css.current_color
+              | _ -> (
+                  match Color.shade_of_strings rest with
+                  | Ok (c, shade) ->
+                      Some (Mask_stop_color (dir, pos_end, c, shade))
+                  | Error _ -> None)
+            in
+            match stop with
+            | Some stop -> Ok stop
+            | None ->
+                Error
+                  (`Msg
+                     ("Invalid mask-" ^ direction_short dir ^ "-"
+                    ^ position_end_name pos_end ^ " value"))))
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -1031,6 +1075,13 @@ module Handler = struct
     | Mask_var_ref (dir, pos_end, Length_var, var_name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
         ^ "-(length:" ^ var_name ^ ")"
+    | Mask_stop_keyword (dir, pos_end, _, name) ->
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
+        ^ name
+    | Mask_stop_color (dir, pos_end, c, shade) ->
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
+        ^ Color.color_to_string c
+        ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
     | Mask_color_ref (dir, pos_end, var_name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
         ^ "-(color:" ^ var_name ^ ")"

@@ -98,12 +98,19 @@ val neutral : color
 (** [neutral] is the base neutral color. *)
 
 val stone : color
+(** [stone] is the base stone color. *)
+
 val mauve : color
+(** [mauve] is the base mauve color. *)
+
 val olive : color
+(** [olive] is the base olive color. *)
+
 val mist : color
+(** [mist] is the base mist color. *)
 
 val taupe : color
-(** [stone] is the base stone color. *)
+(** [taupe] is the base taupe color. *)
 
 val red : color
 (** [red] is the base red color. *)
@@ -366,6 +373,12 @@ val suborder_with_shade : string -> int
 
 module Handler : sig
   include Utility.Handler
+
+  val color_binding :
+    ?theme:Scheme.t -> color -> int -> Css.declaration * Css.color Css.var
+  (** [color_binding ?theme color shade] is the [\@layer theme] declaration for
+      the palette token and the typed reference to it, for utilities that set a
+      colour var of their own from a palette entry. *)
 
   val theme_color_decl : ?theme:Scheme.t -> string -> Css.declaration option
   (** [theme_color_decl ?theme name] is the [\@layer theme] declaration for the
