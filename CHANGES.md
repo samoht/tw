@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Write the keyword for `object-*`, `origin-*` and `perspective-origin-*`
+  when no `@theme` defines the token; they referenced a variable nothing
+  declared (#231)
+
 - Accept any CSS length in `mask-position-[...]`; only `px` and `%` were
   read, so `mask-position-[8rem_2rem]` fell back to `center` (#231)
 
