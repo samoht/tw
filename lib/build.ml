@@ -707,6 +707,42 @@ let referenced_theme_decls ~theme ~exclude selector_props =
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
 
+(* [--default-font-family] points at [--font-sans]. When the project declared
+   that token in an [@theme inline] block it has no declaration of its own, so
+   the default carries its value instead of a reference nothing resolves. *)
+let inline_default_family theme decl =
+  match Css.custom_declaration_name decl with
+  | Some name -> (
+      let token =
+        match name with
+        | "--default-font-family" -> Some "font-sans"
+        | "--default-mono-font-family" -> Some "font-mono"
+        | _ -> None
+      in
+      match token with
+      | Some t
+        when Scheme.is_inline_token theme t
+             && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
+        -> (
+          match Scheme.theme_value (Some theme) t with
+          | Some v -> Css.custom_property ~layer:"theme" name v
+          | None -> decl)
+      | _ -> decl)
+  | None -> decl
+
+(* Tailwind derives the default font-feature settings from the sans and mono
+   tokens the project declared. *)
+let derived_font_feature_decls ~theme ~have =
+  [
+    ("font-sans--font-feature-settings", "default-font-feature-settings");
+    ("font-mono--font-feature-settings", "default-mono-font-feature-settings");
+  ]
+  |> List.filter_map (fun (token, name) ->
+      match Scheme.theme_value (Some theme) token with
+      | Some v when not (Strings.mem ("--" ^ name) have) ->
+          Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
+      | _ -> None)
+
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
@@ -718,6 +754,9 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     extracted
     @ referenced_theme_decls ~theme ~exclude:(names_set_of extracted)
         selector_props
+  in
+  let extracted =
+    extracted @ derived_font_feature_decls ~theme ~have:(names_set_of extracted)
   in
   (* [theme(static)] on the package import emits every theme variable, not only
      the ones a utility used. The palette is by far the biggest part of it. *)
@@ -749,7 +788,12 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
       post_defaults
   in
 
-  pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule ~layers
+  (* A project [@theme] override wins wherever the declaration came from: the
+     built-in defaults carry the same token names as the extracted ones. *)
+  pre @ extracted @ post
+  |> List.map (apply_token_override theme)
+  |> List.map (inline_default_family theme)
+  |> sort_by_var_order |> theme_layer_rule ~layers
 
 let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in

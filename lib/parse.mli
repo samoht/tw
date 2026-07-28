@@ -53,6 +53,10 @@ val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
     ["foo"]. If [s] is not bracket-wrapped, returns [s] unchanged. *)
 
+val decode_underscores : string -> string
+(** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
+    [\_] into a literal underscore. *)
+
 val decode_arbitrary_value : string -> string
 (** [decode_arbitrary_value s] decodes Tailwind arbitrary-value syntax into a
     CSS value string suitable for Cascade readers. This converts underscores to

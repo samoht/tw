@@ -946,19 +946,9 @@ module Handler = struct
             (Var.theme_ref name ~default:(Css.Zero : Css.length) ~default_css)
         in
         style [ decl; perspective_origin ref; Css.perspective perspective_ref ]
-    | None ->
-        let v : Css.perspective_origin =
-          Var (Var.theme_ref name ~default ~default_css)
-        in
-        let perspective_ref : Css.length =
-          Css.Var
-            (Var.theme_ref name ~default:(Css.Zero : Css.length) ~default_css)
-        in
-        style
-          [
-            perspective_origin v;
-            Css.theme_guarded ~var_name:name (Css.perspective perspective_ref);
-          ]
+    (* Without a theme override Tailwind writes the keyword, not a reference to
+       a token nothing declares. *)
+    | None -> style [ perspective_origin default ]
 
   let perspective_origin_center ?theme () =
     po_with_ref ?theme "perspective-origin-center" Center "center" ()
@@ -1030,11 +1020,7 @@ module Handler = struct
           Var.theme_ref name ~default ~default_css
         in
         style [ decl; transform_origin (Var ref) ]
-    | None ->
-        let v : Css.transform_origin =
-          Var (Var.theme_ref name ~default ~default_css)
-        in
-        style [ transform_origin v ]
+    | None -> style [ transform_origin default ]
 
   let origin_center ?theme () =
     origin_with_ref ?theme "transform-origin-center" Center "center" ()

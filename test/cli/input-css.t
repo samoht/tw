@@ -166,3 +166,42 @@ Without it only what the sheet uses is emitted:
   $ tw --minify --input-css dynamic.css index.html | grep -c -- '--color-fuchsia-300:'
   0
   [1]
+
+The shadow, text-shadow and leading scales come out under [theme(static)] too,
+and the default font-feature settings are derived from the sans and mono tokens
+the project declared:
+
+  $ cat > scales.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme {
+  >   --font-sans--font-feature-settings: "cv02";
+  > }
+  > EOF
+  $ tw --minify --input-css scales.css index.html | grep -c -- '--shadow-md:0 4px 6px -1px'
+  1
+  $ tw --minify --input-css scales.css index.html | grep -c -- '--text-shadow-sm:'
+  1
+  $ tw --minify --input-css scales.css index.html | grep -cF -- '--default-font-feature-settings:"cv02"'
+  1
+
+An [@theme inline] token gets no declaration of its own unless something still
+reads it: the utility carries the value instead, along with the font-feature
+settings declared beside it. A project override wins over the built-in default:
+
+  $ cat > inl.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme inline {
+  >   --font-sans: var(--font-inter), system-ui;
+  >   --font-sans--font-feature-settings: "cv02";
+  > }
+  > EOF
+  $ cat > inl.html <<EOF
+  > <div class="font-sans"></div>
+  > EOF
+  $ tw --minify --input-css inl.css inl.html | grep -cF '.font-sans{font-family:var(--font-inter),system-ui;font-feature-settings:"cv02"}'
+  1
+  $ tw --minify --input-css inl.css inl.html | grep -c -- '--font-sans:'
+  0
+  [1]
+  $ tw --minify --input-css inl.css inl.html | grep -cF -- '--default-font-family:var(--font-inter),system-ui'
+  1

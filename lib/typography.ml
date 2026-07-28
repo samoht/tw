@@ -935,24 +935,34 @@ module Typography_early = struct
      carries the value instead of a reference to it. A self-referential one
      ([--font-a: var(--font-a)]) is the exception: inlining it would leave the
      reference dangling, so the token keeps its declaration. *)
-  let font_named theme name =
+  (* A family the project declared also carries the [--font-<name>--font-
+     feature-settings] beside it, the way Tailwind emits it. *)
+  let font_feature_decls theme token =
+    match
+      Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
+    with
+    | None -> []
+    | Some v -> [ font_feature_settings (Css.Feature_list v) ]
+
+  let font_named ?fallback theme name =
     let token = "font-" ^ name in
     match Scheme.theme_value (Some theme) token with
-    | None -> style []
+    | None -> ( match fallback with Some s -> s | None -> style [])
     | Some raw -> (
         match Css.parse_font_family raw with
-        | None -> style []
+        | None -> ( match fallback with Some s -> s | None -> style [])
         | Some family ->
             let self_referential =
               match family with
               | Css.Var v -> Css.var_name v = token
               | _ -> false
             in
+            let features = font_feature_decls theme token in
             if Scheme.is_inline_token theme token && not self_referential then
-              style [ font_family family ]
+              style (font_family family :: features)
             else
               let decl, ref = Var.binding (font_named_var name) family in
-              style [ decl; font_family (Css.Var ref) ])
+              style (decl :: font_family (Css.Var ref) :: features))
 
   let italic = style [ font_style Italic ]
   let not_italic = style [ font_style Normal ]
@@ -1043,6 +1053,20 @@ module Typography_early = struct
       ("8xl", text_8xl_var, 6.0);
       ("9xl", text_9xl_var, 8.0);
     ]
+
+  (* The leading scale, published the same way. *)
+  let () =
+    List.iter
+      (fun (name, value) ->
+        Scheme.register_default_token ("leading-" ^ name)
+          (Css.Pp.to_string ~minify:true Css.Properties.pp_line_height value))
+      [
+        ("tight", (Num 1.25 : Css.line_height));
+        ("snug", Num 1.375);
+        ("normal", Num 1.5);
+        ("relaxed", Num 1.625);
+        ("loose", Num 2.0);
+      ]
 
   (* Publish the text scale through the theme-token registry, the way rule.ml
      publishes the breakpoints, so [theme()] in a project's CSS resolves against
@@ -1265,9 +1289,9 @@ module Typography_early = struct
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_named name -> font_named theme name
-    | Font_sans -> font_sans
-    | Font_serif -> font_serif
-    | Font_mono -> font_mono
+    | Font_sans -> font_named ~fallback:font_sans theme "sans"
+    | Font_serif -> font_named ~fallback:font_serif theme "serif"
+    | Font_mono -> font_named ~fallback:font_mono theme "mono"
     | Italic -> italic
     | Not_italic -> not_italic
     | Text_left -> text_left
@@ -1671,6 +1695,10 @@ module Typography_late = struct
     | [ "list"; "image"; "none" ] -> Ok List_image_none
     | [ "list"; "image"; value ] when Parse.is_bracket_var value ->
         Ok (List_image_bracket_var (Parse.bracket_inner value))
+    (* The [(--x)] shorthand names a custom property, the same as
+       [list-image-[var(--x)]]. *)
+    | [ "list"; "image"; value ] when Parse.is_bare_var value ->
+        Ok (List_image_bracket_var value)
     | [ "list"; "image"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         match
@@ -1895,7 +1923,9 @@ module Typography_late = struct
     | List_inside -> "list-inside"
     | List_outside -> "list-outside"
     | List_image_none -> "list-image-none"
-    | List_image_bracket_var s -> "list-image-[" ^ s ^ "]"
+    | List_image_bracket_var s ->
+        if Parse.is_bare_var s then "list-image-" ^ s
+        else "list-image-[" ^ s ^ "]"
     | List_image_bracket (raw, _) -> "list-image-[" ^ raw ^ "]"
     | List_image_url url -> "list-image-" ^ url
     | Underline_offset_auto -> "underline-offset-auto"
@@ -2634,9 +2664,9 @@ module Typography_late = struct
     style ~property_rules (content_decl @ [ Css.content c ])
 
   let content_squote s =
-    (* Single-quoted arbitrary content (content-['x']) keeps the single
-       quote. *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    (* Single-quoted arbitrary content (content-['x']) keeps the single quote.
+       [_] is a space and [\_] a literal underscore. *)
+    let value = Parse.decode_underscores s in
     let quoted : Css.content =
       Css.Quoted { value; quote = '\''; repr = None }
     in
@@ -2674,7 +2704,9 @@ module Typography_late = struct
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_type (Var ref) ]
-    | None -> style [ list_style_type (Var ref) ]
+    (* Without a theme override Tailwind writes the keyword, not a reference to
+       a token nothing declares. *)
+    | None -> style [ list_style_type None ]
 
   let list_bracket_var s =
     let inner = Parse.extract_var_name s in
@@ -2687,7 +2719,15 @@ module Typography_late = struct
   let list_outside = style [ list_style_position Outside ]
 
   let list_image_bracket_var s =
-    let inner = Parse.extract_var_name s in
+    (* Written either as [[var(--x)]] or as the [(--x)] shorthand. *)
+    let inner =
+      if Parse.is_bare_var s then
+        let bare = Parse.bare_var_inner s in
+        if String.length bare > 2 && String.sub bare 0 2 = "--" then
+          String.sub bare 2 (String.length bare - 2)
+        else bare
+      else Parse.extract_var_name s
+    in
     let ref : Css.list_style_image Css.var = Var.bracket inner in
     style [ list_style_image (Var ref) ]
 
@@ -2704,7 +2744,7 @@ module Typography_late = struct
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_image (Var ref) ]
-    | None -> style [ list_style_image (Var ref) ]
+    | None -> style [ list_style_image None ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]

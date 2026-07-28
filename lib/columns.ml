@@ -74,7 +74,9 @@ module Handler = struct
               Css.custom_property ~layer:"theme" ("--" ^ var_name) value
             in
             style [ theme_decl; columns (Var ref) ]
-        | None -> style [ columns (Var ref) ])
+        (* Without a theme override Tailwind writes the keyword, not a reference
+           to a token nothing declares. *)
+        | None -> style [ columns Auto ])
     | Columns_count n -> style [ columns (Count n) ]
     | Columns_3xs -> columns_with_var Sizing.container_3xs (Rem 16.0)
     | Columns_2xs -> columns_with_var Sizing.container_2xs (Rem 18.0)

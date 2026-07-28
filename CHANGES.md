@@ -1,5 +1,31 @@
 ## Unreleased
 
+- Write the keyword for `object-*`, `origin-*` and `perspective-origin-*`
+  when no `@theme` defines the token; they referenced a variable nothing
+  declared (#231)
+
+- Accept any CSS length in `mask-position-[...]`; only `px` and `%` were
+  read, so `mask-position-[8rem_2rem]` fell back to `center` (#231)
+
+- Write the keyword for `list-none`, `list-image-none` and `columns-auto`
+  when no `@theme` defines the token; they referenced a variable nothing
+  declared (#231)
+- Accept the `(--x)` shorthand in `list-image-(--x)` (#231)
+
+- Read `\_` in an arbitrary value as a literal underscore, not an escaped
+  space: `content-['Hello\_World']` gave `"Hello World"` (#231)
+- Accept any CSS length in `bg-size-[...]`; only `px` and `%` were read,
+  so `bg-size-[8rem]` fell back to `auto` (#231)
+- Emit a plain `0px` for the zero spacing step, as Tailwind does (#231)
+
+- Emit the shadow, inset-shadow, text-shadow and leading scales under
+  `theme(static)`, and derive `--default-font-feature-settings` from the
+  `--font-sans--font-feature-settings` a project declares (#231)
+- Drop the declaration of a token declared in an `@theme inline` block
+  unless something still reads it; the utility carries the value, with the
+  font-feature settings declared beside it, and a project override wins
+  over the built-in default (#231)
+
 - Honour `theme(static)` on the package import: the whole theme comes out,
   not only the variables a utility used (#230)
 - Emit a `@keyframes` declared inside a project's `@theme`; the animation

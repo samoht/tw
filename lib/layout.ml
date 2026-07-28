@@ -477,7 +477,7 @@ module Handler = struct
       | Object_bottom_left | Object_bottom_right | Object_left_bottom
       | Object_left_top | Object_right_bottom | Object_right_top
       | Object_top_left | Object_top_right ) as obj -> (
-        let name, (default : Css.position_value), default_css =
+        let name, (default : Css.position_value), _default_css =
           match obj with
           | Object_center -> ("object-position-center", Center, "center")
           | Object_top -> ("object-position-top", Top, "top")
@@ -507,11 +507,9 @@ module Handler = struct
             in
             let pos_ref : Css.position_value Css.var = Var.bracket name in
             style [ theme_decl; object_position (Var pos_ref) ]
-        | None ->
-            let v : Css.position_value =
-              Var (Var.theme_ref name ~default ~default_css)
-            in
-            style [ object_position v ])
+        (* Without a theme override Tailwind writes the keyword, not a reference
+           to a token nothing declares. *)
+        | None -> style [ object_position default ])
     | Object_arbitrary var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let pos_ref : Css.position_value Css.var = Var.bracket bare_name in

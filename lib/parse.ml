@@ -75,7 +75,24 @@ let is_bracket_value s =
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
-let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
+(* In an arbitrary value [_] stands for a space, and [\_] for a literal
+   underscore — otherwise a value that needs one could not be written. *)
+let decode_underscores s =
+  let len = String.length s in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if s.[i] = '\\' && i + 1 < len && s.[i + 1] = '_' then begin
+      Buffer.add_char buf '_';
+      go (i + 2)
+    end
+    else begin
+      Buffer.add_char buf (if s.[i] = '_' then ' ' else s.[i]);
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
 
 let function_name_before s i =
   let is_name_char = function

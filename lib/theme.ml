@@ -82,7 +82,11 @@ let spacing_calc ?theme n : Css.declaration * Css.length =
          perform the equivalent calc(var(--spacing)) -> var(--spacing) rewrite,
          because it optimises arbitrary CSS and cannot assume that contract. *)
       let decl, spacing_ref = Var.binding spacing_var spacing_base in
-      if n = 1 then (decl, (Css.Var spacing_ref : Css.length))
+      (* The zero step is a plain [0px], as Tailwind emits it: the scale factor
+         makes [calc(var(--spacing) * 0)] zero for any spacing, and only the
+         optimiser can see that once [--spacing] is a literal. *)
+      if n = 0 then (decl, (Px 0. : Css.length))
+      else if n = 1 then (decl, (Css.Var spacing_ref : Css.length))
       else
         let len : Css.length =
           Css.Calc
