@@ -64,6 +64,11 @@ let is_candidate_char = function
   | 0x2d | 0x5f | 0x3a | 0x2f | 0x25 | 0x40 | 0x21 | 0x2a -> true
   | _ -> false
 
+(* A [(] opens a group only where a utility can hold one: after the [-] of
+   [bg-(--x)] or the [/] of an alpha shorthand. Elsewhere it ends the token, so
+   a call in the source is not read as a class. *)
+let opens_paren_group prev = prev = 0x2d || prev = 0x2f
+
 let trim_candidate s =
   let len = String.length s in
   let rec stop i =
@@ -109,7 +114,7 @@ let read_candidate d start =
             | 0x2c | 0x23 ->
                 i
             | 0x5b -> loop (i + 1) 1 0 None false
-            | 0x28 when i > start && char_at d (i - 1) = 0x2d ->
+            | 0x28 when i > start && opens_paren_group (char_at d (i - 1)) ->
                 loop (i + 1) 0 1 None false
             | 0x28 | 0x29 -> i
             | 0x2e

@@ -145,7 +145,7 @@ module Handler = struct
         in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_var var_str ->
-        let bare = Parse.extract_var_name var_str in
+        let bare = Color.opacity_var_bare var_str in
         let srgb_fallback =
           Css.color_mix_var_percent ~in_space:Srgb ~var_name:bare color
             Css.Transparent
@@ -266,7 +266,7 @@ module Handler = struct
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/[" ^ v ^ "]"
+    | Color.Opacity_var v -> "/" ^ v
 
   let to_class = function
     | Color_opacity { property; value; opacity } ->
