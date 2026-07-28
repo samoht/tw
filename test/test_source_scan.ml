@@ -56,8 +56,20 @@ let test_scan_bracket_before_whitespace () =
     [ "accent-current"; "accent-inherit" ]
     (known_classes source)
 
+(* A candidate never spans a line. An unbalanced bracket used to keep the
+   scanner reading to the end of the file, so every class after it was lost. *)
+let test_unbalanced_bracket_stops_at_newline () =
+  let src = "flex\nafter:content-[unbalanced\nblock\ngrid\n" in
+  let found = Tw_tools.Source_scan.candidates src in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool) (cls ^ " still scanned") true (List.mem cls found))
+    [ "flex"; "block"; "grid" ]
+
 let tests =
   [
+    test_case "unbalanced bracket stops at the newline" `Quick
+      test_unbalanced_bracket_stops_at_newline;
     test_case "split whitespace" `Quick test_split_whitespace;
     test_case "scan HTML plain text" `Quick test_scan_html_plain_text;
     test_case "scan JS static classes" `Quick test_scan_js_static_classes;
