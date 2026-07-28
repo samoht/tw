@@ -142,10 +142,10 @@ let of_string_invalid () =
   (* Missing value *)
   test_invalid [ "w"; "invalid" ];
   (* Invalid value *)
-  test_invalid [ "w"; "1/7" ];
-  (* Invalid fraction - 1/7 not supported *)
-  test_invalid [ "h"; "1/7" ];
-  (* Invalid fraction *)
+  test_invalid [ "w"; "1/0" ];
+  (* A zero denominator is not a percentage *)
+  test_invalid [ "h"; "9/9" ];
+  (* A fraction of one or more is not a width *)
   test_invalid [ "min" ];
   (* Missing dimension *)
   test_invalid [ "min"; "z"; "4" ];
@@ -336,7 +336,7 @@ let test_general_fractions () =
     | Error _ -> ()
     | Ok _ -> Alcotest.fail ("expected rejection of " ^ cls)
   in
-  rejected "w-1/7";
+  rejected "w-9/9";
   rejected "w-13/12"
 
 (* max-w-screen-* references the breakpoint theme var (like the v4 CLI), not an
@@ -358,9 +358,23 @@ let test_arbitrary_calc () =
     (Astring.String.is_infix ~affix:"width: calc(100vh - 4rem)"
        (css_of "w-[calc(100vh-4rem)]"))
 
+(* A width fraction is read as a percentage, from any denominator: Tailwind has
+   no fixed scale here, and w-3/8 used to be an unknown class. *)
+let test_any_fraction_denominator () =
+  Alcotest.(check bool)
+    "w-3/8 is 37.5%" true
+    (Astring.String.is_infix ~affix:"width: 37.5%" (css_of "w-3/8"));
+  Alcotest.(check bool)
+    "w-7/9 rounds like Tailwind" true
+    (Astring.String.is_infix ~affix:"width: 77.7778%" (css_of "w-7/9"));
+  Alcotest.(check bool)
+    "a fraction of one or more is still rejected" true
+    (Result.is_error (Tw.of_string "w-9/9"))
+
 let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
+    test_case "any fraction denominator" `Quick test_any_fraction_denominator;
     test_case "general fractions" `Quick test_general_fractions;
     test_case "max-w-screen breakpoint var" `Quick test_max_w_screen;
     test_case "widths" `Quick test_widths;

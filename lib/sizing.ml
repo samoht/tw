@@ -548,9 +548,9 @@ module Handler = struct
     match String.split_on_char '/' frac with
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
-        | Some n, Some m
-          when m > 0 && n > 0 && n < m && List.mem m [ 2; 3; 4; 5; 6; 10; 12 ]
-          ->
+        (* Any denominator: Tailwind reads [w-<number>/<number>] as a
+           percentage, not from a fixed scale. *)
+        | Some n, Some m when m > 0 && n > 0 && n < m ->
             let pct = float_of_int n /. float_of_int m *. 100. in
             let digits = 6. -. Float.ceil (Float.log10 pct) in
             let factor = 10. ** digits in
