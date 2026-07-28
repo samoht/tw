@@ -47,70 +47,75 @@ let escape_class_name name =
    applying modifiers. This removes brittle string-based handling and keeps
    selector semantics together. *)
 module Rules_selector = struct
-  (* Replace every occurrence of a class name in a selector AST. *)
-  let rec replace_class_in_selector ~old_class ~new_class = function
-    | Css.Selector.Class cls when String.equal cls old_class ->
-        Css.Selector.Class new_class
+  (* Replace every occurrence of a class name in a selector AST with a selector
+     of its own, so a variant can put structure where the class sat and keep
+     whatever the inner rule built around it. *)
+  let rec replace_class_with ~old_class ~replacement = function
+    | Css.Selector.Class cls when String.equal cls old_class -> replacement
     | Css.Selector.Compound selectors ->
         Css.Selector.Compound
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Combined (a, comb, b) ->
         Css.Selector.Combined
-          ( replace_class_in_selector ~old_class ~new_class a,
+          ( replace_class_with ~old_class ~replacement a,
             comb,
-            replace_class_in_selector ~old_class ~new_class b )
+            replace_class_with ~old_class ~replacement b )
     | Css.Selector.Relative (comb, b) ->
         Css.Selector.Relative
-          (comb, replace_class_in_selector ~old_class ~new_class b)
+          (comb, replace_class_with ~old_class ~replacement b)
     | Css.Selector.List selectors ->
         Css.Selector.List
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Is selectors ->
         Css.Selector.Is
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Where selectors ->
         Css.Selector.Where
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Not selectors ->
         Css.Selector.Not
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Has selectors ->
         Css.Selector.Has
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Slotted selectors ->
         Css.Selector.Slotted
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Cue selectors ->
         Css.Selector.Cue
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Cue_region selectors ->
         Css.Selector.Cue_region
-          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+          (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Nth_child (nth, of_) ->
         Css.Selector.Nth_child
           ( nth,
             Option.map
-              (List.map (replace_class_in_selector ~old_class ~new_class))
+              (List.map (replace_class_with ~old_class ~replacement))
               of_ )
     | Css.Selector.Nth_last_child (nth, of_) ->
         Css.Selector.Nth_last_child
           ( nth,
             Option.map
-              (List.map (replace_class_in_selector ~old_class ~new_class))
+              (List.map (replace_class_with ~old_class ~replacement))
               of_ )
     | Css.Selector.Nth_of_type (nth, of_) ->
         Css.Selector.Nth_of_type
           ( nth,
             Option.map
-              (List.map (replace_class_in_selector ~old_class ~new_class))
+              (List.map (replace_class_with ~old_class ~replacement))
               of_ )
     | Css.Selector.Nth_last_of_type (nth, of_) ->
         Css.Selector.Nth_last_of_type
           ( nth,
             Option.map
-              (List.map (replace_class_in_selector ~old_class ~new_class))
+              (List.map (replace_class_with ~old_class ~replacement))
               of_ )
     | other -> other
+
+  (* Replace every occurrence of a class name in a selector AST. *)
+  let replace_class_in_selector ~old_class ~new_class =
+    replace_class_with ~old_class ~replacement:(Css.Selector.Class new_class)
 
   (* The class a modifier's selector carries — the base class with the variant
      prefixed. It does not always sit at the top: the child variant nests it
@@ -1606,24 +1611,56 @@ let handle_group_peer_named inner name base_class props =
   let sel = compound [ Class modified_class; is_ [ group_rel ] ] in
   [ regular ~selector:sel ~props ~base_class:modified_class () ]
 
-(* Arbitrary selector: [&_p] → .class p *)
-let arbitrary_selector_rule content base_class props =
+(* Compound [extra] onto the subject of [sel] — its rightmost compound — so a
+   variant decorates the element the selector actually matches. *)
+let rec attach_to_subject extra sel =
+  let open Css.Selector in
+  match sel with
+  | Combined (a, comb, b) -> Combined (a, comb, attach_to_subject extra b)
+  | Relative (comb, b) -> Relative (comb, attach_to_subject extra b)
+  | Compound parts -> compound (parts @ extra)
+  | other -> compound (other :: extra)
+
+(* Arbitrary selector: [&_p] → .class p. The inner rule may already carry
+   structure around its class ([first:] adds a [:first-child]), and that
+   structure belongs on whatever element this variant makes the subject: for
+   [[&_p]:first:] Tailwind matches the first [p], not a [p] under a first
+   child. *)
+let arbitrary_selector_rule content base_class selector props =
   let open Css.Selector in
   (* In arbitrary variants, [_] denotes a space. *)
   let s = String.map (fun c -> if c = '_' then ' ' else c) content in
   let modified_class = "[" ^ content ^ "]:" ^ base_class in
-  let sel =
+  (* What the inner rule compounded onto its own class, if that class is still
+     the subject. Anything else (an inner variant that moved the subject) has no
+     decoration to lift, and the class is rewritten in place instead. *)
+  let decoration =
+    match selector with
+    | Class cls when String.equal cls base_class -> Some []
+    | Compound (Class cls :: rest) when String.equal cls base_class -> Some rest
+    | _ -> None
+  in
+  let rename replacement =
+    Rules_selector.replace_class_with ~old_class:base_class ~replacement
+      selector
+  in
+  let anchored =
     if String.contains s '&' then (
-      (* Replace each [&] anchor with this utility's own class and parse the
+      (* Replace each [&] anchor with the utility's own class and parse the
          whole selector, so combinators ([&>div], [&+p], [&~p]), compounds
          ([&:hover]) and trailing anchors ([input&]) all flatten correctly. A
          naive split-on-[&] + Descendant combine mis-parses any remainder that
          starts with a combinator. *)
-      let class_str = Css.Selector.to_string (Class modified_class) in
-      let buf = Buffer.create (String.length s + String.length class_str) in
+      let anchor =
+        match decoration with
+        | Some _ -> Class modified_class
+        | None -> rename (Class modified_class)
+      in
+      let anchor_str = Css.Selector.to_string anchor in
+      let buf = Buffer.create (String.length s + String.length anchor_str) in
       String.iter
         (fun c ->
-          if c = '&' then Buffer.add_string buf class_str
+          if c = '&' then Buffer.add_string buf anchor_str
           else Buffer.add_char buf c)
         s;
       Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf)))
@@ -1638,7 +1675,13 @@ let arbitrary_selector_rule content base_class props =
       in
       let inner = Css.Selector.read (Cascade.Cursor.of_string s) in
       let inner = if is_type_selector then is_ [ inner ] else inner in
-      compound [ Class modified_class; inner ]
+      let anchored = compound [ Class modified_class; inner ] in
+      match decoration with Some _ -> anchored | None -> rename anchored
+  in
+  let sel =
+    match decoration with
+    | Some [] | None -> anchored
+    | Some extra -> attach_to_subject extra anchored
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
@@ -1774,7 +1817,7 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
   | Style.Pseudo_before | Style.Pseudo_after ->
       handle_pseudo_element_modifier modifier base_class props
   | Style.Arbitrary_selector content ->
-      arbitrary_selector_rule content base_class props
+      arbitrary_selector_rule content base_class selector props
   | Style.At_rule content -> at_rule_variant content base_class props
   | Style.Custom_variant (token, template) ->
       custom_variant_rule token template base_class props
@@ -1819,6 +1862,20 @@ let pseudo_element_rules ~pseudo_selectors bc props prefix =
        (fun ps -> [ combine c Descendant ps; compound [ c; ps ] ])
        pseudo_selectors
     |> List.concat)
+
+(* An arbitrary selector restructures the rule around the utility's class, which
+   [Modifiers.to_selector] has no spelling for, so the variant would be dropped.
+   Build the selector the way the non-media path does and keep it inside the
+   block. *)
+let arbitrary_selector_in_media content bc selector props ~inner_condition
+    ~nested =
+  match arbitrary_selector_rule content bc selector props with
+  | Regular { selector; props; base_class; _ } ->
+      [
+        media_query ~condition:inner_condition ~selector ~props ?base_class
+          ~nested ();
+      ]
+  | other -> [ other ]
 
 (** Apply a modifier to a Media_query rule by wrapping it in an outer media
     query. Handles media-like modifiers, responsive modifiers, and falls back to
@@ -1868,6 +1925,9 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
             media_query ~condition:hover_media ~selector:new_selector ~props:[]
               ~base_class:modified_class ~nested:[ inner_media ] ();
           ]
+      | Style.Arbitrary_selector content ->
+          arbitrary_selector_in_media content bc selector props ~inner_condition
+            ~nested
       | _ ->
           (* Other state/pseudo modifiers (focus, active, ...) don't add an
              outer media condition; they rewrite the inner rule's selector so a

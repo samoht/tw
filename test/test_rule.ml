@@ -201,6 +201,27 @@ let test_bare_arbitrary_selector_variant () =
   check bool "[>img] is not a variant" true
     (Result.is_error (Tw.of_string "[>img]:flex"))
 
+(* An arbitrary variant stacks with the variants beside it. What the inner
+   variant compounded onto the class belongs on the element this one makes the
+   subject: [[&_p]:first:] matches the first [p], not a [p] under a first child.
+   A responsive variant in the chain used to drop the arbitrary selector
+   entirely, since the media path rebuilds the selector from a spelling [[svg]]
+   has none of. *)
+let test_arbitrary_selector_stacking () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "[svg]:first:size-4" ".\\[svg\\]\\:first\\:size-4:is(svg):first-child";
+  has "[&_p]:first:size-4" ".\\[\\&_p\\]\\:first\\:size-4 p:first-child";
+  has "[svg]:sm:size-4" ".\\[svg\\]\\:sm\\:size-4:is(svg)";
+  has "**:[svg]:first:sm:size-4"
+    ":is(.\\*\\*\\:\\[svg\\]\\:first\\:sm\\:size-4 *):is(svg):first-child"
+
 (* An opacity colour emits a progressive-enhancement @supports block beside its
    fallback. Under a variant the block used to carry the theme declaration a
    second time, and for the variants that set an order of their own it sorted
@@ -300,6 +321,8 @@ let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "arbitrary selector stacks with other variants" `Quick
+      test_arbitrary_selector_stacking;
     test_case "pseudo-element content once" `Quick
       test_pseudo_element_content_once;
     test_case "in-state variant" `Quick test_in_state_variant;
