@@ -11,6 +11,7 @@ module Handler = struct
     | Layout_container (* .container - layout container with width:100% *)
     | Container (* @container - sets container-type: inline-size *)
     | Container_normal (* @container-normal - sets container-type: normal *)
+    | Container_size (* @container-size - sets container-type: size *)
     | Container_named of string (* @container/name *)
 
   type Utility.base += Self of t
@@ -24,6 +25,7 @@ module Handler = struct
     | Layout_container -> "container"
     | Container -> "@container"
     | Container_normal -> "@container-normal"
+    | Container_size -> "@container-size"
     | Container_named name -> "@container/" ^ name
 
   let layout_container_style =
@@ -52,6 +54,7 @@ module Handler = struct
 
   let container_query = style [ container_type Inline_size ]
   let container_normal_style = style [ container_type Normal ]
+  let container_size_style = style [ container_type Size ]
 
   (* Tailwind v4 emits the [container] shorthand ([container: <name> /
      inline-size]) rather than the longhand pair. *)
@@ -62,12 +65,14 @@ module Handler = struct
     | Layout_container -> layout_container_style
     | Container -> container_query
     | Container_normal -> container_normal_style
+    | Container_size -> container_size_style
     | Container_named name -> container_named_style name
 
   let suborder = function
     | Container_named _ -> 0
     | Container -> 1
     | Container_normal -> 2
+    | Container_size -> 3
     (* The .container utility (rank 15) sorts after grid_item's grid-column /
        grid-row utilities (priority 1, suborder up to ~2000), and after the
        @container query utilities above. *)
@@ -77,6 +82,7 @@ module Handler = struct
     | "container" -> Ok Layout_container
     | "@container" -> Ok Container
     | "@container-normal" -> Ok Container_normal
+    | "@container-size" -> Ok Container_size
     | n when String.starts_with ~prefix:"@container/" n ->
         let name = String.sub n 11 (String.length n - 11) in
         Ok (Container_named name)

@@ -9,7 +9,8 @@ let check class_name =
 
 let test_container_types () =
   check "@container";
-  check "@container-normal"
+  check "@container-normal";
+  check "@container-size"
 
 let test_container_name () =
   check "@container/sidebar";
