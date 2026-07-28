@@ -6,6 +6,12 @@ val spacing_var : Css.length Var.theme
 (** [spacing_var] is the shared [--spacing] variable used across padding,
     margin, positioning, etc. *)
 
+val spacing_times : float -> string option
+(** [spacing_times n] is the spacing step times [n], rendered, or
+    {!constructor-None} when the step is in a unit this cannot scale. Tailwind's
+    v3 [spacing] and [lineHeight] scales are both that product, and v4 keeps no
+    token per step, so [theme(spacing.4)] is computed rather than looked up. *)
+
 val spacing_base : Css.length
 (** [spacing_base] is the base spacing value ([0.25rem]). *)
 

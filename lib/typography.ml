@@ -1044,6 +1044,16 @@ module Typography_early = struct
       ("9xl", text_9xl_var, 8.0);
     ]
 
+  (* Publish the text scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [theme()] in a project's CSS resolves against
+     the same values the utilities use. *)
+  let () =
+    List.iter
+      (fun (name, _var, rem) ->
+        Scheme.register_default_token ("text-" ^ name)
+          (Css.Pp.to_string Css.pp_length (Css.Rem rem)))
+      text_size_data
+
   (** Convert a line-height modifier to (extra_declarations, line_height_value).
   *)
   let lh_modifier_to_css = function
