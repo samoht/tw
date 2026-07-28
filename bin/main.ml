@@ -68,6 +68,72 @@ let read_file path =
    opening brace; the declarations themselves are left for the real parser.
    [@theme inline] becomes [:root inline] so the modifier survives as part of
    the selector, which is all [theme_overrides_of_css] reads it for. *)
+(* A project can declare [@keyframes] inside its [@theme] block, beside the
+   [--animate-*] token that names it. The theme block is not CSS — it becomes a
+   [:root] rule — and a nested [@keyframes] there is invalid, so it went out
+   with the rewrite. Lift them to the top level, where Tailwind emits them. *)
+let hoist_theme_keyframes css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let lifted = Buffer.create 0 in
+  let block_end from =
+    let rec scan j depth =
+      if j >= len then j
+      else
+        match css.[j] with
+        | '{' -> scan (j + 1) (depth + 1)
+        | '}' -> if depth = 1 then j + 1 else scan (j + 1) (depth - 1)
+        | _ -> scan (j + 1) depth
+    in
+    scan from 0
+  in
+  let rec go i inside_theme =
+    if i >= len then ()
+    else if inside_theme && i + 10 <= len && String.sub css i 10 = "@keyframes"
+    then
+      begin match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1) inside_theme
+      | Some brace ->
+          let stop = block_end brace in
+          Buffer.add_string lifted (String.sub css i (stop - i));
+          go stop inside_theme
+      end
+    else if i + 6 <= len && String.sub css i 6 = "@theme" then
+      begin match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1) inside_theme
+      | Some brace ->
+          let stop = block_end brace in
+          Buffer.add_string buf (String.sub css i (brace + 1 - i));
+          go_theme (brace + 1) stop
+      end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1) inside_theme
+    end
+  and go_theme i stop =
+    if i >= stop then go i false
+    else if i + 10 <= stop && String.sub css i 10 = "@keyframes" then (
+      match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go_theme (i + 1) stop
+      | Some brace ->
+          let k_end = block_end brace in
+          Buffer.add_string lifted (String.sub css i (k_end - i));
+          go_theme k_end stop)
+    else begin
+      Buffer.add_char buf css.[i];
+      go_theme (i + 1) stop
+    end
+  in
+  go 0 false;
+  Buffer.add_string buf (Buffer.contents lifted);
+  Buffer.contents buf
+
 let theme_blocks_as_root css =
   let len = String.length css in
   let buf = Buffer.create len in
@@ -916,7 +982,10 @@ let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let css = apply_variants ~theme (strip_tailwind_import_options raw) in
+      let css =
+        apply_variants ~theme
+          (hoist_theme_keyframes (strip_tailwind_import_options raw))
+      in
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->

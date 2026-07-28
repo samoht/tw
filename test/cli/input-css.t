@@ -125,3 +125,23 @@ document, both the way Tailwind emits them:
   @layer components{.card{padding:1rem}}
   .after{color:red}
   @keyframes spin
+
+A project can declare [@keyframes] inside its [@theme], beside the [--animate-*]
+token that names it. The theme block becomes a [:root] rule, where a nested
+[@keyframes] would be invalid, so it is lifted to the top level:
+
+  $ cat > kf.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme {
+  >   --animate-flash: flash 2s forwards;
+  >   @keyframes flash {
+  >     0% { opacity: 1 }
+  >     100% { opacity: 0 }
+  >   }
+  > }
+  > EOF
+  $ tw --minify --input-css kf.css index.html | grep -cF '@keyframes flash{0%{opacity:1}to{opacity:0}}'
+  1
+  $ tw --minify --input-css kf.css index.html | grep -c ':root{[^}]*@keyframes'
+  0
+  [1]
