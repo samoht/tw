@@ -28,6 +28,7 @@ module Handler = struct
     | Transition
     | Transition_arbitrary of string
     | Duration of int
+    | Duration_initial
     | Duration_arbitrary of string * Css.duration
     | Delay of int
     | Delay_arbitrary of string * Css.duration
@@ -35,6 +36,7 @@ module Handler = struct
     | Ease_in
     | Ease_out
     | Ease_in_out
+    | Ease_initial
     | Ease_arbitrary of string
 
   type Utility.base += Self of t
@@ -311,6 +313,22 @@ module Handler = struct
     style ~property_rules
       [ tw_duration_decl; Css.transition_duration duration_val ]
 
+  (* duration-initial / ease-initial reset the channel to the CSS initial
+     keyword, clearing any inherited value. *)
+  let duration_initial =
+    let property_rules =
+      match Var.property_rule tw_duration_var with
+      | Some r -> r
+      | None -> Css.empty
+    in
+    style ~property_rules [ Var.binding_initial tw_duration_var ]
+
+  let ease_initial =
+    let property_rules =
+      match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
+    in
+    style ~property_rules [ Var.binding_initial tw_ease_var ]
+
   (* Theme variables for easing functions - order (7, 9-12) places them after
      radius (7, 0-8) but before animate (7, 13-17) *)
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 9)
@@ -489,6 +507,7 @@ module Handler = struct
     | Transition -> transition ()
     | Transition_arbitrary s -> transition_arbitrary s
     | Duration n -> duration n
+    | Duration_initial -> duration_initial
     | Duration_arbitrary (_, d) -> duration_arbitrary d
     | Delay n -> delay n
     | Delay_arbitrary (_, d) -> delay_arbitrary d
@@ -496,6 +515,7 @@ module Handler = struct
     | Ease_in -> ease_in
     | Ease_out -> ease_out
     | Ease_in_out -> ease_in_out
+    | Ease_initial -> ease_initial
     | Ease_arbitrary s -> ease_arbitrary s
 
   let suborder = function
@@ -513,6 +533,7 @@ module Handler = struct
     | Delay n -> 100 + n
     | Delay_arbitrary _ -> 100000
     | Duration n -> 200 + n
+    | Duration_initial -> 200001
     | Duration_arbitrary _ -> 200000
     (* Ease utilities come after Duration. Tailwind orders: duration then ease.
        Use a high base to ensure even duration-5000 (suborder 5200) < ease.
@@ -521,6 +542,7 @@ module Handler = struct
     | Ease_in_out -> 100001
     | Ease_linear -> 100002
     | Ease_out -> 100003
+    | Ease_initial -> 100004
     | Ease_arbitrary _ -> 99999
 
   let ( >|= ) = Parse.( >|= )
@@ -561,6 +583,7 @@ module Handler = struct
             | None -> Error (`Msg "Invalid duration value")
           else Error (`Msg "Invalid duration unit")
         else Error (`Msg "Invalid arbitrary syntax")
+    | [ "duration"; "initial" ] -> Ok Duration_initial
     | [ "duration"; n ] ->
         Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
     | [ "delay"; n ] when String.length n > 0 && n.[0] = '[' ->
@@ -592,6 +615,7 @@ module Handler = struct
     | [ "ease"; "in" ] -> Ok Ease_in
     | [ "ease"; "out" ] -> Ok Ease_out
     | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
+    | [ "ease"; "initial" ] -> Ok Ease_initial
     | [ "ease"; value ] when Parse.is_bracket_value value ->
         Ok (Ease_arbitrary (Parse.bracket_inner value))
     | _ -> Error (`Msg "Not a transition utility")
@@ -608,6 +632,7 @@ module Handler = struct
     | Transition -> "transition"
     | Transition_arbitrary s -> "transition-[" ^ s ^ "]"
     | Duration n -> "duration-" ^ string_of_int n
+    | Duration_initial -> "duration-initial"
     | Duration_arbitrary (s, _) -> "duration-[" ^ s ^ "]"
     | Delay n -> "delay-" ^ string_of_int n
     | Delay_arbitrary (s, _) -> "delay-[" ^ s ^ "]"
@@ -615,6 +640,7 @@ module Handler = struct
     | Ease_in -> "ease-in"
     | Ease_out -> "ease-out"
     | Ease_in_out -> "ease-in-out"
+    | Ease_initial -> "ease-initial"
     | Ease_arbitrary s -> "ease-[" ^ s ^ "]"
 end
 

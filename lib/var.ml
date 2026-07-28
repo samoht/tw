@@ -394,6 +394,12 @@ let property_rules : type a. (a, [< `Property_default ]) t -> Css.t =
    reference *)
 let binding var ?fallback value = var.binding ?fallback value
 
+(* Reset a channel to the CSS-wide [initial] keyword ([--tw-x: initial]). Used
+   by the [*-initial] / [via-none] utilities, which clear a channel var rather
+   than set it to a typed value. *)
+let binding_initial var =
+  Css.custom_property ~layer:"utilities" ("--" ^ var.name) "initial"
+
 (* Create a variable reference for variables with @property defaults OR
    fallback *)
 let reference : type a b. (a, b) t -> a Css.var =
