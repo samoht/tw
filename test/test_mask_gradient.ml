@@ -35,11 +35,38 @@ let test_from_zero_keeps_unit () =
     "from-position is 0px, not bare 0" true
     (Astring.String.is_infix ~affix:"--tw-mask-top-from-position:0px" css)
 
+(* A stop takes a colour as well as a position. A palette entry points at its
+   theme token and brings the token's declaration with it; the transparent and
+   current keywords go in as themselves. *)
+let test_stop_colors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " sets " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "mask-r-from-black" "--tw-mask-right-from-color:var(--color-black)";
+  has "mask-r-from-black" "--color-black:";
+  has "mask-b-to-red-500" "--tw-mask-bottom-to-color:var(--color-red-500)";
+  has "mask-radial-from-transparent" "--tw-mask-radial-from-color:transparent";
+  has "mask-r-from-current" "--tw-mask-right-from-color:currentcolor";
+  check "mask-r-from-black";
+  check "mask-y-to-white";
+  check "mask-conic-from-red-500";
+  check "mask-r-to-transparent";
+  check "mask-r-from-current"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "from-0 keeps its px unit" `Quick
         test_from_zero_keeps_unit;
+      Alcotest.test_case "colour stops" `Quick test_stop_colors;
     ]
 
 let suite = ("mask_gradient", tests)

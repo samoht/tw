@@ -374,6 +374,12 @@ val suborder_with_shade : string -> int
 module Handler : sig
   include Utility.Handler
 
+  val color_binding :
+    ?theme:Scheme.t -> color -> int -> Css.declaration * Css.color Css.var
+  (** [color_binding ?theme color shade] is the [\@layer theme] declaration for
+      the palette token and the typed reference to it, for utilities that set a
+      colour var of their own from a palette entry. *)
+
   val theme_color_decl : ?theme:Scheme.t -> string -> Css.declaration option
   (** [theme_color_decl ?theme name] is the [\@layer theme] declaration for the
       colour token [name] (e.g. ["color-red-500"]), or [None] when [name] is not
