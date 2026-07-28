@@ -21,11 +21,11 @@ module Handler = struct
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
-    | Translate_x_arbitrary of Css.length
+    | Translate_x_arbitrary of string * Css.length
     | Translate_y of int
     | Translate_y_full
     | Translate_y_px
-    | Translate_y_arbitrary of Css.length
+    | Translate_y_arbitrary of string * Css.length
     | Scale of int
     | Scale_x of int
     | Scale_x_arbitrary of float
@@ -48,7 +48,7 @@ module Handler = struct
     | Translate_px
     | Translate_1_2
     | Translate_fraction of int * int
-    | Translate_arbitrary of Css.length
+    | Translate_arbitrary of string * Css.length
     | (* Negative translate utilities *)
       Neg_translate of int
     | Neg_translate_arbitrary of string
@@ -320,7 +320,9 @@ module Handler = struct
     if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
       let inner = String.sub s 1 (String.length s - 2) in
       let slen = String.length inner in
-      let i = ref 0 in
+      (* Allow a leading minus so negative arbitrary values
+         (translate-x-[-0.5px], translate-y-[-110%]) parse. *)
+      let i = ref (if slen > 0 && inner.[0] = '-' then 1 else 0) in
       while
         !i < slen
         && ((inner.[!i] >= '0' && inner.[!i] <= '9') || inner.[!i] = '.')
@@ -1202,12 +1204,12 @@ module Handler = struct
     | Translate_x n -> translate_x n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
-    | Translate_x_arbitrary len -> translate_x_arbitrary len
+    | Translate_x_arbitrary (_, len) -> translate_x_arbitrary len
     | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
     | Translate_y n -> translate_y n
     | Translate_y_full -> translate_y_full
     | Translate_y_px -> translate_y_px
-    | Translate_y_arbitrary len -> translate_y_arbitrary len
+    | Translate_y_arbitrary (_, len) -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate n -> translate_spacing n
     | Neg_translate n -> translate_spacing (-n)
@@ -1216,7 +1218,7 @@ module Handler = struct
     | Translate_px -> translate_px
     | Translate_1_2 -> translate_1_2
     | Translate_fraction (num, denom) -> translate_fraction num denom
-    | Translate_arbitrary len -> translate_arbitrary len
+    | Translate_arbitrary (_, len) -> translate_arbitrary len
     | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
     | Neg_translate_px -> neg_translate_px
@@ -1504,7 +1506,9 @@ module Handler = struct
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
-        | Ok len -> Ok (Translate_x_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_x_arbitrary (String.sub n 1 (String.length n - 2), len))
         | Error _ -> err_not_utility)
     | [ "translate"; "x"; "full" ] -> Ok Translate_x_full
     | [ "translate"; "x"; "px" ] -> Ok Translate_x_px
@@ -1515,7 +1519,9 @@ module Handler = struct
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
-        | Ok len -> Ok (Translate_y_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_y_arbitrary (String.sub n 1 (String.length n - 2), len))
         | Error _ -> err_not_utility)
     | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
     | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
@@ -1546,7 +1552,10 @@ module Handler = struct
            | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
-        | Ok len -> Ok (Translate_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_arbitrary
+                 (String.sub value 1 (String.length value - 2), len))
         | Error _ -> err_not_utility)
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
@@ -1784,9 +1793,6 @@ module Handler = struct
 
   let pp_angle_bracket a = "[" ^ Css.Pp.to_string Css.pp_angle a ^ "]"
 
-  let pp_length_bracket len =
-    "[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
-
   let pp_number_bracket f =
     let s = string_of_float f in
     let s =
@@ -1815,13 +1821,13 @@ module Handler = struct
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
-    | Translate_x_arbitrary len -> "translate-x-" ^ pp_length_bracket len
+    | Translate_x_arbitrary (raw, _) -> "translate-x-[" ^ raw ^ "]"
     | Translate_x_fraction (num, denom) ->
         "translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_y n -> neg_class "translate-y-" n
     | Translate_y_full -> "translate-y-full"
     | Translate_y_px -> "translate-y-px"
-    | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
+    | Translate_y_arbitrary (raw, _) -> "translate-y-[" ^ raw ^ "]"
     | Translate_y_fraction (num, denom) ->
         "translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_z n -> neg_class "translate-z-" n
@@ -1837,7 +1843,7 @@ module Handler = struct
     | Translate_1_2 -> "translate-1/2"
     | Translate_fraction (num, denom) ->
         "translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
-    | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
+    | Translate_arbitrary (raw, _) -> "translate-" ^ "[" ^ raw ^ "]"
     | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
     | Neg_translate_px -> "-translate-px"
