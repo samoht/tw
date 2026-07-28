@@ -76,3 +76,25 @@ a rule of its own, since it carries a selector the others do not:
   1
   $ tw --minify --input-css many.css index.html | grep -cF '.title{color:var(--color-gray-400)}'
   1
+
+A [@property] the applied utilities bring is hoisted beside them, not nested in
+the rule that applied them, and it is emitted once however many rules or
+utilities set the same variable:
+
+  $ cat > props.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .one { @apply border-t border-dashed; }
+  > .two { @apply border-b border-dotted; }
+  > EOF
+  $ tw --minify --input-css props.css index.html | grep -oF '@property --tw-border-style' | grep -c .
+  1
+  $ tw --minify --input-css props.css index.html | grep -c '\.one{[^}]*@property'
+  0
+  [1]
+
+and it comes after the author's own rules, where Tailwind puts it, rather than
+at the [@import] it was spliced into:
+
+  $ tw --minify --input-css props.css index.html | grep -oE '\.two\{[^}]*\}|@property' | head -2
+  .two{border-bottom-style:var(--tw-border-style);border-bottom-width:1px;--tw-border-style:dotted;border-style:dotted}
+  @property
