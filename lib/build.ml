@@ -208,7 +208,15 @@ let rec filter_theme_from_statements statements =
                       | Some (name, condition, content) ->
                           Css.container ?name ?condition
                             (filter_theme_from_statements content)
-                      | None -> stmt)))))
+                      | None -> (
+                          (* An opacity colour's progressive-enhancement block
+                             carries the same theme declaration as the rule it
+                             sits beside; without this it is declared twice. *)
+                          match Css.as_supports stmt with
+                          | Some (condition, content) ->
+                              Css.supports ~condition
+                                (filter_theme_from_statements content)
+                          | None -> stmt))))))
     statements
 
 (* Compute merge key from a base class name as a fallback when the utility
