@@ -232,10 +232,34 @@ let test_opacity_supports_under_variant () =
   check bool "the @supports block follows the fallback" true
     (idx "#fb2c3680" < idx "@supports")
 
+(* An at-rule written in brackets wraps the utility rather than selecting it,
+   and keeps its own spelling in the class name: reading it as the [supports-]
+   variant gave a class the HTML would not match. A property test also runs
+   against the prefixed spellings, as Tailwind's browser data has it. *)
+let test_bracketed_at_rule_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "[@starting-style]:opacity-0"
+    "@starting-style{.\\[\\@starting-style\\]\\:opacity-0";
+  has "[@supports(display:grid)]:grid" "@supports(display:grid)";
+  has "[@supports(display:grid)]:grid"
+    ".\\[\\@supports\\(display\\:grid\\)\\]\\:grid";
+  has "[@supports(backdrop-filter:blur(0))]:backdrop-blur"
+    "@supports(-webkit-backdrop-filter:blur(0))or (backdrop-filter:blur(0))";
+  (* an unprefixed property stays a single test *)
+  has "supports-[display:grid]:flex" "@supports(display:grid)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "bracketed at-rule variant" `Quick test_bracketed_at_rule_variant;
     test_case "opacity @supports under a variant" `Quick
       test_opacity_supports_under_variant;
     test_case "bare arbitrary selector variant" `Quick

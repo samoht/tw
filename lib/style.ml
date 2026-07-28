@@ -237,6 +237,9 @@ type modifier =
   | Arbitrary_selector of string
       (** [[&_p]] — arbitrary selector variant, [&] is replaced by the element's
           own class selector *)
+  | At_rule of string
+      (** [[@supports(...)]] / [[@starting-style]] — an at-rule in brackets,
+          kept as written so the class name round-trips *)
   | Custom_variant of string * string
       (** [is-data-foo:] — a [matchVariant]-registered variant. First field is
           the class-name token (e.g. [is-data-foo]); second is the resolved
@@ -652,6 +655,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | At_rule content -> "[" ^ content ^ "]"
   | Custom_variant (token, _) -> token
   | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name

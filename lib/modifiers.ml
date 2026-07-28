@@ -1197,6 +1197,7 @@ let rec pp_modifier = function
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
   | Arbitrary_selector content -> "[" ^ content ^ "]"
+  | At_rule content -> "[" ^ content ^ "]"
   | Custom_variant (token, _) -> token
   | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name
@@ -1369,6 +1370,18 @@ let is_valid_has_selector sel =
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
+(* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
+   [[@starting-style]] wrap the utility rather than select it. *)
+let try_bracket_at_rule s =
+  if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
+    let inner = String.sub s 1 (String.length s - 2) in
+    if
+      inner = "@starting-style"
+      || (String.length inner > 9 && String.sub inner 0 9 = "@supports")
+    then Some (At_rule inner)
+    else None
+  else None
+
 (* Try parsing a bracketed modifier, returning Some if matched *)
 (* Build the list of bracket pattern matchers for a given input string *)
 let bracket_named_patterns s =
@@ -1440,6 +1453,7 @@ let bracket_value_patterns s =
         (fun sel ->
           if sel <> "" && String.contains sel '&' then Some sel else None)
         (fun sel -> Peer_arbitrary sel));
+    (fun () -> try_bracket_at_rule s);
     (fun () ->
       if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']'
       then
