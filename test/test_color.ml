@@ -277,6 +277,24 @@ let test_border_side_color_opacity () =
     "border-b-white/5 round-trips" "border-b-white/5"
     (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
 
+(* A bracket colour is read as CSS first and only then as a palette name, so a
+   system colour or a light-dark() both work. The fallback used to admit only
+   colour functions, which left [bg-[Field]] an unknown class. *)
+let test_bracket_css_colors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-[Field]" "background-color:field";
+  has "text-[FieldText]" "color:fieldtext";
+  has "bg-[light-dark(white,black)]" "background-color:light-dark(";
+  (* a CSS keyword still beats the palette entry of the same name *)
+  has "bg-[red]" "background-color:red"
+
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
     (Invalid_argument
@@ -332,6 +350,7 @@ let tests =
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
+    ("Bracket CSS colors", `Quick, test_bracket_css_colors);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
