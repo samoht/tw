@@ -393,6 +393,12 @@ val suborder_with_shade : string -> int
 module Handler : sig
   include Utility.Handler
 
+  val all_palette_declarations : ?theme:Scheme.t -> unit -> Css.declaration list
+  (** [all_palette_declarations ?theme ()] is the [\@layer theme] declaration
+      for every colour the palette defines, in theme order. [theme(static)] on
+      the package import emits the whole theme, not only the tokens a utility
+      used. *)
+
   val color_binding :
     ?theme:Scheme.t -> color -> int -> Css.declaration * Css.color Css.var
   (** [color_binding ?theme color shade] is the [\@layer theme] declaration for

@@ -98,3 +98,12 @@ at the [@import] it was spliced into:
   $ tw --minify --input-css props.css index.html | grep -oE '\.two\{[^}]*\}|@property' | head -2
   .two{border-bottom-style:var(--tw-border-style);border-bottom-width:1px;--tw-border-style:dotted;border-style:dotted}
   @property
+
+The [@layer properties] block each applied utility brings holds initial values
+on the universal selector. Tailwind emits one; hoisting them per [@apply] used
+to leave a block per distinct set:
+
+  $ tw --minify --input-css props.css index.html | grep -oF '@layer properties' | grep -c .
+  1
+  $ tw --minify --input-css props.css index.html | grep -oF '@layer utilities' | grep -c .
+  1

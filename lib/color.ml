@@ -1793,6 +1793,49 @@ module Handler = struct
   let color_binding ?theme c shade =
     Var.binding (color_var c shade) (get_color_value ?theme c shade)
 
+  (* Every colour the palette defines, in theme order. [\@import "tailwindcss"
+     theme(static)] emits the whole theme rather than only the tokens a utility
+     used, so the sheet needs them all. *)
+  let palette_names =
+    [
+      "red";
+      "orange";
+      "amber";
+      "yellow";
+      "lime";
+      "green";
+      "emerald";
+      "teal";
+      "cyan";
+      "sky";
+      "blue";
+      "indigo";
+      "violet";
+      "purple";
+      "fuchsia";
+      "pink";
+      "rose";
+      "slate";
+      "gray";
+      "zinc";
+      "neutral";
+      "stone";
+      "mauve";
+      "olive";
+      "mist";
+      "taupe";
+      "black";
+      "white";
+    ]
+
+  let all_palette_declarations ?theme () =
+    List.concat_map
+      (fun name ->
+        let c = of_string_exn name in
+        let shades = if is_base_color c then [ 500 ] else palette_shades in
+        List.map (fun sh -> fst (color_binding ?theme c sh)) shades)
+      palette_names
+
   (* The theme-layer declaration for a colour token named like "color-red-500",
      or None when the name is not a catalogued colour token. [color_var]
      registers the token's canonical order and [get_color_value] supplies the

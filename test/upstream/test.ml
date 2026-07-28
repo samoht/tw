@@ -340,6 +340,7 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     breakpoints;
     token_overrides = [];
     inline_tokens = [];
+    static_theme = false;
   }
 
 let setup_scheme_for_test expected =

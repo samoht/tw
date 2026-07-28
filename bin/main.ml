@@ -68,6 +68,72 @@ let read_file path =
    opening brace; the declarations themselves are left for the real parser.
    [@theme inline] becomes [:root inline] so the modifier survives as part of
    the selector, which is all [theme_overrides_of_css] reads it for. *)
+(* A project can declare [@keyframes] inside its [@theme] block, beside the
+   [--animate-*] token that names it. The theme block is not CSS — it becomes a
+   [:root] rule — and a nested [@keyframes] there is invalid, so it went out
+   with the rewrite. Lift them to the top level, where Tailwind emits them. *)
+let hoist_theme_keyframes css =
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let lifted = Buffer.create 0 in
+  let block_end from =
+    let rec scan j depth =
+      if j >= len then j
+      else
+        match css.[j] with
+        | '{' -> scan (j + 1) (depth + 1)
+        | '}' -> if depth = 1 then j + 1 else scan (j + 1) (depth - 1)
+        | _ -> scan (j + 1) depth
+    in
+    scan from 0
+  in
+  let rec go i inside_theme =
+    if i >= len then ()
+    else if inside_theme && i + 10 <= len && String.sub css i 10 = "@keyframes"
+    then
+      begin match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1) inside_theme
+      | Some brace ->
+          let stop = block_end brace in
+          Buffer.add_string lifted (String.sub css i (stop - i));
+          go stop inside_theme
+      end
+    else if i + 6 <= len && String.sub css i 6 = "@theme" then
+      begin match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1) inside_theme
+      | Some brace ->
+          let stop = block_end brace in
+          Buffer.add_string buf (String.sub css i (brace + 1 - i));
+          go_theme (brace + 1) stop
+      end
+    else begin
+      Buffer.add_char buf css.[i];
+      go (i + 1) inside_theme
+    end
+  and go_theme i stop =
+    if i >= stop then go i false
+    else if i + 10 <= stop && String.sub css i 10 = "@keyframes" then (
+      match String.index_from_opt css i '{' with
+      | None ->
+          Buffer.add_char buf css.[i];
+          go_theme (i + 1) stop
+      | Some brace ->
+          let k_end = block_end brace in
+          Buffer.add_string lifted (String.sub css i (k_end - i));
+          go_theme k_end stop)
+    else begin
+      Buffer.add_char buf css.[i];
+      go_theme (i + 1) stop
+    end
+  in
+  go 0 false;
+  Buffer.add_string buf (Buffer.contents lifted);
+  Buffer.contents buf
+
 let theme_blocks_as_root css =
   let len = String.length css in
   let buf = Buffer.create len in
@@ -98,6 +164,16 @@ let theme_blocks_as_root css =
     end
   done;
   Buffer.contents buf
+
+(* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
+   variables a utility used. The option is stripped before parsing, so it is
+   read from the raw text. *)
+let imports_static_theme css =
+  let len = String.length css in
+  let rec go i =
+    i + 13 <= len && (String.sub css i 13 = "theme(static)" || go (i + 1))
+  in
+  go 0
 
 (* Extract @theme token overrides from a project CSS entrypoint, so tw renders
    with the same tokens Tailwind reads from it: the [(bare-name, value)] pairs,
@@ -680,12 +756,67 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   Buffer.add_buffer buf hoisted;
   Buffer.contents buf
 
+(* The names an [@variant NAME {] header uses inside a body. *)
+let variant_names_in css =
+  let len = String.length css in
+  let rec go i acc =
+    if i >= len then List.rev acc
+    else
+      match at_rule_header css i "@variant" with
+      | Some (name, brace) when name <> "" -> go (brace + 1) (name :: acc)
+      | _ -> go (i + 1) acc
+  in
+  go 0 []
+
+(* Replace the first occurrence of [needle] in [hay]. *)
+let replace_first ~needle ~by hay =
+  let n = String.length needle and h = String.length hay in
+  let rec at i =
+    if i + n > h then None
+    else if String.sub hay i n = needle then Some i
+    else at (i + 1)
+  in
+  match at 0 with
+  | None -> None
+  | Some i ->
+      Some
+        (String.concat ""
+           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
+
+(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
+   variants, but only as part of a whole utility, so derive the wrapper from
+   what it emits around a probe with a single declaration and put [@slot] where
+   that declaration was. This is what lets a project's [@utility] carry a
+   built-in prefix, which the [@variant] machinery otherwise only has templates
+   for when the project declared it. *)
+let builtin_variant_template ~theme name =
+  let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
+  if body = "" then None
+  else
+    (* A media variant wraps the probe in a bare [&], which would add a nesting
+       level the utility's own body cannot survive: its [@variant before] and
+       the [@supports] an opacity colour emits end up three deep and the sheet
+       no longer parses. Drop that level by putting the slot in its place. *)
+    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
+    | Some t -> Some t
+    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
+
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   let css, _ = take_custom_utilities css in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
-  (* A project declaration wins over the built-in of the same name. *)
-  let defs = defs @ builtin_variants in
+  (* A project declaration wins over the built-in of the same name. Any other
+     built-in the CSS names has its template derived from tw's own output for a
+     probe utility, so [@variant sm] is not silently dropped along with the
+     declarations it guards. *)
+  let derived =
+    variant_names_in css
+    |> List.sort_uniq String.compare
+    |> List.filter (fun n -> not (List.mem_assoc n defs))
+    |> List.filter_map (fun n ->
+        Option.map (fun t -> (n, t)) (builtin_variant_template ~theme n))
+  in
+  let defs = defs @ builtin_variants @ derived in
   (* A declared utility's body may [@apply] another one, so keep expanding until
      nothing is left (bounded, in case two reference each other). *)
   let rec expand depth css =
@@ -736,13 +867,114 @@ let preload_imports ~transform ~base_url stylesheet =
    redundant. Keep the first, and put them all at the end of the document, where
    Tailwind emits them: spliced at the [@import] instead, they sit ahead of the
    author's own rules and shift every one of them. *)
+(* A named layer appears once in Tailwind's output. The generated sheet and the
+   [@layer properties] blocks each applied utility hoists arrive separately, so
+   fold every repeat of a name into the first, dropping content the first
+   already has. *)
+let merge_named_layers stmts =
+  let name_of stmt =
+    match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
+  in
+  let inner stmt =
+    match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
+  in
+  let repeated =
+    let counts = Hashtbl.create 8 in
+    List.iter
+      (fun stmt ->
+        match name_of stmt with
+        | Some n ->
+            Hashtbl.replace counts n
+              (1 + Option.value ~default:0 (Hashtbl.find_opt counts n))
+        | None -> ())
+      stmts;
+    Hashtbl.fold (fun n c acc -> if c > 1 then n :: acc else acc) counts []
+  in
+  if repeated = [] then stmts
+  else
+    let merged = Hashtbl.create 8 in
+    List.iter
+      (fun n ->
+        let seen = Hashtbl.create 64 in
+        let body =
+          List.concat_map
+            (fun stmt -> if name_of stmt = Some n then inner stmt else [])
+            stmts
+          |> List.filter (fun st ->
+              let key = Css.to_string ~minify:true (Css.v [ st ]) in
+              if Hashtbl.mem seen key then false
+              else begin
+                Hashtbl.add seen key ();
+                true
+              end)
+        in
+        Hashtbl.add merged n body)
+      repeated;
+    let emitted = Hashtbl.create 8 in
+    List.filter_map
+      (fun stmt ->
+        match name_of stmt with
+        | Some n when List.mem n repeated ->
+            if Hashtbl.mem emitted n then None
+            else begin
+              Hashtbl.add emitted n ();
+              Some (Css.layer ~name:n (Hashtbl.find merged n))
+            end
+        | _ -> Some stmt)
+      stmts
+
+(* [@layer components;] on its own declares the layer's slot; the block that
+   fills it can come much later, from an imported file. Tailwind emits the block
+   in the slot, so move it there. The declared order already makes this
+   cascade-neutral; it is the document shape that differs. *)
+let hoist_layer_blocks stmts =
+  let declared_name stmt =
+    match Css.as_layer stmt with
+    | Some _ -> None
+    | None -> (
+        let s = Css.to_string ~minify:true (Css.v [ stmt ]) in
+        match String.index_opt s ';' with
+        | Some semi
+          when String.length s > 7
+               && String.sub s 0 7 = "@layer "
+               && semi = String.length s - 1 ->
+            let name = String.sub s 7 (semi - 7) in
+            if String.contains name ',' || name = "" then None else Some name
+        | _ -> None)
+  in
+  let block_name stmt =
+    match Css.as_layer stmt with Some (Some n, _) -> Some n | _ -> None
+  in
+  let slots =
+    List.filter_map declared_name stmts |> List.sort_uniq String.compare
+  in
+  let movable =
+    List.filter
+      (fun n -> List.exists (fun st -> block_name st = Some n) stmts)
+      slots
+  in
+  if movable = [] then stmts
+  else
+    let block_for n = List.find_opt (fun st -> block_name st = Some n) stmts in
+    List.filter_map
+      (fun stmt ->
+        match declared_name stmt with
+        | Some n when List.mem n movable -> block_for n
+        | _ -> (
+            match block_name stmt with
+            | Some n when List.mem n movable -> None
+            | _ -> Some stmt))
+      stmts
+
 let collect_properties_at_end stmts =
   let seen = Hashtbl.create 64 in
   let keep, props =
     List.partition_map
       (fun stmt ->
         match Css.as_property stmt with
-        | None -> Left (Some stmt)
+        | None ->
+            if Css.as_keyframes stmt <> None then Right stmt
+            else Left (Some stmt)
         | Some (Css.Property_info { name; _ }) ->
             if Hashtbl.mem seen name then Left None
             else begin
@@ -751,13 +983,19 @@ let collect_properties_at_end stmts =
             end)
       stmts
   in
-  List.filter_map Fun.id keep @ props
+  let at_end, keyframes =
+    List.partition (fun st -> Css.as_keyframes st = None) props
+  in
+  List.filter_map Fun.id keep @ at_end @ keyframes
 
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let css = apply_variants ~theme (strip_tailwind_import_options raw) in
+      let css =
+        apply_variants ~theme
+          (hoist_theme_keyframes (strip_tailwind_import_options raw))
+      in
       match Css.of_string css with
       | Error _ -> generated
       | Ok p ->
@@ -787,6 +1025,7 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
+          |> merge_named_layers |> hoist_layer_blocks
           |> collect_properties_at_end |> Css.v)
 
 let eval_flag flag ~default =
@@ -1000,18 +1239,6 @@ let entry_defs take = function
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities
 
-(* The names an [@variant NAME {] header uses inside a body. *)
-let variant_names_in css =
-  let len = String.length css in
-  let rec go i acc =
-    if i >= len then List.rev acc
-    else
-      match at_rule_header css i "@variant" with
-      | Some (name, brace) when name <> "" -> go (brace + 1) (name :: acc)
-      | _ -> go (i + 1) acc
-  in
-  go 0 []
-
 (* The escaped class with its declarations under the [@variant]s that wrap
    it. *)
 let wrapped_block cls variants body =
@@ -1022,39 +1249,6 @@ let wrapped_block cls variants body =
       variants body
   in
   String.concat "" [ class_sel; "{"; wrapped; "}" ]
-
-(* Replace the first occurrence of [needle] in [hay]. *)
-let replace_first ~needle ~by hay =
-  let n = String.length needle and h = String.length hay in
-  let rec at i =
-    if i + n > h then None
-    else if String.sub hay i n = needle then Some i
-    else at (i + 1)
-  in
-  match at 0 with
-  | None -> None
-  | Some i ->
-      Some
-        (String.concat ""
-           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
-
-(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
-   variants, but only as part of a whole utility, so derive the wrapper from
-   what it emits around a probe with a single declaration and put [@slot] where
-   that declaration was. This is what lets a project's [@utility] carry a
-   built-in prefix, which the [@variant] machinery otherwise only has templates
-   for when the project declared it. *)
-let builtin_variant_template ~theme name =
-  let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
-  if body = "" then None
-  else
-    (* A media variant wraps the probe in a bare [&], which would add a nesting
-       level the utility's own body cannot survive: its [@variant before] and
-       the [@supports] an opacity colour emits end up three deep and the sheet
-       no longer parses. Drop that level by putting the slot in its place. *)
-    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
-    | Some t -> Some t
-    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 (* A candidate the project's own declarations govern: it carries a declared
    variant, or it is a declared utility. *)
@@ -1236,7 +1430,12 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | None -> Tw.Scheme.default
     | Some css ->
         let overrides, inline = theme_overrides_of_css css in
-        Tw.Scheme.with_overrides ~inline Tw.Scheme.default overrides
+        let base =
+          if imports_static_theme css then
+            { Tw.Scheme.default with static_theme = true }
+          else Tw.Scheme.default
+        in
+        Tw.Scheme.with_overrides ~inline base overrides
   in
   let opts : gen_opts =
     {

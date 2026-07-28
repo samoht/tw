@@ -719,6 +719,25 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     @ referenced_theme_decls ~theme ~exclude:(names_set_of extracted)
         selector_props
   in
+  (* [theme(static)] on the package import emits every theme variable, not only
+     the ones a utility used. The palette is by far the biggest part of it. *)
+  let extracted =
+    if not theme.Scheme.static_theme then extracted
+    else
+      let have = names_set_of extracted in
+      let registered =
+        Scheme.all_default_tokens ()
+        |> List.map (fun (name, css) ->
+            Css.custom_property ~layer:"theme" ("--" ^ name) css)
+      in
+      extracted
+      @ List.filter
+          (fun d ->
+            match Css.custom_declaration_name d with
+            | Some n -> not (Strings.mem n have)
+            | None -> true)
+          (Color.Handler.all_palette_declarations ~theme () @ registered)
+  in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
   (* Filter defaults to remove duplicates of extracted vars *)
