@@ -52,6 +52,9 @@ module Handler = struct
     | Drop_shadow_color of Color.color * int
     | Drop_shadow_color_opacity of Color.color * int * Color.opacity_modifier
     | Drop_shadow_opacity of Color.opacity_modifier
+    | Drop_shadow_keyword_color of Css.color * string
+      (* drop-shadow-current / -transparent: a colour with no theme token *)
+    | Drop_shadow_size_opacity of string * Color.opacity_modifier
     | Backdrop_filter
     | Backdrop_filter_none
     | Backdrop_filter_arbitrary of string
@@ -728,6 +731,28 @@ module Handler = struct
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
+  (* [drop-shadow-current] and [drop-shadow-transparent] name a colour the theme
+     has no token for, so the value goes in directly. *)
+  let drop_shadow_keyword_color color =
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            [
+              bind_drop_shadow_color
+                (Css.color_mix_var_percent ~in_space:Oklab
+                   ~var_name:"tw-drop-shadow-alpha" color Css.Transparent);
+            ];
+        ]
+    in
+    Group
+      [
+        style ~rules:(Option.Some [ supports_block ])
+          [ bind_drop_shadow_color color ];
+        style ~property_rules:filter_property_rules
+          [ bind_drop_shadow drop_shadow_size_ref ];
+      ]
+
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
@@ -788,6 +813,41 @@ module Handler = struct
           bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
           filter composable_filter_chain;
         ])
+
+  (* [drop-shadow-xl/25]: the named size with its default colour replaced by
+     black at that alpha, which leaves the theme token out of it entirely. *)
+  let drop_shadow_size_geometry : string -> (Css.length * Css.length) option =
+    function
+    | "xs" -> Option.Some (Css.Px 1., Css.Px 1.)
+    | "sm" -> Option.Some (Css.Px 1., Css.Px 2.)
+    | "md" -> Option.Some (Css.Px 3., Css.Px 3.)
+    | "lg" -> Option.Some (Css.Px 4., Css.Px 4.)
+    | "xl" -> Option.Some (Css.Px 9., Css.Px 7.)
+    | "2xl" -> Option.Some (Css.Px 25., Css.Px 25.)
+    | _ -> Option.None
+
+  let drop_shadow_size_opacity size opacity =
+    match drop_shadow_size_geometry size with
+    | Option.None -> style []
+    | Option.Some (v, blur) ->
+        let percent =
+          match opacity with Color.Opacity_percent p -> p | _ -> 100.
+        in
+        let alpha_str =
+          if Float.is_integer percent then
+            string_of_int (int_of_float percent) ^ "%"
+          else Css.Pp.string_of_float percent ^ "%"
+        in
+        let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
+        style ~property_rules:filter_property_rules
+          [
+            Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
+              alpha_str;
+            bind_drop_shadow_size
+              (drop_shadow_filter Zero v (Option.Some blur) fallback);
+            bind_drop_shadow drop_shadow_size_ref;
+            filter composable_filter_chain;
+          ]
 
   (* Filter arbitrary - direct value *)
   let filter_arbitrary s =
@@ -1090,6 +1150,8 @@ module Handler = struct
     | Drop_shadow_color_opacity (c, shade, op) ->
         drop_shadow_color_opacity c shade op
     | Drop_shadow_opacity op -> drop_shadow_opacity op
+    | Drop_shadow_keyword_color (c, _) -> drop_shadow_keyword_color c
+    | Drop_shadow_size_opacity (size, op) -> drop_shadow_size_opacity size op
     | Backdrop_blur_none -> backdrop_blur_none ()
     | Backdrop_blur_xs -> backdrop_blur_xs ()
     | Backdrop_blur_sm -> backdrop_blur_sm ()
@@ -1146,6 +1208,8 @@ module Handler = struct
     | Contrast n -> 2000 + n
     | Contrast_arbitrary _ -> 2500
     | Drop_shadow_opacity _ -> 2690
+    | Drop_shadow_keyword_color _ -> 2691
+    | Drop_shadow_size_opacity _ -> 2692
     | Drop_shadow -> 2700
     | Drop_shadow_arbitrary _ -> 2701
     | Drop_shadow_multi -> 2702
@@ -1282,6 +1346,10 @@ module Handler = struct
     | [ "drop"; "shadow"; "multi" ] -> Ok Drop_shadow_multi
     | [ "drop"; "shadow"; "none" ] -> Ok Drop_shadow_none
     | [ "drop"; "shadow"; "inherit" ] -> Ok Drop_shadow_inherit
+    | [ "drop"; "shadow"; "current" ] ->
+        Ok (Drop_shadow_keyword_color (Css.Current, "current"))
+    | [ "drop"; "shadow"; "transparent" ] ->
+        Ok (Drop_shadow_keyword_color (Css.Transparent, "transparent"))
     | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s ->
         Ok (Drop_shadow_arbitrary s)
     | "drop" :: "shadow" :: rest -> (
@@ -1300,6 +1368,8 @@ module Handler = struct
             (* Otherwise treat it as a custom [--drop-shadow-<name>] theme
                token; the theme value is resolved at emission time. *)
             | Error _ -> Ok (Drop_shadow_named full))
+        | op when drop_shadow_size_geometry base <> Option.None ->
+            Ok (Drop_shadow_size_opacity (base, op))
         | op -> (
             if base = "" then Ok (Drop_shadow_opacity op)
             else
@@ -1449,6 +1519,9 @@ module Handler = struct
         ^ Color.scheme_color_name c shade
         ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_opacity op -> "drop-shadow/" ^ Color.pp_opacity op
+    | Drop_shadow_keyword_color (_, name) -> "drop-shadow-" ^ name
+    | Drop_shadow_size_opacity (size, op) ->
+        "drop-shadow-" ^ size ^ "/" ^ Color.pp_opacity op
     | Backdrop_blur_none -> "backdrop-blur-none"
     | Backdrop_blur_xs -> "backdrop-blur-xs"
     | Backdrop_blur_sm -> "backdrop-blur-sm"

@@ -79,8 +79,32 @@ let test_backdrop_blur_token () =
     "emits --blur-sm:8px" true
     (Astring.String.is_infix ~affix:"--blur-sm:8px" css)
 
+(* A drop-shadow colour the theme has no token for, and a named size with an
+   alpha: both were unknown classes. The size form replaces the shadow's own
+   colour with black at that alpha and leaves the theme token out. *)
+let test_drop_shadow_keyword_and_alpha () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "drop-shadow-current" "--tw-drop-shadow-color:currentColor";
+  has "drop-shadow-transparent" "--tw-drop-shadow-color:transparent";
+  has "drop-shadow-xl/25" "--tw-drop-shadow-alpha:25%";
+  has "drop-shadow-xl/25" "drop-shadow(0 9px 7px var(--tw-drop-shadow-color,";
+  (* the theme token is not declared for the alpha form *)
+  Alcotest.(check bool)
+    "no --drop-shadow-xl token" false
+    (Astring.String.is_infix ~affix:"--drop-shadow-xl:"
+       (css "drop-shadow-xl/25"))
+
 let tests =
   [
+    test_case "drop-shadow keyword color and alpha" `Quick
+      test_drop_shadow_keyword_and_alpha;
     test_case "blur" `Quick test_blur;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
