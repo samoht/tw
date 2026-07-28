@@ -28,8 +28,10 @@ type container_query =
   | Container_size of container_cmp * container_query
       (** [@min-<size>] / [@max-<size>]; the inner query is a bare named size.
       *)
-  | Container_len of Css.length  (** [@[<len>]]: [width >= len]. *)
-  | Container_len_cmp of container_cmp * Css.length
+  | Container_len of string * Css.length
+      (** [@[<len>]]: [width >= len]. Carries the raw bracket token so the
+          class name round-trips. *)
+  | Container_len_cmp of container_cmp * string * Css.length
       (** [@min-[<len>]] / [@max-[<len>]]. *)
 
 type modifier =

@@ -1966,10 +1966,9 @@ let try_container_query s =
       && s.[plen] = '['
       && s.[slen - 1] = ']'
     then
-      match
-        parse_container_length (String.sub s (plen + 1) (slen - plen - 2))
-      with
-      | Some len -> Some (mk len)
+      let raw = String.sub s (plen + 1) (slen - plen - 2) in
+      match parse_container_length raw with
+      | Some len -> Some (mk raw len)
       | None -> None
     else None
   in
@@ -1989,13 +1988,14 @@ let try_container_query s =
     List.find_map
       (fun f -> f ())
       [
-        (fun () -> bracketed "@" (fun len -> Container (Container_len len)));
         (fun () ->
-          bracketed "@min-" (fun len ->
-              Container (Container_len_cmp (Cq_min, len))));
+          bracketed "@" (fun raw len -> Container (Container_len (raw, len))));
         (fun () ->
-          bracketed "@max-" (fun len ->
-              Container (Container_len_cmp (Cq_max, len))));
+          bracketed "@min-" (fun raw len ->
+              Container (Container_len_cmp (Cq_min, raw, len))));
+        (fun () ->
+          bracketed "@max-" (fun raw len ->
+              Container (Container_len_cmp (Cq_max, raw, len))));
         (fun () -> sized "@min-" Cq_min);
         (fun () -> sized "@max-" Cq_max);
       ]
