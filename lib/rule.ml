@@ -1528,6 +1528,21 @@ let handle_named_peer inner name base_class props =
   named_anchor_rule ~anchor:"peer" ~combinator:Css.Selector.Subsequent_sibling
     inner name base_class props
 
+(* [in-focus]: an ancestor in that state. Same shape as [in-data-X], with the
+   state's pseudo-class in place of the attribute. *)
+let handle_in_state inner name base_class props =
+  let modified_class = "in-" ^ name ^ ":" ^ base_class in
+  let sel =
+    Css.Selector.combine
+      (Css.Selector.Where [ pseudo_selector_of_modifier inner ])
+      Css.Selector.Descendant (Css.Selector.Class modified_class)
+  in
+  [
+    (* [in-hover] gates on the pointer just as [hover] itself does. *)
+    regular ~selector:sel ~props ~base_class:modified_class ~merge_key:"in"
+      ~has_hover:(Modifiers.is_hover inner) ~not_order:250 ();
+  ]
+
 (** Handle not-group-STATE/name compound variant *)
 let named_group_modified_class prefix inner name base_class =
   let inner_str = Modifiers.pp_modifier inner in
@@ -1880,6 +1895,7 @@ let rec apply_modifier_to_rule ?theme modifier = function
       | Style.Not_bracket content -> handle_not_bracket content bc props
       | Style.In_bracket content -> handle_in_bracket content bc props
       | Style.In_data attr -> handle_in_data attr bc props
+      | Style.In_state (inner, name) -> handle_in_state inner name bc props
       | Style.Group_not (inner, name_opt) ->
           handle_group_not_modifier inner name_opt bc props
       | Style.Peer_not (inner, name_opt) ->

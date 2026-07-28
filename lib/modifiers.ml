@@ -1177,6 +1177,7 @@ let rec pp_modifier = function
   | Peer_not (inner, Some name) -> "peer-not-" ^ pp_modifier inner ^ "/" ^ name
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
+  | In_state (_, name) -> "in-" ^ name
   | Data_bracket expr -> "data-[" ^ expr ^ "]"
   | Group_data (spelling, None) -> "group-data-" ^ spelling
   | Group_data (spelling, Some name) -> "group-data-" ^ spelling ^ "/" ^ name
@@ -1865,7 +1866,12 @@ let try_in_modifier s =
       | _ -> None
     else if String.length rest > 5 && String.sub rest 0 5 = "data-" then
       Some (In_data (String.sub rest 5 (String.length rest - 5)))
-    else None
+    else
+      (* [in-focus]: an ancestor in that state, the same state names the other
+         variants take. *)
+      match List.assoc_opt rest group_state_modifiers with
+      | Some m -> Some (In_state (m, rest))
+      | None -> None
 
 (* Try not-in-[...] pattern *)
 let try_not_in_modifier s =

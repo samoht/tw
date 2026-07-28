@@ -204,6 +204,9 @@ type modifier =
       *)
   | In_data of string
       (** [in-data-X] — element must be descendant of [data-X] *)
+  | In_state of modifier * string
+      (** [in-focus] — element must be a descendant of one in that state; the
+          string is the state name, for the class *)
   | Group_not of modifier * string option
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
@@ -618,6 +621,7 @@ let rec pp_modifier = function
   | Not_bracket content -> "not-[" ^ content ^ "]"
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
+  | In_state (_, name) -> "in-" ^ name
   | Group_not (inner, None) ->
       String.concat "" [ "group-not-"; pp_modifier inner ]
   | Group_not (inner, Some name) ->

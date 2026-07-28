@@ -255,10 +255,28 @@ let test_bracketed_at_rule_variant () =
   (* an unprefixed property stays a single test *)
   has "supports-[display:grid]:flex" "@supports(display:grid)"
 
+(* [in-focus] scopes to an ancestor in that state, the same state names the
+   group and peer variants take. It used to be an unknown class: only the
+   bracket and data spellings were read. *)
+let test_in_state_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "in-focus:opacity-100" ":where(:focus) .in-focus\\:opacity-100";
+  has "in-checked:flex" ":where(:checked) .in-checked\\:flex";
+  (* in-hover gates on the pointer, as hover itself does *)
+  has "in-hover:flex" "@media(hover:hover)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "in-state variant" `Quick test_in_state_variant;
     test_case "bracketed at-rule variant" `Quick test_bracketed_at_rule_variant;
     test_case "opacity @supports under a variant" `Quick
       test_opacity_supports_under_variant;
