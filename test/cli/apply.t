@@ -62,3 +62,17 @@ An unknown utility is skipped rather than aborting the sheet:
   > EOF
   $ tw --minify --input-css bad.css index.html | grep -c '\.x{color:red}'
   1
+
+One [@apply] names several utilities, and they all decorate the same rule, so
+their declarations belong together the way Tailwind emits them rather than in
+one rule of the author's selector per utility. A variant among them still gets
+a rule of its own, since it carries a selector the others do not:
+
+  $ cat > many.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .title { @apply truncate leading-6 text-gray-700 dark:text-gray-400; }
+  > EOF
+  $ tw --minify --input-css many.css index.html | grep -cF '.title{text-overflow:ellipsis;white-space:nowrap;overflow:hidden;--tw-leading:calc(var(--spacing)*6);line-height:calc(var(--spacing)*6);color:var(--color-gray-700)}'
+  1
+  $ tw --minify --input-css many.css index.html | grep -cF '.title{color:var(--color-gray-400)}'
+  1

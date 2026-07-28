@@ -496,11 +496,25 @@ let nested_utilities ~theme names =
         Css.statements sheet |> List.filter from_utility
         |> List.partition (fun stmt -> Css.as_layer stmt <> None)
       in
+      (* One [@apply] pulls in several utilities, each with a rule of its own.
+         They all decorate the same [&], so they belong in one rule, the way
+         Tailwind emits them; left apart, each is a rule of the author's
+         selector holding one declaration. *)
+      let rec merge_same_selector = function
+        | a :: b :: rest -> (
+            match (Css.as_rule a, Css.as_rule b) with
+            | Some (sa, da, []), Some (sb, db, [])
+              when Cascade.Selector.to_string ~minify:true sa
+                   = Cascade.Selector.to_string ~minify:true sb ->
+                merge_same_selector (Css.rule ~selector:sa (da @ db) :: rest)
+            | _ -> a :: merge_same_selector (b :: rest))
+        | stmts -> stmts
+      in
       let render stmts =
         stmts
         |> Css.map (fun sel decls ->
             Css.rule ~selector:(nest_on_ampersand sel) decls)
-        |> Css.v |> Css.to_string ~minify:true
+        |> merge_same_selector |> Css.v |> Css.to_string ~minify:true
       in
       (render nestable, Css.to_string ~minify:true (Css.v hoisted))
 
@@ -564,7 +578,38 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
           List.iter (fun _ -> Buffer.add_char buf '}') variants
         end
       in
-      List.iter emit names;
+      (* A utility with no declared variant and no body of its own decorates the
+         applying rule's [&] directly. A run of those renders in one call, so
+         their declarations land in a single rule the way Tailwind emits them,
+         rather than one rule of the author's selector per utility. *)
+      let plain name =
+        match split_declared_variants defs name with
+        | [], bare when not (List.mem_assoc bare udefs) -> Some bare
+        | _ -> None
+      in
+      let rec emit_all = function
+        | [] -> ()
+        | name :: tl as all -> (
+            match plain name with
+            | None ->
+                emit name;
+                emit_all tl
+            | Some _ ->
+                let run, rest =
+                  let rec span acc = function
+                    | n :: tl when plain n <> None -> span (n :: acc) tl
+                    | rest -> (List.rev acc, rest)
+                  in
+                  span [] all
+                in
+                let body, top =
+                  nested_utilities ~theme (List.filter_map plain run)
+                in
+                add_once hoisted seen top;
+                Buffer.add_string buf body;
+                emit_all rest)
+      in
+      emit_all names;
       go (if !stop < len && css.[!stop] = ';' then !stop + 1 else !stop)
     end
     else begin
