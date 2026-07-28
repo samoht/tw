@@ -684,7 +684,20 @@ let referenced_theme_decls ~theme ~exclude selector_props =
       then None
       else
         let bare = String.sub full 2 (String.length full - 2) in
-        Color.Handler.theme_color_decl ~theme bare)
+        match bare with
+        (* An arbitrary value may name the spacing scale directly, as
+           [p-[calc(--spacing(2)+1px)]] does. *)
+        | "spacing" ->
+            let decl, _ =
+              Var.binding Theme.spacing_var
+                (Option.value
+                   (Option.bind
+                      (Scheme.theme_value (Some theme) "spacing")
+                      Css.parse_length)
+                   ~default:Theme.spacing_base)
+            in
+            Some decl
+        | _ -> Color.Handler.theme_color_decl ~theme bare)
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
