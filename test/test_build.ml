@@ -583,20 +583,42 @@ let test_md_media_dedup () =
        css)
 
 let test_md_hover_extra_media () =
-  (* Responsive+hover should not introduce a separate (hover:hover) gate *)
+  (* A responsive prefix wraps the hover rule's own (hover:hover) gate rather
+     than replacing it, which is the structure Tailwind emits. *)
   let css = Tw.Build.to_css [ md [ hover [ p 4 ] ] ] in
-  check bool "no (hover:hover) condition" false
+  check bool "keeps the (hover:hover) gate" true
     (has_media_condition "(hover: hover)" css);
-  (* Selector is inside md media block with :hover pseudo, assert
-     structurally *)
+  (* The rule sits in the inner block, so the md block holds no rule of its
+     own. *)
   let md_sels = selectors_in_media_sel ~condition:"(min-width: 48rem)" css in
+  check
+    (list Test_helpers.selector_testable)
+    "no rule directly in md" [] md_sels;
+  let hover_sels = selectors_in_media_sel ~condition:"(hover: hover)" css in
   let expected =
     Css.Selector.compound
       [ Css.Selector.class_ "md:hover:p-4"; Css.Selector.Hover ]
   in
   check
     (list Test_helpers.selector_testable)
-    "md:hover selector in md block" [ expected ] md_sels
+    "md:hover selector in the hover block" [ expected ] hover_sels
+
+(* A container query wraps the hover gate the same way a media query does, and
+   the rule inside it still reaches its theme token: the declarations live in
+   the nested block, so a collector that stops at the top level prunes
+   --spacing. *)
+let test_container_hover_nests () =
+  let css = Tw.Build.to_css [ Tw.Containers.container_md [ hover [ p 4 ] ] ] in
+  let hover_sels = selectors_in_media_sel ~condition:"(hover: hover)" css in
+  let expected =
+    Css.Selector.compound
+      [ Css.Selector.class_ "@md:hover:p-4"; Css.Selector.Hover ]
+  in
+  check
+    (list Test_helpers.selector_testable)
+    "@md:hover selector in the hover block" [ expected ] hover_sels;
+  check bool "theme layer declares --spacing" true
+    (has_var_in_layer "--spacing" "theme" css)
 
 let test_container_and_media () =
   let statements =
@@ -876,8 +898,8 @@ let tests =
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
     test_case "multi-breakpoint grouping+order" `Quick test_media_grouping_order;
     test_case "md media dedup" `Quick test_md_media_dedup;
-    test_case "md:hover has no global hover gate" `Quick
-      test_md_hover_extra_media;
+    test_case "md:hover nests the hover gate" `Quick test_md_hover_extra_media;
+    test_case "container hover nests the gate" `Quick test_container_hover_nests;
     test_case "container + media together" `Quick test_container_and_media;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "rule_sets" `Quick test_rule_sets;

@@ -282,17 +282,31 @@ let selector_with_data_key selector key value =
   let attr_selector = Css.Selector.attribute key (Exact value) in
   Css.Selector.combine selector Descendant attr_selector
 
-let media_rule_with_prefix prefix condition base_class selector props =
+(* A [hover:] rule carries its own [@media (hover:hover)]. An outer query nests
+   the two rather than swallowing the inner one, which is the structure Tailwind
+   emits for [lg:hover:X] and [@md:hover:X]. *)
+let nested_hover ~selector ~props =
+  [ Css.media ~condition:hover_media [ Css.rule ~selector props ] ]
+
+let media_rule_with_prefix ?(inner_has_hover = false) prefix condition
+    base_class selector props =
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition ~selector:new_selector ~props
-    ~base_class:modified_class ()
+  if inner_has_hover then
+    media_query ~condition ~selector:new_selector ~props:[]
+      ~base_class:modified_class
+      ~nested:(nested_hover ~selector:new_selector ~props)
+      ()
+  else
+    media_query ~condition ~selector:new_selector ~props
+      ~base_class:modified_class ()
 
-let responsive_rule ?theme breakpoint base_class selector props =
-  media_rule_with_prefix
+let responsive_rule ?theme ?inner_has_hover breakpoint base_class selector props
+    =
+  media_rule_with_prefix ?inner_has_hover
     (string_of_breakpoint breakpoint)
     (breakpoint_condition ?theme breakpoint)
     base_class selector props
@@ -308,14 +322,16 @@ let responsive_breakpoint_prefix prefix breakpoint =
   in
   prefix ^ "-" ^ suffix
 
-let min_responsive_rule ?theme breakpoint base_class selector props =
-  media_rule_with_prefix
+let min_responsive_rule ?theme ?inner_has_hover breakpoint base_class selector
+    props =
+  media_rule_with_prefix ?inner_has_hover
     (responsive_breakpoint_prefix "min" breakpoint)
     (breakpoint_condition ?theme breakpoint)
     base_class selector props
 
-let max_responsive_rule ?theme breakpoint base_class selector props =
-  media_rule_with_prefix
+let max_responsive_rule ?theme ?inner_has_hover breakpoint base_class selector
+    props =
+  media_rule_with_prefix ?inner_has_hover
     (responsive_breakpoint_prefix "max" breakpoint)
     (breakpoint_not_condition ?theme breakpoint)
     base_class selector props
@@ -324,30 +340,31 @@ let arbitrary_px_string px =
   if Float.is_integer px then Int.to_string (Float.to_int px)
   else Float.to_string px
 
-let min_arbitrary_rule px base_class selector props =
+let min_arbitrary_rule ?inner_has_hover px base_class selector props =
   let prefix = "min-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix prefix (media_min_width_px px) base_class selector
-    props
+  media_rule_with_prefix ?inner_has_hover prefix (media_min_width_px px)
+    base_class selector props
 
-let max_arbitrary_rule px base_class selector props =
+let max_arbitrary_rule ?inner_has_hover px base_class selector props =
   let prefix = "max-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix prefix
+  media_rule_with_prefix ?inner_has_hover prefix
     (media_not_min_width_px px)
     base_class selector props
 
-let arbitrary_length_rule prefix condition l base_class selector props =
+let arbitrary_length_rule ?inner_has_hover prefix condition l base_class
+    selector props =
   let len_str = Modifiers.compact_length l in
-  media_rule_with_prefix
+  media_rule_with_prefix ?inner_has_hover
     (prefix ^ "-[" ^ len_str ^ "]")
     condition base_class selector props
 
-let min_arbitrary_length_rule l base_class selector props =
-  arbitrary_length_rule "min"
+let min_arbitrary_length_rule ?inner_has_hover l base_class selector props =
+  arbitrary_length_rule ?inner_has_hover "min"
     (Css.media_min_width_length l)
     l base_class selector props
 
-let max_arbitrary_length_rule l base_class selector props =
-  arbitrary_length_rule "max"
+let max_arbitrary_length_rule ?inner_has_hover l base_class selector props =
+  arbitrary_length_rule ?inner_has_hover "max"
     (Css.media_not_min_width_length l)
     l base_class selector props
 
@@ -356,27 +373,28 @@ let custom_breakpoint ?theme name =
   | Some px -> px
   | None -> failwith ("unknown custom breakpoint: " ^ name)
 
-let custom_media_rule ?theme prefix condition_of_px name base_class selector
-    props =
+let custom_media_rule ?theme ?inner_has_hover prefix condition_of_px name
+    base_class selector props =
   let px = custom_breakpoint ?theme name in
-  media_rule_with_prefix (prefix name) (condition_of_px px) base_class selector
-    props
+  media_rule_with_prefix ?inner_has_hover (prefix name) (condition_of_px px)
+    base_class selector props
 
-let custom_responsive_rule ?theme name base_class selector props =
-  custom_media_rule ?theme Fun.id media_min_width_px name base_class selector
-    props
+let custom_responsive_rule ?theme ?inner_has_hover name base_class selector
+    props =
+  custom_media_rule ?theme ?inner_has_hover Fun.id media_min_width_px name
+    base_class selector props
 
-let min_custom_rule ?theme name base_class selector props =
-  custom_media_rule ?theme
+let min_custom_rule ?theme ?inner_has_hover name base_class selector props =
+  custom_media_rule ?theme ?inner_has_hover
     (fun name -> "min-" ^ name)
     media_min_width_px name base_class selector props
 
-let max_custom_rule ?theme name base_class selector props =
-  custom_media_rule ?theme
+let max_custom_rule ?theme ?inner_has_hover name base_class selector props =
+  custom_media_rule ?theme ?inner_has_hover
     (fun name -> "max-" ^ name)
     media_not_min_width_px name base_class selector props
 
-let container_rule query base_class selector props =
+let container_rule ?(inner_has_hover = false) query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
@@ -384,7 +402,11 @@ let container_rule query base_class selector props =
       ~new_class:modified_class selector
   in
   let condition = Containers.container_query_to_condition query in
-  container_query ~condition ~selector:new_selector ~props ~base_class ()
+  if inner_has_hover then
+    container_query ~condition ~selector:new_selector ~props:[] ~base_class
+      ~nested:(nested_hover ~selector:new_selector ~props)
+      ()
+  else container_query ~condition ~selector:new_selector ~props ~base_class ()
 
 (** Preprocess a has-[...] selector string for CSS parsing. Replaces & with *
     (nesting reference) and ensures combinators (+, >, ~) have proper spacing.
@@ -1469,24 +1491,31 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
       handle_supports_modifier condition_str base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
-      responsive_rule ?theme breakpoint base_class selector props
+      responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
+        props
   | Style.Min_responsive breakpoint ->
-      min_responsive_rule ?theme breakpoint base_class selector props
+      min_responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
+        props
   | Style.Max_responsive breakpoint ->
-      max_responsive_rule ?theme breakpoint base_class selector props
-  | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
-  | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
+      max_responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
+        props
+  | Style.Min_arbitrary px ->
+      min_arbitrary_rule ~inner_has_hover px base_class selector props
+  | Style.Max_arbitrary px ->
+      max_arbitrary_rule ~inner_has_hover px base_class selector props
   | Style.Min_arbitrary_length l ->
-      min_arbitrary_length_rule l base_class selector props
+      min_arbitrary_length_rule ~inner_has_hover l base_class selector props
   | Style.Max_arbitrary_length l ->
-      max_arbitrary_length_rule l base_class selector props
+      max_arbitrary_length_rule ~inner_has_hover l base_class selector props
   | Style.Custom_responsive name ->
-      custom_responsive_rule ?theme name base_class selector props
+      custom_responsive_rule ?theme ~inner_has_hover name base_class selector
+        props
   | Style.Min_custom name ->
-      min_custom_rule ?theme name base_class selector props
+      min_custom_rule ?theme ~inner_has_hover name base_class selector props
   | Style.Max_custom name ->
-      max_custom_rule ?theme name base_class selector props
-  | Style.Container query -> container_rule query base_class selector props
+      max_custom_rule ?theme ~inner_has_hover name base_class selector props
+  | Style.Container query ->
+      container_rule ~inner_has_hover query base_class selector props
   (* :not(), :not-bracket, group-not, peer-not — handled in
      apply_modifier_to_rule for multi-rule support *)
   | Style.Not _ | Style.Not_bracket _ | Style.Group_not _ | Style.Peer_not _ ->

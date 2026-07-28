@@ -44,6 +44,7 @@ type t =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      nested : Css.statement list;
     }
   | Starting_style of {
       selector : Css.Selector.t;
@@ -94,6 +95,7 @@ val container_query :
   selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
+  ?nested:Css.statement list ->
   unit ->
   t
 (** [container_query ~condition ~selector ~props ()] constructs a
