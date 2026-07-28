@@ -339,6 +339,7 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     default_outline_width;
     breakpoints;
     token_overrides = [];
+    inline_tokens = [];
   }
 
 let setup_scheme_for_test expected =

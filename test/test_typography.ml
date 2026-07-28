@@ -213,6 +213,42 @@ let test_content_named_requires_theme () =
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "content-slash with theme rejected: %s" m
 
+(* A project @theme can name font families of its own. The token gates the
+   parse, so a stray source word (font-awesome) stays an unknown class; an
+   @theme inline token carries its value into the utility rather than a
+   reference, except when the value refers back to the token itself. *)
+let test_named_font_family () =
+  (match Tw.of_string "font-awesome" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "font-awesome should be rejected without a token");
+  let css theme cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.Css.pp ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+  in
+  let themed =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("font-source", "Georgia, serif") ]
+  in
+  Alcotest.(check bool)
+    "font-source references its token" true
+    (Astring.String.is_infix ~affix:"font-family:var(--font-source)"
+       (css themed "font-source"));
+  let inline =
+    Tw.Scheme.with_overrides
+      ~inline:[ "font-source"; "font-self" ]
+      Tw.Scheme.default
+      [ ("font-source", "Georgia, serif"); ("font-self", "var(--font-self)") ]
+  in
+  Alcotest.(check bool)
+    "an inline token is inlined" true
+    (Astring.String.is_infix ~affix:"font-family:Georgia,serif"
+       (css inline "font-source"));
+  Alcotest.(check bool)
+    "a self-referential inline token keeps its declaration" true
+    (Astring.String.is_infix ~affix:"--font-self:var(--font-self)"
+       (css inline "font-self"))
+
 (* text-[<value>] accepts values that CSS font-size accepts: lengths with a
    unit, percentages, font-size keywords (larger/smaller/xxx-large/...),
    clamp(...), and var(...). Bare identifiers without a unit are rejected --
@@ -441,6 +477,7 @@ let tests =
       test_text_bracket_size_invalid;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
+    test_case "named font family from the theme" `Quick test_named_font_family;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

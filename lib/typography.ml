@@ -204,7 +204,20 @@ let default_font_variant_theme : font_variant_theme =
     fraction = (fraction_decl, fraction_ref);
   }
 
-(* Font family theme variables *)
+(* Font family theme variables. A project [@theme] can name families of its own
+   ([--font-source]); order (1, 100) puts those after the three built-in
+   stacks. *)
+let font_named_cache : (string, Css.font_family Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let font_named_var name =
+  match Hashtbl.find_opt font_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100) in
+      Hashtbl.add font_named_cache name var;
+      var
+
 let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
 let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
 let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
@@ -312,6 +325,7 @@ module Typography_early = struct
       Font_sans
     | Font_serif
     | Font_mono
+    | Font_named of string (* font-source, from a --font-* theme token *)
     | (* Font styles *)
       Italic
     | Not_italic
@@ -508,7 +522,12 @@ module Typography_early = struct
           if List.mem s known_leading_names then Stdlib.Option.Some (Lh_named s)
           else Stdlib.Option.None
 
-  let of_class _theme class_name =
+  (* A font family the project named in its [@theme]. Gated on the token being
+     there so a stray source word (font-awesome) is not a utility. *)
+  let is_named_font theme n =
+    Scheme.theme_value (Some theme) ("font-" ^ n) <> None
+
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "xs" ] -> Ok Text_xs
@@ -578,6 +597,9 @@ module Typography_early = struct
     | [ "font"; "sans" ] -> Ok Font_sans
     | [ "font"; "serif" ] -> Ok Font_serif
     | [ "font"; "mono" ] -> Ok Font_mono
+    | "font" :: (_ :: _ as rest)
+      when is_named_font theme (String.concat "-" rest) ->
+        Ok (Font_named (String.concat "-" rest))
     | [ "italic" ] -> Ok Italic
     | [ "not"; "italic" ] -> Ok Not_italic
     | [ "text"; "left" ] -> Ok Text_left
@@ -661,6 +683,7 @@ module Typography_early = struct
     | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
+    | Font_named name -> "font-" ^ name
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -705,6 +728,7 @@ module Typography_early = struct
     | Font_mono -> 1501
     | Font_sans -> 1502
     | Font_serif -> 1503
+    | Font_named _ -> 1504
     (* Bracket font-size with line-height modifier — before named sizes *)
     | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
@@ -903,6 +927,32 @@ module Typography_early = struct
            ])
     in
     style [ sans_decl; font_family (Css.Var sans_ref) ]
+
+  (* [font-source] reads --font-source from the theme; the token has to be
+     there, or a stray source word would parse as a utility.
+
+     An [@theme inline] token has no declaration of its own, so the utility
+     carries the value instead of a reference to it. A self-referential one
+     ([--font-a: var(--font-a)]) is the exception: inlining it would leave the
+     reference dangling, so the token keeps its declaration. *)
+  let font_named theme name =
+    let token = "font-" ^ name in
+    match Scheme.theme_value (Some theme) token with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_font_family raw with
+        | None -> style []
+        | Some family ->
+            let self_referential =
+              match family with
+              | Css.Var v -> Css.var_name v = token
+              | _ -> false
+            in
+            if Scheme.is_inline_token theme token && not self_referential then
+              style [ font_family family ]
+            else
+              let decl, ref = Var.binding (font_named_var name) family in
+              style [ decl; font_family (Css.Var ref) ])
 
   let italic = style [ font_style Italic ]
   let not_italic = style [ font_style Normal ]
@@ -1204,6 +1254,7 @@ module Typography_early = struct
           Var.bracket bare_name
         in
         style [ font_feature_settings (Var var_ref) ]
+    | Font_named name -> font_named theme name
     | Font_sans -> font_sans
     | Font_serif -> font_serif
     | Font_mono -> font_mono

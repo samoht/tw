@@ -44,6 +44,10 @@ type t = {
       (** Per-render theme token overrides (from a [@theme] block). Key is the
           variable name without the leading [--]; value is the CSS string.
           Threaded replacement for the global [Var.theme_value_overrides]. *)
+  inline_tokens : string list;
+      (** Names of the tokens a project declared in an [\@theme inline] block.
+          Such a token has no declaration of its own: a utility reading it
+          inlines the value instead of referencing [var(--name)]. *)
 }
 (** Theme scheme configuration *)
 
@@ -74,9 +78,15 @@ val theme_value : t option -> string -> string option
 val token : t -> string -> string option
 (** [token t name] resolves a theme token: override (if any) else default. *)
 
-val with_overrides : t -> (string * string) list -> t
-(** [with_overrides t overrides] applies [overrides] on top of [t]'s existing
-    token overrides (new entries win). *)
+val with_overrides : ?inline:string list -> t -> (string * string) list -> t
+(** [with_overrides ?inline t overrides] applies [overrides] on top of [t]'s
+    existing token overrides (new entries win). [inline] names the tokens that
+    came from an [\@theme inline] block. *)
+
+val is_inline_token : t -> string -> bool
+(** [is_inline_token t name] is whether [name] was declared in an
+    [\@theme inline] block, so a utility reading it inlines the value rather
+    than referencing [var(--name)]. *)
 
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)
