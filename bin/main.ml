@@ -966,6 +966,47 @@ let hoist_layer_blocks stmts =
             | _ -> Some stmt))
       stmts
 
+(* A token the project declared in an [@theme inline] block has no declaration
+   of its own — the value goes into the utility instead. Two exceptions: one
+   that refers to itself, where inlining would leave the reference dangling, and
+   one some other rule still reads. That has to be judged over the whole
+   document: the typography plugin's [.prose code] reads [--font-mono] from the
+   components layer. *)
+let drop_unread_inline_tokens ~theme stmts =
+  if Tw.Scheme.(theme.inline_tokens) = [] then stmts
+  else
+    let rendered = Css.to_string ~minify:true (Css.v stmts) in
+    let reads name =
+      let needle = "var(" ^ name ^ ")" in
+      let nl = String.length needle and hl = String.length rendered in
+      let rec at i =
+        i + nl <= hl && (String.sub rendered i nl = needle || at (i + 1))
+      in
+      at 0
+    in
+    let keep decl =
+      match Css.custom_declaration_name decl with
+      | Some n when String.length n > 2 ->
+          let bare = String.sub n 2 (String.length n - 2) in
+          (not (Tw.Scheme.is_inline_token theme bare))
+          || String.trim (Css.declaration_value decl) = "var(" ^ n ^ ")"
+          || reads n
+      | _ -> true
+    in
+    let rec go stmts =
+      List.map
+        (fun stmt ->
+          match Css.as_layer stmt with
+          | Some (name, inner) -> Css.layer ?name (go inner)
+          | None -> (
+              match Css.as_rule stmt with
+              | Some (sel, decls, nested) ->
+                  Css.rule ~selector:sel ~nested (List.filter keep decls)
+              | None -> stmt))
+        stmts
+    in
+    go stmts
+
 let collect_properties_at_end stmts =
   let seen = Hashtbl.create 64 in
   let keep, props =
@@ -1026,6 +1067,7 @@ let splice_into_entrypoint ~theme ~path generated =
                   Css.statements generated
               | s -> [ s ])
           |> merge_named_layers |> hoist_layer_blocks
+          |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)
 
 let eval_flag flag ~default =

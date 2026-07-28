@@ -707,6 +707,29 @@ let referenced_theme_decls ~theme ~exclude selector_props =
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
 
+(* [--default-font-family] points at [--font-sans]. When the project declared
+   that token in an [@theme inline] block it has no declaration of its own, so
+   the default carries its value instead of a reference nothing resolves. *)
+let inline_default_family theme decl =
+  match Css.custom_declaration_name decl with
+  | Some name -> (
+      let token =
+        match name with
+        | "--default-font-family" -> Some "font-sans"
+        | "--default-mono-font-family" -> Some "font-mono"
+        | _ -> None
+      in
+      match token with
+      | Some t
+        when Scheme.is_inline_token theme t
+             && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
+        -> (
+          match Scheme.theme_value (Some theme) t with
+          | Some v -> Css.custom_property ~layer:"theme" name v
+          | None -> decl)
+      | _ -> decl)
+  | None -> decl
+
 (* Tailwind derives the default font-feature settings from the sans and mono
    tokens the project declared. *)
 let derived_font_feature_decls ~theme ~have =
@@ -719,33 +742,6 @@ let derived_font_feature_decls ~theme ~have =
       | Some v when not (Strings.mem ("--" ^ name) have) ->
           Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
       | _ -> None)
-
-(* A token the project declared in an [@theme inline] block has no declaration
-   of its own — the value goes into the utility instead. A self-referential one
-   ([--font-a: var(--font-a)]) is the exception, and so is one another
-   declaration still reads: inlining either would leave a dangling reference. *)
-let drop_inline_tokens theme decls =
-  let reads n other =
-    let needle = "var(" ^ n ^ ")" in
-    let hay = Css.declaration_value other in
-    let nl = String.length needle and hl = String.length hay in
-    let rec at i =
-      i + nl <= hl && (String.sub hay i nl = needle || at (i + 1))
-    in
-    at 0
-  in
-  if theme.Scheme.inline_tokens = [] then decls
-  else
-    List.filter
-      (fun d ->
-        match Css.custom_declaration_name d with
-        | Some n when String.length n > 2 ->
-            let bare = String.sub n 2 (String.length n - 2) in
-            (not (Scheme.is_inline_token theme bare))
-            || String.trim (Css.declaration_value d) = "var(" ^ n ^ ")"
-            || List.exists (fun other -> other != d && reads n other) decls
-        | _ -> true)
-      decls
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
@@ -792,8 +788,12 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
       post_defaults
   in
 
+  (* A project [@theme] override wins wherever the declaration came from: the
+     built-in defaults carry the same token names as the extracted ones. *)
   pre @ extracted @ post
-  |> drop_inline_tokens theme |> sort_by_var_order |> theme_layer_rule ~layers
+  |> List.map (apply_token_override theme)
+  |> List.map (inline_default_family theme)
+  |> sort_by_var_order |> theme_layer_rule ~layers
 
 let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in

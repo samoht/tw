@@ -935,24 +935,34 @@ module Typography_early = struct
      carries the value instead of a reference to it. A self-referential one
      ([--font-a: var(--font-a)]) is the exception: inlining it would leave the
      reference dangling, so the token keeps its declaration. *)
-  let font_named theme name =
+  (* A family the project declared also carries the [--font-<name>--font-
+     feature-settings] beside it, the way Tailwind emits it. *)
+  let font_feature_decls theme token =
+    match
+      Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
+    with
+    | None -> []
+    | Some v -> [ font_feature_settings (Css.Feature_list v) ]
+
+  let font_named ?fallback theme name =
     let token = "font-" ^ name in
     match Scheme.theme_value (Some theme) token with
-    | None -> style []
+    | None -> ( match fallback with Some s -> s | None -> style [])
     | Some raw -> (
         match Css.parse_font_family raw with
-        | None -> style []
+        | None -> ( match fallback with Some s -> s | None -> style [])
         | Some family ->
             let self_referential =
               match family with
               | Css.Var v -> Css.var_name v = token
               | _ -> false
             in
+            let features = font_feature_decls theme token in
             if Scheme.is_inline_token theme token && not self_referential then
-              style [ font_family family ]
+              style (font_family family :: features)
             else
               let decl, ref = Var.binding (font_named_var name) family in
-              style [ decl; font_family (Css.Var ref) ])
+              style (decl :: font_family (Css.Var ref) :: features))
 
   let italic = style [ font_style Italic ]
   let not_italic = style [ font_style Normal ]
@@ -1279,9 +1289,9 @@ module Typography_early = struct
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_named name -> font_named theme name
-    | Font_sans -> font_sans
-    | Font_serif -> font_serif
-    | Font_mono -> font_mono
+    | Font_sans -> font_named ~fallback:font_sans theme "sans"
+    | Font_serif -> font_named ~fallback:font_serif theme "serif"
+    | Font_mono -> font_named ~fallback:font_mono theme "mono"
     | Italic -> italic
     | Not_italic -> not_italic
     | Text_left -> text_left

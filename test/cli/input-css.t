@@ -183,3 +183,25 @@ the project declared:
   1
   $ tw --minify --input-css scales.css index.html | grep -cF -- '--default-font-feature-settings:"cv02"'
   1
+
+An [@theme inline] token gets no declaration of its own unless something still
+reads it: the utility carries the value instead, along with the font-feature
+settings declared beside it. A project override wins over the built-in default:
+
+  $ cat > inl.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme inline {
+  >   --font-sans: var(--font-inter), system-ui;
+  >   --font-sans--font-feature-settings: "cv02";
+  > }
+  > EOF
+  $ cat > inl.html <<EOF
+  > <div class="font-sans"></div>
+  > EOF
+  $ tw --minify --input-css inl.css inl.html | grep -cF '.font-sans{font-family:var(--font-inter),system-ui;font-feature-settings:"cv02"}'
+  1
+  $ tw --minify --input-css inl.css inl.html | grep -c -- '--font-sans:'
+  0
+  [1]
+  $ tw --minify --input-css inl.css inl.html | grep -cF -- '--default-font-family:var(--font-inter),system-ui'
+  1
