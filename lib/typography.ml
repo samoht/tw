@@ -1695,6 +1695,10 @@ module Typography_late = struct
     | [ "list"; "image"; "none" ] -> Ok List_image_none
     | [ "list"; "image"; value ] when Parse.is_bracket_var value ->
         Ok (List_image_bracket_var (Parse.bracket_inner value))
+    (* The [(--x)] shorthand names a custom property, the same as
+       [list-image-[var(--x)]]. *)
+    | [ "list"; "image"; value ] when Parse.is_bare_var value ->
+        Ok (List_image_bracket_var value)
     | [ "list"; "image"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         match
@@ -1919,7 +1923,9 @@ module Typography_late = struct
     | List_inside -> "list-inside"
     | List_outside -> "list-outside"
     | List_image_none -> "list-image-none"
-    | List_image_bracket_var s -> "list-image-[" ^ s ^ "]"
+    | List_image_bracket_var s ->
+        if Parse.is_bare_var s then "list-image-" ^ s
+        else "list-image-[" ^ s ^ "]"
     | List_image_bracket (raw, _) -> "list-image-[" ^ raw ^ "]"
     | List_image_url url -> "list-image-" ^ url
     | Underline_offset_auto -> "underline-offset-auto"
@@ -2698,7 +2704,9 @@ module Typography_late = struct
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_type (Var ref) ]
-    | None -> style [ list_style_type (Var ref) ]
+    (* Without a theme override Tailwind writes the keyword, not a reference to
+       a token nothing declares. *)
+    | None -> style [ list_style_type None ]
 
   let list_bracket_var s =
     let inner = Parse.extract_var_name s in
@@ -2711,7 +2719,15 @@ module Typography_late = struct
   let list_outside = style [ list_style_position Outside ]
 
   let list_image_bracket_var s =
-    let inner = Parse.extract_var_name s in
+    (* Written either as [[var(--x)]] or as the [(--x)] shorthand. *)
+    let inner =
+      if Parse.is_bare_var s then
+        let bare = Parse.bare_var_inner s in
+        if String.length bare > 2 && String.sub bare 0 2 = "--" then
+          String.sub bare 2 (String.length bare - 2)
+        else bare
+      else Parse.extract_var_name s
+    in
     let ref : Css.list_style_image Css.var = Var.bracket inner in
     style [ list_style_image (Var ref) ]
 
@@ -2728,7 +2744,7 @@ module Typography_late = struct
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_image (Var ref) ]
-    | None -> style [ list_style_image (Var ref) ]
+    | None -> style [ list_style_image None ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]

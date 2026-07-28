@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Write the keyword for `list-none`, `list-image-none` and `columns-auto`
+  when no `@theme` defines the token; they referenced a variable nothing
+  declared (#231)
+- Accept the `(--x)` shorthand in `list-image-(--x)` (#231)
+
 - Read `\_` in an arbitrary value as a literal underscore, not an escaped
   space: `content-['Hello\_World']` gave `"Hello World"` (#231)
 - Accept any CSS length in `bg-size-[...]`; only `px` and `%` were read,
