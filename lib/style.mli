@@ -214,6 +214,9 @@ type modifier =
       *)
   | In_data of string
       (** [in-data-X] — element must be descendant of [data-X] *)
+  | In_state of modifier * string
+      (** [in-focus] — element must be a descendant of one in that state; the
+          string is the state name, for the class *)
   | Group_not of modifier * string option
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
