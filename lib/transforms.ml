@@ -21,11 +21,11 @@ module Handler = struct
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
-    | Translate_x_arbitrary of Css.length
+    | Translate_x_arbitrary of string * Css.length
     | Translate_y of int
     | Translate_y_full
     | Translate_y_px
-    | Translate_y_arbitrary of Css.length
+    | Translate_y_arbitrary of string * Css.length
     | Scale of int
     | Scale_x of int
     | Scale_x_arbitrary of float
@@ -48,7 +48,7 @@ module Handler = struct
     | Translate_px
     | Translate_1_2
     | Translate_fraction of int * int
-    | Translate_arbitrary of Css.length
+    | Translate_arbitrary of string * Css.length
     | (* Negative translate utilities *)
       Neg_translate of int
     | Neg_translate_arbitrary of string
@@ -92,7 +92,10 @@ module Handler = struct
     | Scale_none
     | Perspective_none
     | Perspective_dramatic
+    | Perspective_near
     | Perspective_normal
+    | Perspective_midrange
+    | Perspective_distant
     | Perspective_arbitrary of Css.length
     | (* Perspective origin *)
       Perspective_origin_center
@@ -197,15 +200,24 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
       Css.Transform "tw-skew-y"
 
-  (* Perspective theme variables *)
+  (* Perspective theme variables, ordered by value to match Tailwind's theme *)
   let perspective_dramatic_var =
     Var.theme Css.Length "perspective-dramatic" ~order:(7, 13)
 
+  let perspective_near_var =
+    Var.theme Css.Length "perspective-near" ~order:(7, 14)
+
   let perspective_normal_var =
-    Var.theme Css.Length "perspective-normal" ~order:(7, 14)
+    Var.theme Css.Length "perspective-normal" ~order:(7, 15)
+
+  let perspective_midrange_var =
+    Var.theme Css.Length "perspective-midrange" ~order:(7, 16)
+
+  let perspective_distant_var =
+    Var.theme Css.Length "perspective-distant" ~order:(7, 17)
 
   let perspective_none_var =
-    Var.theme Css.Length "perspective-none" ~order:(7, 15)
+    Var.theme Css.Length "perspective-none" ~order:(7, 18)
 
   (** {1 Helpers} *)
 
@@ -308,7 +320,9 @@ module Handler = struct
     if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
       let inner = String.sub s 1 (String.length s - 2) in
       let slen = String.length inner in
-      let i = ref 0 in
+      (* Allow a leading minus so negative arbitrary values
+         (translate-x-[-0.5px], translate-y-[-110%]) parse. *)
+      let i = ref (if slen > 0 && inner.[0] = '-' then 1 else 0) in
       while
         !i < slen
         && ((inner.[!i] >= '0' && inner.[!i] <= '9') || inner.[!i] = '.')
@@ -879,8 +893,20 @@ module Handler = struct
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
     style (decl :: [ Css.perspective (Var r) ])
 
+  let perspective_near =
+    let decl, r = Var.binding perspective_near_var (Px 300.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
   let perspective_normal =
     let decl, r = Var.binding perspective_normal_var (Px 500.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_midrange =
+    let decl, r = Var.binding perspective_midrange_var (Px 800.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_distant =
+    let decl, r = Var.binding perspective_distant_var (Px 1200.0) in
     style (decl :: [ Css.perspective (Var r) ])
 
   let perspective_arbitrary len = style [ Css.perspective len ]
@@ -1178,12 +1204,12 @@ module Handler = struct
     | Translate_x n -> translate_x n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
-    | Translate_x_arbitrary len -> translate_x_arbitrary len
+    | Translate_x_arbitrary (_, len) -> translate_x_arbitrary len
     | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
     | Translate_y n -> translate_y n
     | Translate_y_full -> translate_y_full
     | Translate_y_px -> translate_y_px
-    | Translate_y_arbitrary len -> translate_y_arbitrary len
+    | Translate_y_arbitrary (_, len) -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate n -> translate_spacing n
     | Neg_translate n -> translate_spacing (-n)
@@ -1192,7 +1218,7 @@ module Handler = struct
     | Translate_px -> translate_px
     | Translate_1_2 -> translate_1_2
     | Translate_fraction (num, denom) -> translate_fraction num denom
-    | Translate_arbitrary len -> translate_arbitrary len
+    | Translate_arbitrary (_, len) -> translate_arbitrary len
     | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
     | Neg_translate_px -> neg_translate_px
@@ -1248,7 +1274,10 @@ module Handler = struct
     | Neg_rotate_z_arbitrary a -> neg_rotate_z_arbitrary a
     | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
+    | Perspective_near -> perspective_near
     | Perspective_normal -> perspective_normal
+    | Perspective_midrange -> perspective_midrange
+    | Perspective_distant -> perspective_distant
     | Perspective_arbitrary len -> perspective_arbitrary len
     | Perspective_origin_center -> perspective_origin_center ()
     | Perspective_origin_top -> perspective_origin_top ()
@@ -1395,6 +1424,9 @@ module Handler = struct
     | Perspective_dramatic -> 1400
     | Perspective_none -> 1401
     | Perspective_normal -> 1402
+    | Perspective_near -> 1403
+    | Perspective_midrange -> 1404
+    | Perspective_distant -> 1405
     | Perspective_origin_arbitrary _ -> 1499
     | Perspective_origin_bottom -> 1500
     | Perspective_origin_bottom_left -> 1501
@@ -1474,7 +1506,9 @@ module Handler = struct
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
-        | Ok len -> Ok (Translate_x_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_x_arbitrary (String.sub n 1 (String.length n - 2), len))
         | Error _ -> err_not_utility)
     | [ "translate"; "x"; "full" ] -> Ok Translate_x_full
     | [ "translate"; "x"; "px" ] -> Ok Translate_x_px
@@ -1485,7 +1519,9 @@ module Handler = struct
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
-        | Ok len -> Ok (Translate_y_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_y_arbitrary (String.sub n 1 (String.length n - 2), len))
         | Error _ -> err_not_utility)
     | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
     | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
@@ -1516,7 +1552,10 @@ module Handler = struct
            | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
-        | Ok len -> Ok (Translate_arbitrary len)
+        | Ok len ->
+            Ok
+              (Translate_arbitrary
+                 (String.sub value 1 (String.length value - 2), len))
         | Error _ -> err_not_utility)
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
@@ -1683,7 +1722,10 @@ module Handler = struct
     | [ ""; "skew"; n ] -> Parse.int_pos ~name:"skew" n >|= fun n -> Skew (-n)
     | [ "perspective"; "none" ] -> Ok Perspective_none
     | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
+    | [ "perspective"; "near" ] -> Ok Perspective_near
     | [ "perspective"; "normal" ] -> Ok Perspective_normal
+    | [ "perspective"; "midrange" ] -> Ok Perspective_midrange
+    | [ "perspective"; "distant" ] -> Ok Perspective_distant
     | "perspective" :: rest
       when match rest with "origin" :: _ | [] -> false | _ -> true -> (
         let value = String.concat "-" rest in
@@ -1751,9 +1793,6 @@ module Handler = struct
 
   let pp_angle_bracket a = "[" ^ Css.Pp.to_string Css.pp_angle a ^ "]"
 
-  let pp_length_bracket len =
-    "[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
-
   let pp_number_bracket f =
     let s = string_of_float f in
     let s =
@@ -1782,13 +1821,13 @@ module Handler = struct
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
-    | Translate_x_arbitrary len -> "translate-x-" ^ pp_length_bracket len
+    | Translate_x_arbitrary (raw, _) -> "translate-x-[" ^ raw ^ "]"
     | Translate_x_fraction (num, denom) ->
         "translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_y n -> neg_class "translate-y-" n
     | Translate_y_full -> "translate-y-full"
     | Translate_y_px -> "translate-y-px"
-    | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
+    | Translate_y_arbitrary (raw, _) -> "translate-y-[" ^ raw ^ "]"
     | Translate_y_fraction (num, denom) ->
         "translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_z n -> neg_class "translate-z-" n
@@ -1804,7 +1843,7 @@ module Handler = struct
     | Translate_1_2 -> "translate-1/2"
     | Translate_fraction (num, denom) ->
         "translate-" ^ string_of_int num ^ "/" ^ string_of_int denom
-    | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
+    | Translate_arbitrary (raw, _) -> "translate-" ^ "[" ^ raw ^ "]"
     | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
     | Neg_translate_px -> "-translate-px"
@@ -1870,7 +1909,10 @@ module Handler = struct
     | Neg_rotate_z_arbitrary a -> "-rotate-z-" ^ pp_angle_bracket a
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
+    | Perspective_near -> "perspective-near"
     | Perspective_normal -> "perspective-normal"
+    | Perspective_midrange -> "perspective-midrange"
+    | Perspective_distant -> "perspective-distant"
     | Perspective_arbitrary len ->
         "perspective-[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
     | Perspective_origin_center -> "perspective-origin-center"
@@ -1939,7 +1981,10 @@ let rotate_z n = utility (Rotate_z n)
 let scale_z n = utility (Scale_z n)
 let perspective_none = utility Perspective_none
 let perspective_dramatic = utility Perspective_dramatic
+let perspective_near = utility Perspective_near
 let perspective_normal = utility Perspective_normal
+let perspective_midrange = utility Perspective_midrange
+let perspective_distant = utility Perspective_distant
 let neg_translate_x_1_2 = utility Neg_translate_x_1_2
 let neg_translate_y_1_2 = utility Neg_translate_y_1_2
 let perspective_origin_center = utility Perspective_origin_center

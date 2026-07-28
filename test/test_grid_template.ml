@@ -59,7 +59,11 @@ let of_string_valid () =
   check "grid-cols-[repeat(2,1fr_2fr)]";
   check "grid-cols-[repeat(auto-fill,minmax(0,1fr))]";
   check "grid-cols-[fit-content(200px)]";
-  check "grid-rows-[repeat(4,minmax(100px,auto))]"
+  check "grid-rows-[repeat(4,minmax(100px,auto))]";
+  (* a math-function track (min/max/clamp) is a length track *)
+  check "grid-cols-[min(50%,20rem)]";
+  check "grid-cols-[min(50%,20rem)_auto]";
+  check "grid-cols-[max(200px,50%)_1fr]"
 
 let of_string_invalid () =
   let fail_maybe input =

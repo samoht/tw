@@ -390,11 +390,9 @@ let nest_on_ampersand sel =
   |> selector_parts |> List.map rewrite |> String.concat ","
   |> Cascade.Selector.of_string
 
-(* Peel the leading variant prefixes a project declared with [@custom-variant].
-   They cannot go through [Tw.of_string], which only knows the built-in
-   variants, so they are re-emitted as [@variant] blocks for [expand_variants]
-   to expand. A [:] inside [[&>*]] is not a separator. *)
-let peel_declared_variants defs name =
+(* Split a class name on its variant separators. A [:] inside [[&>*]] or [(--x)]
+   is part of the segment, not a separator. *)
+let variant_segments name =
   let len = String.length name in
   let rec seg_end i depth =
     if i >= len then i
@@ -407,13 +405,28 @@ let peel_declared_variants defs name =
   in
   let rec go i acc =
     let stop = seg_end i 0 in
-    if stop >= len then (List.rev acc, String.sub name i (len - i))
-    else
-      let seg = String.sub name i (stop - i) in
-      if List.mem_assoc seg defs then go (stop + 1) (seg :: acc)
-      else (List.rev acc, String.sub name i (len - i))
+    let seg = String.sub name i (stop - i) in
+    if stop >= len then List.rev (seg :: acc) else go (stop + 1) (seg :: acc)
   in
   go 0 []
+
+(* Separate the variants a project declared with [@custom-variant] from the rest
+   of the class. They cannot go through [Tw.of_string], which only knows the
+   built-in variants, so they are re-emitted as [@variant] blocks for
+   [expand_variants] to expand. A declared variant is picked out wherever it
+   sits in the chain — [lg:dark:flex] as much as [dark:lg:flex] — and the
+   built-in prefixes stay attached to the utility, which keeps their media
+   queries wrapped around the declared variant's selector. *)
+let split_declared_variants defs name =
+  match variant_segments name with
+  | [] | [ _ ] -> ([], name)
+  | segs ->
+      let bare = List.nth segs (List.length segs - 1) in
+      let prefix = List.filteri (fun i _ -> i < List.length segs - 1) segs in
+      let declared, builtin =
+        List.partition (fun s -> List.mem_assoc s defs) prefix
+      in
+      (declared, String.concat ":" (builtin @ [ bare ]))
 
 (* The declarations of [names], rewritten to nest under the [&] of whatever rule
    applies them, plus the statements that must stay at the top of the sheet. A
@@ -492,7 +505,7 @@ let expand_apply ~theme ~defs css =
         |> List.filter (fun n -> n <> "")
       in
       let emit name =
-        let variants, bare = peel_declared_variants defs name in
+        let variants, bare = split_declared_variants defs name in
         let body, top = nested_utilities ~theme [ bare ] in
         add_once hoisted seen top;
         if body = "" then ()
@@ -797,6 +810,59 @@ let diff_files paths ~(opts : gen_opts) =
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
+(* Read the [@custom-variant] declarations from the entrypoint. A project can
+   redefine a built-in variant here (e.g. class-based [dark]), which must apply
+   to the whole utility set, not only the author's own CSS. *)
+let entry_variant_defs = function
+  | None -> []
+  | Some path -> (
+      match read_file path with
+      | exception Sys_error _ -> []
+      | raw -> snd (take_custom_variants (strip_tailwind_import_options raw)))
+
+(* A candidate carries a project-declared variant. *)
+let has_declared_variant defs cls =
+  match split_declared_variants defs cls with [], _ -> false | _ -> true
+
+(* Utilities carrying a variant the project redefined via [@custom-variant]
+   (e.g. a class-based [dark:]) cannot go through [Tw.of_string], which only
+   knows the built-in [@media (prefers-color-scheme: dark)] form. Route them
+   through the same [@variant] expansion the author CSS uses: wrap the bare
+   utility's declarations under the escaped class and the declared variant, then
+   let cascade flatten the nesting into the project's selector. *)
+let custom_routed_utilities ~theme ~defs candidates =
+  let hoisted = Buffer.create 0 in
+  let seen = ref [] in
+  let one cls =
+    match split_declared_variants defs cls with
+    | [], _ -> None
+    | variants, bare ->
+        let body, top = nested_utilities ~theme [ bare ] in
+        add_once hoisted seen top;
+        if body = "" then None
+        else
+          let class_sel = Css.Selector.to_string (Css.Selector.Class cls) in
+          let wrapped =
+            List.fold_right
+              (fun v acc -> String.concat "" [ "@variant "; v; "{"; acc; "}" ])
+              variants body
+          in
+          Some (String.concat "" [ class_sel; "{"; wrapped; "}" ])
+  in
+  match List.filter_map one candidates with
+  | [] -> (0, [])
+  | blocks -> (
+      let css = expand_variants ~depth:0 defs (String.concat "" blocks) in
+      match
+        Css.of_string
+          (String.concat ""
+             [ "@layer utilities{"; css; "}"; Buffer.contents hoisted ])
+      with
+      | Error _ -> (0, [])
+      | Ok p ->
+          ( List.length blocks,
+            Css.statements (Css.flatten_nesting p.Css.stylesheet) ))
+
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
   try
@@ -805,12 +871,23 @@ let native_files paths flag ~(opts : gen_opts) =
       List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
       |> List.sort_uniq String.compare
     in
+    let defs = entry_variant_defs opts.input_css_path in
+    let routed, normal =
+      List.partition (has_declared_variant defs) all_classes
+    in
     let known =
-      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
-        all_classes
+      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
     in
     let tw_styles = List.map snd known in
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:include_base tw_styles in
+    let routed_count, routed_stmts =
+      custom_routed_utilities ~theme:opts.theme ~defs routed
+    in
+    let stylesheet =
+      match routed_stmts with
+      | [] -> stylesheet
+      | extra -> Css.v (Css.statements stylesheet @ extra)
+    in
     let stylesheet =
       match opts.input_css_path with
       | Some path -> splice_into_entrypoint ~theme:opts.theme ~path stylesheet
@@ -818,7 +895,7 @@ let native_files paths flag ~(opts : gen_opts) =
     in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
-      ~known_count:(List.length known);
+      ~known_count:(List.length known + routed_count);
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 

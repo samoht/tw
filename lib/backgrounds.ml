@@ -83,6 +83,7 @@ module Handler = struct
     | Bg_gradient_to of direction
     | Gradient_color of gradient_target * gradient_color_source
     | Gradient_stop_position of gradient_target * gradient_position_source
+    | Via_none (* via-none: clears the gradient's via stops *)
     | Bg_origin_border
     | Bg_origin_padding
     | Bg_origin_content
@@ -227,6 +228,7 @@ module Handler = struct
         | Top_left -> "bg-gradient-to-tl"
         | Left -> "bg-gradient-to-l"
         | Bottom_left -> "bg-gradient-to-bl")
+    | Via_none -> "via-none"
     | Gradient_color (target, src) ->
         let prefix =
           match target with
@@ -1371,6 +1373,13 @@ module Handler = struct
         | Gp_pct p -> gradient_position_style pos_var (Pct p)
         | Gp_bracket v ->
             gradient_position_style pos_var (parse_bracket_position_value v))
+    | Via_none ->
+        let property_rules =
+          match Var.property_rule gradient_via_stops_var with
+          | Some r -> r
+          | None -> Css.empty
+        in
+        style ~property_rules [ Var.binding_initial gradient_via_stops_var ]
     | Bg_origin_border -> bg_origin_border
     | Bg_origin_padding -> bg_origin_padding
     | Bg_origin_content -> bg_origin_content
@@ -1547,6 +1556,7 @@ module Handler = struct
     (* Gradient color utilities *)
     | Gradient_color (Gradient_from, _) -> 110000
     | Gradient_color (Gradient_via, _) -> 120000
+    | Via_none -> 120002
     | Gradient_color (Gradient_to, _) -> 130000
     (* Gradient position utilities *)
     | Gradient_stop_position (Gradient_from, _) -> 110001
@@ -1870,16 +1880,16 @@ module Handler = struct
               if String.length inner > 6 && String.sub inner 0 6 = "color:" then
                 let var_str = String.sub inner 6 (String.length inner - 6) in
                 Ok (Bg_bracket_color_var_opacity (var_str, opacity))
+              else if Parse.is_var inner then
+                (* A var() holds an unknown colour, so the alpha has to be
+                   applied at run time by color-mix, not folded here. *)
+                Ok (Bg_bracket_var_opacity (inner, opacity))
               else
                 match Color.parse_bracket_color inner with
                 | Some css_color ->
                     Ok (Bg_bracket_color_opacity (inner, css_color, opacity))
                 | None ->
-                    if Parse.is_var inner then
-                      Ok (Bg_bracket_var_opacity (inner, opacity))
-                    else
-                      Error
-                        (`Msg ("Unknown bg bracket value: " ^ bracket_stuff)))
+                    Error (`Msg ("Unknown bg bracket value: " ^ bracket_stuff)))
           | None -> Error (`Msg ("Invalid opacity: " ^ bracket_stuff))
         else
           (* Regular bracket notation: bg-[...] *)
@@ -1946,6 +1956,7 @@ module Handler = struct
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
     | "from" :: rest -> parse_gradient_color ~theme Gradient_from rest
+    | [ "via"; "none" ] -> Ok Via_none
     | "via" :: rest -> parse_gradient_color ~theme Gradient_via rest
     | "to" :: rest -> parse_gradient_color ~theme Gradient_to rest
     | _ -> Error (`Msg "Unknown background class")

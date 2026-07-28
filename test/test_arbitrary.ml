@@ -51,6 +51,23 @@ let test_property_calc_operators () =
     (Astring.String.is_infix ~affix:"width: calc(var(--a) - var(--b))"
        (css "[width:calc(var(--a)-var(--b))]"))
 
+(* theme() dot-notation inside an arbitrary value resolves statically:
+   theme(colors.red.500) to the red-500 oklch (with /alpha appended for the
+   opacity form), and the class name round-trips via its alias. *)
+let test_theme_dot_notation () =
+  let g =
+    "bg-[image:linear-gradient(to_right,theme(colors.red.500)_75%,theme(colors.red.500/25%))]"
+  in
+  Alcotest.(check bool)
+    "theme(colors.red.500) resolves to the red-500 oklch" true
+    (Astring.String.is_infix ~affix:"oklch(63.7%" (css g));
+  Alcotest.(check bool)
+    "theme(colors.red.500/25%) appends the alpha" true
+    (Astring.String.is_infix ~affix:"25.331 / 25%" (css g));
+  Alcotest.(check string)
+    "theme() class round-trips" g
+    (Tw.pp (Result.get_ok (Tw.of_string g)))
+
 (* A var-valued colour with /opacity used to raise invalid_arg; it now emits an
    oklab color-mix under @supports, with a fallback, type-safely. *)
 let test_var_color_opacity () =
@@ -90,6 +107,7 @@ let tests =
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
     test_case "property value calc operators" `Quick
       test_property_calc_operators;
+    test_case "theme() dot-notation" `Quick test_theme_dot_notation;
     test_case "var-valued colour with opacity" `Quick test_var_color_opacity;
     test_case "custom property with opacity" `Quick test_custom_prop_opacity;
     test_case "deferred and var inputs never crash" `Quick test_no_crash;

@@ -23,8 +23,15 @@ let parse_bracket_length s : (Css.length, _) result =
       done;
       let num_s = String.sub inner 0 !i in
       let unit_s = String.sub inner !i (slen - !i) in
+      (* Fall back to the full length grammar (calc, container-query units, ...)
+         when the value is not a plain <number><unit>. *)
+      let full () =
+        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        | Some l -> Ok l
+        | None -> Error (`Msg ("Invalid length: " ^ inner))
+      in
       match Float.of_string_opt num_s with
-      | None -> Error (`Msg ("Invalid number: " ^ num_s))
+      | None -> full ()
       | Some n -> (
           let open Css in
           match unit_s with
@@ -34,7 +41,7 @@ let parse_bracket_length s : (Css.length, _) result =
           | "%" -> Ok (Pct n)
           | "vw" -> Ok (Vw n)
           | "vh" -> Ok (Vh n)
-          | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
+          | _ -> full ()))
   else Error (`Msg ("Not a bracket value: " ^ s))
 
 (* Negate an inset length: simple units flip sign directly; var()/calc() and
@@ -100,6 +107,62 @@ let named_inset_value name : Css.declaration * Css.length =
 let spacing_value ?theme n : Css.declaration * Css.length =
   Theme.spacing_calc ?theme n
 
+(* The physical/axis inset sides that take the spacing scale, so a fractional
+   step (top-2.5) or the px step (left-px) can share one constructor. *)
+type pside =
+  | P_top
+  | P_right
+  | P_bottom
+  | P_left
+  | P_inset
+  | P_inset_x
+  | P_inset_y
+
+let pside_name = function
+  | P_top -> "top"
+  | P_right -> "right"
+  | P_bottom -> "bottom"
+  | P_left -> "left"
+  | P_inset -> "inset"
+  | P_inset_x -> "inset-x"
+  | P_inset_y -> "inset-y"
+
+(* [top-2.5] / [right-0.5] / [left-px]: a spacing token that is not a plain
+   integer (those keep their existing [Top of int] path). *)
+let parse_pos_spacing s : Style.spacing option =
+  if s = "px" then Some `Px
+  else
+    match float_of_string_opt s with
+    | Some f when f >= 0. && not (Float.is_integer f) -> Some (`Rem (f *. 0.25))
+    | _ -> None
+
+(* Resolve a spacing token to (optional --spacing binding, length), mirroring
+   the padding family so the px and fractional steps render identically. *)
+let pos_spacing_to_len ?theme (s : Style.spacing) :
+    Css.declaration option * Css.length =
+  match s with
+  | `Rem f ->
+      let decl, len = Theme.spacing_calc_float ?theme (f /. 0.25) in
+      (Some decl, len)
+  | `Px -> (None, Css.Px 1.)
+  | `Full -> (None, Css.Pct 100.)
+  | `Named name -> (None, Css.Var (Var.theme_ref ("spacing-" ^ name)))
+
+let pos_spacing_style ?theme side (s : Style.spacing) =
+  let decl_opt, len = pos_spacing_to_len ?theme s in
+  let decls = Option.to_list decl_opt in
+  let body =
+    match side with
+    | P_top -> [ Css.top len ]
+    | P_right -> [ Css.right len ]
+    | P_bottom -> [ Css.bottom len ]
+    | P_left -> [ Css.left len ]
+    | P_inset -> [ Css.inset [ len ] ]
+    | P_inset_x -> [ Css.inset_inline [ len ] ]
+    | P_inset_y -> [ Css.inset_block [ len ] ]
+  in
+  Style.style (decls @ body)
+
 (* A position fraction [n/m] resolves to [n/m * 100%], folded to 6 significant
    figures like Tailwind (mirrors [Sizing]'s fraction handling, including the
    supported denominators). *)
@@ -153,6 +216,8 @@ module Handler = struct
     | Inset_y_full
     | Neg_inset_y_full
     | Inset_y_3_4
+    | Pos_spacing of pside * Style.spacing
+      (* fractional or px spacing step on a physical/axis inset side *)
     | Inset of int
     | Inset_arbitrary of string * Css.length
     | Inset_named of string (* Custom property reference like inset-shadowned *)
@@ -275,6 +340,7 @@ module Handler = struct
     | Inset_y_full -> style [ Css.inset_block [ Pct 100.0 ] ]
     | Neg_inset_y_full -> style [ Css.inset_block [ Pct (-100.0) ] ]
     | Inset_y_3_4 -> style [ Css.inset_block [ Pct 75.0 ] ]
+    | Pos_spacing (side, sp) -> pos_spacing_style ~theme side sp
     | Inset n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset [ value ] ])
@@ -454,6 +520,21 @@ module Handler = struct
     let start = 12_000_000 in
     let e = 13_000_000 in
     function
+    | Pos_spacing (side, sp) ->
+        let base =
+          match side with
+          | P_top -> top
+          | P_right -> right
+          | P_bottom -> bottom
+          | P_left -> left
+          | P_inset -> inset
+          | P_inset_x -> inset_x
+          | P_inset_y -> inset_y
+        in
+        let scale =
+          match sp with `Rem f -> f /. 0.25 | `Px -> 0.05 | _ -> 0.
+        in
+        base + pos_off + int_of_float (scale *. 10.)
     | Position_absolute -> 0
     | Position_fixed -> 1
     | Position_relative -> 2
@@ -612,12 +693,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_x x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Inset_x_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Inset_x_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_inset_x, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Inset_x_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Inset_x_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "inset"; "x"; frac ] when frac_valid frac ->
         Ok (Neg_inset_x_fraction frac)
     | [ ""; "inset"; "x"; n ] ->
@@ -626,12 +710,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_y x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Inset_y_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Inset_y_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_inset_y, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Inset_y_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Inset_y_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "inset"; "y"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_y (-x))
     (* inset-s = inset-inline-start *)
@@ -708,12 +795,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Inset_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Inset_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_inset, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Inset_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Inset_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "inset"; frac ] when frac_valid frac -> Ok (Neg_inset_fraction frac)
     | [ ""; "inset"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
@@ -725,12 +815,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Top x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Top_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Top_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_top, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Top_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Top_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "top"; frac ] when frac_valid frac -> Ok (Neg_top_fraction frac)
     | [ ""; "top"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
@@ -742,12 +835,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Right x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Right_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Right_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_right, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Right_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Right_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "right"; frac ] when frac_valid frac -> Ok (Neg_right_fraction frac)
     | [ ""; "right"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
@@ -759,12 +855,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Bottom x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Bottom_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Bottom_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_bottom, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Bottom_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Bottom_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "bottom"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
     | [ "left"; frac ] when frac_valid frac -> Ok (Left_fraction frac)
@@ -775,12 +874,15 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Left x)
         | Error _ -> (
-            match parse_bracket_length n with
-            | Ok len -> Ok (Left_arbitrary (n, len))
-            | Error _ when Parse.is_valid_theme_name n && is_named_inset theme n
-              ->
-                Ok (Left_named n)
-            | Error _ -> Error (`Msg "invalid")))
+            match parse_pos_spacing n with
+            | Some sp -> Ok (Pos_spacing (P_left, sp))
+            | None -> (
+                match parse_bracket_length n with
+                | Ok len -> Ok (Left_arbitrary (n, len))
+                | Error _
+                  when Parse.is_valid_theme_name n && is_named_inset theme n ->
+                    Ok (Left_named n)
+                | Error _ -> Error (`Msg "invalid"))))
     | [ ""; "left"; frac ] when frac_valid frac -> Ok (Neg_left_fraction frac)
     | [ ""; "left"; n ] -> (
         match int_of_string_with_sign n with
@@ -827,6 +929,8 @@ module Handler = struct
     | Inset_y_full -> "inset-y-full"
     | Neg_inset_y_full -> "-inset-y-full"
     | Inset_y_3_4 -> "inset-y-3/4"
+    | Pos_spacing (side, sp) ->
+        pside_name side ^ "-" ^ Spacing.pp_spacing_suffix sp
     | Inset n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-" ^ string_of_int (abs n)

@@ -18,6 +18,14 @@ let test_visibility () =
   check "invisible";
   check "collapse"
 
+(* box-decoration-break: the v4 box-decoration-* names and the legacy v3
+   decoration-clone/slice aliases, which keep their own class name. *)
+let test_box_decoration_break () =
+  check "box-decoration-clone";
+  check "box-decoration-slice";
+  check "decoration-clone";
+  check "decoration-slice"
+
 let test_z_index () =
   check "z-0";
   check "z-10";
@@ -169,6 +177,7 @@ let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
     test_case "visibility" `Quick test_visibility;
+    test_case "box-decoration-break" `Quick test_box_decoration_break;
     test_case "typed constructors" `Quick test_typed;
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;

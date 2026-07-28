@@ -30,6 +30,8 @@ let of_string_valid () =
   (* Grow/Shrink - Tailwind v4 uses shorter names *)
   check_props "grow";
   check_props "grow-0";
+  check_props "grow-3";
+  check_props "grow-7";
   check_props "shrink";
   check_props "shrink-0";
 

@@ -78,6 +78,15 @@ module Handler = struct
     | Border_y
     | Border_x_width of int
     | Border_y_width of int
+    | (* Logical single-side borders: inline/block start/end *)
+      Border_s
+    | Border_e
+    | Border_bs
+    | Border_be
+    | Border_s_width of int
+    | Border_e_width of int
+    | Border_bs_width of int
+    | Border_be_width of int
     | (* Border side utilities with widths *)
       Border_t_0
     | Border_t_2
@@ -263,6 +272,33 @@ module Handler = struct
   let border_y = make_side_util (fun v -> border_block_axis v 1.)
   let border_x_width n = make_side_util (fun v -> border_inline_axis v n)
   let border_y_width n = make_side_util (fun v -> border_block_axis v n)
+
+  (* Logical single-side borders paint one inline/block edge, unlike the axis
+     utilities above which paint both edges of an axis. *)
+  let border_s_of w =
+    make_side_util (fun v ->
+        [ border_inline_start_style (Var v); border_inline_start_width (Px w) ])
+
+  let border_e_of w =
+    make_side_util (fun v ->
+        [ border_inline_end_style (Var v); border_inline_end_width (Px w) ])
+
+  let border_bs_of w =
+    make_side_util (fun v ->
+        [ border_block_start_style (Var v); border_block_start_width (Px w) ])
+
+  let border_be_of w =
+    make_side_util (fun v ->
+        [ border_block_end_style (Var v); border_block_end_width (Px w) ])
+
+  let border_s = border_s_of 1.
+  let border_e = border_e_of 1.
+  let border_bs = border_bs_of 1.
+  let border_be = border_be_of 1.
+  let border_s_width n = border_s_of (float_of_int n)
+  let border_e_width n = border_e_of (float_of_int n)
+  let border_bs_width n = border_bs_of (float_of_int n)
+  let border_be_width n = border_be_of (float_of_int n)
 
   (** Border side utilities with specific widths *)
   let border_t_0 =
@@ -651,6 +687,14 @@ module Handler = struct
     | Border_y -> border_y
     | Border_x_width n -> border_x_width (float_of_int n)
     | Border_y_width n -> border_y_width (float_of_int n)
+    | Border_s -> border_s
+    | Border_e -> border_e
+    | Border_bs -> border_bs
+    | Border_be -> border_be
+    | Border_s_width n -> border_s_width n
+    | Border_e_width n -> border_e_width n
+    | Border_bs_width n -> border_bs_width n
+    | Border_be_width n -> border_be_width n
     (* Border side utilities with widths *)
     | Border_t_0 -> border_t_0
     | Border_t_2 -> border_t_2
@@ -793,6 +837,14 @@ module Handler = struct
     | Border_x_width n -> 1140 + n
     | Border_y -> 1150
     | Border_y_width n -> 1150 + n
+    | Border_s -> 1160
+    | Border_s_width n -> 1160 + n
+    | Border_e -> 1170
+    | Border_e_width n -> 1170 + n
+    | Border_bs -> 1180
+    | Border_bs_width n -> 1180 + n
+    | Border_be -> 1190
+    | Border_be_width n -> 1190 + n
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
@@ -845,6 +897,18 @@ module Handler = struct
         Ok (Border_x_width (int_of_string n))
     | [ "border"; "y"; (("0" | "2" | "4" | "8") as n) ] ->
         Ok (Border_y_width (int_of_string n))
+    | [ "border"; "s" ] -> Ok Border_s
+    | [ "border"; "e" ] -> Ok Border_e
+    | [ "border"; "bs" ] -> Ok Border_bs
+    | [ "border"; "be" ] -> Ok Border_be
+    | [ "border"; "s"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_s_width (int_of_string n))
+    | [ "border"; "e"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_e_width (int_of_string n))
+    | [ "border"; "bs"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_bs_width (int_of_string n))
+    | [ "border"; "be"; (("0" | "2" | "4" | "8") as n) ] ->
+        Ok (Border_be_width (int_of_string n))
     | [ "border"; "t"; "0" ] -> Ok Border_t_0
     | [ "border"; "t"; "2" ] -> Ok Border_t_2
     | [ "border"; "t"; "4" ] -> Ok Border_t_4
@@ -981,6 +1045,14 @@ module Handler = struct
     | Border_y -> "border-y"
     | Border_x_width n -> "border-x-" ^ string_of_int n
     | Border_y_width n -> "border-y-" ^ string_of_int n
+    | Border_s -> "border-s"
+    | Border_e -> "border-e"
+    | Border_bs -> "border-bs"
+    | Border_be -> "border-be"
+    | Border_s_width n -> "border-s-" ^ string_of_int n
+    | Border_e_width n -> "border-e-" ^ string_of_int n
+    | Border_bs_width n -> "border-bs-" ^ string_of_int n
+    | Border_be_width n -> "border-be-" ^ string_of_int n
     | Border_t_0 -> "border-t-0"
     | Border_t_2 -> "border-t-2"
     | Border_t_4 -> "border-t-4"

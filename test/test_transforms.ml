@@ -26,6 +26,11 @@ let test_translate_px_and_neg_arbitrary () =
   check "-translate-y-px";
   check "-translate-y-[110%]";
   check "-translate-x-[3px]";
+  (* A negative value inside the bracket (not a leading -) parses, and the raw
+     token is kept verbatim in the class name (-0.5px, not the folded -.5px). *)
+  check "translate-x-[-0.5px]";
+  check "translate-y-[-110%]";
+  check "translate-x-[-1.15rem]";
   let css cls =
     match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
@@ -37,7 +42,31 @@ let test_translate_px_and_neg_arbitrary () =
   Alcotest.(check bool)
     "-translate-y-[110%] negates the value" true
     (Astring.String.is_infix ~affix:"calc(110% * -1)"
-       (css "-translate-y-[110%]"))
+       (css "-translate-y-[110%]"));
+  Alcotest.(check bool)
+    "translate-x-[-0.5px] keeps the negative value" true
+    (Astring.String.is_infix ~affix:"--tw-translate-x: -.5px"
+       (css "translate-x-[-0.5px]"))
+
+(* The near/midrange/distant perspective keywords reference their theme token,
+   like the dramatic/normal ones already did. *)
+let test_perspective_keywords () =
+  check "perspective-near";
+  check "perspective-midrange";
+  check "perspective-distant";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "perspective-near references its token" true
+    (Astring.String.is_infix ~affix:"perspective:var(--perspective-near)"
+       (css "perspective-near"));
+  Alcotest.(check bool)
+    "perspective-distant defines the 1200px token" true
+    (Astring.String.is_infix ~affix:"--perspective-distant:1200px"
+       (css "perspective-distant"))
 
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
@@ -149,6 +178,7 @@ let tests =
       test_translate_zero_keeps_unit;
     test_case "translate spacing (both axes)" `Quick test_translate_spacing;
     test_case "translate+rotate" `Quick test_translate_rotate;
+    test_case "perspective keywords" `Quick test_perspective_keywords;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;

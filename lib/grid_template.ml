@@ -175,8 +175,8 @@ module Handler = struct
       | Some (Pct n) -> Some (Pct n)
       | Some (Vw n) -> Some (Vw n)
       | Some (Vh n) -> Some (Vh n)
-      | Some _ -> None
-      | None ->
+      | Some l -> Some (Length l)
+      | None -> (
           let len = String.length value in
           if len >= 2 && String.sub value (len - 2) 2 = "fr" then
             match float_of_string_opt (String.sub value 0 (len - 2)) with
@@ -185,7 +185,12 @@ module Handler = struct
           else if value = "auto" then Some Auto
           else if value = "min-content" then Some Min_content
           else if value = "max-content" then Some Max_content
-          else None
+          else
+            (* A math-function track (min()/max()/clamp()/calc()) is a length,
+               which the suffix-based parse above does not recognise. *)
+            match Css.parse_length value with
+            | Some l -> Some (Length l)
+            | None -> None)
 
   (* A single grid track: a length/keyword, or one of the grid functions
      minmax()/fit-content()/repeat() (which may nest). *)

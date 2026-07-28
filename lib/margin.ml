@@ -8,7 +8,7 @@ module Handler = struct
 
   type margin_value =
     | Standard of margin (* auto, spacing values *)
-    | Arbitrary of Css.length (* mx-[4px] *)
+    | Arbitrary of string * Css.length (* mx-[4px], raw kept for round-trip *)
     | Arbitrary_var of string (* mx-[var(--value)] *)
     | Named of string (* mx-big - custom spacing *)
 
@@ -162,7 +162,7 @@ module Handler = struct
     let named_margin_value name = named_margin_value ~theme name in
     let prop = prop_for_axis axis in
     match value with
-    | Arbitrary len ->
+    | Arbitrary (_, len) ->
         if negative then
           (* For simple values, use direct negation: -4px instead of calc(4px *
              -1) *)
@@ -248,19 +248,6 @@ module Handler = struct
     in
     (side_index * 1000000) + sign_offset + value_order
 
-  let pp_float n =
-    (* Format float without trailing dot: 4. -> 4, 4.5 -> 4.5 *)
-    let s = string_of_float n in
-    if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
-    else s
-
-  let pp_length_suffix (len : Css.length) =
-    match len with
-    | Px n -> "[" ^ pp_float n ^ "px]"
-    | Rem n -> "[" ^ pp_float n ^ "rem]"
-    | Pct n -> "[" ^ pp_float n ^ "%]"
-    | _ -> "[<length>]"
-
   let to_class { negative; axis; value } =
     let prefix =
       match axis with
@@ -280,30 +267,24 @@ module Handler = struct
     let value_suffix =
       match value with
       | Standard m -> Spacing.pp_margin_suffix m
-      | Arbitrary len -> pp_length_suffix len
+      | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
       | Arbitrary_var s -> "[" ^ s ^ "]"
       | Named name -> name
     in
     neg_prefix ^ prefix ^ value_suffix
 
   let parse_arbitrary s : margin_value option =
-    (* Parse [4px], [1rem], or [var(--value)] etc. *)
+    (* Parse [4px], [1rem], [50%], [-5cqw], [calc(...)], or [var(--value)]. The
+       raw inner is kept verbatim for the class name; the value goes through the
+       full length grammar so any unit or calc() is accepted. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      (* Check if it's a var reference *)
       if Parse.is_var inner then Some (Arbitrary_var inner)
-      else if String.ends_with ~suffix:"px" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (Arbitrary (Css.Px f))
+      else
+        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        | Some l -> Some (Arbitrary (inner, l))
         | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (Arbitrary (Css.Rem f))
-        | None -> None
-      else None
     else None
 
   let axis_of_prefix_ext = function

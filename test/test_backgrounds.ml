@@ -22,6 +22,21 @@ let test_gradient_colors () =
   Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
   Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
 
+(* via-none clears the gradient's via stops by resetting the channel var to the
+   CSS initial keyword. *)
+let test_via_none () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.check string "via-none round-trips" "via-none"
+    (Tw.pp (Result.get_ok (Tw.of_string "via-none")));
+  Alcotest.(check bool)
+    "via-none sets --tw-gradient-via-stops:initial" true
+    (Astring.String.is_infix ~affix:"--tw-gradient-via-stops:initial"
+       (css "via-none"))
+
 (* Bare bg-radial / bg-conic (and bg-conic-{angle}) set --tw-gradient-position
    to the default oklab interpolation and the matching gradient image; they used
    to be unknown classes (only the /interp and bracket forms were handled). *)
@@ -224,9 +239,25 @@ let test_gradient_stop_position_properties () =
     "from-10% registers @property --tw-gradient-stops" true
     (Astring.String.is_infix ~affix:"@property --tw-gradient-stops" css)
 
+(* A var() background colour with an alpha modifier defers the alpha to
+   color-mix: the variable's value is unknown at build time, so it cannot be
+   folded into a literal colour. *)
+let test_bg_var_opacity () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "bg-[var(--x)]/50 mixes at run time" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
+       (css_of "bg-[var(--x)]/50"))
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
+    test_case "bg var color with opacity" `Quick test_bg_var_opacity;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;
     test_case "gradient stop-position @property family" `Quick
@@ -238,6 +269,7 @@ let tests =
       test_bg_position_bracket_keyword_length;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
+    test_case "via-none" `Quick test_via_none;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
