@@ -8,7 +8,7 @@ module Handler = struct
 
   type padding_value =
     | Standard of spacing
-    | Arbitrary of Css.length (* p-[4px] *)
+    | Arbitrary of string * Css.length (* p-[4px], raw kept for round-trip *)
     | Arbitrary_var of string (* p-[var(--value)] *)
 
   type t = {
@@ -20,18 +20,6 @@ module Handler = struct
 
   let name = "padding"
   let priority _ = 23
-
-  let pp_float n =
-    let s = string_of_float n in
-    if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
-    else s
-
-  let pp_length_suffix (len : Css.length) =
-    match len with
-    | Px n -> "[" ^ pp_float n ^ "px]"
-    | Rem n -> "[" ^ pp_float n ^ "rem]"
-    | Pct n -> "[" ^ pp_float n ^ "%]"
-    | _ -> "[<length>]"
 
   let to_class { axis; value } =
     let prefix =
@@ -51,7 +39,7 @@ module Handler = struct
     let value_suffix =
       match value with
       | Standard s -> Spacing.pp_spacing_suffix s
-      | Arbitrary len -> pp_length_suffix len
+      | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
       | Arbitrary_var s -> "[" ^ s ^ "]"
     in
     prefix ^ value_suffix
@@ -100,7 +88,7 @@ module Handler = struct
   let apply_prop_list ?theme (prop : length list -> declaration) value =
     match value with
     | Standard s -> vs_spacing ?theme prop s
-    | Arbitrary len -> style [ prop [ len ] ]
+    | Arbitrary (_, len) -> style [ prop [ len ] ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop [ Var (Var.bracket bare_name) ] ]
@@ -108,7 +96,7 @@ module Handler = struct
   let apply_prop ?theme (prop : length -> declaration) value =
     match value with
     | Standard s -> v_spacing ?theme prop s
-    | Arbitrary len -> style [ prop len ]
+    | Arbitrary (_, len) -> style [ prop len ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop (Var (Var.bracket bare_name)) ]
@@ -151,17 +139,12 @@ module Handler = struct
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
       if Parse.is_var inner then Some (Arbitrary_var inner)
-      else if String.ends_with ~suffix:"px" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (Arbitrary (Css.Px f))
+      else
+        (* Full length grammar (percent, container units, calc), raw kept for
+           round-trip. *)
+        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        | Some l -> Some (Arbitrary (inner, l))
         | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (Arbitrary (Css.Rem f))
-        | None -> None
-      else None
     else None
 
   let padding_axis_of_prefix = function
