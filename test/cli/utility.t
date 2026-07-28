@@ -23,7 +23,7 @@ and its own declarations kept:
 
   $ tw --minify --input-css app.css index.html | grep -c '\.line-t{border-color:red}'
   1
-  $ tw --minify --input-css app.css index.html | grep -cF '.line-t{--tw-border-style:dashed;border-style:dashed}'
+  $ tw --minify --input-css app.css index.html | grep -cF '.line-t{border-top-style:var(--tw-border-style);border-top-width:1px;--tw-border-style:dashed;border-style:dashed}'
   1
   $ tw --minify --input-css app.css index.html | grep -cF '.line-y{border-block-style:var(--tw-border-style);border-block-width:1px}'
   1
