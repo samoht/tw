@@ -910,8 +910,45 @@ let handle_pseudo_element_modifier modifier base_class props =
   regular ~selector:sel ~props:(content_decl :: props)
     ~base_class:modified_class ()
 
+(* Whether every [(] in [s] closes: a compound condition keeps its own parens,
+   so unwrapping one pair only makes sense when what is left is balanced. *)
+let is_balanced s =
+  let rec go i depth =
+    if i >= String.length s then depth = 0
+    else
+      match s.[i] with
+      | '(' -> go (i + 1) (depth + 1)
+      | ')' when depth = 0 -> false
+      | ')' -> go (i + 1) (depth - 1)
+      | _ -> go (i + 1) depth
+  in
+  go 0 0
+
+(* Properties whose [@supports] test Tailwind also runs against the prefixed
+   spelling, so a browser that only ships the prefix still matches. The set is
+   its browser-support data; these are the entries observed against v4.3.3.
+   [text-size-adjust] additionally carries the [-moz-] spelling. *)
+
 (** Normalize a supports condition string into a valid CSS [@supports]
     condition. Converts underscores to spaces and wraps in parens as needed. *)
+let supports_vendor_prefixes = function
+  | "backdrop-filter" | "background-clip" | "box-decoration-break" | "hyphens"
+  | "mask" | "mask-image" | "mask-origin" | "mask-size" | "print-color-adjust"
+  | "text-decoration-skip-ink" | "user-select" ->
+      [ "-webkit-" ]
+  | "text-size-adjust" -> [ "-webkit-"; "-moz-" ]
+  | _ -> []
+
+(* [(prop: value)] as Tailwind writes it: one test per prefixed spelling, the
+   unprefixed one last, joined with [or]. *)
+let supports_property_test prop value =
+  let one p = String.concat "" [ "("; p; prop; ":"; value; ")" ] in
+  match supports_vendor_prefixes prop with
+  | [] -> one ""
+  | prefixes ->
+      String.concat ""
+        [ "("; String.concat " or " (List.map one prefixes @ [ one "" ]); ")" ]
+
 let normalize_supports_condition condition_str =
   (* Convert underscores to spaces (Tailwind bracket notation) *)
   let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
@@ -923,12 +960,25 @@ let normalize_supports_condition condition_str =
   then
     (* Bare custom property: --test → (--test: var(--tw)) *)
     "(" ^ cond ^ ": var(--tw))"
-  else if cond <> "" && cond.[0] = '(' then
-    (* Already wrapped in parens *)
-    cond
+  else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
+  then
+    (* Already wrapped. A single [(prop: value)] still has to go through the
+       prefix expansion, so unwrap it and rebuild; anything else (a compound
+       condition, a [not]) is left as written. *)
+    let inner = String.sub cond 1 (String.length cond - 2) in
+    if is_balanced inner && String.contains inner ':' then
+      let i = String.index inner ':' in
+      supports_property_test
+        (String.trim (String.sub inner 0 i))
+        (String.trim (String.sub inner (i + 1) (String.length inner - i - 1)))
+    else cond
   else if String.contains cond ':' then
-    (* Property: value → wrap in parens *)
-    "(" ^ cond ^ ")"
+    let i = String.index cond ':' in
+    let prop = String.trim (String.sub cond 0 i) in
+    let value =
+      String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
+    in
+    supports_property_test prop value
   else if String.contains cond '(' then
     (* Function call like font-format(opentype) or var(--test) *)
     cond
@@ -1569,6 +1619,21 @@ let arbitrary_selector_rule content base_class props =
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
+(* An at-rule written in brackets: [[@supports(display:grid)]] wraps the utility
+   in that query, [[@starting-style]] in [@starting-style]. The class name keeps
+   the brackets, so it cannot go through the [supports-] spelling. *)
+let at_rule_variant content base_class props =
+  let modified_class = "[" ^ content ^ "]:" ^ base_class in
+  let selector = Css.Selector.Class modified_class in
+  if content = "@starting-style" then
+    starting_style ~selector ~props ~base_class:modified_class ()
+  else
+    let cond = String.trim (String.sub content 9 (String.length content - 9)) in
+    let condition =
+      Css.Supports.of_string (normalize_supports_condition cond)
+    in
+    supports_query ~condition ~selector ~props ~base_class:modified_class ()
+
 (* A [matchVariant]-registered custom variant. The class name is the token
    ([is-data-foo]); the selector is the template with [&] replaced by the
    element's own class, e.g. [&:is([data-foo])] -> [.is-data-foo\:flex:is(...)].
@@ -1687,6 +1752,7 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
       handle_pseudo_element_modifier modifier base_class props
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class props
+  | Style.At_rule content -> at_rule_variant content base_class props
   | Style.Custom_variant (token, template) ->
       custom_variant_rule token template base_class props
   | Style.Container_style (token, condition) ->

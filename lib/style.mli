@@ -245,6 +245,9 @@ type modifier =
   | Group_peer_named of modifier * string
       (** [group-peer-X/name] — peer-X within named group *)
   | Arbitrary_selector of string  (** [[&_p]] — arbitrary selector variant *)
+  | At_rule of string
+      (** [[@supports(...)]] / [[@starting-style]] — an at-rule in brackets,
+          kept as written so the class name round-trips *)
   | Custom_variant of string * string
       (** [is-data-foo:] — a [matchVariant]-registered variant: the class-name
           token and the resolved selector template ([&] is the own class). *)
