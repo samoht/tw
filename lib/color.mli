@@ -98,12 +98,19 @@ val neutral : color
 (** [neutral] is the base neutral color. *)
 
 val stone : color
+(** [stone] is the base stone color. *)
+
 val mauve : color
+(** [mauve] is the base mauve color. *)
+
 val olive : color
+(** [olive] is the base olive color. *)
+
 val mist : color
+(** [mist] is the base mist color. *)
 
 val taupe : color
-(** [stone] is the base stone color. *)
+(** [taupe] is the base taupe color. *)
 
 val red : color
 (** [red] is the base red color. *)
