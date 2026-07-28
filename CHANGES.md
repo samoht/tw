@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Honour `theme(static)` on the package import: the whole theme comes out,
+  not only the variables a utility used (#230)
+- Emit a `@keyframes` declared inside a project's `@theme`; the animation
+  it defines was dropped (#230)
 - Emit one `@property` per custom property, beside the utilities rather
   than inside each rule that applied them: a sheet using `@apply` carried
   the same `@property` once per applying rule (#228)

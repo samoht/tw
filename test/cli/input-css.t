@@ -145,3 +145,24 @@ token that names it. The theme block becomes a [:root] rule, where a nested
   $ tw --minify --input-css kf.css index.html | grep -c ':root{[^}]*@keyframes'
   0
   [1]
+
+[@import "tailwindcss" theme(static)] asks for the whole theme, not only the
+variables a utility used, so the palette comes out even for colours nothing
+references:
+
+  $ cat > static.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > EOF
+  $ tw --minify --input-css static.css index.html | grep -c -- '--color-fuchsia-300:'
+  1
+  $ tw --minify --input-css static.css index.html | grep -c -- '--breakpoint-sm:'
+  1
+
+Without it only what the sheet uses is emitted:
+
+  $ cat > dynamic.css <<EOF
+  > @import "tailwindcss";
+  > EOF
+  $ tw --minify --input-css dynamic.css index.html | grep -c -- '--color-fuchsia-300:'
+  0
+  [1]

@@ -42,6 +42,7 @@ type t = {
           instead of rem-based values. *)
   token_overrides : (string * string) list;
   inline_tokens : string list;
+  static_theme : bool;
       (** Per-render theme token overrides (from a [@theme] block). Key is the
           variable name without the leading [--] (e.g. "text-shadow-2xs"), value
           is the CSS string. Threaded replacement for the global
@@ -59,6 +60,9 @@ let default_tokens : (string, string) Hashtbl.t = Hashtbl.create 64
 let register_default_token name css = Hashtbl.replace default_tokens name css
 let token_default name = Hashtbl.find_opt default_tokens name
 
+let all_default_tokens () =
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) default_tokens []
+
 (** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
     v4 default) *)
 let default : t =
@@ -72,6 +76,7 @@ let default : t =
     breakpoints = [];
     token_overrides = [];
     inline_tokens = [];
+    static_theme = false;
   }
 
 let pp t =

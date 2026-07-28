@@ -48,6 +48,9 @@ type t = {
       (** Names of the tokens a project declared in an [\@theme inline] block.
           Such a token has no declaration of its own: a utility reading it
           inlines the value instead of referencing [var(--name)]. *)
+  static_theme : bool;
+      (** Whether the package was imported with [theme(static)], which emits
+          every theme variable rather than only the ones a utility used. *)
 }
 (** Theme scheme configuration *)
 
@@ -62,6 +65,10 @@ val register_default_token : string -> string -> unit
 (** [register_default_token name css] registers the v4.3.1 baseline default CSS
     for theme token [name] (without [--]) in the process-global registry. Called
     once at module-init by the utility that owns the token. *)
+
+val all_default_tokens : unit -> (string * string) list
+(** [all_default_tokens ()] is every token a family has published through
+    {!register_default_token}. [theme(static)] emits them all. *)
 
 val token_default : string -> string option
 (** [token_default name] returns the registered baseline default for [name]. *)

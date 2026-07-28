@@ -165,6 +165,16 @@ let theme_blocks_as_root css =
   done;
   Buffer.contents buf
 
+(* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
+   variables a utility used. The option is stripped before parsing, so it is
+   read from the raw text. *)
+let imports_static_theme css =
+  let len = String.length css in
+  let rec go i =
+    i + 13 <= len && (String.sub css i 13 = "theme(static)" || go (i + 1))
+  in
+  go 0
+
 (* Extract @theme token overrides from a project CSS entrypoint, so tw renders
    with the same tokens Tailwind reads from it: the [(bare-name, value)] pairs,
    and the names among them that came from an [@theme inline] block. The
@@ -1420,7 +1430,12 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | None -> Tw.Scheme.default
     | Some css ->
         let overrides, inline = theme_overrides_of_css css in
-        Tw.Scheme.with_overrides ~inline Tw.Scheme.default overrides
+        let base =
+          if imports_static_theme css then
+            { Tw.Scheme.default with static_theme = true }
+          else Tw.Scheme.default
+        in
+        Tw.Scheme.with_overrides ~inline base overrides
   in
   let opts : gen_opts =
     {
