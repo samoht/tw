@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Keep the inner variant's selector under an `aria-*`, `data-*` or `has-*`
+  variant: `aria-selected:hover:underline` lost its `:hover`,
+  `data-[closed]:data-[enter]:` its second attribute (#231)
+- Keep the `@media (hover:hover)` gate when an outer variant wraps `hover:`,
+  as in `disabled:hover:bg-indigo-500` (#231)
+
 - Support the `@sm/main:` container-query variant, which aims a size query at a
   named container instead of the nearest one (#231)
 

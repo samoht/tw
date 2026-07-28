@@ -509,8 +509,21 @@ let has_anchor_rel ~anchor ~combinator ?name inner =
     (compound [ where [ Class anchor_class ]; has [ inner ] ])
     combinator universal
 
+(* Rebuild [selector] around the [modified] selector a route builds for the bare
+   class, so an inner variant's own work survives: [aria-selected:hover:X] keeps
+   its [:hover]. With no inner variant [selector] is the bare class and the
+   result is [modified] itself. *)
+let route_regular ~selector ~base_class ~modified_class ~modified ?has_hover
+    ~not_order props =
+  let sel =
+    Rules_selector.transform_selector_with_modifier modified base_class
+      modified_class selector
+  in
+  regular ~selector:sel ~props ~base_class:modified_class ?has_hover ~not_order
+    ()
+
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
-    selector_str base_class props =
+    ~selector selector_str base_class props =
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let parsed_selector =
@@ -526,9 +539,9 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
   match kind with
   | `Has ->
       let class_name = "has-" ^ has_part selector_str ^ ":" ^ base_class in
-      let sel = compound [ class_ class_name; has [ parsed_selector ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
-        ()
+      let modified = compound [ class_ class_name; has [ parsed_selector ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~has_hover ~not_order props
   | `Group_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -538,9 +551,9 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
         has_anchor_rel ~anchor:"group" ~combinator:Descendant ?name
           parsed_selector
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
-        ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~has_hover ~not_order props
   | `Peer_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -550,9 +563,9 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
         has_anchor_rel ~anchor:"peer" ~combinator:Subsequent_sibling ?name
           parsed_selector
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
-        ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~has_hover ~not_order props
 
 (* Pseudo-class modifiers: transform the base selector and mark hover when
    needed. *)
@@ -709,7 +722,7 @@ let _is_data_shorthand_name = function
   | _ -> false
 
 (* Route data bracket variants to appropriate handler *)
-let route_data_bracket_modifier modifier base_class props =
+let route_data_bracket_modifier modifier ~selector base_class props =
   let kind, raw_str, name_opt =
     match modifier with
     | Style.Data_bracket s -> (`Data, "[" ^ s ^ "]", None)
@@ -732,11 +745,12 @@ let route_data_bracket_modifier modifier base_class props =
   match kind with
   | `Data ->
       let class_name = "data-" ^ class_part ^ ":" ^ base_class in
-      let sel =
+      let modified =
         compound
           [ class_ class_name; attribute ?flag:attr_flag attr_name attr_match ]
       in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
   | `Group_data ->
       let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -754,8 +768,9 @@ let route_data_bracket_modifier modifier base_class props =
              ])
           Descendant universal
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
   | `Peer_data ->
       let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -773,11 +788,12 @@ let route_data_bracket_modifier modifier base_class props =
              ])
           Subsequent_sibling universal
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
 
 (* Route :has() variants to appropriate handler *)
-let route_has_modifier modifier base_class props =
+let route_has_modifier modifier ~selector base_class props =
   let kind, raw_str, name =
     match modifier with
     | Style.Has s -> (`Has, s, None)
@@ -805,8 +821,8 @@ let route_has_modifier modifier base_class props =
     else 30
   in
   let not_order = base_order in
-  has_like_selector kind ?name ?shorthand ~has_hover ~not_order selector_str
-    base_class props
+  has_like_selector kind ?name ?shorthand ~has_hover ~not_order ~selector
+    selector_str base_class props
 
 (* Parse an aria expression string into an attribute name and match. "modal" →
    ("aria-modal", Presence) "valuenow=1" → ("aria-valuenow", Exact "1")
@@ -832,7 +848,7 @@ let parse_aria_expr expr =
       ("aria-" ^ attr, Css.Selector.Exact value)
 
 (* Route aria variants to appropriate handler *)
-let route_aria_modifier modifier base_class props =
+let route_aria_modifier modifier ~selector base_class props =
   let kind, raw_str, name_opt =
     match modifier with
     | Style.Aria_bracket s -> (`Aria, s, None)
@@ -851,10 +867,11 @@ let route_aria_modifier modifier base_class props =
   match kind with
   | `Aria ->
       let class_name = "aria-" ^ class_part ^ ":" ^ base_class in
-      let sel =
+      let modified =
         compound [ class_ class_name; attribute aria_attr aria_match ]
       in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
   | `Group_aria ->
       let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -869,8 +886,9 @@ let route_aria_modifier modifier base_class props =
              [ where [ Class group_class ]; attribute aria_attr aria_match ])
           Descendant universal
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
   | `Peer_aria ->
       let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -885,8 +903,9 @@ let route_aria_modifier modifier base_class props =
              [ where [ Class peer_class ]; attribute aria_attr aria_match ])
           Subsequent_sibling universal
       in
-      let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      let modified = compound [ Class class_name; is_ [ rel ] ] in
+      route_regular ~selector ~base_class ~modified_class:class_name ~modified
+        ~not_order props
 
 (* Handle fallback for unmatched modifiers. Must extract modified_class so that
    outer modifiers like dark: can properly transform the selector. *)
@@ -1735,8 +1754,8 @@ let modified_selector_rule modifier base_class selector props =
   in
   regular ~selector:new_selector ~props ~base_class:modified_class ()
 
-let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
-    base_class selector props =
+let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
+    selector props =
   match modifier with
   (* Data modifiers *)
   | Style.Data_state _ | Style.Data_variant _ ->
@@ -1786,7 +1805,7 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
       regular ~selector ~props ~base_class ()
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
-      route_has_modifier modifier base_class props
+      route_has_modifier modifier ~selector base_class props
   (* Aria bracket and group/peer aria variants *)
   | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
   | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected
@@ -1799,10 +1818,10 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
         | Style.Aria_disabled -> Style.Aria_bracket "disabled"
         | m -> m
       in
-      route_aria_modifier modifier base_class props
+      route_aria_modifier modifier ~selector base_class props
   (* Data bracket and group/peer data variants *)
   | Style.Data_bracket _ | Style.Group_data _ | Style.Peer_data _ ->
-      route_data_bracket_modifier modifier base_class props
+      route_data_bracket_modifier modifier ~selector base_class props
   (* Starting style - selector includes starting: prefix *)
   | Style.Starting ->
       let modified_class = "starting:" ^ base_class in
@@ -1845,6 +1864,19 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
   | _ ->
       handle_fallback_modifier ~inner_has_hover modifier base_class selector
         props
+
+(* An outer modifier must not swallow the [@media (hover:hover)] gate the inner
+   [hover:] carries: [disabled:hover:X] and [has-checked:hover:X] keep it. Only
+   the routes that build a media query of their own consume the flag. *)
+let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
+    base_class selector props =
+  let rule =
+    dispatch_modifier ?theme ~inner_has_hover modifier base_class selector props
+  in
+  match rule with
+  | Output.Regular r when inner_has_hover && not r.has_hover ->
+      Output.Regular { r with has_hover = true }
+  | rule -> rule
 
 let modifier_to_rule ?inner_has_hover modifier base_class selector props =
   modifier_to_rule_themed ?inner_has_hover modifier base_class selector props
