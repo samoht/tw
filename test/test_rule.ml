@@ -162,10 +162,32 @@ let test_hover_dark_media_wrapper () =
     (Astring.String.is_infix ~affix:"prefers-color-scheme:dark" s
     || Astring.String.is_infix ~affix:"prefers-color-scheme: dark" s)
 
+(* An outer variant has to find the class the inner one produced. The child
+   variant buries it inside an [:is] with a child combinator and the
+   pseudo-element variants report the class they prefixed, so both used to be
+   invisible: the outer variant dropped out of the class name, and stacking two
+   child variants collapsed to one. *)
+let test_outer_variant_over_child_and_pseudo () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "max-sm:after:block" ".max-sm\\:after\\:block:after";
+  has "hover:before:underline" ".hover\\:before\\:underline:hover:before";
+  has "sm:*:rotate-0" ":is(.sm\\:\\*\\:rotate-0>*)";
+  has "hover:*:underline" ":is(.hover\\:\\*\\:underline:hover>*)";
+  has "*:*:grow" ":is(:is(.\\*\\:\\*\\:grow>*)>*)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "outer variant over child and pseudo-element" `Quick
+      test_outer_variant_over_child_and_pseudo;
     test_case "opacity color variant does not leak base rule" `Quick
       test_opacity_color_variant_no_leak;
     test_case "hover:dark keeps hover media wrapper" `Quick
