@@ -172,8 +172,28 @@ let test_translate_spacing () =
     (Astring.String.is_infix
        ~affix:"--tw-translate-x: calc(var(--spacing) * -4)" (css "-translate-4"))
 
+(* A fractional spacing step on translate, in both signs: translate-x-0.5 and
+   -translate-y-0.5 used to be unknown classes since the axis took an int. The
+   unit step folds to the bare variable, as Tailwind writes it. *)
+let test_translate_spacing_steps () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "translate-x-0.5" "--tw-translate-x:calc(var(--spacing)*.5)";
+  has "-translate-y-0.5" "--tw-translate-y:calc(var(--spacing)*-.5)";
+  has "translate-x-1" "--tw-translate-x:var(--spacing)";
+  Alcotest.(check string)
+    "-translate-y-0.5 round-trips" "-translate-y-0.5"
+    (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")))
+
 let tests =
   [
+    test_case "translate spacing steps" `Quick test_translate_spacing_steps;
     test_case "translate zero keeps its unit" `Quick
       test_translate_zero_keeps_unit;
     test_case "translate spacing (both axes)" `Quick test_translate_spacing;

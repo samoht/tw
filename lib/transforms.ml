@@ -21,10 +21,12 @@ module Handler = struct
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
+    | Translate_x_step of float
     | Translate_x_arbitrary of string * Css.length
     | Translate_y of int
     | Translate_y_full
     | Translate_y_px
+    | Translate_y_step of float
     | Translate_y_arbitrary of string * Css.length
     | Scale of int
     | Scale_x of int
@@ -439,6 +441,7 @@ module Handler = struct
        folding. *)
     let spacing_value : Css.length =
       if n = 0 then Css.Px 0.
+      else if n = 1 then Css.Var spacing_ref
       else
         Css.Calc
           (Css.Calc.mul
@@ -451,6 +454,25 @@ module Handler = struct
 
   let translate_x n = translate_axis tw_translate_x_var n
   let translate_y n = translate_axis tw_translate_y_var n
+
+  (* A fractional spacing step ([translate-x-0.5]), signed so the negative form
+     goes through the same path. *)
+  let translate_axis_step axis_var f =
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var (Css.Rem 0.25)
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float f))
+    in
+    let axis_decl, _ = Var.binding axis_var spacing_value in
+    style ~property_rules:translate_props
+      (spacing_decl :: axis_decl :: [ translate_xy_refs ])
+
+  let translate_x_step f = translate_axis_step tw_translate_x_var f
+  let translate_y_step f = translate_axis_step tw_translate_y_var f
 
   (** Helper to create a fraction percentage value: calc(n/d * 100%) *)
   let make_fraction_pct num denom : Css.length =
@@ -1204,11 +1226,13 @@ module Handler = struct
     | Translate_x n -> translate_x n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
+    | Translate_x_step f -> translate_x_step f
     | Translate_x_arbitrary (_, len) -> translate_x_arbitrary len
     | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
     | Translate_y n -> translate_y n
     | Translate_y_full -> translate_y_full
     | Translate_y_px -> translate_y_px
+    | Translate_y_step f -> translate_y_step f
     | Translate_y_arbitrary (_, len) -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
     | Translate n -> translate_spacing n
@@ -1358,6 +1382,7 @@ module Handler = struct
     | Translate_x_fraction _ -> 125
     | Translate_x_full -> 130
     | Translate_x_px -> 131
+    | Translate_x_step f -> 100 + int_of_float (f *. 10.)
     | Translate_x_arbitrary _ -> 199
     | Neg_translate_y_arbitrary _ -> 200
     | Neg_translate_y_full -> 201
@@ -1367,6 +1392,7 @@ module Handler = struct
     | Translate_y_fraction _ -> 225
     | Translate_y_full -> 230
     | Translate_y_px -> 231
+    | Translate_y_step f -> 200 + int_of_float (f *. 10.)
     | Translate_y_arbitrary _ -> 299
     | Neg_translate_z_arbitrary _ -> 299
     | Neg_translate_z_px -> 300
@@ -1462,8 +1488,16 @@ module Handler = struct
     | Origin_top_right -> 1708
     | Origin_arbitrary _ -> 1699
 
+  (* A fractional spacing step: [0.5], [2.5]. Integers keep the existing
+     path. *)
+
   (** Parse a fraction string like "1/2", "2/3", etc. Returns (numerator,
       denominator) or None. *)
+  let parse_spacing_step s =
+    match float_of_string_opt s with
+    | Some f when f > 0. && not (Float.is_integer f) -> Some f
+    | _ -> None
+
   let parse_fraction s =
     match String.split_on_char '/' s with
     | [ num_s; denom_s ] -> (
@@ -1516,6 +1550,8 @@ module Handler = struct
         match parse_fraction n with
         | Some (num, denom) -> Ok (Translate_x_fraction (num, denom))
         | None -> err_not_utility)
+    | [ "translate"; "x"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_x_step (Option.get (parse_spacing_step n)))
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
@@ -1529,6 +1565,8 @@ module Handler = struct
         match parse_fraction n with
         | Some (num, denom) -> Ok (Translate_y_fraction (num, denom))
         | None -> err_not_utility)
+    | [ "translate"; "y"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_y_step (Option.get (parse_spacing_step n)))
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
@@ -1578,6 +1616,8 @@ module Handler = struct
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_x_fraction (num, denom))
         | None -> err_not_utility)
+    | [ ""; "translate"; "x"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_x_step (-.Option.get (parse_spacing_step n)))
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
     | [ ""; "translate"; "y"; value ] when Parse.is_bracket_value value ->
@@ -1589,6 +1629,8 @@ module Handler = struct
         match parse_fraction n with
         | Some (num, denom) -> Ok (Neg_translate_y_fraction (num, denom))
         | None -> err_not_utility)
+    | [ ""; "translate"; "y"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_y_step (-.Option.get (parse_spacing_step n)))
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
     | [ ""; "translate"; "z"; value ] when Parse.is_bracket_value value ->
@@ -1801,6 +1843,18 @@ module Handler = struct
     in
     "[" ^ s ^ "]"
 
+  (* [translate-x-0.5], and [-translate-x-0.5] for the negative step. Tailwind
+     writes the fraction as the author did, so keep the trailing digits. *)
+  let step_class prefix f =
+    let digits = Float.to_string (Float.abs f) in
+    (* [Float.to_string 0.5] is ["0.5"]; drop a trailing dot from ["2."]. *)
+    let digits =
+      let n = String.length digits in
+      if n > 0 && digits.[n - 1] = '.' then String.sub digits 0 (n - 1)
+      else digits
+    in
+    (if f < 0. then "-" else "") ^ prefix ^ "-" ^ digits
+
   let to_class = function
     | Rotate n -> neg_class "rotate-" n
     | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
@@ -1821,12 +1875,14 @@ module Handler = struct
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
+    | Translate_x_step f -> step_class "translate-x" f
     | Translate_x_arbitrary (raw, _) -> "translate-x-[" ^ raw ^ "]"
     | Translate_x_fraction (num, denom) ->
         "translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_y n -> neg_class "translate-y-" n
     | Translate_y_full -> "translate-y-full"
     | Translate_y_px -> "translate-y-px"
+    | Translate_y_step f -> step_class "translate-y" f
     | Translate_y_arbitrary (raw, _) -> "translate-y-[" ^ raw ^ "]"
     | Translate_y_fraction (num, denom) ->
         "translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
