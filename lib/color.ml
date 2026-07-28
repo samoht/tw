@@ -1929,11 +1929,15 @@ module Handler = struct
             let normalized =
               String.map (fun c -> if c = '_' then ' ' else c) inner
             in
-            if Parse.is_css_color_fn normalized then Css.parse_color normalized
-            else
-              match color_of_string inner with
-              | Ok c -> Some (to_css c 500)
-              | Error _ -> None)
+            (* Any colour CSS knows wins over the palette, keywords and system
+               colours included: [[Field]] and [[light-dark(a,b)]] are values,
+               not palette names. The guard used to admit only functions. *)
+            match Css.parse_color normalized with
+            | Some c -> Some c
+            | None -> (
+                match color_of_string inner with
+                | Ok c -> Some (to_css c 500)
+                | Error _ -> None))
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
