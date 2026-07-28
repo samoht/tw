@@ -105,3 +105,23 @@ An unknown namespace is left alone, the same as an unknown token:
   > EOF
   $ tw --minify --input-css v3bad.css index.html | grep -c 'theme("nope.not-a-namespace")'
   1
+
+An imported file's [@layer components { ... }] fills the slot the generated
+sheet declared, and the [@keyframes] the utilities bring go at the end of the
+document, both the way Tailwind emits them:
+
+  $ cat > comp.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @import "./card.css";
+  > .after { color: red }
+  > EOF
+  $ cat > card.css <<EOF
+  > @layer components { .card { padding: 1rem } }
+  > EOF
+  $ cat > comp.html <<EOF
+  > <div class="animate-spin after"></div>
+  > EOF
+  $ tw --minify --input-css comp.css comp.html | grep -oE '@layer components\{\.card\{padding:1rem\}\}|\.after\{color:red\}|@keyframes spin' | head -3
+  @layer components{.card{padding:1rem}}
+  .after{color:red}
+  @keyframes spin

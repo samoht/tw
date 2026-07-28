@@ -847,13 +847,58 @@ let merge_named_layers stmts =
         | _ -> Some stmt)
       stmts
 
+(* [@layer components;] on its own declares the layer's slot; the block that
+   fills it can come much later, from an imported file. Tailwind emits the block
+   in the slot, so move it there. The declared order already makes this
+   cascade-neutral; it is the document shape that differs. *)
+let hoist_layer_blocks stmts =
+  let declared_name stmt =
+    match Css.as_layer stmt with
+    | Some _ -> None
+    | None -> (
+        let s = Css.to_string ~minify:true (Css.v [ stmt ]) in
+        match String.index_opt s ';' with
+        | Some semi
+          when String.length s > 7
+               && String.sub s 0 7 = "@layer "
+               && semi = String.length s - 1 ->
+            let name = String.sub s 7 (semi - 7) in
+            if String.contains name ',' || name = "" then None else Some name
+        | _ -> None)
+  in
+  let block_name stmt =
+    match Css.as_layer stmt with Some (Some n, _) -> Some n | _ -> None
+  in
+  let slots =
+    List.filter_map declared_name stmts |> List.sort_uniq String.compare
+  in
+  let movable =
+    List.filter
+      (fun n -> List.exists (fun st -> block_name st = Some n) stmts)
+      slots
+  in
+  if movable = [] then stmts
+  else
+    let block_for n = List.find_opt (fun st -> block_name st = Some n) stmts in
+    List.filter_map
+      (fun stmt ->
+        match declared_name stmt with
+        | Some n when List.mem n movable -> block_for n
+        | _ -> (
+            match block_name stmt with
+            | Some n when List.mem n movable -> None
+            | _ -> Some stmt))
+      stmts
+
 let collect_properties_at_end stmts =
   let seen = Hashtbl.create 64 in
   let keep, props =
     List.partition_map
       (fun stmt ->
         match Css.as_property stmt with
-        | None -> Left (Some stmt)
+        | None ->
+            if Css.as_keyframes stmt <> None then Right stmt
+            else Left (Some stmt)
         | Some (Css.Property_info { name; _ }) ->
             if Hashtbl.mem seen name then Left None
             else begin
@@ -862,7 +907,10 @@ let collect_properties_at_end stmts =
             end)
       stmts
   in
-  List.filter_map Fun.id keep @ props
+  let at_end, keyframes =
+    List.partition (fun st -> Css.as_keyframes st = None) props
+  in
+  List.filter_map Fun.id keep @ at_end @ keyframes
 
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
@@ -898,7 +946,8 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
-          |> merge_named_layers |> collect_properties_at_end |> Css.v)
+          |> merge_named_layers |> hoist_layer_blocks
+          |> collect_properties_at_end |> Css.v)
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
