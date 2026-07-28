@@ -342,3 +342,8 @@ val container_6xl : Css.length Var.theme
 
 val container_7xl : Css.length Var.theme
 (** [container_7xl] is the theme variable for 7xl container width (80rem). *)
+
+val container_binding : string -> (Css.length Var.theme * Css.length) option
+(** [container_binding name] is the theme variable and default for a container
+    scale step ["sm"], or {!constructor-None} when [name] is not one. The scale
+    doubles as the named width scale in v4. *)

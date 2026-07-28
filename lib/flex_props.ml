@@ -121,13 +121,25 @@ module Handler = struct
             ~default_css:"0px"
         in
         style [ decl; flex_basis (Var ref) ]
-    | None ->
-        let ref : Css.flex_basis Css.var =
-          Var.theme_ref var_name
-            ~default:(Css.Zero : Css.flex_basis)
-            ~default_css:"0px"
-        in
-        style [ flex_basis (Var ref) ]
+    (* Without an override the container scale still declares its own default,
+       so the token the utility reads is in the sheet. *)
+    | None -> (
+        match Sizing.container_binding name with
+        | Some (v, d) ->
+            let decl, _ = Var.binding v d in
+            let ref : Css.flex_basis Css.var =
+              Var.theme_ref var_name
+                ~default:(Css.Zero : Css.flex_basis)
+                ~default_css:"0px"
+            in
+            style [ decl; flex_basis (Var ref) ]
+        | None ->
+            let ref : Css.flex_basis Css.var =
+              Var.theme_ref var_name
+                ~default:(Css.Zero : Css.flex_basis)
+                ~default_css:"0px"
+            in
+            style [ flex_basis (Var ref) ])
 
   (* Order *)
   let order_style n = style [ order (Int n) ]

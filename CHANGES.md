@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Declare `--container-*` in `@layer theme` for `basis-sm` and friends; the
+  utility read a variable nothing declared (#231)
+
 - Write the keyword for `object-*`, `origin-*` and `perspective-origin-*`
   when no `@theme` defines the token; they referenced a variable nothing
   declared (#231)
