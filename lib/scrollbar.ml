@@ -82,7 +82,7 @@ module Handler = struct
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named n -> "/" ^ n
-    | Color.Opacity_var v -> "/[" ^ v ^ "]"
+    | Color.Opacity_var v -> "/" ^ v
 
   let spec_class = function
     | Theme (color, shade, op) ->

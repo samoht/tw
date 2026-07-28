@@ -210,7 +210,7 @@ module Handler = struct
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/[" ^ v ^ "]"
+    | Color.Opacity_var v -> "/" ^ v
 
   let to_class (t : t) =
     match t with
@@ -995,11 +995,8 @@ module Handler = struct
   let bg_bracket_color_var_opacity' var_str opacity =
     let bare = Parse.extract_var_name var_str in
     let var_ref : Css.color Css.var = Var.bracket bare in
-    let percent = Color.opacity_to_percent opacity in
     let fallback_decl = Css.background_color (Var var_ref) in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab (Var var_ref) Transparent ~percent1:percent
-    in
+    let oklab_color = Color.mix_alpha opacity (Css.Var var_ref) in
     let oklab_decl = Css.background_color oklab_color in
     let supports_rule =
       Css.supports ~condition:Color.color_mix_supports_condition
@@ -1088,16 +1085,16 @@ module Handler = struct
            color-mix(...) } } 3. .from-X/N { --tw-gradient-stops: ... } To
            match, we put fallback in props, @supports in rules, and stops as
            separate rule in rules. *)
-        let hex_alpha = Color.hex_with_alpha hex_value percent in
+        let hex_alpha =
+          if Color.opacity_var_bare_of opacity <> None then hex_value
+          else Color.hex_with_alpha hex_value percent
+        in
         let d_fallback, _ = Var.binding set_var (Css.hex hex_alpha) in
 
         (* Theme variable for @supports block *)
         let color_var = Color.color_var color shade in
         let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
+        let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
         let d_oklab, _ = Var.binding set_var oklab_color in
 
         (* Build @supports block with placeholder selector *)
@@ -1130,9 +1127,7 @@ module Handler = struct
         (* Non-scheme color: use color-mix directly *)
         let oklch = Color.to_oklch color shade in
         let color_value =
-          Css.color_mix ~in_space:Oklab
-            (Css.oklch oklch.l oklch.c oklch.h)
-            Css.Transparent ~percent1:percent
+          Color.mix_alpha opacity (Css.oklch oklch.l oklch.c oklch.h)
         in
         let d_var, _ = Var.binding set_var color_value in
         let declarations =
@@ -1845,28 +1840,7 @@ module Handler = struct
               decr depth;
               if !depth = 0 then close := i)
         done;
-        let parse_opacity s =
-          if String.length s > 1 && s.[0] = '[' && s.[String.length s - 1] = ']'
-          then
-            let inner_o = String.sub s 1 (String.length s - 2) in
-            if String.ends_with ~suffix:"%" inner_o then
-              let num_s = String.sub inner_o 0 (String.length inner_o - 1) in
-              match float_of_string_opt num_s with
-              | Some f -> Some (Color.Opacity_bracket_percent f)
-              | None ->
-                  if Parse.is_var inner_o then Some (Color.Opacity_var inner_o)
-                  else None
-            else
-              match float_of_string_opt inner_o with
-              | Some f -> Some (Color.Opacity_arbitrary f)
-              | None ->
-                  if Parse.is_var inner_o then Some (Color.Opacity_var inner_o)
-                  else None
-          else
-            match float_of_string_opt s with
-            | Some f -> Some (Color.Opacity_percent f)
-            | None -> None
-        in
+        let parse_opacity s = Color.opacity_of_string ~theme s in
         if !close >= 0 && !close + 1 < len && bracket_stuff.[!close + 1] = '/'
         then
           (* Bracket with opacity: [color:var(--x)]/50 *)

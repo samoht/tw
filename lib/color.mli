@@ -336,6 +336,25 @@ type opacity_modifier =
   | Opacity_var of string
       (** e.g., /[var(--x)] - var ref used directly as percentage *)
 
+val opacity_var_bare : string -> string
+(** [opacity_var_bare v] is the bare custom-property name inside an opacity
+    modifier, written either as ["[var(--x)]"] or as the ["(--x)"] shorthand. *)
+
+val opacity_var_bare_of : opacity_modifier -> string option
+(** [opacity_var_bare_of opacity] is the custom property the modifier reads its
+    percentage from, when it names one rather than giving a number. *)
+
+val mix_alpha :
+  ?in_space:Css.color_space -> opacity_modifier -> Css.color -> Css.color
+(** [mix_alpha ?in_space opacity color] is [color] with the modifier's alpha
+    applied: a percentage folds into the [color-mix], an alpha read from a var
+    is referenced by name. *)
+
+val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
+(** [opacity_of_string ?theme s] parses the modifier that follows the [/] in a
+    colour class: a percentage, a bracket value, the [(--x)] shorthand, or a
+    theme-defined name. *)
+
 val parse_opacity_modifier :
   ?theme:Scheme.t -> string -> string * opacity_modifier
 (** [parse_opacity_modifier ?theme s] parses an opacity modifier from a string.

@@ -232,9 +232,14 @@ module Handler = struct
     if String.length inner > 0 && inner.[0] = '#' then
       match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
       | Some rgb ->
-          let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-          let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-          let rule = Css.rule ~selector [ Css.border_color oklab_value ] in
+          let value =
+            if Color.opacity_var_bare_of opacity <> None then
+              Color.mix_alpha opacity (Css.hex inner)
+            else
+              let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
+              Css.oklaba_none_zeros ok_l ok_a ok_b alpha
+          in
+          let rule = Css.rule ~selector [ Css.border_color value ] in
           style ~rules:(Some [ rule ]) []
       | None ->
           let rule = Css.rule ~selector [ Css.border_color (Css.hex "#000") ] in
@@ -309,7 +314,7 @@ module Handler = struct
         else "/[" ^ pp_float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/[" ^ v ^ "]"
+    | Color.Opacity_var v -> "/" ^ v
 
   (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style ?theme color shade opacity =

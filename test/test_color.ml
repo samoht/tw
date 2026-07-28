@@ -277,6 +277,38 @@ let test_border_side_color_opacity () =
     "border-b-white/5 round-trips" "border-b-white/5"
     (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
 
+(* An alpha can name a custom property to read the percentage from, written
+   either as [/[var(--x)]] or as the [/(--x)] shorthand. The percentage is not
+   known at build time, so it goes into the [color-mix] as a reference; before,
+   an unresolved alpha counted as 100% and the modifier was dropped. *)
+let test_alpha_from_a_var () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-cyan-400/(--a)"
+    "color-mix(in oklab,var(--color-cyan-400) var(--a),transparent)";
+  has "bg-cyan-400/[var(--a)]"
+    "color-mix(in oklab,var(--color-cyan-400) var(--a),transparent)";
+  has "text-red-500/(--a)"
+    "color-mix(in oklab,var(--color-red-500) var(--a),transparent)";
+  has "fill-red-500/(--a)"
+    "color-mix(in oklab,var(--color-red-500) var(--a),transparent)";
+  has "bg-[#0088cc]/(--a)" "color-mix(in oklab,#08c var(--a),transparent)";
+  (* the fallback is the colour at full opacity, with no alpha folded in *)
+  has "bg-cyan-400/(--a)" "background-color:var(--color-cyan-400)";
+  (* both spellings round-trip *)
+  Alcotest.(check string)
+    "the shorthand round-trips" "bg-cyan-400/(--a)"
+    (Tw.pp (Result.get_ok (Tw.of_string "bg-cyan-400/(--a)")));
+  Alcotest.(check string)
+    "the bracket form round-trips" "bg-cyan-400/[var(--a)]"
+    (Tw.pp (Result.get_ok (Tw.of_string "bg-cyan-400/[var(--a)]")))
+
 (* A bracket colour is read as CSS first and only then as a palette name, so a
    system colour or a light-dark() both work. The fallback used to admit only
    colour functions, which left [bg-[Field]] an unknown class. *)
@@ -351,6 +383,7 @@ let tests =
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
+    ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
