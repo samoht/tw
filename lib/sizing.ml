@@ -171,6 +171,7 @@ module Handler = struct
     | Inline_svw
     | Inline_container of string
     (* min-inline-size utilities *)
+    | Min_inline_fraction of string
     | Min_inline_spacing of float
     | Min_inline_arbitrary of string * Css.length
     | Min_inline_auto
@@ -185,6 +186,7 @@ module Handler = struct
     | Min_inline_min
     | Min_inline_container of string
     (* max-inline-size utilities *)
+    | Max_inline_fraction of string
     | Max_inline_spacing of float
     | Max_inline_arbitrary of string * Css.length
     | Max_inline_fit
@@ -213,6 +215,7 @@ module Handler = struct
     | Block_screen
     | Block_svh
     (* min-block-size utilities *)
+    | Min_block_fraction of string
     | Min_block_spacing of float
     | Min_block_arbitrary of string * Css.length
     | Min_block_auto
@@ -227,6 +230,7 @@ module Handler = struct
     | Min_block_screen
     | Min_block_svh
     (* max-block-size utilities *)
+    | Max_block_fraction of string
     | Max_block_spacing of float
     | Max_block_arbitrary of string * Css.length
     | Max_block_dvh
@@ -805,6 +809,10 @@ module Handler = struct
         | None ->
             style [ inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
     (* min-inline-size utilities *)
+    | Min_inline_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ min_inline_size (Pct pct) ]
+        | None -> failwith ("Unknown min-inline-size fraction: " ^ f))
     | Min_inline_spacing n -> spacing_utility min_inline_size n
     | Min_inline_arbitrary (_, len) -> style [ min_inline_size len ]
     | Min_inline_auto -> style [ min_inline_size Auto ]
@@ -826,6 +834,10 @@ module Handler = struct
             style
               [ min_inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
     (* max-inline-size utilities *)
+    | Max_inline_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ max_inline_size (Pct pct) ]
+        | None -> failwith ("Unknown max-inline-size fraction: " ^ f))
     | Max_inline_spacing n -> spacing_utility max_inline_size n
     | Max_inline_arbitrary (_, len) -> style [ max_inline_size len ]
     | Max_inline_fit -> style [ max_inline_size Fit_content ]
@@ -864,6 +876,10 @@ module Handler = struct
     | Block_screen -> style [ block_size (Vh 100.) ]
     | Block_svh -> style [ block_size (Svh 100.) ]
     (* min-block-size utilities *)
+    | Min_block_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ min_block_size (Pct pct) ]
+        | None -> failwith ("Unknown min-block-size fraction: " ^ f))
     | Min_block_spacing n -> spacing_utility min_block_size n
     | Min_block_arbitrary (_, len) -> style [ min_block_size len ]
     | Min_block_auto -> style [ min_block_size Auto ]
@@ -878,6 +894,10 @@ module Handler = struct
     | Min_block_screen -> style [ min_block_size (Vh 100.) ]
     | Min_block_svh -> style [ min_block_size (Svh 100.) ]
     (* max-block-size utilities *)
+    | Max_block_fraction f -> (
+        match fraction_pct f with
+        | Some pct -> style [ max_block_size (Pct pct) ]
+        | None -> failwith ("Unknown max-block-size fraction: " ^ f))
     | Max_block_spacing n -> spacing_utility max_block_size n
     | Max_block_arbitrary (_, len) -> style [ max_block_size len ]
     | Max_block_dvh -> style [ max_block_size (Dvh 100.) ]
@@ -1165,6 +1185,9 @@ module Handler = struct
     | "max" -> Ok Min_inline_max
     | "min" -> Ok Min_inline_min
     | name when container_binding name <> None -> Ok (Min_inline_container name)
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Min_inline_fraction frac)
+        else err_invalid_value "min-inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_inline_arbitrary (raw, len))
@@ -1186,6 +1209,9 @@ module Handler = struct
     | "max" -> Ok Max_inline_max
     | "none" -> Ok Max_inline_none
     | name when container_binding name <> None -> Ok (Max_inline_container name)
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Max_inline_fraction frac)
+        else err_invalid_value "max-inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_inline_arbitrary (raw, len))
@@ -1230,6 +1256,9 @@ module Handler = struct
     | "min" -> Ok Min_block_min
     | "screen" -> Ok Min_block_screen
     | "svh" -> Ok Min_block_svh
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Min_block_fraction frac)
+        else err_invalid_value "min-block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Min_block_arbitrary (raw, len))
@@ -1251,6 +1280,9 @@ module Handler = struct
     | "none" -> Ok Max_block_none
     | "screen" -> Ok Max_block_screen
     | "svh" -> Ok Max_block_svh
+    | frac when String.contains frac '/' ->
+        if fraction_pct frac <> None then Ok (Max_block_fraction frac)
+        else err_invalid_value "max-block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
         match parse_arbitrary v with
         | Some (raw, len) -> Ok (Max_block_arbitrary (raw, len))
@@ -1533,6 +1565,7 @@ module Handler = struct
     | Inline_svw -> inline + keyword_off + 8
     | Inline_container name -> inline + keyword_off + 9 + container_order name
     (* min-inline-size *)
+    | Min_inline_fraction f -> min_inline + fraction_value_order f
     | Min_inline_spacing n -> min_inline + spacing_value_order n
     | Min_inline_arbitrary _ -> min_inline + arbitrary_off
     | Min_inline_auto -> min_inline + keyword_off + 0
@@ -1548,6 +1581,7 @@ module Handler = struct
     | Min_inline_container name ->
         min_inline + keyword_off + 5 + container_order name
     (* max-inline-size *)
+    | Max_inline_fraction f -> max_inline + fraction_value_order f
     | Max_inline_spacing n -> max_inline + spacing_value_order n
     | Max_inline_arbitrary _ -> max_inline + arbitrary_off
     | Max_inline_fit -> max_inline + keyword_off + 0
@@ -1577,6 +1611,7 @@ module Handler = struct
     | Block_screen -> block + keyword_off + 8
     | Block_svh -> block + keyword_off + 9
     (* min-block-size *)
+    | Min_block_fraction f -> min_block + fraction_value_order f
     | Min_block_spacing n -> min_block + spacing_value_order n
     | Min_block_arbitrary _ -> min_block + arbitrary_off
     | Min_block_auto -> min_block + keyword_off + 0
@@ -1591,6 +1626,7 @@ module Handler = struct
     | Min_block_screen -> min_block + keyword_off + 8
     | Min_block_svh -> min_block + keyword_off + 9
     (* max-block-size *)
+    | Max_block_fraction f -> max_block + fraction_value_order f
     | Max_block_spacing n -> max_block + spacing_value_order n
     | Max_block_arbitrary _ -> max_block + arbitrary_off
     | Max_block_dvh -> max_block + keyword_off + 0
@@ -1775,6 +1811,7 @@ module Handler = struct
     | Inline_svw -> "inline-svw"
     | Inline_container name -> "inline-" ^ name
     (* min-inline-size utilities *)
+    | Min_inline_fraction f -> "min-inline-" ^ f
     | Min_inline_spacing n -> "min-inline-" ^ class_float (n *. 4.)
     | Min_inline_arbitrary (raw, _) -> "min-inline-[" ^ raw ^ "]"
     | Min_inline_auto -> "min-inline-auto"
@@ -1789,6 +1826,7 @@ module Handler = struct
     | Min_inline_min -> "min-inline-min"
     | Min_inline_container name -> "min-inline-" ^ name
     (* max-inline-size utilities *)
+    | Max_inline_fraction f -> "max-inline-" ^ f
     | Max_inline_spacing n -> "max-inline-" ^ class_float (n *. 4.)
     | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
     | Max_inline_fit -> "max-inline-fit"
@@ -1817,6 +1855,7 @@ module Handler = struct
     | Block_screen -> "block-screen"
     | Block_svh -> "block-svh"
     (* min-block-size utilities *)
+    | Min_block_fraction f -> "min-block-" ^ f
     | Min_block_spacing n -> "min-block-" ^ class_float (n *. 4.)
     | Min_block_arbitrary (raw, _) -> "min-block-[" ^ raw ^ "]"
     | Min_block_auto -> "min-block-auto"
@@ -1831,6 +1870,7 @@ module Handler = struct
     | Min_block_screen -> "min-block-screen"
     | Min_block_svh -> "min-block-svh"
     (* max-block-size utilities *)
+    | Max_block_fraction f -> "max-block-" ^ f
     | Max_block_spacing n -> "max-block-" ^ class_float (n *. 4.)
     | Max_block_arbitrary (raw, _) -> "max-block-[" ^ raw ^ "]"
     | Max_block_dvh -> "max-block-dvh"

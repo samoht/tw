@@ -72,9 +72,21 @@ val perspective_dramatic : t
 (** [perspective_dramatic] sets a short perspective distance for dramatic 3D
     effects ({i perspective: var(--perspective-dramatic)}). *)
 
+val perspective_near : t
+(** [perspective_near] sets a near perspective distance
+    ({i perspective: var(--perspective-near)}). *)
+
 val perspective_normal : t
 (** [perspective_normal] sets a normal perspective distance
     ({i perspective: var(--perspective-normal)}). *)
+
+val perspective_midrange : t
+(** [perspective_midrange] sets a mid-range perspective distance
+    ({i perspective: var(--perspective-midrange)}). *)
+
+val perspective_distant : t
+(** [perspective_distant] sets a distant perspective
+    ({i perspective: var(--perspective-distant)}). *)
 
 val perspective_origin_center : t
 (** [perspective_origin_center] sets perspective origin to center. *)

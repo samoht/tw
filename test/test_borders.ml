@@ -34,6 +34,16 @@ let of_string_valid () =
   check "border-x-0";
   check "border-y-8";
 
+  (* logical single-side borders: inline/block start and end *)
+  check "border-s";
+  check "border-e";
+  check "border-bs";
+  check "border-be";
+  check "border-s-4";
+  check "border-e-0";
+  check "border-bs-2";
+  check "border-be-8";
+
   check "border-solid";
   check "border-dashed";
   check "border-dotted";
@@ -226,6 +236,27 @@ let test_border_side_arbitrary_width () =
     (Astring.String.is_infix ~affix:"border-left-width: .5rem"
        (css "border-l-[0.5rem]"))
 
+(* Logical single-side borders emit the inline/block start/end style var and
+   width, like the physical per-side borders do. *)
+let test_logical_side_borders () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "border-s sets border-inline-start-width: 1px" true
+    (Astring.String.is_infix ~affix:"border-inline-start-width: 1px"
+       (css "border-s"));
+  Alcotest.(check bool)
+    "border-be-2 sets border-block-end-width: 2px" true
+    (Astring.String.is_infix ~affix:"border-block-end-width: 2px"
+       (css "border-be-2"));
+  Alcotest.(check bool)
+    "border-e references the border-style var" true
+    (Astring.String.is_infix
+       ~affix:"border-inline-end-style: var(--tw-border-style)" (css "border-e"))
+
 let tests =
   [
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
@@ -240,6 +271,7 @@ let tests =
       test_outline_hidden_modifier_forced_colors;
     test_case "border side arbitrary widths" `Quick
       test_border_side_arbitrary_width;
+    test_case "logical single-side borders" `Quick test_logical_side_borders;
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick

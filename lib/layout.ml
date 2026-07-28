@@ -174,6 +174,8 @@ module Handler = struct
     | (* Box decoration break *)
       Box_decoration_clone
     | Box_decoration_slice
+    | Decoration_clone (* legacy alias, keeps its class name *)
+    | Decoration_slice
     | (* Break before/after/inside - page/column breaks *)
       Break_before_all
     | Break_before_auto
@@ -304,6 +306,8 @@ module Handler = struct
     (* Box decoration break - alphabetical: clone, slice *)
     | Box_decoration_clone -> 1000
     | Box_decoration_slice -> 1001
+    | Decoration_clone -> 1000
+    | Decoration_slice -> 1001
     (* Break before - alphabetical order (Tailwind: break-before < break-inside
        < break-after) *)
     | Break_before_all -> 1100
@@ -397,6 +401,8 @@ module Handler = struct
     | Clear_end -> "clear-end"
     | Box_decoration_clone -> "box-decoration-clone"
     | Box_decoration_slice -> "box-decoration-slice"
+    | Decoration_clone -> "decoration-clone"
+    | Decoration_slice -> "decoration-slice"
     | Break_before_all -> "break-before-all"
     | Break_before_auto -> "break-before-auto"
     | Break_before_avoid -> "break-before-avoid"
@@ -533,6 +539,18 @@ module Handler = struct
             Css.webkit_box_decoration_break Slice;
             Css.box_decoration_break Slice;
           ]
+    | Decoration_clone ->
+        style
+          [
+            Css.webkit_box_decoration_break Clone;
+            Css.box_decoration_break Clone;
+          ]
+    | Decoration_slice ->
+        style
+          [
+            Css.webkit_box_decoration_break Slice;
+            Css.box_decoration_break Slice;
+          ]
     (* Break before *)
     | Break_before_all -> style [ Css.break_before All ]
     | Break_before_auto -> style [ Css.break_before Auto ]
@@ -649,6 +667,8 @@ module Handler = struct
     | [ "clear"; "end" ] -> Ok Clear_end
     | [ "box"; "decoration"; "clone" ] -> Ok Box_decoration_clone
     | [ "box"; "decoration"; "slice" ] -> Ok Box_decoration_slice
+    | [ "decoration"; "clone" ] -> Ok Decoration_clone
+    | [ "decoration"; "slice" ] -> Ok Decoration_slice
     (* Break before *)
     | [ "break"; "before"; "all" ] -> Ok Break_before_all
     | [ "break"; "before"; "auto" ] -> Ok Break_before_auto

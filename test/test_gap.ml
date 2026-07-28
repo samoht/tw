@@ -111,6 +111,28 @@ let test_css_values () =
   Alcotest.check bool "gap-x-10 uses spacing*10" true
     (Astring.String.is_infix ~affix:"*10)" (css_for (gap_x 10)))
 
+(* Arbitrary gaps accept the full length grammar (container-query units, calc,
+   and the CSS-wide keywords), not just px/rem, and round-trip verbatim. *)
+let test_arbitrary_length_grammar () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "gap-[5cqw] keeps the cqw unit" true
+    (Astring.String.is_infix ~affix:"gap:5cqw" (css "gap-[5cqw]"));
+  Alcotest.(check bool)
+    "gap-[calc(1rem/16*7)] spaces the calc" true
+    (Astring.String.is_infix ~affix:"gap:calc(1rem/16*7)"
+       (css "gap-[calc(1rem/16*7)]"));
+  Alcotest.(check bool)
+    "gap-[inherit] passes the keyword through" true
+    (Astring.String.is_infix ~affix:"gap:inherit" (css "gap-[inherit]"));
+  check "gap-[5cqw]";
+  check "gap-[inherit]";
+  check "gap-[4px]"
+
 let tests =
   [
     test_case "gap of_string - valid values" `Quick of_string_valid;
@@ -122,6 +144,7 @@ let tests =
       mixed_gap_axis_arbitrary_order_matches_tailwind;
     test_case "space-px CSS values" `Quick test_space_px_values;
     test_case "gap CSS values" `Quick test_css_values;
+    test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
   ]
 
 let suite = ("gap", tests)

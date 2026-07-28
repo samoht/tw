@@ -102,6 +102,35 @@ let test_arbitrary_var () =
   check "top-[var(--t)]";
   check "left-[var(--l)]"
 
+(* Fractional spacing steps (top-2.5) resolve to calc(var(--spacing) * n) and
+   the px step (left-px) to 1px, on the physical/axis inset sides. *)
+let test_spacing_steps () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "top-2.5 uses calc(var(--spacing)*2.5)" true
+    (Astring.String.is_infix ~affix:"top:calc(var(--spacing)*2.5)"
+       (css "top-2.5"));
+  Alcotest.(check bool)
+    "inset-y-0.5 uses the block axis" true
+    (Astring.String.is_infix ~affix:"inset-block:calc(var(--spacing)*.5)"
+       (css "inset-y-0.5"));
+  Alcotest.(check bool)
+    "left-px is 1px" true
+    (Astring.String.is_infix ~affix:"left:1px" (css "left-px"));
+  Alcotest.(check bool)
+    "inset-px is 1px" true
+    (Astring.String.is_infix ~affix:"inset:1px" (css "inset-px"));
+  (* round-trip the class names, escaped dot included *)
+  check "top-2.5";
+  check "right-1.5";
+  check "top-14.25";
+  check "left-px";
+  check "inset-px"
+
 (* Arbitrary calc() insets go through the full length grammar (the bracket
    parser used to accept only plain <number><unit>). *)
 let test_arbitrary_calc () =
@@ -177,6 +206,7 @@ let tests =
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
+    test_case "spacing steps (fractional + px)" `Quick test_spacing_steps;
     test_case "arbitrary calc insets" `Quick test_arbitrary_calc;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

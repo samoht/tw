@@ -115,7 +115,12 @@ let test_max_sizes () =
   check "max-w-1/2";
   check "max-w-1/3";
   check "max-h-1/2";
-  check "max-h-3/4"
+  check "max-h-3/4";
+  (* fractions on the logical min/max inline and block axes *)
+  check "max-block-1/2";
+  check "min-block-1/3";
+  check "max-inline-3/4";
+  check "min-inline-2/3"
 
 let test_square_sizes () =
   check "size-0";
@@ -182,6 +187,25 @@ let test_aspect_bracket_number () =
   Alcotest.(check string)
     "aspect-[1.333] round-trips" "aspect-[1.333]"
     (Tw.pp (Result.get_ok (Tw.of_string "aspect-[1.333]")))
+
+(* A fraction on a logical min/max inline or block axis resolves to a
+   percentage, like the physical max-w/max-h families do. *)
+let test_logical_size_fractions () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " is " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "max-block-1/2" "max-block-size:50%";
+  has "min-block-1/3" "min-block-size:33.3333%";
+  has "max-inline-3/4" "max-inline-size:75%";
+  has "min-inline-2/3" "min-inline-size:66.6667%"
 
 (* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
    var(--aspect-square) with a stray --aspect-square theme token that bare
@@ -344,6 +368,7 @@ let tests =
     test_case "min sizes" `Quick test_min_sizes;
     test_case "max sizes" `Quick test_max_sizes;
     test_case "square sizes" `Quick test_square_sizes;
+    test_case "logical size fractions" `Quick test_logical_size_fractions;
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "arbitrary calc sizes" `Quick test_arbitrary_calc;
     test_case "aspect classes" `Quick test_aspect_classes;

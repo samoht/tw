@@ -109,6 +109,7 @@ let test_line_clamp () =
 
 let test_text_overflow_wrap () =
   check "text-ellipsis";
+  check "overflow-ellipsis";
   check "text-clip";
   check "text-wrap";
   check "text-nowrap";
