@@ -186,9 +186,10 @@ module Handler = struct
           else if value = "min-content" then Some Min_content
           else if value = "max-content" then Some Max_content
           else
-            (* A math-function track (min()/max()/clamp()/calc()) is a length,
-               which the suffix-based parse above does not recognise. *)
-            match Css.parse_length value with
+            (* A math-function track (min()/max()/clamp()/calc()), a var() or
+               the [--spacing()] shorthand: all lengths the suffix-based parse
+               above does not recognise. *)
+            match Css.parse_length (Parse.decode_arbitrary_value value) with
             | Some l -> Some (Length l)
             | None -> None)
 
@@ -224,7 +225,11 @@ module Handler = struct
           | n -> (
               match int_of_string_opt n with
               | Some i -> Some (Css.Count i)
-              | None -> None)
+              | None ->
+                  (* [repeat(var(--columns), ...)]: the count can be a var. *)
+                  if Parse.is_var n then
+                    Some (Css.Var (Var.bracket (Parse.extract_var_name n)))
+                  else None)
         in
         (* The track list after the count is space-separated (underscores in the
            bracket); commas only separated count from the list. *)
@@ -258,11 +263,31 @@ module Handler = struct
     | Some v -> v
     | None -> invalid_arg ("Unparseable grid template: " ^ s)
 
+  (* A track written with the [--spacing()] shorthand reads the scale, so the
+     token has to be declared alongside it. *)
+  let spacing_decls s =
+    let has_spacing_fn =
+      let n = String.length "--spacing(" in
+      let rec at i =
+        i + n <= String.length s
+        && (String.sub s i n = "--spacing(" || at (i + 1))
+      in
+      at 0
+    in
+    if has_spacing_fn then
+      let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+      [ decl ]
+    else []
+
   let grid_cols_arbitrary s =
-    style [ Css.grid_template_columns (parse_arbitrary_grid_template_exn s) ]
+    style
+      (spacing_decls s
+      @ [ Css.grid_template_columns (parse_arbitrary_grid_template_exn s) ])
 
   let grid_rows_arbitrary s =
-    style [ Css.grid_template_rows (parse_arbitrary_grid_template_exn s) ]
+    style
+      (spacing_decls s
+      @ [ Css.grid_template_rows (parse_arbitrary_grid_template_exn s) ])
 
   let grid_rows n =
     if n < 1 || n > 999 then
