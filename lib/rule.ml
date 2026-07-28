@@ -1895,13 +1895,16 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
   in
   apply_modifier_to_rule ?theme modifier inner
   |> List.map (function
-    | Regular { selector; props; base_class; has_hover; _ } ->
+    | Regular { selector; props; base_class; has_hover; not_order; _ } ->
         (* A bare hover: rule carries [has_hover] instead of an outer media;
            wrap the @supports in @media (hover:hover) to match. *)
         if has_hover then
           wrap_supports_in_media hover_media selector props base_class []
         else
-          supports_query ~condition ~selector ~props ?base_class ?merge_key ()
+          (* Keep the variant's own order: without it the block sorts before the
+             rule it enhances, and the plain fallback wins instead. *)
+          supports_query ~condition ~selector ~props ?base_class ?merge_key
+            ~not_order ()
     | Media_query { condition = outer; selector; props; base_class; nested; _ }
       ->
         wrap_supports_in_media outer selector props base_class nested

@@ -201,10 +201,43 @@ let test_bare_arbitrary_selector_variant () =
   check bool "[>img] is not a variant" true
     (Result.is_error (Tw.of_string "[>img]:flex"))
 
+(* An opacity colour emits a progressive-enhancement @supports block beside its
+   fallback. Under a variant the block used to carry the theme declaration a
+   second time, and for the variants that set an order of their own it sorted
+   ahead of the rule it enhances, so the fallback won. *)
+let test_opacity_supports_under_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let s = css "hover:bg-red-500/50" in
+  let occurrences sub str =
+    let n = String.length sub in
+    let rec go i acc =
+      if i + n > String.length str then acc
+      else if String.sub str i n = sub then go (i + n) (acc + 1)
+      else go (i + 1) acc
+    in
+    go 0 0
+  in
+  (* once in @layer theme, not again inside the @supports block *)
+  check int "the theme token is declared once" 1
+    (occurrences "--color-red-500:oklch" s);
+  (* the enhancement has to come after the fallback to win *)
+  let d = css "aria-selected:bg-red-500/50" in
+  let idx affix =
+    Option.get (Astring.String.find_sub ~sub:affix d) |> fun (i : int) -> i
+  in
+  check bool "the @supports block follows the fallback" true
+    (idx "#fb2c3680" < idx "@supports")
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "opacity @supports under a variant" `Quick
+      test_opacity_supports_under_variant;
     test_case "bare arbitrary selector variant" `Quick
       test_bare_arbitrary_selector_variant;
     test_case "outer variant over child and pseudo-element" `Quick
