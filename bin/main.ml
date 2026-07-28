@@ -337,6 +337,47 @@ let expand_spacing_fn css =
   go 0;
   Buffer.contents buf
 
+(* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
+   which names the same token under its old namespace. *)
+let v3_theme_namespaces =
+  [
+    ("fontSize", "text");
+    ("lineHeight", "leading");
+    ("letterSpacing", "tracking");
+    ("fontWeight", "font-weight");
+    ("fontFamily", "font");
+    ("colors", "color");
+    ("borderRadius", "radius");
+    ("boxShadow", "shadow");
+    ("dropShadow", "drop-shadow");
+    ("screens", "breakpoint");
+    ("spacing", "spacing");
+    ("transitionTimingFunction", "ease");
+    ("animation", "animate");
+    ("blur", "blur");
+  ]
+
+let v3_theme_token theme path =
+  let unquote s =
+    let n = String.length s in
+    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
+      String.sub s 1 (n - 2)
+    else s
+  in
+  match String.split_on_char '.' (unquote path) with
+  | [] | [ _ ] -> None
+  | ns :: rest -> (
+      match List.assoc_opt ns v3_theme_namespaces with
+      | None -> None
+      | Some prefix -> (
+          let key = String.concat "-" rest in
+          match Tw.Scheme.token theme (prefix ^ "-" ^ key) with
+          | Some _ as v -> v
+          | None -> (
+              match (ns, float_of_string_opt key) with
+              | ("spacing" | "lineHeight"), Some n -> Tw.Theme.spacing_times n
+              | _ -> None)))
+
 (* Tailwind's [theme(--token)] inlines the token's value. It is not CSS, and it
    appears in places a [var()] could not stand anyway, such as a media query
    condition. An unknown token is left alone rather than guessed at. *)
@@ -353,7 +394,11 @@ let resolve_theme_fn ~theme css =
           String.sub name 2 (String.length name - 2)
         else name
       in
-      match Tw.Scheme.token theme bare with
+      match
+        match Tw.Scheme.token theme bare with
+        | Some _ as v -> v
+        | None -> v3_theme_token theme name
+      with
       | Some value ->
           Buffer.add_string buf value;
           go next

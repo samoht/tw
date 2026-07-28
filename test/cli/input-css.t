@@ -82,3 +82,26 @@ leave the reference dangling.
   [1]
   $ tw --minify --input-css inline.css inline.html | grep -cF -- '--font-a:var(--font-a)'
   1
+
+[theme()] also takes the dotted path of a v3 config, which names the same
+token under its old namespace. The [spacing] and [lineHeight] scales are the
+spacing step times the key, which v4 keeps no token for, so those are computed:
+
+  $ cat > v3.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .a { font-size: theme("fontSize.sm"); line-height: theme("lineHeight.6") }
+  > .b { margin: theme(spacing.4); width: theme("screens.sm") }
+  > EOF
+  $ tw --minify --input-css v3.css index.html | grep -cF '.a{font-size:.875rem;line-height:1.5rem}'
+  1
+  $ tw --minify --input-css v3.css index.html | grep -cF '.b{margin:1rem;width:40rem}'
+  1
+
+An unknown namespace is left alone, the same as an unknown token:
+
+  $ cat > v3bad.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .u { color: theme("nope.not-a-namespace") }
+  > EOF
+  $ tw --minify --input-css v3bad.css index.html | grep -c 'theme("nope.not-a-namespace")'
+  1
