@@ -519,7 +519,7 @@ let nested_utilities ~theme names =
     match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
   in
   match List.filter_map of_name names with
-  | [] -> ("", "")
+  | [] -> ("", [])
   | styles ->
       let sheet =
         Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
@@ -537,9 +537,13 @@ let nested_utilities ~theme names =
             let s = Cascade.Selector.to_string ~minify:true sel in
             String.contains s '.'
       in
+      (* [@property] belongs beside the utilities too, not inside the rule that
+         applied them: nested there it is emitted once per applying rule, and
+         the same property comes back for every utility that sets it. *)
       let hoisted, nestable =
         Css.statements sheet |> List.filter from_utility
-        |> List.partition (fun stmt -> Css.as_layer stmt <> None)
+        |> List.partition (fun stmt ->
+            Css.as_layer stmt <> None || Css.as_property stmt <> None)
       in
       (* One [@apply] pulls in several utilities, each with a rule of its own.
          They all decorate the same [&], so they belong in one rule, the way
@@ -561,15 +565,23 @@ let nested_utilities ~theme names =
             Css.rule ~selector:(nest_on_ampersand sel) decls)
         |> merge_same_selector |> Css.v |> Css.to_string ~minify:true
       in
-      (render nestable, Css.to_string ~minify:true (Css.v hoisted))
+      (* One string per hoisted statement, not one for the whole block: two
+         utilities bring overlapping [@property] sets, and deduping the blocks
+         whole re-emits every property they do not share. *)
+      ( render nestable,
+        List.map (fun st -> Css.to_string ~minify:true (Css.v [ st ])) hoisted
+      )
 
-(* Append [s] unless it is already there: every utility that sets the same
-   variable brings back the same hoisted block. *)
-let add_once buf seen s =
-  if s <> "" && not (List.mem s !seen) then begin
-    seen := s :: !seen;
-    Buffer.add_string buf s
-  end
+(* Append each statement unless it is already there: every utility that sets the
+   same variable brings back the same hoisted [@property]. *)
+let add_once buf seen items =
+  List.iter
+    (fun s ->
+      if s <> "" && not (List.mem s !seen) then begin
+        seen := s :: !seen;
+        Buffer.add_string buf s
+      end)
+    items
 
 (* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
    not CSS, so the at-rule drops out and takes the whole rule with it once the
@@ -609,7 +621,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
            author CSS in its own right. *)
         let body, top =
           match List.assoc_opt bare udefs with
-          | Some decls -> (decls, "")
+          | Some decls -> (decls, [])
           | None -> nested_utilities ~theme [ bare ]
         in
         add_once hoisted seen top;
@@ -719,6 +731,28 @@ let preload_imports ~transform ~base_url stylesheet =
    [@import]s are part of the output, and [@import "tailwindcss"] is where the
    generated sheet goes. Reading it for tokens alone silently dropped every rule
    the project wrote. *)
+(* A [@property] the author's [@apply] hoisted and one the generated sheet sets
+   name the same custom property, and a second [@property] for a name is
+   redundant. Keep the first, and put them all at the end of the document, where
+   Tailwind emits them: spliced at the [@import] instead, they sit ahead of the
+   author's own rules and shift every one of them. *)
+let collect_properties_at_end stmts =
+  let seen = Hashtbl.create 64 in
+  let keep, props =
+    List.partition_map
+      (fun stmt ->
+        match Css.as_property stmt with
+        | None -> Left (Some stmt)
+        | Some (Css.Property_info { name; _ }) ->
+            if Hashtbl.mem seen name then Left None
+            else begin
+              Hashtbl.add seen name ();
+              Right stmt
+            end)
+      stmts
+  in
+  List.filter_map Fun.id keep @ props
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -753,7 +787,7 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
-          |> Css.v)
+          |> collect_properties_at_end |> Css.v)
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
