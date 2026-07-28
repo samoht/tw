@@ -432,8 +432,8 @@ let preprocess_has_selector s =
   done;
   Buffer.contents buf
 
-let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
-    props =
+let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
+    selector_str base_class props =
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let parsed_selector =
@@ -446,7 +446,8 @@ let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
   | `Has ->
       let class_name = "has-" ^ has_part selector_str ^ ":" ^ base_class in
       let sel = compound [ class_ class_name; has [ parsed_selector ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
+        ()
   | `Group_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -461,7 +462,8 @@ let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
           Descendant universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
+        ()
   | `Peer_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
@@ -476,7 +478,8 @@ let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
           Subsequent_sibling universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+      regular ~selector:sel ~props ~base_class:class_name ~has_hover ~not_order
+        ()
 
 (* Pseudo-class modifiers: transform the base selector and mark hover when
    needed. *)
@@ -692,11 +695,19 @@ let route_data_bracket_modifier modifier base_class props =
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ~not_order ()
 
-(* Resolve has-shorthand names to CSS selector strings *)
+(* The selector a has-shorthand name stands for. [has-<state>] takes the same
+   state names as the group/peer variants and matches what that state matches,
+   so most map straight to their pseudo-class. *)
 let resolve_has_shorthand = function
-  | "checked" -> ":checked"
   | "hocus" -> ":hover, :focus"
-  | s -> s
+  | "open" -> ":is([open], :popover-open, :open)"
+  | "inert" -> ":is([inert], [inert] *)"
+  | "odd" -> ":nth-child(odd)"
+  | "even" -> ":nth-child(even)"
+  | "first" -> ":first-child"
+  | "last" -> ":last-child"
+  | "only" -> ":only-child"
+  | s -> ":" ^ s
 
 (* Route :has() variants to appropriate handler *)
 let route_has_modifier modifier base_class props =
@@ -719,8 +730,12 @@ let route_has_modifier modifier base_class props =
     && raw_str.[0] <> '.'
     && not (String.contains raw_str ' ')
   in
-  let selector_str = resolve_has_shorthand raw_str in
+  let selector_str =
+    if is_shorthand then resolve_has_shorthand raw_str else raw_str
+  in
   let shorthand = if is_shorthand then Some raw_str else None in
+  (* [has-hover] gates on the pointer just like [hover] itself does. *)
+  let has_hover = is_shorthand && raw_str = "hover" in
   (* Ordering: shorthands before brackets; pseudo-class brackets before
      combinator brackets. Named vs unnamed ordering handled by
      normalize_for_sort since '/' maps to '|' which sorts after ':' → '!'. *)
@@ -730,8 +745,8 @@ let route_has_modifier modifier base_class props =
     else 30
   in
   let not_order = base_order in
-  has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
-    props
+  has_like_selector kind ?name ?shorthand ~has_hover ~not_order selector_str
+    base_class props
 
 (* Parse an aria expression string into an attribute name and match. "modal" →
    ("aria-modal", Presence) "valuenow=1" → ("aria-valuenow", Exact "1")

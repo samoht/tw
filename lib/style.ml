@@ -335,6 +335,54 @@ let rec container_size_name = function
       ^ "]"
 
 (* Convert modifier to string prefix *)
+(* Map of simple state names to base modifiers for compound variant parsing *)
+let group_state_modifiers =
+  [
+    ("hover", Hover);
+    ("focus", Focus);
+    ("active", Active);
+    ("visited", Visited);
+    ("disabled", Disabled);
+    ("checked", Checked);
+    ("empty", Empty);
+    ("required", Required);
+    ("valid", Valid);
+    ("invalid", Invalid);
+    ("indeterminate", Indeterminate);
+    ("default", Default);
+    ("open", Open);
+    ("target", Target);
+    ("optional", Optional);
+    ("read-only", Read_only);
+    ("read-write", Read_write);
+    ("inert", Inert);
+    ("user-valid", User_valid);
+    ("user-invalid", User_invalid);
+    ("placeholder-shown", Placeholder_shown);
+    ("autofill", Autofill);
+    ("in-range", In_range);
+    ("out-of-range", Out_of_range);
+    ("focus-within", Focus_within);
+    ("focus-visible", Focus_visible);
+    ("enabled", Enabled);
+    ("first", First);
+    ("last", Last);
+    ("only", Only);
+    ("odd", Odd);
+    ("even", Even);
+    ("first-of-type", First_of_type);
+    ("last-of-type", Last_of_type);
+    ("only-of-type", Only_of_type);
+  ]
+
+(* Valid has-shorthand names. These are stored as-is (without : prefix) so they
+   remain distinct from bracket forms like has-[:checked]. *)
+let is_has_shorthand name =
+  name = "hocus" || List.mem_assoc name group_state_modifiers
+
+let has_part selector =
+  if is_has_shorthand selector then selector else "[" ^ selector ^ "]"
+
 let rec pp_modifier = function
   | Hover -> "hover"
   | Focus -> "focus"
@@ -388,12 +436,15 @@ let rec pp_modifier = function
   | Data_inactive -> "data-inactive"
   | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v ]
   | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
-  | Has s -> String.concat "" [ "has-["; s; "]" ]
-  | Group_has (s, None) -> String.concat "" [ "group-has-["; s; "]" ]
+  (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
+     CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
+  | Has s -> String.concat "" [ "has-"; has_part s ]
+  | Group_has (s, None) -> String.concat "" [ "group-has-"; has_part s ]
   | Group_has (s, Some name) ->
-      String.concat "" [ "group-has-["; s; "]/"; name ]
-  | Peer_has (s, None) -> String.concat "" [ "peer-has-["; s; "]" ]
-  | Peer_has (s, Some name) -> String.concat "" [ "peer-has-["; s; "]/"; name ]
+      String.concat "" [ "group-has-"; has_part s; "/"; name ]
+  | Peer_has (s, None) -> String.concat "" [ "peer-has-"; has_part s ]
+  | Peer_has (s, Some name) ->
+      String.concat "" [ "peer-has-"; has_part s; "/"; name ]
   | Starting -> "starting"
   | Focus_within -> "focus-within"
   | Focus_visible -> "focus-visible"

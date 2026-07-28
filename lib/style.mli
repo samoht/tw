@@ -280,6 +280,19 @@ val pp_nth : string -> string -> string
 (** [pp_nth prefix expr] formats an nth modifier, using numeric or bracket form.
 *)
 
+val group_state_modifiers : (string * modifier) list
+(** [group_state_modifiers] maps a state name (["focus"], ["first"]) to the
+    modifier it stands for. Variants that take a state name — [group-*],
+    [peer-*], [has-*] — share this table. *)
+
+val is_has_shorthand : string -> bool
+(** [is_has_shorthand name] is whether [name] is a state name a [has-*] variant
+    accepts, as opposed to a bracketed CSS selector. *)
+
+val has_part : string -> string
+(** [has_part s] is the class-name fragment a [has-*] variant spells [s] with:
+    a state name bare, a CSS selector in brackets. *)
+
 val pp_modifier : modifier -> string
 (** [pp_modifier m] converts a modifier to its string representation. *)
 
