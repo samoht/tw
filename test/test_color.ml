@@ -376,6 +376,30 @@ let test_v433_color_families () =
   has "border-mist-200" "var(--color-mist-200)";
   has "bg-taupe-950" "var(--color-taupe-950)"
 
+(* A [/100] modifier is a no-op mix, so the colour itself is the value: the
+   color-mix and its @supports fallback used to be emitted anyway. And [!] has
+   to reach inside that @supports, or the fallback outranks the modern value. *)
+let test_full_opacity_and_important () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let lacks cls affix =
+    Alcotest.(check bool)
+      (cls ^ " without " ^ affix)
+      false
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "text-blue-600/100" "color:var(--color-blue-600)";
+  lacks "text-blue-600/100" "color-mix";
+  lacks "divide-gray-200/100" "color-mix";
+  has "bg-white/75!"
+    "color-mix(in oklab,var(--color-white) 75%,transparent)!important"
+
 let tests =
   [
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
@@ -393,6 +417,7 @@ let tests =
     ("Color accuracy", `Quick, accuracy);
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
     ("v4.3.3 colour families", `Quick, test_v433_color_families);
+    ("Full opacity and important", `Quick, test_full_opacity_and_important);
   ]
 
 let suite = ("color", tests)

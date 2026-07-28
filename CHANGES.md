@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Write the colour itself for a `/100` modifier, which emitted a no-op
+  `color-mix` and its `@supports` fallback (#231)
+- Apply `!` inside the `@supports` colour override, so `bg-white/75!` no longer
+  has its fallback outrank the modern value (#231)
+- Emit the fallback and `@supports` pair for a gradient stop with opacity, as
+  in `from-white/10` (#231)
+
 - Read `object-[50%]` as a position; it emitted `object-position: var(--50)`
   (#231)
 - Write `z-index: auto` for `z-auto`, which referenced a variable nothing
