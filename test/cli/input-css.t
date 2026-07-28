@@ -42,3 +42,21 @@ theme, so an animate-* utility uses the project's --animate-* value:
 
   $ tw --minify --input-css anim.css page.html | grep -c '\.animate-wiggle{animation:var(--animate-wiggle)}'
   1
+
+A project [@theme] can name font families of its own, and [font-<name>] reads
+the token it declared:
+
+  $ cat > font.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme {
+  >   --font-source: Georgia, serif;
+  > }
+  > EOF
+  $ cat > font.html <<EOF
+  > <div class="font-source font-awesome"></div>
+  > EOF
+  $ tw --minify --input-css font.css font.html | grep -cF '.font-source{font-family:var(--font-source)}'
+  1
+  $ tw --minify --input-css font.css font.html | grep -c 'font-awesome'
+  0
+  [1]
