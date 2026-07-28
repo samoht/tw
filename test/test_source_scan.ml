@@ -66,6 +66,22 @@ let test_unbalanced_bracket_stops_at_newline () =
       Alcotest.(check bool) (cls ^ " still scanned") true (List.mem cls found))
     [ "flex"; "block"; "grid" ]
 
+(* A [(] belongs to the candidate where a utility can hold one: after the [-] of
+   [bg-(--x)] and after the [/] of an alpha shorthand. Elsewhere it ends the
+   token, so a call in the source is not read as a class. *)
+let test_scan_paren_shorthands () =
+  let source =
+    {|<div class="bg-(--brand) bg-cyan-400/(--alpha) p-4">x</div>
+const f = fn(arg)|}
+  in
+  let found = Tw_tools.Source_scan.candidates source in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool) (cls ^ " scanned") true (List.mem cls found))
+    [ "bg-(--brand)"; "bg-cyan-400/(--alpha)"; "p-4" ];
+  Alcotest.(check bool)
+    "a call is not a candidate" false (List.mem "fn(arg)" found)
+
 let tests =
   [
     test_case "unbalanced bracket stops at the newline" `Quick
@@ -77,6 +93,8 @@ let tests =
     test_case "Tw.str splits HTML whitespace" `Quick test_tw_str_html_space;
     test_case "bracket before whitespace is not a candidate" `Quick
       test_scan_bracket_before_whitespace;
+    test_case "paren shorthands stay in the candidate" `Quick
+      test_scan_paren_shorthands;
   ]
 
 let suite = ("source_scan", tests)
