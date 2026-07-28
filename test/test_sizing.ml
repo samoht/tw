@@ -371,9 +371,20 @@ let test_any_fraction_denominator () =
     "a fraction of one or more is still rejected" true
     (Result.is_error (Tw.of_string "w-9/9"))
 
+(* The px step exists on the logical sizes too: block-px and inline-px used to
+   be unknown classes. *)
+let test_logical_px_step () =
+  Alcotest.(check bool)
+    "block-px is 1px" true
+    (Astring.String.is_infix ~affix:"block-size: 1px" (css_of "block-px"));
+  Alcotest.(check bool)
+    "inline-px is 1px" true
+    (Astring.String.is_infix ~affix:"inline-size: 1px" (css_of "inline-px"))
+
 let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
+    test_case "logical px step" `Quick test_logical_px_step;
     test_case "any fraction denominator" `Quick test_any_fraction_denominator;
     test_case "general fractions" `Quick test_general_fractions;
     test_case "max-w-screen breakpoint var" `Quick test_max_w_screen;
