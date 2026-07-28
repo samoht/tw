@@ -928,6 +928,10 @@ module Handler = struct
   let err_invalid_value name value =
     Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
 
+  (* A [/] inside a bracket belongs to the value ([w-[calc(2px/2)]]), not to a
+     fraction. *)
+  let is_bracket v = String.length v > 0 && v.[0] = '['
+
   let parse_arbitrary s : (string * Css.length) option =
     (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc. Uses
        Css.parse_length for full CSS length parsing including calc(). Returns
@@ -959,7 +963,7 @@ module Handler = struct
     | "lvw" -> Ok W_lvw
     | "svw" -> Ok W_svw
     | name when container_binding name <> None -> Ok (W_container name)
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (W_fraction frac)
         else err_invalid_value "width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -986,7 +990,7 @@ module Handler = struct
     | "lvw" -> Ok H_lvw
     | "svw" -> Ok H_svw
     | "lh" -> Ok H_lh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (H_fraction frac)
         else err_invalid_value "height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1014,7 +1018,7 @@ module Handler = struct
     | "fit" -> Ok Min_w_fit
     | "auto" -> Ok Min_w_auto
     | name when container_binding name <> None -> Ok (Min_w_container name)
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Min_w_fraction frac)
         else err_invalid_value "min-width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1042,7 +1046,7 @@ module Handler = struct
     | "lvw" -> Ok Min_h_lvw
     | "svw" -> Ok Min_h_svw
     | "lh" -> Ok Min_h_lh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Min_h_fraction frac)
         else err_invalid_value "min-height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1082,7 +1086,7 @@ module Handler = struct
     | "max" -> Ok Max_w_max
     | "fit" -> Ok Max_w_fit
     | "prose" -> Ok Max_w_prose
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Max_w_fraction frac)
         else err_invalid_value "max-width fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1117,7 +1121,7 @@ module Handler = struct
     | "lvw" -> Ok Max_h_lvw
     | "svw" -> Ok Max_h_svw
     | "lh" -> Ok Max_h_lh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Max_h_fraction frac)
         else err_invalid_value "max-height fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1142,7 +1146,7 @@ module Handler = struct
     | "min" -> Ok Size_min
     | "max" -> Ok Size_max
     | "fit" -> Ok Size_fit
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Size_fraction frac)
         else err_invalid_value "size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1166,7 +1170,7 @@ module Handler = struct
     | "screen" -> Ok Inline_screen
     | "svw" -> Ok Inline_svw
     | name when container_binding name <> None -> Ok (Inline_container name)
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Inline_fraction frac)
         else err_invalid_value "inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1190,7 +1194,7 @@ module Handler = struct
     | "max" -> Ok Min_inline_max
     | "min" -> Ok Min_inline_min
     | name when container_binding name <> None -> Ok (Min_inline_container name)
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Min_inline_fraction frac)
         else err_invalid_value "min-inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1214,7 +1218,7 @@ module Handler = struct
     | "max" -> Ok Max_inline_max
     | "none" -> Ok Max_inline_none
     | name when container_binding name <> None -> Ok (Max_inline_container name)
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Max_inline_fraction frac)
         else err_invalid_value "max-inline-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1238,7 +1242,7 @@ module Handler = struct
     | "min" -> Ok Block_min
     | "screen" -> Ok Block_screen
     | "svh" -> Ok Block_svh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Block_fraction frac)
         else err_invalid_value "block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1262,7 +1266,7 @@ module Handler = struct
     | "min" -> Ok Min_block_min
     | "screen" -> Ok Min_block_screen
     | "svh" -> Ok Min_block_svh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Min_block_fraction frac)
         else err_invalid_value "min-block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (
@@ -1286,7 +1290,7 @@ module Handler = struct
     | "none" -> Ok Max_block_none
     | "screen" -> Ok Max_block_screen
     | "svh" -> Ok Max_block_svh
-    | frac when String.contains frac '/' ->
+    | frac when String.contains frac '/' && not (is_bracket frac) ->
         if fraction_pct frac <> None then Ok (Max_block_fraction frac)
         else err_invalid_value "max-block-size fraction" frac
     | v when String.length v > 0 && v.[0] = '[' -> (

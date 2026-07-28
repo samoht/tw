@@ -371,6 +371,17 @@ let test_any_fraction_denominator () =
     "a fraction of one or more is still rejected" true
     (Result.is_error (Tw.of_string "w-9/9"))
 
+(* A [/] inside a bracket belongs to the value, not to a fraction: the fraction
+   branch used to claim w-[calc(2px/2)] and reject it. *)
+let test_bracket_keeps_its_slash () =
+  Alcotest.(check bool)
+    "w-[calc(2px/2)] divides" true
+    (Astring.String.is_infix ~affix:"width: calc(2px / 2)"
+       (css_of "w-[calc(2px/2)]"));
+  Alcotest.(check bool)
+    "w-1/2 is still a fraction" true
+    (Astring.String.is_infix ~affix:"width: 50%" (css_of "w-1/2"))
+
 (* The px step exists on the logical sizes too: block-px and inline-px used to
    be unknown classes. *)
 let test_logical_px_step () =
@@ -385,6 +396,7 @@ let tests =
   [
     test_case "fractional spacing" `Quick test_fractional_spacing;
     test_case "logical px step" `Quick test_logical_px_step;
+    test_case "bracket keeps its slash" `Quick test_bracket_keeps_its_slash;
     test_case "any fraction denominator" `Quick test_any_fraction_denominator;
     test_case "general fractions" `Quick test_general_fractions;
     test_case "max-w-screen breakpoint var" `Quick test_max_w_screen;
