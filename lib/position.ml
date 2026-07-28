@@ -23,8 +23,15 @@ let parse_bracket_length s : (Css.length, _) result =
       done;
       let num_s = String.sub inner 0 !i in
       let unit_s = String.sub inner !i (slen - !i) in
+      (* Fall back to the full length grammar (calc, container-query units, ...)
+         when the value is not a plain <number><unit>. *)
+      let full () =
+        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        | Some l -> Ok l
+        | None -> Error (`Msg ("Invalid length: " ^ inner))
+      in
       match Float.of_string_opt num_s with
-      | None -> Error (`Msg ("Invalid number: " ^ num_s))
+      | None -> full ()
       | Some n -> (
           let open Css in
           match unit_s with
@@ -34,7 +41,7 @@ let parse_bracket_length s : (Css.length, _) result =
           | "%" -> Ok (Pct n)
           | "vw" -> Ok (Vw n)
           | "vh" -> Ok (Vh n)
-          | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
+          | _ -> full ()))
   else Error (`Msg ("Not a bracket value: " ^ s))
 
 (* Negate an inset length: simple units flip sign directly; var()/calc() and

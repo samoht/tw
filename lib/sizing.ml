@@ -932,7 +932,9 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      let css_value = Parse.decode_arbitrary_value inner in
+      let css_value =
+        Parse.normalize_css_math_operators (Parse.decode_arbitrary_value inner)
+      in
       match Css.parse_length css_value with
       | Some l -> Some (inner, l)
       | None -> None
