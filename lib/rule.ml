@@ -903,12 +903,20 @@ let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
    selector and prefix its own name in turn. *)
 let handle_pseudo_element_modifier modifier base_class props =
   let sel = Modifiers.to_selector modifier base_class in
-  let content_decl = Css.content (Var (Var.reference Typography.content_var)) in
   let modified_class =
     Rules_selector.extract_modified_class_name sel base_class
   in
-  regular ~selector:sel ~props:(content_decl :: props)
-    ~base_class:modified_class ()
+  (* [before:]/[after:] need a [content], but a [content-*] utility already
+     brings its own; adding a second one leaves it declared twice. *)
+  let reads_content_var d =
+    Css.declaration_name d = "content"
+    && Css.declaration_value d = "var(--tw-content)"
+  in
+  let props =
+    if List.exists reads_content_var props then props
+    else Css.content (Var (Var.reference Typography.content_var)) :: props
+  in
+  regular ~selector:sel ~props ~base_class:modified_class ()
 
 (* Whether every [(] in [s] closes: a compound condition keeps its own parens,
    so unwrapping one pair only makes sense when what is left is balanced. *)
