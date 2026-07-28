@@ -1889,43 +1889,50 @@ module Handler = struct
     else None
 
   let rec parse_bracket_color (inner : string) : Css.color option =
-    match parse_alpha_call inner with
-    | Some (color_str, pct_str) -> (
-        let pct =
-          let t = String.trim pct_str in
-          let t =
-            if String.length t > 0 && t.[String.length t - 1] = '%' then
-              String.sub t 0 (String.length t - 1)
-            else t
+    if Parse.is_var inner then
+      (* A bare var() is a valid arbitrary color: border-[var(--x)] and its
+         paren shorthand border-(--x). *)
+      Some (Css.Var (Var.bracket (Parse.extract_var_name inner)))
+    else
+      match parse_alpha_call inner with
+      | Some (color_str, pct_str) -> (
+          let pct =
+            let t = String.trim pct_str in
+            let t =
+              if String.length t > 0 && t.[String.length t - 1] = '%' then
+                String.sub t 0 (String.length t - 1)
+              else t
+            in
+            float_of_string_opt t
           in
-          float_of_string_opt t
-        in
-        (* the inner colour is a raw CSS colour ([red] is the keyword, not the
-           red-500 palette entry); fall back to the palette only if CSS does not
-           know it. *)
-        let color =
-          let normalized =
-            String.map (fun c -> if c = '_' then ' ' else c) color_str
+          (* the inner colour is a raw CSS colour ([red] is the keyword, not the
+             red-500 palette entry); fall back to the palette only if CSS does
+             not know it. *)
+          let color =
+            let normalized =
+              String.map (fun c -> if c = '_' then ' ' else c) color_str
+            in
+            match Css.parse_color normalized with
+            | Some c -> Some c
+            | None -> parse_bracket_color color_str
           in
-          match Css.parse_color normalized with
-          | Some c -> Some c
-          | None -> parse_bracket_color color_str
-        in
-        match (pct, color) with
-        | Some pct, Some c ->
-            Some (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)
-        | _ -> None)
-    | None -> (
-        if String.length inner > 0 && inner.[0] = '#' then Some (Css.hex inner)
-        else
-          let normalized =
-            String.map (fun c -> if c = '_' then ' ' else c) inner
-          in
-          if Parse.is_css_color_fn normalized then Css.parse_color normalized
+          match (pct, color) with
+          | Some pct, Some c ->
+              Some
+                (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)
+          | _ -> None)
+      | None -> (
+          if String.length inner > 0 && inner.[0] = '#' then
+            Some (Css.hex inner)
           else
-            match color_of_string inner with
-            | Ok c -> Some (to_css c 500)
-            | Error _ -> None)
+            let normalized =
+              String.map (fun c -> if c = '_' then ' ' else c) inner
+            in
+            if Parse.is_css_color_fn normalized then Css.parse_color normalized
+            else
+              match color_of_string inner with
+              | Ok c -> Some (to_css c 500)
+              | Error _ -> None)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in

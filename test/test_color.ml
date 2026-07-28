@@ -232,6 +232,31 @@ let test_border_side_color () =
     (Astring.String.is_infix ~affix:"border-block-end-color:"
        (css "border-be-red-500"))
 
+(* A CSS variable in a border color bracket, and its v4 paren shorthand, resolve
+   to var(): border-[var(--x)] and border-(--x) both set border-color. *)
+let test_border_color_var () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error _ -> Alcotest.failf "could not parse %S" cls
+  in
+  Alcotest.(check bool)
+    "border-[var(--pattern-fg)] sets border-color: var()" true
+    (Astring.String.is_infix ~affix:"border-color: var(--pattern-fg)"
+       (css "border-[var(--pattern-fg)]"));
+  Alcotest.(check bool)
+    "border-(--pattern-fg) shorthand sets border-color: var()" true
+    (Astring.String.is_infix ~affix:"border-color: var(--pattern-fg)"
+       (css "border-(--pattern-fg)"));
+  Alcotest.(check bool)
+    "border-t-[var(--x)] sets border-top-color: var()" true
+    (Astring.String.is_infix ~affix:"border-top-color: var(--x)"
+       (css "border-t-[var(--x)]"));
+  (* the paren shorthand keeps its own class name *)
+  Alcotest.(check string)
+    "border-(--pattern-fg) round-trips" "border-(--pattern-fg)"
+    (Tw.pp (Result.get_ok (Tw.of_string "border-(--pattern-fg)")))
+
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
     (Invalid_argument
@@ -285,6 +310,7 @@ let tests =
   [
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
+    ("Border color var", `Quick, test_border_color_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
