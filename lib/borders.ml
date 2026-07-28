@@ -52,7 +52,7 @@ type rounded_size =
   | Rsz_3xl
   | Rsz_4xl
   | Rsz_full
-  | Rsz_arbitrary of string
+  | Rsz_arbitrary of string * Css.length
 
 module Handler = struct
   open Style
@@ -388,32 +388,11 @@ module Handler = struct
   let border_transparent' = style [ Css.border_color (Css.hex "#0000") ]
   let border_current' = style [ Css.border_color Current ]
 
-  (* Create radius theme variables with fallback values for inline mode *)
+  (* Arbitrary radii go through the same normalisation as the other arbitrary
+     length utilities, so calc() and var() references parse. *)
   let parse_length str : length option =
-    let len = String.length str in
-    if len >= 1 then (
-      let num_end = ref 0 in
-      while
-        !num_end < len
-        && (str.[!num_end] = '-'
-           || str.[!num_end] = '.'
-           || (str.[!num_end] >= '0' && str.[!num_end] <= '9'))
-      do
-        incr num_end
-      done;
-      let num_str = String.sub str 0 !num_end in
-      let unit_str = String.sub str !num_end (len - !num_end) in
-      match float_of_string_opt num_str with
-      | Some n -> (
-          match unit_str with
-          | "px" -> Some (Px n)
-          | "rem" -> Some (Rem n)
-          | "em" -> Some (Em n)
-          | "%" -> Some (Pct n)
-          | "" when n = 0.0 -> Some Zero
-          | _ -> None)
-      | None -> None)
-    else None
+    Css.parse_length
+      (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
 
   let radius_none_var = Var.theme Css.Length "radius-none" ~order:(7, 0)
   let radius_full_var = Var.theme Css.Length "radius-full" ~order:(7, 1)
@@ -509,11 +488,7 @@ module Handler = struct
     | Rsz_2xl -> sized_radius radius_2xl_var (Css.Rem 1.0) pos
     | Rsz_3xl -> sized_radius radius_3xl_var (Css.Rem 1.5) pos
     | Rsz_4xl -> sized_radius radius_4xl_var (Css.Rem 2.0) pos
-    | Rsz_arbitrary value ->
-        let len =
-          match parse_length value with Some len -> len | None -> Css.Px 0.
-        in
-        style (radius_decls_for_position pos len)
+    | Rsz_arbitrary (_, len) -> style (radius_decls_for_position pos len)
 
   (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
@@ -955,8 +930,11 @@ module Handler = struct
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
     | [ "rounded" ] -> Ok (Rounded (Rp_all, Rsz_default))
-    | [ "rounded"; v ] when Parse.is_bracket_value v ->
-        Ok (Rounded (Rp_all, Rsz_arbitrary (Parse.bracket_inner v)))
+    | [ "rounded"; v ] when Parse.is_bracket_value v -> (
+        let inner = Parse.bracket_inner v in
+        match parse_length inner with
+        | Some len -> Ok (Rounded (Rp_all, Rsz_arbitrary (inner, len)))
+        | None -> err_not_utility)
     | [ "rounded"; tok ] -> (
         match rounded_size_of_string tok with
         | Some size -> Ok (Rounded (Rp_all, size))
@@ -965,9 +943,10 @@ module Handler = struct
             | Some pos -> Ok (Rounded (pos, Rsz_default))
             | None -> err_not_utility))
     | [ "rounded"; pos; v ] when Parse.is_bracket_value v -> (
-        match rounded_position_of_string pos with
-        | Some pos -> Ok (Rounded (pos, Rsz_arbitrary (Parse.bracket_inner v)))
-        | None -> err_not_utility)
+        let inner = Parse.bracket_inner v in
+        match (rounded_position_of_string pos, parse_length inner) with
+        | Some pos, Some len -> Ok (Rounded (pos, Rsz_arbitrary (inner, len)))
+        | _ -> err_not_utility)
     | [ "rounded"; pos; size ] -> (
         match (rounded_position_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
@@ -1113,7 +1092,7 @@ module Handler = struct
           | Rsz_3xl -> "-3xl"
           | Rsz_4xl -> "-4xl"
           | Rsz_full -> "-full"
-          | Rsz_arbitrary value -> "-[" ^ value ^ "]"
+          | Rsz_arbitrary (raw, _) -> "-[" ^ raw ^ "]"
         in
         "rounded" ^ pos_str ^ size_str
     | Outline -> "outline"

@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Read `calc()` and `var()` in `rounded-[...]`; anything but a plain length
+  silently became `border-radius: 0` (#231)
+
 - Declare `--container-*` in `@layer theme` for `basis-sm` and friends; the
   utility read a variable nothing declared (#231)
 
