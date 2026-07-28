@@ -1189,17 +1189,24 @@ let extract_not_conditions inner_modifier base_class =
       match sel with
       | Css.Selector.Compound (Css.Selector.Class _ :: rest) when rest <> [] ->
           rest
+      (* A descendant-style variant anchors the class under an ancestor.
+         Negating it negates the ancestor relation, so the class's own position
+         becomes a universal: [not-in-data-open] negates [:where([data-open]) *]
+         rather than the class itself. *)
+      | Css.Selector.Combined (ancestor, comb, Css.Selector.Class c)
+        when String.equal c base_class ->
+          [ Css.Selector.Combined (ancestor, comb, Css.Selector.universal) ]
       | _ -> [ sel ])
 
 (** Build a regular rule with :not() selector for a not-* modifier. *)
 let not_selector_rule ?(not_order = 0) inner_modifier modified_class base_class
-    props =
+    ~selector props =
   let conditions = extract_not_conditions inner_modifier base_class in
   let not_sel = Css.Selector.Not conditions in
-  regular ~not_order
-    ~selector:
-      (Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ])
-    ~props ~base_class:modified_class ()
+  let modified =
+    Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ]
+  in
+  route_regular ~selector ~base_class ~modified_class ~modified ~not_order props
 
 (* Create a single not-media rule *)
 let not_media_rule ~nvo ~condition modified_class props =
@@ -1212,14 +1219,14 @@ let not_media_rule ~nvo ~condition modified_class props =
 (** Handle :not() pseudo-class modifier: dispatches to the right rule type based
     on the inner modifier. Returns a list of rules since some modifiers (like
     hover) produce both a selector rule and a media rule. *)
-let handle_not_modifier ?theme inner_modifier base_class _selector props =
+let handle_not_modifier ?theme inner_modifier base_class selector props =
   let modified_class =
     "not-" ^ not_class_prefix inner_modifier ^ ":" ^ base_class
   in
   let nvo = Modifiers.not_variant_order inner_modifier in
   let sel_rule () =
     not_selector_rule ~not_order:nvo inner_modifier modified_class base_class
-      props
+      ~selector props
   in
   let not_hover_media () =
     not_media_rule ~nvo ~condition:(negate_media hover_media) modified_class
@@ -1357,10 +1364,9 @@ let handle_in_data attr base_class props =
       ~not_order:200 ();
   ]
 
-(** Handle not-in-[...] bracket modifier. Returns a list of rules. *)
-let handle_not_in_bracket content base_class props =
-  let modified_class = "not-in-[" ^ content ^ "]:" ^ base_class in
-  let ancestor = in_bracket_ancestor content in
+(* [not-in-*] negates the ancestor relation rather than the class, so the
+   class's own position in the negated selector is a universal. *)
+let not_in_rule ~modified_class ~ancestor props =
   let sel =
     Css.Selector.compound
       [
@@ -1376,6 +1382,21 @@ let handle_not_in_bracket content base_class props =
     regular ~selector:sel ~props ~base_class:modified_class ~merge_key:"in"
       ~not_order:100 ();
   ]
+
+(** Handle not-in-[...] bracket modifier. Returns a list of rules. *)
+let handle_not_in_bracket content base_class props =
+  not_in_rule
+    ~modified_class:("not-in-[" ^ content ^ "]:" ^ base_class)
+    ~ancestor:(in_bracket_ancestor content)
+    props
+
+(** Handle the not-in-data-* modifier. Returns a list of rules. *)
+let handle_not_in_data attr base_class props =
+  not_in_rule
+    ~modified_class:("not-in-data-" ^ attr ^ ":" ^ base_class)
+    ~ancestor:
+      (Css.Selector.Attribute (None, Data attr, Css.Selector.Presence, None))
+    props
 
 (** Handle not-[...] bracket modifier. Returns a list of rules. *)
 let handle_not_bracket content base_class props =
@@ -1991,6 +2012,7 @@ let rec apply_modifier_to_rule ?theme modifier = function
       | Style.Not inner_modifier -> (
           match inner_modifier with
           | Style.In_bracket content -> handle_not_in_bracket content bc props
+          | Style.In_data attr -> handle_not_in_data attr bc props
           | _ -> handle_not_modifier ?theme inner_modifier bc selector props)
       | Style.Not_bracket content -> handle_not_bracket content bc props
       | Style.In_bracket content -> handle_in_bracket content bc props

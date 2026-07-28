@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Fix `not-in-data-*`, which negated the utility's own class instead of the
+  ancestor relation, and keep the inner variant's selector under `not-*`
+  (#231)
+
 - Keep the inner variant's selector under an `aria-*`, `data-*` or `has-*`
   variant: `aria-selected:hover:underline` lost its `:hover`,
   `data-[closed]:data-[enter]:` its second attribute (#231)
