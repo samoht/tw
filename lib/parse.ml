@@ -201,8 +201,11 @@ let expand_spacing_fn s =
     else if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
       let stop, next = close_paren (i + 9) 0 in
       let n = String.sub s (i + 10) (stop - i - 10) in
-      Buffer.add_string buf
-        (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
+      (* [--spacing(1)] is the scale itself; only a multiplier needs calc. *)
+      if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
+      else
+        Buffer.add_string buf
+          (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
       go next)
     else (
       Buffer.add_char buf s.[i];

@@ -1,5 +1,10 @@
 ## Unreleased
 
+- `shadow-inner` sets `--tw-shadow` and composes like the other shadow
+  shapes; it wrote `box-shadow` directly, so a ring or inset shadow beside it
+  was dropped and its `@property` rules were missing (#231)
+- Read `--spacing(1)` as `var(--spacing)`, the form Tailwind writes (#231)
+
 - Write the colour itself for a `/100` modifier, which emitted a no-op
   `color-mix` and its `@supports` fallback (#231)
 - Apply `!` inside the `@supports` colour override, so `bg-white/75!` no longer

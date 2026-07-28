@@ -235,9 +235,28 @@ let test_shadeless_shadow_colors () =
   has "inset-shadow-white/20"
     ".inset-shadow-white\\/20{--tw-inset-shadow-color:#fff3}"
 
+(* shadow-inner is a shadow shape like the others: it sets --tw-shadow and
+   composes, rather than writing box-shadow directly. *)
+let test_shadow_inner () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "shadow-inner" in
+  Alcotest.(check bool)
+    "shadow-inner sets --tw-shadow" true
+    (Astring.String.is_infix ~affix:"--tw-shadow:inset 0 2px 4px 0 " out);
+  Alcotest.(check bool)
+    "shadow-inner composes box-shadow" true
+    (Astring.String.is_infix
+       ~affix:"box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow)"
+       out)
+
 let tests =
   [
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
+    test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;

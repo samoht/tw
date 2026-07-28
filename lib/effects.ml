@@ -16,7 +16,17 @@ module Handler = struct
     let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
     if a = 255 then rgb else rgb ^ hex_byte a
 
-  type shadow_shape = Two_xs | Xs | Sm | Default | Md | Lg | Xl | Two_xl
+  type shadow_shape =
+    | Two_xs
+    | Xs
+    | Sm
+    | Default
+    | Md
+    | Lg
+    | Xl
+    | Two_xl
+    | Inner
+
   type inset_shadow_shape = Ish_2xs | Ish_xs | Ish_sm
 
   (* Color in an arbitrary shadow value *)
@@ -326,6 +336,7 @@ module Handler = struct
       list =
     match shape with
     | Two_xs -> [ (Zero, Px 1., None, None, "#0000000d") ]
+    | Inner -> [ (Zero, Px 2., Some (Px 4.), Some Zero, "#0000000d") ]
     | Xs -> [ (Zero, Px 1., Some (Px 2.), Some Zero, "#0000000d") ]
     | Sm ->
         [
@@ -354,15 +365,20 @@ module Handler = struct
         ]
     | Two_xl -> [ (Zero, Px 25., Some (Px 50.), Some (Px (-12.)), "#00000040") ]
 
+  (* Only [shadow-inner] draws inside the box. *)
+  let shape_is_inset = function Inner -> true | _ -> false
+
   let shape_shadow_value shape =
     let data = shadow_shape_data shape in
+    let inset = shape_is_inset shape in
     let shadow_list =
       List.map
         (fun (h_offset, v_offset, blur, spread, fallback_hex) ->
           let color_ref =
             Var.reference_with_fallback shadow_color_var (Css.hex fallback_hex)
           in
-          Css.shadow ~h_offset ~v_offset ?blur ?spread ~color:(Var color_ref) ())
+          Css.shadow ~inset ~h_offset ~v_offset ?blur ?spread
+            ~color:(Var color_ref) ())
         data
     in
     match shadow_list with [ s ] -> s | _ -> List shadow_list
@@ -450,31 +466,7 @@ module Handler = struct
   let shadow_lg = shadow_shape_style Lg
   let shadow_xl = shadow_shape_style Xl
   let shadow_2xl = shadow_shape_style Two_xl
-
-  let shadow_inner =
-    (* Define inset shadow variable *)
-    let inset_shadow_value =
-      Css.shadow ~inset:true ~h_offset:(Px 0.) ~v_offset:(Px 2.) ~blur:(Px 4.)
-        ()
-    in
-    (* Create the box-shadow declaration with the shadow value *)
-    let box_shadow_decl = Css.box_shadow inset_shadow_value in
-
-    let d_inset, _ = Var.binding inset_shadow_var inset_shadow_value in
-    let d_inset_ring, _ =
-      Var.binding inset_ring_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
-    in
-    let d_ring_offset, _ =
-      Var.binding ring_offset_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
-    in
-    let d_ring, _ =
-      Var.binding ring_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
-    in
-    style
-      (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
+  let shadow_inner = shadow_shape_style Inner
 
   (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
   let parse_arbitrary_shadow (s : string) :
@@ -2804,7 +2796,8 @@ module Handler = struct
           | Md -> "shadow-md"
           | Lg -> "shadow-lg"
           | Xl -> "shadow-xl"
-          | Two_xl -> "shadow-2xl")
+          | Two_xl -> "shadow-2xl"
+          | Inner -> "shadow-inner")
         ^ "/" ^ Color.pp_opacity op
     | Shadow_color (c, s) -> "shadow-" ^ color_shade c s
     | Shadow_color_opacity (c, s, op) ->
