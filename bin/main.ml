@@ -791,6 +791,62 @@ let preload_imports ~transform ~base_url stylesheet =
    redundant. Keep the first, and put them all at the end of the document, where
    Tailwind emits them: spliced at the [@import] instead, they sit ahead of the
    author's own rules and shift every one of them. *)
+(* A named layer appears once in Tailwind's output. The generated sheet and the
+   [@layer properties] blocks each applied utility hoists arrive separately, so
+   fold every repeat of a name into the first, dropping content the first
+   already has. *)
+let merge_named_layers stmts =
+  let name_of stmt =
+    match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
+  in
+  let inner stmt =
+    match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
+  in
+  let repeated =
+    let counts = Hashtbl.create 8 in
+    List.iter
+      (fun stmt ->
+        match name_of stmt with
+        | Some n ->
+            Hashtbl.replace counts n
+              (1 + Option.value ~default:0 (Hashtbl.find_opt counts n))
+        | None -> ())
+      stmts;
+    Hashtbl.fold (fun n c acc -> if c > 1 then n :: acc else acc) counts []
+  in
+  if repeated = [] then stmts
+  else
+    let merged = Hashtbl.create 8 in
+    List.iter
+      (fun n ->
+        let seen = Hashtbl.create 64 in
+        let body =
+          List.concat_map
+            (fun stmt -> if name_of stmt = Some n then inner stmt else [])
+            stmts
+          |> List.filter (fun st ->
+              let key = Css.to_string ~minify:true (Css.v [ st ]) in
+              if Hashtbl.mem seen key then false
+              else begin
+                Hashtbl.add seen key ();
+                true
+              end)
+        in
+        Hashtbl.add merged n body)
+      repeated;
+    let emitted = Hashtbl.create 8 in
+    List.filter_map
+      (fun stmt ->
+        match name_of stmt with
+        | Some n when List.mem n repeated ->
+            if Hashtbl.mem emitted n then None
+            else begin
+              Hashtbl.add emitted n ();
+              Some (Css.layer ~name:n (Hashtbl.find merged n))
+            end
+        | _ -> Some stmt)
+      stmts
+
 let collect_properties_at_end stmts =
   let seen = Hashtbl.create 64 in
   let keep, props =
@@ -842,7 +898,7 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
-          |> collect_properties_at_end |> Css.v)
+          |> merge_named_layers |> collect_properties_at_end |> Css.v)
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
