@@ -367,6 +367,38 @@ module Handler = struct
     in
     match shadow_list with [ s ] -> s | _ -> List shadow_list
 
+  (* Publish the shadow scales through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [theme(static)] emits them. The utilities
+     inline the value into [--tw-shadow] rather than referencing a [--shadow-*]
+     token, so nothing else would put them in the sheet. *)
+  let () =
+    let render shadows =
+      Css.Pp.to_string ~minify:true
+        (Css.Pp.list
+           ~sep:(fun ctx () -> Css.Pp.string ctx ", ")
+           Css.Properties.pp_shadow)
+        shadows
+    in
+    List.iter
+      (fun (name, shape) ->
+        let shadows =
+          List.map
+            (fun (h_offset, v_offset, blur, spread, hex) ->
+              Css.shadow ~h_offset ~v_offset ?blur ?spread ~color:(Css.hex hex)
+                ())
+            (shadow_shape_data shape)
+        in
+        Scheme.register_default_token name (render shadows))
+      [
+        ("shadow-2xs", Two_xs);
+        ("shadow-xs", Xs);
+        ("shadow-sm", Sm);
+        ("shadow-md", Md);
+        ("shadow-lg", Lg);
+        ("shadow-xl", Xl);
+        ("shadow-2xl", Two_xl);
+      ]
+
   let shape_shadow_opacity_value shape opacity =
     let data = shadow_shape_data shape in
     let percent = Color.opacity_to_percent opacity in
@@ -843,6 +875,23 @@ module Handler = struct
     | Ish_2xs -> (Zero, Px 1., None, "#0000000d")
     | Ish_xs -> (Zero, Px 1., Some (Px 1.), "#0000000d")
     | Ish_sm -> (Zero, Px 2., Some (Px 4.), "#0000000d")
+
+  (* The inset-shadow scale, published the same way. *)
+  let () =
+    List.iter
+      (fun (name, shape) ->
+        let h_offset, v_offset, blur, hex = inset_shadow_shape_data shape in
+        let value =
+          Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Css.hex hex)
+            ()
+        in
+        Scheme.register_default_token name
+          (Css.Pp.to_string ~minify:true Css.Properties.pp_shadow value))
+      [
+        ("inset-shadow-2xs", Ish_2xs);
+        ("inset-shadow-xs", Ish_xs);
+        ("inset-shadow-sm", Ish_sm);
+      ]
 
   (* Theme token name for a shape's scale value (matches the @theme keys, e.g.
      --inset-shadow-sm). *)

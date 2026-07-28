@@ -155,6 +155,38 @@ module Handler = struct
           (Px 0., Px 4., Some (Px 8.), "#0000001a");
         ]
 
+  (* Publish the scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [theme(static)] emits it. The utilities
+     inline the value rather than referencing a [--text-shadow-*] token, so
+     nothing else would put it in the sheet. The reference keeps the [px] on a
+     zero offset here, so render the lengths as written. *)
+  let () =
+    List.iter
+      (fun (name, shape) ->
+        let one (h, v, blur, hex) =
+          String.concat " "
+            ([
+               Css.Pp.to_string ~minify:true (Css.pp_length ~always:true) h;
+               Css.Pp.to_string ~minify:true (Css.pp_length ~always:true) v;
+             ]
+            @ (match blur with
+              | Some b ->
+                  [
+                    Css.Pp.to_string ~minify:true (Css.pp_length ~always:true) b;
+                  ]
+              | None -> [])
+            @ [ hex ])
+        in
+        Scheme.register_default_token name
+          (String.concat ", " (List.map one (shape_shadows shape))))
+      [
+        ("text-shadow-2xs", S_2xs);
+        ("text-shadow-xs", S_xs);
+        ("text-shadow-sm", S_sm);
+        ("text-shadow-md", S_md);
+        ("text-shadow-lg", S_lg);
+      ]
+
   (* Theme token name for a shape's scale value (matches the @theme keys, e.g.
      --text-shadow-2xs). *)
   let shape_token = function

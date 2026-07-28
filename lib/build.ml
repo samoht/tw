@@ -707,6 +707,46 @@ let referenced_theme_decls ~theme ~exclude selector_props =
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
 
+(* Tailwind derives the default font-feature settings from the sans and mono
+   tokens the project declared. *)
+let derived_font_feature_decls ~theme ~have =
+  [
+    ("font-sans--font-feature-settings", "default-font-feature-settings");
+    ("font-mono--font-feature-settings", "default-mono-font-feature-settings");
+  ]
+  |> List.filter_map (fun (token, name) ->
+      match Scheme.theme_value (Some theme) token with
+      | Some v when not (Strings.mem ("--" ^ name) have) ->
+          Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
+      | _ -> None)
+
+(* A token the project declared in an [@theme inline] block has no declaration
+   of its own — the value goes into the utility instead. A self-referential one
+   ([--font-a: var(--font-a)]) is the exception, and so is one another
+   declaration still reads: inlining either would leave a dangling reference. *)
+let drop_inline_tokens theme decls =
+  let reads n other =
+    let needle = "var(" ^ n ^ ")" in
+    let hay = Css.declaration_value other in
+    let nl = String.length needle and hl = String.length hay in
+    let rec at i =
+      i + nl <= hl && (String.sub hay i nl = needle || at (i + 1))
+    in
+    at 0
+  in
+  if theme.Scheme.inline_tokens = [] then decls
+  else
+    List.filter
+      (fun d ->
+        match Css.custom_declaration_name d with
+        | Some n when String.length n > 2 ->
+            let bare = String.sub n 2 (String.length n - 2) in
+            (not (Scheme.is_inline_token theme bare))
+            || String.trim (Css.declaration_value d) = "var(" ^ n ^ ")"
+            || List.exists (fun other -> other != d && reads n other) decls
+        | _ -> true)
+      decls
+
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
@@ -718,6 +758,9 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     extracted
     @ referenced_theme_decls ~theme ~exclude:(names_set_of extracted)
         selector_props
+  in
+  let extracted =
+    extracted @ derived_font_feature_decls ~theme ~have:(names_set_of extracted)
   in
   (* [theme(static)] on the package import emits every theme variable, not only
      the ones a utility used. The palette is by far the biggest part of it. *)
@@ -749,7 +792,8 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
       post_defaults
   in
 
-  pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule ~layers
+  pre @ extracted @ post
+  |> drop_inline_tokens theme |> sort_by_var_order |> theme_layer_rule ~layers
 
 let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in

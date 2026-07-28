@@ -1044,6 +1044,20 @@ module Typography_early = struct
       ("9xl", text_9xl_var, 8.0);
     ]
 
+  (* The leading scale, published the same way. *)
+  let () =
+    List.iter
+      (fun (name, value) ->
+        Scheme.register_default_token ("leading-" ^ name)
+          (Css.Pp.to_string ~minify:true Css.Properties.pp_line_height value))
+      [
+        ("tight", (Num 1.25 : Css.line_height));
+        ("snug", Num 1.375);
+        ("normal", Num 1.5);
+        ("relaxed", Num 1.625);
+        ("loose", Num 2.0);
+      ]
+
   (* Publish the text scale through the theme-token registry, the way rule.ml
      publishes the breakpoints, so [theme()] in a project's CSS resolves against
      the same values the utilities use. *)

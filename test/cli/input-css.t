@@ -166,3 +166,20 @@ Without it only what the sheet uses is emitted:
   $ tw --minify --input-css dynamic.css index.html | grep -c -- '--color-fuchsia-300:'
   0
   [1]
+
+The shadow, text-shadow and leading scales come out under [theme(static)] too,
+and the default font-feature settings are derived from the sans and mono tokens
+the project declared:
+
+  $ cat > scales.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme {
+  >   --font-sans--font-feature-settings: "cv02";
+  > }
+  > EOF
+  $ tw --minify --input-css scales.css index.html | grep -c -- '--shadow-md:0 4px 6px -1px'
+  1
+  $ tw --minify --input-css scales.css index.html | grep -c -- '--text-shadow-sm:'
+  1
+  $ tw --minify --input-css scales.css index.html | grep -cF -- '--default-font-feature-settings:"cv02"'
+  1

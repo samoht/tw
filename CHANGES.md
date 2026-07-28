@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Emit the shadow, inset-shadow, text-shadow and leading scales under
+  `theme(static)`, and derive `--default-font-feature-settings` from the
+  `--font-sans--font-feature-settings` a project declares (#231)
+- Drop the declaration of a token declared in an `@theme inline` block,
+  unless it refers to itself or another declaration still reads it (#231)
+
 - Honour `theme(static)` on the package import: the whole theme comes out,
   not only the variables a utility used (#230)
 - Emit a `@keyframes` declared inside a project's `@theme`; the animation
