@@ -59,3 +59,25 @@ A variant the project declared wraps the utility it declared:
   > EOF
   $ tw --minify --input-css dark.css dark.html | grep -cF '.dark\:line-t:where(.dark,.dark *){border-color:red}'
   1
+
+A declared utility's body is author CSS in its own right: it can [@apply]
+another declared utility, and guard declarations with a built-in [@variant]
+that only [Tw.of_string] knows.
+
+  $ cat > line.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility line-t {
+  >   @apply relative;
+  >   @variant before { @apply absolute top-0 h-px; }
+  > }
+  > @utility line-y {
+  >   @apply line-t relative;
+  > }
+  > EOF
+  $ cat > line.html <<EOF
+  > <div class="line-y hover:line-t"></div>
+  > EOF
+  $ tw --minify --input-css line.css line.html | grep -cF '.line-y:before{'
+  1
+  $ tw --minify --input-css line.css line.html | grep -cF '.hover\:line-t:hover:before{'
+  1
