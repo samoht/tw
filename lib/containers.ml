@@ -142,7 +142,7 @@ let container_size_rem = function
   | Style.Container_6xl -> Some 72.
   | Style.Container_7xl -> Some 80.
   | Style.Container_named _ | Style.Container_size _ | Style.Container_len _
-  | Style.Container_len_cmp _ ->
+  | Style.Container_len_cmp _ | Style.Container_scoped _ ->
       None
 
 (* A [(width <op> len)] container feature query, matching Tailwind v4's range
@@ -162,7 +162,7 @@ let width_cond cmp len =
   | Style.Cq_max -> Css.Container.Not (width_range Css.Media.Ge len)
 
 (** Convert a container query modifier to a structured Container.t condition *)
-let container_query_to_condition q =
+let rec container_query_to_condition q =
   let geq len = width_range Css.Media.Ge len in
   let rem r : Css.length = Css.Values.Rem r in
   match q with
@@ -187,6 +187,8 @@ let container_query_to_condition q =
       width_cond cmp (rem (Option.value ~default:0. (container_size_rem inner)))
   | Style.Container_len (_, len) -> geq len
   | Style.Container_len_cmp (cmp, _, len) -> width_cond cmp len
+  | Style.Container_scoped (name, inner) ->
+      Css.Container.Named (name, container_query_to_condition inner)
 
 let container_query_to_class_prefix = function
   | Style.Container_3xs -> "@3xs"
@@ -205,6 +207,6 @@ let container_query_to_class_prefix = function
   | Style.Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
   | Style.Container_named (name, width) ->
       "@" ^ name ^ "/" ^ string_of_int width
-  | (Style.Container_size _ | Style.Container_len _ | Style.Container_len_cmp _)
-    as q ->
+  | ( Style.Container_size _ | Style.Container_len _ | Style.Container_len_cmp _
+    | Style.Container_scoped _ ) as q ->
       "@" ^ Style.container_size_name q

@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Support the `@sm/main:` container-query variant, which aims a size query at a
+  named container instead of the nearest one (#231)
+
 - Read `calc()` and `var()` in `rounded-[...]`; anything but a plain length
   silently became `border-radius: 0` (#231)
 
