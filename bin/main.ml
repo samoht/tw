@@ -388,13 +388,20 @@ let nest_on_ampersand sel =
       | ' ' | '.' | '#' | ':' | '[' | '>' | '+' | '~' | ')' | '*' -> i
       | _ -> class_end part (i + 1)
   in
+  (* The class does not always head the selector: [divide-*] wraps it in
+     [:where(.divide-x > :not(:last-child))], so look for it wherever it is. *)
   let rewrite part =
     let part = String.trim part in
     let n = String.length part in
-    if n = 0 || part.[0] <> '.' then part
-    else
-      let stop = min (class_end part 1) n in
-      String.concat "" [ "&"; String.sub part stop (n - stop) ]
+    let rec at i =
+      if i >= n then part
+      else if part.[i] = '.' && (i = 0 || part.[i - 1] <> '\\') then
+        let stop = min (class_end part (i + 1)) n in
+        String.concat ""
+          [ String.sub part 0 i; "&"; String.sub part stop (n - stop) ]
+      else at (i + 1)
+    in
+    at 0
   in
   Cascade.Selector.to_string ~minify:true sel
   |> selector_parts |> List.map rewrite |> String.concat ","
@@ -455,12 +462,16 @@ let nested_utilities ~theme names =
       in
       (* [to_css] also emits the theme block the utilities read from. It belongs
          at the top of the sheet, not inside the rule that applied them. *)
+      (* [to_css] also emits the theme block the utilities read from, whose
+         selector is [:root]. A utility's own rule names its class somewhere,
+         but not always first: [divide-*] wraps it in
+         [:where(.divide-x > :not(:last-child))]. *)
       let from_utility stmt =
         match Css.statement_selector stmt with
         | None -> true
         | Some sel ->
             let s = Cascade.Selector.to_string ~minify:true sel in
-            String.length s > 0 && s.[0] = '.'
+            String.contains s '.'
       in
       let hoisted, nestable =
         Css.statements sheet |> List.filter from_utility

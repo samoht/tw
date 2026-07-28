@@ -93,3 +93,15 @@ An unknown token is left alone rather than guessed at:
   > EOF
   $ tw --minify --input-css un.css index.html | grep -c 'theme(--nope-not-a-token)'
   1
+
+A routed utility whose own selector is not a bare class survives too: the
+[divide-*] family wraps its class in a [:where(... > :not(:last-child))], and
+that class is the one the declared variant has to decorate.
+
+  $ cat > dv.html <<EOF
+  > <div class="dark:divide-gray-800"></div>
+  > EOF
+  $ tw --minify --input-css darkclass.css dv.html | grep -cF ':where(.dark\:divide-gray-800:where(.dark,.dark *)>:not(:last-child))'
+  1
+  $ tw --minify --input-css darkclass.css dv.html | grep -c 'divide-gray-800:where'
+  1
