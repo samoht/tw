@@ -39,6 +39,21 @@ falling back to the built-in of the same name:
   0
   [1]
 
+A utility that sets one of tw's own variables brings an [@layer properties]
+block holding its initial value on the universal selector. That block cannot
+nest inside the author's rule, where the leading [*] would come out as a
+descendant of it, so it is hoisted to the top level:
+
+  $ cat > border.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .box { @apply border-t border-dashed; }
+  > EOF
+  $ tw --minify --input-css border.css index.html | grep -cF '*,:before,:after,::backdrop{--tw-border-style:solid}'
+  1
+  $ tw --minify --input-css border.css index.html | grep -c '\.box \*'
+  0
+  [1]
+
 An unknown utility is skipped rather than aborting the sheet:
 
   $ cat > bad.css <<EOF
