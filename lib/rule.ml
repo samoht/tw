@@ -1788,9 +1788,12 @@ let arbitrary_selector_rule content base_class selector props =
 (* An at-rule written in brackets: [[@supports(display:grid)]] wraps the utility
    in that query, [[@starting-style]] in [@starting-style]. The class name keeps
    the brackets, so it cannot go through the [supports-] spelling. *)
-let at_rule_variant content base_class props =
+let at_rule_variant content ~selector base_class props =
   let modified_class = "[" ^ content ^ "]:" ^ base_class in
-  let selector = Css.Selector.Class modified_class in
+  let selector =
+    Rules_selector.transform_selector_with_modifier
+      (Css.Selector.Class modified_class) base_class modified_class selector
+  in
   if content = "@starting-style" then
     starting_style ~selector ~props ~base_class:modified_class ()
   else
@@ -1923,8 +1926,13 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   (* Starting style - selector includes starting: prefix *)
   | Style.Starting ->
       let modified_class = "starting:" ^ base_class in
-      starting_style ~selector:(Css.Selector.Class modified_class) ~props
-        ~base_class:modified_class ()
+      (* Rebuilding the selector from the bare class would drop what an inner
+         variant put on it, as [open:]'s [:is([open], :popover-open, :open)]. *)
+      let new_selector =
+        Rules_selector.transform_selector_with_modifier
+          (Css.Selector.Class modified_class) base_class modified_class selector
+      in
+      starting_style ~selector:new_selector ~props ~base_class:modified_class ()
   (* Interactive pseudo-classes *)
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
@@ -1935,7 +1943,7 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       handle_pseudo_element_modifier modifier base_class props
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class selector props
-  | Style.At_rule content -> at_rule_variant content base_class props
+  | Style.At_rule content -> at_rule_variant content ~selector base_class props
   | Style.Custom_variant (token, template) ->
       custom_variant_rule token template base_class props
   | Style.Container_style (token, condition) ->

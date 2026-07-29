@@ -405,22 +405,30 @@ let test_has_variant () =
   has "has-group-focus/name:underline"
     ":has(:is(:where(.group\\/name):focus *))"
 
+let variant_css cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let variant_has cls affix =
+  check bool cls true (Astring.String.is_infix ~affix (variant_css cls))
+
 (* An inner media query's nested blocks hold the utility's class too, so an
    outer responsive variant has to rename it there as well: [sm:] used to drop
    out of the class name whenever [hover:] had wrapped the rule in its own media
    block. *)
 let test_outer_media_renames_nested () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "sm:motion-reduce:hover:translate-y-0"
+  variant_has "sm:motion-reduce:hover:translate-y-0"
     ".sm\\:motion-reduce\\:hover\\:translate-y-0:hover";
-  has "sm:dark:hover:underline" ".sm\\:dark\\:hover\\:underline:hover"
+  variant_has "sm:dark:hover:underline" ".sm\\:dark\\:hover\\:underline:hover"
+
+(* [starting:] and the bracketed at-rule variant wrap the utility in an at-rule,
+   and rebuilding the selector from the bare class dropped whatever an inner
+   variant had put on it. *)
+let test_at_rule_keeps_inner () =
+  variant_has "starting:open:opacity-0" ":is([open],:popover-open,:open)";
+  variant_has "[@starting-style]:open:opacity-0"
+    ":is([open],:popover-open,:open)"
 
 let tests =
   [
@@ -453,6 +461,8 @@ let tests =
     test_case "has- takes any variant" `Quick test_has_variant;
     test_case "outer media renames the nested class" `Quick
       test_outer_media_renames_nested;
+    test_case "at-rule variant keeps the inner selector" `Quick
+      test_at_rule_keeps_inner;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
