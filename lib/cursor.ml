@@ -160,7 +160,10 @@ module Handler = struct
     | [ "cursor"; value ] when Parse.is_bracket_var value ->
         Ok (Cursor_bracket_var (Parse.bracket_inner value))
     | [ "cursor"; name ] when not (List.mem_assoc cls of_class_map) ->
-        if Parse.is_valid_theme_name name then Ok (Cursor_theme name)
+        (* A theme token name is an identifier: [cursor-[<value>]] is not
+           one. *)
+        if Parse.is_valid_theme_name name && Parse.is_ident name then
+          Ok (Cursor_theme name)
         else Error (`Msg "Not a cursor utility")
     | _ -> (
         match List.assoc_opt cls of_class_map with

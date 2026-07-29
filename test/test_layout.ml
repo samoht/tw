@@ -188,6 +188,10 @@ let test_object_and_z_values () =
   has "object-[50%]" "object-position:50%";
   has "object-[10px_20px]" "object-position:10px 20px";
   has "object-[var(--x)]" "object-position:var(--x)";
+  (* not a position and not a var: not a utility *)
+  (match Tw.of_string "object-[<value>]" with
+  | Ok _ -> Alcotest.fail "expected object-[<value>] to be rejected"
+  | Error _ -> ());
   has "z-auto" "z-index:auto"
 
 let tests =

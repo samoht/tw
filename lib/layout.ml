@@ -665,7 +665,12 @@ module Handler = struct
     | [ "object"; "top"; "left" ] -> Ok Object_top_left
     | [ "object"; "top"; "right" ] -> Ok Object_top_right
     | [ "object"; value ] when Parse.is_bracket_value value ->
-        Ok (Object_arbitrary (Parse.bracket_inner value))
+        let inner = Parse.bracket_inner value in
+        (* Only a var() reference names a variable; anything the position parser
+           rejects is not a utility. *)
+        if parse_object_position inner = None && not (Parse.is_var inner) then
+          Error (`Msg ("Invalid object-position value: " ^ inner))
+        else Ok (Object_arbitrary inner)
     | [ "float"; "left" ] -> Ok Float_left
     | [ "float"; "right" ] -> Ok Float_right
     | [ "float"; "none" ] -> Ok Float_none

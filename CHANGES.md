@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Reject an arbitrary value the property cannot take instead of falling back to
+  a plausible one: `bg-position-[...]`, `bg-size-[...]`, `cursor-[...]`,
+  `indent-[...]`, `mask-size-[...]`, `mask-position-[...]`, `object-[...]` and
+  `text-shadow-[...]` emitted `center`, `auto`, `0px`, `none` or
+  `var(--<value>)` for a value they could not read (#234)
+
 - Anchor an arbitrary-selector variant at the class's own position when an
   inner variant has moved the subject:
   `in-data-stack:[:last-child>&]:*:rounded-b-xl` put `:last-child >` in front
