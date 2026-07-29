@@ -4,6 +4,9 @@
   inner variant has moved the subject:
   `in-data-stack:[:last-child>&]:*:rounded-b-xl` put `:last-child >` in front
   of the whole selector rather than of the class (#233)
+- Accept any variant as the argument of `has-`, not only a state name or a
+  bracket: `has-peer-checked` and `group-not-has-peer-not-data-active` were
+  rejected as unknown modifiers (#232)
 
 - Reject an arbitrary value that is not what the property takes:
   `col-span-[<value>]`, `row-span-[<value>]`, `transition-[<value>]`,

@@ -385,6 +385,26 @@ let test_arbitrary_anchor_over_child () =
        ~affix:":is(:last-child>:is(:where([data-stack]) .in-data-stack"
        (css "in-data-stack:[:last-child>&]:*:rounded-b-xl"))
 
+(* [has-<variant>] takes any variant, not only a state name or a bracket: its
+   own selector is what goes inside [:has()]. A scoped variant contributes its
+   whole relative selector, so it composes both ways. *)
+let test_has_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "has-peer-checked:underline" ":has(:is(:where(.peer):checked~*))";
+  has "group-not-has-peer-not-data-active:underline"
+    ":is(:where(.group):not(:has(:is(:where(.peer):not([data-active])~*))) *)";
+  (* a named group scopes on the marker class, and the whole relative selector
+     is what [:has()] sees *)
+  has "has-group-focus/name:underline"
+    ":has(:is(:where(.group\\/name):focus *))"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -413,6 +433,7 @@ let tests =
       test_in_variant_keeps_inner;
     test_case "arbitrary anchor over a child variant" `Quick
       test_arbitrary_anchor_over_child;
+    test_case "has- takes any variant" `Quick test_has_variant;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
