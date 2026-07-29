@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Resolve Tailwind's `--alpha(C/P)` in an arbitrary value, and render a
+  reference to a palette token from the palette so the fallback carries a
+  colour instead of the bare reference (#231)
+- Read the position in `mask-radial-at-[30%_30%]`; it reached the sheet with
+  its underscore (#231)
+
 - Reject an arbitrary filter amount that is not a number, a percentage or a
   var; `brightness-[abc]` emitted `brightness(0)` (#231)
 

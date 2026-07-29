@@ -48,6 +48,25 @@ let color_property_of_name = function
   | "stroke" -> Some (fun c -> Css.stroke (Css.Color c : Css.svg_paint))
   | _ -> None
 
+(* Tailwind's [--alpha(<color>/<percentage>)]: the colour and the alpha it is
+   mixed with. The separating slash is the last one, so a colour that carries
+   its own (as [oklch(1 0 0 / 50%)] does) still reads. *)
+let alpha_fn value =
+  let n = String.length value in
+  let prefix = "--alpha(" in
+  let plen = String.length prefix in
+  if n > plen + 1 && String.sub value 0 plen = prefix && value.[n - 1] = ')'
+  then
+    let inner = String.sub value plen (n - plen - 1) in
+    match String.rindex_opt inner '/' with
+    | Some i ->
+        Some
+          ( String.trim (String.sub inner 0 i),
+            String.trim (String.sub inner (i + 1) (String.length inner - i - 1))
+          )
+    | None -> None
+  else None
+
 module Handler = struct
   open Style
 
@@ -56,6 +75,9 @@ module Handler = struct
         property : string;
         value : string;
         opacity : Color.opacity_modifier;
+        spelling : string option;
+            (** The [--alpha(...)] the class was written with, when the opacity
+                came from that function rather than a [/] modifier. *)
       }
     | Parsed_decl of { property : string; value : string }
   (* Plain [property:value] (no /opacity), parsed by cascade into a typed,
@@ -171,35 +193,44 @@ module Handler = struct
   let color_var_opacity_style theme (emit : Css.color -> Css.declaration) value
       opacity =
     let bare = Parse.extract_var_name value in
-    let var_ref : Css.color Css.var = Var.bracket bare in
-    let percent = Color.opacity_to_percent opacity in
-    let oklab_decl =
-      emit
-        (Css.color_mix ~in_space:Oklab (Css.Var var_ref) Css.Transparent
-           ~percent1:percent)
-    in
-    (* The srgb fallback inlines the resolved theme colour when known (matching
-       Tailwind), else keeps the raw var. Emitting the referenced [--token] into
-       @layer theme needs the registering theme-var mechanism (see
-       [Color.color_var]); arbitrary references via [Var.bracket] don't trigger
-       it, so theme-var-referencing values still differ in the theme layer (the
-       same gap as [backgrounds.ml]'s bg-[color:var(--token)]). *)
-    let fallback =
-      match Scheme.theme_value (Some theme) bare with
-      | Some v -> (
-          match Css.parse_color (String.trim v) with
-          | Some c ->
-              emit
-                (Css.color_mix ~in_space:Srgb c Css.Transparent
-                   ~percent1:percent)
-          | None -> emit (Css.Var var_ref : Css.color))
-      | None -> emit (Css.Var var_ref : Css.color)
-    in
-    let supports =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
-    style ~rules:(Some [ supports ]) [ fallback ]
+    match Color.Handler.theme_color_of_name bare with
+    (* A reference to a palette token renders from the palette, which is what
+       puts the token in [@layer theme] and gives the fallback a colour rather
+       than the bare reference. *)
+    | Some (c, shade) ->
+        Color.Handler.colors_with_opacity_style ~theme ~properties:[ emit ] c
+          shade opacity
+    | None ->
+        let var_ref : Css.color Css.var = Var.bracket bare in
+        let percent = Color.opacity_to_percent opacity in
+        let oklab_decl =
+          emit
+            (Css.color_mix ~in_space:Oklab (Css.Var var_ref) Css.Transparent
+               ~percent1:percent)
+        in
+        (* The srgb fallback inlines the resolved theme colour when known
+           (matching Tailwind), else keeps the raw var. Emitting the referenced
+           [--token] into @layer theme needs the registering theme-var mechanism
+           (see [Color.color_var]); arbitrary references via [Var.bracket] don't
+           trigger it, so theme-var-referencing values still differ in the theme
+           layer (the same gap as [backgrounds.ml]'s
+           bg-[color:var(--token)]). *)
+        let fallback =
+          match Scheme.theme_value (Some theme) bare with
+          | Some v -> (
+              match Css.parse_color (String.trim v) with
+              | Some c ->
+                  emit
+                    (Css.color_mix ~in_space:Srgb c Css.Transparent
+                       ~percent1:percent)
+              | None -> emit (Css.Var var_ref : Css.color))
+          | None -> emit (Css.Var var_ref : Css.color)
+        in
+        let supports =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports ]) [ fallback ]
 
   (* Place a colour on the declaration's target property: a known colour
      property uses its typed constructor; a custom property ([--name]) uses the
@@ -228,7 +259,7 @@ module Handler = struct
         with
         | Some decl -> style [ decl ]
         | None -> style [])
-    | Color_opacity { property; value; opacity } -> (
+    | Color_opacity { property; value; opacity; _ } -> (
         match color_emitter property with
         (* of_class only accepts renderable colour declarations; defensive. *)
         | None -> style []
@@ -255,7 +286,10 @@ module Handler = struct
     | Color.Opacity_var v -> "/" ^ v
 
   let to_class = function
-    | Color_opacity { property; value; opacity } ->
+    | Color_opacity { property; opacity; spelling = Some raw; _ } ->
+        ignore opacity;
+        "[" ^ property ^ ":" ^ raw ^ "]"
+    | Color_opacity { property; value; opacity; spelling = None } ->
         "[" ^ property ^ ":" ^ value ^ "]" ^ opacity_suffix opacity
     | Parsed_decl { property; value } -> "[" ^ property ^ ":" ^ value ^ "]"
 
@@ -287,9 +321,26 @@ module Handler = struct
           | None -> err_not_utility
           | Some colon_pos -> (
               let property = String.sub inner 0 colon_pos in
-              let value =
+              let raw_value =
                 String.sub inner (colon_pos + 1)
                   (String.length inner - colon_pos - 1)
+              in
+              (* [--alpha(C/P)] is the [/opacity] form spelled as a function, so
+                 it resolves to the same fallback and [@supports] pair. *)
+              let value, fn_opacity =
+                match alpha_fn raw_value with
+                | Some (c, p) -> (
+                    (* [--alpha()] writes the alpha as a percentage; the [/]
+                       modifier writes the bare number. *)
+                    let bare =
+                      if String.ends_with ~suffix:"%" p then
+                        String.sub p 0 (String.length p - 1)
+                      else p
+                    in
+                    match Color.opacity_of_string ~theme bare with
+                    | Some op -> (c, op)
+                    | None -> (raw_value, Color.No_opacity))
+                | None -> (raw_value, Color.No_opacity)
               in
               (* Parse opacity modifier after ] *)
               let opacity_str =
@@ -335,7 +386,7 @@ module Handler = struct
                              <> None
                         then Color.Opacity_named op_part
                         else Color.No_opacity
-                else Color.No_opacity
+                else fn_opacity
               in
               let is_colour_value =
                 Parse.is_var value || parse_css_color value <> None
@@ -346,7 +397,15 @@ module Handler = struct
                    a colour value. Non-colour cases are rejected (Tailwind
                    blindly color-mixes them, which is meaningless). *)
                 if color_emitter property <> None && is_colour_value then
-                  Ok (Color_opacity { property; value; opacity })
+                  Ok
+                    (Color_opacity
+                       {
+                         property;
+                         value;
+                         opacity;
+                         spelling =
+                           (if raw_value == value then None else Some raw_value);
+                       })
                 else err_not_utility
               else
                 (* Plain [property:value]: any property whose value cascade can

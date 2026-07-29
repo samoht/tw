@@ -1842,6 +1842,16 @@ module Handler = struct
      typed value, so the result matches what a colour utility would emit. Used
      to emit tokens that arbitrary values reference via var() but that no colour
      utility set. *)
+  (* The palette colour a [--color-*] token names, so a value that references
+     the token can be rendered from the palette. *)
+  let theme_color_of_name name =
+    if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
+    else
+      let rest = String.sub name 6 (String.length name - 6) in
+      match shade_of_strings (String.split_on_char '-' rest) with
+      | Ok (c, shade) when not (is_custom_color c) -> Some (c, shade)
+      | _ -> None
+
   let theme_color_decl ?theme name =
     if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
     else
