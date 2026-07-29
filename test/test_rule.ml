@@ -405,6 +405,23 @@ let test_has_variant () =
   has "has-group-focus/name:underline"
     ":has(:is(:where(.group\\/name):focus *))"
 
+(* An inner media query's nested blocks hold the utility's class too, so an
+   outer responsive variant has to rename it there as well: [sm:] used to drop
+   out of the class name whenever [hover:] had wrapped the rule in its own media
+   block. *)
+let test_outer_media_renames_nested () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "sm:motion-reduce:hover:translate-y-0"
+    ".sm\\:motion-reduce\\:hover\\:translate-y-0:hover";
+  has "sm:dark:hover:underline" ".sm\\:dark\\:hover\\:underline:hover"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -434,6 +451,8 @@ let tests =
     test_case "arbitrary anchor over a child variant" `Quick
       test_arbitrary_anchor_over_child;
     test_case "has- takes any variant" `Quick test_has_variant;
+    test_case "outer media renames the nested class" `Quick
+      test_outer_media_renames_nested;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;

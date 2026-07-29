@@ -5,6 +5,9 @@
   `indent-[...]`, `mask-size-[...]`, `mask-position-[...]`, `object-[...]` and
   `text-shadow-[...]` emitted `center`, `auto`, `0px`, `none` or
   `var(--<value>)` for a value they could not read (#234)
+- Keep the outer variant in the class name when an inner one has nested a
+  media block of its own: `sm:motion-reduce:hover:translate-y-0` emitted the
+  rule as `.motion-reduce\:hover\:translate-y-0`, without the `sm:` (#235)
 
 - Anchor an arbitrary-selector variant at the class's own position when an
   inner variant has moved the subject:

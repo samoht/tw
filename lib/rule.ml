@@ -2007,9 +2007,31 @@ let arbitrary_selector_in_media content bc selector props ~inner_condition
       ]
   | other -> [ other ]
 
+(* An inner media query keeps its own nested blocks - a [hover:] rule carries an
+   [@media (hover:hover)] one - and those hold the utility's class too. Rename
+   it there as well, or the outer variant drops out of the class name. *)
+
 (** Apply a modifier to a Media_query rule by wrapping it in an outer media
     query. Handles media-like modifiers, responsive modifiers, and falls back to
     returning the rule unchanged. *)
+let rec rename_class_in_stmt ~old_class ~new_class stmt =
+  let recurse = rename_class_in_stmt ~old_class ~new_class in
+  match Css.as_rule stmt with
+  | Some (selector, decls, nested) ->
+      Css.rule
+        ~selector:
+          (Rules_selector.replace_class_in_selector ~old_class ~new_class
+             selector)
+        ~nested:(List.map recurse nested) decls
+  | None -> (
+      match Css.as_media stmt with
+      | Some (condition, stmts) -> Css.media ~condition (List.map recurse stmts)
+      | None -> (
+          match Css.as_supports stmt with
+          | Some (condition, stmts) ->
+              Css.supports ~condition (List.map recurse stmts)
+          | None -> stmt))
+
 let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
     ~props ~base_class ~nested =
   let bc = Option.value base_class ~default:"" in
@@ -2021,9 +2043,10 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
     Rules_selector.transform_selector_with_modifier modified_base_selector bc
       modified_class selector
   in
-  let inner_rule = Css.rule ~selector:new_selector props in
   let inner_media =
-    Css.media ~condition:inner_condition (inner_rule :: nested)
+    let rename = rename_class_in_stmt ~old_class:bc ~new_class:modified_class in
+    Css.media ~condition:inner_condition
+      (Css.rule ~selector:new_selector props :: List.map rename nested)
   in
   let wrap_in_media condition =
     (* Use the modified class (e.g. "dark:md:block") as the wrapped rule's base
