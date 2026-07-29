@@ -371,6 +371,20 @@ let test_in_variant_keeps_inner () =
   (* prose's own [:where(.prose > :last-child)] still only gets renamed *)
   has "hover:prose" ":where(.hover\\:prose>:last-child)"
 
+(* An arbitrary-selector variant anchors the utility's class, so when an inner
+   variant has already moved the subject the anchor belongs at the class's own
+   position - not wrapped around everything the inner variant built. *)
+let test_arbitrary_anchor_over_child () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check bool "the child variant's tail stays outermost" true
+    (Astring.String.is_infix
+       ~affix:":is(:last-child>:is(:where([data-stack]) .in-data-stack"
+       (css "in-data-stack:[:last-child>&]:*:rounded-b-xl"))
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -397,6 +411,8 @@ let tests =
       test_not_variant_keeps_inner;
     test_case "in- variant keeps the inner selector" `Quick
       test_in_variant_keeps_inner;
+    test_case "arbitrary anchor over a child variant" `Quick
+      test_arbitrary_anchor_over_child;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;

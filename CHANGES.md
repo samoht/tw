@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Anchor an arbitrary-selector variant at the class's own position when an
+  inner variant has moved the subject:
+  `in-data-stack:[:last-child>&]:*:rounded-b-xl` put `:last-child >` in front
+  of the whole selector rather than of the class (#233)
+
 - Reject an arbitrary value that is not what the property takes:
   `col-span-[<value>]`, `row-span-[<value>]`, `transition-[<value>]`,
   `will-change-[<value>]` and `font-features-[<value>]` emitted invalid CSS
