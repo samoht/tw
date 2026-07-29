@@ -1705,9 +1705,12 @@ let arbitrary_selector_rule content base_class selector props =
     | Compound (Class cls :: rest) when String.equal cls base_class -> Some rest
     | _ -> None
   in
-  let rename replacement =
-    Rules_selector.replace_class_with ~old_class:base_class ~replacement
-      selector
+  (* With no decoration to lift, an inner variant has moved the subject, and the
+     variant's selector belongs at the class's own position inside what that
+     inner variant built - not wrapped around the whole of it. *)
+  let rebase modified =
+    Rules_selector.transform_selector_with_modifier modified base_class
+      modified_class selector
   in
   let anchored =
     if String.contains s '&' then (
@@ -1716,11 +1719,7 @@ let arbitrary_selector_rule content base_class selector props =
          ([&:hover]) and trailing anchors ([input&]) all flatten correctly. A
          naive split-on-[&] + Descendant combine mis-parses any remainder that
          starts with a combinator. *)
-      let anchor =
-        match decoration with
-        | Some _ -> Class modified_class
-        | None -> rename (Class modified_class)
-      in
+      let anchor = Class modified_class in
       let anchor_str = Css.Selector.to_string anchor in
       let buf = Buffer.create (String.length s + String.length anchor_str) in
       String.iter
@@ -1740,13 +1739,13 @@ let arbitrary_selector_rule content base_class selector props =
       in
       let inner = Css.Selector.read (Cascade.Cursor.of_string s) in
       let inner = if is_type_selector then is_ [ inner ] else inner in
-      let anchored = compound [ Class modified_class; inner ] in
-      match decoration with Some _ -> anchored | None -> rename anchored
+      compound [ Class modified_class; inner ]
   in
   let sel =
     match decoration with
-    | Some [] | None -> anchored
+    | Some [] -> anchored
     | Some extra -> attach_to_subject extra anchored
+    | None -> rebase anchored
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
