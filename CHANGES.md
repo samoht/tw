@@ -8,6 +8,9 @@
 - Keep the outer variant in the class name when an inner one has nested a
   media block of its own: `sm:motion-reduce:hover:translate-y-0` emitted the
   rule as `.motion-reduce\:hover\:translate-y-0`, without the `sm:` (#235)
+- Read the `--theme(--x)` spelling of the theme lookup in a container query,
+  alongside `theme(--x)`: `@min-[--theme(--breakpoint-sm)]:` was rejected
+  (#236)
 
 - Anchor an arbitrary-selector variant at the class's own position when an
   inner variant has moved the subject:

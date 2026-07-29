@@ -111,6 +111,19 @@ let test_scoped_container_variant () =
   has "@max-sm/main:hidden" "@container main not (width>=24rem)";
   has "@min-[400px]/sidebar:flex" "@container sidebar (width>=400px)"
 
+(* Tailwind spells the theme lookup both [theme(--x)] and [--theme(--x)]. *)
+let test_theme_fn_container_query () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "@min-[--theme(--breakpoint-sm)]:flex" "@container(width>=40rem)";
+  has "@min-[theme(--breakpoint-sm)]:flex" "@container(width>=40rem)"
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
@@ -118,6 +131,8 @@ let tests =
     test_case "name" `Quick test_container_name;
     test_case "multiple named containers" `Quick test_multiple_named_containers;
     test_case "scoped container variant" `Quick test_scoped_container_variant;
+    test_case "theme() in a container query" `Quick
+      test_theme_fn_container_query;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "containers suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

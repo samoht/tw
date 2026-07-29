@@ -2019,6 +2019,12 @@ let parse_container_length content =
   | Some _ as len -> len
   | None ->
       let s = String.trim content in
+      (* Tailwind spells the theme lookup [theme(--x)] and [--theme(--x)]. *)
+      let s =
+        if String.length s > 2 && String.sub s 0 2 = "--" then
+          String.sub s 2 (String.length s - 2)
+        else s
+      in
       let n = String.length s in
       if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
         let inner = String.trim (String.sub s 6 (n - 7)) in
