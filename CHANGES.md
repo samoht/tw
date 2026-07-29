@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Read a shadow list in `shadow-[...]`; the single-shadow reading dropped the
+  spread and swallowed the second layer (#231)
+
 - Keep the inner variant's selector under `in-*`, `not-*` and the named
   group/peer variants: `in-data-stack:[:first-child>&]:rounded-t-xl` lost its
   anchor (#231)

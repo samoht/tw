@@ -549,7 +549,13 @@ module Handler = struct
 
   let shadow_arbitrary (arb : string) =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
-    match parse_arbitrary_shadow arb with
+    (* The reading below takes one shadow and no spread, so anything with a
+       comma - a layer list, or a colour function carrying one - goes to the
+       value parser instead. *)
+    match
+      if String.contains arb ',' then Option.None
+      else parse_arbitrary_shadow arb
+    with
     | Some (h_offset, v_offset, blur, Var v) ->
         (* A trailing var() is the colour, not the blur (Tailwind). *)
         let color_ref =

@@ -253,10 +253,29 @@ let test_shadow_inner () =
        ~affix:"box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow)"
        out)
 
+(* A shadow list is one shadow per layer. The single-shadow reading also drops
+   the spread, so anything with a comma goes to the value parser. *)
+let test_arbitrary_shadow_list () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "both layers survive with their spread" true
+    (Astring.String.is_infix
+       ~affix:
+         "--tw-shadow:-5px 10px 15px -3px \
+          var(--tw-shadow-color,var(--shadow-color)),-5px 4px 6px -4px \
+          var(--tw-shadow-color,var(--shadow-color))"
+       (css
+          "shadow-[-5px_10px_15px_-3px_var(--shadow-color),-5px_4px_6px_-4px_var(--shadow-color)]"))
+
 let tests =
   [
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
+    test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;
