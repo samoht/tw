@@ -120,6 +120,11 @@ module Handler = struct
 
   let col_span n = style [ grid_column (Span n, Span n) ]
 
+  (* [col-span-[N]] is a count, [col-span-[name]] a named line: anything else -
+     the docs' [<value>] placeholder included - is not a grid line. *)
+  let is_span_value s =
+    int_of_string_opt s <> None || Parse.is_var s || Parse.is_ident s
+
   let col_span_arbitrary s =
     let gl =
       match int_of_string_opt s with Some n -> Span n | None -> Span_name s
@@ -297,8 +302,8 @@ module Handler = struct
     | [ "col"; "span"; "full" ] -> Ok Col_span_full
     | [ "col"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
-        | Some v -> Ok (Col_span_arbitrary v)
-        | None -> err_not_utility)
+        | Some v when is_span_value v -> Ok (Col_span_arbitrary v)
+        | _ -> err_not_utility)
     | [ "col"; "span"; n ] -> (
         match Parse.int_pos ~name:"col-span" n with
         | Ok i -> Ok (Col_span i)
@@ -361,8 +366,8 @@ module Handler = struct
     | [ "row"; "span"; "full" ] -> Ok Row_span_full
     | [ "row"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
-        | Some v -> Ok (Row_span_arbitrary v)
-        | None -> err_not_utility)
+        | Some v when is_span_value v -> Ok (Row_span_arbitrary v)
+        | _ -> err_not_utility)
     | [ "row"; "span"; n ] -> (
         match Parse.int_pos ~name:"row-span" n with
         | Ok i -> Ok (Row_span i)

@@ -562,7 +562,17 @@ module Handler = struct
     | [ "transition"; "normal" ] -> Ok Transition_behavior_normal
     | [ "transition"; "discrete" ] -> Ok Transition_behavior_allow_discrete
     | [ "transition"; value ] when Parse.is_bracket_value value ->
-        Ok (Transition_arbitrary (Parse.bracket_inner value))
+        let inner = Parse.bracket_inner value in
+        (* [transition-property] takes property names, so anything that is not
+           an identifier - the docs' [<value>] placeholder included - is not
+           one. *)
+        if
+          Parse.is_var inner
+          || String.split_on_char ',' inner
+             |> List.map String.trim
+             |> List.for_all Parse.is_ident
+        then Ok (Transition_arbitrary inner)
+        else Error (`Msg "Invalid transition property")
     | [ "transition" ] -> Ok Transition
     | [ "duration"; n ] when String.length n > 0 && n.[0] = '[' ->
         (* Arbitrary duration: duration-[300ms] *)

@@ -298,7 +298,20 @@ module Handler = struct
     | [ "will"; "change"; "contents" ] -> Ok Will_change_contents
     | [ "will"; "change"; "transform" ] -> Ok Will_change_transform
     | [ "will"; "change"; value ] when Parse.is_bracket_value value ->
-        Ok (Will_change_arbitrary (Parse.bracket_inner value))
+        let inner = Parse.bracket_inner value in
+        (* [will-change] takes property names, so anything that is not an
+           identifier - the docs' [<value>] placeholder included - is not
+           one. *)
+        if
+          Parse.is_var inner
+          || String.split_on_char ',' inner
+             |> List.map String.trim
+             |> List.for_all (fun p ->
+                 Parse.is_ident
+                   (String.map (fun c -> if c = '_' then ' ' else c) p
+                   |> String.trim))
+        then Ok (Will_change_arbitrary inner)
+        else err_not_utility
     | [ "group" ] -> Ok Group
     | [ "peer" ] -> Ok Peer
     | [ "scheme"; "dark" ] -> Ok Scheme_dark

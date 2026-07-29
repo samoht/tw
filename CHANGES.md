@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Reject an arbitrary value that is not what the property takes:
+  `col-span-[<value>]`, `row-span-[<value>]`, `transition-[<value>]`,
+  `will-change-[<value>]` and `font-features-[<value>]` emitted invalid CSS
+  (#231)
+- Read the underscore in `font-features-["liga"_0]` as a space (#231)
+
 - Sort the `@container` utilities and `pointer-events-*` before the layout
   group, where Tailwind's utility order puts them (#231)
 

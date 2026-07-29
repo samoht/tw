@@ -444,9 +444,30 @@ let test_bracket_list_style () =
     "an unknown counter style is rejected" true
     (Result.is_error (Tw.of_string "list-[nonsense-style]"))
 
+(* CSS Fonts 4 sec. 6.4: a feature setting is a quoted four-character tag with
+   an optional integer / on / off, so the docs' [<value>] placeholder is not
+   one; the underscore in [font-features-["liga"_0]] is a space. *)
+let test_font_features_value () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "font-features-[<value>]";
+  Alcotest.(check bool)
+    "the underscore is a space" true
+    (Astring.String.is_infix ~affix:"font-feature-settings:\"liga\" 0"
+       (css "font-features-[\"liga\"_0]"))
+
 let tests =
   [
     test_case "bracket list-style" `Quick test_bracket_list_style;
+    test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading-none inline" `Quick test_leading_none_inline;

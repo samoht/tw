@@ -279,7 +279,32 @@ let default_font_family_declarations =
   in
   [ sans_decl; mono_decl; default_font_decl; default_mono_decl ]
 
+(* CSS Fonts 4 sec. 6.4: [font-feature-settings] is [normal] or a comma list of
+   [<opentype-tag> [<integer> | on | off]?], the tag being a quoted
+   four-character string. The docs' [<value>] placeholder is neither. *)
+
 (** Early typography handler - comes before color utilities (priority 22) *)
+let is_feature_tag_list s =
+  let s = Parse.decode_underscores s in
+  let entry e =
+    match
+      String.split_on_char ' ' (String.trim e) |> List.filter (( <> ) "")
+    with
+    | [] -> false
+    | tag :: rest -> (
+        let n = String.length tag in
+        n = 6
+        && (tag.[0] = '"' || tag.[0] = '\'')
+        && tag.[n - 1] = tag.[0]
+        &&
+        match rest with
+        | [] -> true
+        | [ x ] -> x = "on" || x = "off" || int_of_string_opt x <> None
+        | _ -> false)
+  in
+  String.trim s = "normal"
+  || (s <> "" && List.for_all entry (String.split_on_char ',' s))
+
 module Typography_early = struct
   open Style
   open Css
@@ -582,7 +607,8 @@ module Typography_early = struct
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
-        else Ok (Font_features_quoted inner)
+        else if is_feature_tag_list inner then Ok (Font_features_quoted inner)
+        else err_not_utility
     | [ "font"; "features"; v ] when Parse.is_bare_var v ->
         Ok (Font_features_bare_var v)
     | [ "font"; "thin" ] -> Ok Font_thin
@@ -1265,8 +1291,8 @@ module Typography_early = struct
     | Font_features_quoted s ->
         (* Normalize comma spacing: "c2sc","smcp" → "c2sc", "smcp" *)
         let normalized =
-          String.split_on_char ',' s |> List.map String.trim
-          |> String.concat ", "
+          String.split_on_char ',' (Parse.decode_underscores s)
+          |> List.map String.trim |> String.concat ", "
         in
         style [ font_feature_settings (Feature_list normalized) ]
     | Font_features_var var_str ->

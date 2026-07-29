@@ -44,8 +44,30 @@ let test_initial_resets () =
     "ease-initial sets --tw-ease:initial" true
     (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
 
+(* [transition-[...]] takes property names, so the docs' [<value>] placeholder
+   is not one; it used to reach the sheet as transition-property: <value>. *)
+let test_invalid_arbitrary_property () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "transition-[<value>]";
+  accepted "transition-[opacity]";
+  accepted "transition-[opacity,transform]";
+  accepted "transition-[var(--x)]"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
-  @ [ Alcotest.test_case "initial resets" `Quick test_initial_resets ]
+  @ [
+      Alcotest.test_case "initial resets" `Quick test_initial_resets;
+      Alcotest.test_case "invalid arbitrary property" `Quick
+        test_invalid_arbitrary_property;
+    ]
 
 let suite = ("transitions", tests)

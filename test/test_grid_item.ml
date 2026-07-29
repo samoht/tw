@@ -93,10 +93,31 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"grid_item suborder matches Tailwind" shuffled
 
+(* An arbitrary span is a count, a named line or a var(). The docs pages carry a
+   [<value>] placeholder, which is none of those and emitted an invalid
+   grid-column. *)
+let test_invalid_arbitrary_span () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "col-span-[<value>]";
+  rejected "row-span-[<value>]";
+  accepted "col-span-[3]";
+  accepted "col-span-[mycol]";
+  accepted "col-span-[var(--my-variable)]"
+
 let tests =
   [
     test_case "grid_item of_string - valid values" `Quick of_string_valid;
     test_case "grid_item of_string - invalid values" `Quick of_string_invalid;
+    test_case "invalid arbitrary span" `Quick test_invalid_arbitrary_span;
     test_case "grid_item suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
