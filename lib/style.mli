@@ -66,6 +66,9 @@ type modifier =
   | Container of container_query
   | Not of modifier
   | Has of string
+  | Has_variant of modifier
+      (** [has-<variant>]: any variant's own selector inside [:has()], as
+          [has-peer-checked] and [has-not-data-active] need. *)
   | Group_has of string * string option
   | Peer_has of string * string option
   | Starting

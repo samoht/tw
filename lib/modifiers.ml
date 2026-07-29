@@ -1027,6 +1027,7 @@ let rec pp_modifier = function
   (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
   | Has selector -> "has-" ^ has_part selector
+  | Has_variant m -> "has-" ^ pp_modifier m
   | Group_has (selector, None) -> "group-has-" ^ has_part selector
   | Group_has (selector, Some name) ->
       "group-has-" ^ has_part selector ^ "/" ^ name
@@ -2101,6 +2102,7 @@ let rec parse_modifier s : modifier option =
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);
+      (fun () -> try_has_variant s);
       (fun () -> try_numeric_nth s);
       (fun () -> try_compound_named_group s);
       (fun () -> try_in_modifier s);
@@ -2141,6 +2143,16 @@ and try_group_peer_not_variant s =
   match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
   | Some _ as r -> r
   | None -> try_prefix "peer-not-" (fun i n -> Peer_not (i, n))
+
+(* [has-<variant>]: the argument is any variant, and that variant's own selector
+   goes inside [:has()]. The shorthand reading only knows the state names and a
+   bracket, so [has-peer-checked] fell through. *)
+and try_has_variant s =
+  if String.length s > 4 && String.sub s 0 4 = "has-" then
+    match parse_modifier (String.sub s 4 (String.length s - 4)) with
+    | Some m when is_not_compatible m -> Some (Has_variant m)
+    | Some _ | None -> None
+  else None
 
 and try_not_of_modifier s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
@@ -2217,7 +2229,7 @@ let not_variant_order = function
   | Disabled -> 3100
   | Inert -> 3200
   (* Block 2: complex selectors *)
-  | Has _ -> 3300
+  | Has _ | Has_variant _ -> 3300
   | Aria_selected -> 3340
   | Aria_checked -> 3350
   | Aria_expanded -> 3360

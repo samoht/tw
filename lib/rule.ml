@@ -1158,6 +1158,7 @@ let not_class_prefix inner_modifier =
     when String.length pseudo_str > 0 && pseudo_str.[0] = ':' ->
       "has-" ^ String.sub pseudo_str 1 (String.length pseudo_str - 1)
   | Style.Has shorthand_name -> "has-" ^ shorthand_name
+  | Style.Has_variant m -> "has-" ^ Modifiers.pp_modifier m
   | Style.Nth expr -> Style.pp_nth "nth" expr
   | Style.Nth_last expr -> Style.pp_nth "nth-last" expr
   | Style.Nth_of_type expr -> Style.pp_nth "nth-of-type" expr
@@ -1167,14 +1168,55 @@ let not_class_prefix inner_modifier =
       "supports-" ^ String.sub cond 0 prop_len
   | inner -> Modifiers.pp_modifier inner
 
+(* The relative selector a [group-not-]/[peer-not-] variant contributes:
+   [:where(.group):not(<conditions>) *]. *)
+
 (** Extract the pseudo-class selector(s) from a modifier for use in :not().
     Returns a list of selectors that go inside :not(sel1, sel2, ...). *)
-let extract_not_conditions inner_modifier base_class =
+let named_rel ~marker ~combinator ~name_opt extra =
+  let marker_class =
+    match name_opt with
+    | Option.None -> Css.Selector.Class marker
+    | Option.Some n -> Css.Selector.Class (marker ^ "/" ^ n)
+  in
+  Css.Selector.combine
+    (Css.Selector.compound (Css.Selector.where [ marker_class ] :: extra))
+    combinator Css.Selector.universal
+
+let named_not_rel ~marker ~combinator ~name_opt conditions =
+  named_rel ~marker ~combinator ~name_opt [ Css.Selector.Not conditions ]
+
+let rec scoped_conditions ~marker ~combinator ~name_opt ~negated m base_class =
+  let inner = extract_not_conditions m base_class in
+  let extra = if negated then [ Css.Selector.Not inner ] else inner in
+  [ Css.Selector.is_ [ named_rel ~marker ~combinator ~name_opt extra ] ]
+
+and extract_not_conditions inner_modifier base_class =
   match inner_modifier with
   | Style.Hocus | Style.Device_hocus ->
       [ Css.Selector.Hover; Css.Selector.Focus ]
   | Style.Has selector_str ->
       [ Css.Selector.Has [ has_inner_selector selector_str ] ]
+  (* [has-<variant>] holds the variant itself, so its selector - the same one
+     [:not()] would negate - is what goes inside [:has()]. *)
+  | Style.Has_variant m ->
+      [ Css.Selector.Has (extract_not_conditions m base_class) ]
+  (* A scoped variant carries its own relative selector - negated for the [not-]
+     forms - and that is the whole of what an outer variant sees of it. *)
+  | Style.Group_not (m, name_opt) ->
+      scoped_conditions ~marker:"group" ~combinator:Css.Selector.Descendant
+        ~name_opt ~negated:true m base_class
+  | Style.Peer_not (m, name_opt) ->
+      scoped_conditions ~marker:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling ~name_opt ~negated:true m
+        base_class
+  | Style.Named_group (m, name) ->
+      scoped_conditions ~marker:"group" ~combinator:Css.Selector.Descendant
+        ~name_opt:(Option.Some name) ~negated:false m base_class
+  | Style.Named_peer (m, name) ->
+      scoped_conditions ~marker:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling ~name_opt:(Option.Some name)
+        ~negated:false m base_class
   (* [not-group-has-X] negates the whole scoped relative selector, not just its
      [:has()] part. *)
   | Style.Group_has (selector_str, name) ->
@@ -1491,11 +1533,6 @@ let handle_named_not ~prefix ~base_marker_class ~combinator ~variant inner
   let nvo = Modifiers.not_variant_order (variant inner name_opt) in
   if is_media_inner_modifier inner then []
   else
-    let marker_class =
-      match name_opt with
-      | None -> Css.Selector.Class base_marker_class
-      | Some name -> Css.Selector.Class (base_marker_class ^ "/" ^ name)
-    in
     let not_conditions =
       match inner with
       | Style.Not_bracket content when content <> "" && content.[0] = ':' ->
@@ -1504,9 +1541,8 @@ let handle_named_not ~prefix ~base_marker_class ~combinator ~variant inner
     in
     let open Css.Selector in
     let rel =
-      combine
-        (compound [ where [ marker_class ]; Not not_conditions ])
-        combinator universal
+      named_not_rel ~marker:base_marker_class ~combinator ~name_opt
+        not_conditions
     in
     [
       regular ~not_order:nvo
@@ -1799,6 +1835,21 @@ let modified_selector_rule modifier base_class selector props =
   in
   regular ~selector:new_selector ~props ~base_class:modified_class ()
 
+(* [has-<variant>]: the inner variant's own selector goes inside [:has()]. *)
+let route_has_variant inner ~selector base_class props =
+  let modified_class =
+    "has-" ^ Modifiers.pp_modifier inner ^ ":" ^ base_class
+  in
+  let modified =
+    Css.Selector.compound
+      [
+        Css.Selector.Class modified_class;
+        Css.Selector.Has (extract_not_conditions inner base_class);
+      ]
+  in
+  route_regular ~selector ~base_class ~modified_class ~modified ~not_order:10
+    props
+
 let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
     selector props =
   match modifier with
@@ -1851,6 +1902,8 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier ~selector base_class props
+  | Style.Has_variant inner ->
+      route_has_variant inner ~selector base_class props
   (* Aria bracket and group/peer aria variants *)
   | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
   | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected

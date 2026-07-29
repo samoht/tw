@@ -55,6 +55,7 @@ type modifier =
   | Container of container_query
   | Not of modifier
   | Has of string
+  | Has_variant of modifier
   | Group_has of string * string option
   | Peer_has of string * string option
   | Starting
@@ -480,6 +481,7 @@ let rec pp_modifier = function
   (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
   | Has s -> String.concat "" [ "has-"; has_part s ]
+  | Has_variant m -> String.concat "" [ "has-"; pp_modifier m ]
   | Group_has (s, None) -> String.concat "" [ "group-has-"; has_part s ]
   | Group_has (s, Some name) ->
       String.concat "" [ "group-has-"; has_part s; "/"; name ]
