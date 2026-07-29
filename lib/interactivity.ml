@@ -74,6 +74,9 @@ module Handler = struct
     | Resize | Resize_none | Resize_x | Resize_y | Appearance_auto
     | Appearance_none ->
         11
+    (* Tailwind's utility order opens with the container utilities and then
+       pointer-events, before the layout group. *)
+    | Pointer_events_none | Pointer_events_auto -> -1
     | _ -> 31
 
   let select_none_s = style [ webkit_user_select None; user_select None ]

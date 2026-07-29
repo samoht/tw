@@ -17,7 +17,12 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority _ = 1
+
+  (* Tailwind's utility order opens with the container utilities; the layout
+     [.container] keeps its own place by its width property. *)
+  let priority = function
+    | Layout_container -> 1
+    | Container | Container_normal | Container_size | Container_named _ -> -2
   (* Tailwind orders .container by its width property: after the position group
      (inset, z-index) and before margin. *)
 

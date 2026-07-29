@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Sort the `@container` utilities and `pointer-events-*` before the layout
+  group, where Tailwind's utility order puts them (#231)
+
 - Read a shadow list in `shadow-[...]`; the single-shadow reading dropped the
   spread and swallowed the second layer (#231)
 
