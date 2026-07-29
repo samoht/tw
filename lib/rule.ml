@@ -1173,18 +1173,25 @@ let not_class_prefix inner_modifier =
 
 (** Extract the pseudo-class selector(s) from a modifier for use in :not().
     Returns a list of selectors that go inside :not(sel1, sel2, ...). *)
-let named_not_rel ~marker ~combinator ~name_opt conditions =
+let named_rel ~marker ~combinator ~name_opt extra =
   let marker_class =
     match name_opt with
     | Option.None -> Css.Selector.Class marker
     | Option.Some n -> Css.Selector.Class (marker ^ "/" ^ n)
   in
   Css.Selector.combine
-    (Css.Selector.compound
-       [ Css.Selector.where [ marker_class ]; Css.Selector.Not conditions ])
+    (Css.Selector.compound (Css.Selector.where [ marker_class ] :: extra))
     combinator Css.Selector.universal
 
-let rec extract_not_conditions inner_modifier base_class =
+let named_not_rel ~marker ~combinator ~name_opt conditions =
+  named_rel ~marker ~combinator ~name_opt [ Css.Selector.Not conditions ]
+
+let rec scoped_conditions ~marker ~combinator ~name_opt ~negated m base_class =
+  let inner = extract_not_conditions m base_class in
+  let extra = if negated then [ Css.Selector.Not inner ] else inner in
+  [ Css.Selector.is_ [ named_rel ~marker ~combinator ~name_opt extra ] ]
+
+and extract_not_conditions inner_modifier base_class =
   match inner_modifier with
   | Style.Hocus | Style.Device_hocus ->
       [ Css.Selector.Hover; Css.Selector.Focus ]
@@ -1194,26 +1201,22 @@ let rec extract_not_conditions inner_modifier base_class =
      [:not()] would negate - is what goes inside [:has()]. *)
   | Style.Has_variant m ->
       [ Css.Selector.Has (extract_not_conditions m base_class) ]
-  (* A scoped [not-] variant negates the whole relative selector, so that is
-     what an outer variant sees of it. *)
+  (* A scoped variant carries its own relative selector - negated for the [not-]
+     forms - and that is the whole of what an outer variant sees of it. *)
   | Style.Group_not (m, name_opt) ->
-      [
-        Css.Selector.is_
-          [
-            named_not_rel ~marker:"group" ~combinator:Css.Selector.Descendant
-              ~name_opt
-              (extract_not_conditions m base_class);
-          ];
-      ]
+      scoped_conditions ~marker:"group" ~combinator:Css.Selector.Descendant
+        ~name_opt ~negated:true m base_class
   | Style.Peer_not (m, name_opt) ->
-      [
-        Css.Selector.is_
-          [
-            named_not_rel ~marker:"peer"
-              ~combinator:Css.Selector.Subsequent_sibling ~name_opt
-              (extract_not_conditions m base_class);
-          ];
-      ]
+      scoped_conditions ~marker:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling ~name_opt ~negated:true m
+        base_class
+  | Style.Named_group (m, name) ->
+      scoped_conditions ~marker:"group" ~combinator:Css.Selector.Descendant
+        ~name_opt:(Option.Some name) ~negated:false m base_class
+  | Style.Named_peer (m, name) ->
+      scoped_conditions ~marker:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling ~name_opt:(Option.Some name)
+        ~negated:false m base_class
   (* [not-group-has-X] negates the whole scoped relative selector, not just its
      [:has()] part. *)
   | Style.Group_has (selector_str, name) ->
