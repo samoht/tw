@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Read a comma-separated layer list in `mask-[...]` and `mask-position-[...]`;
+  two `url()` layers collapsed into one malformed `url()`, and a position list
+  fell back to `center` (#231)
+
 - Resolve Tailwind's `--alpha(C/P)` in an arbitrary value, and render a
   reference to a palette token from the palette so the fallback carries a
   colour instead of the bare reference (#231)

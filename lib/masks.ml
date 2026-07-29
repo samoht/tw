@@ -294,15 +294,13 @@ module Handler = struct
             (Css.parse_length v)
       | _ -> None
     in
-    (* A comma-separated list of positions is valid CSS but [mask_position]
-       renders the list space-separated, so it would emit an invalid value;
-       leave it unparsed until cascade takes a list. *)
-    if String.contains inner ',' then None
+    (* One position per mask layer, comma-separated. *)
+    let entries = String.split_on_char ',' inner |> List.map String.trim in
+    let positions = List.map one entries in
+    if List.exists Option.is_none positions then None
     else
-      Option.map
-        (fun pv ->
-          [ Css.webkit_mask_position [ pv ]; Css.mask_position [ pv ] ])
-        (one inner)
+      let positions = List.filter_map Fun.id positions in
+      Some [ Css.webkit_mask_position positions; Css.mask_position positions ]
 
   let to_style _theme = function
     | Mask_none -> mask_none
@@ -589,11 +587,14 @@ module Handler = struct
             Ok
               (Mask_bracket_url_var
                  (String.sub inner 4 (String.length inner - 4)))
+        (* Before the single-[url(...)] reading below, which takes everything
+           between the first [(] and the last [)] and so swallows the comma of a
+           layer list. *)
+        | _ when is_image_value inner -> Ok (Mask_bracket_image inner)
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
             let url_content = String.sub inner 4 (String.length inner - 5) in
             Ok (Mask_bracket_url url_content)
         | _ when Parse.is_var inner -> Ok (Mask_bracket_var inner)
-        | _ when is_image_value inner -> Ok (Mask_bracket_image inner)
         | _ ->
             if parse_bracket_position inner <> None then
               Ok (Mask_bracket_position inner)
