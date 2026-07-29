@@ -556,10 +556,14 @@ module Handler = struct
     | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
         if Parse.is_var inner then Ok (Mask_position_bracket_var inner)
+        else if parse_bracket_position inner = None then
+          Error (`Msg "Invalid mask-position value")
         else Ok (Mask_position_bracket inner)
     | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
         if Parse.is_var inner then Ok (Mask_size_bracket_var inner)
+        else if parse_bracket_size inner = None then
+          Error (`Msg "Invalid mask-size value")
         else Ok (Mask_size_bracket inner)
     (* Bracket notation: mask-[...] *)
     | [ "mask"; bracket ] when Parse.is_bracket_value bracket -> (

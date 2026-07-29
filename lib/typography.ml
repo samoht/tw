@@ -1393,6 +1393,32 @@ module Typography_late = struct
   open Style
   open Css
 
+  let parse_length_value str : Css.length option =
+    let len = String.length str in
+    if len = 0 then None
+    else
+      let num_end = ref 0 in
+      while
+        !num_end < len
+        &&
+        let c = str.[!num_end] in
+        (c >= '0' && c <= '9') || c = '.' || c = '-'
+      do
+        incr num_end
+      done;
+      let num_str = String.sub str 0 !num_end in
+      let unit_str = String.sub str !num_end (len - !num_end) in
+      match float_of_string_opt num_str with
+      | Some n -> (
+          match unit_str with
+          | "px" -> Some (Px n)
+          | "rem" -> Some (Rem n)
+          | "em" -> Some (Em n)
+          | "%" -> Some (Pct n)
+          | "" when n = 0.0 -> Some Zero
+          | _ -> None)
+      | None -> None
+
   type t =
     | (* Decoration color *)
       Decoration_color of Color.color * int option
@@ -1814,9 +1840,13 @@ module Typography_late = struct
     | [ "indent"; "px" ] -> Ok Indent_px
     | [ ""; "indent"; "px" ] -> Ok Indent_neg_px
     | [ "indent"; n ] when Parse.is_bracket_value n ->
-        Ok (Indent_arbitrary (Parse.bracket_inner n))
+        let inner = Parse.bracket_inner n in
+        if parse_length_value inner = None then err_not_utility
+        else Ok (Indent_arbitrary inner)
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
-        Ok (Indent_neg_arbitrary (Parse.bracket_inner n))
+        let inner = Parse.bracket_inner n in
+        if parse_length_value inner = None then err_not_utility
+        else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
         | Ok f -> Ok (Indent f)
@@ -2551,32 +2581,6 @@ module Typography_late = struct
     style [ webkit_font_smoothing Auto; moz_osx_font_smoothing Auto ]
 
   let list_image_url url = style [ list_style_image (Url url) ]
-
-  let parse_length_value str : Css.length option =
-    let len = String.length str in
-    if len = 0 then None
-    else
-      let num_end = ref 0 in
-      while
-        !num_end < len
-        &&
-        let c = str.[!num_end] in
-        (c >= '0' && c <= '9') || c = '.' || c = '-'
-      do
-        incr num_end
-      done;
-      let num_str = String.sub str 0 !num_end in
-      let unit_str = String.sub str !num_end (len - !num_end) in
-      match float_of_string_opt num_str with
-      | Some n -> (
-          match unit_str with
-          | "px" -> Some (Px n)
-          | "rem" -> Some (Rem n)
-          | "em" -> Some (Em n)
-          | "%" -> Some (Pct n)
-          | "" when n = 0.0 -> Some Zero
-          | _ -> None)
-      | None -> None
 
   let text_indent_length length =
     text_indent (Indent { length; hanging = false; each_line = false })

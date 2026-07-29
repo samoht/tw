@@ -78,6 +78,17 @@ let test_bracket_layer_list () =
     (Astring.String.is_infix ~affix:"mask-position:30% 50%,70% 50%"
        (css "mask-position-[30%_50%,70%_50%]"))
 
+(* An arbitrary value the property cannot take is not a utility: these used to
+   fall back to [auto] / [center] and emit a plausible-looking declaration. *)
+let test_invalid_bracket_value () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "mask-size-[<value>]";
+  rejected "mask-position-[<value>]"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -85,6 +96,8 @@ let tests =
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
       Alcotest.test_case "arbitrary mask layer list" `Quick
         test_bracket_layer_list;
+      Alcotest.test_case "invalid bracket value" `Quick
+        test_invalid_bracket_value;
     ]
 
 let suite = ("masks", tests)

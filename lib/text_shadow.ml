@@ -703,6 +703,10 @@ module Handler = struct
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_bracket_hex hex)
               | op -> Ok (Text_shadow_bracket_hex_opacity (hex, op))
+            else if parse_arbitrary_shadow inner = Stdlib.Option.None then
+              (* Not a shadow, so not a utility: it used to fall back to
+                 [text-shadow: none]. *)
+              err_not_utility
             else
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_arbitrary inner)

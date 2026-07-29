@@ -1801,10 +1801,16 @@ module Handler = struct
         Ok (Bg_radial_bracket inner)
     (* bg-position-[...] bracket notation *)
     | [ "bg"; "position"; bracket ] when Parse.is_bracket_value bracket ->
-        Ok (Bg_position_bracket (Parse.bracket_inner bracket))
+        let inner = Parse.bracket_inner bracket in
+        if parse_bracket_position inner = None && not (Parse.is_var inner) then
+          Error (`Msg "Invalid background-position value")
+        else Ok (Bg_position_bracket inner)
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
-        Ok (Bg_size_bracket (Parse.bracket_inner bracket))
+        let inner = Parse.bracket_inner bracket in
+        if parse_bracket_size inner = None && not (Parse.is_var inner) then
+          Error (`Msg "Invalid background-size value")
+        else Ok (Bg_size_bracket inner)
     (* Bracket notation: bg-[...] and bg-[...]/opacity *)
     | [ "bg"; bracket_stuff ]
       when String.length bracket_stuff > 1 && bracket_stuff.[0] = '[' -> (
