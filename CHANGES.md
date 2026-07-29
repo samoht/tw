@@ -16,6 +16,9 @@
   zero shadow, `font-[...]` quoted the text into a family name, and
   `from-[...]`, `via-[...]` and `to-[...]` read it as the stop position `0%`
   (#237)
+- Keep the inner variant's selector under `starting:` and a bracketed at-rule
+  variant: `starting:open:opacity-0` lost `open:`'s
+  `:is([open], :popover-open, :open)` (#238)
 
 - Anchor an arbitrary-selector variant at the class's own position when an
   inner variant has moved the subject:
