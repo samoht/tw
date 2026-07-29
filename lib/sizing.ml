@@ -2085,6 +2085,7 @@ let order (u : Utility.base) =
   match u with Self x -> Some (priority x, suborder x) | _ -> None
 
 (* Export container theme variables for use by other modules (e.g., Columns) *)
+let container_binding = Handler.container_binding
 let container_3xs = Handler.container_3xs
 let container_2xs = Handler.container_2xs
 let container_xs = Handler.container_xs

@@ -68,6 +68,10 @@ val normalize_css_math_operators : string -> string
     (calc/min/max/...) require around binary [+] and [-], e.g.
     [calc(var(--a)-var(--b))] becomes [calc(var(--a) - var(--b))]. *)
 
+val is_ident : string -> bool
+(** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
+    property name written in an arbitrary value has to be. *)
+
 val is_var : string -> bool
 (** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
     bracket content (without surrounding brackets). *)

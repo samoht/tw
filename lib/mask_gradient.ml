@@ -435,10 +435,32 @@ module Handler = struct
      Tailwind *)
   let build_radial_base_style = style []
 
+  (* An arbitrary [mask-radial-at-[30%_30%]] is a position value, so it goes
+     through the value printer rather than reaching the sheet as written. *)
+  let radial_at_position raw : Css.position_value option =
+    match
+      String.split_on_char ' ' (Parse.decode_arbitrary_value raw)
+      |> List.filter (fun s -> s <> "")
+    with
+    | [ x; y ] -> (
+        match (Css.parse_length x, Css.parse_length y) with
+        | Some xv, Some yv -> Some (XY (xv, yv))
+        | _ -> None)
+    | [ v ] ->
+        Option.map
+          (fun (l : Css.length) : Css.position_value -> Single l)
+          (Css.parse_length v)
+    | _ -> None
+
   (* Build the style for mask-radial-at-* - only sets the position variable *)
   let build_radial_at_style pos =
     let position_str =
-      match pos with At_keyword s -> s | At_arbitrary s -> s
+      match pos with
+      | At_keyword s -> s
+      | At_arbitrary s -> (
+          match radial_at_position s with
+          | Some p -> Cascade.Pp.to_string Css.Properties.pp_position_value p
+          | None -> s)
     in
     let decls =
       [
@@ -989,7 +1011,9 @@ module Handler = struct
           && position.[String.length position - 1] = ']'
         then
           let inner = String.sub position 1 (String.length position - 2) in
-          Ok (Mask_radial_at (At_arbitrary inner))
+          if radial_at_position inner = None then
+            Error (`Msg ("Invalid mask-radial-at position: " ^ position))
+          else Ok (Mask_radial_at (At_arbitrary inner))
         else
           (* Validate keyword positions: top, bottom, left, right, center and
              combinations *)

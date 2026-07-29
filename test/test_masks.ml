@@ -60,11 +60,31 @@ let test_bracket_image () =
   check "mask-[conic-gradient(white,black)]";
   check "mask-[linear-gradient(white,black)]"
 
+(* A mask takes one image and one position per layer, comma-separated. The
+   single-[url(...)] reading used to swallow the comma, and a position list was
+   rejected outright. *)
+let test_bracket_layer_list () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "two url layers stay two" true
+    (Astring.String.is_infix ~affix:"mask-image:url(/a.png),url(/b.png)"
+       (css "mask-[url(/a.png),url(/b.png)]"));
+  Alcotest.(check bool)
+    "two positions stay two" true
+    (Astring.String.is_infix ~affix:"mask-position:30% 50%,70% 50%"
+       (css "mask-position-[30%_50%,70%_50%]"))
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
+      Alcotest.test_case "arbitrary mask layer list" `Quick
+        test_bracket_layer_list;
     ]
 
 let suite = ("masks", tests)

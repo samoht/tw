@@ -82,6 +82,35 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"interactivity suborder matches Tailwind" shuffled
 
+(* Tailwind's utility order opens with the container utilities and then
+   pointer-events, before the layout group. *)
+let pointer_events_sorts_first () =
+  let open Tw in
+  let shuffled =
+    Test_helpers.shuffle
+      [ absolute; pointer_events_none; flex; at_container; pointer_events_auto ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"pointer-events sorts before the layout group" shuffled
+
+(* [will-change] takes property names, so the docs' [<value>] placeholder is not
+   one; it used to reach the sheet as will-change: <value>. *)
+let test_invalid_arbitrary_will_change () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "will-change-[<value>]";
+  accepted "will-change-[opacity]";
+  accepted "will-change-[opacity,transform]";
+  accepted "will-change-[var(--x)]"
+
 let tests =
   [
     test_case "select" `Quick test_select;
@@ -89,6 +118,9 @@ let tests =
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "interactivity suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "pointer-events sorts first" `Quick pointer_events_sorts_first;
+    test_case "invalid arbitrary will-change" `Quick
+      test_invalid_arbitrary_will_change;
   ]
 
 let suite = ("interactivity", tests)

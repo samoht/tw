@@ -101,11 +101,27 @@ let test_drop_shadow_keyword_and_alpha () =
     (Astring.String.is_infix ~affix:"--drop-shadow-xl:"
        (css "drop-shadow-xl/25"))
 
+(* An arbitrary filter amount that is not a number, a percentage or a var used
+   to be coerced to zero, so brightness-[abc] emitted brightness(0). *)
+let test_invalid_arbitrary_amount () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "brightness-[abc]";
+  rejected "invert-[xyz]";
+  rejected "backdrop-sepia-[nope]";
+  check "brightness-[1.5]";
+  check "saturate-[150%]";
+  check "brightness-[var(--x)]"
+
 let tests =
   [
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
     test_case "blur" `Quick test_blur;
+    test_case "invalid arbitrary amount" `Quick test_invalid_arbitrary_amount;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
     test_case "drop-shadow fractional alpha" `Quick

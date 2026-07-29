@@ -23,6 +23,7 @@ type container_query =
   | Container_size of container_cmp * container_query
   | Container_len of string * Css.length
   | Container_len_cmp of container_cmp * string * Css.length
+  | Container_scoped of string * container_query
 
 type modifier =
   | Hover
@@ -299,7 +300,22 @@ let rec important_stmt stmt =
       Css.rule ~selector
         ~nested:(List.map important_stmt nested)
         (List.map mark_important_decl decls)
-  | None -> stmt
+  | None -> (
+      (* An at-rule holds the declarations the [!] has to reach: the colour
+         utilities put their modern-syntax value behind [@supports], and it has
+         to outrank the fallback the same way. *)
+      match Css.as_supports stmt with
+      | Some (condition, stmts) ->
+          Css.supports ~condition (List.map important_stmt stmts)
+      | None -> (
+          match Css.as_media stmt with
+          | Some (condition, stmts) ->
+              Css.media ~condition (List.map important_stmt stmts)
+          | None -> (
+              match Css.as_container stmt with
+              | Some (name, condition, stmts) ->
+                  Css.container ?name ?condition (List.map important_stmt stmts)
+              | None -> stmt)))
 
 let rec map_important = function
   | Style s ->
@@ -342,6 +358,7 @@ let rec container_size_name = function
   | Container_len (raw, _) -> "[" ^ raw ^ "]"
   | Container_len_cmp (cmp, raw, _) ->
       container_cmp_prefix cmp ^ "[" ^ raw ^ "]"
+  | Container_scoped (name, inner) -> container_size_name inner ^ "/" ^ name
 
 (* Convert modifier to string prefix *)
 (* Map of simple state names to base modifiers for compound variant parsing *)

@@ -368,21 +368,28 @@ module Handler = struct
           | _ -> Option.None)
 
   (* Parse bracket content for number_percentage values *)
-  let parse_bracket_numpct inner : Css.number_percentage =
+  let parse_bracket_numpct_opt inner : Css.number_percentage option =
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
-      Var (Var.bracket bare)
+      Option.Some (Css.Var (Var.bracket bare) : Css.number_percentage)
     else
       let len = String.length inner in
       if len > 1 && inner.[len - 1] = '%' then
-        let num_s = String.sub inner 0 (len - 1) in
-        match Float.of_string_opt num_s with
-        | Option.Some f -> Pct f
-        | Option.None -> Num 0.
+        Option.map
+          (fun f : Css.number_percentage -> Pct f)
+          (Float.of_string_opt (String.sub inner 0 (len - 1)))
       else
-        match Float.of_string_opt inner with
-        | Option.Some f -> Num f
-        | Option.None -> Num 0.
+        Option.map
+          (fun f : Css.number_percentage -> Num f)
+          (Float.of_string_opt inner)
+
+  (* An arbitrary filter amount is a number, a percentage or a var: anything
+     else is not CSS, and the class is not a utility. *)
+  let is_numpct_bracket s =
+    parse_bracket_numpct_opt (Parse.bracket_inner s) <> Option.None
+
+  let parse_bracket_numpct inner : Css.number_percentage =
+    Option.value (parse_bracket_numpct_opt inner) ~default:(Num 0.)
 
   let blur_arbitrary s =
     match parse_bracket_length s with
@@ -1293,27 +1300,30 @@ module Handler = struct
     | [ "blur"; "2xl" ] -> Ok Blur_2xl
     | [ "blur"; "3xl" ] -> Ok Blur_3xl
     | [ "blur"; s ] when Parse.is_bracket_value s -> Ok (Blur_arbitrary s)
-    | [ "brightness"; s ] when Parse.is_bracket_value s ->
+    | [ "brightness"; s ] when Parse.is_bracket_value s && is_numpct_bracket s
+      ->
         Ok (Brightness_arbitrary s)
     | [ "brightness"; n ] ->
         Parse.int_pos ~name:"brightness" n >|= fun x -> Brightness x
-    | [ "contrast"; s ] when Parse.is_bracket_value s ->
+    | [ "contrast"; s ] when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Contrast_arbitrary s)
     | [ "contrast"; n ] ->
         Parse.int_pos ~name:"contrast" n >|= fun x -> Contrast x
-    | [ "grayscale"; s ] when Parse.is_bracket_value s ->
+    | [ "grayscale"; s ] when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Grayscale_arbitrary s)
     | [ "grayscale"; n ] ->
         Parse.int_pos ~name:"grayscale" n >|= fun x -> Grayscale x
     | [ "grayscale" ] -> Ok (Grayscale 100)
-    | [ "saturate"; s ] when Parse.is_bracket_value s ->
+    | [ "saturate"; s ] when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Saturate_arbitrary s)
     | [ "saturate"; n ] ->
         Parse.int_pos ~name:"saturate" n >|= fun x -> Saturate x
-    | [ "sepia"; s ] when Parse.is_bracket_value s -> Ok (Sepia_arbitrary s)
+    | [ "sepia"; s ] when Parse.is_bracket_value s && is_numpct_bracket s ->
+        Ok (Sepia_arbitrary s)
     | [ "sepia"; n ] -> Parse.int_pos ~name:"sepia" n >|= fun x -> Sepia x
     | [ "sepia" ] -> Ok (Sepia 100)
-    | [ "invert"; s ] when Parse.is_bracket_value s -> Ok (Invert_arbitrary s)
+    | [ "invert"; s ] when Parse.is_bracket_value s && is_numpct_bracket s ->
+        Ok (Invert_arbitrary s)
     | [ "invert"; n ] -> Parse.int_pos ~name:"invert" n >|= fun x -> Invert x
     | [ "invert" ] -> Ok (Invert 100)
     | [ "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
@@ -1391,39 +1401,46 @@ module Handler = struct
     | [ "backdrop"; "blur"; "3xl" ] -> Ok Backdrop_blur_3xl
     | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s ->
         Ok (Backdrop_blur_arbitrary s)
-    | [ "backdrop"; "brightness"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "brightness"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_brightness_arbitrary s)
     | [ "backdrop"; "brightness"; n ] ->
         Parse.int_pos ~name:"backdrop-brightness" n >|= fun x ->
         Backdrop_brightness x
-    | [ "backdrop"; "contrast"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "contrast"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_contrast_arbitrary s)
     | [ "backdrop"; "contrast"; n ] ->
         Parse.int_pos ~name:"backdrop-contrast" n >|= fun x ->
         Backdrop_contrast x
-    | [ "backdrop"; "opacity"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "opacity"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_opacity_arbitrary s)
     | [ "backdrop"; "opacity"; n ] -> (
         match float_of_string_opt n with
         | Some f when f >= 0. -> Ok (Backdrop_opacity f)
         | _ -> err_not_utility)
-    | [ "backdrop"; "saturate"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "saturate"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_saturate_arbitrary s)
     | [ "backdrop"; "saturate"; n ] ->
         Parse.int_pos ~name:"backdrop-saturate" n >|= fun x ->
         Backdrop_saturate x
-    | [ "backdrop"; "grayscale"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "grayscale"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_grayscale_arbitrary s)
     | [ "backdrop"; "grayscale"; n ] ->
         Parse.int_pos ~name:"backdrop-grayscale" n >|= fun x ->
         Backdrop_grayscale x
     | [ "backdrop"; "grayscale" ] -> Ok (Backdrop_grayscale 100)
-    | [ "backdrop"; "invert"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "invert"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_invert_arbitrary s)
     | [ "backdrop"; "invert"; n ] ->
         Parse.int_pos ~name:"backdrop-invert" n >|= fun x -> Backdrop_invert x
     | [ "backdrop"; "invert" ] -> Ok (Backdrop_invert 100)
-    | [ "backdrop"; "sepia"; s ] when Parse.is_bracket_value s ->
+    | [ "backdrop"; "sepia"; s ]
+      when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_sepia_arbitrary s)
     | [ "backdrop"; "sepia"; n ] ->
         Parse.int_pos ~name:"backdrop-sepia" n >|= fun x -> Backdrop_sepia x

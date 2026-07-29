@@ -201,8 +201,11 @@ let expand_spacing_fn s =
     else if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
       let stop, next = close_paren (i + 9) 0 in
       let n = String.sub s (i + 10) (stop - i - 10) in
-      Buffer.add_string buf
-        (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
+      (* [--spacing(1)] is the scale itself; only a multiplier needs calc. *)
+      if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
+      else
+        Buffer.add_string buf
+          (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
       go next)
     else (
       Buffer.add_char buf s.[i];
@@ -213,6 +216,22 @@ let expand_spacing_fn s =
 
 let decode_arbitrary_value s =
   s |> decode_underscores |> expand_spacing_fn |> normalize_css_math_operators
+
+(* A CSS identifier, which is what a custom-ident or a property name written in
+   an arbitrary value has to be. The docs pages carry [<value>] placeholders
+   that are not CSS, and passing one through emits an invalid declaration. *)
+let is_ident s =
+  s <> ""
+  && (match s.[0] with
+    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> true
+    | '-' -> String.length s > 1
+    | c -> Char.code c >= 0x80)
+  && String.for_all
+       (fun c ->
+         match c with
+         | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' | '_' -> true
+         | c -> Char.code c >= 0x80)
+       s
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("

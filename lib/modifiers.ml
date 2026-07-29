@@ -2029,7 +2029,9 @@ let parse_container_length content =
         Option.bind (Scheme.token_default name) Css.parse_length
       else None
 
-let try_container_query s =
+(* [@sm/main] aims a size query at the container named [main]. The name is the
+   tail after the last [/]; the head is any other container-query spelling. *)
+let rec try_container_query s =
   (* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
   let bracketed prefix mk =
     let plen = String.length prefix and slen = String.length s in
@@ -2071,7 +2073,24 @@ let try_container_query s =
               Container (Container_len_cmp (Cq_max, raw, len))));
         (fun () -> sized "@min-" Cq_min);
         (fun () -> sized "@max-" Cq_max);
+        (fun () -> try_scoped_container_query s);
       ]
+
+and try_scoped_container_query s =
+  match String.rindex_opt s '/' with
+  | None -> None
+  | Some i -> (
+      let name = String.sub s (i + 1) (String.length s - i - 1) in
+      if name = "" then None
+      else
+        let head = String.sub s 0 i in
+        match
+          match List.assoc_opt head simple_modifiers with
+          | Some _ as m -> m
+          | None -> try_container_query head
+        with
+        | Some (Container q) -> Some (Container (Container_scoped (name, q)))
+        | _ -> None)
 
 (* Parse a modifier string into a typed Style.modifier *)
 let rec parse_modifier s : modifier option =

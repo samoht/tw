@@ -1842,6 +1842,16 @@ module Handler = struct
      typed value, so the result matches what a colour utility would emit. Used
      to emit tokens that arbitrary values reference via var() but that no colour
      utility set. *)
+  (* The palette colour a [--color-*] token names, so a value that references
+     the token can be rendered from the palette. *)
+  let theme_color_of_name name =
+    if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
+    else
+      let rest = String.sub name 6 (String.length name - 6) in
+      match shade_of_strings (String.split_on_char '-' rest) with
+      | Ok (c, shade) when not (is_custom_color c) -> Some (c, shade)
+      | _ -> None
+
   let theme_color_decl ?theme name =
     if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
     else
@@ -2590,7 +2600,15 @@ module Handler = struct
       shade opacity =
     let property_decls value = List.map (fun set -> set value) properties in
     let percent = opacity_to_percent opacity in
-    if is_custom_color c && opacity_var_name opacity <> None then
+    if is_fully_opaque opacity && not (is_custom_color c) then
+      (* At 100% the mix is a no-op, so Tailwind writes the colour itself and
+         needs neither the fallback nor the [@supports] pair. *)
+      let theme_decl, color_ref =
+        Var.binding (color_var c shade) (to_css c shade)
+      in
+      let value : Css.color = Var color_ref in
+      style ?merge_key (theme_decl :: property_decls value)
+    else if is_custom_color c && opacity_var_name opacity <> None then
       style ?merge_key (property_decls (mix_alpha opacity (to_css c shade)))
     else if is_custom_color c then
       (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
@@ -3415,7 +3433,14 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let alpha_var = opacity_var_name opacity <> None in
-  if is_custom_color c then
+  if is_fully_opaque opacity && not (is_custom_color c) then
+    (* At 100% the mix is a no-op, so Tailwind writes the colour itself. *)
+    let theme_decl, color_ref =
+      Var.binding (color_var c shade) (to_css c shade)
+    in
+    let value : Css.color = Var color_ref in
+    Style.style [ theme_decl; property value ]
+  else if is_custom_color c then
     if alpha_var then
       Style.style [ property (mix_alpha opacity (to_css c shade)) ]
     else
@@ -3524,7 +3549,14 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let alpha_var = opacity_var_name opacity <> None in
-  if is_custom_color c then
+  if is_fully_opaque opacity && not (is_custom_color c) then
+    let theme_decl, color_ref =
+      Var.binding (color_var c shade) (to_css c shade)
+    in
+    let value : Css.color = Var color_ref in
+    let rule = Css.rule ~selector [ Css.border_color value ] in
+    Style.style ~rules:(Some [ rule ]) [ theme_decl ]
+  else if is_custom_color c then
     let value =
       if alpha_var then mix_alpha opacity (to_css c shade)
       else

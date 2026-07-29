@@ -10,6 +10,7 @@ type container_cmp =
       (** Container-query direction: [Cq_min] is [width >= v], [Cq_max] is
           [width < v]. *)
 
+(** [@min-[<len>]] / [@max-[<len>]]. *)
 type container_query =
   | Container_3xs
   | Container_2xs
@@ -32,7 +33,8 @@ type container_query =
       (** [@[<len>]]: [width >= len]. Carries the raw bracket token so the class
           name round-trips. *)
   | Container_len_cmp of container_cmp * string * Css.length
-      (** [@min-[<len>]] / [@max-[<len>]]. *)
+  | Container_scoped of string * container_query
+      (** [@sm/main]: a size query aimed at the container named [main]. *)
 
 type modifier =
   | Hover

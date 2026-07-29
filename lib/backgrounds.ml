@@ -1047,7 +1047,16 @@ module Handler = struct
       |> Css.concat
     in
 
-    match Scheme.hex_color scheme color_name with
+    (* Without a scheme override the palette still has a hex for the colour, and
+       Tailwind emits the same fallback + [@supports] pair either way. *)
+    let hex_of_palette () =
+      Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch color shade))
+    in
+    match
+      match Scheme.hex_color scheme color_name with
+      | Some _ as h -> h
+      | None -> Some (hex_of_palette ())
+    with
     | Some hex_value ->
         (* Scheme color: generate fallback + @supports + stops (same as
            Tailwind) Tailwind outputs: 1. .from-X/N { --tw-gradient-from:

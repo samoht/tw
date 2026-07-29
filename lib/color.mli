@@ -405,6 +405,23 @@ module Handler : sig
       the palette token and the typed reference to it, for utilities that set a
       colour var of their own from a palette entry. *)
 
+  val colors_with_opacity_style :
+    ?theme:Scheme.t ->
+    properties:(Css.color -> Css.declaration) list ->
+    ?property_prefix:string ->
+    ?merge_key:string ->
+    color ->
+    int ->
+    opacity_modifier ->
+    Style.t
+  (** [colors_with_opacity_style ~properties color shade opacity] sets every
+      declaration in [properties] to [color] at [opacity]: the srgb fallback
+      plus the [@supports] colour-mix override Tailwind emits. *)
+
+  val theme_color_of_name : string -> (color * int) option
+  (** [theme_color_of_name name] is the palette colour and shade a [color-*]
+      token names, or {!constructor-None} when it names none. *)
+
   val theme_color_decl : ?theme:Scheme.t -> string -> Css.declaration option
   (** [theme_color_decl ?theme name] is the [\@layer theme] declaration for the
       colour token [name] (e.g. ["color-red-500"]), or [None] when [name] is not

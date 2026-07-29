@@ -1,5 +1,72 @@
 ## Unreleased
 
+- Reject an arbitrary value that is not what the property takes:
+  `col-span-[<value>]`, `row-span-[<value>]`, `transition-[<value>]`,
+  `will-change-[<value>]` and `font-features-[<value>]` emitted invalid CSS
+  (#231)
+- Read the underscore in `font-features-["liga"_0]` as a space (#231)
+
+- Sort the `@container` utilities and `pointer-events-*` before the layout
+  group, where Tailwind's utility order puts them (#231)
+
+- Read a shadow list in `shadow-[...]`; the single-shadow reading dropped the
+  spread and swallowed the second layer (#231)
+
+- Keep the inner variant's selector under `in-*`, `not-*` and the named
+  group/peer variants: `in-data-stack:[:first-child>&]:rounded-t-xl` lost its
+  anchor (#231)
+
+- Read a comma-separated layer list in `mask-[...]` and `mask-position-[...]`;
+  two `url()` layers collapsed into one malformed `url()`, and a position list
+  fell back to `center` (#231)
+
+- Resolve Tailwind's `--alpha(C/P)` in an arbitrary value, and render a
+  reference to a palette token from the palette so the fallback carries a
+  colour instead of the bare reference (#231)
+- Read the position in `mask-radial-at-[30%_30%]`; it reached the sheet with
+  its underscore (#231)
+
+- Reject an arbitrary filter amount that is not a number, a percentage or a
+  var; `brightness-[abc]` emitted `brightness(0)` (#231)
+
+- `shadow-inner` sets `--tw-shadow` and composes like the other shadow
+  shapes; it wrote `box-shadow` directly, so a ring or inset shadow beside it
+  was dropped and its `@property` rules were missing (#231)
+- Read `--spacing(1)` as `var(--spacing)`, the form Tailwind writes (#231)
+
+- Write the colour itself for a `/100` modifier, which emitted a no-op
+  `color-mix` and its `@supports` fallback (#231)
+- Apply `!` inside the `@supports` colour override, so `bg-white/75!` no longer
+  has its fallback outrank the modern value (#231)
+- Emit the fallback and `@supports` pair for a gradient stop with opacity, as
+  in `from-white/10` (#231)
+
+- Read `object-[50%]` as a position; it emitted `object-position: var(--50)`
+  (#231)
+- Write `z-index: auto` for `z-auto`, which referenced a variable nothing
+  declares (#231)
+- Expand Tailwind's `--spacing(N)` in an arbitrary property value, as in
+  `[--gap:--spacing(10)]` (#231)
+
+- Fix `not-in-data-*`, which negated the utility's own class instead of the
+  ancestor relation, and keep the inner variant's selector under `not-*`
+  (#231)
+
+- Keep the inner variant's selector under an `aria-*`, `data-*` or `has-*`
+  variant: `aria-selected:hover:underline` lost its `:hover`,
+  `data-[closed]:data-[enter]:` its second attribute (#231)
+- Keep the `@media (hover:hover)` gate when an outer variant wraps `hover:`,
+  as in `disabled:hover:bg-indigo-500` (#231)
+
+- Support the `@sm/main:` container-query variant, which aims a size query at a
+  named container instead of the nearest one (#231)
+
+- Read `calc()` and `var()` in `rounded-[...]`; anything but a plain length
+  silently became `border-radius: 0` (#231)
+
+- Declare `--container-*` in `@layer theme` for `basis-sm` and friends; the
+  utility read a variable nothing declared (#231)
+
 - Write the keyword for `object-*`, `origin-*` and `perspective-origin-*`
   when no `@theme` defines the token; they referenced a variable nothing
   declared (#231)
