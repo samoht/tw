@@ -354,6 +354,23 @@ let test_not_variant_keeps_inner () =
   has "not-data-focus:not-has-checked:ring-inset"
     ":not([data-focus]):not(:has(:checked))"
 
+(* The in-/named-group/peer routes build their selector from the bare class too,
+   so an outer one used to drop the anchor an inner arbitrary selector had put
+   in place. *)
+let test_in_variant_keeps_inner () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "in-data-stack:[:first-child>&]:underline"
+    ":first-child>:is(:where([data-stack]) .in-data-stack";
+  (* prose's own [:where(.prose > :last-child)] still only gets renamed *)
+  has "hover:prose" ":where(.hover\\:prose>:last-child)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -378,6 +395,8 @@ let tests =
       test_attribute_variant_keeps_inner;
     test_case "not- variant keeps the inner selector" `Quick
       test_not_variant_keeps_inner;
+    test_case "in- variant keeps the inner selector" `Quick
+      test_in_variant_keeps_inner;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;

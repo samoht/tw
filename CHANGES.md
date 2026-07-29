@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Keep the inner variant's selector under `in-*`, `not-*` and the named
+  group/peer variants: `in-data-stack:[:first-child>&]:rounded-t-xl` lost its
+  anchor (#231)
+
 - Read a comma-separated layer list in `mask-[...]` and `mask-position-[...]`;
   two `url()` layers collapsed into one malformed `url()`, and a position list
   fell back to `center` (#231)

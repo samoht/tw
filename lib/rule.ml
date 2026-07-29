@@ -149,6 +149,15 @@ module Rules_selector = struct
     in
     Option.value (find modified_base_selector) ~default:base_class
 
+  (* A selector carrying a combinator cannot stand on the right of another one,
+     nor inside a compound, so it goes in [:is()] there - the same rule CSS
+     Nesting applies when substituting [&]. *)
+  let rec is_complex_selector = function
+    | Css.Selector.Combined _ -> true
+    | Css.Selector.Compound sels | Css.Selector.List sels ->
+        List.exists is_complex_selector sels
+    | _ -> false
+
   (* Transform selector by applying modifier to base class and updating
      descendants. *)
   let transform_selector_with_modifier modified_base_selector base_class
@@ -156,27 +165,43 @@ module Rules_selector = struct
     let replace_in_children =
       replace_class_in_selector ~old_class:base_class ~new_class:modified_class
     in
-    let rec transform = function
+    let substitute ~enclose =
+      if enclose && is_complex_selector modified_base_selector then
+        Css.Selector.is_ [ modified_base_selector ]
+      else modified_base_selector
+    in
+    (* [descendant] marks the right of a combinator. A [:where] there holds the
+       utility's own zero-specificity self-reference (as prose's [:where(.prose
+       > :last-child)] does), which only wants the new class name. An [:is] is
+       where the child and descendant variants bury the class, so an outer
+       variant has to reach into it. *)
+    let rec transform ~enclose ~descendant = function
       | Css.Selector.Class cls when String.equal cls base_class ->
-          modified_base_selector
+          substitute ~enclose
       | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
           Css.Selector.Combined
-            (transform base_sel, combinator, replace_in_children complex_sel)
+            ( transform ~enclose ~descendant base_sel,
+              combinator,
+              transform ~enclose:true ~descendant:true complex_sel )
       | Css.Selector.Compound selectors ->
-          Css.Selector.Compound (List.map transform selectors)
+          Css.Selector.Compound
+            (List.map (transform ~enclose:true ~descendant) selectors)
       | Css.Selector.List selectors ->
-          Css.Selector.List (List.map transform selectors)
-      (* The child and descendant variants bury the class inside an [:is], so an
-         outer variant has to reach into it to prefix the class in place. *)
+          Css.Selector.List
+            (List.map (transform ~enclose ~descendant) selectors)
       | Css.Selector.Is selectors ->
-          Css.Selector.Is (List.map transform selectors)
-      | Css.Selector.Where selectors ->
-          Css.Selector.Where (List.map transform selectors)
+          Css.Selector.Is
+            (List.map (transform ~enclose:false ~descendant:false) selectors)
+      | Css.Selector.Where selectors when not descendant ->
+          Css.Selector.Where
+            (List.map (transform ~enclose:false ~descendant) selectors)
+      | Css.Selector.Where _ as sel -> replace_in_children sel
       | Css.Selector.Relative (comb, sel) ->
-          Css.Selector.Relative (comb, transform sel)
+          Css.Selector.Relative
+            (comb, transform ~enclose:true ~descendant:true sel)
       | other -> other
     in
-    transform selector
+    transform ~enclose:false ~descendant:false selector
 end
 
 let resolve_scheme = function Some s -> s | None -> Scheme.default
@@ -1994,11 +2019,36 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
               ~base_class:modified_class ~nested ();
           ])
 
+(* The multi-rule routes below build their selector from the bare class, so an
+   outer variant would discard whatever an inner one already did. Rebuild each
+   rule they produce around the incoming selector; with no inner variant that
+   selector is the bare class and this changes nothing. *)
+let rebase_on_selector ~base_class ~selector rules =
+  match selector with
+  | Css.Selector.Class cls when String.equal cls base_class -> rules
+  | _ ->
+      List.map
+        (fun rule ->
+          match rule with
+          | Output.Regular ({ base_class = Some modified_class; _ } as r) ->
+              Output.Regular
+                {
+                  r with
+                  selector =
+                    Rules_selector.transform_selector_with_modifier r.selector
+                      base_class modified_class selector;
+                }
+          | rule -> rule)
+        rules
+
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
 let rec apply_modifier_to_rule ?theme modifier = function
   | Regular { selector; props; base_class; has_hover; _ } -> (
       let bc = Option.value base_class ~default:"" in
+      let rebase ~selector rules =
+        rebase_on_selector ~base_class:bc ~selector rules
+      in
       match modifier with
       | Style.Pseudo_marker ->
           let open Css.Selector in
@@ -2014,25 +2064,29 @@ let rec apply_modifier_to_rule ?theme modifier = function
           | Style.In_bracket content -> handle_not_in_bracket content bc props
           | Style.In_data attr -> handle_not_in_data attr bc props
           | _ -> handle_not_modifier ?theme inner_modifier bc selector props)
-      | Style.Not_bracket content -> handle_not_bracket content bc props
-      | Style.In_bracket content -> handle_in_bracket content bc props
-      | Style.In_data attr -> handle_in_data attr bc props
-      | Style.In_state (inner, name) -> handle_in_state inner name bc props
+      | Style.Not_bracket content ->
+          rebase ~selector (handle_not_bracket content bc props)
+      | Style.In_bracket content ->
+          rebase ~selector (handle_in_bracket content bc props)
+      | Style.In_data attr -> rebase ~selector (handle_in_data attr bc props)
+      | Style.In_state (inner, name) ->
+          rebase ~selector (handle_in_state inner name bc props)
       | Style.Group_not (inner, name_opt) ->
-          handle_group_not_modifier inner name_opt bc props
+          rebase ~selector (handle_group_not_modifier inner name_opt bc props)
       | Style.Peer_not (inner, name_opt) ->
-          handle_peer_not_modifier inner name_opt bc props
+          rebase ~selector (handle_peer_not_modifier inner name_opt bc props)
       | Style.Named_group (inner, name) ->
-          handle_named_group inner name bc props
-      | Style.Named_peer (inner, name) -> handle_named_peer inner name bc props
+          rebase ~selector (handle_named_group inner name bc props)
+      | Style.Named_peer (inner, name) ->
+          rebase ~selector (handle_named_peer inner name bc props)
       | Style.Not_named_group (inner, name) ->
-          handle_not_named_group inner name bc props
+          rebase ~selector (handle_not_named_group inner name bc props)
       | Style.Has_named_group (inner, name) ->
-          handle_has_named_group inner name bc props
+          rebase ~selector (handle_has_named_group inner name bc props)
       | Style.In_named_group (inner, name) ->
-          handle_in_named_group inner name bc props
+          rebase ~selector (handle_in_named_group inner name bc props)
       | Style.Group_peer_named (inner, name) ->
-          handle_group_peer_named inner name bc props
+          rebase ~selector (handle_group_peer_named inner name bc props)
       | _ -> (
           try
             [
