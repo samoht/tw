@@ -305,6 +305,20 @@ let is_feature_tag_list s =
   String.trim s = "normal"
   || (s <> "" && List.for_all entry (String.split_on_char ',' s))
 
+(* CSS Fonts 4 sec. 2.2: a family name is an identifier sequence or a quoted
+   string, and the list is comma-separated. *)
+let is_font_family_value s =
+  let entry e =
+    let e = String.trim e in
+    let n = String.length e in
+    if n = 0 then false
+    else if (e.[0] = '"' || e.[0] = '\'') && n > 1 then e.[n - 1] = e.[0]
+    else
+      String.split_on_char ' ' e |> List.filter (fun w -> w <> "") |> fun ws ->
+      ws <> [] && List.for_all Parse.is_ident ws
+  in
+  s <> "" && List.for_all entry (String.split_on_char ',' s)
+
 module Typography_early = struct
   open Style
   open Css
@@ -603,7 +617,12 @@ module Typography_early = struct
           | None ->
               if Parse.is_var inner then
                 Ok (Font_bracket_weight_var (inner, inner))
-              else Ok (Font_bracket_family_name (inner, inner)))
+                (* A family name is a list of idents or quoted strings; the
+                   docs' [<value>] placeholder is neither, and it used to be
+                   quoted into [font-family: "<value>"]. *)
+              else if is_font_family_value inner then
+                Ok (Font_bracket_family_name (inner, inner))
+              else err_not_utility)
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)

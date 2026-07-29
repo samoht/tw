@@ -11,6 +11,11 @@
 - Read the `--theme(--x)` spelling of the theme lookup in a container query,
   alongside `theme(--x)`: `@min-[--theme(--breakpoint-sm)]:` was rejected
   (#236)
+- Reject an arbitrary value the property cannot take in seven more utilities:
+  `shadow-[...]`, `inset-shadow-[...]` and `drop-shadow-[...]` fell back to the
+  zero shadow, `font-[...]` quoted the text into a family name, and
+  `from-[...]`, `via-[...]` and `to-[...]` read it as the stop position `0%`
+  (#237)
 
 - Anchor an arbitrary-selector variant at the class's own position when an
   inner variant has moved the subject:

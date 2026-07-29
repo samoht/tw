@@ -271,11 +271,30 @@ let test_arbitrary_shadow_list () =
        (css
           "shadow-[-5px_10px_15px_-3px_var(--shadow-color),-5px_4px_6px_-4px_var(--shadow-color)]"))
 
+(* An arbitrary shadow that is not a shadow is not a utility: it used to fall
+   back to the zero shadow. *)
+let test_invalid_arbitrary_shadow () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "shadow-[<value>]";
+  rejected "inset-shadow-[<value>]";
+  accepted "shadow-[0_1px_2px_#000]";
+  accepted "inset-shadow-[0_1px_2px_#000]"
+
 let tests =
   [
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
+    test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;

@@ -112,6 +112,7 @@ let test_invalid_arbitrary_amount () =
   rejected "brightness-[abc]";
   rejected "invert-[xyz]";
   rejected "backdrop-sepia-[nope]";
+  rejected "drop-shadow-[<value>]";
   check "brightness-[1.5]";
   check "saturate-[150%]";
   check "brightness-[var(--x)]"

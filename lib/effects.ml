@@ -547,6 +547,14 @@ module Handler = struct
     | List shadows -> List (List.map (wrap_shadow_color ~color_var) shadows)
     | _ -> wrap_shadow_color ~color_var sh
 
+  (* A shadow bracket is a shadow list or a var(); anything else - the docs'
+     [<value>] placeholder included - is not one. *)
+  let is_shadow_bracket inner =
+    Parse.is_var inner
+    || parse_arbitrary_shadow inner <> None
+    || Css.parse_shadow (String.map (fun c -> if c = '_' then ' ' else c) inner)
+       <> None
+
   let shadow_arbitrary (arb : string) =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
     (* The reading below takes one shadow and no spread, so anything with a
@@ -2463,6 +2471,10 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Shadow_bracket_color (inner, c))
           | _ -> Ok (Shadow_bracket_color_opacity (inner, c, opacity)))
+      | None when not (is_shadow_bracket inner) ->
+          (* Not a shadow, so not a utility: it used to fall back to the zero
+             shadow [0 0 #0000]. *)
+          err_not_utility
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Shadow_arbitrary inner)
@@ -2493,6 +2505,7 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_bracket_color (inner, c))
           | _ -> Ok (Inset_shadow_bracket_color_opacity (inner, c, opacity)))
+      | None when not (is_shadow_bracket inner) -> err_not_utility
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)

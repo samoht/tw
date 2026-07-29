@@ -1587,7 +1587,21 @@ module Handler = struct
         (String.sub s 0 i, Some (String.sub s (i + 1) (String.length s - i - 1)))
     | None -> (s, None)
 
+  (* A gradient stop bracket that is not a colour is a stop position: a
+     percentage, a length, or a var(). Anything else - the docs' [<value>]
+     placeholder included - is neither, and used to land as [0%]. *)
+
   (** Parse gradient color/position from token list for a given target *)
+  let is_gradient_position inner =
+    Parse.is_var inner
+    || (String.length inner > 11 && String.sub inner 0 11 = "percentage:")
+    || (String.length inner > 7 && String.sub inner 0 7 = "length:")
+    ||
+    let n = String.length inner in
+    String.ends_with ~suffix:"%" inner
+    && float_of_string_opt (String.sub inner 0 (n - 1)) <> None
+    || Css.parse_length inner <> None
+
   let parse_gradient_color ?theme target rest =
     let gc src = Ok (Gradient_color (target, src)) in
     let gp src = Ok (Gradient_stop_position (target, src)) in
@@ -1620,7 +1634,8 @@ module Handler = struct
             else if String.length inner > 0 && inner.[0] = '#' then
               gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
             else if Parse.is_var inner then gc (Gc_bracket_var inner)
-            else gp (Gp_bracket inner)
+            else if is_gradient_position inner then gp (Gp_bracket inner)
+            else Error (`Msg "Invalid gradient stop value")
         | Color.No_opacity ->
             Error (`Msg "Invalid gradient bracket with opacity")
         | opacity when Parse.is_bracket_value base ->
@@ -1654,7 +1669,8 @@ module Handler = struct
         else if Parse.is_var inner then gc (Gc_bracket_var inner)
         else if Color.parse_bracket_color inner <> None then
           gc (Gc_bracket_color inner)
-        else gp (Gp_bracket inner)
+        else if is_gradient_position inner then gp (Gp_bracket inner)
+        else Error (`Msg "Invalid gradient stop value")
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with
