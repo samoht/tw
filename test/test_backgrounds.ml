@@ -254,9 +254,30 @@ let test_bg_var_opacity () =
        ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
        (css_of "bg-[var(--x)]/50"))
 
+(* A gradient stop bracket is a colour or a stop position; the docs' [<value>]
+   placeholder is neither, and it used to land as [0%]. *)
+let test_invalid_gradient_stop () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "from-[<value>]";
+  rejected "via-[<value>]";
+  rejected "to-[<value>]";
+  accepted "from-[25%]";
+  accepted "from-[var(--x)]";
+  accepted "from-[#0088cc]"
+
 let tests =
   [
     test_case "bg colors" `Quick test_bg_colors;
+    test_case "invalid gradient stop" `Quick test_invalid_gradient_stop;
     test_case "bg var color with opacity" `Quick test_bg_var_opacity;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;

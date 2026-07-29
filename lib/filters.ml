@@ -1361,7 +1361,13 @@ module Handler = struct
     | [ "drop"; "shadow"; "transparent" ] ->
         Ok (Drop_shadow_keyword_color (Css.Transparent, "transparent"))
     | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s ->
-        Ok (Drop_shadow_arbitrary s)
+        let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
+        (* A drop-shadow bracket is a shadow or a var(); the docs' [<value>]
+           placeholder is neither, and it used to reach the sheet as the colour
+           of an otherwise empty shadow. *)
+        if Parse.is_var inner || Css.parse_shadow inner <> None then
+          Ok (Drop_shadow_arbitrary s)
+        else err_not_utility
     | "drop" :: "shadow" :: rest -> (
         let full = String.concat "-" rest in
         let base, opacity = Color.parse_opacity_modifier ~theme full in

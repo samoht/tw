@@ -464,9 +464,28 @@ let test_font_features_value () =
     (Astring.String.is_infix ~affix:"font-feature-settings:\"liga\" 0"
        (css "font-features-[\"liga\"_0]"))
 
+(* A font family is idents or quoted strings; the docs' [<value>] placeholder
+   used to be quoted into font-family: "<value>". *)
+let test_invalid_font_family () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "font-[<value>]";
+  accepted "font-[ui-sans-serif]";
+  accepted "font-[var(--x)]";
+  accepted "font-[600]"
+
 let tests =
   [
     test_case "bracket list-style" `Quick test_bracket_list_style;
+    test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
