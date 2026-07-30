@@ -557,3 +557,29 @@ let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
 let divide_x_reverse = utility Divide_x_reverse
 let divide_y_reverse = utility Divide_y_reverse
+
+(** {1 Divide Width Utilities} *)
+
+let divide_x n = utility (Divide_x n)
+let divide_y n = utility (Divide_y n)
+let divide_x_length w = utility (Divide_x_arb w)
+let divide_y_length w = utility (Divide_y_arb w)
+
+(** {1 Divide Colour Utilities} *)
+
+let divide_color ?opacity ?(shade = 500) color =
+  Color.check_shade ~utility:"divide_color" color shade;
+  match opacity with
+  | None -> utility (Divide_color (color, shade))
+  | Some pct ->
+      utility
+        (Divide_color_opacity
+           (color, shade, Color.Opacity_percent (float_of_int pct)))
+
+let divide_transparent = utility Divide_transparent
+let divide_current = utility Divide_current
+let divide_inherit = utility Divide_inherit
+
+(** {1 Divide Style Utilities} *)
+
+let divide_style s = utility (Divide_style s)

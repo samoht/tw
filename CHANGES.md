@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Add the typed `divide` constructors: `divide_x`, `divide_y`,
+  `divide_x_length`, `divide_y_length`, `divide_color`, `divide_transparent`,
+  `divide_current`, `divide_inherit` and `divide_style`. Only the two reverse
+  utilities were exposed, so the rest were reachable from a class string but
+  not from OCaml (#239, closes #5)
+
 - Reject an arbitrary value the property cannot take instead of falling back to
   a plausible one: `bg-position-[...]`, `bg-size-[...]`, `cursor-[...]`,
   `indent-[...]`, `mask-size-[...]`, `mask-position-[...]`, `object-[...]` and
