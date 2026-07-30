@@ -856,9 +856,7 @@ let prose_element_variants_combined () =
     ]
 
 (* -- 3. Divide utilities -------------------------------------------------- *)
-(* divide-x and divide-y with width values are parseable by CLI but have no
-   typed API (only divide_x_reverse and divide_y_reverse are exposed).
-   divide-x/divide-y without explicit widths also exist. *)
+(* divide-x/divide-y also exist without an explicit width, defaulting to 1px. *)
 
 let divide_width () =
   (* Basic divide-x and divide-y (1px default) *)
