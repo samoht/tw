@@ -30,6 +30,7 @@ lib/           core (utilities, CSS generation)
   rules.ml     layer assembly
 test/          Alcotest suites (CSS + Tailwind parity)
 docs/          adding-a-new-utility.md (start here for new utils)
+               parity.md (how Tailwind parity is measured and read)
 ```
 
 Keep examples small and targeted; each test file should focus on one concept.
