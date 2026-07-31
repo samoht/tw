@@ -215,12 +215,43 @@ let extract_media_sort_key = function
   | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
 
+(* Tailwind orders container variants exactly like breakpoints, and every
+   container condition it emits is a width range wrapped in an optional
+   container name and an optional negation. Project one onto the media query it
+   is equivalent to, so the breakpoint ordering applies unchanged: [@max-sm] is
+   a negated lower bound, which is the [not all and (...)] shape media already
+   classifies as an upper bound. The name plays no part -- Tailwind interleaves
+   a named container with the unnamed ones at its width. *)
+let rec container_media_projection (c : Css.Container.t) =
+  match c with
+  | Css.Container.Named (_, inner) -> container_media_projection inner
+  | Css.Container.Feature_query q -> Some q
+  | Css.Container.Not inner -> (
+      match container_media_projection inner with
+      | Some (Css.Media.Cond cond) ->
+          Some
+            (Css.Media.Type
+               {
+                 prefix = Some Css.Media.Not;
+                 type_ = Css.Media.All;
+                 trailing = Some cond;
+               })
+      | _ -> None)
+  | Css.Container.Min_width_rem _ | Css.Container.Min_width_px _
+  | Css.Container.And _ | Css.Container.Or _ | Css.Container.Style _
+  | Css.Container.Scroll_state _ ->
+      None
+
 (* Precompute the sort keys for a rule's own and nested media conditions, so the
    comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing
    the query on every comparison. See [media_key]/[nested_media_key]. *)
 let media_sort_keys rule_type nested =
   let media_key =
-    match rule_type with `Media c -> Some (Css.Media.sort_key c) | _ -> None
+    match rule_type with
+    | `Media c -> Some (Css.Media.sort_key c)
+    | `Container c ->
+        Stdlib.Option.map Css.Media.sort_key (container_media_projection c)
+    | _ -> None
   in
   let nested_media_key =
     match nested with
@@ -991,6 +1022,33 @@ let nested_order rule_type nested =
       | _ -> 1 (* other nested: last *))
   | _ -> 1 (* multiple nested: last *)
 
+(* Last resort for two rules that share a variant group, a breakpoint and a
+   prefix: the utility's own priority, then the selector. *)
+let compare_variant_tail r1 r2 =
+  let p1, s1 = r1.order and p2, s2 = r2.order in
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
+    else
+      match (r1.selector_kind, r2.selector_kind) with
+      | Simple, Simple ->
+          (* Same priority/suborder simple rules (e.g. two arbitrary bg colors)
+             break ties by selector like the regular layer, matching Tailwind's
+             alphabetical order. *)
+          natural_compare r1.selector_str r2.selector_str
+      | _ ->
+          (* Complex rules (prose's descendant selectors) keep base class +
+             source order so a component stays one block. Arbitrary values in a
+             variant, e.g. hover:from-[rgba(5,...)] vs
+             hover:from-[rgba(14,...)], share a prefix and differ only in the
+             numeric part, so order those numerically like Tailwind. Identical
+             base classes (prose's :where rules all key on "prose") tie at 0 and
+             fall back to source order, unchanged. *)
+          let class_cmp = natural_compare r1.base_class_key r2.base_class_key in
+          if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
   | `Supports _, `Supports _
@@ -998,7 +1056,7 @@ let compare_variant_ordered r1 r2 =
          && is_modifier_supports r1.base_class
          && is_modifier_supports r2.base_class ->
       compare_supports_by_key r1 r2
-  | _ -> (
+  | _ ->
       let list_cmp =
         compare_variant_order_lists r1.variant_orders r2.variant_orders
       in
@@ -1026,36 +1084,15 @@ let compare_variant_ordered r1 r2 =
           in
           if media_cmp <> 0 then media_cmp
           else
-            let prefix_cmp = compare_bracket_prefixes p1_prefix p2_prefix in
-            if prefix_cmp <> 0 then prefix_cmp
-            else
-              let p1, s1 = r1.order and p2, s2 = r2.order in
-              let prio_cmp = Int.compare p1 p2 in
-              if prio_cmp <> 0 then prio_cmp
-              else
-                let sub_cmp = Int.compare s1 s2 in
-                if sub_cmp <> 0 then sub_cmp
-                else
-                  match (r1.selector_kind, r2.selector_kind) with
-                  | Simple, Simple ->
-                      (* Same priority/suborder simple rules (e.g. two arbitrary
-                         bg colors) break ties by selector like the regular
-                         layer, matching Tailwind's alphabetical order. *)
-                      natural_compare r1.selector_str r2.selector_str
-                  | _ ->
-                      (* Complex rules (prose's descendant selectors) keep base
-                         class + source order so a component stays one block.
-                         Arbitrary values in a variant, e.g.
-                         hover:from-[rgba(5,...)] vs hover:from-[rgba(14,...)],
-                         share a prefix and differ only in the numeric part, so
-                         order those numerically like Tailwind. Identical base
-                         classes (prose's :where rules all key on "prose") tie
-                         at 0 and fall back to source order, unchanged. *)
-                      let class_cmp =
-                        natural_compare r1.base_class_key r2.base_class_key
-                      in
-                      if class_cmp <> 0 then class_cmp
-                      else Int.compare r1.index r2.index)
+            (* Two container variants at the same width are already fully
+               ordered: what remains is the utility's own priority, so the
+               prefix must not step in and group @sm/main away from @sm. *)
+            let prefix_cmp =
+              match (r1.rule_type, r2.rule_type) with
+              | `Container _, `Container _ -> 0
+              | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+            in
+            if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =

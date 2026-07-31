@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Order container variants by width like breakpoints: `@max-*` first and widest
+  first, then ascending. They were compared alphabetically by class prefix, so
+  `@2xl:` landed before `@sm:` (#243)
+
 - Keep a colour's `@supports` color-mix rule next to the hex fallback it
   enhances. Under a variant the two drifted apart and the fallback could end up
   winning in browsers that support color-mix (#242)

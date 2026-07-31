@@ -56,9 +56,11 @@ type indexed_rule = {
       (** The rule's base class ([""] when it has none), used by
           [compare_indexed_rules] as the lexicographic sort key. *)
   media_key : Css.Media.key option;
-      (** Precomputed sort key of the rule's own media condition (the [`Media]
-          case of {!field-rule_type}), [None] otherwise. Comparisons use this
-          instead of re-serializing the query on every call. *)
+      (** Precomputed sort key of the rule's own breakpoint condition: the
+          [`Media] case of {!field-rule_type}, or the [`Container] case
+          projected onto the media query it is equivalent to. [None] otherwise.
+          Comparisons use this instead of re-serializing the query on every
+          call. *)
   nested_media_key : Css.Media.key option;
       (** Precomputed sort key of a single nested media condition. *)
 }
