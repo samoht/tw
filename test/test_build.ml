@@ -851,8 +851,29 @@ let test_referenced_theme_token () =
     (Astring.String.is_infix ~affix:"--my-color:"
        (css "bg-[color:var(--my-color)]/50"))
 
+(* [@starting-style] takes no condition, so a run of starting: utilities is one
+   block in Tailwind's output. Each utility is wrapped on its own, and the
+   optimizer's merging covers @media and @supports but not this. *)
+let test_starting_style_merges () =
+  let classes = [ "starting:opacity-0"; "starting:scale-90" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let count needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i acc =
+      if i + n > h then acc
+      else if String.sub css i n = needle then go (i + 1) (acc + 1)
+      else go (i + 1) acc
+    in
+    go 0 0
+  in
+  check int "one @starting-style block" 1 (count "@starting-style");
+  check bool "both utilities are in it" true
+    (count ".starting\\:opacity-0" = 1 && count ".starting\\:scale-90" = 1)
+
 let tests =
   [
+    test_case "starting-style blocks merge" `Quick test_starting_style_merges;
     test_case "referenced theme token emitted" `Quick
       test_referenced_theme_token;
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;

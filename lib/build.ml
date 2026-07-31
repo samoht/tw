@@ -454,6 +454,32 @@ let utilities_layer ~layers ~statements =
   if layers then Css.v [ Css.layer ~name:"utilities" statements ]
   else Css.v statements
 
+(* [@starting-style] carries no condition, so a run of [starting:] utilities is
+   one block in Tailwind's output. Each is wrapped on its own here, and the
+   optimizer's merging covers [@media] and [@supports] but not this, so collapse
+   a run before the statements are handed over. *)
+let statements_of_sorted_rules sorted_rules =
+  let is_starting (r : Sort.indexed_rule) = r.rule_type = `Starting in
+  let rec take_run taken = function
+    | (x : Sort.indexed_rule) :: tl when is_starting x ->
+        take_run (x :: taken) tl
+    | tl -> (List.rev taken, tl)
+  in
+  let rec go acc = function
+    | [] -> List.rev acc
+    | (r : Sort.indexed_rule) :: rest when is_starting r ->
+        let run, rest = take_run [ r ] rest in
+        let inner =
+          List.map
+            (fun (x : Sort.indexed_rule) ->
+              Css.rule ~selector:x.selector (filter_utility_properties x.props))
+            run
+        in
+        go (Css.starting_style inner :: acc) rest
+    | r :: rest -> go (indexed_rule_to_statement r :: acc) rest
+  in
+  go [] sorted_rules
+
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
 let sorted_indexed_rules order_map all_rules =
@@ -1428,7 +1454,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) tw_classes =
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
   let sorted_rules = sorted_indexed_rules order_map selector_props in
-  let statements = List.map indexed_rule_to_statement sorted_rules in
+  let statements = statements_of_sorted_rules sorted_rules in
   let layer_results =
     layers ~theme ~layers:config.layers ~include_base:config.base
       ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
