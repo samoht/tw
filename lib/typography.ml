@@ -1599,14 +1599,17 @@ module Typography_late = struct
   (* Most late-typography families (decoration, tracking, whitespace,
      word-break) sort at priority 26. Three occupy earlier canonical slots:
      list-style (rank 48, by cursor/resize at priority 11),
-     text-overflow/truncate (rank 62, just before overflow at priority 18), and
+     text-overflow/truncate (rank 62, just before overflow at priority 18),
      vertical-align (rank 80, right after text-align in the early handler at
-     priority 24). *)
+     priority 24), and line-clamp (rank 26, with box-sizing at priority 3). *)
   let priority = function
     | List_none | List_disc | List_decimal | List_inside | List_outside
     | List_image_none | List_image_url _ | List_bracket_var _
     | List_image_bracket_var _ | List_bracket _ | List_image_bracket _ ->
         11
+    (* line-clamp (rank 26) sits between box-sizing and the display family, so
+       it shares box-sizing's priority and sorts after it on suborder. *)
+    | Line_clamp _ | Line_clamp_arbitrary _ | Line_clamp_none -> 3
     | Truncate -> 17
     | Align_baseline | Align_top | Align_middle | Align_bottom | Align_sub
     | Align_super | Align_text_top | Align_text_bottom | Align_arbitrary_var _
