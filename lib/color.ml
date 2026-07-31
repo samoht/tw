@@ -288,6 +288,17 @@ let hex_with_alpha hex_str opacity_percent =
       String.sub hex_str 1 (String.length hex_str - 1)
     else hex_str
   in
+  (* The alpha byte is appended to the six RGB digits, so a shorthand has to be
+     expanded first: [#fff] would otherwise give the five-digit [#fff1a]. Any
+     alpha already present is the one being replaced. *)
+  let hex_clean =
+    let double c = String.make 2 c in
+    match String.length hex_clean with
+    | 3 | 4 ->
+        double hex_clean.[0] ^ double hex_clean.[1] ^ double hex_clean.[2]
+    | 8 -> String.sub hex_clean 0 6
+    | _ -> hex_clean
+  in
   (* Convert opacity percentage to 8-bit alpha value, with rounding *)
   let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
   let alpha_clamped = max 0 (min 255 alpha) in

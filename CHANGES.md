@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Expand a shorthand hex before appending the alpha byte: a colour with an
+  opacity modifier whose hex was three digits, as `ring-white/10`, produced the
+  five-digit `#fff1a` (#241)
+
 - Add the typed `divide` constructors: `divide_x`, `divide_y`,
   `divide_x_length`, `divide_y_length`, `divide_color`, `divide_transparent`,
   `divide_current`, `divide_inherit` and `divide_style`. Only the two reverse

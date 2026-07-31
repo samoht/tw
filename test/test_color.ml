@@ -400,6 +400,20 @@ let test_full_opacity_and_important () =
   has "bg-white/75!"
     "color-mix(in oklab,var(--color-white) 75%,transparent)!important"
 
+(* The alpha byte is appended to the six RGB digits, so a shorthand hex has to
+   be expanded first: [#fff] with 10% alpha gave the five-digit [#fff1a], which
+   cascade now rejects outright. *)
+let test_shorthand_hex_alpha () =
+  Alcotest.(check string)
+    "a three-digit hex expands before the alpha" "#ffffff1a"
+    (Tw.Color.hex_with_alpha "#fff" 10.);
+  Alcotest.(check string)
+    "an existing alpha is replaced" "#ffffff1a"
+    (Tw.Color.hex_with_alpha "#ffffffcc" 10.);
+  Alcotest.(check string)
+    "a six-digit hex is unchanged" "#0307121a"
+    (Tw.Color.hex_with_alpha "#030712" 10.)
+
 let tests =
   [
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
@@ -418,6 +432,7 @@ let tests =
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
     ("v4.3.3 colour families", `Quick, test_v433_color_families);
     ("Full opacity and important", `Quick, test_full_opacity_and_important);
+    ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
   ]
 
 let suite = ("color", tests)
