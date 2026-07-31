@@ -1217,22 +1217,24 @@ module Handler = struct
     | Contrast n -> 2000 + n
     | Contrast_arbitrary _ -> 2500
     | Drop_shadow_opacity _ -> 2690
-    | Drop_shadow_keyword_color _ -> 2691
     | Drop_shadow_size_opacity _ -> 2692
     | Drop_shadow -> 2700
     | Drop_shadow_arbitrary _ -> 2701
     | Drop_shadow_multi -> 2702
-    | Drop_shadow_2xl -> 2703
-    | Drop_shadow_lg -> 2704
-    | Drop_shadow_md -> 2705
-    | Drop_shadow_sm -> 2706
-    | Drop_shadow_xs -> 2706
-    | Drop_shadow_xl -> 2707
+    (* The named sizes share one slot: Tailwind orders them by class name, and
+       the alphabetical tie-break puts xl before xs where a per-size number had
+       them the other way round. *)
+    | Drop_shadow_2xl | Drop_shadow_lg | Drop_shadow_md | Drop_shadow_sm
+    | Drop_shadow_xs | Drop_shadow_xl ->
+        2703
     | Drop_shadow_none -> 2708
-    | Drop_shadow_inherit -> 2709
     | Drop_shadow_named _ -> 2701
-    | Drop_shadow_color _ -> 2710
-    | Drop_shadow_color_opacity _ -> 2711
+    (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
+       orders them among themselves by class name, which the alphabetical
+       tie-break already does. *)
+    | Drop_shadow_keyword_color _ | Drop_shadow_inherit | Drop_shadow_color _
+    | Drop_shadow_color_opacity _ ->
+        2710
     | Filter -> 9000
     | Filter_arbitrary _ -> 9001
     | Filter_none -> 9002
