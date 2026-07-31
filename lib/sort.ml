@@ -755,6 +755,14 @@ let supports_sort_key bc =
   | Some s -> (0, s)
   | None -> (0, "")
 
+(* A [supports-*] variant rule, whose @supports condition is the variant itself.
+   A colour utility's progressive-enhancement @supports carries the colour's own
+   base class and must not be ordered by this key. *)
+let is_modifier_supports bc =
+  match bc with
+  | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
+  | None -> false
+
 (* Compare supports modifier rules by sort key *)
 let compare_supports_by_key r1 r2 =
   let g1, k1 = supports_sort_key r1.base_class in
@@ -985,7 +993,10 @@ let nested_order rule_type nested =
 
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
-  | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
+  | `Supports _, `Supports _
+    when r1.variant_order = r2.variant_order
+         && is_modifier_supports r1.base_class
+         && is_modifier_supports r2.base_class ->
       compare_supports_by_key r1 r2
   | _ -> (
       let list_cmp =
@@ -1048,11 +1059,6 @@ let compare_variant_ordered r1 r2 =
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
-  let is_modifier_supports bc =
-    match bc with
-    | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
-    | None -> false
-  in
   let m1 = is_modifier_supports r1.base_class in
   let m2 = is_modifier_supports r2.base_class in
   if m1 && m2 then compare_supports_by_key r1 r2

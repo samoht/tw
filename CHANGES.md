@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Keep a colour's `@supports` color-mix rule next to the hex fallback it
+  enhances. Under a variant the two drifted apart and the fallback could end up
+  winning in browsers that support color-mix (#242)
+
 - Expand a shorthand hex before appending the alpha byte: a colour with an
   opacity modifier whose hex was three digits, as `ring-white/10`, produced the
   five-digit `#fff1a` (#241)
