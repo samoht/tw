@@ -523,31 +523,40 @@ module Handler = struct
           filter composable_filter_chain;
         ])
 
-  let drop_shadow_default () =
+  (* The default [--drop-shadow] is a two-shadow stack. [size_fallback] is what
+     each layer falls back to when no [--tw-drop-shadow-color] is set: the
+     token's own alpha for the bare utility, and black at the modifier's alpha
+     for [drop-shadow/<n>]. *)
+  let drop_shadow_default_size size_fallback : Css.filter =
+    let fallback_a, fallback_b =
+      match size_fallback with
+      | Some c -> (c, c)
+      | None -> (Css.hex "#0000001a", Css.hex "#0000000f")
+    in
+    Css.List
+      [
+        drop_shadow_filter Zero (Px 1.) (Some (Px 2.)) fallback_a;
+        drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback_b;
+      ]
+
+  let drop_shadow_default_literal : Css.filter =
     let fallback_a = Css.hex "#0000001a" in
     let fallback_b = Css.hex "#0000000f" in
-    let size : Css.filter =
-      Css.List
-        [
-          drop_shadow_filter Zero (Px 1.) (Some (Px 2.)) fallback_a;
-          drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback_b;
-        ]
-    in
-    let literal : Css.filter =
-      Css.List
-        [
-          Css.Drop_shadow
-            (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
-               ~color:fallback_a ());
-          Css.Drop_shadow
-            (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
-               ~color:fallback_b ());
-        ]
-    in
+    Css.List
+      [
+        Css.Drop_shadow
+          (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
+             ~color:fallback_a ());
+        Css.Drop_shadow
+          (Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
+             ~color:fallback_b ());
+      ]
+
+  let drop_shadow_default () =
     style ~property_rules:filter_property_rules
       [
-        bind_drop_shadow_size size;
-        bind_drop_shadow literal;
+        bind_drop_shadow_size (drop_shadow_default_size None);
+        bind_drop_shadow drop_shadow_default_literal;
         filter composable_filter_chain;
       ]
 
@@ -812,16 +821,31 @@ module Handler = struct
       match opacity with Color.Opacity_percent p -> p | _ -> 100.
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
+    (* The modifier recolours the shadow, so it applies to the size, which is
+       what [--tw-drop-shadow-color] overrides. [--tw-drop-shadow] keeps the
+       token's own value: a project that overrides [--drop-shadow] is referenced
+       there, and the default two-shadow stack is written out. *)
+    let size_and_shadow =
+      match Scheme.theme_value theme "drop-shadow" with
+      | Some _ ->
+          [
+            bind_drop_shadow_size
+              (drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback);
+            bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
+          ]
+      | None ->
+          [
+            bind_drop_shadow_size
+              (drop_shadow_default_size (Option.Some fallback));
+            bind_drop_shadow drop_shadow_default_literal;
+          ]
+    in
     style ~property_rules:filter_property_rules
       (theme_decl_if_set ?theme "drop-shadow"
-      @ [
-          Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
-            alpha_str;
-          bind_drop_shadow_size
-            (drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback);
-          bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
-          filter composable_filter_chain;
-        ])
+      @ Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
+          alpha_str
+        :: size_and_shadow
+      @ [ filter composable_filter_chain ])
 
   (* [drop-shadow-xl/25]: the named size with its default colour replaced by
      black at that alpha, which leaves the theme token out of it entirely. *)

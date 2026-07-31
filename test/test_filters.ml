@@ -47,6 +47,22 @@ let test_drop_shadow_color () =
     (Astring.String.is_infix ~affix:"--tw-drop-shadow-color: #3080ff80"
        (css "drop-shadow-blue-500/50"))
 
+(* drop-shadow/<n> recolours the default shadow, which is a two-layer stack, so
+   both layers carry the modifier's alpha as their fallback. It used to emit one
+   layer and reference the theme token, losing the first shadow. *)
+let test_drop_shadow_opacity_keeps_both_layers () =
+  let css =
+    match Tw.of_string "drop-shadow/50" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "drop-shadow/50: %s" m
+  in
+  let has affix = Astring.String.is_infix ~affix css in
+  Alcotest.(check bool) "the first layer is emitted" true (has "0 1px 2px");
+  Alcotest.(check bool) "the second layer is emitted" true (has "0 1px 1px");
+  Alcotest.(check bool)
+    "--tw-drop-shadow is the default stack, not the theme reference" false
+    (has "drop-shadow(var(--drop-shadow))")
+
 (* A fractional opacity modifier keeps its fraction: drop-shadow/12.5 -> alpha
    12.5%, not the truncated 12%. *)
 let test_drop_shadow_fractional_alpha () =
@@ -172,6 +188,8 @@ let tests =
     test_case "invalid arbitrary amount" `Quick test_invalid_arbitrary_amount;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
+    test_case "drop-shadow opacity keeps both layers" `Quick
+      test_drop_shadow_opacity_keeps_both_layers;
     test_case "drop-shadow fractional alpha" `Quick
       test_drop_shadow_fractional_alpha;
     test_case "backdrop" `Quick test_backdrop;
