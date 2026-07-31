@@ -319,6 +319,15 @@ let of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown typography type *)
 
+(* line-clamp sits between box-sizing and the display family in Tailwind's
+   order, not among the typography utilities its class name suggests. *)
+let line_clamp_sorts_with_box_sizing () =
+  let classes =
+    [ "indent-4"; "line-clamp-2"; "block"; "box-border"; "ml-auto" ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches ~test_name:"line-clamp order" utilities
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -521,6 +530,8 @@ let tests =
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "line-clamp sorts with box-sizing" `Quick
+      line_clamp_sorts_with_box_sizing;
   ]
 
 let suite = ("typography", tests)

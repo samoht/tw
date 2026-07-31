@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Sort `line-clamp-*` between `box-sizing` and the display family, where
+  Tailwind's utility order puts it, rather than among the typography utilities
+  (#246)
+
 - Sort the logical sizing utilities (`block-*`, `inline-*` and their `min-`/
   `max-` forms) last, where Tailwind registers them, instead of beside `w-*`
   and `h-*` (#245)
