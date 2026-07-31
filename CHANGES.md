@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Sort the logical sizing utilities (`block-*`, `inline-*` and their `min-`/
+  `max-` forms) last, where Tailwind registers them, instead of beside `w-*`
+  and `h-*` (#245)
+
 - Fall back to a plain hex for `drop-shadow-<color>/<opacity>`. The fallback
   was itself a `color-mix`, so a browser without `color-mix` had nothing to
   read (#244)
