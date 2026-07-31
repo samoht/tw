@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Sort `isolation-*` between `inset-*` and `z-*`, and `float-*`/`clear-*`
+  between the grid-column group and `.container`, where Tailwind's utility
+  order puts them; they sorted with the display family (#247)
+
 - Sort `line-clamp-*` between `box-sizing` and the display family, where
   Tailwind's utility order puts it, rather than among the typography utilities
   (#246)

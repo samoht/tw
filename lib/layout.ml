@@ -221,6 +221,14 @@ module Handler = struct
     | Neg_z _ | Z_0 | Z _ | Z_10 | Z_20 | Z_30 | Z_40 | Z_50 | Neg_z_arbitrary _
     | Z_arbitrary _ | Z_auto ->
         0
+    (* isolation (rank 11) sits between inset and z-index. *)
+    | Isolate | Isolation_auto -> 0
+    (* float and clear (ranks 21-22) sit between the grid-column/grid-row group
+       and .container, both at priority 1. *)
+    | Float_end | Float_left | Float_none | Float_right | Float_start
+    | Clear_both | Clear_end | Clear_left | Clear_none | Clear_right
+    | Clear_start ->
+        1
     (* object-fit / object-position (rank ~72): after svg fill/stroke (21),
        before padding (23). *)
     | Object_contain | Object_cover | Object_fill | Object_none
@@ -262,9 +270,10 @@ module Handler = struct
     | Collapse -> -20
     | Invisible -> -19
     | Visible -> -18
-    (* Isolation - order: isolate, isolation-auto *)
-    | Isolate -> 200
-    | Isolation_auto -> 201
+    (* Isolation (priority 0) - after inset (up to ~13M in position.ml), before
+       z-index (20M). Order: isolate, isolation-auto *)
+    | Isolate -> 15_000_000
+    | Isolation_auto -> 15_000_001
     (* Z-index (priority 0) - after inset (up to ~13M in position.ml), before
        container (priority 1). Order: negative, positive, arbitrary, auto. *)
     | Neg_z n -> 20_000_000 + 500 + n (* -z-50, -z-10 *)
@@ -299,19 +308,22 @@ module Handler = struct
     | Object_top_left -> 711
     | Object_top_right -> 712
     | Object_arbitrary _ -> 650
-    (* Float - alphabetical order: end, left, none, right, start *)
-    | Float_end -> 800
-    | Float_left -> 801
-    | Float_none -> 802
-    | Float_right -> 803
-    | Float_start -> 804
-    (* Clear - alphabetical order: both, end, left, none, right, start *)
-    | Clear_both -> 900
-    | Clear_end -> 901
-    | Clear_left -> 902
-    | Clear_none -> 903
-    | Clear_right -> 904
-    | Clear_start -> 905
+    (* Float (priority 1) - after the grid-column/grid-row group (up to ~2.6K in
+       grid_item.ml), before .container (9M). Alphabetical: end, left, none,
+       right, start *)
+    | Float_end -> 3_000_000
+    | Float_left -> 3_000_001
+    | Float_none -> 3_000_002
+    | Float_right -> 3_000_003
+    | Float_start -> 3_000_004
+    (* Clear (priority 1) - right after float. Alphabetical: both, end, left,
+       none, right, start *)
+    | Clear_both -> 3_000_100
+    | Clear_end -> 3_000_101
+    | Clear_left -> 3_000_102
+    | Clear_none -> 3_000_103
+    | Clear_right -> 3_000_104
+    | Clear_start -> 3_000_105
     (* Box decoration break - alphabetical: clone, slice *)
     | Box_decoration_clone -> 1000
     | Box_decoration_slice -> 1001

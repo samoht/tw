@@ -160,6 +160,50 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"layout suborder matches Tailwind" shuffled
 
+(* isolation sits between inset and z-index in Tailwind's order, and float and
+   clear between the grid-column/grid-row group and .container -- not with the
+   display family their module groups them into. *)
+let isolation_and_float_slots () =
+  let classes =
+    [
+      "inset-0";
+      "isolate";
+      "isolation-auto";
+      "z-10";
+      "col-span-2";
+      "row-span-2";
+      "float-left";
+      "clear-both";
+      "ml-auto";
+      "box-border";
+      "block";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css =
+    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+  in
+  let positions =
+    List.map
+      (fun c ->
+        let needle = "." ^ c ^ "{" in
+        let n = String.length needle and h = String.length css in
+        let rec go i =
+          if i + n > h then -1
+          else if String.sub css i n = needle then i
+          else go (i + 1)
+        in
+        go 0)
+      classes
+  in
+  Alcotest.check bool "every utility is emitted" true
+    (List.for_all (fun p -> p >= 0) positions);
+  Alcotest.check
+    (Alcotest.list Alcotest.int)
+    "the utilities come out in Tailwind's order"
+    (List.sort Int.compare positions)
+    positions
+
 (* Visibility, float and break-* typed constructors are newly exposed in tw.mli;
    check they agree with the parser on class names. *)
 let test_typed () =
@@ -212,6 +256,7 @@ let tests =
     test_case "layout container matches Tailwind" `Quick
       test_layout_container_matches_tailwind;
     test_case "layout of_string - invalid values" `Quick of_string_invalid;
+    test_case "isolation and float slots" `Quick isolation_and_float_slots;
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
