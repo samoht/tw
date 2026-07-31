@@ -124,9 +124,62 @@ let test_theme_fn_container_query () =
   has "@min-[--theme(--breakpoint-sm)]:flex" "@container(width>=40rem)";
   has "@min-[theme(--breakpoint-sm)]:flex" "@container(width>=40rem)"
 
+let test_variant_width_order () =
+  (* Tailwind orders container variants like breakpoints: the @max-* negated
+     lower bounds first and largest first, then the plain ones ascending, with a
+     named container interleaved at its own width. The variant order alone gave
+     every @-prefixed variant the same key, so they fell through to an
+     alphabetical comparison of the class prefix. *)
+  let classes =
+    [
+      "@md:flex";
+      "@sm:flex";
+      "@lg:flex";
+      "@xs:flex";
+      "@max-sm:flex";
+      "@max-lg:flex";
+      "@sm/main:flex";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css =
+    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+  in
+  let expected =
+    [
+      "@container not (width>=32rem)";
+      "@container not (width>=24rem)";
+      "@container(width>=20rem)";
+      "@container main (width>=24rem)";
+      "@container(width>=24rem)";
+      "@container(width>=28rem)";
+      "@container(width>=32rem)";
+    ]
+  in
+  let positions =
+    List.map
+      (fun needle ->
+        let n = String.length needle and h = String.length css in
+        let rec go i =
+          if i + n > h then -1
+          else if String.sub css i n = needle then i
+          else go (i + 1)
+        in
+        go 0)
+      expected
+  in
+  Alcotest.check Alcotest.bool "every container condition is emitted" true
+    (List.for_all (fun p -> p >= 0) positions);
+  Alcotest.check
+    (Alcotest.list Alcotest.int)
+    "container variants are emitted widest-negated first, then ascending"
+    (List.sort Int.compare positions)
+    positions
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
+    test_case "variant width order" `Quick test_variant_width_order;
     test_case "variant composition" `Quick test_container_variant_composition;
     test_case "name" `Quick test_container_name;
     test_case "multiple named containers" `Quick test_multiple_named_containers;

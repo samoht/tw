@@ -1,5 +1,13 @@
 ## Unreleased
 
+- Fall back to a plain hex for `drop-shadow-<color>/<opacity>`. The fallback
+  was itself a `color-mix`, so a browser without `color-mix` had nothing to
+  read (#244)
+
+- Order container variants by width like breakpoints: `@max-*` first and widest
+  first, then ascending. They were compared alphabetically by class prefix, so
+  `@2xl:` landed before `@sm:` (#243)
+
 - Keep a colour's `@supports` color-mix rule next to the hex fallback it
   enhances. Under a variant the two drifted apart and the fallback could end up
   winning in browsers that support color-mix (#242)
