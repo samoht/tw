@@ -25,9 +25,10 @@ let test_drop_shadow_xs () =
     "emits --drop-shadow-xs default" true
     (Astring.String.is_infix ~affix:"--drop-shadow-xs:" css)
 
-(* drop-shadow-<color> resolves the colour itself (oklch) for the srgb fallback
-   instead of requiring a scheme hex; it used to raise on the default theme
-   (which has no hex colours). *)
+(* drop-shadow-<color> resolves the palette colour itself for the fallback, so
+   the default theme (which declares no hex colours) still gets one. The
+   fallback is what a browser without color-mix reads, so it has to be a plain
+   hex rather than a mix of its own. *)
 let test_drop_shadow_color () =
   let css cls =
     match Tw.of_string cls with
@@ -40,7 +41,11 @@ let test_drop_shadow_color () =
        (css "drop-shadow-red-500"));
   Alcotest.(check bool)
     "drop-shadow-red-500/50 uses color-mix" true
-    (Astring.String.is_infix ~affix:"color-mix" (css "drop-shadow-red-500/50"))
+    (Astring.String.is_infix ~affix:"color-mix" (css "drop-shadow-red-500/50"));
+  Alcotest.(check bool)
+    "drop-shadow-blue-500/50 falls back to a plain hex" true
+    (Astring.String.is_infix ~affix:"--tw-drop-shadow-color: #3080ff80"
+       (css "drop-shadow-blue-500/50"))
 
 (* A fractional opacity modifier keeps its fraction: drop-shadow/12.5 -> alpha
    12.5%, not the truncated 12%. *)
