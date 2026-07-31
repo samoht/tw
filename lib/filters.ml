@@ -764,15 +764,17 @@ module Handler = struct
     let color_name = Color.scheme_color_name c shade in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
     let percent = Color.opacity_to_percent opacity in
-    (* srgb fallback: a scheme hex gets a hex+alpha; without one (the default
-       scheme) mix the resolved colour in srgb, matching Tailwind. The old path
-       raised when the scheme had no hex. *)
+    (* The fallback is what a browser without color-mix reads, so it has to be a
+       plain hex. [Scheme.hex_color] only holds the hexes a project declared, so
+       resolve the palette colour when it has none. *)
     let fallback_color =
-      match Scheme.hex_color scheme color_name with
-      | Option.Some hex -> Css.hex (Color.hex_with_alpha hex percent)
-      | Option.None ->
-          Css.color_mix ~in_space:Srgb (Color.to_css c shade) Css.Transparent
-            ~percent1:percent
+      let hex =
+        match Scheme.hex_color scheme color_name with
+        | Option.Some hex -> hex
+        | Option.None ->
+            Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch c shade))
+      in
+      Css.hex (Color.hex_with_alpha hex percent)
     in
     let color_ref : Css.color Css.var = Var.bracket ("color-" ^ color_name) in
     let supports_decl =
