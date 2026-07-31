@@ -1030,6 +1030,61 @@ let test_rounded_position_order () =
   check_before ".rounded-r-full" ".rounded-b-full";
   check_before ".rounded-b-full" ".rounded-bl-full"
 
+let test_color_mix_supports_companion_order () =
+  (* A colour with an opacity modifier emits a hex fallback plus an @supports
+     block carrying the color-mix version, and the fallback has to come first or
+     it wins in the browsers that support color-mix. Under a variant the
+     @supports rules were ordered by the supports-* variant key, which a colour
+     utility does not have, so they all tied and drifted away from their base
+     rule. *)
+  let classes =
+    [
+      "data-checked:ring-gray-950/10";
+      "data-checked:inset-ring-white/10";
+      "data-checked:bg-blue-500/20";
+      "data-checked:text-red-500/30";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let occurrences needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i acc =
+      if i + n > h then List.rev acc
+      else if String.sub css i n = needle then go (i + 1) (i :: acc)
+      else go (i + 1) acc
+    in
+    go 0 []
+  in
+  let escape c =
+    String.concat ""
+      (List.map
+         (fun ch ->
+           match ch with
+           | ':' | '/' -> "\\" ^ String.make 1 ch
+           | ch -> String.make 1 ch)
+         (List.init (String.length c) (String.get c)))
+  in
+  (* Every occurrence of every selector, in emitted order. Each utility writes
+     exactly two -- the fallback and its @supports companion -- so the sequence
+     has to read as adjacent identical pairs. *)
+  let emitted =
+    classes
+    |> List.concat_map (fun c ->
+        occurrences ("." ^ escape c ^ "[data-checked]")
+        |> List.map (fun pos -> (pos, c)))
+    |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+    |> List.map snd
+  in
+  let rec paired = function
+    | [] -> true
+    | a :: b :: rest -> a = b && paired rest
+    | [ _ ] -> false
+  in
+  Alcotest.check Alcotest.bool
+    "each fallback is immediately followed by its own @supports companion" true
+    (List.length emitted = 2 * List.length classes && paired emitted)
+
 let test_margin_value_order () =
   (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
      keywords auto < full < px. -ml-4 and -ml-px conflict on margin-left, so the
@@ -1237,6 +1292,8 @@ let tests =
     test_case "arbitrary value sorts by suffix within family" `Slow
       test_arbitrary_named_by_suffix;
     test_case "rounded position order" `Slow test_rounded_position_order;
+    test_case "color-mix @supports companion order" `Slow
+      test_color_mix_supports_companion_order;
     test_case "margin value order" `Slow test_margin_value_order;
     test_case "prose margin order" `Slow test_prose_margin_order;
     test_case "variant same-suborder tiebreak" `Slow
