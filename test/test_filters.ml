@@ -63,6 +63,48 @@ let test_backdrop () =
   check "backdrop-opacity-50";
   check "backdrop-invert"
 
+(* The drop-shadow sizes come before the colours, and each group is ordered by
+   class name. Sizes and colours both write --tw-drop-shadow, so the order
+   decides the value: with the colours ahead of the sizes, drop-shadow-current
+   beat drop-shadow-sm. *)
+let drop_shadow_slot_order () =
+  let classes =
+    [
+      "drop-shadow-2xl";
+      "drop-shadow-lg";
+      "drop-shadow-sm";
+      "drop-shadow-xl";
+      "drop-shadow-xs";
+      "drop-shadow-current";
+      "drop-shadow-indigo-500";
+      "drop-shadow-inherit";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css =
+    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+  in
+  let positions =
+    List.map
+      (fun c ->
+        let needle = "." ^ c ^ "{" in
+        let n = String.length needle and h = String.length css in
+        let rec go i =
+          if i + n > h then -1
+          else if String.sub css i n = needle then i
+          else go (i + 1)
+        in
+        go 0)
+      classes
+  in
+  Alcotest.check bool "every utility is emitted" true
+    (List.for_all (fun p -> p >= 0) positions);
+  Alcotest.check
+    (Alcotest.list Alcotest.int)
+    "sizes then colours, each group by class name"
+    (List.sort Int.compare positions)
+    positions
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -136,6 +178,7 @@ let tests =
     test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
   ]
 
 let suite = ("filters", tests)
