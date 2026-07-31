@@ -258,10 +258,6 @@ module Handler = struct
 
   let name = "sizing"
 
-  (** Priority 6: Sizing utilities (w-*, h-*, max-w-*, etc.) come before
-      flex-1/flex-col etc. in Tailwind's order. *)
-  let priority _ = 6
-
   (** Helper to create spacing-based utilities with consistent pattern. [n] is
       in rem units (e.g., 16.0 for w-64). We convert to class units by
       multiplying by 4, since --spacing is 0.25rem. Uses calc(var(--spacing) *
@@ -1392,27 +1388,33 @@ module Handler = struct
   let arbitrary_off = 5_000_000
   let keyword_off = 6_000_000
 
-  let suborder =
-    (* Family bases are 10M apart so the interleaved spacing/fraction range (<
-       5M) and arbitrary/keyword offsets never overflow into the next family.
-       Within a family: spacing/fractions interleaved by magnitude, then
-       arbitrary, then keywords (alphabetical). *)
-    (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
-    let size = 0 in
-    let h = 10_000_000 in
-    let max_h = 20_000_000 in
-    let min_h = 30_000_000 in
-    let w = 40_000_000 in
-    let max_w = 50_000_000 in
-    let min_w = 60_000_000 in
-    let inline = 70_000_000 in
-    let min_inline = 80_000_000 in
-    let max_inline = 90_000_000 in
-    let block = 100_000_000 in
-    let min_block = 110_000_000 in
-    let max_block = 120_000_000 in
-    let aspect = 130_000_000 in
-    function
+  (* Family bases are 10M apart so the interleaved spacing/fraction range (< 5M)
+     and arbitrary/keyword offsets never overflow into the next family. Within a
+     family: spacing/fractions interleaved by magnitude, then arbitrary, then
+     keywords (alphabetical). *)
+  (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
+  let size = 0
+  let h = 10_000_000
+  let max_h = 20_000_000
+  let min_h = 30_000_000
+  let w = 40_000_000
+  let max_w = 50_000_000
+  let min_w = 60_000_000
+  let aspect = 70_000_000
+
+  (* Tailwind registers the logical sizing utilities after every other one, so
+     they sort last rather than beside w-* and h-*; [logical_priority] carries
+     that. Their bases run in the alphabetical order Tailwind falls back to. *)
+  let logical = 80_000_000
+  let block = logical
+  let inline = 90_000_000
+  let max_block = 100_000_000
+  let max_inline = 110_000_000
+  let min_block = 120_000_000
+  let min_inline = 130_000_000
+  let logical_priority = 38
+
+  let suborder = function
     (* Height *)
     | H_fraction f -> h + fraction_value_order f
     | H_spacing n -> h + spacing_value_order n
@@ -1662,6 +1664,11 @@ module Handler = struct
     | Aspect_auto -> aspect + 2000
     | Aspect_square -> aspect + 2001
     | Aspect_video -> aspect + 2002
+
+  (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
+      flex-1/flex-col in Tailwind's order. The logical ones are registered after
+      every other utility, so they sort last instead of beside w-* and h-*. *)
+  let priority u = if suborder u >= logical then logical_priority else 6
 
   let to_class = function
     (* Width utilities *)

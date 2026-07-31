@@ -261,6 +261,56 @@ let test_class_generation () =
   Alcotest.check bool "size 4 uses spacing*4" true
     (Astring.String.is_infix ~affix:"*4)" (css_for (size 4)))
 
+(* The logical sizing utilities are registered after every other utility in
+   Tailwind, so they sort last rather than beside w-* and h-*, and among
+   themselves alphabetically. *)
+let logical_sizing_sorts_last () =
+  let classes =
+    [
+      "w-4";
+      "shadow-md";
+      "min-inline-4";
+      "block-4";
+      "max-inline-4";
+      "inline-4";
+      "min-block-4";
+      "max-block-4";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css =
+    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+  in
+  let position needle =
+    let n = String.length needle and h = String.length css in
+    let rec go i =
+      if i + n > h then -1
+      else if String.sub css i n = needle then i
+      else go (i + 1)
+    in
+    go 0
+  in
+  let expected =
+    [
+      ".w-4";
+      ".shadow-md";
+      ".block-4";
+      ".inline-4";
+      ".max-block-4";
+      ".max-inline-4";
+      ".min-block-4";
+      ".min-inline-4";
+    ]
+  in
+  let positions = List.map position expected in
+  Alcotest.check bool "every utility is emitted" true
+    (List.for_all (fun p -> p >= 0) positions);
+  Alcotest.check
+    (Alcotest.list Alcotest.int)
+    "the logical sizing utilities come last, alphabetically"
+    (List.sort Int.compare positions)
+    positions
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -415,6 +465,7 @@ let tests =
     test_case "class generation" `Quick test_class_generation;
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
   ]
