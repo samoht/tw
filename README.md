@@ -170,6 +170,12 @@ dune runtest       # run all tests, including README examples
 dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff
 ```
 
+### Parity with Tailwind
+
+[docs/parity.md](docs/parity.md) describes how the claim of identical output is
+checked: which comparisons run in `dune runtest`, how to read a diff, and why a
+small residual remains.
+
 ## License
 
 ISC — see [LICENSE.md](LICENSE.md).
