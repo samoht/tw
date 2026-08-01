@@ -87,7 +87,27 @@ let test_invalid_bracket_value () =
     | Error _ -> ()
   in
   rejected "mask-size-[<value>]";
-  rejected "mask-position-[<value>]"
+  rejected "mask-position-[<value>]";
+  rejected "mask-[position:nope]"
+
+(* A mask-position bracket takes the whole CSS grammar, the same as
+   background-position: a single edge keyword and the edge/offset form. Both
+   used to fall through the hand-rolled parser to a silent [center]. *)
+let test_bracket_position_grammar () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "mask-[position:top]" "mask-position:top";
+  has "mask-position-[top]" "mask-position:top";
+  has "mask-[top]" "mask-position:top";
+  (* the lengths and layer-list forms are unchanged *)
+  has "mask-[position:10px_20px]" "mask-position:10px 20px";
+  has "mask-position-[30%_50%,70%_50%]" "mask-position:30% 50%,70% 50%"
 
 (* Masks sit between the backgrounds and fill/stroke, and the mask-gradient
    utilities lead them. Sharing padding's slot interleaved the two families with
@@ -121,6 +141,8 @@ let tests =
         test_bracket_layer_list;
       Alcotest.test_case "invalid bracket value" `Quick
         test_invalid_bracket_value;
+      Alcotest.test_case "bracket position grammar" `Quick
+        test_bracket_position_grammar;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
     ]
 

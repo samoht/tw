@@ -180,6 +180,64 @@ let test_invalid_arbitrary_amount () =
   check "saturate-[150%]";
   check "brightness-[var(--x)]"
 
+(* An arbitrary filter spells its spaces with [_], so a multi-function chain
+   like filter-[blur(4px)_saturate(150%)] has to be decoded before it is parsed.
+   Without that the whole class parsed as nothing and emitted an empty rule. *)
+let test_arbitrary_filter_chain () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "filter-[blur(4px)_saturate(150%)]" "filter: blur(4px) saturate(150%)";
+  has "backdrop-filter-[blur(4px)_saturate(150%)]"
+    "-webkit-backdrop-filter: blur(4px) saturate(150%)";
+  has "backdrop-filter-[blur(4px)_saturate(150%)]"
+    "backdrop-filter: blur(4px) saturate(150%)";
+  (* single-function and var() forms are unchanged *)
+  has "filter-[blur(4px)]" "filter: blur(4px)";
+  has "filter-[var(--my-filter)]" "filter: var(--my-filter)";
+  has "backdrop-filter-[blur(4px)]" "backdrop-filter: blur(4px)";
+  has "backdrop-filter-[var(--x)]" "backdrop-filter: var(--x)"
+
+(* A bracket value the filter grammar cannot take is not a utility. It used to
+   parse, then emit an empty rule: no CSS and no diagnostic. Same for a
+   drop-shadow name the theme has no --drop-shadow-<name> token for. *)
+let test_unparseable_arbitrary_filter_rejected () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "filter-[nope(1)]";
+  rejected "backdrop-filter-[nope(1)]";
+  rejected "drop-shadow-nope";
+  check "filter-[blur(4px)]";
+  check "backdrop-filter-[blur(4px)]";
+  check "drop-shadow-xs";
+  check "drop-shadow-red-500"
+
+(* Every filter class the parser accepts renders at least one declaration; an
+   accepted class that emits nothing is the silent-acceptance bug. *)
+let test_no_empty_rules () =
+  let non_empty cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+        Alcotest.(check bool)
+          (cls ^ " emits a declaration")
+          true
+          (Astring.String.is_infix ~affix:":" css)
+  in
+  non_empty "filter-[blur(4px)]";
+  non_empty "backdrop-filter-[blur(4px)]";
+  non_empty "drop-shadow-[0_0_2px_red]";
+  non_empty "drop-shadow-xl/25"
+
 (* Filters are the case the text-level comparison cannot judge: a drop-shadow
    colour and a drop-shadow size meet in --tw-drop-shadow-size, so what an
    element ends up filtering by is only visible once rendered. *)
@@ -212,6 +270,10 @@ let tests =
     test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;
     test_case "blur" `Quick test_blur;
     test_case "invalid arbitrary amount" `Quick test_invalid_arbitrary_amount;
+    test_case "arbitrary filter chain" `Quick test_arbitrary_filter_chain;
+    test_case "unparseable arbitrary filter rejected" `Quick
+      test_unparseable_arbitrary_filter_rejected;
+    test_case "accepted filters emit declarations" `Quick test_no_empty_rules;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;
     test_case "drop-shadow color (default theme)" `Quick test_drop_shadow_color;
     test_case "drop-shadow opacity keeps both layers" `Quick
