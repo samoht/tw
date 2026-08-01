@@ -194,6 +194,90 @@ let inset_value_order_matches_tailwind () =
     ~test_name:"inset value order matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+(* start and end write the same two properties as inset-s and inset-e, so
+   Tailwind emits them in those bands - inset-s, start, end, inset-e, then
+   inset-bs, inset-be and only then top/right/bottom/left. tw parked them after
+   left, so start-4 beat -left-1 on an element carrying both. The canonical diff
+   matches rules by key and passes either way, so assert on the positions. *)
+let logical_inset_order_matches_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
+  in
+  let classes =
+    [
+      "inset-4";
+      "inset-x-4";
+      "inset-y-4";
+      "inset-s-4";
+      "start-4";
+      "end-4";
+      "inset-e-4";
+      "inset-bs-4";
+      "inset-be-4";
+      "top-4";
+      "right-4";
+      "bottom-4";
+      "left-4";
+    ]
+  in
+  let css =
+    Tw.to_css ~base:false (List.map mk (Test_helpers.shuffle classes))
+  in
+  let emitted =
+    Test_helpers.extract_rule_selectors
+      (Test_helpers.extract_utilities_layer_rules css)
+  in
+  Alcotest.(check (list string))
+    "logical inset order"
+    (List.map (fun c -> "." ^ c) classes)
+    emitted
+
+(* inset writes all four sides, inset-x and inset-y write two each, and the
+   logical forms write the same physical edges again, so which offset an element
+   ends up with is decided by the order the two sheets emit them in. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "static";
+      "relative";
+      "absolute";
+      "fixed";
+      "sticky";
+      "inset-0";
+      "inset-4";
+      "-inset-2";
+      "inset-auto";
+      "inset-full";
+      "inset-1/2";
+      "inset-x-0";
+      "inset-x-4";
+      "inset-y-2";
+      "inset-y-auto";
+      "inset-s-2";
+      "inset-e-2";
+      "inset-bs-2";
+      "inset-be-2";
+      "start-4";
+      "end-4";
+      "top-0";
+      "top-4";
+      "-top-2";
+      "top-auto";
+      "top-full";
+      "top-1/2";
+      "top-[3rem]";
+      "right-4";
+      "bottom-4";
+      "left-4";
+      "-left-1";
+    ]
+  in
+  Test_helpers.check_rendering_matches
+    ~test_name:"position renders like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
@@ -212,6 +296,9 @@ let tests =
       suborder_matches_tailwind;
     test_case "inset value order matches Tailwind" `Quick
       inset_value_order_matches_tailwind;
+    test_case "logical inset order matches Tailwind" `Quick
+      logical_inset_order_matches_tailwind;
+    test_case "position renders like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("position", tests)

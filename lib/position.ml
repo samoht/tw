@@ -529,20 +529,26 @@ module Handler = struct
   let full_off = 900_001
   let named_off = 900_002
 
+  (* Family order follows Tailwind's property table: inset, inset-inline,
+     inset-block, inset-inline-start, inset-inline-end, inset-block-start,
+     inset-block-end, top, right, bottom, left. start and end write the same two
+     inline properties as inset-s and inset-e, so they sit in those bands rather
+     than after left; Tailwind emits inset-s before start but end before
+     inset-e, whatever the values, so each alias keeps a band of its own. *)
   let suborder =
     let inset = 1_000_000 in
     let inset_x = 2_000_000 in
     let inset_y = 3_000_000 in
     let inset_s = 4_000_000 in
-    let inset_e = 5_000_000 in
-    let inset_bs = 6_000_000 in
-    let inset_be = 7_000_000 in
-    let top = 8_000_000 in
-    let right = 9_000_000 in
-    let bottom = 10_000_000 in
-    let left = 11_000_000 in
-    let start = 12_000_000 in
-    let e = 13_000_000 in
+    let start = 5_000_000 in
+    let e = 6_000_000 in
+    let inset_e = 7_000_000 in
+    let inset_bs = 8_000_000 in
+    let inset_be = 9_000_000 in
+    let top = 10_000_000 in
+    let right = 11_000_000 in
+    let bottom = 12_000_000 in
+    let left = 13_000_000 in
     function
     | Pos_spacing (side, sp) ->
         let base =
