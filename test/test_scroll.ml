@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Scroll.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Scroll.Handler)
 
 let test_roundtrip () =
   check "scroll-m-0";
@@ -19,8 +20,10 @@ let test_roundtrip () =
   check "scroll-pl-6"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll";
-  Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll-foo"
+  Test_helpers.check_invalid_input (module Tw.Private.Scroll.Handler) "scroll";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Scroll.Handler)
+    "scroll-foo"
 
 (* Typed scroll-margin/padding constructors (newly exposed in tw.mli) take a
    [float] argument; check they agree with the parser on class names. *)

@@ -5,7 +5,8 @@ module Css_compare = Cascade_diff.Css_compare
 
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =
-  Alcotest.check Alcotest.string "class" expected (Tw.Utility.to_class t)
+  Alcotest.check Alcotest.string "class" expected
+    (Tw.Private.Utility.to_class t)
 
 (** Extract utilities layer from CSS *)
 let extract_utilities_layer_rules css =

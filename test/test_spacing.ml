@@ -1,5 +1,5 @@
 open Alcotest
-open Tw.Spacing
+open Tw.Private.Spacing
 
 let test_pp_spacing_suffix () =
   let check suffix expected =

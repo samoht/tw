@@ -1,7 +1,7 @@
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Borders.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Borders.Handler)
 
 let of_string_valid () =
   check "border";
@@ -92,7 +92,7 @@ let of_string_valid () =
 let of_string_invalid () =
   (* Invalid border values *)
   let fail_maybe =
-    Test_helpers.check_invalid_parts (module Tw.Borders.Handler)
+    Test_helpers.check_invalid_parts (module Tw.Private.Borders.Handler)
   in
 
   fail_maybe [ "border"; "invalid" ];

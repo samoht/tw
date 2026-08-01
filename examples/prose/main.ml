@@ -1,6 +1,6 @@
 (** Prose showcase example
 
-    Demonstrates Tw.Prose typography with:
+    Demonstrates Tw.Private.Prose typography with:
     - Base prose container with comprehensive child selectors
     - Size variants: prose-sm, prose-lg, prose-xl, prose-2xl
     - Color themes: prose-gray, prose-slate

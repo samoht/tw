@@ -1,5 +1,5 @@
-(** Top-level manual index for examples Uses Tw.Prose for readable documentation
-    and embeds sub-examples via iframes. *)
+(** Top-level manual index for examples Uses Tw.Private.Prose for readable
+    documentation and embeds sub-examples via iframes. *)
 
 open Tw_html
 

@@ -1,7 +1,7 @@
 open Alcotest
 
 let check =
-  Test_helpers.check_handler_roundtrip (module Tw.Grid_template.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Grid_template.Handler)
 
 let of_string_valid () =
   (* Grid template columns *)
@@ -68,7 +68,9 @@ let of_string_valid () =
 let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Grid_template.Handler.of_class Tw.Scheme.default class_name with
+    match
+      Tw.Private.Grid_template.Handler.of_class Tw.Scheme.default class_name
+    with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
@@ -103,7 +105,7 @@ let of_string_invalid () =
   (* Arbitrary values with unparseable contents: should reject, not crash.
      Regression: grid-cols-[1fr_40%] used to raise Invalid_argument mid-run. *)
   let bad input =
-    match Tw.Grid_template.Handler.of_class Tw.Scheme.default input with
+    match Tw.Private.Grid_template.Handler.of_class Tw.Scheme.default input with
     | Ok _ -> fail ("Expected error for: " ^ input)
     | Error _ -> ()
   in

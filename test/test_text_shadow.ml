@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Text_shadow.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Text_shadow.Handler)
 
 let test_roundtrip () =
   check "text-shadow-none";
@@ -10,11 +11,13 @@ let test_roundtrip () =
 
 let test_invalid () =
   Test_helpers.check_invalid_input
-    (module Tw.Text_shadow.Handler)
+    (module Tw.Private.Text_shadow.Handler)
     "text-shadow-foo";
   (* Bare `text-shadow` is not a v4 utility (the CLI emits nothing); only the
      named scale `text-shadow-{2xs,xs,sm,md,lg}` is valid. *)
-  Test_helpers.check_invalid_input (module Tw.Text_shadow.Handler) "text-shadow"
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Text_shadow.Handler)
+    "text-shadow"
 
 let parse s = Result.get_ok (Tw.of_string s)
 

@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Flex_layout.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Flex_layout.Handler)
 
 let test_roundtrip () =
   check "flex-row";
@@ -11,9 +12,11 @@ let test_roundtrip () =
 
 let test_invalid () =
   Test_helpers.check_invalid_input
-    (module Tw.Flex_layout.Handler)
+    (module Tw.Private.Flex_layout.Handler)
     "flex-diagonal";
-  Test_helpers.check_invalid_input (module Tw.Flex_layout.Handler) "flex-foo"
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Flex_layout.Handler)
+    "flex-foo"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

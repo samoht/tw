@@ -1,10 +1,10 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Transforms.Handler.of_class Tw.Scheme.default class_name with
+  match Tw.Private.Transforms.Handler.of_class Tw.Scheme.default class_name with
   | Ok t ->
       check string "transforms class" class_name
-        (Tw.Transforms.Handler.to_class t)
+        (Tw.Private.Transforms.Handler.to_class t)
   | Error (`Msg msg) -> fail msg
 
 let test_translate_rotate () =
@@ -72,7 +72,9 @@ let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
     let class_name = String.concat "-" input in
-    match Tw.Transforms.Handler.of_class Tw.Scheme.default class_name with
+    match
+      Tw.Private.Transforms.Handler.of_class Tw.Scheme.default class_name
+    with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

@@ -1,5 +1,5 @@
 open Alcotest
-open Tw.Arbitrary.Handler
+open Tw.Private.Arbitrary.Handler
 
 let check input =
   match of_class Tw.Scheme.default input with

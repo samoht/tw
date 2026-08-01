@@ -1,10 +1,12 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Interactivity.Handler.of_class Tw.Scheme.default class_name with
+  match
+    Tw.Private.Interactivity.Handler.of_class Tw.Scheme.default class_name
+  with
   | Ok u ->
       check string "interactivity class" class_name
-        (Tw.Interactivity.Handler.to_class u)
+        (Tw.Private.Interactivity.Handler.to_class u)
   | Error (`Msg msg) -> fail msg
 
 let test_select () = check "select-none"
@@ -17,7 +19,9 @@ let test_of_string_invalid () =
   (* Invalid interactivity utilities *)
   let test_invalid input =
     let class_name = String.concat "-" input in
-    match Tw.Interactivity.Handler.of_class Tw.Scheme.default class_name with
+    match
+      Tw.Private.Interactivity.Handler.of_class Tw.Scheme.default class_name
+    with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

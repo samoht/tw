@@ -2,7 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Gap.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Gap.Handler)
 
 let of_string_valid () =
   (* Gap all *)
@@ -37,7 +37,9 @@ let of_string_valid () =
   check "-space-y-px"
 
 let of_string_invalid () =
-  let fail_maybe = Test_helpers.check_invalid_parts (module Tw.Gap.Handler) in
+  let fail_maybe =
+    Test_helpers.check_invalid_parts (module Tw.Private.Gap.Handler)
+  in
 
   fail_maybe [ "gap" ];
   fail_maybe [ "gap"; "invalid" ];

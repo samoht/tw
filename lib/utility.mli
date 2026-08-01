@@ -9,8 +9,8 @@
     {[
     module Example = struct
       module Css = Cascade.Css
-      module Style = Tw.Style
-      module Utility = Tw.Utility
+      module Style = Tw.Private.Style
+      module Utility = Tw.Private.Utility
 
       module Handler = struct
         type t = Block

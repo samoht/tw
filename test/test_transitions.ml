@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Transitions.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Transitions.Handler)
 
 let test_roundtrip () =
   check "transition-none";
@@ -24,9 +25,15 @@ let test_roundtrip () =
   check "ease-initial"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "duration";
-  Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "delay";
-  Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "ease"
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Transitions.Handler)
+    "duration";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Transitions.Handler)
+    "delay";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Transitions.Handler)
+    "ease"
 
 (* duration-initial / ease-initial reset their channel var to the CSS initial
    keyword. *)

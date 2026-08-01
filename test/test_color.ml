@@ -1,7 +1,7 @@
 (** Tests for the color conversion module *)
 
 module Css = Cascade.Css
-open Tw.Color
+open Tw.Private.Color
 
 let test_rgb_to_oklch_roundtrip () =
   let test_cases =
@@ -406,13 +406,13 @@ let test_full_opacity_and_important () =
 let test_shorthand_hex_alpha () =
   Alcotest.(check string)
     "a three-digit hex expands before the alpha" "#ffffff1a"
-    (Tw.Color.hex_with_alpha "#fff" 10.);
+    (Tw.Private.Color.hex_with_alpha "#fff" 10.);
   Alcotest.(check string)
     "an existing alpha is replaced" "#ffffff1a"
-    (Tw.Color.hex_with_alpha "#ffffffcc" 10.);
+    (Tw.Private.Color.hex_with_alpha "#ffffffcc" 10.);
   Alcotest.(check string)
     "a six-digit hex is unchanged" "#0307121a"
-    (Tw.Color.hex_with_alpha "#030712" 10.)
+    (Tw.Private.Color.hex_with_alpha "#030712" 10.)
 
 let tests =
   [

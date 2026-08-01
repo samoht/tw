@@ -2,14 +2,15 @@ open Alcotest
 open Test_helpers
 
 let check_early =
-  check_handler_roundtrip (module Tw.Typography.Typography_early)
+  check_handler_roundtrip (module Tw.Private.Typography.Typography_early)
 
-let check_late = check_handler_roundtrip (module Tw.Typography.Typography_late)
+let check_late =
+  check_handler_roundtrip (module Tw.Private.Typography.Typography_late)
 
 (* Try both handlers - the utility could be in either *)
 let check class_name =
   match
-    Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
+    Tw.Private.Typography.Typography_early.of_class Tw.Scheme.default class_name
   with
   | Ok _ -> check_early class_name
   | Error _ -> check_late class_name
@@ -202,14 +203,17 @@ let test_content () =
    named content value, a false positive Tailwind does not emit). *)
 let test_content_named_requires_theme () =
   (match
-     Tw.Typography.Typography_late.of_class Tw.Scheme.default "content-wrapper"
+     Tw.Private.Typography.Typography_late.of_class Tw.Scheme.default
+       "content-wrapper"
    with
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "content-wrapper should be rejected without a token");
   let themed =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("content-slash", "\"/\"") ]
   in
-  match Tw.Typography.Typography_late.of_class themed "content-slash" with
+  match
+    Tw.Private.Typography.Typography_late.of_class themed "content-slash"
+  with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "content-slash with theme rejected: %s" m
 
@@ -268,11 +272,13 @@ let test_text_bracket_size_valid () =
 
 let test_text_bracket_size_invalid () =
   let bad input =
-    match Tw.Typography.Typography_early.of_class Tw.Scheme.default input with
+    match
+      Tw.Private.Typography.Typography_early.of_class Tw.Scheme.default input
+    with
     | Ok _ -> Alcotest.fail ("Expected early handler to reject: " ^ input)
     | Error _ -> (
         match
-          Tw.Typography.Typography_late.of_class Tw.Scheme.default input
+          Tw.Private.Typography.Typography_late.of_class Tw.Scheme.default input
         with
         | Ok _ -> Alcotest.fail ("Expected late handler to reject: " ^ input)
         | Error _ -> ())
@@ -290,7 +296,8 @@ let of_string_invalid () =
     let class_name = String.concat "-" input in
     (* Both handlers should reject the input *)
     (match
-       Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
+       Tw.Private.Typography.Typography_early.of_class Tw.Scheme.default
+         class_name
      with
     | Error _ -> ()
     | Ok _ ->
@@ -298,7 +305,8 @@ let of_string_invalid () =
           (String.concat ""
              [ "Expected early handler to reject: "; class_name ]));
     match
-      Tw.Typography.Typography_late.of_class Tw.Scheme.default class_name
+      Tw.Private.Typography.Typography_late.of_class Tw.Scheme.default
+        class_name
     with
     | Error _ -> ()
     | Ok _ ->

@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Columns.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Columns.Handler)
 
 let test_roundtrip () =
   check "columns-auto";
@@ -25,8 +26,10 @@ let test_roundtrip () =
   check "columns-[200px]"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns";
-  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-abc"
+  Test_helpers.check_invalid_input (module Tw.Private.Columns.Handler) "columns";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Columns.Handler)
+    "columns-abc"
 
 (* columns-[16rem] is a column-WIDTH (columns: 16rem), distinct from the integer
    count form (columns-[3]). *)

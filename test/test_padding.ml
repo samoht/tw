@@ -2,7 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Padding.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Padding.Handler)
 
 let of_string_valid () =
   check "p-0";
@@ -26,7 +26,7 @@ let of_string_valid () =
 let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    check_invalid_input (module Tw.Padding.Handler) class_name
+    check_invalid_input (module Tw.Private.Padding.Handler) class_name
   in
 
   fail_maybe [ "p" ];
@@ -87,9 +87,10 @@ let test_arbitrary_length_grammar () =
     "px-[50%] keeps the percent" true
     (Astring.String.is_infix ~affix:"padding-inline:50%" (css "px-[50%]"));
   let check c =
-    match Tw.Padding.Handler.of_class Tw.Scheme.default c with
+    match Tw.Private.Padding.Handler.of_class Tw.Scheme.default c with
     | Ok u ->
-        Alcotest.check string "roundtrip" c (Tw.Padding.Handler.to_class u)
+        Alcotest.check string "roundtrip" c
+          (Tw.Private.Padding.Handler.to_class u)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" c m
   in
   check "px-[50%]";

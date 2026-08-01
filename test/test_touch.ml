@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Touch.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Touch.Handler)
 
 let test_roundtrip () =
   check "touch-auto";
@@ -13,8 +14,8 @@ let test_roundtrip () =
   check "touch-pinch-zoom"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Touch.Handler) "touch";
-  Test_helpers.check_invalid_input (module Tw.Touch.Handler) "touch-foo"
+  Test_helpers.check_invalid_input (module Tw.Private.Touch.Handler) "touch";
+  Test_helpers.check_invalid_input (module Tw.Private.Touch.Handler) "touch-foo"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

@@ -451,7 +451,8 @@ let v3_theme_token theme path =
           | Some _ as v -> v
           | None -> (
               match (ns, float_of_string_opt key) with
-              | ("spacing" | "lineHeight"), Some n -> Tw.Theme.spacing_times n
+              | ("spacing" | "lineHeight"), Some n ->
+                  Tw.Private.Theme.spacing_times n
               | _ -> None)))
 
 (* Tailwind's [theme(--token)] inlines the token's value. It is not CSS, and it

@@ -1,14 +1,14 @@
 module Css = Cascade.Css
 open Alcotest
-open Tw.Output
-open Tw.Color
-open Tw.Padding
-open Tw.Modifiers
+open Tw.Private.Output
+open Tw.Private.Color
+open Tw.Private.Padding
+open Tw.Private.Modifiers
 
 (* ===== Tests ===== *)
 
 let check_extract_selector_props () =
-  let rules = Tw.Rule.outputs (p 4) in
+  let rules = Tw.Private.Rule.outputs (p 4) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -16,7 +16,7 @@ let check_extract_selector_props () =
   | _ -> fail "Expected Regular rule"
 
 let check_extract_hover () =
-  let rules = Tw.Rule.outputs (hover [ bg blue ]) in
+  let rules = Tw.Private.Rule.outputs (hover [ bg blue ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -25,7 +25,7 @@ let check_extract_hover () =
   | _ -> fail "Expected Regular rule with hover"
 
 let check_extract_responsive () =
-  let rules = Tw.Rule.outputs (sm [ p 4 ]) in
+  let rules = Tw.Private.Rule.outputs (sm [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -37,7 +37,7 @@ let check_extract_responsive () =
   | _ -> fail "Expected Media_query rule"
 
 let check_extract_responsive_md () =
-  let rules = Tw.Rule.outputs (md [ p 4 ]) in
+  let rules = Tw.Private.Rule.outputs (md [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -49,7 +49,7 @@ let check_extract_responsive_md () =
   | _ -> fail "Expected Media_query rule for md"
 
 let check_extract_responsive_lg () =
-  let rules = Tw.Rule.outputs (lg [ p 4 ]) in
+  let rules = Tw.Private.Rule.outputs (lg [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -61,7 +61,7 @@ let check_extract_responsive_lg () =
   | _ -> fail "Expected Media_query rule for lg"
 
 let check_extract_responsive_xl () =
-  let rules = Tw.Rule.outputs (xl [ p 4 ]) in
+  let rules = Tw.Private.Rule.outputs (xl [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -73,7 +73,7 @@ let check_extract_responsive_xl () =
   | _ -> fail "Expected Media_query rule for xl"
 
 let check_extract_responsive_2xl () =
-  let rules = Tw.Rule.outputs (xl2 [ p 4 ]) in
+  let rules = Tw.Private.Rule.outputs (xl2 [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -86,20 +86,22 @@ let check_extract_responsive_2xl () =
 
 let check_escape_class_name () =
   check string "escapes brackets" "p-\\[10px\\]"
-    (Tw.Rule.escape_class_name "p-[10px]");
+    (Tw.Private.Rule.escape_class_name "p-[10px]");
   check string "escapes colon" "hover\\:bg-blue-500"
-    (Tw.Rule.escape_class_name "hover:bg-blue-500");
-  check string "escapes slash" "w-1\\/2" (Tw.Rule.escape_class_name "w-1/2");
-  check string "escapes dot" "text-1\\.5" (Tw.Rule.escape_class_name "text-1.5")
+    (Tw.Private.Rule.escape_class_name "hover:bg-blue-500");
+  check string "escapes slash" "w-1\\/2"
+    (Tw.Private.Rule.escape_class_name "w-1/2");
+  check string "escapes dot" "text-1\\.5"
+    (Tw.Private.Rule.escape_class_name "text-1.5")
 
 let test_modifier_to_rule () =
   let rule =
-    Tw.Rule.modifier_to_rule Tw.Style.Hover "bg-blue-500"
+    Tw.Private.Rule.modifier_to_rule Tw.Private.Style.Hover "bg-blue-500"
       (Css.Selector.class_ "bg-blue-500")
       [ Css.background_color (Css.hex "#3b82f6") ]
   in
   match rule with
-  | Tw.Output.Regular { selector; props; has_hover; _ } ->
+  | Tw.Private.Output.Regular { selector; props; has_hover; _ } ->
       (* Hover modifier uses Modifiers.to_selector which includes the prefix *)
       check string "hover selector" ".hover\\:bg-blue-500:hover"
         (Css.Selector.to_string selector);

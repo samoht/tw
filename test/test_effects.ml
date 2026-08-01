@@ -1,7 +1,8 @@
 module Css = Cascade.Css
 open Alcotest
 
-let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Effects.Handler)
 
 let of_string_valid () =
   (* Box shadow *)
@@ -75,12 +76,12 @@ let test_filters_css_generation () =
   (* Spot-check a few filter/backdrop utilities *)
   let open Tw in
   let css =
-    Build.to_css
+    Private.Build.to_css
       [
-        Filters.blur;
-        Filters.backdrop_blur_lg;
-        Filters.backdrop_brightness 125;
-        Filters.backdrop_opacity 50.;
+        Private.Filters.blur;
+        Private.Filters.backdrop_blur_lg;
+        Private.Filters.backdrop_brightness 125;
+        Private.Filters.backdrop_opacity 50.;
       ]
     |> Css.to_string
   in
@@ -107,7 +108,7 @@ let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Effects.Handler.of_class Tw.Scheme.default class_name with
+    match Tw.Private.Effects.Handler.of_class Tw.Scheme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in
@@ -201,10 +202,14 @@ let test_inset_shadow_roundtrip () =
 let test_inset_shadow_invalid () =
   (* Bare inset-shadow has no v4.3.1 default token, and md/lg/xl/2xl were
      removed from the scale. *)
-  Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow";
-  Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow-md";
   Test_helpers.check_invalid_input
-    (module Tw.Effects.Handler)
+    (module Tw.Private.Effects.Handler)
+    "inset-shadow";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Effects.Handler)
+    "inset-shadow-md";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Effects.Handler)
     "inset-shadow-2xl"
 
 (* The default scale (alpha .05 = #0000000d): 2xs is a single inset shadow with

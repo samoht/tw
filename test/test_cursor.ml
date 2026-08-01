@@ -1,5 +1,5 @@
 open Alcotest
-open Tw.Cursor.Handler
+open Tw.Private.Cursor.Handler
 
 let check parts =
   let expected = String.concat "-" parts in

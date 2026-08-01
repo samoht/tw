@@ -2,10 +2,10 @@ module Css = Cascade.Css
 open Alcotest
 
 let check_animation =
-  Test_helpers.check_handler_roundtrip (module Tw.Animations.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Animations.Handler)
 
 let check_transition =
-  Test_helpers.check_handler_roundtrip (module Tw.Transitions.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Transitions.Handler)
 
 (* Helper to check if animation property exists with expected name or var ref *)
 let has_animation_name expected_name css =

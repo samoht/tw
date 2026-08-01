@@ -1,5 +1,5 @@
 let check =
-  Test_helpers.check_handler_roundtrip (module Tw.Mask_gradient.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Mask_gradient.Handler)
 
 let test_roundtrip () =
   check "mask-t-from-0%";
@@ -21,7 +21,9 @@ let test_roundtrip () =
   check "mask-linear-[3rad]"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Mask_gradient.Handler) "mask-foo"
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Mask_gradient.Handler)
+    "mask-foo"
 
 (* A mask stop is a <length-percentage>: the zero spacing step keeps its unit
    (0px), not a bare 0, which is what Tailwind emits. *)

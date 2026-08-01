@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Overscroll.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Overscroll.Handler)
 
 let test_roundtrip () =
   check "overscroll-auto";
@@ -12,9 +13,11 @@ let test_roundtrip () =
   check "overscroll-y-none"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Overscroll.Handler) "overscroll";
   Test_helpers.check_invalid_input
-    (module Tw.Overscroll.Handler)
+    (module Tw.Private.Overscroll.Handler)
+    "overscroll";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Overscroll.Handler)
     "overscroll-foo"
 
 let tests =

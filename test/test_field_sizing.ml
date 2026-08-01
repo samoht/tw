@@ -1,5 +1,5 @@
 let check =
-  Test_helpers.check_handler_roundtrip (module Tw.Field_sizing.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Field_sizing.Handler)
 
 let test_roundtrip () =
   check "field-sizing-content";
@@ -7,10 +7,10 @@ let test_roundtrip () =
 
 let test_invalid () =
   Test_helpers.check_invalid_input
-    (module Tw.Field_sizing.Handler)
+    (module Tw.Private.Field_sizing.Handler)
     "field-sizing";
   Test_helpers.check_invalid_input
-    (module Tw.Field_sizing.Handler)
+    (module Tw.Private.Field_sizing.Handler)
     "field-sizing-auto"
 
 let tests =

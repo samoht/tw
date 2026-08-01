@@ -1,7 +1,7 @@
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Backgrounds.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Backgrounds.Handler)
 
 let test_bg_colors () =
   check "bg-red-500";
@@ -9,18 +9,21 @@ let test_bg_colors () =
   check "bg-green-700"
 
 let test_gradient_direction () =
-  let u = Tw.Backgrounds.bg_gradient_to Tw.Backgrounds.Bottom in
+  let u = Tw.Private.Backgrounds.bg_gradient_to Tw.Private.Backgrounds.Bottom in
   Alcotest.check string "bg-gradient-to-b" "bg-gradient-to-b"
-    (Tw.Utility.to_class u)
+    (Tw.Private.Utility.to_class u)
 
 let test_gradient_colors () =
   let open Tw in
-  let from = Backgrounds.from_color Color.red in
-  let via = Backgrounds.via_color Color.blue ~shade:600 in
-  let to_ = Backgrounds.to_color Color.green in
-  Alcotest.check string "from-red-500" "from-red-500" (Utility.to_class from);
-  Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
-  Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
+  let from = Private.Backgrounds.from_color Private.Color.red in
+  let via = Private.Backgrounds.via_color Private.Color.blue ~shade:600 in
+  let to_ = Private.Backgrounds.to_color Private.Color.green in
+  Alcotest.check string "from-red-500" "from-red-500"
+    (Private.Utility.to_class from);
+  Alcotest.check string "via-blue-600" "via-blue-600"
+    (Private.Utility.to_class via);
+  Alcotest.check string "to-green-500" "to-green-500"
+    (Private.Utility.to_class to_)
 
 (* via-none clears the gradient's via stops by resetting the channel var to the
    CSS initial keyword. *)
@@ -67,7 +70,7 @@ let test_radial_conic () =
 let test_of_string_invalid () =
   (* Invalid background utilities *)
   let test_invalid =
-    Test_helpers.check_invalid_parts (module Tw.Backgrounds.Handler)
+    Test_helpers.check_invalid_parts (module Tw.Private.Backgrounds.Handler)
   in
 
   (* Invalid gradient direction *)

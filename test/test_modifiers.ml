@@ -1,14 +1,14 @@
 module Css = Cascade.Css
 open Alcotest
-open Tw.Style
-open Tw.Modifiers
-open Tw.Padding
-open Tw.Margin
-open Tw.Color
-open Tw.Grid_template
-open Tw.Animations
-open Tw.Transitions
-open Tw.Borders
+open Tw.Private.Style
+open Tw.Private.Modifiers
+open Tw.Private.Padding
+open Tw.Private.Margin
+open Tw.Private.Color
+open Tw.Private.Grid_template
+open Tw.Private.Animations
+open Tw.Private.Transitions
+open Tw.Private.Borders
 
 (* Test responsive modifier detection *)
 let test_has_responsive_modifier () =
@@ -33,11 +33,11 @@ let test_has_responsive_modifier () =
   check bool "hover is not responsive" false (has_responsive_modifier style5);
 
   (* Group with at least one responsive should be detected *)
-  let style6 = Tw.Utility.Group [ p 4; sm [ m 2 ] ] in
+  let style6 = Tw.Private.Utility.Group [ p 4; sm [ m 2 ] ] in
   check bool "group with responsive" true (has_responsive_modifier style6);
 
   (* Group without responsive should not be detected *)
-  let style7 = Tw.Utility.Group [ p 4; m 2 ] in
+  let style7 = Tw.Private.Utility.Group [ p 4; m 2 ] in
   check bool "group without responsive" false (has_responsive_modifier style7)
 
 (* Test responsive nesting validation *)
@@ -140,24 +140,26 @@ let test_apply () =
 (* Test modifier class name format *)
 let test_modifier_class_names () =
   (* Test responsive modifiers produce single colon *)
-  check string "sm: single colon" "sm:p-4" (Tw.Utility.to_class (sm [ p 4 ]));
+  check string "sm: single colon" "sm:p-4"
+    (Tw.Private.Utility.to_class (sm [ p 4 ]));
 
   check string "md: single colon" "md:grid-cols-2"
-    (Tw.Utility.to_class (md [ grid_cols 2 ]));
+    (Tw.Private.Utility.to_class (md [ grid_cols 2 ]));
 
   check string "lg: single colon" "lg:bg-blue-500"
-    (Tw.Utility.to_class (lg [ bg blue ]));
+    (Tw.Private.Utility.to_class (lg [ bg blue ]));
 
   (* 2xl prefix formatting *)
-  check string "2xl: single colon" "2xl:p-4" (Tw.Utility.to_class (xl2 [ p 4 ]));
+  check string "2xl: single colon" "2xl:p-4"
+    (Tw.Private.Utility.to_class (xl2 [ p 4 ]));
 
   (* Test hover modifier *)
   check string "hover: single colon" "hover:p-4"
-    (Tw.Utility.to_class (hover [ p 4 ]));
+    (Tw.Private.Utility.to_class (hover [ p 4 ]));
 
   (* Test combined modifiers *)
   check string "md:hover: single colons" "md:hover:m-2"
-    (Tw.Utility.to_class (md [ hover [ m 2 ] ]));
+    (Tw.Private.Utility.to_class (md [ hover [ m 2 ] ]));
 
   (* Test multiple utilities with modifiers in a list *)
   let classes =
@@ -170,21 +172,21 @@ let test_modifier_class_names () =
 let test_media_preference_modifiers () =
   (* Motion preference modifiers *)
   check string "motion-safe: single colon" "motion-safe:animate-pulse"
-    (Tw.Utility.to_class (motion_safe [ animate_pulse ]));
+    (Tw.Private.Utility.to_class (motion_safe [ animate_pulse ]));
 
   check string "motion-reduce: single colon" "motion-reduce:transition-none"
-    (Tw.Utility.to_class (motion_reduce [ transition_none ]));
+    (Tw.Private.Utility.to_class (motion_reduce [ transition_none ]));
 
   (* Contrast preference modifiers *)
   check string "contrast-more: single colon" "contrast-more:border-4"
-    (Tw.Utility.to_class (contrast_more [ border_4 ]));
+    (Tw.Private.Utility.to_class (contrast_more [ border_4 ]));
 
   check string "contrast-less: single colon" "contrast-less:text-gray-600"
-    (Tw.Utility.to_class (contrast_less [ text ~shade:600 gray ]));
+    (Tw.Private.Utility.to_class (contrast_less [ text ~shade:600 gray ]));
 
   (* Dark mode *)
   check string "dark: single colon" "dark:bg-gray-900"
-    (Tw.Utility.to_class (dark [ bg ~shade:900 gray ]))
+    (Tw.Private.Utility.to_class (dark [ bg ~shade:900 gray ]))
 
 (* Test CSS generation and parsing roundtrip for modifiers *)
 let test_modifier_css_roundtrip () =
@@ -202,7 +204,7 @@ let test_modifier_css_roundtrip () =
   in
 
   (* Generate CSS *)
-  let stylesheet = Tw.Build.to_css test_utilities in
+  let stylesheet = Tw.Private.Build.to_css test_utilities in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
 
   (* Verify CSS was generated *)
@@ -220,7 +222,7 @@ let test_modifier_css_roundtrip () =
 (* Test that generated CSS has correct selector escaping *)
 let test_selector_escaping_in_css () =
   (* Generate CSS with modifiers that need escaping *)
-  let stylesheet = Tw.Build.to_css [ motion_safe [ animate_pulse ] ] in
+  let stylesheet = Tw.Private.Build.to_css [ motion_safe [ animate_pulse ] ] in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
 
   (* Verify single backslash in output (not double) *)
@@ -246,16 +248,18 @@ let test_selector_escaping_in_css () =
 let test_combined_media_modifiers () =
   (* Combining responsive with media preference should work *)
   check string "sm:motion-safe: works" "sm:motion-safe:animate-pulse"
-    (Tw.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
+    (Tw.Private.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
 
   check string "md:dark: works" "md:dark:bg-gray-900"
-    (Tw.Utility.to_class (md [ dark [ bg ~shade:900 gray ] ]));
+    (Tw.Private.Utility.to_class (md [ dark [ bg ~shade:900 gray ] ]));
 
   (* Generate and parse CSS with combined modifiers *)
   let utilities =
     [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg ~shade:900 gray ] ] ]
   in
-  let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
+  let css_str =
+    Tw.Css.to_string ~minify:true (Tw.Private.Build.to_css utilities)
+  in
   match Tw.Css.of_string css_str with
   | Ok _ -> ()
   | Error e ->
@@ -267,7 +271,7 @@ let test_combined_media_modifiers () =
 (* Test that motion-reduce:transition-none outputs transition-property: none *)
 let test_motion_reduce_transition_none () =
   (* Tailwind v4 uses transition-property: none, not transition: none *)
-  let css = Tw.Build.to_css [ motion_reduce [ transition_none ] ] in
+  let css = Tw.Private.Build.to_css [ motion_reduce [ transition_none ] ] in
   let css_str = Tw.Css.to_string ~minify:true css in
 
   (* Should contain transition-property:none *)
@@ -392,23 +396,23 @@ let test_is_hover () =
 
 (* Test of_string parsing *)
 let test_of_string_parsing () =
-  let mods, cls = Tw.Modifiers.of_string "hover:bg-blue-500" in
+  let mods, cls = Tw.Private.Modifiers.of_string "hover:bg-blue-500" in
   check (list string) "hover modifier parsed" [ "hover" ] mods;
   check string "base class parsed (bg-blue-500)" "bg-blue-500" cls;
 
-  let mods, cls = Tw.Modifiers.of_string "md:hover:p-4" in
+  let mods, cls = Tw.Private.Modifiers.of_string "md:hover:p-4" in
   check (list string) "md:hover parsed order" [ "md"; "hover" ] mods;
   check string "base class parsed (p-4)" "p-4" cls;
 
-  let mods, cls = Tw.Modifiers.of_string "2xl:m-2" in
+  let mods, cls = Tw.Private.Modifiers.of_string "2xl:m-2" in
   check (list string) "2xl parsed" [ "2xl" ] mods;
   check string "base class parsed (m-2)" "m-2" cls;
 
-  let mods, cls = Tw.Modifiers.of_string "has-[.foo>bar]:p-4" in
+  let mods, cls = Tw.Private.Modifiers.of_string "has-[.foo>bar]:p-4" in
   check (list string) "has-[...] parsed" [ "has-[.foo>bar]" ] mods;
   check string "base class parsed (p-4)" "p-4" cls;
 
-  let mods, cls = Tw.Modifiers.of_string "group-has-[.bar]:hover:m-1" in
+  let mods, cls = Tw.Private.Modifiers.of_string "group-has-[.bar]:hover:m-1" in
   check (list string) "group-has + hover parsed"
     [ "group-has-[.bar]"; "hover" ]
     mods;
@@ -418,11 +422,11 @@ let test_of_string_parsing () =
 let test_pp_modifier_strings () =
   check string "pp sm" "sm" (pp_modifier (Responsive `Sm));
   check string "pp container md" "@md"
-    (pp_modifier (Container Tw.Style.Container_md));
+    (pp_modifier (Container Tw.Private.Style.Container_md));
   (* An unnamed width is the arbitrary form; [@600px] is not a class the parser
      reads back, and Tailwind spells it [@[600px]]. *)
   check string "pp container named width" "@[600px]"
-    (pp_modifier (Container (Tw.Style.Container_named ("", 600))));
+    (pp_modifier (Container (Tw.Private.Style.Container_named ("", 600))));
   check string "pp has[...]" "has-[.foo]" (pp_modifier (Has ".foo"));
   check string "pp group-has[...]" "group-has-[.bar]"
     (pp_modifier (Group_has (".bar", None)));
@@ -449,7 +453,7 @@ let test_container_query_scale () =
     (Astring.String.is_infix ~affix:"@container (width >= 48rem)"
        (css "@3xl:flex"));
   check string "@xs round-trips" "@xs:p-4"
-    (Tw.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
+    (Tw.Private.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
 
 (* @max-<size> negates the min query, and @min-/@max-[<len>] and bare @[<len>]
    accept arbitrary lengths. All used to be unknown modifiers. *)
@@ -472,25 +476,25 @@ let test_container_query_min_max () =
   has "@min-[theme(--breakpoint-lg)]:flex" "@container (width >= 64rem)";
   has "@max-[theme(--breakpoint-lg)]:flex" "@container (not (width >= 64rem))";
   check string "@max-md round-trips" "@max-md:p-4"
-    (Tw.Utility.to_class (Option.get (apply [ "@max-md" ] (p 4))));
+    (Tw.Private.Utility.to_class (Option.get (apply [ "@max-md" ] (p 4))));
   check string "@min-[20rem] round-trips" "@min-[20rem]:p-4"
-    (Tw.Utility.to_class (Option.get (apply [ "@min-[20rem]" ] (p 4))));
+    (Tw.Private.Utility.to_class (Option.get (apply [ "@min-[20rem]" ] (p 4))));
   check string "@[480px] round-trips" "@[480px]:p-4"
-    (Tw.Utility.to_class (Option.get (apply [ "@[480px]" ] (p 4))))
+    (Tw.Private.Utility.to_class (Option.get (apply [ "@[480px]" ] (p 4))))
 
 (* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
   let u1 = apply [ "has-[.x]" ] (p 4) in
   check string "has-[.x]:p-4" "has-[.x]:p-4"
-    (Tw.Utility.to_class (Option.get u1));
+    (Tw.Private.Utility.to_class (Option.get u1));
 
   let u2 = apply [ "group-has-[.y]"; "hover" ] (m 2) in
   check string "group-has + hover order" "group-has-[.y]:hover:m-2"
-    (Tw.Utility.to_class (Option.get u2));
+    (Tw.Private.Utility.to_class (Option.get u2));
 
   let u3 = apply [ "peer-has-[.z]" ] (bg blue) in
   check string "peer-has class" "peer-has-[.z]:bg-blue-500"
-    (Tw.Utility.to_class (Option.get u3))
+    (Tw.Private.Utility.to_class (Option.get u3))
 
 (* [has-<state>] takes the same state names as the group/peer variants, not just
    checked: the name resolves to the pseudo-class that state matches, and
@@ -609,26 +613,28 @@ let test_anchor_bracket_without_ampersand () =
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
-    (Tw.Utility.to_class (aria_checked [ p 4 ]));
+    (Tw.Private.Utility.to_class (aria_checked [ p 4 ]));
   check string "aria-disabled:m-1" "aria-disabled:m-1"
-    (Tw.Utility.to_class (aria_disabled [ m 1 ]));
+    (Tw.Private.Utility.to_class (aria_disabled [ m 1 ]));
   check string "data-active:p-1" "data-active:p-1"
-    (Tw.Utility.to_class (data_active [ p 1 ]));
+    (Tw.Private.Utility.to_class (data_active [ p 1 ]));
   check string "data-inactive:m-2" "data-inactive:m-2"
-    (Tw.Utility.to_class (data_inactive [ m 2 ]));
+    (Tw.Private.Utility.to_class (data_inactive [ m 2 ]));
   (* The class name has to be the class the selector matches, and Tailwind
      brackets a data attribute carrying a value. *)
   check string "data-[state=open]:bg-blue-500" "data-[state=open]:bg-blue-500"
-    (Tw.Utility.to_class (data_state "open" (bg blue)));
+    (Tw.Private.Utility.to_class (data_state "open" (bg blue)));
   check string "data-[variant=primary]:p-3" "data-[variant=primary]:p-3"
-    (Tw.Utility.to_class (data_variant "primary" (p 3)));
+    (Tw.Private.Utility.to_class (data_variant "primary" (p 3)));
   check string "data-[status=on]:m-4" "data-[status=on]:m-4"
-    (Tw.Utility.to_class (data_custom "status" "on" (m 4)))
+    (Tw.Private.Utility.to_class (data_custom "status" "on" (m 4)))
 
 (* Test before/after pseudo-element modifiers *)
 let test_before_after_modifiers () =
-  check string "before:p-4" "before:p-4" (Tw.Utility.to_class (before [ p 4 ]));
-  check string "after:m-2" "after:m-2" (Tw.Utility.to_class (after [ m 2 ]))
+  check string "before:p-4" "before:p-4"
+    (Tw.Private.Utility.to_class (before [ p 4 ]));
+  check string "after:m-2" "after:m-2"
+    (Tw.Private.Utility.to_class (after [ m 2 ]))
 
 (* Test nested modifier class generation *)
 let test_nested_modifier_class_names () =
@@ -686,7 +692,9 @@ let test_nested_modifier_class_names () =
 let test_nested_modifier_css_generation () =
   (* Ensure dark:hover: generates valid CSS with proper media query nesting *)
   let utilities = [ dark [ hover [ bg blue ] ] ] in
-  let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
+  let css_str =
+    Tw.Css.to_string ~minify:true (Tw.Private.Build.to_css utilities)
+  in
 
   (* Should contain the escaped class name *)
   let has_class =

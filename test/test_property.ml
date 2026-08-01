@@ -1,14 +1,14 @@
 let test_split_empty () =
-  let props, rest = Tw.Property.split [] in
+  let props, rest = Tw.Private.Property.split [] in
   Alcotest.(check int) "no props" 0 (List.length props);
   Alcotest.(check int) "no rest" 0 (List.length rest)
 
 let test_dedup_empty () =
-  let deduped = Tw.Property.dedup [] in
+  let deduped = Tw.Private.Property.dedup [] in
   Alcotest.(check int) "dedup empty" 0 (List.length deduped)
 
 let test_initial_values_empty () =
-  let vals = Tw.Property.initial_values [] in
+  let vals = Tw.Private.Property.initial_values [] in
   Alcotest.(check int) "no values" 0 (List.length vals)
 
 let tests =

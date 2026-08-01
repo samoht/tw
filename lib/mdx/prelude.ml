@@ -1,4 +1,4 @@
 open Tw
 module Css = Cascade.Css
-module Style = Tw.Style
-module Var = Tw.Var
+module Style = Tw.Private.Style
+module Var = Tw.Private.Var

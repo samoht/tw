@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Scrollbar.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Scrollbar.Handler)
 
 let test_roundtrip () =
   (* scrollbar-width *)
@@ -18,10 +19,14 @@ let test_roundtrip () =
   check "scrollbar-thumb-[#ff0000]"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Scrollbar.Handler) "scrollbar";
-  Test_helpers.check_invalid_input (module Tw.Scrollbar.Handler) "scrollbar-foo";
   Test_helpers.check_invalid_input
-    (module Tw.Scrollbar.Handler)
+    (module Tw.Private.Scrollbar.Handler)
+    "scrollbar";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Scrollbar.Handler)
+    "scrollbar-foo";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Scrollbar.Handler)
     "scrollbar-gutter-foo"
 
 let tests =

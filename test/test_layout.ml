@@ -2,10 +2,12 @@ module Css = Cascade.Css
 open Alcotest
 
 let check_class = Test_helpers.check_class
-let check = Test_helpers.check_handler_roundtrip (module Tw.Layout.Handler)
+
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Layout.Handler)
 
 let check_overflow =
-  Test_helpers.check_handler_roundtrip (module Tw.Overflow.Handler)
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Overflow.Handler)
 
 let test_display_utilities () =
   check "block";
@@ -48,7 +50,7 @@ let of_string_invalid () =
   (* Invalid layout values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Layout.Handler.of_class Tw.Scheme.default class_name with
+    match Tw.Private.Layout.Handler.of_class Tw.Scheme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
@@ -64,8 +66,8 @@ let of_string_invalid () =
 (* Unknown layout type *)
 
 let test_screen_reader () =
-  check_class "sr-only" Tw.Layout.sr_only;
-  check_class "not-sr-only" Tw.Layout.not_sr_only
+  check_class "sr-only" Tw.Private.Layout.sr_only;
+  check_class "not-sr-only" Tw.Private.Layout.not_sr_only
 
 (* Tailwind emits sr-only's declarations in a fixed order (position first,
    clip-path/white-space/border-width last). Keep byte parity so the optimized

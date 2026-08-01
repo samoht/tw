@@ -1,9 +1,12 @@
 open Alcotest
 open Test_helpers
 
-let check_display = check_handler_roundtrip (module Tw.Flex.Handler)
-let check_layout = check_handler_roundtrip (module Tw.Flex_layout.Handler)
-let check_props = check_handler_roundtrip (module Tw.Flex_props.Handler)
+let check_display = check_handler_roundtrip (module Tw.Private.Flex.Handler)
+
+let check_layout =
+  check_handler_roundtrip (module Tw.Private.Flex_layout.Handler)
+
+let check_props = check_handler_roundtrip (module Tw.Private.Flex_props.Handler)
 
 let of_string_valid () =
   (* Display *)
@@ -54,10 +57,10 @@ let of_string_valid () =
 
 let of_string_invalid () =
   let fail_display =
-    Test_helpers.check_invalid_parts (module Tw.Flex.Handler)
+    Test_helpers.check_invalid_parts (module Tw.Private.Flex.Handler)
   in
   let fail_props =
-    Test_helpers.check_invalid_parts (module Tw.Flex_props.Handler)
+    Test_helpers.check_invalid_parts (module Tw.Private.Flex_props.Handler)
   in
 
   fail_display [ "flex"; "invalid" ];
@@ -78,7 +81,7 @@ let suborder_matches_tailwind () =
 (* flex-1, flex-auto, flex-initial and flex-none all write the flex shorthand
    and grow/shrink/basis write the longhands it expands to, so what an element
    ends up flexing by is decided by the order the two sheets emit them in. The
-   set is Tw.Flex's own surface, re-exports included. *)
+   set is Tw.Private.Flex's own surface, re-exports included. *)
 let rendering_matches_tailwind () =
   let classes =
     [

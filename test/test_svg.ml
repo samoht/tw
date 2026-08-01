@@ -3,8 +3,8 @@ open Alcotest
 let check_class = Test_helpers.check_class
 
 let basic_svg () =
-  check_class "fill-none" Tw.Svg.fill_none;
-  check_class "stroke-2" Tw.Svg.stroke_2
+  check_class "fill-none" Tw.Private.Svg.fill_none;
+  check_class "stroke-2" Tw.Private.Svg.stroke_2
 
 (* Shadeless stroke colours (stroke-white/black) used to be swallowed by the
    stroke-width case and rejected; the width case now only matches integers, so

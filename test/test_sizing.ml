@@ -2,7 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Sizing.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Sizing.Handler)
 
 let test_widths () =
   check "w-0";
@@ -135,7 +135,7 @@ let of_string_invalid () =
   (* Invalid sizing values *)
   let test_invalid input =
     let class_name = String.concat "-" input in
-    check_invalid_input (module Tw.Sizing.Handler) class_name
+    check_invalid_input (module Tw.Private.Sizing.Handler) class_name
   in
 
   test_invalid [ "w" ];

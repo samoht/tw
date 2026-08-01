@@ -1,14 +1,14 @@
 module Css = Cascade.Css
 open Alcotest
-open Tw.Output
-open Tw.Color
-open Tw.Padding
-open Tw.Margin
-open Tw.Modifiers
+open Tw.Private.Output
+open Tw.Private.Color
+open Tw.Private.Padding
+open Tw.Private.Margin
+open Tw.Private.Modifiers
 
 let test_is_hover_rule () =
-  let hover_rules = Tw.Rule.outputs (hover [ bg blue ]) in
-  let non_hover_rules = Tw.Rule.outputs (bg blue) in
+  let hover_rules = Tw.Private.Rule.outputs (hover [ bg blue ]) in
+  let non_hover_rules = Tw.Private.Rule.outputs (bg blue) in
 
   (match hover_rules with
   | [ hover_rule ] ->
@@ -20,27 +20,29 @@ let test_is_hover_rule () =
       check bool "detects no hover" false (is_hover_rule non_hover_rule)
   | _ -> fail "Expected single non-hover rule");
 
-  let sm_hover_rules = Tw.Rule.outputs (sm [ hover [ p 4 ] ]) in
+  let sm_hover_rules = Tw.Private.Rule.outputs (sm [ hover [ p 4 ] ]) in
   (match sm_hover_rules with
   | [ media_rule ] ->
       check bool "responsive+hover is not detected as hover" false
         (is_hover_rule media_rule)
   | _ -> fail "Expected single media rule");
 
-  let dark_hover_rules = Tw.Rule.outputs (dark [ hover [ m 2 ] ]) in
+  let dark_hover_rules = Tw.Private.Rule.outputs (dark [ hover [ m 2 ] ]) in
   (match dark_hover_rules with
   | [ regular_rule ] ->
       check bool "dark+hover is not detected as hover" false
         (is_hover_rule regular_rule)
   | _ -> fail "Expected single regular rule with nested CSS");
 
-  let focus_rules = Tw.Rule.outputs (focus [ bg ~shade:400 red ]) in
+  let focus_rules = Tw.Private.Rule.outputs (focus [ bg ~shade:400 red ]) in
   (match focus_rules with
   | [ focus_rule ] ->
       check bool "focus alone is not hover" false (is_hover_rule focus_rule)
   | _ -> fail "Expected single focus rule");
 
-  let group_hover_rules = Tw.Rule.outputs (group_hover [ text white ]) in
+  let group_hover_rules =
+    Tw.Private.Rule.outputs (group_hover [ text white ])
+  in
   match group_hover_rules with
   | [ group_rule ] ->
       check bool "group-hover is detected as hover" true

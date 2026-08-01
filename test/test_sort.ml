@@ -1,7 +1,7 @@
 module Css = Cascade.Css
 open Alcotest
-open Tw.Color
-open Tw.Padding
+open Tw.Private.Color
+open Tw.Private.Padding
 
 (* OCaml 4.14 compat *)
 let index f lst =
@@ -17,8 +17,8 @@ let index f lst =
 (* Short, reusable helper *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   let sheet =
-    Tw.Build.to_css
-      ~config:{ Tw.Build.base; forms = None; layers = true }
+    Tw.Private.Build.to_css
+      ~config:{ Tw.Private.Build.base; forms = None; layers = true }
       styles
   in
   let sheet =
@@ -73,19 +73,19 @@ let extract_utility_selectors sheet =
 
 let test_color_order () =
   check int "amber utilities order" 2
-    (let _, order = Tw.Color.utilities_order "amber" in
+    (let _, order = Tw.Private.Color.utilities_order "amber" in
      order);
   check int "blue utilities order" 3
-    (let _, order = Tw.Color.utilities_order "blue" in
+    (let _, order = Tw.Private.Color.utilities_order "blue" in
      order);
   check int "cyan utilities order" 4
-    (let _, order = Tw.Color.utilities_order "cyan" in
+    (let _, order = Tw.Private.Color.utilities_order "cyan" in
      order);
   check int "sky utilities order" 17
-    (let _, order = Tw.Color.utilities_order "sky" in
+    (let _, order = Tw.Private.Color.utilities_order "sky" in
      order);
   check int "unknown color gets 100" 100
-    (let _, order = Tw.Color.utilities_order "unknown" in
+    (let _, order = Tw.Private.Color.utilities_order "unknown" in
      order)
 
 let test_theme_layer_color_order () =
@@ -129,14 +129,15 @@ let test_cascade_order_violation () =
   (* User wants p-2 to win *)
 
   (* Extract the rules and convert to pairs *)
-  let rules = user_intent |> List.concat_map Tw.Rule.outputs in
+  let rules = user_intent |> List.concat_map Tw.Private.Rule.outputs in
 
   (* Get selector strings from the rules *)
   let selectors =
     List.map
       (fun rule ->
         match rule with
-        | Tw.Output.Regular { selector; _ } -> Css.Selector.to_string selector
+        | Tw.Private.Output.Regular { selector; _ } ->
+            Css.Selector.to_string selector
         | _ -> "")
       rules
   in
@@ -175,8 +176,8 @@ let test_cascade_prose_separation () =
   (* Test showing how sorting breaks intentional separation of .prose rules *)
 
   (* Extract prose rules to see their structure *)
-  let rules = Tw.Rule.outputs Tw.Prose.prose in
-  let pairs = Tw.Build.selector_props_pairs rules in
+  let rules = Tw.Private.Rule.outputs Tw.Private.Prose.prose in
+  let pairs = Tw.Private.Build.selector_props_pairs rules in
 
   Fmt.pr "@.=== Prose Rule Separation Test ===@.";
   Fmt.pr "Prose generates %d rules total@." (List.length pairs);
@@ -189,7 +190,7 @@ let test_cascade_prose_separation () =
   Fmt.pr "Found %d rules with selector .prose@." (List.length prose_rules);
 
   (* Apply of_grouped to see what happens *)
-  let sorted_output = Tw.Build.of_grouped pairs in
+  let sorted_output = Tw.Private.Build.of_grouped pairs in
 
   (* Find .prose rules in sorted output *)
   let sorted_prose_indices =
@@ -229,8 +230,8 @@ let test_cascade_color_override () =
   in
 
   (* Extract rules *)
-  let rules = styles |> List.concat_map Tw.Rule.outputs in
-  let pairs = Tw.Build.selector_props_pairs rules in
+  let rules = styles |> List.concat_map Tw.Private.Rule.outputs in
+  let pairs = Tw.Private.Build.selector_props_pairs rules in
 
   Fmt.pr "@.=== Color Override Cascade Test ===@.";
   Fmt.pr "User intent: bg-blue-500, text-white, bg-red-500 (red should win)@.";
@@ -261,7 +262,7 @@ let test_cascade_color_override () =
   | _ -> Fmt.pr "Could not find both colors in original@.");
 
   (* Apply of_grouped to see if order changes *)
-  let sorted_output = Tw.Build.of_grouped pairs in
+  let sorted_output = Tw.Private.Build.of_grouped pairs in
   let sorted_selectors =
     List.map
       (fun stmt ->
@@ -1356,11 +1357,13 @@ let comparator_corpus =
   ]
 
 let utility_of_corpus_class cls =
-  let modifiers, base_class = Tw.Modifiers.of_string cls in
-  match Tw.Utility.base_of_class Tw.Scheme.default base_class with
+  let modifiers, base_class = Tw.Private.Modifiers.of_string cls in
+  match Tw.Private.Utility.base_of_class Tw.Scheme.default base_class with
   | Error (`Msg m) -> Alcotest.failf "corpus class %S does not parse: %s" cls m
   | Ok b -> (
-      match Tw.Modifiers.apply modifiers (Tw.Utility.base b) with
+      match
+        Tw.Private.Modifiers.apply modifiers (Tw.Private.Utility.base b)
+      with
       | Some u -> u
       | None -> Alcotest.failf "corpus class %S: unknown modifier" cls)
 
@@ -1370,21 +1373,21 @@ let utility_of_corpus_class cls =
 let corpus_rules () =
   comparator_corpus |> Test_helpers.shuffle
   |> List.map utility_of_corpus_class
-  |> Tw.Build.indexed_rules
+  |> Tw.Private.Build.indexed_rules
 
-let describe r = Tw.Build.rule_selector r
+let describe r = Tw.Private.Build.rule_selector r
 
 let test_comparator_antisymmetry () =
   let rules = Array.of_list (corpus_rules ()) in
   let n = Array.length rules in
   Alcotest.check Alcotest.bool "corpus produced rules" true (n > 50);
   for i = 0 to n - 1 do
-    let c = Tw.Build.compare_rules rules.(i) rules.(i) in
+    let c = Tw.Private.Build.compare_rules rules.(i) rules.(i) in
     if c <> 0 then
       Alcotest.failf "compare is not reflexive on %s: %d" (describe rules.(i)) c;
     for j = i + 1 to n - 1 do
-      let ab = Tw.Build.compare_rules rules.(i) rules.(j) in
-      let ba = Tw.Build.compare_rules rules.(j) rules.(i) in
+      let ab = Tw.Private.Build.compare_rules rules.(i) rules.(j) in
+      let ba = Tw.Private.Build.compare_rules rules.(j) rules.(i) in
       if Int.compare ab 0 <> -Int.compare ba 0 then
         Alcotest.failf
           "compare is not antisymmetric:\n\
@@ -1407,9 +1410,9 @@ let test_comparator_transitivity () =
      it. The seed is printed, so a failure replays. *)
   for _ = 1 to 200_000 do
     let a = pick () and b = pick () and c = pick () in
-    let ab = sign (Tw.Build.compare_rules a b) in
-    let bc = sign (Tw.Build.compare_rules b c) in
-    let ac = sign (Tw.Build.compare_rules a c) in
+    let ab = sign (Tw.Private.Build.compare_rules a b) in
+    let bc = sign (Tw.Private.Build.compare_rules b c) in
+    let ac = sign (Tw.Private.Build.compare_rules a c) in
     let violates =
       (ab < 0 && bc < 0 && ac >= 0)
       || (ab > 0 && bc > 0 && ac <= 0)
@@ -1450,7 +1453,7 @@ let prose_p_selector prose_class =
 
 let grouped_prose_pairs prose_body_var prose_class prose_p_sel =
   let _, prose_body_v =
-    Tw.Var.binding prose_body_var (Tw.Css.oklch 37.3 0.034 259.733)
+    Tw.Private.Var.binding prose_body_var (Tw.Css.oklch 37.3 0.034 259.733)
   in
   (* Order doesn't matter for this test - all have same order *)
   let order = (1000, 0) in
@@ -1480,13 +1483,13 @@ let count_prose_rules rules =
     rules
 
 let rules_of_grouped_prose_bug () =
-  let prose_body_var = Tw.Var.channel Css.Color "prose-body" in
+  let prose_body_var = Tw.Private.Var.channel Css.Color "prose-body" in
   let prose_class = Css.Selector.class_ "prose" in
   let prose_p_sel = prose_p_selector prose_class in
   let grouped_pairs =
     grouped_prose_pairs prose_body_var prose_class prose_p_sel
   in
-  let output_rules = Tw.Build.of_grouped grouped_pairs in
+  let output_rules = Tw.Private.Build.of_grouped grouped_pairs in
   let prose_rules = count_prose_rules output_rules in
 
   Fmt.pr "@.=== test_rules_of_grouped_prose_bug ===@.";

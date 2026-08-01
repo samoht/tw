@@ -2,14 +2,14 @@ open Alcotest
 
 (* Test parsing valid class strings and converting to CSS *)
 let test_base_of_class_valid () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   match base_of_class Tw.Scheme.default "p-4" with
   | Ok base -> check string "parsed class name" "p-4" (to_class (Base base))
   | Error _ -> fail "Failed to parse p-4"
 
 (* Test parsing invalid class strings returns error *)
 let test_base_of_class_invalid () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   match base_of_class Tw.Scheme.default "invalid-class" with
   | Ok base ->
       let name = to_class (Base base) in
@@ -19,7 +19,7 @@ let test_base_of_class_invalid () =
 
 (* Test deduplication preserves order and keeps last occurrence *)
 let test_deduplicate () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   (* Parse some utilities *)
   let u1 =
     match base_of_class Tw.Scheme.default "p-0" with
@@ -43,25 +43,25 @@ let test_deduplicate () =
 
 (* Test deduplication with empty list *)
 let test_deduplicate_empty () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let result = deduplicate [] in
   check int "empty list dedup" 0 (List.length result)
 
 (* Test CSS parsing - commented out as css_of_string was removed *)
 (* let test_css_of_string_valid () =
-  match Tw.Utility.css_of_string ".test { color: red; }" with
+  match Tw.Private.Utility.css_of_string ".test { color: red; }" with
   | Ok _ -> check bool "can parse CSS" true true
   | Error _ -> fail "Failed to parse valid CSS"
 
 (* Test CSS parsing with invalid input *)
 let test_css_of_string_invalid () =
-  match Tw.Utility.css_of_string ".test { color }" with
+  match Tw.Private.Utility.css_of_string ".test { color }" with
   | Ok _ -> fail "Should not parse invalid CSS"
   | Error _ -> check bool "rejects invalid CSS" true true *)
 
 (* Test Utility.order returns correct priority and suborder *)
 let test_order_priorities () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   (* Test various utilities - using actual module assignments, not ideal
      priorities *)
   let parse_and_order class_name =
@@ -85,7 +85,7 @@ let test_order_priorities () =
 
 (* Test suborder within same priority group *)
 let test_order_suborders () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let parse_and_order class_name =
     match base_of_class Tw.Scheme.default class_name with
     | Ok u -> order u
@@ -105,7 +105,7 @@ let test_order_suborders () =
 
 (* Test that ordering is consistent *)
 let test_order_consistency () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let parse_and_order class_name =
     match base_of_class Tw.Scheme.default class_name with
     | Ok u -> order u
@@ -125,7 +125,7 @@ let test_order_consistency () =
    are derived from each handler's examples, not from a table restating the
    order. *)
 let test_order_of_property () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let order_of cls =
     match base_of_class Tw.Scheme.default cls with
     | Ok b -> order b
@@ -152,7 +152,7 @@ let test_order_of_property () =
    was read off that first declaration, so a project's [@utility] declaring one
    of these sorted after the whole sheet. *)
 let test_order_of_property_behind_a_variable () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let order_of cls =
     match base_of_class Tw.Scheme.default cls with
     | Ok b -> order b
@@ -194,7 +194,7 @@ let test_order_of_property_behind_a_variable () =
    pseudo-element style names no slot: the property belongs to the family that
    writes it on the element itself. *)
 let test_order_of_property_skips_pseudo_elements () =
-  let open Tw.Utility in
+  let open Tw.Private.Utility in
   let order_of cls =
     match base_of_class Tw.Scheme.default cls with
     | Ok b -> order b

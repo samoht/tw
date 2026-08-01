@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Contain.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Contain.Handler)
 
 let test_roundtrip () =
   check "contain-none";
@@ -11,8 +12,10 @@ let test_roundtrip () =
   check "contain-style"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Contain.Handler) "contain";
-  Test_helpers.check_invalid_input (module Tw.Contain.Handler) "contain-foo"
+  Test_helpers.check_invalid_input (module Tw.Private.Contain.Handler) "contain";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Contain.Handler)
+    "contain-foo"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

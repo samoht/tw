@@ -57,9 +57,11 @@
     - Colors, spacing, and sizes use consistent scales throughout *)
 
 (* Bind tw's own [Cursor] and [Rule] modules before [open Cascade] shadows the
-   bare names with [Cascade.Cursor] / [Cascade.Rule]. *)
-module Cursor = Cursor
-module Rule = Rule
+   bare names with [Cascade.Cursor] / [Cascade.Rule]. Local substitutions under
+   names the [open] cannot shadow: visible to the rest of this signature, not
+   exported (they reappear under [Private]). *)
+module Tw_cursor := Cursor
+module Tw_rule := Rule
 open Cascade
 
 (** {1 Core Types}
@@ -3760,26 +3762,10 @@ module Css = Css
     is exposed for advanced use cases requiring direct manipulation of CSS
     structures. *)
 
-module Prose = Prose
-(** Simple prose utilities
-
-    Provides convenient access to prose variants:
-    - Size variants: [Prose.sm], [Prose.lg], [Prose.xl], [Prose.xl2]
-    - Color themes: [Prose.gray], [Prose.slate]
-
-    Usage: [div ~tw:[prose; Prose.lg] [...]] *)
-
-module Color = Color
-(** Color conversion utilities for Tailwind v4 compatibility
-
-    Provides OKLCH color space conversion and Tailwind v4 color values. *)
-
-module Modifiers = Modifiers
-
-module Var = Var
-(** CSS variable tracking and generation *)
-
-(* Version module is now in the css library *)
+module Scheme = Scheme
+(** The theme a stylesheet is generated against: the colours, spacing, radii and
+    breakpoints a project declared in an [@theme] block, over Tailwind's
+    defaults. *)
 
 module Declared = Build.Declared
 (** Utilities a project declared with Tailwind's [@utility]. Each carries the
@@ -4087,55 +4073,70 @@ val prose_thead : t list -> t
 val prose_kbd : t list -> t
 (** [prose_kbd styles] applies [styles] to kbd elements within prose. *)
 
-module Style = Style
-module Margin = Margin
-module Padding = Padding
-module Gap = Gap
-module Flex = Flex
-module Flex_props = Flex_props
-module Flex_layout = Flex_layout
-module Alignment = Alignment
-module Borders = Borders
-module Backgrounds = Backgrounds
-module Sizing = Sizing
-module Layout = Layout
-module Overflow = Overflow
-module Typography = Typography
-module Grid = Grid
-module Grid_item = Grid_item
-module Grid_template = Grid_template
-module Divide = Divide
-module Effects = Effects
-module Transforms = Transforms
-module Interactivity = Interactivity
-module Containers = Containers
-module Filters = Filters
-module Position = Position
-module Animations = Animations
-module Transitions = Transitions
-module Forms = Forms
-module Tables = Tables
-module Svg = Svg
-module Accessibility = Accessibility
-module Output = Output
-module Build = Build
-module Theme = Theme
-module Scheme = Scheme
-module Utility = Utility
-module Spacing = Spacing
-module Box_sizing = Box_sizing
-module Tab = Tab
-module Scrollbar = Scrollbar
-module Zoom = Zoom
-module Columns = Columns
-module Contain = Contain
-module Field_sizing = Field_sizing
-module Mask_gradient = Mask_gradient
-module Masks = Masks
-module Overflow_wrap = Overflow_wrap
-module Overscroll = Overscroll
-module Scroll = Scroll
-module Text_shadow = Text_shadow
-module Touch = Touch
-module Arbitrary = Arbitrary
-module Property = Property
+(** The modules the utilities above are implemented in.
+
+    {b No stability guarantee.} Nothing here is part of the API: names, types
+    and behaviour change without notice. Every utility a project needs is
+    published flat in {!Tw} itself; this exists so the test suite can reach the
+    pipeline stages, and so a project that hits a gap has an escape hatch until
+    the gap is closed on the flat surface. *)
+module Private : sig
+  module Accessibility = Accessibility
+  module Alignment = Alignment
+  module Animations = Animations
+  module Arbitrary = Arbitrary
+  module Backgrounds = Backgrounds
+  module Borders = Borders
+  module Box_sizing = Box_sizing
+  module Build = Build
+  module Color = Color
+  module Columns = Columns
+  module Contain = Contain
+  module Containers = Containers
+  module Cursor = Tw_cursor
+  module Divide = Divide
+  module Effects = Effects
+  module Field_sizing = Field_sizing
+  module Filters = Filters
+  module Flex = Flex
+  module Flex_layout = Flex_layout
+  module Flex_props = Flex_props
+  module Forms = Forms
+  module Gap = Gap
+  module Grid = Grid
+  module Grid_item = Grid_item
+  module Grid_template = Grid_template
+  module Interactivity = Interactivity
+  module Layout = Layout
+  module Margin = Margin
+  module Mask_gradient = Mask_gradient
+  module Masks = Masks
+  module Modifiers = Modifiers
+  module Output = Output
+  module Overflow = Overflow
+  module Overflow_wrap = Overflow_wrap
+  module Overscroll = Overscroll
+  module Padding = Padding
+  module Position = Position
+  module Property = Property
+  module Prose = Prose
+  module Rule = Tw_rule
+  module Scheme = Scheme
+  module Scroll = Scroll
+  module Scrollbar = Scrollbar
+  module Sizing = Sizing
+  module Spacing = Spacing
+  module Style = Style
+  module Svg = Svg
+  module Tab = Tab
+  module Tables = Tables
+  module Text_shadow = Text_shadow
+  module Theme = Theme
+  module Touch = Touch
+  module Transforms = Transforms
+  module Transitions = Transitions
+  module Typography = Typography
+  module Utility = Utility
+  module Var = Var
+  module Zoom = Zoom
+end

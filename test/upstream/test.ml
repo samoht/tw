@@ -354,7 +354,7 @@ let setup_scheme_for_test expected =
       (fun (name, _) -> not (List.mem name standard_names))
       scheme.breakpoints
   in
-  Tw.Modifiers.register_custom_breakpoints custom_bps;
+  Tw.Private.Modifiers.register_custom_breakpoints custom_bps;
   scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
@@ -412,7 +412,7 @@ let theme_config config expected =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
-        match Tw.Var.resolve_theme_refs name with
+        match Tw.Private.Var.resolve_theme_refs name with
         | Some _ as result -> result
         | None ->
             List.find_map
@@ -430,7 +430,7 @@ let theme_config config expected =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
-        match Tw.Var.resolve_theme_refs name with
+        match Tw.Private.Var.resolve_theme_refs name with
         | Some _ as result -> result
         | None ->
             List.find_map
@@ -782,7 +782,7 @@ let run_test_case test () =
                 | None -> None)
               pairs
           in
-          Some (name, Tw.Modifiers.{ values; template })
+          Some (name, Tw.Private.Modifiers.{ values; template })
       | _ -> None
     in
     (* [@custom-variant <name> { @container <header> { @slot } }] directives,
@@ -807,9 +807,9 @@ let run_test_case test () =
           try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
-    Tw.Modifiers.register_custom_variants
+    Tw.Private.Modifiers.register_custom_variants
       (List.filter_map parse_variant_directive test.variants);
-    Tw.Modifiers.register_container_variants
+    Tw.Private.Modifiers.register_container_variants
       (List.filter_map parse_container_directive test.variants);
     (* Register custom breakpoints before parsing classes. The resulting scheme
        (base plus any custom breakpoints) is the one threaded to [Tw.to_css]
@@ -824,7 +824,7 @@ let run_test_case test () =
             breakpoints = base_scheme.breakpoints @ custom_bps;
           }
         in
-        Tw.Modifiers.register_custom_breakpoints custom_bps;
+        Tw.Private.Modifiers.register_custom_breakpoints custom_bps;
         updated_scheme
     in
     (* Thread the @theme token overrides into the scheme so utilities read them

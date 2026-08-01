@@ -1,4 +1,4 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Tab.Handler)
+let check = Test_helpers.check_handler_roundtrip (module Tw.Private.Tab.Handler)
 
 let test_roundtrip () =
   check "tab-2";
@@ -7,9 +7,9 @@ let test_roundtrip () =
   check "tab-[12px]"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab";
-  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-2.5";
-  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-unknown"
+  Test_helpers.check_invalid_input (module Tw.Private.Tab.Handler) "tab";
+  Test_helpers.check_invalid_input (module Tw.Private.Tab.Handler) "tab-2.5";
+  Test_helpers.check_invalid_input (module Tw.Private.Tab.Handler) "tab-unknown"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

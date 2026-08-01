@@ -362,7 +362,7 @@ let register_upstream_variant_directives directives =
               | None -> None)
             pairs
         in
-        Some (name, Tw.Modifiers.{ values; template })
+        Some (name, Tw.Private.Modifiers.{ values; template })
     | _ -> None
   in
   let parse_container_directive d =
@@ -382,9 +382,9 @@ let register_upstream_variant_directives directives =
         try Some (name, container_of_header header) with Failure _ -> None)
     | _ -> None
   in
-  Tw.Modifiers.register_custom_variants
+  Tw.Private.Modifiers.register_custom_variants
     (List.filter_map parse_variant_directive directives);
-  Tw.Modifiers.register_container_variants
+  Tw.Private.Modifiers.register_container_variants
     (List.filter_map parse_container_directive directives)
 
 let upstream_positive_cases filename =
@@ -464,12 +464,12 @@ let upstream_scheme config theme_vars expected =
 let class_is_emitted expected cls =
   String.contains expected '.'
   && Astring.String.is_infix
-       ~affix:("." ^ Tw.Rule.escape_class_name cls)
+       ~affix:("." ^ Tw.Private.Rule.escape_class_name cls)
        expected
 
 let check_upstream_positive_fixture_parse filename () =
   let cases = upstream_positive_cases filename in
-  Tw.Modifiers.register_custom_breakpoints
+  Tw.Private.Modifiers.register_custom_breakpoints
     [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
   let rejected =
     cases

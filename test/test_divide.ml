@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Divide.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Divide.Handler)
 
 let test_roundtrip () =
   check "divide-x";
@@ -17,8 +18,10 @@ let test_roundtrip () =
   check "divide-inherit"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo"
+  Test_helpers.check_invalid_input (module Tw.Private.Divide.Handler) "divide";
+  Test_helpers.check_invalid_input
+    (module Tw.Private.Divide.Handler)
+    "divide-foo"
 
 (* Every divide utility the parser accepts also has a typed constructor, and the
    two agree on the class name (issue #5). *)

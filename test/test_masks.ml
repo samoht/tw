@@ -1,4 +1,5 @@
-let check = Test_helpers.check_handler_roundtrip (module Tw.Masks.Handler)
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Private.Masks.Handler)
 
 let test_roundtrip () =
   check "mask-none";
@@ -27,8 +28,8 @@ let test_roundtrip () =
   check "mask-origin-view"
 
 let test_invalid () =
-  Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask-foo";
-  Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask"
+  Test_helpers.check_invalid_input (module Tw.Private.Masks.Handler) "mask-foo";
+  Test_helpers.check_invalid_input (module Tw.Private.Masks.Handler) "mask"
 
 (* The typed mask constructors are newly exposed in tw.mli; check a sample
    across the families agrees with the parser on class names. *)

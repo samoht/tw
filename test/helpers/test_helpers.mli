@@ -2,7 +2,7 @@
 
 open Cascade
 
-val check_class : string -> Tw.Utility.t -> unit
+val check_class : string -> Tw.Private.Utility.t -> unit
 (** [check_class expected t] checks that the utility [t] produces the expected
     class name string. *)
 

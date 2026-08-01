@@ -2,7 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Margin.Handler)
+let check = check_handler_roundtrip (module Tw.Private.Margin.Handler)
 
 let of_string_valid () =
   check "m-0";
@@ -40,7 +40,7 @@ let of_string_valid () =
 let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    check_invalid_input (module Tw.Margin.Handler) class_name
+    check_invalid_input (module Tw.Private.Margin.Handler) class_name
   in
 
   fail_maybe [ "m" ];
@@ -56,10 +56,10 @@ let named_spacing_requires_theme_token () =
   let themed =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
   in
-  (match Tw.Margin.Handler.of_class themed "my-form" with
+  (match Tw.Private.Margin.Handler.of_class themed "my-form" with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "my-form with theme rejected: %s" m);
-  match Tw.Margin.Handler.of_class Tw.Scheme.default "my-form" with
+  match Tw.Private.Margin.Handler.of_class Tw.Scheme.default "my-form" with
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "my-form without theme token should be rejected"
 
@@ -167,8 +167,10 @@ let test_arbitrary_length_grammar () =
        (css "ml-[calc(5%-2px)]"));
   (* class names round-trip verbatim *)
   let check c =
-    match Tw.Margin.Handler.of_class Tw.Scheme.default c with
-    | Ok u -> Alcotest.check string "roundtrip" c (Tw.Margin.Handler.to_class u)
+    match Tw.Private.Margin.Handler.of_class Tw.Scheme.default c with
+    | Ok u ->
+        Alcotest.check string "roundtrip" c
+          (Tw.Private.Margin.Handler.to_class u)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" c m
   in
   check "ml-[50%]";
