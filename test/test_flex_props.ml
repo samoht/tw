@@ -127,7 +127,9 @@ let basis_value_order_matches_tailwind () =
     ]
   in
   let css =
-    Tw.to_css ~base:false (List.map mk (Test_helpers.shuffle classes))
+    Tw.to_css
+      ~config:(Tw.Config.v ~base:false ())
+      (List.map mk (Test_helpers.shuffle classes))
   in
   let emitted =
     Test_helpers.extract_rule_selectors

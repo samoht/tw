@@ -116,7 +116,8 @@ let test_modifier_to_rule () =
 let test_arbitrary_selector_combinator () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "[&>div:first-child] keeps the child combinator" true
@@ -135,7 +136,9 @@ let test_arbitrary_selector_combinator () =
 let test_opacity_color_variant_no_leak () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   (* The base class must never appear as a standalone selector (".text-white");
@@ -153,7 +156,9 @@ let test_opacity_color_variant_no_leak () =
 let test_hover_dark_media_wrapper () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let s = css "hover:dark:text-white" in
@@ -172,7 +177,9 @@ let test_hover_dark_media_wrapper () =
 let test_outer_variant_over_child_and_pseudo () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -191,7 +198,9 @@ let test_outer_variant_over_child_and_pseudo () =
 let test_bare_arbitrary_selector_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -212,7 +221,9 @@ let test_bare_arbitrary_selector_variant () =
 let test_arbitrary_selector_stacking () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -231,7 +242,9 @@ let test_arbitrary_selector_stacking () =
 let test_opacity_supports_under_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let s = css "hover:bg-red-500/50" in
@@ -262,7 +275,9 @@ let test_opacity_supports_under_variant () =
 let test_bracketed_at_rule_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -284,7 +299,9 @@ let test_bracketed_at_rule_variant () =
 let test_in_state_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -302,7 +319,9 @@ let test_in_state_variant () =
 let test_pseudo_element_content_once () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let occurrences sub str =
@@ -325,7 +344,9 @@ let test_pseudo_element_content_once () =
 let test_attribute_variant_keeps_inner () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -345,7 +366,9 @@ let test_attribute_variant_keeps_inner () =
 let test_not_variant_keeps_inner () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -362,7 +385,9 @@ let test_not_variant_keeps_inner () =
 let test_in_variant_keeps_inner () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -379,7 +404,9 @@ let test_in_variant_keeps_inner () =
 let test_arbitrary_anchor_over_child () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "the child variant's tail stays outermost" true
@@ -393,7 +420,9 @@ let test_arbitrary_anchor_over_child () =
 let test_has_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -409,7 +438,9 @@ let test_has_variant () =
 
 let variant_css cls =
   match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Ok u ->
+      Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+      |> Tw.Css.to_string ~minify:true
   | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
 
 let variant_has cls affix =

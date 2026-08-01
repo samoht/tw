@@ -1460,10 +1460,6 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
 (* CSS Generation API *)
 (* ======================================================================== *)
 
-type config = { base : bool; forms : bool option; layers : bool }
-
-let default_config = { base = true; forms = None; layers = true }
-
 (* A statement a project's own [@utility] produced, in the shape a built-in
    utility yields, so the utilities layer sorts it by its order rather than
    receiving it after everything else. *)
@@ -1556,7 +1552,7 @@ module Declared = struct
   let v ~cls ~slot statements = { cls; slot; statements }
 end
 
-let to_css ?(theme = Theme.default) ?(config = default_config) ?(declared = [])
+let to_css ?(theme = Theme.default) ?(config = Config.default) ?(declared = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
@@ -1586,8 +1582,9 @@ let to_css ?(theme = Theme.default) ?(config = default_config) ?(declared = [])
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
-    layers ~theme ~layers:config.layers ~include_base:config.base
-      ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
+    layers ~theme ~layers:config.Config.layers ~include_base:config.Config.base
+      ?forms:config.Config.forms ~selector_props ~sorted_rules tw_classes
+      statements
   in
   Css.concat layer_results
 

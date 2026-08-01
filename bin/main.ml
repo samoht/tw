@@ -599,7 +599,9 @@ let nested_utilities ~theme names =
   | [] -> ("", [])
   | styles ->
       let sheet =
-        Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
+        Tw.to_css ~theme
+          ~config:(Tw.Config.v ~base:false ~forms:false ~layers:false ())
+          styles
       in
       (* [to_css] also emits the theme block the utilities read from. It belongs
          at the top of the sheet, not inside the rule that applied them. *)
@@ -1139,7 +1141,9 @@ let diff_single_class class_str ~(opts : gen_opts) =
     in
     let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
     let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true styles in
+    let stylesheet =
+      Tw.to_css ~theme:opts.theme ~config:(Tw.Config.v ~base:true ()) styles
+    in
     let our_css = render_css ~opts stylesheet in
     let diff =
       Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
@@ -1181,7 +1185,9 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       match tw_styles with
       | [] when class_str <> "" -> `Error (false, unknown_class_error class_str)
       | _ ->
-          let stylesheet = Tw.to_css ~base:include_base styles in
+          let stylesheet =
+            Tw.to_css ~config:(Tw.Config.v ~base:include_base ()) styles
+          in
           print_string (render_css ~opts stylesheet);
           `Ok ())
 
@@ -1281,7 +1287,9 @@ let diff_files paths ~(opts : gen_opts) =
         all_classes
       |> List.map snd
     in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true tw_styles in
+    let stylesheet =
+      Tw.to_css ~theme:opts.theme ~config:(Tw.Config.v ~base:true ()) tw_styles
+    in
     let our_css = render_css ~opts stylesheet in
     let diff =
       Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
@@ -1521,8 +1529,9 @@ let native_files paths flag ~(opts : gen_opts) =
       custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
     in
     let stylesheet =
-      Tw.to_css ~theme:opts.theme ~base:include_base ~declared:routed_declared
-        tw_styles
+      Tw.to_css ~theme:opts.theme
+        ~config:(Tw.Config.v ~base:include_base ())
+        ~declared:routed_declared tw_styles
     in
     let stylesheet =
       match routed_stmts with

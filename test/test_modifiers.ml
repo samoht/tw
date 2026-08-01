@@ -341,7 +341,9 @@ let test_modifier_class_roundtrip () =
 let test_important_prefix () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.fail m
   in
   let flex = css "!flex" in
@@ -446,7 +448,8 @@ let test_pp_modifier_strings () =
 let test_container_query_scale () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "@xs:flex is a 20rem container query" true
@@ -463,7 +466,8 @@ let test_container_query_scale () =
 let test_container_query_min_max () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -505,7 +509,9 @@ let test_apply_bracketed_has () =
 let test_has_state_shorthands () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has_infix affix cls =
@@ -531,7 +537,9 @@ let test_has_state_shorthands () =
 let test_named_anchor_and_bare_data () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -559,7 +567,9 @@ let test_named_anchor_and_bare_data () =
 let test_has_data_and_not_composition () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -581,7 +591,9 @@ let test_has_data_and_not_composition () =
 let test_has_bracket_arguments () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -602,7 +614,9 @@ let test_has_bracket_arguments () =
 let test_anchor_bracket_without_ampersand () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -727,7 +741,8 @@ let test_nested_modifier_css_generation () =
 let test_not_bracket_arbitrary_selector () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "not-[.os-macos_&]:block negates the descendant context" true
@@ -742,7 +757,9 @@ let test_not_bracket_arbitrary_selector () =
 let test_group_arbitrary_prefix () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   check bool "group-[:nth-of-type(3)_&] keeps the prefix" true
@@ -773,7 +790,8 @@ let test_invalid_bracket_modifiers () =
 let test_valid_bracket_modifiers () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let emits affix cls =

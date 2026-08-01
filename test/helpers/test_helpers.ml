@@ -29,7 +29,8 @@ let extract_rule_selectors stmts =
     stmts
 
 let our_css utilities =
-  Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
+  Tw.to_css ~config:(Tw.Config.v ~base:true ()) utilities
+  |> Css.to_string ~minify:true ~lossless:true
 
 let tailwind_css ?(forms = false) classnames =
   (* Parity tests need the pinned tailwindcss CLI; skip where it is absent (e.g.
@@ -43,7 +44,7 @@ let properties_of_class cls =
   match Tw.of_string cls with
   | Error _ -> []
   | Ok u ->
-      Tw.to_css ~base:false [ u ]
+      Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
       |> Css.fold
            (fun acc stmt ->
              match Css.as_rule stmt with

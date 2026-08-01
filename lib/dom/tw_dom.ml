@@ -28,7 +28,7 @@ let set_text_content el s = El.set_children el [ El.txt (Jstr.v s) ]
 let rebuild_css () =
   let el = ensure_style_el () in
   let styles = List.rev !all_styles in
-  let css = Tw.to_css ~base:!include_base styles in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:!include_base ()) styles in
   let css_str = Css.to_string ~minify:true css in
   set_text_content el css_str
 
@@ -56,5 +56,5 @@ let use_str s =
 
 let css () =
   let styles = List.rev !all_styles in
-  let css = Tw.to_css ~base:!include_base styles in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:!include_base ()) styles in
   Css.to_string ~minify:true css

@@ -189,7 +189,8 @@ let test_css_mode_with_colors () =
 let test_border_side_color () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -237,7 +238,8 @@ let test_border_side_color () =
 let test_border_color_var () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -262,7 +264,9 @@ let test_border_color_var () =
 let test_border_side_color_opacity () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -284,7 +288,9 @@ let test_border_side_color_opacity () =
 let test_alpha_from_a_var () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -315,7 +321,9 @@ let test_alpha_from_a_var () =
 let test_bracket_css_colors () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -362,7 +370,9 @@ let test_achromatic_none_hue () =
 let test_v433_color_families () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -382,7 +392,9 @@ let test_v433_color_families () =
 let test_full_opacity_and_important () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =

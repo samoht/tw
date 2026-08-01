@@ -4662,14 +4662,13 @@ val to_inline_style : ?theme:Theme.t -> t list -> string
     Use [to_inline_style] sparingly for dynamic or element-specific styling
     only. *)
 
-module Css = Css
-(** CSS generation utilities
+module Config = Config
+(** What a stylesheet contains besides its utilities. *)
 
-    The Css module provides lower-level CSS types and functions for working with
-    stylesheets, rules, and properties. Most users will only need the high-level
-    functions like {!val-to_css} and [stylesheet_to_string], but the Css module
-    is exposed for advanced use cases requiring direct manipulation of CSS
-    structures. *)
+module Css = Css
+(** The CSS syntax tree {!val-to_css} produces, and the renderer that turns it
+    into text. A project needs it for {!Css.to_string}; the rest is there for
+    the occasional direct manipulation of a stylesheet. *)
 
 module Theme = Theme
 (** The theme a stylesheet is generated against. *)
@@ -4682,63 +4681,25 @@ module Declared = Build.Declared
 
 val to_css :
   ?theme:Theme.t ->
-  ?base:bool ->
-  ?forms:bool ->
-  ?layers:bool ->
+  ?config:Config.t ->
   ?declared:Declared.t list ->
   t list ->
   Css.t
-(** [to_css ?theme ?base ?forms ?layers ?declared styles] generates a CSS
-    stylesheet for the given styles. [theme] (default {!Theme.default}) supplies
-    the theme values utilities read while generating CSS. [declared] carries the
-    project's own [@utility] rules, each sorting into the utilities layer at its
-    own slot.
+(** [to_css ?theme ?config ?declared us] is the stylesheet of [us]: Tailwind's
+    layers, with the rules of [us] sorted into the utilities layer and the theme
+    variables they read collected into the theme layer. [theme] (default
+    {!Theme.default}) supplies those values, [config] (default
+    {!Config.default}) says which surrounding layers to emit, and [declared]
+    carries the project's own [@utility] rules, each sorting into the utilities
+    layer at its own slot rather than after it.
 
-    The generated CSS follows Tailwind's layering and ordering conventions:
+    The utilities layer is ordered the way Tailwind orders it, by the property
+    each utility writes, so a later class in a [class] attribute does not win
+    over an earlier one by accident. Variants sort after the plain rules, with
+    breakpoints ascending.
 
-    {b 1. Layer Order:}
-    - {i base}: resets, preflight styles, and semantic element defaults
-    - {i components}: component classes (e.g., container or plugin-provided)
-    - {i utilities}: atomic utility classes (p-4, bg-red-500, etc.)
-
-    {b 2. Utility Ordering (within utilities layer):} Utilities are sorted by
-    category in the following order:
-    - {i Layout}: position, display, float, clear, isolation, object-fit,
-      overflow, overscroll
-    - {i Flexbox & Grid}: flex properties, grid properties, gap, order,
-      place-content/items/self
-    - {i Spacing}: padding, margin, space-between
-    - {i Sizing}: width, height, min/max dimensions
-    - {i Typography}: font-family, font-size, font-weight, letter-spacing,
-      line-height, text properties
-    - {i Backgrounds}: background-color, background-image, gradients
-    - {i Borders}: border-width, border-color, border-radius, border-style
-    - {i Effects}: box-shadow, opacity, mix-blend-mode
-    - {i Filters}: filter, backdrop-filter, blur, brightness, contrast
-    - {i Tables}: border-collapse, border-spacing, table-layout
-    - {i Transitions & Animation}: transition, duration, timing, delay,
-      animation
-    - {i Transforms}: scale, rotate, translate, skew
-    - {i Interactivity}: cursor, user-select, resize, scroll-behavior
-    - {i SVG}: fill, stroke
-    - {i Accessibility}: sr-only, not-sr-only
-
-    Within each category, utilities maintain a stable order. Variants (hover:,
-    sm:, etc.) are applied with responsive breakpoints in ascending order (sm →
-    md → lg → xl → 2xl) and state modifiers in Tailwind's predetermined priority
-    order.
-
-    Rendering choices such as variable inlining, minification, and optimization
-    are handled by {!Css.to_string}.
-
-    @param base Include base (Preflight) styles (default: [true])
-    @param forms
-      Include forms plugin base styles. When [true], adds base styles for native
-      HTML form elements. When not specified, auto-detects based on utility
-      classes (form-input, etc.)
-    @param layers Wrap generated rules in Tailwind cascade layers.
-
-    Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)
+    Rendering choices such as variable inlining, minification and optimisation
+    belong to {!Css.to_string}, not here. *)
 
 val clip_polygon : (float * float) list -> t
 (** [clip_polygon points] clips element to a polygon defined by percentage

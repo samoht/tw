@@ -56,7 +56,9 @@ let test_named_spacing_declares_token () =
       match Tw.of_string ~theme cls with
       | Error (`Msg m) -> Alcotest.failf "%s rejected: %s" cls m
       | Ok u ->
-          let css = Tw.to_css ~theme ~base:false [ u ] in
+          let css =
+            Tw.to_css ~theme ~config:(Tw.Config.v ~base:false ()) [ u ]
+          in
           if not (Test_helpers.has_var_in_layer "--spacing-form" "theme" css)
           then
             Alcotest.failf "%s references --spacing-form without declaring it"

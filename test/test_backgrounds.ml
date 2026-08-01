@@ -30,7 +30,9 @@ let test_gradient_colors () =
 let test_via_none () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.check string "via-none round-trips" "via-none"
@@ -46,7 +48,8 @@ let test_via_none () =
 let test_radial_conic () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -114,7 +117,8 @@ let test_of_string_invalid () =
 let test_bracket_length_keywords () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -131,7 +135,8 @@ let test_bracket_length_keywords () =
 let test_bg_position_bracket_keyword_length () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -146,7 +151,8 @@ let test_bg_position_bracket_keyword_length () =
 let test_bracket_image_literal () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -213,7 +219,8 @@ let rendering_matches_tailwind () =
 let test_bg_arbitrary_url () =
   let css_of cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   List.iter
@@ -242,7 +249,8 @@ let test_bg_arbitrary_url () =
 let test_gradient_rgba_stop () =
   let css_of cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -260,7 +268,8 @@ let test_gradient_rgba_stop () =
 let test_gradient_stop_position_properties () =
   let css =
     match Tw.of_string "from-10%" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.fail "could not parse from-10%"
   in
   Alcotest.(check bool)
@@ -279,7 +288,8 @@ let test_gradient_stop_position_properties () =
 let test_bg_var_opacity () =
   let css_of cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)

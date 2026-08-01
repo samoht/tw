@@ -70,7 +70,7 @@ let check_conflict_order () =
 let check_properties_layer () =
   (* Test that shadow utilities generate proper @layer properties with initial
      values *)
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let actual_css =
     Tw.Private.Build.to_css ~config [ Tw.Private.Effects.shadow_sm ]
   in
@@ -99,12 +99,12 @@ let check_compound_variant_theme_var () =
     | Ok u -> u
     | Error (`Msg m) -> fail m
   in
-  let css = Tw.to_css ~base:false ~layers:true [ u ] in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:false ~layers:true ()) [ u ] in
   check bool "theme layer declares --color-white" true
     (has_var_in_layer "--color-white" "theme" css)
 
 let check_css_variables_with_base () =
-  let config = { Tw.Private.Build.base = true; forms = None; layers = true } in
+  let config = Tw.Config.default in
   let css = Tw.Private.Build.to_css ~config [] in
   (* Base=true under Variables: all layers including base are present. *)
   check bool "has theme layer" true (has_layer "theme" css);
@@ -116,7 +116,7 @@ let check_css_variables_with_base () =
     (List.mem "*, ::after, ::before, ::backdrop" base_selectors)
 
 let check_css_variables_without_base () =
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let css = Tw.Private.Build.to_css ~config [ p 4 ] in
   (* Base=false under Variables: theme + components + utilities, but no base. *)
   check bool "has theme layer" true (has_layer "theme" css);
@@ -126,7 +126,7 @@ let check_css_variables_without_base () =
     (has_selector_in_layer ".p-4" "utilities" css)
 
 let check_css_inline_with_base () =
-  let config = { Tw.Private.Build.base = true; forms = None; layers = true } in
+  let config = Tw.Config.default in
   let css = Tw.Private.Build.to_css ~config [ p 4 ] in
   let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
@@ -135,7 +135,7 @@ let check_css_inline_with_base () =
     (Astring.String.is_infix ~affix:".p-4" css_str)
 
 let check_css_inline_without_base () =
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let css = Tw.Private.Build.to_css ~config [ p 4 ] in
   let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
@@ -156,11 +156,7 @@ let check_inline_style () =
 
 (* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
-  let sheet =
-    Tw.Private.Build.to_css
-      ~config:{ Tw.Private.Build.base; forms = None; layers = true }
-      styles
-  in
+  let sheet = Tw.Private.Build.to_css ~config:(Tw.Config.v ~base ()) styles in
   let sheet =
     match mode with
     | Css.Inline -> Css.inline_vars sheet
@@ -285,7 +281,9 @@ let check_property_rules_order () =
    with no family, which forced it ahead of the transforms. *)
 let check_space_reverse_after_transforms () =
   let sheet =
-    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4. ]
+    Tw.to_css
+      ~config:(Tw.Config.v ~base:false ~layers:true ())
+      [ Tw.translate_x 4; Tw.space_y 4. ]
   in
   let names = property_rule_names sheet in
   let index_of n =
@@ -313,7 +311,8 @@ let index_of_prop names n =
 let check_border_spacing_first () =
   let names =
     property_rule_names
-      (Tw.to_css ~base:false ~layers:true
+      (Tw.to_css
+         ~config:(Tw.Config.v ~base:false ~layers:true ())
          [ Tw.border_spacing 2.; Tw.translate_x 4; Tw.blur ])
   in
   let index_of = index_of_prop names in
@@ -328,7 +327,9 @@ let check_outline_style_after_ring () =
   in
   let names =
     property_rule_names
-      (Tw.to_css ~base:false ~layers:true [ outline; Tw.ring; Tw.blur ])
+      (Tw.to_css
+         ~config:(Tw.Config.v ~base:false ~layers:true ())
+         [ outline; Tw.ring; Tw.blur ])
   in
   let index_of = index_of_prop names in
   check bool "--tw-outline-style after --tw-ring-shadow" true
@@ -343,12 +344,18 @@ let check_outline_style_after_ring () =
    keeps the @property rule. *)
 let check_content_none_no_property () =
   let none_names =
-    property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content_none ])
+    property_rule_names
+      (Tw.to_css
+         ~config:(Tw.Config.v ~base:false ~layers:true ())
+         [ Tw.content_none ])
   in
   check bool "content-none emits no @property --tw-content" false
     (List.mem "--tw-content" none_names);
   let value_names =
-    property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content "x" ])
+    property_rule_names
+      (Tw.to_css
+         ~config:(Tw.Config.v ~base:false ~layers:true ())
+         [ Tw.content "x" ])
   in
   check bool "content value keeps @property --tw-content" true
     (List.mem "--tw-content" value_names)
@@ -365,7 +372,7 @@ let test_resolve_dependencies () =
 let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let sheet =
     Tw.Private.Build.to_css ~config [ Tw.Private.Borders.rounded_sm ]
     |> Css.inline_vars
@@ -421,12 +428,12 @@ let test_inline_vs_variables_diff () =
      that may still contain var() in declarations. *)
   let sheet_vars =
     Tw.Private.Build.to_css
-      ~config:{ Tw.Private.Build.base = false; forms = None; layers = true }
+      ~config:(Tw.Config.v ~base:false ())
       [ Tw.Private.Borders.rounded_sm ]
   in
   let sheet_inline =
     Tw.Private.Build.to_css
-      ~config:{ Tw.Private.Build.base = false; forms = None; layers = true }
+      ~config:(Tw.Config.v ~base:false ())
       [ Tw.Private.Borders.rounded_sm ]
     |> Css.inline_vars
   in
@@ -502,7 +509,7 @@ let test_theme_media_refs_md () =
 let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let css = Tw.Private.Build.to_css ~config [ hover [ p 4 ] ] in
   (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
@@ -521,9 +528,7 @@ let test_rule_sets_md_media () =
   (* Multiple md[...] utilities should group under a single min-width media
      block without relying on Cascade optimization. *)
   let css =
-    Tw.Private.Build.to_css
-      ~config:{ base = true; forms = None; layers = true }
-      [ md [ p 4 ]; md [ m 2 ] ]
+    Tw.Private.Build.to_css ~config:Tw.Config.default [ md [ p 4 ]; md [ m 2 ] ]
   in
   check bool "has (min-width: 48rem) media query" true
     (has_media_condition "(min-width: 48rem)" css);
@@ -808,7 +813,7 @@ let test_media_query_deduplication () =
    *   @media (min-width:768px) { .md\:grid-cols-2 { ... } }
    *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
-  let css = Tw.to_css ~base:false utilities in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities in
 
   (* Count top-level media queries in layers *)
   let rec count_toplevel_media condition stmt =
@@ -837,7 +842,7 @@ let test_media_query_deduplication () =
 (* p-0 folds to 0, so the unused --spacing token is pruned, matching
    Tailwind. *)
 let check_spacing_zero_prune () =
-  let config = { Tw.Private.Build.base = false; forms = None; layers = true } in
+  let config = Tw.Config.v ~base:false () in
   let css =
     Tw.Private.Build.to_css ~config [ p 0 ]
     |> Css.optimize ~prune_unused_custom_props:true
@@ -858,7 +863,8 @@ let test_referenced_theme_token () =
   let css cls =
     match Tw.of_string cls with
     | Error (`Msg m) -> Alcotest.failf "parse %s: %s" cls m
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
   in
   (* The "--token:" form (a declaration) appears only when the token is SET in
      @layer theme; the references are "var(--token)". *)
@@ -875,7 +881,10 @@ let test_referenced_theme_token () =
 let test_starting_style_merges () =
   let classes = [ "starting:opacity-0"; "starting:scale-90" ] in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let css =
+    Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
+  in
   let count needle =
     let n = String.length needle and h = String.length css in
     let rec go i acc =

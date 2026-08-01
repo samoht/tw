@@ -190,7 +190,9 @@ let test_content () =
   check "content-[counter(x)]";
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -228,7 +230,9 @@ let test_named_font_family () =
   let css theme cls =
     match Tw.of_string ~theme cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.Css.pp ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+    | Ok u ->
+        Tw.Css.pp ~minify:true
+          (Tw.to_css ~config:(Tw.Config.v ~base:false ()) ~theme [ u ])
   in
   let themed =
     Tw.Theme.with_overrides Tw.Theme.default
@@ -465,7 +469,9 @@ let test_text_line_height_override () =
 let test_text_bracket_functions () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -483,7 +489,9 @@ let test_text_bracket_functions () =
 let test_bracket_list_style () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -506,7 +514,9 @@ let test_font_features_value () =
   in
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   rejected "font-features-[<value>]";
@@ -540,7 +550,8 @@ let test_invalid_font_family () =
 let test_decoration_bracket_thickness () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let emits affix cls =

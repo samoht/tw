@@ -850,7 +850,11 @@ let run_test_case test () =
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
-      else Some (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities)
+      else
+        Some
+          (Tw.to_css ~theme:scheme
+             ~config:(Tw.Config.v ~base:false ~layers:false ())
+             utilities)
     in
     let our_css =
       match our_stylesheet with

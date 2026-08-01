@@ -64,11 +64,15 @@ let test_inline_styles () =
 (* prose-invert remaps the palette to the inverted vars; prose-orange overrides
    the link accent colours. Both used to be no-ops / unknown. *)
 let test_color_variants () =
-  let invert = Css.to_string (to_css ~base:false [ prose_invert ]) in
+  let invert =
+    Css.to_string (to_css ~config:(Config.v ~base:false ()) [ prose_invert ])
+  in
   Alcotest.(check bool)
     "prose-invert remaps body to the invert var" true
     (Astring.String.is_infix ~affix:"var(--tw-prose-invert-body)" invert);
-  let orange = Css.to_string (to_css ~base:false [ prose_orange ]) in
+  let orange =
+    Css.to_string (to_css ~config:(Config.v ~base:false ()) [ prose_orange ])
+  in
   Alcotest.(check bool)
     "prose-orange sets the link accent" true
     (Astring.String.is_infix ~affix:"--tw-prose-links" orange

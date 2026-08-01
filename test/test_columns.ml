@@ -36,7 +36,9 @@ let test_invalid () =
 let test_columns_arbitrary_width () =
   let css =
     match Tw.of_string "columns-[16rem]" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.fail "could not parse columns-[16rem]"
   in
   Alcotest.(check bool)

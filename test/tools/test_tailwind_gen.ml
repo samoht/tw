@@ -35,7 +35,7 @@ let test_arbitrary_color_opacity_matches_cli () =
       let tw =
         match Tw.of_string cls with
         | Ok u ->
-            Tw.to_css ~base:true [ u ]
+            Tw.to_css ~config:(Tw.Config.v ~base:true ()) [ u ]
             |> Tw.Css.optimize ~prune_unused_custom_props:true
             |> Tw.Css.to_string ~minify:true
         | Error _ -> Alcotest.failf "tw could not parse %s" cls
@@ -70,7 +70,7 @@ let test_arbitrary_url_matches_cli () =
     let tw =
       match Tw.of_string cls with
       | Ok u ->
-          Tw.to_css ~base:true [ u ]
+          Tw.to_css ~config:(Tw.Config.v ~base:true ()) [ u ]
           |> Tw.Css.optimize ~prune_unused_custom_props:true
           |> Tw.Css.to_string ~minify:true
       | Error _ -> Alcotest.failf "tw could not parse %s" cls

@@ -79,7 +79,9 @@ let suborder_matches_tailwind () =
 let test_container_variant_composition () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -102,7 +104,9 @@ let test_container_variant_composition () =
 let test_scoped_container_variant () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -117,7 +121,9 @@ let test_scoped_container_variant () =
 let test_theme_fn_container_query () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -145,7 +151,8 @@ let test_variant_width_order () =
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   let css =
-    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+    Cascade.Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
   in
   let expected =
     [

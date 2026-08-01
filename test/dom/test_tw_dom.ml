@@ -9,7 +9,7 @@ open Alcotest
 
 let css_generation () =
   let styles = Tw.[ flex; p 4; bg Tw.blue ] in
-  let css = Tw.to_css ~base:false styles in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:false ()) styles in
   let css_str = Css.to_string ~minify:true css in
   check bool "non-empty css" true (String.length css_str > 0);
   check bool "has flex" true (Astring.String.is_infix ~affix:"flex" css_str);
@@ -32,7 +32,7 @@ let dynamic_classes () =
   let color = "blue" in
   let cls = "bg-" ^ color ^ "-500 p-4 text-white" in
   let styles = Tw.of_classes_exn cls in
-  let css = Tw.to_css ~base:false styles in
+  let css = Tw.to_css ~config:(Tw.Config.v ~base:false ()) styles in
   let css_str = Css.to_string ~minify:true css in
   check bool "has bg color" true
     (Astring.String.is_infix ~affix:"background-color" css_str);

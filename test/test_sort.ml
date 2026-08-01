@@ -16,11 +16,7 @@ let index f lst =
 
 (* Short, reusable helper *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
-  let sheet =
-    Tw.Private.Build.to_css
-      ~config:{ Tw.Private.Build.base; forms = None; layers = true }
-      styles
-  in
+  let sheet = Tw.Private.Build.to_css ~config:(Tw.Config.v ~base ()) styles in
   let sheet =
     match mode with
     | Css.Inline -> Css.inline_vars sheet
@@ -415,7 +411,10 @@ let test_handler_priority_ordering () =
     ]
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let css =
+    Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
+  in
   let position needle =
     let n = String.length needle and h = String.length css in
     let rec go i =
@@ -1045,7 +1044,10 @@ let test_rounded_position_order () =
     ]
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let css =
+    Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
+  in
   let position needle =
     let n = String.length needle and h = String.length css in
     let rec go i =
@@ -1084,7 +1086,10 @@ let test_color_mix_supports_companion_order () =
     ]
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let css =
+    Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
+  in
   let occurrences needle =
     let n = String.length needle and h = String.length css in
     let rec go i acc =
@@ -1144,7 +1149,10 @@ let test_prose_margin_order () =
      .prose. Asserted directly on the emitted order. *)
   let classes = [ "me-4"; "prose"; "mt-4" ] in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let css =
+    Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
+  in
   let position needle =
     let n = String.length needle and h = String.length css in
     let rec go i =

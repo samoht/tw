@@ -26,23 +26,6 @@ module Rule_sort := Sort
 open Cascade
 (** {1 CSS generation} *)
 
-type config = {
-  base : bool;
-      (** Emit [@layer base] with Preflight reset and forms styles. Default:
-          [true]. *)
-  forms : bool option;
-      (** Include forms plugin base styles. [None] = auto-detect from utility
-          classes; [Some true] = always include; [Some false] = never include.
-      *)
-  layers : bool;
-      (** Wrap output in [@layer] directives. When [false] the same content is
-          emitted without the [@layer theme] / [@layer utilities] wrappers
-          ([@layer properties] is always kept). Default: [true]. *)
-}
-
-val default_config : config
-(** The default configuration. Base layer enabled. *)
-
 (** A utility a project declared with Tailwind's [@utility], as the CSS its body
     expanded to plus the position it takes among the built-in utilities. *)
 module Declared : sig
@@ -79,7 +62,7 @@ end
 
 val to_css :
   ?theme:Theme.t ->
-  ?config:config ->
+  ?config:Config.t ->
   ?declared:Declared.t list ->
   Utility.t list ->
   Css.t

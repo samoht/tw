@@ -33,7 +33,8 @@ let test_drop_shadow_xs () =
 let test_drop_shadow_color () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -54,7 +55,9 @@ let test_drop_shadow_color () =
 let test_drop_shadow_opacity_keeps_both_layers () =
   let css =
     match Tw.of_string "drop-shadow/50" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/50: %s" m
   in
   let has affix = Astring.String.is_infix ~affix css in
@@ -69,7 +72,9 @@ let test_drop_shadow_opacity_keeps_both_layers () =
 let test_drop_shadow_fractional_alpha () =
   let css =
     match Tw.of_string "drop-shadow/12.5" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/12.5: %s" m
   in
   Alcotest.(check bool)
@@ -99,7 +104,8 @@ let drop_shadow_slot_order () =
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   let css =
-    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+    Cascade.Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
   in
   let positions =
     List.map
@@ -149,7 +155,9 @@ let test_backdrop_blur_token () =
 let test_drop_shadow_keyword_and_alpha () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =

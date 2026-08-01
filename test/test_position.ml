@@ -40,7 +40,8 @@ let test_fractions () =
 let test_negative_and_improper_fractions () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -89,7 +90,8 @@ let named_inset_requires_theme_token () =
 let test_arbitrary_var () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -107,7 +109,9 @@ let test_arbitrary_var () =
 let test_spacing_steps () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -136,7 +140,8 @@ let test_spacing_steps () =
 let test_arbitrary_calc () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -223,7 +228,9 @@ let logical_inset_order_matches_tailwind () =
     ]
   in
   let css =
-    Tw.to_css ~base:false (List.map mk (Test_helpers.shuffle classes))
+    Tw.to_css
+      ~config:(Tw.Config.v ~base:false ())
+      (List.map mk (Test_helpers.shuffle classes))
   in
   let emitted =
     Test_helpers.extract_rule_selectors

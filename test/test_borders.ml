@@ -167,7 +167,10 @@ let rendering_matches_tailwind () =
 
 (* rounded-sm's default radius is .25rem in v4.3.1, not the old .125rem. *)
 let test_rounded_sm_default () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_sm ] |> Tw.Css.to_string in
+  let css =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ Tw.rounded_sm ]
+    |> Tw.Css.to_string
+  in
   Alcotest.(check bool)
     "rounded-sm default is .25rem" true
     (Astring.String.is_infix ~affix:"--radius-sm: .25rem" css)
@@ -175,7 +178,10 @@ let test_rounded_sm_default () =
 (* rounded-xs is a v4.3.1 addition: references var(--radius-xs) and emits the
    .125rem default token. *)
 let test_rounded_xs () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_xs ] |> Tw.Css.to_string in
+  let css =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ Tw.rounded_xs ]
+    |> Tw.Css.to_string
+  in
   Alcotest.(check bool)
     "rounded-xs default is .125rem" true
     (Astring.String.is_infix ~affix:"--radius-xs: .125rem" css);
@@ -186,7 +192,10 @@ let test_rounded_xs () =
 (* rounded-4xl is a v4.3.1 addition: references var(--radius-4xl) and emits the
    2rem default token. *)
 let test_rounded_4xl () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_4xl ] |> Tw.Css.to_string in
+  let css =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ Tw.rounded_4xl ]
+    |> Tw.Css.to_string
+  in
   Alcotest.(check bool)
     "rounded-4xl default is 2rem" true
     (Astring.String.is_infix ~affix:"--radius-4xl: 2rem" css);
@@ -200,7 +209,8 @@ let test_rounded_4xl () =
 let test_rounded_side_full_inlined () =
   let css =
     match Tw.of_string "rounded-l-full" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.fail "could not parse rounded-l-full"
   in
   Alcotest.(check bool)
@@ -218,7 +228,8 @@ let test_rounded_side_full_inlined () =
 let test_outline_widths () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -236,7 +247,8 @@ let test_outline_widths () =
 let test_outline_offset_arbitrary () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -251,7 +263,8 @@ let test_outline_offset_arbitrary () =
 let test_outline_hidden_modifier_forced_colors () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let out = css "focus:outline-hidden" in
@@ -298,7 +311,8 @@ let test_outline_ordering () =
 let test_border_side_arbitrary_width () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -315,7 +329,8 @@ let test_border_side_arbitrary_width () =
 let test_logical_side_borders () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.failf "could not parse %S" cls
   in
   Alcotest.(check bool)
@@ -338,7 +353,8 @@ let test_logical_side_borders () =
 let test_bracket_width_units () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let emits affix cls =

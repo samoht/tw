@@ -183,7 +183,8 @@ let isolation_and_float_slots () =
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   let css =
-    Cascade.Css.to_string ~minify:true (Tw.to_css ~base:false utilities)
+    Cascade.Css.to_string ~minify:true
+      (Tw.to_css ~config:(Tw.Config.v ~base:false ()) utilities)
   in
   let positions =
     List.map
@@ -225,7 +226,9 @@ let test_typed () =
 let test_object_and_z_values () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =

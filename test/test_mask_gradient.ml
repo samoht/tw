@@ -30,7 +30,9 @@ let test_invalid () =
 let test_from_zero_keeps_unit () =
   let css =
     match Tw.of_string "mask-t-from-0" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "mask-t-from-0: %s" m
   in
   Alcotest.(check bool)
@@ -43,7 +45,9 @@ let test_from_zero_keeps_unit () =
 let test_stop_colors () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.pp ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =

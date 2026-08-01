@@ -33,7 +33,8 @@ let test_translate_px_and_neg_arbitrary () =
   check "translate-x-[-1.15rem]";
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -56,7 +57,9 @@ let test_perspective_keywords () =
   check "perspective-distant";
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -169,7 +172,10 @@ let test_typed () =
    [0px] are different tokens, so the zero has to keep its unit. Leaving it to
    the length-level zero fold emits a bare [0] and diverges from Tailwind. *)
 let test_translate_zero_keeps_unit () =
-  let css = Tw.to_css ~base:false [ Tw.translate_x 0 ] |> Tw.Css.to_string in
+  let css =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ Tw.translate_x 0 ]
+    |> Tw.Css.to_string
+  in
   Alcotest.(check bool)
     "translate-x-0 writes 0px" true
     (Astring.String.is_infix ~affix:"--tw-translate-x: 0px" css)
@@ -185,7 +191,8 @@ let test_translate_spacing () =
   check "-translate-6";
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -206,7 +213,9 @@ let test_translate_spacing () =
 let test_translate_spacing_steps () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =

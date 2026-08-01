@@ -448,7 +448,7 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
      same way prose styling is driven by the [prose] utility. *)
   let css_stylesheet =
     match forms with
-    | Some forms -> Tw.to_css ~forms all_tw
+    | Some forms -> Tw.to_css ~config:(Tw.Config.v ~forms ()) all_tw
     | None -> Tw.to_css all_tw
   in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in

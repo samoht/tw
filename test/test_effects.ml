@@ -55,7 +55,8 @@ let test_ring_of_string_valid () =
 let test_ring_shadeless_color () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.check bool "ring-black sets ring color" true
@@ -96,7 +97,7 @@ let test_ring_inset_property_rules () =
   let open Tw in
   let css =
     match of_string "ring-inset" with
-    | Ok u -> to_css ~base:false [ u ] |> Css.to_string
+    | Ok u -> to_css ~config:(Config.v ~base:false ()) [ u ] |> Css.to_string
     | Error (`Msg m) -> Alcotest.failf "ring-inset: %s" m
   in
   Alcotest.check bool "ring-inset sets --tw-ring-inset" true
@@ -172,7 +173,10 @@ let rendering_matches_tailwind () =
 (* shadow-2xl's default shadow alpha is .25 (#00000040) in v4, not the .10
    (#0000001a) the smaller shadows use. *)
 let test_shadow_2xl_alpha () =
-  let css = Tw.to_css ~base:false [ Tw.shadow_2xl ] |> Tw.Css.to_string in
+  let css =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ Tw.shadow_2xl ]
+    |> Tw.Css.to_string
+  in
   Alcotest.(check bool)
     "shadow-2xl uses #00000040 alpha" true
     (Astring.String.is_infix ~affix:"#00000040" css)
@@ -180,7 +184,10 @@ let test_shadow_2xl_alpha () =
 (* The two smallest box-shadow sizes (alpha .05 = #0000000d): 2xs is a single 0
    1px shadow with no blur, xs is 0 1px 2px 0. *)
 let test_shadow_small_sizes () =
-  let css u = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
+  let css u =
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+    |> Tw.Css.to_string ~minify:true
+  in
   Alcotest.(check bool)
     "shadow-2xs uses #0000000d" true
     (Astring.String.is_infix ~affix:"#0000000d" (css Tw.shadow_2xs));
@@ -216,7 +223,9 @@ let test_inset_shadow_invalid () =
    no blur ([inset 0 1px]); sm is [inset 0 2px 4px]. *)
 let test_inset_shadow_default_scale () =
   let css cls =
-    Tw.to_css ~base:false [ Result.get_ok (Tw.of_string cls) ]
+    Tw.to_css
+      ~config:(Tw.Config.v ~base:false ())
+      [ Result.get_ok (Tw.of_string cls) ]
     |> Tw.Css.to_string ~minify:true
   in
   Alcotest.(check bool)
@@ -239,7 +248,8 @@ let test_inset_shadow_theme_override () =
       [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
   in
   let css =
-    Tw.to_css ~theme ~base:false
+    Tw.to_css ~theme
+      ~config:(Tw.Config.v ~base:false ())
       [ Result.get_ok (Tw.of_string ~theme "inset-shadow-sm") ]
     |> Tw.Css.to_string ~minify:true
   in
@@ -256,7 +266,9 @@ let test_inset_shadow_theme_override () =
 let test_shadeless_shadow_colors () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -273,7 +285,9 @@ let test_shadeless_shadow_colors () =
 let test_shadow_inner () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let out = css "shadow-inner" in
@@ -291,7 +305,9 @@ let test_shadow_inner () =
 let test_arbitrary_shadow_list () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+        |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)

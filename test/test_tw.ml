@@ -10,7 +10,7 @@ open Tw
 
 (* CSS generation *)
 let generate_tw_css ?(minify = false) styles =
-  let stylesheet = to_css ~base:true styles in
+  let stylesheet = to_css ~config:(Config.v ~base:true ()) styles in
   stylesheet |> Css.to_string ~minify ~lossless:true
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
@@ -1037,7 +1037,8 @@ let style_combination () =
 let paren_var_shorthand () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Ok u ->
+        Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   (* value is var(--x) *)
@@ -1088,7 +1089,8 @@ let unterminated_theme_call () =
       Alcotest.(check bool)
         "theme(colors.red.500) resolves" true
         (Astring.String.is_infix ~affix:"background-color: oklch("
-           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
+           (Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+           |> Tw.Css.to_string))
   | Error (`Msg m) -> Alcotest.failf "bg-[theme(colors.red.500)]: %s" m
 
 let all_colors_grays () =
@@ -1182,7 +1184,7 @@ let grid_cols_reordering () =
 (* ===== STABLE ORDERING TESTS ===== *)
 
 let gen_minified_css styles =
-  to_css ~base:true styles |> Css.to_string ~minify:true
+  to_css ~config:(Config.v ~base:true ()) styles |> Css.to_string ~minify:true
 
 let assert_stable_ordering ~label styles_a styles_b =
   let a = gen_minified_css styles_a in

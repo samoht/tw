@@ -25,7 +25,7 @@ let parse s = Result.get_ok (Tw.of_string s)
    (#00000026), not the .1 (#0000001a) tw emitted before theme-threading. *)
 let test_default_scale () =
   let css =
-    Tw.to_css ~base:false [ parse "text-shadow-2xs" ]
+    Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ parse "text-shadow-2xs" ]
     |> Tw.Css.to_string ~minify:true
   in
   Alcotest.(check bool)
@@ -41,7 +41,9 @@ let test_theme_override () =
       [ ("text-shadow-2xs", "0px 1px 0px rgb(0 0 0 / 0.1)") ]
   in
   let css =
-    Tw.to_css ~theme ~base:false [ parse "text-shadow-2xs" ]
+    Tw.to_css ~theme
+      ~config:(Tw.Config.v ~base:false ())
+      [ parse "text-shadow-2xs" ]
     |> Tw.Css.to_string ~minify:true
   in
   Alcotest.(check bool)

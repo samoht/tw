@@ -78,9 +78,8 @@ module Mask_position = struct
     | Custom of string
 end
 
-let to_css ?theme ?(base = Build.default_config.base) ?forms
-    ?(layers = Build.default_config.layers) ?declared utilities =
-  Build.to_css ?theme ~config:{ base; forms; layers } ?declared utilities
+let to_css ?theme ?config ?declared utilities =
+  Build.to_css ?theme ?config ?declared utilities
 
 let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
@@ -303,6 +302,7 @@ let of_classes_exn ?theme s =
 
 (** {1 Module Exports} *)
 
+module Config = Config
 module Css = Cascade.Css
 module Theme = Theme
 

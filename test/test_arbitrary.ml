@@ -35,7 +35,8 @@ let of_string_invalid () =
 
 let css cls =
   match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+  | Ok u ->
+      Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ] |> Tw.Css.to_string
   | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
 
 (* An arbitrary [property:value] normalises omitted whitespace around calc
@@ -92,7 +93,10 @@ let test_no_crash () =
   List.iter
     (fun cls ->
       match Tw.of_string cls with
-      | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+      | Ok u ->
+          ignore
+            (Tw.to_css ~config:(Tw.Config.v ~base:false ()) [ u ]
+            |> Tw.Css.to_string)
       | Error _ -> ())
     [
       "[--gradient-bg:var(--color-black)]/15";
