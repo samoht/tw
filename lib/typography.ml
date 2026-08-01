@@ -1438,6 +1438,29 @@ module Typography_late = struct
           | _ -> None)
       | None -> None
 
+  (* A bare number is not a CSS length, but Tailwind admits [decoration-[2]] and
+     emits it as a thickness, so it reads as px. *)
+  let parse_bare_number str =
+    let is_number_char c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
+    if str <> "" && String.for_all is_number_char str then
+      float_of_string_opt str
+    else None
+
+  (* An arbitrary decoration thickness is any CSS length. *)
+  let parse_decoration_thickness inner : Css.length option =
+    match Css.parse_length inner with
+    | Some _ as len -> len
+    | None -> (
+        match parse_bare_number inner with
+        | Some n -> Some (Px n)
+        | None -> None)
+
+  (* Tailwind converts a percentage thickness to em: 50% -> .5em. *)
+  let parse_decoration_pct inner : Css.length option =
+    match Css.parse_length inner with
+    | Some (Pct pct) -> Some (Em (pct /. 100.))
+    | _ -> None
+
   type t =
     | (* Decoration color *)
       Decoration_color of Color.color * int option
@@ -1467,8 +1490,8 @@ module Typography_late = struct
     | Decoration_thickness of int
     | Decoration_from_font
     | Decoration_auto
-    | Decoration_bracket_thickness of string
-    | Decoration_bracket_pct of string
+    | Decoration_bracket_thickness of string * Css.length
+    | Decoration_bracket_pct of string * Css.length
     | Decoration_bracket_length_var of string
     | Decoration_bracket_pct_var of string
     | (* Tracking *)
@@ -1689,11 +1712,20 @@ module Typography_late = struct
                         Ok
                           (Decoration_bracket_color_opacity (inner, c, opacity))
                     )
-                | None -> Ok (Decoration_bracket_thickness inner)
+                | None -> (
+                    match parse_decoration_thickness inner with
+                    | Some len -> Ok (Decoration_bracket_thickness (inner, len))
+                    | None -> err_not_utility)
               else if
                 String.length inner > 0 && inner.[String.length inner - 1] = '%'
-              then Ok (Decoration_bracket_pct inner)
-              else Ok (Decoration_bracket_thickness inner)
+              then
+                match parse_decoration_pct inner with
+                | Some len -> Ok (Decoration_bracket_pct (inner, len))
+                | None -> err_not_utility
+              else
+                match parse_decoration_thickness inner with
+                | Some len -> Ok (Decoration_bracket_thickness (inner, len))
+                | None -> err_not_utility
             else
               (* Try parsing as number (decoration thickness) *)
               match Parse.int_any base_str with
@@ -1960,8 +1992,8 @@ module Typography_late = struct
     | Decoration_thickness n -> "decoration-" ^ string_of_int n
     | Decoration_from_font -> "decoration-from-font"
     | Decoration_auto -> "decoration-auto"
-    | Decoration_bracket_thickness v -> "decoration-[" ^ v ^ "]"
-    | Decoration_bracket_pct v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_thickness (v, _) -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_pct (v, _) -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
     | Tracking_arbitrary v -> "tracking-[" ^ v ^ "]"
@@ -2265,21 +2297,11 @@ module Typography_late = struct
   let decoration_from_font = style [ text_decoration_thickness From_font ]
   let decoration_auto = style [ text_decoration_thickness Auto ]
 
-  let decoration_bracket_thickness v =
-    (* Parse px value from bracket: "12px" → Px 12. *)
-    let len = String.length v in
-    if len > 2 && String.sub v (len - 2) 2 = "px" then
-      let n = float_of_string (String.sub v 0 (len - 2)) in
-      style [ text_decoration_thickness (Px n) ]
-    else style [ text_decoration_thickness (Px (float_of_string v)) ]
+  let decoration_bracket_thickness (len : Css.length) =
+    style [ text_decoration_thickness len ]
 
-  let decoration_bracket_pct v =
-    (* Tailwind converts percentage to em: 50% → .5em *)
-    let len = String.length v in
-    if len > 1 && v.[len - 1] = '%' then
-      let pct = float_of_string (String.sub v 0 (len - 1)) in
-      style [ text_decoration_thickness (Em (pct /. 100.0)) ]
-    else style [ text_decoration_thickness (Em (float_of_string v /. 100.0)) ]
+  let decoration_bracket_pct (len : Css.length) =
+    style [ text_decoration_thickness len ]
 
   let decoration_bracket_length_var v =
     let bare_name = Parse.extract_var_name v in
@@ -2962,8 +2984,8 @@ module Typography_late = struct
     | Decoration_thickness n -> decoration_thickness n
     | Decoration_from_font -> decoration_from_font
     | Decoration_auto -> decoration_auto
-    | Decoration_bracket_thickness v -> decoration_bracket_thickness v
-    | Decoration_bracket_pct v -> decoration_bracket_pct v
+    | Decoration_bracket_thickness (_, len) -> decoration_bracket_thickness len
+    | Decoration_bracket_pct (_, len) -> decoration_bracket_pct len
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
     | Tracking_arbitrary v -> tracking_arbitrary v
