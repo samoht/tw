@@ -692,10 +692,46 @@ let test_group_arbitrary_prefix () =
     (Astring.String.is_infix ~affix:":is(:where(.group) p *)"
        (css "group-[&_p]:block"))
 
+(* An nth-* bracket holds an An+B expression and a supports- bracket holds an
+   @supports condition; both are taken verbatim, so content the CSS grammar has
+   no production for escapes as a parse error out of the selector or condition
+   reader. They are validated where data-[ and has-[ are. *)
+let test_invalid_bracket_modifiers () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "nth-[]:flex";
+  rejected "nth-[abc]:flex";
+  rejected "nth-last-[]:flex";
+  rejected "nth-of-type-[]:flex";
+  rejected "nth-last-of-type-[]:flex";
+  rejected "supports-[]:flex"
+
+(* The valid spellings the validation must keep accepting. *)
+let test_valid_bracket_modifiers () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits ":nth-child(2n+1)" "nth-[2n+1]:flex";
+  emits ":nth-child(3)" "nth-[3]:flex";
+  emits ":nth-last-child(2n)" "nth-last-[2n]:flex";
+  emits ":nth-of-type(odd)" "nth-of-type-[odd]:flex";
+  emits "@supports (display: grid)" "supports-[display:grid]:flex"
+
 (* Extend the suite with new tests *)
 let tests =
   tests
   @ [
+      test_case "invalid bracket modifiers" `Quick
+        test_invalid_bracket_modifiers;
+      test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick

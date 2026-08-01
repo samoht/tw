@@ -128,8 +128,25 @@ let test_alpha_fn () =
        (Result.get_ok
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 
+(* A [#...] value is only a colour when it is a hex spelling. A malformed one
+   reaches the raising hex constructor from inside [of_class], so the exception
+   escapes the parser itself. *)
+let test_invalid_hex_value () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "[color:#zz]";
+  rejected "[color:#]";
+  rejected "[color:#12345]";
+  Alcotest.(check bool)
+    "[color:#ff0000] still emits the colour" true
+    (Astring.String.is_infix ~affix:"color: #ff0000" (css "[color:#ff0000]"))
+
 let tests =
   [
+    test_case "invalid hex value" `Quick test_invalid_hex_value;
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
     test_case "property value calc operators" `Quick

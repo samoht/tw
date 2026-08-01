@@ -257,8 +257,48 @@ let test_logical_side_borders () =
     (Astring.String.is_infix
        ~affix:"border-inline-end-style: var(--tw-border-style)" (css "border-e"))
 
+(* Arbitrary outline and border widths take any CSS length unit, not just the
+   px/rem/em/% the hand-rolled suffix parsers knew: Tailwind emits
+   outline-width: 3rem for outline-[3rem] and border-width: 3vw for
+   border-[3vw]. *)
+let test_bracket_width_units () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "outline-width: 3rem" "outline-[3rem]";
+  emits "outline-width: 2em" "outline-[2em]";
+  emits "outline-width: 3px" "outline-[3px]";
+  emits "outline-width: 50%" "outline-[50%]";
+  emits "border-width: 3vw" "border-[3vw]";
+  emits "border-width: 2ch" "border-[2ch]";
+  emits "border-width: .5rem" "border-[0.5rem]";
+  emits "border-top-width: 3vw" "border-t-[3vw]"
+
+(* A bracket whose content is not a length is not an outline or border width:
+   the parser rejects it, rather than accepting it and raising from the length
+   conversion once the sheet is rendered. *)
+let test_invalid_bracket_widths () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "outline-[.]";
+  rejected "outline-[1e]";
+  rejected "outline-[-]";
+  rejected "border-[.]";
+  rejected "border-[abc]";
+  rejected "border-t-[1e]"
+
 let tests =
   [
+    test_case "bracket width units" `Quick test_bracket_width_units;
+    test_case "invalid bracket widths" `Quick test_invalid_bracket_widths;
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "rounded-xs default radius" `Quick test_rounded_xs;
     test_case "rounded-4xl default radius" `Quick test_rounded_4xl;
