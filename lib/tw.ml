@@ -65,6 +65,19 @@ include Scroll
 include Arbitrary
 module Declared = Build.Declared
 
+module Mask_stop = struct
+  type t = Mask_gradient.Handler.value =
+    | Spacing of float
+    | Percent of float
+    | Arbitrary of string
+end
+
+module Mask_position = struct
+  type t = Mask_gradient.Handler.radial_at_position =
+    | Keyword of string
+    | Custom of string
+end
+
 let to_css ?theme ?(base = Build.default_config.base) ?forms
     ?(layers = Build.default_config.layers) ?declared utilities =
   Build.to_css ?theme ~config:{ base; forms; layers } ?declared utilities

@@ -44,8 +44,8 @@ module Handler = struct
     | Arbitrary_size of string
 
   type radial_at_position =
-    | At_keyword of string (* keywords like "bottom", "top left" *)
-    | At_arbitrary of
+    | Keyword of string (* keywords like "bottom", "top left" *)
+    | Custom of
         string (* arbitrary values like "25%" - stored without brackets *)
 
   type mask_angle =
@@ -459,8 +459,8 @@ module Handler = struct
   let build_radial_at_style pos =
     let position_str =
       match pos with
-      | At_keyword s -> s
-      | At_arbitrary s -> (
+      | Keyword s -> s
+      | Custom s -> (
           match radial_at_position s with
           | Some p -> Cascade.Pp.to_string Css.Properties.pp_position_value p
           | None -> s)
@@ -1016,7 +1016,7 @@ module Handler = struct
           let inner = String.sub position 1 (String.length position - 2) in
           if radial_at_position inner = None then
             Error (`Msg ("Invalid mask-radial-at position: " ^ position))
-          else Ok (Mask_radial_at (At_arbitrary inner))
+          else Ok (Mask_radial_at (Custom inner))
         else
           (* Validate keyword positions: top, bottom, left, right, center and
              combinations *)
@@ -1026,7 +1026,7 @@ module Handler = struct
                 List.mem w [ "top"; "bottom"; "left"; "right"; "center" ])
               rest
           in
-          if is_valid_keyword then Ok (Mask_radial_at (At_keyword position))
+          if is_valid_keyword then Ok (Mask_radial_at (Keyword position))
           else Error (`Msg ("Invalid mask-radial-at position: " ^ position))
     (* mask-radial-from-*, mask-radial-to-* *)
     | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
@@ -1123,9 +1123,9 @@ module Handler = struct
     | Mask_conic_angle (Angle_arb s) -> "mask-conic-[" ^ s ^ "]"
     | Mask_conic_angle (Angle_arb_neg s) -> "-mask-conic-[" ^ s ^ "]"
     | Mask_radial -> "mask-radial"
-    | Mask_radial_at (At_keyword pos) ->
+    | Mask_radial_at (Keyword pos) ->
         "mask-radial-at-" ^ String.concat "-" (String.split_on_char ' ' pos)
-    | Mask_radial_at (At_arbitrary pos) -> "mask-radial-at-[" ^ pos ^ "]"
+    | Mask_radial_at (Custom pos) -> "mask-radial-at-[" ^ pos ^ "]"
     | Mask_radial_shape Circle -> "mask-circle"
     | Mask_radial_shape Ellipse -> "mask-ellipse"
     | Mask_radial_size Closest_corner -> "mask-radial-closest-corner"

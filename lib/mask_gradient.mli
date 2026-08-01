@@ -6,7 +6,7 @@ module Handler : sig
   include Utility.Handler
 
   type value = Spacing of float | Percent of float | Arbitrary of string
-  type radial_at_position = At_keyword of string | At_arbitrary of string
+  type radial_at_position = Keyword of string | Custom of string
 end
 
 val mask_t_from : Handler.value -> t

@@ -75,6 +75,11 @@ type color = Color.color
     {!val-blue}, etc. Colors can have shades from 50 (lightest) to 900
     (darkest). *)
 
+type size =
+  [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
+(** A t-shirt size on the width/height scale, as taken by {!val-w'} and its
+    siblings. [`Rem r] is [r] rem. *)
+
 (** {1:tailwind_colors Tailwind colors}
 
     Base colors map to the Tailwind v4 palette (shades 50–950). Use
@@ -635,6 +640,137 @@ val z : int -> t
 
     Negative values like [z (-1)] place elements behind others. *)
 
+(** {2 Display and layers} *)
+
+val contents : t
+(** [contents] sets display to contents. *)
+
+val flow_root : t
+(** [flow_root] sets display to flow-root. *)
+
+val inline_table : t
+(** [inline_table] sets display to inline-table. *)
+
+val list_item : t
+(** [list_item] sets display to list-item. *)
+
+val table_caption : t
+(** [table_caption] sets display to table-caption. *)
+
+val table_cell : t
+(** [table_cell] sets display to table-cell. *)
+
+val table_column : t
+(** [table_column] sets display to table-column. *)
+
+val table_column_group : t
+(** [table_column_group] sets display to table-column-group. *)
+
+val table_footer_group : t
+(** [table_footer_group] sets display to table-footer-group. *)
+
+val table_header_group : t
+(** [table_header_group] sets display to table-header-group. *)
+
+val table_row : t
+(** [table_row] sets display to table-row. *)
+
+val table_row_group : t
+(** [table_row_group] sets display to table-row-group. *)
+
+val isolation_auto : t
+(** [isolation_auto] does not create a new stacking context (auto). *)
+
+val z_0 : t
+(** [z_0] sets z-index to 0. *)
+
+val z_10 : t
+(** [z_10] sets z-index to 10. *)
+
+val z_20 : t
+(** [z_20] sets z-index to 20. *)
+
+val z_30 : t
+(** [z_30] sets z-index to 30. *)
+
+val z_40 : t
+(** [z_40] sets z-index to 40. *)
+
+val z_50 : t
+(** [z_50] sets z-index to 50. *)
+
+val z_auto : t
+(** [z_auto] sets z-index to auto. *)
+
+val object_bottom_left : t
+(** [object_bottom_left] sets object-position to left bottom. *)
+
+val object_bottom_right : t
+(** [object_bottom_right] sets object-position to right bottom. *)
+
+val object_left_bottom : t
+(** [object_left_bottom] sets object-position to left bottom. *)
+
+val object_left_top : t
+(** [object_left_top] sets object-position to left top. *)
+
+val object_right_bottom : t
+(** [object_right_bottom] sets object-position to right bottom. *)
+
+val object_right_top : t
+(** [object_right_top] sets object-position to right top. *)
+
+val object_top_left : t
+(** [object_top_left] sets object-position to left top. *)
+
+val object_top_right : t
+(** [object_top_right] sets object-position to right top. *)
+
+(** {2 Overflow clipping} *)
+
+val overflow_clip : t
+(** [overflow_clip] sets overflow to clip. *)
+
+val overflow_x_clip : t
+(** [overflow_x_clip] sets overflow-x to clip. *)
+
+val overflow_y_clip : t
+(** [overflow_y_clip] sets overflow-y to clip. *)
+
+(** {2 CSS containment} *)
+
+val contain_none : t
+(** [contain_none] removes all containment. *)
+
+val contain_strict : t
+(** [contain_strict] applies all containment rules except style. *)
+
+val contain_content : t
+(** [contain_content] applies layout, paint, and style containment. *)
+
+val contain_size : t
+(** [contain_size] enables size containment. Composable with other contain
+    values. *)
+
+val contain_layout : t
+(** [contain_layout] enables layout containment. Composable with other contain
+    values. *)
+
+val contain_paint : t
+(** [contain_paint] enables paint containment. Composable with other contain
+    values. *)
+
+val contain_style : t
+(** [contain_style] enables style containment. Composable with other contain
+    values. *)
+
+val contain_inline_size : t
+(** [contain_inline_size] enables inline-size containment. Composable with other
+    contain values. *)
+
+val contain_arbitrary : string -> t
+(** [contain_arbitrary value] sets contain to an arbitrary value. *)
+
 (** {1 Flexbox & Grid} *)
 
 (** {2 Flex Basis}
@@ -1094,6 +1230,58 @@ val place_self_center : t
 val place_self_stretch : t
 (** [place_self_stretch] stretches to fill both axes. *)
 
+(** {2 Safe and baseline alignment} *)
+
+val content_baseline : t
+(** [content_baseline] aligns content to baseline. *)
+
+val content_normal : t
+(** [content_normal] sets normal content alignment. *)
+
+val content_center_safe : t
+(** [content_center_safe] centers content with safe overflow. *)
+
+val content_end_safe : t
+(** [content_end_safe] aligns content to end with safe overflow. *)
+
+val content_start_safe : t
+(** [content_start_safe] aligns content to start with safe overflow. *)
+
+val justify_items_normal : t
+(** [justify_items_normal] uses the normal justification (the default). *)
+
+val justify_items_center_safe : t
+(** [justify_items_center_safe] justifies items to center with safe overflow. *)
+
+val justify_items_end_safe : t
+(** [justify_items_end_safe] justifies items to end with safe overflow. *)
+
+val place_items_baseline : t
+(** [place_items_baseline] aligns items to baseline. *)
+
+val place_items_center_safe : t
+(** [place_items_center_safe] places items at center with safe overflow. *)
+
+val place_items_end_safe : t
+(** [place_items_end_safe] places items at end with safe overflow. *)
+
+val place_items_start_safe : t
+(** [place_items_start_safe] places items at start with safe overflow. *)
+
+val place_self_center_safe : t
+(** [place_self_center_safe] places self at center with safe overflow. *)
+
+val place_self_end_safe : t
+(** [place_self_end_safe] places self at end with safe overflow. *)
+
+(** {2 Grid spans} *)
+
+val col : int -> t
+(** [col n] sets grid-column to start at line n. *)
+
+val row : int -> t
+(** [row n] sets grid-row to start at line n. *)
+
 (** {1 Spacing} *)
 
 (** {2 Padding}
@@ -1228,6 +1416,20 @@ val space_x : float -> t
 val space_y : float -> t
 (** [space_y n] sets vertical space between child elements. [n] is the spacing
     multiplier (e.g., 2.0 for space-y-2, 2.5 for space-y-2.5). *)
+
+(** {2 Axis gap keywords} *)
+
+val gap_x_px : t
+(** [gap_x_px] sets column-gap to 1px. *)
+
+val gap_x_full : t
+(** [gap_x_full] sets column-gap to 100%. *)
+
+val gap_y_px : t
+(** [gap_y_px] sets row-gap to 1px. *)
+
+val gap_y_full : t
+(** [gap_y_full] sets row-gap to 100%. *)
 
 (** {1 Sizing} *)
 
@@ -1395,6 +1597,125 @@ val size_max : t
 
 val size_fit : t
 (** [size_fit] sets both width and height to fit-content. *)
+
+(** {2 Fractional and intrinsic sizes} *)
+
+val w' : size -> t
+(** [w' sz] sets width to predefined size [sz] (e.g., [`Sm], [`Full]). *)
+
+val w_auto : t
+(** [w_auto] sets width to auto. *)
+
+val w_1_2 : t
+(** [w_1_2] sets width to 1/2. *)
+
+val w_1_3 : t
+(** [w_1_3] sets width to 1/3. *)
+
+val w_2_3 : t
+(** [w_2_3] sets width to 2/3. *)
+
+val w_1_4 : t
+(** [w_1_4] sets width to 1/4. *)
+
+val w_3_4 : t
+(** [w_3_4] sets width to 3/4. *)
+
+val w_1_5 : t
+(** [w_1_5] sets width to 1/5. *)
+
+val w_2_5 : t
+(** [w_2_5] sets width to 2/5. *)
+
+val w_3_5 : t
+(** [w_3_5] sets width to 3/5. *)
+
+val w_4_5 : t
+(** [w_4_5] sets width to 4/5. *)
+
+val h' : size -> t
+(** [h' sz] sets height to predefined size [sz]. *)
+
+val h_auto : t
+(** [h_auto] sets height to auto. *)
+
+val h_1_2 : t
+(** [h_1_2] sets height to 1/2. *)
+
+val h_1_3 : t
+(** [h_1_3] sets height to 1/3. *)
+
+val h_2_3 : t
+(** [h_2_3] sets height to 2/3. *)
+
+val h_1_4 : t
+(** [h_1_4] sets height to 1/4. *)
+
+val h_3_4 : t
+(** [h_3_4] sets height to 3/4. *)
+
+val h_1_5 : t
+(** [h_1_5] sets height to 1/5. *)
+
+val h_2_5 : t
+(** [h_2_5] sets height to 2/5. *)
+
+val h_3_5 : t
+(** [h_3_5] sets height to 3/5. *)
+
+val h_4_5 : t
+(** [h_4_5] sets height to 4/5. *)
+
+val min_w' : size -> t
+(** [min_w' sz] sets min-width to predefined size [sz]. *)
+
+val min_w_0 : t
+(** [min_w_0] sets min-width to 0. *)
+
+val min_w_min : t
+(** [min_w_min] sets min-width to min-content. *)
+
+val min_w_max : t
+(** [min_w_max] sets min-width to max-content. *)
+
+val min_w_fit : t
+(** [min_w_fit] sets min-width to fit-content. *)
+
+val max_w' : size -> t
+(** [max_w' sz] sets max-width to predefined size [sz]. *)
+
+val min_h' : size -> t
+(** [min_h' sz] sets min-height to predefined size [sz]. *)
+
+val min_h_0 : t
+(** [min_h_0] sets min-height to 0. *)
+
+val min_h_min : t
+(** [min_h_min] sets min-height to min-content. *)
+
+val min_h_max : t
+(** [min_h_max] sets min-height to max-content. *)
+
+val min_h_fit : t
+(** [min_h_fit] sets min-height to fit-content. *)
+
+val max_h' : size -> t
+(** [max_h' sz] sets max-height to predefined size [sz]. *)
+
+val max_h_none : t
+(** [max_h_none] removes the max-height constraint. *)
+
+val max_h_screen : t
+(** [max_h_screen] sets max-height to 100vh. *)
+
+val max_h_min : t
+(** [max_h_min] sets max-height to min-content. *)
+
+val max_h_max : t
+(** [max_h_max] sets max-height to max-content. *)
+
+val max_h_fit : t
+(** [max_h_fit] sets max-height to fit-content. *)
 
 (** {1 Typography} *)
 
@@ -1880,6 +2201,57 @@ val content_none : t
 
 val content : string -> t
 (** [content value] sets pseudo‑element content to [value]. *)
+
+(** {2 Display sizes, alignment and stretch} *)
+
+val text_6xl : t
+(** [text_6xl] sets font-size to 6× extra-large. *)
+
+val text_7xl : t
+(** [text_7xl] sets font-size to 7× extra-large. *)
+
+val text_8xl : t
+(** [text_8xl] sets font-size to 8× extra-large. *)
+
+val text_9xl : t
+(** [text_9xl] sets font-size to 9× extra-large. *)
+
+val font_extralight : t
+(** [font_extralight] sets font-weight to 200. *)
+
+val text_start : t
+(** [text_start] aligns text to the start (left in LTR, right in RTL). *)
+
+val text_end : t
+(** [text_end] aligns text to the end (right in LTR, left in RTL). *)
+
+val overline : t
+(** [overline] applies an overline decoration. *)
+
+val whitespace_break_spaces : t
+(** [whitespace_break_spaces] preserves whitespace with breaking at soft wrap
+    opportunities. *)
+
+val subpixel_antialiased : t
+(** [subpixel_antialiased] disables font smoothing (uses subpixel rendering). *)
+
+val font_stretch_ultra_condensed : t
+(** [font_stretch_ultra_condensed] uses ultra-condensed font stretch (50%). *)
+
+val font_stretch_extra_condensed : t
+(** [font_stretch_extra_condensed] uses extra-condensed font stretch (62.5%). *)
+
+val font_stretch_semi_condensed : t
+(** [font_stretch_semi_condensed] uses semi-condensed font stretch (87.5%). *)
+
+val font_stretch_semi_expanded : t
+(** [font_stretch_semi_expanded] uses semi-expanded font stretch (112.5%). *)
+
+val font_stretch_extra_expanded : t
+(** [font_stretch_extra_expanded] uses extra-expanded font stretch (150%). *)
+
+val font_stretch_ultra_expanded : t
+(** [font_stretch_ultra_expanded] uses ultra-expanded font stretch (200%). *)
 
 (** {1 Backgrounds} *)
 
@@ -2416,6 +2788,231 @@ val rounded_bl_full : t
 
 (* Table-related utilities moved under the Tables section. *)
 
+(** {2 Widths and logical radii} *)
+
+val border_0 : t
+(** [border_0] sets all sides to 0px border width. *)
+
+val border_2 : t
+(** [border_2] sets all sides to 2px border width. *)
+
+val border_4 : t
+(** [border_4] sets all sides to 4px border width. *)
+
+val border_8 : t
+(** [border_8] sets all sides to 8px border width. *)
+
+val border_x : t
+(** [border_x] sets horizontal borders (left/right) to 1px. *)
+
+val border_y : t
+(** [border_y] sets vertical borders (top/bottom) to 1px. *)
+
+val border_hidden : t
+(** [border_hidden] sets [--tw-border-style] and [border-style] to the CSS
+    keyword that hides a border. *)
+
+val rounded_s : t
+(** [rounded_s] sets default radius on inline-start corners. *)
+
+val rounded_s_none : t
+(** [rounded_s_none] sets no rounding on inline-start corners. *)
+
+val rounded_s_xs : t
+(** [rounded_s_xs] sets extra-small rounding on inline-start corners. *)
+
+val rounded_s_sm : t
+(** [rounded_s_sm] sets small rounding on inline-start corners. *)
+
+val rounded_s_md : t
+(** [rounded_s_md] sets medium rounding on inline-start corners. *)
+
+val rounded_s_lg : t
+(** [rounded_s_lg] sets large rounding on inline-start corners. *)
+
+val rounded_s_xl : t
+(** [rounded_s_xl] sets extra large rounding on inline-start corners. *)
+
+val rounded_s_2xl : t
+(** [rounded_s_2xl] sets 2× rounding on inline-start corners. *)
+
+val rounded_s_3xl : t
+(** [rounded_s_3xl] sets 3× rounding on inline-start corners. *)
+
+val rounded_s_4xl : t
+(** [rounded_s_4xl] sets 4× rounding on inline-start corners. *)
+
+val rounded_s_full : t
+(** [rounded_s_full] sets full rounding on inline-start corners. *)
+
+val rounded_e : t
+(** [rounded_e] sets default radius on inline-end corners. *)
+
+val rounded_e_none : t
+(** [rounded_e_none] sets no rounding on inline-end corners. *)
+
+val rounded_e_xs : t
+(** [rounded_e_xs] sets extra-small rounding on inline-end corners. *)
+
+val rounded_e_sm : t
+(** [rounded_e_sm] sets small rounding on inline-end corners. *)
+
+val rounded_e_md : t
+(** [rounded_e_md] sets medium rounding on inline-end corners. *)
+
+val rounded_e_lg : t
+(** [rounded_e_lg] sets large rounding on inline-end corners. *)
+
+val rounded_e_xl : t
+(** [rounded_e_xl] sets extra large rounding on inline-end corners. *)
+
+val rounded_e_2xl : t
+(** [rounded_e_2xl] sets 2× rounding on inline-end corners. *)
+
+val rounded_e_3xl : t
+(** [rounded_e_3xl] sets 3× rounding on inline-end corners. *)
+
+val rounded_e_4xl : t
+(** [rounded_e_4xl] sets 4× rounding on inline-end corners. *)
+
+val rounded_e_full : t
+(** [rounded_e_full] sets full rounding on inline-end corners. *)
+
+val rounded_ss : t
+(** [rounded_ss] sets default radius on start-start corner. *)
+
+val rounded_ss_none : t
+(** [rounded_ss_none] sets no rounding on start-start corner. *)
+
+val rounded_ss_xs : t
+(** [rounded_ss_xs] sets extra-small rounding on start-start corner. *)
+
+val rounded_ss_sm : t
+(** [rounded_ss_sm] sets small rounding on start-start corner. *)
+
+val rounded_ss_md : t
+(** [rounded_ss_md] sets medium rounding on start-start corner. *)
+
+val rounded_ss_lg : t
+(** [rounded_ss_lg] sets large rounding on start-start corner. *)
+
+val rounded_ss_xl : t
+(** [rounded_ss_xl] sets extra large rounding on start-start corner. *)
+
+val rounded_ss_2xl : t
+(** [rounded_ss_2xl] sets 2× rounding on start-start corner. *)
+
+val rounded_ss_3xl : t
+(** [rounded_ss_3xl] sets 3× rounding on start-start corner. *)
+
+val rounded_ss_4xl : t
+(** [rounded_ss_4xl] sets 4× rounding on start-start corner. *)
+
+val rounded_ss_full : t
+(** [rounded_ss_full] sets full rounding on start-start corner. *)
+
+val rounded_se : t
+(** [rounded_se] sets default radius on start-end corner. *)
+
+val rounded_se_none : t
+(** [rounded_se_none] sets no rounding on start-end corner. *)
+
+val rounded_se_xs : t
+(** [rounded_se_xs] sets extra-small rounding on start-end corner. *)
+
+val rounded_se_sm : t
+(** [rounded_se_sm] sets small rounding on start-end corner. *)
+
+val rounded_se_md : t
+(** [rounded_se_md] sets medium rounding on start-end corner. *)
+
+val rounded_se_lg : t
+(** [rounded_se_lg] sets large rounding on start-end corner. *)
+
+val rounded_se_xl : t
+(** [rounded_se_xl] sets extra large rounding on start-end corner. *)
+
+val rounded_se_2xl : t
+(** [rounded_se_2xl] sets 2× rounding on start-end corner. *)
+
+val rounded_se_3xl : t
+(** [rounded_se_3xl] sets 3× rounding on start-end corner. *)
+
+val rounded_se_4xl : t
+(** [rounded_se_4xl] sets 4× rounding on start-end corner. *)
+
+val rounded_se_full : t
+(** [rounded_se_full] sets full rounding on start-end corner. *)
+
+val rounded_ee : t
+(** [rounded_ee] sets default radius on end-end corner. *)
+
+val rounded_ee_none : t
+(** [rounded_ee_none] sets no rounding on end-end corner. *)
+
+val rounded_ee_xs : t
+(** [rounded_ee_xs] sets extra-small rounding on end-end corner. *)
+
+val rounded_ee_sm : t
+(** [rounded_ee_sm] sets small rounding on end-end corner. *)
+
+val rounded_ee_md : t
+(** [rounded_ee_md] sets medium rounding on end-end corner. *)
+
+val rounded_ee_lg : t
+(** [rounded_ee_lg] sets large rounding on end-end corner. *)
+
+val rounded_ee_xl : t
+(** [rounded_ee_xl] sets extra large rounding on end-end corner. *)
+
+val rounded_ee_2xl : t
+(** [rounded_ee_2xl] sets 2× rounding on end-end corner. *)
+
+val rounded_ee_3xl : t
+(** [rounded_ee_3xl] sets 3× rounding on end-end corner. *)
+
+val rounded_ee_4xl : t
+(** [rounded_ee_4xl] sets 4× rounding on end-end corner. *)
+
+val rounded_ee_full : t
+(** [rounded_ee_full] sets full rounding on end-end corner. *)
+
+val rounded_es : t
+(** [rounded_es] sets default radius on end-start corner. *)
+
+val rounded_es_none : t
+(** [rounded_es_none] sets no rounding on end-start corner. *)
+
+val rounded_es_xs : t
+(** [rounded_es_xs] sets extra-small rounding on end-start corner. *)
+
+val rounded_es_sm : t
+(** [rounded_es_sm] sets small rounding on end-start corner. *)
+
+val rounded_es_md : t
+(** [rounded_es_md] sets medium rounding on end-start corner. *)
+
+val rounded_es_lg : t
+(** [rounded_es_lg] sets large rounding on end-start corner. *)
+
+val rounded_es_xl : t
+(** [rounded_es_xl] sets extra large rounding on end-start corner. *)
+
+val rounded_es_2xl : t
+(** [rounded_es_2xl] sets 2× rounding on end-start corner. *)
+
+val rounded_es_3xl : t
+(** [rounded_es_3xl] sets 3× rounding on end-start corner. *)
+
+val rounded_es_4xl : t
+(** [rounded_es_4xl] sets 4× rounding on end-start corner. *)
+
+val rounded_es_full : t
+(** [rounded_es_full] sets full rounding on end-start corner. *)
+
+val outline : t
+(** [outline] sets outline-style from var and outline-width to 1px. *)
+
 (** {1 Effects} *)
 
 (** {2 Box Shadow}
@@ -2744,6 +3341,109 @@ val mask_type_alpha : t
 val mask_type_luminance : t
 (** [mask_type_luminance] sets [mask-type: luminance]. *)
 
+(** {2 Inset shadows and rings} *)
+
+val inset_shadow_none : t
+(** [inset_shadow_none] removes the inset shadow. *)
+
+val inset_shadow_2xs : t
+(** [inset_shadow_2xs] applies the smallest inset shadow ([inset 0 1px]). *)
+
+val inset_shadow_xs : t
+(** [inset_shadow_xs] applies an extra-small inset shadow ([inset 0 1px 1px]).
+*)
+
+val inset_shadow_sm : t
+(** [inset_shadow_sm] applies a small inset shadow ([inset 0 2px 4px]). *)
+
+val inset_shadow : t
+(** [inset_shadow] applies the inset shadow defined by the [--inset-shadow]
+    theme token. It has no default value: it is only a valid class when the
+    active theme defines that token. *)
+
+val inset_ring : t
+(** [inset_ring] applies a default (1px) inset ring. *)
+
+val ring_inset : t
+(** [ring_inset] applies an inset ring. *)
+
+(** {2 Mask gradient stops} *)
+
+(** Where a colour stop sits along a mask gradient. *)
+module Mask_stop : sig
+  type t = Mask_gradient.Handler.value =
+    | Spacing of float  (** [n] on the spacing scale, i.e. [n × 0.25rem]. *)
+    | Percent of float  (** a percentage of the mask box. *)
+    | Arbitrary of string  (** a raw CSS length. *)
+end
+
+(** Where a radial mask is centred. *)
+module Mask_position : sig
+  type t = Mask_gradient.Handler.radial_at_position =
+    | Keyword of string  (** a position keyword, e.g. ["top-left"]. *)
+    | Custom of string  (** a raw CSS position. *)
+end
+
+val mask_t_from : Mask_stop.t -> t
+(** [mask_t_from v] is the [mask-t-from-{v}] utility. *)
+
+val mask_t_to : Mask_stop.t -> t
+(** [mask_t_to v] is the [mask-t-to-{v}] utility. *)
+
+val mask_r_from : Mask_stop.t -> t
+(** [mask_r_from v] is the [mask-r-from-{v}] utility. *)
+
+val mask_r_to : Mask_stop.t -> t
+(** [mask_r_to v] is the [mask-r-to-{v}] utility. *)
+
+val mask_b_from : Mask_stop.t -> t
+(** [mask_b_from v] is the [mask-b-from-{v}] utility. *)
+
+val mask_b_to : Mask_stop.t -> t
+(** [mask_b_to v] is the [mask-b-to-{v}] utility. *)
+
+val mask_l_from : Mask_stop.t -> t
+(** [mask_l_from v] is the [mask-l-from-{v}] utility. *)
+
+val mask_l_to : Mask_stop.t -> t
+(** [mask_l_to v] is the [mask-l-to-{v}] utility. *)
+
+val mask_x_from : Mask_stop.t -> t
+(** [mask_x_from v] is the [mask-x-from-{v}] utility. *)
+
+val mask_x_to : Mask_stop.t -> t
+(** [mask_x_to v] is the [mask-x-to-{v}] utility. *)
+
+val mask_y_from : Mask_stop.t -> t
+(** [mask_y_from v] is the [mask-y-from-{v}] utility. *)
+
+val mask_y_to : Mask_stop.t -> t
+(** [mask_y_to v] is the [mask-y-to-{v}] utility. *)
+
+val mask_linear_from : Mask_stop.t -> t
+(** [mask_linear_from v] is the [mask-linear-from-{v}] utility. *)
+
+val mask_linear_to : Mask_stop.t -> t
+(** [mask_linear_to v] is the [mask-linear-to-{v}] utility. *)
+
+val mask_radial : t
+(** [mask_radial] is the [mask-radial] utility. *)
+
+val mask_radial_at : Mask_position.t -> t
+(** [mask_radial_at pos] is the [mask-radial-at-{pos}] utility. *)
+
+val mask_radial_from : Mask_stop.t -> t
+(** [mask_radial_from v] is the [mask-radial-from-{v}] utility. *)
+
+val mask_radial_to : Mask_stop.t -> t
+(** [mask_radial_to v] is the [mask-radial-to-{v}] utility. *)
+
+val mask_conic_from : Mask_stop.t -> t
+(** [mask_conic_from v] is the [mask-conic-from-{v}] utility. *)
+
+val mask_conic_to : Mask_stop.t -> t
+(** [mask_conic_to v] is the [mask-conic-to-{v}] utility. *)
+
 (** {1 Filters} *)
 
 (** {2 Filter}
@@ -2855,6 +3555,23 @@ val backdrop_blur_2xl : t
 val backdrop_blur_3xl : t
 (** [backdrop_blur_3xl] applies a 3× large backdrop blur (64px). *)
 
+(** {2 Backdrop filters} *)
+
+val backdrop_grayscale : ?n:int -> unit -> t
+(** [backdrop_grayscale ~n ()] applies n% grayscale to backdrop (0-100).
+    Defaults to 100%. *)
+
+val backdrop_invert : ?n:int -> unit -> t
+(** [backdrop_invert ~n ()] inverts backdrop colors by n% (0-100). Defaults to
+    100%. *)
+
+val backdrop_sepia : ?n:int -> unit -> t
+(** [backdrop_sepia ~n ()] applies n% sepia effect to backdrop (0-100). Defaults
+    to 100%. *)
+
+val backdrop_hue_rotate : int -> t
+(** [backdrop_hue_rotate deg] rotates backdrop hue by deg degrees. *)
+
 (** {1 Tables} *)
 
 (** {2 Border Collapse}
@@ -2890,6 +3607,16 @@ val caption_top : t
 
 val caption_bottom : t
 (** [caption_bottom] sets [caption-side: bottom]. *)
+
+(** {2 Axis border spacing} *)
+
+val border_spacing_x : float -> t
+(** [border_spacing_x n] sets horizontal table border-spacing. [n] is the
+    spacing multiplier (e.g., 4.0 for border-spacing-x-4). *)
+
+val border_spacing_y : float -> t
+(** [border_spacing_y n] sets vertical table border-spacing. [n] is the spacing
+    multiplier (e.g., 4.0 for border-spacing-y-4). *)
 
 (** {1 Transitions & Animations} *)
 
@@ -3193,6 +3920,52 @@ val animate_pulse : t
 val animate_bounce : t
 (** [animate_bounce] makes the element bounce up and down. Good for scroll
     indicators or playful UI elements. *)
+
+(** {2 Axis scale, perspective and transform-box} *)
+
+val scale_x : int -> t
+(** [scale_x n] scales element horizontally by n%. *)
+
+val scale_y : int -> t
+(** [scale_y n] scales element vertically by n%. *)
+
+val translate_x_fraction : int -> int -> t
+(** [translate_x_fraction num denom] translates element horizontally by
+    calc(num/denom * 100%). *)
+
+val translate_y_fraction : int -> int -> t
+(** [translate_y_fraction num denom] translates element vertically by
+    calc(num/denom * 100%). *)
+
+val perspective_near : t
+(** [perspective_near] sets a near perspective distance
+    ({i perspective: var(--perspective-near)}). *)
+
+val perspective_midrange : t
+(** [perspective_midrange] sets a mid-range perspective distance
+    ({i perspective: var(--perspective-midrange)}). *)
+
+val perspective_distant : t
+(** [perspective_distant] sets a distant perspective
+    ({i perspective: var(--perspective-distant)}). *)
+
+val transform_box_border : t
+(** [transform_box_border] sets the reference box for transform to border-box.
+*)
+
+val transform_box_content : t
+(** [transform_box_content] sets the reference box for transform to content-box.
+*)
+
+val transform_box_fill : t
+(** [transform_box_fill] sets the reference box for transform to fill-box. *)
+
+val transform_box_stroke : t
+(** [transform_box_stroke] sets the reference box for transform to stroke-box.
+*)
+
+val transform_box_view : t
+(** [transform_box_view] sets the reference box for transform to view-box. *)
 
 (** {1 Forms}
     @see <https://github.com/tailwindlabs/tailwindcss-forms> Forms Plugin *)
@@ -3569,6 +4342,108 @@ val will_change_contents : t
 val will_change_transform : t
 (** [will_change_transform] optimizes for transform changes. *)
 
+(** {2 Cursor keywords} *)
+
+val cursor_alias : t
+(** [cursor_alias] sets cursor to alias. *)
+
+val cursor_all_scroll : t
+(** [cursor_all_scroll] sets cursor to all-scroll. *)
+
+val cursor_cell : t
+(** [cursor_cell] sets cursor to cell. *)
+
+val cursor_col_resize : t
+(** [cursor_col_resize] sets cursor to column resize. *)
+
+val cursor_context_menu : t
+(** [cursor_context_menu] sets cursor to context menu. *)
+
+val cursor_copy : t
+(** [cursor_copy] sets cursor to copy. *)
+
+val cursor_crosshair : t
+(** [cursor_crosshair] sets cursor to crosshair. *)
+
+val cursor_e_resize : t
+(** [cursor_e_resize] sets cursor to east resize. *)
+
+val cursor_ew_resize : t
+(** [cursor_ew_resize] sets cursor to east-west resize. *)
+
+val cursor_grab : t
+(** [cursor_grab] sets cursor to grab/open hand. *)
+
+val cursor_grabbing : t
+(** [cursor_grabbing] sets cursor to grabbing/closed hand. *)
+
+val cursor_help : t
+(** [cursor_help] sets cursor to help cursor. *)
+
+val cursor_n_resize : t
+(** [cursor_n_resize] sets cursor to north resize. *)
+
+val cursor_ne_resize : t
+(** [cursor_ne_resize] sets cursor to northeast resize. *)
+
+val cursor_nesw_resize : t
+(** [cursor_nesw_resize] sets cursor to northeast-southwest resize. *)
+
+val cursor_no_drop : t
+(** [cursor_no_drop] sets cursor to no-drop. *)
+
+val cursor_none : t
+(** [cursor_none] sets cursor to none. *)
+
+val cursor_ns_resize : t
+(** [cursor_ns_resize] sets cursor to north-south resize. *)
+
+val cursor_nw_resize : t
+(** [cursor_nw_resize] sets cursor to northwest resize. *)
+
+val cursor_nwse_resize : t
+(** [cursor_nwse_resize] sets cursor to northwest-southeast resize. *)
+
+val cursor_progress : t
+(** [cursor_progress] sets cursor to progress. *)
+
+val cursor_row_resize : t
+(** [cursor_row_resize] sets cursor to row resize. *)
+
+val cursor_s_resize : t
+(** [cursor_s_resize] sets cursor to south resize. *)
+
+val cursor_se_resize : t
+(** [cursor_se_resize] sets cursor to southeast resize. *)
+
+val cursor_sw_resize : t
+(** [cursor_sw_resize] sets cursor to southwest resize. *)
+
+val cursor_text : t
+(** [cursor_text] sets cursor to text/I-beam cursor. *)
+
+val cursor_vertical_text : t
+(** [cursor_vertical_text] sets cursor to vertical text. *)
+
+val cursor_w_resize : t
+(** [cursor_w_resize] sets cursor to west resize. *)
+
+val cursor_zoom_in : t
+(** [cursor_zoom_in] sets cursor to zoom in. *)
+
+val cursor_zoom_out : t
+(** [cursor_zoom_out] sets cursor to zoom out. *)
+
+(** {2 Appearance} *)
+
+val appearance_auto : Utility.t
+(** [appearance_auto] uses native OS/browser control styling (default). *)
+
+(** {2 Tab size} *)
+
+val tab : int -> t
+(** [tab n] sets [tab-size] to [n]. *)
+
 (** {1 SVG} *)
 
 (** {2 Fill}
@@ -3586,6 +4461,32 @@ val will_change_transform : t
 
 (** Stroke width utilities are available in the Svg module. *)
 
+(** {2 Fill and stroke} *)
+
+val fill_none : t
+(** [fill_none] removes fill from SVG elements. *)
+
+val fill_current : t
+(** [fill_current] sets fill to currentColor. *)
+
+val stroke_none : t
+(** [stroke_none] removes stroke from SVG elements. *)
+
+val stroke_current : t
+(** [stroke_current] sets stroke to currentColor. *)
+
+val stroke_0 : t
+(** [stroke_0] sets stroke-width to 0. *)
+
+val stroke_1 : t
+(** [stroke_1] sets stroke-width to 1. *)
+
+val stroke_2 : t
+(** [stroke_2] sets stroke-width to 2. *)
+
+val stroke_width : int -> t
+(** [stroke_width n] sets stroke-width to n. *)
+
 (** {1 Accessibility} *)
 
 (** {2 Forced Color Adjust}
@@ -3601,6 +4502,16 @@ val sr_only : t
 val not_sr_only : t
 (** [not_sr_only] reverses {!val-sr_only}; it makes previously
     screen-reader-only content visible. *)
+
+(** {2 Forced colours} *)
+
+val forced_color_adjust_auto : t
+(** [forced_color_adjust_auto] allows the browser to apply forced color
+    adjustments. *)
+
+val forced_color_adjust_none : t
+(** [forced_color_adjust_none] prevents the browser from applying forced color
+    adjustments. *)
 
 (** {1 Prose Typography}
 
@@ -4072,6 +4983,392 @@ val prose_thead : t list -> t
 
 val prose_kbd : t list -> t
 (** [prose_kbd styles] applies [styles] to kbd elements within prose. *)
+
+(** {2 Structural, form-state and media variants} *)
+
+val group_hocus : t list -> t
+(** [group_hocus styles] applies [styles] when .group:hover or .group:focus. *)
+
+val peer_hocus : t list -> t
+(** [peer_hocus styles] applies [styles] when .peer:hover or .peer:focus. *)
+
+val max_sm : t list -> t
+(** [max_sm styles] applies [styles] below the small breakpoint. *)
+
+val max_md : t list -> t
+(** [max_md styles] applies [styles] below the medium breakpoint. *)
+
+val max_lg : t list -> t
+(** [max_lg styles] applies [styles] below the large breakpoint. *)
+
+val max_xl : t list -> t
+(** [max_xl styles] applies [styles] below the extra-large breakpoint. *)
+
+val max_xl2 : t list -> t
+(** [max_xl2 styles] applies [styles] below the 2xl breakpoint. *)
+
+val min_arbitrary : float -> t list -> t
+(** [min_arbitrary px styles] applies [styles] at min-width:[px]px. *)
+
+val max_arbitrary : float -> t list -> t
+(** [max_arbitrary px styles] applies [styles] below [px]px. *)
+
+val first : t list -> t
+(** [first styles] applies [styles] on :first-child. *)
+
+val last : t list -> t
+(** [last styles] applies [styles] on :last-child. *)
+
+val only : t list -> t
+(** [only styles] applies [styles] on :only-child. *)
+
+val odd : t list -> t
+(** [odd styles] applies [styles] on :nth-child(odd). *)
+
+val even : t list -> t
+(** [even styles] applies [styles] on :nth-child(even). *)
+
+val first_of_type : t list -> t
+(** [first_of_type styles] applies [styles] on :first-of-type. *)
+
+val last_of_type : t list -> t
+(** [last_of_type styles] applies [styles] on :last-of-type. *)
+
+val only_of_type : t list -> t
+(** [only_of_type styles] applies [styles] on :only-of-type. *)
+
+val nth : string -> t list -> t
+(** [nth expr styles] applies [styles] on :nth-child([expr]). *)
+
+val nth_last : string -> t list -> t
+(** [nth_last expr styles] applies [styles] on :nth-last-child([expr]). *)
+
+val empty : t list -> t
+(** [empty styles] applies [styles] on :empty. *)
+
+val checked : t list -> t
+(** [checked styles] applies [styles] on :checked. *)
+
+val indeterminate : t list -> t
+(** [indeterminate styles] applies [styles] on :indeterminate. *)
+
+val default : t list -> t
+(** [default styles] applies [styles] on :default. *)
+
+val required : t list -> t
+(** [required styles] applies [styles] on :required. *)
+
+val valid : t list -> t
+(** [valid styles] applies [styles] on :valid. *)
+
+val invalid : t list -> t
+(** [invalid styles] applies [styles] on :invalid. *)
+
+val in_range : t list -> t
+(** [in_range styles] applies [styles] on :in-range. *)
+
+val out_of_range : t list -> t
+(** [out_of_range styles] applies [styles] on :out-of-range. *)
+
+val placeholder_shown : t list -> t
+(** [placeholder_shown styles] applies [styles] on :placeholder-shown. *)
+
+val autofill : t list -> t
+(** [autofill styles] applies [styles] on :autofill. *)
+
+val read_only : t list -> t
+(** [read_only styles] applies [styles] on :read-only. *)
+
+val read_write : t list -> t
+(** [read_write styles] applies [styles] on :read-write. *)
+
+val optional : t list -> t
+(** [optional styles] applies [styles] on :optional. *)
+
+val open_ : t list -> t
+(** [open_ styles] applies [styles] on :is(:popover-open, [open]). *)
+
+val enabled : t list -> t
+(** [enabled styles] applies [styles] on :enabled. *)
+
+val target : t list -> t
+(** [target styles] applies [styles] on :target. *)
+
+val visited : t list -> t
+(** [visited styles] applies [styles] on :visited. *)
+
+val inert : t list -> t
+(** [inert styles] applies [styles] on inert elements. *)
+
+val user_valid : t list -> t
+(** [user_valid styles] applies [styles] on :user-valid. *)
+
+val user_invalid : t list -> t
+(** [user_invalid styles] applies [styles] on :user-invalid. *)
+
+val group_first : t list -> t
+(** [group_first styles] applies [styles] when in a group-first context. *)
+
+val group_last : t list -> t
+(** [group_last styles] applies [styles] when in a group-last context. *)
+
+val group_only : t list -> t
+(** [group_only styles] applies [styles] when in a group-only context. *)
+
+val group_odd : t list -> t
+(** [group_odd styles] applies [styles] when in a group-odd context. *)
+
+val group_even : t list -> t
+(** [group_even styles] applies [styles] when in a group-even context. *)
+
+val group_first_of_type : t list -> t
+(** [group_first_of_type styles] applies [styles] when in a group-first-of-type
+    context. *)
+
+val group_last_of_type : t list -> t
+(** [group_last_of_type styles] applies [styles] when in a group-last-of-type
+    context. *)
+
+val group_only_of_type : t list -> t
+(** [group_only_of_type styles] applies [styles] when in a group-only-of-type
+    context. *)
+
+val peer_first : t list -> t
+(** [peer_first styles] applies [styles] when a peer is first. *)
+
+val peer_last : t list -> t
+(** [peer_last styles] applies [styles] when a peer is last. *)
+
+val peer_only : t list -> t
+(** [peer_only styles] applies [styles] when a peer is only. *)
+
+val peer_odd : t list -> t
+(** [peer_odd styles] applies [styles] when a peer is odd. *)
+
+val peer_even : t list -> t
+(** [peer_even styles] applies [styles] when a peer is even. *)
+
+val peer_first_of_type : t list -> t
+(** [peer_first_of_type styles] applies [styles] when a peer is first-of-type.
+*)
+
+val peer_last_of_type : t list -> t
+(** [peer_last_of_type styles] applies [styles] when a peer is last-of-type. *)
+
+val peer_only_of_type : t list -> t
+(** [peer_only_of_type styles] applies [styles] when a peer is only-of-type. *)
+
+val group_active : t list -> t
+(** [group_active styles] applies [styles] when the group is active. *)
+
+val group_visited : t list -> t
+(** [group_visited styles] applies [styles] when the group is visited. *)
+
+val group_disabled : t list -> t
+(** [group_disabled styles] applies [styles] when the group is disabled. *)
+
+val group_checked : t list -> t
+(** [group_checked styles] applies [styles] when the group is checked. *)
+
+val group_empty : t list -> t
+(** [group_empty styles] applies [styles] when the group is empty. *)
+
+val group_required : t list -> t
+(** [group_required styles] applies [styles] when the group is required. *)
+
+val group_valid : t list -> t
+(** [group_valid styles] applies [styles] when the group is valid. *)
+
+val group_invalid : t list -> t
+(** [group_invalid styles] applies [styles] when the group is invalid. *)
+
+val group_indeterminate : t list -> t
+(** [group_indeterminate styles] applies [styles] when the group is
+    indeterminate. *)
+
+val group_default : t list -> t
+(** [group_default styles] applies [styles] when the group is default. *)
+
+val group_open : t list -> t
+(** [group_open styles] applies [styles] when the group is open. *)
+
+val group_target : t list -> t
+(** [group_target styles] applies [styles] when the group is the target. *)
+
+val group_optional : t list -> t
+(** [group_optional styles] applies [styles] when the group is optional. *)
+
+val group_read_only : t list -> t
+(** [group_read_only styles] applies [styles] when the group is read-only. *)
+
+val group_read_write : t list -> t
+(** [group_read_write styles] applies [styles] when the group is read-write. *)
+
+val group_inert : t list -> t
+(** [group_inert styles] applies [styles] when the group is inert. *)
+
+val group_user_valid : t list -> t
+(** [group_user_valid styles] applies [styles] when the group is user-valid. *)
+
+val group_user_invalid : t list -> t
+(** [group_user_invalid styles] applies [styles] when the group is user-invalid.
+*)
+
+val group_placeholder_shown : t list -> t
+(** [group_placeholder_shown styles] applies [styles] when the group placeholder
+    is shown. *)
+
+val group_autofill : t list -> t
+(** [group_autofill styles] applies [styles] when the group is autofilled. *)
+
+val group_in_range : t list -> t
+(** [group_in_range styles] applies [styles] when the group is in range. *)
+
+val group_out_of_range : t list -> t
+(** [group_out_of_range styles] applies [styles] when the group is out of range.
+*)
+
+val group_focus_within : t list -> t
+(** [group_focus_within styles] applies [styles] when focus is within the group.
+*)
+
+val group_focus_visible : t list -> t
+(** [group_focus_visible styles] applies [styles] when group focus is visible.
+*)
+
+val group_enabled : t list -> t
+(** [group_enabled styles] applies [styles] when the group is enabled. *)
+
+val peer_active : t list -> t
+(** [peer_active styles] applies [styles] when a peer is active. *)
+
+val peer_visited : t list -> t
+(** [peer_visited styles] applies [styles] when a peer is visited. *)
+
+val peer_disabled : t list -> t
+(** [peer_disabled styles] applies [styles] when a peer is disabled. *)
+
+val peer_empty : t list -> t
+(** [peer_empty styles] applies [styles] when a peer is empty. *)
+
+val peer_required : t list -> t
+(** [peer_required styles] applies [styles] when a peer is required. *)
+
+val peer_valid : t list -> t
+(** [peer_valid styles] applies [styles] when a peer is valid. *)
+
+val peer_invalid : t list -> t
+(** [peer_invalid styles] applies [styles] when a peer is invalid. *)
+
+val peer_indeterminate : t list -> t
+(** [peer_indeterminate styles] applies [styles] when a peer is indeterminate.
+*)
+
+val peer_default : t list -> t
+(** [peer_default styles] applies [styles] when a peer is default. *)
+
+val peer_open : t list -> t
+(** [peer_open styles] applies [styles] when a peer is open. *)
+
+val peer_target : t list -> t
+(** [peer_target styles] applies [styles] when a peer is the target. *)
+
+val peer_optional : t list -> t
+(** [peer_optional styles] applies [styles] when a peer is optional. *)
+
+val peer_read_only : t list -> t
+(** [peer_read_only styles] applies [styles] when a peer is read-only. *)
+
+val peer_read_write : t list -> t
+(** [peer_read_write styles] applies [styles] when a peer is read-write. *)
+
+val peer_inert : t list -> t
+(** [peer_inert styles] applies [styles] when a peer is inert. *)
+
+val peer_user_valid : t list -> t
+(** [peer_user_valid styles] applies [styles] when a peer is user-valid. *)
+
+val peer_user_invalid : t list -> t
+(** [peer_user_invalid styles] applies [styles] when a peer is user-invalid. *)
+
+val peer_placeholder_shown : t list -> t
+(** [peer_placeholder_shown styles] applies [styles] when a peer placeholder is
+    shown. *)
+
+val peer_autofill : t list -> t
+(** [peer_autofill styles] applies [styles] when a peer is autofilled. *)
+
+val peer_in_range : t list -> t
+(** [peer_in_range styles] applies [styles] when a peer is in range. *)
+
+val peer_out_of_range : t list -> t
+(** [peer_out_of_range styles] applies [styles] when a peer is out of range. *)
+
+val peer_focus_within : t list -> t
+(** [peer_focus_within styles] applies [styles] when focus is within a peer. *)
+
+val peer_focus_visible : t list -> t
+(** [peer_focus_visible styles] applies [styles] when peer focus is visible. *)
+
+val peer_enabled : t list -> t
+(** [peer_enabled styles] applies [styles] when a peer is enabled. *)
+
+val marker : t list -> t
+(** [marker styles] applies [styles] to the [::marker] pseudo-element. *)
+
+val selection : t list -> t
+(** [selection styles] applies [styles] to the [::selection] pseudo-element. *)
+
+val placeholder : t list -> t
+(** [placeholder styles] applies [styles] to the [::placeholder] pseudo-element.
+*)
+
+val backdrop : t list -> t
+(** [backdrop styles] applies [styles] to the [::backdrop] pseudo-element. *)
+
+val file : t list -> t
+(** [file styles] applies [styles] to the [::file-selector-button]
+    pseudo-element. *)
+
+val first_letter : t list -> t
+(** [first_letter styles] applies [styles] to the [::first-letter]
+    pseudo-element. *)
+
+val first_line : t list -> t
+(** [first_line styles] applies [styles] to the [::first-line] pseudo-element.
+*)
+
+val details_content : t list -> t
+(** [details_content styles] applies [styles] to the [::details-content]
+    pseudo-element. *)
+
+val children : t list -> t
+(** [children styles] applies [styles] to direct children. *)
+
+val descendants : t list -> t
+(** [descendants styles] applies [styles] to all descendants. *)
+
+val ltr : t list -> t
+(** [ltr styles] applies [styles] in left-to-right direction. *)
+
+val rtl : t list -> t
+(** [rtl styles] applies [styles] in right-to-left direction. *)
+
+val print : t list -> t
+(** [print styles] applies [styles] in print media. *)
+
+val portrait : t list -> t
+(** [portrait styles] applies [styles] in portrait orientation. *)
+
+val landscape : t list -> t
+(** [landscape styles] applies [styles] in landscape orientation. *)
+
+val forced_colors : t list -> t
+(** [forced_colors styles] applies [styles] when forced colors are active. *)
+
+val supports : string -> t list -> t
+(** [supports condition styles] applies [styles] when the CSS condition is
+    supported. *)
 
 (** The modules the utilities above are implemented in.
 
