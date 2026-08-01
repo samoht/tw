@@ -147,6 +147,68 @@ let test_order_of_property () =
     (Some (order_of "isolate"))
     (order_of_property (Key Isolation))
 
+(* The families whose first emitted declaration is a variable rather than the
+   property they are named for. Each registered nothing at all while the slot
+   was read off that first declaration, so a project's [@utility] declaring one
+   of these sorted after the whole sheet. *)
+let test_order_of_property_behind_a_variable () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let slot name key expected =
+    check
+      (option (pair int int))
+      name
+      (Some (order_of expected))
+      (order_of_property key)
+  in
+  (* Some families spread over several handlers, or write the property as a
+     companion to the one they are named for, so the slot lands on a sibling
+     rather than on the utility named here. The family is what the property has
+     to resolve to; which member of it holds the slot is not load-bearing. *)
+  let family name key expected =
+    check (option int) name
+      (Some (fst (order_of expected)))
+      (Stdlib.Option.map fst (order_of_property key))
+  in
+  (* [--spacing] is declared ahead of the property itself. *)
+  slot "padding is the padding utilities' slot" (Key Padding) "p-4";
+  slot "gap is the gap utilities' slot" (Key Gap) "gap-4";
+  (* [--tw-shadow] and friends come first. *)
+  slot "box-shadow is the shadow utilities' slot" (Key Box_shadow) "shadow-none";
+  (* [border-style: var(--tw-border-style)] is written ahead of the width. *)
+  slot "border-width is the border width utilities' slot" (Key Border_width)
+    "border-0";
+  (* [outline-style] follows a custom property in every outline utility. *)
+  family "outline-style is the outline utilities' slot" (Key Outline_style)
+    "outline-solid";
+  (* [-webkit-mask-image] is written ahead of the plain property. *)
+  family "mask-image is the mask utilities' slot, not the -webkit- alias'"
+    (Key Mask_image) "mask-none"
+
+(* [placeholder-*] writes [color] too, at a lower order than [text-*], so it
+   took the colour slot and a declared [color] sorted with ::placeholder. A
+   pseudo-element style names no slot: the property belongs to the family that
+   writes it on the element itself. *)
+let test_order_of_property_skips_pseudo_elements () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check
+    (option (pair int int))
+    "colour is the text utilities' slot"
+    (Some (order_of "text-transparent"))
+    (order_of_property (Key Color));
+  Alcotest.(check bool)
+    "colour is not the ::placeholder slot" false
+    (order_of_property (Key Color) = Some (order_of "placeholder-transparent"))
+
 let tests =
   [
     test_case "base_of_class valid input" `Quick test_base_of_class_valid;
@@ -156,6 +218,10 @@ let tests =
     (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)
     (* test_case "css_of_string invalid input" `Quick test_css_of_string_invalid; *)
     test_case "order_of_property" `Quick test_order_of_property;
+    test_case "order_of_property behind a variable" `Quick
+      test_order_of_property_behind_a_variable;
+    test_case "order_of_property skips pseudo-elements" `Quick
+      test_order_of_property_skips_pseudo_elements;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;

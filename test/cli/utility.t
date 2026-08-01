@@ -81,3 +81,47 @@ that only [Tw.of_string] knows.
   1
   $ tw --minify --input-css line.css line.html | grep -cF '.hover\:line-t:hover:before{'
   1
+
+A declared utility takes its place among the built-in ones rather than landing
+after them, at the slot of whatever its body [@apply]s: [bar] applies a
+position, so it sorts ahead of every other class here, and [foo] applies a
+background colour, which puts it between [block] and [underline]. Tailwind
+v4.3.3 emits exactly this order for the same input.
+
+  $ cat > sort.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility foo { @apply bg-red-500; }
+  > @utility bar { @apply relative; }
+  > EOF
+  $ cat > sort.html <<EOF
+  > <div class="bar z-10 ml-auto box-border block foo underline"></div>
+  > EOF
+  $ tw --minify --input-css sort.css sort.html | grep -oE '\.(bar|foo|z-10|ml-auto|box-border|block|underline)\{'
+  .bar{
+  .z-10{
+  .ml-auto{
+  .box-border{
+  .block{
+  .foo{
+  .underline{
+
+A body that only declares CSS is placed the same way, by the family that writes
+the property: [pad-thing] sorts with [p-8] and [col-thing] with [text-black].
+It lands at the head of that family, where Tailwind orders it against the
+family's own members by class name.
+
+  $ cat > decl.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility pad-thing { padding: 1rem; }
+  > @utility col-thing { color: red; }
+  > EOF
+  $ cat > decl.html <<EOF
+  > <div class="underline pad-thing p-8 block col-thing text-black"></div>
+  > EOF
+  $ tw --minify --input-css decl.css decl.html | grep -oE '\.(pad-thing|col-thing|p-8|block|text-black|underline)\{'
+  .block{
+  .pad-thing{
+  .p-8{
+  .col-thing{
+  .text-black{
+  .underline{
