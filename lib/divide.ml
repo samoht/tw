@@ -515,8 +515,10 @@ module Handler = struct
           || Parse.is_css_color_fn normalized
         then
           let css_color =
-            if String.length inner > 0 && inner.[0] = '#' then
-              Some (Css.hex inner)
+            (* A [#] prefix only names a colour when what follows is a hex
+               spelling; [Css.hex] raises on anything else, and this runs inside
+               [of_class]. *)
+            if String.length inner > 0 && inner.[0] = '#' then Css.hex_opt inner
             else Css.parse_color normalized
           in
           match css_color with

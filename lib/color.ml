@@ -950,21 +950,16 @@ let of_string = function
   | "rose" -> Ok Rose
   | s ->
       let len = String.length s in
-      if len >= 4 && s.[0] = '[' && s.[1] = '#' && s.[len - 1] = ']' then (
+      if len >= 4 && s.[0] = '[' && s.[1] = '#' && s.[len - 1] = ']' then
         (* Arbitrary bracket hex value like [#0088cc]. Store original hex
            (unshortened) so class names preserve it. Shortening happens later in
-           to_css for CSS output. Validate hex chars to avoid matching
-           [#0088cc]/[0.5] where the ] belongs to a different bracket. *)
+           to_css for CSS output, through the raising [Css.hex], so only a
+           spelling that constructor reads is a colour: a digit count it does
+           not know ([#12345]) is as much a miss as [#0088cc]/[0.5], where the ]
+           belongs to a different bracket. *)
         let hex = String.sub s 2 (len - 3) in
-        let is_hex c =
-          (c >= '0' && c <= '9')
-          || (c >= 'a' && c <= 'f')
-          || (c >= 'A' && c <= 'F')
-        in
-        let valid = ref true in
-        String.iter (fun c -> if not (is_hex c) then valid := false) hex;
-        if !valid && String.length hex >= 3 then Ok (Hex hex)
-        else Error (`Msg ("Unknown color: " ^ s)))
+        if Option.is_some (Css.hex_opt hex) then Ok (Hex hex)
+        else Error (`Msg ("Unknown color: " ^ s))
       else if len >= 3 && s.[0] = '[' && s.[len - 1] = ']' then
         let inner = String.sub s 1 (len - 2) in
         let normalized =
@@ -2017,8 +2012,11 @@ module Handler = struct
                 (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)
           | _ -> None)
       | None -> (
-          if String.length inner > 0 && inner.[0] = '#' then
-            Some (Css.hex inner)
+          (* A [#] prefix only names a colour when what follows is a hex
+             spelling; [Css.hex] raises on anything else, and this runs inside
+             [of_class]. *)
+          let starts_with_hash = String.length inner > 0 && inner.[0] = '#' in
+          if starts_with_hash then Css.hex_opt inner
           else
             let normalized =
               String.map (fun c -> if c = '_' then ' ' else c) inner

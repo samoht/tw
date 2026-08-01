@@ -500,24 +500,29 @@ module Handler = struct
     let length_strs, color = find_color_and_lengths [] parts in
     let lengths = List.filter_map Parse.arbitrary_length length_strs in
     (* A token that is not a length makes the value not a shadow. Dropping it
-       instead would slide the surviving lengths into the wrong slots. *)
+       instead would slide the surviving lengths into the wrong slots. A [#]
+       token is only the shadow's colour when it is a hex spelling. *)
     if List.compare_lengths lengths length_strs <> 0 then None
     else
-      match lengths with
-      | [ h_offset; v_offset ] ->
-          Some { h_offset; v_offset; blur = None; spread = None; color }
-      | [ h_offset; v_offset; blur ] ->
-          Some { h_offset; v_offset; blur = Some blur; spread = None; color }
-      | [ h_offset; v_offset; blur; spread ] ->
-          Some
-            {
-              h_offset;
-              v_offset;
-              blur = Some blur;
-              spread = Some spread;
-              color;
-            }
-      | _ -> None
+      match color with
+      | Hex h when Option.is_none (Css.hex_opt h) -> None
+      | _ -> (
+          match lengths with
+          | [ h_offset; v_offset ] ->
+              Some { h_offset; v_offset; blur = None; spread = None; color }
+          | [ h_offset; v_offset; blur ] ->
+              Some
+                { h_offset; v_offset; blur = Some blur; spread = None; color }
+          | [ h_offset; v_offset; blur; spread ] ->
+              Some
+                {
+                  h_offset;
+                  v_offset;
+                  blur = Some blur;
+                  spread = Some spread;
+                  color;
+                }
+          | _ -> None)
 
   (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)]. Converts
       CSS color functions to hex for Tailwind parity. *)
@@ -2358,9 +2363,9 @@ module Handler = struct
       String.length s >= String.length prefix
       && String.sub s 0 (String.length prefix) = prefix
     in
-    if starts "#" inner then
-      let c = Color.hex inner in
-      Some (Color.to_css c 500)
+    (* A [#] prefix only names a colour when what follows is a hex spelling;
+       [Css.hex] raises on anything else, and this runs inside [of_class]. *)
+    if starts "#" inner then Css.hex_opt inner
     else
       let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
       if Parse.is_css_color_fn normalized then

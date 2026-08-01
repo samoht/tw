@@ -1652,7 +1652,10 @@ module Typography_late = struct
                   String.map (fun c -> if c = '_' then ' ' else c) inner
                 in
                 let css_color =
-                  if inner.[0] = '#' then Some (Css.hex inner)
+                  (* A [#] prefix only names a colour when what follows is a hex
+                     spelling; [Css.hex] raises on anything else, and this runs
+                     inside [of_class]. *)
+                  if inner.[0] = '#' then Css.hex_opt inner
                   else Css.parse_color normalized
                 in
                 match css_color with
