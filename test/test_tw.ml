@@ -1068,6 +1068,28 @@ let paren_var_shorthand () =
         "p-(--p) round-trips" "p-(--p)" (Tw.to_classes [ u ])
   | Error (`Msg m) -> Alcotest.failf "p-(--p): %s" m
 
+(* [of_string] resolves theme() dot-paths before dispatch, so it is the first
+   thing any scanned class hits. A theme( whose paren never closes - a truncated
+   attribute in real markup - must come back as an error, not run the scanner
+   past the end of the string. *)
+let unterminated_theme_call () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "bg-[theme(colors.red";
+  rejected "theme(colors.red";
+  rejected "bg-[theme(";
+  (* the terminated form still resolves *)
+  match Tw.of_string "bg-[theme(colors.red.500)]" with
+  | Ok u ->
+      Alcotest.(check bool)
+        "theme(colors.red.500) resolves" true
+        (Astring.String.is_infix ~affix:"background-color: oklch("
+           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
+  | Error (`Msg m) -> Alcotest.failf "bg-[theme(colors.red.500)]: %s" m
+
 let all_colors_grays () =
   check_list
     (bg_shades slate shades @ bg_shades gray shades @ bg_shades zinc shades
@@ -1289,6 +1311,7 @@ let core_tests =
     test_case "inline styles" `Slow inline_styles;
     test_case "style combination" `Slow style_combination;
     test_case "paren var shorthand" `Quick paren_var_shorthand;
+    test_case "unterminated theme() call" `Quick unterminated_theme_call;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;

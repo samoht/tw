@@ -189,13 +189,20 @@ let resolve_theme_functions s =
         if s.[!j] = '(' then incr depth else if s.[!j] = ')' then decr depth;
         if !depth > 0 then incr j
       done;
+      (* [!j] is the closing paren, or [n] when the call never closed - a
+         truncated attribute or template artefact in scanned markup. An
+         unterminated call has no path to resolve, so the rest of the string is
+         copied through and the class stays unresolved. *)
+      let closed = !depth = 0 in
       let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
-      (match theme_resolve_path inner with
+      (match if closed then theme_resolve_path inner else None with
       | Some v ->
           Buffer.add_string buf
             (String.map (fun c -> if c = ' ' then '_' else c) v)
-      | None -> Buffer.add_string buf (String.sub s !i (!j + 1 - !i)));
-      i := if !j < n then !j + 1 else n
+      | None ->
+          let stop = if closed then !j + 1 else n in
+          Buffer.add_string buf (String.sub s !i (stop - !i)));
+      i := if closed then !j + 1 else n
     end
     else begin
       Buffer.add_char buf s.[!i];

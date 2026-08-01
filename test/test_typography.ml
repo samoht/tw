@@ -491,8 +491,35 @@ let test_invalid_font_family () =
   accepted "font-[var(--x)]";
   accepted "font-[600]"
 
+(* An arbitrary decoration thickness takes any CSS length unit, not just the px
+   the hand-rolled suffix parser knew; the percentage form keeps its em
+   conversion. A bracket that is not a length is rejected by the parser rather
+   than raising once the sheet is rendered. *)
+let test_decoration_bracket_thickness () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "text-decoration-thickness: 3rem" "decoration-[3rem]";
+  emits "text-decoration-thickness: 2px" "decoration-[2px]";
+  emits "text-decoration-thickness: 2ch" "decoration-[2ch]";
+  emits "text-decoration-thickness: .5em" "decoration-[50%]";
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "decoration-[.]";
+  rejected "decoration-[1e]"
+
 let tests =
   [
+    test_case "decoration bracket thickness" `Quick
+      test_decoration_bracket_thickness;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font-features value" `Quick test_font_features_value;
