@@ -122,6 +122,38 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"borders suborder matches Tailwind" shuffled
 
+(* A width, a side width and a style all write border-*-width or -style, so what
+   an element is actually bordered with is a rendering question. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "border";
+      "border-2";
+      "border-4";
+      "border-x-2";
+      "border-y-4";
+      "border-t-4";
+      "border-b-2";
+      "border-solid";
+      "border-dashed";
+      "border-dotted";
+      "border-none";
+      "border-current";
+      "rounded";
+      "rounded-md";
+      "rounded-lg";
+      "rounded-full";
+      "rounded-t-lg";
+      "rounded-br-xl";
+      "outline";
+      "outline-2";
+      "outline-dashed";
+      "outline-offset-2";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"borders render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (* rounded-sm's default radius is .25rem in v4.3.1, not the old .125rem. *)
 let test_rounded_sm_default () =
   let css = Tw.to_css ~base:false [ Tw.rounded_sm ] |> Tw.Css.to_string in
@@ -349,6 +381,7 @@ let tests =
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
     test_case "borders suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "borders render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("borders", tests)

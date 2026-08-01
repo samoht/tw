@@ -814,42 +814,44 @@ module Handler = struct
     | Border_width n -> 1001 + n
     | Border_width_bracket _ -> 1005
     (* Border sides are side-major (Tailwind groups each side's bare width, its
-       numeric widths and its arbitrary width together): t, r, b, l, then x, y.
+       numeric widths and its arbitrary width together), and the axes and
+       logical sides come first: x, y, s, e, bs, be, then t, r, b, l. The order
+       decides the width, since border-y and border-b both write the bottom one.
        Within a side: bare, 0, 2, 4, 8, arbitrary. *)
+    | Border_x -> 1100
+    | Border_x_width n -> 1100 + n
+    | Border_y -> 1110
+    | Border_y_width n -> 1110 + n
+    | Border_s -> 1120
+    | Border_s_width n -> 1120 + n
+    | Border_e -> 1130
+    | Border_e_width n -> 1130 + n
+    | Border_bs -> 1140
+    | Border_bs_width n -> 1140 + n
+    | Border_be -> 1150
+    | Border_be_width n -> 1150 + n
     | Border_side_width_bracket (side, _, _) -> (
-        match side with "t" -> 1105 | "r" -> 1115 | "b" -> 1125 | _ -> 1135)
-    | Border_t -> 1100
-    | Border_t_0 -> 1101
-    | Border_t_2 -> 1102
-    | Border_t_4 -> 1103
-    | Border_t_8 -> 1104
-    | Border_r -> 1110
-    | Border_r_0 -> 1111
-    | Border_r_2 -> 1112
-    | Border_r_4 -> 1113
-    | Border_r_8 -> 1114
-    | Border_b -> 1120
-    | Border_b_0 -> 1121
-    | Border_b_2 -> 1122
-    | Border_b_4 -> 1123
-    | Border_b_8 -> 1124
-    | Border_l -> 1130
-    | Border_l_0 -> 1131
-    | Border_l_2 -> 1132
-    | Border_l_4 -> 1133
-    | Border_l_8 -> 1134
-    | Border_x -> 1140
-    | Border_x_width n -> 1140 + n
-    | Border_y -> 1150
-    | Border_y_width n -> 1150 + n
-    | Border_s -> 1160
-    | Border_s_width n -> 1160 + n
-    | Border_e -> 1170
-    | Border_e_width n -> 1170 + n
-    | Border_bs -> 1180
-    | Border_bs_width n -> 1180 + n
-    | Border_be -> 1190
-    | Border_be_width n -> 1190 + n
+        match side with "t" -> 1165 | "r" -> 1175 | "b" -> 1185 | _ -> 1195)
+    | Border_t -> 1160
+    | Border_t_0 -> 1161
+    | Border_t_2 -> 1162
+    | Border_t_4 -> 1163
+    | Border_t_8 -> 1164
+    | Border_r -> 1170
+    | Border_r_0 -> 1171
+    | Border_r_2 -> 1172
+    | Border_r_4 -> 1173
+    | Border_r_8 -> 1174
+    | Border_b -> 1180
+    | Border_b_0 -> 1181
+    | Border_b_2 -> 1182
+    | Border_b_4 -> 1183
+    | Border_b_8 -> 1184
+    | Border_l -> 1190
+    | Border_l_0 -> 1191
+    | Border_l_2 -> 1192
+    | Border_l_4 -> 1193
+    | Border_l_8 -> 1194
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
