@@ -297,22 +297,7 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
   | _ ->
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
-      let rendered = Buffer.contents buf in
-      let contains needle haystack =
-        let needle_len = String.length needle in
-        let haystack_len = String.length haystack in
-        let rec scan i =
-          i + needle_len <= haystack_len
-          && (String.sub haystack i needle_len = needle || scan (i + 1))
-        in
-        needle_len = 0 || scan 0
-      in
-      if
-        contains "--radius-sm" rendered
-        && contains ".25rem" rendered
-        && contains ".125rem" rendered
-      then ()
-      else Alcotest.failf "%s\n%s" test_name rendered
+      Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
 (** CSS Test Helpers *)
 
