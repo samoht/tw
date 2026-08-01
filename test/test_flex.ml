@@ -75,11 +75,50 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"flex suborder matches Tailwind" shuffled
 
+(* flex-1, flex-auto, flex-initial and flex-none all write the flex shorthand
+   and grow/shrink/basis write the longhands it expands to, so what an element
+   ends up flexing by is decided by the order the two sheets emit them in. The
+   set is Tw.Flex's own surface, re-exports included. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "flex";
+      "inline-flex";
+      "flex-row";
+      "flex-row-reverse";
+      "flex-col";
+      "flex-wrap";
+      "flex-nowrap";
+      "flex-1";
+      "flex-auto";
+      "flex-initial";
+      "flex-none";
+      "grow";
+      "grow-0";
+      "shrink";
+      "shrink-0";
+      "basis-0";
+      "basis-1";
+      "basis-1/2";
+      "basis-3/4";
+      "basis-[10rem]";
+      "basis-full";
+      "basis-auto";
+      "order-1";
+      "order-first";
+      "order-last";
+      "order-none";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"flex renders like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 let tests =
   [
     test_case "flex of_string - valid values" `Quick of_string_valid;
     test_case "flex of_string - invalid values" `Quick of_string_invalid;
     test_case "flex suborder matches Tailwind" `Quick suborder_matches_tailwind;
+    test_case "flex renders like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("flex", tests)

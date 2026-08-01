@@ -29,11 +29,34 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"grid suborder matches Tailwind" shuffled
 
+(* grid and inline-grid share one priority with every other display utility and
+   are told apart by suborder alone, so which display an element ends up with is
+   decided by the order the two sheets emit the band in. The band is the set the
+   suborder table in Grid.Handler enumerates. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "grid";
+      "inline-grid";
+      "block";
+      "inline-block";
+      "inline";
+      "flex";
+      "inline-flex";
+      "hidden";
+      "contents";
+      "flow-root";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"grid renders like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 let tests =
   [
     test_case "grid of_string - valid values" `Quick of_string_valid;
     test_case "grid of_string - invalid values" `Quick of_string_invalid;
     test_case "grid suborder matches Tailwind" `Quick suborder_matches_tailwind;
+    test_case "grid renders like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("grid", tests)

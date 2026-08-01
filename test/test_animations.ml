@@ -103,6 +103,32 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"animations suborder matches Tailwind" shuffled
 
+(* Every animate-* writes the animation shorthand and every transition-* the
+   transition one, so which one an element ends up running is decided by the
+   order the two sheets emit them in. duration and delay reach the shorthand
+   through --tw-duration, which only a rendered element resolves. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "animate-none";
+      "animate-spin";
+      "animate-ping";
+      "animate-pulse";
+      "animate-bounce";
+      "transition-all";
+      "transition-colors";
+      "transition-none";
+      "duration-150";
+      "delay-200";
+      "ease-in";
+      "ease-out";
+      "ease-linear";
+    ]
+  in
+  Test_helpers.check_rendering_matches
+    ~test_name:"animations render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
@@ -112,6 +138,7 @@ let tests =
     test_case "transition CSS output" `Quick test_transition_css;
     test_case "animations suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "animations render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("animations", tests)

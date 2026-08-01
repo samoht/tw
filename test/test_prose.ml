@@ -98,6 +98,28 @@ let test_color_theme_parity () =
       prose_orange;
     ]
 
+(* Every size writes font-size and line-height on the root and every colour
+   theme writes the same --tw-prose-* slots, so which one an element ends up
+   reading is decided by the order the two sheets emit them in. The elements are
+   bare divs, so this covers the root declarations and the palette variables the
+   descendant rules read, not the descendant rules themselves. *)
+let rendering_matches_tailwind () =
+  Test_helpers.check_rendering_matches ~test_name:"prose renders like Tailwind"
+    [
+      prose;
+      prose_sm;
+      prose_lg;
+      prose_xl;
+      prose_2xl;
+      prose_gray;
+      prose_slate;
+      prose_zinc;
+      prose_neutral;
+      prose_stone;
+      prose_invert;
+      prose_orange;
+    ]
+
 let suite =
   ( "prose",
     [
@@ -109,4 +131,6 @@ let suite =
       Alcotest.test_case "size parity with Tailwind" `Quick test_size_parity;
       Alcotest.test_case "colour theme parity with Tailwind" `Quick
         test_color_theme_parity;
+      Alcotest.test_case "prose renders like Tailwind" `Slow
+        rendering_matches_tailwind;
     ] )
