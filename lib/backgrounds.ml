@@ -427,9 +427,6 @@ module Handler = struct
     | Bottom_left -> "to bottom left"
 
   open Style
-
-  let pp_float_n = Pp.float_n
-
   open Css
 
   let name = "backgrounds"
@@ -769,7 +766,7 @@ module Handler = struct
       | Some rad ->
           let deg = rad *. 180.0 /. Float.pi in
           (* Round to 4 decimal places to match Lightning CSS *)
-          pp_float_n 4 deg ^ "deg"
+          Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
       | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
     else String.map (fun c -> if c = '_' then ' ' else c) inner
 

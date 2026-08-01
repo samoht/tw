@@ -159,6 +159,21 @@ let test_bracket_image_literal () =
     (Astring.String.is_infix ~affix:"background-image: var(--x)"
        (css "bg-[image:var(--x)]"))
 
+(* An arbitrary gradient angle in radians is converted to degrees. A negative
+   angle used to come out as its floor plus a positive fraction, so
+   bg-linear-[-0.5rad] rendered -29.3521deg instead of -28.6479deg. *)
+let test_bracket_gradient_radians () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  in
+  has "bg-linear-[-0.5rad]" "--tw-gradient-position: -28.6479deg";
+  has "bg-linear-[1.3rad]" "--tw-gradient-position: 74.4845deg"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
@@ -315,6 +330,8 @@ let tests =
     test_case "gradient stop-position @property family" `Quick
       test_gradient_stop_position_properties;
     test_case "gradient direction" `Quick test_gradient_direction;
+    test_case "bracket gradient angle in radians" `Quick
+      test_bracket_gradient_radians;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
