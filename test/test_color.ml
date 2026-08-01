@@ -454,8 +454,54 @@ let test_shorthand_hex_alpha () =
     "a six-digit hex is unchanged" "#0307121a"
     (Tw.Color.hex_with_alpha "#030712" 10.)
 
+(* A [#] bracket only names a colour when what follows is a hex spelling. The
+   colour handler handed everything after the [#] to the raising constructor
+   from inside [of_class], so a malformed hex escaped the parser as an exception
+   instead of failing the match. *)
+let test_invalid_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  List.iter
+    (fun prefix ->
+      rejected (prefix ^ "-[#zz]");
+      rejected (prefix ^ "-[#]");
+      rejected (prefix ^ "-[#12345]");
+      rejected (prefix ^ "-[#zz]/50"))
+    [
+      "text";
+      "bg";
+      "border";
+      "fill";
+      "stroke";
+      "accent";
+      "caret";
+      "outline";
+      "placeholder";
+    ];
+  emits "text-[#abc]" "color:#abc";
+  emits "bg-[#00ff0080]" "background-color:#00ff0080";
+  emits "border-[#123456]" "border-color:#123456";
+  emits "fill-[#abc]" "fill:#abc";
+  emits "stroke-[#abc]" "stroke:#abc";
+  emits "accent-[#abc]" "accent-color:#abc";
+  emits "caret-[#abc]" "caret-color:#abc";
+  emits "outline-[#abc]" "outline-color:#abc";
+  emits "placeholder-[#abc]" "color:#abc"
+
 let tests =
   [
+    ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);

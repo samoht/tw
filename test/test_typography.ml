@@ -571,8 +571,34 @@ let test_decoration_bracket_thickness () =
   rejected "decoration-[.]";
   rejected "decoration-[1e]"
 
+(* A [#] bracket is only a decoration colour when what follows is a hex
+   spelling. The decoration reader handed everything after the [#] to the
+   raising constructor from inside [of_class], so a malformed hex escaped the
+   parser as an exception instead of failing the match. *)
+let test_invalid_decoration_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "decoration-[#zz]";
+  rejected "decoration-[#]";
+  rejected "decoration-[#12345]";
+  rejected "decoration-[#zz]/50";
+  Alcotest.(check bool)
+    "decoration-[#ff0000] still emits the colour" true
+    (Astring.String.is_infix ~affix:"text-decoration-color:#f00"
+       (css "decoration-[#ff0000]"))
+
 let tests =
   [
+    test_case "invalid decoration bracket hex" `Quick
+      test_invalid_decoration_bracket_hex;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
     test_case "bracket list-style" `Quick test_bracket_list_style;

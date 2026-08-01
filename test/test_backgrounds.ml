@@ -320,8 +320,38 @@ let test_invalid_gradient_stop () =
   accepted "from-[var(--x)]";
   accepted "from-[#0088cc]"
 
+(* A [#] gradient stop is only a colour when what follows is a hex spelling. The
+   stop reader kept the text after the [#] as-is and the raising constructor saw
+   it when the sheet was rendered, so a malformed hex escaped as an exception
+   instead of failing the parse. *)
+let test_invalid_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  List.iter
+    (fun prefix ->
+      rejected (prefix ^ "-[#zz]");
+      rejected (prefix ^ "-[#]");
+      rejected (prefix ^ "-[#12345]");
+      rejected (prefix ^ "-[#zz]/50"))
+    [ "from"; "via"; "to" ];
+  emits "from-[#fff]" "--tw-gradient-from:#fff";
+  emits "via-[#abc]" "--tw-gradient-via:#abc";
+  emits "to-[#123456]" "--tw-gradient-to:#123456"
+
 let tests =
   [
+    test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     test_case "bg colors" `Quick test_bg_colors;
     test_case "invalid gradient stop" `Quick test_invalid_gradient_stop;
     test_case "bg var color with opacity" `Quick test_bg_var_opacity;
