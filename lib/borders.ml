@@ -66,8 +66,8 @@ module Handler = struct
     | Border_4
     | Border_8
     | Border_width of int
-    | Border_width_bracket of string
-    | Border_side_width_bracket of string * string
+    | Border_width_bracket of string * Css.border_width
+    | Border_side_width_bracket of string * string * Css.border_width
       (* side ("t"/"r"/"b"/"l"), arbitrary width inner: border-t-[1px] *)
     | (* Border side/axis utilities *)
       Border_t
@@ -123,7 +123,8 @@ module Handler = struct
       Outline
     | Outline_0
     | Outline_width of int (* outline-1, outline-2, outline-4, outline-8 *)
-    | Outline_width_bracket of string (* outline-[12px], outline-[1.5], etc. *)
+    | Outline_width_bracket of
+        string * Css.length (* outline-[12px], outline-[1.5], etc. *)
     | Outline_width_var of string (* outline-[length:var(...)], etc. *)
     (* Outline style utilities (dashed, dotted, etc.) are in
        Outline_style_handler *)
@@ -188,44 +189,8 @@ module Handler = struct
   let border_8 = make_border_util [ Css.border_width (Px 8.) ]
   let border_n n = make_border_util [ Css.border_width (Px (float_of_int n)) ]
 
-  let parse_border_width inner : Css.border_width =
-    if
-      String.length inner > 2
-      && String.sub inner (String.length inner - 2) 2 = "px"
-    then
-      let n = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt n with
-      | Some f -> Px f
-      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid px value")
-    else if
-      String.length inner > 3
-      && String.sub inner (String.length inner - 3) 3 = "rem"
-    then
-      let n = String.sub inner 0 (String.length inner - 3) in
-      match float_of_string_opt n with
-      | Some f -> Rem f
-      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid rem value")
-    else if
-      String.length inner > 2
-      && String.sub inner (String.length inner - 2) 2 = "em"
-    then
-      let n = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt n with
-      | Some f -> Em f
-      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid em value")
-    else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
-    then
-      let n = String.sub inner 0 (String.length inner - 1) in
-      match float_of_string_opt n with
-      | Some f -> Pct f
-      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid % value")
-    else
-      match float_of_string_opt inner with
-      | Some f -> Px f
-      | None -> invalid_arg ("border-[" ^ inner ^ "]: invalid value")
-
-  let border_width_bracket_style inner =
-    make_border_util [ Css.border_width (parse_border_width inner) ]
+  let border_width_bracket_style width =
+    make_border_util [ Css.border_width width ]
 
   (* Helper for border side utilities that reference the variable with @property
      default *)
@@ -394,6 +359,87 @@ module Handler = struct
     Css.parse_length
       (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
 
+  (* [Css.length] and [Css.border_width] are distinct types over overlapping
+     unit sets, so an arbitrary width is read as a length and transposed one
+     unit at a time. The units only [length] has (the dynamic-viewport and
+     container-query families) are not border widths. *)
+  let border_width_of_unit value : string -> Css.border_width option = function
+    | "px" -> Some (Px value)
+    | "cm" -> Some (Cm value)
+    | "mm" -> Some (Mm value)
+    | "q" -> Some (Q value)
+    | "in" -> Some (In value)
+    | "pt" -> Some (Pt value)
+    | "pc" -> Some (Pc value)
+    | "rem" -> Some (Rem value)
+    | "em" -> Some (Em value)
+    | "ex" -> Some (Ex value)
+    | "cap" -> Some (Cap value)
+    | "ic" -> Some (Ic value)
+    | "ric" -> Some (Ric value)
+    | "rlh" -> Some (Rlh value)
+    | "ch" -> Some (Ch value)
+    | "lh" -> Some (Lh value)
+    | "vh" -> Some (Vh value)
+    | "vw" -> Some (Vw value)
+    | "vmin" -> Some (Vmin value)
+    | "vmax" -> Some (Vmax value)
+    | "%" -> Some (Pct value)
+    | _ -> None
+
+  let border_width_of_length : Css.length -> Css.border_width option = function
+    | Px f -> border_width_of_unit f "px"
+    | Cm f -> border_width_of_unit f "cm"
+    | Mm f -> border_width_of_unit f "mm"
+    | Q f -> border_width_of_unit f "q"
+    | In f -> border_width_of_unit f "in"
+    | Pt f -> border_width_of_unit f "pt"
+    | Pc f -> border_width_of_unit f "pc"
+    | Rem f -> border_width_of_unit f "rem"
+    | Em f -> border_width_of_unit f "em"
+    | Ex f -> border_width_of_unit f "ex"
+    | Cap f -> border_width_of_unit f "cap"
+    | Ic f -> border_width_of_unit f "ic"
+    | Ric f -> border_width_of_unit f "ric"
+    | Rlh f -> border_width_of_unit f "rlh"
+    | Ch f -> border_width_of_unit f "ch"
+    | Lh f -> border_width_of_unit f "lh"
+    | Vh f -> border_width_of_unit f "vh"
+    | Vw f -> border_width_of_unit f "vw"
+    | Vmin f -> border_width_of_unit f "vmin"
+    | Vmax f -> border_width_of_unit f "vmax"
+    | Pct f -> border_width_of_unit f "%"
+    (* [Dimension] carries a value whose authored spelling differs from the
+       canonical float ([0.5rem]); its unit names the constructor. *)
+    | Dimension { value; unit; _ } ->
+        border_width_of_unit value (String.lowercase_ascii unit)
+    | Zero -> Some Zero
+    | _ -> None
+
+  (* A bare number is not a CSS length, but Tailwind admits [border-[3]] and
+     emits it as a width, so it keeps the px reading it has always had. *)
+  let parse_bare_number str =
+    let is_number_char c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
+    if str <> "" && String.for_all is_number_char str then
+      float_of_string_opt str
+    else None
+
+  let parse_border_width inner : Css.border_width option =
+    match parse_length inner with
+    | Some len -> border_width_of_length len
+    | None -> (
+        match parse_bare_number inner with
+        | Some f -> Some (Px f)
+        | None -> None)
+
+  let parse_outline_width inner : Css.length option =
+    match parse_length inner with
+    | Some _ as len -> len
+    | None -> (
+        match parse_bare_number inner with
+        | Some f -> Some (Px f)
+        | None -> None)
+
   let radius_none_var = Var.theme Css.Length "radius-none" ~order:(7, 0)
   let radius_full_var = Var.theme Css.Length "radius-full" ~order:(7, 1)
   let radius_xs_var = Var.theme Css.Length "radius-xs" ~order:(7, 2)
@@ -538,27 +584,12 @@ module Handler = struct
       ]
 
   (* Outline bracket width: outline-[12px], outline-[1.5], outline-[50%] *)
-  let outline_width_bracket_style inner =
+  let outline_width_bracket_style (width : Css.length) =
     let oref = Var.reference outline_style_var in
     let property_rule =
       match Var.property_rule outline_style_var with
       | Some rule -> rule
       | None -> Css.empty
-    in
-    let width : Css.length =
-      if
-        String.length inner > 2
-        && String.sub inner (String.length inner - 2) 2 = "px"
-      then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        Px (float_of_string n)
-      else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
-      then
-        let n = String.sub inner 0 (String.length inner - 1) in
-        Pct (float_of_string n)
-      else
-        (* Bare number → px *)
-        Px (float_of_string inner)
     in
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width width ]
@@ -644,9 +675,8 @@ module Handler = struct
     | Border_4 -> border_4
     | Border_8 -> border_8
     | Border_width n -> border_n n
-    | Border_width_bracket v -> border_width_bracket_style v
-    | Border_side_width_bracket (side, inner) ->
-        let w = parse_border_width inner in
+    | Border_width_bracket (_, w) -> border_width_bracket_style w
+    | Border_side_width_bracket (side, _, w) ->
         make_side_util (fun bv ->
             match side with
             | "t" -> [ border_top_style (Var bv); border_top_width w ]
@@ -704,7 +734,7 @@ module Handler = struct
     | Outline -> outline ()
     | Outline_0 -> outline_0
     | Outline_width n -> outline_width_style n
-    | Outline_width_bracket v -> outline_width_bracket_style v
+    | Outline_width_bracket (_, len) -> outline_width_bracket_style len
     | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
     | Outline_offset n -> outline_offset_px n
@@ -786,7 +816,7 @@ module Handler = struct
     (* Border sides are side-major (Tailwind groups each side's bare width, its
        numeric widths and its arbitrary width together): t, r, b, l, then x, y.
        Within a side: bare, 0, 2, 4, 8, arbitrary. *)
-    | Border_side_width_bracket (side, _) -> (
+    | Border_side_width_bracket (side, _, _) -> (
         match side with "t" -> 1105 | "r" -> 1115 | "b" -> 1125 | _ -> 1135)
     | Border_t -> 1100
     | Border_t_0 -> 1101
@@ -912,7 +942,9 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         if String.length inner > 0 && is_numeric_start inner.[0] then
-          Ok (Border_width_bracket inner)
+          match parse_border_width inner with
+          | Some w -> Ok (Border_width_bracket (inner, w))
+          | None -> err_not_utility
         else err_not_utility
     | [ "border"; side; v ]
       when (match side with "t" | "r" | "b" | "l" -> true | _ -> false)
@@ -920,7 +952,9 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
         if String.length inner > 0 && is_numeric_start inner.[0] then
-          Ok (Border_side_width_bracket (side, inner))
+          match parse_border_width inner with
+          | Some w -> Ok (Border_side_width_bracket (side, inner, w))
+          | None -> err_not_utility
         else err_not_utility
     | "border" :: color_parts -> (
         match Color.shade_of_strings color_parts with
@@ -977,7 +1011,9 @@ module Handler = struct
             (c >= '0' && c <= '9') || c = '.' || c = '-'
           in
           if String.length inner > 0 && is_numeric_start inner.[0] then
-            Ok (Outline_width_bracket inner)
+            match parse_outline_width inner with
+            | Some len -> Ok (Outline_width_bracket (inner, len))
+            | None -> err_not_utility
           else err_not_utility
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
@@ -1013,8 +1049,8 @@ module Handler = struct
     | Border_4 -> "border-4"
     | Border_8 -> "border-8"
     | Border_width n -> "border-" ^ string_of_int n
-    | Border_width_bracket v -> "border-[" ^ v ^ "]"
-    | Border_side_width_bracket (side, inner) ->
+    | Border_width_bracket (v, _) -> "border-[" ^ v ^ "]"
+    | Border_side_width_bracket (side, inner, _) ->
         "border-" ^ side ^ "-[" ^ inner ^ "]"
     | Border_t -> "border-t"
     | Border_r -> "border-r"
@@ -1098,7 +1134,7 @@ module Handler = struct
     | Outline -> "outline"
     | Outline_0 -> "outline-0"
     | Outline_width n -> "outline-" ^ string_of_int n
-    | Outline_width_bracket v -> "outline-[" ^ v ^ "]"
+    | Outline_width_bracket (v, _) -> "outline-[" ^ v ^ "]"
     | Outline_width_var v -> "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
     | Outline_offset n -> "outline-offset-" ^ string_of_int n
