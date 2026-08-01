@@ -119,9 +119,9 @@ module Handler = struct
     | Bg_bracket_size of string
     (* Bracket notation: bg-[50%], bg-[120px], bg-[120px_120px] →
        background-position *)
-    | Bg_bracket_position of string
+    | Bg_bracket_position of string * Css.position_value
     (* Bracket notation: bg-[position:...] → background-position *)
-    | Bg_bracket_typed_position of string
+    | Bg_bracket_typed_position of string * Css.position_value
     (* Bracket notation: bg-[color:var(--x)] → background-color *)
     | Bg_bracket_color_var of string
     (* Bracket notation: bg-[var(--x)] → background-color *)
@@ -130,7 +130,7 @@ module Handler = struct
     | Bg_bracket_image_var of string
     (* Bracket notation: bg-[image:<gradient/literal>] → background-image, with
        the image: hint kept in the class name *)
-    | Bg_bracket_image of string
+    | Bg_bracket_image of string * Css.background_image
     (* Bracket notation: bg-[url(...)] → background-image *)
     | Bg_bracket_url of string
     (* Bracket notation: bg-[image:url(...)] → background-image (image: hint
@@ -139,7 +139,7 @@ module Handler = struct
     (* Bracket notation: bg-[url:var(--x)] → background-image *)
     | Bg_bracket_url_var of string
     (* Bracket notation: bg-[linear-gradient(...)] → background-image *)
-    | Bg_bracket_linear_gradient of string
+    | Bg_bracket_linear_gradient of string * Css.background_image
     (* bg-linear-to-* direction utilities *)
     | Bg_linear_to of direction
     (* bg-linear-to-*/interp - direction with interpolation modifier *)
@@ -193,7 +193,7 @@ module Handler = struct
     (* bg-[length:...] - explicit length prefix for bracket size *)
     | Bg_bracket_length of string
     (* bg-position-[...] bracket notation *)
-    | Bg_position_bracket of string
+    | Bg_position_bracket of string * Css.position_value
     (* bg-size-[...] bracket notation *)
     | Bg_size_bracket of string
 
@@ -319,16 +319,16 @@ module Handler = struct
     | Bg_bracket_cover -> "bg-[cover]"
     | Bg_bracket_size v -> "bg-[size:" ^ v ^ "]"
     | Bg_bracket_length v -> "bg-[length:" ^ v ^ "]"
-    | Bg_bracket_position v -> "bg-[" ^ v ^ "]"
-    | Bg_bracket_typed_position v -> "bg-[position:" ^ v ^ "]"
+    | Bg_bracket_position (v, _) -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_typed_position (v, _) -> "bg-[position:" ^ v ^ "]"
     | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
     | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
-    | Bg_bracket_image v -> "bg-[image:" ^ v ^ "]"
+    | Bg_bracket_image (v, _) -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
     | Bg_bracket_image_url v -> "bg-[image:url(" ^ v ^ ")]"
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
-    | Bg_bracket_linear_gradient v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_linear_gradient (v, _) -> "bg-[" ^ v ^ "]"
     | Bg_bracket_color_var_opacity (v, opacity) ->
         "bg-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Bg_bracket_var_opacity (v, opacity) ->
@@ -388,7 +388,7 @@ module Handler = struct
     | Bg_radial -> "bg-radial"
     | Bg_radial_interp interp -> "bg-radial/" ^ interp
     | Bg_radial_bracket v -> "bg-radial-[" ^ v ^ "]"
-    | Bg_position_bracket v -> "bg-position-[" ^ v ^ "]"
+    | Bg_position_bracket (v, _) -> "bg-position-[" ^ v ^ "]"
     | Bg_size_bracket v -> "bg-size-[" ^ v ^ "]"
 
   let to_spec (dir : direction) : Css.gradient_direction =
@@ -657,50 +657,38 @@ module Handler = struct
               (Css.parse_length v))
     | _ -> None
 
-  (* Parse a bracket position value like "120px_120px" or "120px" or "50%" *)
-  let parse_bracket_position inner =
-    let parts =
-      String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
-    in
-    let parse_pos_val s : Css.position_value option =
-      if String.ends_with ~suffix:"px" s then
-        let n = String.sub s 0 (String.length s - 2) |> float_of_string_opt in
-        Option.map (fun f -> (Css.Single (Px f) : Css.position_value)) n
-      else if String.ends_with ~suffix:"%" s then
-        let n = String.sub s 0 (String.length s - 1) |> float_of_string_opt in
-        Option.map (fun f -> (Css.Single (Pct f) : Css.position_value)) n
-      else None
-    in
-    match parts with
-    | [ x; y ] -> (
-        (* Each axis is a keyword edge (left/right/top/bottom/center, normalised
-           to its percentage) or a length. *)
-        let parse_len s : Css.length option =
-          match s with
-          | "left" | "top" -> Some (Css.Pct 0.)
-          | "center" -> Some (Css.Pct 50.)
-          | "right" | "bottom" -> Some (Css.Pct 100.)
-          | _ ->
-              if String.ends_with ~suffix:"px" s then
-                let n =
-                  String.sub s 0 (String.length s - 2) |> float_of_string_opt
-                in
-                Option.map (fun f -> (Css.Px f : Css.length)) n
-              else if String.ends_with ~suffix:"%" s then
-                let n =
-                  String.sub s 0 (String.length s - 1) |> float_of_string_opt
-                in
-                Option.map (fun f -> (Css.Pct f : Css.length)) n
-              else None
-        in
-        let xl = parse_len x in
-        let yl = parse_len y in
-        match (xl, yl) with
-        | Some xv, Some yv -> Some (Css.background_position [ Css.XY (xv, yv) ])
-        | _ -> None)
-    | [ v ] ->
-        Option.map (fun pv -> Css.background_position [ pv ]) (parse_pos_val v)
-    | _ -> None
+  (* A bracket background-position: [120px_120px], [top], [left_10px_top_20px].
+     The whole [<position>] grammar, so the hand-rolled reading that only knew
+     lengths and two-keyword pairs no longer drops [top] on the floor. [None]
+     means the bracket is not a position, which [of_class] rejects. *)
+  let parse_bracket_position inner : Css.position_value option =
+    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_position_value
+        cursor
+    with
+    | Ok pos -> Some pos
+    | Error _ -> None
+
+  (* The bracket forms that also accept a var() reference read it as one. *)
+  let bracket_position_value inner : Css.position_value option =
+    if Parse.is_var inner then
+      let ref : Css.position_value Css.var =
+        Var.bracket (Parse.extract_var_name inner)
+      in
+      Some (Css.Var ref)
+    else parse_bracket_position inner
+
+  (* A bracket background-image: a gradient, a url(), or a comma-separated layer
+     list. [None] means the bracket is not an image, which [of_class] rejects:
+     [bg-[image:nope]] used to parse and then emit an empty rule. *)
+  let parse_bracket_image v : Css.background_image option =
+    let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
+    match Css.parse_background_image css_str with
+    | Some [ img ] -> Some (Css.minify_background_image img)
+    | Some (_ :: _ as imgs) ->
+        Some (Css.List (List.map Css.minify_background_image imgs))
+    | Some [] | None -> None
 
   let gradient_supports_condition =
     Css.Supports.property "background-image" "linear-gradient(in lab, red, red)"
@@ -1396,14 +1384,9 @@ module Handler = struct
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
         | None -> style [ Css.background_size Auto ])
-    | Bg_bracket_position inner -> (
-        match parse_bracket_position inner with
-        | Some decl -> style [ decl ]
-        | None -> style [ Css.background_position [ Center ] ])
-    | Bg_bracket_typed_position inner -> (
-        match parse_bracket_position inner with
-        | Some decl -> style [ decl ]
-        | None -> style [ Css.background_position [ Center ] ])
+    | Bg_bracket_position (_, pos) -> style [ Css.background_position [ pos ] ]
+    | Bg_bracket_typed_position (_, pos) ->
+        style [ Css.background_position [ pos ] ]
     | Bg_bracket_color_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.color Css.var = Var.bracket bare in
@@ -1416,18 +1399,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_image v -> (
-        let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
-        match Css.parse_background_image css_str with
-        | Some [ img ] ->
-            style [ Css.background_image (Css.minify_background_image img) ]
-        | Some imgs ->
-            style
-              [
-                Css.background_image
-                  (Css.List (List.map Css.minify_background_image imgs));
-              ]
-        | None -> style [])
+    | Bg_bracket_image (_, img) -> style [ Css.background_image img ]
     | Bg_bracket_url url ->
         style [ Css.background_image (Url (strip_outer_quotes url)) ]
     | Bg_bracket_image_url url ->
@@ -1436,16 +1408,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_linear_gradient v -> (
-        let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
-        match Css.parse_background_image css_str with
-        | Some [ img ] ->
-            let img = Css.minify_background_image img in
-            style [ Css.background_image img ]
-        | Some imgs ->
-            let imgs = List.map Css.minify_background_image imgs in
-            style [ Css.background_image (Css.List imgs) ]
-        | None -> style [])
+    | Bg_bracket_linear_gradient (_, img) -> style [ Css.background_image img ]
     | Bg_linear_to dir -> bg_linear_to' dir
     | Bg_linear_to_interp (dir, interp) -> bg_linear_to_interp' dir interp
     | Bg_linear_angle n -> bg_linear_angle' n
@@ -1487,14 +1450,7 @@ module Handler = struct
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
         | None -> style [ Css.background_size Auto ])
-    | Bg_position_bracket inner -> (
-        match parse_bracket_position inner with
-        | Some decl -> style [ decl ]
-        | None when Parse.is_var inner ->
-            let var_name = Parse.extract_var_name inner in
-            let ref : Css.position_value Css.var = Var.bracket var_name in
-            style [ Css.background_position [ Var ref ] ]
-        | None -> style [ Css.background_position [ Center ] ])
+    | Bg_position_bracket (_, pos) -> style [ Css.background_position [ pos ] ]
     | Bg_size_bracket inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
@@ -1821,11 +1777,11 @@ module Handler = struct
         let inner = Parse.bracket_inner bracket in
         Ok (Bg_radial_bracket inner)
     (* bg-position-[...] bracket notation *)
-    | [ "bg"; "position"; bracket ] when Parse.is_bracket_value bracket ->
+    | [ "bg"; "position"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        if parse_bracket_position inner = None && not (Parse.is_var inner) then
-          Error (`Msg "Invalid background-position value")
-        else Ok (Bg_position_bracket inner)
+        match bracket_position_value inner with
+        | Some pos -> Ok (Bg_position_bracket (inner, pos))
+        | None -> Error (`Msg "Invalid background-position value"))
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
@@ -1886,15 +1842,20 @@ module Handler = struct
               Ok
                 (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
           | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
-            ->
-              Ok
-                (Bg_bracket_typed_position
-                   (String.sub inner 9 (String.length inner - 9)))
+            -> (
+              (* The [position:] data-type hint forces a background-position; a
+                 value the grammar rejects is not a utility. It used to fall
+                 through to a plausible-looking [center]. *)
+              let v = String.sub inner 9 (String.length inner - 9) in
+              match bracket_position_value v with
+              | Some pos -> Ok (Bg_bracket_typed_position (v, pos))
+              | None -> Error (`Msg ("Unknown bg bracket position: " ^ v)))
           | _ when String.length inner > 6 && String.sub inner 0 6 = "color:" ->
               Ok
                 (Bg_bracket_color_var
                    (String.sub inner 6 (String.length inner - 6)))
-          | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
+          | _ when String.length inner > 6 && String.sub inner 0 6 = "image:"
+            -> (
               (* The [image:] data-type hint forces a background-image. The
                  value is a [url(...)] literal, a [var(...)] reference, or a
                  literal image (e.g. a gradient). *)
@@ -1902,7 +1863,10 @@ module Handler = struct
               if String.length v > 4 && String.sub v 0 4 = "url(" then
                 Ok (Bg_bracket_image_url (String.sub v 4 (String.length v - 5)))
               else if Parse.is_var v then Ok (Bg_bracket_image_var v)
-              else Ok (Bg_bracket_image v)
+              else
+                match parse_bracket_image v with
+                | Some img -> Ok (Bg_bracket_image (v, img))
+                | None -> Error (`Msg ("Unknown bg bracket image: " ^ v)))
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
               Ok
                 (Bg_bracket_url_var
@@ -1914,18 +1878,16 @@ module Handler = struct
           | _ -> (
               (* Try parsing as background-image (gradients, urls,
                  comma-separated) *)
-              let normalized =
-                String.map (fun c -> if c = '_' then ' ' else c) inner
-              in
-              match Css.parse_background_image normalized with
-              | Some (_ :: _) -> Ok (Bg_bracket_linear_gradient inner)
-              | _ -> (
+              match parse_bracket_image inner with
+              | Some img -> Ok (Bg_bracket_linear_gradient (inner, img))
+              | None -> (
                   match Color.parse_bracket_color inner with
                   | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
-                  | None ->
-                      if parse_bracket_position inner <> None then
-                        Ok (Bg_bracket_position inner)
-                      else Error (`Msg ("Unknown bg bracket value: " ^ inner))))
+                  | None -> (
+                      match parse_bracket_position inner with
+                      | Some pos -> Ok (Bg_bracket_position (inner, pos))
+                      | None ->
+                          Error (`Msg ("Unknown bg bracket value: " ^ inner)))))
         )
     | "bg" :: rest when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ~theme rest with

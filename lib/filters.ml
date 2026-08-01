@@ -11,7 +11,7 @@ module Handler = struct
   type t =
     | Filter
     | Filter_none
-    | Filter_arbitrary of string
+    | Filter_arbitrary of string * Css.filter
     | Blur_none
     | Blur_xs
     | Blur_sm
@@ -48,16 +48,17 @@ module Handler = struct
     | Drop_shadow_none
     | Drop_shadow_inherit
     | Drop_shadow_named of string
-    | Drop_shadow_arbitrary of string
+    | Drop_shadow_arbitrary of string * Css.filter
     | Drop_shadow_color of Color.color * int
     | Drop_shadow_color_opacity of Color.color * int * Color.opacity_modifier
     | Drop_shadow_opacity of Color.opacity_modifier
     | Drop_shadow_keyword_color of Css.color * string
       (* drop-shadow-current / -transparent: a colour with no theme token *)
-    | Drop_shadow_size_opacity of string * Color.opacity_modifier
+    | Drop_shadow_size_opacity of
+        string * (Css.length * Css.length) * Color.opacity_modifier
     | Backdrop_filter
     | Backdrop_filter_none
-    | Backdrop_filter_arbitrary of string
+    | Backdrop_filter_arbitrary of string * Css.filter
     | Backdrop_blur_none
     | Backdrop_blur_xs
     | Backdrop_blur_sm
@@ -622,15 +623,16 @@ module Handler = struct
          ~color:(Css.Var (drop_shadow_color_ref fallback))
          ())
 
-  (* A theme-token drop-shadow such as [drop-shadow-calc] backed by a custom
-     [--drop-shadow-<name>] theme value. Parses the theme value into one or more
-     shadow bodies, hoists each colour into [--tw-drop-shadow-color], and
-     references the token from [--tw-drop-shadow]. *)
-  let drop_shadow_named ?theme name =
+  (* The [--drop-shadow-<name>] theme value behind [drop-shadow-<name>], split
+     into shadow bodies. [None] means the theme has no such token, or its value
+     is not a shadow: either way the class is not a utility, so [of_class] uses
+     this to gate before [to_style] ever sees the name. *)
+  let drop_shadow_theme_bodies ?theme name :
+      (string * Css.shadow_body list) option =
     let theme_name = "drop-shadow-" ^ name in
     match Scheme.theme_value theme theme_name with
-    | None -> style []
-    | Some value ->
+    | None -> None
+    | Some value -> (
         let cursor = Cascade.Cursor.of_string value in
         let body_of (sh : Css.shadow) : Css.shadow_body option =
           match sh with Css.Shadow body -> Some body | _ -> None
@@ -643,20 +645,33 @@ module Handler = struct
           | Ok sh -> ( match body_of sh with Some b -> [ b ] | None -> [])
           | Error _ -> []
         in
-        if bodies = [] then style []
-        else
-          let size : Css.filter =
-            match List.map drop_shadow_size_of_body bodies with
-            | [ single ] -> single
-            | many -> Css.List many
-          in
-          style ~property_rules:filter_property_rules
-            [
-              Css.custom_property ~layer:"theme" ("--" ^ theme_name) value;
-              bind_drop_shadow_size size;
-              bind_drop_shadow (drop_shadow_theme_ref theme_name);
-              filter composable_filter_chain;
-            ]
+        match bodies with [] -> None | _ -> Some (value, bodies))
+
+  (* A theme-token drop-shadow such as [drop-shadow-calc] backed by a custom
+     [--drop-shadow-<name>] theme value. Parses the theme value into one or more
+     shadow bodies, hoists each colour into [--tw-drop-shadow-color], and
+     references the token from [--tw-drop-shadow]. *)
+  let drop_shadow_named ?theme name =
+    let theme_name = "drop-shadow-" ^ name in
+    match drop_shadow_theme_bodies ?theme name with
+    | None ->
+        (* [of_class] resolves the token against the same theme, so the only way
+           here is a utility built against one theme and rendered against
+           another. *)
+        invalid_arg (theme_name ^ ": no such theme token")
+    | Some (value, bodies) ->
+        let size : Css.filter =
+          match List.map drop_shadow_size_of_body bodies with
+          | [ single ] -> single
+          | many -> Css.List many
+        in
+        style ~property_rules:filter_property_rules
+          [
+            Css.custom_property ~layer:"theme" ("--" ^ theme_name) value;
+            bind_drop_shadow_size size;
+            bind_drop_shadow (drop_shadow_theme_ref theme_name);
+            filter composable_filter_chain;
+          ]
 
   let drop_shadow_multi_ =
     let fallback_a = Css.hex "#0000000d" in
@@ -686,7 +701,11 @@ module Handler = struct
         filter composable_filter_chain;
       ]
 
-  let drop_shadow_arbitrary_impl s =
+  (* The [--tw-drop-shadow-size] filter behind [drop-shadow-[...]]: the last
+     space-separated word is the colour, hoisted into the
+     [--tw-drop-shadow-color] fallback. [None] means the bracket is not a
+     shadow, which [of_class] rejects. *)
+  let drop_shadow_arbitrary_value s : Css.filter option =
     let inner = Parse.bracket_inner s in
     let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
     let parts = String.split_on_char ' ' inner in
@@ -700,14 +719,16 @@ module Handler = struct
         ("drop-shadow(" ^ non_color ^ " var(--tw-drop-shadow-color, " ^ color
        ^ "))")
     with
-    | Ok size ->
-        style ~property_rules:filter_property_rules
-          [
-            bind_drop_shadow_size size;
-            bind_drop_shadow drop_shadow_size_ref;
-            filter composable_filter_chain;
-          ]
-    | Error _ -> style []
+    | Ok size -> Some size
+    | Error _ -> None
+
+  let drop_shadow_arbitrary_impl size =
+    style ~property_rules:filter_property_rules
+      [
+        bind_drop_shadow_size size;
+        bind_drop_shadow drop_shadow_size_ref;
+        filter composable_filter_chain;
+      ]
 
   let drop_shadow_inherit_ =
     style ~property_rules:filter_property_rules
@@ -859,43 +880,46 @@ module Handler = struct
     | "2xl" -> Option.Some (Css.Px 25., Css.Px 25.)
     | _ -> Option.None
 
-  let drop_shadow_size_opacity size opacity =
-    match drop_shadow_size_geometry size with
-    | Option.None -> style []
-    | Option.Some (v, blur) ->
-        let percent =
-          match opacity with Color.Opacity_percent p -> p | _ -> 100.
-        in
-        let alpha_str =
-          if Float.is_integer percent then
-            string_of_int (int_of_float percent) ^ "%"
-          else Css.Pp.string_of_float percent ^ "%"
-        in
-        let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
-        style ~property_rules:filter_property_rules
-          [
-            Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
-              alpha_str;
-            bind_drop_shadow_size
-              (drop_shadow_filter Zero v (Option.Some blur) fallback);
-            bind_drop_shadow drop_shadow_size_ref;
-            filter composable_filter_chain;
-          ]
+  let drop_shadow_size_opacity (v, blur) opacity =
+    let percent =
+      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+    in
+    let alpha_str =
+      if Float.is_integer percent then
+        string_of_int (int_of_float percent) ^ "%"
+      else Css.Pp.string_of_float percent ^ "%"
+    in
+    let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
+    style ~property_rules:filter_property_rules
+      [
+        Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
+          alpha_str;
+        bind_drop_shadow_size
+          (drop_shadow_filter Zero v (Option.Some blur) fallback);
+        bind_drop_shadow drop_shadow_size_ref;
+        filter composable_filter_chain;
+      ]
 
-  (* Filter arbitrary - direct value *)
-  let filter_arbitrary s =
+  (* The filter list behind [filter-[...]] and [backdrop-filter-[...]]. A
+     bracket spells its spaces with [_], so a chain such as
+     [blur(4px)_saturate(150%)] has to be decoded before the filter grammar sees
+     it. [None] means the bracket is not a filter list, which [of_class]
+     rejects. *)
+  let filter_arbitrary_value s : Css.filter option =
     let inner = Parse.bracket_inner s in
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
       let ref_ : Css.filter Css.var = Var.bracket bare in
-      style [ filter (Var ref_) ]
+      Some (Css.Var ref_)
     else
-      let cursor = Cascade.Cursor.of_string inner in
+      let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
       match
         Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
       with
-      | Ok value -> style [ filter value ]
-      | Error _ -> style []
+      | Ok value -> Some value
+      | Error _ -> None
+
+  let filter_arbitrary value = style [ filter value ]
 
   (* Composable backdrop-filter chain *)
   let composable_backdrop_filter_chain : Css.filter =
@@ -1112,21 +1136,8 @@ module Handler = struct
   let backdrop_filter_none =
     style [ Css.webkit_backdrop_filter None; backdrop_filter None ]
 
-  let backdrop_filter_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    if Parse.is_var inner then
-      let bare = Parse.extract_var_name inner in
-      let ref_ : Css.filter Css.var = Var.bracket bare in
-      style
-        [ Css.webkit_backdrop_filter (Var ref_); backdrop_filter (Var ref_) ]
-    else
-      let cursor = Cascade.Cursor.of_string inner in
-      match
-        Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
-      with
-      | Ok value ->
-          style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
-      | Error _ -> style []
+  let backdrop_filter_arbitrary value =
+    style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
 
   let to_style theme =
     let drop_shadow_color c shade = drop_shadow_color ~theme c shade in
@@ -1141,7 +1152,7 @@ module Handler = struct
     function
     | Filter -> filter_
     | Filter_none -> filter_none
-    | Filter_arbitrary s -> filter_arbitrary s
+    | Filter_arbitrary (_, value) -> filter_arbitrary value
     | Blur_none -> blur_none ()
     | Blur_xs -> blur_xs ()
     | Blur_sm -> blur_sm ()
@@ -1178,13 +1189,13 @@ module Handler = struct
     | Drop_shadow_none -> drop_shadow_none
     | Drop_shadow_inherit -> drop_shadow_inherit_
     | Drop_shadow_named name -> drop_shadow_named name
-    | Drop_shadow_arbitrary s -> drop_shadow_arbitrary_impl s
+    | Drop_shadow_arbitrary (_, size) -> drop_shadow_arbitrary_impl size
     | Drop_shadow_color (c, shade) -> drop_shadow_color c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
         drop_shadow_color_opacity c shade op
     | Drop_shadow_opacity op -> drop_shadow_opacity op
     | Drop_shadow_keyword_color (c, _) -> drop_shadow_keyword_color c
-    | Drop_shadow_size_opacity (size, op) -> drop_shadow_size_opacity size op
+    | Drop_shadow_size_opacity (_, geom, op) -> drop_shadow_size_opacity geom op
     | Backdrop_blur_none -> backdrop_blur_none ()
     | Backdrop_blur_xs -> backdrop_blur_xs ()
     | Backdrop_blur_sm -> backdrop_blur_sm ()
@@ -1218,7 +1229,7 @@ module Handler = struct
         neg_backdrop_hue_rotate_arbitrary angle
     | Backdrop_filter -> backdrop_filter_
     | Backdrop_filter_none -> backdrop_filter_none
-    | Backdrop_filter_arbitrary s -> backdrop_filter_arbitrary s
+    | Backdrop_filter_arbitrary (_, value) -> backdrop_filter_arbitrary value
 
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a filter utility")
@@ -1313,11 +1324,16 @@ module Handler = struct
     match parts with
     | [ "filter" ] -> Ok Filter
     | [ "filter"; "none" ] -> Ok Filter_none
-    | [ "filter"; s ] when Parse.is_bracket_value s -> Ok (Filter_arbitrary s)
+    | [ "filter"; s ] when Parse.is_bracket_value s -> (
+        match filter_arbitrary_value s with
+        | Option.Some value -> Ok (Filter_arbitrary (s, value))
+        | Option.None -> err_not_utility)
     | [ "backdrop"; "filter" ] -> Ok Backdrop_filter
     | [ "backdrop"; "filter"; "none" ] -> Ok Backdrop_filter_none
-    | [ "backdrop"; "filter"; s ] when Parse.is_bracket_value s ->
-        Ok (Backdrop_filter_arbitrary s)
+    | [ "backdrop"; "filter"; s ] when Parse.is_bracket_value s -> (
+        match filter_arbitrary_value s with
+        | Option.Some value -> Ok (Backdrop_filter_arbitrary (s, value))
+        | Option.None -> err_not_utility)
     | [ "blur"; "none" ] -> Ok Blur_none
     | [ "blur"; "xs" ] -> Ok Blur_xs
     | [ "blur"; "sm" ] -> Ok Blur_sm
@@ -1388,14 +1404,17 @@ module Handler = struct
         Ok (Drop_shadow_keyword_color (Css.Current, "current"))
     | [ "drop"; "shadow"; "transparent" ] ->
         Ok (Drop_shadow_keyword_color (Css.Transparent, "transparent"))
-    | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s ->
+    | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s -> (
         let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
         (* A drop-shadow bracket is a shadow or a var(); the docs' [<value>]
            placeholder is neither, and it used to reach the sheet as the colour
            of an otherwise empty shadow. *)
-        if Parse.is_var inner || Css.parse_shadow inner <> None then
-          Ok (Drop_shadow_arbitrary s)
-        else err_not_utility
+        if not (Parse.is_var inner || Css.parse_shadow inner <> None) then
+          err_not_utility
+        else
+          match drop_shadow_arbitrary_value s with
+          | Option.Some size -> Ok (Drop_shadow_arbitrary (s, size))
+          | Option.None -> err_not_utility)
     | "drop" :: "shadow" :: rest -> (
         let full = String.concat "-" rest in
         let base, opacity = Color.parse_opacity_modifier ~theme full in
@@ -1410,20 +1429,25 @@ module Handler = struct
                 Ok (Drop_shadow_color (c, shade))
             | Ok (c, shade, op) -> Ok (Drop_shadow_color_opacity (c, shade, op))
             (* Otherwise treat it as a custom [--drop-shadow-<name>] theme
-               token; the theme value is resolved at emission time. *)
-            | Error _ -> Ok (Drop_shadow_named full))
-        | op when drop_shadow_size_geometry base <> Option.None ->
-            Ok (Drop_shadow_size_opacity (base, op))
+               token. Without such a token the class names nothing: it used to
+               parse and then emit an empty rule. *)
+            | Error _ when drop_shadow_theme_bodies ~theme full <> Option.None
+              ->
+                Ok (Drop_shadow_named full)
+            | Error _ -> err_not_utility)
         | op -> (
-            if base = "" then Ok (Drop_shadow_opacity op)
-            else
-              match
-                Color.shade_and_opacity_of_strings
-                  (String.split_on_char '-' base)
-              with
-              | Ok (c, shade, _) ->
-                  Ok (Drop_shadow_color_opacity (c, shade, op))
-              | Error _ -> err_not_utility))
+            match drop_shadow_size_geometry base with
+            | Option.Some geom -> Ok (Drop_shadow_size_opacity (base, geom, op))
+            | Option.None -> (
+                if base = "" then Ok (Drop_shadow_opacity op)
+                else
+                  match
+                    Color.shade_and_opacity_of_strings
+                      (String.split_on_char '-' base)
+                  with
+                  | Ok (c, shade, _) ->
+                      Ok (Drop_shadow_color_opacity (c, shade, op))
+                  | Error _ -> err_not_utility)))
     | [ "backdrop"; "blur"; "none" ] -> Ok Backdrop_blur_none
     | [ "backdrop"; "blur"; "xs" ] -> Ok Backdrop_blur_xs
     | [ "backdrop"; "blur"; "sm" ] -> Ok Backdrop_blur_sm
@@ -1512,10 +1536,10 @@ module Handler = struct
   let to_class = function
     | Filter -> "filter"
     | Filter_none -> "filter-none"
-    | Filter_arbitrary s -> "filter-" ^ s
+    | Filter_arbitrary (s, _) -> "filter-" ^ s
     | Backdrop_filter -> "backdrop-filter"
     | Backdrop_filter_none -> "backdrop-filter-none"
-    | Backdrop_filter_arbitrary s -> "backdrop-filter-" ^ s
+    | Backdrop_filter_arbitrary (s, _) -> "backdrop-filter-" ^ s
     | Blur_none -> "blur-none"
     | Blur_xs -> "blur-xs"
     | Blur_sm -> "blur-sm"
@@ -1562,7 +1586,7 @@ module Handler = struct
     | Drop_shadow_none -> "drop-shadow-none"
     | Drop_shadow_inherit -> "drop-shadow-inherit"
     | Drop_shadow_named name -> "drop-shadow-" ^ name
-    | Drop_shadow_arbitrary s -> "drop-shadow-" ^ s
+    | Drop_shadow_arbitrary (s, _) -> "drop-shadow-" ^ s
     | Drop_shadow_color (c, shade) ->
         "drop-shadow-" ^ Color.scheme_color_name c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
@@ -1571,7 +1595,7 @@ module Handler = struct
         ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_opacity op -> "drop-shadow/" ^ Color.pp_opacity op
     | Drop_shadow_keyword_color (_, name) -> "drop-shadow-" ^ name
-    | Drop_shadow_size_opacity (size, op) ->
+    | Drop_shadow_size_opacity (size, _, op) ->
         "drop-shadow-" ^ size ^ "/" ^ Color.pp_opacity op
     | Backdrop_blur_none -> "backdrop-blur-none"
     | Backdrop_blur_xs -> "backdrop-blur-xs"

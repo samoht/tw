@@ -136,9 +136,51 @@ let test_bg_position_bracket_keyword_length () =
     (Astring.String.is_infix ~affix:"background-position: 50% -100px"
        (css "bg-position-[center_-100px]"));
   Alcotest.(check bool)
-    "bg-position-[left_top] normalises keywords" true
-    (Astring.String.is_infix ~affix:"background-position: 0% 0%"
+    "bg-position-[left_top] keeps the edge keywords" true
+    (Astring.String.is_infix ~affix:"background-position: left top"
        (css "bg-position-[left_top]"))
+
+(* A background-position bracket takes the whole CSS grammar: a single edge
+   keyword, and the four-value edge/offset form. Both used to fall through the
+   hand-rolled parser to a silent [center]. *)
+let test_bracket_position_grammar () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-[position:top]" "background-position: top";
+  has "bg-[position:left_10px_top_20px]"
+    "background-position: left 10px top 20px";
+  has "bg-position-[top]" "background-position: top";
+  has "bg-[top]" "background-position: top";
+  (* the lengths form is unchanged *)
+  has "bg-[position:120px_120px]" "background-position: 120px 120px";
+  has "bg-position-[center_-100px]" "background-position: 50% -100px"
+
+(* A bracket value the property cannot take is not a utility. [bg-[image:...]]
+   used to emit an empty rule and [bg-[position:...]] a plausible-looking
+   [center]: no CSS the class asked for, and no diagnostic. *)
+let test_invalid_bracket_value () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "bg-[image:nope]";
+  rejected "bg-[position:nope]";
+  accepted "bg-[image:radial-gradient(white,black)]";
+  accepted "bg-[image:var(--x)]";
+  accepted "bg-[image:url(/a.png)]";
+  accepted "bg-[position:120px_120px]"
 
 let test_bracket_image_literal () =
   let css cls =
@@ -366,6 +408,8 @@ let tests =
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
       test_bg_position_bracket_keyword_length;
+    test_case "bracket position grammar" `Quick test_bracket_position_grammar;
+    test_case "invalid bracket value" `Quick test_invalid_bracket_value;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "via-none" `Quick test_via_none;
