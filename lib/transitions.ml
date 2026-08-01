@@ -652,6 +652,8 @@ module Handler = struct
     | Ease_in_out -> "ease-in-out"
     | Ease_initial -> "ease-initial"
     | Ease_arbitrary s -> "ease-[" ^ s ^ "]"
+
+  let examples = [ Transition; Duration 150; Delay 150; Ease_linear ]
 end
 
 open Handler

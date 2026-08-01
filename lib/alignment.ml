@@ -358,6 +358,19 @@ module Handler = struct
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
     | None -> Error (`Msg "Not an alignment utility")
+
+  let examples =
+    [
+      Justify_start;
+      Justify_items_start;
+      Justify_self_start;
+      Items_start;
+      Content_start;
+      Self_start;
+      Place_content_center;
+      Place_items_start;
+      Place_self_auto;
+    ]
 end
 
 open Handler

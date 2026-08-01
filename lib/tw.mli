@@ -3786,6 +3786,7 @@ val to_css :
   ?base:bool ->
   ?forms:bool ->
   ?layers:bool ->
+  ?extra:(string * (int * int) * Css.statement list) list ->
   t list ->
   Css.t
 (** [to_css ?theme ?base ?forms ?layers styles] generates a CSS stylesheet for

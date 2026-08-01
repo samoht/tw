@@ -37,6 +37,8 @@ module Handler = struct
     | [ "wrap"; "break"; "word" ] -> Ok Break_word
     | [ "wrap"; "anywhere" ] -> Ok Anywhere
     | _ -> Error (`Msg "Not an overflow-wrap utility")
+
+  let examples = [ Normal ]
 end
 
 open Handler

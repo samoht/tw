@@ -152,6 +152,7 @@ module Handler = struct
         else Error (`Msg "Not a contain utility")
 
   let utility t = Utility.base (Self t)
+  let examples = [ Strict ]
 end
 
 let () = Utility.register (module Handler)

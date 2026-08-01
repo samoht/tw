@@ -27,15 +27,81 @@ module type Handler = sig
   val suborder : t -> int
   val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
+  val examples : t list
 end
 
 type handler = H : (module Handler with type t = 'a) -> handler
 
 let handlers : handler list ref = ref []
 
+(* A project's [@utility] sorts at the slot of the property it declares, so that
+   slot has to be readable from a property. Each handler offers a few of its own
+   utilities as {!Handler.examples}; running them through [to_style] says which
+   properties they set, and the lowest order among the ones setting a property
+   is that property's slot. The ordering itself stays declared once, on the
+   utilities - nothing here restates it. *)
+let property_slots :
+    (Cascade.Css.Declaration.prop_key, int * int) Hashtbl.t option ref =
+  ref None
+
 let register (type a) (module M : Handler with type t = a) =
   let internal_h = H (module M : Handler with type t = a) in
+  property_slots := None;
   handlers := internal_h :: !handlers
+
+(* The declarations a style writes, its own and those of the rules it
+   carries. *)
+let rec style_declarations (s : Style.t) =
+  match s with
+  | Style.Style { props; rules; _ } ->
+      props
+      @ List.concat_map
+          (fun rule ->
+            match Cascade.Css.as_rule rule with
+            | Some (_, decls, _) -> decls
+            | None -> [])
+          (Stdlib.Option.value ~default:[] rules)
+  | Style.Modified (_, inner) -> style_declarations inner
+  | Style.Group inner -> List.concat_map style_declarations inner
+
+let build_property_slots () =
+  let tbl = Hashtbl.create 512 in
+  let record key order =
+    match Hashtbl.find_opt tbl key with
+    | Some existing when existing <= order -> ()
+    | _ -> Hashtbl.replace tbl key order
+  in
+  List.iter
+    (fun (H (module M)) ->
+      List.iter
+        (fun example ->
+          let order = (M.priority example, M.suborder example) in
+          (* The property a utility claims is the one it writes first: the one
+             it is named for. A later declaration is incidental - line-clamp
+             ends with [display: -webkit-box] but the display slot belongs to
+             the display utilities, which sort elsewhere. *)
+          match style_declarations (M.to_style Scheme.default example) with
+          | [] -> ()
+          | d :: _ -> (
+              match Cascade.Css.Declaration.property_key d with
+              (* An author's own variable is not a slot: only the properties
+                 Tailwind orders utilities by are. *)
+              | Key (Custom_property _) | Key (Unknown_property _) -> ()
+              | key -> record key order))
+        M.examples)
+    !handlers;
+  tbl
+
+let order_of_property key =
+  let tbl =
+    match !property_slots with
+    | Some tbl -> tbl
+    | None ->
+        let tbl = build_property_slots () in
+        property_slots := Some tbl;
+        tbl
+  in
+  Hashtbl.find_opt tbl key
 
 let name_of_base u =
   let rec try_handlers = function

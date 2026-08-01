@@ -65,6 +65,8 @@ module Screen_reader_handler = struct
     | [ "sr"; "only" ] -> Ok Sr_only
     | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
     | _ -> Error (`Msg "Not a screen reader utility")
+
+  let examples = []
 end
 
 (* Theme variable for z-index-auto. When the threaded theme overrides this token
@@ -722,6 +724,18 @@ module Handler = struct
     | [ "break"; "inside"; "avoid"; "column" ] -> Ok Break_inside_avoid_column
     | [ "break"; "inside"; "avoid"; "page" ] -> Ok Break_inside_avoid_page
     | _ -> Error (`Msg "Not a layout utility")
+
+  let examples =
+    [
+      Block;
+      Visible;
+      Z_auto;
+      Isolate;
+      Float_left;
+      Clear_both;
+      Object_contain;
+      Object_center;
+    ]
 end
 
 open Handler

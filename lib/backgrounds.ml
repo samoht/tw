@@ -1935,6 +1935,17 @@ module Handler = struct
     | "via" :: rest -> parse_gradient_color ~theme Gradient_via rest
     | "to" :: rest -> parse_gradient_color ~theme Gradient_to rest
     | _ -> Error (`Msg "Unknown background class")
+
+  let examples =
+    [
+      Bg_none;
+      Bg_auto;
+      Bg_no_repeat;
+      Bg_fixed;
+      Bg_clip_border;
+      Bg_origin_border;
+      Bg_current;
+    ]
 end
 
 open Handler

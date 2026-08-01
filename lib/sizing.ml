@@ -1922,6 +1922,23 @@ module Handler = struct
         in
         "aspect-[" ^ num w ^ "/" ^ num h ^ "]"
     | Aspect_bracket_num s -> "aspect-[" ^ s ^ "]"
+
+  let examples =
+    [
+      H_auto;
+      Max_h_none;
+      Min_h_auto;
+      W_auto;
+      Max_w_none;
+      Min_w_auto;
+      Aspect_auto;
+      Block_auto;
+      Max_block_none;
+      Min_block_auto;
+      Inline_auto;
+      Max_inline_none;
+      Min_inline_auto;
+    ]
 end
 
 open Handler

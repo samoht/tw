@@ -754,6 +754,7 @@ let test_style_rules_props () =
     let to_style _theme _t = style
     let suborder _t = 0
     let of_class _ _ = Error (`Msg "test utility")
+    let examples = []
   end in
   let () = Tw.Utility.register (module TestHandler) in
   let test_utility = Tw.Utility.base (TestHandler.Self TestHandler.Test) in

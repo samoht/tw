@@ -38,6 +38,7 @@ module Handler = struct
     | _ -> err_not_utility
 
   let to_class = function Flex -> "flex" | Inline_flex -> "inline-flex"
+  let examples = [ Flex ]
 end
 
 open Handler

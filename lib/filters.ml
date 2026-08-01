@@ -1614,6 +1614,8 @@ module Handler = struct
         "backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
     | Neg_backdrop_hue_rotate_arbitrary angle ->
         "-backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
+
+  let examples = [ Filter_none; Backdrop_filter_none ]
 end
 
 open Handler

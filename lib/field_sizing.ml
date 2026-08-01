@@ -27,6 +27,8 @@ module Handler = struct
     | [ "field"; "sizing"; "content" ] -> Ok Content
     | [ "field"; "sizing"; "fixed" ] -> Ok Fixed
     | _ -> Error (`Msg "Not a field-sizing utility")
+
+  let examples = [ Content ]
 end
 
 open Handler

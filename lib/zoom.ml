@@ -50,6 +50,8 @@ module Handler = struct
             | Some v -> Ok (Zoom_arbitrary (n, v))
             | None -> Error (`Msg "Not a zoom utility")))
     | _ -> Error (`Msg "Not a zoom utility")
+
+  let examples = [ Zoom_pct 100. ]
 end
 
 let () = Utility.register (module Handler)

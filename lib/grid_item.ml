@@ -467,6 +467,16 @@ module Handler = struct
     | Row_end_arbitrary s -> "row-end-" ^ to_class_arbitrary s
     | Row_end_auto -> "row-end-auto"
     | Row_end_named s -> "row-end-" ^ s
+
+  let examples =
+    [
+      Col_auto;
+      Col_start_auto;
+      Col_end_auto;
+      Row_auto;
+      Row_start_auto;
+      Row_end_auto;
+    ]
 end
 
 open Handler

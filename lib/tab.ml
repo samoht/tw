@@ -46,6 +46,8 @@ module Handler = struct
             | Some v -> Ok (Tab_arbitrary (n, v))
             | None -> Error (`Msg "Not a tab utility")))
     | _ -> Error (`Msg "Not a tab utility")
+
+  let examples = [ Tab 4 ]
 end
 
 open Handler

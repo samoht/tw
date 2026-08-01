@@ -504,6 +504,15 @@ module Handler = struct
       | _ -> err_not_utility
     in
     parse_class parts
+
+  let examples =
+    [
+      Gap { axis = `All; value = Standard (`Rem 1.) };
+      Gap { axis = `X; value = Standard (`Rem 1.) };
+      Gap { axis = `Y; value = Standard (`Rem 1.) };
+      Space { negative = false; axis = `X; value = `Rem 1. };
+      Space { negative = false; axis = `Y; value = `Rem 1. };
+    ]
 end
 
 open Handler

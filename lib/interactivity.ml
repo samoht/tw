@@ -362,6 +362,20 @@ module Handler = struct
     | Scheme_normal -> "scheme-normal"
     | Scheme_only_dark -> "scheme-only-dark"
     | Scheme_only_light -> "scheme-only-light"
+
+  let examples =
+    [
+      Select_none;
+      Scroll_auto;
+      Snap_x;
+      Snap_start;
+      Snap_mandatory;
+      Resize_none;
+      Pointer_events_none;
+      Appearance_none;
+      Will_change_auto;
+      Scheme_dark;
+    ]
 end
 
 open Handler

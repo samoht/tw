@@ -2084,6 +2084,8 @@ module Handler = struct
     | Prose_xl -> 4650004
     | Lead -> 4650005
     | Not_prose -> 4650006
+
+  let examples = []
 end
 
 (* Handler for prose color variants - priority 21 *)
@@ -2149,6 +2151,8 @@ module Color_Handler = struct
     | Prose_zinc -> 30004
     | Prose_invert -> 30005
     | Prose_orange -> 30006
+
+  let examples = []
 end
 
 (** Register both handlers with Utility system *)

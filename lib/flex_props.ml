@@ -437,6 +437,8 @@ module Handler = struct
     | Order_first -> "order-first"
     | Order_last -> "order-last"
     | Order_none -> "order-none"
+
+  let examples = [ Flex_1; Flex_grow; Flex_shrink; Basis_0 ]
 end
 
 open Handler

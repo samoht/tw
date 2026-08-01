@@ -65,8 +65,8 @@ include Scroll
 include Arbitrary
 
 let to_css ?theme ?(base = Build.default_config.base) ?forms
-    ?(layers = Build.default_config.layers) utilities =
-  Build.to_css ?theme ~config:{ base; forms; layers } utilities
+    ?(layers = Build.default_config.layers) ?extra utilities =
+  Build.to_css ?theme ~config:{ base; forms; layers } ?extra utilities
 
 let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet

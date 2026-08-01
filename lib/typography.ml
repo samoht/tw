@@ -1405,6 +1405,8 @@ module Typography_early = struct
         let fs_decls = bracket_font_size_decls raw in
         let lh_extra, lh_value = lh_modifier_to_css lh_mod in
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
+
+  let examples = [ Text_base; Font_normal ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)
@@ -3101,6 +3103,34 @@ module Typography_late = struct
     | Content_raw (_, c) -> content_raw c
     | Content_squote s -> content_squote s
     | Content_named name -> content_named name
+
+  let examples =
+    [
+      Align_baseline;
+      Antialiased;
+      Break_normal;
+      Capitalize;
+      Content_none;
+      Decoration_transparent;
+      Decoration_solid;
+      Decoration_auto;
+      Font_stretch_normal;
+      Hyphens_none;
+      Indent_px;
+      Line_clamp_none;
+      Line_through;
+      List_none;
+      List_image_none;
+      List_inside;
+      Normal_nums;
+      Overflow_wrap_normal;
+      Text_balance;
+      Text_ellipsis;
+      Text_nowrap;
+      Tracking_normal;
+      Underline_offset_auto;
+      Whitespace_normal;
+    ]
 end
 
 (* Register both handlers *)

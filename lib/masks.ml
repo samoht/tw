@@ -662,6 +662,17 @@ module Handler = struct
     | Mask_position_bracket_var v -> "mask-position-[" ^ v ^ "]"
     | Mask_size_bracket v -> "mask-size-[" ^ v ^ "]"
     | Mask_size_bracket_var v -> "mask-size-[" ^ v ^ "]"
+
+  let examples =
+    [
+      Mask_none;
+      Mask_clip_border;
+      Mask_origin_border;
+      Mask_repeat;
+      Mask_type_alpha;
+      Mask_add;
+      Mask_alpha;
+    ]
 end
 
 open Handler

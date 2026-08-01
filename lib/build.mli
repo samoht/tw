@@ -40,12 +40,24 @@ type config = {
 val default_config : config
 (** The default configuration. Base layer enabled. *)
 
-val to_css : ?theme:Scheme.t -> ?config:config -> Utility.t list -> Css.t
+val to_css :
+  ?theme:Scheme.t ->
+  ?config:config ->
+  ?extra:(string * (int * int) * Css.statement list) list ->
+  Utility.t list ->
+  Css.t
 (** [to_css ?theme ?config utilities] generates a full CSS stylesheet for
     [utilities]. This is the main entry point for the library. [theme] (default
     {!Scheme.default}) supplies the theme values utilities read while generating
     CSS. Rendering concerns such as inlining and optimization are handled by
-    {!Css.to_string}. *)
+    {!Css.to_string}.
+
+    [extra] carries rules a project's own [@utility] produced, each as
+    [(class name, order, statements)]. The handlers know nothing about a
+    declared utility, so its order comes in with it - see
+    {!Utility.order_of_property} for where that order is read from - and the
+    statements sort into the utilities layer at that order instead of landing
+    after it. *)
 
 val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string
 (** [to_inline_style ?theme utilities] returns a CSS [style] attribute string

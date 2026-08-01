@@ -788,6 +788,8 @@ module Handler = struct
         | Stdlib.Option.None -> 0)
     | Text_shadow_shape_opacity _ -> -1 (* no @supports *)
     | _ -> 0
+
+  let examples = [ Text_shadow_shape S_sm; Text_shadow_current ]
 end
 
 open Handler

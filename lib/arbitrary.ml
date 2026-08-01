@@ -416,6 +416,8 @@ module Handler = struct
                 with
                 | Some _ -> Ok (Parsed_decl { property; value })
                 | None -> err_not_utility))
+
+  let examples = []
 end
 
 let () = Utility.register (module Handler)

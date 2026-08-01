@@ -286,6 +286,32 @@ module Handler = struct
                 | None -> Error (`Msg "Not a scroll utility")))
         | _ -> Error (`Msg "Not a scroll utility"))
     | _ -> Error (`Msg "Not a scroll utility")
+
+  let examples =
+    [
+      { kind = Margin; negative = false; axis = All; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = X; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = Y; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = T; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = R; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = B; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = L; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = S; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = E; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = Bs; value = Spacing 1. };
+      { kind = Margin; negative = false; axis = Be; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = All; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = X; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = Y; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = T; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = R; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = B; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = L; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = S; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = E; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = Bs; value = Spacing 1. };
+      { kind = Padding; negative = false; axis = Be; value = Spacing 1. };
+    ]
 end
 
 open Handler

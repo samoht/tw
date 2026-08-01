@@ -1996,6 +1996,9 @@ module Handler = struct
         (* Convert spaces back to underscores for class name *)
         let s = String.map (fun c -> if c = ' ' then '_' else c) s in
         "origin-[" ^ s ^ "]"
+
+  let examples =
+    [ Origin_top; Perspective_none; Perspective_origin_top; Backface_hidden ]
 end
 
 open Handler

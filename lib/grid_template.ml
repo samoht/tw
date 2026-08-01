@@ -512,6 +512,15 @@ module Handler = struct
     | Auto_rows_fr -> "auto-rows-fr"
     | Auto_rows_spacing n -> "auto-rows-" ^ pp_float n
     | Auto_rows_arbitrary s -> "auto-rows-[" ^ s ^ "]"
+
+  let examples =
+    [
+      Grid_cols_none;
+      Grid_rows_none;
+      Grid_flow_row;
+      Auto_cols_auto;
+      Auto_rows_auto;
+    ]
 end
 
 open Handler

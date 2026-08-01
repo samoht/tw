@@ -3117,6 +3117,17 @@ module Handler = struct
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_cvar_opacity _
     | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
         100000
+
+  let examples =
+    [
+      Shadow_none;
+      Opacity 50;
+      Mix_blend_normal;
+      Bg_blend_normal;
+      Ring_none;
+      Inset_ring_default;
+      Ring_offset_width 0;
+    ]
 end
 
 open Handler
