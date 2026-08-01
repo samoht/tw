@@ -282,7 +282,27 @@ let test_text_bracket_size_invalid () =
   (* Hex-looking, missing '#' *)
   bad "text-[FF0000]";
   bad "text-[totallyNotAColor]";
-  bad "text-[16]" (* Missing unit *)
+  (* Missing unit *)
+  bad "text-[16]";
+  (* The unitless zero reads as a colour in v4, not a size *)
+  bad "text-[0]"
+
+(* A bracket font-size is any CSS length, not the px/rem/em/% subset the
+   hand-rolled suffix parser knew. Same for an arbitrary text-indent. *)
+let test_bracket_length_units () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "font-size: 3ch" "text-[3ch]";
+  emits "font-size: 2vh" "text-[2vh]";
+  emits "font-size: calc(1rem + 2px)" "text-[calc(1rem+2px)]";
+  emits "text-indent: 3ch" "indent-[3ch]";
+  emits "text-indent: -3ch" "-indent-[3ch]"
 
 let of_string_invalid () =
   (* Invalid typography values *)
@@ -551,6 +571,7 @@ let tests =
       test_text_bracket_size_valid;
     test_case "text-[<font-size>] invalid values" `Quick
       test_text_bracket_size_invalid;
+    test_case "bracket length units" `Quick test_bracket_length_units;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;

@@ -271,6 +271,36 @@ let test_arbitrary_shadow_list () =
        (css
           "shadow-[-5px_10px_15px_-3px_var(--shadow-color),-5px_4px_6px_-4px_var(--shadow-color)]"))
 
+(* A single arbitrary shadow reads every CSS length, not the px/rem/em subset,
+   and keeps its spread. A token that is not a length makes the whole value not
+   a shadow rather than dropping out and shifting its neighbours along. *)
+let test_arbitrary_shadow_lengths () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "--tw-shadow: 0 1ch 2px var(--tw-shadow-color, oklab(0% 0 0 / .5))"
+    "shadow-[0_1ch_2px_#000]/50";
+  emits "--tw-shadow: 0 1px 2px 3px var(--tw-shadow-color, oklab(0% 0 0 / .5))"
+    "shadow-[0_1px_2px_3px_#000]/50";
+  emits
+    "--tw-shadow: 0 1ch 2px 3vmin var(--tw-shadow-color, oklab(0% 0 0 / .5))"
+    "shadow-[0_1ch_2px_3vmin_#000]/50";
+  (* inset-shadow reads its arbitrary value through the same parser, with no
+     [Css.parse_shadow] fallback to hide the dropped tokens. *)
+  emits "--tw-inset-shadow: inset 0 1ch 2px var(--tw-inset-shadow-color, #000)"
+    "inset-shadow-[0_1ch_2px_#000]";
+  emits
+    "--tw-inset-shadow: inset 0 1px 2px 3px var(--tw-inset-shadow-color, #000)"
+    "inset-shadow-[0_1px_2px_3px_#000]";
+  match Tw.of_string "shadow-[0_bogus_2px]" with
+  | Ok _ -> Alcotest.fail "expected shadow-[0_bogus_2px] to be rejected"
+  | Error _ -> ()
+
 (* An arbitrary shadow that is not a shadow is not a utility: it used to fall
    back to the zero shadow. *)
 let test_invalid_arbitrary_shadow () =
@@ -294,6 +324,7 @@ let tests =
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
+    test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
     test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
