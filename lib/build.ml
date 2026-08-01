@@ -416,7 +416,7 @@ let add_index triples =
          merge_key;
          not_order;
          variant_order;
-         variant_key = Sort.variant_sort_key base_class nested;
+         variant_prefix = Sort.variant_prefix base_class;
          variant_orders = Sort.variant_order_list base_class variant_order;
          base_class_key = Option.value ~default:"" base_class;
          media_key;

@@ -1,8 +1,8 @@
 (** CSS rule cascade sort order.
 
-    Provides the [indexed_rule] type and [compare_indexed_rules], the comparison
-    function that produces Tailwind v4 cascade order when used with [List.sort].
-*)
+    Provides the [indexed_rule] type and {!val-compare_indexed_rules}, the
+    comparison function that produces Tailwind v4 cascade order when used with
+    [List.sort]. *)
 
 open Cascade
 
@@ -43,18 +43,17 @@ type indexed_rule = {
   not_order : int;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
-  variant_key : string * int;
-      (** Precomputed [(variant prefix, effective inner order)], built with
-          {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
-          per comparison. *)
+  variant_prefix : string;
+      (** Precomputed variant prefix, built with {!val-variant_prefix}, so
+          {!val-compare_indexed_rules} does not recompute it per comparison. *)
   variant_orders : (int * int) list;
       (** The rule's variant order keys sorted descending, built with
           {!variant_order_list}. Compared lexicographically by
-          [compare_indexed_rules] so a stacked variant sorts into the group of
-          its highest-order component. *)
+          {!val-compare_indexed_rules} so a stacked variant sorts into the group
+          of its highest-order component. *)
   base_class_key : string;
       (** The rule's base class ([""] when it has none), used by
-          [compare_indexed_rules] as the lexicographic sort key. *)
+          {!val-compare_indexed_rules} as the lexicographic sort key. *)
   media_key : Css.Media.key option;
       (** Precomputed sort key of the rule's own breakpoint condition: the
           [`Media] case of {!field-rule_type}, or the [`Container] case
@@ -68,10 +67,10 @@ type indexed_rule = {
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
 
-val variant_sort_key : string option -> Css.statement list -> string * int
-(** [variant_sort_key base_class nested] is the
-    [(variant prefix, effective inner variant order)] pair stored in
-    {!field-variant_key}. *)
+val variant_prefix : string option -> string
+(** [variant_prefix base_class] is the variant prefix stored in
+    {!field-variant_prefix}: [base_class]'s modifier segments rejoined with
+    [":"], and [""] when it has none. *)
 
 val variant_order_list : string option -> int -> (int * int) list
 (** [variant_order_list base_class variant_order] is the descending list of

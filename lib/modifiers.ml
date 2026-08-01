@@ -2253,26 +2253,3 @@ let variant_order_of_prefix prefix =
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000
       else if String.length prefix > 0 && prefix.[0] = '@' then 110000
       else 0
-
-(* [variant_order_of_media_cond cond] returns the same sort key as
-   [variant_order_of_prefix] for the corresponding CSS media condition. Used to
-   determine the cascade position of rules with nested media queries (e.g.,
-   dark:group-hover has a nested @media(hover:hover), so its effective inner
-   order is 20000, matching standalone hover). *)
-let variant_order_of_media_cond (cond : Css.Media.t) =
-  let open Css.Media in
-  match cond with
-  | Cond (Feature (Plain (Hover, Ident Hover))) -> 20000
-  | Cond (Feature (Plain (Prefers_reduced_motion, Ident No_preference))) ->
-      50000
-  | Cond (Feature (Plain (Prefers_reduced_motion, Ident Reduce))) -> 50100
-  | Cond (Feature (Plain (Prefers_contrast, Ident More))) -> 50200
-  | Cond (Feature (Plain (Prefers_contrast, Ident Less))) -> 50300
-  | Cond (Feature (Plain (Orientation, Ident Portrait))) -> 70000
-  | Cond (Feature (Plain (Orientation, Ident Landscape))) -> 70100
-  | Cond (Feature (Plain (Prefers_color_scheme, Ident Dark))) -> 90000
-  | Cond (Feature (Plain (Prefers_color_scheme, Ident Light))) -> 90000
-  | Type { prefix = None; type_ = Print; trailing = None } -> 91000
-  | Cond (Feature (Plain (Forced_colors, Ident Active))) -> 92000
-  | Cond (Feature (Plain (Inverted_colors, Ident Inverted))) -> 93100
-  | _ -> 0

@@ -51,9 +51,9 @@ type indexed_rule = {
   merge_key : string option;
   not_order : int;
   variant_order : int;
-  variant_key : string * int;
-      (* Precomputed (variant prefix, effective inner order) - see
-         [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  variant_prefix : string;
+      (* Precomputed variant prefix - see [variant_prefix]. Read by
+         [compare_variant_ordered]. *)
   variant_orders : (int * int) list;
       (* The rule's variant order keys sorted descending - see
          [variant_order_list]. Compared lexicographically by
@@ -853,95 +853,6 @@ let strip_group_peer_vo p =
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
-(* Find the first ':' in a string that is not inside brackets. Returns None if
-   all colons are inside bracket pairs. *)
-let index_colon_outside_brackets s =
-  let len = String.length s in
-  let rec loop i depth =
-    if i >= len then None
-    else
-      match s.[i] with
-      | '[' -> loop (i + 1) (depth + 1)
-      | ']' -> loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 -> Some i
-      | _ -> loop (i + 1) depth
-  in
-  loop 0 0
-
-(* Split a string on ':' but respecting bracket nesting, so colons inside [...]
-   are not treated as separators. *)
-let split_on_colon_outside_brackets s =
-  let len = String.length s in
-  let buf = Buffer.create 16 in
-  let acc = ref [] in
-  let rec loop i depth =
-    if i >= len then (
-      let last = Buffer.contents buf in
-      if last <> "" then acc := last :: !acc;
-      List.rev !acc)
-    else
-      match s.[i] with
-      | '[' ->
-          Buffer.add_char buf '[';
-          loop (i + 1) (depth + 1)
-      | ']' ->
-          Buffer.add_char buf ']';
-          loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 ->
-          acc := Buffer.contents buf :: !acc;
-          Buffer.clear buf;
-          loop (i + 1) depth
-      | c ->
-          Buffer.add_char buf c;
-          loop (i + 1) depth
-  in
-  loop 0 0
-
-(* Compute the inner variant order for a compound prefix like "hover:focus" *)
-let inner_vo prefix =
-  match index_colon_outside_brackets prefix with
-  | Some j ->
-      let outer = String.sub prefix 0 j in
-      if
-        Parse.has_prefix ~prefix:"group-" outer
-        || Parse.has_prefix ~prefix:"peer-" outer
-      then
-        let parts = split_on_colon_outside_brackets prefix in
-        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
-        + 1
-      else
-        let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
-        Modifiers.variant_order_of_prefix inner
-  | None ->
-      if Parse.has_prefix ~prefix:"group-" prefix then
-        Modifiers.variant_order_of_prefix
-          (String.sub prefix 6 (String.length prefix - 6))
-      else if Parse.has_prefix ~prefix:"peer-" prefix then
-        Modifiers.variant_order_of_prefix
-          (String.sub prefix 5 (String.length prefix - 5))
-      else 0
-
-(* Effective inner variant order: prefer prefix-derived, fall back to nested
-   media *)
-let effective_ivo_of nested prefix =
-  let ivo = inner_vo prefix in
-  if ivo > 0 then ivo
-  else
-    match nested with
-    | [ n ] -> (
-        match Css.as_media n with
-        | Some (cond, _) -> Modifiers.variant_order_of_media_cond cond
-        | None -> 0)
-    | _ -> 0
-
-(* The variant prefix and effective inner order are pure functions of a rule's
-   base class and nested statements, but [compare_variant_ordered] needs them on
-   every comparison. Precompute them once per rule (see [add_index]) so the hot
-   sort comparator only reads the result. *)
-let variant_sort_key base_class nested =
-  let prefix = variant_prefix base_class in
-  (prefix, effective_ivo_of nested prefix)
-
 (* One modifier token's sort key: its variant order, paired with the inner
    pseudo order for group-/peer- wrappers so group-focus and group-has (both
    order 500) keep their focus-before-has order. Non-wrapper tokens use 0. *)
@@ -1074,8 +985,8 @@ let compare_variant_ordered r1 r2 =
       in
       if list_cmp <> 0 then list_cmp
       else
-        let p1_prefix, _ = r1.variant_key in
-        let p2_prefix, _ = r2.variant_key in
+        let p1_prefix = r1.variant_prefix in
+        let p2_prefix = r2.variant_prefix in
         (* The descending variant-order lists tie (same variant multiset). The
            remaining keys order within that group: a nested breakpoint or hover,
            the media condition itself (sm before md), then the prefix and the

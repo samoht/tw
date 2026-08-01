@@ -716,9 +716,3 @@ val variant_order_of_prefix : string -> int
     string in the Tailwind v4 variant cascade. The prefix is the part before the
     last ":" in a base class name (e.g. ["hover"], ["dark:group-hover"]).
     Returns 0 for unknown prefixes. *)
-
-val variant_order_of_media_cond : Css.Media.t -> int
-(** [variant_order_of_media_cond cond] returns the same sort key as
-    {!val-variant_order_of_prefix} for the corresponding CSS media condition.
-    Used to derive the cascade position of rules whose ordering comes from a
-    nested media query rather than from the class-name prefix alone. *)
