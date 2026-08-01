@@ -180,10 +180,36 @@ let test_invalid_arbitrary_amount () =
   check "saturate-[150%]";
   check "brightness-[var(--x)]"
 
+(* Filters are the case the text-level comparison cannot judge: a drop-shadow
+   colour and a drop-shadow size meet in --tw-drop-shadow-size, so what an
+   element ends up filtering by is only visible once rendered. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "blur-sm";
+      "blur";
+      "brightness-125";
+      "contrast-75";
+      "grayscale";
+      "invert";
+      "saturate-150";
+      "sepia";
+      "drop-shadow-sm";
+      "drop-shadow-xl";
+      "drop-shadow-current";
+      "drop-shadow-indigo-500";
+      "backdrop-blur";
+      "backdrop-opacity-50";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"filters render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 let tests =
   [
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
+    test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;
     test_case "blur" `Quick test_blur;
     test_case "invalid arbitrary amount" `Quick test_invalid_arbitrary_amount;
     test_case "drop-shadow-xs (v4.3.1 size)" `Quick test_drop_shadow_xs;

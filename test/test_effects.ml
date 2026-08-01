@@ -140,6 +140,34 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"effects suborder matches Tailwind" shuffled
 
+(* A shadow size and a shadow colour meet in --tw-shadow, so which one an
+   element ends up painting is only settled once the sheet is rendered. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "shadow-2xs";
+      "shadow-xs";
+      "shadow-sm";
+      "shadow";
+      "shadow-md";
+      "shadow-lg";
+      "shadow-none";
+      (* A palette colour would only re-report the known theme-token gap
+         (--color-indigo-500 as a hex where Tailwind keeps oklch), which [tw
+         --diff] already reports; the keyword colours conflict with the sizes
+         just as well. *)
+      "shadow-current";
+      "shadow-transparent";
+      "inset-shadow-sm";
+      "opacity-0";
+      "opacity-50";
+      "opacity-100";
+      "mix-blend-multiply";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"effects render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (* shadow-2xl's default shadow alpha is .25 (#00000040) in v4, not the .10
    (#0000001a) the smaller shadows use. *)
 let test_shadow_2xl_alpha () =
@@ -313,6 +341,7 @@ let tests =
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("effects", tests)
