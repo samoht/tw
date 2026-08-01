@@ -1974,3 +1974,36 @@ let via_color ?(shade = `S500) color =
 let to_color ?(shade = `S500) color =
   let shade = Color.int_of_shade shade in
   utility (Gradient_color (Gradient_to, Gc_named (color, shade)))
+
+let bg_origin_border = utility Bg_origin_border
+let bg_origin_padding = utility Bg_origin_padding
+let bg_origin_content = utility Bg_origin_content
+let bg_clip_border = utility Bg_clip_border
+let bg_clip_padding = utility Bg_clip_padding
+let bg_clip_content = utility Bg_clip_content
+let bg_clip_text = utility Bg_clip_text
+let bg_auto = utility Bg_auto
+let bg_cover = utility Bg_cover
+let bg_contain = utility Bg_contain
+let bg_fixed = utility Bg_fixed
+let bg_local = utility Bg_local
+let bg_scroll = utility Bg_scroll
+let bg_repeat = utility Bg_repeat
+let bg_no_repeat = utility Bg_no_repeat
+let bg_repeat_x = utility Bg_repeat_x
+let bg_repeat_y = utility Bg_repeat_y
+let bg_repeat_round = utility Bg_repeat_round
+let bg_repeat_space = utility Bg_repeat_space
+let bg_bottom = utility (Bg_position Pos_bottom)
+let bg_bottom_left = utility (Bg_position Pos_bottom_left)
+let bg_bottom_right = utility (Bg_position Pos_bottom_right)
+let bg_center = utility (Bg_position Pos_center)
+let bg_left = utility (Bg_position Pos_left)
+let bg_left_bottom = utility (Bg_position Pos_left_bottom)
+let bg_left_top = utility (Bg_position Pos_left_top)
+let bg_right = utility (Bg_position Pos_right)
+let bg_right_bottom = utility (Bg_position Pos_right_bottom)
+let bg_right_top = utility (Bg_position Pos_right_top)
+let bg_top = utility (Bg_position Pos_top)
+let bg_top_left = utility (Bg_position Pos_top_left)
+let bg_top_right = utility (Bg_position Pos_top_right)

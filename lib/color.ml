@@ -3805,3 +3805,14 @@ let caret ?opacity ?(shade = `S500) color =
 let caret_current = utility Caret_current
 let caret_inherit = utility Caret_inherit
 let caret_transparent = utility Caret_transparent
+
+let outline_color ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
+  match opacity with
+  | None -> utility (Outline (color, shade))
+  | Some pct ->
+      utility
+        (Outline_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+
+let outline_transparent = utility Outline_transparent
+let outline_current = utility Outline_current

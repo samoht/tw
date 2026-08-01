@@ -608,3 +608,10 @@ val outline_offset_8 : t
 (** [outline_offset_8] sets outline offset to 8px. *)
 
 module Handler : Utility.Handler
+
+val outline_0 : t
+(** [outline_0] sets [outline-width] to 0px. *)
+
+val outline_width : int -> t
+(** [outline_width n] sets [outline-width] to [n] px. Tailwind names 1, 2, 4 and
+    8. *)

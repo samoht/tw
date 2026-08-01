@@ -183,3 +183,68 @@ val mix_blend_plus_darker : t
 
 val mix_blend_plus_lighter : t
 (** [mix_blend_plus_lighter] sets mix-blend-mode to plus-lighter (Safari). *)
+
+(** {1 Background Blend Mode} *)
+
+val bg_blend_normal : t
+(** [bg_blend_normal] sets [background-blend-mode] to [normal]. *)
+
+val bg_blend_multiply : t
+(** [bg_blend_multiply] sets [background-blend-mode] to [multiply]. *)
+
+val bg_blend_screen : t
+(** [bg_blend_screen] sets [background-blend-mode] to [screen]. *)
+
+val bg_blend_overlay : t
+(** [bg_blend_overlay] sets [background-blend-mode] to [overlay]. *)
+
+val bg_blend_darken : t
+(** [bg_blend_darken] sets [background-blend-mode] to [darken]. *)
+
+val bg_blend_lighten : t
+(** [bg_blend_lighten] sets [background-blend-mode] to [lighten]. *)
+
+val bg_blend_color_dodge : t
+(** [bg_blend_color_dodge] sets [background-blend-mode] to [color-dodge]. *)
+
+val bg_blend_color_burn : t
+(** [bg_blend_color_burn] sets [background-blend-mode] to [color-burn]. *)
+
+val bg_blend_hard_light : t
+(** [bg_blend_hard_light] sets [background-blend-mode] to [hard-light]. *)
+
+val bg_blend_soft_light : t
+(** [bg_blend_soft_light] sets [background-blend-mode] to [soft-light]. *)
+
+val bg_blend_difference : t
+(** [bg_blend_difference] sets [background-blend-mode] to [difference]. *)
+
+val bg_blend_exclusion : t
+(** [bg_blend_exclusion] sets [background-blend-mode] to [exclusion]. *)
+
+val bg_blend_hue : t
+(** [bg_blend_hue] sets [background-blend-mode] to [hue]. *)
+
+val bg_blend_saturation : t
+(** [bg_blend_saturation] sets [background-blend-mode] to [saturation]. *)
+
+val bg_blend_color : t
+(** [bg_blend_color] sets [background-blend-mode] to [color]. *)
+
+val bg_blend_luminosity : t
+(** [bg_blend_luminosity] sets [background-blend-mode] to [luminosity]. *)
+
+(** {1 Ring Offset} *)
+
+val ring_offset : int -> t
+(** [ring_offset n] sets the ring offset to [n] px. *)
+
+val ring_offset_color : ?opacity:int -> ?shade:Color.shade -> color -> t
+(** [ring_offset_color ?opacity ?shade color] sets the colour the ring offset
+    shows through, at [shade] (default [`S500]) and [opacity] percent. *)
+
+val ring_offset_transparent : t
+(** [ring_offset_transparent] sets the ring offset colour to [transparent]. *)
+
+val ring_offset_current : t
+(** [ring_offset_current] sets the ring offset colour to [currentColor]. *)

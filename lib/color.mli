@@ -530,3 +530,13 @@ val css_color_to_hex : Css.color -> Css.color option
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
+
+val outline_color : ?opacity:int -> ?shade:shade -> color -> t
+(** [outline_color ?opacity ?shade color] sets [outline-color] to [color] at
+    [shade] (default [`S500]), at [opacity] percent when given. *)
+
+val outline_transparent : t
+(** [outline_transparent] sets [outline-color] to [transparent]. *)
+
+val outline_current : t
+(** [outline_current] sets [outline-color] to [currentColor]. *)

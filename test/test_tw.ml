@@ -1442,6 +1442,40 @@ let test_lifted_names_typecheck () =
      gap-x-full rounded-ss-lg contain-layout first:underline"
     css
 
+(* The families that used to be published as "TODO: Implement" section headers.
+   The parser accepted every one of these class names already, so what was
+   missing was the constructor. *)
+let placeholder_families_have_constructors () =
+  let cases =
+    [
+      (clear_left, "clear-left");
+      (clear_end, "clear-end");
+      (bg_fixed, "bg-fixed");
+      (bg_clip_text, "bg-clip-text");
+      (bg_origin_content, "bg-origin-content");
+      (bg_center, "bg-center");
+      (bg_top_right, "bg-top-right");
+      (bg_no_repeat, "bg-no-repeat");
+      (bg_cover, "bg-cover");
+      (bg_contain, "bg-contain");
+      (outline_0, "outline-0");
+      (outline_width 2, "outline-2");
+      (outline_color ~shade:`S500 red, "outline-red-500");
+      (outline_current, "outline-current");
+      (ring_offset 2, "ring-offset-2");
+      (ring_offset_color ~shade:`S500 blue, "ring-offset-blue-500");
+      (bg_blend_multiply, "bg-blend-multiply");
+      (bg_blend_color_dodge, "bg-blend-color-dodge");
+    ]
+  in
+  List.iter
+    (fun (u, cls) ->
+      Alcotest.(check string) "class name" cls (to_string u);
+      match of_string cls with
+      | Ok u' -> Alcotest.(check string) "round trip" cls (to_string u')
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    cases
+
 let core_tests =
   [
     test_case "empty test" `Quick empty_test;
@@ -1538,6 +1572,8 @@ let core_tests =
     test_case "no stranded utilities" `Quick test_no_stranded_utilities;
     test_case "flat surface is populated" `Quick test_surface_is_large;
     test_case "lifted names typecheck" `Quick test_lifted_names_typecheck;
+    test_case "placeholder families have constructors" `Quick
+      placeholder_families_have_constructors;
   ]
 
 let suite = ("tw", core_tests)

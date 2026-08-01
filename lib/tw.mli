@@ -421,7 +421,23 @@ val float_end : t
 (** {2 Clear}
     @see <https://tailwindcss.com/docs/clear> Clear *)
 
-(** TODO: Implement clear utilities. *)
+val clear_left : t
+(** [clear_left] sets [clear] to [left]. *)
+
+val clear_right : t
+(** [clear_right] sets [clear] to [right]. *)
+
+val clear_both : t
+(** [clear_both] sets [clear] to [both]. *)
+
+val clear_start : t
+(** [clear_start] sets [clear] to [inline-start]. *)
+
+val clear_end : t
+(** [clear_end] sets [clear] to [inline-end]. *)
+
+val clear_none : t
+(** [clear_none] sets [clear] to [none]. *)
 
 (** {2 Isolation}
     @see <https://tailwindcss.com/docs/isolation> Isolation *)
@@ -2282,12 +2298,29 @@ val font_stretch_ultra_expanded : t
     @see <https://tailwindcss.com/docs/background-attachment>
       Background Attachment *)
 
-(** TODO: Implement background-attachment utilities. *)
+val bg_fixed : t
+(** [bg_fixed] sets [background-attachment] to [fixed]. *)
+
+val bg_local : t
+(** [bg_local] sets [background-attachment] to [local]. *)
+
+val bg_scroll : t
+(** [bg_scroll] sets [background-attachment] to [scroll]. *)
 
 (** {2 Background Clip}
     @see <https://tailwindcss.com/docs/background-clip> Background Clip *)
 
-(** TODO: Implement background-clip utilities. *)
+val bg_clip_border : t
+(** [bg_clip_border] sets [background-clip] to [border-box]. *)
+
+val bg_clip_padding : t
+(** [bg_clip_padding] sets [background-clip] to [padding-box]. *)
+
+val bg_clip_content : t
+(** [bg_clip_content] sets [background-clip] to [content-box]. *)
+
+val bg_clip_text : t
+(** [bg_clip_text] sets [background-clip] to [text]. *)
 
 (** {2 Background Color}
     @see <https://tailwindcss.com/docs/background-color> Background Color *)
@@ -2369,23 +2402,90 @@ val to_color : ?shade:shade -> color -> t
 (** {2 Background Origin}
     @see <https://tailwindcss.com/docs/background-origin> Background Origin *)
 
-(** TODO: Implement background-origin utilities. *)
+val bg_origin_border : t
+(** [bg_origin_border] sets [background-origin] to [border-box]. *)
+
+val bg_origin_padding : t
+(** [bg_origin_padding] sets [background-origin] to [padding-box]. *)
+
+val bg_origin_content : t
+(** [bg_origin_content] sets [background-origin] to [content-box]. *)
 
 (** {2 Background Position}
     @see <https://tailwindcss.com/docs/background-position> Background Position
 *)
 
-(** TODO: Implement background-position utilities. *)
+val bg_bottom : t
+(** [bg_bottom] sets [background-position] to [bottom]. *)
+
+val bg_bottom_left : t
+(** [bg_bottom_left] sets [background-position] to [bottom left]. *)
+
+val bg_bottom_right : t
+(** [bg_bottom_right] sets [background-position] to [bottom right]. *)
+
+val bg_center : t
+(** [bg_center] sets [background-position] to [center]. *)
+
+val bg_left : t
+(** [bg_left] sets [background-position] to [left]. *)
+
+val bg_left_bottom : t
+(** [bg_left_bottom] sets [background-position] to [left bottom]. *)
+
+val bg_left_top : t
+(** [bg_left_top] sets [background-position] to [left top]. *)
+
+val bg_right : t
+(** [bg_right] sets [background-position] to [right]. *)
+
+val bg_right_bottom : t
+(** [bg_right_bottom] sets [background-position] to [right bottom]. *)
+
+val bg_right_top : t
+(** [bg_right_top] sets [background-position] to [right top]. *)
+
+val bg_top : t
+(** [bg_top] sets [background-position] to [top]. *)
+
+val bg_top_left : t
+(** [bg_top_left] sets [background-position] to [top left]. *)
+
+val bg_top_right : t
+(** [bg_top_right] sets [background-position] to [top right]. *)
 
 (** {2 Background Repeat}
     @see <https://tailwindcss.com/docs/background-repeat> Background Repeat *)
 
-(** TODO: Implement background-repeat utilities. *)
+val bg_repeat : t
+(** [bg_repeat] sets [background-repeat] to [repeat]. *)
+
+val bg_no_repeat : t
+(** [bg_no_repeat] sets [background-repeat] to [no-repeat]. *)
+
+val bg_repeat_x : t
+(** [bg_repeat_x] sets [background-repeat] to [repeat-x]. *)
+
+val bg_repeat_y : t
+(** [bg_repeat_y] sets [background-repeat] to [repeat-y]. *)
+
+val bg_repeat_round : t
+(** [bg_repeat_round] sets [background-repeat] to [round]. *)
+
+val bg_repeat_space : t
+(** [bg_repeat_space] sets [background-repeat] to [space]. *)
 
 (** {2 Background Size}
     @see <https://tailwindcss.com/docs/background-size> Background Size *)
 
-(** TODO: Implement background-size utilities. *)
+val bg_auto : t
+(** [bg_auto] sets [background-size] to [auto]. *)
+
+val bg_cover : t
+(** [bg_cover] sets [background-size] to [cover]. *)
+
+val bg_contain : t
+(** [bg_contain] sets [background-size] to [contain]. *)
 
 (** {1 Borders} *)
 
@@ -2451,12 +2551,25 @@ val border_double : t
 (** {2 Outline Width}
     @see <https://tailwindcss.com/docs/outline-width> Outline Width *)
 
-(** TODO: Implement outline-width utilities. *)
+val outline_0 : t
+(** [outline_0] sets [outline-width] to 0px. *)
+
+val outline_width : int -> t
+(** [outline_width n] sets [outline-width] to [n] px. Tailwind names 1, 2, 4 and
+    8. *)
 
 (** {2 Outline Color}
     @see <https://tailwindcss.com/docs/outline-color> Outline Color *)
 
-(** TODO: Implement outline-color utilities. *)
+val outline_color : ?opacity:int -> ?shade:shade -> color -> t
+(** [outline_color ?opacity ?shade color] sets [outline-color] to [color] at
+    [shade] (default [`S500]), at [opacity] percent when given. *)
+
+val outline_transparent : t
+(** [outline_transparent] sets [outline-color] to [transparent]. *)
+
+val outline_current : t
+(** [outline_current] sets [outline-color] to [currentColor]. *)
 
 (** {2 Outline Style}
     @see <https://tailwindcss.com/docs/outline-style> Outline Style *)
@@ -3098,12 +3211,21 @@ val ring_color : ?opacity:int -> ?shade:shade -> color -> t
 (** {2 Ring Offset Width}
     @see <https://tailwindcss.com/docs/ring-offset-width> Ring Offset Width *)
 
-(** TODO: Implement ring-offset-width utilities. *)
+val ring_offset : int -> t
+(** [ring_offset n] sets the ring offset to [n] px. *)
 
 (** {2 Ring Offset Color}
     @see <https://tailwindcss.com/docs/ring-offset-color> Ring Offset Color *)
 
-(** TODO: Implement ring-offset-color utilities. *)
+val ring_offset_color : ?opacity:int -> ?shade:shade -> color -> t
+(** [ring_offset_color ?opacity ?shade color] sets the colour the ring offset
+    shows through, at [shade] (default [`S500]) and [opacity] percent. *)
+
+val ring_offset_transparent : t
+(** [ring_offset_transparent] sets the ring offset colour to [transparent]. *)
+
+val ring_offset_current : t
+(** [ring_offset_current] sets the ring offset colour to [currentColor]. *)
 
 (** {2 Text Shadow}
     @see <https://tailwindcss.com/docs/text-shadow> Text Shadow *)
@@ -3190,7 +3312,53 @@ val mix_blend_plus_lighter : t
     @see <https://tailwindcss.com/docs/background-blend-mode>
       Background Blend Mode *)
 
-(** TODO: Implement background-blend-mode utilities. *)
+val bg_blend_normal : t
+(** [bg_blend_normal] sets [background-blend-mode] to [normal]. *)
+
+val bg_blend_multiply : t
+(** [bg_blend_multiply] sets [background-blend-mode] to [multiply]. *)
+
+val bg_blend_screen : t
+(** [bg_blend_screen] sets [background-blend-mode] to [screen]. *)
+
+val bg_blend_overlay : t
+(** [bg_blend_overlay] sets [background-blend-mode] to [overlay]. *)
+
+val bg_blend_darken : t
+(** [bg_blend_darken] sets [background-blend-mode] to [darken]. *)
+
+val bg_blend_lighten : t
+(** [bg_blend_lighten] sets [background-blend-mode] to [lighten]. *)
+
+val bg_blend_color_dodge : t
+(** [bg_blend_color_dodge] sets [background-blend-mode] to [color-dodge]. *)
+
+val bg_blend_color_burn : t
+(** [bg_blend_color_burn] sets [background-blend-mode] to [color-burn]. *)
+
+val bg_blend_hard_light : t
+(** [bg_blend_hard_light] sets [background-blend-mode] to [hard-light]. *)
+
+val bg_blend_soft_light : t
+(** [bg_blend_soft_light] sets [background-blend-mode] to [soft-light]. *)
+
+val bg_blend_difference : t
+(** [bg_blend_difference] sets [background-blend-mode] to [difference]. *)
+
+val bg_blend_exclusion : t
+(** [bg_blend_exclusion] sets [background-blend-mode] to [exclusion]. *)
+
+val bg_blend_hue : t
+(** [bg_blend_hue] sets [background-blend-mode] to [hue]. *)
+
+val bg_blend_saturation : t
+(** [bg_blend_saturation] sets [background-blend-mode] to [saturation]. *)
+
+val bg_blend_color : t
+(** [bg_blend_color] sets [background-blend-mode] to [color]. *)
+
+val bg_blend_luminosity : t
+(** [bg_blend_luminosity] sets [background-blend-mode] to [luminosity]. *)
 
 (** {2 Mask Clip}
     @see <https://tailwindcss.com/docs/mask-clip> Mask Clip *)

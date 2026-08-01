@@ -3196,3 +3196,31 @@ let ring_offset_color_var = Handler.ring_offset_color_var
 let ring_color_var = Handler.ring_color_var
 let ring_offset_shadow_var = Handler.ring_offset_shadow_var
 let ring_shadow_var = Handler.ring_shadow_var
+let bg_blend_normal = utility Bg_blend_normal
+let bg_blend_multiply = utility Bg_blend_multiply
+let bg_blend_screen = utility Bg_blend_screen
+let bg_blend_overlay = utility Bg_blend_overlay
+let bg_blend_darken = utility Bg_blend_darken
+let bg_blend_lighten = utility Bg_blend_lighten
+let bg_blend_color_dodge = utility Bg_blend_color_dodge
+let bg_blend_color_burn = utility Bg_blend_color_burn
+let bg_blend_hard_light = utility Bg_blend_hard_light
+let bg_blend_soft_light = utility Bg_blend_soft_light
+let bg_blend_difference = utility Bg_blend_difference
+let bg_blend_exclusion = utility Bg_blend_exclusion
+let bg_blend_hue = utility Bg_blend_hue
+let bg_blend_saturation = utility Bg_blend_saturation
+let bg_blend_color = utility Bg_blend_color
+let bg_blend_luminosity = utility Bg_blend_luminosity
+let ring_offset n = utility (Ring_offset_width n)
+let ring_offset_transparent = utility Ring_offset_transparent
+let ring_offset_current = utility Ring_offset_current
+
+let ring_offset_color ?opacity ?(shade = `S500) color =
+  let shade = Color.int_of_shade shade in
+  match opacity with
+  | None -> utility (Ring_offset_color (color, shade))
+  | Some pct ->
+      utility
+        (Ring_offset_color_opacity
+           (color, shade, Color.Opacity_percent (Float.of_int pct)))

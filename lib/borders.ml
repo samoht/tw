@@ -1508,3 +1508,5 @@ let outline_offset_1 = utility (Outline_offset 1)
 let outline_offset_2 = utility (Outline_offset 2)
 let outline_offset_4 = utility (Outline_offset 4)
 let outline_offset_8 = utility (Outline_offset 8)
+let outline_0 = utility Outline_0
+let outline_width n = utility (Outline_width n)
