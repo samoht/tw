@@ -11,6 +11,14 @@ val compact_length : Css.length -> string
 (** [compact_length l] renders a CSS length without spaces (for use in class
     names). *)
 
+val nest_selector : parent:Css.Selector.t -> string -> Css.Selector.t
+(** [nest_selector ~parent template] reads [template] as a selector and replaces
+    each [&] in it with [parent], as CSS nesting does. A template with no [&] at
+    all compounds onto [parent] instead, with a type selector wrapped in [:is()]
+    since it cannot follow a class. Substituting over the parsed selector rather
+    than over the source text leaves an [&] inside a quoted attribute value
+    alone. *)
+
 val to_selector : modifier -> string -> Css.Selector.t
 (** [to_selector modifier base_class] generates the CSS selector for a modifier
     applied to a base class. *)

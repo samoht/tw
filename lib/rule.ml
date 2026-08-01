@@ -1671,35 +1671,10 @@ let arbitrary_selector_rule content base_class selector props =
     Rules_selector.transform_selector_with_modifier modified base_class
       modified_class selector
   in
-  let anchored =
-    if String.contains s '&' then (
-      (* Replace each [&] anchor with the utility's own class and parse the
-         whole selector, so combinators ([&>div], [&+p], [&~p]), compounds
-         ([&:hover]) and trailing anchors ([input&]) all flatten correctly. A
-         naive split-on-[&] + Descendant combine mis-parses any remainder that
-         starts with a combinator. *)
-      let anchor = Class modified_class in
-      let anchor_str = Css.Selector.to_string anchor in
-      let buf = Buffer.create (String.length s + String.length anchor_str) in
-      String.iter
-        (fun c ->
-          if c = '&' then Buffer.add_string buf anchor_str
-          else Buffer.add_char buf c)
-        s;
-      Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf)))
-    else
-      (* No anchor: the selector compounds onto the utility's own class. A type
-         selector cannot follow a class in a compound, so it goes in an [:is()];
-         anything else ([.line], [[data-x]], [:hover]) attaches directly. *)
-      let is_type_selector =
-        match s.[0] with
-        | 'a' .. 'z' | 'A' .. 'Z' -> true
-        | _ | (exception _) -> false
-      in
-      let inner = Css.Selector.read (Cascade.Cursor.of_string s) in
-      let inner = if is_type_selector then is_ [ inner ] else inner in
-      compound [ Class modified_class; inner ]
-  in
+  (* Each [&] anchor stands for the utility's own class, so combinators
+     ([&>div], [&+p], [&~p]), compounds ([&:hover]) and trailing anchors
+     ([input&]) all flatten correctly. *)
+  let anchored = Modifiers.nest_selector ~parent:(Class modified_class) s in
   let sel =
     match decoration with
     | Some [] -> anchored
@@ -1732,14 +1707,8 @@ let at_rule_variant content ~selector base_class props =
    The canonical optimizer then reduces the single-argument [:is()]. *)
 let custom_variant_rule token template base_class props =
   let modified_class = token ^ ":" ^ base_class in
-  let class_str = Css.Selector.to_string (Css.Selector.Class modified_class) in
-  let buf = Buffer.create (String.length template + String.length class_str) in
-  String.iter
-    (fun c ->
-      if c = '&' then Buffer.add_string buf class_str else Buffer.add_char buf c)
-    template;
   let sel =
-    Css.Selector.read (Cascade.Cursor.of_string (Buffer.contents buf))
+    Modifiers.nest_selector ~parent:(Css.Selector.Class modified_class) template
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 

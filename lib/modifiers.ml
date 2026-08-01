@@ -220,6 +220,21 @@ let open_pseudo () =
   let open Css.Selector in
   is_ [ attribute "open" Presence; Popover_open; Open ]
 
+let nest_selector ~parent template =
+  let open Css.Selector in
+  let sel = Css.Selector.read (Cascade.Cursor.of_string template) in
+  if Cascade.Nest.contains sel then Cascade.Nest.substitute ~parent sel
+  else
+    (* No anchor: the template compounds onto the parent. A type selector cannot
+       follow a class in a compound, so it goes in an [:is()]; anything else
+       ([.line], [[data-x]], [:hover]) attaches directly. *)
+    let inner =
+      match sel with
+      | Element _ | Compound (Element _ :: _) -> is_ [ sel ]
+      | _ -> sel
+    in
+    compound [ parent; inner ]
+
 (** Parse arbitrary bracket content into a selector tree. In bracket content:
     [_] = space, [&] = anchor (group/peer). E.g. "&_p" with group anchor ->
     ":where(.group) p" E.g. "&:hover" with group anchor ->
@@ -228,47 +243,7 @@ let parse_arbitrary_selector_content content anchor =
   let open Css.Selector in
   (* Replace _ with space for Tailwind convention *)
   let s = String.map (fun c -> if c = '_' then ' ' else c) content in
-  (* Split on & to find the anchor positions *)
-  let parts = String.split_on_char '&' s in
-  match parts with
-  | [ ""; rest ] ->
-      (* Content starts with & — most common case *)
-      let rest = String.trim rest in
-      if rest = "" then
-        (* Just "&" → :where(.group/peer) descendant *)
-        combine (where [ anchor ]) Descendant universal
-      else if rest.[0] = ':' then
-        (* "&:hover" → :where(.group):hover descendant. The reader keeps a
-           pseudo-class it does not know as one ([Unknown_pseudo_class]), so it
-           covers the whole grammar rather than a list of spelled-out names. *)
-        let pseudo_sel = Css.Selector.read (Cascade.Cursor.of_string rest) in
-        combine (compound [ where [ anchor ]; pseudo_sel ]) Descendant universal
-      else
-        (* "& p" → :where(.group) p * — content after & is a descendant
-           selector, and a compound one ([& p.foo]) is not an element name. *)
-        let descendant = Css.Selector.read (Cascade.Cursor.of_string rest) in
-        combine
-          (combine (where [ anchor ]) Descendant descendant)
-          Descendant universal
-  | [ before; "" ] when String.trim before <> "" ->
-      (* "<prefix> &" → <prefix> :where(.group) * — the [&] anchor is preceded
-         by an ancestor context (e.g. [:nth-of-type(3)_&]). *)
-      let prefix_sel =
-        Css.Selector.read (Cascade.Cursor.of_string (String.trim before))
-      in
-      combine
-        (combine prefix_sel Descendant (where [ anchor ]))
-        Descendant universal
-  | [ single ] when String.trim single <> "" ->
-      (* No [&]: a bare compound like [[.is-published]] attaches to the anchor,
-         giving [:where(.group).is-published *]. *)
-      let extra =
-        Css.Selector.read (Cascade.Cursor.of_string (String.trim single))
-      in
-      combine (compound [ where [ anchor ]; extra ]) Descendant universal
-  | _ ->
-      (* Fallback — just use the anchor as descendant *)
-      combine (where [ anchor ]) Descendant universal
+  combine (nest_selector ~parent:(where [ anchor ]) s) Descendant universal
 
 (** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
 let anchor_pseudo_selector ~anchor ~combinator cls prefix pseudo =
