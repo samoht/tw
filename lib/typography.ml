@@ -1400,7 +1400,7 @@ module Typography_late = struct
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
-    match Css.parse_length inner with
+    match Parse.arbitrary_length inner with
     | Some _ as len -> len
     | None -> (
         match parse_bare_number inner with
@@ -1409,7 +1409,7 @@ module Typography_late = struct
 
   (* Tailwind converts a percentage thickness to em: 50% -> .5em. *)
   let parse_decoration_pct inner : Css.length option =
-    match Css.parse_length inner with
+    match Parse.arbitrary_length inner with
     | Some (Pct pct) -> Some (Em (pct /. 100.))
     | _ -> None
 
@@ -1687,11 +1687,15 @@ module Typography_late = struct
               | Ok i when opacity = Color.No_opacity ->
                   Ok (Decoration_thickness i)
               | _ -> (
-                  (* Try parsing as color *)
-                  match Color.of_string base_str with
-                  | Ok c when opacity = Color.No_opacity ->
+                  (* A shadeless colour (white, black, a theme name) carries its
+                     opacity on the single segment, so read the segment as a
+                     colour and an opacity together. *)
+                  match Color.shade_and_opacity_of_strings ~theme [ n ] with
+                  | Ok (c, _, Color.No_opacity) ->
                       Ok (Decoration_color (c, None))
-                  | _ -> err_not_utility)))
+                  | Ok (c, shade, opacity) ->
+                      Ok (Decoration_color_opacity (c, shade, opacity))
+                  | Error _ -> err_not_utility)))
     | [ "decoration"; color; shade ] -> (
         (* Check for opacity modifier in shade (e.g., "500/50" or
            "500/[0.5]") *)
@@ -1919,8 +1923,11 @@ module Typography_late = struct
     | Decoration_color (color, Some shade) ->
         "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Decoration_color_opacity (color, shade, opacity) ->
-        "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
-        ^ Color.pp_opacity opacity
+        let base =
+          if Color.is_shadeless color then "decoration-" ^ Color.pp color
+          else "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        in
+        base ^ "/" ^ Color.pp_opacity opacity
     | Decoration_transparent -> "decoration-transparent"
     | Decoration_current -> "decoration-current"
     | Decoration_current_opacity opacity ->

@@ -563,6 +563,12 @@ let test_decoration_bracket_thickness () =
   emits "text-decoration-thickness: 2px" "decoration-[2px]";
   emits "text-decoration-thickness: 2ch" "decoration-[2ch]";
   emits "text-decoration-thickness: .5em" "decoration-[50%]";
+  (* The bracket goes through the arbitrary-value decoder, so an escaped space
+     and a [--spacing()] call both read as lengths. *)
+  emits "text-decoration-thickness: calc(1rem + 2px)"
+    "decoration-[calc(1rem_+_2px)]";
+  emits "text-decoration-thickness: calc(var(--spacing) * 2)"
+    "decoration-[--spacing(2)]";
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -570,6 +576,33 @@ let test_decoration_bracket_thickness () =
   in
   rejected "decoration-[.]";
   rejected "decoration-[1e]"
+
+(* A shadeless decoration colour takes an opacity modifier the same way every
+   other colour family does, and keeps its shadeless class name. *)
+let test_decoration_shadeless_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  check_late "decoration-white/50";
+  check_late "decoration-black/50";
+  check_late "decoration-white/[0.5]";
+  emits "color-mix(in oklab,var(--color-white) 50%,transparent)"
+    "decoration-white/50";
+  emits "color-mix(in oklab,var(--color-black) 50%,transparent)"
+    "decoration-black/50";
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "decoration-2/50";
+  rejected "decoration-nosuchcolor/50";
+  rejected "decoration-white/"
 
 (* A [#] bracket is only a decoration colour when what follows is a hex
    spelling. The decoration reader handed everything after the [#] to the
@@ -601,6 +634,8 @@ let tests =
       test_invalid_decoration_bracket_hex;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
+    test_case "decoration shadeless opacity" `Quick
+      test_decoration_shadeless_opacity;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font-features value" `Quick test_font_features_value;
