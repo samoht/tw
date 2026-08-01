@@ -187,17 +187,14 @@ let selector_modifier_depth sel =
       String.fold_left (fun acc c -> if c = ':' then acc + 1 else acc) 0 cls
   | None -> 0
 
+(* Shares [any_outside_not]'s traversal: the hand-rolled one missed [Has] and
+   [Relative], so :hover inside a :has() did not count. Both want the same
+   thing, a :hover that is not under a :not(). *)
+
 (** Check if a selector contains :hover pseudo-class at any depth (used to
     detect compound variants like group-hocus that combine hover+focus). *)
-let rec selector_has_hover = function
-  | Css.Selector.Hover -> true
-  | Css.Selector.Compound sels -> List.exists selector_has_hover sels
-  | Css.Selector.Combined (l, _, r) ->
-      selector_has_hover l || selector_has_hover r
-  | Css.Selector.Is sels | Css.Selector.Where sels ->
-      List.exists selector_has_hover sels
-  | Css.Selector.List sels -> List.exists selector_has_hover sels
-  | _ -> false
+let selector_has_hover sel =
+  any_outside_not (function Css.Selector.Hover -> true | _ -> false) sel
 
 (* Determine sort group for rule types. Regular and Media are grouped together
    to preserve utility grouping - media queries appear immediately after their
@@ -283,7 +280,8 @@ let compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2 =
 let compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
-  else if k1 = 60 then
+  else if match kind1 with Complex { has_aria = true; _ } -> true | _ -> false
+  then
     (* Both are aria selectors - compare by selector string (aria attribute)
        before suborder (property shade) to match Tailwind v4 behavior *)
     let sel_cmp = String.compare sel_str1 sel_str2 in
@@ -330,10 +328,19 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
 (* Media Query Comparison *)
 (* ======================================================================== *)
 
+(* The two groups below are compared on something other than their key, so they
+   need naming. Taken from [Css.Media.group_order] rather than written out, so
+   they follow it if it moves. *)
+let responsive_group =
+  fst (Css.Media.group_order (Css.Media.Responsive (0, 0.)))
+
+let accessibility_preference_group =
+  fst (Css.Media.group_order Css.Media.Preference_accessibility)
+
 (** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
-  if group1 = 2000 then Float.compare sub1 sub2
-  else if group1 = 1000 then
+  if group1 = responsive_group then Float.compare sub1 sub2
+  else if group1 = accessibility_preference_group then
     match (cond1, cond2) with
     | Some c1, Some c2 ->
         Int.compare
