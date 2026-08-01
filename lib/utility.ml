@@ -49,10 +49,13 @@ let register (type a) (module M : Handler with type t = a) =
   property_slots := None;
   handlers := internal_h :: !handlers
 
-(* The declarations a style writes, its own and those of the rules it
-   carries. *)
+(* The declarations a style writes, its own and those of the rules it carries. A
+   style with a pseudo-element suffix is skipped: [placeholder-transparent]
+   writes [color], but the colour slot belongs to [text-*], which writes it on
+   the element itself. *)
 let rec style_declarations (s : Style.t) =
   match s with
+  | Style.Style { pseudo_suffix = Some _; _ } -> []
   | Style.Style { props; rules; _ } ->
       props
       @ List.concat_map
@@ -64,32 +67,78 @@ let rec style_declarations (s : Style.t) =
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 
+(* The property key a declaration can be a slot for. An author's own variable is
+   not one: only the properties Tailwind orders utilities by are. *)
+let plain_key d =
+  match Cascade.Css.Declaration.property_key d with
+  | Cascade.Css.Declaration.Key (Custom_property _)
+  | Cascade.Css.Declaration.Key (Unknown_property _) ->
+      None
+  | key -> Some key
+
+(* A vendor-prefixed name without its prefix: [-webkit-mask-image] is
+   [mask-image]. [None] when the name carries no prefix. *)
+let unprefixed name =
+  if String.length name = 0 || name.[0] <> '-' then None
+  else
+    match String.index_from_opt name 1 '-' with
+    | Some i -> Some (String.sub name (i + 1) (String.length name - i - 1))
+    | None -> None
+
+(* The properties an example claims: the one it is named for, and the ones it
+   writes alongside.
+
+   A vendor prefix names the same slot as the plain property, so it is passed
+   over when the style writes both - [mask-none] writes [-webkit-mask-image]
+   ahead of [mask-image], and the slot is [mask-image]'s. When only the prefixed
+   form is there the family is named for a property with no plain spelling, and
+   it claims nothing rather than the next declaration along: [line-clamp-none]
+   leads with [-webkit-line-clamp] and would otherwise claim [display], which
+   belongs to the display utilities. *)
+let claimed_keys decls =
+  let names = List.map Cascade.Css.Declaration.property_name decls in
+  let rec go named alongside = function
+    | [] -> (named, List.rev alongside)
+    | d :: rest -> (
+        match plain_key d with
+        | None -> go named alongside rest
+        | Some key -> (
+            match unprefixed (Cascade.Css.Declaration.property_name d) with
+            | Some plain when List.mem plain names -> go named alongside rest
+            | Some _ -> (named, List.rev alongside)
+            | None ->
+                if named = None then go (Some key) alongside rest
+                else go named (key :: alongside) rest))
+  in
+  go None [] decls
+
 let build_property_slots () =
   let tbl = Hashtbl.create 512 in
-  let record key order =
+  let alongside = Hashtbl.create 512 in
+  let record tbl key order =
     match Hashtbl.find_opt tbl key with
     | Some existing when existing <= order -> ()
     | _ -> Hashtbl.replace tbl key order
   in
+  (* A family claims the property it is named for before any property it merely
+     writes alongside, so the two are collected apart and the named ones win.
+     [border-2] writes [border-style: var(--tw-border-style)] ahead of
+     [border-width], and border-width is still claimed, from the second pass. *)
   List.iter
     (fun (H (module M)) ->
       List.iter
         (fun example ->
           let order = (M.priority example, M.suborder example) in
-          (* The property a utility claims is the one it writes first: the one
-             it is named for. A later declaration is incidental - line-clamp
-             ends with [display: -webkit-box] but the display slot belongs to
-             the display utilities, which sort elsewhere. *)
-          match style_declarations (M.to_style Scheme.default example) with
-          | [] -> ()
-          | d :: _ -> (
-              match Cascade.Css.Declaration.property_key d with
-              (* An author's own variable is not a slot: only the properties
-                 Tailwind orders utilities by are. *)
-              | Key (Custom_property _) | Key (Unknown_property _) -> ()
-              | key -> record key order))
+          let style = M.to_style Scheme.default example in
+          let named, rest = claimed_keys (style_declarations style) in
+          Stdlib.Option.iter (fun key -> record tbl key order) named;
+          List.iter (fun key -> record alongside key order) rest)
         M.examples)
     !handlers;
+  Hashtbl.iter
+    (fun key order ->
+      if not (Hashtbl.mem tbl key) then Hashtbl.add tbl key order)
+    alongside;
   tbl
 
 let order_of_property key =
