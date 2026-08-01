@@ -102,7 +102,7 @@ module Handler = struct
         (* srgb fallback: resolve the theme value to get the actual
            percentage *)
         let srgb_percent =
-          match Theme.theme_value (Some theme) var_name with
+          match Theme.override (Some theme) var_name with
           | Some v -> (
               match float_of_string_opt (String.trim v) with
               | Some f -> f *. 100.0
@@ -217,7 +217,7 @@ module Handler = struct
            layer (the same gap as [backgrounds.ml]'s
            bg-[color:var(--token)]). *)
         let fallback =
-          match Theme.theme_value (Some theme) bare with
+          match Theme.override (Some theme) bare with
           | Some v -> (
               match Css.parse_color (String.trim v) with
               | Some c ->
@@ -382,8 +382,7 @@ module Handler = struct
                     | _ ->
                         if
                           Parse.is_valid_theme_name op_part
-                          && Theme.theme_value (Some theme)
-                               ("opacity-" ^ op_part)
+                          && Theme.override (Some theme) ("opacity-" ^ op_part)
                              <> None
                         then Color.Opacity_named op_part
                         else Color.No_opacity

@@ -268,7 +268,7 @@ module Handler = struct
   (* Shadows for a shape: a threaded [@theme] override if present, else the
      v4.3.1 default scale. *)
   let shadows_for ?theme shape =
-    match Theme.theme_value theme (shape_token shape) with
+    match Theme.override theme (shape_token shape) with
     | Some override -> parse_shadow_list override
     | None -> shape_shadows shape
 
@@ -320,7 +320,7 @@ module Handler = struct
     match Theme.hex_color scheme color_name with
     | Some h -> h
     | Stdlib.Option.None -> (
-        match Theme.theme_value theme ("color-" ^ color_name) with
+        match Theme.override theme ("color-" ^ color_name) with
         | Some h -> h
         | Stdlib.Option.None ->
             let oklch = Color.to_oklch c shade in

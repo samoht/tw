@@ -112,7 +112,7 @@ module Handler = struct
 
   let basis_named_style ?theme name =
     let var_name = "container-" ^ name in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value_str ->
         let decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value_str
@@ -147,7 +147,7 @@ module Handler = struct
   let order_style n = style [ order (Int n) ]
 
   let themed_order ?theme name default =
-    match Theme.theme_value theme name with
+    match Theme.override theme name with
     | None -> style [ order (Int default) ]
     | Some value ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value in

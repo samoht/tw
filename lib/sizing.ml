@@ -605,7 +605,7 @@ module Handler = struct
     | W_container name -> (
         (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
            otherwise to the --container-<name> scale (the default). *)
-        match Theme.theme_value (Some theme) ("width-" ^ name) with
+        match Theme.override (Some theme) ("width-" ^ name) with
         | Some v ->
             let decl =
               Css.custom_property ~layer:"theme" ("--width-" ^ name) v

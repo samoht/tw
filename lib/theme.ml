@@ -109,11 +109,13 @@ let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
 (** Lookup a per-render theme token override (from a [@theme] block). *)
 let token_override scheme name = List.assoc_opt name scheme.token_overrides
 
-(** [theme_value theme name] looks up a per-render token override from the
+(** [override theme name] looks up a per-render token override from the
     optionally-threaded [theme] ([None] when no theme is threaded). Threaded
-    replacement for the global [Var.theme_value]. *)
-let theme_value theme name =
-  match theme with Some s -> token_override s name | None -> None
+    replacement for the global [Var.override]. *)
+let override theme name =
+  match theme with
+  | Some t -> List.assoc_opt name t.token_overrides
+  | None -> None
 
 (** Resolve a theme token: override (if any) else the registered default. *)
 let token scheme name =

@@ -250,7 +250,7 @@ module Handler = struct
   (* Generate a theme-layer declaration for a theme variable if its value is
      set. This produces the --name: value entry for the :root, :host block. *)
   let theme_decl_if_set ?theme name =
-    match Theme.theme_value theme name with
+    match Theme.override theme name with
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
@@ -270,7 +270,7 @@ module Handler = struct
         ])
 
   let blur_none ?theme () =
-    match Theme.theme_value theme "blur-none" with
+    match Theme.override theme "blur-none" with
     | Some _ ->
         set_filter_var_theme ?theme "--tw-blur" "blur-none" (fun l -> Blur l) ()
     | None ->
@@ -561,7 +561,7 @@ module Handler = struct
       ]
 
   let drop_shadow_ ?theme () =
-    match Theme.theme_value theme "drop-shadow" with
+    match Theme.override theme "drop-shadow" with
     | Some _ -> drop_shadow_override ?theme ()
     | None -> drop_shadow_default ()
 
@@ -628,7 +628,7 @@ module Handler = struct
      references the token from [--tw-drop-shadow]. *)
   let drop_shadow_named ?theme name =
     let theme_name = "drop-shadow-" ^ name in
-    match Theme.theme_value theme theme_name with
+    match Theme.override theme theme_name with
     | None -> style []
     | Some value ->
         let cursor = Cascade.Cursor.of_string value in
@@ -826,7 +826,7 @@ module Handler = struct
        token's own value: a project that overrides [--drop-shadow] is referenced
        there, and the default two-shadow stack is written out. *)
     let size_and_shadow =
-      match Theme.theme_value theme "drop-shadow" with
+      match Theme.override theme "drop-shadow" with
       | Some _ ->
           [
             bind_drop_shadow_size
@@ -935,12 +935,12 @@ module Handler = struct
       else None
     in
     let actual_theme_name =
-      match Theme.theme_value theme theme_name with
+      match Theme.override theme theme_name with
       | Some _ -> theme_name
       | None -> (
           match fallback_name with
           | Some fb -> (
-              match Theme.theme_value theme fb with
+              match Theme.override theme fb with
               | Some _ -> fb
               | None -> theme_name)
           | None -> theme_name)
@@ -955,13 +955,13 @@ module Handler = struct
         ])
 
   let backdrop_blur_none ?theme () =
-    match Theme.theme_value theme "backdrop-blur-none" with
+    match Theme.override theme "backdrop-blur-none" with
     | Some _ ->
         set_backdrop_var_theme ?theme "--tw-backdrop-blur" "backdrop-blur-none"
           (fun l -> Blur l)
           ()
     | None -> (
-        match Theme.theme_value theme "blur-none" with
+        match Theme.override theme "blur-none" with
         | Some _ ->
             set_backdrop_var_theme ?theme "--tw-backdrop-blur"
               "backdrop-blur-none"

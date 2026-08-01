@@ -899,7 +899,7 @@ module Handler = struct
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let perspective_none ?theme () =
-    match Theme.theme_value theme "perspective-none" with
+    match Theme.override theme "perspective-none" with
     | Some value_str ->
         let len : Css.length =
           if String.ends_with ~suffix:"px" value_str then
@@ -935,7 +935,7 @@ module Handler = struct
 
   let po_with_ref ?theme name (default : Css.perspective_origin) default_css ()
       =
-    match Theme.theme_value theme name with
+    match Theme.override theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.perspective_origin =
@@ -1013,7 +1013,7 @@ module Handler = struct
 
   let origin_with_ref ?theme name (default : Css.transform_origin) default_css
       () =
-    match Theme.theme_value theme name with
+    match Theme.override theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.transform_origin Css.var =

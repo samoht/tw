@@ -42,7 +42,7 @@ let named_spacing_ref name : Css.length =
 
 let named_spacing_binding ?theme name : Css.declaration option * Css.length =
   let prop_name = "spacing-" ^ name in
-  match Theme.theme_value theme prop_name with
+  match Theme.override theme prop_name with
   | Some value_str ->
       let decl =
         Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
@@ -152,7 +152,7 @@ let parse_value_string ?theme ~allow_auto value : margin option =
            [my-form] would parse as a utility. *)
         if
           is_named_spacing value
-          && Theme.theme_value theme ("spacing-" ^ value) <> None
+          && Theme.override theme ("spacing-" ^ value) <> None
         then Some (`Named value)
         else None
 

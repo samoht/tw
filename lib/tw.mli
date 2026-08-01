@@ -5385,6 +5385,7 @@ module Private : sig
   module Tab = Tab
   module Tables = Tables
   module Text_shadow = Text_shadow
+  module Token_defaults = Token_defaults
   module Touch = Touch
   module Transforms = Transforms
   module Transitions = Transitions

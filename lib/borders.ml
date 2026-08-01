@@ -505,10 +505,10 @@ module Handler = struct
     | None -> style (radius_decls_for_position pos default)
 
   (* Helper: return (decls, length_val) for the bare --radius variable. When
-     theme_value "radius" is set (e.g. @config theme), emit the var declaration
-     and use var(--radius). Otherwise inline .25rem directly. *)
+     override "radius" is set (e.g. @config theme), emit the var declaration and
+     use var(--radius). Otherwise inline .25rem directly. *)
   let radius_decl_and_val ?theme () : Css.declaration list * Css.length =
-    if Theme.theme_value theme "radius" <> None then
+    if Theme.override theme "radius" <> None then
       let decl, r = Var.binding radius_var (Rem 0.25) in
       ([ decl ], Css.Var r)
     else ([], Css.Rem 0.25)

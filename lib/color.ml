@@ -1619,7 +1619,7 @@ let opacity_of_string ?theme opacity_str =
            (e.g., /half when --opacity-half exists) *)
         if
           Parse.is_valid_theme_name opacity_str
-          && Theme.theme_value theme ("opacity-" ^ opacity_str) <> None
+          && Theme.override theme ("opacity-" ^ opacity_str) <> None
         then Some (Opacity_named opacity_str)
         else None
 
@@ -1882,7 +1882,7 @@ module Handler = struct
   let property_color_var ?theme ~property_prefix (c : color) shade =
     let color_name = theme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Theme.theme_value theme prop_name with
+    match Theme.override theme prop_name with
     | Some _ -> (
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
@@ -1907,7 +1907,7 @@ module Handler = struct
   let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = theme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Theme.theme_value theme prop_name with
+    match Theme.override theme prop_name with
     | Some value -> Css.hex value
     | None -> (
         match Theme.hex_color (resolve_scheme theme) color_name with
@@ -1915,7 +1915,7 @@ module Handler = struct
         | None -> (
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
-            match Theme.theme_value theme std_name with
+            match Theme.override theme std_name with
             | Some value -> Css.hex value
             | None -> to_css c (if is_base_color c then 500 else shade)))
 
@@ -2357,7 +2357,7 @@ module Handler = struct
     else
       let color_name = theme_color_name color shade in
       let prop_name = "text-color-" ^ color_name in
-      let has_property_scoped = Theme.theme_value theme prop_name <> None in
+      let has_property_scoped = Theme.override theme prop_name <> None in
       let cv, color_value =
         if has_property_scoped then
           ( property_color_var ?theme ~property_prefix:"text-color" color shade,
@@ -2739,7 +2739,7 @@ module Handler = struct
       if not (is_custom_color c) then
         let color_name = theme_color_name c shade in
         let prop_name = "text-color-" ^ color_name in
-        if Theme.theme_value theme prop_name <> None then Some "text-color"
+        if Theme.override theme prop_name <> None then Some "text-color"
         else None
       else None
     in
@@ -3687,7 +3687,7 @@ let bg_with_opacity ?theme c shade opacity =
     conventional [name-opacity] pattern. *)
 let opacity_fallback_for_theme_value ?theme var_name bare :
     Css.percentage Css.fallback =
-  match Theme.theme_value theme var_name with
+  match Theme.override theme var_name with
   | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in

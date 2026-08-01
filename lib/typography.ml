@@ -563,8 +563,7 @@ module Typography_early = struct
 
   (* A font family the project named in its [@theme]. Gated on the token being
      there so a stray source word (font-awesome) is not a utility. *)
-  let is_named_font theme n =
-    Theme.theme_value (Some theme) ("font-" ^ n) <> None
+  let is_named_font theme n = Theme.override (Some theme) ("font-" ^ n) <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -983,15 +982,13 @@ module Typography_early = struct
   (* A family the project declared also carries the [--font-<name>--font-
      feature-settings] beside it, the way Tailwind emits it. *)
   let font_feature_decls theme token =
-    match
-      Theme.theme_value (Some theme) (token ^ "--font-feature-settings")
-    with
+    match Theme.override (Some theme) (token ^ "--font-feature-settings") with
     | None -> []
     | Some v -> [ font_feature_settings (Css.Feature_list v) ]
 
   let font_named ?fallback theme name =
     let token = "font-" ^ name in
-    match Theme.theme_value (Some theme) token with
+    match Theme.override (Some theme) token with
     | None -> ( match fallback with Some s -> s | None -> style [])
     | Some raw -> (
         match Css.parse_font_family raw with
@@ -1028,7 +1025,7 @@ module Typography_early = struct
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
   let leading_none ?theme () =
-    match Theme.theme_value theme "leading-none" with
+    match Theme.override theme "leading-none" with
     | Some _ -> leading_with_theme_var leading_none_var (Num 1.0)
     | None ->
         (* Tailwind v4.3 ships no --leading-none token, so inline the literal
@@ -1048,7 +1045,7 @@ module Typography_early = struct
 
   let leading ?theme n =
     let name = "leading-" ^ string_of_int n in
-    match Theme.theme_value theme name with
+    match Theme.override theme name with
     | Some _ ->
         (* A theme overrides --leading-N: reference it like a named leading. *)
         let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
@@ -1942,8 +1939,8 @@ module Typography_late = struct
         else if bracket_quoted '\'' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content_squote value)
-        else if Theme.theme_value (Some theme) ("content-" ^ joined) <> None
-        then Ok (Content_named joined)
+        else if Theme.override (Some theme) ("content-" ^ joined) <> None then
+          Ok (Content_named joined)
         else if
           String.length joined >= 2
           && String.get joined 0 = '['
@@ -2605,7 +2602,7 @@ module Typography_late = struct
     style ~property_rules [ channel_decl; letter_spacing direct_neg ]
 
   let underline_offset_auto ?theme () =
-    match Theme.theme_value theme "text-underline-offset-auto" with
+    match Theme.override theme "text-underline-offset-auto" with
     | Some _ ->
         let decl, ref_ =
           Var.binding underline_offset_auto_var (Auto : Css.length)
@@ -2663,7 +2660,7 @@ module Typography_late = struct
       ]
 
   let line_clamp_none_style ?theme () =
-    match Theme.theme_value theme "line-clamp-none" with
+    match Theme.override theme "line-clamp-none" with
     | Some value_str -> (
         match int_of_string_opt value_str with
         | Some n ->
@@ -2722,7 +2719,7 @@ module Typography_late = struct
   let content_named ?theme name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
-      match Theme.theme_value theme var_name with
+      match Theme.override theme var_name with
       | Some _ ->
           let tv = Var.theme Css.Content var_name ~order:(6, 60) in
           let theme_decl, theme_ref = Var.binding tv (String "") in
@@ -2776,7 +2773,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_type)
         ~default_css:"none"
     in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
@@ -2816,7 +2813,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_image)
         ~default_css:"none"
     in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value

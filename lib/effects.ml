@@ -676,10 +676,10 @@ module Handler = struct
     | Stdlib.Option.None -> (
         (* Check property-scoped theme value first *)
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Theme.theme_value theme prop_name with
+        match Theme.override theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Theme.theme_value theme ("color-" ^ color_name) with
+            match Theme.override theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -962,7 +962,7 @@ module Handler = struct
   (* (h, v, blur, hex) for a named shape: a threaded @theme override if present,
      else the v4.3.1 default scale. *)
   let inset_shadow_data_for ?theme shape =
-    match Theme.theme_value theme (inset_shadow_shape_token shape) with
+    match Theme.override theme (inset_shadow_shape_token shape) with
     | Some override -> (
         match parse_inset_shadow_override override with
         | Some data -> data
@@ -990,7 +990,7 @@ module Handler = struct
      v4.3.1 default; of_class only reaches here when the token is defined). *)
   let inset_shadow_themed ?theme () =
     let h_offset, v_offset, blur, fallback_hex =
-      match Theme.theme_value theme "inset-shadow" with
+      match Theme.override theme "inset-shadow" with
       | Some override -> (
           match parse_inset_shadow_override override with
           | Some data -> data
@@ -1250,10 +1250,10 @@ module Handler = struct
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Theme.theme_value theme prop_name with
+        match Theme.override theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Theme.theme_value theme ("color-" ^ color_name) with
+            match Theme.override theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -2580,7 +2580,7 @@ module Handler = struct
        threaded @theme defines --inset-shadow. inset-shadow-{md,lg,xl,2xl} do
        not exist in v4.3.1 and fall through to err_not_utility. *)
     | [ "inset"; "shadow" ]
-      when Theme.theme_value (Some theme) "inset-shadow" <> None ->
+      when Theme.override (Some theme) "inset-shadow" <> None ->
         Ok Inset_shadow
     | [ "inset"; "shadow" ] -> err_not_utility
     | [ "inset"; "shadow"; "inherit" ] -> Ok Inset_shadow_inherit

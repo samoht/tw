@@ -598,7 +598,7 @@ module Handler = struct
       if Color.is_base_color color then "background-color-" ^ base
       else "background-color-" ^ base ^ "-" ^ string_of_int shade
     in
-    match Theme.theme_value theme bg_var_name with
+    match Theme.override theme bg_var_name with
     | Some theme_val ->
         (* Property-scoped bg color: --background-color-<name> *)
         let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in

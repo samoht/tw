@@ -43,7 +43,7 @@ module Handler = struct
 
   let named_margin_value ?theme name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
-    match Theme.theme_value theme prop_name with
+    match Theme.override theme prop_name with
     | Some value_str ->
         let decl =
           Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
@@ -268,7 +268,7 @@ module Handler = struct
      [--spacing-<name>] token; otherwise a stray source token like [my-form]
      would parse as a utility and emit a bogus var(). *)
   let is_named_spacing theme name =
-    Theme.theme_value theme ("spacing-" ^ name) <> None
+    Theme.override theme ("spacing-" ^ name) <> None
 
   (** Parse value to standard or named margin *)
   let parse_value ?theme ~is_negative value =

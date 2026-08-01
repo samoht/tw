@@ -113,10 +113,6 @@ val token : t -> string -> string option
     override if it has one, else the default the owning family published, else
     [None]. [name] carries no leading [--]. *)
 
-val token_override : t -> string -> string option
-(** [token_override t name] is the override [t] itself carries for [name],
-    ignoring any published default. *)
-
 val is_inline_token : t -> string -> bool
 (** [is_inline_token t name] is whether [name] came from an [\@theme inline]
     block, so a utility reading it inlines the value rather than emitting
@@ -129,6 +125,7 @@ val is_static : t -> bool
 (** [is_static t] is whether [t] emits every theme variable rather than only the
     ones a utility read. *)
 
-val theme_value : t option -> string -> string option
-(** [theme_value t name] is [token_override] on [t], and [None] when no theme is
-    threaded. *)
+val override : t option -> string -> string option
+(** [override t name] is the override [t] itself carries for the theme token
+    [name], ignoring any default the owning family published. It is [None] when
+    [t] carries none, and when no theme is threaded at all. *)

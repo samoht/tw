@@ -87,7 +87,7 @@ module Handler = struct
 
   let grid_cols_none ?theme () =
     let var_name = "grid-template-columns-none" in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value -> themed_property var_name Css.grid_template_columns value
     | None -> style [ Css.grid_template_columns None ]
 
@@ -304,7 +304,7 @@ module Handler = struct
 
   let grid_rows_none ?theme () =
     let var_name = "grid-template-rows-none" in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value -> themed_property var_name Css.grid_template_rows value
     | None -> style [ Css.grid_template_rows None ]
 
@@ -317,7 +317,7 @@ module Handler = struct
 
   let auto_cols_auto ?theme () =
     let var_name = "grid-auto-columns-auto" in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_columns value
     | None -> style [ Css.grid_auto_columns Auto ]
 
@@ -338,7 +338,7 @@ module Handler = struct
 
   let auto_rows_auto ?theme () =
     let var_name = "grid-auto-rows-auto" in
-    match Theme.theme_value theme var_name with
+    match Theme.override theme var_name with
     | Some value -> themed_property var_name Css.grid_auto_rows value
     | None -> style [ Css.grid_auto_rows Auto ]
 

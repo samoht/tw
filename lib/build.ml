@@ -636,7 +636,7 @@ let apply_token_override theme decl =
   | Some full_name
     when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
-      match Theme.token_override theme bare with
+      match Theme.override (Some theme) bare with
       | Some css -> Css.custom_property ~layer:"theme" full_name css
       | None -> decl)
   | _ -> decl
@@ -748,7 +748,7 @@ let referenced_theme_decls ~theme ~exclude selector_props =
               Var.binding Spacing_scale.spacing_var
                 (Option.value
                    (Option.bind
-                      (Theme.theme_value (Some theme) "spacing")
+                      (Theme.override (Some theme) "spacing")
                       Css.parse_length)
                    ~default:Spacing_scale.spacing_base)
             in
@@ -772,7 +772,7 @@ let inline_default_family theme decl =
         when Theme.is_inline_token theme t
              && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
         -> (
-          match Theme.theme_value (Some theme) t with
+          match Theme.override (Some theme) t with
           | Some v -> Css.custom_property ~layer:"theme" name v
           | None -> decl)
       | _ -> decl)
@@ -786,7 +786,7 @@ let derived_font_feature_decls ~theme ~have =
     ("font-mono--font-feature-settings", "default-mono-font-feature-settings");
   ]
   |> List.filter_map (fun (token, name) ->
-      match Theme.theme_value (Some theme) token with
+      match Theme.override (Some theme) token with
       | Some v when not (Strings.mem ("--" ^ name) have) ->
           Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
       | _ -> None)
@@ -1582,9 +1582,9 @@ let to_css ?(theme = Theme.default) ?(config = Config.default) ?(declared = [])
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
-    layers ~theme ~layers:config.Config.layers ~include_base:config.Config.base
-      ?forms:config.Config.forms ~selector_props ~sorted_rules tw_classes
-      statements
+    layers ~theme ~layers:(Config.layers config)
+      ~include_base:(Config.base config) ?forms:(Config.forms config)
+      ~selector_props ~sorted_rules tw_classes statements
   in
   Css.concat layer_results
 

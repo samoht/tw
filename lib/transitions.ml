@@ -94,10 +94,10 @@ module Handler = struct
      are set, so @config none tests don't get the :root, :host block. *)
   let default_theme_decls ?theme () =
     let has_timing =
-      Theme.theme_value theme "default-transition-timing-function" <> None
+      Theme.override theme "default-transition-timing-function" <> None
     in
     let has_duration =
-      Theme.theme_value theme "default-transition-duration" <> None
+      Theme.override theme "default-transition-duration" <> None
     in
     let timing =
       if has_timing then
@@ -178,7 +178,7 @@ module Handler = struct
     (* When --transition-property-colors is set in theme, use the var reference;
        otherwise inline the full property list *)
     let has_theme_var =
-      Theme.theme_value theme "transition-property-colors" <> None
+      Theme.override theme "transition-property-colors" <> None
     in
     let extra_decls, (transition_props : Css.transition_property_value list) =
       if has_theme_var then
@@ -226,7 +226,7 @@ module Handler = struct
 
   let transition_opacity ?theme () =
     let has_theme_var =
-      Theme.theme_value theme "transition-property-opacity" <> None
+      Theme.override theme "transition-property-opacity" <> None
     in
     let extra_decls, (transition_props : Css.transition_property_value list) =
       if has_theme_var then
@@ -343,7 +343,7 @@ module Handler = struct
   let ease_linear ?theme () =
     (* Tailwind uses the raw 'linear' keyword by default, but uses
        var(--ease-linear) when the theme defines --ease-linear. *)
-    match Theme.theme_value theme "ease-linear" with
+    match Theme.override theme "ease-linear" with
     | Some _ ->
         let theme_decl, ease_linear_ref =
           Var.binding ease_linear_var Css.Linear

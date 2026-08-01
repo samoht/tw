@@ -535,8 +535,8 @@ module Handler = struct
             let name = String.concat "-" color_parts in
             let base, opacity = Color.parse_opacity_modifier ~theme name in
             if
-              Theme.theme_value (Some theme) ("color-" ^ base) <> None
-              || Theme.theme_value (Some theme) ("border-color-" ^ base) <> None
+              Theme.override (Some theme) ("color-" ^ base) <> None
+              || Theme.override (Some theme) ("border-color-" ^ base) <> None
             then Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
@@ -547,8 +547,8 @@ module Handler = struct
                theme values *)
             let name = String.concat "-" color_parts in
             if
-              Theme.theme_value (Some theme) ("color-" ^ name) <> None
-              || Theme.theme_value (Some theme) ("border-color-" ^ name) <> None
+              Theme.override (Some theme) ("color-" ^ name) <> None
+              || Theme.override (Some theme) ("border-color-" ^ name) <> None
             then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")

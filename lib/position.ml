@@ -708,8 +708,8 @@ module Handler = struct
      back to [--spacing-*]; without this gate a stray source token like
      [top-level] would parse as a utility and emit a bogus value. *)
   let is_named_inset theme n =
-    Theme.theme_value (Some theme) ("inset-" ^ n) <> None
-    || Theme.theme_value (Some theme) ("spacing-" ^ n) <> None
+    Theme.override (Some theme) ("inset-" ^ n) <> None
+    || Theme.override (Some theme) ("spacing-" ^ n) <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in

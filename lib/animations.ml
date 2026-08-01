@@ -38,7 +38,7 @@ module Handler = struct
   let animate_none ?theme () =
     (* If theme defines --animate-none, use the theme variable. Otherwise use
        animation: none directly. *)
-    match Theme.theme_value theme "animate-none" with
+    match Theme.override theme "animate-none" with
     | Some _ ->
         let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
         let none_animation : Css.animation =
@@ -81,7 +81,7 @@ module Handler = struct
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
     (* Only include @keyframes when theme doesn't define the animation *)
     let rules =
-      if Theme.theme_value theme "animate-spin" <> opt_none then opt_none
+      if Theme.override theme "animate-spin" <> opt_none then opt_none
       else
         opt_some
           [
@@ -119,7 +119,7 @@ module Handler = struct
     in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
     let rules =
-      if Theme.theme_value theme "animate-ping" <> opt_none then opt_none
+      if Theme.override theme "animate-ping" <> opt_none then opt_none
       else
         opt_some
           [
@@ -161,7 +161,7 @@ module Handler = struct
     in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
     let rules =
-      if Theme.theme_value theme "animate-pulse" <> opt_none then opt_none
+      if Theme.override theme "animate-pulse" <> opt_none then opt_none
       else
         opt_some
           [
@@ -202,7 +202,7 @@ module Handler = struct
       Var.binding animate_bounce_var bounce_animation
     in
     let rules =
-      if Theme.theme_value theme "animate-bounce" <> opt_none then opt_none
+      if Theme.override theme "animate-bounce" <> opt_none then opt_none
       else
         opt_some
           [
@@ -329,7 +329,7 @@ module Handler = struct
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
-          if Theme.theme_value (Some theme) var_name <> None then
+          if Theme.override (Some theme) var_name <> None then
             Ok (Animate_named value)
           else Error (`Msg "Not an animation utility")
     | _ -> Error (`Msg "Not an animation utility")

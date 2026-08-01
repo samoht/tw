@@ -70,6 +70,9 @@ let () =
       Test_pp.suite;
       Test_prose.suite;
       Test_theme.suite;
+      Test_config.suite;
+      Test_spacing_scale.suite;
+      Test_token_defaults.suite;
       Test_utility.suite;
       Test_spacing.suite;
       Test_box_sizing.suite;
