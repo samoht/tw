@@ -544,6 +544,15 @@ let rule_sets tw_classes =
   let all_rules = List.concat_map (Rule.outputs ~order_tbl) tw_classes in
   rule_sets_from_selector_props order_tbl all_rules
 
+let indexed_rules tw_classes =
+  let order_tbl = Hashtbl.create 256 in
+  List.concat_map (Rule.outputs ~order_tbl) tw_classes
+  |> List.filter_map (rule_to_triple order_tbl)
+  |> deduplicate_typed_triples |> add_index
+
+let compare_rules = Sort.compare_indexed_rules
+let rule_selector (r : Sort.indexed_rule) = r.selector_str
+
 (* ======================================================================== *)
 (* Layer Generation - CSS @layer directives and theme variable resolution *)
 (* ======================================================================== *)

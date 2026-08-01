@@ -40,38 +40,17 @@ module Handler = struct
 
   (** {2 Typed Gap Utilities} *)
 
-  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
-  *)
-  let spacing_to_decl_len ?theme (s : spacing) : Css.declaration option * length
-      =
-    match s with
-    | `Px ->
-        let len : length = Px 1. in
-        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
-        (Some decl, len)
-    | `Full ->
-        let len : length = Pct 100. in
-        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
-        (Some decl, len)
-    | `Named name ->
-        let len = Spacing.named_spacing_ref name in
-        (None, len)
-    | `Rem f ->
-        let n = f /. 0.25 in
-        let decl, len = Theme.spacing_calc_float ?theme n in
-        (Some decl, len)
-
   let gap_standard ?theme (s : spacing) =
-    let decl, len = spacing_to_decl_len ?theme s in
+    let decl, len = Spacing.to_decl_len ?theme s in
     let gap_value = Lengths { row_gap = Some len; column_gap = Some len } in
     style (Option.to_list decl @ [ gap gap_value ])
 
   let gap_x_standard ?theme (s : spacing) =
-    let decl, len = spacing_to_decl_len ?theme s in
+    let decl, len = Spacing.to_decl_len ?theme s in
     style (Option.to_list decl @ [ column_gap len ])
 
   let gap_y_standard ?theme (s : spacing) =
-    let decl, len = spacing_to_decl_len ?theme s in
+    let decl, len = Spacing.to_decl_len ?theme s in
     style (Option.to_list decl @ [ row_gap len ])
 
   let gap_arb len =
@@ -417,17 +396,18 @@ module Handler = struct
         | None -> None
     else None
 
-  let parse_gap_value value =
+  (* Shared with padding and margin, so a named spacing reaches gap too:
+     [gap-form] is a class Tailwind emits whenever the theme defines
+     [--spacing-form]. *)
+  let parse_gap_value ?theme value =
     if String.length value > 0 && value.[0] = '[' then parse_gap_arbitrary value
     else
-      match Parse.spacing_value ~name:"gap" value with
-      | Ok f -> Some (Standard (`Rem (f *. 0.25)))
-      | Error _ ->
-          if value = "px" then Some (Standard `Px)
-          else if value = "full" then Some (Standard `Full)
-          else None
+      match Spacing.parse_value_string ?theme ~allow_auto:false value with
+      | Some (#Style.spacing as s) -> Some (Standard s)
+      | Some `Auto | None -> None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
+    let parse_gap_value value = parse_gap_value ~theme value in
     let parts = Parse.split_class class_name in
     let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function

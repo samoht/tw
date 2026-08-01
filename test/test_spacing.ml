@@ -43,11 +43,33 @@ let test_int_constructor () =
     end)
     "int spacing" (`Rem 1.0) (int 4)
 
+(* A named spacing renders as [var(--spacing-<name>)], so the utility has to
+   declare the token as well as reference it: padding and gap used to emit the
+   reference alone, which renders as nothing. Tailwind emits the binding for
+   every one of these classes given the same @theme. *)
+let test_named_spacing_declares_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error (`Msg m) -> Alcotest.failf "%s rejected: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~theme ~base:false [ u ] in
+          if not (Test_helpers.has_var_in_layer "--spacing-form" "theme" css)
+          then
+            Alcotest.failf "%s references --spacing-form without declaring it"
+              cls)
+    [ "m-form"; "-m-form"; "p-form"; "px-form"; "gap-form"; "gap-x-form" ]
+
 let tests =
   [
     test_case "pp_spacing_suffix" `Quick test_pp_spacing_suffix;
     test_case "pp_margin_suffix" `Quick test_pp_margin_suffix;
     test_case "int constructor" `Quick test_int_constructor;
+    test_case "named spacing declares its token" `Quick
+      test_named_spacing_declares_token;
   ]
 
 let suite = ("spacing", tests)

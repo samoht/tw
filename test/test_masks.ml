@@ -89,6 +89,29 @@ let test_invalid_bracket_value () =
   rejected "mask-size-[<value>]";
   rejected "mask-position-[<value>]"
 
+(* Masks sit between the backgrounds and fill/stroke, and the mask-gradient
+   utilities lead them. Sharing padding's slot interleaved the two families with
+   the padding rules, which breaks the adjacency the block merging relies on. *)
+let order_matches_tailwind () =
+  let classes =
+    [
+      "bg-red-500";
+      "mask-x-from-20%";
+      "mask-b-from-50%";
+      "mask-none";
+      "mask-top";
+      "mask-cover";
+      "mask-repeat-x";
+      "fill-blue-500";
+      "stroke-green-500";
+      "p-4";
+      "pt-2";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches ~test_name:"mask order matches Tailwind"
+    (Test_helpers.shuffle utilities)
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -98,6 +121,7 @@ let tests =
         test_bracket_layer_list;
       Alcotest.test_case "invalid bracket value" `Quick
         test_invalid_bracket_value;
+      Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
     ]
 
 let suite = ("masks", tests)

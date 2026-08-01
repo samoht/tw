@@ -104,6 +104,31 @@ let negative_suborder_matches_tailwind () =
     ~test_name:"negative margin suborder matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+(* m, mx and ml all write margin-left, so which one an element ends up with is
+   decided by the order the two sheets emit them in. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "m-0";
+      "m-2";
+      "-m-1";
+      "mx-2";
+      "mx-auto";
+      "my-4";
+      "-mx-1";
+      "mt-2";
+      "-mt-1";
+      "mr-2";
+      "mb-4";
+      "ml-2";
+      "-ml-1";
+      "ms-2";
+      "me-4";
+    ]
+  in
+  Test_helpers.check_rendering_matches ~test_name:"margins render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (** Test that CSS values use the correct spacing multiplier. m-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
@@ -161,6 +186,7 @@ let tests =
       negative_suborder_matches_tailwind;
     test_case "margin CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
+    test_case "margins render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("margin", tests)

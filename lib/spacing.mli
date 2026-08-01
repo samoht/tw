@@ -84,6 +84,17 @@ val named_spacing_binding :
     named spacing value, returning both the theme declaration (if theme value is
     set) and a var reference. *)
 
+val to_decl_len :
+  ?theme:Scheme.t ->
+  ?negative:bool ->
+  Style.spacing ->
+  Css.declaration option * Css.length
+(** [to_decl_len ?theme ?negative s] is the declaration [s] needs and the length
+    that reads it. Padding, margin and gap share it: each emits
+    [var(--spacing-<name>)] for a named value, and the theme binding that
+    declares the variable has to travel with the reference. [negative] flips the
+    sign, for the margin utilities that allow it. *)
+
 val is_named_spacing : string -> bool
 (** [is_named_spacing value] checks if a string is a valid named spacing
     identifier. *)

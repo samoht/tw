@@ -173,6 +173,37 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"backgrounds suborder matches Tailwind" shuffled
 
+(* A gradient and a background colour both end up in background-image and
+   background-color, and the gradient stops share the --tw-gradient-* slots.
+   Palette colours are left out: tw declares the theme token as a hex where
+   Tailwind keeps oklch, which [tw --diff] already reports on its own. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "bg-current";
+      "bg-transparent";
+      "bg-black";
+      "bg-white";
+      "bg-linear-to-r";
+      "bg-linear-to-b";
+      "from-current";
+      "via-transparent";
+      "to-black";
+      "from-50%";
+      "bg-cover";
+      "bg-contain";
+      "bg-center";
+      "bg-top";
+      "bg-no-repeat";
+      "bg-repeat-x";
+      "bg-fixed";
+      "bg-local";
+    ]
+  in
+  Test_helpers.check_rendering_matches
+    ~test_name:"backgrounds render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (* An arbitrary url() with its own quotes must not be double-wrapped: tw used to
    emit the broken url("'/img/x.png'"); it now canonicalises to a valid
    url(). *)
@@ -294,6 +325,8 @@ let tests =
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "backgrounds render like Tailwind" `Slow
+      rendering_matches_tailwind;
   ]
 
 let suite = ("backgrounds", tests)

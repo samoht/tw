@@ -358,6 +358,41 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"typography suborder matches Tailwind" shuffled
 
+(* text-<size> also sets the line height, so a size and a leading on the same
+   element decide between them what the text is laid out with. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "text-xs";
+      "text-base";
+      "text-lg";
+      "text-3xl";
+      "font-thin";
+      "font-normal";
+      "font-bold";
+      "leading-none";
+      "leading-relaxed";
+      "leading-6";
+      "tracking-tight";
+      "tracking-wide";
+      "text-left";
+      "text-center";
+      "text-right";
+      "underline";
+      "line-through";
+      "no-underline";
+      "italic";
+      "not-italic";
+      "uppercase";
+      "truncate";
+      "indent-4";
+      "align-middle";
+    ]
+  in
+  Test_helpers.check_rendering_matches
+    ~test_name:"typography renders like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
 let test_tracking_normal_unit () =
   let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.pp ~minify:true in
@@ -559,6 +594,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "line-clamp sorts with box-sizing" `Quick
       line_clamp_sorts_with_box_sizing;
+    test_case "typography renders like Tailwind" `Slow
+      rendering_matches_tailwind;
   ]
 
 let suite = ("typography", tests)

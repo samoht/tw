@@ -351,6 +351,9 @@ let rec container_size_name = function
   | Container_5xl -> "5xl"
   | Container_6xl -> "6xl"
   | Container_7xl -> "7xl"
+  (* An unnamed container query is an arbitrary width, and its class is the
+     bracket form the parser reads back: [@[600px]], not [@600px]. *)
+  | Container_named ("", size) -> "[" ^ string_of_int size ^ "px]"
   | Container_named (n, size) -> n ^ "/" ^ string_of_int size
   | Container_size (cmp, inner) ->
       container_cmp_prefix cmp ^ container_size_name inner
@@ -472,12 +475,15 @@ let rec pp_modifier = function
   | Aria_expanded -> "aria-expanded"
   | Aria_selected -> "aria-selected"
   | Aria_disabled -> "aria-disabled"
-  | Data_state s -> String.concat "" [ "data-state="; s ]
-  | Data_variant s -> String.concat "" [ "data-variant="; s ]
+  | Data_state s -> String.concat "" [ "data-[state="; s; "]" ]
+  | Data_variant s -> String.concat "" [ "data-[variant="; s; "]" ]
   | Data_active -> "data-active"
   | Data_inactive -> "data-inactive"
-  | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v ]
-  | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
+  (* A valueless data attribute is the bare form; one with a value takes
+     brackets. *)
+  | Data_custom (k, "") -> String.concat "" [ "data-"; k ]
+  | Data_custom (k, v) -> String.concat "" [ "data-["; k; "="; v; "]" ]
+  | Not m -> String.concat "" [ "not-"; pp_modifier m ]
   (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
   | Has s -> String.concat "" [ "has-"; has_part s ]

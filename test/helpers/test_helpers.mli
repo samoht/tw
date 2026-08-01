@@ -13,9 +13,35 @@ val extract_utilities_layer_rules : Css.t -> Css.statement list
 val extract_rule_selectors : Css.statement list -> string list
 (** [extract_rule_selectors stmts] extracts selector strings from CSS rules. *)
 
+val our_css : Tw.t list -> string
+(** [our_css utilities] is tw's stylesheet for [utilities], base layer included
+    and minified. *)
+
+val tailwind_css : ?forms:bool -> string list -> string
+(** [tailwind_css classnames] is the pinned Tailwind CLI's stylesheet for the
+    same classes. Skips the test when the CLI is unavailable. *)
+
+val properties_of_class : string -> Css.Declaration.prop_key list
+(** [properties_of_class cls] is every property [cls] declares, custom
+    properties included: two utilities can conflict on a [--tw-*] alone. *)
+
+val same_property_pairs : string list -> (string * string) list
+(** [same_property_pairs classes] pairs up the classes that declare a property
+    in common. An element carrying such a pair is where an ordering difference
+    becomes observable; a class on its own can only differ in value. *)
+
+val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
+(** [ordering_diff ?forms utilities] compares tw's sheet for [utilities] against
+    the pinned Tailwind CLI's, canonically and with dead custom properties
+    pruned. Both {!check_ordering_fails} and {!check_ordering_matches} go
+    through it: the fuzzer minimises with the same predicate the suites assert
+    on, so a case it reports as minimal is one the assertion also rejects.
+    Pruning is what makes it blind to a utility whose only output is an
+    unreferenced binding; {!check_rendering_matches} covers that class. *)
+
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
-(** [check_ordering_fails ?forms utilities] checks if utilities produce
-    different ordering than Tailwind CSS. *)
+(** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
+    finds a difference. The minimisation predicate. *)
 
 val delta_debug : ('a list -> bool) -> 'a list -> 'a list
 (** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
@@ -35,6 +61,14 @@ val check_ordering_matches :
 (** [check_ordering_matches ?forms ~test_name utilities] compares the ordering
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
+
+val check_rendering_matches :
+  ?forms:bool -> test_name:string -> Tw.t list -> unit
+(** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
+    headless Chromium and fails on any computed style that differs. Each class
+    gets an element of its own, plus one per {!same_property_pairs} pair, which
+    is where an ordering difference shows. Skips when node or Playwright is
+    absent; [TW_BROWSER_TESTS=0] opts out where they are present. *)
 
 (** {1 CSS Test Helpers} *)
 

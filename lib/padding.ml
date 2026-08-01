@@ -44,32 +44,13 @@ module Handler = struct
     in
     prefix ^ value_suffix
 
-  (** Convert spacing to (declaration option, length) using
-      Theme.spacing_calc_float. *)
-  let spacing_to_decl_len ?theme (s : Style.spacing) :
-      Css.declaration option * length =
-    match s with
-    | `Px ->
-        let len : length = Px 1. in
-        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
-        (Some decl, len)
-    | `Full ->
-        let len : length = Pct 100. in
-        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
-        (Some decl, len)
-    | `Named name -> Spacing.named_spacing_binding name
-    | `Rem f ->
-        let n = f /. 0.25 in
-        let decl, len = Theme.spacing_calc_float ?theme n in
-        (Some decl, len)
-
   let v_spacing ?theme (prop : length -> declaration) (s : Style.spacing) =
-    let decl, len = spacing_to_decl_len ?theme s in
+    let decl, len = Spacing.to_decl_len ?theme s in
     style (Option.to_list decl @ [ prop len ])
 
   let vs_spacing ?theme (prop : length list -> declaration) (s : Style.spacing)
       =
-    let decl, len = spacing_to_decl_len ?theme s in
+    let decl, len = Spacing.to_decl_len ?theme s in
     style (Option.to_list decl @ [ prop [ len ] ])
 
   let spacing_value_order = function

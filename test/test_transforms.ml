@@ -128,6 +128,32 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"transforms suborder matches Tailwind" shuffled
 
+(* Every transform utility writes into the same --tw-* slots and the shared
+   transform property, so the composed matrix is what has to agree. *)
+let rendering_matches_tailwind () =
+  let classes =
+    [
+      "translate-x-4";
+      "translate-y-2";
+      "-translate-x-2";
+      "translate-4";
+      "rotate-45";
+      "-rotate-90";
+      "scale-50";
+      "scale-x-75";
+      "scale-y-125";
+      "skew-x-3";
+      "skew-y-6";
+      "origin-center";
+      "origin-top-right";
+      "transform-gpu";
+      "transform-none";
+    ]
+  in
+  Test_helpers.check_rendering_matches
+    ~test_name:"transforms render like Tailwind"
+    (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
+
 (* skew_x/skew_y (int) and the transform-origin constructors are newly exposed
    in tw.mli; check they agree with the parser on class names. *)
 let test_typed () =
@@ -205,6 +231,7 @@ let tests =
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
 let suite = ("transforms", tests)

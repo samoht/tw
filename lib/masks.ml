@@ -75,7 +75,10 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "masks"
-  let priority _ = 23 (* After backgrounds, before filters *)
+
+  (* After the backgrounds and the mask-gradient utilities, before fill and
+     stroke and before padding - Tailwind's own order. *)
+  let priority _ = 21
 
   (* Helper to create webkit + standard declarations for mask properties *)
 
@@ -437,7 +440,7 @@ module Handler = struct
             Css.mask_size (Var var_ref);
           ]
 
-  let suborder = function
+  let suborder_in_family = function
     | Mask_bracket_image_var _ -> 100
     | Mask_bracket_image _ -> 101
     | Mask_bracket_url _ -> 102
@@ -494,6 +497,10 @@ module Handler = struct
     | Mask_position_bracket_var _ -> 512
     | Mask_size_bracket _ -> 407
     | Mask_size_bracket_var _ -> 408
+
+  (* These share a priority with the mask-gradient utilities and sort after
+     them, so the two families occupy disjoint suborder bands. *)
+  let suborder t = 10000 + suborder_in_family t
 
   (* [mask-[<image>]] takes any background-image value, so what makes one is
      whether the value parser accepts it, not which gradient function it
