@@ -8,13 +8,40 @@ let has_prefix ~prefix s =
   let lp = String.length prefix in
   lp <= String.length s && prefix_loop prefix s 0 lp
 
+let is_digits s =
+  s <> "" && String.for_all (function '0' .. '9' -> true | _ -> false) s
+
+let without_sign s =
+  if s <> "" && s.[0] = '-' then String.sub s 1 (String.length s - 1) else s
+
+(* A class suffix is written in plain decimal, but OCaml's literal grammar also
+   admits [0x]/[0o]/[0b] bases, [_] digit separators, hex-float exponents and a
+   leading [+]. Handing a suffix straight to [int_of_string_opt] therefore reads
+   [p-0x4] as 4 and emits [.p-4] — a rule nobody wrote, and not a class Tailwind
+   accepts. Both readers below check the spelling first. *)
+let decimal_int s =
+  if is_digits (without_sign s) then int_of_string_opt s else None
+
+(* Plain decimal: digits, then at most one fractional part with digits of its
+   own. [.5], [1.] and [1e2] are not spellings of a class suffix. *)
+let decimal_float s =
+  let digits = without_sign s in
+  let plain =
+    match String.index_opt digits '.' with
+    | None -> is_digits digits
+    | Some i ->
+        is_digits (String.sub digits 0 i)
+        && is_digits (String.sub digits (i + 1) (String.length digits - i - 1))
+  in
+  if plain then float_of_string_opt s else None
+
 let int_any s =
-  match int_of_string_opt s with
+  match decimal_int s with
   | Some n -> Ok n
   | None -> Error (`Msg ("Invalid number: " ^ s))
 
 let nonnegative_int ~name s =
-  match int_of_string_opt s with
+  match decimal_int s with
   | Some n when n >= 0 -> Some (Ok n)
   | Some _ -> Some (Error (`Msg (name ^ " must be non-negative: " ^ s)))
   | None -> None
@@ -27,14 +54,12 @@ let int_pos ~name s =
 (* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
    must be multiples of 0.25 (i.e., value * 4 is integer). *)
 let decimal_pos ~name s =
-  try
-    let f = Float.of_string s in
-    if f < 0.0 then Error (`Msg (name ^ " must be non-negative: " ^ s))
-    else
-      let scaled = f *. 4.0 in
-      if Float.is_integer scaled then Ok f
+  match decimal_float s with
+  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  | Some f ->
+      if f < 0.0 then Error (`Msg (name ^ " must be non-negative: " ^ s))
+      else if Float.is_integer (f *. 4.0) then Ok f
       else Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  with Failure _ -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
 (* Parse spacing values - handles both integers and decimals *)
 let spacing_value ~name s =
@@ -44,7 +69,7 @@ let spacing_value ~name s =
   | None -> decimal_pos ~name s
 
 let int_bounded ~name ~min ~max s =
-  match int_of_string_opt s with
+  match decimal_int s with
   | Some n when n >= min && n <= max -> Ok n
   | Some _ ->
       Error
