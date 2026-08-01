@@ -24,7 +24,8 @@ module Handler = struct
 
   type scroll_value =
     | Spacing of float (* scroll-m-4, scroll-m-0.5 *)
-    | Arbitrary of Css.length (* scroll-m-[4px] *)
+    | Arbitrary of string * Css.length
+      (* scroll-m-[4px], raw kept for round-trip *)
     | Arbitrary_var of string (* scroll-m-[var(--value)] *)
 
   type t = {
@@ -49,37 +50,18 @@ module Handler = struct
       let mult = if negative then -.n else n in
       Theme.spacing_calc_float ?theme mult
 
-  let try_parse_length inner =
-    let unit_table : (string * int * (float -> Css.length)) list =
-      [
-        ("rem", 3, fun f -> Css.Rem f);
-        ("px", 2, fun f -> Css.Px f);
-        ("em", 2, fun f -> Css.Em f);
-        ("%", 1, fun f -> Css.Pct f);
-      ]
-    in
-    let rec try_units = function
-      | [] -> None
-      | (suffix, suffix_len, mk) :: rest ->
-          if String.ends_with ~suffix inner then
-            let n = String.sub inner 0 (String.length inner - suffix_len) in
-            match float_of_string_opt n with
-            | Some f -> Some (`Length (mk f : Css.length))
-            | None -> None
-          else try_units rest
-    in
-    try_units unit_table
-
-  let parse_arbitrary s : [ `Length of Css.length | `Var of string ] option =
-    (* Parse [4px] or [1rem] or [var(--value)] etc. *)
+  let parse_arbitrary s : scroll_value option =
+    (* Parse [4px] or [1rem] or [var(--value)] etc. Only a var() reference is a
+       variable name: anything else that is not a length is not a utility, and
+       reading it as one emitted [scroll-margin: var(--2vh)]. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if Parse.is_var inner then Some (`Var inner)
+      if Parse.is_var inner then Some (Arbitrary_var inner)
       else
-        match try_parse_length inner with
-        | Some _ as result -> result
-        | None -> Some (`Var inner)
+        Option.map
+          (fun l -> Arbitrary (inner, l))
+          (Parse.arbitrary_length inner)
     else None
 
   let scroll_prop kind axis len =
@@ -115,7 +97,7 @@ module Handler = struct
     | Spacing n ->
         let decl, len = spacing_to_decl_len ~negative n in
         style [ decl; scroll_prop kind axis len ]
-    | Arbitrary len ->
+    | Arbitrary (_, len) ->
         let len : Css.length =
           if negative then
             Css.Calc (Css.Calc.mul (Css.Calc.length len) (Css.Calc.float (-1.)))
@@ -159,20 +141,6 @@ module Handler = struct
     in
     kind_offset + neg_offset + axis_offset + value_order
 
-  let pp_float n =
-    (* Format float without trailing dot: 4. -> 4, 4.5 -> 4.5 *)
-    let s = string_of_float n in
-    if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
-    else s
-
-  let pp_length_suffix (len : Css.length) =
-    match len with
-    | Css.Px n -> "[" ^ pp_float n ^ "px]"
-    | Css.Rem n -> "[" ^ pp_float n ^ "rem]"
-    | Css.Em n -> "[" ^ pp_float n ^ "em]"
-    | Css.Pct n -> "[" ^ pp_float n ^ "%]"
-    | _ -> "[<length>]"
-
   let axis_suffix = function
     | All -> ""
     | X -> "x"
@@ -195,7 +163,7 @@ module Handler = struct
     let value_suffix =
       match value with
       | Spacing n -> Spacing.pp_spacing_suffix (`Rem (Float.abs n *. 0.25))
-      | Arbitrary len -> pp_length_suffix len
+      | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
       | Arbitrary_var s -> "[" ^ s ^ "]"
     in
     neg_prefix ^ kind_prefix ^ axis_str ^ "-" ^ value_suffix
@@ -244,10 +212,7 @@ module Handler = struct
             | Error _ -> (
                 (* Try as arbitrary value *)
                 match parse_arbitrary value with
-                | Some (`Length len) ->
-                    Ok { kind; negative; axis; value = Arbitrary len }
-                | Some (`Var var_str) ->
-                    Ok { kind; negative; axis; value = Arbitrary_var var_str }
+                | Some value -> Ok { kind; negative; axis; value }
                 | None -> Error (`Msg "Not a scroll utility")))
         | _ -> Error (`Msg "Not a scroll utility"))
     (* Handle block-start/end with longer axis names: scroll-mbs-4 *)
@@ -279,10 +244,7 @@ module Handler = struct
             | Ok n -> Ok { kind; negative; axis; value = Spacing n }
             | Error _ -> (
                 match parse_arbitrary value3 with
-                | Some (`Length len) ->
-                    Ok { kind; negative; axis; value = Arbitrary len }
-                | Some (`Var var_str) ->
-                    Ok { kind; negative; axis; value = Arbitrary_var var_str }
+                | Some value -> Ok { kind; negative; axis; value }
                 | None -> Error (`Msg "Not a scroll utility")))
         | _ -> Error (`Msg "Not a scroll utility"))
     | _ -> Error (`Msg "Not a scroll utility")
