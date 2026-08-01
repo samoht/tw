@@ -85,31 +85,6 @@ module Handler = struct
       (length * length * length option * arb_color) option =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
     let parts = String.split_on_char ' ' normalized in
-    let parse_length str : length option =
-      let len = String.length str in
-      if len >= 1 then (
-        let num_end = ref 0 in
-        while
-          !num_end < len
-          && (str.[!num_end] = '-'
-             || str.[!num_end] = '.'
-             || (str.[!num_end] >= '0' && str.[!num_end] <= '9'))
-        do
-          incr num_end
-        done;
-        let num_str = String.sub str 0 !num_end in
-        let unit_str = String.sub str !num_end (len - !num_end) in
-        match float_of_string_opt num_str with
-        | Some n -> (
-            match unit_str with
-            | "px" -> Some (Px n)
-            | "rem" -> Some (Rem n)
-            | "em" -> Some (Em n)
-            | "" when n = 0.0 -> Some Zero
-            | _ -> Stdlib.Option.None)
-        | Stdlib.Option.None -> Stdlib.Option.None)
-      else Stdlib.Option.None
-    in
     let rec find_color_and_lengths acc (parts : string list) :
         string list * arb_color =
       match parts with
@@ -121,11 +96,16 @@ module Handler = struct
       | x :: rest -> find_color_and_lengths (x :: acc) rest
     in
     let length_strs, color = find_color_and_lengths [] parts in
-    let lengths = List.filter_map parse_length length_strs in
-    match lengths with
-    | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
-    | [ h; v; blur ] -> Some (h, v, Some blur, color)
-    | _ -> Stdlib.Option.None
+    let lengths = List.filter_map Parse.arbitrary_length length_strs in
+    (* A token that is not a length makes the value not a shadow. Dropping it
+       instead would slide the surviving lengths into the wrong slots. CSS
+       text-shadow has no spread, so a fourth length is not one either. *)
+    if List.compare_lengths lengths length_strs <> 0 then Stdlib.Option.None
+    else
+      match lengths with
+      | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
+      | [ h; v; blur ] -> Some (h, v, Some blur, color)
+      | _ -> Stdlib.Option.None
 
   (* ============ Shape definitions ============ *)
 

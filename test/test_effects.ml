@@ -292,10 +292,12 @@ let test_arbitrary_shadow_lengths () =
     "shadow-[0_1ch_2px_3vmin_#000]/50";
   (* inset-shadow reads its arbitrary value through the same parser, with no
      [Css.parse_shadow] fallback to hide the dropped tokens. *)
-  emits "--tw-inset-shadow: inset 0 1ch 2px var(--tw-inset-shadow-color, #000)"
+  emits
+    "--tw-inset-shadow: inset 0 1ch 2px var(--tw-inset-shadow-color, #000000)"
     "inset-shadow-[0_1ch_2px_#000]";
   emits
-    "--tw-inset-shadow: inset 0 1px 2px 3px var(--tw-inset-shadow-color, #000)"
+    "--tw-inset-shadow: inset 0 1px 2px 3px var(--tw-inset-shadow-color, \
+     #000000)"
     "inset-shadow-[0_1px_2px_3px_#000]";
   match Tw.of_string "shadow-[0_bogus_2px]" with
   | Ok _ -> Alcotest.fail "expected shadow-[0_bogus_2px] to be rejected"
