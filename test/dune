@@ -12,4 +12,9 @@
   cascade
   cascade.diff
   test_helpers)
- (deps upstream/utilities.txt upstream/variants.txt))
+ ; test_surface reads the library's own interfaces to check that every utility
+ ; they build is published on the flat surface.
+ (deps
+  upstream/utilities.txt
+  upstream/variants.txt
+  (glob_files ../lib/*.mli)))

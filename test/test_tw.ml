@@ -1239,6 +1239,203 @@ let property_order_cross_family () =
 
 (* ===== TEST SUITE ===== *)
 
+(* {2 The flat surface against the modules it is implemented in}
+
+   [Tw.t] is abstract, so a utility that exists only as [Tw.Private.M.u] has
+   type [Tw.Private.Utility.t], which is not [Tw.t] and cannot enter a [Tw.t
+   list]: the utility is unreachable. The checks below read the library's own
+   .mli files and fail when one appears, so the two surfaces cannot drift apart
+   again. *)
+
+(* [dune build @runtest] runs from [_build/default/test]; [dune exec] runs from
+   wherever it was invoked. Look for the library beside or above the cwd. *)
+let lib_dir =
+  let candidates = [ "../lib"; "lib"; "../../lib"; "../../../lib" ] in
+  match
+    List.find_opt
+      (fun d -> Sys.file_exists (Filename.concat d "tw.mli"))
+      candidates
+  with
+  | Some d -> d
+  | None -> Alcotest.fail "cannot find the tw library sources"
+
+(* A val, as its name and the text of its type. *)
+type decl = { name : string; typ : string }
+
+let is_ident_char c =
+  (c >= 'a' && c <= 'z')
+  || (c >= 'A' && c <= 'Z')
+  || (c >= '0' && c <= '9')
+  || c = '_' || c = '\''
+
+let read_file path =
+  let ic = open_in_bin path in
+  let n = in_channel_length ic in
+  let s = really_input_string ic n in
+  close_in ic;
+  s
+
+let lines_of s = String.split_on_char '\n' s
+
+(* [starts_decl l] is the val name [l] declares, and [None] when [l] is not the
+   first line of a val declaration. *)
+let starts_decl l =
+  match String.starts_with ~prefix:"val " l with
+  | false -> None
+  | true -> (
+      let rest = String.sub l 4 (String.length l - 4) in
+      let i = ref 0 in
+      while !i < String.length rest && is_ident_char rest.[!i] do
+        incr i
+      done;
+      let name = String.sub rest 0 !i in
+      match String.index_opt rest ':' with
+      | Some c when c >= !i && name <> "" ->
+          Some (name, String.sub rest (c + 1) (String.length rest - c - 1))
+      | _ -> None)
+
+(* A declaration ends at the first line that opens a doc comment or begins the
+   next item; everything before that is its type. *)
+let ends_decl l =
+  let t = String.trim l in
+  t = ""
+  || String.starts_with ~prefix:"(*" t
+  || String.starts_with ~prefix:"val " t
+  || String.starts_with ~prefix:"module " t
+  || String.starts_with ~prefix:"type " t
+  || String.starts_with ~prefix:"end" t
+
+let decls src =
+  let rec go acc = function
+    | [] -> List.rev acc
+    | l :: rest -> (
+        match starts_decl l with
+        | None -> go acc rest
+        | Some (name, first) ->
+            let body, rest =
+              let rec take acc = function
+                | l :: tl when not (ends_decl l) -> take (l :: acc) tl
+                | tl -> (List.rev acc, tl)
+              in
+              take [] rest
+            in
+            let typ = String.concat " " (first :: List.map String.trim body) in
+            go ({ name; typ } :: acc) rest)
+  in
+  go [] (lines_of src)
+
+(* [returns_utility] is whether [d] builds a utility rather than a value of the
+   module's own type: the result of its type is [Utility.t], or is [t] in a
+   module that took [t] from [Utility] and declares no [t] of its own. *)
+let returns_utility ~opens_utility ~owns_t d =
+  let rec result s =
+    match String.index_opt s '>' with
+    | Some i when i > 0 && s.[i - 1] = '-' ->
+        result (String.sub s (i + 1) (String.length s - i - 1))
+    | _ -> String.trim s
+  in
+  match result d.typ with
+  | "Utility.t" -> true
+  | "t" -> opens_utility && not owns_t
+  | _ -> false
+
+let contains_line src l =
+  List.exists (fun x -> String.trim x = l) (lines_of src)
+
+let owns_t src =
+  List.exists
+    (fun l ->
+      String.starts_with ~prefix:"type t" l && not (String.contains l '='))
+    (lines_of src)
+  || List.exists
+       (fun l -> String.starts_with ~prefix:"type t =" l)
+       (lines_of src)
+
+(* Utilities deliberately absent from the flat surface. Anything not listed here
+   that a module builds must be reachable as [Tw.<name>]. *)
+let exempt =
+  [
+    (* [Utility.base] and its wrappers construct a utility from a handler's own
+       representation; a project has no handler to pass them. *)
+    ("utility.mli", [ "base"; "alias"; "important" ]);
+    (* [Style.style] builds a utility from raw declarations, bypassing the
+       handlers that give one its class name and sort position. *)
+    ("style.mli", [ "style"; "map_important" ]);
+    (* Container-query sizes are read by the [container] variant, not applied to
+       an element. *)
+    ("sizing.mli", [ "container_binding" ]);
+  ]
+
+let exempt_of file =
+  match List.assoc_opt file exempt with Some l -> l | None -> []
+
+let modules () =
+  Sys.readdir lib_dir |> Array.to_list
+  |> List.filter (fun f -> Filename.check_suffix f ".mli")
+  |> List.sort compare
+
+let flat_surface () =
+  decls (read_file (Filename.concat lib_dir "tw.mli"))
+  |> List.map (fun d -> d.name)
+  |> List.sort_uniq compare
+
+let stranded () =
+  let flat = flat_surface () in
+  let mem n = List.mem n flat in
+  List.concat_map
+    (fun file ->
+      if file = "tw.mli" then []
+      else
+        let src = read_file (Filename.concat lib_dir file) in
+        let opens_utility = contains_line src "open Utility" in
+        let owns_t = owns_t src in
+        let skip = exempt_of file in
+        decls src
+        |> List.filter (fun d ->
+            returns_utility ~opens_utility ~owns_t d
+            && (not (List.mem d.name skip))
+            && not (mem d.name))
+        |> List.map (fun d -> file ^ ": " ^ d.name))
+    (modules ())
+
+let test_no_stranded_utilities () =
+  let missing = stranded () in
+  Alcotest.(check (list string))
+    "every utility is reachable as Tw.<name>" [] missing
+
+(* The parser is only meaningful if it finds what it is looking for; a rename
+   that made it match nothing would otherwise pass silently. *)
+let test_surface_is_large () =
+  let flat = List.length (flat_surface ()) in
+  Alcotest.(check bool)
+    (Printf.sprintf "tw.mli publishes %d vals" flat)
+    true (flat > 1000)
+
+(* The lifted names are usable at [Tw.t], which is the whole point. *)
+let test_lifted_names_typecheck () =
+  let css =
+    Tw.to_classes
+      [
+        Tw.fill_none;
+        Tw.stroke_2;
+        Tw.border_2;
+        Tw.z_10;
+        Tw.w_auto;
+        Tw.text_6xl;
+        Tw.table_cell;
+        Tw.cursor_grab;
+        Tw.gap_x_full;
+        Tw.rounded_ss_lg;
+        Tw.contain_layout;
+        Tw.first [ Tw.underline ];
+      ]
+  in
+  Alcotest.(check string)
+    "class names"
+    "fill-none stroke-2 border-2 z-10 w-auto text-6xl table-cell cursor-grab \
+     gap-x-full rounded-ss-lg contain-layout first:underline"
+    css
+
 let core_tests =
   [
     test_case "empty test" `Quick empty_test;
@@ -1332,6 +1529,9 @@ let core_tests =
     test_case "arbitrary animations" `Quick arbitrary_animations;
     test_case "arbitrary will-change" `Quick arbitrary_will_change;
     test_case "arbitrary misc" `Quick arbitrary_misc;
+    test_case "no stranded utilities" `Quick test_no_stranded_utilities;
+    test_case "flat surface is populated" `Quick test_surface_is_large;
+    test_case "lifted names typecheck" `Quick test_lifted_names_typecheck;
   ]
 
 let suite = ("tw", core_tests)
