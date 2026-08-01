@@ -431,25 +431,30 @@ module Handler = struct
         divide_bracket_color_opacity_style class_name inner c opacity
     | Divide_style bs -> divide_style_style bs
 
+  (* Tailwind's order across the family, read off its own output: divide-x,
+     divide-x-2, divide-y, divide-y-4, divide-y-reverse, the styles, the
+     colours, and divide-x-reverse last. The widths lead; the styles used to,
+     which put divide-dashed ahead of divide-y-4. Bands of 100000 keep the
+     arbitrary values inside their own width band. *)
   let suborder = function
     (* The bare divide-x / divide-y (DEFAULT, n=1) sorts before the numbered
-       variants, matching Tailwind's order: divide-x, divide-x-0, divide-x-4,
-       ... The "-1" offset keeps the default ahead of divide-x-0 (n=0). *)
-    | Divide_x 1 -> -20000 - 1
-    | Divide_y 1 -> -10000 - 1
-    | Divide_x n -> -20000 + n
-    | Divide_y n -> -10000 + n
-    | Divide_x_arb _ -> -20000 + 50000
-    | Divide_y_arb _ -> -10000 + 50000
-    | Divide_x_reverse -> 0
-    | Divide_y_reverse -> 1
+       variants: divide-x, divide-x-0, divide-x-4, ... The "-1" offset keeps the
+       default ahead of divide-x-0 (n=0). *)
+    | Divide_x 1 -> -1
+    | Divide_x n -> n
+    | Divide_x_arb _ -> 50000
+    | Divide_y 1 -> 100000 - 1
+    | Divide_y n -> 100000 + n
+    | Divide_y_arb _ -> 100000 + 50000
+    | Divide_y_reverse -> 200000
+    | Divide_style _ -> 300000
     (* All divide color utilities use flat suborder for natural sort *)
-    | Divide_color _ | Divide_color_opacity _ -> 70000
-    | Divide_bracket_color _ | Divide_bracket_color_opacity _ -> 70000
-    | Divide_current | Divide_current_opacity _ -> 70000
-    | Divide_inherit -> 70000
-    | Divide_transparent -> 70000
-    | Divide_style _ -> -30000
+    | Divide_color _ | Divide_color_opacity _ -> 400000
+    | Divide_bracket_color _ | Divide_bracket_color_opacity _ -> 400000
+    | Divide_current | Divide_current_opacity _ -> 400000
+    | Divide_inherit -> 400000
+    | Divide_transparent -> 400000
+    | Divide_x_reverse -> 500000
 
   let parse_bracket_width s : Css.border_width option =
     let len = String.length s in
