@@ -1172,7 +1172,16 @@ module Handler = struct
     | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
     | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
 
-  let examples = [ Border_0; Border_x; Border_y; Border_solid; Border_current ]
+  let examples =
+    [
+      Border_0;
+      Border_x;
+      Border_y;
+      Border_solid;
+      Border_current;
+      Rounded (Rp_all, Rsz_default);
+      Outline_0;
+    ]
 end
 
 open Handler

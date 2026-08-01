@@ -1998,7 +1998,13 @@ module Handler = struct
         "origin-[" ^ s ^ "]"
 
   let examples =
-    [ Origin_top; Perspective_none; Perspective_origin_top; Backface_hidden ]
+    [
+      Origin_top;
+      Perspective_none;
+      Perspective_origin_top;
+      Backface_hidden;
+      Transform_none;
+    ]
 end
 
 open Handler

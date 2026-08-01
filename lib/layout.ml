@@ -735,6 +735,8 @@ module Handler = struct
       Clear_both;
       Object_contain;
       Object_center;
+      Break_after_auto;
+      Box_decoration_slice;
     ]
 end
 
