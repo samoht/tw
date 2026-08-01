@@ -2501,34 +2501,20 @@ module Handler = struct
             let full_hex = hex ^ to_hex_byte a_int in
             Some (Css.hex ("#" ^ shorten_hex_str full_hex))
         | None -> Some (Css.hex ("#" ^ shorten_hex_str hex)))
-    | Hsl { h; s; l; a } ->
-        let h_deg =
-          match h with Unitless f -> f | Angle (Deg f) -> f | _ -> 0.
-        in
-        let s_pct = match s with Pct f -> f /. 100. | _ -> 0. in
-        let l_pct = match l with Pct f -> f /. 100. | _ -> 0. in
-        let c = (1. -. abs_float ((2. *. l_pct) -. 1.)) *. s_pct in
-        let h' = h_deg /. 60. in
-        let x = c *. (1. -. abs_float (Float.rem h' 2. -. 1.)) in
-        let r1, g1, b1 =
-          if h' < 1. then (c, x, 0.)
-          else if h' < 2. then (x, c, 0.)
-          else if h' < 3. then (0., c, x)
-          else if h' < 4. then (0., x, c)
-          else if h' < 5. then (x, 0., c)
-          else (c, 0., x)
-        in
-        let m = l_pct -. (c /. 2.) in
-        let r = Float.to_int (Float.round ((r1 +. m) *. 255.)) in
-        let g = Float.to_int (Float.round ((g1 +. m) *. 255.)) in
-        let b = Float.to_int (Float.round ((b1 +. m) *. 255.)) in
-        let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
-        let hex =
-          match alpha_to_int a with
-          | Some a_int -> hex ^ to_hex_byte a_int
-          | None -> hex
-        in
-        Some (Css.hex ("#" ^ shorten_hex_str hex))
+    | Hsl _ -> (
+        (* Fold through cascade's own colour path: it knows every hue unit and
+           reads a bare number for saturation and lightness as the percentage of
+           the same value. It leaves a colour whose channels are not all static
+           alone, and that one has no hex form. *)
+        match
+          Cascade.Values.nonkeyword_color
+            (Cascade.Values.normalize_color ~in_feature_query:false c)
+        with
+        | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+            let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
+            let hex = if a = 255 then hex else hex ^ to_hex_byte a in
+            Some (Css.hex ("#" ^ shorten_hex_str hex))
+        | _ -> None)
     | _ -> None
 
   (** Resolve a typed [Css.color] to its emission form. Hex colors are
