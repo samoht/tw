@@ -865,15 +865,15 @@ module Handler = struct
         1500
     | Border_transparent -> 1500
     | Border_current -> 1500
-    (* Outline utilities — hidden first, then width, then styles last *)
+    (* Outline utilities — hidden first, then width, then offset. The colors
+       (color.ml, 3000-28000) and the styles (Outline_style_handler,
+       30000-30004) close the family. *)
     | Outline_hidden -> 1990
     | Outline -> 1999
     | Outline_0 -> 2000
     | Outline_width n -> 2000 + n
     | Outline_width_bracket _ -> 2009
     | Outline_width_var _ -> 2010
-    (* Outline styles come after colors (which are in Color handler at
-       priority 23 > borders priority 19, so they naturally sort after) *)
     (* Outline offset — negatives before positives *)
     | Neg_outline_offset n -> 2200 + n
     | Neg_outline_offset_var _ -> 2209
@@ -1181,14 +1181,15 @@ module Outline_style_handler = struct
         let decl, _ = Var.binding Handler.outline_style_var Css.Solid in
         style [ decl; Css.outline_style Css.Solid ]
 
-  (* outline-style sorts after outline-width (borders handler, up to ~2009 at
-     priority 28); alphabetical: dashed, dotted, double, none, solid. *)
+  (* outline-style closes the outline family at priority 28, after the widths
+     and offsets here and after color.ml's outline colors (3000-28000);
+     alphabetical: dashed, dotted, double, none, solid. *)
   let suborder = function
-    | Dashed -> 2050
-    | Dotted -> 2051
-    | Double -> 2052
-    | None_ -> 2053
-    | Solid -> 2054
+    | Dashed -> 30000
+    | Dotted -> 30001
+    | Double -> 30002
+    | None_ -> 30003
+    | Solid -> 30004
 
   let err_not_utility = Error (`Msg "Not an outline style utility")
 

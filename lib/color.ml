@@ -1934,10 +1934,12 @@ module Handler = struct
   (* Color families sort at their property's canonical rank, not together:
      border-color (rank ~65) joins border-width/style at priority 19; text-color
      (the `color` property, rank ~86) interleaves inside the late-typography
-     block, after text-transform and before font-style, at priority 26. The rest
-     (accent, caret, ...) stay at 25. [_opacity] variants lead each group so the
-     type resolves to the color [t] rather than the shadowed [Css.Border] /
-     [Css.user_select] [Text] constructors. *)
+     block, after text-transform and before font-style, at priority 26;
+     outline-color (rank ~92) joins the outline width, offset and style
+     utilities at priority 28. The rest (accent, caret, ...) stay at 25.
+     [_opacity] variants lead each group so the type resolves to the color [t]
+     rather than the shadowed [Css.Border] / [Css.user_select] [Text]
+     constructors. *)
   let priority = function
     | Border_opacity _ | Border _ | Border_transparent | Border_current
     | Border_current_opacity _ | Border_bracket_color _ | Border_side_color _
@@ -1949,6 +1951,12 @@ module Handler = struct
     | Text_bracket_var_opacity _ | Text_bracket_typed_var _
     | Text_bracket_typed_var_opacity _ ->
         26
+    | Outline_opacity _ | Outline _ | Outline_current
+    | Outline_current_opacity _ | Outline_inherit | Outline_transparent
+    | Outline_bracket_color _ | Outline_bracket_color_opacity _
+    | Outline_bracket_var _ | Outline_bracket_var_opacity _
+    | Outline_bracket_typed_var _ | Outline_bracket_typed_var_opacity _ ->
+        28
     | _ -> 25
 
   (* Helper to check if a string contains an opacity modifier *)
@@ -3137,7 +3145,10 @@ module Handler = struct
     | Caret_bracket_color _ -> 60000
     | Caret_bracket_color_opacity _ -> 60000
     (* t -> after all colors (max=24) *)
-    (* Outline comes after caret. Use 70000 base. *)
+    (* Outline colors run at priority 28 with the rest of the outline family
+       (see [priority]): the 3000 base puts them after borders.ml's outline
+       width (1999-2010) and offset (2200-2299) and before its outline
+       styles (30000-30004). *)
     | Outline (color, shade) ->
         let base =
           if is_base_color color then
@@ -3146,7 +3157,7 @@ module Handler = struct
             suborder_with_shade
               (color_to_string color ^ "-" ^ string_of_int shade)
         in
-        70000 + base
+        3000 + base
     | Outline_opacity (color, shade, _) ->
         let base =
           if is_base_color color then
@@ -3155,20 +3166,20 @@ module Handler = struct
             suborder_with_shade
               (color_to_string color ^ "-" ^ string_of_int shade)
         in
-        70000 + base
+        3000 + base
     | Outline_current ->
-        70000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
-    | Outline_current_opacity _ -> 70000 + (4 * 1000)
-    | Outline_inherit -> 70000 + (9 * 1000)
+        3000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
+    | Outline_current_opacity _ -> 3000 + (4 * 1000)
+    | Outline_inherit -> 3000 + (9 * 1000)
     (* i -> between indigo(9) and lime(10) *)
-    | Outline_transparent -> 70000 + (22 * 1000)
+    | Outline_transparent -> 3000 + (22 * 1000)
     (* t -> between teal and violet *)
-    | Outline_bracket_color _ -> 70000
-    | Outline_bracket_color_opacity _ -> 70000
-    | Outline_bracket_var _ -> 70000
-    | Outline_bracket_var_opacity _ -> 70000
-    | Outline_bracket_typed_var _ -> 70000
-    | Outline_bracket_typed_var_opacity _ -> 70000
+    | Outline_bracket_color _ -> 3000
+    | Outline_bracket_color_opacity _ -> 3000
+    | Outline_bracket_var _ -> 3000
+    | Outline_bracket_var_opacity _ -> 3000
+    | Outline_bracket_typed_var _ -> 3000
+    | Outline_bracket_typed_var_opacity _ -> 3000
     (* Placeholder colors: 80000 base *)
     | Placeholder _ -> 80000
     | Placeholder_opacity _ -> 80000
