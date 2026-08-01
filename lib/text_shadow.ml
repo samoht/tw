@@ -15,10 +15,10 @@ module Handler = struct
 
   (* Color in an arbitrary shadow value *)
   type arb_color =
-    | Arb_hex of string
-    | Arb_var of string
-    | Arb_css_color of Css.color
-    | Arb_none
+    | Hex of string
+    | Var_ref of string
+    | Css_color of Css.color
+    | No_color
 
   type t =
     | Text_shadow_none
@@ -97,16 +97,16 @@ module Handler = struct
     let rec find_color_and_lengths acc (parts : string list) :
         string list * arb_color =
       match parts with
-      | [] -> (List.rev acc, Arb_none)
+      | [] -> (List.rev acc, No_color)
       | x :: _rest when String.length x > 0 && x.[0] = '#' ->
-          (List.rev acc, Arb_hex x)
+          (List.rev acc, Hex x)
       | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
-          (List.rev acc, Arb_var x)
+          (List.rev acc, Var_ref x)
       | x :: rest when Parse.is_css_color_fn x -> (
           (* A colour function may carry spaces, so it runs to the end of the
              value. *)
           match Css.parse_color (String.concat " " (x :: rest)) with
-          | Some c -> (List.rev acc, Arb_css_color c)
+          | Some c -> (List.rev acc, Css_color c)
           | None -> find_color_and_lengths (x :: acc) rest)
       | x :: rest -> find_color_and_lengths (x :: acc) rest
     in
@@ -118,7 +118,7 @@ module Handler = struct
     if List.compare_lengths lengths length_strs <> 0 then Stdlib.Option.None
     else
       match color with
-      | Arb_hex h when not (is_hex_value h) -> Stdlib.Option.None
+      | Hex h when not (is_hex_value h) -> Stdlib.Option.None
       | _ -> (
           match lengths with
           | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
@@ -486,11 +486,11 @@ module Handler = struct
     | Some (h_offset, v_offset, blur, color) ->
         let fallback_color : Css.color =
           match color with
-          | Arb_hex c -> Css.hex (shorten_hex c)
-          | Arb_var v -> make_full_color_var v
-          | Arb_css_color c -> (
+          | Hex c -> Css.hex (shorten_hex c)
+          | Var_ref v -> make_full_color_var v
+          | Css_color c -> (
               match Color.css_color_to_hex c with Some h -> h | None -> c)
-          | Arb_none -> Css.Current
+          | No_color -> Css.Current
         in
         let color_ref =
           Var.reference_with_fallback text_shadow_color_var fallback_color
@@ -511,13 +511,13 @@ module Handler = struct
         let alpha_d = alpha_decl percent in
         let base_fallback : Css.color =
           match color with
-          | Arb_hex c -> Color.hex_to_oklab_alpha c alpha
-          | Arb_var v -> make_full_color_var v
-          | Arb_css_color c -> (
+          | Hex c -> Color.hex_to_oklab_alpha c alpha
+          | Var_ref v -> make_full_color_var v
+          | Css_color c -> (
               match hex_string_of_css_color c with
               | Some hex -> Color.hex_to_oklab_alpha hex alpha
               | None -> c)
-          | Arb_none -> Css.Current
+          | No_color -> Css.Current
         in
         let base_color_ref =
           Var.reference_with_fallback text_shadow_color_var base_fallback
@@ -529,8 +529,8 @@ module Handler = struct
         in
         let rules =
           match color with
-          | Arb_hex _ | Arb_css_color _ -> Stdlib.Option.None
-          | Arb_var v -> (
+          | Hex _ | Css_color _ -> Stdlib.Option.None
+          | Var_ref v -> (
               match relative_oklab_from_var v percent with
               | Some relative_color ->
                   let enhanced_ref =
@@ -556,7 +556,7 @@ module Handler = struct
                   in
                   Some [ supports_block ]
               | None -> Stdlib.Option.None)
-          | Arb_none ->
+          | No_color ->
               let color_mix_fallback =
                 Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
                   ~percent1:percent
@@ -796,9 +796,9 @@ module Handler = struct
   let suborder = function
     | Text_shadow_arbitrary_opacity (arb, _) -> (
         match parse_arbitrary_shadow arb with
-        | Some (_, _, _, Arb_var _) -> -3 (* @supports lab *)
-        | Some (_, _, _, Arb_none) -> -2 (* @supports color-mix *)
-        | Some (_, _, _, (Arb_hex _ | Arb_css_color _)) -> -1 (* no @supports *)
+        | Some (_, _, _, Var_ref _) -> -3 (* @supports lab *)
+        | Some (_, _, _, No_color) -> -2 (* @supports color-mix *)
+        | Some (_, _, _, (Hex _ | Css_color _)) -> -1 (* no @supports *)
         | Stdlib.Option.None -> 0)
     | Text_shadow_shape_opacity _ -> -1 (* no @supports *)
     | _ -> 0
