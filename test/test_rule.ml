@@ -125,6 +125,29 @@ let test_arbitrary_selector_combinator () =
   check bool "[&_p] still flattens to a descendant" true
     (Astring.String.is_infix ~affix:"]\\:underline p" (css "[&_p]:underline"))
 
+(* [&] is the CSS nesting anchor and stands for the utility's own class, so it
+   is substituted over the parsed selector. Rewriting the [&] bytes of the
+   source text and re-parsing the result also rewrote an [&] that was part of a
+   quoted attribute value. *)
+let test_arbitrary_anchor_in_quoted_value () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|[&[data-x="a&b"]]:flex|}
+    {|.\[\&\[data-x\=\"a\&b\"\]\]\:flex[data-x="a&b"]|};
+  (* the spellings that already worked stay byte-identical *)
+  has "[&>*]:flex" {|.\[\&\>\*\]\:flex>*|};
+  has "[&_p]:flex" {|.\[\&_p\]\:flex p|};
+  has "[&:hover]:flex" {|.\[\&\:hover\]\:flex:hover|};
+  has "[input&]:flex" {|input.\[input\&\]\:flex|};
+  has "[p.foo]:flex" {|.\[p\.foo\]\:flex:is(p.foo)|};
+  has "[.line]:block" {|.\[\.line\]\:block.line|}
+
 (* Regression: an opacity color emits a progressive-enhancement @supports block.
    Under a variant, that block must stay scoped to the variant instead of
    leaking a bare base-class rule. dark:text-white/80 previously emitted a
@@ -434,6 +457,8 @@ let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
+    test_case "arbitrary anchor inside a quoted value" `Quick
+      test_arbitrary_anchor_in_quoted_value;
     test_case "arbitrary selector stacks with other variants" `Quick
       test_arbitrary_selector_stacking;
     test_case "pseudo-element content once" `Quick

@@ -606,6 +606,33 @@ let test_anchor_bracket_without_ampersand () =
   (* the spelled anchor still works *)
   has "group-[&:hover]:block" ":is(:where(.group):hover *)"
 
+(* What follows the [&] anchor in a group or peer bracket is a selector, so it
+   is read as one. A pseudo-class outside a short hand-written list came out as
+   a class literally named [:defined], and a compound remainder was taken whole
+   as an element name, so [&_p.foo] named an element [p.foo]. *)
+let test_anchor_bracket_reads_remainder () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "group-[&:defined]:flex"
+    {|.group-\[\&\:defined\]\:flex:is(:where(.group):defined *)|};
+  has "group-[&:nth-child(2)]:flex"
+    {|.group-\[\&\:nth-child\(2\)\]\:flex:is(:where(.group):nth-child(2) *)|};
+  has "group-[&_p.foo]:flex"
+    {|.group-\[\&_p\.foo\]\:flex:is(:where(.group) p.foo *)|};
+  (* the spellings that already worked stay byte-identical *)
+  has "group-[&:hover]:flex"
+    {|.group-\[\&\:hover\]\:flex:is(:where(.group):hover *)|};
+  has "group-[&_p]:flex" {|.group-\[\&_p\]\:flex:is(:where(.group) p *)|};
+  has "group-[:nth-of-type(3)_&]:flex" {|:is(:nth-of-type(3) :where(.group) *)|};
+  has "peer-[&:hover]:flex"
+    {|.peer-\[\&\:hover\]\:flex:is(:where(.peer):hover~*)|}
+
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
@@ -799,6 +826,8 @@ let tests =
       test_case "has bracket arguments" `Quick test_has_bracket_arguments;
       test_case "anchor bracket without ampersand" `Quick
         test_anchor_bracket_without_ampersand;
+      test_case "anchor bracket reads its remainder" `Quick
+        test_anchor_bracket_reads_remainder;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "modifier class round-trips" `Quick
         test_modifier_class_roundtrip;
