@@ -560,13 +560,18 @@ let compare_by_priority_index r1 r2 =
         if idx_cmp <> 0 then idx_cmp
         else String.compare r1.selector_str r2.selector_str
 
+(* The outline utilities sort after the other focus modifiers. Read the base
+   class with the modifier parser: taking the first colon meant a stacked
+   variant never matched, so dark:focus:outline-none was never recognised. The
+   rule is inert on the current corpus - removing it altogether leaves the suite
+   and the Tailwind diffs green - so this makes the predicate say what it means
+   rather than changing an order that is already right. *)
 let is_outline_utility bc =
   match bc with
-  | Some s ->
-      String.contains s ':' && String.contains s 'o'
-      &&
-      let idx = String.index s ':' in
-      idx + 8 <= String.length s && String.sub s idx 8 = ":outline"
+  | Some s -> (
+      match Modifiers.of_string s with
+      | [], _ -> false
+      | _ :: _, base -> String.starts_with ~prefix:"outline" base)
   | None -> false
 
 (* Natural sort comparison: treats consecutive digit sequences as integers.

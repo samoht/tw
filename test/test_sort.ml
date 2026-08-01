@@ -1006,6 +1006,25 @@ let test_bracket_value_holding_a_colon () =
   Test_helpers.check_ordering_matches ~test_name:"bracket value holding a colon"
     utilities
 
+let test_stacked_variant_outline_order () =
+  (* The outline-sorts-last rule reads the base class, so it sees a stacked
+     variant: dark:focus:outline-none is an outline utility as much as
+     focus:outline-none is. Matching from the first colon saw neither. *)
+  let classes =
+    [
+      "dark:focus:outline-none";
+      "dark:focus:bg-blue-500";
+      "dark:focus:ring-2";
+      "first:focus:outline-2";
+      "first:focus:border-2";
+      "focus:outline-none";
+      "focus:bg-red-500";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches ~test_name:"stacked variant outline order"
+    utilities
+
 let test_rounded_position_order () =
   (* Border-radius position groups sort by the CSS corners they write, matching
      Tailwind: the physical ones grouped by first corner clockwise -- top, then
@@ -1504,6 +1523,8 @@ let tests =
       test_arbitrary_named_by_suffix;
     test_case "bracket value holding a colon" `Slow
       test_bracket_value_holding_a_colon;
+    test_case "stacked variant outline order" `Slow
+      test_stacked_variant_outline_order;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
