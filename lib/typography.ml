@@ -443,27 +443,12 @@ module Typography_early = struct
     | "xxx-large" -> Stdlib.Option.Some Css.Xxx_large
     | _ -> Stdlib.Option.None
 
-  (** Try to parse a string as a CSS length value. *)
+  (** A bracket font-size is any CSS length, but it has to carry a unit:
+      Tailwind reads the unitless zero of [text-[0]] as a colour, not a size. *)
   let try_parse_length_value s =
-    let unit_table : (string * int * (float -> Css.length)) list =
-      [
-        ("rem", 3, fun f -> Css.Rem f);
-        ("px", 2, fun f -> Css.Px f);
-        ("em", 2, fun f -> Css.Em f);
-        ("%", 1, fun f -> Css.Pct f);
-      ]
-    in
-    let rec try_units = function
-      | [] -> Stdlib.Option.None
-      | (suffix, suffix_len, mk) :: rest ->
-          if String.ends_with ~suffix s then
-            let n = String.sub s 0 (String.length s - suffix_len) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Stdlib.Option.Some (mk f)
-            | Stdlib.Option.None -> try_units rest
-          else try_units rest
-    in
-    try_units unit_table
+    match Parse.arbitrary_length s with
+    | Stdlib.Option.Some Css.Zero -> Stdlib.Option.None
+    | len -> len
 
   (** Split a type prefix like "absolute-size:var(--my-size)" into (prefix,
       value). Finds first ':' outside parens/brackets. *)
@@ -487,11 +472,11 @@ module Typography_early = struct
 
   (** Does [inner] look like something we can emit as a font-size? Accepts typed
       prefix (length/percentage/absolute-size/relative-size), font-size keyword
-      (medium, xxx-large, larger, ...), length with unit (16px, 1rem, 1.5em,
-      100%), clamp(...), or var(...). Rejects bare identifiers that aren't
-      recognised keywords -- e.g. a bare "1A202C" is not a valid font-size: a
-      length must carry a unit and a hex color must start with "#" (CSS Color
-      §5.4.6). *)
+      (medium, xxx-large, larger, ...), any CSS length carrying a unit (16px,
+      1rem, 1.5em, 3ch, 100%, clamp(...), calc(...)), or var(...). Rejects bare
+      identifiers that aren't recognised keywords -- e.g. a bare "1A202C" is not
+      a valid font-size: a length must carry a unit and a hex color must start
+      with "#" (CSS Color §5.4.6). *)
   let parse_spacing_call s =
     let prefix = "--spacing(" in
     let pl = String.length prefix and n = String.length s in
@@ -508,16 +493,10 @@ module Typography_early = struct
     | _ -> (
         match font_size_keyword inner with
         | Some _ -> true
-        | Stdlib.Option.None -> (
-            match try_parse_length_value inner with
-            | Some _ -> true
-            | Stdlib.Option.None ->
-                let len = String.length inner in
-                len > 6
-                && String.sub inner 0 6 = "clamp("
-                && inner.[len - 1] = ')'
-                || Parse.is_var inner
-                || parse_spacing_call inner <> Stdlib.Option.None))
+        | Stdlib.Option.None ->
+            try_parse_length_value inner <> Stdlib.Option.None
+            || Parse.is_var inner
+            || parse_spacing_call inner <> Stdlib.Option.None)
 
   (** Check if bracket content looks like a color (should go to color handler).
   *)
@@ -1222,17 +1201,14 @@ module Typography_early = struct
             | Stdlib.Option.None -> (
                 match try_parse_length_value inner with
                 | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
-                | Stdlib.Option.None -> (
-                    match Css.parse_length inner with
-                    | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
-                    | Stdlib.Option.None ->
-                        if Parse.is_var inner then
-                          let bare = Parse.extract_var_name inner in
-                          [ font_size (Css.Var (Var.bracket bare)) ]
-                        else
-                          invalid_arg
-                            ("bracket_font_size_decls: not a valid font-size \
-                              value: " ^ inner)))))
+                | Stdlib.Option.None ->
+                    if Parse.is_var inner then
+                      let bare = Parse.extract_var_name inner in
+                      [ font_size (Css.Var (Var.bracket bare)) ]
+                    else
+                      invalid_arg
+                        ("bracket_font_size_decls: not a valid font-size \
+                          value: " ^ inner))))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
@@ -1413,32 +1389,6 @@ end
 module Typography_late = struct
   open Style
   open Css
-
-  let parse_length_value str : Css.length option =
-    let len = String.length str in
-    if len = 0 then None
-    else
-      let num_end = ref 0 in
-      while
-        !num_end < len
-        &&
-        let c = str.[!num_end] in
-        (c >= '0' && c <= '9') || c = '.' || c = '-'
-      do
-        incr num_end
-      done;
-      let num_str = String.sub str 0 !num_end in
-      let unit_str = String.sub str !num_end (len - !num_end) in
-      match float_of_string_opt num_str with
-      | Some n -> (
-          match unit_str with
-          | "px" -> Some (Px n)
-          | "rem" -> Some (Rem n)
-          | "em" -> Some (Em n)
-          | "%" -> Some (Pct n)
-          | "" when n = 0.0 -> Some Zero
-          | _ -> None)
-      | None -> None
 
   (* A bare number is not a CSS length, but Tailwind admits [decoration-[2]] and
      emits it as a thickness, so it reads as px. *)
@@ -1897,11 +1847,11 @@ module Typography_late = struct
     | [ ""; "indent"; "px" ] -> Ok Indent_neg_px
     | [ "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if parse_length_value inner = None then err_not_utility
+        if Parse.arbitrary_length inner = None then err_not_utility
         else Ok (Indent_arbitrary inner)
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if parse_length_value inner = None then err_not_utility
+        if Parse.arbitrary_length inner = None then err_not_utility
         else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
@@ -2639,17 +2589,14 @@ module Typography_late = struct
     style [ spacing_decl; text_indent_length length ]
 
   let indent_arbitrary s =
-    match parse_length_value s with
+    match Parse.arbitrary_length s with
     | Some len -> style [ text_indent_length (Length len) ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let indent_neg_arbitrary s =
-    match parse_length_value s with
-    | Some (Px n) -> style [ text_indent_length (Length (Px (-.n))) ]
-    | Some (Rem n) -> style [ text_indent_length (Length (Rem (-.n))) ]
-    | Some (Em n) -> style [ text_indent_length (Length (Em (-.n))) ]
-    | Some (Pct n) -> style [ text_indent_length (Length (Pct (-.n))) ]
-    | _ -> style [ text_indent_length (Length (Px 0.)) ]
+    match Parse.arbitrary_length s with
+    | Some len -> style [ text_indent_length (Length (negate_length len)) ]
+    | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let line_clamp n =
     style

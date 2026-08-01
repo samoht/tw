@@ -34,8 +34,30 @@ let test_typed () =
   Test_helpers.check_typed_class "scroll-pt-8" (Tw.scroll_pt 8.);
   Test_helpers.check_typed_class "scroll-ps-6" (Tw.scroll_ps 6.)
 
+(* An arbitrary scroll offset is any CSS length. A value the parser cannot read
+   is not a utility: it used to be reinterpreted as a variable name, so
+   [scroll-m-[2vh]] emitted [scroll-margin: var(--2vh)]. *)
+let test_arbitrary_length () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "scroll-margin: 2vh" "scroll-m-[2vh]";
+  emits "scroll-padding-top: 3ch" "scroll-pt-[3ch]";
+  emits "scroll-margin: var(--gap)" "scroll-m-[var(--gap)]";
+  match Tw.of_string "scroll-m-[bogus]" with
+  | Ok _ -> Alcotest.fail "expected scroll-m-[bogus] to be rejected"
+  | Error _ -> ()
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
-  @ [ Alcotest.test_case "typed constructors" `Quick test_typed ]
+  @ [
+      Alcotest.test_case "typed constructors" `Quick test_typed;
+      Alcotest.test_case "arbitrary length" `Quick test_arbitrary_length;
+    ]
 
 let suite = ("scroll", tests)

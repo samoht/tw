@@ -217,6 +217,8 @@ let expand_spacing_fn s =
 let decode_arbitrary_value s =
   s |> decode_underscores |> expand_spacing_fn |> normalize_css_math_operators
 
+let arbitrary_length s = Cascade.Css.parse_length (decode_arbitrary_value s)
+
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
    that are not CSS, and passing one through emits an invalid declaration. *)

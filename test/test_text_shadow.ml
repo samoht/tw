@@ -45,9 +45,30 @@ let test_theme_override () =
     "text-shadow-2xs @theme override flows to #0000001a" true
     (Astring.String.is_infix ~affix:"#0000001a" css)
 
+(* An arbitrary text-shadow reads every CSS length, not the px/rem/em subset. A
+   token that is not a length used to drop out of the list and shift its
+   neighbours along, so [0 1ch 2px] became a two-length [0 2px]. *)
+let test_arbitrary_lengths () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, #000000)"
+    "text-shadow-[0_1ch_2px_#000]";
+  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))"
+    "text-shadow-[0_1ch_2px_#000]/50";
+  match Tw.of_string "text-shadow-[0_bogus_2px]" with
+  | Ok _ -> Alcotest.fail "expected text-shadow-[0_bogus_2px] to be rejected"
+  | Error _ -> ()
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "arbitrary lengths" `Quick test_arbitrary_lengths;
       Alcotest.test_case "default scale (v4.3.1)" `Quick test_default_scale;
       Alcotest.test_case "@theme override threads through" `Quick
         test_theme_override;

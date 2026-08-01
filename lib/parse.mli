@@ -68,6 +68,12 @@ val normalize_css_math_operators : string -> string
     (calc/min/max/...) require around binary [+] and [-], e.g.
     [calc(var(--a)-var(--b))] becomes [calc(var(--a) - var(--b))]. *)
 
+val arbitrary_length : string -> Cascade.Css.length option
+(** [arbitrary_length s] reads the inside of an arbitrary value as a CSS length.
+    [s] goes through {!decode_arbitrary_value} first, so underscores, [calc()]
+    and [--spacing()] all read; the whole CSS length grammar is accepted, not a
+    hand-picked subset of units. Returns [None] when [s] is not a length. *)
+
 val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
     property name written in an arbitrary value has to be. *)

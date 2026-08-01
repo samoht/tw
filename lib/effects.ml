@@ -36,6 +36,15 @@ module Handler = struct
     | Css_color of Css.color
     | None
 
+  (* One layer of an arbitrary shadow value, read from its bracket. *)
+  type arbitrary_shadow = {
+    h_offset : Css.length;
+    v_offset : Css.length;
+    blur : Css.length option;
+    spread : Css.length option;
+    color : arbitrary;
+  }
+
   type t =
     (* Shadows — shape utilities *)
     | Shadow_none
@@ -469,35 +478,9 @@ module Handler = struct
   let shadow_inner = shadow_shape_style Inner
 
   (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
-  let parse_arbitrary_shadow (s : string) :
-      (Css.length * Css.length * Css.length option * arbitrary) option =
+  let parse_arbitrary_shadow (s : string) : arbitrary_shadow option =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
     let parts = String.split_on_char ' ' normalized in
-    let parse_length str : Css.length option =
-      let len = String.length str in
-      if len >= 1 then (
-        let num_end = ref 0 in
-        while
-          !num_end < len
-          && (str.[!num_end] = '-'
-             || str.[!num_end] = '.'
-             || (str.[!num_end] >= '0' && str.[!num_end] <= '9'))
-        do
-          incr num_end
-        done;
-        let num_str = String.sub str 0 !num_end in
-        let unit_str = String.sub str !num_end (len - !num_end) in
-        match float_of_string_opt num_str with
-        | Some n -> (
-            match unit_str with
-            | "px" -> Some (Px n)
-            | "rem" -> Some (Rem n)
-            | "em" -> Some (Em n)
-            | "" when n = 0.0 -> Some Zero
-            | _ -> None)
-        | None -> None)
-      else None
-    in
     let rec find_color_and_lengths acc (parts : string list) :
         string list * arbitrary =
       match parts with
@@ -515,12 +498,26 @@ module Handler = struct
       | x :: rest -> find_color_and_lengths (x :: acc) rest
     in
     let length_strs, color = find_color_and_lengths [] parts in
-    let lengths = List.filter_map parse_length length_strs in
-    match lengths with
-    | [ h; v ] -> Some (h, v, None, color)
-    | [ h; v; blur ] -> Some (h, v, Some blur, color)
-    | [ h; v; blur; _spread ] -> Some (h, v, Some blur, color)
-    | _ -> None
+    let lengths = List.filter_map Parse.arbitrary_length length_strs in
+    (* A token that is not a length makes the value not a shadow. Dropping it
+       instead would slide the surviving lengths into the wrong slots. *)
+    if List.compare_lengths lengths length_strs <> 0 then None
+    else
+      match lengths with
+      | [ h_offset; v_offset ] ->
+          Some { h_offset; v_offset; blur = None; spread = None; color }
+      | [ h_offset; v_offset; blur ] ->
+          Some { h_offset; v_offset; blur = Some blur; spread = None; color }
+      | [ h_offset; v_offset; blur; spread ] ->
+          Some
+            {
+              h_offset;
+              v_offset;
+              blur = Some blur;
+              spread = Some spread;
+              color;
+            }
+      | _ -> None
 
   (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)]. Converts
       CSS color functions to hex for Tailwind parity. *)
@@ -557,20 +554,20 @@ module Handler = struct
 
   let shadow_arbitrary (arb : string) =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
-    (* The reading below takes one shadow and no spread, so anything with a
-       comma - a layer list, or a colour function carrying one - goes to the
-       value parser instead. *)
+    (* The reading below takes one shadow, so anything with a comma - a layer
+       list, or a colour function carrying one - goes to the value parser
+       instead. *)
     match
       if String.contains arb ',' then Option.None
       else parse_arbitrary_shadow arb
     with
-    | Some (h_offset, v_offset, blur, Var v) ->
+    | Some { h_offset; v_offset; blur; spread; color = Var v } ->
         (* A trailing var() is the colour, not the blur (Tailwind). *)
         let color_ref =
           Var.reference_with_fallback shadow_color_var (make_full_color_var v)
         in
         let shadow_value =
-          Css.shadow ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
+          Css.shadow ~h_offset ~v_offset ?blur ?spread ~color:(Var color_ref) ()
         in
         let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
         style ~property_rules:shadow_property_rules
@@ -588,7 +585,7 @@ module Handler = struct
 
   let shadow_arbitrary_opacity (arb : string) opacity =
     match parse_arbitrary_shadow arb with
-    | Some (h_offset, v_offset, blur, color) -> (
+    | Some { h_offset; v_offset; blur; spread; color } -> (
         let percent = Color.opacity_to_percent opacity in
         let alpha = percent /. 100.0 in
         let alpha_d = shadow_alpha_decl percent in
@@ -604,7 +601,8 @@ module Handler = struct
           Var.reference_with_fallback shadow_color_var base_fallback
         in
         let base_shadow =
-          Css.shadow ~h_offset ~v_offset ?blur ~color:(Var base_color_ref) ()
+          Css.shadow ~h_offset ~v_offset ?blur ?spread
+            ~color:(Var base_color_ref) ()
         in
         let d_shadow, v_shadow = Var.binding shadow_var base_shadow in
         let supports_rules =
@@ -617,7 +615,7 @@ module Handler = struct
                     Var.reference_with_fallback shadow_color_var relative_color
                   in
                   let enhanced_shadow =
-                    Css.shadow ~h_offset ~v_offset ?blur
+                    Css.shadow ~h_offset ~v_offset ?blur ?spread
                       ~color:(Var enhanced_ref) ()
                   in
                   let d_enhanced, _ = Var.binding shadow_var enhanced_shadow in
@@ -639,8 +637,8 @@ module Handler = struct
                 Var.reference_with_fallback shadow_color_var color_mix_fallback
               in
               let enhanced_shadow =
-                Css.shadow ~h_offset ~v_offset ?blur ~color:(Var enhanced_ref)
-                  ()
+                Css.shadow ~h_offset ~v_offset ?blur ?spread
+                  ~color:(Var enhanced_ref) ()
               in
               let d_enhanced, _ = Var.binding shadow_var enhanced_shadow in
               let supports_block = color_mix_supports [ d_enhanced ] in
@@ -1055,7 +1053,7 @@ module Handler = struct
     | Stdlib.Option.Some parsed_parts ->
         let shadow_values =
           List.map
-            (fun (h_offset, v_offset, blur, color) ->
+            (fun { h_offset; v_offset; blur; spread; color } ->
               let fallback_color : Css.color =
                 match color with
                 | Hex c -> Css.hex (shorten_hex c)
@@ -1070,7 +1068,7 @@ module Handler = struct
                 Var.reference_with_fallback inset_shadow_color_var
                   fallback_color
               in
-              Css.shadow ~inset:true ~h_offset ~v_offset ?blur
+              Css.shadow ~inset:true ~h_offset ~v_offset ?blur ?spread
                 ~color:(Var color_ref) ())
             parsed_parts
         in
@@ -1121,7 +1119,7 @@ module Handler = struct
            fallbacks *)
         let needs_supports =
           List.exists
-            (fun (_, _, _, color) ->
+            (fun { color; _ } ->
               match color with Var _ | None -> true | _ -> false)
             parsed_parts
         in
@@ -1129,7 +1127,7 @@ module Handler = struct
            fallbacks (shortened hex); otherwise use oklab *)
         let base_shadow_values =
           List.map
-            (fun (h_offset, v_offset, blur, color) ->
+            (fun { h_offset; v_offset; blur; spread; color } ->
               let base_fallback : Css.color =
                 match color with
                 | Hex c ->
@@ -1145,7 +1143,7 @@ module Handler = struct
               let color_ref =
                 Var.reference_with_fallback inset_shadow_color_var base_fallback
               in
-              Css.shadow ~inset:true ~h_offset ~v_offset ?blur
+              Css.shadow ~inset:true ~h_offset ~v_offset ?blur ?spread
                 ~color:(Var color_ref) ())
             parsed_parts
         in
@@ -1163,7 +1161,7 @@ module Handler = struct
             (* Build enhanced shadow values with oklab *)
             let enhanced_shadow_values =
               List.map
-                (fun (h_offset, v_offset, blur, color) ->
+                (fun { h_offset; v_offset; blur; spread; color } ->
                   let enhanced_ref =
                     match color with
                     | Hex c ->
@@ -1192,7 +1190,7 @@ module Handler = struct
                         Var.reference_with_fallback inset_shadow_color_var
                           color_mix_fallback
                   in
-                  Css.shadow ~inset:true ~h_offset ~v_offset ?blur
+                  Css.shadow ~inset:true ~h_offset ~v_offset ?blur ?spread
                     ~color:(Css.Var enhanced_ref) ())
                 parsed_parts
             in
@@ -1206,7 +1204,7 @@ module Handler = struct
             in
             let has_real_var =
               List.exists
-                (fun (_, _, _, color) ->
+                (fun { color; _ } ->
                   match color with Var _ -> true | _ -> false)
                 parsed_parts
             in
