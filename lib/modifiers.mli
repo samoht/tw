@@ -23,6 +23,13 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
+val normalize_supports_condition : string -> string
+(** [normalize_supports_condition cond] is the [supports-[...]] bracket content
+    as a CSS [@supports] condition: underscores become spaces, a bare property
+    or custom property expands to a [(prop: var(--tw))] test, and a property
+    test is repeated once per vendor prefix Tailwind checks. The modifier parser
+    validates its result, so only conditions that parse reach a rule. *)
+
 val register_custom_breakpoints : (string * float) list -> unit
 (** [register_custom_breakpoints bps] sets the custom breakpoint names and their
     px values for modifier parsing. *)

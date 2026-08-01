@@ -1391,6 +1391,102 @@ let try_bracket_at_rule s =
     else None
   else None
 
+(* Whether every [(] in [s] closes: a compound condition keeps its own parens,
+   so unwrapping one pair only makes sense when what is left is balanced. *)
+let is_balanced s =
+  let rec go i depth =
+    if i >= String.length s then depth = 0
+    else
+      match s.[i] with
+      | '(' -> go (i + 1) (depth + 1)
+      | ')' when depth = 0 -> false
+      | ')' -> go (i + 1) (depth - 1)
+      | _ -> go (i + 1) depth
+  in
+  go 0 0
+
+(* Properties whose [@supports] test Tailwind also runs against the prefixed
+   spelling, so a browser that only ships the prefix still matches. The set is
+   its browser-support data; these are the entries observed against v4.3.3.
+   [text-size-adjust] additionally carries the [-moz-] spelling. *)
+let supports_vendor_prefixes = function
+  | "backdrop-filter" | "background-clip" | "box-decoration-break" | "hyphens"
+  | "mask" | "mask-image" | "mask-origin" | "mask-size" | "print-color-adjust"
+  | "text-decoration-skip-ink" | "user-select" ->
+      [ "-webkit-" ]
+  | "text-size-adjust" -> [ "-webkit-"; "-moz-" ]
+  | _ -> []
+
+(* [(prop: value)] as Tailwind writes it: one test per prefixed spelling, the
+   unprefixed one last, joined with [or]. *)
+let supports_property_test prop value =
+  let one p = String.concat "" [ "("; p; prop; ":"; value; ")" ] in
+  match supports_vendor_prefixes prop with
+  | [] -> one ""
+  | prefixes ->
+      String.concat ""
+        [ "("; String.concat " or " (List.map one prefixes @ [ one "" ]); ")" ]
+
+let normalize_supports_condition condition_str =
+  (* Convert underscores to spaces (Tailwind bracket notation) *)
+  let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
+  if
+    String.length cond > 2
+    && cond.[0] = '-'
+    && cond.[1] = '-'
+    && not (String.contains cond ':')
+  then
+    (* Bare custom property: --test → (--test: var(--tw)) *)
+    "(" ^ cond ^ ": var(--tw))"
+  else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
+  then
+    (* Already wrapped. A single [(prop: value)] still has to go through the
+       prefix expansion, so unwrap it and rebuild; anything else (a compound
+       condition, a [not]) is left as written. *)
+    let inner = String.sub cond 1 (String.length cond - 2) in
+    if is_balanced inner && String.contains inner ':' then
+      let i = String.index inner ':' in
+      supports_property_test
+        (String.trim (String.sub inner 0 i))
+        (String.trim (String.sub inner (i + 1) (String.length inner - i - 1)))
+    else cond
+  else if String.contains cond ':' then
+    let i = String.index cond ':' in
+    let prop = String.trim (String.sub cond 0 i) in
+    let value =
+      String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
+    in
+    supports_property_test prop value
+  else if String.contains cond '(' then
+    (* Function call like font-format(opentype) or var(--test) *)
+    cond
+  else
+    (* Bare property name: backdrop-filter -> (backdrop-filter: var(--tw)), the
+       same expansion as the bare custom property above. A lone identifier is
+       not a condition the CSS grammar has a production for, so leaving it
+       raised a parse error out of the scanner. *)
+    "(" ^ cond ^ ": var(--tw))"
+
+(* Validate that a supports-[...] bracket normalizes to a condition the
+   [@supports] grammar has a production for. An empty or half-written one used
+   to reach the condition reader and raise from there. *)
+let is_valid_supports_condition cond =
+  cond <> ""
+  &&
+    try
+      ignore (Css.Supports.of_string (normalize_supports_condition cond));
+      true
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
+
+(* Validate that an nth-*-[...] bracket holds an An+B expression (Selectors 4
+   sec. 9.3). The reader raises on anything else, so the expression is checked
+   where the modifier is parsed, like the has- selector above. *)
+let is_valid_nth_expr expr =
+  try
+    ignore (parse_nth_selector expr);
+    true
+  with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
+
 (* Try parsing a bracketed modifier, returning Some if matched *)
 (* Build the list of bracket pattern matchers for a given input string *)
 let bracket_named_patterns s =
@@ -1431,14 +1527,14 @@ let bracket_named_patterns s =
 
 let bracket_value_patterns s =
   let ( let* ) = Option.bind in
-  let try_pattern prefix make =
-    let* content = extract_bracket_content ~prefix s in
-    Some (make content)
-  in
   let try_with prefix parse make =
     let* content = extract_bracket_content ~prefix s in
     let* value = parse content in
     Some (make value)
+  in
+  let try_nth prefix make =
+    let* expr = extract_bracket_content ~prefix s in
+    if is_valid_nth_expr expr then Some (make expr) else None
   in
   [
     (fun () -> try_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
@@ -1447,11 +1543,13 @@ let bracket_value_patterns s =
       try_with "min-[" parse_css_length (fun l -> Min_arbitrary_length l));
     (fun () ->
       try_with "max-[" parse_css_length (fun l -> Max_arbitrary_length l));
-    (fun () -> try_pattern "nth-last-of-type-[" (fun e -> Nth_last_of_type e));
-    (fun () -> try_pattern "nth-of-type-[" (fun e -> Nth_of_type e));
-    (fun () -> try_pattern "nth-last-[" (fun e -> Nth_last e));
-    (fun () -> try_pattern "nth-[" (fun e -> Nth e));
-    (fun () -> try_pattern "supports-[" (fun c -> Supports c));
+    (fun () -> try_nth "nth-last-of-type-[" (fun e -> Nth_last_of_type e));
+    (fun () -> try_nth "nth-of-type-[" (fun e -> Nth_of_type e));
+    (fun () -> try_nth "nth-last-[" (fun e -> Nth_last e));
+    (fun () -> try_nth "nth-[" (fun e -> Nth e));
+    (fun () ->
+      let* cond = extract_bracket_content ~prefix:"supports-[" s in
+      if is_valid_supports_condition cond then Some (Supports cond) else None);
     (fun () ->
       try_with "group-["
         (fun sel ->
