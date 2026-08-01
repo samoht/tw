@@ -323,25 +323,20 @@ let extract_breakpoints_from_css expected =
   if px_values = [] then []
   else List.filter (fun (_, px) -> List.mem px px_values) standard
 
-let scheme_from_expected_css expected : Tw.Scheme.t =
+let scheme_from_expected_css expected : Tw.Theme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
   let default_ring_width = extract_ring_width expected in
   let default_border_width = extract_border_width expected in
   let default_outline_width = extract_outline_width expected in
   let breakpoints = extract_breakpoints_from_css expected in
-  {
-    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
-    spacing;
-    radius;
-    default_ring_width;
-    default_border_width;
-    default_outline_width;
-    breakpoints;
-    token_overrides = [];
-    inline_tokens = [];
-    static_theme = false;
-  }
+  Tw.Theme.default
+  |> Tw.Theme.with_colors [ ("red-500", Tw.Theme.Hex "#ef4444") ]
+  |> Tw.Theme.with_spacing spacing
+  |> Tw.Theme.with_radius radius
+  |> Tw.Theme.with_breakpoints breakpoints
+  |> Tw.Theme.with_widths ~ring:default_ring_width ~border:default_border_width
+       ~outline:default_outline_width
 
 let setup_scheme_for_test expected =
   let scheme = scheme_from_expected_css expected in
@@ -352,7 +347,7 @@ let setup_scheme_for_test expected =
   let custom_bps =
     List.filter
       (fun (name, _) -> not (List.mem name standard_names))
-      scheme.breakpoints
+      (Tw.Theme.breakpoints scheme)
   in
   Tw.Private.Modifiers.register_custom_breakpoints custom_bps;
   scheme
@@ -559,7 +554,7 @@ let extract_var_fallbacks expected =
       with Not_found | Failure _ -> None)
     matches
 
-(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
+(* Vars whose value the typed [Theme.t] fields own (the spacing scale and
    runtime [--tw-*] vars). These must NOT become token overrides: doing so would
    emit them verbatim as raw custom properties instead of through their typed
    binding (e.g. [--spacing: 0.25rem] instead of the normalized [.25rem]). Named
@@ -818,12 +813,7 @@ let run_test_case test () =
     let scheme =
       if custom_bps = [] then base_scheme
       else
-        let updated_scheme =
-          {
-            base_scheme with
-            breakpoints = base_scheme.breakpoints @ custom_bps;
-          }
-        in
+        let updated_scheme = Tw.Theme.with_breakpoints custom_bps base_scheme in
         Tw.Private.Modifiers.register_custom_breakpoints custom_bps;
         updated_scheme
     in
@@ -840,7 +830,7 @@ let run_test_case test () =
           (fun (name, _) -> not (is_scheme_typed_var name))
           test.theme_vars
       in
-      Tw.Scheme.with_overrides scheme
+      Tw.Theme.with_overrides scheme
         (theme_overrides_of test.config test.expected @ theme_vars)
     in
     let theme, theme_defaults = theme_config test.config test.expected in

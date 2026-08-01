@@ -1,0 +1,33 @@
+(** The [--spacing] scale: the theme variable every spacing utility reads, and
+    the arithmetic that turns a scale step into a length. *)
+
+module Css = Cascade.Css
+
+val spacing_var : Css.length Var.theme
+(** [spacing_var] is the shared [--spacing] variable used across padding,
+    margin, positioning, etc. *)
+
+val spacing_times : float -> string option
+(** [spacing_times n] is the spacing step times [n], rendered, or
+    {!constructor-None} when the step is in a unit this cannot scale. Tailwind's
+    v3 [spacing] and [lineHeight] scales are both that product, and v4 keeps no
+    token per step, so [theme(spacing.4)] is computed rather than looked up. *)
+
+val spacing_base : Css.length
+(** [spacing_base] is the base spacing value ([0.25rem]). *)
+
+val spacing_n_var : int -> Css.length Var.theme
+(** [spacing_n_var n] creates the [--spacing-n] variable for explicit spacing
+    values. *)
+
+val spacing_calc : ?theme:Theme.t -> int -> Css.declaration * Css.length
+(** [spacing_calc ?theme n] returns the theme declaration and a length for [n].
+
+    When the scheme ([theme] when given, else the global) has an explicit
+    spacing for [|n|], returns [var(--spacing-|n|)] (or
+    [calc(var(--spacing-|n|) * -1)] for negatives). Otherwise returns
+    [calc(var(--spacing) * n)]. *)
+
+val spacing_calc_float : ?theme:Theme.t -> float -> Css.declaration * Css.length
+(** [spacing_calc_float ?theme n] is like {!spacing_calc} but accepts float
+    multipliers such as [2.5] for classes like [my-2.5]. *)

@@ -114,7 +114,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float ?theme n in
+    let spacing_decl, spacing_len = Spacing_scale.spacing_calc_float ?theme n in
     let reverse_decl, reverse_ref =
       Var.binding space_x_reverse_var (Css.Num 0.0)
     in
@@ -179,7 +179,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    let spacing_decl, spacing_len = Theme.spacing_calc_float ?theme n in
+    let spacing_decl, spacing_len = Spacing_scale.spacing_calc_float ?theme n in
     let reverse_decl, reverse_ref =
       Var.binding space_y_reverse_var (Css.Num 0.0)
     in

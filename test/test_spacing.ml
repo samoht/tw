@@ -49,7 +49,7 @@ let test_int_constructor () =
    every one of these classes given the same @theme. *)
 let test_named_spacing_declares_token () =
   let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
+    Tw.Theme.with_overrides Tw.Theme.default [ ("spacing-form", "1rem") ]
   in
   List.iter
     (fun cls ->

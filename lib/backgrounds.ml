@@ -598,7 +598,7 @@ module Handler = struct
       if Color.is_base_color color then "background-color-" ^ base
       else "background-color-" ^ base ^ "-" ^ string_of_int shade
     in
-    match Scheme.theme_value theme bg_var_name with
+    match Theme.theme_value theme bg_var_name with
     | Some theme_val ->
         (* Property-scoped bg color: --background-color-<name> *)
         let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in
@@ -980,8 +980,8 @@ module Handler = struct
   let gradient_color_opacity ?theme ~prefix ~set_var ?(shade = 500) color
       opacity =
     let percent = Color.opacity_to_percent opacity in
-    let color_name = Color.scheme_color_name color shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let color_name = Color.theme_color_name color shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -1053,17 +1053,16 @@ module Handler = struct
       Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch color shade))
     in
     match
-      match Scheme.hex_color scheme color_name with
+      match Theme.hex_color scheme color_name with
       | Some _ as h -> h
       | None -> Some (hex_of_palette ())
     with
     | Some hex_value ->
-        (* Scheme color: generate fallback + @supports + stops (same as
-           Tailwind) Tailwind outputs: 1. .from-X/N { --tw-gradient-from:
-           #RRGGBBAA } 2. @supports { .from-X/N { --tw-gradient-from:
-           color-mix(...) } } 3. .from-X/N { --tw-gradient-stops: ... } To
-           match, we put fallback in props, @supports in rules, and stops as
-           separate rule in rules. *)
+        (* Theme color: generate fallback + @supports + stops (same as Tailwind)
+           Tailwind outputs: 1. .from-X/N { --tw-gradient-from: #RRGGBBAA } 2.
+           @supports { .from-X/N { --tw-gradient-from: color-mix(...) } } 3.
+           .from-X/N { --tw-gradient-stops: ... } To match, we put fallback in
+           props, @supports in rules, and stops as separate rule in rules. *)
         let hex_alpha =
           if Color.opacity_var_bare_of opacity <> None then hex_value
           else Color.hex_with_alpha hex_value percent

@@ -263,7 +263,9 @@ module Handler = struct
       multiplying by 4, since --spacing is 0.25rem. Uses calc(var(--spacing) *
       n) for Tailwind v4 compatibility. *)
   let spacing_utility ?theme css_prop n =
-    let decl, spacing_value = Theme.spacing_calc_float ?theme (n *. 4.) in
+    let decl, spacing_value =
+      Spacing_scale.spacing_calc_float ?theme (n *. 4.)
+    in
     style (decl :: [ css_prop spacing_value ])
 
   let w' ?theme size =
@@ -603,7 +605,7 @@ module Handler = struct
     | W_container name -> (
         (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
            otherwise to the --container-<name> scale (the default). *)
-        match Scheme.theme_value (Some theme) ("width-" ^ name) with
+        match Theme.theme_value (Some theme) ("width-" ^ name) with
         | Some v ->
             let decl =
               Css.custom_property ~layer:"theme" ("--width-" ^ name) v
@@ -761,7 +763,9 @@ module Handler = struct
     | Size_max -> style [ width Max_content; height Max_content ]
     | Size_fit -> style [ width Fit_content; height Fit_content ]
     | Size_spacing n ->
-        let decl, spacing_value = Theme.spacing_calc_float ~theme (n *. 4.) in
+        let decl, spacing_value =
+          Spacing_scale.spacing_calc_float ~theme (n *. 4.)
+        in
         style (decl :: [ width spacing_value; height spacing_value ])
     | Size_fraction f -> (
         match

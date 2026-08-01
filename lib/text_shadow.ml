@@ -177,7 +177,7 @@ module Handler = struct
               | None -> [])
             @ [ hex ])
         in
-        Scheme.register_default_token name
+        Token_defaults.register name
           (String.concat ", " (List.map one (shape_shadows shape))))
       [
         ("text-shadow-2xs", S_2xs);
@@ -268,7 +268,7 @@ module Handler = struct
   (* Shadows for a shape: a threaded [@theme] override if present, else the
      v4.3.1 default scale. *)
   let shadows_for ?theme shape =
-    match Scheme.theme_value theme (shape_token shape) with
+    match Theme.theme_value theme (shape_token shape) with
     | Some override -> parse_shadow_list override
     | None -> shape_shadows shape
 
@@ -315,12 +315,12 @@ module Handler = struct
   (* ============ Color-setting styles ============ *)
 
   let color_hex ?theme c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
+    let color_name = Color.theme_color_name c shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
+    match Theme.hex_color scheme color_name with
     | Some h -> h
     | Stdlib.Option.None -> (
-        match Scheme.theme_value theme ("color-" ^ color_name) with
+        match Theme.theme_value theme ("color-" ^ color_name) with
         | Some h -> h
         | Stdlib.Option.None ->
             let oklch = Color.to_oklch c shade in

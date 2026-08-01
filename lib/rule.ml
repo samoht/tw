@@ -204,7 +204,7 @@ module Rules_selector = struct
     transform ~enclose:false ~descendant:false selector
 end
 
-let resolve_scheme = function Some s -> s | None -> Scheme.default
+let resolve_scheme = function Some s -> s | None -> Theme.default
 
 let breakpoint_rem = function
   | `Sm -> 40.
@@ -215,11 +215,11 @@ let breakpoint_rem = function
 
 (* Publish the breakpoints through the theme-token registry so [theme()] in a
    project's CSS resolves against the same values the [sm:]/[md:] variants use.
-   [Scheme.token] then answers for [--breakpoint-*] without a second table. *)
+   [Theme.token] then answers for [--breakpoint-*] without a second table. *)
 let () =
   List.iter
     (fun bp ->
-      Scheme.register_default_token
+      Token_defaults.register
         ("breakpoint-" ^ string_of_breakpoint bp)
         (Css.Pp.to_string Css.pp_length (Css.Rem (breakpoint_rem bp))))
     [ `Sm; `Md; `Lg; `Xl; `Xl_2 ]
@@ -259,14 +259,14 @@ let negate_media = function
     otherwise rem. *)
 let breakpoint_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint (resolve_scheme theme) name with
+  match Theme.breakpoint (resolve_scheme theme) name with
   | Some px -> media_min_width_px px
   | None -> media_min_width_rem (breakpoint_rem bp)
 
 (** Get the negated media condition for max-* breakpoints. *)
 let breakpoint_not_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint (resolve_scheme theme) name with
+  match Theme.breakpoint (resolve_scheme theme) name with
   | Some px -> media_not_min_width_px px
   | None -> media_not_min_width_rem (breakpoint_rem bp)
 
@@ -315,21 +315,21 @@ let responsive_modifier_condition ?theme = function
       (Css.media_not_min_width_length l, "max-[" ^ len_str ^ "]")
   | Style.Custom_responsive name ->
       let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
+        match Theme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
       (media_min_width_px px, name)
   | Style.Min_custom name ->
       let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
+        match Theme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
       (media_min_width_px px, "min-" ^ name)
   | Style.Max_custom name ->
       let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
+        match Theme.breakpoint (resolve_scheme theme) name with
         | Some px -> px
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
@@ -427,7 +427,7 @@ let max_arbitrary_length_rule ?inner_has_hover l base_class selector props =
     l base_class selector props
 
 let custom_breakpoint ?theme name =
-  match Scheme.breakpoint (resolve_scheme theme) name with
+  match Theme.breakpoint (resolve_scheme theme) name with
   | Some px -> px
   | None -> failwith ("unknown custom breakpoint: " ^ name)
 
@@ -2321,7 +2321,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
-let outputs ?(theme = Scheme.default) ?order_tbl util =
+let outputs ?(theme = Theme.default) ?order_tbl util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
         (* Record the base utility's order under the class name we already

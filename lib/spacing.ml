@@ -6,7 +6,7 @@ open Style
 
 (** {1 Spacing Variable} *)
 
-let var = Theme.spacing_var
+let var = Spacing_scale.spacing_var
 
 (** {1 Class Name Formatting} *)
 
@@ -42,7 +42,7 @@ let named_spacing_ref name : Css.length =
 
 let named_spacing_binding ?theme name : Css.declaration option * Css.length =
   let prop_name = "spacing-" ^ name in
-  match Scheme.theme_value theme prop_name with
+  match Theme.theme_value theme prop_name with
   | Some value_str ->
       let decl =
         Css.custom_property ~layer:"theme" ("--" ^ prop_name) value_str
@@ -87,7 +87,7 @@ let to_decl_len ?theme ?(negative = false) (s : spacing) :
   | `Rem f ->
       let n = f /. 0.25 in
       let n = if negative then -.n else n in
-      let decl, len = Theme.spacing_calc_float ?theme n in
+      let decl, len = Spacing_scale.spacing_calc_float ?theme n in
       (Some decl, len)
 
 let length_with ~px ~full ~rem_factor spacing_ref : spacing -> length = function
@@ -152,7 +152,7 @@ let parse_value_string ?theme ~allow_auto value : margin option =
            [my-form] would parse as a utility. *)
         if
           is_named_spacing value
-          && Scheme.theme_value theme ("spacing-" ^ value) <> None
+          && Theme.theme_value theme ("spacing-" ^ value) <> None
         then Some (`Named value)
         else None
 

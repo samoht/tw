@@ -473,7 +473,7 @@ let shuffle lst =
 module type Handler = sig
   type t
 
-  val of_class : Tw.Scheme.t -> string -> (t, [ `Msg of string ]) result
+  val of_class : Tw.Theme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
 end
 
@@ -482,7 +482,7 @@ end
     with to_class, and verifies they match. *)
 let check_handler_roundtrip (module H : Handler) class_name =
   (* Test of_class -> to_class roundtrip *)
-  match H.of_class Tw.Scheme.default class_name with
+  match H.of_class Tw.Theme.default class_name with
   | Ok result ->
       let class_name2 = H.to_class result in
       Alcotest.(check string)
@@ -492,7 +492,7 @@ let check_handler_roundtrip (module H : Handler) class_name =
 
 (** Generic test for invalid inputs - expects parsing to fail *)
 let check_invalid_input (module H : Handler) input =
-  match H.of_class Tw.Scheme.default input with
+  match H.of_class Tw.Theme.default input with
   | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
   | Error _ -> ()
 

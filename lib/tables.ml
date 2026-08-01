@@ -58,7 +58,7 @@ module Handler = struct
 
   (** Get spacing value - uses theme variable var(--spacing-N) *)
   let spacing_value ?theme n =
-    let decl, len = Theme.spacing_calc_float ?theme n in
+    let decl, len = Spacing_scale.spacing_calc_float ?theme n in
     (decl, len)
 
   (** border-spacing: sets both x and y variables and outputs two-value

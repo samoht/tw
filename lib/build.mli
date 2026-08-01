@@ -55,7 +55,7 @@ module Declared : sig
   module Slot : sig
     type t
 
-    val of_class : ?theme:Scheme.t -> string -> t option
+    val of_class : ?theme:Theme.t -> string -> t option
     (** [of_class cls] is the slot the utility named [cls] sorts at, and [None]
         when [cls] names no utility. A body that [@apply]s [cls] reaches it. *)
 
@@ -78,14 +78,14 @@ module Declared : sig
 end
 
 val to_css :
-  ?theme:Scheme.t ->
+  ?theme:Theme.t ->
   ?config:config ->
   ?declared:Declared.t list ->
   Utility.t list ->
   Css.t
 (** [to_css ?theme ?config ?declared utilities] generates a full CSS stylesheet
     for [utilities]. This is the main entry point for the library. [theme]
-    (default {!Scheme.default}) supplies the theme values utilities read while
+    (default {!Theme.default}) supplies the theme values utilities read while
     generating CSS. Rendering concerns such as inlining and optimization are
     handled by {!Css.to_string}.
 
@@ -94,7 +94,7 @@ val to_css :
     statements sort into the utilities layer at that slot instead of landing
     after it. *)
 
-val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string
+val to_inline_style : ?theme:Theme.t -> Utility.t list -> string
 (** [to_inline_style ?theme utilities] returns a CSS [style] attribute string
     (e.g. ["color: red; font-size: 1rem"]) suitable for embedding in HTML.
     Custom properties are stripped; only concrete declarations are included. *)

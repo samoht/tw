@@ -20,12 +20,12 @@ open Cascade
 (** {1 Rule extraction} *)
 
 val outputs :
-  ?theme:Scheme.t ->
+  ?theme:Theme.t ->
   ?order_tbl:(string, int * int) Hashtbl.t ->
   Utility.t ->
   Output.t list
 (** [outputs ?theme u] extracts the CSS rules for utility [u], reading any theme
-    values it needs from [theme] (default {!Scheme.default}).
+    values it needs from [theme] (default {!Theme.default}).
 
     Returns a list because a single utility can produce more than one rule — for
     example a container utility emits one plain rule plus one [@media] rule per

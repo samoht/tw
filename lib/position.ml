@@ -105,7 +105,7 @@ let named_inset_value name : Css.declaration * Css.length =
 (* Create a spacing value using calc(var(--spacing) * n). Returns the theme
    declaration and a length that references the variable. *)
 let spacing_value ?theme n : Css.declaration * Css.length =
-  Theme.spacing_calc ?theme n
+  Spacing_scale.spacing_calc ?theme n
 
 (* The physical/axis inset sides that take the spacing scale, so a fractional
    step (top-2.5) or the px step (left-px) can share one constructor. *)
@@ -142,7 +142,7 @@ let len_of_pos_spacing ?theme (s : Style.spacing) :
     Css.declaration option * Css.length =
   match s with
   | `Rem f ->
-      let decl, len = Theme.spacing_calc_float ?theme (f /. 0.25) in
+      let decl, len = Spacing_scale.spacing_calc_float ?theme (f /. 0.25) in
       (Some decl, len)
   | `Px -> (None, Css.Px 1.)
   | `Full -> (None, Css.Pct 100.)
@@ -708,8 +708,8 @@ module Handler = struct
      back to [--spacing-*]; without this gate a stray source token like
      [top-level] would parse as a utility and emit a bogus value. *)
   let is_named_inset theme n =
-    Scheme.theme_value (Some theme) ("inset-" ^ n) <> None
-    || Scheme.theme_value (Some theme) ("spacing-" ^ n) <> None
+    Theme.theme_value (Some theme) ("inset-" ^ n) <> None
+    || Theme.theme_value (Some theme) ("spacing-" ^ n) <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in

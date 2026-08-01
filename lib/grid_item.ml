@@ -19,7 +19,7 @@ let themed_grid_line ?theme name
   in
   let grid_line : Css.grid_line = Css.Var ref in
   let grid_decl = declaration grid_line in
-  match Scheme.theme_value theme name with
+  match Theme.theme_value theme name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       Style.style [ decl; grid_decl ]
@@ -41,7 +41,7 @@ let themed_grid_shorthand ?theme name property =
   let ref : Css.grid_line_pair Css.var = Var.bracket name in
   let value : Css.grid_line_pair = Css.Var ref in
   let grid_decl = Css.Declaration.v property value in
-  match Scheme.theme_value theme name with
+  match Theme.theme_value theme name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       Style.style [ decl; grid_decl ]
@@ -112,7 +112,7 @@ module Handler = struct
   let col_arbitrary s = style [ grid_column (read_grid_line_pair s) ]
 
   let col_auto ?theme () =
-    match Scheme.theme_value theme "grid-column-auto" with
+    match Theme.theme_value theme "grid-column-auto" with
     | Some _ ->
         themed_grid_shorthand ?theme "grid-column-auto"
           Css.Properties.Grid_column
@@ -137,7 +137,7 @@ module Handler = struct
   let col_start_arbitrary s = style [ grid_column_start (read_gl s) ]
 
   let col_start_auto ?theme () =
-    match Scheme.theme_value theme "grid-column-start-auto" with
+    match Theme.theme_value theme "grid-column-start-auto" with
     | Some _ -> grid_col_start_themed_style ?theme "grid-column-start-auto" ()
     | None -> style [ grid_column_start Auto ]
 
@@ -149,7 +149,7 @@ module Handler = struct
   let col_end_arbitrary s = style [ grid_column_end (read_gl s) ]
 
   let col_end_auto ?theme () =
-    match Scheme.theme_value theme "grid-column-end-auto" with
+    match Theme.theme_value theme "grid-column-end-auto" with
     | Some _ -> grid_col_end_themed_style ?theme "grid-column-end-auto" ()
     | None -> style [ grid_column_end Auto ]
 
@@ -161,7 +161,7 @@ module Handler = struct
   let row_arbitrary s = style [ grid_row (read_grid_line_pair s) ]
 
   let row_auto ?theme () =
-    match Scheme.theme_value theme "grid-row-auto" with
+    match Theme.theme_value theme "grid-row-auto" with
     | Some _ ->
         themed_grid_shorthand ?theme "grid-row-auto" Css.Properties.Grid_row
     | None -> style [ grid_row (Auto, Auto) ]
@@ -180,7 +180,7 @@ module Handler = struct
   let row_start_arbitrary s = style [ grid_row_start (read_gl s) ]
 
   let row_start_auto ?theme () =
-    match Scheme.theme_value theme "grid-row-start-auto" with
+    match Theme.theme_value theme "grid-row-start-auto" with
     | Some _ -> grid_row_start_themed_style ?theme "grid-row-start-auto" ()
     | None -> style [ grid_row_start Auto ]
 
@@ -192,7 +192,7 @@ module Handler = struct
   let row_end_arbitrary s = style [ grid_row_end (read_gl s) ]
 
   let row_end_auto ?theme () =
-    match Scheme.theme_value theme "grid-row-end-auto" with
+    match Theme.theme_value theme "grid-row-end-auto" with
     | Some _ -> grid_row_end_themed_style ?theme "grid-row-end-auto" ()
     | None -> style [ grid_row_end Auto ]
 
@@ -319,7 +319,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Scheme.theme_value (Some theme) ("grid-column-start-" ^ n)
+              && Theme.theme_value (Some theme) ("grid-column-start-" ^ n)
                  <> None
             then Ok (Col_start_named n)
             else err_not_utility)
@@ -339,8 +339,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Scheme.theme_value (Some theme) ("grid-column-end-" ^ n)
-                 <> None
+              && Theme.theme_value (Some theme) ("grid-column-end-" ^ n) <> None
             then Ok (Col_end_named n)
             else err_not_utility)
     | [ ""; "col"; "end"; n ] -> (
@@ -397,7 +396,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Scheme.theme_value (Some theme) ("grid-row-start-" ^ n) <> None
+              && Theme.theme_value (Some theme) ("grid-row-start-" ^ n) <> None
             then Ok (Row_start_named n)
             else err_not_utility)
     | [ ""; "row"; "start"; n ] -> (
@@ -416,7 +415,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Scheme.theme_value (Some theme) ("grid-row-end-" ^ n) <> None
+              && Theme.theme_value (Some theme) ("grid-row-end-" ^ n) <> None
             then Ok (Row_end_named n)
             else err_not_utility)
     | [ ""; "row"; "end"; n ] -> (

@@ -87,7 +87,7 @@ let test_arbitrary_length_grammar () =
     "px-[50%] keeps the percent" true
     (Astring.String.is_infix ~affix:"padding-inline:50%" (css "px-[50%]"));
   let check c =
-    match Tw.Private.Padding.Handler.of_class Tw.Scheme.default c with
+    match Tw.Private.Padding.Handler.of_class Tw.Theme.default c with
     | Ok u ->
         Alcotest.check string "roundtrip" c
           (Tw.Private.Padding.Handler.to_class u)

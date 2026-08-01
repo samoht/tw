@@ -398,13 +398,13 @@ module Handler = struct
         let class_name =
           if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
         in
-        let w = if n = 1 then theme.Scheme.default_border_width else n in
+        let w = if n = 1 then Theme.border_width theme else n in
         divide_x_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_y n ->
         let class_name =
           if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
         in
-        let w = if n = 1 then theme.Scheme.default_border_width else n in
+        let w = if n = 1 then Theme.border_width theme else n in
         divide_y_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_x_arb len ->
         let class_name = to_class (Divide_x_arb len) in
@@ -535,9 +535,8 @@ module Handler = struct
             let name = String.concat "-" color_parts in
             let base, opacity = Color.parse_opacity_modifier ~theme name in
             if
-              Scheme.theme_value (Some theme) ("color-" ^ base) <> None
-              || Scheme.theme_value (Some theme) ("border-color-" ^ base)
-                 <> None
+              Theme.theme_value (Some theme) ("color-" ^ base) <> None
+              || Theme.theme_value (Some theme) ("border-color-" ^ base) <> None
             then Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
@@ -548,9 +547,8 @@ module Handler = struct
                theme values *)
             let name = String.concat "-" color_parts in
             if
-              Scheme.theme_value (Some theme) ("color-" ^ name) <> None
-              || Scheme.theme_value (Some theme) ("border-color-" ^ name)
-                 <> None
+              Theme.theme_value (Some theme) ("color-" ^ name) <> None
+              || Theme.theme_value (Some theme) ("border-color-" ^ name) <> None
             then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")

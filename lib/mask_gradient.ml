@@ -114,7 +114,7 @@ module Handler = struct
            unit ([0px]) here, where a bare [0] would be the folded length. *)
         "0px"
     | Spacing n ->
-        let _, len = Theme.spacing_calc_float ?theme n in
+        let _, len = Spacing_scale.spacing_calc_float ?theme n in
         Css.Pp.to_string ~minify:false Css.pp_length len
     | Percent p ->
         if Float.is_integer p then pp_int (int_of_float p) ^ "%"
@@ -126,7 +126,9 @@ module Handler = struct
   let spacing_theme_decl value =
     match value with
     | Spacing _ ->
-        let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+        let decl, _ =
+          Var.binding Spacing_scale.spacing_var Spacing_scale.spacing_base
+        in
         [ decl ]
     | Percent _ | Arbitrary _ -> []
 

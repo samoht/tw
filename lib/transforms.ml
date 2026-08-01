@@ -432,7 +432,7 @@ module Handler = struct
 
   let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Spacing_scale.spacing_var (Css.Rem 0.25)
     in
     (* [calc(var(--spacing) * 0)] is zero whatever the spacing is, and Tailwind
        writes that zero with a unit. The target is a [--tw-*] custom property,
@@ -459,7 +459,7 @@ module Handler = struct
      goes through the same path. *)
   let translate_axis_step axis_var f =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Spacing_scale.spacing_var (Css.Rem 0.25)
     in
     let spacing_value : Css.length =
       Css.Calc
@@ -636,7 +636,7 @@ module Handler = struct
      calc(var(--spacing) * n); a negative n renders the "* -n" multiplier. *)
   let translate_spacing n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Spacing_scale.spacing_var (Css.Rem 0.25)
     in
     let spacing_value : Css.length =
       Css.Calc
@@ -827,7 +827,7 @@ module Handler = struct
 
   let translate_z n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Spacing_scale.spacing_var (Css.Rem 0.25)
     in
     let spacing_value : Css.length =
       Css.Calc
@@ -899,7 +899,7 @@ module Handler = struct
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let perspective_none ?theme () =
-    match Scheme.theme_value theme "perspective-none" with
+    match Theme.theme_value theme "perspective-none" with
     | Some value_str ->
         let len : Css.length =
           if String.ends_with ~suffix:"px" value_str then
@@ -935,7 +935,7 @@ module Handler = struct
 
   let po_with_ref ?theme name (default : Css.perspective_origin) default_css ()
       =
-    match Scheme.theme_value theme name with
+    match Theme.theme_value theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.perspective_origin =
@@ -1013,7 +1013,7 @@ module Handler = struct
 
   let origin_with_ref ?theme name (default : Css.transform_origin) default_css
       () =
-    match Scheme.theme_value theme name with
+    match Theme.theme_value theme name with
     | Some value_str ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value_str in
         let ref : Css.transform_origin Css.var =

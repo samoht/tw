@@ -1358,7 +1358,7 @@ let comparator_corpus =
 
 let utility_of_corpus_class cls =
   let modifiers, base_class = Tw.Private.Modifiers.of_string cls in
-  match Tw.Private.Utility.base_of_class Tw.Scheme.default base_class with
+  match Tw.Private.Utility.base_of_class Tw.Theme.default base_class with
   | Error (`Msg m) -> Alcotest.failf "corpus class %S does not parse: %s" cls m
   | Ok b -> (
       match

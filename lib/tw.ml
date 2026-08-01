@@ -226,7 +226,7 @@ let resolve_theme_functions s =
   Buffer.contents buf
 
 (* Parse a single class string into a Tw.t *)
-let of_string ?(theme = Scheme.default) class_str =
+let of_string ?(theme = Theme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let importance, base_class = split_importance base_class in
   (* Wrap [important] around the base before applying modifiers, so a
@@ -296,7 +296,7 @@ let str s =
 (** {1 Module Exports} *)
 
 module Css = Cascade.Css
-module Scheme = Scheme
+module Theme = Theme
 
 module Private = struct
   module Accessibility = Accessibility
@@ -339,17 +339,16 @@ module Private = struct
   module Property = Property
   module Prose = Prose
   module Rule = Rule
-  module Scheme = Scheme
   module Scroll = Scroll
   module Scrollbar = Scrollbar
   module Sizing = Sizing
   module Spacing = Spacing
+  module Spacing_scale = Spacing_scale
   module Style = Style
   module Svg = Svg
   module Tab = Tab
   module Tables = Tables
   module Text_shadow = Text_shadow
-  module Theme = Theme
   module Touch = Touch
   module Transforms = Transforms
   module Transitions = Transitions

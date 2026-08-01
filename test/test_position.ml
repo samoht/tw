@@ -1,7 +1,7 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Private.Position.Handler.of_class Tw.Scheme.default class_name with
+  match Tw.Private.Position.Handler.of_class Tw.Theme.default class_name with
   | Ok util ->
       check string "positioning class" class_name
         (Tw.Private.Position.Handler.to_class util)
@@ -69,7 +69,7 @@ let test_arbitrary_roundtrip () =
    be rejected rather than emitting a bogus placeholder value. *)
 let named_inset_requires_theme_token () =
   let reject c =
-    match Tw.Private.Position.Handler.of_class Tw.Scheme.default c with
+    match Tw.Private.Position.Handler.of_class Tw.Theme.default c with
     | Error _ -> ()
     | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
   in
@@ -77,7 +77,7 @@ let named_inset_requires_theme_token () =
   reject "bottom-right";
   reject "left-junk";
   let themed =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("inset-header", "2rem") ]
+    Tw.Theme.with_overrides Tw.Theme.default [ ("inset-header", "2rem") ]
   in
   match Tw.Private.Position.Handler.of_class themed "top-header" with
   | Ok _ -> ()

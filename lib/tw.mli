@@ -4589,9 +4589,9 @@ val to_classes : t list -> string
 val pp : t -> string
 (** [pp style] generates a class name from a style. *)
 
-val of_string : ?theme:Scheme.t -> string -> (t, [ `Msg of string ]) result
+val of_string : ?theme:Theme.t -> string -> (t, [ `Msg of string ]) result
 (** [of_string ?theme class_str] parses a Tailwind class string into a style.
-    [theme] (default {!Scheme.default}) is consulted to validate custom tokens
+    [theme] (default {!Theme.default}) is consulted to validate custom tokens
     such as named colors and opacities defined in an [@theme] block.
 
     Example:
@@ -4624,7 +4624,7 @@ val str : string -> t list
     For dynamic styles that change at runtime, use [to_inline_style] to generate
     CSS properties directly for the style attribute. *)
 
-val to_inline_style : ?theme:Scheme.t -> t list -> string
+val to_inline_style : ?theme:Theme.t -> t list -> string
 (** [to_inline_style ?theme styles] generates inline CSS for the style
     attribute.
 
@@ -4673,10 +4673,8 @@ module Css = Css
     is exposed for advanced use cases requiring direct manipulation of CSS
     structures. *)
 
-module Scheme = Scheme
-(** The theme a stylesheet is generated against: the colours, spacing, radii and
-    breakpoints a project declared in an [@theme] block, over Tailwind's
-    defaults. *)
+module Theme = Theme
+(** The theme a stylesheet is generated against. *)
 
 module Declared = Build.Declared
 (** Utilities a project declared with Tailwind's [@utility]. Each carries the
@@ -4685,7 +4683,7 @@ module Declared = Build.Declared
 *)
 
 val to_css :
-  ?theme:Scheme.t ->
+  ?theme:Theme.t ->
   ?base:bool ->
   ?forms:bool ->
   ?layers:bool ->
@@ -4693,10 +4691,10 @@ val to_css :
   t list ->
   Css.t
 (** [to_css ?theme ?base ?forms ?layers ?declared styles] generates a CSS
-    stylesheet for the given styles. [theme] (default {!Scheme.default})
-    supplies the theme values utilities read while generating CSS. [declared]
-    carries the project's own [@utility] rules, each sorting into the utilities
-    layer at its own slot.
+    stylesheet for the given styles. [theme] (default {!Theme.default}) supplies
+    the theme values utilities read while generating CSS. [declared] carries the
+    project's own [@utility] rules, each sorting into the utilities layer at its
+    own slot.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 
@@ -5418,17 +5416,16 @@ module Private : sig
   module Property = Property
   module Prose = Prose
   module Rule = Tw_rule
-  module Scheme = Scheme
   module Scroll = Scroll
   module Scrollbar = Scrollbar
   module Sizing = Sizing
   module Spacing = Spacing
+  module Spacing_scale = Spacing_scale
   module Style = Style
   module Svg = Svg
   module Tab = Tab
   module Tables = Tables
   module Text_shadow = Text_shadow
-  module Theme = Theme
   module Touch = Touch
   module Transforms = Transforms
   module Transitions = Transitions

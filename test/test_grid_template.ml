@@ -69,7 +69,7 @@ let of_string_invalid () =
   let fail_maybe input =
     let class_name = String.concat "-" input in
     match
-      Tw.Private.Grid_template.Handler.of_class Tw.Scheme.default class_name
+      Tw.Private.Grid_template.Handler.of_class Tw.Theme.default class_name
     with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
@@ -105,7 +105,7 @@ let of_string_invalid () =
   (* Arbitrary values with unparseable contents: should reject, not crash.
      Regression: grid-cols-[1fr_40%] used to raise Invalid_argument mid-run. *)
   let bad input =
-    match Tw.Private.Grid_template.Handler.of_class Tw.Scheme.default input with
+    match Tw.Private.Grid_template.Handler.of_class Tw.Theme.default input with
     | Ok _ -> fail ("Expected error for: " ^ input)
     | Error _ -> ()
   in

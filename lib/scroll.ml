@@ -39,15 +39,15 @@ module Handler = struct
   let name = "scroll"
   let priority _ = 2
 
-  (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
-  *)
+  (** Get (declaration, length) for spacing value using
+      Spacing_scale.spacing_calc_float *)
   let spacing_to_decl_len ?theme ~negative n : Css.declaration * Css.length =
     if n = 0.0 then
-      let decl, _ = Var.binding Theme.spacing_var (Css.Rem 0.25) in
+      let decl, _ = Var.binding Spacing_scale.spacing_var (Css.Rem 0.25) in
       (decl, Css.Px 0.)
     else
       let mult = if negative then -.n else n in
-      Theme.spacing_calc_float ?theme mult
+      Spacing_scale.spacing_calc_float ?theme mult
 
   let try_parse_length inner =
     let unit_table : (string * int * (float -> Css.length)) list =

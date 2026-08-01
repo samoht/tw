@@ -51,7 +51,7 @@ let extract_base_utility class_name_no_pseudo =
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =
   let parts = String.split_on_char '-' base_utility in
-  match Utility.base_of_strings Scheme.default parts with
+  match Utility.base_of_strings Theme.default parts with
   | Ok u -> Utility.order u
   | Error _ ->
       (* Some selectors (like .group, .peer, .container) are marker classes that
@@ -79,7 +79,7 @@ let selector_props_pairs rules =
           let order =
             match base_class with
             | Some class_name -> (
-                match Utility.base_of_class Scheme.default class_name with
+                match Utility.base_of_class Theme.default class_name with
                 | Ok u -> Utility.order u
                 | Error _ ->
                     (* base_class doesn't parse as a utility (e.g. "group"
@@ -340,7 +340,7 @@ let order_of_base order_map base_class selector =
       | Some order -> adjust_pseudo class_name order
       | None -> (
           let parts = String.split_on_char '-' base_utility in
-          match Utility.base_of_strings Scheme.default parts with
+          match Utility.base_of_strings Theme.default parts with
           | Ok u -> adjust_pseudo class_name (Utility.order u)
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
@@ -636,7 +636,7 @@ let apply_token_override theme decl =
   | Some full_name
     when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
-      match Scheme.token_override theme bare with
+      match Theme.token_override theme bare with
       | Some css -> Css.custom_property ~layer:"theme" full_name css
       | None -> decl)
   | _ -> decl
@@ -745,12 +745,12 @@ let referenced_theme_decls ~theme ~exclude selector_props =
            [p-[calc(--spacing(2)+1px)]] does. *)
         | "spacing" ->
             let decl, _ =
-              Var.binding Theme.spacing_var
+              Var.binding Spacing_scale.spacing_var
                 (Option.value
                    (Option.bind
-                      (Scheme.theme_value (Some theme) "spacing")
+                      (Theme.theme_value (Some theme) "spacing")
                       Css.parse_length)
-                   ~default:Theme.spacing_base)
+                   ~default:Spacing_scale.spacing_base)
             in
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
@@ -769,10 +769,10 @@ let inline_default_family theme decl =
       in
       match token with
       | Some t
-        when Scheme.is_inline_token theme t
+        when Theme.is_inline_token theme t
              && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
         -> (
-          match Scheme.theme_value (Some theme) t with
+          match Theme.theme_value (Some theme) t with
           | Some v -> Css.custom_property ~layer:"theme" name v
           | None -> decl)
       | _ -> decl)
@@ -786,13 +786,13 @@ let derived_font_feature_decls ~theme ~have =
     ("font-mono--font-feature-settings", "default-mono-font-feature-settings");
   ]
   |> List.filter_map (fun (token, name) ->
-      match Scheme.theme_value (Some theme) token with
+      match Theme.theme_value (Some theme) token with
       | Some v when not (Strings.mem ("--" ^ name) have) ->
           Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
       | _ -> None)
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
-let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
+let theme_layer_of_props ?(theme = Theme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
   let extracted =
     extract_non_tw_custom_declarations selector_props
@@ -809,11 +809,11 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   (* [theme(static)] on the package import emits every theme variable, not only
      the ones a utility used. The palette is by far the biggest part of it. *)
   let extracted =
-    if not theme.Scheme.static_theme then extracted
+    if not (Theme.is_static theme) then extracted
     else
       let have = names_set_of extracted in
       let registered =
-        Scheme.all_default_tokens ()
+        Token_defaults.all ()
         |> List.map (fun (name, css) ->
             Css.custom_property ~layer:"theme" ("--" ^ name) css)
       in
@@ -1535,7 +1535,7 @@ module Declared = struct
   module Slot = struct
     type t = int * int
 
-    let of_class ?(theme = Scheme.default) cls =
+    let of_class ?(theme = Theme.default) cls =
       match Utility.base_of_class theme cls with
       | Ok base -> Some (Utility.order base)
       | Error _ -> None
@@ -1556,7 +1556,7 @@ module Declared = struct
   let v ~cls ~slot statements = { cls; slot; statements }
 end
 
-let to_css ?(theme = Scheme.default) ?(config = default_config) ?(declared = [])
+let to_css ?(theme = Theme.default) ?(config = default_config) ?(declared = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
@@ -1611,7 +1611,7 @@ let rec collect_declarations acc = function
   | Style.Modified (_, t) -> collect_declarations acc t
   | Style.Group ts -> List.fold_left collect_declarations acc ts
 
-let to_inline_style ?(theme = Scheme.default) utilities =
+let to_inline_style ?(theme = Theme.default) utilities =
   let styles = List.map (Utility.to_style theme) utilities in
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_vars =

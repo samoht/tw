@@ -1619,7 +1619,7 @@ let opacity_of_string ?theme opacity_str =
            (e.g., /half when --opacity-half exists) *)
         if
           Parse.is_valid_theme_name opacity_str
-          && Scheme.theme_value theme ("opacity-" ^ opacity_str) <> None
+          && Theme.theme_value theme ("opacity-" ^ opacity_str) <> None
         then Some (Opacity_named opacity_str)
         else None
 
@@ -1780,11 +1780,11 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-  let resolve_scheme = function Some s -> s | None -> Scheme.default
+  let resolve_scheme = function Some s -> s | None -> Theme.default
 
   (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
       defined before [open Css] to use the outer [color] type. *)
-  let scheme_color_name (c : color) shade =
+  let theme_color_name (c : color) shade =
     let base = pp c in
     match c with
     | Black | White | Theme_named _ -> base
@@ -1793,8 +1793,8 @@ module Handler = struct
   (** Get the color value for a color and shade, checking scheme first. When
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
   let get_color_value ?theme (c : color) shade =
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
+    let color_name = theme_color_name c shade in
+    match Theme.hex_color (resolve_scheme theme) color_name with
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
@@ -1880,9 +1880,9 @@ module Handler = struct
       property-scoped variable. Otherwise falls back to the generic
       [--color-{name}] variable. *)
   let property_color_var ?theme ~property_prefix (c : color) shade =
-    let color_name = scheme_color_name c shade in
+    let color_name = theme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Scheme.theme_value theme prop_name with
+    match Theme.theme_value theme prop_name with
     | Some _ -> (
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
@@ -1905,17 +1905,17 @@ module Handler = struct
       property-scoped theme value first, then scheme, then generic theme value,
       then converts from oklch as fallback. *)
   let property_color_value ?theme ~property_prefix (c : color) shade =
-    let color_name = scheme_color_name c shade in
+    let color_name = theme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
-    match Scheme.theme_value theme prop_name with
+    match Theme.theme_value theme prop_name with
     | Some value -> Css.hex value
     | None -> (
-        match Scheme.hex_color (resolve_scheme theme) color_name with
+        match Theme.hex_color (resolve_scheme theme) color_name with
         | Some hex -> Css.hex hex
         | None -> (
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
-            match Scheme.theme_value theme std_name with
+            match Theme.theme_value theme std_name with
             | Some value -> Css.hex value
             | None -> to_css c (if is_base_color c then 500 else shade)))
 
@@ -2355,9 +2355,9 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.color css_color ]
     else
-      let color_name = scheme_color_name color shade in
+      let color_name = theme_color_name color shade in
       let prop_name = "text-color-" ^ color_name in
-      let has_property_scoped = Scheme.theme_value theme prop_name <> None in
+      let has_property_scoped = Theme.theme_value theme prop_name <> None in
       let cv, color_value =
         if has_property_scoped then
           ( property_color_var ?theme ~property_prefix:"text-color" color shade,
@@ -2647,11 +2647,11 @@ module Handler = struct
       style ?merge_key (property_decls oklab_value)
     else
       let scheme = resolve_scheme theme in
-      let color_name = scheme_color_name c shade in
+      let color_name = theme_color_name c shade in
       (* Check if color is defined as hex in the scheme *)
-      match Scheme.hex_color scheme color_name with
+      match Theme.hex_color scheme color_name with
       | Some hex_value ->
-          (* Scheme has hex color: use hex+alpha fallback with top-level
+          (* Theme has hex color: use hex+alpha fallback with top-level
              @supports *)
           let hex_with_alpha = hex_with_alpha hex_value percent in
           let fallback_decls = property_decls (Css.hex hex_with_alpha) in
@@ -2737,9 +2737,9 @@ module Handler = struct
   let text_with_opacity ?theme c shade opacity =
     let property_prefix =
       if not (is_custom_color c) then
-        let color_name = scheme_color_name c shade in
+        let color_name = theme_color_name c shade in
         let prop_name = "text-color-" ^ color_name in
-        if Scheme.theme_value theme prop_name <> None then Some "text-color"
+        if Theme.theme_value theme prop_name <> None then Some "text-color"
         else None
       else None
     in
@@ -3379,7 +3379,7 @@ open Handler
 let () = Utility.register (module Handler)
 
 (** Re-export helper functions from Handler for use by other modules *)
-let scheme_color_name = Handler.scheme_color_name
+let theme_color_name = Handler.theme_color_name
 
 let property_color_var = Handler.property_color_var
 let property_color_value = Handler.property_color_value
@@ -3412,8 +3412,8 @@ let round_n = round_n
 let hex_alpha_color ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
-  let color_name = scheme_color_name c shade in
-  match Scheme.hex_color (resolve_scheme theme) color_name with
+  let color_name = theme_color_name c shade in
+  match Theme.hex_color (resolve_scheme theme) color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
   | None ->
       (* Shadeless base colours (black/white) have no scheme entry but a known
@@ -3481,8 +3481,8 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
       let oklab_value = Css.oklaba ok_l ok_a ok_b (percent /. 100.0) in
       Style.style [ property oklab_value ]
   else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
+    let color_name = theme_color_name c shade in
+    match Theme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let fallback_decl =
           if alpha_var then property (Css.hex hex_value)
@@ -3599,8 +3599,8 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
     let rule = Css.rule ~selector [ Css.border_color value ] in
     Style.style ~rules:(Some [ rule ]) []
   else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
+    let color_name = theme_color_name c shade in
+    match Theme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let hex_alpha =
           if alpha_var then hex_value else hex_with_alpha hex_value percent
@@ -3662,8 +3662,8 @@ let bg_with_opacity ?theme c shade opacity =
     in
     Style.style [ Css.background_color value ]
   else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
+    let color_name = theme_color_name c shade in
+    match Theme.hex_color (resolve_scheme theme) color_name with
     | Some hex_value ->
         let cvar = color_var c shade in
         let theme_decl, color_ref = Var.binding cvar (Css.hex hex_value) in
@@ -3687,7 +3687,7 @@ let bg_with_opacity ?theme c shade opacity =
     conventional [name-opacity] pattern. *)
 let opacity_fallback_for_theme_value ?theme var_name bare :
     Css.percentage Css.fallback =
-  match Scheme.theme_value theme var_name with
+  match Theme.theme_value theme var_name with
   | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in

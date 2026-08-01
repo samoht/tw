@@ -18,7 +18,7 @@
 module Css = Cascade.Css
 
 (* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-let resolve_scheme = function Some s -> s | None -> Scheme.default
+let resolve_scheme = function Some s -> s | None -> Theme.default
 
 type rounded_position =
   | Rp_all
@@ -184,7 +184,7 @@ module Handler = struct
     make_border_util
       [
         Css.border_width
-          (Px (float_of_int (resolve_scheme theme).default_border_width));
+          (Px (float_of_int (Theme.border_width (resolve_scheme theme))));
       ]
 
   let border_0 = make_border_util [ Css.border_width (Px 0.) ]
@@ -498,7 +498,7 @@ module Handler = struct
      fixtures use), otherwise inline the literal -- matching Tailwind, which
      inlines calc(infinity*1px)/0 by default but keys off the token when set. *)
   let scheme_keyed_radius ?theme key var ~(default : Css.length) pos =
-    match Scheme.radius (resolve_scheme theme) key with
+    match Theme.radius (resolve_scheme theme) key with
     | Some explicit ->
         let decl, r = Var.binding var explicit in
         style (decl :: radius_decls_for_position pos (Var r : Css.length))
@@ -508,7 +508,7 @@ module Handler = struct
      theme_value "radius" is set (e.g. @config theme), emit the var declaration
      and use var(--radius). Otherwise inline .25rem directly. *)
   let radius_decl_and_val ?theme () : Css.declaration list * Css.length =
-    if Scheme.theme_value theme "radius" <> None then
+    if Theme.theme_value theme "radius" <> None then
       let decl, r = Var.binding radius_var (Rem 0.25) in
       ([ decl ], Css.Var r)
     else ([], Css.Rem 0.25)
@@ -558,7 +558,7 @@ module Handler = struct
       | Some rule -> rule
       | None -> Css.empty
     in
-    let width = float_of_int (resolve_scheme theme).default_outline_width in
+    let width = float_of_int (Theme.outline_width (resolve_scheme theme)) in
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Px width) ]
 

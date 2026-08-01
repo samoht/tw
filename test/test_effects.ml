@@ -108,7 +108,7 @@ let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Private.Effects.Handler.of_class Tw.Scheme.default class_name with
+    match Tw.Private.Effects.Handler.of_class Tw.Theme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in
@@ -235,7 +235,7 @@ let test_inset_shadow_default_scale () =
    theme threading. *)
 let test_inset_shadow_theme_override () =
   let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
+    Tw.Theme.with_overrides Tw.Theme.default
       [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
   in
   let css =

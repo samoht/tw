@@ -2,7 +2,7 @@ open Alcotest
 
 let check class_name =
   match
-    Tw.Private.Interactivity.Handler.of_class Tw.Scheme.default class_name
+    Tw.Private.Interactivity.Handler.of_class Tw.Theme.default class_name
   with
   | Ok u ->
       check string "interactivity class" class_name
@@ -20,7 +20,7 @@ let test_of_string_invalid () =
   let test_invalid input =
     let class_name = String.concat "-" input in
     match
-      Tw.Private.Interactivity.Handler.of_class Tw.Scheme.default class_name
+      Tw.Private.Interactivity.Handler.of_class Tw.Theme.default class_name
     with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()

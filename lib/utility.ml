@@ -22,10 +22,10 @@ module type Handler = sig
   type base += Self of t
 
   val name : string
-  val to_style : Scheme.t -> t -> Style.t
+  val to_style : Theme.t -> t -> Style.t
   val priority : t -> int
   val suborder : t -> int
-  val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
+  val of_class : Theme.t -> string -> (t, [ `Msg of string ]) result
   val to_class : t -> string
   val examples : t list
 end
@@ -129,7 +129,7 @@ let build_property_slots () =
       List.iter
         (fun example ->
           let order = (M.priority example, M.suborder example) in
-          let style = M.to_style Scheme.default example in
+          let style = M.to_style Theme.default example in
           let named, rest = claimed_keys (style_declarations style) in
           Stdlib.Option.iter (fun key -> record tbl key order) named;
           List.iter (fun key -> record alongside key order) rest)

@@ -91,7 +91,9 @@ module Handler = struct
      [calc(var(--spacing) * <n>)] otherwise; [basis-full] / [basis-1/1] emit
      literal [100%]. *)
   let basis_spacing n =
-    let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+    let spacing_decl, _ =
+      Var.binding Spacing_scale.spacing_var Spacing_scale.spacing_base
+    in
     let value : Css.flex_basis =
       if n = 1 then Var (Var.theme_ref "spacing")
       else Calc Css.Calc.(mul (var "spacing") (float (float_of_int n)))
@@ -110,7 +112,7 @@ module Handler = struct
 
   let basis_named_style ?theme name =
     let var_name = "container-" ^ name in
-    match Scheme.theme_value theme var_name with
+    match Theme.theme_value theme var_name with
     | Some value_str ->
         let decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value_str
@@ -145,7 +147,7 @@ module Handler = struct
   let order_style n = style [ order (Int n) ]
 
   let themed_order ?theme name default =
-    match Scheme.theme_value theme name with
+    match Theme.theme_value theme name with
     | None -> style [ order (Int default) ]
     | Some value ->
         let decl = Css.custom_property ~layer:"theme" ("--" ^ name) value in

@@ -1,7 +1,7 @@
 open Alcotest
 
 let check class_name =
-  match Tw.Private.Forms.Handler.of_class Tw.Scheme.default class_name with
+  match Tw.Private.Forms.Handler.of_class Tw.Theme.default class_name with
   | Ok u ->
       check string "forms class" class_name
         (Tw.Private.Forms.Handler.to_class u)
@@ -15,7 +15,7 @@ let test_of_string_invalid () =
   (* Invalid form utilities *)
   let test_invalid input =
     let class_name = String.concat "-" input in
-    match Tw.Private.Forms.Handler.of_class Tw.Scheme.default class_name with
+    match Tw.Private.Forms.Handler.of_class Tw.Theme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in

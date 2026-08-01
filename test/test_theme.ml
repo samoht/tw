@@ -48,10 +48,29 @@ let theme_cross_module_vars () =
         ]
         (List.sort String.compare custom_props)
 
+let test_default () =
+  let s = Tw.Theme.default in
+  Alcotest.(check int) "default ring width" 1 (Tw.Theme.ring_width s);
+  Alcotest.(check int) "default border width" 1 (Tw.Theme.border_width s);
+  Alcotest.(check int) "default outline width" 1 (Tw.Theme.outline_width s)
+
+let test_find_color () =
+  let s : Tw.Theme.t =
+    Tw.Theme.with_colors [ ("red-500", Hex "#ef4444") ] Tw.Theme.default
+  in
+  Alcotest.(check bool)
+    "finds defined color" true
+    (Tw.Theme.hex_color s "red-500" <> None);
+  Alcotest.(check bool)
+    "missing color returns none" true
+    (Tw.Theme.hex_color s "blue-500" = None)
+
 let tests =
   [
     test_case "theme layer stable order" `Quick theme_layer_stable_order;
     test_case "theme cross-module vars" `Quick theme_cross_module_vars;
+    test_case "default theme" `Quick test_default;
+    test_case "find color" `Quick test_find_color;
   ]
 
 let suite = ("theme", tests)

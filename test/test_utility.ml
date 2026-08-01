@@ -3,14 +3,14 @@ open Alcotest
 (* Test parsing valid class strings and converting to CSS *)
 let test_base_of_class_valid () =
   let open Tw.Private.Utility in
-  match base_of_class Tw.Scheme.default "p-4" with
+  match base_of_class Tw.Theme.default "p-4" with
   | Ok base -> check string "parsed class name" "p-4" (to_class (Base base))
   | Error _ -> fail "Failed to parse p-4"
 
 (* Test parsing invalid class strings returns error *)
 let test_base_of_class_invalid () =
   let open Tw.Private.Utility in
-  match base_of_class Tw.Scheme.default "invalid-class" with
+  match base_of_class Tw.Theme.default "invalid-class" with
   | Ok base ->
       let name = to_class (Base base) in
       fail ("Should not parse invalid class, got: " ^ name)
@@ -22,17 +22,17 @@ let test_deduplicate () =
   let open Tw.Private.Utility in
   (* Parse some utilities *)
   let u1 =
-    match base_of_class Tw.Scheme.default "p-0" with
+    match base_of_class Tw.Theme.default "p-0" with
     | Ok u -> Base u
     | Error _ -> failwith "parse failed"
   in
   let u2 =
-    match base_of_class Tw.Scheme.default "p-1" with
+    match base_of_class Tw.Theme.default "p-1" with
     | Ok u -> Base u
     | Error _ -> failwith "parse failed"
   in
   let u3 =
-    match base_of_class Tw.Scheme.default "p-0" with
+    match base_of_class Tw.Theme.default "p-0" with
     | Ok u -> Base u
     | Error _ -> failwith "parse failed"
   in
@@ -65,7 +65,7 @@ let test_order_priorities () =
   (* Test various utilities - using actual module assignments, not ideal
      priorities *)
   let parse_and_order class_name =
-    match base_of_class Tw.Scheme.default class_name with
+    match base_of_class Tw.Theme.default class_name with
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
@@ -87,7 +87,7 @@ let test_order_priorities () =
 let test_order_suborders () =
   let open Tw.Private.Utility in
   let parse_and_order class_name =
-    match base_of_class Tw.Scheme.default class_name with
+    match base_of_class Tw.Theme.default class_name with
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
@@ -107,7 +107,7 @@ let test_order_suborders () =
 let test_order_consistency () =
   let open Tw.Private.Utility in
   let parse_and_order class_name =
-    match base_of_class Tw.Scheme.default class_name with
+    match base_of_class Tw.Theme.default class_name with
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
@@ -127,7 +127,7 @@ let test_order_consistency () =
 let test_order_of_property () =
   let open Tw.Private.Utility in
   let order_of cls =
-    match base_of_class Tw.Scheme.default cls with
+    match base_of_class Tw.Theme.default cls with
     | Ok b -> order b
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
@@ -154,7 +154,7 @@ let test_order_of_property () =
 let test_order_of_property_behind_a_variable () =
   let open Tw.Private.Utility in
   let order_of cls =
-    match base_of_class Tw.Scheme.default cls with
+    match base_of_class Tw.Theme.default cls with
     | Ok b -> order b
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
@@ -196,7 +196,7 @@ let test_order_of_property_behind_a_variable () =
 let test_order_of_property_skips_pseudo_elements () =
   let open Tw.Private.Utility in
   let order_of cls =
-    match base_of_class Tw.Scheme.default cls with
+    match base_of_class Tw.Theme.default cls with
     | Ok b -> order b
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in

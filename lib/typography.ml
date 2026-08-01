@@ -564,7 +564,7 @@ module Typography_early = struct
   (* A font family the project named in its [@theme]. Gated on the token being
      there so a stray source word (font-awesome) is not a utility. *)
   let is_named_font theme n =
-    Scheme.theme_value (Some theme) ("font-" ^ n) <> None
+    Theme.theme_value (Some theme) ("font-" ^ n) <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -984,14 +984,14 @@ module Typography_early = struct
      feature-settings] beside it, the way Tailwind emits it. *)
   let font_feature_decls theme token =
     match
-      Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
+      Theme.theme_value (Some theme) (token ^ "--font-feature-settings")
     with
     | None -> []
     | Some v -> [ font_feature_settings (Css.Feature_list v) ]
 
   let font_named ?fallback theme name =
     let token = "font-" ^ name in
-    match Scheme.theme_value (Some theme) token with
+    match Theme.theme_value (Some theme) token with
     | None -> ( match fallback with Some s -> s | None -> style [])
     | Some raw -> (
         match Css.parse_font_family raw with
@@ -1003,7 +1003,7 @@ module Typography_early = struct
               | _ -> false
             in
             let features = font_feature_decls theme token in
-            if Scheme.is_inline_token theme token && not self_referential then
+            if Theme.is_inline_token theme token && not self_referential then
               style (font_family family :: features)
             else
               let decl, ref = Var.binding (font_named_var name) family in
@@ -1028,7 +1028,7 @@ module Typography_early = struct
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
   let leading_none ?theme () =
-    match Scheme.theme_value theme "leading-none" with
+    match Theme.theme_value theme "leading-none" with
     | Some _ -> leading_with_theme_var leading_none_var (Num 1.0)
     | None ->
         (* Tailwind v4.3 ships no --leading-none token, so inline the literal
@@ -1048,7 +1048,7 @@ module Typography_early = struct
 
   let leading ?theme n =
     let name = "leading-" ^ string_of_int n in
-    match Scheme.theme_value theme name with
+    match Theme.theme_value theme name with
     | Some _ ->
         (* A theme overrides --leading-N: reference it like a named leading. *)
         let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
@@ -1066,7 +1066,7 @@ module Typography_early = struct
            leading-1 -> var(--spacing), leading-N -> calc(var(--spacing) *
            N). *)
         let spacing_decl, _ =
-          Var.binding Theme.spacing_var Theme.spacing_base
+          Var.binding Spacing_scale.spacing_var Spacing_scale.spacing_base
         in
         let value : line_height =
           if n = 1 then Css.Var (Var.theme_ref "spacing")
@@ -1103,7 +1103,7 @@ module Typography_early = struct
   let () =
     List.iter
       (fun (name, value) ->
-        Scheme.register_default_token ("leading-" ^ name)
+        Token_defaults.register ("leading-" ^ name)
           (Css.Pp.to_string ~minify:true Css.Properties.pp_line_height value))
       [
         ("tight", (Num 1.25 : Css.line_height));
@@ -1119,7 +1119,7 @@ module Typography_early = struct
   let () =
     List.iter
       (fun (name, _var, rem) ->
-        Scheme.register_default_token ("text-" ^ name)
+        Token_defaults.register ("text-" ^ name)
           (Css.Pp.to_string Css.pp_length (Css.Rem rem)))
       text_size_data
 
@@ -1128,7 +1128,7 @@ module Typography_early = struct
   let lh_modifier_to_css = function
     | Lh_int n ->
         let spacing_decl, _spacing_ref =
-          Var.binding Theme.spacing_var (Css.Rem 0.25)
+          Var.binding Spacing_scale.spacing_var (Css.Rem 0.25)
         in
         let lh_spacing_ref : Css.line_height Css.var = Var.bracket "spacing" in
         let lh : Css.line_height =
@@ -1205,7 +1205,7 @@ module Typography_early = struct
   let bracket_font_size_decls inner =
     match parse_spacing_call inner with
     | Stdlib.Option.Some n ->
-        let decl, len = Theme.spacing_calc_float n in
+        let decl, len = Spacing_scale.spacing_calc_float n in
         [ decl; font_size len ]
     | Stdlib.Option.None -> (
         match split_type_prefix inner with
@@ -1942,7 +1942,7 @@ module Typography_late = struct
         else if bracket_quoted '\'' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content_squote value)
-        else if Scheme.theme_value (Some theme) ("content-" ^ joined) <> None
+        else if Theme.theme_value (Some theme) ("content-" ^ joined) <> None
         then Ok (Content_named joined)
         else if
           String.length joined >= 2
@@ -2342,11 +2342,11 @@ module Typography_late = struct
 
   let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    let color_name = Color.scheme_color_name color shade in
-    match Scheme.hex_color scheme color_name with
+    let scheme = match theme with Some t -> t | None -> Theme.default in
+    let color_name = Color.theme_color_name color shade in
+    match Theme.hex_color scheme color_name with
     | Some hex_value ->
-        (* Scheme has hex: fallback is hex+alpha, @supports has color-mix with
+        (* Theme has hex: fallback is hex+alpha, @supports has color-mix with
            webkit *)
         let hex_with_alpha = Color.hex_with_alpha hex_value percent in
         let fallback_decl = text_decoration_color (Css.hex hex_with_alpha) in
@@ -2605,7 +2605,7 @@ module Typography_late = struct
     style ~property_rules [ channel_decl; letter_spacing direct_neg ]
 
   let underline_offset_auto ?theme () =
-    match Scheme.theme_value theme "text-underline-offset-auto" with
+    match Theme.theme_value theme "text-underline-offset-auto" with
     | Some _ ->
         let decl, ref_ =
           Var.binding underline_offset_auto_var (Auto : Css.length)
@@ -2632,7 +2632,9 @@ module Typography_late = struct
     text_indent (Indent { length; hanging = false; each_line = false })
 
   let indent n =
-    let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
+    let spacing_decl, spacing_ref =
+      Var.binding Spacing_scale.spacing_var (Rem 0.25)
+    in
     let base : Css.length_percentage = Length (Css.Var spacing_ref) in
     let calc : Css.length_percentage Css.calc = Expr (Val base, Mul, Num n) in
     let length : Css.length_percentage = Calc calc in
@@ -2661,7 +2663,7 @@ module Typography_late = struct
       ]
 
   let line_clamp_none_style ?theme () =
-    match Scheme.theme_value theme "line-clamp-none" with
+    match Theme.theme_value theme "line-clamp-none" with
     | Some value_str -> (
         match int_of_string_opt value_str with
         | Some n ->
@@ -2720,7 +2722,7 @@ module Typography_late = struct
   let content_named ?theme name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
-      match Scheme.theme_value theme var_name with
+      match Theme.theme_value theme var_name with
       | Some _ ->
           let tv = Var.theme Css.Content var_name ~order:(6, 60) in
           let theme_decl, theme_ref = Var.binding tv (String "") in
@@ -2774,7 +2776,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_type)
         ~default_css:"none"
     in
-    match Scheme.theme_value theme var_name with
+    match Theme.theme_value theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
@@ -2814,7 +2816,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_image)
         ~default_css:"none"
     in
-    match Scheme.theme_value theme var_name with
+    match Theme.theme_value theme var_name with
     | Some value ->
         let theme_decl =
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value

@@ -127,7 +127,7 @@ module Handler = struct
             ~default:(Auto : Css.cursor)
             ~default_css:"auto"
         in
-        match Scheme.theme_value (Some theme) var_name with
+        match Theme.theme_value (Some theme) var_name with
         | Some value ->
             let theme_decl =
               Css.custom_property ~layer:"theme" ("--" ^ var_name) value

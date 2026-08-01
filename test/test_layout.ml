@@ -50,7 +50,7 @@ let of_string_invalid () =
   (* Invalid layout values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    match Tw.Private.Layout.Handler.of_class Tw.Scheme.default class_name with
+    match Tw.Private.Layout.Handler.of_class Tw.Theme.default class_name with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

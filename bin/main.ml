@@ -3,7 +3,7 @@ open Cascade_diff
 open Cmdliner
 
 (* Parse a whitespace-separated string of classes *)
-let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
+let parse_classes ?(warn = true) ?(theme = Tw.Theme.default) classes_str =
   let class_names = Tw_tools.Source_scan.split_whitespace classes_str in
   List.filter_map
     (fun cls ->
@@ -39,10 +39,10 @@ type gen_opts = {
   quiet : bool;
   css_mode : Tw.Css.mode;
   backend : backend;
-  theme : Tw.Scheme.t;
+  theme : Tw.Theme.t;
       (** Theme used by tw's renderer, built from the project's --input-css so a
           --diff over a real repo compares against the same [@theme] Tailwind
-          uses. Defaults to {!Tw.Scheme.default}. *)
+          uses. Defaults to {!Tw.Theme.default}. *)
   input_css : string option;
       (** Path to the project's CSS entrypoint, fed verbatim to the real
           Tailwind backend so both sides share the project config. *)
@@ -179,7 +179,7 @@ let imports_static_theme css =
    with the same tokens Tailwind reads from it: the [(bare-name, value)] pairs,
    and the names among them that came from an [@theme inline] block. The
    declarations are parsed by cascade (after the @theme header swap); the
-   resulting strings feed Scheme.with_overrides. *)
+   resulting strings feed Theme.with_overrides. *)
 let theme_overrides_of_css css =
   match Css.of_string (theme_blocks_as_root css) with
   | Error _ -> ([], [])
@@ -447,12 +447,12 @@ let v3_theme_token theme path =
       | None -> None
       | Some prefix -> (
           let key = String.concat "-" rest in
-          match Tw.Scheme.token theme (prefix ^ "-" ^ key) with
+          match Tw.Theme.token theme (prefix ^ "-" ^ key) with
           | Some _ as v -> v
           | None -> (
               match (ns, float_of_string_opt key) with
               | ("spacing" | "lineHeight"), Some n ->
-                  Tw.Private.Theme.spacing_times n
+                  Tw.Private.Spacing_scale.spacing_times n
               | _ -> None)))
 
 (* Tailwind's [theme(--token)] inlines the token's value. It is not CSS, and it
@@ -472,7 +472,7 @@ let resolve_theme_fn ~theme css =
         else name
       in
       match
-        match Tw.Scheme.token theme bare with
+        match Tw.Theme.token theme bare with
         | Some _ as v -> v
         | None -> v3_theme_token theme name
       with
@@ -998,7 +998,7 @@ let hoist_layer_blocks stmts =
    document: the typography plugin's [.prose code] reads [--font-mono] from the
    components layer. *)
 let drop_unread_inline_tokens ~theme stmts =
-  if Tw.Scheme.(theme.inline_tokens) = [] then stmts
+  if Tw.Theme.inline_tokens theme = [] then stmts
   else
     let rendered = Css.to_string ~minify:true (Css.v stmts) in
     let reads name =
@@ -1013,7 +1013,7 @@ let drop_unread_inline_tokens ~theme stmts =
       match Css.custom_declaration_name decl with
       | Some n when String.length n > 2 ->
           let bare = String.sub n 2 (String.length n - 2) in
-          (not (Tw.Scheme.is_inline_token theme bare))
+          (not (Tw.Theme.is_inline_token theme bare))
           || String.trim (Css.declaration_value decl) = "var(" ^ n ^ ")"
           || reads n
       | _ -> true
@@ -1244,7 +1244,7 @@ let is_prose_class cls =
       bare = "prose" || String.starts_with ~prefix:"prose-" bare
   | None -> false
 
-let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
+let parse_known_candidates ?(theme = Tw.Theme.default) ?input_css candidates =
   let typography = declares_plugin input_css "typography" in
   List.filter_map
     (fun cls ->
@@ -1583,15 +1583,14 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
   let css_content = Option.map read_file input_css in
   let theme =
     match css_content with
-    | None -> Tw.Scheme.default
+    | None -> Tw.Theme.default
     | Some css ->
         let overrides, inline = theme_overrides_of_css css in
         let base =
-          if imports_static_theme css then
-            { Tw.Scheme.default with static_theme = true }
-          else Tw.Scheme.default
+          if imports_static_theme css then Tw.Theme.with_static Tw.Theme.default
+          else Tw.Theme.default
         in
-        Tw.Scheme.with_overrides ~inline base overrides
+        Tw.Theme.with_overrides ~inline base overrides
   in
   let opts : gen_opts =
     {

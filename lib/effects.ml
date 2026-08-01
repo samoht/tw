@@ -404,7 +404,7 @@ module Handler = struct
                 ())
             (shadow_shape_data shape)
         in
-        Scheme.register_default_token name (render shadows))
+        Token_defaults.register name (render shadows))
       [
         ("shadow-2xs", Two_xs);
         ("shadow-xs", Xs);
@@ -669,17 +669,17 @@ module Handler = struct
   (* ============ Shadow color utilities ============ *)
 
   let shadow_color_hex ?theme ~property_prefix c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
+    let color_name = Color.theme_color_name c shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
+    match Theme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         (* Check property-scoped theme value first *)
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Scheme.theme_value theme prop_name with
+        match Theme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Scheme.theme_value theme ("color-" ^ color_name) with
+            match Theme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -891,7 +891,7 @@ module Handler = struct
           Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Css.hex hex)
             ()
         in
-        Scheme.register_default_token name
+        Token_defaults.register name
           (Css.Pp.to_string ~minify:true Css.Properties.pp_shadow value))
       [
         ("inset-shadow-2xs", Ish_2xs);
@@ -962,7 +962,7 @@ module Handler = struct
   (* (h, v, blur, hex) for a named shape: a threaded @theme override if present,
      else the v4.3.1 default scale. *)
   let inset_shadow_data_for ?theme shape =
-    match Scheme.theme_value theme (inset_shadow_shape_token shape) with
+    match Theme.theme_value theme (inset_shadow_shape_token shape) with
     | Some override -> (
         match parse_inset_shadow_override override with
         | Some data -> data
@@ -990,7 +990,7 @@ module Handler = struct
      v4.3.1 default; of_class only reaches here when the token is defined). *)
   let inset_shadow_themed ?theme () =
     let h_offset, v_offset, blur, fallback_hex =
-      match Scheme.theme_value theme "inset-shadow" with
+      match Theme.theme_value theme "inset-shadow" with
       | Some override -> (
           match parse_inset_shadow_override override with
           | Some data -> data
@@ -1244,16 +1244,16 @@ module Handler = struct
   (* ============ Inset shadow color utilities ============ *)
 
   let inset_shadow_color_hex ?theme ~property_prefix c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
+    let color_name = Color.theme_color_name c shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
+    match Theme.hex_color scheme color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Scheme.theme_value theme prop_name with
+        match Theme.theme_value theme prop_name with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None -> (
-            match Scheme.theme_value theme ("color-" ^ color_name) with
+            match Theme.theme_value theme ("color-" ^ color_name) with
             | Stdlib.Option.Some h -> h
             | Stdlib.Option.None ->
                 let oklch = Color.to_oklch c shade in
@@ -1500,8 +1500,8 @@ module Handler = struct
   (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
   let ring_default ?theme () =
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    ring_internal scheme.Scheme.default_ring_width
+    let scheme = match theme with Some t -> t | None -> Theme.default in
+    ring_internal (Theme.ring_width scheme)
 
   let inset_ring_internal width_px =
     let spread : Css.length = Px (float_of_int width_px) in
@@ -2580,7 +2580,7 @@ module Handler = struct
        threaded @theme defines --inset-shadow. inset-shadow-{md,lg,xl,2xl} do
        not exist in v4.3.1 and fall through to err_not_utility. *)
     | [ "inset"; "shadow" ]
-      when Scheme.theme_value (Some theme) "inset-shadow" <> None ->
+      when Theme.theme_value (Some theme) "inset-shadow" <> None ->
         Ok Inset_shadow
     | [ "inset"; "shadow" ] -> err_not_utility
     | [ "inset"; "shadow"; "inherit" ] -> Ok Inset_shadow_inherit

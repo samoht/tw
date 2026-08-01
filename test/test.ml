@@ -87,7 +87,6 @@ let () =
       Test_overflow_wrap.suite;
       Test_overscroll.suite;
       Test_property.suite;
-      Test_scheme.suite;
       Test_scroll.suite;
       Test_text_shadow.suite;
       Test_touch.suite;

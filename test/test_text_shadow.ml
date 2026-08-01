@@ -37,7 +37,7 @@ let test_default_scale () =
    threading. *)
 let test_theme_override () =
   let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
+    Tw.Theme.with_overrides Tw.Theme.default
       [ ("text-shadow-2xs", "0px 1px 0px rgb(0 0 0 / 0.1)") ]
   in
   let css =

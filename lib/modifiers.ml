@@ -1893,7 +1893,7 @@ let parse_container_length content =
             String.sub inner 2 (String.length inner - 2)
           else inner
         in
-        Option.bind (Scheme.token_default name) Css.parse_length
+        Option.bind (Token_defaults.find name) Css.parse_length
       else None
 
 (* [@sm/main] aims a size query at the container named [main]. The name is the

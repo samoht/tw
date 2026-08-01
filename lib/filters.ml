@@ -250,7 +250,7 @@ module Handler = struct
   (* Generate a theme-layer declaration for a theme variable if its value is
      set. This produces the --name: value entry for the :root, :host block. *)
   let theme_decl_if_set ?theme name =
-    match Scheme.theme_value theme name with
+    match Theme.theme_value theme name with
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
@@ -270,7 +270,7 @@ module Handler = struct
         ])
 
   let blur_none ?theme () =
-    match Scheme.theme_value theme "blur-none" with
+    match Theme.theme_value theme "blur-none" with
     | Some _ ->
         set_filter_var_theme ?theme "--tw-blur" "blur-none" (fun l -> Blur l) ()
     | None ->
@@ -480,7 +480,7 @@ module Handler = struct
      from [--tw-drop-shadow]. These tokens sort after border-radius (order 7)
      and before blur (order 8). Bound via [Var.binding] so the theme declaration
      is always emitted with its default value and stays overridable through an
-     [@theme] token override threaded via [Scheme.t]. *)
+     [@theme] token override threaded via [Theme.t]. *)
   let drop_shadow_xs_var = Var.theme Css.Shadow "drop-shadow-xs" ~order:(7, 8)
   let drop_shadow_sm_var = Var.theme Css.Shadow "drop-shadow-sm" ~order:(7, 9)
   let drop_shadow_md_var = Var.theme Css.Shadow "drop-shadow-md" ~order:(7, 10)
@@ -561,7 +561,7 @@ module Handler = struct
       ]
 
   let drop_shadow_ ?theme () =
-    match Scheme.theme_value theme "drop-shadow" with
+    match Theme.theme_value theme "drop-shadow" with
     | Some _ -> drop_shadow_override ?theme ()
     | None -> drop_shadow_default ()
 
@@ -628,7 +628,7 @@ module Handler = struct
      references the token from [--tw-drop-shadow]. *)
   let drop_shadow_named ?theme name =
     let theme_name = "drop-shadow-" ^ name in
-    match Scheme.theme_value theme theme_name with
+    match Theme.theme_value theme theme_name with
     | None -> style []
     | Some value ->
         let cursor = Cascade.Cursor.of_string value in
@@ -717,14 +717,14 @@ module Handler = struct
       ]
 
   let drop_shadow_color ?theme c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let color_name = Color.theme_color_name c shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
     (* srgb fallback: the scheme hex when defined, else the colour resolved
        directly (oklch), matching Tailwind. The default scheme has no hex
-       colours, so the old [Scheme.hex_color]-only path raised on every
+       colours, so the old [Theme.hex_color]-only path raised on every
        drop-shadow-<color>. *)
     let fallback_color =
-      match Scheme.hex_color scheme color_name with
+      match Theme.hex_color scheme color_name with
       | Option.Some hex -> Css.hex hex
       | Option.None -> Color.to_css c shade
     in
@@ -770,15 +770,15 @@ module Handler = struct
       ]
 
   let drop_shadow_color_opacity ?theme c shade opacity =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let color_name = Color.theme_color_name c shade in
+    let scheme = match theme with Some t -> t | None -> Theme.default in
     let percent = Color.opacity_to_percent opacity in
     (* The fallback is what a browser without color-mix reads, so it has to be a
-       plain hex. [Scheme.hex_color] only holds the hexes a project declared, so
+       plain hex. [Theme.hex_color] only holds the hexes a project declared, so
        resolve the palette colour when it has none. *)
     let fallback_color =
       let hex =
-        match Scheme.hex_color scheme color_name with
+        match Theme.hex_color scheme color_name with
         | Option.Some hex -> hex
         | Option.None ->
             Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch c shade))
@@ -826,7 +826,7 @@ module Handler = struct
        token's own value: a project that overrides [--drop-shadow] is referenced
        there, and the default two-shadow stack is written out. *)
     let size_and_shadow =
-      match Scheme.theme_value theme "drop-shadow" with
+      match Theme.theme_value theme "drop-shadow" with
       | Some _ ->
           [
             bind_drop_shadow_size
@@ -935,12 +935,12 @@ module Handler = struct
       else None
     in
     let actual_theme_name =
-      match Scheme.theme_value theme theme_name with
+      match Theme.theme_value theme theme_name with
       | Some _ -> theme_name
       | None -> (
           match fallback_name with
           | Some fb -> (
-              match Scheme.theme_value theme fb with
+              match Theme.theme_value theme fb with
               | Some _ -> fb
               | None -> theme_name)
           | None -> theme_name)
@@ -955,13 +955,13 @@ module Handler = struct
         ])
 
   let backdrop_blur_none ?theme () =
-    match Scheme.theme_value theme "backdrop-blur-none" with
+    match Theme.theme_value theme "backdrop-blur-none" with
     | Some _ ->
         set_backdrop_var_theme ?theme "--tw-backdrop-blur" "backdrop-blur-none"
           (fun l -> Blur l)
           ()
     | None -> (
-        match Scheme.theme_value theme "blur-none" with
+        match Theme.theme_value theme "blur-none" with
         | Some _ ->
             set_backdrop_var_theme ?theme "--tw-backdrop-blur"
               "backdrop-blur-none"
@@ -1564,10 +1564,10 @@ module Handler = struct
     | Drop_shadow_named name -> "drop-shadow-" ^ name
     | Drop_shadow_arbitrary s -> "drop-shadow-" ^ s
     | Drop_shadow_color (c, shade) ->
-        "drop-shadow-" ^ Color.scheme_color_name c shade
+        "drop-shadow-" ^ Color.theme_color_name c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
         "drop-shadow-"
-        ^ Color.scheme_color_name c shade
+        ^ Color.theme_color_name c shade
         ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_opacity op -> "drop-shadow/" ^ Color.pp_opacity op
     | Drop_shadow_keyword_color (_, name) -> "drop-shadow-" ^ name

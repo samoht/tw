@@ -414,7 +414,7 @@ let extract_var_fallbacks expected =
         Some (name, fallback)
       with Not_found | Failure _ -> None)
 
-(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
+(* Vars whose value the typed [Theme.t] fields own (the spacing scale and
    runtime [--tw-*] vars); they must not become token overrides. *)
 let is_scheme_typed_var name =
   let is_numbered_spacing =
@@ -459,7 +459,7 @@ let upstream_scheme config theme_vars expected =
     in
     overrides @ extra
   in
-  Tw.Scheme.with_overrides Tw.Scheme.default overrides
+  Tw.Theme.with_overrides Tw.Theme.default overrides
 
 let class_is_emitted expected cls =
   String.contains expected '.'

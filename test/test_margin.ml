@@ -54,12 +54,12 @@ let of_string_invalid () =
    Tailwind; without it the class is rejected (see [of_string_invalid]). *)
 let named_spacing_requires_theme_token () =
   let themed =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
+    Tw.Theme.with_overrides Tw.Theme.default [ ("spacing-form", "1rem") ]
   in
   (match Tw.Private.Margin.Handler.of_class themed "my-form" with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "my-form with theme rejected: %s" m);
-  match Tw.Private.Margin.Handler.of_class Tw.Scheme.default "my-form" with
+  match Tw.Private.Margin.Handler.of_class Tw.Theme.default "my-form" with
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "my-form without theme token should be rejected"
 
@@ -167,7 +167,7 @@ let test_arbitrary_length_grammar () =
        (css "ml-[calc(5%-2px)]"));
   (* class names round-trip verbatim *)
   let check c =
-    match Tw.Private.Margin.Handler.of_class Tw.Scheme.default c with
+    match Tw.Private.Margin.Handler.of_class Tw.Theme.default c with
     | Ok u ->
         Alcotest.check string "roundtrip" c
           (Tw.Private.Margin.Handler.to_class u)

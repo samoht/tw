@@ -79,13 +79,13 @@ val named_spacing_ref : string -> Css.length
     [var(--spacing-big)]). *)
 
 val named_spacing_binding :
-  ?theme:Scheme.t -> string -> Css.declaration option * Css.length
+  ?theme:Theme.t -> string -> Css.declaration option * Css.length
 (** [named_spacing_binding ?theme name] creates a theme variable binding for a
     named spacing value, returning both the theme declaration (if theme value is
     set) and a var reference. *)
 
 val to_decl_len :
-  ?theme:Scheme.t ->
+  ?theme:Theme.t ->
   ?negative:bool ->
   Style.spacing ->
   Css.declaration option * Css.length
@@ -104,7 +104,7 @@ type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
     inline-start, inline-end, block-start, block-end) *)
 
 val parse_value_string :
-  ?theme:Scheme.t -> allow_auto:bool -> string -> Style.margin option
+  ?theme:Theme.t -> allow_auto:bool -> string -> Style.margin option
 (** [parse_value_string ?theme ~allow_auto value] parses a spacing value string
     (px, full, auto, numeric, or a named token).
 
