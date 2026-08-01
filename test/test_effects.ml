@@ -349,8 +349,49 @@ let test_invalid_arbitrary_shadow () =
   accepted "shadow-[0_1px_2px_#000]";
   accepted "inset-shadow-[0_1px_2px_#000]"
 
+(* A [#] bracket only names a shadow or ring colour when what follows is a hex
+   spelling. The bracket-colour reader handed everything after the [#] to the
+   raising constructor from inside [of_class], so a malformed hex escaped the
+   parser as an exception instead of failing the match. *)
+let test_invalid_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  List.iter
+    (fun prefix ->
+      rejected (prefix ^ "-[#zz]");
+      rejected (prefix ^ "-[#]");
+      rejected (prefix ^ "-[#12345]");
+      rejected (prefix ^ "-[#zz]/50"))
+    [ "shadow"; "ring"; "inset-shadow"; "inset-ring"; "ring-offset" ];
+  (* The colour of an arbitrary shadow is read the same way. *)
+  rejected "shadow-[0_1px_2px_#zz]";
+  rejected "shadow-[0_1px_2px_#12345]";
+  rejected "shadow-[0_1px_2px_#zz]/50";
+  rejected "inset-shadow-[0_1px_2px_#zz]";
+  emits "shadow-[#abc]" "--tw-shadow-color:#abc";
+  emits "ring-[#123456]" "--tw-ring-color:#123456";
+  emits "inset-shadow-[#abc]" "--tw-inset-shadow-color:#abc";
+  emits "inset-ring-[#abc]" "--tw-inset-ring-color:#abc";
+  emits "ring-offset-[#abc]" "--tw-ring-offset-color:#abc";
+  emits "shadow-[0_1px_2px_#000]"
+    "--tw-shadow:0 1px 2px var(--tw-shadow-color,#000)";
+  emits "inset-shadow-[0_1px_2px_#000]"
+    "--tw-inset-shadow:inset 0 1px 2px var(--tw-inset-shadow-color,#000)"
+
 let tests =
   [
+    test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;

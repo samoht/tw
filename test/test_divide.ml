@@ -69,6 +69,29 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"divide renders like Tailwind"
     (divide_utilities ())
 
+(* A [#] bracket is only a divide colour when what follows is a hex spelling.
+   The divide reader handed everything after the [#] to the raising constructor
+   from inside [of_class], so a malformed hex escaped the parser as an exception
+   instead of failing the match. *)
+let test_invalid_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "divide-[#zz]";
+  rejected "divide-[#]";
+  rejected "divide-[#12345]";
+  rejected "divide-[#zz]/50";
+  Alcotest.(check bool)
+    "divide-[#ff0000] still emits the colour" true
+    (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -76,6 +99,7 @@ let tests =
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
       Alcotest.test_case "renders like Tailwind" `Slow
         rendering_matches_tailwind;
+      Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     ]
 
 let suite = ("divide", tests)

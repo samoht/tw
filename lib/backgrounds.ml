@@ -1599,6 +1599,14 @@ module Handler = struct
     && float_of_string_opt (String.sub inner 0 (n - 1)) <> None
     || Css.parse_length inner <> None
 
+  (* A [#] stop only names a colour when what follows is a hex spelling. The
+     stop keeps the text after the [#] and hands it to the raising [Css.hex]
+     when the sheet is rendered, so the parser has to decide here. *)
+  let is_bracket_hex inner =
+    String.length inner > 0
+    && inner.[0] = '#'
+    && Option.is_some (Css.hex_opt inner)
+
   let parse_gradient_color ?theme target rest =
     let gc src = Ok (Gradient_color (target, src)) in
     let gp src = Ok (Gradient_stop_position (target, src)) in
@@ -1628,7 +1636,7 @@ module Handler = struct
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
               gc (Gc_bracket_color_var var_str)
-            else if String.length inner > 0 && inner.[0] = '#' then
+            else if is_bracket_hex inner then
               gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
             else if Parse.is_var inner then gc (Gc_bracket_var inner)
             else if is_gradient_position inner then gp (Gp_bracket inner)
@@ -1640,7 +1648,7 @@ module Handler = struct
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
               gc (Gc_bracket_color_var_opacity (var_str, opacity))
-            else if String.length inner > 0 && inner.[0] = '#' then
+            else if is_bracket_hex inner then
               gc
                 (Gc_bracket_hex_opacity
                    (String.sub inner 1 (String.length inner - 1), opacity))
@@ -1661,7 +1669,7 @@ module Handler = struct
         if String.length inner > 6 && String.sub inner 0 6 = "color:" then
           let var_str = String.sub inner 6 (String.length inner - 6) in
           gc (Gc_bracket_color_var var_str)
-        else if String.length inner > 0 && inner.[0] = '#' then
+        else if is_bracket_hex inner then
           gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
         else if Parse.is_var inner then gc (Gc_bracket_var inner)
         else if Color.parse_bracket_color inner <> None then

@@ -65,6 +65,34 @@ let test_arbitrary_lengths () =
   | Ok _ -> Alcotest.fail "expected text-shadow-[0_bogus_2px] to be rejected"
   | Error _ -> ()
 
+(* A [#] value is only a colour when what follows is a hex spelling, both as the
+   whole bracket and as the colour of an arbitrary shadow. The reader kept the
+   text after the [#] as-is and the raising constructor saw it when the sheet
+   was rendered, so a malformed hex escaped as an exception instead of failing
+   the parse. *)
+let test_invalid_bracket_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  rejected "text-shadow-[#zz]";
+  rejected "text-shadow-[#]";
+  rejected "text-shadow-[#12345]";
+  rejected "text-shadow-[#zz]/50";
+  rejected "text-shadow-[0_1px_2px_#zz]";
+  emits "text-shadow-[#abc]" "--tw-text-shadow-color:#abc";
+  emits "text-shadow-[0_1px_2px_#ff0000]"
+    "text-shadow:0 1px 2px var(--tw-text-shadow-color,#f00)"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -72,6 +100,7 @@ let tests =
       Alcotest.test_case "default scale (v4.3.1)" `Quick test_default_scale;
       Alcotest.test_case "@theme override threads through" `Quick
         test_theme_override;
+      Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     ]
 
 let suite = ("text_shadow", tests)

@@ -57,6 +57,11 @@ module Handler = struct
 
   let shorten_hex = Color.shorten_hex_str
 
+  (* A [#] value only names a colour when what follows is a hex spelling;
+     [Css.hex] raises on anything else, here once the sheet is rendered. *)
+  let is_hex_value s =
+    String.length s > 0 && s.[0] = '#' && Stdlib.Option.is_some (Css.hex_opt s)
+
   let alpha_decl percent =
     Css.custom_property ~layer:"utilities" "--tw-text-shadow-alpha"
       (pp_float percent ^ "%")
@@ -102,10 +107,13 @@ module Handler = struct
        text-shadow has no spread, so a fourth length is not one either. *)
     if List.compare_lengths lengths length_strs <> 0 then Stdlib.Option.None
     else
-      match lengths with
-      | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
-      | [ h; v; blur ] -> Some (h, v, Some blur, color)
-      | _ -> Stdlib.Option.None
+      match color with
+      | Arb_hex h when not (is_hex_value h) -> Stdlib.Option.None
+      | _ -> (
+          match lengths with
+          | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
+          | [ h; v; blur ] -> Some (h, v, Some blur, color)
+          | _ -> Stdlib.Option.None)
 
   (* ============ Shape definitions ============ *)
 
@@ -678,7 +686,7 @@ module Handler = struct
               Ok (Text_shadow_bracket_shadow var_part)
             else if Parse.is_var inner && not (is_shadow_value inner) then
               Ok (Text_shadow_bracket_var inner)
-            else if String.length inner > 0 && inner.[0] = '#' then
+            else if is_hex_value inner then
               let hex = String.sub inner 1 (String.length inner - 1) in
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_bracket_hex hex)
