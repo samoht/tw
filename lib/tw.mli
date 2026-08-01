@@ -96,7 +96,8 @@ type shade =
   | `S950 ]
 (** A step of the Tailwind palette. The palette defines these eleven and no
     others, so [bg ~shade:`S42 blue] does not compile. A shadeless colour
-    ([black], [white], a [hex] colour) ignores the step it is given. *)
+    ({!val-black}, {!val-white}, a {!val-hex} colour) ignores the step it is
+    given. *)
 
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
@@ -192,22 +193,16 @@ val rose : color
 (** [rose] is Tailwind rose palette. See {!tailwind_colors}. *)
 
 val hex : string -> color
-(** [hex "#1da1f2"] creates a custom color from a hex string. The # prefix is
-    optional.
+(** [hex s] is the colour [s] spells, as [#rrggbb], [#rgb], either without the
+    [#], or as an [rgb(r,g,b)] call: [hex "#1da1f2"], [hex "ff5733"],
+    [hex "#f0f"].
 
-    Examples:
-    - [hex "#1da1f2"] - Twitter blue with # prefix.
-    - [hex "ff5733"] - Orange without # prefix.
-    - [hex "#f0f"] - 3-character hex codes are supported. *)
+    @raise Invalid_argument if [s] spells no colour. *)
 
 val rgb : int -> int -> int -> color
-(** [rgb r g b] creates a custom color from RGB values (0-255).
+(** [rgb r g b] is the colour with those channels, as [rgb 29 161 242].
 
-    Examples:
-    - [rgb 29 161 242] - Twitter blue
-    - [rgb 255 87 51] - Orange
-
-    Raises [Invalid_argument] if any channel value is outside 0-255 range. *)
+    @raise Invalid_argument if a channel is outside \[0, 255\]. *)
 
 (** {1 Base Styles} *)
 
@@ -221,9 +216,8 @@ val preflight : ?placeholder_supports:Css.t -> ?forms:bool -> unit -> Css.t
 (** [preflight ?placeholder_supports ?forms ()] returns Tailwind's Preflight
     base reset rules.
 
-    Use this to compose the base reset manually when needed. When using
-    {!to_css} with [~base:true] (the default), the base reset is already
-    included.
+    Use this to compose the base reset manually when needed. {!to_css} already
+    includes it unless the configuration turns the base layer off.
 
     If [forms] is [true], omits webkit datetime rules that the forms plugin
     provides (display:inline-flex and fields-wrapper padding) to avoid
@@ -422,22 +416,22 @@ val float_end : t
     @see <https://tailwindcss.com/docs/clear> Clear *)
 
 val clear_left : t
-(** [clear_left] sets [clear] to [left]. *)
+(** [clear_left] sets [clear: left]. *)
 
 val clear_right : t
-(** [clear_right] sets [clear] to [right]. *)
+(** [clear_right] sets [clear: right]. *)
 
 val clear_both : t
-(** [clear_both] sets [clear] to [both]. *)
+(** [clear_both] sets [clear: both]. *)
 
 val clear_start : t
-(** [clear_start] sets [clear] to [inline-start]. *)
+(** [clear_start] sets [clear: inline-start]. *)
 
 val clear_end : t
-(** [clear_end] sets [clear] to [inline-end]. *)
+(** [clear_end] sets [clear: inline-end]. *)
 
 val clear_none : t
-(** [clear_none] sets [clear] to [none]. *)
+(** [clear_none] sets [clear: none]. *)
 
 (** {2 Isolation}
     @see <https://tailwindcss.com/docs/isolation> Isolation *)
@@ -2299,28 +2293,28 @@ val font_stretch_ultra_expanded : t
       Background Attachment *)
 
 val bg_fixed : t
-(** [bg_fixed] sets [background-attachment] to [fixed]. *)
+(** [bg_fixed] sets [background-attachment: fixed]. *)
 
 val bg_local : t
-(** [bg_local] sets [background-attachment] to [local]. *)
+(** [bg_local] sets [background-attachment: local]. *)
 
 val bg_scroll : t
-(** [bg_scroll] sets [background-attachment] to [scroll]. *)
+(** [bg_scroll] sets [background-attachment: scroll]. *)
 
 (** {2 Background Clip}
     @see <https://tailwindcss.com/docs/background-clip> Background Clip *)
 
 val bg_clip_border : t
-(** [bg_clip_border] sets [background-clip] to [border-box]. *)
+(** [bg_clip_border] sets [background-clip: border-box]. *)
 
 val bg_clip_padding : t
-(** [bg_clip_padding] sets [background-clip] to [padding-box]. *)
+(** [bg_clip_padding] sets [background-clip: padding-box]. *)
 
 val bg_clip_content : t
-(** [bg_clip_content] sets [background-clip] to [content-box]. *)
+(** [bg_clip_content] sets [background-clip: content-box]. *)
 
 val bg_clip_text : t
-(** [bg_clip_text] sets [background-clip] to [text]. *)
+(** [bg_clip_text] sets [background-clip: text]. *)
 
 (** {2 Background Color}
     @see <https://tailwindcss.com/docs/background-color> Background Color *)
@@ -2403,89 +2397,89 @@ val to_color : ?shade:shade -> color -> t
     @see <https://tailwindcss.com/docs/background-origin> Background Origin *)
 
 val bg_origin_border : t
-(** [bg_origin_border] sets [background-origin] to [border-box]. *)
+(** [bg_origin_border] sets [background-origin: border-box]. *)
 
 val bg_origin_padding : t
-(** [bg_origin_padding] sets [background-origin] to [padding-box]. *)
+(** [bg_origin_padding] sets [background-origin: padding-box]. *)
 
 val bg_origin_content : t
-(** [bg_origin_content] sets [background-origin] to [content-box]. *)
+(** [bg_origin_content] sets [background-origin: content-box]. *)
 
 (** {2 Background Position}
     @see <https://tailwindcss.com/docs/background-position> Background Position
 *)
 
 val bg_bottom : t
-(** [bg_bottom] sets [background-position] to [bottom]. *)
+(** [bg_bottom] sets [background-position: bottom]. *)
 
 val bg_bottom_left : t
-(** [bg_bottom_left] sets [background-position] to [bottom left]. *)
+(** [bg_bottom_left] sets [background-position: bottom left]. *)
 
 val bg_bottom_right : t
-(** [bg_bottom_right] sets [background-position] to [bottom right]. *)
+(** [bg_bottom_right] sets [background-position: bottom right]. *)
 
 val bg_center : t
-(** [bg_center] sets [background-position] to [center]. *)
+(** [bg_center] sets [background-position: center]. *)
 
 val bg_left : t
-(** [bg_left] sets [background-position] to [left]. *)
+(** [bg_left] sets [background-position: left]. *)
 
 val bg_left_bottom : t
-(** [bg_left_bottom] sets [background-position] to [left bottom]. *)
+(** [bg_left_bottom] sets [background-position: left bottom]. *)
 
 val bg_left_top : t
-(** [bg_left_top] sets [background-position] to [left top]. *)
+(** [bg_left_top] sets [background-position: left top]. *)
 
 val bg_right : t
-(** [bg_right] sets [background-position] to [right]. *)
+(** [bg_right] sets [background-position: right]. *)
 
 val bg_right_bottom : t
-(** [bg_right_bottom] sets [background-position] to [right bottom]. *)
+(** [bg_right_bottom] sets [background-position: right bottom]. *)
 
 val bg_right_top : t
-(** [bg_right_top] sets [background-position] to [right top]. *)
+(** [bg_right_top] sets [background-position: right top]. *)
 
 val bg_top : t
-(** [bg_top] sets [background-position] to [top]. *)
+(** [bg_top] sets [background-position: top]. *)
 
 val bg_top_left : t
-(** [bg_top_left] sets [background-position] to [top left]. *)
+(** [bg_top_left] sets [background-position: top left]. *)
 
 val bg_top_right : t
-(** [bg_top_right] sets [background-position] to [top right]. *)
+(** [bg_top_right] sets [background-position: top right]. *)
 
 (** {2 Background Repeat}
     @see <https://tailwindcss.com/docs/background-repeat> Background Repeat *)
 
 val bg_repeat : t
-(** [bg_repeat] sets [background-repeat] to [repeat]. *)
+(** [bg_repeat] sets [background-repeat: repeat]. *)
 
 val bg_no_repeat : t
-(** [bg_no_repeat] sets [background-repeat] to [no-repeat]. *)
+(** [bg_no_repeat] sets [background-repeat: no-repeat]. *)
 
 val bg_repeat_x : t
-(** [bg_repeat_x] sets [background-repeat] to [repeat-x]. *)
+(** [bg_repeat_x] sets [background-repeat: repeat-x]. *)
 
 val bg_repeat_y : t
-(** [bg_repeat_y] sets [background-repeat] to [repeat-y]. *)
+(** [bg_repeat_y] sets [background-repeat: repeat-y]. *)
 
 val bg_repeat_round : t
-(** [bg_repeat_round] sets [background-repeat] to [round]. *)
+(** [bg_repeat_round] sets [background-repeat: round]. *)
 
 val bg_repeat_space : t
-(** [bg_repeat_space] sets [background-repeat] to [space]. *)
+(** [bg_repeat_space] sets [background-repeat: space]. *)
 
 (** {2 Background Size}
     @see <https://tailwindcss.com/docs/background-size> Background Size *)
 
 val bg_auto : t
-(** [bg_auto] sets [background-size] to [auto]. *)
+(** [bg_auto] sets [background-size: auto]. *)
 
 val bg_cover : t
-(** [bg_cover] sets [background-size] to [cover]. *)
+(** [bg_cover] sets [background-size: cover]. *)
 
 val bg_contain : t
-(** [bg_contain] sets [background-size] to [contain]. *)
+(** [bg_contain] sets [background-size: contain]. *)
 
 (** {1 Borders} *)
 
@@ -2566,7 +2560,7 @@ val outline_color : ?opacity:int -> ?shade:shade -> color -> t
     [shade] (default [`S500]), at [opacity] percent when given. *)
 
 val outline_transparent : t
-(** [outline_transparent] sets [outline-color] to [transparent]. *)
+(** [outline_transparent] sets [outline-color: transparent]. *)
 
 val outline_current : t
 (** [outline_current] sets [outline-color] to [currentColor]. *)
@@ -3313,52 +3307,52 @@ val mix_blend_plus_lighter : t
       Background Blend Mode *)
 
 val bg_blend_normal : t
-(** [bg_blend_normal] sets [background-blend-mode] to [normal]. *)
+(** [bg_blend_normal] sets [background-blend-mode: normal]. *)
 
 val bg_blend_multiply : t
-(** [bg_blend_multiply] sets [background-blend-mode] to [multiply]. *)
+(** [bg_blend_multiply] sets [background-blend-mode: multiply]. *)
 
 val bg_blend_screen : t
-(** [bg_blend_screen] sets [background-blend-mode] to [screen]. *)
+(** [bg_blend_screen] sets [background-blend-mode: screen]. *)
 
 val bg_blend_overlay : t
-(** [bg_blend_overlay] sets [background-blend-mode] to [overlay]. *)
+(** [bg_blend_overlay] sets [background-blend-mode: overlay]. *)
 
 val bg_blend_darken : t
-(** [bg_blend_darken] sets [background-blend-mode] to [darken]. *)
+(** [bg_blend_darken] sets [background-blend-mode: darken]. *)
 
 val bg_blend_lighten : t
-(** [bg_blend_lighten] sets [background-blend-mode] to [lighten]. *)
+(** [bg_blend_lighten] sets [background-blend-mode: lighten]. *)
 
 val bg_blend_color_dodge : t
-(** [bg_blend_color_dodge] sets [background-blend-mode] to [color-dodge]. *)
+(** [bg_blend_color_dodge] sets [background-blend-mode: color-dodge]. *)
 
 val bg_blend_color_burn : t
-(** [bg_blend_color_burn] sets [background-blend-mode] to [color-burn]. *)
+(** [bg_blend_color_burn] sets [background-blend-mode: color-burn]. *)
 
 val bg_blend_hard_light : t
-(** [bg_blend_hard_light] sets [background-blend-mode] to [hard-light]. *)
+(** [bg_blend_hard_light] sets [background-blend-mode: hard-light]. *)
 
 val bg_blend_soft_light : t
-(** [bg_blend_soft_light] sets [background-blend-mode] to [soft-light]. *)
+(** [bg_blend_soft_light] sets [background-blend-mode: soft-light]. *)
 
 val bg_blend_difference : t
-(** [bg_blend_difference] sets [background-blend-mode] to [difference]. *)
+(** [bg_blend_difference] sets [background-blend-mode: difference]. *)
 
 val bg_blend_exclusion : t
-(** [bg_blend_exclusion] sets [background-blend-mode] to [exclusion]. *)
+(** [bg_blend_exclusion] sets [background-blend-mode: exclusion]. *)
 
 val bg_blend_hue : t
-(** [bg_blend_hue] sets [background-blend-mode] to [hue]. *)
+(** [bg_blend_hue] sets [background-blend-mode: hue]. *)
 
 val bg_blend_saturation : t
-(** [bg_blend_saturation] sets [background-blend-mode] to [saturation]. *)
+(** [bg_blend_saturation] sets [background-blend-mode: saturation]. *)
 
 val bg_blend_color : t
-(** [bg_blend_color] sets [background-blend-mode] to [color]. *)
+(** [bg_blend_color] sets [background-blend-mode: color]. *)
 
 val bg_blend_luminosity : t
-(** [bg_blend_luminosity] sets [background-blend-mode] to [luminosity]. *)
+(** [bg_blend_luminosity] sets [background-blend-mode: luminosity]. *)
 
 (** {2 Mask Clip}
     @see <https://tailwindcss.com/docs/mask-clip> Mask Clip *)
@@ -3628,13 +3622,14 @@ val blur_none : t
 (** [blur_none] applies no blur. *)
 
 val blur_xs : t
-(** [blur_xs] applies an extra small blur (2px). *)
+(** [blur_xs] applies a 4px blur. *)
 
 val blur_sm : t
-(** [blur_sm] applies a small blur (4px). *)
+(** [blur_sm] applies an 8px blur. *)
 
 val blur : t
-(** [blur] applies the default blur (8px). Same as {!blur_md}. *)
+(** [blur] applies an 8px blur, the same amount as {!blur_sm} but written
+    literally rather than through the theme variable. *)
 
 val blur_md : t
 (** [blur_md] applies a medium blur (12px). *)
@@ -4373,11 +4368,11 @@ val divide_y : int -> t
 (** [divide_y n] sets the border width between vertical children. *)
 
 val divide_x_length : Css.border_width -> t
-(** [divide_x_length w] is [divide_x] with an arbitrary width, as
+(** [divide_x_length w] is {!val-divide_x} at an arbitrary width, as
     [divide-x-[3px]]. *)
 
 val divide_y_length : Css.border_width -> t
-(** [divide_y_length w] is [divide_y] with an arbitrary width. *)
+(** [divide_y_length w] is {!val-divide_y} at an arbitrary width. *)
 
 val divide_x_reverse : t
 (** [divide_x_reverse] reverses horizontal divide borders for RTL layouts. *)
@@ -4611,7 +4606,7 @@ val appearance_auto : Utility.t
 (** {2 Tab size} *)
 
 val tab : int -> t
-(** [tab n] sets [tab-size] to [n]. *)
+(** [tab n] sets [tab-size: n]. *)
 
 (** {1 SVG} *)
 
@@ -4781,56 +4776,15 @@ val of_classes_exn : ?theme:Theme.t -> string -> t list
 
     @raise Invalid_argument if a class name names no utility. *)
 
-(** {2 CSS Generation}
-
-    This library generates Tailwind-like class names using [to_classes].
-
-    {b Important}: Class tracking and CSS file generation should be handled by
-    the library user. For example, the {!Tw_html} module collects all used Tw
-    classes and generates the appropriate CSS file.
-
-    For dynamic styles that change at runtime, use [to_inline_style] to generate
-    CSS properties directly for the style attribute. *)
+(** {2 Stylesheets} *)
 
 val to_inline_style : ?theme:Theme.t -> t list -> string
-(** [to_inline_style ?theme styles] generates inline CSS for the style
-    attribute.
+(** [to_inline_style ?theme us] is the declarations of [us], for an HTML [style]
+    attribute. Only the declarations: no reset, no [@layer], and no rule a
+    variant would need, so a utility carrying one contributes nothing.
 
-    {b Note:} This generates {i only} the CSS properties for the given styles,
-    without any Tailwind reset/prelude. The reset is only included in
-    {!val-to_css} since it's meant for complete stylesheets, not individual
-    elements.
-
-    Perfect for tweaking individual HTML nodes with custom styles:
-    {[
-    let inline_styles =
-      to_inline_style [ bg ~shade:`S100 blue; p 4; rounded_md; text white ]
-    ]}
-
-    {b When to use [to_inline_style] vs {!val-to_css}:}
-
-    {b Use [to_inline_style] when:}
-    - You need dynamic styles that change at runtime
-    - You want to override specific styles on individual elements
-    - You're working with existing HTML that you can't modify classes for
-    - You need precise control over a single element's styling
-
-    {b Use {!val-to_css} (preferred) when:}
-    - You want to generate a stylesheet that can be cached and reused
-    - You're building a full website with consistent styling
-    - You want better performance (CSS classes are more efficient than inline
-      styles)
-
-    {b Performance considerations:} Inline styles are
-    {i significantly less performant} for large-scale use compared to
-    stylesheets because:
-    - They increase HTML payload size (styles are repeated for each element)
-    - They cannot be cached by the browser like external stylesheets
-    - They have higher CSS specificity, making them harder to override
-    - They don't benefit from CSS compression and minification
-
-    Use [to_inline_style] sparingly for dynamic or element-specific styling
-    only. *)
+    Prefer {!val-to_css} and a class attribute. Inline styles repeat themselves
+    on every element, cannot be cached, and outrank every stylesheet rule. *)
 
 module Config = Config
 (** What a stylesheet contains besides its utilities. *)

@@ -25,11 +25,11 @@ val divide_y : int -> t
 (** [divide_y n] sets the border width between vertical children. *)
 
 val divide_x_length : Css.border_width -> t
-(** [divide_x_length w] is [divide_x] with an arbitrary width, as
+(** [divide_x_length w] is {!val-divide_x} at an arbitrary width, as
     [divide-x-[3px]]. *)
 
 val divide_y_length : Css.border_width -> t
-(** [divide_y_length w] is [divide_y] with an arbitrary width. *)
+(** [divide_y_length w] is {!val-divide_y} at an arbitrary width. *)
 
 (** {1 Divide Colour Utilities} *)
 

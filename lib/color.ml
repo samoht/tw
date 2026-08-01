@@ -884,8 +884,11 @@ let hex s =
   if is_rgb_call s then
     match parse_rgb_string s with
     | Some rgb -> Hex (shorten_hex_str (hex_string_of_rgb rgb))
-    | None -> Hex s
-  else Hex (shorten_hex_str s)
+    | None -> invalid_arg ("hex: not an rgb() colour: " ^ s)
+  else
+    match hex_to_rgb s with
+    | Some _ -> Hex (shorten_hex_str s)
+    | None -> invalid_arg ("hex: not a hex colour: " ^ s)
 
 (* Convert string name to color type *)
 let of_string_exn = function

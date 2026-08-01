@@ -249,19 +249,19 @@ module Handler : Utility.Handler
 (** {1 Clear Utilities} *)
 
 val clear_left : t
-(** [clear_left] sets [clear] to [left]. *)
+(** [clear_left] sets [clear: left]. *)
 
 val clear_right : t
-(** [clear_right] sets [clear] to [right]. *)
+(** [clear_right] sets [clear: right]. *)
 
 val clear_both : t
-(** [clear_both] sets [clear] to [both]. *)
+(** [clear_both] sets [clear: both]. *)
 
 val clear_start : t
-(** [clear_start] sets [clear] to [inline-start]. *)
+(** [clear_start] sets [clear: inline-start]. *)
 
 val clear_end : t
-(** [clear_end] sets [clear] to [inline-end]. *)
+(** [clear_end] sets [clear: inline-end]. *)
 
 val clear_none : t
-(** [clear_none] sets [clear] to [none]. *)
+(** [clear_none] sets [clear: none]. *)

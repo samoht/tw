@@ -1,4 +1,15 @@
-(** Color conversion utilities for Tailwind v4 compatibility *)
+(** Colours, as Tailwind v4 names them.
+
+    A colour is a palette name ([Red], [Blue]) or one a project spelled itself
+    (a hex value, an [rgb()] call, a token from its [\@theme] block). A palette
+    name resolves to a value only once it is paired with a {!shade}, because the
+    palette defines eleven of them per name; the other kinds ignore the shade
+    they are given.
+
+    The conversions here exist because Tailwind's palette is authored in OKLCH
+    while a project writes hex and an opacity modifier needs both: a colour a
+    theme spells in hex takes a hex-with-alpha fallback, and one it spells in
+    OKLCH takes a [color-mix] fallback. *)
 
 open Cascade
 
@@ -73,7 +84,8 @@ val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
 val to_css : color -> int -> Css.color
-(** [to_css color shade] converts a color to CSS color value. *)
+(** [to_css color shade] is the CSS value of [color] at [shade]. A colour with
+    no palette behind it ignores [shade]. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -164,18 +176,24 @@ val rose : color
 (** [rose] is the base rose color. *)
 
 val hex : string -> color
-(** [hex s] creates color from hex string. *)
+(** [hex s] is the colour [s] spells, as [#rgb], [#rrggbb], either without the
+    [#], or as an [rgb(r,g,b)] call.
+
+    @raise Invalid_argument if [s] spells no colour. *)
 
 val rgb : int -> int -> int -> color
-(** [rgb r g b] creates color from RGB values. *)
+(** [rgb r g b] is the colour with those channels.
+
+    @raise Invalid_argument if a channel is outside \[0, 255\]. *)
 
 val of_string_exn : string -> color
-(** [of_string_exn name] converts a color name string to a color type. Raises
-    Failure if unknown color. *)
+(** [of_string_exn] is {!val-of_string} raising instead of returning an error.
+
+    @raise Failure if the palette has no colour of that name. *)
 
 val of_string : string -> (color, [ `Msg of string ]) result
-(** [of_string name] converts a color name string to a color type, returning a
-    Result. *)
+(** [of_string name] is the palette colour [name] names, and [Error (`Msg why)]
+    when the palette has no such name. *)
 
 (** {1 Color Conversion} *)
 
@@ -202,8 +220,9 @@ val is_custom_color : color -> bool
 (** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
 val is_shadeless : color -> bool
-(** [is_shadeless color] checks if a color should NOT have a shade suffix in
-    class names (base colors, custom colors, or theme-named colors). *)
+(** [is_shadeless color] is whether [color] has no palette behind it, so its
+    class name carries no shade suffix: a base colour, a colour a project
+    spelled itself, or one it named in its [\@theme] block. *)
 
 type shade =
   [ `S50
@@ -536,7 +555,7 @@ val outline_color : ?opacity:int -> ?shade:shade -> color -> t
     [shade] (default [`S500]), at [opacity] percent when given. *)
 
 val outline_transparent : t
-(** [outline_transparent] sets [outline-color] to [transparent]. *)
+(** [outline_transparent] sets [outline-color: transparent]. *)
 
 val outline_current : t
 (** [outline_current] sets [outline-color] to [currentColor]. *)

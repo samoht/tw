@@ -187,52 +187,52 @@ val mix_blend_plus_lighter : t
 (** {1 Background Blend Mode} *)
 
 val bg_blend_normal : t
-(** [bg_blend_normal] sets [background-blend-mode] to [normal]. *)
+(** [bg_blend_normal] sets [background-blend-mode: normal]. *)
 
 val bg_blend_multiply : t
-(** [bg_blend_multiply] sets [background-blend-mode] to [multiply]. *)
+(** [bg_blend_multiply] sets [background-blend-mode: multiply]. *)
 
 val bg_blend_screen : t
-(** [bg_blend_screen] sets [background-blend-mode] to [screen]. *)
+(** [bg_blend_screen] sets [background-blend-mode: screen]. *)
 
 val bg_blend_overlay : t
-(** [bg_blend_overlay] sets [background-blend-mode] to [overlay]. *)
+(** [bg_blend_overlay] sets [background-blend-mode: overlay]. *)
 
 val bg_blend_darken : t
-(** [bg_blend_darken] sets [background-blend-mode] to [darken]. *)
+(** [bg_blend_darken] sets [background-blend-mode: darken]. *)
 
 val bg_blend_lighten : t
-(** [bg_blend_lighten] sets [background-blend-mode] to [lighten]. *)
+(** [bg_blend_lighten] sets [background-blend-mode: lighten]. *)
 
 val bg_blend_color_dodge : t
-(** [bg_blend_color_dodge] sets [background-blend-mode] to [color-dodge]. *)
+(** [bg_blend_color_dodge] sets [background-blend-mode: color-dodge]. *)
 
 val bg_blend_color_burn : t
-(** [bg_blend_color_burn] sets [background-blend-mode] to [color-burn]. *)
+(** [bg_blend_color_burn] sets [background-blend-mode: color-burn]. *)
 
 val bg_blend_hard_light : t
-(** [bg_blend_hard_light] sets [background-blend-mode] to [hard-light]. *)
+(** [bg_blend_hard_light] sets [background-blend-mode: hard-light]. *)
 
 val bg_blend_soft_light : t
-(** [bg_blend_soft_light] sets [background-blend-mode] to [soft-light]. *)
+(** [bg_blend_soft_light] sets [background-blend-mode: soft-light]. *)
 
 val bg_blend_difference : t
-(** [bg_blend_difference] sets [background-blend-mode] to [difference]. *)
+(** [bg_blend_difference] sets [background-blend-mode: difference]. *)
 
 val bg_blend_exclusion : t
-(** [bg_blend_exclusion] sets [background-blend-mode] to [exclusion]. *)
+(** [bg_blend_exclusion] sets [background-blend-mode: exclusion]. *)
 
 val bg_blend_hue : t
-(** [bg_blend_hue] sets [background-blend-mode] to [hue]. *)
+(** [bg_blend_hue] sets [background-blend-mode: hue]. *)
 
 val bg_blend_saturation : t
-(** [bg_blend_saturation] sets [background-blend-mode] to [saturation]. *)
+(** [bg_blend_saturation] sets [background-blend-mode: saturation]. *)
 
 val bg_blend_color : t
-(** [bg_blend_color] sets [background-blend-mode] to [color]. *)
+(** [bg_blend_color] sets [background-blend-mode: color]. *)
 
 val bg_blend_luminosity : t
-(** [bg_blend_luminosity] sets [background-blend-mode] to [luminosity]. *)
+(** [bg_blend_luminosity] sets [background-blend-mode: luminosity]. *)
 
 (** {1 Ring Offset} *)
 

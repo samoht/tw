@@ -54,99 +54,99 @@ end
 (** {1 Background Origin, Clip, Size, Attachment and Repeat} *)
 
 val bg_origin_border : t
-(** [bg_origin_border] sets [background-origin] to [border-box]. *)
+(** [bg_origin_border] sets [background-origin: border-box]. *)
 
 val bg_origin_padding : t
-(** [bg_origin_padding] sets [background-origin] to [padding-box]. *)
+(** [bg_origin_padding] sets [background-origin: padding-box]. *)
 
 val bg_origin_content : t
-(** [bg_origin_content] sets [background-origin] to [content-box]. *)
+(** [bg_origin_content] sets [background-origin: content-box]. *)
 
 val bg_clip_border : t
-(** [bg_clip_border] sets [background-clip] to [border-box]. *)
+(** [bg_clip_border] sets [background-clip: border-box]. *)
 
 val bg_clip_padding : t
-(** [bg_clip_padding] sets [background-clip] to [padding-box]. *)
+(** [bg_clip_padding] sets [background-clip: padding-box]. *)
 
 val bg_clip_content : t
-(** [bg_clip_content] sets [background-clip] to [content-box]. *)
+(** [bg_clip_content] sets [background-clip: content-box]. *)
 
 val bg_clip_text : t
-(** [bg_clip_text] sets [background-clip] to [text]. *)
+(** [bg_clip_text] sets [background-clip: text]. *)
 
 val bg_auto : t
-(** [bg_auto] sets [background-size] to [auto]. *)
+(** [bg_auto] sets [background-size: auto]. *)
 
 val bg_cover : t
-(** [bg_cover] sets [background-size] to [cover]. *)
+(** [bg_cover] sets [background-size: cover]. *)
 
 val bg_contain : t
-(** [bg_contain] sets [background-size] to [contain]. *)
+(** [bg_contain] sets [background-size: contain]. *)
 
 val bg_fixed : t
-(** [bg_fixed] sets [background-attachment] to [fixed]. *)
+(** [bg_fixed] sets [background-attachment: fixed]. *)
 
 val bg_local : t
-(** [bg_local] sets [background-attachment] to [local]. *)
+(** [bg_local] sets [background-attachment: local]. *)
 
 val bg_scroll : t
-(** [bg_scroll] sets [background-attachment] to [scroll]. *)
+(** [bg_scroll] sets [background-attachment: scroll]. *)
 
 val bg_repeat : t
-(** [bg_repeat] sets [background-repeat] to [repeat]. *)
+(** [bg_repeat] sets [background-repeat: repeat]. *)
 
 val bg_no_repeat : t
-(** [bg_no_repeat] sets [background-repeat] to [no-repeat]. *)
+(** [bg_no_repeat] sets [background-repeat: no-repeat]. *)
 
 val bg_repeat_x : t
-(** [bg_repeat_x] sets [background-repeat] to [repeat-x]. *)
+(** [bg_repeat_x] sets [background-repeat: repeat-x]. *)
 
 val bg_repeat_y : t
-(** [bg_repeat_y] sets [background-repeat] to [repeat-y]. *)
+(** [bg_repeat_y] sets [background-repeat: repeat-y]. *)
 
 val bg_repeat_round : t
-(** [bg_repeat_round] sets [background-repeat] to [round]. *)
+(** [bg_repeat_round] sets [background-repeat: round]. *)
 
 val bg_repeat_space : t
-(** [bg_repeat_space] sets [background-repeat] to [space]. *)
+(** [bg_repeat_space] sets [background-repeat: space]. *)
 
 (** {1 Background Position} *)
 
 val bg_bottom : t
-(** [bg_bottom] sets [background-position] to [bottom]. *)
+(** [bg_bottom] sets [background-position: bottom]. *)
 
 val bg_bottom_left : t
-(** [bg_bottom_left] sets [background-position] to [bottom left]. *)
+(** [bg_bottom_left] sets [background-position: bottom left]. *)
 
 val bg_bottom_right : t
-(** [bg_bottom_right] sets [background-position] to [bottom right]. *)
+(** [bg_bottom_right] sets [background-position: bottom right]. *)
 
 val bg_center : t
-(** [bg_center] sets [background-position] to [center]. *)
+(** [bg_center] sets [background-position: center]. *)
 
 val bg_left : t
-(** [bg_left] sets [background-position] to [left]. *)
+(** [bg_left] sets [background-position: left]. *)
 
 val bg_left_bottom : t
-(** [bg_left_bottom] sets [background-position] to [left bottom]. *)
+(** [bg_left_bottom] sets [background-position: left bottom]. *)
 
 val bg_left_top : t
-(** [bg_left_top] sets [background-position] to [left top]. *)
+(** [bg_left_top] sets [background-position: left top]. *)
 
 val bg_right : t
-(** [bg_right] sets [background-position] to [right]. *)
+(** [bg_right] sets [background-position: right]. *)
 
 val bg_right_bottom : t
-(** [bg_right_bottom] sets [background-position] to [right bottom]. *)
+(** [bg_right_bottom] sets [background-position: right bottom]. *)
 
 val bg_right_top : t
-(** [bg_right_top] sets [background-position] to [right top]. *)
+(** [bg_right_top] sets [background-position: right top]. *)
 
 val bg_top : t
-(** [bg_top] sets [background-position] to [top]. *)
+(** [bg_top] sets [background-position: top]. *)
 
 val bg_top_left : t
-(** [bg_top_left] sets [background-position] to [top left]. *)
+(** [bg_top_left] sets [background-position: top left]. *)
 
 val bg_top_right : t
-(** [bg_top_right] sets [background-position] to [top right]. *)
+(** [bg_top_right] sets [background-position: top right]. *)

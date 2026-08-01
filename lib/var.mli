@@ -1,7 +1,15 @@
-(** Typed CSS variable definitions and CSS generation architecture.
+(** CSS custom properties, typed.
 
-    This module provides a type-safe system for CSS custom properties that
-    generates CSS across multiple layers following Tailwind v4's architecture.
+    A variable here is a handle, not a string: it carries the type of the value
+    it holds, which of the four patterns below it follows, and where it sorts in
+    the layer it belongs to. A declaration and the reference that reads it back
+    come from one call ({!val-binding}), so a rename cannot leave a [var()]
+    pointing at nothing.
+
+    The four patterns are {!val-theme} for a design token, {!val-channel} for a
+    variable several utilities write and one composes, {!val-property_default}
+    for one that registers an initial value with [\@property], and
+    {!val-ref_only} for one this library reads but never sets.
 
     {1 CSS Output Architecture}
 
@@ -393,9 +401,12 @@ type 'a ref_only = ('a, [ `Ref_only ]) t
 
 val theme :
   'a Css.kind -> ?runtime:bool -> string -> order:int * int -> 'a theme
-(** [theme kind name ?runtime ~order] creates a Theme-layer variable (design
-    token). Values are set via [Var.binding] at use sites that own the
-    declaration. Enforces explicit ordering for deterministic theme output.
+(** [theme kind ?runtime name ~order] is a design token of the theme layer,
+    named [--name] and holding a value of [kind]. It has no value of its own:
+    the utility that owns the token gives it one through {!val-binding}. [order]
+    is where the token sits among the others in [@layer theme], as a (priority,
+    subindex) pair, so the layer is ordered by what the tokens are rather than
+    by what a stylesheet happened to use.
 
     With [~runtime:true] the optimizer keeps [var(name)] references unfolded
     instead of inlining the theme value, so the token stays overridable at
@@ -412,11 +423,10 @@ val property_default :
   ?family:family ->
   string ->
   'a property_default
-(** [property_default kind ~initial name ?inherits ?universal ?property_order]
-    creates a Utility variable with a typed [\@property] registration and an
-    initial value used for referencing utilities and inline mode. The initial
-    value is required for proper [\@property] registration and reference
-    fallbacks.
+(** [property_default kind ~initial ?inherits ?universal ?initial_css
+     ?property_order ?family name] is a utility variable that registers itself
+    with [\@property] and carries [initial] as the value a reference falls back
+    to, both in the registration and in inline mode.
 
     [property_order] specifies the ordering of this variable in the
     {i \@layer properties \@supports} block. Lower values appear first.
@@ -452,11 +462,15 @@ val channel :
   'a Css.kind ->
   string ->
   'a channel
-(** [channel ?needs_property ?property_order kind name] creates a Utility
-    variable. When [needs_property] is true, generates an [\@property] rule for
-    animation support. [property_order] specifies ordering in the {i \@supports}
-    block. Ideal for composition patterns where contributing utilities set
-    declarations and aggregators reference values. *)
+(** [channel ?needs_property ?property_order ?family kind name] is a variable
+    several utilities write and one reads: each contributor sets [--name]
+    through {!val-binding} and the utility that composes them reads it. It has
+    no initial value, so a reader sees only what a contributor set.
+
+    [needs_property] registers it with [\@property], which a transition or
+    animation on the composed value needs. [property_order] is where its initial
+    value sits in the [\@supports] block, and [family] groups it with the
+    variables it is written beside. *)
 
 val property_order : string -> int option
 (** [property_order name] returns the property order for a variable name, used
@@ -484,10 +498,10 @@ val needs_property : string -> bool
     [\@property]. *)
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
-(** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
-    variable with a concrete fallback for inline mode. No declaration is
-    produced. This implements Pattern 4 - variables that are only referenced,
-    never set. *)
+(** [ref_only kind name ~fallback] is a handle on a variable this library never
+    sets: a reference to [--name] falls back to [fallback], which is also the
+    value inline mode uses. It produces no declaration, so it emits no
+    [\@property] rule either. *)
 
 val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
 (** [theme_ref ?default ?default_css name] creates a bare var reference to a
@@ -513,26 +527,27 @@ val binding :
   ?fallback:'a Css.fallback ->
   'a ->
   Css.declaration * 'a Css.var
-(** [binding var ?fallback value] creates both a CSS declaration and a var()
-    reference with the value as default for inline mode. This is the primary way
-    to use variables.
+(** [binding var ?fallback value] is the declaration [--name: value] paired with
+    a reference to it. Setting a variable and reading it back is one act, so the
+    pair comes from one call and the two cannot disagree.
 
-    - [fallback] if provided, the var reference will use this fallback instead
-      of the default value. Can be [Empty] for var(--name,), [None] for
-      var(--name), or [Fallback value] for var(--name, value). This is useful
-      for utilities that want to reference a variable with a different fallback
-      (e.g., text-xs references --tw-leading with --text-xs--line-height as
-      fallback). *)
+    The reference falls back to [value], which is what inline mode emits in
+    place of the [var()]. [fallback] overrides that: [None] for a bare
+    [var(--name)], [Empty] for [var(--name,)], and [Fallback v] for
+    [var(--name, v)]. A utility reads its own variable with a different fallback
+    that way, as [text-xs] reads [--tw-leading] falling back to
+    [--text-xs--line-height]. *)
 
 val binding_initial :
   ('a, [< `Property_default | `Channel ]) t -> Css.declaration
-(** [binding_initial var] resets the channel to the CSS-wide [initial] keyword
-    ([--name: initial]). Used by the [*-initial] and [via-none] utilities, which
-    clear a channel var instead of setting it to a typed value. *)
+(** [binding_initial var] resets the channel to the CSS-wide keyword of the same
+    name ([--name: initial]). Used by the [*-initial] and [via-none] utilities,
+    which clear a channel var instead of setting it to a typed value. *)
 
 val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
-(** [reference var] creates a reference to a variable. For ref_only and
-    property_default variables only. *)
+(** [reference var] is a [var(--name)] reading [var], falling back to the
+    initial value it was declared with. Only a variable that has one, that is a
+    {!val-ref_only} or a {!val-property_default}, can be read this way. *)
 
 val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
 (** [reference_with_fallback var fallback_value] creates a variable reference
@@ -603,9 +618,9 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
 
 (** {1 Heterogeneous Collections} *)
 
-type any_var =
-  | Any : ('a, 'r) t -> any_var
-      (** Existential type for heterogeneous collections of variables *)
+(** A variable with its type and pattern hidden, so variables of different kinds
+    can travel in one list. *)
+type any_var = Any : ('a, 'r) t -> any_var
 
 val properties : any_var list -> Css.t
 (** [properties vars] generates deduplicated [@property] rules for all variables

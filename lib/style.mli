@@ -4,11 +4,9 @@ open Cascade
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 
-type container_cmp =
-  | Cq_min
-  | Cq_max
-      (** Container-query direction: [Cq_min] is [width >= v], [Cq_max] is
-          [width < v]. *)
+(** Which side of a container query a width bounds: {!constructor-Cq_min} is
+    [width >= v], {!constructor-Cq_max} is [width < v]. *)
+type container_cmp = Cq_min | Cq_max
 
 (** [@min-[<len>]] / [@max-[<len>]]. *)
 type container_query =
@@ -327,11 +325,12 @@ val style :
   ?pseudo_suffix:Css.Selector.t ->
   Css.declaration list ->
   t
-(** [style ?rules ?property_rules props] defines a utility with CSS [props].
-    - [rules]: Optional custom CSS rules (for utilities like prose that generate
-      multiple rules with descendant selectors).
-    - [property_rules]: Optional CSS property rules needed by this utility.
-    - [props]: CSS properties to apply. *)
+(** [style ?rules ?property_rules ?merge_key ?pseudo_suffix props] is a utility
+    whose rule declares [props]. [rules] carries the extra rules a utility that
+    is not one flat rule needs, such as prose's descendant selectors.
+    [property_rules] carries the [\@property] registrations its variables need.
+    [merge_key] groups utilities that must land in one rule, and [pseudo_suffix]
+    appends a pseudo-element to the selector. *)
 
 val map_important : t -> t
 (** [map_important t] marks every declaration [t] emits as [!important] (the [!]
