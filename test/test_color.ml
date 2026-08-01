@@ -367,6 +367,51 @@ let test_hsl_non_percentage_channels () =
             a = None;
           }))
 
+(* An rgb() channel is a byte only when it is a static number. A var() channel
+   and the [none] sentinel, which adopts another colour's channel rather than
+   standing for zero, both leave the colour with no hex form; so does an alpha
+   the fold cannot read. *)
+let test_rgb_non_numeric_channels () =
+  let fold (c : Css.color) =
+    match Tw.Color.css_color_to_hex c with
+    | Some folded -> Cascade.Pp.to_string Css.pp_color folded
+    | None -> "unfolded"
+  in
+  Alcotest.(check string)
+    "static channels fold" "#ff0000"
+    (fold (Rgb (Channels { r = Int 255; g = Int 0; b = Int 0 })));
+  Alcotest.(check string)
+    "a var() channel does not fold" "unfolded"
+    (fold
+       (Rgb
+          (Channels
+             { r = Var (Cascade.Values.var_ref "x"); g = Int 0; b = Int 0 })));
+  Alcotest.(check string)
+    "a none channel does not fold" "unfolded"
+    (fold (Rgb (Channels { r = None; g = Int 0; b = Int 0 })));
+  Alcotest.(check string)
+    "a var() alpha does not fold" "unfolded"
+    (fold
+       (Rgba
+          {
+            rgb = Channels { r = Int 255; g = Int 0; b = Int 0 };
+            a = Var (Cascade.Values.var_ref "a");
+          }))
+
+(* A bracket colour the fold refuses keeps the authored function. *)
+let test_bracket_rgb_unresolvable_channels () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-[rgb(var(--x)_0_0)]" "background-color: rgb(var(--x) 0 0)";
+  has "bg-[rgb(none_0_0)]" "background-color: rgb(none 0 0)";
+  has "bg-[rgba(255,0,0,var(--a))]" "background-color: rgb(255 0 0 / var(--a))"
+
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
     (Invalid_argument
@@ -509,6 +554,10 @@ let tests =
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
     ("hsl hue units", `Quick, test_hsl_hue_units);
     ("hsl non-percentage channels", `Quick, test_hsl_non_percentage_channels);
+    ("rgb non-numeric channels", `Quick, test_rgb_non_numeric_channels);
+    ( "bracket rgb unresolvable channels",
+      `Quick,
+      test_bracket_rgb_unresolvable_channels );
     ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
