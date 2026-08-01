@@ -285,6 +285,51 @@ let test_motion_reduce_transition_none () =
   in
   check bool "should NOT have shorthand transition: none 0s" false has_shorthand
 
+(* The class a modifier renders has to be the class it was read from. This is
+   the cheap guard on the two spellings staying merged: the class name comes
+   from Style.pp_modifier and the selector from the table Modifiers exposes, and
+   while those were two tables they disagreed on nine constructors without
+   anything failing. Both directions matter - Style is the right arm for the
+   supports- shorthand and not-[...], Modifiers' was for not-* and the data
+   attributes. *)
+let test_modifier_class_roundtrip () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s rejected: %s" cls m
+      | Ok u ->
+          Alcotest.(check string)
+            (cls ^ " round-trips") cls (Tw.to_classes [ u ]))
+    [
+      "hover:p-4";
+      "not-hover:p-4";
+      "not-focus:p-4";
+      "not-sm:p-4";
+      "not-[.foo]:p-4";
+      "data-[state=open]:flex";
+      "data-[variant=ghost]:flex";
+      "data-[foo=bar]:flex";
+      "data-foo:flex";
+      "data-active:p-1";
+      "supports-grid:flex";
+      "supports-[display:grid]:flex";
+      "has-[:focus]:border-2";
+      "has-checked:flex";
+      "group-has-[:focus]:flex";
+      "peer-checked:bg-blue-500";
+      "aria-checked:p-4";
+      "aria-[sort=ascending]:p-4";
+      "min-[320px]:flex";
+      "max-[48rem]:flex";
+      "@sm:flex";
+      "@[600px]:flex";
+      "dark:hover:bg-gray-800";
+      "md:focus:outline-none";
+      "in-[.parent]:flex";
+      "before:block";
+      "marker:text-gray-500";
+    ]
+
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
@@ -755,6 +800,8 @@ let tests =
       test_case "anchor bracket without ampersand" `Quick
         test_anchor_bracket_without_ampersand;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
+      test_case "modifier class round-trips" `Quick
+        test_modifier_class_roundtrip;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
       test_case "nested modifier class names" `Quick
         test_nested_modifier_class_names;
