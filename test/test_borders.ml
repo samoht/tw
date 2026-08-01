@@ -219,6 +219,37 @@ let test_outline_hidden_modifier_forced_colors () =
     "forced-colors block is not the bare .outline-hidden" false
     (Astring.String.is_infix ~affix:" .outline-hidden " out)
 
+(* The outline family sorts as one block: outline-hidden, the widths, the
+   offsets, the colors, then the styles. Order matters beyond byte parity here:
+   outline-hidden's forced-colors reset writes the outline shorthand, so a color
+   rule ahead of it loses its outline-color. *)
+let test_outline_ordering () =
+  let parse cls =
+    match Tw.of_string cls with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let utilities =
+    List.map parse
+      [
+        "outline";
+        "outline-2";
+        "outline-[3px]";
+        "outline-hidden";
+        "outline-offset-2";
+        "-outline-offset-4";
+        "outline-red-500";
+        "outline-blue-500";
+        "outline-current";
+        "outline-transparent";
+        "outline-dashed";
+        "outline-solid";
+        "outline-none";
+      ]
+  in
+  Test_helpers.check_ordering_matches ~test_name:"outline family order"
+    (Test_helpers.shuffle utilities)
+
 (* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
    plus the side border-style var; they used to be unknown classes. *)
 let test_border_side_arbitrary_width () =
@@ -309,6 +340,8 @@ let tests =
       test_outline_offset_arbitrary;
     test_case "outline-hidden modifier forced-colors" `Quick
       test_outline_hidden_modifier_forced_colors;
+    test_case "outline family order matches Tailwind" `Quick
+      test_outline_ordering;
     test_case "border side arbitrary widths" `Quick
       test_border_side_arbitrary_width;
     test_case "logical single-side borders" `Quick test_logical_side_borders;
