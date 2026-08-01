@@ -59,15 +59,15 @@ module Handler = struct
     | Mask_bracket_cover
     | Mask_bracket_size of string
     | Mask_bracket_length of string
-    | Mask_bracket_position of string
-    | Mask_bracket_typed_position of string
+    | Mask_bracket_position of string * Css.position_value list
+    | Mask_bracket_typed_position of string * Css.position_value list
     | Mask_bracket_image_var of string
     | Mask_bracket_url of string
     | Mask_bracket_url_var of string
     | Mask_bracket_var of string
     | Mask_bracket_image of string
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
-    | Mask_position_bracket of string
+    | Mask_position_bracket of string * Css.position_value list
     | Mask_position_bracket_var of string
     | Mask_size_bracket of string
     | Mask_size_bracket_var of string
@@ -280,30 +280,27 @@ module Handler = struct
           (parse_size_val v)
     | _ -> None
 
-  (* A mask position is one or two components. Lengths go through the value
-     parser rather than a hand-rolled unit table, so every unit works. *)
-  let parse_bracket_position inner : Css.declaration list option =
+  (* A bracket mask-position: the whole [<position>] grammar, one position per
+     mask layer, comma-separated. [None] means the bracket is not a position,
+     which [of_class] rejects: [mask-[position:top]] used to fall through the
+     hand-rolled reading to a plausible-looking [center]. *)
+  let parse_bracket_position inner : Css.position_value list option =
     let one entry : Css.position_value option =
+      let cursor = Cascade.Cursor.of_string (Parse.decode_underscores entry) in
       match
-        String.split_on_char '_' entry |> List.filter (fun s -> s <> "")
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_position_value
+          cursor
       with
-      | [ x; y ] -> (
-          match (Css.parse_length x, Css.parse_length y) with
-          | Some xv, Some yv -> Some (XY (xv, yv))
-          | _ -> None)
-      | [ v ] ->
-          Option.map
-            (fun (l : Css.length) : Css.position_value -> Single l)
-            (Css.parse_length v)
-      | _ -> None
+      | Ok pos -> Some pos
+      | Error _ -> None
     in
-    (* One position per mask layer, comma-separated. *)
     let entries = String.split_on_char ',' inner |> List.map String.trim in
     let positions = List.map one entries in
     if List.exists Option.is_none positions then None
-    else
-      let positions = List.filter_map Fun.id positions in
-      Some [ Css.webkit_mask_position positions; Css.mask_position positions ]
+    else Some (List.filter_map Fun.id positions)
+
+  let mask_position_style positions =
+    style [ Css.webkit_mask_position positions; Css.mask_position positions ]
 
   let to_style _theme = function
     | Mask_none -> mask_none
@@ -352,24 +349,9 @@ module Handler = struct
         match parse_bracket_size inner with
         | Some decls -> style decls
         | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
-    | Mask_bracket_position inner -> (
-        match parse_bracket_position inner with
-        | Some decls -> style decls
-        | None ->
-            style
-              [
-                Css.webkit_mask_position [ Center ];
-                Css.mask_position [ Center ];
-              ])
-    | Mask_bracket_typed_position inner -> (
-        match parse_bracket_position inner with
-        | Some decls -> style decls
-        | None ->
-            style
-              [
-                Css.webkit_mask_position [ Center ];
-                Css.mask_position [ Center ];
-              ])
+    | Mask_bracket_position (_, positions) -> mask_position_style positions
+    | Mask_bracket_typed_position (_, positions) ->
+        mask_position_style positions
     | Mask_bracket_image_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -408,15 +390,7 @@ module Handler = struct
             invalid_arg ("mask-[" ^ v ^ "]: not a valid background-image value")
         )
     (* Sub-property bracket notation *)
-    | Mask_position_bracket inner -> (
-        match parse_bracket_position inner with
-        | Some decls -> style decls
-        | None ->
-            style
-              [
-                Css.webkit_mask_position [ Center ];
-                Css.mask_position [ Center ];
-              ])
+    | Mask_position_bracket (_, positions) -> mask_position_style positions
     | Mask_position_bracket_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.position_value Css.var = Var.bracket bare in
@@ -560,12 +534,13 @@ module Handler = struct
     | [ "mask"; "origin"; "stroke" ] -> Ok Mask_origin_stroke
     | [ "mask"; "origin"; "view" ] -> Ok Mask_origin_view
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
-    | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket ->
+    | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         if Parse.is_var inner then Ok (Mask_position_bracket_var inner)
-        else if parse_bracket_position inner = None then
-          Error (`Msg "Invalid mask-position value")
-        else Ok (Mask_position_bracket inner)
+        else
+          match parse_bracket_position inner with
+          | Some positions -> Ok (Mask_position_bracket (inner, positions))
+          | None -> Error (`Msg "Invalid mask-position value"))
     | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
         if Parse.is_var inner then Ok (Mask_size_bracket_var inner)
@@ -586,10 +561,14 @@ module Handler = struct
             Ok
               (Mask_bracket_size (String.sub inner 5 (String.length inner - 5)))
         | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
-          ->
-            Ok
-              (Mask_bracket_typed_position
-                 (String.sub inner 9 (String.length inner - 9)))
+          -> (
+            (* The [position:] data-type hint forces a mask-position; a value
+               the grammar rejects is not a utility. It used to fall through to
+               a plausible-looking [center]. *)
+            let v = String.sub inner 9 (String.length inner - 9) in
+            match parse_bracket_position v with
+            | Some positions -> Ok (Mask_bracket_typed_position (v, positions))
+            | None -> Error (`Msg ("Unknown mask bracket position: " ^ v)))
         | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
             Ok
               (Mask_bracket_image_var
@@ -606,10 +585,10 @@ module Handler = struct
             let url_content = String.sub inner 4 (String.length inner - 5) in
             Ok (Mask_bracket_url url_content)
         | _ when Parse.is_var inner -> Ok (Mask_bracket_var inner)
-        | _ ->
-            if parse_bracket_position inner <> None then
-              Ok (Mask_bracket_position inner)
-            else Error (`Msg ("Unknown mask bracket value: " ^ inner)))
+        | _ -> (
+            match parse_bracket_position inner with
+            | Some positions -> Ok (Mask_bracket_position (inner, positions))
+            | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))))
     | _ -> Error (`Msg "Not a mask utility")
 
   let to_class = function
@@ -658,14 +637,14 @@ module Handler = struct
     | Mask_bracket_cover -> "mask-[cover]"
     | Mask_bracket_size v -> "mask-[size:" ^ v ^ "]"
     | Mask_bracket_length v -> "mask-[length:" ^ v ^ "]"
-    | Mask_bracket_position v -> "mask-[" ^ v ^ "]"
-    | Mask_bracket_typed_position v -> "mask-[position:" ^ v ^ "]"
+    | Mask_bracket_position (v, _) -> "mask-[" ^ v ^ "]"
+    | Mask_bracket_typed_position (v, _) -> "mask-[position:" ^ v ^ "]"
     | Mask_bracket_image_var v -> "mask-[image:" ^ v ^ "]"
     | Mask_bracket_url url -> "mask-[url(" ^ url ^ ")]"
     | Mask_bracket_url_var v -> "mask-[url:" ^ v ^ "]"
     | Mask_bracket_var v -> "mask-[" ^ v ^ "]"
     | Mask_bracket_image v -> "mask-[" ^ v ^ "]"
-    | Mask_position_bracket v -> "mask-position-[" ^ v ^ "]"
+    | Mask_position_bracket (v, _) -> "mask-position-[" ^ v ^ "]"
     | Mask_position_bracket_var v -> "mask-position-[" ^ v ^ "]"
     | Mask_size_bracket v -> "mask-size-[" ^ v ^ "]"
     | Mask_size_bracket_var v -> "mask-size-[" ^ v ^ "]"
