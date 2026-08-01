@@ -36,6 +36,57 @@ let tailwind_css ?(forms = false) classnames =
   if not (Tw_tools.Tailwind_gen.available ()) then Alcotest.skip ();
   Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
 
+(* Which CSS properties a class declares. Custom properties count: a drop-shadow
+   colour and a drop-shadow size conflict only on [--tw-drop-shadow]. *)
+let properties_of_class cls =
+  match Tw.of_string cls with
+  | Error _ -> []
+  | Ok u ->
+      Tw.to_css ~base:false [ u ]
+      |> Css.fold
+           (fun acc stmt ->
+             match Css.as_rule stmt with
+             | Some (sel, decls, _) when Css.Selector.to_string sel <> ":root"
+               ->
+                 List.map Css.Declaration.property_key decls @ acc
+             | _ -> acc)
+           []
+
+(* Classes that declare a property in common, paired up. An ordering difference
+   is only observable on an element carrying two such classes; one class on its
+   own can only show a difference in value. *)
+let same_property_pairs classes =
+  let by_prop = Hashtbl.create 256 in
+  List.iter
+    (fun cls ->
+      List.iter
+        (fun k ->
+          let prev = Option.value ~default:[] (Hashtbl.find_opt by_prop k) in
+          Hashtbl.replace by_prop k (cls :: prev))
+        (properties_of_class cls))
+    classes;
+  let seen = Hashtbl.create 1024 in
+  Hashtbl.fold
+    (fun _ cs acc ->
+      let cs = List.sort_uniq String.compare cs in
+      let rec pairs acc = function
+        | [] | [ _ ] -> acc
+        | a :: tl ->
+            let acc =
+              List.fold_left
+                (fun acc b ->
+                  let p = (a, b) in
+                  if Hashtbl.mem seen p then acc
+                  else (
+                    Hashtbl.add seen p ();
+                    p :: acc))
+                acc tl
+            in
+            pairs acc tl
+      in
+      pairs acc cs)
+    by_prop []
+
 let check_ordering_fails ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
   not
@@ -130,6 +181,109 @@ let minimize_failing_case check_fails initial =
       else minimal
     in
     Some final
+
+(* Differential rendering. Both sheets are loaded in headless Chromium and the
+   computed styles compared: a property that computes the same is equivalent
+   however the two sheets spell it, and one that differs is observable by
+   definition. It needs node, Playwright and its Chromium, none of which a plain
+   opam build has, so the check skips when they are missing rather than being
+   gated in dune. Set TW_BROWSER_TESTS=0 to opt out where they are present. *)
+let rec dir_containing name dir =
+  if Sys.file_exists (Filename.concat dir name) then Some dir
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_containing name parent
+
+(* Tests run from the build directory, which is itself inside the project, so
+   the walk up finds the root whether or not dune sandboxed us. node_modules is
+   what we are really after: node resolves playwright from there. *)
+let project_root = lazy (dir_containing "node_modules" (Sys.getcwd ()))
+let browser_script = "test/helpers/browser/compare.js"
+
+let browser_available root =
+  Sys.getenv_opt "TW_BROWSER_TESTS" <> Some "0"
+  && Sys.file_exists (Filename.concat root "node_modules/playwright")
+  && Sys.file_exists (Filename.concat root browser_script)
+  && Sys.command "node --version > /dev/null 2>&1" = 0
+
+let write_file path content =
+  let oc = open_out path in
+  output_string oc content;
+  close_out oc
+
+let read_file path =
+  let ic = open_in path in
+  let n = in_channel_length ic in
+  let s = really_input_string ic n in
+  close_in ic;
+  s
+
+(* One directory per test, kept after the run: the two sheets and the element
+   list are what you need to reproduce a failure by hand. *)
+let render_dir root test_name =
+  let safe =
+    String.map
+      (fun c ->
+        match c with 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' -> c | _ -> '_')
+      test_name
+  in
+  let mkdir dir =
+    (* Another runner may have created it between the two calls. *)
+    if not (Sys.file_exists dir) then
+      try Sys.mkdir dir 0o755 with Sys_error _ -> ()
+  in
+  List.fold_left
+    (fun dir part ->
+      let dir = Filename.concat dir part in
+      mkdir dir;
+      dir)
+    root [ "tmp"; "browser"; safe ]
+
+let dedup l =
+  List.rev
+    (fst
+       (List.fold_left
+          (fun (acc, seen) x ->
+            if List.mem x seen then (acc, seen) else (x :: acc, x :: seen))
+          ([], []) l))
+
+let check_rendering_matches ?(forms = false) ~test_name utilities =
+  let root =
+    match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
+  in
+  if not (browser_available root) then Alcotest.skip ();
+  let classnames = List.map Tw.pp utilities in
+  (* A class on its own can only show a difference in value; an ordering
+     difference needs an element carrying two classes that write the same
+     property. *)
+  let pairs = same_property_pairs classnames in
+  let elements =
+    dedup (classnames @ List.map (fun (a, b) -> a ^ " " ^ b) pairs)
+  in
+  let tailwind = tailwind_css ~forms classnames in
+  let dir = render_dir root test_name in
+  let path name = Filename.concat dir name in
+  write_file (path "tw.css") (our_css utilities);
+  write_file (path "tailwind.css") tailwind;
+  write_file (path "elements.txt") (String.concat "\n" elements);
+  let out = path "diff.txt" and err = path "stderr.txt" in
+  let cmd =
+    Fmt.str "node %s %s %s %s > %s 2> %s"
+      (Filename.quote (Filename.concat root browser_script))
+      (Filename.quote (path "elements.txt"))
+      (Filename.quote (path "tw.css"))
+      (Filename.quote (path "tailwind.css"))
+      (Filename.quote out) (Filename.quote err)
+  in
+  match Sys.command cmd with
+  | 0 -> ()
+  | 1 -> Alcotest.failf "%s\n%s" test_name (read_file out)
+  | _ ->
+      (* No usable browser (Chromium not downloaded, sandbox refused to start).
+         Report it and skip: it is a missing tool, not a difference. *)
+      Fmt.epr "browser rendering unavailable: %s@."
+        (String.trim (read_file err));
+      Alcotest.skip ()
 
 let check_ordering_matches ?(forms = false) ~test_name utilities =
   let classnames = List.map Tw.pp utilities in
