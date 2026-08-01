@@ -30,8 +30,9 @@ let parse_css_color value =
   | "aqua" -> Some (Css.color_name Aqua)
   | "transparent" -> Some Css.Transparent
   | "currentcolor" -> Some Css.Current
-  | s when String.length s > 0 && s.[0] = '#' ->
-      Some (Css.hex (String.sub s 1 (String.length s - 1)))
+  (* A [#] prefix only names a colour when what follows is a hex spelling;
+     [Css.hex] raises on anything else, and this runs inside [of_class]. *)
+  | s when String.length s > 0 && s.[0] = '#' -> Css.hex_opt s
   | _ -> None
 
 (** Map a CSS property name to its declaration constructor (color properties
