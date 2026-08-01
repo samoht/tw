@@ -197,23 +197,6 @@ let rec container_query_to_condition q =
   | Style.Container_scoped (name, inner) ->
       Css.Container.Named (name, container_query_to_condition inner)
 
-let container_query_to_class_prefix = function
-  | Style.Container_3xs -> "@3xs"
-  | Style.Container_2xs -> "@2xs"
-  | Style.Container_xs -> "@xs"
-  | Style.Container_sm -> "@sm"
-  | Style.Container_md -> "@md"
-  | Style.Container_lg -> "@lg"
-  | Style.Container_xl -> "@xl"
-  | Style.Container_2xl -> "@2xl"
-  | Style.Container_3xl -> "@3xl"
-  | Style.Container_4xl -> "@4xl"
-  | Style.Container_5xl -> "@5xl"
-  | Style.Container_6xl -> "@6xl"
-  | Style.Container_7xl -> "@7xl"
-  | Style.Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
-  | Style.Container_named (name, width) ->
-      "@" ^ name ^ "/" ^ string_of_int width
-  | ( Style.Container_size _ | Style.Container_len _ | Style.Container_len_cmp _
-    | Style.Container_scoped _ ) as q ->
-      "@" ^ Style.container_size_name q
+(* The selector's class prefix and the class name [Utility.to_class] emits have
+   to be the same string, so both come from [Style.container_size_name]. *)
+let container_query_to_class_prefix q = "@" ^ Style.container_size_name q

@@ -374,7 +374,9 @@ let test_pp_modifier_strings () =
   check string "pp sm" "sm" (pp_modifier (Responsive `Sm));
   check string "pp container md" "@md"
     (pp_modifier (Container Tw.Style.Container_md));
-  check string "pp container named width" "@600px"
+  (* An unnamed width is the arbitrary form; [@600px] is not a class the parser
+     reads back, and Tailwind spells it [@[600px]]. *)
+  check string "pp container named width" "@[600px]"
     (pp_modifier (Container (Tw.Style.Container_named ("", 600))));
   check string "pp has[...]" "has-[.foo]" (pp_modifier (Has ".foo"));
   check string "pp group-has[...]" "group-has-[.bar]"
@@ -569,11 +571,13 @@ let test_aria_and_data_modifiers () =
     (Tw.Utility.to_class (data_active [ p 1 ]));
   check string "data-inactive:m-2" "data-inactive:m-2"
     (Tw.Utility.to_class (data_inactive [ m 2 ]));
-  check string "data-state=open:bg-blue-500" "data-state=open:bg-blue-500"
+  (* The class name has to be the class the selector matches, and Tailwind
+     brackets a data attribute carrying a value. *)
+  check string "data-[state=open]:bg-blue-500" "data-[state=open]:bg-blue-500"
     (Tw.Utility.to_class (data_state "open" (bg blue)));
-  check string "data-variant=primary:p-3" "data-variant=primary:p-3"
+  check string "data-[variant=primary]:p-3" "data-[variant=primary]:p-3"
     (Tw.Utility.to_class (data_variant "primary" (p 3)));
-  check string "data-status=on:m-4" "data-status=on:m-4"
+  check string "data-[status=on]:m-4" "data-[status=on]:m-4"
     (Tw.Utility.to_class (data_custom "status" "on" (m 4)))
 
 (* Test before/after pseudo-element modifiers *)
