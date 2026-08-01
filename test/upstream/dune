@@ -7,4 +7,4 @@
  (name test)
  (modules test)
  (libraries alcotest tw cascade cascade.diff fmt re)
- (deps utilities.txt))
+ (deps utilities.txt variants.txt))
