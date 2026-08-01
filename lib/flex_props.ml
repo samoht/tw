@@ -240,14 +240,16 @@ module Handler = struct
     | Flex_grow_0 -> 30001
     | Flex_grow_n n -> 30000 + n
     | Flex_grow_arbitrary _ -> 30002
-    (* Basis: fractions → arbitrary → keywords alphabetical → named *)
-    | Basis_fraction (n, m) -> 40000 + (n * 10) + m
+    (* Basis: Tailwind interleaves the fractions with the numerics by numerator
+       (basis-1, basis-1/2, basis-1/3, basis-2, basis-2/3, basis-3/4, basis-4),
+       then arbitrary, then the keywords and named sizes. *)
+    | Basis_0 -> 40000
+    | Basis_1 -> 40010
+    | Basis_spacing n -> 40000 + (n * 10)
+    | Basis_fraction (n, m) -> 40000 + (n * 10) + 1 + m
     | Basis_arbitrary _ -> 42000
-    | Basis_0 -> 43000
-    | Basis_1 -> 43001
-    | Basis_spacing _ -> 43001
-    | Basis_auto -> 43002
-    | Basis_full -> 43003
+    | Basis_auto -> 43000
+    | Basis_full -> 43001
     | Basis_named _ -> 44000
 
   let err_not_utility = Error (`Msg "Not a flex property utility")

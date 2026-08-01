@@ -97,12 +97,61 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"flex_props suborder matches Tailwind" shuffled
 
+(* Tailwind interleaves the basis fractions with the numerics by numerator, so
+   basis-1/2 lands between basis-1 and basis-2. tw sorted every fraction ahead
+   of every numeric, so basis-0 beat basis-1/2 on an element carrying both. The
+   canonical diff matches rules by key and passes either way, so assert on the
+   positions. *)
+let basis_value_order_matches_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
+  in
+  let classes =
+    [
+      "basis-0";
+      "basis-1";
+      "basis-1/2";
+      "basis-1/3";
+      "basis-2";
+      "basis-2/3";
+      "basis-3/4";
+      "basis-4";
+      "basis-[10rem]";
+      "basis-auto";
+      "basis-full";
+    ]
+  in
+  let css =
+    Tw.to_css ~base:false (List.map mk (Test_helpers.shuffle classes))
+  in
+  let emitted =
+    Test_helpers.extract_rule_selectors
+      (Test_helpers.extract_utilities_layer_rules css)
+  in
+  let escape c =
+    String.concat ""
+      (List.map
+         (fun ch ->
+           match ch with
+           | ('/' | '[' | ']' | '.' | '%') as ch -> "\\" ^ String.make 1 ch
+           | ch -> String.make 1 ch)
+         (List.init (String.length c) (String.get c)))
+  in
+  Alcotest.(check (list string))
+    "basis value order"
+    (List.map (fun c -> "." ^ escape c) classes)
+    emitted
+
 let tests =
   [
     test_case "flex_props of_string - valid values" `Quick of_string_valid;
     test_case "flex_props of_string - invalid values" `Quick of_string_invalid;
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "basis value order matches Tailwind" `Quick
+      basis_value_order_matches_tailwind;
   ]
 
 let suite = ("flex_props", tests)
