@@ -1432,6 +1432,16 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
         Hashtbl.add derived name t;
         t
   in
+  (* A declared variant only decorates the selector: the utility underneath is
+     one the handlers know, so it sorts by its own order - the same one the
+     built-in generator gives it. Reading a slot off the emitted property would
+     lose the value's place within its family ([p-2] before [p-10]). *)
+  let own_order = Hashtbl.create 8 in
+  let record_own_order cls name =
+    match Tw.Utility.base_of_class theme name with
+    | Ok base -> Hashtbl.replace own_order cls (Tw.Utility.order base)
+    | Error _ -> ()
+  in
   let one cls =
     let variants, bare = split_declared_variants defs cls in
     (* [bare] still carries the built-in prefixes; the utility itself is its
@@ -1450,7 +1460,11 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
     | None ->
         let body, top = nested_utilities ~theme [ bare ] in
         add_once hoisted seen top;
-        if body = "" then None else Some (wrapped_block cls variants body)
+        if body = "" then None
+        else begin
+          record_own_order cls name;
+          Some (wrapped_block cls variants body)
+        end
   in
   match List.filter_map one candidates with
   | [] -> (0, [], [])
@@ -1499,9 +1513,10 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
           in
           (* Tailwind sorts a declared utility at the slot of the property it
              declares, so group the rules it produced under their own class and
-             read that slot off the first declaration. A property no handler
-             claims leaves the group without an order; those keep their old
-             place at the end of the layer rather than being dropped. *)
+             read that slot off the first declaration. A utility that carries
+             its own order needs no slot. A property no handler claims leaves
+             the group without either; those keep their old place at the end of
+             the layer rather than being dropped. *)
           let group = Hashtbl.create 8 in
           let order_of = Hashtbl.create 8 in
           let classless = ref [] in
@@ -1514,27 +1529,57 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
                     Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
                   in
                   Hashtbl.replace group cls (prev @ [ stmt ]);
-                  if not (Hashtbl.mem order_of cls) then
+                  if
+                    (not (Hashtbl.mem own_order cls))
+                    && not (Hashtbl.mem order_of cls)
+                  then
                     match slot_of_statement stmt with
                     | Some order -> Hashtbl.add order_of cls order
                     | None -> ()))
             rules;
           (* Two declared utilities can land on the same slot, and their rules
              would then interleave by selector, splitting each one's own rules
-             apart. Offset the suborder per class so each stays contiguous. *)
+             apart. Offset the suborder per class so each stays contiguous. The
+             offset counts along a slot-then-name walk of the groups, not along
+             the hash table's, so it does not depend on the class names' hashes.
+             A utility with an order of its own takes no offset: it already sits
+             where the built-in generator would put it, and nudging it would
+             break the ties the layer resolves by name. *)
+          let slot_of cls =
+            match Hashtbl.find_opt own_order cls with
+            | Some order -> order
+            | None ->
+                Stdlib.Option.value
+                  ~default:(max_int, max_int)
+                  (Hashtbl.find_opt order_of cls)
+          in
+          let by_slot (c1, _) (c2, _) =
+            let p1, s1 = slot_of c1 and p2, s2 = slot_of c2 in
+            let cmp = Int.compare p1 p2 in
+            let cmp = if cmp <> 0 then cmp else Int.compare s1 s2 in
+            if cmp <> 0 then cmp else String.compare c1 c2
+          in
+          let entries =
+            Hashtbl.fold (fun cls stmts acc -> (cls, stmts) :: acc) group []
+            |> List.sort by_slot
+          in
           let nth = ref 0 in
           let ordered, unordered =
-            Hashtbl.fold
-              (fun cls stmts (ordered, unordered) ->
-                match Hashtbl.find_opt order_of cls with
-                | Some (priority, suborder) ->
-                    incr nth;
-                    ( (cls, (priority, suborder + !nth), stmts) :: ordered,
-                      unordered )
-                | None -> (ordered, stmts @ unordered))
-              group
+            List.fold_left
+              (fun (ordered, unordered) (cls, stmts) ->
+                match Hashtbl.find_opt own_order cls with
+                | Some order -> ((cls, order, stmts) :: ordered, unordered)
+                | None -> (
+                    match Hashtbl.find_opt order_of cls with
+                    | Some (priority, suborder) ->
+                        incr nth;
+                        ( (cls, (priority, suborder + !nth), stmts) :: ordered,
+                          unordered )
+                    | None -> (ordered, unordered @ stmts)))
               ([], List.rev !classless)
+              entries
           in
+          let ordered = List.rev ordered in
           let unplaced =
             if unordered = [] then []
             else [ Css.layer ~name:"utilities" unordered ]
