@@ -29,6 +29,10 @@
           | _ -> Error (`Msg "Not an example utility")
 
         let to_class = function Block -> "example-block"
+
+        (* One utility per property this handler sets, so a project's own
+           [@utility] declaring [display] can find its slot. *)
+        let examples = [ Block ]
       end
 
       let () = Utility.register (module Handler)
@@ -113,10 +117,23 @@ module type Handler = sig
 
   val to_class : t -> string
   (** [to_class u] is the CSS class name for utility [u]. *)
+
+  val examples : t list
+  (** A few of this handler's utilities, one per property it can set.
+      {!order_of_property} runs them through {!to_style} to learn which
+      properties belong to which slot, so nothing has to restate the order or
+      pair a property with a variant by hand. Covering a property here is what
+      lets a project's [@utility] declaring it sort in the right place. *)
 end
 
 val register : (module Handler with type t = 'a) -> unit
 (** [register h] registers a utility handler module. *)
+
+val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
+(** [order_of_property k] is the [(priority, suborder)] of the utility family
+    that sets property [k], or [None] when no registered handler claims it. This
+    is where a declared [@utility] gets its place: Tailwind sorts one by the
+    property it declares, not by its name. *)
 
 val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
 (** [base_of_class theme class_name] parses a class name into a base utility

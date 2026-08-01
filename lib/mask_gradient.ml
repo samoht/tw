@@ -1132,6 +1132,8 @@ module Handler = struct
     | Mask_radial_size (Arbitrary_size s) ->
         let escaped = String.map (fun c -> if c = ' ' then '_' else c) s in
         "mask-radial-[" ^ escaped ^ "]"
+
+  let examples = [ Mask_linear_angle (Angle_int 0) ]
 end
 
 open Handler

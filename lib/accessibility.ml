@@ -40,6 +40,8 @@ module Handler = struct
     | [ "forced"; "color"; "adjust"; "auto" ] -> Ok Forced_color_adjust_auto
     | [ "forced"; "color"; "adjust"; "none" ] -> Ok Forced_color_adjust_none
     | _ -> Error (`Msg "Not an accessibility utility")
+
+  let examples = [ Forced_color_adjust_auto ]
 end
 
 open Handler

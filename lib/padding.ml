@@ -190,6 +190,21 @@ module Handler = struct
                       Ok { axis; value = Standard spacing_val }
                   | Some `Auto -> Error (`Msg "Not a padding utility")))
         | None -> Error (`Msg "Not a padding utility"))
+
+  let examples =
+    [
+      { axis = `All; value = Standard (`Rem 1.) };
+      { axis = `X; value = Standard (`Rem 1.) };
+      { axis = `Y; value = Standard (`Rem 1.) };
+      { axis = `T; value = Standard (`Rem 1.) };
+      { axis = `R; value = Standard (`Rem 1.) };
+      { axis = `B; value = Standard (`Rem 1.) };
+      { axis = `L; value = Standard (`Rem 1.) };
+      { axis = `S; value = Standard (`Rem 1.) };
+      { axis = `E; value = Standard (`Rem 1.) };
+      { axis = `Bs; value = Standard (`Rem 1.) };
+      { axis = `Be; value = Standard (`Rem 1.) };
+    ]
 end
 
 open Handler

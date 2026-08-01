@@ -92,6 +92,8 @@ module Handler = struct
         let name = String.sub n 11 (String.length n - 11) in
         Ok (Container_named name)
     | _ -> Error (`Msg "Not a container utility")
+
+  let examples = [ Container ]
 end
 
 open Handler

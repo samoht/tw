@@ -38,6 +38,7 @@ module Handler = struct
     | _ -> err_not_utility
 
   let to_class = function Grid -> "grid" | Inline_grid -> "inline-grid"
+  let examples = [ Grid ]
 end
 
 open Handler

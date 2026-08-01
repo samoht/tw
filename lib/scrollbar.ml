@@ -258,6 +258,8 @@ module Handler = struct
     | "scrollbar" :: "track" :: rest ->
         parse_color ~theme (fun s -> Track s) rest
     | _ -> Error (`Msg "Not a scrollbar utility")
+
+  let examples = [ Width_auto; Gutter_auto; Thumb Current; Track Current ]
 end
 
 let () = Utility.register (module Handler)

@@ -3349,6 +3349,17 @@ module Handler = struct
     | Placeholder_bracket_color (v, _) -> "placeholder-[" ^ v ^ "]"
     | Placeholder_bracket_color_opacity (v, _, opacity) ->
         "placeholder-[" ^ v ^ "]" ^ opacity_suffix opacity
+
+  let examples =
+    [
+      Bg_transparent;
+      Text_transparent;
+      Border_transparent;
+      Outline_transparent;
+      Accent_transparent;
+      Caret_transparent;
+      Placeholder_transparent;
+    ]
 end
 
 open Handler

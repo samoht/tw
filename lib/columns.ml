@@ -198,6 +198,8 @@ module Handler = struct
     | Columns_arbitrary n -> "columns-[" ^ string_of_int n ^ "]"
     | Columns_arbitrary_len s -> "columns-[" ^ s ^ "]"
     | Columns_bracket_var s -> "columns-[" ^ s ^ "]"
+
+  let examples = [ Columns_auto ]
 end
 
 open Handler

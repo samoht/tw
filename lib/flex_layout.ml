@@ -57,6 +57,8 @@ module Handler = struct
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
     | None -> Error (`Msg "Not a flex layout utility")
+
+  let examples = [ Flex_row; Flex_wrap ]
 end
 
 open Handler

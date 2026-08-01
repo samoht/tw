@@ -1112,6 +1112,20 @@ module Handler = struct
     | End n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "end-" ^ string_of_int (abs n)
+
+  let examples =
+    [
+      Position_static;
+      Inset_0;
+      Inset_x_0;
+      Inset_y_0;
+      Top_auto;
+      Right_auto;
+      Bottom_auto;
+      Left_auto;
+      Start_auto;
+      End_auto;
+    ]
 end
 
 open Handler

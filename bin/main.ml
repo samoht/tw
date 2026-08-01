@@ -1307,6 +1307,33 @@ let is_custom_routed ~defs ~udefs cls =
    author CSS uses: the declarations land under the escaped class, wrapped in
    the declared variants, and cascade flattens the nesting into the project's
    selector. *)
+(* The class a routed rule belongs to: its selector's first class, which is the
+   declared utility itself for both [.line-y] and [.line-y:before]. *)
+let rec first_class_of_statement stmt =
+  match Css.as_rule stmt with
+  | Some (selector, _, _) -> Css.Selector.first_class selector
+  | None -> (
+      match Css.as_media stmt with
+      | Some (_, inner) -> List.find_map first_class_of_statement inner
+      | None -> (
+          match Css.as_supports stmt with
+          | Some (_, inner) -> List.find_map first_class_of_statement inner
+          | None -> None))
+
+(* Where a declared utility sorts: the slot of the property it writes first. *)
+let rec slot_of_statement stmt =
+  match Css.as_rule stmt with
+  | Some (_, d :: _, _) ->
+      Tw.Utility.order_of_property (Css.Declaration.property_key d)
+  | Some (_, [], _) -> None
+  | None -> (
+      match Css.as_media stmt with
+      | Some (_, inner) -> List.find_map slot_of_statement inner
+      | None -> (
+          match Css.as_supports stmt with
+          | Some (_, inner) -> List.find_map slot_of_statement inner
+          | None -> None))
+
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
@@ -1342,7 +1369,7 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
         if body = "" then None else Some (wrapped_block cls variants body)
   in
   match List.filter_map one candidates with
-  | [] -> (0, [])
+  | [] -> (0, [], [])
   | blocks -> (
       (* A [@variant] inside a declared utility's body names a built-in too. *)
       List.iter
@@ -1363,7 +1390,7 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
           (String.concat "" (blocks @ [ Buffer.contents hoisted ]))
       in
       match Css.of_string css with
-      | Error _ -> (0, [])
+      | Error _ -> (0, [], [])
       | Ok p ->
           let stmts = Css.statements (Css.flatten_nesting p.Css.stylesheet) in
           (* [@layer properties] and [@property] sit beside the utilities layer,
@@ -1386,8 +1413,49 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
                 end)
               hoisted_stmts
           in
-          ( List.length blocks,
-            Css.layer ~name:"utilities" rules :: hoisted_stmts ))
+          (* Tailwind sorts a declared utility at the slot of the property it
+             declares, so group the rules it produced under their own class and
+             read that slot off the first declaration. A property no handler
+             claims leaves the group without an order; those keep their old
+             place at the end of the layer rather than being dropped. *)
+          let group = Hashtbl.create 8 in
+          let order_of = Hashtbl.create 8 in
+          let classless = ref [] in
+          List.iter
+            (fun stmt ->
+              match first_class_of_statement stmt with
+              | None -> classless := stmt :: !classless
+              | Some cls -> (
+                  let prev =
+                    Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
+                  in
+                  Hashtbl.replace group cls (prev @ [ stmt ]);
+                  if not (Hashtbl.mem order_of cls) then
+                    match slot_of_statement stmt with
+                    | Some order -> Hashtbl.add order_of cls order
+                    | None -> ()))
+            rules;
+          (* Two declared utilities can land on the same slot, and their rules
+             would then interleave by selector, splitting each one's own rules
+             apart. Offset the suborder per class so each stays contiguous. *)
+          let nth = ref 0 in
+          let ordered, unordered =
+            Hashtbl.fold
+              (fun cls stmts (ordered, unordered) ->
+                match Hashtbl.find_opt order_of cls with
+                | Some (priority, suborder) ->
+                    incr nth;
+                    ( (cls, (priority, suborder + !nth), stmts) :: ordered,
+                      unordered )
+                | None -> (ordered, stmts @ unordered))
+              group
+              ([], List.rev !classless)
+          in
+          let unplaced =
+            if unordered = [] then []
+            else [ Css.layer ~name:"utilities" unordered ]
+          in
+          (List.length blocks, ordered, unplaced @ hoisted_stmts))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
@@ -1406,9 +1474,12 @@ let native_files paths flag ~(opts : gen_opts) =
       parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
     in
     let tw_styles = List.map snd known in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:include_base tw_styles in
-    let routed_count, routed_stmts =
+    let routed_count, routed_extra, routed_stmts =
       custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
+    in
+    let stylesheet =
+      Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
+        tw_styles
     in
     let stylesheet =
       match routed_stmts with

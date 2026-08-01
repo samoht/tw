@@ -549,6 +549,8 @@ module Handler = struct
             then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")
+
+  let examples = []
 end
 
 open Handler

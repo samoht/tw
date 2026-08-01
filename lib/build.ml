@@ -248,10 +248,23 @@ let merge_key_of_base_class base_class =
       in
       Some key
 
-(* Convert indexed rule to CSS statement *)
-let indexed_rule_to_statement (r : Sort.indexed_rule) =
-  let filtered_props = filter_utility_properties r.props in
-  let filtered_nested = filter_theme_from_statements r.nested in
+(* Convert indexed rule to CSS statement. [verbatim] names the base classes
+   whose rules arrived as finished CSS - a project's own [@utility] - so their
+   declarations are emitted as written. The theme filter exists to split a
+   utility's theme variables out of the utilities layer, and it recognises them
+   by the layer metadata [Var.binding] attaches; a declaration parsed from
+   author CSS carries none, so filtering it drops every [--tw-*] it sets. *)
+let indexed_rule_to_statement ?(verbatim = fun _ -> false)
+    (r : Sort.indexed_rule) =
+  let keep_as_written =
+    match r.base_class with Some c -> verbatim c | None -> false
+  in
+  let filtered_props =
+    if keep_as_written then r.props else filter_utility_properties r.props
+  in
+  let filtered_nested =
+    if keep_as_written then r.nested else filter_theme_from_statements r.nested
+  in
   let merge_key =
     match r.merge_key with
     | Some _ as mk -> mk
@@ -458,7 +471,7 @@ let utilities_layer ~layers ~statements =
    one block in Tailwind's output. Each is wrapped on its own here, and the
    optimizer's merging covers [@media] and [@supports] but not this, so collapse
    a run before the statements are handed over. *)
-let statements_of_sorted_rules sorted_rules =
+let statements_of_sorted_rules ?verbatim sorted_rules =
   let is_starting (r : Sort.indexed_rule) = r.rule_type = `Starting in
   let rec take_run taken = function
     | (x : Sort.indexed_rule) :: tl when is_starting x ->
@@ -476,7 +489,7 @@ let statements_of_sorted_rules sorted_rules =
             run
         in
         go (Css.starting_style inner :: acc) rest
-    | r :: rest -> go (indexed_rule_to_statement r :: acc) rest
+    | r :: rest -> go (indexed_rule_to_statement ?verbatim r :: acc) rest
   in
   go [] sorted_rules
 
@@ -1442,7 +1455,75 @@ type config = { base : bool; forms : bool option; layers : bool }
 
 let default_config = { base = true; forms = None; layers = true }
 
-let to_css ?(theme = Scheme.default) ?(config = default_config) tw_classes =
+(* A statement a project's own [@utility] produced, in the shape a built-in
+   utility yields, so the utilities layer sorts it by its order rather than
+   receiving it after everything else. *)
+let rec first_selector stmt =
+  match Css.as_rule stmt with
+  | Some (selector, _, _) -> Some selector
+  | None ->
+      let inner =
+        match Css.as_media stmt with
+        | Some (_, inner) -> inner
+        | None -> (
+            match Css.as_supports stmt with
+            | Some (_, inner) -> inner
+            | None -> (
+                match Css.as_container stmt with
+                | Some (_, _, inner) -> inner
+                | None -> []))
+      in
+      List.find_map first_selector inner
+
+let outputs_of_statement ~base_class stmt =
+  (* An at-rule nested in another - what a project's own [dark] variant builds
+     around a colour utility's [@supports] - keeps the inner one verbatim in
+     [nested], the same shape a compound modifier already uses. Decomposing it
+     instead would emit the inner rule without the outer condition. *)
+  let of_inner wrap inner =
+    if List.for_all (fun st -> Css.as_rule st <> None) inner then
+      List.concat_map
+        (fun st ->
+          match Css.as_rule st with
+          | Some (selector, props, _) -> [ wrap ~selector ~props ~nested:[] ]
+          | None -> [])
+        inner
+    else
+      match List.find_map first_selector inner with
+      | Some selector -> [ wrap ~selector ~props:[] ~nested:inner ]
+      | None -> []
+  in
+  match Css.as_rule stmt with
+  | Some (selector, props, nested) ->
+      [ Output.regular ~selector ~props ~base_class ~nested () ]
+  | None -> (
+      match Css.as_media stmt with
+      | Some (condition, inner) ->
+          of_inner
+            (fun ~selector ~props ~nested ->
+              Output.media_query ~condition ~selector ~props ~base_class ~nested
+                ())
+            inner
+      | None -> (
+          match Css.as_supports stmt with
+          | Some (condition, inner) ->
+              of_inner
+                (fun ~selector ~props ~nested:_ ->
+                  Output.supports_query ~condition ~selector ~props ~base_class
+                    ())
+                inner
+          | None -> (
+              match Css.as_container stmt with
+              | Some (_, Some condition, inner) ->
+                  of_inner
+                    (fun ~selector ~props ~nested ->
+                      Output.container_query ~condition ~selector ~props
+                        ~base_class ~nested ())
+                    inner
+              | _ -> [])))
+
+let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
+    tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
      re-parsing the class string while building/sorting rules. *)
@@ -1450,11 +1531,28 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) tw_classes =
   let selector_props =
     List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
+  (* A declared utility means nothing to the handlers, so its order arrives with
+     it and is seeded under the same key [order_of_base] looks up. *)
+  let selector_props =
+    selector_props
+    @ List.concat_map
+        (fun (class_name, order, statements) ->
+          Hashtbl.replace order_map (extract_base_utility class_name) order;
+          List.concat_map
+            (outputs_of_statement ~base_class:class_name)
+            statements)
+        extra
+  in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
   let sorted_rules = sorted_indexed_rules order_map selector_props in
-  let statements = statements_of_sorted_rules sorted_rules in
+  let verbatim =
+    let names = Hashtbl.create 8 in
+    List.iter (fun (cls, _, _) -> Hashtbl.replace names cls ()) extra;
+    fun cls -> Hashtbl.mem names cls
+  in
+  let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
     layers ~theme ~layers:config.layers ~include_base:config.base
       ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements

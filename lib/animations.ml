@@ -342,6 +342,8 @@ module Handler = struct
     | Animate_bounce -> "animate-bounce"
     | Animate_bracket v -> "animate-[" ^ v ^ "]"
     | Animate_named name -> "animate-" ^ name
+
+  let examples = [ Animate_none ]
 end
 
 open Handler

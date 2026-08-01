@@ -1106,6 +1106,8 @@ module Handler = struct
     | Outline_offset_arbitrary v -> "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
     | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
+
+  let examples = [ Border_0; Border_x; Border_y; Border_solid; Border_current ]
 end
 
 open Handler
@@ -1170,6 +1172,8 @@ module Outline_style_handler = struct
     | Double -> "outline-double"
     | None_ -> "outline-none"
     | Solid -> "outline-solid"
+
+  let examples = [ Solid ]
 end
 
 let () = Utility.register (module Outline_style_handler)

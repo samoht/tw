@@ -464,6 +464,8 @@ module Handler = struct
         | Ok (color, shade) -> Ok (Stroke_color (color, shade))
         | Error e -> Error e)
     | _ -> err_not_utility
+
+  let examples = [ Fill_none; Stroke_none; Stroke_0 ]
 end
 
 let () = Utility.register (module Handler)

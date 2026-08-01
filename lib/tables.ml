@@ -289,6 +289,16 @@ module Handler = struct
     | Table_fixed -> "table-fixed"
     | Caption_top -> "caption-top"
     | Caption_bottom -> "caption-bottom"
+
+  let examples =
+    [
+      Border_collapse;
+      Border_spacing 1.;
+      Border_spacing_x 1.;
+      Border_spacing_y 1.;
+      Table_auto;
+      Caption_top;
+    ]
 end
 
 open Handler

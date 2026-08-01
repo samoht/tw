@@ -27,6 +27,8 @@ module Handler = struct
     | [ "box"; "border" ] -> Ok Border
     | [ "box"; "content" ] -> Ok Content
     | _ -> Error (`Msg "Not a box-sizing utility")
+
+  let examples = [ Border ]
 end
 
 open Handler

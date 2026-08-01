@@ -362,6 +362,8 @@ module Handler = struct
     | Form_input -> "form-input"
     | Form_checkbox -> "form-checkbox"
     | Form_radio -> "form-radio"
+
+  let examples = []
 end
 
 (* Handler for select/textarea - priority 7 *)
@@ -490,6 +492,8 @@ module Select = struct
   let to_class = function
     | Form_select -> "form-select"
     | Form_textarea -> "form-textarea"
+
+  let examples = []
 end
 
 (* Register both handlers *)

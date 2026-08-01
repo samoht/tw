@@ -76,6 +76,8 @@ module Handler = struct
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
     | None -> Error (`Msg "Not an overscroll utility")
+
+  let examples = [ Auto; X_auto; Y_auto ]
 end
 
 open Handler

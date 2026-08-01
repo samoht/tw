@@ -408,6 +408,21 @@ module Handler = struct
                       else Ok { negative = false; axis; value = Standard `Auto }
                   ))
         | None -> Error (`Msg "Not a margin utility"))
+
+  let examples =
+    [
+      { negative = false; axis = `All; value = Standard `Auto };
+      { negative = false; axis = `X; value = Standard `Auto };
+      { negative = false; axis = `Y; value = Standard `Auto };
+      { negative = false; axis = `T; value = Standard `Auto };
+      { negative = false; axis = `R; value = Standard `Auto };
+      { negative = false; axis = `B; value = Standard `Auto };
+      { negative = false; axis = `L; value = Standard `Auto };
+      { negative = false; axis = `S; value = Standard `Auto };
+      { negative = false; axis = `E; value = Standard `Auto };
+      { negative = false; axis = `Bs; value = Standard `Auto };
+      { negative = false; axis = `Be; value = Standard `Auto };
+    ]
 end
 
 open Handler
