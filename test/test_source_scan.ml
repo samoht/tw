@@ -37,9 +37,9 @@ let test_scan_utf8_source () =
   check_strings "known classes" [ "bg-red-500"; "p-4" ] (known_classes source)
 
 let test_tw_str_html_space () =
-  check_strings "Tw.str"
+  check_strings "Tw.of_classes_exn"
     [ "flex"; "items-center"; "p-4" ]
-    (Tw.str "flex\titems-center\np-4" |> List.map Tw.pp)
+    (Tw.of_classes_exn "flex\titems-center\np-4" |> List.map Tw.to_string)
 
 (* A [ that opens an arbitrary value is followed immediately by its content, as
    in [text-[13px]]. A [ followed by whitespace is a plain array bracket, like
@@ -90,7 +90,8 @@ let tests =
     test_case "scan HTML plain text" `Quick test_scan_html_plain_text;
     test_case "scan JS static classes" `Quick test_scan_js_static_classes;
     test_case "scan UTF-8 source" `Quick test_scan_utf8_source;
-    test_case "Tw.str splits HTML whitespace" `Quick test_tw_str_html_space;
+    test_case "Tw.of_classes_exn splits HTML whitespace" `Quick
+      test_tw_str_html_space;
     test_case "bracket before whitespace is not a candidate" `Quick
       test_scan_bracket_before_whitespace;
     test_case "paren shorthands stay in the candidate" `Quick

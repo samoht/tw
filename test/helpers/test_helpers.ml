@@ -96,7 +96,7 @@ let same_property_pairs classes =
    class now, and agreeing on one predicate is worth more than the extra
    sensitivity here. *)
 let ordering_diff ?(forms = false) utilities =
-  let classnames = List.map Tw.pp utilities in
+  let classnames = List.map Tw.to_string utilities in
   Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
     (tailwind_css ~forms classnames)
     (our_css utilities)
@@ -264,7 +264,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
     match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
   in
   if not (browser_available root) then Alcotest.skip ();
-  let classnames = List.map Tw.pp utilities in
+  let classnames = List.map Tw.to_string utilities in
   (* A class on its own can only show a difference in value; an ordering
      difference needs an element carrying two classes that write the same
      property. *)
@@ -519,8 +519,8 @@ let check_invalid_parts (module H : Handler) parts =
     [Tw.of_string] to the same name. Used to pin newly exposed typed
     constructors against the string parser. *)
 let check_typed_class cls value =
-  Alcotest.(check string) cls cls (Tw.pp value);
+  Alcotest.(check string) cls cls (Tw.to_string value);
   match Tw.of_string cls with
-  | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
+  | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.to_string u)
   | Error (`Msg m) ->
       Alcotest.failf "%s: parser rejected its own class: %s" cls m

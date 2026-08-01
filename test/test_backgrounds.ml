@@ -34,7 +34,7 @@ let test_via_none () =
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.check string "via-none round-trips" "via-none"
-    (Tw.pp (Result.get_ok (Tw.of_string "via-none")));
+    (Tw.to_string (Result.get_ok (Tw.of_string "via-none")));
   Alcotest.(check bool)
     "via-none sets --tw-gradient-via-stops:initial" true
     (Astring.String.is_infix ~affix:"--tw-gradient-via-stops:initial"

@@ -161,9 +161,11 @@ let of_string_invalid () =
 
 let test_aspect_classes () =
   let open Tw in
-  Alcotest.check string "square class" "aspect-square" (Tw.pp aspect_square);
-  Alcotest.check string "video class" "aspect-video" (Tw.pp aspect_video);
-  Alcotest.check string "ratio class" "aspect-16/9" (Tw.pp (aspect_ratio 16 9))
+  Alcotest.check string "square class" "aspect-square"
+    (Tw.to_string aspect_square);
+  Alcotest.check string "video class" "aspect-video" (Tw.to_string aspect_video);
+  Alcotest.check string "ratio class" "aspect-16/9"
+    (Tw.to_string (aspect_ratio 16 9))
 
 let test_aspect_css () =
   let open Tw in
@@ -186,7 +188,7 @@ let test_aspect_bracket_number () =
     (Astring.String.is_infix ~affix:"aspect-ratio:1.333" (css "aspect-[1.333]"));
   Alcotest.(check string)
     "aspect-[1.333] round-trips" "aspect-[1.333]"
-    (Tw.pp (Result.get_ok (Tw.of_string "aspect-[1.333]")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "aspect-[1.333]")))
 
 (* A fraction on a logical min/max inline or block axis resolves to a
    percentage, like the physical max-w/max-h families do. *)
@@ -223,17 +225,17 @@ let test_aspect_square_inlined () =
 let test_class_generation () =
   let open Tw in
   (* Width: w n should generate w-{n} class *)
-  Alcotest.check string "w 1 -> w-1" "w-1" (Tw.pp (w 1));
-  Alcotest.check string "w 4 -> w-4" "w-4" (Tw.pp (w 4));
-  Alcotest.check string "w 10 -> w-10" "w-10" (Tw.pp (w 10));
-  Alcotest.check string "w 64 -> w-64" "w-64" (Tw.pp (w 64));
-  Alcotest.check string "w 96 -> w-96" "w-96" (Tw.pp (w 96));
+  Alcotest.check string "w 1 -> w-1" "w-1" (Tw.to_string (w 1));
+  Alcotest.check string "w 4 -> w-4" "w-4" (Tw.to_string (w 4));
+  Alcotest.check string "w 10 -> w-10" "w-10" (Tw.to_string (w 10));
+  Alcotest.check string "w 64 -> w-64" "w-64" (Tw.to_string (w 64));
+  Alcotest.check string "w 96 -> w-96" "w-96" (Tw.to_string (w 96));
 
   (* Height: h n should generate h-{n} class *)
-  Alcotest.check string "h 1 -> h-1" "h-1" (Tw.pp (h 1));
-  Alcotest.check string "h 5 -> h-5" "h-5" (Tw.pp (h 5));
-  Alcotest.check string "h 10 -> h-10" "h-10" (Tw.pp (h 10));
-  Alcotest.check string "h 64 -> h-64" "h-64" (Tw.pp (h 64));
+  Alcotest.check string "h 1 -> h-1" "h-1" (Tw.to_string (h 1));
+  Alcotest.check string "h 5 -> h-5" "h-5" (Tw.to_string (h 5));
+  Alcotest.check string "h 10 -> h-10" "h-10" (Tw.to_string (h 10));
+  Alcotest.check string "h 64 -> h-64" "h-64" (Tw.to_string (h 64));
 
   (* Verify CSS values are correct. These use calc(var(--spacing)*N) format
      where N is the class number (NOT the rem value). Tailwind v4: w-64 =>

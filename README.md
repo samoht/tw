@@ -31,7 +31,7 @@ let card =
   `@tailwindcss/forms` are fully implemented.
 - **Type-safe** — utilities are typed constructors, so invalid combinations are
   compile errors rather than silent no-ops.
-- **String parsing** — `Tw.str "flex p-4 bg-blue-500"` turns class strings into
+- **String parsing** — `Tw.of_classes_exn "flex p-4 bg-blue-500"` turns class strings into
   typed utilities for dynamic class lists.
 - **Pure OCaml** — no JavaScript toolchain required; the library also compiles
   to JavaScript with js_of_ocaml.
@@ -83,8 +83,8 @@ let css = Css.to_string ~minify:true stylesheet
 ### Parsing class strings
 
 ```ocaml
-(* [Tw.str] parses a class string into utilities (raises on unknown classes). *)
-let styles = Tw.str "flex items-center gap-4 p-6 bg-white rounded-lg shadow-sm"
+(* [Tw.of_classes_exn] parses a class string into utilities (raises on unknown classes). *)
+let styles = Tw.of_classes_exn "flex items-center gap-4 p-6 bg-white rounded-lg shadow-sm"
 
 (* [Tw.of_string] parses a single class and returns a result. *)
 let parsed = Tw.of_string "hover:bg-blue-600" (* Ok _ *)

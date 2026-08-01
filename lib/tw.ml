@@ -86,7 +86,7 @@ let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
-let pp utility = Utility.to_class utility
+let to_string utility = Utility.to_class utility
 let to_classes styles = styles |> List.map Utility.to_class |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
 
@@ -286,12 +286,20 @@ let of_string ?(theme = Theme.default) class_str =
                    supported"))
           else Error (`Msg ("Unknown class: " ^ class_str)))
 
-let str s =
-  let classes = split_whitespace s in
-  List.map
-    (fun cls ->
-      match of_string cls with Ok t -> t | Error (`Msg msg) -> invalid_arg msg)
-    classes
+let of_classes ?theme s =
+  let rec go acc = function
+    | [] -> Ok (List.rev acc)
+    | cls :: tl -> (
+        match of_string ?theme cls with
+        | Ok u -> go (u :: acc) tl
+        | Error _ as e -> e)
+  in
+  go [] (split_whitespace s)
+
+let of_classes_exn ?theme s =
+  match of_classes ?theme s with
+  | Ok us -> us
+  | Error (`Msg msg) -> invalid_arg msg
 
 (** {1 Module Exports} *)
 

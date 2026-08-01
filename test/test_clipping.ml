@@ -5,7 +5,7 @@ let test_clip_polygon () =
   let open Tw in
   let tri = Tw.clip_polygon [ (50., 0.); (0., 100.); (100., 100.) ] in
   check string "clip class" "clip-[polygon(50% 0%, 0% 100%, 100% 100%)]"
-    (Tw.pp tri);
+    (Tw.to_string tri);
   let css = to_css [ tri ] |> Css.pp ~minify:false in
   check bool "has clip-path property" true
     (Astring.String.is_infix ~affix:"clip-path:" css);

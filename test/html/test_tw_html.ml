@@ -121,9 +121,9 @@ let test_to_tw () =
   let tw_classes = to_tw elem in
   check Alcotest.int "collected 5 classes" 5 (List.length tw_classes);
   check bool "has p_4" true
-    (List.exists (fun tw -> Tw.pp tw = "p-4") tw_classes);
+    (List.exists (fun tw -> Tw.to_string tw = "p-4") tw_classes);
   check bool "has font_bold" true
-    (List.exists (fun tw -> Tw.pp tw = "font-bold") tw_classes)
+    (List.exists (fun tw -> Tw.to_string tw = "font-bold") tw_classes)
 
 let test_pp () =
   let elem = div ~tw:Tw.[ p 2 ] [ txt "Test" ] in

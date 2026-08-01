@@ -127,7 +127,7 @@ let check_exact_match tw_styles =
   (* Prepare classnames and raw CSS strings outside the try to use in
      handlers *)
   let tw_styles = match tw_styles with [] -> [] | styles -> styles in
-  let classnames = List.map pp tw_styles in
+  let classnames = List.map to_string tw_styles in
   let tw_css_raw = ref "" in
   let tailwind_css_raw = ref "" in
   try
@@ -1075,7 +1075,8 @@ let paren_var_shorthand () =
 let unterminated_theme_call () =
   let rejected cls =
     match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.to_string u)
     | Error _ -> ()
   in
   rejected "bg-[theme(colors.red";

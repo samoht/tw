@@ -255,7 +255,7 @@ let test_border_color_var () =
   (* the paren shorthand keeps its own class name *)
   Alcotest.(check string)
     "border-(--pattern-fg) round-trips" "border-(--pattern-fg)"
-    (Tw.pp (Result.get_ok (Tw.of_string "border-(--pattern-fg)")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "border-(--pattern-fg)")))
 
 (* A per-side border color takes an alpha modifier, like the all-sides one.
    border-b-white/5 used to be an unknown class. *)
@@ -275,7 +275,7 @@ let test_border_side_color_opacity () =
   has "border-x-pink-400/30" "border-inline-color:";
   Alcotest.(check string)
     "border-b-white/5 round-trips" "border-b-white/5"
-    (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "border-b-white/5")))
 
 (* An alpha can name a custom property to read the percentage from, written
    either as [/[var(--x)]] or as the [/(--x)] shorthand. The percentage is not
@@ -304,10 +304,10 @@ let test_alpha_from_a_var () =
   (* both spellings round-trip *)
   Alcotest.(check string)
     "the shorthand round-trips" "bg-cyan-400/(--a)"
-    (Tw.pp (Result.get_ok (Tw.of_string "bg-cyan-400/(--a)")));
+    (Tw.to_string (Result.get_ok (Tw.of_string "bg-cyan-400/(--a)")));
   Alcotest.(check string)
     "the bracket form round-trips" "bg-cyan-400/[var(--a)]"
-    (Tw.pp (Result.get_ok (Tw.of_string "bg-cyan-400/[var(--a)]")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "bg-cyan-400/[var(--a)]")))
 
 (* A bracket colour is read as CSS first and only then as a palette name, so a
    system colour or a light-dark() both work. The fallback used to admit only

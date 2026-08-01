@@ -918,7 +918,7 @@ let test_random_utilities_with_minimization () =
   with
   | None -> () (* Test passes *)
   | Some final ->
-      let final_classes = List.map Tw.pp final in
+      let final_classes = List.map Tw.to_string final in
       Fmt.epr "@.Minimal failing case (%d utilities): %a@." (List.length final)
         Fmt.(list ~sep:(const string " ") string)
         final_classes;

@@ -217,7 +217,7 @@ let test_translate_spacing_steps () =
   has "translate-x-1" "--tw-translate-x:var(--spacing)";
   Alcotest.(check string)
     "-translate-y-0.5 round-trips" "-translate-y-0.5"
-    (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "-translate-y-0.5")))
 
 let tests =
   [

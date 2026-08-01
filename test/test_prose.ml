@@ -4,13 +4,14 @@ module Css = Cascade.Css
 open Tw
 
 let test_classes () =
-  Alcotest.(check string) "prose base class" "prose" (pp prose);
-  Alcotest.(check string) "prose-sm class" "prose-sm" (pp prose_sm);
-  Alcotest.(check string) "prose-lg class" "prose-lg" (pp prose_lg);
-  Alcotest.(check string) "prose-xl class" "prose-xl" (pp prose_xl);
-  Alcotest.(check string) "prose-2xl class" "prose-2xl" (pp prose_2xl);
-  Alcotest.(check string) "prose-gray class" "prose-gray" (pp prose_gray);
-  Alcotest.(check string) "prose-slate class" "prose-slate" (pp prose_slate)
+  Alcotest.(check string) "prose base class" "prose" (to_string prose);
+  Alcotest.(check string) "prose-sm class" "prose-sm" (to_string prose_sm);
+  Alcotest.(check string) "prose-lg class" "prose-lg" (to_string prose_lg);
+  Alcotest.(check string) "prose-xl class" "prose-xl" (to_string prose_xl);
+  Alcotest.(check string) "prose-2xl class" "prose-2xl" (to_string prose_2xl);
+  Alcotest.(check string) "prose-gray class" "prose-gray" (to_string prose_gray);
+  Alcotest.(check string)
+    "prose-slate class" "prose-slate" (to_string prose_slate)
 
 let test_combinations () =
   let combined = to_classes [ prose; prose_lg ] in

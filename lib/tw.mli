@@ -50,6 +50,13 @@
         ]
     ]}
 
+    {1:printers Printers}
+
+    Every printer here returns a [string] rather than taking a
+    [Format.formatter]. The library is meant to run in a browser through
+    js_of_ocaml, where linking [Format] costs more bundle size than the
+    formatter interface is worth.
+
     {1:links Learn More}
 
     - The API design follows {{:https://tailwindcss.com/}Tailwind CSS}
@@ -4574,44 +4581,35 @@ val not_prose : t
 (** [not_prose] marks a subtree to be excluded from prose styling. Alias of
     [Prose.not_prose]. *)
 
-(** {1 Class Generation & Internals} *)
+(** {1 Class names} *)
+
+val to_string : t -> string
+(** [to_string u] is the class name of [u], modifiers included, e.g.
+    ["hover:bg-blue-500"]. *)
 
 val to_classes : t list -> string
-(** [to_classes styles] converts your style list to a CSS class string. This is
-    the main function you'll use with HTML elements.
+(** [to_classes us] is the class names of [us] in order, separated by spaces.
+    Duplicates are kept.
 
-    Example:
     {[
-    let button_styles = [ bg blue; text white; px 4; py 2 ]
-    let button_class = to_classes button_styles
+    let button_class = to_classes [ bg blue; text white; px 4; py 2 ]
     ]} *)
-
-val pp : t -> string
-(** [pp style] generates a class name from a style. *)
 
 val of_string : ?theme:Theme.t -> string -> (t, [ `Msg of string ]) result
-(** [of_string ?theme class_str] parses a Tailwind class string into a style.
-    [theme] (default {!Theme.default}) is consulted to validate custom tokens
-    such as named colors and opacities defined in an [@theme] block.
+(** [of_string ?theme s] is the utility [s] names, and [Error (`Msg why)] when
+    no utility has that name. [theme] (default {!Theme.default}) supplies the
+    custom tokens a project declared in an [@theme] block, so a class naming one
+    of them parses only against the theme that declares it. *)
 
-    Example:
-    {[
-    let parsed = of_string "bg-blue-500"
-    let spacing = of_string "p-4"
-    let centered = of_string "text-center"
-    let invalid = of_string "unknown-class"
-    ]}
+val of_classes : ?theme:Theme.t -> string -> (t list, [ `Msg of string ]) result
+(** [of_classes ?theme s] is the utilities named by the whitespace-separated
+    class names in [s], in order, and [Error (`Msg why)] on the first name that
+    names no utility. *)
 
-    Returns [Error (`Msg reason)] if the class string is not recognized. *)
+val of_classes_exn : ?theme:Theme.t -> string -> t list
+(** [of_classes_exn] is {!of_classes} raising on an unknown class name.
 
-val str : string -> t list
-(** [str s] parses a space-separated string of Tailwind class names into a list
-    of styles. Raises [Invalid_argument] if any class is not recognized.
-
-    Example:
-    {[
-    let classes = str "flex items-center gap-4 p-6 bg-white rounded-lg"
-    ]} *)
+    @raise Invalid_argument if a class name names no utility. *)
 
 (** {2 CSS Generation}
 

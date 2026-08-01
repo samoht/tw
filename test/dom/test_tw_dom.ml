@@ -23,7 +23,7 @@ let class_names () =
   check bool "has bg-blue" true (Astring.String.is_infix ~affix:"bg-blue" cls)
 
 let str_parsing () =
-  let styles = Tw.str "flex items-center gap-4 p-6" in
+  let styles = Tw.of_classes_exn "flex items-center gap-4 p-6" in
   check int "4 utilities" 4 (List.length styles);
   let cls = Tw.to_classes styles in
   check bool "has flex" true (Astring.String.is_infix ~affix:"flex" cls)
@@ -31,7 +31,7 @@ let str_parsing () =
 let dynamic_classes () =
   let color = "blue" in
   let cls = "bg-" ^ color ^ "-500 p-4 text-white" in
-  let styles = Tw.str cls in
+  let styles = Tw.of_classes_exn cls in
   let css = Tw.to_css ~base:false styles in
   let css_str = Css.to_string ~minify:true css in
   check bool "has bg color" true

@@ -349,18 +349,21 @@ let test_important_prefix () =
     "!flex marks display important" true
     (Astring.String.is_infix ~affix:"display:flex!important" flex);
   (match Tw.of_string "!flex" with
-  | Ok u -> Alcotest.(check string) "!flex class round-trips" "!flex" (Tw.pp u)
+  | Ok u ->
+      Alcotest.(check string) "!flex class round-trips" "!flex" (Tw.to_string u)
   | Error (`Msg m) -> Alcotest.fail m);
   (match Tw.of_string "md:!flex" with
   | Ok u ->
-      Alcotest.(check string) "md:!flex class round-trips" "md:!flex" (Tw.pp u)
+      Alcotest.(check string)
+        "md:!flex class round-trips" "md:!flex" (Tw.to_string u)
   | Error (`Msg m) -> Alcotest.fail m);
   (* v4 trailing form keeps the suffix in the class name *)
   Alcotest.(check bool)
     "flex! marks display important" true
     (Astring.String.is_infix ~affix:"display:flex!important" (css "flex!"));
   (match Tw.of_string "flex!" with
-  | Ok u -> Alcotest.(check string) "flex! class round-trips" "flex!" (Tw.pp u)
+  | Ok u ->
+      Alcotest.(check string) "flex! class round-trips" "flex!" (Tw.to_string u)
   | Error (`Msg m) -> Alcotest.fail m);
   Alcotest.(check bool)
     "!p-4 leaves the --spacing theme token normal" false
@@ -519,7 +522,7 @@ let test_has_state_shorthands () =
     (Astring.String.is_infix ~affix:"@media(hover:hover)" (css "has-hover:flex"));
   (* the class name round-trips through the shorthand, not the bracket form *)
   check string "has-focus round-trips" "has-focus:flex"
-    (Tw.pp (Result.get_ok (Tw.of_string "has-focus:flex")))
+    (Tw.to_string (Result.get_ok (Tw.of_string "has-focus:flex")))
 
 (* A named anchor works on any state variant, not just the has/aria/data ones:
    group-hover/edit scopes to .group\/edit. And a data variant takes the bare

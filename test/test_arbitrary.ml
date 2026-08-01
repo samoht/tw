@@ -66,7 +66,7 @@ let test_theme_dot_notation () =
     (Astring.String.is_infix ~affix:"25.331 / 25%" (css g));
   Alcotest.(check string)
     "theme() class round-trips" g
-    (Tw.pp (Result.get_ok (Tw.of_string g)))
+    (Tw.to_string (Result.get_ok (Tw.of_string g)))
 
 (* A var-valued colour with /opacity used to raise invalid_arg; it now emits an
    oklab color-mix under @supports, with a fallback, type-safely. *)
@@ -124,7 +124,7 @@ let test_alpha_fn () =
   Alcotest.(check string)
     "the --alpha() spelling round-trips"
     "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]"
-    (Tw.pp
+    (Tw.to_string
        (Result.get_ok
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 

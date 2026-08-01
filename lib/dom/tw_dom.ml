@@ -40,7 +40,7 @@ let use styles =
   let new_found = ref false in
   List.iter
     (fun s ->
-      let cls = Tw.pp s in
+      let cls = Tw.to_string s in
       if not (Hashtbl.mem registered cls) then (
         Hashtbl.add registered cls ();
         all_styles := s :: !all_styles;
@@ -50,7 +50,7 @@ let use styles =
   Tw.to_classes styles
 
 let use_str s =
-  let styles = Tw.str s in
+  let styles = Tw.of_classes_exn s in
   ignore (use styles);
   s
 
