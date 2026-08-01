@@ -8,11 +8,90 @@ let test_escape_in_selector () =
       Alcotest.failf "Failed to parse escaped selector: %s"
         (Cascade.Error.to_string e)
 
+let unknown cls =
+  match Tw.of_string cls with
+  | Ok u -> Alcotest.failf "expected %s to be unknown, got %s" cls (Tw.pp u)
+  | Error (`Msg _) -> ()
+
+let round_trips cls =
+  match Tw.of_string cls with
+  | Ok u -> Alcotest.(check string) "round-trips" cls (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+(* A class suffix is written in plain decimal. OCaml's literal grammar also
+   admits [0x]/[0o]/[0b] bases, [_] digit separators and a leading [+]; reading
+   a suffix as an OCaml literal would accept [p-0x4] and emit [.p-4], a rule
+   nobody wrote. One class per integer reader: spacing_value, int_pos, int_any,
+   int_bounded. *)
+let test_int_rejects_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "p-0x4";
+      "p-0X4";
+      "p-0o17";
+      "p-0b101";
+      "p-1_0";
+      "gap-1_0";
+      "duration-0x4";
+      "delay-1_0";
+      "rotate-0x4";
+      "z-0x10";
+      "order-1_0";
+      "line-clamp-0x2";
+      "border-0x2";
+      "opacity-0x10";
+    ]
+
+(* The sign is stripped before the suffix is read, so a negative utility takes
+   the same grammar. *)
+let test_negative_int_rejects_non_decimal_spellings () =
+  List.iter unknown [ "-m-1_0"; "-rotate-0x4"; "-translate-x-0x4"; "-z-0x10" ]
+
+(* [Float.of_string] reads the same non-decimal spellings plus hex-float
+   exponents, which would make [p-0x1p4] mean [.p-16]. A fractional suffix needs
+   digits on both sides of the point. *)
+let test_decimal_rejects_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "p-0x1p4"; "p-1_5"; "p-1.2_5"; "p-1e2"; "p-+1.5"; "p-.5"; "p-1."; "m-1e1";
+    ]
+
+let test_decimal_class_suffixes_round_trip () =
+  List.iter round_trips
+    [
+      "p-4";
+      "p-0";
+      "p-96";
+      "p-0.5";
+      "p-1.5";
+      "p-2.5";
+      "m-3.5";
+      "gap-10";
+      "opacity-25";
+      "border-2";
+      "z-10";
+      "order-10";
+      "line-clamp-2";
+      "duration-150";
+      "delay-100";
+      "rotate-45";
+      "-m-10";
+      "-rotate-45";
+    ]
+
 let tests =
   Alcotest.
     [
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
+      test_case "int suffixes reject non-decimal spellings" `Quick
+        test_int_rejects_non_decimal_spellings;
+      test_case "negative int suffixes reject non-decimal spellings" `Quick
+        test_negative_int_rejects_non_decimal_spellings;
+      test_case "decimal suffixes reject non-decimal spellings" `Quick
+        test_decimal_rejects_non_decimal_spellings;
+      test_case "decimal class suffixes round-trip" `Quick
+        test_decimal_class_suffixes_round_trip;
     ]
 
 let suite = ("parse", tests)

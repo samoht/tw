@@ -785,6 +785,47 @@ let test_invalid_bracket_modifiers () =
   rejected "nth-last-of-type-[]:flex";
   rejected "supports-[]:flex"
 
+(* An aria- or data- variant names an attribute, so an empty argument would
+   compile to [[aria-]] or [[data-]]: a selector browsers parse and keep, and
+   nothing ever matches. An underscore stands for a space, so it is empty
+   too. *)
+let test_empty_attribute_brackets () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "aria-[]:flex";
+  rejected "aria-[_]:flex";
+  rejected "aria-_:flex";
+  rejected "group-aria-[]:flex";
+  rejected "peer-aria-[]:flex";
+  rejected "data-[]:flex";
+  rejected "data-[_]:flex";
+  rejected "group-data-[]:flex";
+  rejected "peer-data-[]:flex";
+  rejected "group-data-_:flex";
+  rejected "peer-data-_:flex"
+
+(* The attribute spellings that do name something keep working, including the
+   empty-name-with-value form Tailwind also accepts. *)
+let test_attribute_brackets_still_parse () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "[aria-modal]" "aria-[modal]:flex";
+  emits "[aria-sort=ascending]" "aria-[sort=ascending]:flex";
+  emits "[aria-=true]" "aria-[=true]:flex";
+  emits "[data-state=open]" "data-[state=open]:flex";
+  emits "[data-dragging]" "group-data-[dragging]:flex";
+  emits "[data-dragging]" "peer-data-[dragging]:flex";
+  emits "[data-modified]" "group-data-modified:flex"
+
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
   let css cls =
@@ -808,6 +849,9 @@ let tests =
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
+      test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
+      test_case "attribute brackets still parse" `Quick
+        test_attribute_brackets_still_parse;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick
