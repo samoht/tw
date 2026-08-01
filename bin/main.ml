@@ -659,6 +659,50 @@ let add_once buf seen items =
       end)
     items
 
+(* The [@apply] run starting at [i]: the classes it names, and the offset of the
+   [;] or [}] that ends it. [@apply] is not CSS, so it is found by scanning
+   rather than through the parser. *)
+let apply_run_at css i =
+  let len = String.length css in
+  let ident c =
+    (c >= 'a' && c <= 'z')
+    || (c >= 'A' && c <= 'Z')
+    || (c >= '0' && c <= '9')
+    || c = '-' || c = '_'
+  in
+  if
+    not
+      (i + 6 <= len
+      && String.sub css i 6 = "@apply"
+      && (i = 0 || not (ident css.[i - 1])))
+  then None
+  else begin
+    let stop = ref (i + 6) in
+    while !stop < len && css.[!stop] <> ';' && css.[!stop] <> '}' do
+      incr stop
+    done;
+    let names =
+      String.sub css (i + 6) (!stop - i - 6)
+      |> String.split_on_char ' '
+      |> List.concat_map (String.split_on_char '\n')
+      |> List.map String.trim
+      |> List.filter (fun n -> n <> "")
+    in
+    Some (names, !stop)
+  end
+
+(* Every class a body [@apply]s, at any depth. *)
+let applied_classes css =
+  let len = String.length css in
+  let rec go i acc =
+    if i >= len then List.rev acc
+    else
+      match apply_run_at css i with
+      | Some (names, stop) -> go stop (List.rev_append names acc)
+      | None -> go (i + 1) acc
+  in
+  go 0 []
+
 (* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
@@ -667,88 +711,68 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
-  let ident c =
-    (c >= 'a' && c <= 'z')
-    || (c >= 'A' && c <= 'Z')
-    || (c >= '0' && c <= '9')
-    || c = '-' || c = '_'
-  in
   let rec go i =
-    if i >= len then ()
-    else if
-      i + 6 <= len
-      && String.sub css i 6 = "@apply"
-      && (i = 0 || not (ident css.[i - 1]))
-    then begin
-      let stop = ref (i + 6) in
-      while !stop < len && css.[!stop] <> ';' && css.[!stop] <> '}' do
-        incr stop
-      done;
-      let names =
-        String.sub css (i + 6) (!stop - i - 6)
-        |> String.split_on_char ' '
-        |> List.concat_map (String.split_on_char '\n')
-        |> List.map String.trim
-        |> List.filter (fun n -> n <> "")
-      in
-      let emit name =
-        let variants, bare = split_declared_variants defs name in
-        (* [@apply line-t] names a utility the project declared, whose body is
-           author CSS in its own right. *)
-        let body, top =
-          match List.assoc_opt bare udefs with
-          | Some decls -> (decls, [])
-          | None -> nested_utilities ~theme [ bare ]
-        in
-        add_once hoisted seen top;
-        if body = "" then ()
+    match apply_run_at css i with
+    | None ->
+        if i >= len then ()
         else begin
-          List.iter
-            (fun v ->
-              Buffer.add_string buf (String.concat "" [ "@variant "; v; "{" ]))
-            variants;
-          Buffer.add_string buf body;
-          List.iter (fun _ -> Buffer.add_char buf '}') variants
+          Buffer.add_char buf css.[i];
+          go (i + 1)
         end
-      in
-      (* A utility with no declared variant and no body of its own decorates the
-         applying rule's [&] directly. A run of those renders in one call, so
-         their declarations land in a single rule the way Tailwind emits them,
-         rather than one rule of the author's selector per utility. *)
-      let plain name =
-        match split_declared_variants defs name with
-        | [], bare when not (List.mem_assoc bare udefs) -> Some bare
-        | _ -> None
-      in
-      let rec emit_all = function
-        | [] -> ()
-        | name :: tl as all -> (
-            match plain name with
-            | None ->
-                emit name;
-                emit_all tl
-            | Some _ ->
-                let run, rest =
-                  let rec span acc = function
-                    | n :: tl when plain n <> None -> span (n :: acc) tl
-                    | rest -> (List.rev acc, rest)
+    | Some (names, stop) ->
+        let emit name =
+          let variants, bare = split_declared_variants defs name in
+          (* [@apply line-t] names a utility the project declared, whose body is
+             author CSS in its own right. *)
+          let body, top =
+            match List.assoc_opt bare udefs with
+            | Some decls -> (decls, [])
+            | None -> nested_utilities ~theme [ bare ]
+          in
+          add_once hoisted seen top;
+          if body = "" then ()
+          else begin
+            List.iter
+              (fun v ->
+                Buffer.add_string buf (String.concat "" [ "@variant "; v; "{" ]))
+              variants;
+            Buffer.add_string buf body;
+            List.iter (fun _ -> Buffer.add_char buf '}') variants
+          end
+        in
+        (* A utility with no declared variant and no body of its own decorates
+           the applying rule's [&] directly. A run of those renders in one call,
+           so their declarations land in a single rule the way Tailwind emits
+           them, rather than one rule of the author's selector per utility. *)
+        let plain name =
+          match split_declared_variants defs name with
+          | [], bare when not (List.mem_assoc bare udefs) -> Some bare
+          | _ -> None
+        in
+        let rec emit_all = function
+          | [] -> ()
+          | name :: tl as all -> (
+              match plain name with
+              | None ->
+                  emit name;
+                  emit_all tl
+              | Some _ ->
+                  let run, rest =
+                    let rec span acc = function
+                      | n :: tl when plain n <> None -> span (n :: acc) tl
+                      | rest -> (List.rev acc, rest)
+                    in
+                    span [] all
                   in
-                  span [] all
-                in
-                let body, top =
-                  nested_utilities ~theme (List.filter_map plain run)
-                in
-                add_once hoisted seen top;
-                Buffer.add_string buf body;
-                emit_all rest)
-      in
-      emit_all names;
-      go (if !stop < len && css.[!stop] = ';' then !stop + 1 else !stop)
-    end
-    else begin
-      Buffer.add_char buf css.[i];
-      go (i + 1)
-    end
+                  let body, top =
+                    nested_utilities ~theme (List.filter_map plain run)
+                  in
+                  add_once hoisted seen top;
+                  Buffer.add_string buf body;
+                  emit_all rest)
+        in
+        emit_all names;
+        go (if stop < len && css.[stop] = ';' then stop + 1 else stop)
   in
   go 0;
   (* The hoisted blocks go last: their layer is ordered by the sheet's [@layer]
@@ -1307,32 +1331,62 @@ let is_custom_routed ~defs ~udefs cls =
    author CSS uses: the declarations land under the escaped class, wrapped in
    the declared variants, and cascade flattens the nesting into the project's
    selector. *)
+(* Every rule a routed statement holds, at whatever at-rule depth. One traversal
+   for both questions asked of it below: which class it belongs to, and which
+   properties it writes. *)
+let rec routed_rules stmt =
+  match Css.as_rule stmt with
+  | Some (selector, decls, nested) ->
+      (selector, decls) :: List.concat_map routed_rules nested
+  | None ->
+      let inner =
+        match Css.as_media stmt with
+        | Some (_, inner) -> inner
+        | None -> (
+            match Css.as_supports stmt with
+            | Some (_, inner) -> inner
+            | None -> (
+                match Css.as_container stmt with
+                | Some (_, _, inner) -> inner
+                | None -> []))
+      in
+      List.concat_map routed_rules inner
+
 (* The class a routed rule belongs to: its selector's first class, which is the
    declared utility itself for both [.line-y] and [.line-y:before]. *)
-let rec first_class_of_statement stmt =
-  match Css.as_rule stmt with
-  | Some (selector, _, _) -> Css.Selector.first_class selector
-  | None -> (
-      match Css.as_media stmt with
-      | Some (_, inner) -> List.find_map first_class_of_statement inner
-      | None -> (
-          match Css.as_supports stmt with
-          | Some (_, inner) -> List.find_map first_class_of_statement inner
-          | None -> None))
+let first_class_of_statement stmt =
+  List.find_map
+    (fun (selector, _) -> Css.Selector.first_class selector)
+    (routed_rules stmt)
 
-(* Where a declared utility sorts: the slot of the property it writes first. *)
-let rec slot_of_statement stmt =
-  match Css.as_rule stmt with
-  | Some (_, d :: _, _) ->
-      Tw.Declared.Slot.of_property (Css.Declaration.property_key d)
-  | Some (_, [], _) -> None
-  | None -> (
-      match Css.as_media stmt with
-      | Some (_, inner) -> List.find_map slot_of_statement inner
-      | None -> (
-          match Css.as_supports stmt with
-          | Some (_, inner) -> List.find_map slot_of_statement inner
-          | None -> None))
+(* The utility a class names, with any variant prefix dropped: [dark:line-t] is
+   still the declared [line-t]. *)
+let declared_utility_name cls =
+  match List.rev (variant_segments cls) with [] -> cls | name :: _ -> name
+
+(* Where a declared utility sorts. Tailwind expands the body and orders the
+   result by the properties it writes, so the utility takes the earliest slot
+   its body reaches: the utilities it [@apply]s sort at one, and the families
+   writing the properties it declares itself sort at another. Reading both keeps
+   the answer right when either alone is silent - [@apply] names a utility the
+   project declared, and a raw declaration names no utility at all. *)
+let slot_of_declared ~theme ~udefs cls stmts =
+  let applied =
+    match List.assoc_opt (declared_utility_name cls) udefs with
+    | Some body -> applied_classes body
+    | None -> []
+  in
+  let of_class name =
+    Tw.Declared.Slot.of_class ~theme (declared_utility_name name)
+  in
+  let of_property (_, decls) =
+    List.filter_map
+      (fun d -> Tw.Declared.Slot.of_property (Css.Declaration.property_key d))
+      decls
+  in
+  Tw.Declared.Slot.earliest
+    (List.filter_map of_class applied
+    @ List.concat_map of_property (List.concat_map routed_rules stmts))
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
@@ -1413,43 +1467,37 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
                 end)
               hoisted_stmts
           in
-          (* Tailwind sorts a declared utility at the slot of the property it
-             declares, so group the rules it produced under their own class and
-             read that slot off the first declaration. A property no handler
-             claims leaves the group without an order; those keep their old
-             place at the end of the layer rather than being dropped. *)
-          let group = Hashtbl.create 8 in
-          let order_of = Hashtbl.create 8 in
-          let classless = ref [] in
+          (* Group the rules a declared utility produced under its own class, in
+             the order they were emitted, then give each group its slot. A body
+             reaching no slot at all - every property it writes is one no
+             handler claims - keeps its old place at the end of the layer rather
+             than being dropped. *)
+          let groups = ref [] and classless = ref [] in
           List.iter
             (fun stmt ->
               match first_class_of_statement stmt with
               | None -> classless := stmt :: !classless
               | Some cls -> (
-                  let prev =
-                    Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
-                  in
-                  Hashtbl.replace group cls (prev @ [ stmt ]);
-                  if not (Hashtbl.mem order_of cls) then
-                    match slot_of_statement stmt with
-                    | Some order -> Hashtbl.add order_of cls order
-                    | None -> ()))
+                  match List.assoc_opt cls !groups with
+                  | Some stmts -> stmts := stmt :: !stmts
+                  | None -> groups := !groups @ [ (cls, ref [ stmt ]) ]))
             rules;
           let declared, unordered =
-            Hashtbl.fold
-              (fun cls stmts (declared, unordered) ->
-                match Hashtbl.find_opt order_of cls with
+            List.fold_left
+              (fun (declared, unordered) (cls, stmts) ->
+                let stmts = List.rev !stmts in
+                match slot_of_declared ~theme ~udefs cls stmts with
                 | Some slot ->
                     (Tw.Declared.v ~cls ~slot stmts :: declared, unordered)
-                | None -> (declared, stmts @ unordered))
-              group
+                | None -> (declared, unordered @ stmts))
               ([], List.rev !classless)
+              !groups
           in
           let unplaced =
             if unordered = [] then []
             else [ Css.layer ~name:"utilities" unordered ]
           in
-          (List.length blocks, declared, unplaced @ hoisted_stmts))
+          (List.length blocks, List.rev declared, unplaced @ hoisted_stmts))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
