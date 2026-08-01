@@ -34,6 +34,17 @@ let of_string_valid () =
   check "border-x-0";
   check "border-y-8";
 
+  (* A side or axis takes any integer, as the bare border does: border-x-16 was
+     rejected where Tailwind emits border-inline-width: 16px. *)
+  check "border-x-16";
+  check "border-y-16";
+  check "border-t-16";
+  check "border-x-3";
+  check "border-l-5";
+  check "border-b-12";
+  check "border-bs-12";
+  check "border-e-7";
+
   (* logical single-side borders: inline/block start and end *)
   check "border-s";
   check "border-e";
