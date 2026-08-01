@@ -572,8 +572,8 @@ let divide_y_length w = utility (Divide_y_arb w)
 
 (** {1 Divide Colour Utilities} *)
 
-let divide_color ?opacity ?(shade = 500) color =
-  Color.check_shade ~utility:"divide_color" color shade;
+let divide_color ?opacity ?(shade = `S500) color =
+  let shade = Color.int_of_shade shade in
   match opacity with
   | None -> utility (Divide_color (color, shade))
   | Some pct ->

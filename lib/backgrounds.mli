@@ -18,7 +18,7 @@ type direction =
   | Left
   | Bottom_left
 
-val bg : ?opacity:int -> ?shade:int -> Color.color -> t
+val bg : ?opacity:int -> ?shade:Color.shade -> Color.color -> t
 (** [bg color] sets the background color. [shade] defaults to 500. [opacity]
     sets the alpha modifier (0-100). *)
 
@@ -26,14 +26,14 @@ val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over
     the fixed functions when composing logic. *)
 
-val from_color : ?shade:int -> Color.color -> t
+val from_color : ?shade:Color.shade -> Color.color -> t
 (** [from_color ?shade color] sets the gradient "from" color (start stop).
     [shade] selects a color shade (e.g., 50..900) when using Tailwind colors. *)
 
-val via_color : ?shade:int -> Color.color -> t
+val via_color : ?shade:Color.shade -> Color.color -> t
 (** [via_color ?shade color] sets the gradient "via" color (middle stop). *)
 
-val to_color : ?shade:int -> Color.color -> t
+val to_color : ?shade:Color.shade -> Color.color -> t
 (** [to_color ?shade color] sets the gradient "to" color (end stop). *)
 
 module Handler : sig

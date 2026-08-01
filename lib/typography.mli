@@ -148,7 +148,7 @@ val decoration_wavy : t
 
 (** {1 Text Decoration Color & Thickness} *)
 
-val decoration_color : ?shade:int -> Color.color -> t
+val decoration_color : ?shade:Color.shade -> Color.color -> t
 (** [decoration_color ?shade color] sets text-decoration color. *)
 
 val decoration_thickness : int -> t

@@ -3206,8 +3206,8 @@ let leading n = utility_early (Typography_early.Leading n)
 (* Late typography utilities - priority 24 *)
 let utility_late x = Utility.base (Typography_late.Self x)
 
-let decoration_color ?(shade = 500) color =
-  Color.check_shade ~utility:"decoration_color" color shade;
+let decoration_color ?(shade = `S500) color =
+  let shade = Color.int_of_shade shade in
   utility_late (Typography_late.Decoration_color (color, Some shade))
 
 let underline = utility_late Typography_late.Underline

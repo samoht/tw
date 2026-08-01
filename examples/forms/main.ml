@@ -5,7 +5,7 @@
 open Tw_html
 open At
 
-let label_style = Tw.[ block; text ~shade:700 gray; font_medium; mb 2 ]
+let label_style = Tw.[ block; text ~shade:`S700 gray; font_medium; mb 2 ]
 
 let text_fields =
   [
@@ -58,9 +58,12 @@ let choice_fields =
         label
           ~tw:Tw.[ flex; items_center; gap 2 ]
           [
-            input ~at:[ type' "checkbox" ] ~tw:Tw.[ accent ~shade:600 blue ] ();
+            input
+              ~at:[ type' "checkbox" ]
+              ~tw:Tw.[ accent ~shade:`S600 blue ]
+              ();
             span
-              ~tw:Tw.[ text ~shade:700 gray ]
+              ~tw:Tw.[ text ~shade:`S700 gray ]
               [ txt "I agree to the terms and conditions" ];
           ];
       ];
@@ -68,7 +71,7 @@ let choice_fields =
       ~tw:Tw.[ mb 6 ]
       [
         p
-          ~tw:Tw.[ text ~shade:700 gray; font_medium; mb 2 ]
+          ~tw:Tw.[ text ~shade:`S700 gray; font_medium; mb 2 ]
           [ txt "Preferred contact method:" ];
         div
           ~tw:Tw.[ flex; flex_col; gap 2 ]
@@ -79,9 +82,9 @@ let choice_fields =
                  [
                    input
                      ~at:[ type' "radio"; name "contact" ]
-                     ~tw:Tw.[ accent ~shade:600 blue ]
+                     ~tw:Tw.[ accent ~shade:`S600 blue ]
                      ();
-                   span ~tw:Tw.[ text ~shade:700 gray ] [ txt method_name ];
+                   span ~tw:Tw.[ text ~shade:`S700 gray ] [ txt method_name ];
                  ])
              [ "Email"; "Phone" ]);
       ];
@@ -94,13 +97,13 @@ let submit_button =
       Tw.
         [
           w_full;
-          bg ~shade:600 blue;
+          bg ~shade:`S600 blue;
           text white;
           font_medium;
           py 2;
           px 4;
           rounded_md;
-          hover [ bg ~shade:700 blue ];
+          hover [ bg ~shade:`S700 blue ];
         ]
     [ txt "Send Message" ]
 
@@ -109,7 +112,7 @@ let contact_form =
     ~tw:Tw.[ max_w_md; mx_auto; p 6; bg white; rounded_lg; shadow_md ]
     [
       h2
-        ~tw:Tw.[ text_2xl; font_bold; mb 6; text ~shade:900 gray ]
+        ~tw:Tw.[ text_2xl; font_bold; mb 6; text ~shade:`S900 gray ]
         [ txt "Contact Form" ];
       form (text_fields @ choice_fields @ [ submit_button ]);
     ]
@@ -118,12 +121,14 @@ let page_view =
   page ~forms:true ~title:"Forms Demo" ~tw_css:(Link "forms.css") []
     [
       div
-        ~tw:Tw.[ min_h_screen; bg ~shade:100 gray; py 12 ]
+        ~tw:Tw.[ min_h_screen; bg ~shade:`S100 gray; py 12 ]
         [
           h1
             ~tw:
               Tw.
-                [ text_4xl; font_bold; mb 8; text_center; text ~shade:900 gray ]
+                [
+                  text_4xl; font_bold; mb 8; text_center; text ~shade:`S900 gray;
+                ]
             [ txt "Form Utilities" ];
           contact_form;
         ];

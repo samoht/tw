@@ -10,7 +10,7 @@ let header_section =
         ~tw:Tw.[ max_w_4xl; mx_auto; px 4 ]
         [
           h1
-            ~tw:Tw.[ text_2xl; font_bold; text ~shade:800 gray ]
+            ~tw:Tw.[ text_2xl; font_bold; text ~shade:`S800 gray ]
             [ txt "Welcome to tw.html" ];
         ];
     ]
@@ -21,13 +21,17 @@ let hero_section =
     ~tw:Tw.[ text_center; mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_4xl; font_bold; text ~shade:900 gray; mb 4 ]
+        ~tw:Tw.[ text_4xl; font_bold; text ~shade:`S900 gray; mb 4 ]
         [ txt "Type-Safe HTML with Tw" ];
       p
         ~tw:
           Tw.
             [
-              text_lg; text ~shade:600 gray; max_w_2xl; mx_auto; leading_relaxed;
+              text_lg;
+              text ~shade:`S600 gray;
+              max_w_2xl;
+              mx_auto;
+              leading_relaxed;
             ]
         [
           txt
@@ -50,21 +54,21 @@ let feature_card ~icon ~title ~description =
                 [
                   w 12;
                   h 12;
-                  bg ~shade:100 blue;
+                  bg ~shade:`S100 blue;
                   rounded_full;
                   flex;
                   items_center;
                   justify_center;
-                  text ~shade:600 blue;
+                  text ~shade:`S600 blue;
                   font_semibold;
                   text_xl;
                 ]
             [ txt icon ];
           h3
-            ~tw:Tw.[ ml 4; text_xl; font_semibold; text ~shade:800 gray ]
+            ~tw:Tw.[ ml 4; text_xl; font_semibold; text ~shade:`S800 gray ]
             [ txt title ];
         ];
-      p ~tw:Tw.[ text ~shade:600 gray ] [ txt description ];
+      p ~tw:Tw.[ text ~shade:`S600 gray ] [ txt description ];
     ]
 
 (* Features section *)
@@ -73,7 +77,8 @@ let features_section =
     ~tw:Tw.[ mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_3xl; font_bold; text_center; text ~shade:900 gray; mb 8 ]
+        ~tw:
+          Tw.[ text_3xl; font_bold; text_center; text ~shade:`S900 gray; mb 8 ]
         [ txt "Features" ];
       div
         ~tw:Tw.[ grid; grid_cols 1; md [ grid_cols 2 ]; gap 6 ]
@@ -100,10 +105,10 @@ let features_section =
 (* Code example *)
 let code_example_section =
   section
-    ~tw:Tw.[ bg ~shade:100 gray; rounded_lg; p 6; mb 12 ]
+    ~tw:Tw.[ bg ~shade:`S100 gray; rounded_lg; p 6; mb 12 ]
     [
       h3
-        ~tw:Tw.[ text_xl; font_semibold; text ~shade:800 gray; mb 4 ]
+        ~tw:Tw.[ text_xl; font_semibold; text ~shade:`S800 gray; mb 4 ]
         [ txt "Code Example" ];
       pre
         ~tw:
@@ -112,7 +117,7 @@ let code_example_section =
               p 4;
               rounded_md;
               overflow_x_auto;
-              bg ~shade:900 gray;
+              bg ~shade:`S900 gray;
               text white;
               font_mono;
               text_sm;
@@ -135,7 +140,7 @@ let cta_section =
     [
       h2 ~tw:Tw.[ text_2xl; font_bold; mb 2 ] [ txt "Get Started" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; mb 4 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; mb 4 ]
         [ txt "Install and start styling now." ];
       a
         ~tw:
@@ -146,9 +151,9 @@ let cta_section =
               px 6;
               py 3;
               rounded_md;
-              bg ~shade:600 blue;
+              bg ~shade:`S600 blue;
               text white;
-              hover [ bg ~shade:700 blue ];
+              hover [ bg ~shade:`S700 blue ];
             ]
         ~at:[ At.href "#" ]
         [ txt "Read the docs" ];
@@ -165,14 +170,18 @@ let hover_effect_card =
 
 let dark_mode_card =
   div
-    ~tw:Tw.[ bg white; dark [ bg ~shade:800 gray ]; p 4; rounded_lg; shadow_sm ]
+    ~tw:
+      Tw.[ bg white; dark [ bg ~shade:`S800 gray ]; p 4; rounded_lg; shadow_sm ]
     [
       h3
         ~tw:
-          Tw.[ font_semibold; mb 2; text ~shade:900 gray; dark [ text white ] ]
+          Tw.
+            [ font_semibold; mb 2; text ~shade:`S900 gray; dark [ text white ] ]
         [ txt "Dark Mode" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; text_sm ]
+        ~tw:
+          Tw.
+            [ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; text_sm ]
         [ txt "This card adapts to your system's dark mode preference." ];
     ]
 
@@ -183,7 +192,7 @@ let animation_card =
       h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Animation" ];
       div ~tw:Tw.[ w 8; h 8; bg blue; rounded_full; mx_auto; animate_pulse ] [];
       p
-        ~tw:Tw.[ text ~shade:600 gray; text_sm; mt 2 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; text_sm; mt 2 ]
         [ txt "A pulsing indicator using CSS animations." ];
     ]
 
@@ -193,7 +202,8 @@ let interactive_section =
     ~tw:Tw.[ mb 12 ]
     [
       h2
-        ~tw:Tw.[ text_3xl; font_bold; text_center; text ~shade:900 gray; mb 8 ]
+        ~tw:
+          Tw.[ text_3xl; font_bold; text_center; text ~shade:`S900 gray; mb 8 ]
         [ txt "Interactive Examples" ];
       div
         ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 3 ]; gap 4 ]
@@ -203,7 +213,7 @@ let interactive_section =
 (* Footer component *)
 let footer_section =
   footer
-    ~tw:Tw.[ bg ~shade:800 gray; text white; py 8; mt_auto ]
+    ~tw:Tw.[ bg ~shade:`S800 gray; text white; py 8; mt_auto ]
     [
       div
         ~tw:Tw.[ max_w_4xl; mx_auto; px 4; text_center ]
@@ -225,7 +235,7 @@ let main =
     (* Body content *)
     [
       div
-        ~tw:Tw.[ min_h_screen; bg ~shade:50 gray ]
+        ~tw:Tw.[ min_h_screen; bg ~shade:`S50 gray ]
         [
           header_section;
           (* Main content *)

@@ -69,7 +69,7 @@ val border_none : t
 
 (** {1 Border Color Utilities} *)
 
-val border_color : ?opacity:int -> ?shade:int -> Color.color -> t
+val border_color : ?opacity:int -> ?shade:Color.shade -> Color.color -> t
 (** [border_color color] sets the border color. [shade] defaults to 500.
     [opacity] sets the alpha modifier (0-100). *)
 
@@ -78,30 +78,6 @@ val border_transparent : t
 
 val border_current : t
 (** [border_current] sets the border color to currentColor. *)
-
-val border_xs : t
-(** [border_xs] is a semantic width alias – 1px. *)
-
-val border_sm : t
-(** [border_sm] is a semantic width alias – 2px. *)
-
-val border_md : t
-(** [border_md] is a semantic width alias – 4px. *)
-
-val border_lg : t
-(** [border_lg] is a semantic width alias – 4px. *)
-
-val border_xl : t
-(** [border_xl] is a semantic width alias – 8px. *)
-
-val border_2xl : t
-(** [border_2xl] is a semantic width alias – 8px. *)
-
-val border_3xl : t
-(** [border_3xl] is a semantic width alias – 8px. *)
-
-val border_full : t
-(** [border_full] is a semantic width alias – 8px. *)
 
 val rounded : t
 (** [rounded] sets the default border radius. *)

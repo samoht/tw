@@ -296,9 +296,9 @@ let test_typography_before_color () =
       text_center;
       text_4xl;
       font_bold;
-      text ~shade:600 gray;
+      text ~shade:`S600 gray;
       text_sm;
-      text ~shade:800 gray;
+      text ~shade:`S800 gray;
       text white;
     ]
   in
@@ -470,7 +470,11 @@ let test_suborder_within_group () =
           Test_helpers.spacing_values );
       ( "backgrounds",
         let colors = [ red; blue; green; yellow; purple; pink ] in
-        let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+        let shades =
+          [
+            `S50; `S100; `S200; `S300; `S400; `S500; `S600; `S700; `S800; `S900;
+          ]
+        in
         List.concat_map
           (fun color -> List.map (fun shade -> bg ~shade color) shades)
           colors );
@@ -502,10 +506,10 @@ let test_suborder_within_group () =
         ] );
       ( "borders",
         [
-          border_xs;
-          border_sm;
-          border_md;
-          border_lg;
+          border;
+          border_2;
+          border_4;
+          border_4;
           border_solid;
           border_dashed;
           border_dotted;
@@ -778,26 +782,26 @@ let test_random_utilities_with_minimization () =
       (* Background: priority 18 *)
       bg white;
       bg black;
-      bg ~shade:50 gray;
-      bg ~shade:100 gray;
-      bg ~shade:200 gray;
-      bg ~shade:300 gray;
+      bg ~shade:`S50 gray;
+      bg ~shade:`S100 gray;
+      bg ~shade:`S200 gray;
+      bg ~shade:`S300 gray;
       bg gray;
-      bg ~shade:900 gray;
-      bg ~shade:50 red;
-      bg ~shade:100 red;
+      bg ~shade:`S900 gray;
+      bg ~shade:`S50 red;
+      bg ~shade:`S100 red;
       bg red;
-      bg ~shade:600 red;
-      bg ~shade:900 red;
-      bg ~shade:50 blue;
-      bg ~shade:100 blue;
+      bg ~shade:`S600 red;
+      bg ~shade:`S900 red;
+      bg ~shade:`S50 blue;
+      bg ~shade:`S100 blue;
       bg blue;
-      bg ~shade:600 blue;
-      bg ~shade:900 blue;
-      bg ~shade:50 green;
+      bg ~shade:`S600 blue;
+      bg ~shade:`S900 blue;
+      bg ~shade:`S50 green;
       bg green;
-      bg ~shade:600 green;
-      bg ~shade:50 yellow;
+      bg ~shade:`S600 green;
+      bg ~shade:`S50 yellow;
       bg yellow;
       bg purple;
       bg pink;

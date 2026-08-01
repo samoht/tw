@@ -1323,11 +1323,31 @@ let palette_shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
 let is_valid_shade color shade =
   is_shadeless color || List.mem shade palette_shades
 
-let check_shade ~utility color shade =
-  if not (is_valid_shade color shade) then
-    invalid_arg
-      (utility ^ ": " ^ pp color ^ " has no shade " ^ string_of_int shade
-     ^ " (valid shades: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950)")
+type shade =
+  [ `S50
+  | `S100
+  | `S200
+  | `S300
+  | `S400
+  | `S500
+  | `S600
+  | `S700
+  | `S800
+  | `S900
+  | `S950 ]
+
+let int_of_shade = function
+  | `S50 -> 50
+  | `S100 -> 100
+  | `S200 -> 200
+  | `S300 -> 300
+  | `S400 -> 400
+  | `S500 -> 500
+  | `S600 -> 600
+  | `S700 -> 700
+  | `S800 -> 800
+  | `S900 -> 900
+  | `S950 -> 950
 
 (** {1 Color Application Utilities} *)
 
@@ -3734,22 +3754,22 @@ let bg_current_with_opacity ?theme opacity =
 (** Public API *)
 let utility x = Utility.base (Self x)
 
-let bg ?opacity ?(shade = 500) color =
-  check_shade ~utility:"bg" color shade;
+let bg ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
   match opacity with
   | None -> utility (Bg (color, shade))
   | Some pct ->
       utility (Bg_opacity (color, shade, Opacity_percent (Float.of_int pct)))
 
-let text ?opacity ?(shade = 500) color =
-  check_shade ~utility:"text" color shade;
+let text ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
   match opacity with
   | None -> utility (Text (color, shade))
   | Some pct ->
       utility (Text_opacity (color, shade, Opacity_percent (Float.of_int pct)))
 
-let border_color ?opacity ?(shade = 500) color =
-  check_shade ~utility:"border_color" color shade;
+let border_color ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
   match opacity with
   | None -> utility (Border (color, shade))
   | Some pct ->
@@ -3764,8 +3784,8 @@ let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 
-let accent ?opacity ?(shade = 500) color =
-  check_shade ~utility:"accent" color shade;
+let accent ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
   match opacity with
   | None -> utility (Accent (color, shade))
   | Some pct ->
@@ -3775,8 +3795,8 @@ let accent ?opacity ?(shade = 500) color =
 let accent_current = utility Accent_current
 let accent_inherit = utility Accent_inherit
 
-let caret ?opacity ?(shade = 500) color =
-  check_shade ~utility:"caret" color shade;
+let caret ?opacity ?(shade = `S500) color =
+  let shade = int_of_shade shade in
   match opacity with
   | None -> utility (Caret (color, shade))
   | Some pct ->

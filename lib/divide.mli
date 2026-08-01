@@ -33,7 +33,7 @@ val divide_y_length : Css.border_width -> t
 
 (** {1 Divide Colour Utilities} *)
 
-val divide_color : ?opacity:int -> ?shade:int -> Color.color -> t
+val divide_color : ?opacity:int -> ?shade:Color.shade -> Color.color -> t
 (** [divide_color color] sets the colour of the dividing borders. [shade]
     defaults to 500; [opacity] is the alpha modifier (0-100). *)
 

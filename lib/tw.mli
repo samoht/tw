@@ -44,7 +44,7 @@
           px 8;
           font_bold;
           rounded_md;
-          hover [ bg ~shade:700 blue ];
+          hover [ bg ~shade:`S700 blue ];
           transition_colors;
           sm [ px 6 ];
         ]
@@ -81,6 +81,22 @@ type color = Color.color
 (** Abstract type for colors. Use color constructors like {!val-red},
     {!val-blue}, etc. Colors can have shades from 50 (lightest) to 900
     (darkest). *)
+
+type shade =
+  [ `S50
+  | `S100
+  | `S200
+  | `S300
+  | `S400
+  | `S500
+  | `S600
+  | `S700
+  | `S800
+  | `S900
+  | `S950 ]
+(** A step of the Tailwind palette. The palette defines these eleven and no
+    others, so [bg ~shade:`S42 blue] does not compile. A shadeless colour
+    ([black], [white], a [hex] colour) ignores the step it is given. *)
 
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
@@ -1975,7 +1991,7 @@ val text_justify : t
 (** {2 Color}
     @see <https://tailwindcss.com/docs/color> Color *)
 
-val text : ?opacity:int -> ?shade:int -> color -> t
+val text : ?opacity:int -> ?shade:shade -> color -> t
 (** [text color] sets text color. [shade] defaults to 500. {!val-opacity} sets
     the alpha modifier (0-100). *)
 
@@ -2005,7 +2021,7 @@ val no_underline : t
     @see <https://tailwindcss.com/docs/text-decoration-color>
       Text Decoration Color *)
 
-val decoration_color : ?shade:int -> color -> t
+val decoration_color : ?shade:shade -> color -> t
 (** [decoration_color ?shade color] sets text-decoration color. *)
 
 (** {2 Text Decoration Style}
@@ -2276,7 +2292,7 @@ val font_stretch_ultra_expanded : t
 (** {2 Background Color}
     @see <https://tailwindcss.com/docs/background-color> Background Color *)
 
-val bg : ?opacity:int -> ?shade:int -> color -> t
+val bg : ?opacity:int -> ?shade:shade -> color -> t
 (** [bg color] sets the background color. [shade] defaults to 500.
 
     Examples:
@@ -2291,7 +2307,7 @@ val bg_transparent : t
 
 val bg_current : t
 (** [bg_current] sets background color to match the element's text color. If the
-    element has [text ~shade:500 blue], the background will also be blue-500.
+    element has [text ~shade:`S500 blue], the background will also be blue-500.
     Useful for icons and decorative elements that should match text. *)
 
 (* Text color declarations moved under Typography → Color. *)
@@ -2320,14 +2336,15 @@ val bg_gradient_to : direction -> t
       to_classes
         [
           bg_gradient_to Bottom;
-          from_color ~shade:100 blue;
-          to_color ~shade:600 blue;
+          from_color ~shade:`S100 blue;
+          to_color ~shade:`S600 blue;
         ]
     ]} *)
 
-val from_color : ?shade:int -> color -> t
-(** [from_color ~shade:400 blue] sets the starting color of a gradient. Default
-    shade is 500. Works with gradient direction utilities like bg_gradient_to_r.
+val from_color : ?shade:shade -> color -> t
+(** [from_color ~shade:`S400 blue] sets the starting color of a gradient.
+    Default shade is 500. Works with gradient direction utilities like
+    bg_gradient_to_r.
 
     Example:
     {[
@@ -2335,18 +2352,18 @@ val from_color : ?shade:int -> color -> t
       to_classes
         [
           bg_gradient_to Right;
-          from_color ~shade:400 blue;
-          to_color ~shade:600 purple;
+          from_color ~shade:`S400 blue;
+          to_color ~shade:`S600 purple;
         ]
     ]} *)
 
-val via_color : ?shade:int -> color -> t
+val via_color : ?shade:shade -> color -> t
 (** [via_color purple] sets the middle color of a gradient. Default shade is
     500. Creates a three-color gradient when used with {!val-bg_gradient_to} and
     {!val-to_color}. *)
 
-val to_color : ?shade:int -> color -> t
-(** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
+val to_color : ?shade:shade -> color -> t
+(** [to_color ~shade:`S600 pink] sets the ending color of a gradient. Default
     shade is 500. *)
 
 (** {2 Background Origin}
@@ -2379,34 +2396,11 @@ val to_color : ?shade:int -> color -> t
     @see <https://tailwindcss.com/docs/border-width> Border Width *)
 
 val border : t
-(** [border] sets the default border (1px). Same as {!border_xs}. *)
+(** [border] sets a 1px border on every side, or the width the theme's
+    [--default-border-width] gives. *)
 
 val border_none : t
-(** [border_none] removes the border (0px). *)
-
-val border_xs : t
-(** [border_xs] sets extra small border (1px). Same as {!border}. *)
-
-val border_sm : t
-(** [border_sm] sets small border (2px). *)
-
-val border_md : t
-(** [border_md] sets medium border (4px). *)
-
-val border_lg : t
-(** [border_lg] sets large border (4px). *)
-
-val border_xl : t
-(** [border_xl] sets extra large border (8px). *)
-
-val border_2xl : t
-(** [border_2xl] sets 2× large border (8px). *)
-
-val border_3xl : t
-(** [border_3xl] sets 3× large border (8px). *)
-
-val border_full : t
-(** [border_full] sets full border (8px). *)
+(** [border_none] sets a 0px border on every side. *)
 
 val border_t : t
 (** [border_t] sets top border (1px). *)
@@ -2423,7 +2417,7 @@ val border_l : t
 (** {2 Border Color}
     @see <https://tailwindcss.com/docs/border-color> Border Color *)
 
-val border_color : ?opacity:int -> ?shade:int -> color -> t
+val border_color : ?opacity:int -> ?shade:shade -> color -> t
 (** [border_color color] sets the border color. [shade] defaults to 500.
     {!val-opacity} sets the alpha modifier (0-100). *)
 
@@ -2434,7 +2428,7 @@ val border_current : t
 (** [border_current] sets border color to match the text color. For example:
     {[
     let danger_border =
-      to_classes [ text ~shade:600 red; border_xs; border_current ]
+      to_classes [ text ~shade:`S600 red; border; border_current ]
     ]}
 
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
@@ -3097,7 +3091,7 @@ val ring_xl : t
 (** {2 Ring Color}
     @see <https://tailwindcss.com/docs/ring-color> Ring Color *)
 
-val ring_color : ?opacity:int -> ?shade:int -> color -> t
+val ring_color : ?opacity:int -> ?shade:shade -> color -> t
 (** [ring_color color] sets the color of outline rings. Use [~shade] to pick a
     shade (default 500) and [~opacity] to set opacity as a percentage. *)
 
@@ -3518,7 +3512,7 @@ val backdrop_brightness : int -> t
         [
           backdrop_brightness 75;
           backdrop_saturate 150;
-          bg ~shade:100 white;
+          bg ~shade:`S100 white;
           opacity 30;
         ]
     ]} *)
@@ -3648,7 +3642,7 @@ val transition_colors : t
     Example:
     {[
     let button =
-      to_classes [ bg blue; transition_colors; hover [ bg ~shade:700 blue ] ]
+      to_classes [ bg blue; transition_colors; hover [ bg ~shade:`S700 blue ] ]
     ]}
 
     Duration is 150ms by default. *)
@@ -4003,7 +3997,7 @@ val form_radio : t
 (** {2 Accent Color}
     @see <https://tailwindcss.com/docs/accent-color> Accent Color *)
 
-val accent : ?opacity:int -> ?shade:int -> color -> t
+val accent : ?opacity:int -> ?shade:shade -> color -> t
 (** [accent color] sets the accent color for form controls like checkboxes and
     radio buttons. [shade] defaults to 500. {!val-opacity} sets the alpha
     modifier (0-100). *)
@@ -4017,7 +4011,7 @@ val accent_inherit : t
 (** {2 Caret Color}
     @see <https://tailwindcss.com/docs/caret-color> Caret Color *)
 
-val caret : ?opacity:int -> ?shade:int -> color -> t
+val caret : ?opacity:int -> ?shade:shade -> color -> t
 (** [caret color] sets the caret color. [shade] defaults to 500. {!val-opacity}
     sets the alpha modifier (0-100). *)
 
@@ -4223,7 +4217,7 @@ val divide_x_reverse : t
 val divide_y_reverse : t
 (** [divide_y_reverse] reverses vertical divide borders. *)
 
-val divide_color : ?opacity:int -> ?shade:int -> color -> t
+val divide_color : ?opacity:int -> ?shade:shade -> color -> t
 (** [divide_color color] sets the colour of the dividing borders. [shade]
     defaults to 500; [opacity] is the alpha modifier (0-100). *)
 
@@ -4494,6 +4488,14 @@ val stroke_2 : t
 val stroke_width : int -> t
 (** [stroke_width n] sets stroke-width to n. *)
 
+val fill : ?opacity:int -> ?shade:shade -> color -> t
+(** [fill ?opacity ?shade color] sets [fill] to [color] at [shade] (default
+    [500]), at [opacity] percent when given. *)
+
+val stroke : ?opacity:int -> ?shade:shade -> color -> t
+(** [stroke ?opacity ?shade color] sets [stroke] to [color] at [shade] (default
+    [500]), at [opacity] percent when given. *)
+
 (** {1 Accessibility} *)
 
 (** {2 Forced Color Adjust}
@@ -4634,7 +4636,7 @@ val to_inline_style : ?theme:Theme.t -> t list -> string
     Perfect for tweaking individual HTML nodes with custom styles:
     {[
     let inline_styles =
-      to_inline_style [ bg ~shade:100 blue; p 4; rounded_md; text white ]
+      to_inline_style [ bg ~shade:`S100 blue; p 4; rounded_md; text white ]
     ]}
 
     {b When to use [to_inline_style] vs {!val-to_css}:}

@@ -205,14 +205,30 @@ val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
 
-val is_valid_shade : color -> int -> bool
-(** [is_valid_shade color shade] checks that [shade] is one the Tailwind palette
-    defines for [color]. Shadeless colors accept any shade (it is ignored). *)
+type shade =
+  [ `S50
+  | `S100
+  | `S200
+  | `S300
+  | `S400
+  | `S500
+  | `S600
+  | `S700
+  | `S800
+  | `S900
+  | `S950 ]
+(** A step of the Tailwind palette. The palette defines these eleven and no
+    others, so a colour utility takes one of them rather than an [int]. A
+    shadeless colour ignores the step it is given. *)
 
-val check_shade : utility:string -> color -> int -> unit
-(** [check_shade ~utility color shade] raises [Invalid_argument] if
-    [is_valid_shade color shade] is false. [utility] names the constructor in
-    the error message. *)
+val int_of_shade : shade -> int
+(** [int_of_shade s] is the number [s] is written with in a class name: [`S600]
+    is [600]. *)
+
+val is_valid_shade : color -> int -> bool
+(** [is_valid_shade color n] is whether [n] is a step the palette defines for
+    [color], for the parser, which sees numbers rather than {!shade} values. A
+    shadeless colour accepts any number, and ignores it. *)
 
 val color_var : color -> int -> Css.color Var.theme
 (** [color_var color shade] gets or creates a memoized color variable for the
@@ -267,7 +283,7 @@ end
 
 (** {1 Color Application Utilities} *)
 
-val bg : ?opacity:int -> ?shade:int -> color -> t
+val bg : ?opacity:int -> ?shade:shade -> color -> t
 (** [bg color] sets the background color. [shade] defaults to 500. [opacity]
     sets the alpha modifier (0-100), e.g. [bg ~opacity:50 white]. *)
 
@@ -277,7 +293,7 @@ val bg_transparent : t
 val bg_current : t
 (** [bg_current] uses [currentColor] for the background. *)
 
-val text : ?opacity:int -> ?shade:int -> color -> t
+val text : ?opacity:int -> ?shade:shade -> color -> t
 (** [text color] sets the text color. [shade] defaults to 500. [opacity] sets
     the alpha modifier (0-100), e.g. [text ~opacity:50 red]. *)
 
@@ -290,7 +306,7 @@ val text_current : t
 val text_inherit : t
 (** [text_inherit] inherits text color from parent. *)
 
-val border_color : ?opacity:int -> ?shade:int -> color -> t
+val border_color : ?opacity:int -> ?shade:shade -> color -> t
 (** [border_color color] sets the border color. [shade] defaults to 500.
     [opacity] sets the alpha modifier (0-100), e.g.
     [border_color ~opacity:5 white]. *)
@@ -301,7 +317,7 @@ val border_transparent : t
 val border_current : t
 (** [border_current] uses [currentColor] for border color. *)
 
-val accent : ?opacity:int -> ?shade:int -> color -> t
+val accent : ?opacity:int -> ?shade:shade -> color -> t
 (** [accent color] sets the accent color for form controls. [shade] defaults to
     500. [opacity] sets the alpha modifier (0-100). *)
 
@@ -311,7 +327,7 @@ val accent_current : t
 val accent_inherit : t
 (** [accent_inherit] sets accent color to inherit. *)
 
-val caret : ?opacity:int -> ?shade:int -> color -> t
+val caret : ?opacity:int -> ?shade:shade -> color -> t
 (** [caret color] sets the caret color for text input elements. [shade] defaults
     to 500. [opacity] sets the alpha modifier (0-100). *)
 

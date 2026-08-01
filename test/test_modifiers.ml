@@ -117,7 +117,7 @@ let test_apply () =
     | _ -> false);
 
   (* Test dark mode *)
-  let style5 = apply [ "dark" ] (bg ~shade:900 gray) in
+  let style5 = apply [ "dark" ] (bg ~shade:`S900 gray) in
   check bool "dark modifier applied" true
     (match style5 with
     | Some (Group [ Modified (Dark, _) ]) -> true
@@ -182,11 +182,11 @@ let test_media_preference_modifiers () =
     (Tw.Private.Utility.to_class (contrast_more [ border_4 ]));
 
   check string "contrast-less: single colon" "contrast-less:text-gray-600"
-    (Tw.Private.Utility.to_class (contrast_less [ text ~shade:600 gray ]));
+    (Tw.Private.Utility.to_class (contrast_less [ text ~shade:`S600 gray ]));
 
   (* Dark mode *)
   check string "dark: single colon" "dark:bg-gray-900"
-    (Tw.Private.Utility.to_class (dark [ bg ~shade:900 gray ]))
+    (Tw.Private.Utility.to_class (dark [ bg ~shade:`S900 gray ]))
 
 (* Test CSS generation and parsing roundtrip for modifiers *)
 let test_modifier_css_roundtrip () =
@@ -196,8 +196,8 @@ let test_modifier_css_roundtrip () =
       motion_reduce [ transition_none ];
       contrast_more [ border_4 ];
       contrast_more [ text black ];
-      contrast_less [ text ~shade:600 gray ];
-      dark [ bg ~shade:900 gray ];
+      contrast_less [ text ~shade:`S600 gray ];
+      dark [ bg ~shade:`S900 gray ];
       hover [ bg blue ];
       sm [ p 4 ];
     ]
@@ -251,11 +251,13 @@ let test_combined_media_modifiers () =
     (Tw.Private.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
 
   check string "md:dark: works" "md:dark:bg-gray-900"
-    (Tw.Private.Utility.to_class (md [ dark [ bg ~shade:900 gray ] ]));
+    (Tw.Private.Utility.to_class (md [ dark [ bg ~shade:`S900 gray ] ]));
 
   (* Generate and parse CSS with combined modifiers *)
   let utilities =
-    [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg ~shade:900 gray ] ] ]
+    [
+      sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg ~shade:`S900 gray ] ];
+    ]
   in
   let css_str =
     Tw.Css.to_string ~minify:true (Tw.Private.Build.to_css utilities)
@@ -666,7 +668,9 @@ let test_nested_modifier_class_names () =
       to_classes
         [
           dark
-            [ text ~shade:300 gray; hover [ bg ~shade:700 gray; text white ] ];
+            [
+              text ~shade:`S300 gray; hover [ bg ~shade:`S700 gray; text white ];
+            ];
         ]);
 
   (* Triple nesting: sm:dark:hover *)
@@ -695,9 +699,10 @@ let test_nested_modifier_class_names () =
   let complex_styles =
     Tw.
       [
-        text ~shade:600 gray;
-        hover [ bg ~shade:100 gray; text ~shade:900 gray ];
-        dark [ text ~shade:300 gray; hover [ bg ~shade:700 gray; text white ] ];
+        text ~shade:`S600 gray;
+        hover [ bg ~shade:`S100 gray; text ~shade:`S900 gray ];
+        dark
+          [ text ~shade:`S300 gray; hover [ bg ~shade:`S700 gray; text white ] ];
       ]
   in
   check string "complex nested structure"

@@ -8,7 +8,7 @@ open Tw_html
 (* Page header *)
 let page_header =
   header
-    ~tw:Tw.[ bg white; shadow; shadow_sm; dark [ bg ~shade:900 gray ] ]
+    ~tw:Tw.[ bg white; shadow; shadow_sm; dark [ bg ~shade:`S900 gray ] ]
     [
       div
         ~tw:Tw.[ max_w_5xl; mx_auto; px 4; py 4 ]
@@ -17,7 +17,10 @@ let page_header =
             ~tw:
               Tw.
                 [
-                  text_2xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                  text_2xl;
+                  font_bold;
+                  text ~shade:`S900 gray;
+                  dark [ text white ];
                 ]
             [ txt "Animations Demo" ];
         ];
@@ -27,7 +30,10 @@ let page_header =
 let anim_label =
   Tw.
     [
-      text_sm; font_medium; text ~shade:700 gray; dark [ text ~shade:300 gray ];
+      text_sm;
+      font_medium;
+      text ~shade:`S700 gray;
+      dark [ text ~shade:`S300 gray ];
     ]
 
 let keyframe_desc = Tw.[ text_xs; text gray; text_center ]
@@ -46,7 +52,7 @@ let ping_el =
     ~tw:Tw.[ relative; w 16; h 16 ]
     [
       div ~tw:Tw.[ absolute; inset 0; bg green; rounded_full; animate_ping ] [];
-      div ~tw:Tw.[ absolute; inset 2; bg ~shade:600 green; rounded_full ] [];
+      div ~tw:Tw.[ absolute; inset 2; bg ~shade:`S600 green; rounded_full ] [];
     ]
 
 let keyframe_demos =
@@ -62,8 +68,8 @@ let keyframe_demos =
                    w 16;
                    h 16;
                    rounded_full;
-                   border_lg;
-                   border_color ~shade:600 blue;
+                   border_4;
+                   border_color ~shade:`S600 blue;
                    animate_spin;
                  ]
              [])
@@ -82,7 +88,8 @@ let keyframe_demos =
 let keyframe_section =
   section
     ~at:[ At.v "aria-labelledby" "keyframe-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "keyframe-heading" ]
@@ -91,13 +98,13 @@ let keyframe_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Keyframe Animations" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Built-in keyframe animations for common use cases. These run \
@@ -119,7 +126,7 @@ let color_transition_demo =
           text white;
           transition;
           transition_colors;
-          hover [ bg ~shade:700 blue ];
+          hover [ bg ~shade:`S700 blue ];
         ]
         @ transition_base)
     [ txt "Hover for color transition" ]
@@ -138,11 +145,11 @@ let shadow_transition_demo =
       Tw.(
         [
           bg white;
-          text ~shade:700 gray;
+          text ~shade:`S700 gray;
           shadow_sm;
           transition_shadow;
           hover [ shadow_xl ];
-          dark [ bg ~shade:700 gray; text white ];
+          dark [ bg ~shade:`S700 gray; text white ];
         ]
         @ transition_base)
     [ txt "Hover for shadow" ]
@@ -162,14 +169,14 @@ let timing_functions_demos =
              Tw.
                [
                  p 4;
-                 bg ~shade:100 gray;
+                 bg ~shade:`S100 gray;
                  rounded_lg;
                  text_center;
                  transition_all;
                  duration 500;
                  ease_style;
-                 hover [ bg ~shade:300 gray; translate_x 2 ];
-                 dark [ bg ~shade:700 gray; hover [ bg ~shade:600 gray ] ];
+                 hover [ bg ~shade:`S300 gray; translate_x 2 ];
+                 dark [ bg ~shade:`S700 gray; hover [ bg ~shade:`S600 gray ] ];
                ]
            [ span ~tw:anim_label [ txt name ] ])
        [
@@ -182,7 +189,8 @@ let timing_functions_demos =
 let transitions_section =
   section
     ~at:[ At.v "aria-labelledby" "transitions-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "transitions-heading" ]
@@ -191,13 +199,13 @@ let transitions_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Transitions" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Smooth property transitions on hover. Different timing functions \
@@ -210,10 +218,10 @@ let transitions_section =
             [
               text_lg;
               font_semibold;
-              text ~shade:800 gray;
+              text ~shade:`S800 gray;
               mt 8;
               mb 4;
-              dark [ text ~shade:200 gray ];
+              dark [ text ~shade:`S200 gray ];
             ]
         [ txt "Timing Functions" ];
       timing_functions_demos;
@@ -266,8 +274,8 @@ let transform_demos =
                   w 16;
                   h 16;
                   bg_gradient_to Right;
-                  from_color ~shade:500 pink;
-                  to_color ~shade:500 orange;
+                  from_color ~shade:`S500 pink;
+                  to_color ~shade:`S500 orange;
                   rounded_lg;
                   transition_transform;
                   duration 300;
@@ -281,7 +289,8 @@ let transform_demos =
 let transform_section =
   section
     ~at:[ At.v "aria-labelledby" "transform-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "transform-heading" ]
@@ -290,13 +299,13 @@ let transform_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Transforms" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [ txt "Various transformation utilities: rotate, scale, translate." ];
       transform_demos;
     ]
@@ -312,16 +321,17 @@ let fade_in_card =
   starting_card
     ~start_styles:Tw.[ starting [ opacity 0 ] ]
     ~end_styles:Tw.[ opacity 100; transition_opacity; duration 700 ]
-    ~bg_styles:Tw.[ bg ~shade:100 blue; dark [ bg ~shade:900 blue ] ]
+    ~bg_styles:Tw.[ bg ~shade:`S100 blue; dark [ bg ~shade:`S900 blue ] ]
     ~heading_tw:
       Tw.
         [
           font_semibold;
-          text ~shade:900 blue;
+          text ~shade:`S900 blue;
           mb 2;
-          dark [ text ~shade:100 blue ];
+          dark [ text ~shade:`S100 blue ];
         ]
-    ~text_tw:Tw.[ text_sm; text ~shade:700 blue; dark [ text ~shade:200 blue ] ]
+    ~text_tw:
+      Tw.[ text_sm; text ~shade:`S700 blue; dark [ text ~shade:`S200 blue ] ]
     ~heading:"Fade In"
     ~description:"This element fades in from transparent to opaque."
 
@@ -329,17 +339,17 @@ let scale_in_card =
   starting_card
     ~start_styles:Tw.[ starting [ opacity 0; scale 90 ] ]
     ~end_styles:Tw.[ opacity 100; scale 100; transition_all; duration 500 ]
-    ~bg_styles:Tw.[ bg ~shade:100 green; dark [ bg ~shade:900 green ] ]
+    ~bg_styles:Tw.[ bg ~shade:`S100 green; dark [ bg ~shade:`S900 green ] ]
     ~heading_tw:
       Tw.
         [
           font_semibold;
-          text ~shade:900 green;
+          text ~shade:`S900 green;
           mb 2;
-          dark [ text ~shade:100 green ];
+          dark [ text ~shade:`S100 green ];
         ]
     ~text_tw:
-      Tw.[ text_sm; text ~shade:700 green; dark [ text ~shade:200 green ] ]
+      Tw.[ text_sm; text ~shade:`S700 green; dark [ text ~shade:`S200 green ] ]
     ~heading:"Scale In" ~description:"This element scales up while fading in."
 
 let starting_demos =
@@ -352,18 +362,23 @@ let starting_demos =
         ~start_styles:Tw.[ starting [ opacity 0; translate_x (-4) ] ]
         ~end_styles:
           Tw.[ opacity 100; translate_x 0; transition_all; duration 500 ]
-        ~bg_styles:Tw.[ bg ~shade:100 purple; dark [ bg ~shade:900 purple ] ]
+        ~bg_styles:
+          Tw.[ bg ~shade:`S100 purple; dark [ bg ~shade:`S900 purple ] ]
         ~heading_tw:
           Tw.
             [
               font_semibold;
-              text ~shade:900 purple;
+              text ~shade:`S900 purple;
               mb 2;
-              dark [ text ~shade:100 purple ];
+              dark [ text ~shade:`S100 purple ];
             ]
         ~text_tw:
           Tw.
-            [ text_sm; text ~shade:700 purple; dark [ text ~shade:200 purple ] ]
+            [
+              text_sm;
+              text ~shade:`S700 purple;
+              dark [ text ~shade:`S200 purple ];
+            ]
         ~heading:"Slide In Left"
         ~description:"This element slides in from the left.";
       starting_card
@@ -373,8 +388,8 @@ let starting_demos =
           Tw.
             [
               bg_gradient_to Right;
-              from_color ~shade:500 pink;
-              to_color ~shade:600 purple;
+              from_color ~shade:`S500 pink;
+              to_color ~shade:`S600 purple;
               text white;
             ]
         ~heading_tw:Tw.[ font_semibold; mb 2 ]
@@ -386,7 +401,8 @@ let starting_demos =
 let starting_section =
   section
     ~at:[ At.v "aria-labelledby" "starting-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "starting-heading" ]
@@ -395,13 +411,13 @@ let starting_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "@starting-style Entry Animations" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "CSS @starting-style allows elements to animate from an initial \
@@ -413,11 +429,13 @@ let starting_section =
 (* Motion preferences section *)
 let motion_card ~title ~anim_styles ~description =
   div
-    ~tw:Tw.[ p 6; bg white; rounded_lg; shadow_sm; dark [ bg ~shade:700 gray ] ]
+    ~tw:
+      Tw.[ p 6; bg white; rounded_lg; shadow_sm; dark [ bg ~shade:`S700 gray ] ]
     [
       h3
         ~tw:
-          Tw.[ font_semibold; text ~shade:800 gray; mb 3; dark [ text white ] ]
+          Tw.
+            [ font_semibold; text ~shade:`S800 gray; mb 3; dark [ text white ] ]
         [ txt title ];
       div
         ~tw:Tw.[ flex; items_center; gap 4 ]
@@ -426,7 +444,11 @@ let motion_card ~title ~anim_styles ~description =
           p
             ~tw:
               Tw.
-                [ text_sm; text ~shade:600 gray; dark [ text ~shade:300 gray ] ]
+                [
+                  text_sm;
+                  text ~shade:`S600 gray;
+                  dark [ text ~shade:`S300 gray ];
+                ]
             [ txt description ];
         ];
     ]
@@ -447,7 +469,8 @@ let motion_demos =
 let motion_section =
   section
     ~at:[ At.v "aria-labelledby" "motion-heading" ]
-    ~tw:Tw.[ bg ~shade:50 blue; p 6; rounded_xl; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg ~shade:`S50 blue; p 6; rounded_xl; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "motion-heading" ]
@@ -456,13 +479,13 @@ let motion_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Motion Preferences" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "These animations respect prefers-reduced-motion. Enable 'Reduce \
@@ -483,12 +506,12 @@ let duration_demos =
                [
                  px 6;
                  py 3;
-                 bg ~shade:200 gray;
+                 bg ~shade:`S200 gray;
                  rounded_lg;
                  transition_colors;
                  dur;
-                 hover [ bg ~shade:400 gray ];
-                 dark [ bg ~shade:700 gray; hover [ bg gray ] ];
+                 hover [ bg ~shade:`S400 gray ];
+                 dark [ bg ~shade:`S700 gray; hover [ bg gray ] ];
                ]
            [ span ~tw:anim_label [ txt label ] ])
        [
@@ -503,7 +526,8 @@ let duration_demos =
 let duration_section =
   section
     ~at:[ At.v "aria-labelledby" "duration-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "duration-heading" ]
@@ -512,13 +536,13 @@ let duration_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Duration & Delay" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Control animation speed and delay with duration and delay \
@@ -539,7 +563,7 @@ let page_intro =
               text_3xl;
               md [ text_4xl ];
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
@@ -549,10 +573,10 @@ let page_intro =
           Tw.
             [
               text_lg;
-              text ~shade:600 gray;
+              text ~shade:`S600 gray;
               max_w_2xl;
               mx_auto;
-              dark [ text ~shade:400 gray ];
+              dark [ text ~shade:`S400 gray ];
             ]
         [
           txt

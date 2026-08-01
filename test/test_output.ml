@@ -34,7 +34,7 @@ let test_is_hover_rule () =
         (is_hover_rule regular_rule)
   | _ -> fail "Expected single regular rule with nested CSS");
 
-  let focus_rules = Tw.Private.Rule.outputs (focus [ bg ~shade:400 red ]) in
+  let focus_rules = Tw.Private.Rule.outputs (focus [ bg ~shade:`S400 red ]) in
   (match focus_rules with
   | [ focus_rule ] ->
       check bool "focus alone is not hover" false (is_hover_rule focus_rule)

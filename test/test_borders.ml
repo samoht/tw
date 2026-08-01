@@ -108,10 +108,10 @@ let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
     [
-      border_xs;
-      border_sm;
-      border_md;
-      border_lg;
+      border;
+      border_2;
+      border_4;
+      border_4;
       border_solid;
       border_dashed;
       border_dotted;

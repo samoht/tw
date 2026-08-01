@@ -33,7 +33,7 @@ let test_typed () =
   Test_helpers.check_typed_class "divide-y-reverse" divide_y_reverse;
   Test_helpers.check_typed_class "divide-blue-500" (divide_color blue);
   Test_helpers.check_typed_class "divide-gray-300"
-    (divide_color ~shade:300 gray);
+    (divide_color ~shade:`S300 gray);
   Test_helpers.check_typed_class "divide-transparent" divide_transparent;
   Test_helpers.check_typed_class "divide-current" divide_current;
   Test_helpers.check_typed_class "divide-inherit" divide_inherit;

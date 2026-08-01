@@ -1279,24 +1279,15 @@ let border_none = utility Border_none
 
 (** {1 Border Color Utilities} *)
 
-let border_color ?opacity ?(shade = 500) color =
-  Color.check_shade ~utility:"border_color" color shade;
+let border_color ?opacity ?(shade = `S500) color =
   match opacity with
-  | None -> utility (Border_color (color, shade))
+  | None -> utility (Border_color (color, Color.int_of_shade shade))
   | Some pct -> Color.border_color ~opacity:pct ~shade color
 
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 
 (* Border width utilities with semantic names matching tw.mli *)
-let border_xs = border (* 1px *)
-let border_sm = border_2 (* 2px *)
-let border_md = border_4 (* 4px *)
-let border_lg = border_4 (* 4px *)
-let border_xl = border_8 (* 8px *)
-let border_2xl = border_8 (* 8px *)
-let border_3xl = border_8 (* 8px *)
-let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 

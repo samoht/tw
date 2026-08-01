@@ -7,13 +7,25 @@ open Tw_html
 let swatch ~label ~tw = div ~tw [ span ~tw:Tw.[ text_sm ] [ txt label ] ]
 
 let hue_row ~title ~make_color =
-  let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+  let shades =
+    [
+      (`S50, "50");
+      (`S100, "100");
+      (`S200, "200");
+      (`S300, "300");
+      (`S400, "400");
+      (`S500, "500");
+      (`S600, "600");
+      (`S700, "700");
+      (`S800, "800");
+      (`S900, "900");
+    ]
+  in
   let cells =
     List.map
-      (fun shade ->
-        let label = string_of_int shade in
+      (fun (shade, label) ->
         swatch ~label
-          ~tw:Tw.[ make_color shade; text ~shade:900 gray; rounded_md ])
+          ~tw:Tw.[ make_color shade; text ~shade:`S900 gray; rounded_md ])
       shades
   in
   div
@@ -31,15 +43,15 @@ let text_on_bg_examples =
         [
           (* Dark text on light bg *)
           div
-            ~tw:Tw.[ p 4; bg ~shade:50 gray; rounded_md ]
+            ~tw:Tw.[ p 4; bg ~shade:`S50 gray; rounded_md ]
             [
               p
-                ~tw:Tw.[ text ~shade:800 gray ]
+                ~tw:Tw.[ text ~shade:`S800 gray ]
                 [ txt "Text gray-800 on gray-50" ];
             ];
           (* Light text on dark bg *)
           div
-            ~tw:Tw.[ p 4; bg ~shade:900 gray; rounded_md ]
+            ~tw:Tw.[ p 4; bg ~shade:`S900 gray; rounded_md ]
             [ p ~tw:Tw.[ text white ] [ txt "Text white on gray-900" ] ];
         ];
     ]
@@ -52,7 +64,7 @@ let page_view =
         [
           h1 ~tw:Tw.[ text_4xl; font_bold; mb 2; text_center ] [ txt "Colors" ];
           p
-            ~tw:Tw.[ text ~shade:600 gray; text_center ]
+            ~tw:Tw.[ text ~shade:`S600 gray; text_center ]
             [ txt "Palette swatches for common hues and gray scale" ];
           hue_row ~title:"Red" ~make_color:(fun s -> Tw.bg ~shade:s Tw.red);
           hue_row ~title:"Orange" ~make_color:(fun s ->

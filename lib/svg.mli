@@ -13,8 +13,9 @@ val fill_none : t
 val fill_current : t
 (** [fill_current] sets fill to currentColor. *)
 
-val fill : Color.color -> ?shade:int -> unit -> Style.t
-(** [fill color ?shade ()] sets SVG fill color. *)
+val fill : ?opacity:int -> ?shade:Color.shade -> Color.color -> t
+(** [fill ?opacity ?shade color] sets [fill] to [color] at [shade] (default
+    [500]), at [opacity] percent when given. *)
 
 (** {1 Stroke Utilities} *)
 
@@ -24,8 +25,9 @@ val stroke_none : t
 val stroke_current : t
 (** [stroke_current] sets stroke to currentColor. *)
 
-val stroke : Color.color -> ?shade:int -> unit -> Style.t
-(** [stroke color ?shade ()] sets SVG stroke color. *)
+val stroke : ?opacity:int -> ?shade:Color.shade -> Color.color -> t
+(** [stroke ?opacity ?shade color] sets [stroke] to [color] at [shade] (default
+    [500]), at [opacity] percent when given. *)
 
 (** {1 Stroke Width Utilities} *)
 

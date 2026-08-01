@@ -8,7 +8,7 @@ open Tw_html
 (* Page header *)
 let page_header =
   header
-    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:900 gray ] ]
+    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:`S900 gray ] ]
     [
       div
         ~tw:Tw.[ max_w_5xl; mx_auto; px 4; py 4 ]
@@ -17,7 +17,10 @@ let page_header =
             ~tw:
               Tw.
                 [
-                  text_2xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                  text_2xl;
+                  font_bold;
+                  text ~shade:`S900 gray;
+                  dark [ text white ];
                 ]
             [ txt "Modifiers Demo" ];
         ];
@@ -29,9 +32,9 @@ let demo_label =
     [
       text_sm;
       font_semibold;
-      text ~shade:700 gray;
+      text ~shade:`S700 gray;
       mb 2;
-      dark [ text ~shade:300 gray ];
+      dark [ text ~shade:`S300 gray ];
     ]
 
 (* State Variants Section *)
@@ -51,7 +54,7 @@ let hover_demo =
               rounded_lg;
               transition_colors;
               duration 200;
-              hover [ bg ~shade:700 blue ];
+              hover [ bg ~shade:`S700 blue ];
             ]
         [ txt "Hover me" ];
     ]
@@ -68,11 +71,15 @@ let focus_demo =
               px 4;
               py 3;
               border;
-              border_color ~shade:300 gray;
+              border_color ~shade:`S300 gray;
               rounded_lg;
               focus [ ring_md; ring_color blue; outline_none ];
               dark
-                [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
+                [
+                  bg ~shade:`S700 gray;
+                  border_color ~shade:`S600 gray;
+                  text white;
+                ];
             ]
         ~at:[ At.placeholder "Click or tab to focus" ]
         ();
@@ -94,7 +101,7 @@ let active_demo =
               rounded_lg;
               transition_all;
               duration 150;
-              active [ bg ~shade:700 green; scale 95 ];
+              active [ bg ~shade:`S700 green; scale 95 ];
             ]
         [ txt "Press and hold" ];
     ]
@@ -111,7 +118,7 @@ let disabled_demo =
               w_full;
               px 4;
               py 3;
-              bg ~shade:300 gray;
+              bg ~shade:`S300 gray;
               text gray;
               rounded_lg;
               disabled [ opacity 50; cursor_not_allowed ];
@@ -122,7 +129,8 @@ let disabled_demo =
 let state_section =
   section
     ~at:[ At.v "aria-labelledby" "state-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "state-heading" ]
@@ -131,13 +139,13 @@ let state_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "State Variants" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Apply styles based on user interaction states: hover, focus, \
@@ -159,13 +167,13 @@ let group_hover_demo =
             [
               group;
               p 4;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
               cursor_pointer;
               transition_colors;
               duration 200;
-              hover [ bg ~shade:200 gray ];
-              dark [ bg ~shade:700 gray; hover [ bg ~shade:600 gray ] ];
+              hover [ bg ~shade:`S200 gray ];
+              dark [ bg ~shade:`S700 gray; hover [ bg ~shade:`S600 gray ] ];
             ]
         [
           h4
@@ -173,21 +181,22 @@ let group_hover_demo =
               Tw.
                 [
                   font_semibold;
-                  text ~shade:800 gray;
-                  group_hover [ text ~shade:600 blue ];
-                  dark [ text white; group_hover [ text ~shade:400 blue ] ];
+                  text ~shade:`S800 gray;
+                  group_hover [ text ~shade:`S600 blue ];
+                  dark [ text white; group_hover [ text ~shade:`S400 blue ] ];
                 ]
             [ txt "Hover this card" ];
           p
             ~tw:
               Tw.
                 [
-                  text ~shade:600 gray;
+                  text ~shade:`S600 gray;
                   text_sm;
-                  group_hover [ text ~shade:900 gray ];
+                  group_hover [ text ~shade:`S900 gray ];
                   dark
                     [
-                      text ~shade:400 gray; group_hover [ text ~shade:200 gray ];
+                      text ~shade:`S400 gray;
+                      group_hover [ text ~shade:`S200 gray ];
                     ];
                 ]
             [ txt "Child elements respond to parent hover" ];
@@ -204,9 +213,9 @@ let group_focus_demo =
             [
               group;
               p 4;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
-              dark [ bg ~shade:700 gray ];
+              dark [ bg ~shade:`S700 gray ];
             ]
         [
           input
@@ -217,11 +226,11 @@ let group_focus_demo =
                   px 3;
                   py 2;
                   border;
-                  border_color ~shade:300 gray;
+                  border_color ~shade:`S300 gray;
                   rounded_md;
                   mb 2;
                   focus [ outline_none; ring_md; ring_color blue ];
-                  dark [ bg ~shade:600 gray; border_color gray; text white ];
+                  dark [ bg ~shade:`S600 gray; border_color gray; text white ];
                 ]
             ~at:[ At.placeholder "Focus this input" ]
             ();
@@ -231,10 +240,11 @@ let group_focus_demo =
                 [
                   text_sm;
                   text gray;
-                  group_focus [ text ~shade:600 blue; font_semibold ];
+                  group_focus [ text ~shade:`S600 blue; font_semibold ];
                   dark
                     [
-                      text ~shade:400 gray; group_focus [ text ~shade:400 blue ];
+                      text ~shade:`S400 gray;
+                      group_focus [ text ~shade:`S400 blue ];
                     ];
                 ]
             [ txt "This text responds to input focus" ];
@@ -248,7 +258,12 @@ let peer_checked_demo =
       div
         ~tw:
           Tw.
-            [ p 4; bg ~shade:100 gray; rounded_lg; dark [ bg ~shade:700 gray ] ]
+            [
+              p 4;
+              bg ~shade:`S100 gray;
+              rounded_lg;
+              dark [ bg ~shade:`S700 gray ];
+            ]
         [
           label
             ~tw:Tw.[ flex; items_center; gap 3; cursor_pointer ]
@@ -258,12 +273,12 @@ let peer_checked_demo =
                 ~tw:
                   Tw.
                     [
-                      text ~shade:700 gray;
-                      peer_checked [ text ~shade:600 green; font_semibold ];
+                      text ~shade:`S700 gray;
+                      peer_checked [ text ~shade:`S600 green; font_semibold ];
                       dark
                         [
-                          text ~shade:300 gray;
-                          peer_checked [ text ~shade:400 green ];
+                          text ~shade:`S300 gray;
+                          peer_checked [ text ~shade:`S400 green ];
                         ];
                     ]
                 [ txt "Check to enable" ];
@@ -278,7 +293,12 @@ let peer_has_demo =
       div
         ~tw:
           Tw.
-            [ p 4; bg ~shade:100 gray; rounded_lg; dark [ bg ~shade:700 gray ] ]
+            [
+              p 4;
+              bg ~shade:`S100 gray;
+              rounded_lg;
+              dark [ bg ~shade:`S700 gray ];
+            ]
         [
           input
             ~tw:
@@ -289,11 +309,11 @@ let peer_has_demo =
                   px 3;
                   py 2;
                   border;
-                  border_color ~shade:300 gray;
+                  border_color ~shade:`S300 gray;
                   rounded_md;
                   mb 2;
                   focus [ outline_none; ring_md ];
-                  dark [ bg ~shade:600 gray; border_color gray; text white ];
+                  dark [ bg ~shade:`S600 gray; border_color gray; text white ];
                 ]
             ~at:[ At.type' "email"; At.placeholder "Enter email" ]
             ();
@@ -315,7 +335,8 @@ let peer_has_demo =
 let group_peer_section =
   section
     ~at:[ At.v "aria-labelledby" "group-peer-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "group-peer-heading" ]
@@ -324,13 +345,13 @@ let group_peer_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Group & Peer Modifiers" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Style child elements based on parent (group) or sibling (peer) \
@@ -351,18 +372,18 @@ let has_checked_demo =
           Tw.
             [
               p 4;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
-              border_md;
+              border_4;
               border_transparent;
               transition_colors;
               duration 200;
-              has ":checked" [ bg ~shade:100 green; border_color green ];
+              has ":checked" [ bg ~shade:`S100 green; border_color green ];
               dark
                 [
-                  bg ~shade:700 gray;
+                  bg ~shade:`S700 gray;
                   has ":checked"
-                    [ bg ~shade:900 green; border_color ~shade:400 green ];
+                    [ bg ~shade:`S900 green; border_color ~shade:`S400 green ];
                 ];
             ]
         [
@@ -371,7 +392,8 @@ let has_checked_demo =
             [
               input ~tw:Tw.[ w 5; h 5 ] ~at:[ At.type' "checkbox" ] ();
               span
-                ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+                ~tw:
+                  Tw.[ text ~shade:`S700 gray; dark [ text ~shade:`S300 gray ] ]
                 [ txt "Check to change wrapper style" ];
             ];
         ];
@@ -387,9 +409,9 @@ let group_has_demo =
             [
               group;
               p 4;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
-              dark [ bg ~shade:700 gray ];
+              dark [ bg ~shade:`S700 gray ];
             ]
         [
           div
@@ -408,11 +430,12 @@ let group_has_demo =
                 [
                   text_sm;
                   text gray;
-                  group_has ":checked" [ text ~shade:600 green; font_semibold ];
+                  group_has ":checked"
+                    [ text ~shade:`S600 green; font_semibold ];
                   dark
                     [
-                      text ~shade:400 gray;
-                      group_has ":checked" [ text ~shade:400 green ];
+                      text ~shade:`S400 gray;
+                      group_has ":checked" [ text ~shade:`S400 green ];
                     ];
                 ]
             [ txt "Selection status" ];
@@ -422,7 +445,8 @@ let group_has_demo =
 let has_section =
   section
     ~at:[ At.v "aria-labelledby" "has-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "has-heading" ]
@@ -431,13 +455,13 @@ let has_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt ":has() Selector" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Style elements based on their descendants using the :has() \
@@ -458,14 +482,14 @@ let focus_within_demo =
           Tw.
             [
               p 4;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
-              border_md;
+              border_4;
               border_transparent;
               transition_all;
               duration 200;
               focus_within [ border_color blue; shadow_md ];
-              dark [ bg ~shade:700 gray ];
+              dark [ bg ~shade:`S700 gray ];
             ]
         [
           label
@@ -475,9 +499,9 @@ let focus_within_demo =
                   block;
                   text_sm;
                   font_medium;
-                  text ~shade:700 gray;
+                  text ~shade:`S700 gray;
                   mb 1;
-                  dark [ text ~shade:300 gray ];
+                  dark [ text ~shade:`S300 gray ];
                 ]
             [ txt "Username" ];
           input
@@ -488,10 +512,10 @@ let focus_within_demo =
                   px 3;
                   py 2;
                   border;
-                  border_color ~shade:300 gray;
+                  border_color ~shade:`S300 gray;
                   rounded_md;
                   focus [ outline_none ];
-                  dark [ bg ~shade:600 gray; border_color gray; text white ];
+                  dark [ bg ~shade:`S600 gray; border_color gray; text white ];
                 ]
             ~at:[ At.placeholder "Enter username" ]
             ();
@@ -505,16 +529,21 @@ let focus_visible_demo =
       div
         ~tw:
           Tw.
-            [ p 4; bg ~shade:100 gray; rounded_lg; dark [ bg ~shade:700 gray ] ]
+            [
+              p 4;
+              bg ~shade:`S100 gray;
+              rounded_lg;
+              dark [ bg ~shade:`S700 gray ];
+            ]
         [
           p
             ~tw:
               Tw.
                 [
                   text_sm;
-                  text ~shade:600 gray;
+                  text ~shade:`S600 gray;
                   mb 3;
-                  dark [ text ~shade:400 gray ];
+                  dark [ text ~shade:`S400 gray ];
                 ]
             [ txt "Click vs Tab to see the difference:" ];
           button
@@ -527,7 +556,7 @@ let focus_visible_demo =
                   text white;
                   rounded_lg;
                   focus [ outline_none ];
-                  focus_visible [ ring_md; ring_color ~shade:400 blue ];
+                  focus_visible [ ring_md; ring_color ~shade:`S400 blue ];
                 ]
             [ txt "Tab to focus" ];
         ];
@@ -536,7 +565,8 @@ let focus_visible_demo =
 let focus_section =
   section
     ~at:[ At.v "aria-labelledby" "focus-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "focus-heading" ]
@@ -545,13 +575,13 @@ let focus_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Focus Variants" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [ txt "Different focus states for various accessibility and UX needs." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
@@ -570,15 +600,15 @@ let before_demo =
               relative;
               p 4;
               pl 8;
-              bg ~shade:100 gray;
+              bg ~shade:`S100 gray;
               rounded_lg;
               before
                 [ absolute; left 3; top 4; w 2; h 2; bg blue; rounded_full ];
-              dark [ bg ~shade:700 gray ];
+              dark [ bg ~shade:`S700 gray ];
             ]
         [
           span
-            ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+            ~tw:Tw.[ text ~shade:`S700 gray; dark [ text ~shade:`S300 gray ] ]
             [ txt "List item with custom bullet" ];
         ];
     ]
@@ -609,7 +639,8 @@ let after_demo =
 let pseudo_section =
   section
     ~at:[ At.v "aria-labelledby" "pseudo-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "pseudo-heading" ]
@@ -618,13 +649,13 @@ let pseudo_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Pseudo-elements" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [ txt "Style ::before and ::after pseudo-elements." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
@@ -658,12 +689,13 @@ let aria_expanded_demo =
               flex;
               items_center;
               justify_between;
-              aria_expanded [ bg ~shade:100 blue ];
-              dark [ bg ~shade:700 gray; aria_expanded [ bg ~shade:900 blue ] ];
+              aria_expanded [ bg ~shade:`S100 blue ];
+              dark
+                [ bg ~shade:`S700 gray; aria_expanded [ bg ~shade:`S900 blue ] ];
             ]
         [
           span
-            ~tw:Tw.[ font_medium; text ~shade:800 gray; dark [ text white ] ]
+            ~tw:Tw.[ font_medium; text ~shade:`S800 gray; dark [ text white ] ]
             [ txt "Click to toggle" ];
           span
             ~tw:
@@ -693,12 +725,12 @@ let aria_selected_demo =
                      px 4;
                      py 2;
                      rounded_lg;
-                     text ~shade:600 gray;
+                     text ~shade:`S600 gray;
                      aria_selected [ bg blue; text white ];
                      dark
                        [
-                         text ~shade:400 gray;
-                         aria_selected [ bg ~shade:600 blue; text white ];
+                         text ~shade:`S400 gray;
+                         aria_selected [ bg ~shade:`S600 blue; text white ];
                        ];
                    ]
                [ txt label ])
@@ -708,7 +740,8 @@ let aria_selected_demo =
 let aria_section =
   section
     ~at:[ At.v "aria-labelledby" "aria-heading" ]
-    ~tw:Tw.[ bg ~shade:50 blue; p 6; rounded_xl; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg ~shade:`S50 blue; p 6; rounded_xl; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "aria-heading" ]
@@ -717,13 +750,13 @@ let aria_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "ARIA Variants" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Style elements based on ARIA attributes for accessible interfaces.";
@@ -745,7 +778,7 @@ let page_intro =
               text_3xl;
               md [ text_4xl ];
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
@@ -755,10 +788,10 @@ let page_intro =
           Tw.
             [
               text_lg;
-              text ~shade:600 gray;
+              text ~shade:`S600 gray;
               max_w_2xl;
               mx_auto;
-              dark [ text ~shade:400 gray ];
+              dark [ text ~shade:`S400 gray ];
             ]
         [
           txt

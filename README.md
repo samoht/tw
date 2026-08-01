@@ -17,9 +17,9 @@ let card =
   [
     flex; flex_col; gap 4; p 6;
     bg white; rounded_lg; shadow_sm;
-    border; border_color ~shade:200 gray;
+    border; border_color ~shade:`S200 gray;
     hover [ shadow_md ];
-    dark [ bg ~shade:800 gray; text ~shade:100 gray ];
+    dark [ bg ~shade:`S800 gray; text ~shade:`S100 gray ];
   ]
 ```
 
@@ -56,15 +56,15 @@ open Tw
 let layout = [ flex; items_center; gap 4; p 6; mx_auto; max_w_4xl ]
 
 (* Colors default to shade 500; [~shade] picks another, [~opacity] adds alpha. *)
-let colors = [ bg blue; text white; border_color ~shade:300 gray; bg ~opacity:50 white ]
+let colors = [ bg blue; text white; border_color ~shade:`S300 gray; bg ~opacity:50 white ]
 
 (* Variants nest as functions: responsive breakpoints, state, and dark mode. *)
 let responsive =
-  [ p 4; md [ p 8 ]; lg [ p 12 ]; bg blue; hover [ bg ~shade:600 blue ]; dark [ text ~shade:300 gray ] ]
+  [ p 4; md [ p 8 ]; lg [ p 12 ]; bg blue; hover [ bg ~shade:`S600 blue ]; dark [ text ~shade:`S300 gray ] ]
 
 (* The typography plugin, including per-element variants. *)
 let article =
-  [ prose; prose_lg; mx_auto; prose_headings [ text ~shade:600 blue ]; prose_code [ bg ~shade:100 gray ] ]
+  [ prose; prose_lg; mx_auto; prose_headings [ text ~shade:`S600 blue ]; prose_code [ bg ~shade:`S100 gray ] ]
 ```
 
 ### Rendering to CSS
@@ -76,7 +76,7 @@ open Tw
 let class_attr = to_classes [ flex; p 4; bg blue ]
 
 (* [to_css] builds a stylesheet; [Css.to_string] renders it to text. *)
-let stylesheet = to_css [ flex; p 4; bg blue; hover [ bg ~shade:600 blue ] ]
+let stylesheet = to_css [ flex; p 4; bg blue; hover [ bg ~shade:`S600 blue ] ]
 let css = Css.to_string ~minify:true stylesheet
 ```
 

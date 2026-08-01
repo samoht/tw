@@ -522,7 +522,7 @@ let responsive_classes () =
 let states () =
   check (hover [ bg white ]);
   check (focus [ bg sky ]);
-  check (active [ text ~shade:900 gray ]);
+  check (active [ text ~shade:`S900 gray ]);
 
   check shadow_sm;
   check shadow;
@@ -577,27 +577,27 @@ let opacity_effects () =
   check (opacity 100)
 
 let extended_colors () =
-  check (bg ~shade:50 slate);
+  check (bg ~shade:`S50 slate);
   check (bg zinc);
-  check (bg ~shade:900 orange);
-  check (text ~shade:100 amber);
-  check (text ~shade:600 lime);
-  check (border_color ~shade:300 emerald);
-  check (border_color ~shade:700 cyan);
-  check (bg ~shade:400 violet);
-  check (text ~shade:800 fuchsia);
-  check (bg ~shade:200 rose)
+  check (bg ~shade:`S900 orange);
+  check (text ~shade:`S100 amber);
+  check (text ~shade:`S600 lime);
+  check (border_color ~shade:`S300 emerald);
+  check (border_color ~shade:`S700 cyan);
+  check (bg ~shade:`S400 violet);
+  check (text ~shade:`S800 fuchsia);
+  check (bg ~shade:`S200 rose)
 
 let peer_selectors () =
   check (peer_hover [ text blue ]);
-  check (peer_focus [ bg ~shade:200 yellow ])
+  check (peer_focus [ bg ~shade:`S200 yellow ])
 
 let aria_selectors () =
   check (aria_checked [ text green ]);
   check (aria_disabled [ opacity 50 ])
 
 let data_selectors () =
-  check (data_active [ bg ~shade:100 blue ]);
+  check (data_active [ bg ~shade:`S100 blue ]);
   check (data_inactive [ opacity 50 ])
 
 let transforms_3d () =
@@ -659,16 +659,16 @@ let ordering_layout_sizing () =
 
 let ordering_text_bg_border () =
   check_list
-    [ text ~shade:700 gray; bg white; border; border_color ~shade:300 gray ];
+    [ text ~shade:`S700 gray; bg white; border; border_color ~shade:`S300 gray ];
   check_list [ text_sm; font_bold; text blue ]
 
 let ordering_shadow_ring () = check_list [ shadow_sm; ring; ring_color blue ]
 let ordering_transitions () = check_list [ transition_colors; duration 200 ]
 
 let ordering_with_variants () =
-  check_list [ bg blue; hover [ bg ~shade:600 blue ]; focus [ ring ] ];
+  check_list [ bg blue; hover [ bg ~shade:`S600 blue ]; focus [ ring ] ];
   check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
-  check_list [ text white; dark [ text ~shade:300 gray ] ]
+  check_list [ text white; dark [ text ~shade:`S300 gray ] ]
 
 let ordering_complex_card () =
   check_list
@@ -681,7 +681,7 @@ let ordering_complex_card () =
       rounded_lg;
       shadow_sm;
       border;
-      border_color ~shade:200 gray;
+      border_color ~shade:`S200 gray;
       hover [ shadow_md ];
     ]
 
@@ -982,23 +982,26 @@ let nesting_variant () =
 let precedence_base_overrides () =
   (* Later base utility should win over earlier base of same kind *)
   check_list [ p 4; p 2 ];
-  check_list [ text ~shade:600 blue; text blue ]
+  check_list [ text ~shade:`S600 blue; text blue ]
 
 let precedence_breakpoints () =
   (* Responsive variants should scope correctly and not affect base *)
   check_list [ p 2; md [ p 8 ] ];
   check_list
-    [ text ~shade:400 green; sm [ text green ]; lg [ text ~shade:700 green ] ]
+    [
+      text ~shade:`S400 green; sm [ text green ]; lg [ text ~shade:`S700 green ];
+    ]
 
 let precedence_states () =
   (* State modifiers combine without interfering with base *)
-  check_list [ bg blue; hover [ bg ~shade:600 blue ] ];
-  check_list [ text gray; focus [ text ~shade:700 gray ] ]
+  check_list [ bg blue; hover [ bg ~shade:`S600 blue ] ];
+  check_list [ text gray; focus [ text ~shade:`S700 gray ] ]
 
 (* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
 
 (* Helpers for comprehensive color coverage *)
-let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
+let shades =
+  [ `S50; `S100; `S200; `S300; `S400; `S500; `S600; `S700; `S800; `S900; `S950 ]
 
 let bg_shades color shade_list =
   List.map (fun shade -> bg ~shade color) shade_list
@@ -1162,11 +1165,11 @@ let color_shade_ordering () =
       (* --color-white: 24*1000 + 0 = 24000 *)
 
       (* Regular colors with shades: get order base*1000 + shade *)
-      bg ~shade:400 blue;
+      bg ~shade:`S400 blue;
       (* --color-blue-400: 12*1000 + 400 = 12400 *)
       bg blue;
       (* --color-blue-500: 12*1000 + 500 = 12500 *)
-      bg ~shade:600 blue;
+      bg ~shade:`S600 blue;
       (* --color-blue-600: 12*1000 + 600 = 12600 *)
 
       (* Verify order: black < blue-* < white *)

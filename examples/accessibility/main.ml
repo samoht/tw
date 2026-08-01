@@ -8,7 +8,7 @@ open Tw_html
 (* Header with skip link for keyboard navigation *)
 let page_header =
   header
-    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:900 gray ] ]
+    ~tw:Tw.[ bg white; shadow_sm; dark [ bg ~shade:`S900 gray ] ]
     [
       a
         ~at:[ At.href "#main-content" ]
@@ -17,7 +17,7 @@ let page_header =
             [
               sr_only;
               focus
-                [ not_sr_only; absolute; p 4; bg ~shade:600 blue; text white ];
+                [ not_sr_only; absolute; p 4; bg ~shade:`S600 blue; text white ];
             ]
         [ txt "Skip to main content" ];
       div
@@ -27,7 +27,10 @@ let page_header =
             ~tw:
               Tw.
                 [
-                  text_2xl; font_bold; text ~shade:900 gray; dark [ text white ];
+                  text_2xl;
+                  font_bold;
+                  text ~shade:`S900 gray;
+                  dark [ text white ];
                 ]
             [ txt "Accessibility Demo" ];
         ];
@@ -45,11 +48,11 @@ let contrast_buttons =
               px 4;
               py 2;
               rounded_lg;
-              bg ~shade:600 blue;
+              bg ~shade:`S600 blue;
               text white;
-              hover [ bg ~shade:700 blue ];
+              hover [ bg ~shade:`S700 blue ];
               focus [ ring_md; ring_color blue ];
-              contrast_more [ border_md; border_color ~shade:900 blue ];
+              contrast_more [ border_4; border_color ~shade:`S900 blue ];
             ]
         [ txt "Primary Action" ];
       button
@@ -60,13 +63,13 @@ let contrast_buttons =
               py 2;
               rounded_lg;
               border;
-              border_color ~shade:300 gray;
-              text ~shade:700 gray;
-              hover [ bg ~shade:100 gray ];
+              border_color ~shade:`S300 gray;
+              text ~shade:`S700 gray;
+              hover [ bg ~shade:`S100 gray ];
               focus [ ring_md; ring_color gray ];
               contrast_more
-                [ border_lg; border_color ~shade:900 gray; text black ];
-              dark [ border_color ~shade:600 gray; text ~shade:300 gray ];
+                [ border_4; border_color ~shade:`S900 gray; text black ];
+              dark [ border_color ~shade:`S600 gray; text ~shade:`S300 gray ];
             ]
         [ txt "Secondary" ];
     ]
@@ -82,9 +85,9 @@ let contrast_section =
           rounded_xl;
           shadow_sm;
           border;
-          border_color ~shade:200 gray;
-          dark [ bg ~shade:800 gray; border_color ~shade:700 gray ];
-          contrast_more [ border_color ~shade:900 gray; border_lg ];
+          border_color ~shade:`S200 gray;
+          dark [ bg ~shade:`S800 gray; border_color ~shade:`S700 gray ];
+          contrast_more [ border_color ~shade:`S900 gray; border_4 ];
         ]
     [
       h2
@@ -94,7 +97,7 @@ let contrast_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
               contrast_more [ underline ];
@@ -104,8 +107,8 @@ let contrast_section =
         ~tw:
           Tw.
             [
-              text ~shade:600 gray;
-              dark [ text ~shade:300 gray ];
+              text ~shade:`S600 gray;
+              dark [ text ~shade:`S300 gray ];
               contrast_more [ text black; dark [ text white ] ];
             ]
         [
@@ -118,7 +121,8 @@ let contrast_section =
     ]
 
 (* Motion preferences section *)
-let motion_demo_label = Tw.[ text_sm; text gray; dark [ text ~shade:400 gray ] ]
+let motion_demo_label =
+  Tw.[ text_sm; text gray; dark [ text ~shade:`S400 gray ] ]
 
 let motion_demo_item ~styles label =
   div
@@ -147,8 +151,8 @@ let motion_demos =
             [
               w 12;
               h 12;
-              border_lg;
-              border_color ~shade:600 blue;
+              border_4;
+              border_color ~shade:`S600 blue;
               rounded_full;
               motion_safe [ animate_spin ];
             ]
@@ -170,7 +174,8 @@ let motion_demos =
 let motion_section =
   section
     ~at:[ At.v "aria-labelledby" "motion-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "motion-heading" ]
@@ -179,13 +184,13 @@ let motion_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Motion Preferences" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "These animations respect the prefers-reduced-motion media query. \
@@ -198,7 +203,8 @@ let motion_section =
 let color_section =
   section
     ~at:[ At.v "aria-labelledby" "color-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "color-heading" ]
@@ -207,13 +213,13 @@ let color_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Dark Mode Support" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [ txt "These elements adapt to your system's color scheme preference." ];
       div
         ~tw:Tw.[ grid; grid_cols 2; gap 4; lg [ grid_cols 4 ] ]
@@ -233,9 +239,9 @@ let color_section =
                    ]
                [ txt color_name ])
            [
-             ("Light", Tw.(bg ~shade:100 gray), Tw.(text ~shade:800 gray));
-             ("Primary", Tw.(bg ~shade:600 blue), Tw.(text white));
-             ("Success", Tw.(bg ~shade:600 green), Tw.(text white));
+             ("Light", Tw.(bg ~shade:`S100 gray), Tw.(text ~shade:`S800 gray));
+             ("Primary", Tw.(bg ~shade:`S600 blue), Tw.(text white));
+             ("Success", Tw.(bg ~shade:`S600 green), Tw.(text white));
              ("Warning", Tw.(bg amber), Tw.(text black));
            ]);
     ]
@@ -256,9 +262,10 @@ let focus_text_input =
           py 2;
           rounded_lg;
           border;
-          border_color ~shade:300 gray;
+          border_color ~shade:`S300 gray;
           focus [ ring_md; ring_color blue; outline_none ];
-          dark [ bg ~shade:700 gray; border_color ~shade:600 gray; text white ];
+          dark
+            [ bg ~shade:`S700 gray; border_color ~shade:`S600 gray; text white ];
         ]
     ()
 
@@ -274,11 +281,11 @@ let focus_examples =
             [
               px 4;
               py 2;
-              text ~shade:600 blue;
+              text ~shade:`S600 blue;
               underline;
               rounded;
               focus [ ring_md; ring_color blue ];
-              dark [ text ~shade:400 blue ];
+              dark [ text ~shade:`S400 blue ];
             ]
         [ txt "Focusable Link" ];
       button
@@ -287,10 +294,10 @@ let focus_examples =
             [
               px 4;
               py 2;
-              bg ~shade:600 blue;
+              bg ~shade:`S600 blue;
               text white;
               rounded_lg;
-              focus [ ring_md; ring_color ~shade:400 blue ];
+              focus [ ring_md; ring_color ~shade:`S400 blue ];
             ]
         [ txt "Button" ];
     ]
@@ -298,7 +305,8 @@ let focus_examples =
 let focus_section =
   section
     ~at:[ At.v "aria-labelledby" "focus-heading" ]
-    ~tw:Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg white; p 6; rounded_xl; shadow_sm; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "focus-heading" ]
@@ -307,13 +315,13 @@ let focus_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Focus States for Keyboard Navigation" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "Use Tab to navigate these interactive elements. Each has a clear \
@@ -336,7 +344,7 @@ let sr_button_style =
       shadow_sm;
       hover [ shadow_md ];
       focus [ ring_md; ring_color blue ];
-      dark [ bg ~shade:800 gray ];
+      dark [ bg ~shade:`S800 gray ];
     ]
 
 let sr_buttons =
@@ -348,7 +356,7 @@ let sr_buttons =
           span ~tw:Tw.[ text_xl ] [ txt "!" ];
           span ~tw:Tw.[ sr_only ] [ txt "Important notification" ];
           span
-            ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+            ~tw:Tw.[ text ~shade:`S700 gray; dark [ text ~shade:`S300 gray ] ]
             [ txt "Alert" ];
         ];
       button ~tw:sr_button_style
@@ -356,7 +364,7 @@ let sr_buttons =
           span ~tw:Tw.[ text_xl ] [ txt "i" ];
           span ~tw:Tw.[ sr_only ] [ txt "More information" ];
           span
-            ~tw:Tw.[ text ~shade:700 gray; dark [ text ~shade:300 gray ] ]
+            ~tw:Tw.[ text ~shade:`S700 gray; dark [ text ~shade:`S300 gray ] ]
             [ txt "Info" ];
         ];
     ]
@@ -364,7 +372,8 @@ let sr_buttons =
 let sr_section =
   section
     ~at:[ At.v "aria-labelledby" "sr-heading" ]
-    ~tw:Tw.[ bg ~shade:50 blue; p 6; rounded_xl; dark [ bg ~shade:800 gray ] ]
+    ~tw:
+      Tw.[ bg ~shade:`S50 blue; p 6; rounded_xl; dark [ bg ~shade:`S800 gray ] ]
     [
       h2
         ~at:[ At.id "sr-heading" ]
@@ -373,13 +382,13 @@ let sr_section =
             [
               text_xl;
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
         [ txt "Screen Reader Utilities" ];
       p
-        ~tw:Tw.[ text ~shade:600 gray; dark [ text ~shade:300 gray ]; mb 6 ]
+        ~tw:Tw.[ text ~shade:`S600 gray; dark [ text ~shade:`S300 gray ]; mb 6 ]
         [
           txt
             "The sr-only class hides content visually while keeping it \
@@ -387,7 +396,7 @@ let sr_section =
         ];
       sr_buttons;
       p
-        ~tw:Tw.[ text_sm; text gray; mt 4; dark [ text ~shade:400 gray ] ]
+        ~tw:Tw.[ text_sm; text gray; mt 4; dark [ text ~shade:`S400 gray ] ]
         [
           txt
             "Screen reader users will hear 'Important notification Alert' and \
@@ -407,7 +416,7 @@ let page_intro =
               text_3xl;
               md [ text_4xl ];
               font_bold;
-              text ~shade:900 gray;
+              text ~shade:`S900 gray;
               mb 4;
               dark [ text white ];
             ]
@@ -417,10 +426,10 @@ let page_intro =
           Tw.
             [
               text_lg;
-              text ~shade:600 gray;
+              text ~shade:`S600 gray;
               max_w_2xl;
               mx_auto;
-              dark [ text ~shade:400 gray ];
+              dark [ text ~shade:`S400 gray ];
             ]
         [
           txt

@@ -23,7 +23,7 @@ let test_attributes () =
   let link =
     a
       ~at:[ At.href "/about"; At.title "About page" ]
-      ~tw:Tw.[ text ~shade:600 blue; hover [ underline ] ]
+      ~tw:Tw.[ text ~shade:`S600 blue; hover [ underline ] ]
       [ txt "About" ]
   in
   let html_str = to_string link in
@@ -114,7 +114,7 @@ let test_nesting () =
 let test_to_tw () =
   let elem =
     div
-      ~tw:Tw.[ p 4; bg white; text ~shade:900 gray; rounded_lg ]
+      ~tw:Tw.[ p 4; bg white; text ~shade:`S900 gray; rounded_lg ]
       [ span ~tw:Tw.[ font_bold ] [ txt "Text" ] ]
   in
 

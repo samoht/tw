@@ -472,21 +472,26 @@ let () = Utility.register (module Handler)
 
 open Handler
 
-let color_util name property color ?(shade = 500) () =
-  Color.check_shade ~utility:name color shade;
-  let var_name =
-    if Color.is_base_color color then "color-" ^ Color.to_name color
-    else "color-" ^ Color.to_name color ^ "-" ^ string_of_int shade
-  in
-  let typed_color =
-    Color.to_css color (if Color.is_base_color color then 500 else shade)
-  in
-  let def, css_var = Css.var var_name Css.Color typed_color in
-  Style.style [ def; property (Css.Color (Css.Var css_var) : Css.svg_paint) ]
-
 let utility x = Utility.base (Self x)
-let fill = color_util "fill" Css.fill
-let stroke = color_util "stroke" Css.stroke
+
+let fill ?opacity ?(shade = `S500) color =
+  let shade = Color.int_of_shade shade in
+  match opacity with
+  | None -> utility (Fill_color (color, shade))
+  | Some pct ->
+      utility
+        (Fill_color_opacity
+           (color, shade, Color.Opacity_percent (Float.of_int pct)))
+
+let stroke ?opacity ?(shade = `S500) color =
+  let shade = Color.int_of_shade shade in
+  match opacity with
+  | None -> utility (Stroke_color (color, shade))
+  | Some pct ->
+      utility
+        (Stroke_color_opacity
+           (color, shade, Color.Opacity_percent (Float.of_int pct)))
+
 let fill_none = utility Fill_none
 let fill_current = utility Fill_current
 let stroke_none = utility Stroke_none

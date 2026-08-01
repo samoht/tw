@@ -16,7 +16,7 @@ let test_gradient_direction () =
 let test_gradient_colors () =
   let open Tw in
   let from = Private.Backgrounds.from_color Private.Color.red in
-  let via = Private.Backgrounds.via_color Private.Color.blue ~shade:600 in
+  let via = Private.Backgrounds.via_color Private.Color.blue ~shade:`S600 in
   let to_ = Private.Backgrounds.to_color Private.Color.green in
   Alcotest.check string "from-red-500" "from-red-500"
     (Private.Utility.to_class from);
@@ -171,7 +171,9 @@ let test_bracket_image_literal () =
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
-  let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+  let shades =
+    [ `S50; `S100; `S200; `S300; `S400; `S500; `S600; `S700; `S800; `S900 ]
+  in
   let utilities =
     List.concat_map
       (fun color -> List.map (fun shade -> bg ~shade color) shades)

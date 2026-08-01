@@ -335,17 +335,16 @@ let test_bracket_css_colors () =
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red"
 
+(* A shade off the palette is a compile error rather than an exception, so what
+   is left to check here is the parser, which sees numbers. *)
 let test_invalid_shade () =
-  Alcotest.check_raises "bg ~shade:250 gray raises at construction"
-    (Invalid_argument
-       "bg: gray has no shade 250 (valid shades: 50, 100, 200, 300, 400, 500, \
-        600, 700, 800, 900, 950)") (fun () -> ignore (Tw.bg ~shade:250 Tw.gray));
   (match Tw.of_string "bg-gray-250" with
   | Error (`Msg _) -> ()
   | Ok _ -> Alcotest.fail "bg-gray-250 should not parse");
-  (* Valid shades still construct, and shadeless colors ignore the shade *)
-  ignore (Tw.bg ~shade:200 Tw.gray);
-  ignore (Tw.bg ~shade:250 (Tw.hex "#aabbcc"))
+  (* Shadeless colours ignore the shade they are given. *)
+  Alcotest.(check string)
+    "hex colour ignores the shade" "bg-[#abc]"
+    (Tw.to_string (Tw.bg ~shade:`S200 (Tw.hex "#aabbcc")))
 
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
@@ -353,7 +352,7 @@ let test_invalid_shade () =
    meant to take from the other colour. *)
 let test_achromatic_none_hue () =
   let css =
-    Css.to_string ~minify:true (Tw.to_css [ Tw.bg ~shade:500 Tw.neutral ])
+    Css.to_string ~minify:true (Tw.to_css [ Tw.bg ~shade:`S500 Tw.neutral ])
   in
   let contains needle =
     let n = String.length needle and l = String.length css in
