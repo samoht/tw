@@ -2460,20 +2460,29 @@ module Handler = struct
   let outline_inherit = style [ Css.outline_color Inherit ]
   let outline_transparent = style [ Css.outline_color (Css.hex "#0000") ]
 
-  (** Convert a CSS channel value to an integer 0-255 *)
-  let channel_to_int : Css.channel -> int = function
-    | Int i -> min 255 (max 0 i)
-    | Num f -> min 255 (max 0 (Float.to_int (Float.round f)))
-    | Pct f -> min 255 (max 0 (Float.to_int (Float.round (f *. 2.55))))
-    | Var _ -> 0
-    | None -> 0
-
-  (** Convert a CSS alpha value to an integer 0-255 *)
-  let alpha_to_int : Css.alpha -> int option = function
-    | None -> None
-    | Num f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 255.)))))
+  (** The byte an rgb() channel stands for, when it stands for one. A var()
+      reference carries no value here, and CSS Color 4's [none] takes the
+      analogous channel of whatever the colour is combined with rather than
+      standing for zero, so neither has a byte. *)
+  let channel_to_int : Css.channel -> int option = function
+    | Int i -> Some (min 255 (max 0 i))
+    | Num f -> Some (min 255 (max 0 (Float.to_int (Float.round f))))
     | Pct f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
-    | Var _ | Calc _ -> None
+    | Var _ | None -> Stdlib.Option.None
+
+  (** How an alpha channel spells inside a hex colour. *)
+  type folded_alpha =
+    | Opaque  (** no alpha channel at all *)
+    | Alpha_byte of int
+    | Alpha_unresolvable  (** a var() or calc(), which no hex byte carries *)
+
+  let fold_alpha : Css.alpha -> folded_alpha = function
+    | None -> Opaque
+    | Num f ->
+        Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 255.)))))
+    | Pct f ->
+        Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
+    | Var _ | Calc _ -> Alpha_unresolvable
 
   let to_hex_byte n =
     let hex = "0123456789abcdef" in
@@ -2481,24 +2490,23 @@ module Handler = struct
 
   (** Convert a typed CSS color to a hex string for Tailwind parity *)
   let css_color_to_hex (c : Css.color) : Css.color option =
+    let hex_of_bytes bytes = Some (Css.hex ("#" ^ shorten_hex_str bytes)) in
     match c with
-    | Rgb (Channels { r; g; b }) ->
-        let hex =
-          to_hex_byte (channel_to_int r)
-          ^ to_hex_byte (channel_to_int g)
-          ^ to_hex_byte (channel_to_int b)
-        in
-        Some (Css.hex ("#" ^ shorten_hex_str hex))
+    | Rgb (Channels { r; g; b }) -> (
+        match (channel_to_int r, channel_to_int g, channel_to_int b) with
+        | Some r, Some g, Some b ->
+            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+        | _ -> None)
     | Rgba { rgb = Channels { r; g; b }; a; _ } -> (
-        let r = channel_to_int r
-        and g = channel_to_int g
-        and b = channel_to_int b in
-        let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
-        match alpha_to_int a with
-        | Some a_int ->
-            let full_hex = hex ^ to_hex_byte a_int in
-            Some (Css.hex ("#" ^ shorten_hex_str full_hex))
-        | None -> Some (Css.hex ("#" ^ shorten_hex_str hex)))
+        match
+          (channel_to_int r, channel_to_int g, channel_to_int b, fold_alpha a)
+        with
+        | Some r, Some g, Some b, Opaque ->
+            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+        | Some r, Some g, Some b, Alpha_byte a ->
+            hex_of_bytes
+              (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b ^ to_hex_byte a)
+        | _ -> None)
     | Hsl _ -> (
         (* Fold through cascade's own colour path: it knows every hue unit and
            reads a bare number for saturation and lightness as the percentage of
@@ -2510,8 +2518,7 @@ module Handler = struct
         with
         | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
             let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
-            let hex = if a = 255 then hex else hex ^ to_hex_byte a in
-            Some (Css.hex ("#" ^ shorten_hex_str hex))
+            hex_of_bytes (if a = 255 then hex else hex ^ to_hex_byte a)
         | _ -> None)
     | _ -> None
 

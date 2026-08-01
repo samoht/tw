@@ -14,7 +14,11 @@ module Handler = struct
   type shape = S_2xs | S_xs | S_sm | S_md | S_lg
 
   (* Color in an arbitrary shadow value *)
-  type arb_color = Arb_hex of string | Arb_var of string | Arb_none
+  type arb_color =
+    | Arb_hex of string
+    | Arb_var of string
+    | Arb_css_color of Css.color
+    | Arb_none
 
   type t =
     | Text_shadow_none
@@ -98,6 +102,12 @@ module Handler = struct
           (List.rev acc, Arb_hex x)
       | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
           (List.rev acc, Arb_var x)
+      | x :: rest when Parse.is_css_color_fn x -> (
+          (* A colour function may carry spaces, so it runs to the end of the
+             value. *)
+          match Css.parse_color (String.concat " " (x :: rest)) with
+          | Some c -> (List.rev acc, Arb_css_color c)
+          | None -> find_color_and_lengths (x :: acc) rest)
       | x :: rest -> find_color_and_lengths (x :: acc) rest
     in
     let length_strs, color = find_color_and_lengths [] parts in
@@ -184,6 +194,20 @@ module Handler = struct
     | S_md -> "text-shadow-md"
     | S_lg -> "text-shadow-lg"
 
+  (* The hex spelling of a colour, for the colour maths that reads one. A colour
+     the fold refuses - one whose channels are not all bytes, or one in a space
+     with no sRGB spelling - has none. *)
+  let hex_string_of_css_color (c : Css.color) : string option =
+    let spell r g b a =
+      let bh = pp_hex_byte in
+      "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
+    in
+    match (Color.css_color_to_hex c, c) with
+    | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }), _
+    | _, (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }) ->
+        Some (spell r g b a)
+    | _ -> Stdlib.Option.None
+
   (* Parse a theme shadow-list override (e.g. "0px 1px 0px rgb(0 0 0 / 0.1), 0px
      2px 2px rgb(0 0 0 / 0.06)") into the same (h, v, blur, hex) tuples
      [shape_shadows] returns. Splits on top-level commas, then for each shadow
@@ -192,11 +216,7 @@ module Handler = struct
   let hex_string_of_color (s : string) : string =
     match Css.parse_color s with
     | Some c -> (
-        match Color.css_color_to_hex c with
-        | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }) ->
-            let bh = pp_hex_byte in
-            "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
-        | _ -> s)
+        match hex_string_of_css_color c with Some hex -> hex | None -> s)
     | None -> s
 
   let parse_shadow_list (s : string) :
@@ -468,6 +488,8 @@ module Handler = struct
           match color with
           | Arb_hex c -> Css.hex (shorten_hex c)
           | Arb_var v -> make_full_color_var v
+          | Arb_css_color c -> (
+              match Color.css_color_to_hex c with Some h -> h | None -> c)
           | Arb_none -> Css.Current
         in
         let color_ref =
@@ -491,6 +513,10 @@ module Handler = struct
           match color with
           | Arb_hex c -> Color.hex_to_oklab_alpha c alpha
           | Arb_var v -> make_full_color_var v
+          | Arb_css_color c -> (
+              match hex_string_of_css_color c with
+              | Some hex -> Color.hex_to_oklab_alpha hex alpha
+              | None -> c)
           | Arb_none -> Css.Current
         in
         let base_color_ref =
@@ -503,7 +529,7 @@ module Handler = struct
         in
         let rules =
           match color with
-          | Arb_hex _ -> Stdlib.Option.None
+          | Arb_hex _ | Arb_css_color _ -> Stdlib.Option.None
           | Arb_var v -> (
               match relative_oklab_from_var v percent with
               | Some relative_color ->
@@ -772,7 +798,7 @@ module Handler = struct
         match parse_arbitrary_shadow arb with
         | Some (_, _, _, Arb_var _) -> -3 (* @supports lab *)
         | Some (_, _, _, Arb_none) -> -2 (* @supports color-mix *)
-        | Some (_, _, _, Arb_hex _) -> -1 (* no @supports *)
+        | Some (_, _, _, (Arb_hex _ | Arb_css_color _)) -> -1 (* no @supports *)
         | Stdlib.Option.None -> 0)
     | Text_shadow_shape_opacity _ -> -1 (* no @supports *)
     | _ -> 0
