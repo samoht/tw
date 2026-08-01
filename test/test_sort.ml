@@ -988,6 +988,24 @@ let test_arbitrary_named_by_suffix () =
   Test_helpers.check_ordering_matches
     ~test_name:"arbitrary value sorts by suffix within family" utilities
 
+let test_bracket_value_holding_a_colon () =
+  (* An arbitrary value can hold a colon, so the variant prefix has to be taken
+     with the modifier parser: splitting on the last ':' reads the prefix of
+     hover:bg-[color:var(--x)] as "hover:bg-[color", which sorts it away from
+     the other hover: rules. *)
+  let classes =
+    [
+      "hover:bg-[color:var(--x)]";
+      "hover:bg-red-500";
+      "bg-blue-500";
+      "focus:bg-[color:var(--y)]";
+      "hover:m-2";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches ~test_name:"bracket value holding a colon"
+    utilities
+
 let test_rounded_position_order () =
   (* Border-radius position groups sort by the CSS corners they write, matching
      Tailwind: the physical ones grouped by first corner clockwise -- top, then
@@ -1484,6 +1502,8 @@ let tests =
       test_arbitrary_vs_named_order;
     test_case "arbitrary value sorts by suffix within family" `Slow
       test_arbitrary_named_by_suffix;
+    test_case "bracket value holding a colon" `Slow
+      test_bracket_value_holding_a_colon;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;

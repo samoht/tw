@@ -824,12 +824,12 @@ let compare_nested_media r1 r2 =
       | _ -> 0)
   | _ -> 0
 
-(* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover" *)
+(* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover".
+   Split with the modifier parser, not on the last ':': an arbitrary value can
+   hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
+   [hover:bg-[color]. *)
 let variant_prefix = function
-  | Some s -> (
-      match String.rindex_opt s ':' with
-      | Some i -> String.sub s 0 i
-      | None -> "")
+  | Some s -> String.concat ":" (fst (Modifiers.of_string s))
   | None -> ""
 
 (* Compute variant order for a modifier prefix, stripping group-/peer-
