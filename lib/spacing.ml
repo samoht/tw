@@ -57,6 +57,39 @@ let named_spacing_binding ?theme name : Css.declaration option * Css.length =
       let ref = named_spacing_ref name in
       (None, ref)
 
+(* The declaration a spacing value needs alongside the length that reads it.
+   Padding, margin and gap all emit [var(--spacing-<name>)] for a named value,
+   and the binding that declares it has to come with it: a reference to a
+   variable nothing declares renders as nothing. *)
+let to_decl_len ?theme ?(negative = false) (s : spacing) :
+    Css.declaration option * Css.length =
+  match s with
+  | `Px ->
+      let len : Css.length = if negative then Px (-1.) else Px 1. in
+      let decl, _ = Var.binding var (Css.Rem 0.25) in
+      (Some decl, len)
+  | `Full ->
+      let len : Css.length = if negative then Pct (-100.) else Pct 100. in
+      let decl, _ = Var.binding var (Css.Rem 0.25) in
+      (Some decl, len)
+  | `Named name -> (
+      match named_spacing_binding ?theme name with
+      | (Some _ as decl), len ->
+          if negative then
+            ( decl,
+              Css.Calc
+                (Calc.mul (Calc.var ("spacing-" ^ name)) (Calc.float (-1.))) )
+          else (decl, len)
+      | None, len ->
+          if negative then
+            (None, Css.Calc (Calc.mul (Calc.length len) (Calc.float (-1.))))
+          else (None, len))
+  | `Rem f ->
+      let n = f /. 0.25 in
+      let n = if negative then -.n else n in
+      let decl, len = Theme.spacing_calc_float ?theme n in
+      (Some decl, len)
+
 let length_with ~px ~full ~rem_factor spacing_ref : spacing -> length = function
   | `Px -> Px px
   | `Full -> Pct full
