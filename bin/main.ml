@@ -1324,7 +1324,7 @@ let rec first_class_of_statement stmt =
 let rec slot_of_statement stmt =
   match Css.as_rule stmt with
   | Some (_, d :: _, _) ->
-      Tw.Utility.order_of_property (Css.Declaration.property_key d)
+      Tw.Declared.Slot.of_property (Css.Declaration.property_key d)
   | Some (_, [], _) -> None
   | None -> (
       match Css.as_media stmt with
@@ -1435,19 +1435,13 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
                     | Some order -> Hashtbl.add order_of cls order
                     | None -> ()))
             rules;
-          (* Two declared utilities can land on the same slot, and their rules
-             would then interleave by selector, splitting each one's own rules
-             apart. Offset the suborder per class so each stays contiguous. *)
-          let nth = ref 0 in
-          let ordered, unordered =
+          let declared, unordered =
             Hashtbl.fold
-              (fun cls stmts (ordered, unordered) ->
+              (fun cls stmts (declared, unordered) ->
                 match Hashtbl.find_opt order_of cls with
-                | Some (priority, suborder) ->
-                    incr nth;
-                    ( (cls, (priority, suborder + !nth), stmts) :: ordered,
-                      unordered )
-                | None -> (ordered, stmts @ unordered))
+                | Some slot ->
+                    (Tw.Declared.v ~cls ~slot stmts :: declared, unordered)
+                | None -> (declared, stmts @ unordered))
               group
               ([], List.rev !classless)
           in
@@ -1455,7 +1449,7 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
             if unordered = [] then []
             else [ Css.layer ~name:"utilities" unordered ]
           in
-          (List.length blocks, ordered, unplaced @ hoisted_stmts))
+          (List.length blocks, declared, unplaced @ hoisted_stmts))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
@@ -1474,11 +1468,11 @@ let native_files paths flag ~(opts : gen_opts) =
       parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
     in
     let tw_styles = List.map snd known in
-    let routed_count, routed_extra, routed_stmts =
+    let routed_count, routed_declared, routed_stmts =
       custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
     in
     let stylesheet =
-      Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
+      Tw.to_css ~theme:opts.theme ~base:include_base ~declared:routed_declared
         tw_styles
     in
     let stylesheet =

@@ -43,23 +43,55 @@ type config = {
 val default_config : config
 (** The default configuration. Base layer enabled. *)
 
+(** A utility a project declared with Tailwind's [@utility], as the CSS its body
+    expanded to plus the position it takes among the built-in utilities. *)
+module Declared : sig
+  (** Where a rule sorts in the utilities layer.
+
+      Tailwind orders that layer by the property each utility writes, and a
+      project's own [@utility] takes its place in it like any other. A body
+      reaches a slot two ways: by applying a utility that sorts there, or by
+      declaring one of the properties that sort there. *)
+  module Slot : sig
+    type t
+
+    val of_class : ?theme:Scheme.t -> string -> t option
+    (** [of_class cls] is the slot the utility named [cls] sorts at, and [None]
+        when [cls] names no utility. A body that [@apply]s [cls] reaches it. *)
+
+    val of_property : Css.Declaration.prop_key -> t option
+    (** [of_property k] is the slot of the utility family that writes [k], and
+        [None] when no family writes it. A body that declares [k] reaches it. *)
+
+    val earliest : t list -> t option
+    (** [earliest slots] is the first of [slots] in the layer, and [None] for
+        the empty list. A utility sorts at the earliest slot it reaches:
+        Tailwind sorts [@utility x { @apply bg-red-500 relative }] with
+        [relative], not with [bg-red-500]. *)
+  end
+
+  type t
+
+  val v : cls:string -> slot:Slot.t -> Css.statement list -> t
+  (** [v ~cls ~slot stmts] is the utility [cls], whose body expanded to [stmts],
+      sorting into the utilities layer at [slot]. *)
+end
+
 val to_css :
   ?theme:Scheme.t ->
   ?config:config ->
-  ?extra:(string * (int * int) * Css.statement list) list ->
+  ?declared:Declared.t list ->
   Utility.t list ->
   Css.t
-(** [to_css ?theme ?config utilities] generates a full CSS stylesheet for
-    [utilities]. This is the main entry point for the library. [theme] (default
-    {!Scheme.default}) supplies the theme values utilities read while generating
-    CSS. Rendering concerns such as inlining and optimization are handled by
-    {!Css.to_string}.
+(** [to_css ?theme ?config ?declared utilities] generates a full CSS stylesheet
+    for [utilities]. This is the main entry point for the library. [theme]
+    (default {!Scheme.default}) supplies the theme values utilities read while
+    generating CSS. Rendering concerns such as inlining and optimization are
+    handled by {!Css.to_string}.
 
-    [extra] carries rules a project's own [@utility] produced, each as
-    [(class name, order, statements)]. The handlers know nothing about a
-    declared utility, so its order comes in with it - see
-    {!Utility.order_of_property} for where that order is read from - and the
-    statements sort into the utilities layer at that order instead of landing
+    [declared] carries the project's own [@utility] rules. The handlers know
+    nothing about a declared utility, so its slot comes in with it, and its
+    statements sort into the utilities layer at that slot instead of landing
     after it. *)
 
 val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string

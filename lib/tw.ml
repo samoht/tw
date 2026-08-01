@@ -63,10 +63,11 @@ include Columns
 include Contain
 include Scroll
 include Arbitrary
+module Declared = Build.Declared
 
 let to_css ?theme ?(base = Build.default_config.base) ?forms
-    ?(layers = Build.default_config.layers) ?extra utilities =
-  Build.to_css ?theme ~config:{ base; forms; layers } ?extra utilities
+    ?(layers = Build.default_config.layers) ?declared utilities =
+  Build.to_css ?theme ~config:{ base; forms; layers } ?declared utilities
 
 let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet

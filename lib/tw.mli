@@ -3781,17 +3781,25 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
+module Declared = Build.Declared
+(** Utilities a project declared with Tailwind's [@utility]. Each carries the
+    CSS its body expanded to and the {!Declared.Slot} it sorts at, so
+    {!val-to_css} places it among the built-in utilities rather than after them.
+*)
+
 val to_css :
   ?theme:Scheme.t ->
   ?base:bool ->
   ?forms:bool ->
   ?layers:bool ->
-  ?extra:(string * (int * int) * Css.statement list) list ->
+  ?declared:Declared.t list ->
   t list ->
   Css.t
-(** [to_css ?theme ?base ?forms ?layers styles] generates a CSS stylesheet for
-    the given styles. [theme] (default {!Scheme.default}) supplies the theme
-    values utilities read while generating CSS.
+(** [to_css ?theme ?base ?forms ?layers ?declared styles] generates a CSS
+    stylesheet for the given styles. [theme] (default {!Scheme.default})
+    supplies the theme values utilities read while generating CSS. [declared]
+    carries the project's own [@utility] rules, each sorting into the utilities
+    layer at its own slot.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 

@@ -1531,7 +1531,32 @@ let outputs_of_statement ~base_class stmt =
                     inner
               | _ -> [])))
 
-let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
+module Declared = struct
+  module Slot = struct
+    type t = int * int
+
+    let of_class ?(theme = Scheme.default) cls =
+      match Utility.base_of_class theme cls with
+      | Ok base -> Some (Utility.order base)
+      | Error _ -> None
+
+    let of_property key = Utility.order_of_property key
+
+    let earliest = function
+      | [] -> None
+      | slot :: rest -> Some (List.fold_left Stdlib.min slot rest)
+  end
+
+  type t = {
+    cls : string;
+    slot : Slot.t;
+    statements : Cascade.Css.statement list;
+  }
+
+  let v ~cls ~slot statements = { cls; slot; statements }
+end
+
+let to_css ?(theme = Scheme.default) ?(config = default_config) ?(declared = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
@@ -1540,17 +1565,15 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
   let selector_props =
     List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
-  (* A declared utility means nothing to the handlers, so its order arrives with
+  (* A declared utility means nothing to the handlers, so its slot arrives with
      it and is seeded under the same key [order_of_base] looks up. *)
   let selector_props =
     selector_props
     @ List.concat_map
-        (fun (class_name, order, statements) ->
-          Hashtbl.replace order_map (extract_base_utility class_name) order;
-          List.concat_map
-            (outputs_of_statement ~base_class:class_name)
-            statements)
-        extra
+        (fun { Declared.cls; slot; statements } ->
+          Hashtbl.replace order_map (extract_base_utility cls) slot;
+          List.concat_map (outputs_of_statement ~base_class:cls) statements)
+        declared
   in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
@@ -1558,7 +1581,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
   let sorted_rules = sorted_indexed_rules order_map selector_props in
   let verbatim =
     let names = Hashtbl.create 8 in
-    List.iter (fun (cls, _, _) -> Hashtbl.replace names cls ()) extra;
+    List.iter (fun d -> Hashtbl.replace names d.Declared.cls ()) declared;
     fun cls -> Hashtbl.mem names cls
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
