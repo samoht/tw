@@ -67,8 +67,10 @@ val check_rendering_matches :
 (** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
     headless Chromium and fails on any computed style that differs. Each class
     gets an element of its own, plus one per {!same_property_pairs} pair, which
-    is where an ordering difference shows. Skips when node or Playwright is
-    absent; [TW_BROWSER_TESTS=0] opts out where they are present. *)
+    is where an ordering difference shows. Fails too when an element does not
+    carry the classes it was given, since then the comparison is vacuous. Skips
+    when node or Playwright is absent; [TW_BROWSER_TESTS=0] opts out where they
+    are present. *)
 
 (** {1 CSS Test Helpers} *)
 

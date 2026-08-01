@@ -289,6 +289,12 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   match Sys.command cmd with
   | 0 -> ()
   | 1 -> Alcotest.failf "%s\n%s" test_name (read_file out)
+  | 3 ->
+      (* The elements did not carry the classes we asked for, so what they
+         computed compares nothing. Fail: it is a broken harness, not a missing
+         tool. *)
+      Alcotest.failf "%s: browser harness built unusable markup\n%s" test_name
+        (read_file out)
   | _ ->
       (* No usable browser (Chromium not downloaded, sandbox refused to start).
          Report it and skip: it is a missing tool, not a difference. *)
