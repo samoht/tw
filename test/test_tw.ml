@@ -503,6 +503,32 @@ let check_upstream_positive_fixture_parse filename () =
 
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
 
+(* Debug artefacts are named after the classes under test and belong inside the
+   checkout: a shared system temp directory is written by every user and every
+   concurrent run at once. The name has to separate the runs too - a slug that
+   drops every separator sends [p-4 m-2] and [p4m2] to the same pair of
+   files. *)
+let debug_artefacts () =
+  Alcotest.(check bool)
+    "distinct class lists get distinct slugs" true
+    (slugify "p-4 m-2" <> slugify "p4m2");
+  let is_safe = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' | '-' -> true
+    | _ -> false
+  in
+  Alcotest.(check bool)
+    "slug is filesystem-safe" true
+    (String.for_all is_safe (slugify "before:content-['*'] w-1/2"));
+  let tw_file, tailwind_file = debug_files "p-4 m-2" "" "" in
+  let expected_dir = Filename.concat "tmp" "css_debug" in
+  List.iter
+    (fun path ->
+      Alcotest.(check string)
+        "artefact sits in the repo-local tmp" expected_dir
+        (Filename.dirname path);
+      Alcotest.(check bool) (path ^ " was written") true (Sys.file_exists path))
+    [ tw_file; tailwind_file ]
+
 let empty_test () =
   (* Test with no styles to see base output *)
   check_list []
@@ -1241,6 +1267,7 @@ let property_order_cross_family () =
 
 let core_tests =
   [
+    test_case "debug artefacts" `Quick debug_artefacts;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
       (check_upstream_positive_fixture_parse "utilities.txt");
