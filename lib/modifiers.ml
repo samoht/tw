@@ -238,29 +238,17 @@ let parse_arbitrary_selector_content content anchor =
         (* Just "&" → :where(.group/peer) descendant *)
         combine (where [ anchor ]) Descendant universal
       else if rest.[0] = ':' then
-        (* "&:hover" → :where(.group):hover descendant *)
-        let pseudo_str = String.sub rest 1 (String.length rest - 1) in
-        let pseudo_sel =
-          match pseudo_str with
-          | "hover" -> Hover
-          | "focus" -> Focus
-          | "active" -> Active
-          | "focus-within" -> Focus_within
-          | "focus-visible" -> Focus_visible
-          | "checked" -> Checked
-          | "disabled" -> Disabled
-          | "first-child" -> First_child
-          | "last-child" -> Last_child
-          | _ -> Class (":" ^ pseudo_str)
-        in
+        (* "&:hover" → :where(.group):hover descendant. The reader keeps a
+           pseudo-class it does not know as one ([Unknown_pseudo_class]), so it
+           covers the whole grammar rather than a list of spelled-out names. *)
+        let pseudo_sel = Css.Selector.read (Cascade.Cursor.of_string rest) in
         combine (compound [ where [ anchor ]; pseudo_sel ]) Descendant universal
       else
         (* "& p" → :where(.group) p * — content after & is a descendant
-           element *)
-        let trimmed = String.trim rest in
-        let element_sel = Element (None, trimmed) in
+           selector, and a compound one ([& p.foo]) is not an element name. *)
+        let descendant = Css.Selector.read (Cascade.Cursor.of_string rest) in
         combine
-          (combine (where [ anchor ]) Descendant element_sel)
+          (combine (where [ anchor ]) Descendant descendant)
           Descendant universal
   | [ before; "" ] when String.trim before <> "" ->
       (* "<prefix> &" → <prefix> :where(.group) * — the [&] anchor is preceded
