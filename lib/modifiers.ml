@@ -1034,6 +1034,13 @@ let is_plain_ident str =
          || c = '-' || c = '_')
        str
 
+(* An aria- or data- variant names an attribute: [aria-[modal]] matches
+   [[aria-modal]]. An argument that leaves the name empty gives [[aria-]], a
+   selector browsers parse and keep although nothing ever matches it, so it is
+   not a variant. An underscore stands for a space, so it is empty as well. *)
+let names_attribute expr =
+  String.trim (String.map (fun c -> if c = '_' then ' ' else c) expr) <> ""
+
 (* [group-data-dragging] is [group-data-[dragging]] with a different spelling,
    so it keeps its own class name. *)
 let try_bare_data s prefix make =
@@ -1041,7 +1048,8 @@ let try_bare_data s prefix make =
   if String.length s <= plen || String.sub s 0 plen <> prefix then None
   else
     let base, name = split_name (String.sub s plen (String.length s - plen)) in
-    if is_plain_ident base then Some (make base name) else None
+    if is_plain_ident base && names_attribute base then Some (make base name)
+    else None
 
 let extract_bracket_content_with_name ~prefix s =
   if String.starts_with ~prefix s then
@@ -1216,13 +1224,15 @@ let is_valid_nth_expr expr =
 (* Build the list of bracket pattern matchers for a given input string *)
 let bracket_named_patterns s =
   let ( let* ) = Option.bind in
-  let try_pattern prefix make =
-    let* content = extract_bracket_content ~prefix s in
-    Some (make content)
+  (* Every aria- and data- bracket here takes an attribute expression, so the
+     argument has to name an attribute. *)
+  let try_attr prefix make =
+    let* expr = extract_bracket_content ~prefix s in
+    if names_attribute expr then Some (make expr) else None
   in
   let try_named prefix make =
     let* expr, name = extract_bracket_content_with_name ~prefix s in
-    Some (make expr name)
+    if names_attribute expr then Some (make expr name) else None
   in
   let try_named_has prefix make =
     let* sel, name = extract_bracket_content_with_name ~prefix s in
@@ -1231,7 +1241,7 @@ let bracket_named_patterns s =
   [
     (fun () -> try_named "group-aria-[" (fun e n -> Group_aria (e, n)));
     (fun () -> try_named "peer-aria-[" (fun e n -> Peer_aria (e, n)));
-    (fun () -> try_pattern "aria-[" (fun expr -> Aria_bracket expr));
+    (fun () -> try_attr "aria-[" (fun expr -> Aria_bracket expr));
     (fun () ->
       try_named "group-data-[" (fun e n -> Group_data ("[" ^ e ^ "]", n)));
     (fun () ->
@@ -1240,9 +1250,7 @@ let bracket_named_patterns s =
        different spelling, so it keeps its own class name. *)
     (fun () -> try_bare_data s "group-data-" (fun e n -> Group_data (e, n)));
     (fun () -> try_bare_data s "peer-data-" (fun e n -> Peer_data (e, n)));
-    (fun () ->
-      let* expr = extract_bracket_content ~prefix:"data-[" s in
-      if expr = "" then None else Some (Data_bracket expr));
+    (fun () -> try_attr "data-[" (fun expr -> Data_bracket expr));
     (fun () -> try_named_has "group-has-[" (fun s n -> Group_has (s, n)));
     (fun () -> try_named_has "peer-has-[" (fun s n -> Peer_has (s, n)));
     (fun () ->
@@ -1767,7 +1775,9 @@ let try_bare_data_aria s =
     String.length s > 5
     && String.sub s 0 5 = "aria-"
     && not (String.contains s '[')
-  then Some (Aria_bracket (String.sub s 5 (String.length s - 5)))
+  then
+    let expr = String.sub s 5 (String.length s - 5) in
+    if names_attribute expr then Some (Aria_bracket expr) else None
   else None
 
 (* Ordering of prose element variants (matches Tailwind v4 typography plugin) *)
