@@ -327,6 +327,46 @@ let test_bracket_css_colors () =
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red"
 
+(* An hsl() hue takes any angle unit. Folding one to a hex colour used to keep
+   only bare numbers and [deg] and read every other unit as 0, so a half turn
+   painted red instead of cyan. *)
+let test_hsl_hue_units () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-[hsl(180deg_100%_50%)]" "background-color: #00ffff";
+  has "bg-[hsl(0.5turn_100%_50%)]" "background-color: #00ffff";
+  has "bg-[hsl(200grad_100%_50%)]" "background-color: #00ffff";
+  has "bg-[hsl(3.14159rad_100%_50%)]" "background-color: #00ffff"
+
+(* hsl() saturation and lightness also accept a bare number, which is the same
+   value as the percentage; both used to be read as 0, which painted the colour
+   black. A channel that is not static cannot fold at all. *)
+let test_hsl_non_percentage_channels () =
+  let fold (c : Css.color) =
+    match Tw.Color.css_color_to_hex c with
+    | Some folded -> Cascade.Pp.to_string Css.pp_color folded
+    | None -> "unfolded"
+  in
+  Alcotest.(check string)
+    "a number saturation and lightness are percentages" "#00ffff"
+    (fold (Hsl { h = Unitless 180.; s = Num 1.0; l = Num 0.5; a = None }));
+  Alcotest.(check string)
+    "a var() saturation does not fold" "unfolded"
+    (fold
+       (Hsl
+          {
+            h = Unitless 180.;
+            s = Var (Cascade.Values.var_ref "x");
+            l = Pct 50.;
+            a = None;
+          }))
+
 let test_invalid_shade () =
   Alcotest.check_raises "bg ~shade:250 gray raises at construction"
     (Invalid_argument
@@ -421,6 +461,8 @@ let tests =
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
+    ("hsl hue units", `Quick, test_hsl_hue_units);
+    ("hsl non-percentage channels", `Quick, test_hsl_non_percentage_channels);
     ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
