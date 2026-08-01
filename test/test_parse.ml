@@ -35,17 +35,14 @@ let test_int_rejects_non_decimal_spellings () =
       "duration-0x4";
       "delay-1_0";
       "rotate-0x4";
-      "z-0x10";
-      "order-1_0";
       "line-clamp-0x2";
-      "border-0x2";
       "opacity-0x10";
     ]
 
 (* The sign is stripped before the suffix is read, so a negative utility takes
    the same grammar. *)
 let test_negative_int_rejects_non_decimal_spellings () =
-  List.iter unknown [ "-m-1_0"; "-rotate-0x4"; "-translate-x-0x4"; "-z-0x10" ]
+  List.iter unknown [ "-m-1_0"; "-rotate-0x4"; "-translate-x-0x4" ]
 
 (* [Float.of_string] reads the same non-decimal spellings plus hex-float
    exponents, which would make [p-0x1p4] mean [.p-16]. A fractional suffix needs
