@@ -2,7 +2,7 @@
 
 ## 1) Purpose
 
-This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities are compiled to CSS through a strongly-typed variable system and layered rules that mirror Tailwind's pipeline. The goal: **no raw `"var(--...)"` strings; no `Css.custom`; spec-faithful output.**
+This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities are compiled to CSS through a strongly-typed variable system and layered rules that mirror Tailwind's pipeline. The goal: **no raw `"var(--...)"` strings; no assembled CSS token strings; spec-faithful output.**
 
 ### Scope
 
@@ -14,24 +14,32 @@ All core Tailwind v4 utilities and all official plugins are in scope, including:
 
 ## 2) Core principles
 
-1. **Type safety over strings.** Never write `"var(--name)"` or `Css.custom`; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
+1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
 2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
 3. **Variables follow four patterns.** See patterns below and `docs/adding-a-new-utility.md`.
-4. **Respect layers.** `theme → properties → base → components → utilities`. Utilities must not leak into theme or properties.
+4. **Respect layers.** `properties → theme → base → components → utilities`. Utilities must not leak into theme or properties.
 
 ---
 
 ## 3) Project structure
 
 ```
-lib/           core (utilities, CSS generation)
-  css/         CSS AST + emission
+lib/           core (utilities, class parsing, layer assembly)
   var.ml       variable system (critical)
-  rules.ml     layer assembly
-test/          Alcotest suites (CSS + Tailwind parity)
+  utility.ml   utility registry and the module shape every family follows
+  rule.ml      selector routing for variants
+  sort.ml      cascade order inside @layer utilities
+  build.ml     layer assembly
+  tools/       source scanning and the tailwindcss shell-out
+test/          Alcotest suites, one test_<module>.ml per lib/<module>.ml
+  upstream/    replay of Tailwind's own fixture corpus
+cascade/       sibling repo, symlinked in: CSS AST, printer, optimizer, differ
 docs/          adding-a-new-utility.md (start here for new utils)
                parity.md (how Tailwind parity is measured and read)
 ```
+
+The CSS type system lives in cascade, not here. `Cascade.Css` is aliased as
+`Css` at the top of each `lib/` module.
 
 Keep examples small and targeted; each test file should focus on one concept.
 
@@ -51,7 +59,7 @@ dune exec -- tw -s "p-4" --variables
 dune exec -- tw -s "p-4" --variables --base
 
 # For classes starting with -, use --single="..." to avoid CLI flag parsing
-dune exec -- tw --single="-content-around" --variables
+dune exec -- tw --single="-mt-4" --variables
 
 # Compare with real Tailwind CSS
 ## Method 1: Direct comparison using --diff (recommended)
@@ -72,19 +80,27 @@ The `tw` binary supports three backend modes:
 **Important**: `--diff` mode always uses:
 - Variables mode (ignores `--inline` flag)
 - Base layer included (ignores `--no-base` flag)
-- Minified and optimized output (forces `--minify --optimize`)
-- This ensures 1:1 equivalence comparison with Tailwind's optimized+minified output
+- Minified output (forces `--minify`; `--optimize` is passed through as given)
+- Canonical comparison with unused custom properties pruned, so the two sheets
+  are compared for equivalence rather than byte-for-byte. `--diff-mode` selects
+  a stricter mode (`tree` reports regrouping, `string` reports text).
 
 Example diff output:
 ```bash
-$ dune exec -- tw -s "prose-sm" --diff
-Differences found for 'prose-sm':
+$ dune exec -- tw --single="supports-[backdrop-filter]:bg-black/50" --diff
+Differences found between Tailwind and tw for 'supports-[backdrop-filter]:bg-black/50':
 
 --- Tailwind
 +++ tw
-- .prose-sm:
-    - modify: line-height 1.7142857 -> 1.71429
+└─ @layer utilities (1 removed)
+   ├─ .supports-\[backdrop-filter\]\:bg-black\/50
+   │     - background-color color-mix(in oklab, var(--color-black) 50%, #0000)
+   └─ @supports (backdrop-filter: var(--tw)) (added)
+      └─ .supports-\[backdrop-filter\]\:bg-black\/50 (added)
 ```
+
+That one is a known minifier difference, not a tw bug; `docs/parity.md` lists
+the residual the site comparison tolerates.
 
 > Note: Use `tmp/` (repo-local) for debug artefacts; do **not** use `/tmp`. Update any older scripts accordingly.
 
@@ -104,25 +120,31 @@ See `lib/var.mli` for detailed documentation and examples.
 
 ## 6) Layers and rule ordering
 
-Layer architecture is documented in **`lib/rules.mli`**. Key points:
+Layer architecture is documented in **`lib/build.mli`**, the sort order in
+**`lib/sort.mli`**. Key points:
 
 - **Layer order**: `properties → theme → base → components → utilities`
-- **Utilities layer**: Sorted by (priority, suborder) for conflict resolution
+- **Utilities layer**: Sorted by (priority, suborder) for conflict resolution; each
+  utility module supplies the pair through `Utility.S` (`priority`, `suborder`)
 - **Media queries**: Modifier-based media comes after regular rules; built-in media stays grouped with its utility
 
-See `lib/rules.mli` for the complete layer model documentation.
+See `lib/build.mli` for the layer model and `lib/sort.mli` for the comparator
+and the fields it keys on.
 
 ---
 
 ## 7) Adding a new utility — minimal workflow
 
 1. **Read** `docs/adding-a-new-utility.md`. Identify the variable pattern.
-2. **Implement** the utility in `lib/<area>.ml` using typed `Var` and the chosen pattern.
-3. **Place** declarations in the correct layer via `rules.ml`.
+2. **Implement** the utility in `lib/<area>.ml` using typed `Var` and the chosen
+   pattern, following the module shape in `lib/utility.mli`.
+3. **Check** the layer it lands in; `lib/build.ml` assembles them from the
+   utility's `(priority, suborder)` and its declarations.
 4. **Test**:
 
-   * CSS spec behaviour (if relevant) under `test/css/`.
-   * Tailwind parity under `test/`. Use a *single* concept per file.
+   * CSS spec behaviour (if relevant) belongs in cascade, under `cascade/test/`.
+   * Tailwind parity under `test/`, in the `test_<module>.ml` matching the
+     `lib/<module>.ml` you touched. Use a *single* concept per file.
 5. **Compare** against Tailwind:
 
    ```bash
@@ -130,11 +152,8 @@ See `lib/rules.mli` for the complete layer model documentation.
    dune exec -- tw -s "border-2 border-solid" --diff
 
    # Or for test files
-   ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw 10
-   diff -u tmp/css_debug/test_10_tw.css tmp/css_debug/test_10_tailwind.css
+   ALCOTEST_VERBOSE=1 dune exec test/test.exe -- test borders 10
    ```
-
-   (Paths under `tmp/css_debug/` are created by tests.)
 
 ---
 
@@ -174,38 +193,44 @@ See `lib/rules.mli` for the complete layer model documentation.
   does NOT emit `@property --tw-leading` because it only references the variable with a fallback.
   However, `leading-relaxed` sets `--tw-leading: var(--leading-relaxed)` and DOES emit `@property`.
 
-  The logic is in `collect_all_property_rules` in `rules.ml` which filters by `set_var_names`
+  The logic is in `collect_all_property_rules` in `lib/build.ml` which filters by `set_var_names`
   extracted from Custom_declarations.
 
 * **Wrong property order in `@layer properties`?**
 
-  Check `property_order` in `rules.ml`. Properties are sorted by category:
-  - Transform (0-9): `tw-scale-x`, `tw-scale-y`, etc.
-  - Gradients (10-19): `tw-gradient-*`
-  - Borders (25): `tw-border-style`
-  - Typography (28-32): `tw-leading`, `tw-font-weight`, `tw-tracking`
-  - Animation (40-41): `tw-duration`, `tw-ease`
-  - Default (100): everything else
+  A variable's slot comes from the `~property_order` argument it was declared
+  with (`Var.property_default` or `Var.channel`), read back through
+  `Var.property_order`. `sort_properties_by_order` in `lib/build.ml` combines it
+  with `canonical_property_rank`, which ranks a `--tw-*` variable by the CSS
+  property it feeds: transform 16, background-image 28, line-height 39,
+  font-weight 40, letter-spacing 41, box-shadow 51, filter 53, transition 56,
+  text-shadow 59 (last), and 1000 for a variable with no family. Transform,
+  gradient, duration and typography families order by first usage instead;
+  `order_by_first_usage` decides which rule applies to a given pair.
 
-* **Order mismatch?**
+* **Order mismatch in `@layer theme`?**
 
   ```bash
   grep "~order:" lib/typography.ml
   ```
 
-  Match canonical order constants in `var.ml`.
+  Theme order is a `(group, index)` pair: the group buckets the family in
+  Tailwind's `@theme` order, the index places the token inside it. Match the
+  neighbours of the token you are adding; `Var.order` reads the pair back and
+  `lib/var.ml` refuses a second registration for an already-taken slot.
 
 * **Targeted test run:**
 
   ```bash
-  ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw <N>
+  ALCOTEST_VERBOSE=1 dune exec test/test.exe -- test <suite> <N>
   ```
 
-  For tools tests (css diff, tree diff, etc.):
+  Suite names match the `lib/` module (`borders`, `sort`, `build`, …); run
+  `dune exec test/test.exe -- list` for the full set. Differ tests live in
+  cascade:
 
   ```bash
-  # Note the required -- before args
-  ALCOTEST_VERBOSE=1 dune exec test/tools/test.exe -- test css_compare 12
+  ALCOTEST_VERBOSE=1 dune exec cascade/test/test.exe -- test css_compare 12
   ```
 
 * **Example test failures (e.g., `dune runtest` in `examples/prose/`):**
@@ -221,7 +246,9 @@ See `lib/rules.mli` for the complete layer model documentation.
      dune exec -- tw -s 'md:grid-cols-2 max-w-4xl' --diff
      ```
 
-  2. **Add a unit test**: Create a test in `test/test_rules.ml` that codifies the expected behavior
+  2. **Add a unit test**: Codify the expected behaviour in the `test_<module>.ml`
+     of the utility family involved, or in `test/test_sort.ml` when the bug is in
+     the comparator itself
      ```ocaml
      let test_your_case () =
        let utilities = Tw.[ md [ grid_cols 2 ]; max_w_4xl ] in
@@ -229,14 +256,14 @@ See `lib/rules.mli` for the complete layer model documentation.
          ~test_name:"regular before media" utilities
      ```
 
-  3. **Fix the issue**: Modify the relevant code (usually in `lib/rules.ml`)
+  3. **Fix the issue**: Modify the relevant code (usually in `lib/sort.ml`)
      - Pay attention to comparison functions and ordering logic
      - Ensure symmetric comparisons negate results when arguments are swapped
      - Regular rules should come before media queries at the same priority
 
   4. **Verify**: Run both the unit test and the original example test
      ```bash
-     ALCOTEST_VERBOSE=1 dune exec test/test.exe test rules <N>
+     ALCOTEST_VERBOSE=1 dune exec test/test.exe -- test sort <N>
      dune runtest
      ```
 
@@ -251,8 +278,11 @@ See `lib/rules.mli` for the complete layer model documentation.
        - Block at position 26: .contrast-more\:text-black
        + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
      ```
-     **Fix**: Check `lib/css/optimize.ml` for media query merging. Consecutive `@media` blocks
-     with the same condition should be merged. The `merge_consecutive_media` function handles this.
+     **Fix**: Media query merging is cascade's. Consecutive `@media` blocks with the same
+     condition should be merged; `merge_consecutive_media` in `cascade/lib/block.ml`
+     (re-exported from `cascade/lib/optimize.ml`) handles this. On the tw side,
+     `Build.utilities_layer` runs the same merge over the sorted utilities layer, so a
+     rule sorting between two blocks is the usual cause.
 
   2. **"blocks at different positions"** - Media query appears at wrong location:
      ```
@@ -260,7 +290,7 @@ See `lib/rules.mli` for the complete layer model documentation.
        - Block at position 8: .motion-safe\:animate-pulse
        + Block at position 25: .motion-safe\:animate-pulse
      ```
-     **Fix**: Check `lib/rules.ml` comparison functions. The issue is usually in:
+     **Fix**: Check `lib/sort.ml` comparison functions. The issue is usually in:
      - `compare_regular_vs_media`: Regular rules vs Media rules ordering
      - `compare_media_rules`: Media rules vs Media rules ordering
      - `extract_media_sort_key`: How media queries are sorted (responsive vs preference)
@@ -271,7 +301,8 @@ See `lib/rules.mli` for the complete layer model documentation.
         └─ .flex-col ↔  @media (min-width:48rem)
      ```
      **Fix**: This is a Regular vs Media ordering issue. Check `compare_regular_vs_media` in
-     `lib/rules.ml`. Uses `is_modifier_selector` to detect `\:` in CSS selector - modifier media
+     `lib/sort.ml`. It reads the rule's `has_modifier_colon` field, set from
+     `Css.Selector.contains_modifier_colon` when `lib/build.ml` indexes the rule - modifier media
      (like `.md\:grid-cols-2`) comes after Regular rules, but built-in media (like container's
      breakpoints) stays grouped with its base utility via priority comparison.
 
@@ -289,21 +320,23 @@ See `lib/rules.mli` for the complete layer model documentation.
        + --tw-ring-color
        + --tw-ring-shadow
      ```
-     **Fix**: Check `lib/rules.ml` `build_properties_layer` and ensure the utility
+     **Fix**: Check `properties_layer` in `lib/build.ml` and ensure the utility
      properly declares its variables using `Var.property_rule`.
 
 ---
 
 ## 9) Common pitfalls (and fixes)
 
-1. Writing raw `"var(--name)"` or `Css.custom` → model it in `Var`, extend types if missing.
+1. Writing raw `"var(--name)"` or building a `Css.custom_property` value by
+   concatenation → model it in `Var`, extend types if missing.
 2. Setting variables in the wrong utility → only **style** utilities set style vars.
 3. Forgetting `~property_rules` on referrers → `@property` never emitted.
 4. Spreading tests across multiple concerns → one concept per file.
 5. Silencing warnings with `OCAMLPARAM=_,w=-32` → address them; do not suppress.
-6. Using non-existent `Css.kind` constructors → check `lib/css/declaration_intf.ml` for valid kinds.
-   If the kind genuinely needs its own type, add it to `declaration_intf.ml`. Otherwise, use an
-   existing kind (e.g., `Length` for letter-spacing since it takes length values).
+6. Using non-existent `Css.kind` constructors → check `type _ kind` in
+   `cascade/lib/properties_intf.ml` for valid kinds. If the kind genuinely needs its own
+   type, add it there. Otherwise, use an existing kind (e.g., `Length` for letter-spacing
+   since it takes length values).
 7. Adding `Raw of string` or similar escape hatches to bypass type safety → **NEVER**. Always add
    the properly typed properties/variants you need. Extend the type system rather than escape it.
 
@@ -311,9 +344,12 @@ See `lib/rules.mli` for the complete layer model documentation.
 
 ## 10) Tests — organisation & rules
 
-* `test/css/`: MDN/W3C conformance where feasible.
-* `test/`: Tailwind v4 parity by utility.
-* Output artefacts live under `tmp/css_debug/`.
+* `cascade/test/`: CSS parsing, printing and optimizing, MDN/W3C conformance
+  where feasible.
+* `test/`: Tailwind v4 parity by utility, one `test_<module>.ml` per
+  `lib/<module>.ml`.
+* `test/upstream/`: replay of Tailwind's own fixture corpus. Generated; never
+  hand-edit.
 * **Rules:**
 
   1. Define named test functions (`let test_foo () = ...`).
@@ -332,7 +368,7 @@ See `lib/rules.mli` for the complete layer model documentation.
 
 ## 12) CSS comparison tool bugs — MUST FIX IMMEDIATELY
 
-⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No structural differences"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
+⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No differences found"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
 
 **Do NOT:**
 - Mark tests as "effectively passing" when cssdiff fails to detect real differences
@@ -341,16 +377,28 @@ See `lib/rules.mli` for the complete layer model documentation.
 
 **Instead:**
 1. **STOP** all other work immediately
-2. **FIX** the cssdiff tool in `lib/tools/css_compare.ml`
+2. **FIX** the differ in `cascade/lib/diff/css_compare.ml` (with `tree_diff.ml` and
+   `string_diff.ml` alongside it), add a case to `cascade/test/test_css_compare.ml`,
+   and land it in cascade. CI here pins cascade to its `main`, so the fix arrives
+   with the next run; bump the version bound in `dune-project` and `tw.opam` if it
+   needs a release
 3. **VERIFY** it correctly detects the differences it was missing
 4. **THEN** resume your original task
 
-**Known cssdiff bugs that need fixing** (not "limitations" — actual bugs):
-- Reports string diffs instead of structural diffs when selectors are fundamentally different (e.g., missing pseudo-elements like `::marker`)
-- Shows "no structural differences" when property values differ (e.g., `clip-path: inset(50%)` syntax)
-- Does not detect when entire selector chains are missing (e.g., `.hover\:prose:hover :where(ol>li)::marker` vs `.hover\:prose:hover`)
+The differ is cascade's, and tw only consumes it. Never work around a differ bug
+on the tw side: a comparison hack here hides the bug from every other cascade
+consumer and leaves the differ reporting the same false negative.
 
-The cssdiff tool is the foundation of our Tailwind parity testing. If it cannot reliably detect differences, we cannot trust any of our tests. Fixing it is always the highest priority.
+The one thing to check before calling it a bug is that you are comparing what you
+think you are. `--diff` defaults to canonical mode, which is deliberately blind to
+selector regrouping, cascade-neutral reordering and a few equivalent spellings; a
+difference it drops on purpose is not a false negative. Pass `--diff-mode=tree` or
+`--diff-mode=string` to see the layer below, and compare the raw sheets when
+duplication or placement is what you are chasing.
+
+The differ is the foundation of our Tailwind parity testing. If it cannot reliably
+detect differences, we cannot trust any of our tests. Fixing it is always the
+highest priority.
 
 ---
 
@@ -358,9 +406,9 @@ The cssdiff tool is the foundation of our Tailwind parity testing. If it cannot 
 
 * [ ] Variable pattern chosen and used consistently (link line numbers).
 * [ ] Correct layer(s) touched; no cross-layer leakage.
-* [ ] No raw `"var(--...)"` or `Css.custom`.
+* [ ] No raw `"var(--...)"` or assembled `Css.custom_property` values.
 * [ ] `@property` emitted when required (`~property_rules` present).
 * [ ] Tests: one concept/file; includes invalid input.
-* [ ] Tailwind parity diff checked under `tmp/css_debug/`.
+* [ ] Tailwind parity checked with `tw --diff`.
 * [ ] Warnings addressed; no suppression flags.
 * [ ] Commands in docs/scripts write to `tmp/` only.
