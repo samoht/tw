@@ -22,16 +22,27 @@ let of_string_valid () =
   check "[display:flex]";
   check "[color:red]"
 
+let rejected cls =
+  match of_class Tw.Scheme.default cls with
+  | Ok result ->
+      failf "expected %s to be rejected, got %s" cls (to_class result)
+  | Error _ -> ()
+
 let of_string_invalid () =
-  let fail_maybe input =
-    match of_class Tw.Scheme.default input with
-    | Ok _ -> fail ("Expected error for: " ^ input)
-    | Error _ -> ()
-  in
-  fail_maybe "";
-  fail_maybe "color:red";
-  fail_maybe "[invalid]";
-  fail_maybe "[]"
+  rejected "";
+  rejected "color:red";
+  rejected "[invalid]";
+  rejected "[]"
+
+(* What follows the closing bracket is part of the class name, so a suffix that
+   is not a [/opacity] modifier names a class Tailwind does not recognise. *)
+let test_trailing_text () =
+  rejected "[color:red]xyz";
+  rejected "[display:flex]junk";
+  rejected "[color:red]/";
+  rejected "[color:red]/bogus";
+  rejected "[color:red]/-5";
+  rejected "[color:red]/50/50"
 
 let css cls =
   match Tw.of_string cls with
@@ -128,6 +139,41 @@ let test_alpha_fn () =
        (Result.get_ok
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 
+(* The [/] modifier applies to the colour the value denotes, so a value written
+   with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
+let test_alpha_fn_with_modifier () =
+  check "[color:--alpha(red/50%)]/25";
+  Alcotest.(check bool)
+    "the modifier mixes the alpha'd colour" true
+    (Astring.String.is_infix
+       ~affix:
+         "color-mix(in oklab, color-mix(in oklab, red 50%, transparent) 25%, \
+          transparent)"
+       (css "[color:--alpha(red/50%)]/25"))
+
+(* An opacity read from a custom property keeps the spelling it was written
+   with, in either the bracket or the parenthesised form. *)
+let test_var_opacity_spelling () =
+  check "[color:red]/[var(--x)]";
+  check "[color:red]/(--x)";
+  Alcotest.(check bool)
+    "the var supplies the mix percentage" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, red var(--x), transparent)"
+       (css "[color:red]/(--x)"))
+
+(* Colour values go through the CSS reader, so every named colour is a colour,
+   not a hand-picked subset of them. *)
+let test_named_colour_value () =
+  check "[color:rebeccapurple]/50";
+  Alcotest.(check bool)
+    "rebeccapurple mixes like any other named colour" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, rebeccapurple 50%, transparent)"
+       (css "[color:rebeccapurple]/50"));
+  (* A value that names no colour has nothing to mix. *)
+  rejected "[color:notacolour]/50"
+
 (* A [#...] value is only a colour when it is a hex spelling. A malformed one
    reaches the raising hex constructor from inside [of_class], so the exception
    escapes the parser itself. *)
@@ -149,6 +195,12 @@ let tests =
     test_case "invalid hex value" `Quick test_invalid_hex_value;
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
+    test_case "text after the closing bracket" `Quick test_trailing_text;
+    test_case "--alpha() value with a /opacity modifier" `Quick
+      test_alpha_fn_with_modifier;
+    test_case "var-valued opacity modifier spelling" `Quick
+      test_var_opacity_spelling;
+    test_case "named colour value" `Quick test_named_colour_value;
     test_case "property value calc operators" `Quick
       test_property_calc_operators;
     test_case "property value --spacing()" `Quick test_property_spacing_fn;
