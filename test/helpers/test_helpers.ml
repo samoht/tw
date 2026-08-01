@@ -87,12 +87,23 @@ let same_property_pairs classes =
       pairs acc cs)
     by_prop []
 
-let check_ordering_fails ?(forms = false) utilities =
+(* The single ordering predicate. The fuzzer minimises with it and every suite
+   asserts on it, so a minimal case it reports is a case the assertion also
+   rejects; two predicates that disagree let the fuzzer print a failing case and
+   pass anyway. Pruning dead custom properties makes it blind to utilities whose
+   only output is an unreferenced binding - check_rendering_matches covers that
+   class now, and agreeing on one predicate is worth more than the extra
+   sensitivity here. *)
+let ordering_diff ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
-  not
-    (Css_compare.equal ~mode:`Canonical
-       (tailwind_css ~forms classnames)
-       (our_css utilities))
+  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+    (tailwind_css ~forms classnames)
+    (our_css utilities)
+
+let check_ordering_fails ?forms utilities =
+  match (ordering_diff ?forms utilities).Css_compare.result with
+  | Css_compare.No_diff _ -> false
+  | _ -> true
 
 (** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
     binary search *)
@@ -285,13 +296,8 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
         (String.trim (read_file err));
       Alcotest.skip ()
 
-let check_ordering_matches ?(forms = false) ~test_name utilities =
-  let classnames = List.map Tw.pp utilities in
-  let diff =
-    Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-      (tailwind_css ~forms classnames)
-      (our_css utilities)
-  in
+let check_ordering_matches ?forms ~test_name utilities =
+  let diff = ordering_diff ?forms utilities in
   match diff.Css_compare.result with
   | Css_compare.No_diff _ -> ()
   | _ ->

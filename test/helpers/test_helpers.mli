@@ -30,9 +30,18 @@ val same_property_pairs : string list -> (string * string) list
     in common. An element carrying such a pair is where an ordering difference
     becomes observable; a class on its own can only differ in value. *)
 
+val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
+(** [ordering_diff ?forms utilities] compares tw's sheet for [utilities] against
+    the pinned Tailwind CLI's, canonically and with dead custom properties
+    pruned. Both {!check_ordering_fails} and {!check_ordering_matches} go
+    through it: the fuzzer minimises with the same predicate the suites assert
+    on, so a case it reports as minimal is one the assertion also rejects.
+    Pruning is what makes it blind to a utility whose only output is an
+    unreferenced binding; {!check_rendering_matches} covers that class. *)
+
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
-(** [check_ordering_fails ?forms utilities] checks if utilities produce
-    different ordering than Tailwind CSS. *)
+(** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
+    finds a difference. The minimisation predicate. *)
 
 val delta_debug : ('a list -> bool) -> 'a list -> 'a list
 (** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
