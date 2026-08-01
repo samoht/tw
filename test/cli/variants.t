@@ -79,6 +79,20 @@ A routed utility does not displace the plain one it shares a name with:
   .table{display
   .dark\:table:where(.dark,.dark *){display
 
+That holds when the routed class is one the handlers cannot name, so it
+falls back on the slot of the property it emits: an [!important] marker is
+enough, and the plain [table] still keeps its place.
+
+  $ cat > darkbang.html <<EOF
+  > <div class="block contents flex table dark:!table"></div>
+  > EOF
+  $ tw --minify --input-css darkclass.css darkbang.html | grep -oE '\.[a-z\\!:-]+[^{]*\{display'
+  .block{display
+  .contents{display
+  .flex{display
+  .table{display
+  .dark\:\!table:where(.dark,.dark *){display
+
 The declared variant is honoured wherever it sits in the chain, not only when
 it leads: a built-in responsive prefix in front of it keeps its media query
 around the project's selector.
