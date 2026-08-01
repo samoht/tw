@@ -972,27 +972,36 @@ let file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in
   List.find_opt Sys.file_exists paths
 
+(* Both fixtures are checked in and declared as dune deps, so a missing one is a
+   broken checkout rather than an optional extra. A floor on the parsed cases
+   catches the other way this gate can go quiet: a fixture whose format drifts
+   still parses, just into far fewer cases than it holds. The floors are about
+   half the current counts (615 utilities, 166 variants), low enough to absorb
+   upstream churn. *)
+let utilities_floor = 300
+let variants_floor = 80
+
+let load basename floor =
+  match file basename with
+  | None ->
+      Fmt.epr "%s not found. Run extract_tests.exe first.@." basename;
+      exit 1
+  | Some path ->
+      let cases = read_test_cases path in
+      let n = List.length cases in
+      if n < floor then (
+        Fmt.epr "%s yielded %d test cases, fewer than the floor of %d.@." path n
+          floor;
+        exit 1);
+      cases
+
 let () =
-  let utilities_file =
-    file "utilities.txt" |> Option.value ~default:"utilities.txt"
-  in
-  let variants_file = file "variants.txt" in
-
-  if not (Sys.file_exists utilities_file) then (
-    Fmt.epr "No test file found. Run extract_tests.exe first.@.";
-    exit 0);
-
-  let utility_tests = read_test_cases utilities_file in
-  let variant_tests =
-    match variants_file with Some f -> read_test_cases f | None -> []
-  in
-
-  if utility_tests = [] && variant_tests = [] then (
-    Fmt.epr "No test cases with expected CSS found.@.";
-    exit 0);
-
+  let utility_tests = load "utilities.txt" utilities_floor in
+  let variant_tests = load "variants.txt" variants_floor in
   let total = List.length utility_tests + List.length variant_tests in
-  Fmt.epr "Running %d upstream tests...@." total;
+  Fmt.epr "Running %d upstream tests (%d utilities, %d variants)...@." total
+    (List.length utility_tests)
+    (List.length variant_tests);
   at_exit print_parity_report;
 
   let utility_cases =
@@ -1009,7 +1018,10 @@ let () =
     [ test_case "oklab precision truncation" `Quick test_color_tolerance ]
   in
   let suites =
-    [ ("utilities", utility_cases); ("tolerance", tolerance_cases) ]
-    @ if variant_cases <> [] then [ ("variants", variant_cases) ] else []
+    [
+      ("utilities", utility_cases);
+      ("tolerance", tolerance_cases);
+      ("variants", variant_cases);
+    ]
   in
   Alcotest.run "upstream" suites

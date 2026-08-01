@@ -379,10 +379,14 @@ let suborder_matches_tailwind () =
     ~test_name:"typography suborder matches Tailwind" shuffled
 
 (* text-<size> also sets the line height, so a size and a leading on the same
-   element decide between them what the text is laid out with. *)
+   element decide between them what the text is laid out with. The quoted
+   content values also pin the harness: a class whose arbitrary value carries
+   quotes has to reach the rendered element intact. *)
 let rendering_matches_tailwind () =
   let classes =
     [
+      "content-[\"x\"]";
+      "content-['x']";
       "text-xs";
       "text-base";
       "text-lg";

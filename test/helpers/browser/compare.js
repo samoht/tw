@@ -1,7 +1,8 @@
 // Differential rendering: the same elements under tw's sheet and Tailwind's,
 // compared on what the browser computes. A property that computes the same is
 // equivalent however the two sheets spell it; one that differs is observable.
-// Exit codes: 0 no differences, 1 differences on stdout, 2 no usable browser.
+// Exit codes: 0 no differences, 1 differences on stdout, 2 no usable browser,
+// 3 the page did not carry the classes asked for, reason on stdout.
 const fs = require('fs');
 
 let chromium;
@@ -19,15 +20,41 @@ const elements = fs.readFileSync(elementsFile, 'utf8').split('\n').filter((l) =>
 // the names the sheets declare and ask for each by hand.
 const customNames = (css) => new Set(css.match(/--[A-Za-z0-9_-]+/g) || []);
 
+// Arbitrary values carry quotes and angle brackets of their own
+// (content-["x"], bg-[url("/img/x.png")]), so the class must be escaped as
+// attribute text or it truncates the attribute it sits in.
+const attr = (s) =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
 const page = (css, classes) =>
   `<!doctype html><meta charset="utf-8"><style>${css}</style>` +
-  `<body>${classes.map((c, i) => `<div id="e${i}" class="${c}"></div>`).join('')}</body>`;
+  `<body>${classes.map((c, i) => `<div id="e${i}" class="${attr(c)}"></div>`).join('')}</body>`;
+
+// What each element is meant to carry, whitespace normalised the way classList
+// reports it.
+const wanted = elements.map((e) => e.trim().split(/\s+/).join(' '));
+
+// An element that lost part of its class attribute is styled by neither sheet,
+// and the two then agree on the same bare element - a pass that says nothing.
+// Report the first element whose classes are not the ones asked for.
+const unusable = (got) => {
+  if (got.length !== wanted.length)
+    return `built ${got.length} elements for ${wanted.length} entries`;
+  for (let i = 0; i < wanted.length; i++)
+    if (got[i] !== wanted[i])
+      return `element e${i} carries [${got[i]}], expected [${wanted[i]}]`;
+  return null;
+};
 
 async function computed(browser, css, names) {
   const p = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await p.setContent(page(css, elements));
   const out = await p.evaluate((ns) => {
-    const res = {};
+    const res = { styles: {}, classes: [] };
     document.querySelectorAll('div[id^=e]').forEach((el) => {
       const cs = getComputedStyle(el);
       const o = {};
@@ -36,7 +63,8 @@ async function computed(browser, css, names) {
         const v = cs.getPropertyValue(n);
         if (v !== '') o[n] = v;
       }
-      res[el.id] = o;
+      res.styles[el.id] = o;
+      res.classes.push([...el.classList].join(' '));
     });
     return res;
   }, names);
@@ -55,9 +83,17 @@ async function computed(browser, css, names) {
     console.error(e.message);
     process.exit(2);
   }
-  const ta = await computed(browser, a, names);
-  const tb = await computed(browser, b, names);
+  const ra = await computed(browser, a, names);
+  const rb = await computed(browser, b, names);
   await browser.close();
+
+  const broken = unusable(ra.classes) || unusable(rb.classes);
+  if (broken) {
+    console.log(`markup does not carry the intended classes: ${broken}`);
+    process.exit(3);
+  }
+  const ta = ra.styles;
+  const tb = rb.styles;
 
   // A custom property is a token stream: the browser hands back the author's
   // own whitespace and quoting, so two sheets that minify differently differ on
