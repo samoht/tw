@@ -47,6 +47,7 @@ Keep examples small and targeted; each test file should focus on one concept.
 
 ## 4) Quick start (build, run, compare)
 
+<!-- $MDX skip -->
 ```bash
 # Build
 dune build
@@ -69,6 +70,24 @@ dune exec -- tw -s "p-4" --diff
 dune exec -- tw -s "p-4" --tailwind
 ```
 
+The negative-class form, run against a `tw` already on `PATH`:
+
+```sh
+$ tw --single="-mt-4" --variables
+@layer theme, components, utilities;
+@layer theme {
+  :root, :host {
+    --spacing: .25rem;
+  }
+}
+@layer components;
+@layer utilities {
+  .-mt-4 {
+    margin-top: calc(var(--spacing) * -4);
+  }
+}
+```
+
 ### Backend modes (mutually exclusive)
 
 The `tw` binary supports three backend modes:
@@ -86,6 +105,7 @@ The `tw` binary supports three backend modes:
   a stricter mode (`tree` reports regrouping, `string` reports text).
 
 Example diff output:
+<!-- $MDX skip -->
 ```bash
 $ dune exec -- tw --single="supports-[backdrop-filter]:bg-black/50" --diff
 Differences found between Tailwind and tw for 'supports-[backdrop-filter]:bg-black/50':

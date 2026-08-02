@@ -3,6 +3,11 @@
   (flags
    (:standard %{dune-warnings}))))
 
+; mdx only sees fenced blocks that start at column 0. CLAUDE.md keeps most of
+; its commands inside list items, where mdx cannot reach them; only its
+; column-0 blocks are checked.
+
 (mdx
- (files README.md)
- (libraries tw cascade))
+ (files README.md CLAUDE.md)
+ (libraries tw cascade)
+ (deps %{bin:tw}))

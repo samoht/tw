@@ -135,15 +135,15 @@ let rotate_45 =
   Style.style [ decl ]
 
 (* Aggregator utility combines all channels - use reference_with_fallback for channels *)
-let transform =
+let transform_all =
   let tx_ref = Var.reference_with_fallback translate_x_var Zero in
   let rot_ref = Var.reference_with_fallback rotate_var (Deg 0.) in
   let scale_ref = Var.reference scale_var in  (* property_default has built-in default *)
   Style.style [
-    transform (Transform [
-      TranslateX (Var tx_ref);
+    transform (List [
+      Translate_x (Var tx_ref);
       Rotate (Var rot_ref);
-      Scale (Var scale_ref)
+      Scale_x (Var scale_ref)
     ])
   ]
 ```
@@ -157,7 +157,11 @@ let shadow_color_var = Var.channel Css.Color "tw-shadow-color"
 let shadow_sm =
   let color_ref = Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a") in
   Style.style [
-    box_shadow (Shadow [0; 1; 3; 0; Var color_ref])
+    box_shadow (Shadow {
+      h_offset = Px 0.; v_offset = Px 1.;
+      blur = Some (Px 3.); spread = Some (Px 0.);
+      color = Some (Var color_ref)
+    })
   ]
 
 (* Color utilities set the variable (in different module) *)
@@ -213,10 +217,8 @@ conflict resolve in Tailwind's order:
 - **Priority**: `Utility.S.priority` groups a whole family (all padding utilities
   share one). `lib/utility.mli` lists the bands.
 - **Suborder**: `Utility.S.suborder` orders variants inside the family. It is a
-  plain function on the module's variant type:
-  ```ocaml
-  let suborder = function Border -> 0 | Content -> 1
-  ```
+  plain function on the module's variant type, as in `box_sizing.ml`'s
+  `let suborder = function Border -> 0 | Content -> 1`.
 - **Lookup**: `Build.conflict_order` resolves the pair for a selector, and
   `Sort.compare_indexed_rules` sorts on it with the source index as a stable
   tiebreaker.
@@ -286,22 +288,43 @@ Good references
 
 Debugging utilities
 
-To debug CSS generation issues, use the tw CLI tool:
+To debug CSS generation issues, use the tw CLI tool. The commands below call `tw`
+directly; from a checkout without it on `PATH`, prefix them with `dune exec --`.
 
-```bash
+<!-- $MDX skip -->
+```sh
 # Generate CSS for a class without the base layer (useful for test comparisons)
-dune exec -- tw -s <class> --variables
+tw -s <class> --variables
 
 # Include the base layer
-dune exec -- tw -s <class> --variables --base
+tw -s <class> --variables --base
 
 # Test with minification (critical for finding selector issues)
-dune exec -- tw -s <class> --variables --minify
+tw -s <class> --variables --minify
+```
 
-# Examples:
-dune exec -- tw -s shadow-sm --variables  # See shadow-sm without base layer
-dune exec -- tw -s border-none --variables # Debug border utilities
-dune exec -- tw -s "prose prose-lg" --variables --minify # Test complex selectors
+A style utility sets its variable and reads it back in the same rule:
+
+```sh
+$ tw -s border-none --variables
+@layer theme, components, utilities;
+@layer theme {
+
+}
+@layer components;
+@layer utilities {
+  .border-none {
+    --tw-border-style: none;
+    border-style: none;
+  }
+}
+```
+
+Minified, which is where a selector bug shows up:
+
+```sh
+$ tw -s border-none --variables --minify
+@layer theme,components,utilities;@layer theme;@layer components;@layer utilities{.border-none{--tw-border-style:none;border-style:none}}
 ```
 
 This helps you:
@@ -343,39 +366,39 @@ let my_utility =
 ### Pattern 2: Property_default Template
 ```ocaml
 (* Variable with @property default *)
-let my_style_var =
-  Var.property_default Css.My_type ~initial:default_value "tw-my-style"
+let my_content_var =
+  Var.property_default Css.Content ~initial:(String "") "tw-my-content"
 
 (* Setting utility *)
 let my_setter value =
-  let decl, var_ref = Var.binding my_style_var value in
-  Style.style [ decl; my_property (Var var_ref) ]
+  let decl, var_ref = Var.binding my_content_var value in
+  Style.style [ decl; content (Var var_ref) ]
 
 (* Referencing utility with @property *)
 let my_referencer =
-  let var_ref = Var.reference my_style_var in
-  Style.style ~property_rules:(Var.property_rules my_style_var) [
-    my_property (Var var_ref)
+  let var_ref = Var.reference my_content_var in
+  Style.style ~property_rules:(Var.property_rules my_content_var) [
+    content (Var var_ref)
   ]
 ```
 
 ### Pattern 3: Channel Template
 ```ocaml
 (* Channel variables for composition *)
-let channel_a_var = Var.channel Css.Length "tw-channel-a"
-let channel_b_var = Var.channel Css.Angle "tw-channel-b"
+let channel_blur_var = Var.channel Css.Length "tw-channel-blur"
+let channel_hue_var = Var.channel Css.Angle "tw-channel-hue"
 
 (* Contributing utilities *)
-let set_channel_a value =
-  let decl, _ = Var.binding channel_a_var value in
+let set_channel_blur value =
+  let decl, _ = Var.binding channel_blur_var value in
   Style.style [ decl ]
 
 (* Aggregator utility - use reference_with_fallback for channels *)
 let aggregate =
-  let a_ref = Var.reference_with_fallback channel_a_var Zero in
-  let b_ref = Var.reference_with_fallback channel_b_var (Deg 0.) in
+  let blur_ref = Var.reference_with_fallback channel_blur_var Zero in
+  let hue_ref = Var.reference_with_fallback channel_hue_var (Deg 0.) in
   Style.style [
-    my_composite_property [Var a_ref; Var b_ref]
+    filter (List [ Blur (Var blur_ref); Hue_rotate (Var hue_ref) ])
   ]
 ```
 
@@ -386,7 +409,9 @@ let color_override_var = Var.channel Css.Color "tw-my-color"
 
 (* Reference with fallback using reference_with_fallback *)
 let my_colored_thing =
-  let color_ref = Var.reference_with_fallback color_override_var default_color in
+  let color_ref =
+    Var.reference_with_fallback color_override_var (Css.hex "#0000001a")
+  in
   Style.style [
     background_color (Var color_ref)
   ]
@@ -406,11 +431,11 @@ let my_value_var =
 (* Every utility sets and uses *)
 let my_small =
   let decl, var_ref = Var.binding my_value_var (Px 10.) in
-  Style.style [ decl; padding (Var var_ref) ]
+  Style.style [ decl; padding [ Var var_ref ] ]
 
 let my_large =
   let decl, var_ref = Var.binding my_value_var (Px 40.) in
-  Style.style [ decl; padding (Var var_ref) ]
+  Style.style [ decl; padding [ Var var_ref ] ]
 ```
 
 Common pitfalls and solutions
@@ -435,18 +460,24 @@ Common pitfalls and solutions
   - Assembling a value as a string bypasses the type system and makes the code fragile
 - **Instead**: Always use typed `Var` references from `Var.theme`, `Var.channel`, or `Var.property_default`
 - **Exception**: A variable whose value legitimately holds a stop list or a token stream (Tailwind v4's `--tw-gradient-stops`) still gets a typed kind. `backgrounds.ml` declares it `Var.property_default Gradient_stop ~universal:true`, which registers `syntax: "*"` while keeping the OCaml value typed
-- **If you need new functionality**: Extend the type system properly:
-  - Add new constructors to existing types following the standard pattern:
-    ```ocaml
-    type box_shadow =
-      | Shadow of shadow
-      | Shadows of shadow list  
-      | None
-      | Var of box_shadow var  (* Standard pattern: Var (no suffix) with typed variable *)
-    ```
-  - The naming convention is always `Var` (not `Var_list`, `Var_composition`, etc.)
-  - The `Var` constructor holds a typed variable reference created by `Var.channel`, `Var.property_default`, or `Var.theme`
-  - Never work around the type system with strings
+- **If you need new functionality**: Extend the type system properly. Add new
+  constructors to existing types following the standard pattern, which every
+  cascade value type follows:
+
+```ocaml
+type my_shadow =
+  | Shadow of shadow
+  | Shadows of shadow list
+  | None
+  | Var of my_shadow var  (* Standard pattern: Var (no suffix), typed variable *)
+
+let _ : my_shadow = Shadows []
+```
+
+The naming convention is always `Var`, never `Var_list` or `Var_composition`,
+and the constructor holds a typed variable reference created by `Var.channel`,
+`Var.property_default` or `Var.theme`. Never work around the type system with
+strings.
 
 1. **Border utilities setting variables incorrectly**
    - **Problem**: Border width utilities (border, border-2, etc.) were incorrectly setting the `--tw-border-style` variable instead of just using it

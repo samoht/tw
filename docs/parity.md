@@ -15,7 +15,8 @@ and the CSS Tailwind emits for it. `test/upstream/test.exe` replays every case
 (782 of them) and fails when tw parses a class Tailwind accepts, or emits
 different CSS for it.
 
-```
+<!-- $MDX skip -->
+```sh
 dune exec test/upstream/test.exe
 ```
 
@@ -26,7 +27,8 @@ These files are generated. Never hand-edit them; regenerate from upstream.
 Each of the nine examples builds its CSS twice, once through tw and once through
 `npx tailwindcss`, then diffs the two:
 
-```
+<!-- $MDX skip -->
+```sh
 cascade diff --diff=canonical --prune-unused-custom-props landing.css tailwind.css
 ```
 
@@ -36,7 +38,8 @@ freshly built cascade, not whatever is on `PATH`.
 
 ### One class at a time
 
-```
+<!-- $MDX skip -->
+```sh
 dune exec -- tw --single="hover:bg-blue-600" --diff
 ```
 
@@ -58,6 +61,7 @@ committed. It lives in `tmp/` (gitignored) and has to be reconstructed:
 
 Both sheets are then generated and diffed:
 
+<!-- $MDX skip -->
 ```sh
 "$TW"/node_modules/.bin/tailwindcss -i src/ref-entry.css -o ref_local.css --minify
 "$TW"/_build/default/bin/main.exe --input-css src/globals.css --minify \
@@ -81,6 +85,7 @@ most of a layer.
 **Read the whole diff.** The summary line counts *containers*, not their
 contents, so `4 changed containers` can hide a hundred rule entries. Always:
 
+<!-- $MDX skip -->
 ```sh
 grep -nE "^├─|^└─" diff.txt
 ```
