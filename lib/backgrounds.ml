@@ -42,46 +42,51 @@ module Handler = struct
       String.sub s 1 (n - 2)
     else s
 
-  type position_name =
-    | Pos_bottom
-    | Pos_bottom_left
-    | Pos_bottom_right
-    | Pos_center
-    | Pos_left
-    | Pos_left_bottom
-    | Pos_left_top
-    | Pos_right
-    | Pos_right_bottom
-    | Pos_right_top
-    | Pos_top
-    | Pos_top_left
-    | Pos_top_right
+  (* The named background positions, as [bg-<position>] spells them. *)
+  module Position = struct
+    type t =
+      | Bottom
+      | Bottom_left
+      | Bottom_right
+      | Center
+      | Left
+      | Left_bottom
+      | Left_top
+      | Right
+      | Right_bottom
+      | Right_top
+      | Top
+      | Top_left
+      | Top_right
+  end
 
   (* Gradient color source - shared by from/via/to *)
-  type gradient_color_source =
-    | Gc_named of Color.color * int
-    | Gc_named_opacity of Color.color * int * Color.opacity_modifier
-    | Gc_current
-    | Gc_current_opacity of Color.opacity_modifier
-    | Gc_inherit
-    | Gc_transparent
-    | Gc_bracket_hex of string
-    | Gc_bracket_hex_opacity of string * Color.opacity_modifier
-    | Gc_bracket_color_var of string
-    | Gc_bracket_color_var_opacity of string * Color.opacity_modifier
-    | Gc_bracket_var of string
-    | Gc_bracket_var_opacity of string * Color.opacity_modifier
-    | Gc_bracket_color of string
-    | Gc_bracket_color_opacity of string * Color.opacity_modifier
+  module Color_source = struct
+    type t =
+      | Named of Color.color * int
+      | Named_opacity of Color.color * int * Color.opacity_modifier
+      | Current
+      | Current_opacity of Color.opacity_modifier
+      | Inherit
+      | Transparent
+      | Bracket_hex of string
+      | Bracket_hex_opacity of string * Color.opacity_modifier
+      | Bracket_color_var of string
+      | Bracket_color_var_opacity of string * Color.opacity_modifier
+      | Bracket_var of string
+      | Bracket_var_opacity of string * Color.opacity_modifier
+      | Bracket_color of string
+      | Bracket_color_opacity of string * Color.opacity_modifier
+  end
 
   (* Gradient position source *)
-  type gradient_position_source = Gp_pct of float | Gp_bracket of string
-  type gradient_target = Gradient_from | Gradient_via | Gradient_to
+  type gradient_position_source = Percent of float | Bracket of string
+  type gradient_target = From | Via | To
 
   type t =
     | Bg of Color.color * int
     | Bg_gradient_to of direction
-    | Gradient_color of gradient_target * gradient_color_source
+    | Gradient_color of gradient_target * Color_source.t
     | Gradient_stop_position of gradient_target * gradient_position_source
     | Via_none (* via-none: clears the gradient's via stops *)
     | Bg_origin_border
@@ -111,7 +116,7 @@ module Handler = struct
     | Bg_repeat_round
     | Bg_repeat_space
     (* Background position *)
-    | Bg_position of position_name
+    | Bg_position of Position.t
     (* Bracket notation: bg-[contain], bg-[cover] → background-size *)
     | Bg_bracket_contain
     | Bg_bracket_cover
@@ -231,56 +236,51 @@ module Handler = struct
     | Via_none -> "via-none"
     | Gradient_color (target, src) ->
         let prefix =
-          match target with
-          | Gradient_from -> "from-"
-          | Gradient_via -> "via-"
-          | Gradient_to -> "to-"
+          match target with From -> "from-" | Via -> "via-" | To -> "to-"
         in
         let color_class = function
-          | Gc_named (color, shade) ->
+          | Color_source.Named (color, shade) ->
               if Color.is_base_color color || Color.is_custom_color color then
                 Color.pp color
               else Color.pp color ^ "-" ^ string_of_int shade
-          | Gc_named_opacity (color, shade, opacity) ->
+          | Color_source.Named_opacity (color, shade, opacity) ->
               let base =
                 if Color.is_base_color color || Color.is_custom_color color then
                   Color.pp color
                 else Color.pp color ^ "-" ^ string_of_int shade
               in
               base ^ opacity_suffix opacity
-          | Gc_current -> "current"
-          | Gc_current_opacity opacity -> "current" ^ opacity_suffix opacity
-          | Gc_inherit -> "inherit"
-          | Gc_transparent -> "transparent"
-          | Gc_bracket_hex h -> "[#" ^ h ^ "]"
-          | Gc_bracket_hex_opacity (h, opacity) ->
+          | Color_source.Current -> "current"
+          | Color_source.Current_opacity opacity ->
+              "current" ^ opacity_suffix opacity
+          | Color_source.Inherit -> "inherit"
+          | Color_source.Transparent -> "transparent"
+          | Color_source.Bracket_hex h -> "[#" ^ h ^ "]"
+          | Color_source.Bracket_hex_opacity (h, opacity) ->
               "[#" ^ h ^ "]" ^ opacity_suffix opacity
-          | Gc_bracket_color_var v -> "[color:" ^ v ^ "]"
-          | Gc_bracket_color_var_opacity (v, opacity) ->
+          | Color_source.Bracket_color_var v -> "[color:" ^ v ^ "]"
+          | Color_source.Bracket_color_var_opacity (v, opacity) ->
               "[color:" ^ v ^ "]" ^ opacity_suffix opacity
-          | Gc_bracket_var v -> "[" ^ v ^ "]"
-          | Gc_bracket_var_opacity (v, opacity) ->
+          | Color_source.Bracket_var v -> "[" ^ v ^ "]"
+          | Color_source.Bracket_var_opacity (v, opacity) ->
               "[" ^ v ^ "]" ^ opacity_suffix opacity
-          | Gc_bracket_color v -> "[" ^ v ^ "]"
-          | Gc_bracket_color_opacity (v, opacity) ->
+          | Color_source.Bracket_color v -> "[" ^ v ^ "]"
+          | Color_source.Bracket_color_opacity (v, opacity) ->
               "[" ^ v ^ "]" ^ opacity_suffix opacity
         in
         prefix ^ color_class src
     | Gradient_stop_position (target, src) -> (
         let prefix =
-          match target with
-          | Gradient_from -> "from-"
-          | Gradient_via -> "via-"
-          | Gradient_to -> "to-"
+          match target with From -> "from-" | Via -> "via-" | To -> "to-"
         in
         match src with
-        | Gp_pct p ->
+        | Percent p ->
             let p_str =
               if Float.is_integer p then string_of_int (int_of_float p)
               else string_of_float p
             in
             prefix ^ p_str ^ "%"
-        | Gp_bracket v -> prefix ^ "[" ^ v ^ "]")
+        | Bracket v -> prefix ^ "[" ^ v ^ "]")
     | Bg_origin_border -> "bg-origin-border"
     | Bg_origin_padding -> "bg-origin-padding"
     | Bg_origin_content -> "bg-origin-content"
@@ -302,19 +302,19 @@ module Handler = struct
     | Bg_repeat_y -> "bg-repeat-y"
     | Bg_repeat_round -> "bg-repeat-round"
     | Bg_repeat_space -> "bg-repeat-space"
-    | Bg_position Pos_bottom -> "bg-bottom"
-    | Bg_position Pos_bottom_left -> "bg-bottom-left"
-    | Bg_position Pos_bottom_right -> "bg-bottom-right"
-    | Bg_position Pos_center -> "bg-center"
-    | Bg_position Pos_left -> "bg-left"
-    | Bg_position Pos_left_bottom -> "bg-left-bottom"
-    | Bg_position Pos_left_top -> "bg-left-top"
-    | Bg_position Pos_right -> "bg-right"
-    | Bg_position Pos_right_bottom -> "bg-right-bottom"
-    | Bg_position Pos_right_top -> "bg-right-top"
-    | Bg_position Pos_top -> "bg-top"
-    | Bg_position Pos_top_left -> "bg-top-left"
-    | Bg_position Pos_top_right -> "bg-top-right"
+    | Bg_position Position.Bottom -> "bg-bottom"
+    | Bg_position Position.Bottom_left -> "bg-bottom-left"
+    | Bg_position Position.Bottom_right -> "bg-bottom-right"
+    | Bg_position Position.Center -> "bg-center"
+    | Bg_position Position.Left -> "bg-left"
+    | Bg_position Position.Left_bottom -> "bg-left-bottom"
+    | Bg_position Position.Left_top -> "bg-left-top"
+    | Bg_position Position.Right -> "bg-right"
+    | Bg_position Position.Right_bottom -> "bg-right-bottom"
+    | Bg_position Position.Right_top -> "bg-right-top"
+    | Bg_position Position.Top -> "bg-top"
+    | Bg_position Position.Top_left -> "bg-top-left"
+    | Bg_position Position.Top_right -> "bg-top-right"
     | Bg_bracket_contain -> "bg-[contain]"
     | Bg_bracket_cover -> "bg-[cover]"
     | Bg_bracket_size v -> "bg-[size:" ^ v ^ "]"
@@ -1206,9 +1206,9 @@ module Handler = struct
 
   (** Convert gradient target to set_var and prefix *)
   let gradient_target_info = function
-    | Gradient_from -> ("from-", gradient_from_var, gradient_from_position_var)
-    | Gradient_via -> ("via-", gradient_via_var, gradient_via_position_var)
-    | Gradient_to -> ("to-", gradient_to_var, gradient_to_position_var)
+    | From -> ("from-", gradient_from_var, gradient_from_position_var)
+    | Via -> ("via-", gradient_via_var, gradient_via_position_var)
+    | To -> ("to-", gradient_to_var, gradient_to_position_var)
 
   (* Shared @property rules for gradient positions *)
   (* A gradient stop-position utility (from-10% etc.) registers the whole
@@ -1269,28 +1269,32 @@ module Handler = struct
     let vr : Css.color Css.var = Var.bracket bare in
     Var vr
 
-  (** Convert a non-named gradient_color_source to a Css.color *)
-  let css_color_of_source : gradient_color_source -> Css.color = function
-    | Gc_current | Gc_current_opacity _ -> Css.Current
-    | Gc_inherit -> Css.Inherit
-    | Gc_transparent -> Css.Transparent
-    | Gc_bracket_hex h | Gc_bracket_hex_opacity (h, _) -> Css.hex h
-    | Gc_bracket_color_var v | Gc_bracket_color_var_opacity (v, _) ->
+  (** Convert a non-named Color_source.t to a Css.color *)
+  let css_color_of_source : Color_source.t -> Css.color = function
+    | Color_source.Current | Color_source.Current_opacity _ -> Css.Current
+    | Color_source.Inherit -> Css.Inherit
+    | Color_source.Transparent -> Css.Transparent
+    | Color_source.Bracket_hex h | Color_source.Bracket_hex_opacity (h, _) ->
+        Css.hex h
+    | Color_source.Bracket_color_var v
+    | Color_source.Bracket_color_var_opacity (v, _) ->
         color_var_ref v
-    | Gc_bracket_var v | Gc_bracket_var_opacity (v, _) -> color_var_ref v
-    | Gc_bracket_color v | Gc_bracket_color_opacity (v, _) -> (
+    | Color_source.Bracket_var v | Color_source.Bracket_var_opacity (v, _) ->
+        color_var_ref v
+    | Color_source.Bracket_color v | Color_source.Bracket_color_opacity (v, _)
+      -> (
         match Color.parse_bracket_color v with
         | Some c -> c
         | None -> Css.Transparent)
-    | Gc_named _ | Gc_named_opacity _ -> assert false
+    | Color_source.Named _ | Color_source.Named_opacity _ -> assert false
 
-  (** Extract opacity from a gradient_color_source, if present *)
+  (** Extract opacity from a Color_source.t, if present *)
   let opacity_of_source = function
-    | Gc_current_opacity o
-    | Gc_bracket_hex_opacity (_, o)
-    | Gc_bracket_color_var_opacity (_, o)
-    | Gc_bracket_var_opacity (_, o)
-    | Gc_bracket_color_opacity (_, o) ->
+    | Color_source.Current_opacity o
+    | Color_source.Bracket_hex_opacity (_, o)
+    | Color_source.Bracket_color_var_opacity (_, o)
+    | Color_source.Bracket_var_opacity (_, o)
+    | Color_source.Bracket_color_opacity (_, o) ->
         Some o
     | _ -> None
 
@@ -1309,11 +1313,11 @@ module Handler = struct
         let prefix, set_var, _pos_var = gradient_target_info target in
         (* Named colors use the scheme system with theme variables *)
         match src with
-        | Gc_named (color, shade) ->
+        | Color_source.Named (color, shade) ->
             gradient_color ~prefix ~set_var ~shade color
-        | Gc_named_opacity (color, shade, opacity) ->
+        | Color_source.Named_opacity (color, shade, opacity) ->
             gradient_color_opacity ~prefix ~set_var ~shade color opacity
-        | Gc_bracket_hex_opacity (h, opacity) ->
+        | Color_source.Bracket_hex_opacity (h, opacity) ->
             (* Hex is known at compile time: compute oklab directly *)
             let alpha = Color.opacity_to_percent opacity /. 100.0 in
             let color = Color.hex_to_oklab_alpha h alpha in
@@ -1329,8 +1333,8 @@ module Handler = struct
     | Gradient_stop_position (target, src) -> (
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
-        | Gp_pct p -> gradient_position_style pos_var (Pct p)
-        | Gp_bracket v ->
+        | Percent p -> gradient_position_style pos_var (Pct p)
+        | Bracket v ->
             gradient_position_style pos_var (parse_bracket_position_value v))
     | Via_none ->
         let property_rules =
@@ -1363,19 +1367,19 @@ module Handler = struct
     | Bg_position pos ->
         let pos_val : Css.position_value list =
           match pos with
-          | Pos_bottom -> [ Center_bottom ]
-          | Pos_bottom_left -> [ XY (Px 0., Pct 100.) ]
-          | Pos_bottom_right -> [ XY (Pct 100., Pct 100.) ]
-          | Pos_center -> [ Center ]
-          | Pos_left -> [ Single (Px 0.) ]
-          | Pos_left_bottom -> [ XY (Px 0., Pct 100.) ]
-          | Pos_left_top -> [ XY (Px 0., Px 0.) ]
-          | Pos_right -> [ Single (Pct 100.) ]
-          | Pos_right_bottom -> [ XY (Pct 100., Pct 100.) ]
-          | Pos_right_top -> [ XY (Pct 100., Px 0.) ]
-          | Pos_top -> [ Center_top ]
-          | Pos_top_left -> [ XY (Px 0., Px 0.) ]
-          | Pos_top_right -> [ XY (Pct 100., Px 0.) ]
+          | Position.Bottom -> [ Center_bottom ]
+          | Position.Bottom_left -> [ XY (Px 0., Pct 100.) ]
+          | Position.Bottom_right -> [ XY (Pct 100., Pct 100.) ]
+          | Position.Center -> [ Center ]
+          | Position.Left -> [ Single (Px 0.) ]
+          | Position.Left_bottom -> [ XY (Px 0., Pct 100.) ]
+          | Position.Left_top -> [ XY (Px 0., Px 0.) ]
+          | Position.Right -> [ Single (Pct 100.) ]
+          | Position.Right_bottom -> [ XY (Pct 100., Pct 100.) ]
+          | Position.Right_top -> [ XY (Pct 100., Px 0.) ]
+          | Position.Top -> [ Center_top ]
+          | Position.Top_left -> [ XY (Px 0., Px 0.) ]
+          | Position.Top_right -> [ XY (Pct 100., Px 0.) ]
         in
         bg_position' pos_val
     | Bg_bracket_contain -> style [ Css.background_size Contain ]
@@ -1481,14 +1485,14 @@ module Handler = struct
     | Bg_radial_interp _ | Bg_radial_bracket _ ->
         200000
     (* Gradient color utilities *)
-    | Gradient_color (Gradient_from, _) -> 110000
-    | Gradient_color (Gradient_via, _) -> 120000
+    | Gradient_color (From, _) -> 110000
+    | Gradient_color (Via, _) -> 120000
     | Via_none -> 120002
-    | Gradient_color (Gradient_to, _) -> 130000
+    | Gradient_color (To, _) -> 130000
     (* Gradient position utilities *)
-    | Gradient_stop_position (Gradient_from, _) -> 110001
-    | Gradient_stop_position (Gradient_via, _) -> 120001
-    | Gradient_stop_position (Gradient_to, _) -> 130001
+    | Gradient_stop_position (From, _) -> 110001
+    | Gradient_stop_position (Via, _) -> 120001
+    | Gradient_stop_position (To, _) -> 130001
     (* bg-origin utilities *)
     | Bg_origin_border -> 140000
     | Bg_origin_content -> 140001
@@ -1568,17 +1572,17 @@ module Handler = struct
     let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
     (* Keywords *)
-    | [ "current" ] -> gc Gc_current
+    | [ "current" ] -> gc Color_source.Current
     | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
         let _, opacity = Color.parse_opacity_modifier ?theme current_str in
-        gc (Gc_current_opacity opacity)
-    | [ "inherit" ] -> gc Gc_inherit
-    | [ "transparent" ] -> gc Gc_transparent
+        gc (Color_source.Current_opacity opacity)
+    | [ "inherit" ] -> gc Color_source.Inherit
+    | [ "transparent" ] -> gc Color_source.Transparent
     (* Percentage positions: from-0%, from-100% (integer only) *)
     | [ pct_str ] when String.ends_with ~suffix:"%" pct_str -> (
         let num_s = String.sub pct_str 0 (String.length pct_str - 1) in
         match int_of_string_opt num_s with
-        | Some p -> gp (Gp_pct (float_of_int p))
+        | Some p -> gp (Percent (float_of_int p))
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
     | [ bracket_opacity ] when has_opacity bracket_opacity -> (
@@ -1591,11 +1595,13 @@ module Handler = struct
             let inner = Parse.bracket_inner bracket_opacity in
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
-              gc (Gc_bracket_color_var var_str)
+              gc (Color_source.Bracket_color_var var_str)
             else if is_bracket_hex inner then
-              gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
-            else if Parse.is_var inner then gc (Gc_bracket_var inner)
-            else if is_gradient_position inner then gp (Gp_bracket inner)
+              gc
+                (Color_source.Bracket_hex
+                   (String.sub inner 1 (String.length inner - 1)))
+            else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
+            else if is_gradient_position inner then gp (Bracket inner)
             else Error (`Msg "Invalid gradient stop value")
         | Color.No_opacity ->
             Error (`Msg "Invalid gradient bracket with opacity")
@@ -1603,45 +1609,47 @@ module Handler = struct
             let inner = Parse.bracket_inner base in
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
-              gc (Gc_bracket_color_var_opacity (var_str, opacity))
+              gc (Color_source.Bracket_color_var_opacity (var_str, opacity))
             else if is_bracket_hex inner then
               gc
-                (Gc_bracket_hex_opacity
+                (Color_source.Bracket_hex_opacity
                    (String.sub inner 1 (String.length inner - 1), opacity))
             else if Parse.is_var inner then
-              gc (Gc_bracket_var_opacity (inner, opacity))
+              gc (Color_source.Bracket_var_opacity (inner, opacity))
             else if Color.parse_bracket_color inner <> None then
-              gc (Gc_bracket_color_opacity (inner, opacity))
+              gc (Color_source.Bracket_color_opacity (inner, opacity))
             else Error (`Msg "Invalid gradient bracket with opacity")
         | _ -> (
             (* Named color with opacity *)
             match Color.shade_and_opacity_of_strings ?theme rest with
             | Ok (color, shade, opacity) ->
-                gc (Gc_named_opacity (color, shade, opacity))
+                gc (Color_source.Named_opacity (color, shade, opacity))
             | Error e -> Error e))
     (* Bracket notation without opacity *)
     | [ bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
         if String.length inner > 6 && String.sub inner 0 6 = "color:" then
           let var_str = String.sub inner 6 (String.length inner - 6) in
-          gc (Gc_bracket_color_var var_str)
+          gc (Color_source.Bracket_color_var var_str)
         else if is_bracket_hex inner then
-          gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
-        else if Parse.is_var inner then gc (Gc_bracket_var inner)
+          gc
+            (Color_source.Bracket_hex
+               (String.sub inner 1 (String.length inner - 1)))
+        else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
         else if Color.parse_bracket_color inner <> None then
-          gc (Gc_bracket_color inner)
-        else if is_gradient_position inner then gp (Gp_bracket inner)
+          gc (Color_source.Bracket_color inner)
+        else if is_gradient_position inner then gp (Bracket inner)
         else Error (`Msg "Invalid gradient stop value")
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with
         | Ok (color, shade, opacity) ->
-            gc (Gc_named_opacity (color, shade, opacity))
+            gc (Color_source.Named_opacity (color, shade, opacity))
         | Error e -> Error e)
     (* Named color *)
     | _ -> (
         match Color.shade_of_strings rest with
-        | Ok (color, shade) -> gc (Gc_named (color, shade))
+        | Ok (color, shade) -> gc (Color_source.Named (color, shade))
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
   let of_class theme class_name =
@@ -1690,19 +1698,19 @@ module Handler = struct
     | [ "bg"; "repeat"; "round" ] -> Ok Bg_repeat_round
     | [ "bg"; "repeat"; "space" ] -> Ok Bg_repeat_space
     (* Background position *)
-    | [ "bg"; "bottom" ] -> Ok (Bg_position Pos_bottom)
-    | [ "bg"; "bottom"; "left" ] -> Ok (Bg_position Pos_bottom_left)
-    | [ "bg"; "bottom"; "right" ] -> Ok (Bg_position Pos_bottom_right)
-    | [ "bg"; "center" ] -> Ok (Bg_position Pos_center)
-    | [ "bg"; "left" ] -> Ok (Bg_position Pos_left)
-    | [ "bg"; "left"; "bottom" ] -> Ok (Bg_position Pos_left_bottom)
-    | [ "bg"; "left"; "top" ] -> Ok (Bg_position Pos_left_top)
-    | [ "bg"; "right" ] -> Ok (Bg_position Pos_right)
-    | [ "bg"; "right"; "bottom" ] -> Ok (Bg_position Pos_right_bottom)
-    | [ "bg"; "right"; "top" ] -> Ok (Bg_position Pos_right_top)
-    | [ "bg"; "top" ] -> Ok (Bg_position Pos_top)
-    | [ "bg"; "top"; "left" ] -> Ok (Bg_position Pos_top_left)
-    | [ "bg"; "top"; "right" ] -> Ok (Bg_position Pos_top_right)
+    | [ "bg"; "bottom" ] -> Ok (Bg_position Position.Bottom)
+    | [ "bg"; "bottom"; "left" ] -> Ok (Bg_position Position.Bottom_left)
+    | [ "bg"; "bottom"; "right" ] -> Ok (Bg_position Position.Bottom_right)
+    | [ "bg"; "center" ] -> Ok (Bg_position Position.Center)
+    | [ "bg"; "left" ] -> Ok (Bg_position Position.Left)
+    | [ "bg"; "left"; "bottom" ] -> Ok (Bg_position Position.Left_bottom)
+    | [ "bg"; "left"; "top" ] -> Ok (Bg_position Position.Left_top)
+    | [ "bg"; "right" ] -> Ok (Bg_position Position.Right)
+    | [ "bg"; "right"; "bottom" ] -> Ok (Bg_position Position.Right_bottom)
+    | [ "bg"; "right"; "top" ] -> Ok (Bg_position Position.Right_top)
+    | [ "bg"; "top" ] -> Ok (Bg_position Position.Top)
+    | [ "bg"; "top"; "left" ] -> Ok (Bg_position Position.Top_left)
+    | [ "bg"; "top"; "right" ] -> Ok (Bg_position Position.Top_right)
     (* bg-linear-to-* direction utilities (with optional /interp modifier) *)
     | [ "bg"; "linear"; "to"; dir_mod ] -> (
         let dir_s, interp_opt = split_mod dir_mod in
@@ -1897,10 +1905,10 @@ module Handler = struct
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
-    | "from" :: rest -> parse_gradient_color ~theme Gradient_from rest
+    | "from" :: rest -> parse_gradient_color ~theme From rest
     | [ "via"; "none" ] -> Ok Via_none
-    | "via" :: rest -> parse_gradient_color ~theme Gradient_via rest
-    | "to" :: rest -> parse_gradient_color ~theme Gradient_to rest
+    | "via" :: rest -> parse_gradient_color ~theme Via rest
+    | "to" :: rest -> parse_gradient_color ~theme To rest
     | _ -> Error (`Msg "Unknown background class")
 
   let examples =
@@ -1932,12 +1940,12 @@ let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =
   Color.check_shade ~utility:"from_color" color shade;
-  utility (Gradient_color (Gradient_from, Gc_named (color, shade)))
+  utility (Gradient_color (From, Color_source.Named (color, shade)))
 
 let via_color ?(shade = 500) color =
   Color.check_shade ~utility:"via_color" color shade;
-  utility (Gradient_color (Gradient_via, Gc_named (color, shade)))
+  utility (Gradient_color (Via, Color_source.Named (color, shade)))
 
 let to_color ?(shade = 500) color =
   Color.check_shade ~utility:"to_color" color shade;
-  utility (Gradient_color (Gradient_to, Gc_named (color, shade)))
+  utility (Gradient_color (To, Color_source.Named (color, shade)))
