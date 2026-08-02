@@ -89,6 +89,5 @@ files = [
   "lib/style.ml*",
   "lib/text_shadow.ml*",
   "lib/touch.ml*",
-  "lib/typography.ml*",
 ]
 exclude = ["E334"]
