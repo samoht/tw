@@ -400,7 +400,18 @@ val theme :
     With [~runtime:true] the optimizer keeps [var(name)] references unfolded
     instead of inlining the theme value, so the token stays overridable at
     runtime (matching Tailwind, which leaves e.g. [calc(var(--spacing)*4)]
-    intact rather than baking in the resolved length). *)
+    intact rather than baking in the resolved length).
+
+    Several variables may share an [order]: token families are numbered from
+    their own base, and the families a project [\@theme] names funnel every
+    member into one slot. The theme layer breaks such a tie on the variable
+    name.
+
+    A name, though, owns its slot. [order] places [name] the first time [name]
+    is defined; a later definition of the same name is placed where the name
+    already sits, and the variable it returns carries that slot. So a project
+    [\@theme] naming a built-in token reaches this function through its family's
+    shared slot and still leaves the token where it belongs. *)
 
 val property_default :
   'a Css.kind ->
@@ -471,8 +482,13 @@ val register_property_order : name:string -> order:int -> unit
 *)
 
 val order : string -> (int * int) option
-(** [order name] returns the theme layer order for a variable name. None if no
-    order was set (i.e., not a theme variable). *)
+(** [order name] returns the theme layer order for a variable name, with or
+    without the leading ["--"]. [None] if no variable of that name has been
+    defined, which for the tokens a project [\@theme] names means before the
+    utility reading them has been rendered.
+
+    The answer is where [name] itself sits, never the slot of a variable that
+    shares it. *)
 
 val family : string -> family option
 (** [family name] returns the family for a variable name. None if the variable
@@ -526,7 +542,7 @@ val binding :
 
 val binding_initial :
   ('a, [< `Property_default | `Channel ]) t -> Css.declaration
-(** [binding_initial var] resets the channel to the CSS-wide [initial] keyword
+(** [binding_initial var] resets the channel to the CSS-wide initial keyword
     ([--name: initial]). Used by the [*-initial] and [via-none] utilities, which
     clear a channel var instead of setting it to a typed value. *)
 
@@ -603,9 +619,8 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
 
 (** {1 Heterogeneous Collections} *)
 
-type any_var =
-  | Any : ('a, 'r) t -> any_var
-      (** Existential type for heterogeneous collections of variables *)
+(** Existential type for heterogeneous collections of variables *)
+type any_var = Any : ('a, 'r) t -> any_var
 
 val properties : any_var list -> Css.t
 (** [properties vars] generates deduplicated [@property] rules for all variables
