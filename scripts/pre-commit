@@ -1,0 +1,74 @@
+#!/bin/sh
+# Pre-commit hook: format the staged OCaml sources, then lint them.
+#
+# Git does not track .git/hooks, so install this by hand after a fresh clone:
+#
+#     ln -s ../../scripts/pre-commit .git/hooks/pre-commit
+#
+# Bypass a single commit with `git commit --no-verify`.
+
+set -u
+
+STAGED_ML=$(git diff --cached --name-only --diff-filter=ACM |
+    grep -E '\.(ml|mli|mll|mly)$' || true)
+
+[ -n "$STAGED_ML" ] || exit 0
+
+# Formatting.
+
+# dune fmt exits non-zero when it reformats something, so its status says
+# nothing about whether it succeeded; the staged files themselves do.
+dune fmt >/dev/null 2>&1 || true
+
+CHANGED=$(git diff --name-only $STAGED_ML 2>/dev/null || true)
+if [ -n "$CHANGED" ]; then
+    echo "Files were reformatted by dune fmt:"
+    echo "$CHANGED"
+    echo ""
+    echo "Please review and stage the changes, then commit again."
+    exit 1
+fi
+
+# Linting.
+
+if ! command -v merlint >/dev/null 2>&1; then
+    echo "warning: merlint is not on PATH, skipping the lint step" >&2
+    exit 0
+fi
+
+# merlint reads each file's typedtree from the .cmt/.cmti dune writes, and an
+# artefact goes stale when the source it was compiled from changes. Only the
+# staged files changed, so building the check alias of the directories holding
+# them is enough, and it costs a fraction of a whole-project @check.
+ALIASES=$(printf '%s\n' "$STAGED_ML" | xargs -n1 dirname | sort -u |
+    while read -r dir; do
+        [ -f "$dir/dune" ] || continue
+        if [ "$dir" = "." ]; then
+            echo "@@check"
+        else
+            echo "@@$dir/check"
+        fi
+    done)
+
+if [ -n "$ALIASES" ]; then
+    # shellcheck disable=SC2086
+    if ! dune build $ALIASES; then
+        echo "" >&2
+        echo "Error: dune build failed, so merlint has no typedtree to read." >&2
+        exit 1
+    fi
+fi
+
+# merlint exits non-zero both for findings and for a run that could not read a
+# .cmt. Failing on either keeps the two apart in the output while denying a
+# skipped run the right to look like a clean one.
+if ! merlint scan $STAGED_ML; then
+    echo "" >&2
+    echo "merlint rejected the staged files." >&2
+    echo "A 'files unchecked' warning above means merlint could not read the" >&2
+    echo "build artefacts: rebuild, or check that merlint and the switch agree" >&2
+    echo "on the compiler version. Bypass with 'git commit --no-verify'." >&2
+    exit 1
+fi
+
+exit 0
