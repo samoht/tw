@@ -2472,7 +2472,7 @@ module Handler = struct
     | Int i -> Some (min 255 (max 0 i))
     | Num f -> Some (min 255 (max 0 (Float.to_int (Float.round f))))
     | Pct f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
-    | Var _ | None -> Stdlib.Option.None
+    | Var _ | Css.None -> Stdlib.Option.None
 
   (** How an alpha channel spells inside a hex colour. *)
   type folded_alpha =
@@ -2481,7 +2481,7 @@ module Handler = struct
     | Alpha_unresolvable  (** a var() or calc(), which no hex byte carries *)
 
   let fold_alpha : Css.alpha -> folded_alpha = function
-    | None -> Opaque
+    | Css.None -> Opaque
     | Num f ->
         Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 255.)))))
     | Pct f ->
@@ -2496,7 +2496,7 @@ module Handler = struct
   let css_color_to_hex (c : Css.color) : Css.color option =
     let hex_of_bytes bytes = Some (Css.hex ("#" ^ shorten_hex_str bytes)) in
     match c with
-    | Rgb (Channels { r; g; b }) -> (
+    | Css.Rgb (Channels { r; g; b }) -> (
         match (channel_to_int r, channel_to_int g, channel_to_int b) with
         | Some r, Some g, Some b ->
             hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
@@ -2520,7 +2520,7 @@ module Handler = struct
           Cascade.Values.nonkeyword_color
             (Cascade.Values.normalize_color ~in_feature_query:false c)
         with
-        | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+        | Css.Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
             let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
             hex_of_bytes (if a = 255 then hex else hex ^ to_hex_byte a)
         | _ -> None)
@@ -2532,7 +2532,7 @@ module Handler = struct
   *)
   let resolve_bracket_css_color (css_color : Css.color) : Css.color =
     match css_color with
-    | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+    | Css.Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
         let value = hex_string_of_rgb (r, g, b) in
         let value = if a = 255 then value else value ^ to_hex_byte a in
         Css.hex ("#" ^ shorten_hex_str value)

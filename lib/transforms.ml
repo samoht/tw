@@ -909,7 +909,7 @@ module Handler = struct
         in
         let decl, r = Var.binding perspective_none_var len in
         style (decl :: [ Css.perspective (Var r) ])
-    | None -> style [ Css.perspective None ]
+    | None -> style [ Css.perspective Css.None ]
 
   let perspective_dramatic =
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
@@ -1106,7 +1106,7 @@ module Handler = struct
           ];
       ]
 
-  let transform_none = style [ Css.transform None ]
+  let transform_none = style [ Css.transform Css.None ]
 
   (* transform-cpu is an alias for transform *)
   let transform_cpu =
@@ -1204,7 +1204,7 @@ module Handler = struct
     function
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
-    | Rotate_none -> style [ Css.rotate None ]
+    | Rotate_none -> style [ Css.rotate Css.None ]
     | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a
     | Rotate_bare_var name -> rotate_bare_var name
     | Neg_rotate_bare_var name -> neg_rotate_bare_var name
@@ -1224,7 +1224,7 @@ module Handler = struct
     | Translate n -> translate_spacing n
     | Neg_translate n -> translate_spacing (-n)
     | Translate_full -> translate_full
-    | Translate_none -> style [ Css.translate None ]
+    | Translate_none -> style [ Css.translate Css.None ]
     | Translate_px -> translate_px
     | Translate_1_2 -> translate_1_2
     | Translate_fraction (num, denom) -> translate_fraction num denom
@@ -1260,7 +1260,7 @@ module Handler = struct
     | Scale_z n -> scale_z n
     | Scale_z_arbitrary s -> scale_z_arbitrary s
     | Scale_3d -> scale_3d
-    | Scale_none -> style [ Css.scale None ]
+    | Scale_none -> style [ Css.scale Css.None ]
     | Skew_x n -> skew_x n
     | Skew_x_arbitrary a -> skew_x_arbitrary a
     | Skew_y n -> skew_y n

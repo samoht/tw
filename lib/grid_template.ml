@@ -89,7 +89,7 @@ module Handler = struct
     let var_name = "grid-template-columns-none" in
     match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_columns value
-    | None -> style [ Css.grid_template_columns None ]
+    | None -> style [ Css.grid_template_columns Css.None ]
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
@@ -304,7 +304,7 @@ module Handler = struct
     let var_name = "grid-template-rows-none" in
     match Scheme.theme_value theme var_name with
     | Some value -> themed_property var_name Css.grid_template_rows value
-    | None -> style [ Css.grid_template_rows None ]
+    | None -> style [ Css.grid_template_rows Css.None ]
 
   let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
   let grid_flow_row = style [ Css.grid_auto_flow Row ]

@@ -57,7 +57,7 @@ module Handler = struct
         in
         let theme_decl, none_var = Var.binding tv none_animation in
         style [ theme_decl; Css.animation (Css.Var none_var) ]
-    | None -> style [ Css.animation None ]
+    | None -> style [ Css.animation Css.None ]
 
   (* Theme variable for animate-spin - order (7, 13) places it after ease (7,
      9-11) *)
@@ -226,7 +226,7 @@ module Handler = struct
                     [
                       Css.Declaration.animation_timing_function
                         (Cubic_bezier (0., 0., 0.2, 1.));
-                      Css.Declaration.transform None;
+                      Css.Declaration.transform Css.None;
                     ];
                 };
               ];

@@ -2246,7 +2246,7 @@ module Typography_late = struct
   let underline = style [ text_decoration_line Underline ]
   let overline = style [ text_decoration_line Overline ]
   let line_through = style [ text_decoration_line Line_through ]
-  let no_underline = style [ text_decoration_line None ]
+  let no_underline = style [ text_decoration_line Css.None ]
   let decoration_solid = style [ text_decoration_style Solid ]
   let decoration_double = style [ text_decoration_style Double ]
   let decoration_dotted = style [ text_decoration_style Dotted ]
@@ -2520,7 +2520,7 @@ module Typography_late = struct
   let uppercase = style [ text_transform (Case Uppercase) ]
   let lowercase = style [ text_transform (Case Lowercase) ]
   let capitalize = style [ text_transform (Case Capitalize) ]
-  let normal_case = style [ text_transform None ]
+  let normal_case = style [ text_transform Css.None ]
 
   let parse_length_exn v =
     match Css.parse_length v with
@@ -2662,8 +2662,8 @@ module Typography_late = struct
      The set-based auto-collection is suppressed for --tw-content in
      build.ml. *)
   let content_none =
-    let content_decl, _content_ref = Var.binding content_var None in
-    style [ content_decl; content None ]
+    let content_decl, _content_ref = Var.binding content_var Css.None in
+    style [ content_decl; content Css.None ]
 
   let content s =
     (* Convert underscores to spaces in content values *)
@@ -2728,7 +2728,7 @@ module Typography_late = struct
     let var_name = "list-style-type-none" in
     let ref =
       Var.theme_ref var_name
-        ~default:(None : Css.list_style_type)
+        ~default:(Css.None : Css.list_style_type)
         ~default_css:"none"
     in
     match Scheme.theme_value theme var_name with
@@ -2739,7 +2739,7 @@ module Typography_late = struct
         style [ theme_decl; list_style_type (Var ref) ]
     (* Without a theme override Tailwind writes the keyword, not a reference to
        a token nothing declares. *)
-    | None -> style [ list_style_type None ]
+    | None -> style [ list_style_type Css.None ]
 
   let list_bracket_var s =
     let inner = Parse.extract_var_name s in
@@ -2768,7 +2768,7 @@ module Typography_late = struct
     let var_name = "list-style-image-none" in
     let ref =
       Var.theme_ref var_name
-        ~default:(None : Css.list_style_image)
+        ~default:(Css.None : Css.list_style_image)
         ~default_css:"none"
     in
     match Scheme.theme_value theme var_name with
@@ -2777,7 +2777,7 @@ module Typography_late = struct
           Css.custom_property ~layer:"theme" ("--" ^ var_name) value
         in
         style [ theme_decl; list_style_image (Var ref) ]
-    | None -> style [ list_style_image None ]
+    | None -> style [ list_style_image Css.None ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]
@@ -2796,7 +2796,7 @@ module Typography_late = struct
   let overflow_wrap_normal = style [ overflow_wrap Normal ]
   let overflow_wrap_anywhere = style [ overflow_wrap Anywhere ]
   let overflow_wrap_break_word = style [ overflow_wrap Break_word ]
-  let hyphens_none = style [ webkit_hyphens None; hyphens None ]
+  let hyphens_none = style [ webkit_hyphens Css.None; hyphens Css.None ]
   let hyphens_manual = style [ webkit_hyphens Manual; hyphens Manual ]
   let hyphens_auto = style [ webkit_hyphens Auto; hyphens Auto ]
   let font_stretch_ultra_condensed = style [ font_stretch Ultra_condensed ]

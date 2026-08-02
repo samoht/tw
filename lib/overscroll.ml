@@ -42,19 +42,28 @@ module Handler = struct
         "contain",
         (fun () -> style [ overscroll_behavior [ Contain ] ]),
         601 );
-      (None_, "none", (fun () -> style [ overscroll_behavior [ None ] ]), 602);
+      ( None_,
+        "none",
+        (fun () -> style [ overscroll_behavior [ Css.None ] ]),
+        602 );
       (X_auto, "x-auto", (fun () -> style [ overscroll_behavior_x Auto ]), 603);
       ( X_contain,
         "x-contain",
         (fun () -> style [ overscroll_behavior_x Contain ]),
         604 );
-      (X_none, "x-none", (fun () -> style [ overscroll_behavior_x None ]), 605);
+      ( X_none,
+        "x-none",
+        (fun () -> style [ overscroll_behavior_x Css.None ]),
+        605 );
       (Y_auto, "y-auto", (fun () -> style [ overscroll_behavior_y Auto ]), 606);
       ( Y_contain,
         "y-contain",
         (fun () -> style [ overscroll_behavior_y Contain ]),
         607 );
-      (Y_none, "y-none", (fun () -> style [ overscroll_behavior_y None ]), 608);
+      ( Y_none,
+        "y-none",
+        (fun () -> style [ overscroll_behavior_y Css.None ]),
+        608 );
     ]
 
   (* Derived lookup tables *)

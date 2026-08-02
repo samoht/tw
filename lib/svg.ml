@@ -169,7 +169,7 @@ module Handler = struct
       stroke_color_style ~theme color shade
     in
     function
-    | Fill_none -> style Css.[ fill None ]
+    | Fill_none -> style Css.[ fill Css.None ]
     | Fill_inherit -> style Css.[ fill Inherit ]
     | Fill_transparent -> style Css.[ fill (Color (Css.hex "0000")) ]
     | Fill_current -> style ~merge_key:"fill-current" Css.[ fill Current_color ]
@@ -187,7 +187,7 @@ module Handler = struct
     | Fill_bracket_typed_var_opacity (v, opacity) ->
         bracket_var_opacity_style ~property:Css.fill ~merge_key:"fill-" v
           opacity
-    | Stroke_none -> style Css.[ stroke None ]
+    | Stroke_none -> style Css.[ stroke Css.None ]
     | Stroke_inherit -> style Css.[ stroke Inherit ]
     | Stroke_transparent -> style Css.[ stroke (Color (Css.hex "0000")) ]
     | Stroke_current ->
