@@ -20,13 +20,13 @@ module Handler = struct
   open Css
 
   type t =
-    | Animate_none
-    | Animate_spin
-    | Animate_ping
-    | Animate_pulse
-    | Animate_bounce
-    | Animate_bracket of string
-    | Animate_named of string
+    | No_animation
+    | Spin
+    | Ping
+    | Pulse
+    | Bounce
+    | Bracket of string
+    | Named of string
 
   type Utility.base += Self of t
 
@@ -297,61 +297,61 @@ module Handler = struct
     let animate_pulse () = animate_pulse ~theme () in
     let animate_bounce () = animate_bounce ~theme () in
     function
-    | Animate_none -> animate_none ()
-    | Animate_spin -> animate_spin ()
-    | Animate_ping -> animate_ping ()
-    | Animate_pulse -> animate_pulse ()
-    | Animate_bounce -> animate_bounce ()
-    | Animate_bracket value -> animate_bracket value
-    | Animate_named name -> animate_named name
+    | No_animation -> animate_none ()
+    | Spin -> animate_spin ()
+    | Ping -> animate_ping ()
+    | Pulse -> animate_pulse ()
+    | Bounce -> animate_bounce ()
+    | Bracket value -> animate_bracket value
+    | Named name -> animate_named name
 
   let suborder = function
-    | Animate_bracket _ -> 0
-    | Animate_bounce -> 1
-    | Animate_named _ -> 2
-    | Animate_none -> 3
-    | Animate_ping -> 4
-    | Animate_pulse -> 5
-    | Animate_spin -> 6
+    | Bracket _ -> 0
+    | Bounce -> 1
+    | Named _ -> 2
+    | No_animation -> 3
+    | Ping -> 4
+    | Pulse -> 5
+    | Spin -> 6
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "animate"; "none" ] -> Ok Animate_none
-    | [ "animate"; "spin" ] -> Ok Animate_spin
-    | [ "animate"; "ping" ] -> Ok Animate_ping
-    | [ "animate"; "pulse" ] -> Ok Animate_pulse
-    | [ "animate"; "bounce" ] -> Ok Animate_bounce
+    | [ "animate"; "none" ] -> Ok No_animation
+    | [ "animate"; "spin" ] -> Ok Spin
+    | [ "animate"; "ping" ] -> Ok Ping
+    | [ "animate"; "pulse" ] -> Ok Pulse
+    | [ "animate"; "bounce" ] -> Ok Bounce
     | "animate" :: rest ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
-          Ok (Animate_bracket (Parse.bracket_inner value))
+          Ok (Bracket (Parse.bracket_inner value))
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
           if Scheme.theme_value (Some theme) var_name <> None then
-            Ok (Animate_named value)
+            Ok (Named value)
           else Error (`Msg "Not an animation utility")
     | _ -> Error (`Msg "Not an animation utility")
 
   let to_class = function
-    | Animate_none -> "animate-none"
-    | Animate_spin -> "animate-spin"
-    | Animate_ping -> "animate-ping"
-    | Animate_pulse -> "animate-pulse"
-    | Animate_bounce -> "animate-bounce"
-    | Animate_bracket v -> "animate-[" ^ v ^ "]"
-    | Animate_named name -> "animate-" ^ name
+    | No_animation -> "animate-none"
+    | Spin -> "animate-spin"
+    | Ping -> "animate-ping"
+    | Pulse -> "animate-pulse"
+    | Bounce -> "animate-bounce"
+    | Bracket v -> "animate-[" ^ v ^ "]"
+    | Named name -> "animate-" ^ name
 
-  let examples = [ Animate_none ]
+  let examples = [ No_animation ]
 end
 
 open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
-let animate_none = utility Animate_none
-let animate_spin = utility Animate_spin
-let animate_ping = utility Animate_ping
-let animate_pulse = utility Animate_pulse
-let animate_bounce = utility Animate_bounce
+let animate_none = utility No_animation
+let animate_spin = utility Spin
+let animate_ping = utility Ping
+let animate_pulse = utility Pulse
+let animate_bounce = utility Bounce
