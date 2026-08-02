@@ -520,7 +520,7 @@ let pre_code_rules base =
            [
              with_before (where base pre_code); with_after (where base pre_code);
            ])
-      [ content None ];
+      [ content Css.None ];
   ]
 
 (* Code styles *)

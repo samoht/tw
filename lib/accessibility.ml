@@ -28,7 +28,7 @@ module Handler = struct
 
   let to_style _theme = function
     | Forced_color_adjust_auto -> style [ forced_color_adjust Auto ]
-    | Forced_color_adjust_none -> style [ forced_color_adjust None ]
+    | Forced_color_adjust_none -> style [ forced_color_adjust Css.None ]
 
   let suborder = function
     | Forced_color_adjust_auto -> 0

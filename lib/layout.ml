@@ -466,7 +466,7 @@ module Handler = struct
     | List_item -> style [ display List_item ]
     | Flow_root -> style [ display Flow_root ]
     | Contents -> style [ display Contents ]
-    | Hidden -> style [ display None ]
+    | Hidden -> style [ display Css.None ]
     | Visible -> style [ visibility Visible ]
     | Invisible -> style [ visibility Hidden ]
     | Collapse -> style [ visibility Collapse ]
@@ -494,7 +494,7 @@ module Handler = struct
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
-    | Object_none -> style [ object_fit None ]
+    | Object_none -> style [ object_fit Css.None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
     | ( Object_center | Object_top | Object_bottom | Object_left | Object_right
       | Object_bottom_left | Object_bottom_right | Object_left_bottom
@@ -544,12 +544,12 @@ module Handler = struct
             style [ object_position (Var pos_ref) ])
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
-    | Float_none -> style [ Css.float None ]
+    | Float_none -> style [ Css.float Css.None ]
     | Float_start -> style [ Css.float Inline_start ]
     | Float_end -> style [ Css.float Inline_end ]
     | Clear_left -> style [ Css.clear Left ]
     | Clear_right -> style [ Css.clear Right ]
-    | Clear_none -> style [ Css.clear None ]
+    | Clear_none -> style [ Css.clear Css.None ]
     | Clear_both -> style [ Css.clear Both ]
     | Clear_start -> style [ Css.clear Inline_start ]
     | Clear_end -> style [ Css.clear Inline_end ]

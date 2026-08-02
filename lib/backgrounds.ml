@@ -616,7 +616,7 @@ module Handler = struct
     style [ Css.webkit_background_clip Text; Css.background_clip Text ]
 
   let bg_inherit' = style [ Css.background_color Inherit ]
-  let bg_none' = style [ Css.background_image None ]
+  let bg_none' = style [ Css.background_image Css.None ]
   let bg_auto' = style [ Css.background_size Auto ]
   let bg_cover' = style [ Css.background_size Cover ]
   let bg_contain' = style [ Css.background_size Contain ]

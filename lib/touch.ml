@@ -63,7 +63,7 @@ module Handler = struct
       ( Touch_manipulation,
         "manipulation",
         fun () -> style [ touch_action Manipulation ] );
-      (Touch_none, "none", fun () -> style [ touch_action None ]);
+      (Touch_none, "none", fun () -> style [ touch_action Css.None ]);
       (* x-axis pan utilities come before y-axis *)
       ( Touch_pan_left,
         "pan-left",

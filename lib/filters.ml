@@ -1123,7 +1123,7 @@ module Handler = struct
     style ~property_rules:filter_property_rules
       [ filter composable_filter_chain ]
 
-  let filter_none = style [ filter None ]
+  let filter_none = style [ filter Css.None ]
 
   (* Composable backdrop-filter using all the backdrop-filter variables *)
   let backdrop_filter_ =
@@ -1134,7 +1134,7 @@ module Handler = struct
       ]
 
   let backdrop_filter_none =
-    style [ Css.webkit_backdrop_filter None; backdrop_filter None ]
+    style [ Css.webkit_backdrop_filter Css.None; backdrop_filter Css.None ]
 
   let backdrop_filter_arbitrary value =
     style [ Css.webkit_backdrop_filter value; backdrop_filter value ]

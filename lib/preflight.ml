@@ -39,7 +39,12 @@ let box_resets () =
     rule
       ~selector:
         (Selector.list
-           [ Selector.universal; After Double; Before Double; Backdrop ])
+           [
+             Selector.universal;
+             After Selector.Double;
+             Before Selector.Double;
+             Backdrop;
+           ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
@@ -285,7 +290,8 @@ let list_resets () =
             ])
       [
         list_style
-          (Shorthand { type_ = Some None; position = None; image = Some None });
+          (Shorthand
+             { type_ = Some Css.None; position = None; image = Some Css.None });
       ];
   ]
 
@@ -376,7 +382,7 @@ let form_misc_resets () =
 let webkit_form_resets ?(forms = false) () =
   let base_rules =
     [
-      rule ~selector:Webkit_search_decoration [ webkit_appearance None ];
+      rule ~selector:Webkit_search_decoration [ webkit_appearance Css.None ];
       rule ~selector:Webkit_date_and_time_value
         [ min_height (Lh 1.0); text_align Inherit ];
     ]
@@ -413,7 +419,7 @@ let webkit_form_resets ?(forms = false) () =
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
-  [ rule ~selector:Moz_ui_invalid [ box_shadow None ] ]
+  [ rule ~selector:Moz_ui_invalid [ box_shadow Css.None ] ]
 
 (** Buttons need specific styles *)
 let button_specific_resets () =
@@ -434,7 +440,7 @@ let button_resets () =
 
 (** Hidden elements *)
 let hidden_resets () =
-  [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
+  [ rule ~selector:hidden_not_until_found [ important (display Css.None) ] ]
 
 let font_family_ref theme fallback_stack =
   let _, ref = Var.binding theme fallback_stack in

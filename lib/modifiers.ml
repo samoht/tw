@@ -218,7 +218,7 @@ let inert_pseudo () =
 (** Helper: open pseudo-selector *)
 let open_pseudo () =
   let open Css.Selector in
-  is_ [ attribute "open" Presence; Popover_open; Open ]
+  is_ [ attribute "open" Presence; Popover_open; Css.Selector.Open ]
 
 let nest_selector ~parent template =
   let open Css.Selector in
@@ -260,8 +260,8 @@ let anchor_hocus_selector ~anchor ~combinator cls label =
     combine
       (is_
          [
-           compound [ where [ anchor ]; Hover ];
-           compound [ where [ anchor ]; Focus ];
+           compound [ where [ anchor ]; Css.Selector.Hover ];
+           compound [ where [ anchor ]; Css.Selector.Focus ];
          ])
       combinator universal
   in
@@ -466,8 +466,8 @@ let structural_selector cls modifier =
   | First -> cp "first" cls Css.Selector.First_child
   | Last -> cp "last" cls Css.Selector.Last_child
   | Only -> cp "only" cls Css.Selector.Only_child
-  | Odd -> cp "odd" cls Css.Selector.(Nth_child (Odd, None))
-  | Even -> cp "even" cls Css.Selector.(Nth_child (Even, None))
+  | Odd -> cp "odd" cls Css.Selector.(Nth_child (Css.Selector.Odd, None))
+  | Even -> cp "even" cls Css.Selector.(Nth_child (Css.Selector.Even, None))
   | First_of_type -> cp "first-of-type" cls Css.Selector.First_of_type
   | Last_of_type -> cp "last-of-type" cls Css.Selector.Last_of_type
   | Only_of_type -> cp "only-of-type" cls Css.Selector.Only_of_type
@@ -584,12 +584,12 @@ let prose_element_inner_selector name =
 let to_selector (modifier : modifier) cls =
   let open Css.Selector in
   match modifier with
-  | Hover -> compound [ hover cls; Hover ]
-  | Focus -> compound [ focus cls; Focus ]
-  | Active -> compound [ active cls; Active ]
-  | Disabled -> compound [ disabled cls; Disabled ]
-  | Focus_within -> compound [ focus_within cls; Focus_within ]
-  | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
+  | Hover -> compound [ hover cls; Css.Selector.Hover ]
+  | Focus -> compound [ focus cls; Css.Selector.Focus ]
+  | Active -> compound [ active cls; Css.Selector.Active ]
+  | Disabled -> compound [ disabled cls; Css.Selector.Disabled ]
+  | Focus_within -> compound [ focus_within cls; Css.Selector.Focus_within ]
+  | Focus_visible -> compound [ focus_visible cls; Css.Selector.Focus_visible ]
   (* Child/descendant selectors *)
   | Children ->
       let child_sel = combine (Class ("*:" ^ cls)) Child universal in
@@ -600,9 +600,17 @@ let to_selector (modifier : modifier) cls =
   | Ltr -> dir_selector "ltr" cls
   | Rtl -> dir_selector "rtl" cls
   (* Hocus/Device_hocus — compound :hover, :focus *)
-  | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
+  | Hocus ->
+      compound
+        [
+          Class ("hocus:" ^ cls); is_ [ Css.Selector.Hover; Css.Selector.Focus ];
+        ]
   | Device_hocus ->
-      compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
+      compound
+        [
+          Class ("device-hocus:" ^ cls);
+          is_ [ Css.Selector.Hover; Css.Selector.Focus ];
+        ]
   (* Prose element variants — outer selector is just the class *)
   | Prose_element name -> Class ("prose-" ^ name ^ ":" ^ cls)
   (* Pseudo-elements, aria/data, structural, media, peer, form state *)
@@ -2233,7 +2241,9 @@ let variant_order_of_prefix prefix =
    dark:group-hover has a nested @media(hover:hover), so its effective inner
    order is 20000, matching standalone hover). *)
 let variant_order_of_media_cond (cond : Css.Media.t) =
-  let open Css.Media in
+  (* The scrutinee's annotation resolves every constructor below, so no [open
+     Css.Media] is needed: an open here would shadow the same-named modifier
+     constructors. *)
   match cond with
   | Cond (Feature (Plain (Hover, Ident Hover))) -> 20000
   | Cond (Feature (Plain (Prefers_reduced_motion, Ident No_preference))) ->

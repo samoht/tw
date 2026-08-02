@@ -128,7 +128,7 @@ module Handler = struct
       [
         rule ~selector:base_sel
           [
-            appearance None;
+            appearance Css.None;
             d_shadow;
             background_color (hex "#fff");
             border_width (Px 1.);
@@ -139,7 +139,7 @@ module Handler = struct
             font_size (Rem 1.);
             line_height (Rem 1.5);
           ];
-        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
+        rule ~selector:(compound [ base_sel; Selector.Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
           [ color gray_500; opacity (Opacity_number 1.) ];
@@ -199,12 +199,12 @@ module Handler = struct
       [
         rule ~selector:base_sel
           [
-            appearance None;
+            appearance Css.None;
             webkit_print_color_adjust Exact;
             print_color_adjust Exact;
             vertical_align Middle;
-            webkit_user_select None;
-            user_select None;
+            webkit_user_select Css.None;
+            user_select Css.None;
             color blue_600;
             d_shadow;
             background_color (hex "#fff");
@@ -218,9 +218,11 @@ module Handler = struct
             padding [ Px 0. ];
             display Inline_block;
           ];
-        rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
         rule
-          ~selector:(compound [ base_sel; Checked ])
+          ~selector:(compound [ base_sel; Selector.Focus ])
+          checkbox_focus_decls;
+        rule
+          ~selector:(compound [ base_sel; Selector.Checked ])
           [
             background_color Current;
             background_image
@@ -237,18 +239,20 @@ module Handler = struct
           ];
         media ~condition:forced_colors_active
           [
-            rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
+            rule
+              ~selector:(compound [ base_sel; Selector.Checked ])
+              [ appearance Auto ];
           ];
         rule
           ~selector:
             (Selector.list
                [
-                 compound [ base_sel; Checked; Hover ];
-                 compound [ base_sel; Checked; Focus ];
+                 compound [ base_sel; Selector.Checked; Selector.Hover ];
+                 compound [ base_sel; Selector.Checked; Selector.Focus ];
                ])
           [ background_color Current; border_color (hex "#0000") ];
         rule
-          ~selector:(compound [ base_sel; Indeterminate ])
+          ~selector:(compound [ base_sel; Selector.Indeterminate ])
           [
             background_color Current;
             background_image
@@ -265,15 +269,15 @@ module Handler = struct
         media ~condition:forced_colors_active
           [
             rule
-              ~selector:(compound [ base_sel; Indeterminate ])
+              ~selector:(compound [ base_sel; Selector.Indeterminate ])
               [ appearance Auto ];
           ];
         rule
           ~selector:
             (Selector.list
                [
-                 compound [ base_sel; Indeterminate; Hover ];
-                 compound [ base_sel; Indeterminate; Focus ];
+                 compound [ base_sel; Selector.Indeterminate; Selector.Hover ];
+                 compound [ base_sel; Selector.Indeterminate; Selector.Focus ];
                ])
           [ background_color Current; border_color (hex "#0000") ];
       ]
@@ -292,12 +296,12 @@ module Handler = struct
       [
         rule ~selector:base_sel
           [
-            appearance None;
+            appearance Css.None;
             webkit_print_color_adjust Exact;
             print_color_adjust Exact;
             vertical_align Middle;
-            webkit_user_select None;
-            user_select None;
+            webkit_user_select Css.None;
+            user_select Css.None;
             color blue_600;
             d_shadow;
             background_color (hex "#fff");
@@ -311,9 +315,11 @@ module Handler = struct
             padding [ Px 0. ];
             display Inline_block;
           ];
-        rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
         rule
-          ~selector:(compound [ base_sel; Checked ])
+          ~selector:(compound [ base_sel; Selector.Focus ])
+          checkbox_focus_decls;
+        rule
+          ~selector:(compound [ base_sel; Selector.Checked ])
           [
             background_color Current;
             background_image
@@ -328,14 +334,16 @@ module Handler = struct
           ];
         media ~condition:forced_colors_active
           [
-            rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
+            rule
+              ~selector:(compound [ base_sel; Selector.Checked ])
+              [ appearance Auto ];
           ];
         rule
           ~selector:
             (Selector.list
                [
-                 compound [ base_sel; Checked; Hover ];
-                 compound [ base_sel; Checked; Focus ];
+                 compound [ base_sel; Selector.Checked; Selector.Hover ];
+                 compound [ base_sel; Selector.Checked; Selector.Focus ];
                ])
           [ background_color Current; border_color (hex "#0000") ];
       ]
@@ -385,7 +393,7 @@ module Select = struct
       [
         rule ~selector:base_sel
           [
-            appearance None;
+            appearance Css.None;
             d_shadow;
             background_color (hex "#fff");
             border_width (Px 1.);
@@ -395,7 +403,7 @@ module Select = struct
             font_size (Rem 1.);
             line_height (Rem 1.5);
           ];
-        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
+        rule ~selector:(compound [ base_sel; Selector.Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
           [ color gray_500; opacity (Opacity_number 1.) ];
@@ -423,7 +431,7 @@ module Select = struct
       [
         rule ~selector:base_sel
           [
-            appearance None;
+            appearance Css.None;
             d_shadow;
             background_color (hex "#fff");
             border_width (Px 1.);
@@ -447,7 +455,7 @@ module Select = struct
             background_size (Size (Em 1.5, Em 1.5));
             padding_right (Rem 2.5);
           ];
-        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
+        rule ~selector:(compound [ base_sel; Selector.Focus ]) input_focus_decls;
         rule
           ~selector:
             (compound
@@ -457,9 +465,13 @@ module Select = struct
                    [
                      Compound
                        [
-                         Attribute (None, Regular "size", Presence, None);
-                         Not
-                           [ Attribute (None, Regular "size", Exact "1", None) ];
+                         Selector.Attribute
+                           (None, Regular "size", Presence, None);
+                         Selector.Not
+                           [
+                             Selector.Attribute
+                               (None, Regular "size", Selector.Exact "1", None);
+                           ];
                        ];
                    ];
                ])
@@ -679,7 +691,7 @@ let text_inputs_base () =
   [
     rule ~selector:text_inputs
       [
-        appearance None;
+        appearance Css.None;
         d_shadow;
         background_color (hex "#fff");
         border_width (Px 1.);
@@ -845,11 +857,11 @@ let checkbox_radio_base () =
     rule
       ~selector:Selector.(list [ type_checkbox; type_radio ])
       [
-        appearance None;
+        appearance Css.None;
         print_color_adjust Exact;
         vertical_align Middle;
-        webkit_user_select None;
-        user_select None;
+        webkit_user_select Css.None;
+        user_select Css.None;
         color blue_600;
         d_shadow;
         background_color (hex "#fff");

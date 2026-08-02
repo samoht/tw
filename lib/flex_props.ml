@@ -69,7 +69,7 @@ module Handler = struct
   let flex_1 = style [ flex (Grow (Number 1.0)) ]
   let flex_auto = style [ flex Auto ]
   let flex_initial = style [ flex (Full (Number 0., Number 1., Auto)) ]
-  let flex_none = style [ flex None ]
+  let flex_none = style [ flex Css.None ]
 
   (* flex-N: flex: N *)
   let flex_n_style n = style [ flex (Grow (Number (float_of_int n))) ]

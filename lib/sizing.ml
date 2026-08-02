@@ -352,7 +352,7 @@ module Handler = struct
           kw "full" (Pct 100.0) (keyword_off + 1);
           kw "max" Max_content (keyword_off + 3);
           kw "min" Min_content (keyword_off + 5);
-          kw "none" None (keyword_off + 6);
+          kw "none" Css.None (keyword_off + 6);
           kw "prose" (Ch 65.0) (keyword_off + 7);
           themed "screen-2xl" breakpoint_2xl (Rem 96.) (keyword_off + 8);
           themed "screen-lg" breakpoint_lg (Rem 64.) (keyword_off + 9);
@@ -394,7 +394,7 @@ module Handler = struct
           kw "lvh" (Lvh 100.) (keyword_off + 4);
           kw "max" Max_content (keyword_off + 5);
           kw "min" Min_content (keyword_off + 6);
-          kw "none" None (keyword_off + 7);
+          kw "none" Css.None (keyword_off + 7);
           kw "screen" (Vh 100.0) (keyword_off + 8);
           kw "svh" (Svh 100.) (keyword_off + 9);
           kw "px" (Px 1.0) (keyword_off + 9);
@@ -492,7 +492,7 @@ module Handler = struct
           kw "lvw" (Lvw 100.) (keyword_off + 1);
           kw "dvw" (Dvw 100.) (keyword_off + 1);
           kw "max" Max_content (keyword_off + 2);
-          kw "none" None (keyword_off + 3);
+          kw "none" Css.None (keyword_off + 3);
         ]
         @ container_entries (keyword_off + 4);
     }
@@ -560,7 +560,7 @@ module Handler = struct
           kw "lvh" (Lvh 100.) (keyword_off + 4);
           kw "max" Max_content (keyword_off + 5);
           kw "min" Min_content (keyword_off + 6);
-          kw "none" None (keyword_off + 7);
+          kw "none" Css.None (keyword_off + 7);
           kw "screen" (Vh 100.) (keyword_off + 8);
           kw "svh" (Svh 100.) (keyword_off + 9);
         ];

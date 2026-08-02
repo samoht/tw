@@ -66,7 +66,7 @@ module Handler = struct
       (Cursor_context_menu, "context-menu", Context_menu);
       (Cursor_copy, "copy", Copy);
       (Cursor_crosshair, "crosshair", Crosshair);
-      (Cursor_default, "default", Default);
+      (Cursor_default, "default", Css.Default);
       (Cursor_e_resize, "e-resize", E_resize);
       (Cursor_ew_resize, "ew-resize", Ew_resize);
       (Cursor_grab, "grab", Grab);
@@ -77,7 +77,7 @@ module Handler = struct
       (Cursor_ne_resize, "ne-resize", Ne_resize);
       (Cursor_nesw_resize, "nesw-resize", Nesw_resize);
       (Cursor_no_drop, "no-drop", No_drop);
-      (Cursor_none, "none", None);
+      (Cursor_none, "none", Css.None);
       (Cursor_not_allowed, "not-allowed", Not_allowed);
       (Cursor_ns_resize, "ns-resize", Ns_resize);
       (Cursor_nw_resize, "nw-resize", Nw_resize);

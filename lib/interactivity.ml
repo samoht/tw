@@ -79,7 +79,9 @@ module Handler = struct
     | Pointer_events_none | Pointer_events_auto -> -1
     | _ -> 31
 
-  let select_none_s = style [ webkit_user_select None; user_select None ]
+  let select_none_s =
+    style [ webkit_user_select Css.None; user_select Css.None ]
+
   let select_text_s = style [ webkit_user_select Text; user_select Text ]
   let select_all_s = style [ webkit_user_select All; user_select All ]
   let select_auto_s = style [ webkit_user_select Auto; user_select Auto ]
@@ -94,7 +96,7 @@ module Handler = struct
   let snap_start_s = style [ scroll_snap_align Start ]
   let snap_end_s = style [ scroll_snap_align End ]
   let snap_center_s = style [ scroll_snap_align Center ]
-  let snap_none_s = style [ scroll_snap_type (Axis None) ]
+  let snap_none_s = style [ scroll_snap_type (Axis Css.None) ]
 
   (* For snap-x, snap-y, snap-both we compose the axis with a variable reference
      to strictness *)
@@ -146,26 +148,26 @@ module Handler = struct
     in
     style ~property_rules (d :: [])
 
-  let snap_align_none_s = style [ scroll_snap_align None ]
+  let snap_align_none_s = style [ scroll_snap_align Css.None ]
   let snap_normal_s = style [ scroll_snap_stop Normal ]
   let snap_always_s = style [ scroll_snap_stop Always ]
-  let resize_none_s = style [ Css.resize None ]
+  let resize_none_s = style [ Css.resize Css.None ]
   let resize_s = style [ Css.resize Both ]
   let resize_x_s = style [ Css.resize Horizontal ]
   let resize_y_s = style [ Css.resize Vertical ]
 
   (* Additional utilities *)
-  let pointer_events_none_s = style [ pointer_events None ]
+  let pointer_events_none_s = style [ pointer_events Css.None ]
   let pointer_events_auto_s = style [ pointer_events Auto ]
   let appearance_auto_s = style [ appearance Auto ]
-  let appearance_none_s = style [ appearance None ]
+  let appearance_none_s = style [ appearance Css.None ]
   let will_change_auto_s = style [ will_change Css.Will_change_auto ]
   let will_change_scroll_s = style [ will_change Css.Scroll_position ]
   let will_change_contents_s = style [ will_change Css.Contents ]
   let will_change_transform_s = style [ will_change Css.Transform ]
   let group_s = style []
   let peer_s = style []
-  let scheme_dark_s = style [ color_scheme Dark ]
+  let scheme_dark_s = style [ color_scheme Css.Dark ]
   let scheme_light_s = style [ color_scheme Light ]
   let scheme_light_dark_s = style [ color_scheme Light_dark ]
   let scheme_normal_s = style [ color_scheme Normal ]

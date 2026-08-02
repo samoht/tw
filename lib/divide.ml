@@ -152,6 +152,14 @@ module Handler = struct
     let rule = Css.rule ~selector [ decl ] in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
+  (* [:where(.CLASS > :not(:last-child))], the selector every divide utility
+     hangs its declaration on. [Css.Selector.Not] is spelt out because [open
+     Css] brings a different [Not] into scope. *)
+  let divide_children_selector class_name =
+    Css.Selector.(
+      where
+        [ Combined (Class class_name, Child, Css.Selector.Not [ Last_child ]) ])
+
   (* Divide color utilities use nested rules with :where(.divide-X >
      :not(:last-child)) We construct the full class name in the selector like
      space-x-reverse does. *)
@@ -160,10 +168,7 @@ module Handler = struct
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
     in
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
       let rule = Css.rule ~selector [ Css.border_color css_color ] in
@@ -184,27 +189,17 @@ module Handler = struct
       style ~rules:(Some [ rule ]) []
 
   let divide_transparent_style () =
-    let selector =
-      Css.Selector.(
-        where
-          [ Combined (Class "divide-transparent", Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector "divide-transparent" in
     let rule = Css.rule ~selector [ Css.border_color (Css.hex "#0000") ] in
     style ~rules:(Some [ rule ]) []
 
   let divide_current_style () =
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class "divide-current", Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector "divide-current" in
     let rule = Css.rule ~selector [ Css.border_color Css.Current ] in
     style ~rules:(Some [ rule ]) []
 
   let divide_inherit_style () =
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class "divide-inherit", Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector "divide-inherit" in
     let rule = Css.rule ~selector [ Css.border_color Css.Inherit ] in
     style ~rules:(Some [ rule ]) []
 
@@ -215,18 +210,12 @@ module Handler = struct
         Css.hex ("#" ^ shortened)
       else match Color.css_color_to_hex c with Some h -> h | None -> c
     in
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     let rule = Css.rule ~selector [ Css.border_color color ] in
     style ~rules:(Some [ rule ]) []
 
   let divide_bracket_color_opacity_style class_name inner _c opacity =
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
     if String.length inner > 0 && inner.[0] = '#' then
@@ -271,14 +260,13 @@ module Handler = struct
       style ~rules:(Some [ rule; supports_block ]) []
 
   let divide_style_of_string (s : string) =
-    let open Css in
-    let r : border_style option =
+    let r : Css.border_style option =
       match s with
-      | "dashed" -> Some Dashed
-      | "dotted" -> Some Dotted
-      | "double" -> Some Double
-      | "none" -> Some None
-      | "solid" -> Some Solid
+      | "dashed" -> Some Css.Dashed
+      | "dotted" -> Some Css.Dotted
+      | "double" -> Some Css.Double
+      | "none" -> Some Css.None
+      | "solid" -> Some Css.Solid
       | _ -> Stdlib.Option.none
     in
     r
@@ -288,17 +276,14 @@ module Handler = struct
     | Dashed -> "dashed"
     | Dotted -> "dotted"
     | Double -> "double"
-    | None -> "none"
+    | Css.None -> "none"
     | Solid -> "solid"
     | _ -> "solid"
 
   let divide_style_style (bs : Css.border_style) =
     let name = border_style_to_string bs in
     let class_name = "divide-" ^ name in
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     let decl, _ = Var.binding border_style_var bs in
     let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
     style ~rules:(Some [ rule ]) []
@@ -323,18 +308,12 @@ module Handler = struct
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
     in
     let class_name = base_class_name ^ opacity_suffix opacity in
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     Color.divide_with_opacity ?theme color shade opacity selector
 
   let divide_current_opacity_style opacity =
     let class_name = "divide-current" ^ opacity_suffix opacity in
-    let selector =
-      Css.Selector.(
-        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
-    in
+    let selector = divide_children_selector class_name in
     Color.divide_current_with_opacity opacity selector
 
   (* Helper to check if a string contains an opacity modifier *)

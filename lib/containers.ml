@@ -40,22 +40,22 @@ module Handler = struct
        rules.ml handles this ordering since container has only media rules and
        base props. *)
     let container_selector = Selector.class_ "container" in
-    let min_width_rem rem = media_min_width_length (Rem rem) in
+    let min_width_rem rem = media_min_width_length (Css.Rem rem) in
     let media_rules =
       [
         media ~condition:(min_width_rem 40.)
-          [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
+          [ rule ~selector:container_selector [ max_width (Css.Rem 40.) ] ];
         media ~condition:(min_width_rem 48.)
-          [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
+          [ rule ~selector:container_selector [ max_width (Css.Rem 48.) ] ];
         media ~condition:(min_width_rem 64.)
-          [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
+          [ rule ~selector:container_selector [ max_width (Css.Rem 64.) ] ];
         media ~condition:(min_width_rem 80.)
-          [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
+          [ rule ~selector:container_selector [ max_width (Css.Rem 80.) ] ];
         media ~condition:(min_width_rem 96.)
-          [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
+          [ rule ~selector:container_selector [ max_width (Css.Rem 96.) ] ];
       ]
     in
-    style ~rules:(Some media_rules) [ width (Pct 100.) ]
+    style ~rules:(Some media_rules) [ width (Css.Pct 100.) ]
 
   let container_query = style [ container_type Inline_size ]
   let container_normal_style = style [ container_type Normal ]

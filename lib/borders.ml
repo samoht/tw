@@ -339,7 +339,7 @@ module Handler = struct
   let border_dotted = border_style_util Dotted
   let border_double = border_style_util Double
   let border_hidden = border_style_util Hidden
-  let border_none = border_style_util None
+  let border_none = border_style_util Css.None
 
   (* Border color utilities *)
   let border_color' color shade =
