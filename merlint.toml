@@ -78,7 +78,6 @@ exclude = ["E330"]
 [[rules]]
 files = [
   "lib/mask_gradient.ml*",
-  "lib/masks.ml*",
   "lib/text_shadow.ml*",
 ]
 exclude = ["E334"]
