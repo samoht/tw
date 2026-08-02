@@ -1672,31 +1672,33 @@ let shade_and_opacity_of_strings ?theme = function
 (** {1 Parsing Functions} *)
 
 module Handler = struct
-  (* Per-side border colour: which physical border edge a border-{side}-{color}
-     utility paints. Bs_x is the logical inline axis (border-inline-color) and
-     Bs_y the block axis (border-block-color); Bs_s / Bs_e are the inline start
-     / end edges and Bs_bs / Bs_be the block start / end edges
+  (* Which border edge a border-{side}-{color} utility paints: a physical edge,
+     a logical axis (border-{inline,block}-color) or a logical edge
      (border-{inline,block}-{start,end}-color). *)
-  type border_side =
-    | Bs_t
-    | Bs_r
-    | Bs_b
-    | Bs_l
-    | Bs_x
-    | Bs_y
-    | Bs_s
-    | Bs_e
-    | Bs_bs
-    | Bs_be
+  module Side = struct
+    type t =
+      | Top
+      | Right
+      | Bottom
+      | Left
+      | Inline_axis
+      | Block_axis
+      | Inline_start
+      | Inline_end
+      | Block_start
+      | Block_end
+  end
 
   (* The colour value of a border-{side}-{color}: a named theme colour, an
      arbitrary bracket colour, or a keyword. *)
-  type border_side_color =
-    | Bsc_named of color * int
-    | Bsc_named_opacity of color * int * opacity_modifier
-    | Bsc_bracket of string * Css.color
-    | Bsc_transparent
-    | Bsc_current
+  module Side_color = struct
+    type t =
+      | Named of color * int
+      | Named_opacity of color * int * opacity_modifier
+      | Bracket of string * Css.color
+      | Transparent
+      | Current
+  end
 
   (** Local color utility type *)
   type t =
@@ -1728,7 +1730,7 @@ module Handler = struct
     | Border_current_opacity of opacity_modifier
     | Border_bracket_color of string * Css.color
     | Border_bracket_color_opacity of string * Css.color * opacity_modifier
-    | Border_side_color of border_side * border_side_color
+    | Border_side_color of Side.t * Side_color.t
     (* Accent colors *)
     | Accent of color * int
     | Accent_opacity of color * int * opacity_modifier
@@ -2132,39 +2134,41 @@ module Handler = struct
            | _ -> false -> (
         let bs =
           match side with
-          | "t" -> Bs_t
-          | "r" -> Bs_r
-          | "b" -> Bs_b
-          | "x" -> Bs_x
-          | "y" -> Bs_y
-          | "s" -> Bs_s
-          | "e" -> Bs_e
-          | "bs" -> Bs_bs
-          | "be" -> Bs_be
-          | _ -> Bs_l
+          | "t" -> Side.Top
+          | "r" -> Side.Right
+          | "b" -> Side.Bottom
+          | "x" -> Side.Inline_axis
+          | "y" -> Side.Block_axis
+          | "s" -> Side.Inline_start
+          | "e" -> Side.Inline_end
+          | "bs" -> Side.Block_start
+          | "be" -> Side.Block_end
+          | _ -> Side.Left
         in
         match rest with
-        | [ "transparent" ] -> Ok (Border_side_color (bs, Bsc_transparent))
-        | [ "current" ] -> Ok (Border_side_color (bs, Bsc_current))
+        | [ "transparent" ] ->
+            Ok (Border_side_color (bs, Side_color.Transparent))
+        | [ "current" ] -> Ok (Border_side_color (bs, Side_color.Current))
         | [ v ]
           when String.length v > 0 && v.[0] = '[' && Parse.is_bracket_value v
           -> (
             let inner = Parse.bracket_inner v in
             match parse_bracket_color inner with
             | Some css_color ->
-                Ok (Border_side_color (bs, Bsc_bracket (inner, css_color)))
+                Ok
+                  (Border_side_color (bs, Side_color.Bracket (inner, css_color)))
             | None -> Error (`Msg ("Invalid border side bracket: " ^ v)))
         | color_parts when List.exists has_opacity color_parts -> (
             match shade_and_opacity_of_strings ~theme color_parts with
             | Ok (color, shade, opacity) ->
                 Ok
                   (Border_side_color
-                     (bs, Bsc_named_opacity (color, shade, opacity)))
+                     (bs, Side_color.Named_opacity (color, shade, opacity)))
             | Error e -> Error e)
         | color_parts -> (
             match shade_of_strings color_parts with
             | Ok (color, shade) ->
-                Ok (Border_side_color (bs, Bsc_named (color, shade)))
+                Ok (Border_side_color (bs, Side_color.Named (color, shade)))
             | Error e -> Error e))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
@@ -2386,19 +2390,19 @@ module Handler = struct
   let border_current = style [ Css.border_color Current ]
 
   (* Per-side border colour emission. *)
-  let setters_of_side : border_side -> (Css.color -> Css.declaration) list =
-    function
-    | Bs_t -> [ Css.border_top_color ]
-    | Bs_r -> [ Css.border_right_color ]
-    | Bs_b -> [ Css.border_bottom_color ]
-    | Bs_l -> [ Css.border_left_color ]
-    | Bs_x ->
+  let setters_of_side : Side.t -> (Css.color -> Css.declaration) list = function
+    | Side.Top -> [ Css.border_top_color ]
+    | Side.Right -> [ Css.border_right_color ]
+    | Side.Bottom -> [ Css.border_bottom_color ]
+    | Side.Left -> [ Css.border_left_color ]
+    | Side.Inline_axis ->
         [ (fun c -> Css.border_inline_color (Css.logical_border_color c)) ]
-    | Bs_y -> [ (fun c -> Css.border_block_color (Css.logical_border_color c)) ]
-    | Bs_s -> [ Css.border_inline_start_color ]
-    | Bs_e -> [ Css.border_inline_end_color ]
-    | Bs_bs -> [ Css.border_block_start_color ]
-    | Bs_be -> [ Css.border_block_end_color ]
+    | Side.Block_axis ->
+        [ (fun c -> Css.border_block_color (Css.logical_border_color c)) ]
+    | Side.Inline_start -> [ Css.border_inline_start_color ]
+    | Side.Inline_end -> [ Css.border_inline_end_color ]
+    | Side.Block_start -> [ Css.border_block_start_color ]
+    | Side.Block_end -> [ Css.border_block_end_color ]
 
   (** Accent color utilities *)
 
@@ -2745,7 +2749,7 @@ module Handler = struct
     let sides = setters_of_side side in
     let apply c = style (List.map (fun set -> set c) sides) in
     match value with
-    | Bsc_named (color, shade) ->
+    | Side_color.Named (color, shade) ->
         if is_custom_color color then apply (to_css color shade)
         else
           let color_var = color_var color shade in
@@ -2753,11 +2757,11 @@ module Handler = struct
           let decl, color_ref = Var.binding color_var color_value in
           style
             (decl :: List.map (fun set -> set (Var color_ref : Css.color)) sides)
-    | Bsc_named_opacity (color, shade, opacity) ->
+    | Side_color.Named_opacity (color, shade, opacity) ->
         colors_with_opacity_style ~properties:sides color shade opacity
-    | Bsc_bracket (_, css_color) -> apply css_color
-    | Bsc_transparent -> apply (Css.hex "#0000")
-    | Bsc_current -> apply Current
+    | Side_color.Bracket (_, css_color) -> apply css_color
+    | Side_color.Transparent -> apply (Css.hex "#0000")
+    | Side_color.Current -> apply Css.Current
 
   (** Accent color with opacity *)
   let accent_with_opacity ?theme c shade opacity =
@@ -3247,29 +3251,29 @@ module Handler = struct
     | Border_side_color (side, value) ->
         let s =
           match side with
-          | Bs_t -> "t"
-          | Bs_r -> "r"
-          | Bs_b -> "b"
-          | Bs_l -> "l"
-          | Bs_x -> "x"
-          | Bs_y -> "y"
-          | Bs_s -> "s"
-          | Bs_e -> "e"
-          | Bs_bs -> "bs"
-          | Bs_be -> "be"
+          | Side.Top -> "t"
+          | Side.Right -> "r"
+          | Side.Bottom -> "b"
+          | Side.Left -> "l"
+          | Side.Inline_axis -> "x"
+          | Side.Block_axis -> "y"
+          | Side.Inline_start -> "s"
+          | Side.Inline_end -> "e"
+          | Side.Block_start -> "bs"
+          | Side.Block_end -> "be"
         in
         let v =
           match value with
-          | Bsc_named (c, shade) ->
+          | Side_color.Named (c, shade) ->
               if is_base_color c || is_custom_color c then color_to_string c
               else color_to_string c ^ "-" ^ string_of_int shade
-          | Bsc_named_opacity (c, shade, opacity) ->
+          | Side_color.Named_opacity (c, shade, opacity) ->
               (if is_base_color c || is_custom_color c then color_to_string c
                else color_to_string c ^ "-" ^ string_of_int shade)
               ^ opacity_suffix opacity
-          | Bsc_bracket (orig, _) -> "[" ^ orig ^ "]"
-          | Bsc_transparent -> "transparent"
-          | Bsc_current -> "current"
+          | Side_color.Bracket (orig, _) -> "[" ^ orig ^ "]"
+          | Side_color.Transparent -> "transparent"
+          | Side_color.Current -> "current"
         in
         "border-" ^ s ^ "-" ^ v
     | Border_bracket_color_opacity (v, _, opacity) ->
