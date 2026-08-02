@@ -1541,12 +1541,17 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
   (* A declared utility means nothing to the handlers, so its order arrives with
-     it and is seeded under the same key [order_of_base] looks up. *)
+     it and is seeded under the same key [order_of_base] looks up. The key is
+     the base name, which a plain utility of the same name shares: seed it only
+     when it is free, so an incoming order never moves a rule the handlers
+     already placed. *)
   let selector_props =
     selector_props
     @ List.concat_map
         (fun (class_name, order, statements) ->
-          Hashtbl.replace order_map (extract_base_utility class_name) order;
+          let key = extract_base_utility class_name in
+          if not (Hashtbl.mem order_map key) then
+            Hashtbl.add order_map key order;
           List.concat_map
             (outputs_of_statement ~base_class:class_name)
             statements)

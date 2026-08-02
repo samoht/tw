@@ -722,6 +722,34 @@ let test_build_utils_layer_order () =
   check bool "two .a rules are not adjacent" true
     (pos_b > pos_a1 && pos_b < pos_a2)
 
+(* An [extra] rule seeds its order under its base utility's name, and a plain
+   utility of the same name reads that key too. [table] sorts behind [flex] on
+   its own suborder, whatever order a routed [dark:!table] arrives with. *)
+let test_extra_keeps_plain_order () =
+  let extra =
+    [
+      ( "dark:!table",
+        (4, 2),
+        [
+          Css.rule
+            ~selector:(Css.Selector.class_ "dark:!table")
+            [ Css.display Css.Table ];
+        ] );
+    ]
+  in
+  let config = { Tw.Build.base = false; forms = None; layers = true } in
+  let css = Tw.Build.to_css ~config ~extra [ Tw.Flex.flex; Tw.Layout.table ] in
+  let css_str = Css.to_string ~minify:true css in
+  let position sub =
+    match Astring.String.find_sub ~sub css_str with
+    | None -> -1
+    | Some pos -> pos
+  in
+  let flex = position ".flex{" and table = position ".table{" in
+  check bool "flex is emitted" true (flex >= 0);
+  check bool "table is emitted" true (table >= 0);
+  check bool "flex before table" true (flex < table)
+
 let test_style_rules_props () =
   (* Test that when a Style has both props and rules, the props are placed after
      the rules *)
@@ -928,6 +956,8 @@ let tests =
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
     test_case "build_utilities_layer preserves order" `Quick
       test_build_utils_layer_order;
+    test_case "extra keeps a plain utility's order" `Quick
+      test_extra_keeps_plain_order;
     test_case "style with rules and props ordering" `Quick
       test_style_rules_props;
   ]

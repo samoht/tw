@@ -50,6 +50,49 @@ No [prefers-color-scheme] query is emitted for this selector-only override:
   0
   [1]
 
+Routing through the declared variant leaves the utilities layer in the order
+the built-in generator uses: each family at its own slot, and inside a family
+the scale in numeric order.
+
+  $ cat > darkorder.html <<EOF
+  > <div class="dark:text-zinc-400 dark:text-blue-400 dark:text-sky-400 dark:p-2 dark:p-10 dark:p-1 dark:flex"></div>
+  > EOF
+  $ tw --minify --input-css darkclass.css darkorder.html | grep -oE '\.dark..[a-z0-9-]+:where'
+  .dark\:flex:where
+  .dark\:p-1:where
+  .dark\:p-2:where
+  .dark\:p-10:where
+  .dark\:text-blue-400:where
+  .dark\:text-sky-400:where
+  .dark\:text-zinc-400:where
+
+A routed utility does not displace the plain one it shares a name with:
+[table] keeps the slot its own value gives it, behind [flex].
+
+  $ cat > darkshare.html <<EOF
+  > <div class="block contents flex table dark:table"></div>
+  > EOF
+  $ tw --minify --input-css darkclass.css darkshare.html | grep -oE '\.[a-z\\:-]+[^{]*\{display'
+  .block{display
+  .contents{display
+  .flex{display
+  .table{display
+  .dark\:table:where(.dark,.dark *){display
+
+That holds when the routed class is one the handlers cannot name, so it
+falls back on the slot of the property it emits: an [!important] marker is
+enough, and the plain [table] still keeps its place.
+
+  $ cat > darkbang.html <<EOF
+  > <div class="block contents flex table dark:!table"></div>
+  > EOF
+  $ tw --minify --input-css darkclass.css darkbang.html | grep -oE '\.[a-z\\!:-]+[^{]*\{display'
+  .block{display
+  .contents{display
+  .flex{display
+  .table{display
+  .dark\:\!table:where(.dark,.dark *){display
+
 The declared variant is honoured wherever it sits in the chain, not only when
 it leads: a built-in responsive prefix in front of it keeps its media query
 around the project's selector.
