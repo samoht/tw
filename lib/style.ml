@@ -3,7 +3,7 @@
 module Css = Cascade.Css
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
-type container_cmp = Cq_min | Cq_max
+type container_cmp = Min | Max
 
 type container_query =
   | Container_3xs
@@ -334,7 +334,7 @@ let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
 let pp_nth prefix expr =
   if is_numeric expr then prefix ^ "-" ^ expr else prefix ^ "-[" ^ expr ^ "]"
 
-let container_cmp_prefix = function Cq_min -> "min-" | Cq_max -> "max-"
+let container_cmp_prefix = function Min -> "min-" | Max -> "max-"
 
 (* The class-name suffix (after the leading [@]) for a container query. *)
 let rec container_size_name = function
