@@ -77,7 +77,6 @@ exclude = ["E330"]
 # picking a name that does not collide, one family at a time.
 [[rules]]
 files = [
-  "lib/cursor.ml*",
   "lib/mask_gradient.ml*",
   "lib/masks.ml*",
   "lib/text_shadow.ml*",
