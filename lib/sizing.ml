@@ -11,242 +11,41 @@ module Handler = struct
   open Style
   open Css
 
+  (** The property a sizing family sets. [Width_and_height] is [size-*], which
+      sets both. *)
+  type prop =
+    | Width
+    | Height
+    | Min_width
+    | Min_height
+    | Max_width
+    | Max_height
+    | Width_and_height
+    | Inline_size
+    | Min_inline_size
+    | Max_inline_size
+    | Block_size
+    | Min_block_size
+    | Max_block_size
+
+  (** The value a sizing class carries. [Keyword] and [Themed] come from the
+      family's own table, so they carry their class spelling and their suborder
+      with them; a [Themed] value also carries the theme-variable declaration
+      and the [var()] reference the utility emits. *)
+  type value =
+    | Keyword of { spelling : string; length : length; order : int }
+    | Themed of {
+        spelling : string;
+        decl : declaration;
+        value : length;
+        order : int;
+      }
+    | Spacing of float
+    | Fraction of string
+    | Arbitrary of string * length
+
   type t =
-    (* Width utilities *)
-    | W_auto
-    | W_full
-    | W_screen
-    | W_min
-    | W_max
-    | W_fit
-    | W_px
-    | W_spacing of float
-    | W_fraction of string
-    | W_arbitrary of string * Css.length
-    | W_dvw (* 100dvw - dynamic viewport width *)
-    | W_dvh
-    | W_lvh
-    | W_svh
-    | W_lvw (* 100lvw - large viewport width *)
-    | W_svw (* 100svw - small viewport width *)
-    | W_container of string (* width: var(--container-<name>) *)
-    (* Height utilities *)
-    | H_auto
-    | H_full
-    | H_screen
-    | H_min
-    | H_max
-    | H_fit
-    | H_px
-    | H_spacing of float
-    | H_fraction of string
-    | H_arbitrary of string * Css.length
-    | H_dvh (* 100dvh - dynamic viewport height *)
-    | H_lvh (* 100lvh - large viewport height *)
-    | H_svh (* 100svh - small viewport height *)
-    | H_dvw
-    | H_lvw
-    | H_svw
-    | H_lh (* 1lh - line height *)
-    (* Min-width utilities *)
-    | Min_w_0
-    | Min_w_full
-    | Min_w_dvh
-    | Min_w_dvw
-    | Min_w_lvh
-    | Min_w_lvw
-    | Min_w_svh
-    | Min_w_svw
-    | Min_w_px
-    | Min_w_screen
-    | Min_w_min
-    | Min_w_max
-    | Min_w_fit
-    | Min_w_auto
-    | Min_w_spacing of float
-    | Min_w_fraction of string
-    | Min_w_arbitrary of string * Css.length
-    | Min_w_container of string (* min-width: var(--container-<name>) *)
-    (* Max-width utilities *)
-    | Max_w_none
-    | Max_w_xs
-    | Max_w_sm
-    | Max_w_md
-    | Max_w_lg
-    | Max_w_xl
-    | Max_w_2xl
-    | Max_w_3xl
-    | Max_w_4xl
-    | Max_w_5xl
-    | Max_w_6xl
-    | Max_w_7xl
-    | Max_w_2xs
-    | Max_w_3xs
-    | Max_w_dvh
-    | Max_w_dvw
-    | Max_w_lvh
-    | Max_w_lvw
-    | Max_w_svh
-    | Max_w_svw
-    | Max_w_px
-    | Max_w_screen
-    | Max_w_full
-    | Max_w_min
-    | Max_w_max
-    | Max_w_fit
-    | Max_w_prose
-    | Max_w_screen_sm
-    | Max_w_screen_md
-    | Max_w_screen_lg
-    | Max_w_screen_xl
-    | Max_w_screen_2xl
-    | Max_w_spacing of float
-    | Max_w_fraction of string
-    | Max_w_arbitrary of string * Css.length
-    (* Min-height utilities *)
-    | Min_h_0
-    | Min_h_full
-    | Min_h_screen
-    | Min_h_min
-    | Min_h_max
-    | Min_h_fit
-    | Min_h_auto
-    | Min_h_dvh
-    | Min_h_lvh
-    | Min_h_svh
-    | Min_h_px
-    | Min_h_dvw
-    | Min_h_lvw
-    | Min_h_svw
-    | Min_h_lh
-    | Min_h_spacing of float
-    | Min_h_fraction of string
-    | Min_h_arbitrary of string * Css.length
-    (* Max-height utilities *)
-    | Max_h_none
-    | Max_h_full
-    | Max_h_screen
-    | Max_h_min
-    | Max_h_max
-    | Max_h_fit
-    | Max_h_dvh
-    | Max_h_lvh
-    | Max_h_svh
-    | Max_h_px
-    | Max_h_dvw
-    | Max_h_lvw
-    | Max_h_svw
-    | Max_h_lh
-    | Max_h_spacing of float
-    | Max_h_fraction of string
-    | Max_h_arbitrary of string * Css.length
-    (* Size utilities (both width and height) *)
-    | Size_auto
-    | Size_full
-    | Size_dvh
-    | Size_dvw
-    | Size_lvh
-    | Size_lvw
-    | Size_svh
-    | Size_svw
-    | Size_px
-    | Size_min
-    | Size_max
-    | Size_fit
-    | Size_spacing of float
-    | Size_fraction of string
-    | Size_arbitrary of string * Css.length
-    (* inline-size utilities *)
-    | Inline_fraction of string
-    | Inline_px
-    | Inline_spacing of float
-    | Inline_arbitrary of string * Css.length
-    | Inline_auto
-    | Inline_dvw
-    | Inline_fit
-    | Inline_full
-    | Inline_lvw
-    | Inline_max
-    | Inline_min
-    | Inline_screen
-    | Inline_svw
-    | Inline_container of string
-    (* min-inline-size utilities *)
-    | Min_inline_fraction of string
-    | Min_inline_spacing of float
-    | Min_inline_arbitrary of string * Css.length
-    | Min_inline_auto
-    | Min_inline_fit
-    | Min_inline_full
-    | Min_inline_screen
-    | Min_inline_px
-    | Min_inline_svw
-    | Min_inline_lvw
-    | Min_inline_dvw
-    | Min_inline_max
-    | Min_inline_min
-    | Min_inline_container of string
-    (* max-inline-size utilities *)
-    | Max_inline_fraction of string
-    | Max_inline_spacing of float
-    | Max_inline_arbitrary of string * Css.length
-    | Max_inline_fit
-    | Max_inline_full
-    | Max_inline_min
-    | Max_inline_screen
-    | Max_inline_px
-    | Max_inline_svw
-    | Max_inline_lvw
-    | Max_inline_dvw
-    | Max_inline_max
-    | Max_inline_none
-    | Max_inline_container of string
-    (* block-size utilities *)
-    | Block_fraction of string
-    | Block_px
-    | Block_spacing of float
-    | Block_arbitrary of string * Css.length
-    | Block_auto
-    | Block_dvh
-    | Block_fit
-    | Block_full
-    | Block_lh
-    | Block_lvh
-    | Block_max
-    | Block_min
-    | Block_screen
-    | Block_svh
-    (* min-block-size utilities *)
-    | Min_block_fraction of string
-    | Min_block_spacing of float
-    | Min_block_arbitrary of string * Css.length
-    | Min_block_auto
-    | Min_block_dvh
-    | Min_block_fit
-    | Min_block_full
-    | Min_block_px
-    | Min_block_lh
-    | Min_block_lvh
-    | Min_block_max
-    | Min_block_min
-    | Min_block_screen
-    | Min_block_svh
-    (* max-block-size utilities *)
-    | Max_block_fraction of string
-    | Max_block_spacing of float
-    | Max_block_arbitrary of string * Css.length
-    | Max_block_dvh
-    | Max_block_fit
-    | Max_block_full
-    | Max_block_px
-    | Max_block_lh
-    | Max_block_lvh
-    | Max_block_max
-    | Max_block_min
-    | Max_block_none
-    | Max_block_screen
-    | Max_block_svh
-    (* Aspect utilities *)
+    | Sized of prop * value
     | Aspect_auto
     | Aspect_square
     | Aspect_video
@@ -257,1093 +56,6 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "sizing"
-
-  (** Helper to create spacing-based utilities with consistent pattern. [n] is
-      in rem units (e.g., 16.0 for w-64). We convert to class units by
-      multiplying by 4, since --spacing is 0.25rem. Uses calc(var(--spacing) *
-      n) for Tailwind v4 compatibility. *)
-  let spacing_utility ?theme css_prop n =
-    let decl, spacing_value = Theme.spacing_calc_float ?theme (n *. 4.) in
-    style (decl :: [ css_prop spacing_value ])
-
-  let w' ?theme size =
-    match size with
-    | `None -> style [ width (Px 0.) ]
-    | `Xs -> style [ width (Rem 0.5) ]
-    | `Sm -> style [ width (Rem 1.0) ]
-    | `Md -> style [ width (Rem 1.5) ]
-    | `Lg -> style [ width (Rem 2.0) ]
-    | `Xl -> style [ width (Rem 3.0) ]
-    | `Xl_2 -> style [ width (Rem 4.0) ]
-    | `Xl_3 -> style [ width (Rem 6.0) ]
-    | `Full -> style [ width (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme width n
-
-  let w_auto' = style [ width Auto ]
-  let w_px' = style [ width (Px 1.0) ]
-  let w_full' = style [ width (Pct 100.0) ]
-  let w_screen' = style [ width (Vw 100.0) ]
-  let w_min' = style [ width Min_content ]
-  let w_max' = style [ width Max_content ]
-  let w_fit' = style [ width Fit_content ]
-
-  (* Int-based width function for Tailwind scale (n * 0.25rem) *)
-
-  let h' ?theme size =
-    match size with
-    | `None -> style [ height (Px 0.) ]
-    | `Xs -> style [ height (Rem 0.5) ]
-    | `Sm -> style [ height (Rem 1.0) ]
-    | `Md -> style [ height (Rem 1.5) ]
-    | `Lg -> style [ height (Rem 2.0) ]
-    | `Xl -> style [ height (Rem 3.0) ]
-    | `Xl_2 -> style [ height (Rem 4.0) ]
-    | `Xl_3 -> style [ height (Rem 6.0) ]
-    | `Full -> style [ height (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme height n
-
-  let h_auto' = style [ height Auto ]
-  let h_px' = style [ height (Px 1.0) ]
-  let h_full' = style [ height (Pct 100.0) ]
-  let h_screen' = style [ height (Vh 100.0) ]
-  let h_min' = style [ height Min_content ]
-  let h_max' = style [ height Max_content ]
-  let h_fit' = style [ height Fit_content ]
-
-  (* Int-based height function for Tailwind scale (n * 0.25rem) *)
-
-  let min_w' ?theme size =
-    match size with
-    | `None -> style [ min_width (Px 0.) ]
-    | `Xs -> style [ min_width (Rem 0.5) ]
-    | `Sm -> style [ min_width (Rem 1.0) ]
-    | `Md -> style [ min_width (Rem 1.5) ]
-    | `Lg -> style [ min_width (Rem 2.0) ]
-    | `Xl -> style [ min_width (Rem 3.0) ]
-    | `Xl_2 -> style [ min_width (Rem 4.0) ]
-    | `Xl_3 -> style [ min_width (Rem 6.0) ]
-    | `Full -> style [ min_width (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme min_width n
-
-  let min_w_0' = style [ min_width (Px 0.) ]
-  let min_w_full' = style [ min_width (Pct 100.0) ]
-  let min_w_dvh' = style [ min_width (Dvh 100.) ]
-  let min_w_dvw' = style [ min_width (Dvw 100.) ]
-  let min_w_lvh' = style [ min_width (Lvh 100.) ]
-  let min_w_lvw' = style [ min_width (Lvw 100.) ]
-  let min_w_svh' = style [ min_width (Svh 100.) ]
-  let min_w_svw' = style [ min_width (Svw 100.) ]
-  let min_w_px' = style [ min_width (Px 1.0) ]
-  let min_w_screen' = style [ min_width (Vw 100.0) ]
-  let min_w_min' = style [ min_width Min_content ]
-  let min_w_max' = style [ min_width Max_content ]
-  let min_w_fit' = style [ min_width Fit_content ]
-
-  (* Int-based min-width function for Tailwind scale (n * 0.25rem) *)
-
-  let max_w' ?theme size =
-    match size with
-    | `None -> style [ max_width None ]
-    | `Xs -> style [ max_width (Rem 20.0) ]
-    | `Sm -> style [ max_width (Rem 24.0) ]
-    | `Md -> style [ max_width (Rem 28.0) ]
-    | `Lg -> style [ max_width (Rem 32.0) ]
-    | `Xl -> style [ max_width (Rem 36.0) ]
-    | `Xl_2 -> style [ max_width (Rem 42.0) ]
-    | `Xl_3 -> style [ max_width (Rem 48.0) ]
-    | `Full -> style [ max_width (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme max_width n
-
-  (* Named width theme variable *)
-
-  (* Container size theme variables - ordered from smallest to largest *)
-  let container_3xs = Var.theme Css.Length "container-3xs" ~order:(5, 0)
-  let container_2xs = Var.theme Css.Length "container-2xs" ~order:(5, 1)
-  let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 2)
-  let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 3)
-  let container_md = Var.theme Css.Length "container-md" ~order:(5, 4)
-  let container_lg = Var.theme Css.Length "container-lg" ~order:(5, 5)
-  let container_xl = Var.theme Css.Length "container-xl" ~order:(5, 6)
-  let container_2xl = Var.theme Css.Length "container-2xl" ~order:(5, 7)
-  let container_3xl = Var.theme Css.Length "container-3xl" ~order:(5, 8)
-  let container_4xl = Var.theme Css.Length "container-4xl" ~order:(5, 9)
-  let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 10)
-  let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 11)
-  let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 12)
-
-  (* The container scale doubles as the named width scale in v4. Map a name to
-     its theme var and default, and to its position in the scale. *)
-  let container_binding = function
-    | "3xs" -> Some (container_3xs, (Rem 16.0 : length))
-    | "2xs" -> Some (container_2xs, Rem 18.0)
-    | "xs" -> Some (container_xs, Rem 20.0)
-    | "sm" -> Some (container_sm, Rem 24.0)
-    | "md" -> Some (container_md, Rem 28.0)
-    | "lg" -> Some (container_lg, Rem 32.0)
-    | "xl" -> Some (container_xl, Rem 36.0)
-    | "2xl" -> Some (container_2xl, Rem 42.0)
-    | "3xl" -> Some (container_3xl, Rem 48.0)
-    | "4xl" -> Some (container_4xl, Rem 56.0)
-    | "5xl" -> Some (container_5xl, Rem 64.0)
-    | "6xl" -> Some (container_6xl, Rem 72.0)
-    | "7xl" -> Some (container_7xl, Rem 80.0)
-    | _ -> None
-
-  let container_order = function
-    | "3xs" -> 0
-    | "2xs" -> 1
-    | "xs" -> 2
-    | "sm" -> 3
-    | "md" -> 4
-    | "lg" -> 5
-    | "xl" -> 6
-    | "2xl" -> 7
-    | "3xl" -> 8
-    | "4xl" -> 9
-    | "5xl" -> 10
-    | "6xl" -> 11
-    | "7xl" -> 12
-    | _ -> 99
-
-  (* Breakpoint theme vars, referenced by the (v3) max-w-screen-* utilities.
-     Negative suborders keep them before --container-* in the theme layer, as
-     Tailwind emits them. *)
-  let breakpoint_sm = Var.theme Css.Length "breakpoint-sm" ~order:(5, -5)
-  let breakpoint_md = Var.theme Css.Length "breakpoint-md" ~order:(5, -4)
-  let breakpoint_lg = Var.theme Css.Length "breakpoint-lg" ~order:(5, -3)
-  let breakpoint_xl = Var.theme Css.Length "breakpoint-xl" ~order:(5, -2)
-  let breakpoint_2xl = Var.theme Css.Length "breakpoint-2xl" ~order:(5, -1)
-  let max_w_none' = style [ max_width None ]
-
-  let max_w_xs' =
-    let decl, ref_ = Var.binding container_xs (Rem 20.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_sm' =
-    let decl, ref_ = Var.binding container_sm (Rem 24.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_md' =
-    let decl, ref_ = Var.binding container_md (Rem 28.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_lg' =
-    let decl, ref_ = Var.binding container_lg (Rem 32.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_xl' =
-    let decl, ref_ = Var.binding container_xl (Rem 36.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_2xl' =
-    let decl, ref_ = Var.binding container_2xl (Rem 42.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_3xl' =
-    let decl, ref_ = Var.binding container_3xl (Rem 48.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_4xl' =
-    let decl, ref_ = Var.binding container_4xl (Rem 56.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_5xl' =
-    let decl, ref_ = Var.binding container_5xl (Rem 64.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_6xl' =
-    let decl, ref_ = Var.binding container_6xl (Rem 72.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_7xl' =
-    let decl, ref_ = Var.binding container_7xl (Rem 80.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_full' = style [ max_width (Pct 100.0) ]
-
-  let max_w_2xs' =
-    let decl, ref_ = Var.binding container_2xs (Rem 18.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_3xs' =
-    let decl, ref_ = Var.binding container_3xs (Rem 16.0) in
-    style [ decl; max_width (Var ref_) ]
-
-  let max_w_dvh' = style [ max_width (Dvh 100.) ]
-  let max_w_dvw' = style [ max_width (Dvw 100.) ]
-  let max_w_lvh' = style [ max_width (Lvh 100.) ]
-  let max_w_lvw' = style [ max_width (Lvw 100.) ]
-  let max_w_svh' = style [ max_width (Svh 100.) ]
-  let max_w_svw' = style [ max_width (Svw 100.) ]
-  let max_w_px' = style [ max_width (Px 1.0) ]
-  let max_w_screen' = style [ max_width (Vw 100.0) ]
-  let max_w_min' = style [ max_width Min_content ]
-  let max_w_max' = style [ max_width Max_content ]
-  let max_w_fit' = style [ max_width Fit_content ]
-  let max_w_prose' = style [ max_width (Ch 65.0) ]
-
-  let max_w_screen_of var rem =
-    let decl, r = Var.binding var (Rem rem : Css.length) in
-    style (decl :: [ max_width (Var r) ])
-
-  let max_w_screen_sm' = max_w_screen_of breakpoint_sm 40.
-  let max_w_screen_md' = max_w_screen_of breakpoint_md 48.
-  let max_w_screen_lg' = max_w_screen_of breakpoint_lg 64.
-  let max_w_screen_xl' = max_w_screen_of breakpoint_xl 80.
-  let max_w_screen_2xl' = max_w_screen_of breakpoint_2xl 96.
-
-  (* Int-based max-width function for Tailwind scale (n * 0.25rem) *)
-
-  let min_h' ?theme size =
-    match size with
-    | `None -> style [ min_height (Px 0.) ]
-    | `Xs -> style [ min_height (Rem 0.5) ]
-    | `Sm -> style [ min_height (Rem 1.0) ]
-    | `Md -> style [ min_height (Rem 1.5) ]
-    | `Lg -> style [ min_height (Rem 2.0) ]
-    | `Xl -> style [ min_height (Rem 3.0) ]
-    | `Xl_2 -> style [ min_height (Rem 4.0) ]
-    | `Xl_3 -> style [ min_height (Rem 6.0) ]
-    | `Full -> style [ min_height (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme min_height n
-
-  let min_h_0' = style [ min_height (Px 0.) ]
-  let min_h_full' = style [ min_height (Pct 100.0) ]
-  let min_h_screen' = style [ min_height (Vh 100.0) ]
-  let min_h_min' = style [ min_height Min_content ]
-  let min_h_max' = style [ min_height Max_content ]
-  let min_h_fit' = style [ min_height Fit_content ]
-
-  (* Int-based min-height function for Tailwind scale (n * 0.25rem) *)
-
-  let max_h' ?theme size =
-    match size with
-    | `None -> style [ max_height None ]
-    | `Xs -> style [ max_height (Rem 0.5) ]
-    | `Sm -> style [ max_height (Rem 1.0) ]
-    | `Md -> style [ max_height (Rem 1.5) ]
-    | `Lg -> style [ max_height (Rem 2.0) ]
-    | `Xl -> style [ max_height (Rem 3.0) ]
-    | `Xl_2 -> style [ max_height (Rem 4.0) ]
-    | `Xl_3 -> style [ max_height (Rem 6.0) ]
-    | `Full -> style [ max_height (Pct 100.0) ]
-    | `Rem n -> spacing_utility ?theme max_height n
-
-  let max_h_none' = style [ max_height None ]
-  let max_h_full' = style [ max_height (Pct 100.0) ]
-  let max_h_screen' = style [ max_height (Vh 100.0) ]
-  let max_h_min' = style [ max_height Min_content ]
-  let max_h_max' = style [ max_height Max_content ]
-  let max_h_fit' = style [ max_height Fit_content ]
-
-  (* Int-based max-height function for Tailwind scale (n * 0.25rem) *)
-
-  (* A Tailwind sizing fraction [n/m] resolves to [n/m * 100%]. Tailwind emits
-     calc(n / m * 100%) and folds it to 6 significant figures (e.g. 33.3333,
-     8.33333); we emit the percentage rounded the same way so the two match.
-     Denominators follow Tailwind's scale. *)
-  let fraction_pct frac =
-    match String.split_on_char '/' frac with
-    | [ n; m ] -> (
-        match (int_of_string_opt n, int_of_string_opt m) with
-        (* Any denominator: Tailwind reads [w-<number>/<number>] as a
-           percentage, not from a fixed scale. *)
-        | Some n, Some m when m > 0 && n > 0 && n < m ->
-            let pct = float_of_int n /. float_of_int m *. 100. in
-            let digits = 6. -. Float.ceil (Float.log10 pct) in
-            let factor = 10. ** digits in
-            Some (Float.round (pct *. factor) /. factor)
-        | _ -> None)
-    | _ -> None
-
-  let aspect_auto' = style [ Css.aspect_ratio Auto ]
-
-  (* Theme variables for aspect ratios *)
-  let aspect_video_var = Var.theme Css.Aspect_ratio "aspect-video" ~order:(4, 1)
-
-  (* aspect-square inlines the 1/1 ratio in v4 (no --aspect-square theme token),
-     unlike aspect-video which references the --aspect-video token. *)
-  let aspect_square' = style [ Css.aspect_ratio (Ratio (1., 1.)) ]
-
-  let aspect_video' =
-    let decl, r = Var.binding aspect_video_var (Ratio (16., 9.)) in
-    style (decl :: [ Css.aspect_ratio (Var r) ])
-
-  let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
-
-  let to_style theme =
-    let spacing_utility css_prop n = spacing_utility ~theme css_prop n in
-    let w' size = w' ~theme size in
-    let h' size = h' ~theme size in
-    let min_w' size = min_w' ~theme size in
-    let max_w' size = max_w' ~theme size in
-    let min_h' size = min_h' ~theme size in
-    let max_h' size = max_h' ~theme size in
-    function
-    (* Width utilities *)
-    | W_auto -> w_auto'
-    | W_px -> w_px'
-    | W_full -> w_full'
-    | W_screen -> w_screen'
-    | W_min -> w_min'
-    | W_max -> w_max'
-    | W_fit -> w_fit'
-    | W_spacing n -> w' (`Rem n)
-    | W_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ width (Pct pct) ]
-        | None -> failwith ("Unknown width fraction: " ^ f))
-    | W_arbitrary (_, len) -> style [ width len ]
-    | W_dvw -> style [ width (Dvw 100.) ]
-    | W_dvh -> style [ width (Dvh 100.) ]
-    | W_lvh -> style [ width (Lvh 100.) ]
-    | W_svh -> style [ width (Svh 100.) ]
-    | W_lvw -> style [ width (Lvw 100.) ]
-    | W_svw -> style [ width (Svw 100.) ]
-    | W_container name -> (
-        (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
-           otherwise to the --container-<name> scale (the default). *)
-        match Scheme.theme_value (Some theme) ("width-" ^ name) with
-        | Some v ->
-            let decl =
-              Css.custom_property ~layer:"theme" ("--width-" ^ name) v
-            in
-            style [ decl; width (Var (Var.theme_ref ("width-" ^ name))) ]
-        | None -> (
-            match container_binding name with
-            | Some (v, d) ->
-                let decl, ref_ = Var.binding v d in
-                style [ decl; width (Var ref_) ]
-            | None ->
-                style [ width (Var (Var.theme_ref ("container-" ^ name))) ]))
-    (* Height utilities *)
-    | H_auto -> h_auto'
-    | H_px -> h_px'
-    | H_full -> h_full'
-    | H_screen -> h_screen'
-    | H_min -> h_min'
-    | H_max -> h_max'
-    | H_fit -> h_fit'
-    | H_spacing n -> h' (`Rem n)
-    | H_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ height (Pct pct) ]
-        | None -> failwith ("Unknown height fraction: " ^ f))
-    | H_arbitrary (_, len) -> style [ height len ]
-    | H_dvh -> style [ height (Dvh 100.) ]
-    | H_lvh -> style [ height (Lvh 100.) ]
-    | H_svh -> style [ height (Svh 100.) ]
-    | H_dvw -> style [ height (Dvw 100.) ]
-    | H_lvw -> style [ height (Lvw 100.) ]
-    | H_svw -> style [ height (Svw 100.) ]
-    | H_lh -> style [ height (Lh 1.) ]
-    (* Min-width utilities *)
-    | Min_w_0 -> min_w_0'
-    | Min_w_full -> min_w_full'
-    | Min_w_dvh -> min_w_dvh'
-    | Min_w_dvw -> min_w_dvw'
-    | Min_w_lvh -> min_w_lvh'
-    | Min_w_lvw -> min_w_lvw'
-    | Min_w_svh -> min_w_svh'
-    | Min_w_svw -> min_w_svw'
-    | Min_w_px -> min_w_px'
-    | Min_w_screen -> min_w_screen'
-    | Min_w_min -> min_w_min'
-    | Min_w_max -> min_w_max'
-    | Min_w_fit -> min_w_fit'
-    | Min_w_auto -> style [ min_width Auto ]
-    | Min_w_spacing n -> min_w' (`Rem n)
-    | Min_w_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ min_width (Pct pct) ]
-        | None -> failwith ("Unknown min-width fraction: " ^ f))
-    | Min_w_arbitrary (_, len) -> style [ min_width len ]
-    | Min_w_container name -> (
-        match container_binding name with
-        | Some (v, d) ->
-            let decl, ref_ = Var.binding v d in
-            style [ decl; min_width (Var ref_) ]
-        | None ->
-            style [ min_width (Var (Var.theme_ref ("container-" ^ name))) ])
-    (* Max-width utilities *)
-    | Max_w_none -> max_w_none'
-    | Max_w_xs -> max_w_xs'
-    | Max_w_sm -> max_w_sm'
-    | Max_w_md -> max_w_md'
-    | Max_w_lg -> max_w_lg'
-    | Max_w_xl -> max_w_xl'
-    | Max_w_2xl -> max_w_2xl'
-    | Max_w_2xs -> max_w_2xs'
-    | Max_w_3xs -> max_w_3xs'
-    | Max_w_dvh -> max_w_dvh'
-    | Max_w_dvw -> max_w_dvw'
-    | Max_w_lvh -> max_w_lvh'
-    | Max_w_lvw -> max_w_lvw'
-    | Max_w_svh -> max_w_svh'
-    | Max_w_svw -> max_w_svw'
-    | Max_w_px -> max_w_px'
-    | Max_w_screen -> max_w_screen'
-    | Max_w_3xl -> max_w_3xl'
-    | Max_w_4xl -> max_w_4xl'
-    | Max_w_5xl -> max_w_5xl'
-    | Max_w_6xl -> max_w_6xl'
-    | Max_w_7xl -> max_w_7xl'
-    | Max_w_full -> max_w_full'
-    | Max_w_min -> max_w_min'
-    | Max_w_max -> max_w_max'
-    | Max_w_fit -> max_w_fit'
-    | Max_w_prose -> max_w_prose'
-    | Max_w_screen_sm -> max_w_screen_sm'
-    | Max_w_screen_md -> max_w_screen_md'
-    | Max_w_screen_lg -> max_w_screen_lg'
-    | Max_w_screen_xl -> max_w_screen_xl'
-    | Max_w_screen_2xl -> max_w_screen_2xl'
-    | Max_w_spacing n -> max_w' (`Rem n)
-    | Max_w_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ max_width (Pct pct) ]
-        | None -> failwith ("Unknown max-width fraction: " ^ f))
-    | Max_w_arbitrary (_, len) -> style [ max_width len ]
-    (* Min-height utilities *)
-    | Min_h_0 -> min_h_0'
-    | Min_h_full -> min_h_full'
-    | Min_h_screen -> min_h_screen'
-    | Min_h_min -> min_h_min'
-    | Min_h_max -> min_h_max'
-    | Min_h_fit -> min_h_fit'
-    | Min_h_auto -> style [ min_height Auto ]
-    | Min_h_dvh -> style [ min_height (Dvh 100.) ]
-    | Min_h_lvh -> style [ min_height (Lvh 100.) ]
-    | Min_h_svh -> style [ min_height (Svh 100.) ]
-    | Min_h_px -> style [ min_height (Px 1.0) ]
-    | Min_h_dvw -> style [ min_height (Dvw 100.) ]
-    | Min_h_lvw -> style [ min_height (Lvw 100.) ]
-    | Min_h_svw -> style [ min_height (Svw 100.) ]
-    | Min_h_lh -> style [ min_height (Lh 1.) ]
-    | Min_h_spacing n -> min_h' (`Rem n)
-    | Min_h_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ min_height (Pct pct) ]
-        | None -> failwith ("Unknown min-height fraction: " ^ f))
-    | Min_h_arbitrary (_, len) -> style [ min_height len ]
-    (* Max-height utilities *)
-    | Max_h_none -> max_h_none'
-    | Max_h_full -> max_h_full'
-    | Max_h_screen -> max_h_screen'
-    | Max_h_min -> max_h_min'
-    | Max_h_max -> max_h_max'
-    | Max_h_fit -> max_h_fit'
-    | Max_h_dvh -> style [ max_height (Dvh 100.) ]
-    | Max_h_lvh -> style [ max_height (Lvh 100.) ]
-    | Max_h_svh -> style [ max_height (Svh 100.) ]
-    | Max_h_px -> style [ max_height (Px 1.0) ]
-    | Max_h_dvw -> style [ max_height (Dvw 100.) ]
-    | Max_h_lvw -> style [ max_height (Lvw 100.) ]
-    | Max_h_svw -> style [ max_height (Svw 100.) ]
-    | Max_h_lh -> style [ max_height (Lh 1.) ]
-    | Max_h_spacing n -> max_h' (`Rem n)
-    | Max_h_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ max_height (Pct pct) ]
-        | None -> failwith ("Unknown max-height fraction: " ^ f))
-    | Max_h_arbitrary (_, len) -> style [ max_height len ]
-    (* Size utilities *)
-    | Size_auto -> style [ width Auto; height Auto ]
-    | Size_full -> style [ width (Pct 100.0); height (Pct 100.0) ]
-    | Size_dvh -> style [ width (Dvh 100.); height (Dvh 100.) ]
-    | Size_dvw -> style [ width (Dvw 100.); height (Dvw 100.) ]
-    | Size_lvh -> style [ width (Lvh 100.); height (Lvh 100.) ]
-    | Size_lvw -> style [ width (Lvw 100.); height (Lvw 100.) ]
-    | Size_svh -> style [ width (Svh 100.); height (Svh 100.) ]
-    | Size_svw -> style [ width (Svw 100.); height (Svw 100.) ]
-    | Size_px -> style [ width (Px 1.0); height (Px 1.0) ]
-    | Size_min -> style [ width Min_content; height Min_content ]
-    | Size_max -> style [ width Max_content; height Max_content ]
-    | Size_fit -> style [ width Fit_content; height Fit_content ]
-    | Size_spacing n ->
-        let decl, spacing_value = Theme.spacing_calc_float ~theme (n *. 4.) in
-        style (decl :: [ width spacing_value; height spacing_value ])
-    | Size_fraction f -> (
-        match
-          List.assoc_opt f
-            [
-              ("1/2", 50.0);
-              ("1/3", 33.3333);
-              ("2/3", 66.6667);
-              ("1/4", 25.0);
-              ("3/4", 75.0);
-              ("1/5", 20.0);
-              ("2/5", 40.0);
-              ("3/5", 60.0);
-              ("4/5", 80.0);
-              ("1/6", 16.6667);
-              ("5/6", 83.3333);
-            ]
-        with
-        | Some pct -> style [ width (Pct pct); height (Pct pct) ]
-        | None -> failwith ("Unknown size fraction: " ^ f))
-    | Size_arbitrary (_, len) -> style [ width len; height len ]
-    (* inline-size utilities *)
-    | Inline_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ inline_size (Pct pct) ]
-        | None -> failwith ("Unknown inline-size fraction: " ^ f))
-    | Inline_px -> style [ inline_size (Px 1.) ]
-    | Inline_spacing n -> spacing_utility inline_size n
-    | Inline_arbitrary (_, len) -> style [ inline_size len ]
-    | Inline_auto -> style [ inline_size Auto ]
-    | Inline_dvw -> style [ inline_size (Dvw 100.) ]
-    | Inline_fit -> style [ inline_size Fit_content ]
-    | Inline_full -> style [ inline_size (Pct 100.) ]
-    | Inline_lvw -> style [ inline_size (Lvw 100.) ]
-    | Inline_max -> style [ inline_size Max_content ]
-    | Inline_min -> style [ inline_size Min_content ]
-    | Inline_screen -> style [ inline_size (Vw 100.) ]
-    | Inline_svw -> style [ inline_size (Svw 100.) ]
-    | Inline_container name -> (
-        match container_binding name with
-        | Some (v, d) ->
-            let decl, ref_ = Var.binding v d in
-            style [ decl; inline_size (Var ref_) ]
-        | None ->
-            style [ inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
-    (* min-inline-size utilities *)
-    | Min_inline_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ min_inline_size (Pct pct) ]
-        | None -> failwith ("Unknown min-inline-size fraction: " ^ f))
-    | Min_inline_spacing n -> spacing_utility min_inline_size n
-    | Min_inline_arbitrary (_, len) -> style [ min_inline_size len ]
-    | Min_inline_auto -> style [ min_inline_size Auto ]
-    | Min_inline_fit -> style [ min_inline_size Fit_content ]
-    | Min_inline_full -> style [ min_inline_size (Pct 100.) ]
-    | Min_inline_screen -> style [ min_inline_size (Vw 100.0) ]
-    | Min_inline_px -> style [ min_inline_size (Px 1.0) ]
-    | Min_inline_svw -> style [ min_inline_size (Svw 100.) ]
-    | Min_inline_lvw -> style [ min_inline_size (Lvw 100.) ]
-    | Min_inline_dvw -> style [ min_inline_size (Dvw 100.) ]
-    | Min_inline_max -> style [ min_inline_size Max_content ]
-    | Min_inline_min -> style [ min_inline_size Min_content ]
-    | Min_inline_container name -> (
-        match container_binding name with
-        | Some (v, d) ->
-            let decl, ref_ = Var.binding v d in
-            style [ decl; min_inline_size (Var ref_) ]
-        | None ->
-            style
-              [ min_inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
-    (* max-inline-size utilities *)
-    | Max_inline_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ max_inline_size (Pct pct) ]
-        | None -> failwith ("Unknown max-inline-size fraction: " ^ f))
-    | Max_inline_spacing n -> spacing_utility max_inline_size n
-    | Max_inline_arbitrary (_, len) -> style [ max_inline_size len ]
-    | Max_inline_fit -> style [ max_inline_size Fit_content ]
-    | Max_inline_full -> style [ max_inline_size (Pct 100.) ]
-    | Max_inline_min -> style [ max_inline_size Min_content ]
-    | Max_inline_screen -> style [ max_inline_size (Vw 100.0) ]
-    | Max_inline_px -> style [ max_inline_size (Px 1.0) ]
-    | Max_inline_svw -> style [ max_inline_size (Svw 100.) ]
-    | Max_inline_lvw -> style [ max_inline_size (Lvw 100.) ]
-    | Max_inline_dvw -> style [ max_inline_size (Dvw 100.) ]
-    | Max_inline_max -> style [ max_inline_size Max_content ]
-    | Max_inline_none -> style [ max_inline_size None ]
-    | Max_inline_container name -> (
-        match container_binding name with
-        | Some (v, d) ->
-            let decl, ref_ = Var.binding v d in
-            style [ decl; max_inline_size (Var ref_) ]
-        | None ->
-            style
-              [ max_inline_size (Var (Var.theme_ref ("container-" ^ name))) ])
-    (* block-size utilities *)
-    | Block_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ block_size (Pct pct) ]
-        | None -> failwith ("Unknown block-size fraction: " ^ f))
-    | Block_px -> style [ block_size (Px 1.) ]
-    | Block_spacing n -> spacing_utility block_size n
-    | Block_arbitrary (_, len) -> style [ block_size len ]
-    | Block_auto -> style [ block_size Auto ]
-    | Block_dvh -> style [ block_size (Dvh 100.) ]
-    | Block_fit -> style [ block_size Fit_content ]
-    | Block_full -> style [ block_size (Pct 100.) ]
-    | Block_lh -> style [ block_size (Lh 1.) ]
-    | Block_lvh -> style [ block_size (Lvh 100.) ]
-    | Block_max -> style [ block_size Max_content ]
-    | Block_min -> style [ block_size Min_content ]
-    | Block_screen -> style [ block_size (Vh 100.) ]
-    | Block_svh -> style [ block_size (Svh 100.) ]
-    (* min-block-size utilities *)
-    | Min_block_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ min_block_size (Pct pct) ]
-        | None -> failwith ("Unknown min-block-size fraction: " ^ f))
-    | Min_block_spacing n -> spacing_utility min_block_size n
-    | Min_block_arbitrary (_, len) -> style [ min_block_size len ]
-    | Min_block_auto -> style [ min_block_size Auto ]
-    | Min_block_dvh -> style [ min_block_size (Dvh 100.) ]
-    | Min_block_fit -> style [ min_block_size Fit_content ]
-    | Min_block_full -> style [ min_block_size (Pct 100.) ]
-    | Min_block_px -> style [ min_block_size (Px 1.0) ]
-    | Min_block_lh -> style [ min_block_size (Lh 1.) ]
-    | Min_block_lvh -> style [ min_block_size (Lvh 100.) ]
-    | Min_block_max -> style [ min_block_size Max_content ]
-    | Min_block_min -> style [ min_block_size Min_content ]
-    | Min_block_screen -> style [ min_block_size (Vh 100.) ]
-    | Min_block_svh -> style [ min_block_size (Svh 100.) ]
-    (* max-block-size utilities *)
-    | Max_block_fraction f -> (
-        match fraction_pct f with
-        | Some pct -> style [ max_block_size (Pct pct) ]
-        | None -> failwith ("Unknown max-block-size fraction: " ^ f))
-    | Max_block_spacing n -> spacing_utility max_block_size n
-    | Max_block_arbitrary (_, len) -> style [ max_block_size len ]
-    | Max_block_dvh -> style [ max_block_size (Dvh 100.) ]
-    | Max_block_fit -> style [ max_block_size Fit_content ]
-    | Max_block_full -> style [ max_block_size (Pct 100.) ]
-    | Max_block_px -> style [ max_block_size (Px 1.0) ]
-    | Max_block_lh -> style [ max_block_size (Lh 1.) ]
-    | Max_block_lvh -> style [ max_block_size (Lvh 100.) ]
-    | Max_block_max -> style [ max_block_size Max_content ]
-    | Max_block_min -> style [ max_block_size Min_content ]
-    | Max_block_none -> style [ max_block_size None ]
-    | Max_block_screen -> style [ max_block_size (Vh 100.) ]
-    | Max_block_svh -> style [ max_block_size (Svh 100.) ]
-    (* Aspect utilities *)
-    | Aspect_auto -> aspect_auto'
-    | Aspect_square -> aspect_square'
-    | Aspect_video -> aspect_video'
-    | Aspect_ratio (w, h) -> aspect_ratio' w h
-    | Aspect_bracket (w, h) -> aspect_ratio' w h
-    | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
-
-  let err_not_utility = Error (`Msg "Not a sizing utility")
-
-  let err_invalid_value name value =
-    Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
-
-  (* A [/] inside a bracket belongs to the value ([w-[calc(2px/2)]]), not to a
-     fraction. *)
-  let is_bracket v = String.length v > 0 && v.[0] = '['
-
-  let parse_arbitrary s : (string * Css.length) option =
-    (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc. Uses
-       Css.parse_length for full CSS length parsing including calc(). Returns
-       (raw_inner, parsed_length) where raw_inner is used for the CSS class name
-       selector (preserving original formatting). *)
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
-      let css_value =
-        Parse.normalize_css_math_operators (Parse.decode_arbitrary_value inner)
-      in
-      match Css.parse_length css_value with
-      | Some l -> Some (inner, l)
-      | None -> None
-    else None
-
-  let parse_w = function
-    | "auto" -> Ok W_auto
-    | "px" -> Ok W_px
-    | "full" -> Ok W_full
-    | "screen" -> Ok W_screen
-    | "min" -> Ok W_min
-    | "max" -> Ok W_max
-    | "fit" -> Ok W_fit
-    | "dvw" -> Ok W_dvw
-    | "dvh" -> Ok W_dvh
-    | "lvh" -> Ok W_lvh
-    | "svh" -> Ok W_svh
-    | "lvw" -> Ok W_lvw
-    | "svw" -> Ok W_svw
-    | name when container_binding name <> None -> Ok (W_container name)
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (W_fraction frac)
-        else err_invalid_value "width fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (W_arbitrary (raw, len))
-        | None -> err_invalid_value "width" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
-        | _ -> err_invalid_value "width" v)
-
-  let parse_h = function
-    | "auto" -> Ok H_auto
-    | "px" -> Ok H_px
-    | "full" -> Ok H_full
-    | "screen" -> Ok H_screen
-    | "min" -> Ok H_min
-    | "max" -> Ok H_max
-    | "fit" -> Ok H_fit
-    | "dvh" -> Ok H_dvh
-    | "lvh" -> Ok H_lvh
-    | "svh" -> Ok H_svh
-    | "dvw" -> Ok H_dvw
-    | "lvw" -> Ok H_lvw
-    | "svw" -> Ok H_svw
-    | "lh" -> Ok H_lh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (H_fraction frac)
-        else err_invalid_value "height fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (H_arbitrary (raw, len))
-        | None -> err_invalid_value "height" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
-        | _ -> err_invalid_value "height" v)
-
-  let parse_min_w = function
-    | "0" -> Ok Min_w_0
-    | "full" -> Ok Min_w_full
-    | "dvh" -> Ok Min_w_dvh
-    | "dvw" -> Ok Min_w_dvw
-    | "lvh" -> Ok Min_w_lvh
-    | "lvw" -> Ok Min_w_lvw
-    | "svh" -> Ok Min_w_svh
-    | "svw" -> Ok Min_w_svw
-    | "px" -> Ok Min_w_px
-    | "screen" -> Ok Min_w_screen
-    | "min" -> Ok Min_w_min
-    | "max" -> Ok Min_w_max
-    | "fit" -> Ok Min_w_fit
-    | "auto" -> Ok Min_w_auto
-    | name when container_binding name <> None -> Ok (Min_w_container name)
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Min_w_fraction frac)
-        else err_invalid_value "min-width fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Min_w_arbitrary (raw, len))
-        | None -> err_invalid_value "min-width" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
-        | _ -> err_invalid_value "min-width" v)
-
-  let parse_min_h = function
-    | "0" -> Ok Min_h_0
-    | "full" -> Ok Min_h_full
-    | "screen" -> Ok Min_h_screen
-    | "min" -> Ok Min_h_min
-    | "max" -> Ok Min_h_max
-    | "fit" -> Ok Min_h_fit
-    | "auto" -> Ok Min_h_auto
-    | "dvh" -> Ok Min_h_dvh
-    | "lvh" -> Ok Min_h_lvh
-    | "svh" -> Ok Min_h_svh
-    | "px" -> Ok Min_h_px
-    | "dvw" -> Ok Min_h_dvw
-    | "lvw" -> Ok Min_h_lvw
-    | "svw" -> Ok Min_h_svw
-    | "lh" -> Ok Min_h_lh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Min_h_fraction frac)
-        else err_invalid_value "min-height fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Min_h_arbitrary (raw, len))
-        | None -> err_invalid_value "min-height" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
-        | _ -> err_invalid_value "min-height" v)
-
-  let parse_max_w = function
-    | "none" -> Ok Max_w_none
-    | "xs" -> Ok Max_w_xs
-    | "sm" -> Ok Max_w_sm
-    | "md" -> Ok Max_w_md
-    | "lg" -> Ok Max_w_lg
-    | "xl" -> Ok Max_w_xl
-    | "2xl" -> Ok Max_w_2xl
-    | "3xl" -> Ok Max_w_3xl
-    | "4xl" -> Ok Max_w_4xl
-    | "5xl" -> Ok Max_w_5xl
-    | "6xl" -> Ok Max_w_6xl
-    | "7xl" -> Ok Max_w_7xl
-    | "2xs" -> Ok Max_w_2xs
-    | "3xs" -> Ok Max_w_3xs
-    | "dvh" -> Ok Max_w_dvh
-    | "dvw" -> Ok Max_w_dvw
-    | "lvh" -> Ok Max_w_lvh
-    | "lvw" -> Ok Max_w_lvw
-    | "svh" -> Ok Max_w_svh
-    | "svw" -> Ok Max_w_svw
-    | "px" -> Ok Max_w_px
-    | "screen" -> Ok Max_w_screen
-    | "full" -> Ok Max_w_full
-    | "min" -> Ok Max_w_min
-    | "max" -> Ok Max_w_max
-    | "fit" -> Ok Max_w_fit
-    | "prose" -> Ok Max_w_prose
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Max_w_fraction frac)
-        else err_invalid_value "max-width fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Max_w_arbitrary (raw, len))
-        | None -> err_invalid_value "max-width" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
-        | _ -> err_invalid_value "max-width" v)
-
-  let parse_max_w_screen = function
-    | "sm" -> Ok Max_w_screen_sm
-    | "md" -> Ok Max_w_screen_md
-    | "lg" -> Ok Max_w_screen_lg
-    | "xl" -> Ok Max_w_screen_xl
-    | "2xl" -> Ok Max_w_screen_2xl
-    | s -> err_invalid_value "max-width screen size" s
-
-  let parse_max_h = function
-    | "none" -> Ok Max_h_none
-    | "full" -> Ok Max_h_full
-    | "screen" -> Ok Max_h_screen
-    | "min" -> Ok Max_h_min
-    | "max" -> Ok Max_h_max
-    | "fit" -> Ok Max_h_fit
-    | "dvh" -> Ok Max_h_dvh
-    | "lvh" -> Ok Max_h_lvh
-    | "svh" -> Ok Max_h_svh
-    | "px" -> Ok Max_h_px
-    | "dvw" -> Ok Max_h_dvw
-    | "lvw" -> Ok Max_h_lvw
-    | "svw" -> Ok Max_h_svw
-    | "lh" -> Ok Max_h_lh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Max_h_fraction frac)
-        else err_invalid_value "max-height fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Max_h_arbitrary (raw, len))
-        | None -> err_invalid_value "max-height" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
-        | _ -> err_invalid_value "max-height" v)
-
-  let parse_size = function
-    | "auto" -> Ok Size_auto
-    | "full" -> Ok Size_full
-    | "dvh" -> Ok Size_dvh
-    | "dvw" -> Ok Size_dvw
-    | "lvh" -> Ok Size_lvh
-    | "lvw" -> Ok Size_lvw
-    | "svh" -> Ok Size_svh
-    | "svw" -> Ok Size_svw
-    | "px" -> Ok Size_px
-    | "min" -> Ok Size_min
-    | "max" -> Ok Size_max
-    | "fit" -> Ok Size_fit
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Size_fraction frac)
-        else err_invalid_value "size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Size_arbitrary (raw, len))
-        | None -> err_invalid_value "size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
-        | _ -> err_invalid_value "size" v)
-
-  let parse_inline = function
-    | "px" -> Ok Inline_px
-    | "auto" -> Ok Inline_auto
-    | "dvw" -> Ok Inline_dvw
-    | "fit" -> Ok Inline_fit
-    | "full" -> Ok Inline_full
-    | "lvw" -> Ok Inline_lvw
-    | "max" -> Ok Inline_max
-    | "min" -> Ok Inline_min
-    | "screen" -> Ok Inline_screen
-    | "svw" -> Ok Inline_svw
-    | name when container_binding name <> None -> Ok (Inline_container name)
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Inline_fraction frac)
-        else err_invalid_value "inline-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Inline_arbitrary (raw, len))
-        | None -> err_invalid_value "inline-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Inline_spacing (n *. 0.25))
-        | _ -> err_invalid_value "inline-size" v)
-
-  let parse_min_inline = function
-    | "auto" -> Ok Min_inline_auto
-    | "fit" -> Ok Min_inline_fit
-    | "full" -> Ok Min_inline_full
-    | "screen" -> Ok Min_inline_screen
-    | "px" -> Ok Min_inline_px
-    | "svw" -> Ok Min_inline_svw
-    | "lvw" -> Ok Min_inline_lvw
-    | "dvw" -> Ok Min_inline_dvw
-    | "max" -> Ok Min_inline_max
-    | "min" -> Ok Min_inline_min
-    | name when container_binding name <> None -> Ok (Min_inline_container name)
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Min_inline_fraction frac)
-        else err_invalid_value "min-inline-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Min_inline_arbitrary (raw, len))
-        | None -> err_invalid_value "min-inline-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Min_inline_spacing (n *. 0.25))
-        | _ -> err_invalid_value "min-inline-size" v)
-
-  let parse_max_inline = function
-    | "fit" -> Ok Max_inline_fit
-    | "full" -> Ok Max_inline_full
-    | "min" -> Ok Max_inline_min
-    | "screen" -> Ok Max_inline_screen
-    | "px" -> Ok Max_inline_px
-    | "svw" -> Ok Max_inline_svw
-    | "lvw" -> Ok Max_inline_lvw
-    | "dvw" -> Ok Max_inline_dvw
-    | "max" -> Ok Max_inline_max
-    | "none" -> Ok Max_inline_none
-    | name when container_binding name <> None -> Ok (Max_inline_container name)
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Max_inline_fraction frac)
-        else err_invalid_value "max-inline-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Max_inline_arbitrary (raw, len))
-        | None -> err_invalid_value "max-inline-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Max_inline_spacing (n *. 0.25))
-        | _ -> err_invalid_value "max-inline-size" v)
-
-  let parse_block = function
-    | "px" -> Ok Block_px
-    | "auto" -> Ok Block_auto
-    | "dvh" -> Ok Block_dvh
-    | "fit" -> Ok Block_fit
-    | "full" -> Ok Block_full
-    | "lh" -> Ok Block_lh
-    | "lvh" -> Ok Block_lvh
-    | "max" -> Ok Block_max
-    | "min" -> Ok Block_min
-    | "screen" -> Ok Block_screen
-    | "svh" -> Ok Block_svh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Block_fraction frac)
-        else err_invalid_value "block-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Block_arbitrary (raw, len))
-        | None -> err_invalid_value "block-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Block_spacing (n *. 0.25))
-        | _ -> err_invalid_value "block-size" v)
-
-  let parse_min_block = function
-    | "auto" -> Ok Min_block_auto
-    | "dvh" -> Ok Min_block_dvh
-    | "fit" -> Ok Min_block_fit
-    | "full" -> Ok Min_block_full
-    | "px" -> Ok Min_block_px
-    | "lh" -> Ok Min_block_lh
-    | "lvh" -> Ok Min_block_lvh
-    | "max" -> Ok Min_block_max
-    | "min" -> Ok Min_block_min
-    | "screen" -> Ok Min_block_screen
-    | "svh" -> Ok Min_block_svh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Min_block_fraction frac)
-        else err_invalid_value "min-block-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Min_block_arbitrary (raw, len))
-        | None -> err_invalid_value "min-block-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Min_block_spacing (n *. 0.25))
-        | _ -> err_invalid_value "min-block-size" v)
-
-  let parse_max_block = function
-    | "dvh" -> Ok Max_block_dvh
-    | "fit" -> Ok Max_block_fit
-    | "full" -> Ok Max_block_full
-    | "px" -> Ok Max_block_px
-    | "lh" -> Ok Max_block_lh
-    | "lvh" -> Ok Max_block_lvh
-    | "max" -> Ok Max_block_max
-    | "min" -> Ok Max_block_min
-    | "none" -> Ok Max_block_none
-    | "screen" -> Ok Max_block_screen
-    | "svh" -> Ok Max_block_svh
-    | frac when String.contains frac '/' && not (is_bracket frac) ->
-        if fraction_pct frac <> None then Ok (Max_block_fraction frac)
-        else err_invalid_value "max-block-size fraction" frac
-    | v when String.length v > 0 && v.[0] = '[' -> (
-        match parse_arbitrary v with
-        | Some (raw, len) -> Ok (Max_block_arbitrary (raw, len))
-        | None -> err_invalid_value "max-block-size" v)
-    | v -> (
-        match float_of_string_opt v with
-        | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
-        | _ -> err_invalid_value "max-block-size" v)
-
-  (* Tailwind accepts a ratio part only when it is a non-negative multiple of
-     0.25 ([isValidSpacingMultiplier]), so [8.5/11] is valid but [1.23/4.56] is
-     not. *)
-  let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
-
-  let parse_aspect_ratio s mk =
-    match String.split_on_char '/' s with
-    | [ w; h ] -> (
-        match (float_of_string_opt w, float_of_string_opt h) with
-        | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
-            Ok (mk w h)
-        | _ -> err_not_utility)
-    | _ -> err_not_utility
-
-  let of_class _theme class_name =
-    match Parse.split_class class_name with
-    | [ "w"; value ] -> parse_w value
-    | [ "h"; value ] -> parse_h value
-    | [ "min"; "w"; value ] -> parse_min_w value
-    | [ "min"; "h"; value ] -> parse_min_h value
-    | [ "max"; "w"; value ] -> parse_max_w value
-    | [ "max"; "w"; "screen"; size ] -> parse_max_w_screen size
-    | [ "max"; "h"; value ] -> parse_max_h value
-    | [ "size"; value ] -> parse_size value
-    | [ "inline"; value ] -> parse_inline value
-    | [ "min"; "inline"; value ] -> parse_min_inline value
-    | [ "max"; "inline"; value ] -> parse_max_inline value
-    | [ "block"; value ] -> parse_block value
-    | [ "min"; "block"; value ] -> parse_min_block value
-    | [ "max"; "block"; value ] -> parse_max_block value
-    | [ "aspect"; "auto" ] -> Ok Aspect_auto
-    | [ "aspect"; "square" ] -> Ok Aspect_square
-    | [ "aspect"; "video" ] -> Ok Aspect_video
-    | [ "aspect"; value ] when Parse.is_bracket_value value -> (
-        let inner = Parse.bracket_inner value in
-        match parse_aspect_ratio inner (fun w h -> Aspect_bracket (w, h)) with
-        | Ok _ as ok -> ok
-        | Error _ -> (
-            (* A bare number arbitrary ratio (aspect-[1.333]) is a single-value
-               aspect-ratio, which minifies to just the number. *)
-            match float_of_string_opt inner with
-            | Some f when f > 0. -> Ok (Aspect_bracket_num inner)
-            | _ -> err_not_utility))
-    | [ "aspect"; value ] ->
-        parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
-    | _ -> err_not_utility
 
   (* Tailwind spacing order helper: matches canonical spacing scale order. n is
      the rem value, so we convert to class units (multiply by 4). *)
@@ -1383,287 +95,689 @@ module Handler = struct
         | _ -> 490000)
     | _ -> 490000
 
-  (* Per-family base; families keep their previous relative order but with wide
-     (10M) bands so the interleaved spacing/fraction range never overflows. *)
+  (* Within a family: spacing and fractions interleaved by magnitude, then an
+     arbitrary value, then the keywords. *)
   let arbitrary_off = 5_000_000
   let keyword_off = 6_000_000
 
   (* Family bases are 10M apart so the interleaved spacing/fraction range (< 5M)
-     and arbitrary/keyword offsets never overflow into the next family. Within a
-     family: spacing/fractions interleaved by magnitude, then arbitrary, then
-     keywords (alphabetical). *)
+     and the arbitrary/keyword offsets never overflow into the next family. *)
   (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
-  let size = 0
-  let h = 10_000_000
-  let max_h = 20_000_000
-  let min_h = 30_000_000
-  let w = 40_000_000
-  let max_w = 50_000_000
-  let min_w = 60_000_000
-  let aspect = 70_000_000
+  let size_base = 0
+  let h_base = 10_000_000
+  let max_h_base = 20_000_000
+  let min_h_base = 30_000_000
+  let w_base = 40_000_000
+  let max_w_base = 50_000_000
+  let min_w_base = 60_000_000
+  let aspect_base = 70_000_000
 
   (* Tailwind registers the logical sizing utilities after every other one, so
      they sort last rather than beside w-* and h-*; [logical_priority] carries
      that. Their bases run in the alphabetical order Tailwind falls back to. *)
   let logical = 80_000_000
-  let block = logical
-  let inline = 90_000_000
-  let max_block = 100_000_000
-  let max_inline = 110_000_000
-  let min_block = 120_000_000
-  let min_inline = 130_000_000
+  let block_base = logical
+  let inline_base = 90_000_000
+  let max_block_base = 100_000_000
+  let max_inline_base = 110_000_000
+  let min_block_base = 120_000_000
+  let min_inline_base = 130_000_000
   let logical_priority = 38
 
+  (* A Tailwind sizing fraction [n/m] resolves to [n/m * 100%]. Tailwind emits
+     calc(n / m * 100%) and folds it to 6 significant figures (e.g. 33.3333,
+     8.33333); we emit the percentage rounded the same way so the two match. *)
+  let fraction_pct frac =
+    match String.split_on_char '/' frac with
+    | [ n; m ] -> (
+        match (int_of_string_opt n, int_of_string_opt m) with
+        (* Any denominator: Tailwind reads [w-<number>/<number>] as a
+           percentage, not from a fixed scale. *)
+        | Some n, Some m when m > 0 && n > 0 && n < m ->
+            let pct = float_of_int n /. float_of_int m *. 100. in
+            let digits = 6. -. Float.ceil (Float.log10 pct) in
+            let factor = 10. ** digits in
+            Some (Float.round (pct *. factor) /. factor)
+        | _ -> None)
+    | _ -> None
+
+  (* Container size theme variables - ordered from smallest to largest *)
+  let container_3xs = Var.theme Css.Length "container-3xs" ~order:(5, 0)
+  let container_2xs = Var.theme Css.Length "container-2xs" ~order:(5, 1)
+  let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 2)
+  let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 3)
+  let container_md = Var.theme Css.Length "container-md" ~order:(5, 4)
+  let container_lg = Var.theme Css.Length "container-lg" ~order:(5, 5)
+  let container_xl = Var.theme Css.Length "container-xl" ~order:(5, 6)
+  let container_2xl = Var.theme Css.Length "container-2xl" ~order:(5, 7)
+  let container_3xl = Var.theme Css.Length "container-3xl" ~order:(5, 8)
+  let container_4xl = Var.theme Css.Length "container-4xl" ~order:(5, 9)
+  let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 10)
+  let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 11)
+  let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 12)
+
+  (* The container scale doubles as the named width scale in v4. This is the
+     only place its names, theme variables, defaults and order live. *)
+  let container_scale =
+    [
+      ("3xs", container_3xs, (Rem 16.0 : length));
+      ("2xs", container_2xs, Rem 18.0);
+      ("xs", container_xs, Rem 20.0);
+      ("sm", container_sm, Rem 24.0);
+      ("md", container_md, Rem 28.0);
+      ("lg", container_lg, Rem 32.0);
+      ("xl", container_xl, Rem 36.0);
+      ("2xl", container_2xl, Rem 42.0);
+      ("3xl", container_3xl, Rem 48.0);
+      ("4xl", container_4xl, Rem 56.0);
+      ("5xl", container_5xl, Rem 64.0);
+      ("6xl", container_6xl, Rem 72.0);
+      ("7xl", container_7xl, Rem 80.0);
+    ]
+
+  let container_binding name =
+    List.find_map
+      (fun (n, var, default) -> if n = name then Some (var, default) else None)
+      container_scale
+
+  (* Breakpoint theme vars, referenced by the (v3) max-w-screen-* utilities.
+     Negative suborders keep them before --container-* in the theme layer, as
+     Tailwind emits them. *)
+  let breakpoint_sm = Var.theme Css.Length "breakpoint-sm" ~order:(5, -5)
+  let breakpoint_md = Var.theme Css.Length "breakpoint-md" ~order:(5, -4)
+  let breakpoint_lg = Var.theme Css.Length "breakpoint-lg" ~order:(5, -3)
+  let breakpoint_xl = Var.theme Css.Length "breakpoint-xl" ~order:(5, -2)
+  let breakpoint_2xl = Var.theme Css.Length "breakpoint-2xl" ~order:(5, -1)
+
+  (* Table entries: [kw] resolves to a literal length, [themed] to a theme
+     variable carrying its default. *)
+  let kw spelling length order = Keyword { spelling; length; order }
+
+  let themed spelling var default order =
+    let decl, ref_ = Var.binding var default in
+    Themed { spelling; decl; value = Var ref_; order }
+
+  (* The whole container scale, in scale order, from suborder offset [off]. *)
+  let container_entries off =
+    List.mapi
+      (fun i (spelling, var, default) -> themed spelling var default (off + i))
+      container_scale
+
+  (* The container scale in a bespoke suborder, given as name/offset pairs. *)
+  let container_entries_by offs =
+    List.filter_map
+      (fun (spelling, var, default) ->
+        Option.map
+          (fun off -> themed spelling var default off)
+          (List.assoc_opt spelling offs))
+      container_scale
+
+  type family = {
+    prefix : string;  (** class prefix, e.g. ["min-w"] *)
+    css_name : string;  (** property name, as error messages spell it *)
+    decls : (length -> declaration) list;
+    base : int;  (** suborder base for the family *)
+    spacing_off : int;  (** extra offset in front of the spacing band *)
+    entries : value list;  (** the keywords this family admits *)
+  }
+
+  let width_family =
+    {
+      prefix = "w";
+      css_name = "width";
+      decls = [ width ];
+      base = w_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvw" (Dvw 100.) (keyword_off + 1);
+          kw "dvh" (Dvh 100.) (keyword_off + 1);
+          kw "lvh" (Lvh 100.) (keyword_off + 1);
+          kw "svh" (Svh 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.0) (keyword_off + 3);
+          kw "lvw" (Lvw 100.) (keyword_off + 4);
+          kw "max" Max_content (keyword_off + 5);
+          kw "min" Min_content (keyword_off + 6);
+          kw "px" (Px 1.0) (keyword_off + 7);
+          kw "screen" (Vw 100.0) (keyword_off + 8);
+          kw "svw" (Svw 100.) (keyword_off + 9);
+        ]
+        @ container_entries (keyword_off + 10);
+    }
+
+  let height_family =
+    {
+      prefix = "h";
+      css_name = "height";
+      decls = [ height ];
+      base = h_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvh" (Dvh 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.0) (keyword_off + 3);
+          kw "lh" (Lh 1.) (keyword_off + 4);
+          kw "lvh" (Lvh 100.) (keyword_off + 5);
+          kw "max" Max_content (keyword_off + 6);
+          kw "min" Min_content (keyword_off + 7);
+          kw "px" (Px 1.0) (keyword_off + 8);
+          kw "screen" (Vh 100.0) (keyword_off + 9);
+          kw "svh" (Svh 100.) (keyword_off + 10);
+          kw "dvw" (Dvw 100.) (keyword_off + 10);
+          kw "lvw" (Lvw 100.) (keyword_off + 10);
+          kw "svw" (Svw 100.) (keyword_off + 10);
+        ];
+    }
+
+  let min_width_family =
+    {
+      prefix = "min-w";
+      css_name = "min-width";
+      decls = [ min_width ];
+      base = min_w_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "0" (Px 0.) 0;
+          kw "auto" Auto (keyword_off + 0);
+          kw "fit" Fit_content (keyword_off + 1);
+          kw "full" (Pct 100.0) (keyword_off + 2);
+          kw "dvh" (Dvh 100.) (keyword_off + 2);
+          kw "dvw" (Dvw 100.) (keyword_off + 2);
+          kw "lvh" (Lvh 100.) (keyword_off + 2);
+          kw "lvw" (Lvw 100.) (keyword_off + 2);
+          kw "svh" (Svh 100.) (keyword_off + 2);
+          kw "svw" (Svw 100.) (keyword_off + 2);
+          kw "px" (Px 1.0) (keyword_off + 2);
+          kw "screen" (Vw 100.0) (keyword_off + 2);
+          kw "max" Max_content (keyword_off + 3);
+          kw "min" Min_content (keyword_off + 4);
+        ]
+        @ container_entries (keyword_off + 5);
+    }
+
+  let min_height_family =
+    {
+      prefix = "min-h";
+      css_name = "min-height";
+      decls = [ min_height ];
+      base = min_h_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "0" (Px 0.) 0;
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvh" (Dvh 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.0) (keyword_off + 3);
+          kw "lh" (Lh 1.) (keyword_off + 4);
+          kw "lvh" (Lvh 100.) (keyword_off + 5);
+          kw "max" Max_content (keyword_off + 6);
+          kw "min" Min_content (keyword_off + 7);
+          kw "screen" (Vh 100.0) (keyword_off + 8);
+          kw "svh" (Svh 100.) (keyword_off + 9);
+          kw "px" (Px 1.0) (keyword_off + 9);
+          kw "dvw" (Dvw 100.) (keyword_off + 9);
+          kw "lvw" (Lvw 100.) (keyword_off + 9);
+          kw "svw" (Svw 100.) (keyword_off + 9);
+        ];
+    }
+
+  (* Tailwind orders max-width in three bands: the container scale sizes
+     (2xl..7xl) by number, then the numeric spacing values, then an arbitrary
+     value, then the letter-prefixed keywords alphabetically. Only this family
+     shifts its spacing band ([spacing_off]); its fractions stay put. *)
+  let max_width_family =
+    {
+      prefix = "max-w";
+      css_name = "max-width";
+      decls = [ max_width ];
+      base = max_w_base;
+      spacing_off = 1_000_000;
+      entries =
+        [
+          kw "dvh" (Dvh 100.) 0;
+          kw "dvw" (Dvw 100.) 0;
+          kw "lvh" (Lvh 100.) 0;
+          kw "lvw" (Lvw 100.) 0;
+          kw "svh" (Svh 100.) 0;
+          kw "svw" (Svw 100.) 0;
+          kw "px" (Px 1.0) 0;
+          kw "screen" (Vw 100.0) 0;
+          kw "fit" Fit_content (keyword_off + 0);
+          kw "full" (Pct 100.0) (keyword_off + 1);
+          kw "max" Max_content (keyword_off + 3);
+          kw "min" Min_content (keyword_off + 5);
+          kw "none" None (keyword_off + 6);
+          kw "prose" (Ch 65.0) (keyword_off + 7);
+          themed "screen-2xl" breakpoint_2xl (Rem 96.) (keyword_off + 8);
+          themed "screen-lg" breakpoint_lg (Rem 64.) (keyword_off + 9);
+          themed "screen-md" breakpoint_md (Rem 48.) (keyword_off + 10);
+          themed "screen-sm" breakpoint_sm (Rem 40.) (keyword_off + 11);
+          themed "screen-xl" breakpoint_xl (Rem 80.) (keyword_off + 12);
+        ]
+        @ container_entries_by
+            [
+              ("2xs", 0);
+              ("3xs", 0);
+              ("2xl", 0);
+              ("3xl", 1);
+              ("4xl", 2);
+              ("5xl", 3);
+              ("6xl", 4);
+              ("7xl", 5);
+              ("lg", keyword_off + 2);
+              ("md", keyword_off + 4);
+              ("sm", keyword_off + 13);
+              ("xl", keyword_off + 14);
+              ("xs", keyword_off + 15);
+            ];
+    }
+
+  let max_height_family =
+    {
+      prefix = "max-h";
+      css_name = "max-height";
+      decls = [ max_height ];
+      base = max_h_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "dvh" (Dvh 100.) (keyword_off + 0);
+          kw "fit" Fit_content (keyword_off + 1);
+          kw "full" (Pct 100.0) (keyword_off + 2);
+          kw "lh" (Lh 1.) (keyword_off + 3);
+          kw "lvh" (Lvh 100.) (keyword_off + 4);
+          kw "max" Max_content (keyword_off + 5);
+          kw "min" Min_content (keyword_off + 6);
+          kw "none" None (keyword_off + 7);
+          kw "screen" (Vh 100.0) (keyword_off + 8);
+          kw "svh" (Svh 100.) (keyword_off + 9);
+          kw "px" (Px 1.0) (keyword_off + 9);
+          kw "dvw" (Dvw 100.) (keyword_off + 9);
+          kw "lvw" (Lvw 100.) (keyword_off + 9);
+          kw "svw" (Svw 100.) (keyword_off + 9);
+        ];
+    }
+
+  let size_family =
+    {
+      prefix = "size";
+      css_name = "size";
+      decls = [ width; height ];
+      base = size_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "fit" Fit_content (keyword_off + 1);
+          kw "full" (Pct 100.0) (keyword_off + 2);
+          kw "dvh" (Dvh 100.) (keyword_off + 2);
+          kw "dvw" (Dvw 100.) (keyword_off + 2);
+          kw "lvh" (Lvh 100.) (keyword_off + 2);
+          kw "lvw" (Lvw 100.) (keyword_off + 2);
+          kw "svh" (Svh 100.) (keyword_off + 2);
+          kw "svw" (Svw 100.) (keyword_off + 2);
+          kw "px" (Px 1.0) (keyword_off + 2);
+          kw "max" Max_content (keyword_off + 3);
+          kw "min" Min_content (keyword_off + 4);
+        ];
+    }
+
+  let inline_family =
+    {
+      prefix = "inline";
+      css_name = "inline-size";
+      decls = [ inline_size ];
+      base = inline_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvw" (Dvw 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.) (keyword_off + 3);
+          kw "lvw" (Lvw 100.) (keyword_off + 4);
+          kw "max" Max_content (keyword_off + 5);
+          kw "min" Min_content (keyword_off + 6);
+          kw "screen" (Vw 100.) (keyword_off + 7);
+          kw "svw" (Svw 100.) (keyword_off + 8);
+          kw "px" (Px 1.) (keyword_off + 20);
+        ]
+        @ container_entries (keyword_off + 9);
+    }
+
+  let min_inline_family =
+    {
+      prefix = "min-inline";
+      css_name = "min-inline-size";
+      decls = [ min_inline_size ];
+      base = min_inline_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "fit" Fit_content (keyword_off + 1);
+          kw "full" (Pct 100.) (keyword_off + 2);
+          kw "screen" (Vw 100.0) (keyword_off + 2);
+          kw "px" (Px 1.0) (keyword_off + 2);
+          kw "svw" (Svw 100.) (keyword_off + 2);
+          kw "lvw" (Lvw 100.) (keyword_off + 2);
+          kw "dvw" (Dvw 100.) (keyword_off + 2);
+          kw "max" Max_content (keyword_off + 3);
+          kw "min" Min_content (keyword_off + 4);
+        ]
+        @ container_entries (keyword_off + 5);
+    }
+
+  let max_inline_family =
+    {
+      prefix = "max-inline";
+      css_name = "max-inline-size";
+      decls = [ max_inline_size ];
+      base = max_inline_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "fit" Fit_content (keyword_off + 0);
+          kw "full" (Pct 100.) (keyword_off + 1);
+          kw "min" Min_content (keyword_off + 1);
+          kw "screen" (Vw 100.0) (keyword_off + 1);
+          kw "px" (Px 1.0) (keyword_off + 1);
+          kw "svw" (Svw 100.) (keyword_off + 1);
+          kw "lvw" (Lvw 100.) (keyword_off + 1);
+          kw "dvw" (Dvw 100.) (keyword_off + 1);
+          kw "max" Max_content (keyword_off + 2);
+          kw "none" None (keyword_off + 3);
+        ]
+        @ container_entries (keyword_off + 4);
+    }
+
+  let block_family =
+    {
+      prefix = "block";
+      css_name = "block-size";
+      decls = [ block_size ];
+      base = block_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvh" (Dvh 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.) (keyword_off + 3);
+          kw "lh" (Lh 1.) (keyword_off + 4);
+          kw "lvh" (Lvh 100.) (keyword_off + 5);
+          kw "max" Max_content (keyword_off + 6);
+          kw "min" Min_content (keyword_off + 7);
+          kw "screen" (Vh 100.) (keyword_off + 8);
+          kw "svh" (Svh 100.) (keyword_off + 9);
+          kw "px" (Px 1.) (keyword_off + 20);
+        ];
+    }
+
+  let min_block_family =
+    {
+      prefix = "min-block";
+      css_name = "min-block-size";
+      decls = [ min_block_size ];
+      base = min_block_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "auto" Auto (keyword_off + 0);
+          kw "dvh" (Dvh 100.) (keyword_off + 1);
+          kw "fit" Fit_content (keyword_off + 2);
+          kw "full" (Pct 100.) (keyword_off + 3);
+          kw "px" (Px 1.0) (keyword_off + 3);
+          kw "lh" (Lh 1.) (keyword_off + 4);
+          kw "lvh" (Lvh 100.) (keyword_off + 5);
+          kw "max" Max_content (keyword_off + 6);
+          kw "min" Min_content (keyword_off + 7);
+          kw "screen" (Vh 100.) (keyword_off + 8);
+          kw "svh" (Svh 100.) (keyword_off + 9);
+        ];
+    }
+
+  let max_block_family =
+    {
+      prefix = "max-block";
+      css_name = "max-block-size";
+      decls = [ max_block_size ];
+      base = max_block_base;
+      spacing_off = 0;
+      entries =
+        [
+          kw "dvh" (Dvh 100.) (keyword_off + 0);
+          kw "fit" Fit_content (keyword_off + 1);
+          kw "full" (Pct 100.) (keyword_off + 2);
+          kw "px" (Px 1.0) (keyword_off + 2);
+          kw "lh" (Lh 1.) (keyword_off + 3);
+          kw "lvh" (Lvh 100.) (keyword_off + 4);
+          kw "max" Max_content (keyword_off + 5);
+          kw "min" Min_content (keyword_off + 6);
+          kw "none" None (keyword_off + 7);
+          kw "screen" (Vh 100.) (keyword_off + 8);
+          kw "svh" (Svh 100.) (keyword_off + 9);
+        ];
+    }
+
+  let family = function
+    | Width -> width_family
+    | Height -> height_family
+    | Min_width -> min_width_family
+    | Min_height -> min_height_family
+    | Max_width -> max_width_family
+    | Max_height -> max_height_family
+    | Width_and_height -> size_family
+    | Inline_size -> inline_family
+    | Min_inline_size -> min_inline_family
+    | Max_inline_size -> max_inline_family
+    | Block_size -> block_family
+    | Min_block_size -> min_block_family
+    | Max_block_size -> max_block_family
+
+  (* The part of the class name that follows the family prefix. *)
+  let class_suffix = function
+    | Keyword k -> k.spelling
+    | Themed t -> t.spelling
+    | Spacing n -> class_float (n *. 4.)
+    | Fraction f -> f
+    | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
+
+  let value_order f = function
+    | Keyword k -> k.order
+    | Themed t -> t.order
+    | Spacing n -> f.spacing_off + spacing_value_order n
+    | Fraction s -> fraction_value_order s
+    | Arbitrary _ -> arbitrary_off
+
+  let lookup f spelling =
+    List.find_opt (fun v -> class_suffix v = spelling) f.entries
+
+  (* [keyword prop name] is family [prop]'s entry for keyword [name]; every
+     caller names one the family's table lists. *)
+  let keyword prop name =
+    let f = family prop in
+    match lookup f name with
+    | Some v -> Sized (prop, v)
+    | None -> invalid_arg ("sizing: no such utility: " ^ f.prefix ^ "-" ^ name)
+
+  let aspect_auto' = style [ Css.aspect_ratio Auto ]
+
+  (* Theme variables for aspect ratios *)
+  let aspect_video_var = Var.theme Css.Aspect_ratio "aspect-video" ~order:(4, 1)
+
+  (* aspect-square inlines the 1/1 ratio in v4 (no --aspect-square theme token),
+     unlike aspect-video which references the --aspect-video token. *)
+  let aspect_square' = style [ Css.aspect_ratio (Ratio (1., 1.)) ]
+
+  let aspect_video' =
+    let decl, r = Var.binding aspect_video_var (Ratio (16., 9.)) in
+    style (decl :: [ Css.aspect_ratio (Var r) ])
+
+  let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
+
+  (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
+     otherwise to the --container-<name> scale (the default). Only w-* reads
+     --width-*. *)
+  let width_override theme prop spelling : Style.t option =
+    match prop with
+    | Width -> (
+        match Scheme.theme_value (Some theme) ("width-" ^ spelling) with
+        | None -> None
+        | Some v ->
+            let decl =
+              Css.custom_property ~layer:"theme" ("--width-" ^ spelling) v
+            in
+            Some
+              (style
+                 [ decl; width (Var (Var.theme_ref ("width-" ^ spelling))) ]))
+    | _ -> None
+
+  let sized_style theme prop v =
+    let f = family prop in
+    let set len = style (List.map (fun decl -> decl len) f.decls) in
+    match v with
+    | Keyword k -> set k.length
+    | Arbitrary (_, len) -> set len
+    | Fraction s -> (
+        match fraction_pct s with
+        | Some pct -> set (Pct pct)
+        | None -> failwith ("Unknown " ^ f.css_name ^ " fraction: " ^ s))
+    | Spacing n ->
+        (* [n] is in rem; the class number is [n * 4] because --spacing is
+           0.25rem. calc(var(--spacing) * n) keeps v4 compatibility. *)
+        let decl, len = Theme.spacing_calc_float ~theme (n *. 4.) in
+        style (decl :: List.map (fun d -> d len) f.decls)
+    | Themed t -> (
+        match width_override theme prop t.spelling with
+        | Some s -> s
+        | None -> style (t.decl :: List.map (fun d -> d t.value) f.decls))
+
+  let to_style theme = function
+    | Sized (prop, v) -> sized_style theme prop v
+    | Aspect_auto -> aspect_auto'
+    | Aspect_square -> aspect_square'
+    | Aspect_video -> aspect_video'
+    | Aspect_ratio (w, h) -> aspect_ratio' w h
+    | Aspect_bracket (w, h) -> aspect_ratio' w h
+    | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
+
+  let err_not_utility = Error (`Msg "Not a sizing utility")
+
+  let err_invalid_value name value =
+    Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
+
+  (* A [/] inside a bracket belongs to the value ([w-[calc(2px/2)]]), not to a
+     fraction. *)
+  let is_bracket v = String.length v > 0 && v.[0] = '['
+
+  let parse_arbitrary s : (string * Css.length) option =
+    (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc. Uses
+       Css.parse_length for full CSS length parsing including calc(). Returns
+       (raw_inner, parsed_length) where raw_inner is used for the CSS class name
+       selector (preserving original formatting). *)
+    let len = String.length s in
+    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
+      let inner = String.sub s 1 (len - 2) in
+      let css_value =
+        Parse.normalize_css_math_operators (Parse.decode_arbitrary_value inner)
+      in
+      match Css.parse_length css_value with
+      | Some l -> Some (inner, l)
+      | None -> None
+    else None
+
+  (* One parser for all thirteen sizing families: the family's own keyword
+     table, then the fraction, bracket and spacing tails they share. *)
+  let parse_sized prop v =
+    let f = family prop in
+    match lookup f v with
+    | Some value -> Ok (Sized (prop, value))
+    | None -> (
+        if String.contains v '/' && not (is_bracket v) then
+          if fraction_pct v <> None then Ok (Sized (prop, Fraction v))
+          else err_invalid_value (f.css_name ^ " fraction") v
+        else if is_bracket v then
+          match parse_arbitrary v with
+          | Some (raw, len) -> Ok (Sized (prop, Arbitrary (raw, len)))
+          | None -> err_invalid_value f.css_name v
+        else
+          match float_of_string_opt v with
+          | Some n when n >= 0. -> Ok (Sized (prop, Spacing (n *. 0.25)))
+          | _ -> err_invalid_value f.css_name v)
+
+  let parse_max_w_screen s =
+    match lookup max_width_family ("screen-" ^ s) with
+    | Some value -> Ok (Sized (Max_width, value))
+    | None -> err_invalid_value "max-width screen size" s
+
+  (* Tailwind accepts a ratio part only when it is a non-negative multiple of
+     0.25 ([isValidSpacingMultiplier]), so [8.5/11] is valid but [1.23/4.56] is
+     not. *)
+  let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
+
+  let parse_aspect_ratio s mk =
+    match String.split_on_char '/' s with
+    | [ w; h ] -> (
+        match (float_of_string_opt w, float_of_string_opt h) with
+        | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
+            Ok (mk w h)
+        | _ -> err_not_utility)
+    | _ -> err_not_utility
+
+  let of_class _theme class_name =
+    match Parse.split_class class_name with
+    | [ "w"; value ] -> parse_sized Width value
+    | [ "h"; value ] -> parse_sized Height value
+    | [ "min"; "w"; value ] -> parse_sized Min_width value
+    | [ "min"; "h"; value ] -> parse_sized Min_height value
+    | [ "max"; "w"; value ] -> parse_sized Max_width value
+    | [ "max"; "w"; "screen"; size ] -> parse_max_w_screen size
+    | [ "max"; "h"; value ] -> parse_sized Max_height value
+    | [ "size"; value ] -> parse_sized Width_and_height value
+    | [ "inline"; value ] -> parse_sized Inline_size value
+    | [ "min"; "inline"; value ] -> parse_sized Min_inline_size value
+    | [ "max"; "inline"; value ] -> parse_sized Max_inline_size value
+    | [ "block"; value ] -> parse_sized Block_size value
+    | [ "min"; "block"; value ] -> parse_sized Min_block_size value
+    | [ "max"; "block"; value ] -> parse_sized Max_block_size value
+    | [ "aspect"; "auto" ] -> Ok Aspect_auto
+    | [ "aspect"; "square" ] -> Ok Aspect_square
+    | [ "aspect"; "video" ] -> Ok Aspect_video
+    | [ "aspect"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match parse_aspect_ratio inner (fun w h -> Aspect_bracket (w, h)) with
+        | Ok _ as ok -> ok
+        | Error _ -> (
+            (* A bare number arbitrary ratio (aspect-[1.333]) is a single-value
+               aspect-ratio, which minifies to just the number. *)
+            match float_of_string_opt inner with
+            | Some f when f > 0. -> Ok (Aspect_bracket_num inner)
+            | _ -> err_not_utility))
+    | [ "aspect"; value ] ->
+        parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
+    | _ -> err_not_utility
+
   let suborder = function
-    (* Height *)
-    | H_fraction f -> h + fraction_value_order f
-    | H_spacing n -> h + spacing_value_order n
-    | H_arbitrary _ -> h + arbitrary_off
-    | H_auto -> h + keyword_off + 0
-    | H_dvh -> h + keyword_off + 1
-    | H_fit -> h + keyword_off + 2
-    | H_full -> h + keyword_off + 3
-    | H_lh -> h + keyword_off + 4
-    | H_lvh -> h + keyword_off + 5
-    | H_max -> h + keyword_off + 6
-    | H_min -> h + keyword_off + 7
-    | H_px -> h + keyword_off + 8
-    | H_screen -> h + keyword_off + 9
-    | H_svh -> h + keyword_off + 10
-    | H_dvw -> h + keyword_off + 10
-    | H_lvw -> h + keyword_off + 10
-    | H_svw -> h + keyword_off + 10
-    (* Max-height *)
-    | Max_h_spacing n -> max_h + spacing_value_order n
-    | Max_h_fraction f -> max_h + fraction_value_order f
-    | Max_h_arbitrary _ -> max_h + arbitrary_off
-    | Max_h_dvh -> max_h + keyword_off + 0
-    | Max_h_fit -> max_h + keyword_off + 1
-    | Max_h_full -> max_h + keyword_off + 2
-    | Max_h_lh -> max_h + keyword_off + 3
-    | Max_h_lvh -> max_h + keyword_off + 4
-    | Max_h_max -> max_h + keyword_off + 5
-    | Max_h_min -> max_h + keyword_off + 6
-    | Max_h_none -> max_h + keyword_off + 7
-    | Max_h_screen -> max_h + keyword_off + 8
-    | Max_h_svh -> max_h + keyword_off + 9
-    | Max_h_px -> max_h + keyword_off + 9
-    | Max_h_dvw -> max_h + keyword_off + 9
-    | Max_h_lvw -> max_h + keyword_off + 9
-    | Max_h_svw -> max_h + keyword_off + 9
-    (* Min-height *)
-    | Min_h_0 -> min_h + 0
-    | Min_h_spacing n -> min_h + spacing_value_order n
-    | Min_h_fraction f -> min_h + fraction_value_order f
-    | Min_h_arbitrary _ -> min_h + arbitrary_off
-    | Min_h_auto -> min_h + keyword_off + 0
-    | Min_h_dvh -> min_h + keyword_off + 1
-    | Min_h_fit -> min_h + keyword_off + 2
-    | Min_h_full -> min_h + keyword_off + 3
-    | Min_h_lh -> min_h + keyword_off + 4
-    | Min_h_lvh -> min_h + keyword_off + 5
-    | Min_h_max -> min_h + keyword_off + 6
-    | Min_h_min -> min_h + keyword_off + 7
-    | Min_h_screen -> min_h + keyword_off + 8
-    | Min_h_svh -> min_h + keyword_off + 9
-    | Min_h_px -> min_h + keyword_off + 9
-    | Min_h_dvw -> min_h + keyword_off + 9
-    | Min_h_lvw -> min_h + keyword_off + 9
-    | Min_h_svw -> min_h + keyword_off + 9
-    (* Width *)
-    | W_fraction f -> w + fraction_value_order f
-    | W_spacing n -> w + spacing_value_order n
-    | W_arbitrary _ -> w + arbitrary_off
-    | W_auto -> w + keyword_off + 0
-    | W_dvw -> w + keyword_off + 1
-    | W_dvh -> w + keyword_off + 1
-    | W_lvh -> w + keyword_off + 1
-    | W_svh -> w + keyword_off + 1
-    | W_fit -> w + keyword_off + 2
-    | W_full -> w + keyword_off + 3
-    | W_lvw -> w + keyword_off + 4
-    | W_max -> w + keyword_off + 5
-    | W_min -> w + keyword_off + 6
-    | W_px -> w + keyword_off + 7
-    | W_screen -> w + keyword_off + 8
-    | W_svw -> w + keyword_off + 9
-    | W_container name -> w + keyword_off + 10 + container_order name
-    (* Max-width *)
-    (* Tailwind orders max-width in three bands: the container scale sizes
-       (2xl..7xl) by number, then the numeric spacing values, then an arbitrary
-       value, then the letter-prefixed keywords alphabetically. *)
-    | Max_w_2xl -> max_w + 0
-    | Max_w_2xs -> max_w + 0
-    | Max_w_3xs -> max_w + 0
-    | Max_w_dvh -> max_w + 0
-    | Max_w_dvw -> max_w + 0
-    | Max_w_lvh -> max_w + 0
-    | Max_w_lvw -> max_w + 0
-    | Max_w_svh -> max_w + 0
-    | Max_w_svw -> max_w + 0
-    | Max_w_px -> max_w + 0
-    | Max_w_screen -> max_w + 0
-    | Max_w_3xl -> max_w + 1
-    | Max_w_4xl -> max_w + 2
-    | Max_w_5xl -> max_w + 3
-    | Max_w_6xl -> max_w + 4
-    | Max_w_7xl -> max_w + 5
-    | Max_w_spacing n -> max_w + 1_000_000 + spacing_value_order n
-    | Max_w_fraction f -> max_w + fraction_value_order f
-    | Max_w_arbitrary _ -> max_w + arbitrary_off
-    | Max_w_fit -> max_w + keyword_off + 0
-    | Max_w_full -> max_w + keyword_off + 1
-    | Max_w_lg -> max_w + keyword_off + 2
-    | Max_w_max -> max_w + keyword_off + 3
-    | Max_w_md -> max_w + keyword_off + 4
-    | Max_w_min -> max_w + keyword_off + 5
-    | Max_w_none -> max_w + keyword_off + 6
-    | Max_w_prose -> max_w + keyword_off + 7
-    | Max_w_screen_2xl -> max_w + keyword_off + 8
-    | Max_w_screen_lg -> max_w + keyword_off + 9
-    | Max_w_screen_md -> max_w + keyword_off + 10
-    | Max_w_screen_sm -> max_w + keyword_off + 11
-    | Max_w_screen_xl -> max_w + keyword_off + 12
-    | Max_w_sm -> max_w + keyword_off + 13
-    | Max_w_xl -> max_w + keyword_off + 14
-    | Max_w_xs -> max_w + keyword_off + 15
-    (* Min-width *)
-    | Min_w_0 -> min_w + 0
-    | Min_w_spacing n -> min_w + spacing_value_order n
-    | Min_w_fraction f -> min_w + fraction_value_order f
-    | Min_w_arbitrary _ -> min_w + arbitrary_off
-    | Min_w_auto -> min_w + keyword_off + 0
-    | Min_w_fit -> min_w + keyword_off + 1
-    | Min_w_full -> min_w + keyword_off + 2
-    | Min_w_dvh -> min_w + keyword_off + 2
-    | Min_w_dvw -> min_w + keyword_off + 2
-    | Min_w_lvh -> min_w + keyword_off + 2
-    | Min_w_lvw -> min_w + keyword_off + 2
-    | Min_w_svh -> min_w + keyword_off + 2
-    | Min_w_svw -> min_w + keyword_off + 2
-    | Min_w_px -> min_w + keyword_off + 2
-    | Min_w_screen -> min_w + keyword_off + 2
-    | Min_w_max -> min_w + keyword_off + 3
-    | Min_w_min -> min_w + keyword_off + 4
-    | Min_w_container name -> min_w + keyword_off + 5 + container_order name
-    (* Size *)
-    | Size_fraction f -> size + fraction_value_order f
-    | Size_spacing n -> size + spacing_value_order n
-    | Size_arbitrary _ -> size + arbitrary_off
-    | Size_auto -> size + keyword_off + 0
-    | Size_fit -> size + keyword_off + 1
-    | Size_full -> size + keyword_off + 2
-    | Size_dvh -> size + keyword_off + 2
-    | Size_dvw -> size + keyword_off + 2
-    | Size_lvh -> size + keyword_off + 2
-    | Size_lvw -> size + keyword_off + 2
-    | Size_svh -> size + keyword_off + 2
-    | Size_svw -> size + keyword_off + 2
-    | Size_px -> size + keyword_off + 2
-    | Size_max -> size + keyword_off + 3
-    | Size_min -> size + keyword_off + 4
-    (* inline-size *)
-    | Inline_fraction f -> inline + fraction_value_order f
-    | Inline_px -> inline + keyword_off + 20
-    | Inline_spacing n -> inline + spacing_value_order n
-    | Inline_arbitrary _ -> inline + arbitrary_off
-    | Inline_auto -> inline + keyword_off + 0
-    | Inline_dvw -> inline + keyword_off + 1
-    | Inline_fit -> inline + keyword_off + 2
-    | Inline_full -> inline + keyword_off + 3
-    | Inline_lvw -> inline + keyword_off + 4
-    | Inline_max -> inline + keyword_off + 5
-    | Inline_min -> inline + keyword_off + 6
-    | Inline_screen -> inline + keyword_off + 7
-    | Inline_svw -> inline + keyword_off + 8
-    | Inline_container name -> inline + keyword_off + 9 + container_order name
-    (* min-inline-size *)
-    | Min_inline_fraction f -> min_inline + fraction_value_order f
-    | Min_inline_spacing n -> min_inline + spacing_value_order n
-    | Min_inline_arbitrary _ -> min_inline + arbitrary_off
-    | Min_inline_auto -> min_inline + keyword_off + 0
-    | Min_inline_fit -> min_inline + keyword_off + 1
-    | Min_inline_full -> min_inline + keyword_off + 2
-    | Min_inline_screen -> min_inline + keyword_off + 2
-    | Min_inline_px -> min_inline + keyword_off + 2
-    | Min_inline_svw -> min_inline + keyword_off + 2
-    | Min_inline_lvw -> min_inline + keyword_off + 2
-    | Min_inline_dvw -> min_inline + keyword_off + 2
-    | Min_inline_max -> min_inline + keyword_off + 3
-    | Min_inline_min -> min_inline + keyword_off + 4
-    | Min_inline_container name ->
-        min_inline + keyword_off + 5 + container_order name
-    (* max-inline-size *)
-    | Max_inline_fraction f -> max_inline + fraction_value_order f
-    | Max_inline_spacing n -> max_inline + spacing_value_order n
-    | Max_inline_arbitrary _ -> max_inline + arbitrary_off
-    | Max_inline_fit -> max_inline + keyword_off + 0
-    | Max_inline_full -> max_inline + keyword_off + 1
-    | Max_inline_min -> max_inline + keyword_off + 1
-    | Max_inline_screen -> max_inline + keyword_off + 1
-    | Max_inline_px -> max_inline + keyword_off + 1
-    | Max_inline_svw -> max_inline + keyword_off + 1
-    | Max_inline_lvw -> max_inline + keyword_off + 1
-    | Max_inline_dvw -> max_inline + keyword_off + 1
-    | Max_inline_max -> max_inline + keyword_off + 2
-    | Max_inline_none -> max_inline + keyword_off + 3
-    | Max_inline_container name ->
-        max_inline + keyword_off + 4 + container_order name
-    (* block-size *)
-    | Block_fraction f -> block + fraction_value_order f
-    | Block_px -> block + keyword_off + 20
-    | Block_spacing n -> block + spacing_value_order n
-    | Block_arbitrary _ -> block + arbitrary_off
-    | Block_auto -> block + keyword_off + 0
-    | Block_dvh -> block + keyword_off + 1
-    | Block_fit -> block + keyword_off + 2
-    | Block_full -> block + keyword_off + 3
-    | Block_lh -> block + keyword_off + 4
-    | Block_lvh -> block + keyword_off + 5
-    | Block_max -> block + keyword_off + 6
-    | Block_min -> block + keyword_off + 7
-    | Block_screen -> block + keyword_off + 8
-    | Block_svh -> block + keyword_off + 9
-    (* min-block-size *)
-    | Min_block_fraction f -> min_block + fraction_value_order f
-    | Min_block_spacing n -> min_block + spacing_value_order n
-    | Min_block_arbitrary _ -> min_block + arbitrary_off
-    | Min_block_auto -> min_block + keyword_off + 0
-    | Min_block_dvh -> min_block + keyword_off + 1
-    | Min_block_fit -> min_block + keyword_off + 2
-    | Min_block_full -> min_block + keyword_off + 3
-    | Min_block_px -> min_block + keyword_off + 3
-    | Min_block_lh -> min_block + keyword_off + 4
-    | Min_block_lvh -> min_block + keyword_off + 5
-    | Min_block_max -> min_block + keyword_off + 6
-    | Min_block_min -> min_block + keyword_off + 7
-    | Min_block_screen -> min_block + keyword_off + 8
-    | Min_block_svh -> min_block + keyword_off + 9
-    (* max-block-size *)
-    | Max_block_fraction f -> max_block + fraction_value_order f
-    | Max_block_spacing n -> max_block + spacing_value_order n
-    | Max_block_arbitrary _ -> max_block + arbitrary_off
-    | Max_block_dvh -> max_block + keyword_off + 0
-    | Max_block_fit -> max_block + keyword_off + 1
-    | Max_block_full -> max_block + keyword_off + 2
-    | Max_block_px -> max_block + keyword_off + 2
-    | Max_block_lh -> max_block + keyword_off + 3
-    | Max_block_lvh -> max_block + keyword_off + 4
-    | Max_block_max -> max_block + keyword_off + 5
-    | Max_block_min -> max_block + keyword_off + 6
-    | Max_block_none -> max_block + keyword_off + 7
-    | Max_block_screen -> max_block + keyword_off + 8
-    | Max_block_svh -> max_block + keyword_off + 9
+    | Sized (prop, v) ->
+        let f = family prop in
+        f.base + value_order f v
     (* Aspect: ratios -> brackets -> keywords *)
     | Aspect_ratio (rw, rh) ->
-        aspect + int_of_float (rw *. 10.) + int_of_float rh
+        aspect_base + int_of_float (rw *. 10.) + int_of_float rh
     | Aspect_bracket (rw, rh) ->
-        aspect + 1000 + int_of_float (rw *. 10.) + int_of_float rh
+        aspect_base + 1000 + int_of_float (rw *. 10.) + int_of_float rh
     | Aspect_bracket_num s ->
-        aspect + 1000 + int_of_float (float_of_string s *. 10.) + 1
-    | Aspect_auto -> aspect + 2000
-    | Aspect_square -> aspect + 2001
-    | Aspect_video -> aspect + 2002
+        aspect_base + 1000 + int_of_float (float_of_string s *. 10.) + 1
+    | Aspect_auto -> aspect_base + 2000
+    | Aspect_square -> aspect_base + 2001
+    | Aspect_video -> aspect_base + 2002
 
   (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
       flex-1/flex-col in Tailwind's order. The logical ones are registered after
@@ -1671,241 +785,7 @@ module Handler = struct
   let priority u = if suborder u >= logical then logical_priority else 6
 
   let to_class = function
-    (* Width utilities *)
-    | W_auto -> "w-auto"
-    | W_full -> "w-full"
-    | W_screen -> "w-screen"
-    | W_min -> "w-min"
-    | W_max -> "w-max"
-    | W_fit -> "w-fit"
-    | W_px -> "w-px"
-    | W_spacing n -> "w-" ^ class_float (n *. 4.)
-    | W_fraction f -> "w-" ^ f
-    | W_arbitrary (raw, _) -> "w-[" ^ raw ^ "]"
-    | W_dvw -> "w-dvw"
-    | W_dvh -> "w-dvh"
-    | W_lvh -> "w-lvh"
-    | W_svh -> "w-svh"
-    | W_lvw -> "w-lvw"
-    | W_svw -> "w-svw"
-    | W_container name -> "w-" ^ name
-    (* Height utilities *)
-    | H_auto -> "h-auto"
-    | H_full -> "h-full"
-    | H_screen -> "h-screen"
-    | H_min -> "h-min"
-    | H_max -> "h-max"
-    | H_fit -> "h-fit"
-    | H_px -> "h-px"
-    | H_spacing n -> "h-" ^ class_float (n *. 4.)
-    | H_fraction f -> "h-" ^ f
-    | H_arbitrary (raw, _) -> "h-[" ^ raw ^ "]"
-    | H_dvh -> "h-dvh"
-    | H_lh -> "h-lh"
-    | H_lvh -> "h-lvh"
-    | H_svh -> "h-svh"
-    | H_dvw -> "h-dvw"
-    | H_lvw -> "h-lvw"
-    | H_svw -> "h-svw"
-    (* Min-width utilities *)
-    | Min_w_0 -> "min-w-0"
-    | Min_w_full -> "min-w-full"
-    | Min_w_dvh -> "min-w-dvh"
-    | Min_w_dvw -> "min-w-dvw"
-    | Min_w_lvh -> "min-w-lvh"
-    | Min_w_lvw -> "min-w-lvw"
-    | Min_w_svh -> "min-w-svh"
-    | Min_w_svw -> "min-w-svw"
-    | Min_w_px -> "min-w-px"
-    | Min_w_screen -> "min-w-screen"
-    | Min_w_min -> "min-w-min"
-    | Min_w_max -> "min-w-max"
-    | Min_w_fit -> "min-w-fit"
-    | Min_w_auto -> "min-w-auto"
-    | Min_w_spacing n -> "min-w-" ^ class_float (n *. 4.)
-    | Min_w_fraction f -> "min-w-" ^ f
-    | Min_w_arbitrary (raw, _) -> "min-w-[" ^ raw ^ "]"
-    | Min_w_container name -> "min-w-" ^ name
-    (* Max-width utilities *)
-    | Max_w_none -> "max-w-none"
-    | Max_w_xs -> "max-w-xs"
-    | Max_w_sm -> "max-w-sm"
-    | Max_w_md -> "max-w-md"
-    | Max_w_lg -> "max-w-lg"
-    | Max_w_xl -> "max-w-xl"
-    | Max_w_2xl -> "max-w-2xl"
-    | Max_w_2xs -> "max-w-2xs"
-    | Max_w_3xs -> "max-w-3xs"
-    | Max_w_dvh -> "max-w-dvh"
-    | Max_w_dvw -> "max-w-dvw"
-    | Max_w_lvh -> "max-w-lvh"
-    | Max_w_lvw -> "max-w-lvw"
-    | Max_w_svh -> "max-w-svh"
-    | Max_w_svw -> "max-w-svw"
-    | Max_w_px -> "max-w-px"
-    | Max_w_screen -> "max-w-screen"
-    | Max_w_3xl -> "max-w-3xl"
-    | Max_w_4xl -> "max-w-4xl"
-    | Max_w_5xl -> "max-w-5xl"
-    | Max_w_6xl -> "max-w-6xl"
-    | Max_w_7xl -> "max-w-7xl"
-    | Max_w_full -> "max-w-full"
-    | Max_w_min -> "max-w-min"
-    | Max_w_max -> "max-w-max"
-    | Max_w_fit -> "max-w-fit"
-    | Max_w_prose -> "max-w-prose"
-    | Max_w_screen_sm -> "max-w-screen-sm"
-    | Max_w_screen_md -> "max-w-screen-md"
-    | Max_w_screen_lg -> "max-w-screen-lg"
-    | Max_w_screen_xl -> "max-w-screen-xl"
-    | Max_w_screen_2xl -> "max-w-screen-2xl"
-    | Max_w_spacing n -> "max-w-" ^ class_float (n *. 4.)
-    | Max_w_fraction f -> "max-w-" ^ f
-    | Max_w_arbitrary (raw, _) -> "max-w-[" ^ raw ^ "]"
-    (* Min-height utilities *)
-    | Min_h_0 -> "min-h-0"
-    | Min_h_full -> "min-h-full"
-    | Min_h_screen -> "min-h-screen"
-    | Min_h_min -> "min-h-min"
-    | Min_h_max -> "min-h-max"
-    | Min_h_fit -> "min-h-fit"
-    | Min_h_auto -> "min-h-auto"
-    | Min_h_dvh -> "min-h-dvh"
-    | Min_h_lvh -> "min-h-lvh"
-    | Min_h_svh -> "min-h-svh"
-    | Min_h_px -> "min-h-px"
-    | Min_h_dvw -> "min-h-dvw"
-    | Min_h_lvw -> "min-h-lvw"
-    | Min_h_svw -> "min-h-svw"
-    | Min_h_lh -> "min-h-lh"
-    | Min_h_spacing n -> "min-h-" ^ class_float (n *. 4.)
-    | Min_h_fraction f -> "min-h-" ^ f
-    | Min_h_arbitrary (raw, _) -> "min-h-[" ^ raw ^ "]"
-    (* Max-height utilities *)
-    | Max_h_none -> "max-h-none"
-    | Max_h_full -> "max-h-full"
-    | Max_h_screen -> "max-h-screen"
-    | Max_h_min -> "max-h-min"
-    | Max_h_max -> "max-h-max"
-    | Max_h_fit -> "max-h-fit"
-    | Max_h_dvh -> "max-h-dvh"
-    | Max_h_lvh -> "max-h-lvh"
-    | Max_h_svh -> "max-h-svh"
-    | Max_h_px -> "max-h-px"
-    | Max_h_dvw -> "max-h-dvw"
-    | Max_h_lvw -> "max-h-lvw"
-    | Max_h_svw -> "max-h-svw"
-    | Max_h_lh -> "max-h-lh"
-    | Max_h_spacing n -> "max-h-" ^ class_float (n *. 4.)
-    | Max_h_fraction f -> "max-h-" ^ f
-    | Max_h_arbitrary (raw, _) -> "max-h-[" ^ raw ^ "]"
-    (* Size utilities *)
-    | Size_auto -> "size-auto"
-    | Size_full -> "size-full"
-    | Size_dvh -> "size-dvh"
-    | Size_dvw -> "size-dvw"
-    | Size_lvh -> "size-lvh"
-    | Size_lvw -> "size-lvw"
-    | Size_svh -> "size-svh"
-    | Size_svw -> "size-svw"
-    | Size_px -> "size-px"
-    | Size_min -> "size-min"
-    | Size_max -> "size-max"
-    | Size_fit -> "size-fit"
-    | Size_spacing n -> "size-" ^ class_float (n *. 4.)
-    | Size_fraction f -> "size-" ^ f
-    | Size_arbitrary (raw, _) -> "size-[" ^ raw ^ "]"
-    (* inline-size utilities *)
-    | Inline_fraction f -> "inline-" ^ f
-    | Inline_px -> "inline-px"
-    | Inline_spacing n -> "inline-" ^ class_float (n *. 4.)
-    | Inline_arbitrary (raw, _) -> "inline-[" ^ raw ^ "]"
-    | Inline_auto -> "inline-auto"
-    | Inline_dvw -> "inline-dvw"
-    | Inline_fit -> "inline-fit"
-    | Inline_full -> "inline-full"
-    | Inline_lvw -> "inline-lvw"
-    | Inline_max -> "inline-max"
-    | Inline_min -> "inline-min"
-    | Inline_screen -> "inline-screen"
-    | Inline_svw -> "inline-svw"
-    | Inline_container name -> "inline-" ^ name
-    (* min-inline-size utilities *)
-    | Min_inline_fraction f -> "min-inline-" ^ f
-    | Min_inline_spacing n -> "min-inline-" ^ class_float (n *. 4.)
-    | Min_inline_arbitrary (raw, _) -> "min-inline-[" ^ raw ^ "]"
-    | Min_inline_auto -> "min-inline-auto"
-    | Min_inline_fit -> "min-inline-fit"
-    | Min_inline_full -> "min-inline-full"
-    | Min_inline_screen -> "min-inline-screen"
-    | Min_inline_px -> "min-inline-px"
-    | Min_inline_svw -> "min-inline-svw"
-    | Min_inline_lvw -> "min-inline-lvw"
-    | Min_inline_dvw -> "min-inline-dvw"
-    | Min_inline_max -> "min-inline-max"
-    | Min_inline_min -> "min-inline-min"
-    | Min_inline_container name -> "min-inline-" ^ name
-    (* max-inline-size utilities *)
-    | Max_inline_fraction f -> "max-inline-" ^ f
-    | Max_inline_spacing n -> "max-inline-" ^ class_float (n *. 4.)
-    | Max_inline_arbitrary (raw, _) -> "max-inline-[" ^ raw ^ "]"
-    | Max_inline_fit -> "max-inline-fit"
-    | Max_inline_full -> "max-inline-full"
-    | Max_inline_min -> "max-inline-min"
-    | Max_inline_screen -> "max-inline-screen"
-    | Max_inline_px -> "max-inline-px"
-    | Max_inline_svw -> "max-inline-svw"
-    | Max_inline_lvw -> "max-inline-lvw"
-    | Max_inline_dvw -> "max-inline-dvw"
-    | Max_inline_max -> "max-inline-max"
-    | Max_inline_none -> "max-inline-none"
-    | Max_inline_container name -> "max-inline-" ^ name
-    (* block-size utilities *)
-    | Block_fraction f -> "block-" ^ f
-    | Block_px -> "block-px"
-    | Block_spacing n -> "block-" ^ class_float (n *. 4.)
-    | Block_arbitrary (raw, _) -> "block-[" ^ raw ^ "]"
-    | Block_auto -> "block-auto"
-    | Block_dvh -> "block-dvh"
-    | Block_fit -> "block-fit"
-    | Block_full -> "block-full"
-    | Block_lh -> "block-lh"
-    | Block_lvh -> "block-lvh"
-    | Block_max -> "block-max"
-    | Block_min -> "block-min"
-    | Block_screen -> "block-screen"
-    | Block_svh -> "block-svh"
-    (* min-block-size utilities *)
-    | Min_block_fraction f -> "min-block-" ^ f
-    | Min_block_spacing n -> "min-block-" ^ class_float (n *. 4.)
-    | Min_block_arbitrary (raw, _) -> "min-block-[" ^ raw ^ "]"
-    | Min_block_auto -> "min-block-auto"
-    | Min_block_dvh -> "min-block-dvh"
-    | Min_block_fit -> "min-block-fit"
-    | Min_block_full -> "min-block-full"
-    | Min_block_px -> "min-block-px"
-    | Min_block_lh -> "min-block-lh"
-    | Min_block_lvh -> "min-block-lvh"
-    | Min_block_max -> "min-block-max"
-    | Min_block_min -> "min-block-min"
-    | Min_block_screen -> "min-block-screen"
-    | Min_block_svh -> "min-block-svh"
-    (* max-block-size utilities *)
-    | Max_block_fraction f -> "max-block-" ^ f
-    | Max_block_spacing n -> "max-block-" ^ class_float (n *. 4.)
-    | Max_block_arbitrary (raw, _) -> "max-block-[" ^ raw ^ "]"
-    | Max_block_dvh -> "max-block-dvh"
-    | Max_block_fit -> "max-block-fit"
-    | Max_block_full -> "max-block-full"
-    | Max_block_px -> "max-block-px"
-    | Max_block_lh -> "max-block-lh"
-    | Max_block_lvh -> "max-block-lvh"
-    | Max_block_max -> "max-block-max"
-    | Max_block_min -> "max-block-min"
-    | Max_block_none -> "max-block-none"
-    | Max_block_screen -> "max-block-screen"
-    | Max_block_svh -> "max-block-svh"
-    (* Aspect utilities *)
+    | Sized (prop, v) -> (family prop).prefix ^ "-" ^ class_suffix v
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
@@ -1925,19 +805,19 @@ module Handler = struct
 
   let examples =
     [
-      H_auto;
-      Max_h_none;
-      Min_h_auto;
-      W_auto;
-      Max_w_none;
-      Min_w_auto;
+      keyword Height "auto";
+      keyword Max_height "none";
+      keyword Min_height "auto";
+      keyword Width "auto";
+      keyword Max_width "none";
+      keyword Min_width "auto";
       Aspect_auto;
-      Block_auto;
-      Max_block_none;
-      Min_block_auto;
-      Inline_auto;
-      Max_inline_none;
-      Min_inline_auto;
+      keyword Block_size "auto";
+      keyword Max_block_size "none";
+      keyword Min_block_size "auto";
+      keyword Inline_size "auto";
+      keyword Max_inline_size "none";
+      keyword Min_inline_size "auto";
     ]
 end
 
@@ -1965,138 +845,154 @@ let prime_size_utility ~none ~xs ~sm ~md ~lg ~xl ~xl_2 ~xl_3 ~full ~rem =
   | `Full -> utility full
   | `Rem n -> utility (rem n)
 
+(* [n] is in rem units; the spacing scale steps by 0.25rem. *)
+let spacing prop n = Sized (prop, Spacing n)
+let fraction prop f = Sized (prop, Fraction f)
+let scaled prop n = utility (spacing prop (float_of_int n *. 0.25))
+
 let w' =
-  prime_size_utility ~none:(W_spacing 0.) ~xs:(W_spacing 0.5)
-    ~sm:(W_spacing 1.0) ~md:(W_spacing 1.5) ~lg:(W_spacing 2.0)
-    ~xl:(W_spacing 3.0) ~xl_2:(W_spacing 4.0) ~xl_3:(W_spacing 6.0) ~full:W_full
-    ~rem:(fun n -> W_spacing n)
+  prime_size_utility ~none:(spacing Width 0.) ~xs:(spacing Width 0.5)
+    ~sm:(spacing Width 1.0) ~md:(spacing Width 1.5) ~lg:(spacing Width 2.0)
+    ~xl:(spacing Width 3.0) ~xl_2:(spacing Width 4.0) ~xl_3:(spacing Width 6.0)
+    ~full:(keyword Width "full") ~rem:(spacing Width)
 
 let h' =
-  prime_size_utility ~none:(H_spacing 0.) ~xs:(H_spacing 0.5)
-    ~sm:(H_spacing 1.0) ~md:(H_spacing 1.5) ~lg:(H_spacing 2.0)
-    ~xl:(H_spacing 3.0) ~xl_2:(H_spacing 4.0) ~xl_3:(H_spacing 6.0) ~full:H_full
-    ~rem:(fun n -> H_spacing n)
+  prime_size_utility ~none:(spacing Height 0.) ~xs:(spacing Height 0.5)
+    ~sm:(spacing Height 1.0) ~md:(spacing Height 1.5) ~lg:(spacing Height 2.0)
+    ~xl:(spacing Height 3.0) ~xl_2:(spacing Height 4.0)
+    ~xl_3:(spacing Height 6.0) ~full:(keyword Height "full")
+    ~rem:(spacing Height)
 
 let min_w' =
-  prime_size_utility ~none:Min_w_0 ~xs:(Min_w_spacing 0.5)
-    ~sm:(Min_w_spacing 1.0) ~md:(Min_w_spacing 1.5) ~lg:(Min_w_spacing 2.0)
-    ~xl:(Min_w_spacing 3.0) ~xl_2:(Min_w_spacing 4.0) ~xl_3:(Min_w_spacing 6.0)
-    ~full:Min_w_full ~rem:(fun n -> Min_w_spacing n)
+  prime_size_utility ~none:(keyword Min_width "0") ~xs:(spacing Min_width 0.5)
+    ~sm:(spacing Min_width 1.0) ~md:(spacing Min_width 1.5)
+    ~lg:(spacing Min_width 2.0) ~xl:(spacing Min_width 3.0)
+    ~xl_2:(spacing Min_width 4.0) ~xl_3:(spacing Min_width 6.0)
+    ~full:(keyword Min_width "full") ~rem:(spacing Min_width)
 
 let max_w' =
-  prime_size_utility ~none:Max_w_none ~xs:Max_w_xs ~sm:Max_w_sm ~md:Max_w_md
-    ~lg:Max_w_lg ~xl:Max_w_xl ~xl_2:Max_w_2xl ~xl_3:Max_w_3xl ~full:Max_w_full
-    ~rem:(fun n -> Max_w_spacing n)
+  prime_size_utility ~none:(keyword Max_width "none")
+    ~xs:(keyword Max_width "xs") ~sm:(keyword Max_width "sm")
+    ~md:(keyword Max_width "md") ~lg:(keyword Max_width "lg")
+    ~xl:(keyword Max_width "xl") ~xl_2:(keyword Max_width "2xl")
+    ~xl_3:(keyword Max_width "3xl") ~full:(keyword Max_width "full")
+    ~rem:(spacing Max_width)
 
 let min_h' =
-  prime_size_utility ~none:Min_h_0 ~xs:(Min_h_spacing 0.5)
-    ~sm:(Min_h_spacing 1.0) ~md:(Min_h_spacing 1.5) ~lg:(Min_h_spacing 2.0)
-    ~xl:(Min_h_spacing 3.0) ~xl_2:(Min_h_spacing 4.0) ~xl_3:(Min_h_spacing 6.0)
-    ~full:Min_h_full ~rem:(fun n -> Min_h_spacing n)
+  prime_size_utility ~none:(keyword Min_height "0") ~xs:(spacing Min_height 0.5)
+    ~sm:(spacing Min_height 1.0) ~md:(spacing Min_height 1.5)
+    ~lg:(spacing Min_height 2.0) ~xl:(spacing Min_height 3.0)
+    ~xl_2:(spacing Min_height 4.0) ~xl_3:(spacing Min_height 6.0)
+    ~full:(keyword Min_height "full")
+    ~rem:(spacing Min_height)
 
 let max_h' =
-  prime_size_utility ~none:Max_h_none ~xs:(Max_h_spacing 0.5)
-    ~sm:(Max_h_spacing 1.0) ~md:(Max_h_spacing 1.5) ~lg:(Max_h_spacing 2.0)
-    ~xl:(Max_h_spacing 3.0) ~xl_2:(Max_h_spacing 4.0) ~xl_3:(Max_h_spacing 6.0)
-    ~full:Max_h_full ~rem:(fun n -> Max_h_spacing n)
+  prime_size_utility
+    ~none:(keyword Max_height "none")
+    ~xs:(spacing Max_height 0.5) ~sm:(spacing Max_height 1.0)
+    ~md:(spacing Max_height 1.5) ~lg:(spacing Max_height 2.0)
+    ~xl:(spacing Max_height 3.0) ~xl_2:(spacing Max_height 4.0)
+    ~xl_3:(spacing Max_height 6.0)
+    ~full:(keyword Max_height "full")
+    ~rem:(spacing Max_height)
 
 (* Top-level wrappers returning Utility.t, following the Utility.Handler
    pattern *)
 
 (* Width *)
-let w n = utility (W_spacing (float_of_int n *. 0.25))
-let w_auto = utility W_auto
-let w_full = utility W_full
-let w_screen = utility W_screen
-let w_min = utility W_min
-let w_max = utility W_max
-let w_fit = utility W_fit
-let w_1_2 = utility (W_fraction "1/2")
-let w_1_3 = utility (W_fraction "1/3")
-let w_2_3 = utility (W_fraction "2/3")
-let w_1_4 = utility (W_fraction "1/4")
-let w_3_4 = utility (W_fraction "3/4")
-let w_1_5 = utility (W_fraction "1/5")
-let w_2_5 = utility (W_fraction "2/5")
-let w_3_5 = utility (W_fraction "3/5")
-let w_4_5 = utility (W_fraction "4/5")
+let w n = scaled Width n
+let w_auto = utility (keyword Width "auto")
+let w_full = utility (keyword Width "full")
+let w_screen = utility (keyword Width "screen")
+let w_min = utility (keyword Width "min")
+let w_max = utility (keyword Width "max")
+let w_fit = utility (keyword Width "fit")
+let w_1_2 = utility (fraction Width "1/2")
+let w_1_3 = utility (fraction Width "1/3")
+let w_2_3 = utility (fraction Width "2/3")
+let w_1_4 = utility (fraction Width "1/4")
+let w_3_4 = utility (fraction Width "3/4")
+let w_1_5 = utility (fraction Width "1/5")
+let w_2_5 = utility (fraction Width "2/5")
+let w_3_5 = utility (fraction Width "3/5")
+let w_4_5 = utility (fraction Width "4/5")
 
 (* Height *)
-let h n = utility (H_spacing (float_of_int n *. 0.25))
-let h_auto = utility H_auto
-let h_full = utility H_full
-let h_screen = utility H_screen
-let h_min = utility H_min
-let h_max = utility H_max
-let h_fit = utility H_fit
-let h_1_2 = utility (H_fraction "1/2")
-let h_1_3 = utility (H_fraction "1/3")
-let h_2_3 = utility (H_fraction "2/3")
-let h_1_4 = utility (H_fraction "1/4")
-let h_3_4 = utility (H_fraction "3/4")
-let h_1_5 = utility (H_fraction "1/5")
-let h_2_5 = utility (H_fraction "2/5")
-let h_3_5 = utility (H_fraction "3/5")
-let h_4_5 = utility (H_fraction "4/5")
+let h n = scaled Height n
+let h_auto = utility (keyword Height "auto")
+let h_full = utility (keyword Height "full")
+let h_screen = utility (keyword Height "screen")
+let h_min = utility (keyword Height "min")
+let h_max = utility (keyword Height "max")
+let h_fit = utility (keyword Height "fit")
+let h_1_2 = utility (fraction Height "1/2")
+let h_1_3 = utility (fraction Height "1/3")
+let h_2_3 = utility (fraction Height "2/3")
+let h_1_4 = utility (fraction Height "1/4")
+let h_3_4 = utility (fraction Height "3/4")
+let h_1_5 = utility (fraction Height "1/5")
+let h_2_5 = utility (fraction Height "2/5")
+let h_3_5 = utility (fraction Height "3/5")
+let h_4_5 = utility (fraction Height "4/5")
 
 (* Min width *)
-let min_w n = utility (Min_w_spacing (float_of_int n *. 0.25))
-let min_w_0 = utility Min_w_0
-let min_w_full = utility Min_w_full
-let min_w_min = utility Min_w_min
-let min_w_max = utility Min_w_max
-let min_w_fit = utility Min_w_fit
+let min_w n = scaled Min_width n
+let min_w_0 = utility (keyword Min_width "0")
+let min_w_full = utility (keyword Min_width "full")
+let min_w_min = utility (keyword Min_width "min")
+let min_w_max = utility (keyword Min_width "max")
+let min_w_fit = utility (keyword Min_width "fit")
 
 (* Max width *)
-let max_w n = utility (Max_w_spacing (float_of_int n *. 0.25))
-let max_w_none = utility Max_w_none
-let max_w_xs = utility Max_w_xs
-let max_w_sm = utility Max_w_sm
-let max_w_md = utility Max_w_md
-let max_w_lg = utility Max_w_lg
-let max_w_xl = utility Max_w_xl
-let max_w_2xl = utility Max_w_2xl
-let max_w_3xl = utility Max_w_3xl
-let max_w_4xl = utility Max_w_4xl
-let max_w_5xl = utility Max_w_5xl
-let max_w_6xl = utility Max_w_6xl
-let max_w_7xl = utility Max_w_7xl
-let max_w_full = utility Max_w_full
-let max_w_min = utility Max_w_min
-let max_w_max = utility Max_w_max
-let max_w_fit = utility Max_w_fit
-let max_w_prose = utility Max_w_prose
-let max_w_screen_sm = utility Max_w_screen_sm
-let max_w_screen_md = utility Max_w_screen_md
-let max_w_screen_lg = utility Max_w_screen_lg
-let max_w_screen_xl = utility Max_w_screen_xl
-let max_w_screen_2xl = utility Max_w_screen_2xl
+let max_w n = scaled Max_width n
+let max_w_none = utility (keyword Max_width "none")
+let max_w_xs = utility (keyword Max_width "xs")
+let max_w_sm = utility (keyword Max_width "sm")
+let max_w_md = utility (keyword Max_width "md")
+let max_w_lg = utility (keyword Max_width "lg")
+let max_w_xl = utility (keyword Max_width "xl")
+let max_w_2xl = utility (keyword Max_width "2xl")
+let max_w_3xl = utility (keyword Max_width "3xl")
+let max_w_4xl = utility (keyword Max_width "4xl")
+let max_w_5xl = utility (keyword Max_width "5xl")
+let max_w_6xl = utility (keyword Max_width "6xl")
+let max_w_7xl = utility (keyword Max_width "7xl")
+let max_w_full = utility (keyword Max_width "full")
+let max_w_min = utility (keyword Max_width "min")
+let max_w_max = utility (keyword Max_width "max")
+let max_w_fit = utility (keyword Max_width "fit")
+let max_w_prose = utility (keyword Max_width "prose")
+let max_w_screen_sm = utility (keyword Max_width "screen-sm")
+let max_w_screen_md = utility (keyword Max_width "screen-md")
+let max_w_screen_lg = utility (keyword Max_width "screen-lg")
+let max_w_screen_xl = utility (keyword Max_width "screen-xl")
+let max_w_screen_2xl = utility (keyword Max_width "screen-2xl")
 
 (* Min height *)
-let min_h n = utility (Min_h_spacing (float_of_int n *. 0.25))
-let min_h_0 = utility Min_h_0
-let min_h_full = utility Min_h_full
-let min_h_screen = utility Min_h_screen
-let min_h_min = utility Min_h_min
-let min_h_max = utility Min_h_max
-let min_h_fit = utility Min_h_fit
+let min_h n = scaled Min_height n
+let min_h_0 = utility (keyword Min_height "0")
+let min_h_full = utility (keyword Min_height "full")
+let min_h_screen = utility (keyword Min_height "screen")
+let min_h_min = utility (keyword Min_height "min")
+let min_h_max = utility (keyword Min_height "max")
+let min_h_fit = utility (keyword Min_height "fit")
 
 (* Max height *)
-let max_h n = utility (Max_h_spacing (float_of_int n *. 0.25))
-let max_h_none = utility Max_h_none
-let max_h_full = utility Max_h_full
-let max_h_screen = utility Max_h_screen
-let max_h_min = utility Max_h_min
-let max_h_max = utility Max_h_max
-let max_h_fit = utility Max_h_fit
+let max_h n = scaled Max_height n
+let max_h_none = utility (keyword Max_height "none")
+let max_h_full = utility (keyword Max_height "full")
+let max_h_screen = utility (keyword Max_height "screen")
+let max_h_min = utility (keyword Max_height "min")
+let max_h_max = utility (keyword Max_height "max")
+let max_h_fit = utility (keyword Max_height "fit")
 
 (* Size (width and height combined) *)
-let size n = utility (Size_spacing (float_of_int n *. 0.25))
-let size_auto = utility Size_auto
-let size_full = utility Size_full
-let size_min = utility Size_min
-let size_max = utility Size_max
-let size_fit = utility Size_fit
+let size n = scaled Width_and_height n
+let size_auto = utility (keyword Width_and_height "auto")
+let size_full = utility (keyword Width_and_height "full")
+let size_min = utility (keyword Width_and_height "min")
+let size_max = utility (keyword Width_and_height "max")
+let size_fit = utility (keyword Width_and_height "fit")
 
 (* Aspect ratio *)
 let aspect_auto = utility Aspect_auto
