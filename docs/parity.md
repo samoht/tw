@@ -15,7 +15,8 @@ and the CSS Tailwind emits for it. `test/upstream/test.exe` replays every case
 (782 of them) and fails when tw parses a class Tailwind accepts, or emits
 different CSS for it.
 
-```
+<!-- $MDX skip -->
+```sh
 dune exec test/upstream/test.exe
 ```
 
@@ -26,7 +27,8 @@ These files are generated. Never hand-edit them; regenerate from upstream.
 Each of the nine examples builds its CSS twice, once through tw and once through
 `npx tailwindcss`, then diffs the two:
 
-```
+<!-- $MDX skip -->
+```sh
 cascade diff --diff=canonical --prune-unused-custom-props landing.css tailwind.css
 ```
 
@@ -36,7 +38,8 @@ freshly built cascade, not whatever is on `PATH`.
 
 ### One class at a time
 
-```
+<!-- $MDX skip -->
+```sh
 dune exec -- tw --single="hover:bg-blue-600" --diff
 ```
 
@@ -58,6 +61,7 @@ committed. It lives in `tmp/` (gitignored) and has to be reconstructed:
 
 Both sheets are then generated and diffed:
 
+<!-- $MDX skip -->
 ```sh
 "$TW"/node_modules/.bin/tailwindcss -i src/ref-entry.css -o ref_local.css --minify
 "$TW"/_build/default/bin/main.exe --input-css src/globals.css --minify \
@@ -81,6 +85,7 @@ most of a layer.
 **Read the whole diff.** The summary line counts *containers*, not their
 contents, so `4 changed containers` can hide a hundred rule entries. Always:
 
+<!-- $MDX skip -->
 ```sh
 grep -nE "^├─|^└─" diff.txt
 ```
@@ -105,6 +110,38 @@ the entries were byte-identical artefacts. Extract every rule from both
 canonicalised sheets and diff the multisets instead.
 
 ## Why the number is not zero
+
+### The current residual
+
+Every entry the whole-site comparison still reports is tolerated: a class tw
+rejects on purpose, a disagreement between the two minifiers, or a spelling that
+selects the same elements. None of them changes what a browser renders. Treat a
+new entry, or the disappearance of one of these, as something to investigate.
+
+In the utilities layer:
+
+- The docs pages' literal `[<value>]` placeholder classes, which Tailwind
+  splices verbatim into CSS no browser accepts and tw rejects. See below.
+- `after:content-['_↗']`. Tailwind leaves the arrow unescaped in the class
+  selector. U+2197 is not one of the non-ASCII ident code points CSS Syntax 3
+  admits, so an ident cannot carry it literally; tw writes `\2197 `. The two
+  selectors match the same element.
+- `supports-[backdrop-filter]:*`. cascade keeps the `@supports` guard,
+  lightningcss elides it under Tailwind's browserslist.
+- `hue-rotate-0` and `backdrop-hue-rotate-0`. `hue-rotate()` is the spec-legal
+  minification of `hue-rotate(0deg)`; lightningcss does not perform it.
+- `@container` block splits, from container variants written as function calls.
+  Given `@min-[theme(--breakpoint-lg)]`, tw resolves the token and sorts the
+  block by the width it denotes; Tailwind sorts by the bracket text. The blocks
+  land in different places, so different neighbours merge with them.
+
+In the components layer:
+
+- `calc(28 / 18)`, which cascade will not fold.
+- `-webkit-text-decoration-color`, which lightningcss emits twice.
+
+The four minifier entries are in the table under *Two minifiers*, the
+placeholders under *Placeholder classes*.
 
 ### Placeholder classes
 
@@ -132,14 +169,21 @@ implementations:
 | `hue-rotate(0deg)` | `hue-rotate()` | keeps it |
 | `@supports (backdrop-filter: ...)` | keeps the guard | elides it |
 | `@media not (X)` | Level 4 form | `not all and (X)` |
-| `grid-auto-flow: row dense` | keeps `row` | `dense` |
 | `text-decoration-color` | no prefix | adds `-webkit-` |
+| `-webkit-text-decoration-color` | one declaration | two |
 | `calc(28 / 18)` | keeps it | folds to `1.55556` |
 
 The guard and the downlevelling are threshold differences: cascade's bar is
 Baseline "widely available", lightningcss's is Tailwind's browserslist. The
 `calc` refusal is a precision commitment - the quotient does not survive
 cascade's serialisation rounding.
+
+The two decoration rows are one difference seen from either side. Tailwind's
+unminified output carries no prefix; lightningcss adds one while minifying and
+emits it twice, so `decoration-sky-500` arrives as
+`-webkit-text-decoration-color; -webkit-text-decoration-color;
+text-decoration-color`. tw writes the prefixed declaration itself, once, and
+cascade neither adds nor removes it.
 
 There is also one real bug in the Tailwind minification path. The site's search
 CSS contains:

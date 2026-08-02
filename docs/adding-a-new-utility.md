@@ -10,13 +10,13 @@ Every CSS variable in our system follows one of these patterns (4 variable types
 **Purpose**: Design tokens set once in theme layer, referenced by utilities
 **Examples**: `--text-xl: 1.25rem`, `--font-weight-bold: 700`, `--color-blue-500: #3b82f6`
 **Layer**: `@layer theme` in `:root,:host`
-**Usage**: `Var.theme kind name ~order:N` and set via `Var.binding` once
+**Usage**: `Var.theme kind name ~order:(group, index)` and set via `Var.binding` once
 
 ### Pattern 2: Property_default Variables
 **Purpose**: Variables with @property defaults that utilities can either SET or REFERENCE
 **Examples**: `--tw-border-style` (default: solid), `--tw-border-opacity` (default: 1)
 **Layer**: `@layer properties` for defaults, `@property` rules at top level
-**Usage**: Use `Var.property_default kind ~initial ~inherits? ~universal? name` (initial is mandatory). Referencing utilities call `Var.reference` and include `~property_rules:(Var.property_rule var)`
+**Usage**: Use `Var.property_default kind ~initial ~inherits? ~universal? name` (initial is mandatory). Referencing utilities call `Var.reference` and include `~property_rules:(Var.property_rules var)`
 
 ### Pattern 3: Channel Variables
 **Purpose**: Composition variables where multiple utilities contribute to a single CSS property
@@ -66,28 +66,35 @@ Use this decision tree:
   - Use for `channel` variables when you need a fallback value
   - Signature: `Var.reference_with_fallback var fallback_value`
 
-- `Var.property_rule`: generates @property rule (Pattern 2 only)
+- `Var.property_rule`: generates @property rule (Patterns 2 and 3)
   - Returns `Some rule` if variable has property metadata
-  - Pass to `style ~property_rules` to generate @property
+  - Pass to `Style.style ~property_rules` to generate @property
+  - `Var.property_rules` is the same thing for a `property_default`, already
+    defaulted to `Css.empty`
 
 ## Pattern Examples
+
+`Style.style` takes declarations only. The class name lives in the module's
+`Handler`, which maps a variant to its class through `to_class` and back through
+`of_class`; `lib/utility.mli` shows the whole shape.
 
 ### Pattern 1: Theme Variables (Typography)
 ```ocaml
 (* Define theme variables with explicit ordering *)
-let text_xl_size_var = Var.theme Css.Length "text-xl" ~order:110
-let text_xl_lh_var = Var.theme Css.Length "text-xl--line-height" ~order:111
+let text_xl_size_var = Var.theme Css.Length "text-xl" ~order:(6, 8)
+let text_xl_lh_var = Var.theme Css.Line_height "text-xl--line-height" ~order:(6, 9)
 
 (* Set theme values once *)
 let size_def, size_var = Var.binding text_xl_size_var (Rem 1.25)
 let lh_def, lh_var = Var.binding text_xl_lh_var (Rem 1.75)
 
 (* Utility references theme variables *)
-style "text-xl" [
-  size_def; lh_def;
-  font_size (Var size_var);
-  line_height (Var lh_var)
-]
+let text_xl =
+  Style.style [
+    size_def; lh_def;
+    font_size (Var size_var);
+    line_height (Var lh_var)
+  ]
 ```
 
 ### Pattern 2: Property_default Variables (Borders)
@@ -99,14 +106,12 @@ let border_style_var =
 (* Setting utility - changes the variable *)
 let border_solid =
   let decl, var_ref = Var.binding border_style_var Solid in
-  style "border-solid" [ decl; border_style (Var var_ref) ]
+  Style.style [ decl; border_style (Var var_ref) ]
 
 (* Referencing utility - uses @property default *)
 let border =
   let var_ref = Var.reference border_style_var in
-  let property_rule = match Var.property_rule border_style_var with
-    | Some rule -> rule | None -> Css.empty in
-  style "border" ~property_rules:property_rule [
+  Style.style ~property_rules:(Var.property_rules border_style_var) [
     border_style (Var var_ref);
     border_width (Px 1.)
   ]
@@ -123,22 +128,22 @@ let scale_var = Var.property_default Css.Number_percentage ~initial:(Num 1.0) "t
 (* Contributing utilities set their channels *)
 let translate_x_4 =
   let decl, _ = Var.binding translate_x_var (Rem 1.) in
-  style "translate-x-4" [ decl ]
+  Style.style [ decl ]
 
 let rotate_45 =
   let decl, _ = Var.binding rotate_var (Deg 45.) in
-  style "rotate-45" [ decl ]
+  Style.style [ decl ]
 
 (* Aggregator utility combines all channels - use reference_with_fallback for channels *)
-let transform =
+let transform_all =
   let tx_ref = Var.reference_with_fallback translate_x_var Zero in
   let rot_ref = Var.reference_with_fallback rotate_var (Deg 0.) in
   let scale_ref = Var.reference scale_var in  (* property_default has built-in default *)
-  style "transform" [
-    transform (Transform [
-      TranslateX (Var tx_ref);
+  Style.style [
+    transform (List [
+      Translate_x (Var tx_ref);
       Rotate (Var rot_ref);
-      Scale (Var scale_ref)
+      Scale_x (Var scale_ref)
     ])
   ]
 ```
@@ -151,14 +156,18 @@ let shadow_color_var = Var.channel Css.Color "tw-shadow-color"
 (* Shadow utilities reference with fallback using reference_with_fallback *)
 let shadow_sm =
   let color_ref = Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a") in
-  style "shadow-sm" [
-    box_shadow (Shadow [0; 1; 3; 0; Var color_ref])
+  Style.style [
+    box_shadow (Shadow {
+      h_offset = Px 0.; v_offset = Px 1.;
+      blur = Some (Px 3.); spread = Some (Px 0.);
+      color = Some (Var color_ref)
+    })
   ]
 
 (* Color utilities set the variable (in different module) *)
 let shadow_red_500 =
   let decl, _ = Var.binding shadow_color_var (Css.hex "#ef4444") in
-  style "shadow-red-500" [ decl ]
+  Style.style [ decl ]
 ```
 
 ### Pattern 5: Always-set Variables (Font Weight)
@@ -168,54 +177,60 @@ let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
 
 (* Every utility sets and uses it *)
 let font_bold =
-  let decl, var_ref = Var.binding font_weight_var (Int 700) in
-  style "font-bold" [
+  let decl, var_ref = Var.binding font_weight_var (Weight 700) in
+  Style.style [
     decl;
     font_weight (Var var_ref)
   ]
 
 let font_thin =
-  let decl, var_ref = Var.binding font_weight_var (Int 100) in
-  style "font-thin" [
+  let decl, var_ref = Var.binding font_weight_var (Weight 100) in
+  Style.style [
     decl;
     font_weight (Var var_ref)
   ]
 ```
 
-How Rules turns this into layers
+How Build turns this into layers
 
-- `compute_theme_layer` scans used styles, extracts custom declarations (from `Var.theme`), adds a small set of default vars (font families), and emits them under `@layer theme` in `:root,:host` with a stable order.
-  
-  **Variable Ordering**: The `order` function in `var.ml` determines the canonical ordering of variables in the theme layer. Each variable type has a numeric order value that ensures consistent output matching Tailwind v4. For example:
-  - Font families: 0-10
-  - Font sizes and line heights: 100-199  
-  - Font weights: 200-209
-  - Border radius: 300-307
-  - Default font families: 400-405
-  
-- `build_properties_layer` collects all `property_rules` attached to used utilities (from `Var.property_rule ...`) and emits an `@layer properties` that contains a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop` (not the `@property` rules themselves).
-- `build_base_layer` wraps Preflight rules under `@layer base` and applies the placeholder support shim.
+- `theme_layer_of` scans used styles, extracts custom declarations (from `Var.theme`), adds a small set of default vars (font families), and emits them under `@layer theme` in `:root,:host` with a stable order.
+
+  **Variable Ordering**: `Var.order` reads back the `~order:(group, index)` pair a
+  theme variable was declared with. The group buckets the family in the order
+  Tailwind emits its `@theme` block (1 font families, 3 spacing, 5 container
+  widths, 6 font sizes, 7 animations, 8 blurs, 9 defaults) and the index places
+  the token inside its group. `lib/var.ml` keeps a registry of taken slots and
+  ignores a second registration for one, so two tokens cannot share a slot. Read
+  the neighbours of the token you are adding rather than guessing a group.
+
+- `properties_layer` collects all `property_rules` attached to used utilities (from `Var.property_rule ...`) and emits an `@layer properties` that contains a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop` (not the `@property` rules themselves).
+- `base_layer` wraps Preflight rules under `@layer base` and applies the placeholder support shim.
 - Components is left empty by default; utilities render to `@layer utilities`.
 - When minifying, consecutive empty layers are merged into a single declaration, e.g., `@layer components,utilities;` to match Tailwind output.
 
-**Rule Ordering and Conflict Groups**:
-The Rules module uses a sophisticated conflict group system to ensure proper CSS cascade behavior:
+All four live in `lib/build.ml`; `lib/build.mli` documents the assembled result.
 
-- **Conflict Groups**: Utilities are grouped by their conflict relationships (e.g., all padding utilities conflict with each other)
-- **Stable Sort**: Within each conflict group, `List.stable_sort` preserves the original order while applying the group's sorting function
-- **Suborder Functions**: Fine-grained control within groups using the `suborder` field in conflict definitions
-- **Example**: For prose utilities, the suborder ensures `.prose` comes before `.prose :where(...)` child selectors:
-  ```ocaml
-  suborder = (fun core -> 
-    if core = "prose" then 0                        (* .prose first *)
-    else if String.starts_with ~prefix:"prose " then 1  (* .prose :where(...) second *)
-    else 2);                                         (* others last *)
-  ```
+**Rule Ordering and Conflict Groups**:
+Cascade position comes from a `(priority, suborder)` pair, so utilities that
+conflict resolve in Tailwind's order:
+
+- **Priority**: `Utility.S.priority` groups a whole family (all padding utilities
+  share one). `lib/utility.mli` lists the bands.
+- **Suborder**: `Utility.S.suborder` orders variants inside the family. It is a
+  plain function on the module's variant type, as in `box_sizing.ml`'s
+  `let suborder = function Border -> 0 | Content -> 1`.
+- **Lookup**: `Build.conflict_order` resolves the pair for a selector, and
+  `Sort.compare_indexed_rules` sorts on it with the source index as a stable
+  tiebreaker.
+- **Pseudo-elements**: `adjust_pseudo` in `lib/build.ml` adds 5000 to the suborder
+  of a `before:`/`after:` rule, so it trails the base utility rather than
+  interleaving with it.
 
 **CSS Minification Considerations**:
-- The minifier must preserve spaces in descendant combinators (`.prose :where()` not `.prose:where()`)
-- Special handling for pseudo-classes: spaces before `:where()`, `:not()`, etc. are significant
-- Test with `--minify` flag to ensure selector specificity isn't altered
+- Minification is cascade's; `Css.Selector.to_string ~minify:true` is what tw calls
+- Descendant combinators must survive it (`.prose :where()`, not `.prose:where()`),
+  because the space before `:where()`, `:not()` and friends is significant
+- Test with `--minify` to ensure selector specificity isn't altered
 
 ## Applying the Patterns to New Utilities
 
@@ -231,7 +246,7 @@ Ask yourself these questions in order:
 ### Step 2: Implement According to Pattern
 
 **Pattern 1 (Theme)**:
-- Use `Var.theme kind name ~order:N`
+- Use `Var.theme kind name ~order:(group, index)`
 - Set value once with `Var.binding`
 - Reference in utilities with `Var` constructor
 
@@ -254,9 +269,9 @@ Ask yourself these questions in order:
 - Use `Var.channel kind name`
 - Always use `Var.binding` to set and reference
 
-### Step 3: Let Rules Handle Layers
+### Step 3: Let Build Handle Layers
 
-The Rules engine automatically:
+`lib/build.ml` automatically:
 - Collects Pattern 1 variables into `@layer theme`
 - Generates `@layer properties` for Pattern 2 defaults
 - Emits `@property` rules when needed
@@ -268,26 +283,48 @@ Good references
 - Typography font weight: `lib/typography.ml` (@property registration pattern)
 - Borders pattern: `lib/borders.ml` (setting vs referencing utilities)
 - Shadow utilities: `lib/effects.ml` (using `Var.reference` with fallback)
-- Layer assembly: `lib/rules.ml` (`compute_theme_layer`, `build_properties_layer`)
+- Layer assembly: `lib/build.ml` (`theme_layer_of`, `properties_layer`)
+- Module shape for a utility family: `lib/utility.mli`
 
 Debugging utilities
 
-To debug CSS generation issues, use the tw CLI tool:
+To debug CSS generation issues, use the tw CLI tool. The commands below call `tw`
+directly; from a checkout without it on `PATH`, prefix them with `dune exec --`.
 
-```bash
+<!-- $MDX skip -->
+```sh
 # Generate CSS for a class without the base layer (useful for test comparisons)
-dune exec -- tw -s <class> --variables
+tw -s <class> --variables
 
 # Include the base layer
-dune exec -- tw -s <class> --variables --base
+tw -s <class> --variables --base
 
 # Test with minification (critical for finding selector issues)
-dune exec -- tw -s <class> --variables --minify
+tw -s <class> --variables --minify
+```
 
-# Examples:
-dune exec -- tw -s shadow-sm --variables  # See shadow-sm without base layer
-dune exec -- tw -s border-none --variables # Debug border utilities
-dune exec -- tw -s "prose prose-lg" --variables --minify # Test complex selectors
+A style utility sets its variable and reads it back in the same rule:
+
+```sh
+$ tw -s border-none --variables
+@layer theme, components, utilities;
+@layer theme {
+
+}
+@layer components;
+@layer utilities {
+  .border-none {
+    --tw-border-style: none;
+    border-style: none;
+  }
+}
+```
+
+Minified, which is where a selector bug shows up:
+
+```sh
+$ tw -s border-none --variables --minify
+@layer theme,components,utilities;@layer theme;@layer components;@layer utilities{.border-none{--tw-border-style:none;border-style:none}}
 ```
 
 This helps you:
@@ -312,14 +349,14 @@ When output is shorter than expected:
 ```ocaml
 (* Define theme token with explicit order *)
 let my_size_var =
-  Var.theme Css.Length "my-size" ~order:150
+  Var.theme Css.Length "my-size" ~order:(4, 900)
 
 (* Set value once in theme *)
 let size_def, size_var = Var.binding my_size_var (Rem 2.5)
 
 (* Reference in utility *)
 let my_utility =
-  style "my-class" [
+  Style.style [
     size_def;  (* Include definition *)
     width (Var size_var);
     height (Var size_var)
@@ -329,41 +366,39 @@ let my_utility =
 ### Pattern 2: Property_default Template
 ```ocaml
 (* Variable with @property default *)
-let my_style_var =
-  Var.property_default Css.My_type ~initial:default_value "tw-my-style"
+let my_content_var =
+  Var.property_default Css.Content ~initial:(String "") "tw-my-content"
 
 (* Setting utility *)
 let my_setter value =
-  let decl, var_ref = Var.binding my_style_var value in
-  style "my-setter" [ decl; my_property (Var var_ref) ]
+  let decl, var_ref = Var.binding my_content_var value in
+  Style.style [ decl; content (Var var_ref) ]
 
 (* Referencing utility with @property *)
 let my_referencer =
-  let var_ref = Var.reference my_style_var in
-  let property_rule = match Var.property_rule my_style_var with
-    | Some rule -> rule | None -> Css.empty in
-  style "my-ref" ~property_rules:property_rule [
-    my_property (Var var_ref)
+  let var_ref = Var.reference my_content_var in
+  Style.style ~property_rules:(Var.property_rules my_content_var) [
+    content (Var var_ref)
   ]
 ```
 
 ### Pattern 3: Channel Template
 ```ocaml
 (* Channel variables for composition *)
-let channel_a_var = Var.channel Css.Length "tw-channel-a"
-let channel_b_var = Var.channel Css.Angle "tw-channel-b"
+let channel_blur_var = Var.channel Css.Length "tw-channel-blur"
+let channel_hue_var = Var.channel Css.Angle "tw-channel-hue"
 
 (* Contributing utilities *)
-let set_channel_a value =
-  let decl, _ = Var.binding channel_a_var value in
-  style "channel-a" [ decl ]
+let set_channel_blur value =
+  let decl, _ = Var.binding channel_blur_var value in
+  Style.style [ decl ]
 
 (* Aggregator utility - use reference_with_fallback for channels *)
 let aggregate =
-  let a_ref = Var.reference_with_fallback channel_a_var Zero in
-  let b_ref = Var.reference_with_fallback channel_b_var (Deg 0.) in
-  style "aggregate" [
-    my_composite_property [Var a_ref; Var b_ref]
+  let blur_ref = Var.reference_with_fallback channel_blur_var Zero in
+  let hue_ref = Var.reference_with_fallback channel_hue_var (Deg 0.) in
+  Style.style [
+    filter (List [ Blur (Var blur_ref); Hue_rotate (Var hue_ref) ])
   ]
 ```
 
@@ -374,15 +409,17 @@ let color_override_var = Var.channel Css.Color "tw-my-color"
 
 (* Reference with fallback using reference_with_fallback *)
 let my_colored_thing =
-  let color_ref = Var.reference_with_fallback color_override_var default_color in
-  style "my-thing" [
+  let color_ref =
+    Var.reference_with_fallback color_override_var (Css.hex "#0000001a")
+  in
+  Style.style [
     background_color (Var color_ref)
   ]
 
 (* Set elsewhere (different module) *)
 let my_thing_red =
   let decl, _ = Var.binding color_override_var (Css.hex "#ff0000") in
-  style "my-thing-red" [ decl ]
+  Style.style [ decl ]
 ```
 
 ### Pattern 5: Always-set Template
@@ -394,50 +431,53 @@ let my_value_var =
 (* Every utility sets and uses *)
 let my_small =
   let decl, var_ref = Var.binding my_value_var (Px 10.) in
-  style "my-small" [ decl; padding (Var var_ref) ]
+  Style.style [ decl; padding [ Var var_ref ] ]
 
 let my_large =
   let decl, var_ref = Var.binding my_value_var (Px 40.) in
-  style "my-large" [ decl; padding (Var var_ref) ]
+  Style.style [ decl; padding [ Var var_ref ] ]
 ```
 
 Common pitfalls and solutions
 
 **Rule Ordering Issues**
 - **Problem**: Child selectors appearing before parent selectors (e.g., `.prose :where(p)` before `.prose`)
-- **Solution**: Adjust the conflict group's suborder function to explicitly order selectors
-- **Debugging**: Add print statements in `rules.ml` to see the order before and after sorting
+- **Solution**: Adjust the family's `suborder` function to order the variants explicitly
+- **Debugging**: `Build.indexed_rules` and `Build.compare_rules` are exposed so the comparator can be exercised on the values it really sees; `test/test_sort.ml` does this
 - **Key insight**: The order matters for CSS cascade - parent rules should come first
 
 **CSS Minification Breaking Selectors**
 - **Problem**: Minifier removing spaces in descendant combinators, changing selector meaning
-- **Solution**: Update `minify_selector` in `css.ml` to preserve spaces before pseudo-classes
+- **Solution**: Fix it in cascade, in `Selector.to_string ~minify:true`, not by rewriting the selector here
 - **Example**: `.prose :where(p)` (descendant) vs `.prose:where(p)` (direct) have different meanings
 - **Testing**: Always test with `--minify` flag to catch these issues early
 
-**CRITICAL: Never use var(...) in string literals or Css.custom**
-- **Never do this**: `Css.custom "box-shadow" "var(--tw-shadow)"` 
+**CRITICAL: Never use var(...) in string literals or assembled token strings**
+- **Never do this**: `Css.custom_property "--tw-shadow" "var(--tw-shadow-color)"`
 - **Never do this**: `box_shadow (Raw "var(--tw-shadow)")`
-- **Why**: 
-  - String literals containing `var(...)` break the Rules engine's ability to track dependencies, resolve variables, and generate correct layers
-  - `Css.custom` is a code smell - it bypasses the type system and makes the code fragile
+- **Why**:
+  - String literals containing `var(...)` break the ability to track dependencies, resolve variables, and generate correct layers
+  - Assembling a value as a string bypasses the type system and makes the code fragile
 - **Instead**: Always use typed `Var` references from `Var.theme`, `Var.channel`, or `Var.property_default`
-- **Exception**: When a CSS variable's actual value contains `var(...)` references (like Tailwind v4's `--tw-gradient-stops`), the string is the proper CSS value, not a reference. In these cases:
-  - The variable type should be `string t` in var.ml
-  - Use `Css.Computed_stops` or similar typed constructors when available
-  - Document clearly that this is the CSS value, not a variable reference
-- **If you need new functionality**: Extend the type system properly:
-  - Add new constructors to existing types following the standard pattern:
-    ```ocaml
-    type box_shadow =
-      | Shadow of shadow
-      | Shadows of shadow list  
-      | None
-      | Var of box_shadow var  (* Standard pattern: Var (no suffix) with typed variable *)
-    ```
-  - The naming convention is always `Var` (not `Var_list`, `Var_composition`, etc.)
-  - The `Var` constructor holds a typed variable reference created by `Var.channel`, `Var.property_default`, or `Var.theme`
-  - Never work around the type system with strings
+- **Exception**: A variable whose value legitimately holds a stop list or a token stream (Tailwind v4's `--tw-gradient-stops`) still gets a typed kind. `backgrounds.ml` declares it `Var.property_default Gradient_stop ~universal:true`, which registers `syntax: "*"` while keeping the OCaml value typed
+- **If you need new functionality**: Extend the type system properly. Add new
+  constructors to existing types following the standard pattern, which every
+  cascade value type follows:
+
+```ocaml
+type my_shadow =
+  | Shadow of shadow
+  | Shadows of shadow list
+  | None
+  | Var of my_shadow var  (* Standard pattern: Var (no suffix), typed variable *)
+
+let _ : my_shadow = Shadows []
+```
+
+The naming convention is always `Var`, never `Var_list` or `Var_composition`,
+and the constructor holds a typed variable reference created by `Var.channel`,
+`Var.property_default` or `Var.theme`. Never work around the type system with
+strings.
 
 1. **Border utilities setting variables incorrectly**
    - **Problem**: Border width utilities (border, border-2, etc.) were incorrectly setting the `--tw-border-style` variable instead of just using it
@@ -451,17 +491,17 @@ Common pitfalls and solutions
 
 3. **@property syntax for enumerated values**
    - **Problem**: Using enumerated syntax like `"solid" | "dashed" | "dotted"` for `@property` registration
-   - **Solution**: Use `syntax:"*"` for generic/untyped properties that can accept any value
-   - **Example**: `Var.property Var.Border_style ~syntax:"*" ~inherits:false ~initial:"solid"`
+   - **Solution**: Pass `~universal:true` to `Var.property_default`, which registers `syntax: "*"` while the OCaml value stays typed
+   - **Example**: `Var.property_default Css.Border_style ~initial:Solid ~universal:true "tw-border-style"`
 
 4. **Variable ordering in theme layer**
    - **Problem**: Variables appearing in wrong order in `@layer theme`, causing test failures
-   - **Solution**: Ensure the `order` function in `var.ml` assigns correct numeric values to match Tailwind v4's output
-   - **Note**: The `canonical_theme_order` list is often redundant if the `order` function provides complete ordering
+   - **Solution**: Fix the `~order:(group, index)` pair the variable was declared with; `Var.order` is what the theme layer reads
+   - **Note**: `lib/var.ml` drops a registration whose slot is already taken, so a duplicated pair shows up as a missing variable rather than a reordering
 
 5. **Font-variant-numeric empty fallback handling**
-   - **Problem**: Font-variant-numeric variables need trailing commas in CSS but normal fallback generates wrong syntax
-   - **Solution**: Use `~fallback:Css.Empty` and add an `Empty` constructor to handle this special case
+   - **Problem**: Font-variant-numeric variables need trailing commas in CSS but a normal fallback generates the wrong syntax
+   - **Solution**: Pass `~fallback:Css.Empty` to `Var.binding` (or use `Var.reference_with_empty_fallback` where there is nothing to bind)
    - **Result**: Generates `var(--tw-ordinal,)` with trailing comma as required by Tailwind v4
 
 6. **Helper functions to reduce duplication**
