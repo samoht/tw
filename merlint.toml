@@ -84,7 +84,6 @@ files = [
   "lib/divide.ml*",
   "lib/mask_gradient.ml*",
   "lib/masks.ml*",
-  "lib/prose.ml*",
   "lib/text_shadow.ml*",
   "lib/touch.ml*",
 ]
