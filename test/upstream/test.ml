@@ -467,7 +467,7 @@ let hex_re = Re.Pcre.regexp {|#[0-9a-fA-F]+|}
 let color_mix_to_oklab s =
   Re.replace color_mix_re s ~f:(fun g ->
       let whole = Re.Group.get g 0 in
-      match Css.of_string (Fmt.str ".x{color:%s}" whole) with
+      match Fmt.kstr Css.of_string ".x{color:%s}" whole with
       | Error _ -> whole
       | Ok { stylesheet; _ } -> (
           let folded = Css.to_string ~minify:true (Css.optimize stylesheet) in
