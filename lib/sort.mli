@@ -45,16 +45,16 @@ type indexed_rule = {
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
   variant_key : string * int;
       (** Precomputed [(variant prefix, effective inner order)], built with
-          {!variant_sort_key}, so [compare_indexed_rules] does not recompute it
-          per comparison. *)
+          {!variant_sort_key}, so {!val-compare_indexed_rules} does not
+          recompute it per comparison. *)
   variant_orders : (int * int) list;
       (** The rule's variant order keys sorted descending, built with
           {!variant_order_list}. Compared lexicographically by
-          [compare_indexed_rules] so a stacked variant sorts into the group of
-          its highest-order component. *)
+          {!val-compare_indexed_rules} so a stacked variant sorts into the group
+          of its highest-order component. *)
   base_class_key : string;
       (** The rule's base class ([""] when it has none), used by
-          [compare_indexed_rules] as the lexicographic sort key. *)
+          {!val-compare_indexed_rules} as the lexicographic sort key. *)
   media_key : Css.Media.key option;
       (** Precomputed sort key of the rule's own breakpoint condition: the
           [`Media] case of {!field-rule_type}, or the [`Container] case
