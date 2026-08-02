@@ -81,7 +81,6 @@ files = [
   "lib/borders.ml*",
   "lib/color.ml*",
   "lib/cursor.ml*",
-  "lib/divide.ml*",
   "lib/mask_gradient.ml*",
   "lib/masks.ml*",
   "lib/text_shadow.ml*",
