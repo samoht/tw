@@ -162,7 +162,7 @@ let check_exact_match tw_styles =
     in
     let parity_equal =
       (match diff_result.Css_compare.result with
-        | Css_compare.No_diff _ -> true
+        | Css_compare.No_diff -> true
         | _ -> false)
       || is_allowed_canonicalization_diff diff_result
     in

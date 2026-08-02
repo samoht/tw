@@ -102,7 +102,7 @@ let ordering_diff ?(forms = false) utilities =
 
 let check_ordering_fails ?forms utilities =
   match (ordering_diff ?forms utilities).Css_compare.result with
-  | Css_compare.No_diff _ -> false
+  | Css_compare.No_diff -> false
   | _ -> true
 
 (** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
@@ -305,7 +305,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in
   match diff.Css_compare.result with
-  | Css_compare.No_diff _ -> ()
+  | Css_compare.No_diff -> ()
   | _ ->
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
