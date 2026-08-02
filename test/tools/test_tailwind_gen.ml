@@ -47,7 +47,7 @@ let test_arbitrary_color_opacity_matches_cli () =
         ~prune_unused_custom_props:true cli tw
     in
     match diff.Cascade_diff.Css_compare.result with
-    | Cascade_diff.Css_compare.No_diff _ ->
+    | Cascade_diff.Css_compare.No_diff ->
         check bool (cls ^ ": tw matches live Tailwind CLI") true true
     | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
   in
@@ -81,7 +81,7 @@ let test_arbitrary_url_matches_cli () =
       ~prune_unused_custom_props:true cli tw
   in
   match diff.Cascade_diff.Css_compare.result with
-  | Cascade_diff.Css_compare.No_diff _ ->
+  | Cascade_diff.Css_compare.No_diff ->
       check bool (cls ^ ": tw matches live Tailwind CLI") true true
   | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
 

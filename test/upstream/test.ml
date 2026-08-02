@@ -884,7 +884,7 @@ let run_test_case test () =
       in
       if
         (match result.Css_compare.result with
-          | Css_compare.No_diff _ -> true
+          | Css_compare.No_diff -> true
           | _ -> false)
         || ((not strict) && is_allowed_canonicalization_diff result)
       then ()
