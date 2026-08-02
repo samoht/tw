@@ -20,22 +20,26 @@ module Css = Cascade.Css
 (* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
 let resolve_scheme = function Some s -> s | None -> Scheme.default
 
-type rounded_position =
-  | Rp_all
-  | Rp_s
-  | Rp_e
-  | Rp_t
-  | Rp_r
-  | Rp_b
-  | Rp_l
-  | Rp_ss
-  | Rp_se
-  | Rp_ee
-  | Rp_es
-  | Rp_tl
-  | Rp_tr
-  | Rp_br
-  | Rp_bl
+(* Which corners a [rounded-*] utility rounds: every corner, one physical or
+   logical side, or a single corner. *)
+module Corner = struct
+  type t =
+    | All
+    | Start
+    | End
+    | Top
+    | Right
+    | Bottom
+    | Left
+    | Start_start
+    | Start_end
+    | End_end
+    | End_start
+    | Top_left
+    | Top_right
+    | Bottom_right
+    | Bottom_left
+end
 
 (* Border-radius t-shirt sizes. [Rsz_default] is the bare [rounded] (no size
    suffix). [Rsz_arbitrary] carries the bracket inner value. The [Rsz_] prefix
@@ -120,9 +124,9 @@ module Handler = struct
     | Border_transparent
     | Border_current
     | (* Border radius utilities. One parametric variant over (position, size);
-         the bare [rounded] is [Rounded (Rp_all, Rsz_default)] and arbitrary
+         the bare [rounded] is [Rounded (Corner.All, Rsz_default)] and arbitrary
          brackets are [Rounded (pos, Rsz_arbitrary inner)]. *)
-      Rounded of rounded_position * rounded_size
+      Rounded of Corner.t * rounded_size
     | (* Outline utilities *)
       Outline
     | Outline_0
@@ -464,34 +468,35 @@ module Handler = struct
      per-side/corner "full" utilities share it. *)
   let radius_full_len : Css.length = Css.Px 3.40282e38
 
-  (* Map a [rounded_position] to the corner/side radius declarations for a given
-     length. Shared by both the sized and arbitrary radius utilities; [Rp_all]
-     uses the [border-radius] shorthand, all others target the matching
+  (* Map a [Corner.t] to the corner/side radius declarations for a given length.
+     Shared by both the sized and arbitrary radius utilities; [Corner.All] uses
+     the [border-radius] shorthand, all others target the matching
      corner/logical properties. *)
   let radius_decls_for_position pos (len : Css.length) : Css.declaration list =
     match pos with
-    | Rp_all -> [ Css.border_radius (radius_value len) ]
-    | Rp_t ->
+    | Corner.All -> [ Css.border_radius (radius_value len) ]
+    | Corner.Top ->
         [ Css.border_top_left_radius len; Css.border_top_right_radius len ]
-    | Rp_r ->
+    | Corner.Right ->
         [ Css.border_top_right_radius len; Css.border_bottom_right_radius len ]
-    | Rp_b ->
+    | Corner.Bottom ->
         [
           Css.border_bottom_right_radius len; Css.border_bottom_left_radius len;
         ]
-    | Rp_l ->
+    | Corner.Left ->
         [ Css.border_top_left_radius len; Css.border_bottom_left_radius len ]
-    | Rp_tl -> [ Css.border_top_left_radius len ]
-    | Rp_tr -> [ Css.border_top_right_radius len ]
-    | Rp_br -> [ Css.border_bottom_right_radius len ]
-    | Rp_bl -> [ Css.border_bottom_left_radius len ]
-    | Rp_s ->
+    | Corner.Top_left -> [ Css.border_top_left_radius len ]
+    | Corner.Top_right -> [ Css.border_top_right_radius len ]
+    | Corner.Bottom_right -> [ Css.border_bottom_right_radius len ]
+    | Corner.Bottom_left -> [ Css.border_bottom_left_radius len ]
+    | Corner.Start ->
         [ Css.border_start_start_radius len; Css.border_end_start_radius len ]
-    | Rp_e -> [ Css.border_start_end_radius len; Css.border_end_end_radius len ]
-    | Rp_ss -> [ Css.border_start_start_radius len ]
-    | Rp_se -> [ Css.border_start_end_radius len ]
-    | Rp_ee -> [ Css.border_end_end_radius len ]
-    | Rp_es -> [ Css.border_end_start_radius len ]
+    | Corner.End ->
+        [ Css.border_start_end_radius len; Css.border_end_end_radius len ]
+    | Corner.Start_start -> [ Css.border_start_start_radius len ]
+    | Corner.Start_end -> [ Css.border_start_end_radius len ]
+    | Corner.End_end -> [ Css.border_end_end_radius len ]
+    | Corner.End_start -> [ Css.border_end_start_radius len ]
 
   (* Per-side/corner "full"/"none" radius: reference var(--radius-X) when the
      active theme defines that radius (e.g. an @theme override, as the upstream
@@ -760,22 +765,22 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a border utility")
 
-  (* Parse a rounded position token (the side/corner segment of a class). *)
-  let rounded_position_of_string = function
-    | "s" -> Some Rp_s
-    | "e" -> Some Rp_e
-    | "t" -> Some Rp_t
-    | "r" -> Some Rp_r
-    | "b" -> Some Rp_b
-    | "l" -> Some Rp_l
-    | "ss" -> Some Rp_ss
-    | "se" -> Some Rp_se
-    | "ee" -> Some Rp_ee
-    | "es" -> Some Rp_es
-    | "tl" -> Some Rp_tl
-    | "tr" -> Some Rp_tr
-    | "br" -> Some Rp_br
-    | "bl" -> Some Rp_bl
+  (* Parse the side/corner segment of a class into the corners it rounds. *)
+  let corner_of_string = function
+    | "s" -> Some Corner.Start
+    | "e" -> Some Corner.End
+    | "t" -> Some Corner.Top
+    | "r" -> Some Corner.Right
+    | "b" -> Some Corner.Bottom
+    | "l" -> Some Corner.Left
+    | "ss" -> Some Corner.Start_start
+    | "se" -> Some Corner.Start_end
+    | "ee" -> Some Corner.End_end
+    | "es" -> Some Corner.End_start
+    | "tl" -> Some Corner.Top_left
+    | "tr" -> Some Corner.Top_right
+    | "br" -> Some Corner.Bottom_right
+    | "bl" -> Some Corner.Bottom_left
     | _ -> None
 
   (* Parse a rounded size token (the t-shirt segment of a class). *)
@@ -802,21 +807,21 @@ module Handler = struct
            right, then bottom. Values within a group share a suborder and
            tie-break by class name. *)
         match pos with
-        | Rp_all -> 0
-        | Rp_s -> 10
-        | Rp_ss -> 20
-        | Rp_e -> 30
-        | Rp_se -> 40
-        | Rp_ee -> 50
-        | Rp_es -> 60
-        | Rp_t -> 100
-        | Rp_l -> 110
-        | Rp_tl -> 120
-        | Rp_r -> 130
-        | Rp_tr -> 140
-        | Rp_b -> 150
-        | Rp_br -> 160
-        | Rp_bl -> 170)
+        | Corner.All -> 0
+        | Corner.Start -> 10
+        | Corner.Start_start -> 20
+        | Corner.End -> 30
+        | Corner.Start_end -> 40
+        | Corner.End_end -> 50
+        | Corner.End_start -> 60
+        | Corner.Top -> 100
+        | Corner.Left -> 110
+        | Corner.Top_left -> 120
+        | Corner.Right -> 130
+        | Corner.Top_right -> 140
+        | Corner.Bottom -> 150
+        | Corner.Bottom_right -> 160
+        | Corner.Bottom_left -> 170)
     (* Border width utilities (1000-1099) *)
     | Border -> 1000
     | Border_0 -> 1001
@@ -991,26 +996,26 @@ module Handler = struct
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
-    | [ "rounded" ] -> Ok (Rounded (Rp_all, Rsz_default))
+    | [ "rounded" ] -> Ok (Rounded (Corner.All, Rsz_default))
     | [ "rounded"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         match parse_length inner with
-        | Some len -> Ok (Rounded (Rp_all, Rsz_arbitrary (inner, len)))
+        | Some len -> Ok (Rounded (Corner.All, Rsz_arbitrary (inner, len)))
         | None -> err_not_utility)
     | [ "rounded"; tok ] -> (
         match rounded_size_of_string tok with
-        | Some size -> Ok (Rounded (Rp_all, size))
+        | Some size -> Ok (Rounded (Corner.All, size))
         | None -> (
-            match rounded_position_of_string tok with
+            match corner_of_string tok with
             | Some pos -> Ok (Rounded (pos, Rsz_default))
             | None -> err_not_utility))
     | [ "rounded"; pos; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
-        match (rounded_position_of_string pos, parse_length inner) with
+        match (corner_of_string pos, parse_length inner) with
         | Some pos, Some len -> Ok (Rounded (pos, Rsz_arbitrary (inner, len)))
         | _ -> err_not_utility)
     | [ "rounded"; pos; size ] -> (
-        match (rounded_position_of_string pos, rounded_size_of_string size) with
+        match (corner_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
         | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
@@ -1128,21 +1133,21 @@ module Handler = struct
     | Rounded (pos, size) ->
         let pos_str =
           match pos with
-          | Rp_all -> ""
-          | Rp_s -> "-s"
-          | Rp_e -> "-e"
-          | Rp_t -> "-t"
-          | Rp_r -> "-r"
-          | Rp_b -> "-b"
-          | Rp_l -> "-l"
-          | Rp_ss -> "-ss"
-          | Rp_se -> "-se"
-          | Rp_ee -> "-ee"
-          | Rp_es -> "-es"
-          | Rp_tl -> "-tl"
-          | Rp_tr -> "-tr"
-          | Rp_br -> "-br"
-          | Rp_bl -> "-bl"
+          | Corner.All -> ""
+          | Corner.Start -> "-s"
+          | Corner.End -> "-e"
+          | Corner.Top -> "-t"
+          | Corner.Right -> "-r"
+          | Corner.Bottom -> "-b"
+          | Corner.Left -> "-l"
+          | Corner.Start_start -> "-ss"
+          | Corner.Start_end -> "-se"
+          | Corner.End_end -> "-ee"
+          | Corner.End_start -> "-es"
+          | Corner.Top_left -> "-tl"
+          | Corner.Top_right -> "-tr"
+          | Corner.Bottom_right -> "-br"
+          | Corner.Bottom_left -> "-bl"
         in
         let size_str =
           match size with
@@ -1291,213 +1296,213 @@ let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 
-let rounded = utility (Rounded (Rp_all, Rsz_default))
-let rounded_none = utility (Rounded (Rp_all, Rsz_none))
-let rounded_xs = utility (Rounded (Rp_all, Rsz_xs))
-let rounded_sm = utility (Rounded (Rp_all, Rsz_sm))
-let rounded_md = utility (Rounded (Rp_all, Rsz_md))
-let rounded_lg = utility (Rounded (Rp_all, Rsz_lg))
-let rounded_xl = utility (Rounded (Rp_all, Rsz_xl))
-let rounded_2xl = utility (Rounded (Rp_all, Rsz_2xl))
-let rounded_3xl = utility (Rounded (Rp_all, Rsz_3xl))
-let rounded_4xl = utility (Rounded (Rp_all, Rsz_4xl))
-let rounded_full = utility (Rounded (Rp_all, Rsz_full))
+let rounded = utility (Rounded (Corner.All, Rsz_default))
+let rounded_none = utility (Rounded (Corner.All, Rsz_none))
+let rounded_xs = utility (Rounded (Corner.All, Rsz_xs))
+let rounded_sm = utility (Rounded (Corner.All, Rsz_sm))
+let rounded_md = utility (Rounded (Corner.All, Rsz_md))
+let rounded_lg = utility (Rounded (Corner.All, Rsz_lg))
+let rounded_xl = utility (Rounded (Corner.All, Rsz_xl))
+let rounded_2xl = utility (Rounded (Corner.All, Rsz_2xl))
+let rounded_3xl = utility (Rounded (Corner.All, Rsz_3xl))
+let rounded_4xl = utility (Rounded (Corner.All, Rsz_4xl))
+let rounded_full = utility (Rounded (Corner.All, Rsz_full))
 
 (** {2 Side-specific rounded utilities - top} *)
 
-let rounded_t = utility (Rounded (Rp_t, Rsz_default))
-let rounded_t_none = utility (Rounded (Rp_t, Rsz_none))
-let rounded_t_xs = utility (Rounded (Rp_t, Rsz_xs))
-let rounded_t_sm = utility (Rounded (Rp_t, Rsz_sm))
-let rounded_t_md = utility (Rounded (Rp_t, Rsz_md))
-let rounded_t_lg = utility (Rounded (Rp_t, Rsz_lg))
-let rounded_t_xl = utility (Rounded (Rp_t, Rsz_xl))
-let rounded_t_2xl = utility (Rounded (Rp_t, Rsz_2xl))
-let rounded_t_3xl = utility (Rounded (Rp_t, Rsz_3xl))
-let rounded_t_4xl = utility (Rounded (Rp_t, Rsz_4xl))
-let rounded_t_full = utility (Rounded (Rp_t, Rsz_full))
+let rounded_t = utility (Rounded (Corner.Top, Rsz_default))
+let rounded_t_none = utility (Rounded (Corner.Top, Rsz_none))
+let rounded_t_xs = utility (Rounded (Corner.Top, Rsz_xs))
+let rounded_t_sm = utility (Rounded (Corner.Top, Rsz_sm))
+let rounded_t_md = utility (Rounded (Corner.Top, Rsz_md))
+let rounded_t_lg = utility (Rounded (Corner.Top, Rsz_lg))
+let rounded_t_xl = utility (Rounded (Corner.Top, Rsz_xl))
+let rounded_t_2xl = utility (Rounded (Corner.Top, Rsz_2xl))
+let rounded_t_3xl = utility (Rounded (Corner.Top, Rsz_3xl))
+let rounded_t_4xl = utility (Rounded (Corner.Top, Rsz_4xl))
+let rounded_t_full = utility (Rounded (Corner.Top, Rsz_full))
 
 (** {2 Side-specific rounded utilities - right} *)
 
-let rounded_r = utility (Rounded (Rp_r, Rsz_default))
-let rounded_r_none = utility (Rounded (Rp_r, Rsz_none))
-let rounded_r_xs = utility (Rounded (Rp_r, Rsz_xs))
-let rounded_r_sm = utility (Rounded (Rp_r, Rsz_sm))
-let rounded_r_md = utility (Rounded (Rp_r, Rsz_md))
-let rounded_r_lg = utility (Rounded (Rp_r, Rsz_lg))
-let rounded_r_xl = utility (Rounded (Rp_r, Rsz_xl))
-let rounded_r_2xl = utility (Rounded (Rp_r, Rsz_2xl))
-let rounded_r_3xl = utility (Rounded (Rp_r, Rsz_3xl))
-let rounded_r_4xl = utility (Rounded (Rp_r, Rsz_4xl))
-let rounded_r_full = utility (Rounded (Rp_r, Rsz_full))
+let rounded_r = utility (Rounded (Corner.Right, Rsz_default))
+let rounded_r_none = utility (Rounded (Corner.Right, Rsz_none))
+let rounded_r_xs = utility (Rounded (Corner.Right, Rsz_xs))
+let rounded_r_sm = utility (Rounded (Corner.Right, Rsz_sm))
+let rounded_r_md = utility (Rounded (Corner.Right, Rsz_md))
+let rounded_r_lg = utility (Rounded (Corner.Right, Rsz_lg))
+let rounded_r_xl = utility (Rounded (Corner.Right, Rsz_xl))
+let rounded_r_2xl = utility (Rounded (Corner.Right, Rsz_2xl))
+let rounded_r_3xl = utility (Rounded (Corner.Right, Rsz_3xl))
+let rounded_r_4xl = utility (Rounded (Corner.Right, Rsz_4xl))
+let rounded_r_full = utility (Rounded (Corner.Right, Rsz_full))
 
 (** {2 Side-specific rounded utilities - bottom} *)
 
-let rounded_b = utility (Rounded (Rp_b, Rsz_default))
-let rounded_b_none = utility (Rounded (Rp_b, Rsz_none))
-let rounded_b_xs = utility (Rounded (Rp_b, Rsz_xs))
-let rounded_b_sm = utility (Rounded (Rp_b, Rsz_sm))
-let rounded_b_md = utility (Rounded (Rp_b, Rsz_md))
-let rounded_b_lg = utility (Rounded (Rp_b, Rsz_lg))
-let rounded_b_xl = utility (Rounded (Rp_b, Rsz_xl))
-let rounded_b_2xl = utility (Rounded (Rp_b, Rsz_2xl))
-let rounded_b_3xl = utility (Rounded (Rp_b, Rsz_3xl))
-let rounded_b_4xl = utility (Rounded (Rp_b, Rsz_4xl))
-let rounded_b_full = utility (Rounded (Rp_b, Rsz_full))
+let rounded_b = utility (Rounded (Corner.Bottom, Rsz_default))
+let rounded_b_none = utility (Rounded (Corner.Bottom, Rsz_none))
+let rounded_b_xs = utility (Rounded (Corner.Bottom, Rsz_xs))
+let rounded_b_sm = utility (Rounded (Corner.Bottom, Rsz_sm))
+let rounded_b_md = utility (Rounded (Corner.Bottom, Rsz_md))
+let rounded_b_lg = utility (Rounded (Corner.Bottom, Rsz_lg))
+let rounded_b_xl = utility (Rounded (Corner.Bottom, Rsz_xl))
+let rounded_b_2xl = utility (Rounded (Corner.Bottom, Rsz_2xl))
+let rounded_b_3xl = utility (Rounded (Corner.Bottom, Rsz_3xl))
+let rounded_b_4xl = utility (Rounded (Corner.Bottom, Rsz_4xl))
+let rounded_b_full = utility (Rounded (Corner.Bottom, Rsz_full))
 
 (** {2 Side-specific rounded utilities - left} *)
 
-let rounded_l = utility (Rounded (Rp_l, Rsz_default))
-let rounded_l_none = utility (Rounded (Rp_l, Rsz_none))
-let rounded_l_xs = utility (Rounded (Rp_l, Rsz_xs))
-let rounded_l_sm = utility (Rounded (Rp_l, Rsz_sm))
-let rounded_l_md = utility (Rounded (Rp_l, Rsz_md))
-let rounded_l_lg = utility (Rounded (Rp_l, Rsz_lg))
-let rounded_l_xl = utility (Rounded (Rp_l, Rsz_xl))
-let rounded_l_2xl = utility (Rounded (Rp_l, Rsz_2xl))
-let rounded_l_3xl = utility (Rounded (Rp_l, Rsz_3xl))
-let rounded_l_4xl = utility (Rounded (Rp_l, Rsz_4xl))
-let rounded_l_full = utility (Rounded (Rp_l, Rsz_full))
+let rounded_l = utility (Rounded (Corner.Left, Rsz_default))
+let rounded_l_none = utility (Rounded (Corner.Left, Rsz_none))
+let rounded_l_xs = utility (Rounded (Corner.Left, Rsz_xs))
+let rounded_l_sm = utility (Rounded (Corner.Left, Rsz_sm))
+let rounded_l_md = utility (Rounded (Corner.Left, Rsz_md))
+let rounded_l_lg = utility (Rounded (Corner.Left, Rsz_lg))
+let rounded_l_xl = utility (Rounded (Corner.Left, Rsz_xl))
+let rounded_l_2xl = utility (Rounded (Corner.Left, Rsz_2xl))
+let rounded_l_3xl = utility (Rounded (Corner.Left, Rsz_3xl))
+let rounded_l_4xl = utility (Rounded (Corner.Left, Rsz_4xl))
+let rounded_l_full = utility (Rounded (Corner.Left, Rsz_full))
 
 (** {2 Corner-specific rounded utilities - top-left} *)
 
-let rounded_tl = utility (Rounded (Rp_tl, Rsz_default))
-let rounded_tl_none = utility (Rounded (Rp_tl, Rsz_none))
-let rounded_tl_xs = utility (Rounded (Rp_tl, Rsz_xs))
-let rounded_tl_sm = utility (Rounded (Rp_tl, Rsz_sm))
-let rounded_tl_md = utility (Rounded (Rp_tl, Rsz_md))
-let rounded_tl_lg = utility (Rounded (Rp_tl, Rsz_lg))
-let rounded_tl_xl = utility (Rounded (Rp_tl, Rsz_xl))
-let rounded_tl_2xl = utility (Rounded (Rp_tl, Rsz_2xl))
-let rounded_tl_3xl = utility (Rounded (Rp_tl, Rsz_3xl))
-let rounded_tl_4xl = utility (Rounded (Rp_tl, Rsz_4xl))
-let rounded_tl_full = utility (Rounded (Rp_tl, Rsz_full))
+let rounded_tl = utility (Rounded (Corner.Top_left, Rsz_default))
+let rounded_tl_none = utility (Rounded (Corner.Top_left, Rsz_none))
+let rounded_tl_xs = utility (Rounded (Corner.Top_left, Rsz_xs))
+let rounded_tl_sm = utility (Rounded (Corner.Top_left, Rsz_sm))
+let rounded_tl_md = utility (Rounded (Corner.Top_left, Rsz_md))
+let rounded_tl_lg = utility (Rounded (Corner.Top_left, Rsz_lg))
+let rounded_tl_xl = utility (Rounded (Corner.Top_left, Rsz_xl))
+let rounded_tl_2xl = utility (Rounded (Corner.Top_left, Rsz_2xl))
+let rounded_tl_3xl = utility (Rounded (Corner.Top_left, Rsz_3xl))
+let rounded_tl_4xl = utility (Rounded (Corner.Top_left, Rsz_4xl))
+let rounded_tl_full = utility (Rounded (Corner.Top_left, Rsz_full))
 
 (** {2 Corner-specific rounded utilities - top-right} *)
 
-let rounded_tr = utility (Rounded (Rp_tr, Rsz_default))
-let rounded_tr_none = utility (Rounded (Rp_tr, Rsz_none))
-let rounded_tr_xs = utility (Rounded (Rp_tr, Rsz_xs))
-let rounded_tr_sm = utility (Rounded (Rp_tr, Rsz_sm))
-let rounded_tr_md = utility (Rounded (Rp_tr, Rsz_md))
-let rounded_tr_lg = utility (Rounded (Rp_tr, Rsz_lg))
-let rounded_tr_xl = utility (Rounded (Rp_tr, Rsz_xl))
-let rounded_tr_2xl = utility (Rounded (Rp_tr, Rsz_2xl))
-let rounded_tr_3xl = utility (Rounded (Rp_tr, Rsz_3xl))
-let rounded_tr_4xl = utility (Rounded (Rp_tr, Rsz_4xl))
-let rounded_tr_full = utility (Rounded (Rp_tr, Rsz_full))
+let rounded_tr = utility (Rounded (Corner.Top_right, Rsz_default))
+let rounded_tr_none = utility (Rounded (Corner.Top_right, Rsz_none))
+let rounded_tr_xs = utility (Rounded (Corner.Top_right, Rsz_xs))
+let rounded_tr_sm = utility (Rounded (Corner.Top_right, Rsz_sm))
+let rounded_tr_md = utility (Rounded (Corner.Top_right, Rsz_md))
+let rounded_tr_lg = utility (Rounded (Corner.Top_right, Rsz_lg))
+let rounded_tr_xl = utility (Rounded (Corner.Top_right, Rsz_xl))
+let rounded_tr_2xl = utility (Rounded (Corner.Top_right, Rsz_2xl))
+let rounded_tr_3xl = utility (Rounded (Corner.Top_right, Rsz_3xl))
+let rounded_tr_4xl = utility (Rounded (Corner.Top_right, Rsz_4xl))
+let rounded_tr_full = utility (Rounded (Corner.Top_right, Rsz_full))
 
 (** {2 Corner-specific rounded utilities - bottom-right} *)
 
-let rounded_br = utility (Rounded (Rp_br, Rsz_default))
-let rounded_br_none = utility (Rounded (Rp_br, Rsz_none))
-let rounded_br_xs = utility (Rounded (Rp_br, Rsz_xs))
-let rounded_br_sm = utility (Rounded (Rp_br, Rsz_sm))
-let rounded_br_md = utility (Rounded (Rp_br, Rsz_md))
-let rounded_br_lg = utility (Rounded (Rp_br, Rsz_lg))
-let rounded_br_xl = utility (Rounded (Rp_br, Rsz_xl))
-let rounded_br_2xl = utility (Rounded (Rp_br, Rsz_2xl))
-let rounded_br_3xl = utility (Rounded (Rp_br, Rsz_3xl))
-let rounded_br_4xl = utility (Rounded (Rp_br, Rsz_4xl))
-let rounded_br_full = utility (Rounded (Rp_br, Rsz_full))
+let rounded_br = utility (Rounded (Corner.Bottom_right, Rsz_default))
+let rounded_br_none = utility (Rounded (Corner.Bottom_right, Rsz_none))
+let rounded_br_xs = utility (Rounded (Corner.Bottom_right, Rsz_xs))
+let rounded_br_sm = utility (Rounded (Corner.Bottom_right, Rsz_sm))
+let rounded_br_md = utility (Rounded (Corner.Bottom_right, Rsz_md))
+let rounded_br_lg = utility (Rounded (Corner.Bottom_right, Rsz_lg))
+let rounded_br_xl = utility (Rounded (Corner.Bottom_right, Rsz_xl))
+let rounded_br_2xl = utility (Rounded (Corner.Bottom_right, Rsz_2xl))
+let rounded_br_3xl = utility (Rounded (Corner.Bottom_right, Rsz_3xl))
+let rounded_br_4xl = utility (Rounded (Corner.Bottom_right, Rsz_4xl))
+let rounded_br_full = utility (Rounded (Corner.Bottom_right, Rsz_full))
 
 (** {2 Corner-specific rounded utilities - bottom-left} *)
 
-let rounded_bl = utility (Rounded (Rp_bl, Rsz_default))
-let rounded_bl_none = utility (Rounded (Rp_bl, Rsz_none))
-let rounded_bl_xs = utility (Rounded (Rp_bl, Rsz_xs))
-let rounded_bl_sm = utility (Rounded (Rp_bl, Rsz_sm))
-let rounded_bl_md = utility (Rounded (Rp_bl, Rsz_md))
-let rounded_bl_lg = utility (Rounded (Rp_bl, Rsz_lg))
-let rounded_bl_xl = utility (Rounded (Rp_bl, Rsz_xl))
-let rounded_bl_2xl = utility (Rounded (Rp_bl, Rsz_2xl))
-let rounded_bl_3xl = utility (Rounded (Rp_bl, Rsz_3xl))
-let rounded_bl_4xl = utility (Rounded (Rp_bl, Rsz_4xl))
-let rounded_bl_full = utility (Rounded (Rp_bl, Rsz_full))
+let rounded_bl = utility (Rounded (Corner.Bottom_left, Rsz_default))
+let rounded_bl_none = utility (Rounded (Corner.Bottom_left, Rsz_none))
+let rounded_bl_xs = utility (Rounded (Corner.Bottom_left, Rsz_xs))
+let rounded_bl_sm = utility (Rounded (Corner.Bottom_left, Rsz_sm))
+let rounded_bl_md = utility (Rounded (Corner.Bottom_left, Rsz_md))
+let rounded_bl_lg = utility (Rounded (Corner.Bottom_left, Rsz_lg))
+let rounded_bl_xl = utility (Rounded (Corner.Bottom_left, Rsz_xl))
+let rounded_bl_2xl = utility (Rounded (Corner.Bottom_left, Rsz_2xl))
+let rounded_bl_3xl = utility (Rounded (Corner.Bottom_left, Rsz_3xl))
+let rounded_bl_4xl = utility (Rounded (Corner.Bottom_left, Rsz_4xl))
+let rounded_bl_full = utility (Rounded (Corner.Bottom_left, Rsz_full))
 
 (** {2 Logical property rounded utilities - start} *)
 
-let rounded_s = utility (Rounded (Rp_s, Rsz_default))
-let rounded_s_none = utility (Rounded (Rp_s, Rsz_none))
-let rounded_s_xs = utility (Rounded (Rp_s, Rsz_xs))
-let rounded_s_sm = utility (Rounded (Rp_s, Rsz_sm))
-let rounded_s_md = utility (Rounded (Rp_s, Rsz_md))
-let rounded_s_lg = utility (Rounded (Rp_s, Rsz_lg))
-let rounded_s_xl = utility (Rounded (Rp_s, Rsz_xl))
-let rounded_s_2xl = utility (Rounded (Rp_s, Rsz_2xl))
-let rounded_s_3xl = utility (Rounded (Rp_s, Rsz_3xl))
-let rounded_s_4xl = utility (Rounded (Rp_s, Rsz_4xl))
-let rounded_s_full = utility (Rounded (Rp_s, Rsz_full))
+let rounded_s = utility (Rounded (Corner.Start, Rsz_default))
+let rounded_s_none = utility (Rounded (Corner.Start, Rsz_none))
+let rounded_s_xs = utility (Rounded (Corner.Start, Rsz_xs))
+let rounded_s_sm = utility (Rounded (Corner.Start, Rsz_sm))
+let rounded_s_md = utility (Rounded (Corner.Start, Rsz_md))
+let rounded_s_lg = utility (Rounded (Corner.Start, Rsz_lg))
+let rounded_s_xl = utility (Rounded (Corner.Start, Rsz_xl))
+let rounded_s_2xl = utility (Rounded (Corner.Start, Rsz_2xl))
+let rounded_s_3xl = utility (Rounded (Corner.Start, Rsz_3xl))
+let rounded_s_4xl = utility (Rounded (Corner.Start, Rsz_4xl))
+let rounded_s_full = utility (Rounded (Corner.Start, Rsz_full))
 
 (** {2 Logical property rounded utilities - end} *)
 
-let rounded_e = utility (Rounded (Rp_e, Rsz_default))
-let rounded_e_none = utility (Rounded (Rp_e, Rsz_none))
-let rounded_e_xs = utility (Rounded (Rp_e, Rsz_xs))
-let rounded_e_sm = utility (Rounded (Rp_e, Rsz_sm))
-let rounded_e_md = utility (Rounded (Rp_e, Rsz_md))
-let rounded_e_lg = utility (Rounded (Rp_e, Rsz_lg))
-let rounded_e_xl = utility (Rounded (Rp_e, Rsz_xl))
-let rounded_e_2xl = utility (Rounded (Rp_e, Rsz_2xl))
-let rounded_e_3xl = utility (Rounded (Rp_e, Rsz_3xl))
-let rounded_e_4xl = utility (Rounded (Rp_e, Rsz_4xl))
-let rounded_e_full = utility (Rounded (Rp_e, Rsz_full))
+let rounded_e = utility (Rounded (Corner.End, Rsz_default))
+let rounded_e_none = utility (Rounded (Corner.End, Rsz_none))
+let rounded_e_xs = utility (Rounded (Corner.End, Rsz_xs))
+let rounded_e_sm = utility (Rounded (Corner.End, Rsz_sm))
+let rounded_e_md = utility (Rounded (Corner.End, Rsz_md))
+let rounded_e_lg = utility (Rounded (Corner.End, Rsz_lg))
+let rounded_e_xl = utility (Rounded (Corner.End, Rsz_xl))
+let rounded_e_2xl = utility (Rounded (Corner.End, Rsz_2xl))
+let rounded_e_3xl = utility (Rounded (Corner.End, Rsz_3xl))
+let rounded_e_4xl = utility (Rounded (Corner.End, Rsz_4xl))
+let rounded_e_full = utility (Rounded (Corner.End, Rsz_full))
 
 (** {2 Logical corner rounded utilities - start-start} *)
 
-let rounded_ss = utility (Rounded (Rp_ss, Rsz_default))
-let rounded_ss_none = utility (Rounded (Rp_ss, Rsz_none))
-let rounded_ss_xs = utility (Rounded (Rp_ss, Rsz_xs))
-let rounded_ss_sm = utility (Rounded (Rp_ss, Rsz_sm))
-let rounded_ss_md = utility (Rounded (Rp_ss, Rsz_md))
-let rounded_ss_lg = utility (Rounded (Rp_ss, Rsz_lg))
-let rounded_ss_xl = utility (Rounded (Rp_ss, Rsz_xl))
-let rounded_ss_2xl = utility (Rounded (Rp_ss, Rsz_2xl))
-let rounded_ss_3xl = utility (Rounded (Rp_ss, Rsz_3xl))
-let rounded_ss_4xl = utility (Rounded (Rp_ss, Rsz_4xl))
-let rounded_ss_full = utility (Rounded (Rp_ss, Rsz_full))
+let rounded_ss = utility (Rounded (Corner.Start_start, Rsz_default))
+let rounded_ss_none = utility (Rounded (Corner.Start_start, Rsz_none))
+let rounded_ss_xs = utility (Rounded (Corner.Start_start, Rsz_xs))
+let rounded_ss_sm = utility (Rounded (Corner.Start_start, Rsz_sm))
+let rounded_ss_md = utility (Rounded (Corner.Start_start, Rsz_md))
+let rounded_ss_lg = utility (Rounded (Corner.Start_start, Rsz_lg))
+let rounded_ss_xl = utility (Rounded (Corner.Start_start, Rsz_xl))
+let rounded_ss_2xl = utility (Rounded (Corner.Start_start, Rsz_2xl))
+let rounded_ss_3xl = utility (Rounded (Corner.Start_start, Rsz_3xl))
+let rounded_ss_4xl = utility (Rounded (Corner.Start_start, Rsz_4xl))
+let rounded_ss_full = utility (Rounded (Corner.Start_start, Rsz_full))
 
 (** {2 Logical corner rounded utilities - start-end} *)
 
-let rounded_se = utility (Rounded (Rp_se, Rsz_default))
-let rounded_se_none = utility (Rounded (Rp_se, Rsz_none))
-let rounded_se_xs = utility (Rounded (Rp_se, Rsz_xs))
-let rounded_se_sm = utility (Rounded (Rp_se, Rsz_sm))
-let rounded_se_md = utility (Rounded (Rp_se, Rsz_md))
-let rounded_se_lg = utility (Rounded (Rp_se, Rsz_lg))
-let rounded_se_xl = utility (Rounded (Rp_se, Rsz_xl))
-let rounded_se_2xl = utility (Rounded (Rp_se, Rsz_2xl))
-let rounded_se_3xl = utility (Rounded (Rp_se, Rsz_3xl))
-let rounded_se_4xl = utility (Rounded (Rp_se, Rsz_4xl))
-let rounded_se_full = utility (Rounded (Rp_se, Rsz_full))
+let rounded_se = utility (Rounded (Corner.Start_end, Rsz_default))
+let rounded_se_none = utility (Rounded (Corner.Start_end, Rsz_none))
+let rounded_se_xs = utility (Rounded (Corner.Start_end, Rsz_xs))
+let rounded_se_sm = utility (Rounded (Corner.Start_end, Rsz_sm))
+let rounded_se_md = utility (Rounded (Corner.Start_end, Rsz_md))
+let rounded_se_lg = utility (Rounded (Corner.Start_end, Rsz_lg))
+let rounded_se_xl = utility (Rounded (Corner.Start_end, Rsz_xl))
+let rounded_se_2xl = utility (Rounded (Corner.Start_end, Rsz_2xl))
+let rounded_se_3xl = utility (Rounded (Corner.Start_end, Rsz_3xl))
+let rounded_se_4xl = utility (Rounded (Corner.Start_end, Rsz_4xl))
+let rounded_se_full = utility (Rounded (Corner.Start_end, Rsz_full))
 
 (** {2 Logical corner rounded utilities - end-end} *)
 
-let rounded_ee = utility (Rounded (Rp_ee, Rsz_default))
-let rounded_ee_none = utility (Rounded (Rp_ee, Rsz_none))
-let rounded_ee_xs = utility (Rounded (Rp_ee, Rsz_xs))
-let rounded_ee_sm = utility (Rounded (Rp_ee, Rsz_sm))
-let rounded_ee_md = utility (Rounded (Rp_ee, Rsz_md))
-let rounded_ee_lg = utility (Rounded (Rp_ee, Rsz_lg))
-let rounded_ee_xl = utility (Rounded (Rp_ee, Rsz_xl))
-let rounded_ee_2xl = utility (Rounded (Rp_ee, Rsz_2xl))
-let rounded_ee_3xl = utility (Rounded (Rp_ee, Rsz_3xl))
-let rounded_ee_4xl = utility (Rounded (Rp_ee, Rsz_4xl))
-let rounded_ee_full = utility (Rounded (Rp_ee, Rsz_full))
+let rounded_ee = utility (Rounded (Corner.End_end, Rsz_default))
+let rounded_ee_none = utility (Rounded (Corner.End_end, Rsz_none))
+let rounded_ee_xs = utility (Rounded (Corner.End_end, Rsz_xs))
+let rounded_ee_sm = utility (Rounded (Corner.End_end, Rsz_sm))
+let rounded_ee_md = utility (Rounded (Corner.End_end, Rsz_md))
+let rounded_ee_lg = utility (Rounded (Corner.End_end, Rsz_lg))
+let rounded_ee_xl = utility (Rounded (Corner.End_end, Rsz_xl))
+let rounded_ee_2xl = utility (Rounded (Corner.End_end, Rsz_2xl))
+let rounded_ee_3xl = utility (Rounded (Corner.End_end, Rsz_3xl))
+let rounded_ee_4xl = utility (Rounded (Corner.End_end, Rsz_4xl))
+let rounded_ee_full = utility (Rounded (Corner.End_end, Rsz_full))
 
 (** {2 Logical corner rounded utilities - end-start} *)
 
-let rounded_es = utility (Rounded (Rp_es, Rsz_default))
-let rounded_es_none = utility (Rounded (Rp_es, Rsz_none))
-let rounded_es_xs = utility (Rounded (Rp_es, Rsz_xs))
-let rounded_es_sm = utility (Rounded (Rp_es, Rsz_sm))
-let rounded_es_md = utility (Rounded (Rp_es, Rsz_md))
-let rounded_es_lg = utility (Rounded (Rp_es, Rsz_lg))
-let rounded_es_xl = utility (Rounded (Rp_es, Rsz_xl))
-let rounded_es_2xl = utility (Rounded (Rp_es, Rsz_2xl))
-let rounded_es_3xl = utility (Rounded (Rp_es, Rsz_3xl))
-let rounded_es_4xl = utility (Rounded (Rp_es, Rsz_4xl))
-let rounded_es_full = utility (Rounded (Rp_es, Rsz_full))
+let rounded_es = utility (Rounded (Corner.End_start, Rsz_default))
+let rounded_es_none = utility (Rounded (Corner.End_start, Rsz_none))
+let rounded_es_xs = utility (Rounded (Corner.End_start, Rsz_xs))
+let rounded_es_sm = utility (Rounded (Corner.End_start, Rsz_sm))
+let rounded_es_md = utility (Rounded (Corner.End_start, Rsz_md))
+let rounded_es_lg = utility (Rounded (Corner.End_start, Rsz_lg))
+let rounded_es_xl = utility (Rounded (Corner.End_start, Rsz_xl))
+let rounded_es_2xl = utility (Rounded (Corner.End_start, Rsz_2xl))
+let rounded_es_3xl = utility (Rounded (Corner.End_start, Rsz_3xl))
+let rounded_es_4xl = utility (Rounded (Corner.End_start, Rsz_4xl))
+let rounded_es_full = utility (Rounded (Corner.End_start, Rsz_full))
 
 (** {1 Outline Utilities} *)
 
