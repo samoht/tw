@@ -85,6 +85,5 @@ files = [
   "lib/mask_gradient.ml*",
   "lib/masks.ml*",
   "lib/text_shadow.ml*",
-  "lib/touch.ml*",
 ]
 exclude = ["E334"]
