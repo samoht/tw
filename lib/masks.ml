@@ -9,68 +9,71 @@ module Handler = struct
   open Style
   open Css
 
-  type position_keyword =
-    | Pos_bottom
-    | Pos_bottom_left
-    | Pos_bottom_right
-    | Pos_center
-    | Pos_left
-    | Pos_right
-    | Pos_top
-    | Pos_top_left
-    | Pos_top_right
+  (* The position keywords [mask-<position>] accepts. *)
+  module Keyword = struct
+    type t =
+      | Bottom
+      | Bottom_left
+      | Bottom_right
+      | Center
+      | Left
+      | Right
+      | Top
+      | Top_left
+      | Top_right
+  end
 
   type t =
-    | Mask_none
-    | Mask_add
-    | Mask_exclude
-    | Mask_intersect
-    | Mask_subtract
-    | Mask_alpha
-    | Mask_luminance
-    | Mask_match
-    | Mask_type_alpha
-    | Mask_type_luminance
-    | Mask_auto
-    | Mask_contain
-    | Mask_cover
-    | Mask_position of position_keyword
-    | Mask_no_repeat
-    | Mask_repeat
-    | Mask_repeat_round
-    | Mask_repeat_space
-    | Mask_repeat_x
-    | Mask_repeat_y
-    | Mask_clip_border
-    | Mask_clip_padding
-    | Mask_clip_content
-    | Mask_clip_fill
-    | Mask_clip_stroke
-    | Mask_clip_view
-    | Mask_no_clip
-    | Mask_origin_border
-    | Mask_origin_padding
-    | Mask_origin_content
-    | Mask_origin_fill
-    | Mask_origin_stroke
-    | Mask_origin_view
+    | No_mask
+    | Add
+    | Exclude
+    | Intersect
+    | Subtract
+    | Alpha
+    | Luminance
+    | Match
+    | Type_alpha
+    | Type_luminance
+    | Auto
+    | Contain
+    | Cover
+    | Position of Keyword.t
+    | No_repeat
+    | Repeat
+    | Repeat_round
+    | Repeat_space
+    | Repeat_x
+    | Repeat_y
+    | Clip_border
+    | Clip_padding
+    | Clip_content
+    | Clip_fill
+    | Clip_stroke
+    | Clip_view
+    | No_clip
+    | Origin_border
+    | Origin_padding
+    | Origin_content
+    | Origin_fill
+    | Origin_stroke
+    | Origin_view
     (* Bracket notation *)
-    | Mask_bracket_contain
-    | Mask_bracket_cover
-    | Mask_bracket_size of string
-    | Mask_bracket_length of string
-    | Mask_bracket_position of string * Css.position_value list
-    | Mask_bracket_typed_position of string * Css.position_value list
-    | Mask_bracket_image_var of string
-    | Mask_bracket_url of string
-    | Mask_bracket_url_var of string
-    | Mask_bracket_var of string
-    | Mask_bracket_image of string
+    | Bracket_contain
+    | Bracket_cover
+    | Bracket_size of string
+    | Bracket_length of string
+    | Bracket_position of string * Css.position_value list
+    | Bracket_typed_position of string * Css.position_value list
+    | Bracket_image_var of string
+    | Bracket_url of string
+    | Bracket_url_var of string
+    | Bracket_var of string
+    | Bracket_image of string
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
-    | Mask_position_bracket of string * Css.position_value list
-    | Mask_position_bracket_var of string
-    | Mask_size_bracket of string
-    | Mask_size_bracket_var of string
+    | Position_bracket of string * Css.position_value list
+    | Position_bracket_var of string
+    | Size_bracket of string
+    | Size_bracket_var of string
 
   type Utility.base += Self of t
 
@@ -90,7 +93,7 @@ module Handler = struct
       [
         Css.webkit_mask_composite Source_over;
         Css.webkit_mask_composite Source_over;
-        Css.mask_composite Add;
+        Css.mask_composite Css.Add;
       ]
 
   let mask_exclude =
@@ -98,7 +101,7 @@ module Handler = struct
       [
         Css.webkit_mask_composite Xor;
         Css.webkit_mask_composite Xor;
-        Css.mask_composite Exclude;
+        Css.mask_composite Css.Exclude;
       ]
 
   let mask_intersect =
@@ -106,7 +109,7 @@ module Handler = struct
       [
         Css.webkit_mask_composite Source_in;
         Css.webkit_mask_composite Source_in;
-        Css.mask_composite Intersect;
+        Css.mask_composite Css.Intersect;
       ]
 
   let mask_subtract =
@@ -114,66 +117,69 @@ module Handler = struct
       [
         Css.webkit_mask_composite Source_out;
         Css.webkit_mask_composite Source_out;
-        Css.mask_composite Subtract;
+        Css.mask_composite Css.Subtract;
       ]
 
   let mask_alpha =
     style
       [
-        Css.webkit_mask_source_type Alpha;
-        Css.webkit_mask_source_type Alpha;
-        Css.mask_mode Alpha;
+        Css.webkit_mask_source_type Css.Alpha;
+        Css.webkit_mask_source_type Css.Alpha;
+        Css.mask_mode Css.Alpha;
       ]
 
   let mask_luminance =
     style
       [
-        Css.webkit_mask_source_type Luminance;
-        Css.webkit_mask_source_type Luminance;
-        Css.mask_mode Luminance;
+        Css.webkit_mask_source_type Css.Luminance;
+        Css.webkit_mask_source_type Css.Luminance;
+        Css.mask_mode Css.Luminance;
       ]
 
   let mask_match =
     style
       [
-        Css.webkit_mask_source_type Auto;
-        Css.webkit_mask_source_type Auto;
+        Css.webkit_mask_source_type Css.Auto;
+        Css.webkit_mask_source_type Css.Auto;
         Css.mask_mode Match_source;
       ]
 
-  let mask_type_alpha = style [ Css.mask_type Alpha ]
-  let mask_type_luminance = style [ Css.mask_type Luminance ]
+  let mask_type_alpha = style [ Css.mask_type Css.Alpha ]
+  let mask_type_luminance = style [ Css.mask_type Css.Luminance ]
 
   (* mask-size *)
-  let mask_auto = style [ Css.webkit_mask_size Auto; Css.mask_size Auto ]
+  let mask_auto =
+    style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ]
 
   let mask_contain =
-    style [ Css.webkit_mask_size Contain; Css.mask_size Contain ]
+    style [ Css.webkit_mask_size Css.Contain; Css.mask_size Css.Contain ]
 
-  let mask_cover = style [ Css.webkit_mask_size Cover; Css.mask_size Cover ]
+  let mask_cover =
+    style [ Css.webkit_mask_size Css.Cover; Css.mask_size Css.Cover ]
 
   (* mask-position *)
   let mask_position' pos =
     let pos_val : Css.position_value list =
       match pos with
-      | Pos_bottom -> [ Center_bottom ]
-      | Pos_bottom_left -> [ XY (Pct 0., Pct 100.) ]
-      | Pos_bottom_right -> [ XY (Pct 100., Pct 100.) ]
-      | Pos_center -> [ Center ]
-      | Pos_left -> [ Single (Pct 0.) ]
-      | Pos_right -> [ Single (Pct 100.) ]
-      | Pos_top -> [ Center_top ]
-      | Pos_top_left -> [ XY (Pct 0., Pct 0.) ]
-      | Pos_top_right -> [ XY (Pct 100., Pct 0.) ]
+      | Keyword.Bottom -> [ Center_bottom ]
+      | Keyword.Bottom_left -> [ XY (Pct 0., Pct 100.) ]
+      | Keyword.Bottom_right -> [ XY (Pct 100., Pct 100.) ]
+      | Keyword.Center -> [ Center ]
+      | Keyword.Left -> [ Single (Pct 0.) ]
+      | Keyword.Right -> [ Single (Pct 100.) ]
+      | Keyword.Top -> [ Center_top ]
+      | Keyword.Top_left -> [ XY (Pct 0., Pct 0.) ]
+      | Keyword.Top_right -> [ XY (Pct 100., Pct 0.) ]
     in
     style [ Css.webkit_mask_position pos_val; Css.mask_position pos_val ]
 
   (* mask-repeat *)
   let mask_no_repeat' =
-    style [ Css.webkit_mask_repeat No_repeat; Css.mask_repeat No_repeat ]
+    style
+      [ Css.webkit_mask_repeat Css.No_repeat; Css.mask_repeat Css.No_repeat ]
 
   let mask_repeat' =
-    style [ Css.webkit_mask_repeat Repeat; Css.mask_repeat Repeat ]
+    style [ Css.webkit_mask_repeat Css.Repeat; Css.mask_repeat Css.Repeat ]
 
   let mask_repeat_round' =
     style [ Css.webkit_mask_repeat Round; Css.mask_repeat Round ]
@@ -182,10 +188,10 @@ module Handler = struct
     style [ Css.webkit_mask_repeat Space; Css.mask_repeat Space ]
 
   let mask_repeat_x' =
-    style [ Css.webkit_mask_repeat Repeat_x; Css.mask_repeat Repeat_x ]
+    style [ Css.webkit_mask_repeat Css.Repeat_x; Css.mask_repeat Css.Repeat_x ]
 
   let mask_repeat_y' =
-    style [ Css.webkit_mask_repeat Repeat_y; Css.mask_repeat Repeat_y ]
+    style [ Css.webkit_mask_repeat Css.Repeat_y; Css.mask_repeat Css.Repeat_y ]
 
   (* mask-clip utilities *)
   let mask_clip_border =
@@ -207,7 +213,7 @@ module Handler = struct
     style [ Css.webkit_mask_clip View_box; Css.mask_clip View_box ]
 
   let mask_no_clip =
-    style [ Css.webkit_mask_clip No_clip; Css.mask_clip No_clip ]
+    style [ Css.webkit_mask_clip Css.No_clip; Css.mask_clip Css.No_clip ]
 
   (* mask-origin utilities *)
   let mask_origin_border =
@@ -303,56 +309,57 @@ module Handler = struct
     style [ Css.webkit_mask_position positions; Css.mask_position positions ]
 
   let to_style _theme = function
-    | Mask_none -> mask_none
-    | Mask_add -> mask_add
-    | Mask_exclude -> mask_exclude
-    | Mask_intersect -> mask_intersect
-    | Mask_subtract -> mask_subtract
-    | Mask_alpha -> mask_alpha
-    | Mask_luminance -> mask_luminance
-    | Mask_match -> mask_match
-    | Mask_type_alpha -> mask_type_alpha
-    | Mask_type_luminance -> mask_type_luminance
-    | Mask_auto -> mask_auto
-    | Mask_contain -> mask_contain
-    | Mask_cover -> mask_cover
-    | Mask_position pos -> mask_position' pos
-    | Mask_no_repeat -> mask_no_repeat'
-    | Mask_repeat -> mask_repeat'
-    | Mask_repeat_round -> mask_repeat_round'
-    | Mask_repeat_space -> mask_repeat_space'
-    | Mask_repeat_x -> mask_repeat_x'
-    | Mask_repeat_y -> mask_repeat_y'
-    | Mask_clip_border -> mask_clip_border
-    | Mask_clip_padding -> mask_clip_padding
-    | Mask_clip_content -> mask_clip_content
-    | Mask_clip_fill -> mask_clip_fill
-    | Mask_clip_stroke -> mask_clip_stroke
-    | Mask_clip_view -> mask_clip_view
-    | Mask_no_clip -> mask_no_clip
-    | Mask_origin_border -> mask_origin_border
-    | Mask_origin_padding -> mask_origin_padding
-    | Mask_origin_content -> mask_origin_content
-    | Mask_origin_fill -> mask_origin_fill
-    | Mask_origin_stroke -> mask_origin_stroke
-    | Mask_origin_view -> mask_origin_view
+    | No_mask -> mask_none
+    | Add -> mask_add
+    | Exclude -> mask_exclude
+    | Intersect -> mask_intersect
+    | Subtract -> mask_subtract
+    | Alpha -> mask_alpha
+    | Luminance -> mask_luminance
+    | Match -> mask_match
+    | Type_alpha -> mask_type_alpha
+    | Type_luminance -> mask_type_luminance
+    | Auto -> mask_auto
+    | Contain -> mask_contain
+    | Cover -> mask_cover
+    | Position pos -> mask_position' pos
+    | No_repeat -> mask_no_repeat'
+    | Repeat -> mask_repeat'
+    | Repeat_round -> mask_repeat_round'
+    | Repeat_space -> mask_repeat_space'
+    | Repeat_x -> mask_repeat_x'
+    | Repeat_y -> mask_repeat_y'
+    | Clip_border -> mask_clip_border
+    | Clip_padding -> mask_clip_padding
+    | Clip_content -> mask_clip_content
+    | Clip_fill -> mask_clip_fill
+    | Clip_stroke -> mask_clip_stroke
+    | Clip_view -> mask_clip_view
+    | No_clip -> mask_no_clip
+    | Origin_border -> mask_origin_border
+    | Origin_padding -> mask_origin_padding
+    | Origin_content -> mask_origin_content
+    | Origin_fill -> mask_origin_fill
+    | Origin_stroke -> mask_origin_stroke
+    | Origin_view -> mask_origin_view
     (* Bracket notation *)
-    | Mask_bracket_contain ->
-        style [ Css.webkit_mask_size Contain; Css.mask_size Contain ]
-    | Mask_bracket_cover ->
-        style [ Css.webkit_mask_size Cover; Css.mask_size Cover ]
-    | Mask_bracket_size inner -> (
+    | Bracket_contain ->
+        style [ Css.webkit_mask_size Css.Contain; Css.mask_size Css.Contain ]
+    | Bracket_cover ->
+        style [ Css.webkit_mask_size Css.Cover; Css.mask_size Css.Cover ]
+    | Bracket_size inner -> (
         match parse_bracket_size inner with
         | Some decls -> style decls
-        | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
-    | Mask_bracket_length inner -> (
+        | None ->
+            style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ])
+    | Bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decls -> style decls
-        | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
-    | Mask_bracket_position (_, positions) -> mask_position_style positions
-    | Mask_bracket_typed_position (_, positions) ->
-        mask_position_style positions
-    | Mask_bracket_image_var v ->
+        | None ->
+            style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ])
+    | Bracket_position (_, positions) -> mask_position_style positions
+    | Bracket_typed_position (_, positions) -> mask_position_style positions
+    | Bracket_image_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
@@ -361,9 +368,9 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Mask_bracket_url url ->
+    | Bracket_url url ->
         style [ Css.webkit_mask_image (Url url); Css.mask_image (Url url) ]
-    | Mask_bracket_url_var v ->
+    | Bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
@@ -372,7 +379,7 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Mask_bracket_var v ->
+    | Bracket_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
@@ -381,7 +388,7 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Mask_bracket_image v -> (
+    | Bracket_image v -> (
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
         match Css.parse_background_image css_str with
         | Some (img :: _) ->
@@ -390,8 +397,8 @@ module Handler = struct
             invalid_arg ("mask-[" ^ v ^ "]: not a valid background-image value")
         )
     (* Sub-property bracket notation *)
-    | Mask_position_bracket (_, positions) -> mask_position_style positions
-    | Mask_position_bracket_var v ->
+    | Position_bracket (_, positions) -> mask_position_style positions
+    | Position_bracket_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.position_value Css.var = Var.bracket bare in
         style
@@ -400,11 +407,12 @@ module Handler = struct
             Css.webkit_mask_position [ Var var_ref ];
             Css.mask_position [ Var var_ref ];
           ]
-    | Mask_size_bracket inner -> (
+    | Size_bracket inner -> (
         match parse_bracket_size inner with
         | Some decls -> style decls
-        | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
-    | Mask_size_bracket_var v ->
+        | None ->
+            style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ])
+    | Size_bracket_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_size Css.var = Var.bracket bare in
         style
@@ -415,62 +423,62 @@ module Handler = struct
           ]
 
   let suborder_in_family = function
-    | Mask_bracket_image_var _ -> 100
-    | Mask_bracket_image _ -> 101
-    | Mask_bracket_url _ -> 102
-    | Mask_bracket_url_var _ -> 103
-    | Mask_bracket_var _ -> 104
-    | Mask_none -> 105
-    | Mask_add -> 200
-    | Mask_exclude -> 201
-    | Mask_intersect -> 202
-    | Mask_subtract -> 203
-    | Mask_alpha -> 300
-    | Mask_luminance -> 301
-    | Mask_match -> 302
-    | Mask_type_alpha -> 303
-    | Mask_type_luminance -> 304
-    | Mask_bracket_contain -> 400
-    | Mask_bracket_cover -> 401
-    | Mask_bracket_length _ -> 402
-    | Mask_bracket_size _ -> 403
-    | Mask_auto -> 404
-    | Mask_contain -> 405
-    | Mask_cover -> 406
-    | Mask_bracket_position _ -> 500
-    | Mask_bracket_typed_position _ -> 501
-    | Mask_position Pos_bottom -> 502
-    | Mask_position Pos_bottom_left -> 503
-    | Mask_position Pos_bottom_right -> 504
-    | Mask_position Pos_center -> 505
-    | Mask_position Pos_left -> 506
-    | Mask_position Pos_right -> 507
-    | Mask_position Pos_top -> 508
-    | Mask_position Pos_top_left -> 509
-    | Mask_position Pos_top_right -> 510
-    | Mask_no_repeat -> 600
-    | Mask_repeat -> 601
-    | Mask_repeat_round -> 602
-    | Mask_repeat_space -> 603
-    | Mask_repeat_x -> 604
-    | Mask_repeat_y -> 605
-    | Mask_clip_border -> 700
-    | Mask_clip_content -> 701
-    | Mask_clip_fill -> 702
-    | Mask_clip_padding -> 703
-    | Mask_clip_stroke -> 704
-    | Mask_clip_view -> 705
-    | Mask_no_clip -> 706
-    | Mask_origin_border -> 800
-    | Mask_origin_content -> 801
-    | Mask_origin_fill -> 802
-    | Mask_origin_padding -> 803
-    | Mask_origin_stroke -> 804
-    | Mask_origin_view -> 805
-    | Mask_position_bracket _ -> 511
-    | Mask_position_bracket_var _ -> 512
-    | Mask_size_bracket _ -> 407
-    | Mask_size_bracket_var _ -> 408
+    | Bracket_image_var _ -> 100
+    | Bracket_image _ -> 101
+    | Bracket_url _ -> 102
+    | Bracket_url_var _ -> 103
+    | Bracket_var _ -> 104
+    | No_mask -> 105
+    | Add -> 200
+    | Exclude -> 201
+    | Intersect -> 202
+    | Subtract -> 203
+    | Alpha -> 300
+    | Luminance -> 301
+    | Match -> 302
+    | Type_alpha -> 303
+    | Type_luminance -> 304
+    | Bracket_contain -> 400
+    | Bracket_cover -> 401
+    | Bracket_length _ -> 402
+    | Bracket_size _ -> 403
+    | Auto -> 404
+    | Contain -> 405
+    | Cover -> 406
+    | Bracket_position _ -> 500
+    | Bracket_typed_position _ -> 501
+    | Position Keyword.Bottom -> 502
+    | Position Keyword.Bottom_left -> 503
+    | Position Keyword.Bottom_right -> 504
+    | Position Keyword.Center -> 505
+    | Position Keyword.Left -> 506
+    | Position Keyword.Right -> 507
+    | Position Keyword.Top -> 508
+    | Position Keyword.Top_left -> 509
+    | Position Keyword.Top_right -> 510
+    | No_repeat -> 600
+    | Repeat -> 601
+    | Repeat_round -> 602
+    | Repeat_space -> 603
+    | Repeat_x -> 604
+    | Repeat_y -> 605
+    | Clip_border -> 700
+    | Clip_content -> 701
+    | Clip_fill -> 702
+    | Clip_padding -> 703
+    | Clip_stroke -> 704
+    | Clip_view -> 705
+    | No_clip -> 706
+    | Origin_border -> 800
+    | Origin_content -> 801
+    | Origin_fill -> 802
+    | Origin_padding -> 803
+    | Origin_stroke -> 804
+    | Origin_view -> 805
+    | Position_bracket _ -> 511
+    | Position_bracket_var _ -> 512
+    | Size_bracket _ -> 407
+    | Size_bracket_var _ -> 408
 
   (* These share a priority with the mask-gradient utilities and sort after
      them, so the two families occupy disjoint suborder bands. *)
@@ -488,78 +496,75 @@ module Handler = struct
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "mask"; "none" ] -> Ok Mask_none
-    | [ "mask"; "add" ] -> Ok Mask_add
-    | [ "mask"; "exclude" ] -> Ok Mask_exclude
-    | [ "mask"; "intersect" ] -> Ok Mask_intersect
-    | [ "mask"; "subtract" ] -> Ok Mask_subtract
-    | [ "mask"; "alpha" ] -> Ok Mask_alpha
-    | [ "mask"; "luminance" ] -> Ok Mask_luminance
-    | [ "mask"; "match" ] -> Ok Mask_match
-    | [ "mask"; "type"; "alpha" ] -> Ok Mask_type_alpha
-    | [ "mask"; "type"; "luminance" ] -> Ok Mask_type_luminance
-    | [ "mask"; "auto" ] -> Ok Mask_auto
-    | [ "mask"; "contain" ] -> Ok Mask_contain
-    | [ "mask"; "cover" ] -> Ok Mask_cover
+    | [ "mask"; "none" ] -> Ok No_mask
+    | [ "mask"; "add" ] -> Ok Add
+    | [ "mask"; "exclude" ] -> Ok Exclude
+    | [ "mask"; "intersect" ] -> Ok Intersect
+    | [ "mask"; "subtract" ] -> Ok Subtract
+    | [ "mask"; "alpha" ] -> Ok Alpha
+    | [ "mask"; "luminance" ] -> Ok Luminance
+    | [ "mask"; "match" ] -> Ok Match
+    | [ "mask"; "type"; "alpha" ] -> Ok Type_alpha
+    | [ "mask"; "type"; "luminance" ] -> Ok Type_luminance
+    | [ "mask"; "auto" ] -> Ok Auto
+    | [ "mask"; "contain" ] -> Ok Contain
+    | [ "mask"; "cover" ] -> Ok Cover
     (* mask-position *)
-    | [ "mask"; "bottom" ] -> Ok (Mask_position Pos_bottom)
-    | [ "mask"; "bottom"; "left" ] -> Ok (Mask_position Pos_bottom_left)
-    | [ "mask"; "bottom"; "right" ] -> Ok (Mask_position Pos_bottom_right)
-    | [ "mask"; "center" ] -> Ok (Mask_position Pos_center)
-    | [ "mask"; "left" ] -> Ok (Mask_position Pos_left)
-    | [ "mask"; "right" ] -> Ok (Mask_position Pos_right)
-    | [ "mask"; "top" ] -> Ok (Mask_position Pos_top)
-    | [ "mask"; "top"; "left" ] -> Ok (Mask_position Pos_top_left)
-    | [ "mask"; "top"; "right" ] -> Ok (Mask_position Pos_top_right)
+    | [ "mask"; "bottom" ] -> Ok (Position Keyword.Bottom)
+    | [ "mask"; "bottom"; "left" ] -> Ok (Position Keyword.Bottom_left)
+    | [ "mask"; "bottom"; "right" ] -> Ok (Position Keyword.Bottom_right)
+    | [ "mask"; "center" ] -> Ok (Position Keyword.Center)
+    | [ "mask"; "left" ] -> Ok (Position Keyword.Left)
+    | [ "mask"; "right" ] -> Ok (Position Keyword.Right)
+    | [ "mask"; "top" ] -> Ok (Position Keyword.Top)
+    | [ "mask"; "top"; "left" ] -> Ok (Position Keyword.Top_left)
+    | [ "mask"; "top"; "right" ] -> Ok (Position Keyword.Top_right)
     (* mask-repeat *)
-    | [ "mask"; "no"; "repeat" ] -> Ok Mask_no_repeat
-    | [ "mask"; "repeat" ] -> Ok Mask_repeat
-    | [ "mask"; "repeat"; "round" ] -> Ok Mask_repeat_round
-    | [ "mask"; "repeat"; "space" ] -> Ok Mask_repeat_space
-    | [ "mask"; "repeat"; "x" ] -> Ok Mask_repeat_x
-    | [ "mask"; "repeat"; "y" ] -> Ok Mask_repeat_y
+    | [ "mask"; "no"; "repeat" ] -> Ok No_repeat
+    | [ "mask"; "repeat" ] -> Ok Repeat
+    | [ "mask"; "repeat"; "round" ] -> Ok Repeat_round
+    | [ "mask"; "repeat"; "space" ] -> Ok Repeat_space
+    | [ "mask"; "repeat"; "x" ] -> Ok Repeat_x
+    | [ "mask"; "repeat"; "y" ] -> Ok Repeat_y
     (* mask-clip *)
-    | [ "mask"; "clip"; "border" ] -> Ok Mask_clip_border
-    | [ "mask"; "clip"; "padding" ] -> Ok Mask_clip_padding
-    | [ "mask"; "clip"; "content" ] -> Ok Mask_clip_content
-    | [ "mask"; "clip"; "fill" ] -> Ok Mask_clip_fill
-    | [ "mask"; "clip"; "stroke" ] -> Ok Mask_clip_stroke
-    | [ "mask"; "clip"; "view" ] -> Ok Mask_clip_view
-    | [ "mask"; "no"; "clip" ] -> Ok Mask_no_clip
+    | [ "mask"; "clip"; "border" ] -> Ok Clip_border
+    | [ "mask"; "clip"; "padding" ] -> Ok Clip_padding
+    | [ "mask"; "clip"; "content" ] -> Ok Clip_content
+    | [ "mask"; "clip"; "fill" ] -> Ok Clip_fill
+    | [ "mask"; "clip"; "stroke" ] -> Ok Clip_stroke
+    | [ "mask"; "clip"; "view" ] -> Ok Clip_view
+    | [ "mask"; "no"; "clip" ] -> Ok No_clip
     (* mask-origin *)
-    | [ "mask"; "origin"; "border" ] -> Ok Mask_origin_border
-    | [ "mask"; "origin"; "padding" ] -> Ok Mask_origin_padding
-    | [ "mask"; "origin"; "content" ] -> Ok Mask_origin_content
-    | [ "mask"; "origin"; "fill" ] -> Ok Mask_origin_fill
-    | [ "mask"; "origin"; "stroke" ] -> Ok Mask_origin_stroke
-    | [ "mask"; "origin"; "view" ] -> Ok Mask_origin_view
+    | [ "mask"; "origin"; "border" ] -> Ok Origin_border
+    | [ "mask"; "origin"; "padding" ] -> Ok Origin_padding
+    | [ "mask"; "origin"; "content" ] -> Ok Origin_content
+    | [ "mask"; "origin"; "fill" ] -> Ok Origin_fill
+    | [ "mask"; "origin"; "stroke" ] -> Ok Origin_stroke
+    | [ "mask"; "origin"; "view" ] -> Ok Origin_view
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
     | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        if Parse.is_var inner then Ok (Mask_position_bracket_var inner)
+        if Parse.is_var inner then Ok (Position_bracket_var inner)
         else
           match parse_bracket_position inner with
-          | Some positions -> Ok (Mask_position_bracket (inner, positions))
+          | Some positions -> Ok (Position_bracket (inner, positions))
           | None -> Error (`Msg "Invalid mask-position value"))
     | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        if Parse.is_var inner then Ok (Mask_size_bracket_var inner)
+        if Parse.is_var inner then Ok (Size_bracket_var inner)
         else if parse_bracket_size inner = None then
           Error (`Msg "Invalid mask-size value")
-        else Ok (Mask_size_bracket inner)
+        else Ok (Size_bracket inner)
     (* Bracket notation: mask-[...] *)
     | [ "mask"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         match inner with
-        | "contain" -> Ok Mask_bracket_contain
-        | "cover" -> Ok Mask_bracket_cover
+        | "contain" -> Ok Bracket_contain
+        | "cover" -> Ok Bracket_cover
         | _ when String.length inner > 7 && String.sub inner 0 7 = "length:" ->
-            Ok
-              (Mask_bracket_length
-                 (String.sub inner 7 (String.length inner - 7)))
+            Ok (Bracket_length (String.sub inner 7 (String.length inner - 7)))
         | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
-            Ok
-              (Mask_bracket_size (String.sub inner 5 (String.length inner - 5)))
+            Ok (Bracket_size (String.sub inner 5 (String.length inner - 5)))
         | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
           -> (
             (* The [position:] data-type hint forces a mask-position; a value
@@ -567,142 +572,131 @@ module Handler = struct
                a plausible-looking [center]. *)
             let v = String.sub inner 9 (String.length inner - 9) in
             match parse_bracket_position v with
-            | Some positions -> Ok (Mask_bracket_typed_position (v, positions))
+            | Some positions -> Ok (Bracket_typed_position (v, positions))
             | None -> Error (`Msg ("Unknown mask bracket position: " ^ v)))
         | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
             Ok
-              (Mask_bracket_image_var
-                 (String.sub inner 6 (String.length inner - 6)))
+              (Bracket_image_var (String.sub inner 6 (String.length inner - 6)))
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
-            Ok
-              (Mask_bracket_url_var
-                 (String.sub inner 4 (String.length inner - 4)))
+            Ok (Bracket_url_var (String.sub inner 4 (String.length inner - 4)))
         (* Before the single-[url(...)] reading below, which takes everything
            between the first [(] and the last [)] and so swallows the comma of a
            layer list. *)
-        | _ when is_image_value inner -> Ok (Mask_bracket_image inner)
+        | _ when is_image_value inner -> Ok (Bracket_image inner)
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
             let url_content = String.sub inner 4 (String.length inner - 5) in
-            Ok (Mask_bracket_url url_content)
-        | _ when Parse.is_var inner -> Ok (Mask_bracket_var inner)
+            Ok (Bracket_url url_content)
+        | _ when Parse.is_var inner -> Ok (Bracket_var inner)
         | _ -> (
             match parse_bracket_position inner with
-            | Some positions -> Ok (Mask_bracket_position (inner, positions))
+            | Some positions -> Ok (Bracket_position (inner, positions))
             | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))))
     | _ -> Error (`Msg "Not a mask utility")
 
   let to_class = function
-    | Mask_none -> "mask-none"
-    | Mask_add -> "mask-add"
-    | Mask_exclude -> "mask-exclude"
-    | Mask_intersect -> "mask-intersect"
-    | Mask_subtract -> "mask-subtract"
-    | Mask_alpha -> "mask-alpha"
-    | Mask_luminance -> "mask-luminance"
-    | Mask_match -> "mask-match"
-    | Mask_type_alpha -> "mask-type-alpha"
-    | Mask_type_luminance -> "mask-type-luminance"
-    | Mask_auto -> "mask-auto"
-    | Mask_contain -> "mask-contain"
-    | Mask_cover -> "mask-cover"
-    | Mask_position Pos_bottom -> "mask-bottom"
-    | Mask_position Pos_bottom_left -> "mask-bottom-left"
-    | Mask_position Pos_bottom_right -> "mask-bottom-right"
-    | Mask_position Pos_center -> "mask-center"
-    | Mask_position Pos_left -> "mask-left"
-    | Mask_position Pos_right -> "mask-right"
-    | Mask_position Pos_top -> "mask-top"
-    | Mask_position Pos_top_left -> "mask-top-left"
-    | Mask_position Pos_top_right -> "mask-top-right"
-    | Mask_no_repeat -> "mask-no-repeat"
-    | Mask_repeat -> "mask-repeat"
-    | Mask_repeat_round -> "mask-repeat-round"
-    | Mask_repeat_space -> "mask-repeat-space"
-    | Mask_repeat_x -> "mask-repeat-x"
-    | Mask_repeat_y -> "mask-repeat-y"
-    | Mask_clip_border -> "mask-clip-border"
-    | Mask_clip_padding -> "mask-clip-padding"
-    | Mask_clip_content -> "mask-clip-content"
-    | Mask_clip_fill -> "mask-clip-fill"
-    | Mask_clip_stroke -> "mask-clip-stroke"
-    | Mask_clip_view -> "mask-clip-view"
-    | Mask_no_clip -> "mask-no-clip"
-    | Mask_origin_border -> "mask-origin-border"
-    | Mask_origin_padding -> "mask-origin-padding"
-    | Mask_origin_content -> "mask-origin-content"
-    | Mask_origin_fill -> "mask-origin-fill"
-    | Mask_origin_stroke -> "mask-origin-stroke"
-    | Mask_origin_view -> "mask-origin-view"
-    | Mask_bracket_contain -> "mask-[contain]"
-    | Mask_bracket_cover -> "mask-[cover]"
-    | Mask_bracket_size v -> "mask-[size:" ^ v ^ "]"
-    | Mask_bracket_length v -> "mask-[length:" ^ v ^ "]"
-    | Mask_bracket_position (v, _) -> "mask-[" ^ v ^ "]"
-    | Mask_bracket_typed_position (v, _) -> "mask-[position:" ^ v ^ "]"
-    | Mask_bracket_image_var v -> "mask-[image:" ^ v ^ "]"
-    | Mask_bracket_url url -> "mask-[url(" ^ url ^ ")]"
-    | Mask_bracket_url_var v -> "mask-[url:" ^ v ^ "]"
-    | Mask_bracket_var v -> "mask-[" ^ v ^ "]"
-    | Mask_bracket_image v -> "mask-[" ^ v ^ "]"
-    | Mask_position_bracket (v, _) -> "mask-position-[" ^ v ^ "]"
-    | Mask_position_bracket_var v -> "mask-position-[" ^ v ^ "]"
-    | Mask_size_bracket v -> "mask-size-[" ^ v ^ "]"
-    | Mask_size_bracket_var v -> "mask-size-[" ^ v ^ "]"
+    | No_mask -> "mask-none"
+    | Add -> "mask-add"
+    | Exclude -> "mask-exclude"
+    | Intersect -> "mask-intersect"
+    | Subtract -> "mask-subtract"
+    | Alpha -> "mask-alpha"
+    | Luminance -> "mask-luminance"
+    | Match -> "mask-match"
+    | Type_alpha -> "mask-type-alpha"
+    | Type_luminance -> "mask-type-luminance"
+    | Auto -> "mask-auto"
+    | Contain -> "mask-contain"
+    | Cover -> "mask-cover"
+    | Position Keyword.Bottom -> "mask-bottom"
+    | Position Keyword.Bottom_left -> "mask-bottom-left"
+    | Position Keyword.Bottom_right -> "mask-bottom-right"
+    | Position Keyword.Center -> "mask-center"
+    | Position Keyword.Left -> "mask-left"
+    | Position Keyword.Right -> "mask-right"
+    | Position Keyword.Top -> "mask-top"
+    | Position Keyword.Top_left -> "mask-top-left"
+    | Position Keyword.Top_right -> "mask-top-right"
+    | No_repeat -> "mask-no-repeat"
+    | Repeat -> "mask-repeat"
+    | Repeat_round -> "mask-repeat-round"
+    | Repeat_space -> "mask-repeat-space"
+    | Repeat_x -> "mask-repeat-x"
+    | Repeat_y -> "mask-repeat-y"
+    | Clip_border -> "mask-clip-border"
+    | Clip_padding -> "mask-clip-padding"
+    | Clip_content -> "mask-clip-content"
+    | Clip_fill -> "mask-clip-fill"
+    | Clip_stroke -> "mask-clip-stroke"
+    | Clip_view -> "mask-clip-view"
+    | No_clip -> "mask-no-clip"
+    | Origin_border -> "mask-origin-border"
+    | Origin_padding -> "mask-origin-padding"
+    | Origin_content -> "mask-origin-content"
+    | Origin_fill -> "mask-origin-fill"
+    | Origin_stroke -> "mask-origin-stroke"
+    | Origin_view -> "mask-origin-view"
+    | Bracket_contain -> "mask-[contain]"
+    | Bracket_cover -> "mask-[cover]"
+    | Bracket_size v -> "mask-[size:" ^ v ^ "]"
+    | Bracket_length v -> "mask-[length:" ^ v ^ "]"
+    | Bracket_position (v, _) -> "mask-[" ^ v ^ "]"
+    | Bracket_typed_position (v, _) -> "mask-[position:" ^ v ^ "]"
+    | Bracket_image_var v -> "mask-[image:" ^ v ^ "]"
+    | Bracket_url url -> "mask-[url(" ^ url ^ ")]"
+    | Bracket_url_var v -> "mask-[url:" ^ v ^ "]"
+    | Bracket_var v -> "mask-[" ^ v ^ "]"
+    | Bracket_image v -> "mask-[" ^ v ^ "]"
+    | Position_bracket (v, _) -> "mask-position-[" ^ v ^ "]"
+    | Position_bracket_var v -> "mask-position-[" ^ v ^ "]"
+    | Size_bracket v -> "mask-size-[" ^ v ^ "]"
+    | Size_bracket_var v -> "mask-size-[" ^ v ^ "]"
 
   let examples =
-    [
-      Mask_none;
-      Mask_clip_border;
-      Mask_origin_border;
-      Mask_repeat;
-      Mask_type_alpha;
-      Mask_add;
-      Mask_alpha;
-    ]
+    [ No_mask; Clip_border; Origin_border; Repeat; Type_alpha; Add; Alpha ]
 end
 
 open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
-let mask_none = utility Mask_none
-let mask_add = utility Mask_add
-let mask_exclude = utility Mask_exclude
-let mask_intersect = utility Mask_intersect
-let mask_subtract = utility Mask_subtract
-let mask_alpha = utility Mask_alpha
-let mask_luminance = utility Mask_luminance
-let mask_match = utility Mask_match
-let mask_type_alpha = utility Mask_type_alpha
-let mask_type_luminance = utility Mask_type_luminance
-let mask_auto = utility Mask_auto
-let mask_contain = utility Mask_contain
-let mask_cover = utility Mask_cover
-let mask_bottom = utility (Mask_position Pos_bottom)
-let mask_bottom_left = utility (Mask_position Pos_bottom_left)
-let mask_bottom_right = utility (Mask_position Pos_bottom_right)
-let mask_center = utility (Mask_position Pos_center)
-let mask_left = utility (Mask_position Pos_left)
-let mask_right = utility (Mask_position Pos_right)
-let mask_top = utility (Mask_position Pos_top)
-let mask_top_left = utility (Mask_position Pos_top_left)
-let mask_top_right = utility (Mask_position Pos_top_right)
-let mask_no_repeat = utility Mask_no_repeat
-let mask_repeat = utility Mask_repeat
-let mask_repeat_round = utility Mask_repeat_round
-let mask_repeat_space = utility Mask_repeat_space
-let mask_repeat_x = utility Mask_repeat_x
-let mask_repeat_y = utility Mask_repeat_y
-let mask_clip_border = utility Mask_clip_border
-let mask_clip_padding = utility Mask_clip_padding
-let mask_clip_content = utility Mask_clip_content
-let mask_clip_fill = utility Mask_clip_fill
-let mask_clip_stroke = utility Mask_clip_stroke
-let mask_clip_view = utility Mask_clip_view
-let mask_no_clip = utility Mask_no_clip
-let mask_origin_border = utility Mask_origin_border
-let mask_origin_padding = utility Mask_origin_padding
-let mask_origin_content = utility Mask_origin_content
-let mask_origin_fill = utility Mask_origin_fill
-let mask_origin_stroke = utility Mask_origin_stroke
-let mask_origin_view = utility Mask_origin_view
+let mask_none = utility No_mask
+let mask_add = utility Add
+let mask_exclude = utility Exclude
+let mask_intersect = utility Intersect
+let mask_subtract = utility Subtract
+let mask_alpha = utility Alpha
+let mask_luminance = utility Luminance
+let mask_match = utility Match
+let mask_type_alpha = utility Type_alpha
+let mask_type_luminance = utility Type_luminance
+let mask_auto = utility Auto
+let mask_contain = utility Contain
+let mask_cover = utility Cover
+let mask_bottom = utility (Position Keyword.Bottom)
+let mask_bottom_left = utility (Position Keyword.Bottom_left)
+let mask_bottom_right = utility (Position Keyword.Bottom_right)
+let mask_center = utility (Position Keyword.Center)
+let mask_left = utility (Position Keyword.Left)
+let mask_right = utility (Position Keyword.Right)
+let mask_top = utility (Position Keyword.Top)
+let mask_top_left = utility (Position Keyword.Top_left)
+let mask_top_right = utility (Position Keyword.Top_right)
+let mask_no_repeat = utility No_repeat
+let mask_repeat = utility Repeat
+let mask_repeat_round = utility Repeat_round
+let mask_repeat_space = utility Repeat_space
+let mask_repeat_x = utility Repeat_x
+let mask_repeat_y = utility Repeat_y
+let mask_clip_border = utility Clip_border
+let mask_clip_padding = utility Clip_padding
+let mask_clip_content = utility Clip_content
+let mask_clip_fill = utility Clip_fill
+let mask_clip_stroke = utility Clip_stroke
+let mask_clip_view = utility Clip_view
+let mask_no_clip = utility No_clip
+let mask_origin_border = utility Origin_border
+let mask_origin_padding = utility Origin_padding
+let mask_origin_content = utility Origin_content
+let mask_origin_fill = utility Origin_fill
+let mask_origin_stroke = utility Origin_stroke
+let mask_origin_view = utility Origin_view
