@@ -13,40 +13,37 @@
 
 module Css = Cascade.Css
 open Style
-open Css
 
 module Handler = struct
-  type t = Forced_color_adjust_auto | Forced_color_adjust_none
+  type t = Auto | No_adjust
   type Utility.base += Self of t
 
   let name = "accessibility"
   let priority _ = 29
 
   let to_class = function
-    | Forced_color_adjust_auto -> "forced-color-adjust-auto"
-    | Forced_color_adjust_none -> "forced-color-adjust-none"
+    | Auto -> "forced-color-adjust-auto"
+    | No_adjust -> "forced-color-adjust-none"
 
   let to_style _theme = function
-    | Forced_color_adjust_auto -> style [ forced_color_adjust Auto ]
-    | Forced_color_adjust_none -> style [ forced_color_adjust None ]
+    | Auto -> style [ Css.forced_color_adjust Css.Auto ]
+    | No_adjust -> style [ Css.forced_color_adjust Css.None ]
 
-  let suborder = function
-    | Forced_color_adjust_auto -> 0
-    | Forced_color_adjust_none -> 1
+  let suborder = function Auto -> 0 | No_adjust -> 1
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "forced"; "color"; "adjust"; "auto" ] -> Ok Forced_color_adjust_auto
-    | [ "forced"; "color"; "adjust"; "none" ] -> Ok Forced_color_adjust_none
+    | [ "forced"; "color"; "adjust"; "auto" ] -> Ok Auto
+    | [ "forced"; "color"; "adjust"; "none" ] -> Ok No_adjust
     | _ -> Error (`Msg "Not an accessibility utility")
 
-  let examples = [ Forced_color_adjust_auto ]
+  let examples = [ Auto ]
 end
 
 open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
-let forced_color_adjust_auto = utility Forced_color_adjust_auto
-let forced_color_adjust_none = utility Forced_color_adjust_none
+let forced_color_adjust_auto = utility Auto
+let forced_color_adjust_none = utility No_adjust
