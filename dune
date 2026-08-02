@@ -1,7 +1,13 @@
 (env
  (dev
+  ; -58 (no-cmx-file): a flambda missed-inlining hint that fires on
+  ; dune-build-info's link-time module and other cmx-less dependencies. It is
+  ; not a correctness warning.
   (flags
-   (:standard %{dune-warnings}))))
+   (:standard %{dune-warnings} -w -58)))
+ (release
+  (flags
+   (:standard -w -58))))
 
 ; mdx only sees fenced blocks that start at column 0. CLAUDE.md keeps most of
 ; its commands inside list items, where mdx cannot reach them; only its
