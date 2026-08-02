@@ -393,10 +393,10 @@ module Typography_early = struct
       Text_bracket_fs_lh of string * lh_modifier
 
   and lh_modifier =
-    | Lh_int of int (* /6 → calc(var(--spacing) * 6) *)
-    | Lh_none (* /none → line-height: 1 *)
-    | Lh_named of string (* /snug → var(--leading-snug) *)
-    | Lh_bracket of string (* /[4px] → 4px *)
+    | Spacing of int (* /6 → calc(var(--spacing) * 6) *)
+    | No_leading (* /none → line-height: 1 *)
+    | Named of string (* /snug → var(--leading-snug) *)
+    | Bracket of string (* /[4px] → 4px *)
 
   type Utility.base += Self of t
 
@@ -530,14 +530,14 @@ module Typography_early = struct
     [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ]
 
   let parse_lh_modifier s =
-    if s = "none" then Stdlib.Option.Some Lh_none
+    if s = "none" then Stdlib.Option.Some No_leading
     else if Parse.is_bracket_value s then
-      Stdlib.Option.Some (Lh_bracket (Parse.bracket_inner s))
+      Stdlib.Option.Some (Bracket (Parse.bracket_inner s))
     else
       match int_of_string_opt s with
-      | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Lh_int n)
+      | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Spacing n)
       | _ ->
-          if List.mem s known_leading_names then Stdlib.Option.Some (Lh_named s)
+          if List.mem s known_leading_names then Stdlib.Option.Some (Named s)
           else Stdlib.Option.None
 
   (* A font family the project named in its [@theme]. Gated on the token being
@@ -671,10 +671,10 @@ module Typography_early = struct
     | _ -> err_not_utility
 
   let lh_to_string = function
-    | Lh_int n -> string_of_int n
-    | Lh_none -> "none"
-    | Lh_named name -> name
-    | Lh_bracket v -> "[" ^ v ^ "]"
+    | Spacing n -> string_of_int n
+    | No_leading -> "none"
+    | Named name -> name
+    | Bracket v -> "[" ^ v ^ "]"
 
   let to_class = function
     | Text_xs -> "text-xs"
@@ -1105,7 +1105,7 @@ module Typography_early = struct
   (** Convert a line-height modifier to (extra_declarations, line_height_value).
   *)
   let lh_modifier_to_css = function
-    | Lh_int n ->
+    | Spacing n ->
         let spacing_decl, _spacing_ref =
           Var.binding Theme.spacing_var (Css.Rem 0.25)
         in
@@ -1114,8 +1114,8 @@ module Typography_early = struct
           Calc (Css.Calc.mul (Var lh_spacing_ref) (Num (float_of_int n)))
         in
         ([ spacing_decl ], lh)
-    | Lh_none -> ([], Num 1.0)
-    | Lh_named name -> (
+    | No_leading -> ([], Num 1.0)
+    | Named name -> (
         let leading_data =
           [
             ("none", leading_none_var, (Num 1.0 : Css.line_height));
@@ -1136,7 +1136,7 @@ module Typography_early = struct
               Var.bracket ("leading-" ^ name)
             in
             ([], Var ref_))
-    | Lh_bracket value ->
+    | Bracket value ->
         (* Parse bracket value as line-height *)
         let lh =
           if String.ends_with ~suffix:"px" value then
