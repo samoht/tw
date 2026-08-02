@@ -85,7 +85,6 @@ files = [
   "lib/cursor.ml*",
   "lib/divide.ml*",
   "lib/flex_layout.ml*",
-  "lib/forms.ml*",
   "lib/mask_gradient.ml*",
   "lib/masks.ml*",
   "lib/position.ml*",
@@ -94,6 +93,5 @@ files = [
   "lib/text_shadow.ml*",
   "lib/touch.ml*",
   "lib/typography.ml*",
-  "lib/zoom.ml*",
 ]
 exclude = ["E334"]
