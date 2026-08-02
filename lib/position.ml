@@ -109,23 +109,18 @@ let spacing_value ?theme n : Css.declaration * Css.length =
 
 (* The physical/axis inset sides that take the spacing scale, so a fractional
    step (top-2.5) or the px step (left-px) can share one constructor. *)
-type pside =
-  | P_top
-  | P_right
-  | P_bottom
-  | P_left
-  | P_inset
-  | P_inset_x
-  | P_inset_y
+module Side = struct
+  type t = Top | Right | Bottom | Left | Inset | Inset_x | Inset_y
 
-let pside_name = function
-  | P_top -> "top"
-  | P_right -> "right"
-  | P_bottom -> "bottom"
-  | P_left -> "left"
-  | P_inset -> "inset"
-  | P_inset_x -> "inset-x"
-  | P_inset_y -> "inset-y"
+  let name = function
+    | Top -> "top"
+    | Right -> "right"
+    | Bottom -> "bottom"
+    | Left -> "left"
+    | Inset -> "inset"
+    | Inset_x -> "inset-x"
+    | Inset_y -> "inset-y"
+end
 
 (* [top-2.5] / [right-0.5] / [left-px]: a spacing token that is not a plain
    integer (those keep their existing [Top of int] path). *)
@@ -153,13 +148,13 @@ let pos_spacing_style ?theme side (s : Style.spacing) =
   let decls = Option.to_list decl_opt in
   let body =
     match side with
-    | P_top -> [ Css.top len ]
-    | P_right -> [ Css.right len ]
-    | P_bottom -> [ Css.bottom len ]
-    | P_left -> [ Css.left len ]
-    | P_inset -> [ Css.inset [ len ] ]
-    | P_inset_x -> [ Css.inset_inline [ len ] ]
-    | P_inset_y -> [ Css.inset_block [ len ] ]
+    | Side.Top -> [ Css.top len ]
+    | Side.Right -> [ Css.right len ]
+    | Side.Bottom -> [ Css.bottom len ]
+    | Side.Left -> [ Css.left len ]
+    | Side.Inset -> [ Css.inset [ len ] ]
+    | Side.Inset_x -> [ Css.inset_inline [ len ] ]
+    | Side.Inset_y -> [ Css.inset_block [ len ] ]
   in
   Style.style (decls @ body)
 
@@ -175,13 +170,13 @@ let neg_pos_spacing_style ?theme side (s : Style.spacing) =
   let decls = Option.to_list decl_opt in
   let body =
     match side with
-    | P_top -> [ Css.top len ]
-    | P_right -> [ Css.right len ]
-    | P_bottom -> [ Css.bottom len ]
-    | P_left -> [ Css.left len ]
-    | P_inset -> [ Css.inset [ len ] ]
-    | P_inset_x -> [ Css.inset_inline [ len ] ]
-    | P_inset_y -> [ Css.inset_block [ len ] ]
+    | Side.Top -> [ Css.top len ]
+    | Side.Right -> [ Css.right len ]
+    | Side.Bottom -> [ Css.bottom len ]
+    | Side.Left -> [ Css.left len ]
+    | Side.Inset -> [ Css.inset [ len ] ]
+    | Side.Inset_x -> [ Css.inset_inline [ len ] ]
+    | Side.Inset_y -> [ Css.inset_block [ len ] ]
   in
   Style.style (decls @ body)
 
@@ -238,8 +233,8 @@ module Handler = struct
     | Inset_y_full
     | Neg_inset_y_full
     | Inset_y_3_4
-    | Pos_spacing of pside * Style.spacing
-    | Neg_pos_spacing of pside * Style.spacing
+    | Pos_spacing of Side.t * Style.spacing
+    | Neg_pos_spacing of Side.t * Style.spacing
       (* fractional or px spacing step on a physical/axis inset side *)
     | Inset of int
     | Inset_arbitrary of string * Css.length
@@ -547,13 +542,13 @@ module Handler = struct
     | Pos_spacing (side, sp) ->
         let base =
           match side with
-          | P_top -> top
-          | P_right -> right
-          | P_bottom -> bottom
-          | P_left -> left
-          | P_inset -> inset
-          | P_inset_x -> inset_x
-          | P_inset_y -> inset_y
+          | Side.Top -> top
+          | Side.Right -> right
+          | Side.Bottom -> bottom
+          | Side.Left -> left
+          | Side.Inset -> inset
+          | Side.Inset_x -> inset_x
+          | Side.Inset_y -> inset_y
         in
         let scale =
           match sp with `Rem f -> f /. 0.25 | `Px -> 0.05 | _ -> 0.
@@ -562,13 +557,13 @@ module Handler = struct
     | Neg_pos_spacing (side, sp) ->
         let base =
           match side with
-          | P_top -> top
-          | P_right -> right
-          | P_bottom -> bottom
-          | P_left -> left
-          | P_inset -> inset
-          | P_inset_x -> inset_x
-          | P_inset_y -> inset_y
+          | Side.Top -> top
+          | Side.Right -> right
+          | Side.Bottom -> bottom
+          | Side.Left -> left
+          | Side.Inset -> inset
+          | Side.Inset_x -> inset_x
+          | Side.Inset_y -> inset_y
         in
         let scale =
           match sp with `Rem f -> f /. 0.25 | `Px -> 0.05 | _ -> 0.
@@ -733,7 +728,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_x x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_inset_x, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Inset_x, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Inset_x_arbitrary (n, len))
@@ -748,14 +743,14 @@ module Handler = struct
         | Ok x -> Ok (Inset_x (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_inset_x, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Inset_x, sp))
             | None -> Error (`Msg "invalid")))
     | [ "inset"; "y"; n ] -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_y x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_inset_y, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Inset_y, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Inset_y_arbitrary (n, len))
@@ -768,7 +763,7 @@ module Handler = struct
         | Ok x -> Ok (Inset_y (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_inset_y, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Inset_y, sp))
             | None -> Error (`Msg "invalid")))
     (* inset-s = inset-inline-start *)
     | [ "inset"; "s"; "auto" ] -> Ok Inset_s_auto
@@ -845,7 +840,7 @@ module Handler = struct
         | Ok x -> Ok (Inset x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_inset, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Inset, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Inset_arbitrary (n, len))
@@ -859,7 +854,7 @@ module Handler = struct
         | Ok x -> Ok (Inset (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_inset, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Inset, sp))
             | None -> Error (`Msg "invalid")))
     | [ "top"; frac ] when frac_valid frac -> Ok (Top_fraction frac)
     | [ "top"; "auto" ] -> Ok Top_auto
@@ -870,7 +865,7 @@ module Handler = struct
         | Ok x -> Ok (Top x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_top, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Top, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Top_arbitrary (n, len))
@@ -884,7 +879,7 @@ module Handler = struct
         | Ok x -> Ok (Top (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_top, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Top, sp))
             | None -> Error (`Msg "invalid")))
     | [ "right"; frac ] when frac_valid frac -> Ok (Right_fraction frac)
     | [ "right"; "auto" ] -> Ok Right_auto
@@ -895,7 +890,7 @@ module Handler = struct
         | Ok x -> Ok (Right x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_right, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Right, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Right_arbitrary (n, len))
@@ -909,7 +904,7 @@ module Handler = struct
         | Ok x -> Ok (Right (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_right, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Right, sp))
             | None -> Error (`Msg "invalid")))
     | [ "bottom"; "3/4" ] -> Ok Bottom_3_4
     | [ "bottom"; "auto" ] -> Ok Bottom_auto
@@ -920,7 +915,7 @@ module Handler = struct
         | Ok x -> Ok (Bottom x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_bottom, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Bottom, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Bottom_arbitrary (n, len))
@@ -933,7 +928,7 @@ module Handler = struct
         | Ok x -> Ok (Bottom (-x))
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Neg_pos_spacing (P_bottom, sp))
+            | Some sp -> Ok (Neg_pos_spacing (Side.Bottom, sp))
             | None -> Error (`Msg "invalid")))
     | [ "left"; frac ] when frac_valid frac -> Ok (Left_fraction frac)
     | [ "left"; "auto" ] -> Ok Left_auto
@@ -944,7 +939,7 @@ module Handler = struct
         | Ok x -> Ok (Left x)
         | Error _ -> (
             match parse_pos_spacing n with
-            | Some sp -> Ok (Pos_spacing (P_left, sp))
+            | Some sp -> Ok (Pos_spacing (Side.Left, sp))
             | None -> (
                 match parse_bracket_length n with
                 | Ok len -> Ok (Left_arbitrary (n, len))
@@ -961,7 +956,7 @@ module Handler = struct
             | Some len -> Ok (Neg_left_arbitrary (n, len))
             | None -> (
                 match parse_pos_spacing n with
-                | Some sp -> Ok (Neg_pos_spacing (P_left, sp))
+                | Some sp -> Ok (Neg_pos_spacing (Side.Left, sp))
                 | None -> Error (`Msg "invalid"))))
     | [ "start"; "3/4" ] -> Ok Start_3_4
     | [ "start"; "auto" ] -> Ok Start_auto
@@ -1002,9 +997,9 @@ module Handler = struct
     | Neg_inset_y_full -> "-inset-y-full"
     | Inset_y_3_4 -> "inset-y-3/4"
     | Pos_spacing (side, sp) ->
-        pside_name side ^ "-" ^ Spacing.pp_spacing_suffix sp
+        Side.name side ^ "-" ^ Spacing.pp_spacing_suffix sp
     | Neg_pos_spacing (side, sp) ->
-        "-" ^ pside_name side ^ "-" ^ Spacing.pp_spacing_suffix sp
+        "-" ^ Side.name side ^ "-" ^ Spacing.pp_spacing_suffix sp
     | Inset n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-" ^ string_of_int (abs n)
