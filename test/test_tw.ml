@@ -66,21 +66,28 @@ let is_allowed_canonicalization_diff diff =
 (* File utilities *)
 let write_file path content =
   let oc = open_out path in
-  output_string oc content;
-  close_out oc
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () -> output_string oc content)
 
+(* A file name the class list can be read back out of, and that no other class
+   list shares. The readable half keeps whatever is already safe in a path and
+   folds the rest to [_], which alone collides ([p-4 m-2] and [p_4_m_2]) and is
+   truncated on top; the digest of the full name is what separates them. *)
 let slugify s =
   let b = Buffer.create (String.length s) in
   String.iter
     (fun c ->
-      if
-        (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || (c >= '0' && c <= '9')
-        || c = '_'
-      then Buffer.add_char b c)
+      match c with
+      | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '-' | '_' ->
+          Buffer.add_char b c
+      | _ -> Buffer.add_char b '_')
     s;
-  Buffer.contents b
+  let readable = Buffer.contents b in
+  let readable =
+    if String.length readable > 60 then String.sub readable 0 60 else readable
+  in
+  readable ^ "-" ^ String.sub (Digest.to_hex (Digest.string s)) 0 12
 
 (* Test name generation *)
 let test_name_of = function
@@ -90,8 +97,17 @@ let test_name_of = function
       if String.length full_name > 100 then String.sub full_name 0 97 ^ "..."
       else full_name
 
+(* Another test binary may have created it between the two calls. *)
+let mkdir dir =
+  if not (Sys.file_exists dir) then
+    try Sys.mkdir dir 0o755 with Sys_error _ -> ()
+
 let debug_files test_name tw_css tailwind_css =
-  let out_dir = "/tmp" in
+  (* Repo-local, as the debugging docs say: a system temp directory is shared
+     with every other user and run on the machine. *)
+  let out_dir = Filename.concat "tmp" "css_debug" in
+  mkdir "tmp";
+  mkdir out_dir;
   let test_name_slug = slugify test_name in
   let tw_file =
     Filename.concat out_dir ("test_css_tw_" ^ test_name_slug ^ ".css")
@@ -140,9 +156,6 @@ let check_exact_match tw_styles =
     let tailwind_css = canonical_stylesheet_css !tailwind_css_raw in
 
     let test_name = test_name_of classnames in
-    (* Write stripped CSS to test files for better error context *)
-    let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
-
     let diff_result =
       Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
         tailwind_css tw_css
@@ -154,6 +167,9 @@ let check_exact_match tw_styles =
       || is_allowed_canonicalization_diff diff_result
     in
     if not parity_equal then (
+      (* Only a failure is worth an artefact: a passing run has nothing to diff
+         by hand. *)
+      let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
       report_failure test_name tw_file tailwind_file;
 
       (* Show diff statistics *)
@@ -179,6 +195,10 @@ let check_exact_match tw_styles =
       (if parity_equal then tailwind_css else tw_css)
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
+  | Sys_error msg ->
+      (* A filesystem error already names the path and the reason; wrapping it
+         as an unexpected exception buries both. *)
+      fail msg
   | Cascade.Reader.Parse_error err ->
       let details = Cascade.Reader.pp_parse_error err in
       (* Print a more helpful parse error with context and callstack. *)
@@ -502,6 +522,32 @@ let check_upstream_positive_fixture_parse filename () =
         (List.length rejected) sample
 
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
+
+(* Debug artefacts are named after the classes under test and belong inside the
+   checkout: a shared system temp directory is written by every user and every
+   concurrent run at once. The name has to separate the runs too - a slug that
+   drops every separator sends [p-4 m-2] and [p4m2] to the same pair of
+   files. *)
+let debug_artefacts () =
+  Alcotest.(check bool)
+    "distinct class lists get distinct slugs" true
+    (slugify "p-4 m-2" <> slugify "p4m2");
+  let is_safe = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' | '-' -> true
+    | _ -> false
+  in
+  Alcotest.(check bool)
+    "slug is filesystem-safe" true
+    (String.for_all is_safe (slugify "before:content-['*'] w-1/2"));
+  let tw_file, tailwind_file = debug_files "p-4 m-2" "" "" in
+  let expected_dir = Filename.concat "tmp" "css_debug" in
+  List.iter
+    (fun path ->
+      Alcotest.(check string)
+        "artefact sits in the repo-local tmp" expected_dir
+        (Filename.dirname path);
+      Alcotest.(check bool) (path ^ " was written") true (Sys.file_exists path))
+    [ tw_file; tailwind_file ]
 
 let empty_test () =
   (* Test with no styles to see base output *)
@@ -1241,6 +1287,7 @@ let property_order_cross_family () =
 
 let core_tests =
   [
+    test_case "debug artefacts" `Quick debug_artefacts;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
       (check_upstream_positive_fixture_parse "utilities.txt");

@@ -70,29 +70,43 @@ let parse_version v =
       | _ -> None)
   | _ -> None
 
+(* Scratch files stay in the repo-local [tmp/], never a system temp directory:
+   it is shared with every other user and run on the machine, and tailwindcss
+   resolves its imports relative to where its input sits. *)
+let tmp_root = "tmp"
+
+let ensure_tmp_root () =
+  (* Another test binary may have created it between the two calls. *)
+  if not (Sys.file_exists tmp_root) then
+    try Sys.mkdir tmp_root 0o755 with Sys_error _ -> ()
+
+let tmp_file prefix suffix =
+  ensure_tmp_root ();
+  Filename.temp_file ~temp_dir:tmp_root prefix suffix
+
+let first_line path =
+  let ic = open_in path in
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr ic)
+    (fun () -> try Some (input_line ic) with End_of_file -> None)
+
 let tailwindcss_version cmd =
-  (* Try --version first, fall back to --help if needed *)
-  let temp_file = Filename.temp_file "tw_version" ".txt" in
-  let version_cmd = cmd ^ " --version 2>/dev/null > " ^ temp_file in
-  let exit_code = Sys.command version_cmd in
-  let version_line, fallback_used =
-    if exit_code = 0 then (
-      let ic = open_in temp_file in
-      let line = input_line ic in
-      close_in ic;
-      (line, false))
-    else
-      let help_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
-      let help_exit = Sys.command help_cmd in
-      if help_exit = 0 then (
-        let ic = open_in temp_file in
-        let line = input_line ic in
-        close_in ic;
-        (line, true))
-      else failwith "Failed to check tailwindcss version."
+  (* Try --version first, fall back to --help if needed. A command that exits 0
+     and prints nothing has answered nothing, so it counts as no answer and the
+     fallback runs. *)
+  let temp_file = tmp_file "tw_version" ".txt" in
+  let remove () = try Sys.remove temp_file with Sys_error _ -> () in
+  Fun.protect ~finally:remove @@ fun () ->
+  let probe args =
+    if Sys.command (cmd ^ args ^ temp_file) = 0 then first_line temp_file
+    else None
   in
-  Sys.remove temp_file;
-  (version_line, fallback_used)
+  match probe " --version 2>/dev/null > " with
+  | Some line -> (line, false)
+  | None -> (
+      match probe " --help 2>&1 | head -1 > " with
+      | Some line -> (line, true)
+      | None -> failwith "Failed to check tailwindcss version.")
 
 let extract_version_number line =
   (* Extract version number from strings like "tailwindcss v4.0.0" or "4.0.0" *)
@@ -170,11 +184,16 @@ let check_tailwindcss_available () =
       availability_result := Some result;
       match result with Ok () -> () | Error e -> raise e)
 
+(* Establishing the reference build runs commands and reads their output, so it
+   fails on a missing CLI and on an unusable filesystem alike; both mean the
+   same thing here, that there is nothing to compare against. Generation is
+   separate: once the CLI is known good, a [generate] that produces no CSS still
+   raises. *)
 let available () =
   try
     check_tailwindcss_available ();
     true
-  with Failure _ -> false
+  with Failure _ | Sys_error _ -> false
 
 (* Statistics tracking *)
 module Stats = struct
@@ -226,11 +245,9 @@ let with_stats f =
       raise exn
 
 let temp_dir () =
-  (* Ensure tmp directory exists in project root *)
-  if not (Sys.file_exists "tmp") then Unix.mkdir "tmp" 0o755;
-  (* Create unique temp directory in project root so tailwindcss can resolve
-     imports *)
-  let dir = Filename.temp_file ~temp_dir:"tmp" "tw_gen_" "" in
+  (* One directory per generation, in the project root so tailwindcss can
+     resolve imports. *)
+  let dir = tmp_file "tw_gen_" "" in
   Sys.remove dir;
   Sys.mkdir dir 0o755;
   dir
