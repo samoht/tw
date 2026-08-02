@@ -3,8 +3,12 @@
   ; -58 (no-cmx-file): a flambda missed-inlining hint that fires on
   ; dune-build-info's link-time module and other cmx-less dependencies. It is
   ; not a correctness warning.
+  ;
+  ; @45 (open-shadow-label-constructor): dune's default set leaves this off, so
+  ; an `open Css` silently takes over `None`, `Default` and friends. As an error
+  ; it forces those sites to name the type they mean.
   (flags
-   (:standard %{dune-warnings} -w -58)))
+   (:standard %{dune-warnings} -w -58@45)))
  (release
   (flags
    (:standard -w -58))))
