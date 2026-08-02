@@ -8,7 +8,7 @@ let test_well_formed () =
   String.iter
     (fun c ->
       let bad = c = '"' || c = '\\' || c = '\n' || c = ' ' in
-      Alcotest.(check bool) (Printf.sprintf "version has no %C" c) false bad)
+      Alcotest.(check bool) (Fmt.str "version has no %C" c) false bad)
     Tw_info.version
 
 let suite =

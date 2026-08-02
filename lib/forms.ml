@@ -110,7 +110,7 @@ let checkbox_focus_decls =
 module Handler = struct
   open Style
 
-  type t = Form_input | Form_checkbox | Form_radio
+  type t = Input | Checkbox | Radio
   type Utility.base += Self of t
 
   let name = "forms"
@@ -343,25 +343,22 @@ module Handler = struct
     style ~rules:(Some rules) []
 
   let to_style _theme = function
-    | Form_input -> form_input
-    | Form_checkbox -> form_checkbox
-    | Form_radio -> form_radio
+    | Input -> form_input
+    | Checkbox -> form_checkbox
+    | Radio -> form_radio
 
-  let suborder = function
-    | Form_checkbox -> 0
-    | Form_radio -> 1
-    | Form_input -> 2
+  let suborder = function Checkbox -> 0 | Radio -> 1 | Input -> 2
 
   let of_class _theme = function
-    | "form-input" -> Ok Form_input
-    | "form-checkbox" -> Ok Form_checkbox
-    | "form-radio" -> Ok Form_radio
+    | "form-input" -> Ok Input
+    | "form-checkbox" -> Ok Checkbox
+    | "form-radio" -> Ok Radio
     | _ -> Error (`Msg "Not a form utility")
 
   let to_class = function
-    | Form_input -> "form-input"
-    | Form_checkbox -> "form-checkbox"
-    | Form_radio -> "form-radio"
+    | Input -> "form-input"
+    | Checkbox -> "form-checkbox"
+    | Radio -> "form-radio"
 
   let examples = []
 end
@@ -370,7 +367,7 @@ end
 module Select = struct
   open Style
 
-  type t = Form_select | Form_textarea
+  type t = Select | Textarea
   type Utility.base += Self of t
 
   let name = "forms_select"
@@ -479,19 +476,19 @@ module Select = struct
     style ~rules:(Some rules) []
 
   let to_style _theme = function
-    | Form_select -> form_select
-    | Form_textarea -> form_textarea
+    | Select -> form_select
+    | Textarea -> form_textarea
 
-  let suborder = function Form_select -> 0 | Form_textarea -> 1
+  let suborder = function Select -> 0 | Textarea -> 1
 
   let of_class _theme = function
-    | "form-select" -> Ok Form_select
-    | "form-textarea" -> Ok Form_textarea
+    | "form-select" -> Ok Select
+    | "form-textarea" -> Ok Textarea
     | _ -> Error (`Msg "Not a form select utility")
 
   let to_class = function
-    | Form_select -> "form-select"
-    | Form_textarea -> "form-textarea"
+    | Select -> "form-select"
+    | Textarea -> "form-textarea"
 
   let examples = []
 end
@@ -501,11 +498,11 @@ let () = Utility.register (module Handler)
 let () = Utility.register (module Select)
 
 (* Public API *)
-let form_input = Utility.base (Handler.Self Handler.Form_input)
-let form_checkbox = Utility.base (Handler.Self Handler.Form_checkbox)
-let form_radio = Utility.base (Handler.Self Handler.Form_radio)
-let form_select = Utility.base (Select.Self Select.Form_select)
-let form_textarea = Utility.base (Select.Self Select.Form_textarea)
+let form_input = Utility.base (Handler.Self Handler.Input)
+let form_checkbox = Utility.base (Handler.Self Handler.Checkbox)
+let form_radio = Utility.base (Handler.Self Handler.Radio)
+let form_select = Utility.base (Select.Self Select.Select)
+let form_textarea = Utility.base (Select.Self Select.Textarea)
 
 (* ======================================================================== Base
    layer stylesheet - rules that apply to native HTML form elements when the

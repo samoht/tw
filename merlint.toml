@@ -1,5 +1,3 @@
-# Modules included in tw.ml intentionally expose prefixed DSL names at the
-# top-level Tw namespace.
 # Utility parsers are intentionally expressed as large Tailwind class matchers.
 max-complexity = 43
 max-nesting = 9
@@ -46,61 +44,54 @@ allowed_words = [
 files = ["cascade/**", "./cascade/**", "mono/**", "./mono/**"]
 exclude = ["*"]
 
-# Modules included in tw.ml are flattened into the top-level Tw namespace, so
-# they intentionally keep prefixed DSL names (E330) and prefixed variant/field
-# constructors (E334): the prefixes disambiguate constructors that would
-# otherwise collide once every module is merged into a single namespace.
+# tw.ml includes each utility module, so a module's public names are the
+# top-level Tw names: Cursor.cursor_pointer is Tw.cursor_pointer, which is
+# the Tailwind class it emits. Only these modules name values after
+# themselves; the rest are under E330.
 [[rules]]
 files = [
   "lib/color.ml*",
-  "lib/backgrounds.ml*",
-  "lib/margin.ml*",
-  "lib/gap.ml*",
-  "lib/padding.ml*",
-  "lib/sizing.ml*",
-  "lib/typography.ml*",
-  "lib/layout.ml*",
-  "lib/overflow.ml*",
-  "lib/overscroll.ml*",
-  "lib/overflow_wrap.ml*",
-  "lib/box_sizing.ml*",
-  "lib/tab.ml*",
-  "lib/scrollbar.ml*",
-  "lib/zoom.ml*",
-  "lib/field_sizing.ml*",
-  "lib/grid.ml*",
-  "lib/grid_item.ml*",
-  "lib/grid_template.ml*",
-  "lib/flex.ml*",
-  "lib/flex_props.ml*",
-  "lib/flex_layout.ml*",
-  "lib/alignment.ml*",
-  "lib/borders.ml*",
-  "lib/effects.ml*",
-  "lib/text_shadow.ml*",
-  "lib/transforms.ml*",
-  "lib/cursor.ml*",
-  "lib/touch.ml*",
-  "lib/divide.ml*",
-  "lib/interactivity.ml*",
-  "lib/containers.ml*",
-  "lib/filters.ml*",
-  "lib/masks.ml*",
-  "lib/mask_gradient.ml*",
-  "lib/clipping.ml*",
-  "lib/position.ml*",
-  "lib/animations.ml*",
-  "lib/transitions.ml*",
-  "lib/forms.ml*",
-  "lib/tables.ml*",
-  "lib/svg.ml*",
-  "lib/accessibility.ml*",
-  "lib/modifiers.ml*",
-  "lib/prose.ml*",
   "lib/columns.ml*",
   "lib/contain.ml*",
+  "lib/cursor.ml*",
+  "lib/divide.ml*",
+  "lib/field_sizing.ml*",
+  "lib/flex.ml*",
+  "lib/gap.ml*",
+  "lib/grid.ml*",
+  "lib/overflow.ml*",
+  "lib/overscroll.ml*",
+  "lib/prose.ml*",
   "lib/scroll.ml*",
-  "lib/arbitrary.ml*",
   "lib/style.ml*",
+  "lib/tab.ml*",
+  "lib/text_shadow.ml*",
+  "lib/touch.ml*",
 ]
-exclude = ["E330", "E334"]
+exclude = ["E330"]
+
+# These modules open Cascade.Css and declare a private Handler variant that
+# mirrors a CSS value enum case for case, so the bare constructor E334 asks
+# for would shadow the Css constructor of the same name in the same scope
+# (Touch_pan_x -> Pan_x shadows Css.Pan_x). Dropping a prefix here means
+# picking a name that does not collide, one family at a time.
+[[rules]]
+files = [
+  "lib/accessibility.ml*",
+  "lib/animations.ml*",
+  "lib/backgrounds.ml*",
+  "lib/borders.ml*",
+  "lib/color.ml*",
+  "lib/cursor.ml*",
+  "lib/divide.ml*",
+  "lib/flex_layout.ml*",
+  "lib/mask_gradient.ml*",
+  "lib/masks.ml*",
+  "lib/position.ml*",
+  "lib/prose.ml*",
+  "lib/style.ml*",
+  "lib/text_shadow.ml*",
+  "lib/touch.ml*",
+  "lib/typography.ml*",
+]
+exclude = ["E334"]
