@@ -10,12 +10,15 @@
 
 ## Wrong CSS emitted (audit 2026-07-31, verified against source)
 
-- [-] Claimed 2026-08-02 (branch modifier-silent-empties).
-  Modifier-level silent empties (found 2026-08-01 by a corpus scan over
-  test/upstream/variants.txt while fixing the utility-level cluster, tw PR
-  #287): `group-not-hover:flex`, `group-not-device-hocus:flex`,
-  `data-[foo_^_=_"bar"]:flex` and `aria-checked/foo:flex` are accepted by
-  of_string but render no rule. Same fix shape as #287: validate at parse time.
+Modifier-level silent empties (found 2026-08-01 by a corpus scan over
+test/upstream/variants.txt while fixing the utility-level cluster, tw PR #287):
+`group-not-hover:flex`, `group-not-device-hocus:flex`,
+`data-[foo_^_=_"bar"]:flex` and `aria-checked/foo:flex` are accepted by
+of_string but render no rule. All four reproduce, and Tailwind emits nothing
+for them either (checked 2026-08-02), so decide reject-vs-parity before
+coding: rejecting at parse time is the #287 shape and the better UX, but it is
+a deliberate divergence, and test/upstream/variants.txt may pin the empty
+output as the CI gate. Check the corpus first.
 
 A project `@theme { --drop-shadow-glow: 0 0 8px #ff0000 }` re-declared by
 `drop-shadow-glow` emits `#f00` where Tailwind writes `red` - an optimizer
@@ -23,8 +26,7 @@ colour-spelling difference on passed-through theme values (found 2026-08-01,
 pre-existing). Decide whether tw should keep theme value strings verbatim.
 
 Arbitrary-property findings from the provenance work (2026-08-01, verified
-against Tailwind while gating PR #284). [-] Claimed 2026-08-02 (branch
-arbitrary-colour-decode), both bullets:
+against Tailwind while gating PR #284):
 
 - Underscore-encoded colour values are rejected on the opacity path: the value
   is not run through `Parse.decode_arbitrary_value` before `Css.parse_color`,
@@ -39,8 +41,7 @@ arbitrary-colour-decode), both bullets:
   the classes that actually hit it (e.g. `[color:red]xyz`).
 
 Colour-family findings from the decoration work (2026-08-01, verified against
-Tailwind while gating PR #281). [-] Claimed 2026-08-02 (branch
-colour-family-opacity), all four bullets:
+Tailwind while gating PR #281):
 
 - `*-transparent/50` and `*-inherit/50` are rejected family-wide (bg, text,
   border, decoration, ...) while Tailwind emits `color-mix(in oklab,
