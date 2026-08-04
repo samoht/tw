@@ -1907,12 +1907,12 @@ let rec try_container_query s =
           bracketed "@" (fun raw len -> Container (Container_len (raw, len))));
         (fun () ->
           bracketed "@min-" (fun raw len ->
-              Container (Container_len_cmp (Cq_min, raw, len))));
+              Container (Container_len_cmp (Min, raw, len))));
         (fun () ->
           bracketed "@max-" (fun raw len ->
-              Container (Container_len_cmp (Cq_max, raw, len))));
-        (fun () -> sized "@min-" Cq_min);
-        (fun () -> sized "@max-" Cq_max);
+              Container (Container_len_cmp (Max, raw, len))));
+        (fun () -> sized "@min-" Min);
+        (fun () -> sized "@max-" Max);
         (fun () -> try_scoped_container_query s);
       ]
 
