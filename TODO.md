@@ -383,18 +383,15 @@ catch:
   on the stdlib, delete Parse.has_prefix.
 - Variant-colon splitting in 4 spellings (build.ml:16, sort.ml:828/:846/:861);
   keep one bracket-aware splitter in Parse.
-- [-] Claimed 2026-08-01 (branch mask-gradient-typed).
-  mask_gradient.ml builds CSS by string concatenation: `mask_linear_decl` (:140),
-  `gradient_for_direction` (:145), `radial_stops_decl` (:153),
-  `conic_stops_decl` (:162), `linear_stops_decl` (:170) assemble
-  `"linear-gradient(to " ^ dir ^ ", var(--tw-mask-" ^ ...` and feed 47
-  `custom_property` calls (:340-427), with a concatenated variable NAME at :331
-  and typed-value-to-string round trips at :115, :462/:467, :566, :748, :798;
-  text_shadow.ml:61 similar. cascade's own `custom_property` docstring
-  (css.mli:7563) says to prefer `Css.var`, and the typed gradient constructors
-  exist (`Linear_gradient`, `Linear_gradient_var`, css.mli:3000-3014), so tw is
-  not blocked. Port to Var.binding + typed ctors, byte-identical output gated on
-  `--diff`.
+- mask_gradient.ml still builds CSS by string concatenation on 42 lines, with
+  11 `custom_property` calls left (PR #296 typed the stop values and took it
+  down from 47). text_shadow.ml is the same shape: 20 concat lines, 1
+  `custom_property`. cascade's own `custom_property` docstring (css.mli:7563)
+  says to prefer `Css.var`, and the typed gradient constructors exist
+  (`Linear_gradient`, `Linear_gradient_var`, css.mli:3000-3014), so neither is
+  blocked. Finish both on Var.binding + typed ctors, byte-identical output
+  gated on `--diff`. Dropping the last E334 exclusion for each file rides
+  along with this.
 - color.ml:52-252 is a private CSS Color 4 stack - `linearize_channel` (:52),
   `gamma_correct` (:56), `linear_rgb_to_oklab` (:66), `rgb_to_oklch` (:90),
   `oklab_to_linear_srgb` (:115), `linear_srgb_to_oklab` (:153),
@@ -418,14 +415,6 @@ catch:
   other the `@property` rules - so fixing one alone produces a sheet whose
   `@property` order contradicts its properties layer, exactly the parity bug
   class this code exists to prevent. Extract one comparator.
-- [-] Claimed 2026-08-01 (branch e334-dequeue, stacked on PR #294).
-  Treat the 16 E334 exclusions merlint.toml still carries as a work queue, per
-  module: first try deleting the mirror enum outright by carrying the typed
-  Css value in one constructor (byte-identity gated); else rename prefix-free
-  with explicit `Css.` qualification at collision sites; keep an exclusion
-  only where neither is worth the churn, with a per-module reason. Skip
-  text_shadow.ml (PR #289 open), mask_gradient.ml (port in flight) and
-  sizing.ml (PR #293 open) - leave their entries with a note.
 - `Property.split` (property.ml:3-8) and `Property.dedup` (:9-20) are generic
   partition/dedup over `Css.as_property`, and the identical dedup loop is
   inlined again at var.ml:535-547. Note before collapsing: tw keeps the FIRST
@@ -589,43 +578,30 @@ together, the rest are cleanups to take while nearby.
 
 ## Tooling and house rules
 
-- [-] Claimed 2026-08-01 (branch shadow-warning-45, stacked on PR #295).
-  Enable the shadowing warnings as errors in the tracked root `dune` env
-  (verified scoped to tw only: cascade's nested dune-project resolves
-  `:standard` against the workspace env), staged by measured fallout
-  (`dune build @check` counts, 2026-08-01): warning 45 first (44 sites - the
-  exact reported bug class, e.g. cursor.ml:10 `open Css` shadows `None` and
-  accessibility.ml:31's `forced_color_adjust None` means `Css.None`), then 44
-  (401), then 40 (296). Warning 42 stays OFF deliberately: 4237 sites, all the
-  codebase's intended type-directed idiom, no safety payoff. Warning 41 (111)
-  is largely unfixable by qualifying - `Css.None` is ambiguous within
-  Cascade.Css itself (scrollbar_width, appearance, overscroll_behavior,
-  touch_action, svg_paint, ...) - filed as a cascade-side ask.
-  PR #295 (mergeable now) already moved `-w -58` into the tracked root dune;
-  a fresh worktree no longer needs the dune-workspace copy. Caveat recorded
-  there: on a flambda switch cascade built through tw's workspace would need
-  its own tracked -58.
+- Settled 2026-08-02, do not re-propose: the shadowing warnings (40/41/42/44/45)
+  stay OFF. Shadowing is fine here and `None` is a legitimate variant name -
+  type-directed disambiguation is the mechanism that resolves it, so qualifying
+  sites as `Css.None` fights the idiom the codebase is built on. PR #298 tried
+  warning 45 as an error plus 44 qualified sites and was closed: no test
+  changed and output was identical, so it demonstrated no bug. The staged
+  follow-ups (warning 44, 401 sites; warning 40, 296) are dropped with it.
+  Worth salvaging on its own: that branch extracted the repeated
+  `:where(.CLASS > :not(:last-child))` selector in divide.ml into one helper,
+  collapsing four copies.
 
-
-
-- Merlint findings still open after PR #294, each in a file that was
-  off-limits during that work (2026-08-01): lib/text_shadow.ml's
-  `Text_shadow_*` E334 family (PR #289 renames only the `Arb_*` one, so the
-  exclusion entry cannot be dropped when it lands); lib/mask_gradient.ml +
-  .mli (18 E334); lib/var.mli (2 doc findings, fixed on the PR #292 branch);
-  bin/main.ml (5 long functions, 2 non-mutual `let rec` siblings). Also 4
-  E956 findings in test/upstream/dune that appear or not depending on which
-  _build artefacts exist (seen 2026-08-01 gating PR #296) - make them
-  deterministic, then fix.
+- Merlint is clean except bin/main.ml: 5 long functions, plus `expand_variants`
+  and `fill_slots` (:430, :455) tied in a `let rec ... and ...` that is not
+  mutually recursive. These 7 are the only findings left (measured 2026-08-02
+  on the #299 branch); the pre-commit hook fails on them, so any commit
+  touching bin/main.ml currently needs `--no-verify`. Also 4 E956 findings in
+  test/upstream/dune that appear or not depending on which _build artefacts
+  exist (seen 2026-08-01 gating PR #296) - make them deterministic, then fix.
 - `mask-linear-[100grad]` escapes angle conversion through a suffix-test bug
   the typed port deliberately preserved to hold byte-identity (PR #296
   restricts conversion to rad/turn and pins the current behaviour): the old
   code matched "rad" inside "grad", failed to parse "100g", and passed the
   input through. Converting grad like rad/turn is probably right; needs a
   --tailwind probe plus the upstream fixture as oracle.
-- tw's `_opam/bin/ocamlformat` is still a symlink into cascade's switch;
-  now both switches are 5.4.1, `opam install ocamlformat.0.29.0` in tw's
-  switch is the clean fix.
 - Scratch dune projects under `tmp/` break `dune build` for everyone. They only
   rebuild when `lib/` changes, so they look fine until the first library edit,
   and then a stale one (`tmp/verify0`, `tmp/verify_bench`, and `dune fmt`
