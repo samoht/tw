@@ -56,7 +56,7 @@ Tailwind while gating PR #281):
 - `decoration-<custom-theme-colour>/<opacity>` still fails to parse: divide and
   backgrounds fall back to `Theme_named` when `Color.of_string` fails,
   decoration does not.
-- grid_template.ml:192 and modifiers.ml:1068 still call
+- grid_template.ml:192 and modifiers.ml:1076 still call
   `Css.parse_length (Parse.decode_arbitrary_value ...)` inline; same
   `Parse.arbitrary_length` consolidation as PR #281.
 
@@ -65,10 +65,10 @@ The 16 nullary `Border_t_0 .. Border_l_8` constructors still sit beside
 suborder :806, to_class :1037, parse) is open.
 
 The has-[]/not-[] bytewise `&`->`*` rewrites (rule.ml:481/:1426,
-modifiers.ml:1322) are still string-based, unlike the anchor substitution that
+modifiers.ml:1092) are still string-based, unlike the anchor substitution that
 now goes through Nest.substitute; port them to the typed selector API.
 
-- `extract_var_name` (parse.ml:64-68) slices `"var(--"` by hand at 103 sites
+- `extract_var_name` (parse.ml:89) slices `"var(--"` by hand at 103 sites
   across ~20 modules, and drops everything after a comma:
   `p-[var(--x,var(--y))]` emits `padding: var(--y)` and
   `cursor-[var(--c,var(--d))]` emits `cursor: var(--d)` where Tailwind keeps
@@ -127,12 +127,12 @@ Still open:
   a reachable collision mis-sorting not-* variants. Full report:
   scratchpad/ordering-audit.md (session dir).
 - The variant cascade order is written four times on three incompatible scales:
-  `not_variant_order` (modifiers.ml:2200, 100-12100, keyed by constructor),
-  `variant_order_of_prefix` (:2300, 500-110000, keyed by class-name string),
+  `not_variant_order` (modifiers.ml:2033, 100-12100, keyed by constructor),
+  `variant_order_of_prefix` (:2133, 500-110000, keyed by class-name string),
   `variant_order_of_media_cond` (:2402, restating 20000/50000/50100/50200/50300/
   70000/70100/90000/91000/92000/93100) and `compute_variant_order`
   (rule.ml:1147-1148, hardcoding before=1600/after=1601). The catch-all
-  `| _ -> 5500` at modifiers.ml:2293 drops any new constructor into the middle
+  `| _ -> 5500` at modifiers.ml:2126 drops any new constructor into the middle
   of the not-* table instead of failing to compile, and an unrecognised prefix
   returns 0, which is not a small ordering error: sort.ml:1129-1132 partitions
   on `variant_order > 0`, so the rule lands in a different bucket entirely.
@@ -310,7 +310,7 @@ catch:
   maintenance fragility, not wrong output: changing the sentinel yields class
   names like `supports-gri:flex` rather than a compile error. Split into
   `Supports_property` / `Supports_condition` and all four sites disappear.
-- `drop_shadow_arbitrary_impl` (filters.ml:689-710) splits on spaces, builds
+- `drop_shadow_arbitrary_impl` (filters.ml:725) splits on spaces, builds
   `"drop-shadow(" ^ non_color ^ " var(--tw-drop-shadow-color, " ^ color ^ "))"`
   and re-parses it, in a file that builds the same shape typed at :621, :666 and
   :673. The variable name is hand-spelled although `drop_shadow_color_ref`
@@ -454,14 +454,14 @@ the intended effect. Noted 2026-08-02.
   filed in cascade's TODO (2026-08-01, from PR #285 gating).
 
 - CSS math and colour function-name tables exist in three divergent copies:
-  `is_css_math_function` (parse.ml:114, 11 names, uniquely has `calc-size`,
+  `is_css_math_function` (parse.ml:139, 11 names, uniquely has `calc-size`,
   missing the trig/pow/sqrt/exp/log family), cascade's `is_math_function`
-  (properties.ml:21089, 14) and `math_function_names` (:21437, 21); likewise
-  `is_css_color_fn` (parse.ml:246, 11 prefixes, omits `light-dark`) against
-  cascade's `is_color_function` (properties.ml:21043, 12). None of cascade's
+  (properties.ml:1842, 14) and `math_function_names` (:2181, 21); likewise
+  `is_css_color_fn` (parse.ml:273, 11 prefixes, omits `light-dark`) against
+  cascade's `is_color_function` (properties.ml:1796, 12). None of cascade's
   tables are exported, so tw cannot reuse them. Demonstrated at the call site:
   `tw --single="stroke-[light-dark(red,blue)]"` is Unknown class because
-  svg.ml:449 routes it to `parse_bracket_stroke_width`. Needs
+  svg.ml:451 routes it to `parse_bracket_stroke_width`. Needs
   `is_math_function` + `is_color_function` exported from cascade. Do NOT delete
   `normalize_css_math_operators` (parse.ml:124) along with them: Tailwind class
   syntax legitimately produces `calc(100%-2rem)`, which no spec-conformant calc
@@ -515,7 +515,7 @@ None of these are load-bearing on their own; the first two are worth doing
 together, the rest are cleanups to take while nearby.
 
 - `Utility.to_style` builds the full `Style.t` tree three times per class per
-  render: `Rule.outputs` (rule.ml:2436), `layers` (build.ml:1413, whose result
+  render: `Rule.outputs` (rule.ml:2293), `layers` (build.ml:1413, whose result
   feeds only `collect_keyframes`) and `extract_vars_and_rules` (build.ml:1287),
   called from `layers` on the same list two lines later. It dispatches through
   the 53-handler list and allocates the whole declaration tree;
