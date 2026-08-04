@@ -4,9 +4,9 @@ open Cascade
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 
-(** Container-query direction: {!constructor-Cq_min} is [width >= v],
-    {!constructor-Cq_max} is [width < v]. *)
-type container_cmp = Cq_min | Cq_max
+(** Container-query direction: {!constructor-Min} is [width >= v],
+    {!constructor-Max} is [width < v]. *)
+type container_cmp = Min | Max
 
 (** [@min-[<len>]] / [@max-[<len>]]. *)
 type container_query =

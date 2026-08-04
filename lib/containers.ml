@@ -165,8 +165,8 @@ let width_range op len =
    Emitting the negated form keeps parity with Tailwind's optimized output. *)
 let width_cond cmp len =
   match cmp with
-  | Style.Cq_min -> width_range Css.Media.Ge len
-  | Style.Cq_max -> Css.Container.Not (width_range Css.Media.Ge len)
+  | Style.Min -> width_range Css.Media.Ge len
+  | Style.Max -> Css.Container.Not (width_range Css.Media.Ge len)
 
 (** Convert a container query modifier to a structured Container.t condition *)
 let rec container_query_to_condition q =

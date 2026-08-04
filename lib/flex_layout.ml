@@ -7,19 +7,8 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
-  open Css
 
-  type t =
-    (* Direction *)
-    | Flex_row
-    | Flex_row_reverse
-    | Flex_col
-    | Flex_col_reverse
-    (* Wrap *)
-    | Flex_wrap
-    | Flex_wrap_reverse
-    | Flex_nowrap
-
+  type t = Direction of Css.flex_direction | Wrap of Css.flex_wrap
   type Utility.base += Self of t
 
   let name = "flex_layout"
@@ -27,29 +16,23 @@ module Handler = struct
 
   let flex_data =
     [
-      (Flex_col, "col", (fun () -> style [ flex_direction Column ]), 0);
-      ( Flex_col_reverse,
-        "col-reverse",
-        (fun () -> style [ flex_direction Column_reverse ]),
-        1 );
-      (Flex_row, "row", (fun () -> style [ flex_direction Row ]), 2);
-      ( Flex_row_reverse,
-        "row-reverse",
-        (fun () -> style [ flex_direction Row_reverse ]),
-        3 );
-      (Flex_nowrap, "nowrap", (fun () -> style [ flex_wrap Nowrap ]), 10);
-      (Flex_wrap, "wrap", (fun () -> style [ flex_wrap Wrap ]), 11);
-      ( Flex_wrap_reverse,
-        "wrap-reverse",
-        (fun () -> style [ flex_wrap Wrap_reverse ]),
-        12 );
+      (Direction Css.Column, "col", 0);
+      (Direction Css.Column_reverse, "col-reverse", 1);
+      (Direction Css.Row, "row", 2);
+      (Direction Css.Row_reverse, "row-reverse", 3);
+      (Wrap Css.Nowrap, "nowrap", 10);
+      (Wrap Css.Wrap, "wrap", 11);
+      (Wrap Css.Wrap_reverse, "wrap-reverse", 12);
     ]
 
-  let to_class_map = List.map (fun (t, s, _, _) -> (t, "flex-" ^ s)) flex_data
-  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) flex_data
-  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) flex_data
-  let of_class_map = List.map (fun (t, s, _, _) -> ("flex-" ^ s, t)) flex_data
-  let to_style _theme t = (List.assoc t to_style_map) ()
+  let to_class_map = List.map (fun (t, s, _) -> (t, "flex-" ^ s)) flex_data
+  let suborder_map = List.map (fun (t, _, o) -> (t, o)) flex_data
+  let of_class_map = List.map (fun (t, s, _) -> ("flex-" ^ s, t)) flex_data
+
+  let to_style _theme = function
+    | Direction d -> style [ Css.flex_direction d ]
+    | Wrap w -> style [ Css.flex_wrap w ]
+
   let suborder t = List.assoc t suborder_map
   let to_class t = List.assoc t to_class_map
 
@@ -58,7 +41,7 @@ module Handler = struct
     | Some t -> Ok t
     | None -> Error (`Msg "Not a flex layout utility")
 
-  let examples = [ Flex_row; Flex_wrap ]
+  let examples = [ Direction Css.Row; Wrap Css.Wrap ]
 end
 
 open Handler
@@ -67,10 +50,10 @@ open Handler
 let () = Utility.register (module Handler)
 
 let utility x = Utility.base (Self x)
-let flex_row = utility Flex_row
-let flex_row_reverse = utility Flex_row_reverse
-let flex_col = utility Flex_col
-let flex_col_reverse = utility Flex_col_reverse
-let flex_wrap = utility Flex_wrap
-let flex_wrap_reverse = utility Flex_wrap_reverse
-let flex_nowrap = utility Flex_nowrap
+let flex_row = utility (Direction Css.Row)
+let flex_row_reverse = utility (Direction Css.Row_reverse)
+let flex_col = utility (Direction Css.Column)
+let flex_col_reverse = utility (Direction Css.Column_reverse)
+let flex_wrap = utility (Wrap Css.Wrap)
+let flex_wrap_reverse = utility (Wrap Css.Wrap_reverse)
+let flex_nowrap = utility (Wrap Css.Nowrap)

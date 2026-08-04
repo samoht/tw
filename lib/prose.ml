@@ -2090,15 +2090,8 @@ end
 
 (* Handler for prose color variants - priority 21 *)
 module Color_Handler = struct
-  (** Local prose utility type for color variants *)
-  type t =
-    | Prose_gray
-    | Prose_slate
-    | Prose_zinc
-    | Prose_neutral
-    | Prose_stone
-    | Prose_invert
-    | Prose_orange
+  type t = [ `Gray | `Slate | `Zinc | `Neutral | `Stone | `Invert | `Orange ]
+  (** The prose colour variants, as {!prose_style} names them. *)
 
   (** Extensible variant for prose color utilities *)
   type Utility.base += Self of t
@@ -2110,47 +2103,40 @@ module Color_Handler = struct
 
   (** {1 Utility Conversion Functions} *)
 
-  let to_style _theme = function
-    | Prose_gray -> prose_style `Gray
-    | Prose_slate -> prose_style `Slate
-    | Prose_zinc -> prose_style `Zinc
-    | Prose_neutral -> prose_style `Neutral
-    | Prose_stone -> prose_style `Stone
-    | Prose_invert -> prose_style `Invert
-    | Prose_orange -> prose_style `Orange
+  let to_style _theme variant = prose_style variant
 
   let to_class = function
-    | Prose_gray -> "prose-gray"
-    | Prose_slate -> "prose-slate"
-    | Prose_zinc -> "prose-zinc"
-    | Prose_neutral -> "prose-neutral"
-    | Prose_stone -> "prose-stone"
-    | Prose_invert -> "prose-invert"
-    | Prose_orange -> "prose-orange"
+    | `Gray -> "prose-gray"
+    | `Slate -> "prose-slate"
+    | `Zinc -> "prose-zinc"
+    | `Neutral -> "prose-neutral"
+    | `Stone -> "prose-stone"
+    | `Invert -> "prose-invert"
+    | `Orange -> "prose-orange"
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "prose"; "gray" ] -> Ok Prose_gray
-    | [ "prose"; "slate" ] -> Ok Prose_slate
-    | [ "prose"; "zinc" ] -> Ok Prose_zinc
-    | [ "prose"; "neutral" ] -> Ok Prose_neutral
-    | [ "prose"; "stone" ] -> Ok Prose_stone
-    | [ "prose"; "invert" ] -> Ok Prose_invert
-    | [ "prose"; "orange" ] -> Ok Prose_orange
+    | [ "prose"; "gray" ] -> Ok `Gray
+    | [ "prose"; "slate" ] -> Ok `Slate
+    | [ "prose"; "zinc" ] -> Ok `Zinc
+    | [ "prose"; "neutral" ] -> Ok `Neutral
+    | [ "prose"; "stone" ] -> Ok `Stone
+    | [ "prose"; "invert" ] -> Ok `Invert
+    | [ "prose"; "orange" ] -> Ok `Orange
     | _ -> Error (`Msg "Not a prose color utility")
 
   let suborder = function
     (* Prose color utilities come after text colors (20000-29999). The gray
        ramps sort alphabetically by class name, matching Tailwind's order (gray,
        neutral, slate, stone, zinc), then invert and orange. *)
-    | Prose_gray -> 30000
-    | Prose_neutral -> 30001
-    | Prose_slate -> 30002
-    | Prose_stone -> 30003
-    | Prose_zinc -> 30004
-    | Prose_invert -> 30005
-    | Prose_orange -> 30006
+    | `Gray -> 30000
+    | `Neutral -> 30001
+    | `Slate -> 30002
+    | `Stone -> 30003
+    | `Zinc -> 30004
+    | `Invert -> 30005
+    | `Orange -> 30006
 
   let examples = []
 end
@@ -2169,12 +2155,12 @@ let prose_sm = utility Handler.Prose_sm
 let prose_lg = utility Handler.Prose_lg
 let prose_xl = utility Handler.Prose_xl
 let prose_2xl = utility Handler.Prose_2xl
-let prose_gray = color_utility Color_Handler.Prose_gray
-let prose_slate = color_utility Color_Handler.Prose_slate
-let prose_zinc = color_utility Color_Handler.Prose_zinc
-let prose_neutral = color_utility Color_Handler.Prose_neutral
-let prose_stone = color_utility Color_Handler.Prose_stone
-let prose_invert = color_utility Color_Handler.Prose_invert
-let prose_orange = color_utility Color_Handler.Prose_orange
+let prose_gray = color_utility `Gray
+let prose_slate = color_utility `Slate
+let prose_zinc = color_utility `Zinc
+let prose_neutral = color_utility `Neutral
+let prose_stone = color_utility `Stone
+let prose_invert = color_utility `Invert
+let prose_orange = color_utility `Orange
 let prose_lead = utility Handler.Lead
 let not_prose = utility Handler.Not_prose

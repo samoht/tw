@@ -70,28 +70,11 @@ files = [
 ]
 exclude = ["E330"]
 
-# These modules open Cascade.Css and declare a private Handler variant that
-# mirrors a CSS value enum case for case, so the bare constructor E334 asks
-# for would shadow the Css constructor of the same name in the same scope
-# (Touch_pan_x -> Pan_x shadows Css.Pan_x). Dropping a prefix here means
-# picking a name that does not collide, one family at a time.
+# Both files are being rewritten elsewhere: mask_gradient is mid typed port and
+# text_shadow is mid rename, so their prefixes come off with those changes.
 [[rules]]
 files = [
-  "lib/accessibility.ml*",
-  "lib/animations.ml*",
-  "lib/backgrounds.ml*",
-  "lib/borders.ml*",
-  "lib/color.ml*",
-  "lib/cursor.ml*",
-  "lib/divide.ml*",
-  "lib/flex_layout.ml*",
   "lib/mask_gradient.ml*",
-  "lib/masks.ml*",
-  "lib/position.ml*",
-  "lib/prose.ml*",
-  "lib/style.ml*",
   "lib/text_shadow.ml*",
-  "lib/touch.ml*",
-  "lib/typography.ml*",
 ]
 exclude = ["E334"]
