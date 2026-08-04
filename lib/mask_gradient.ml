@@ -52,9 +52,9 @@ module Handler = struct
     | Angle_int of
         int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
     | Angle_arb of string
-      (* mask-linear-[3rad] → original value, converted at style time *)
+      (* mask-linear-[3rad] → 171.887deg, read and converted at style time *)
     | Angle_arb_neg of string
-  (* -mask-linear-[3rad] → calc(3rad * -1) *)
+  (* -mask-linear-[3rad] → calc(171.887deg * -1) *)
 
   type var_ref_kind = Plain_var | Length_var
 
@@ -83,17 +83,6 @@ module Handler = struct
      the other masks, which come before fill/stroke and padding. *)
   let priority _ = 21
 
-  let direction_name = function
-    | Top -> "top"
-    | Right -> "right"
-    | Bottom -> "bottom"
-    | Left -> "left"
-    | X -> "x"
-    | Y -> "y"
-    | Linear -> "linear"
-    | Radial -> "radial"
-    | Conic -> "conic"
-
   let direction_short = function
     | Top -> "t"
     | Right -> "r"
@@ -106,20 +95,6 @@ module Handler = struct
     | Conic -> "conic"
 
   let position_end_name = function From -> "from" | To -> "to"
-
-  (* Format the position value as CSS *)
-  let format_position_value ?theme = function
-    | Spacing 0. ->
-        (* A mask stop is a <length-percentage>; the zero spacing step keeps its
-           unit ([0px]) here, where a bare [0] would be the folded length. *)
-        "0px"
-    | Spacing n ->
-        let _, len = Theme.spacing_calc_float ?theme n in
-        Css.Pp.to_string ~minify:false Css.pp_length len
-    | Percent p ->
-        if Float.is_integer p then pp_int (int_of_float p) ^ "%"
-        else pp_float p ^ "%"
-    | Arbitrary v -> v
 
   (* When using Spacing values, we need to emit the theme declaration for
      --spacing so that :root, :host { --spacing: .25rem } appears *)
@@ -139,20 +114,179 @@ module Handler = struct
         background_image_var_none "tw-mask-conic";
       ]
 
-  (* For directional masks, the linear composition *)
-  let mask_linear_decl =
-    "var(--tw-mask-left), var(--tw-mask-right), var(--tw-mask-bottom), \
-     var(--tw-mask-top)"
+  (* A mask direction owns five variables: the slot holding the gradient it
+     contributes to [mask-image], and the colour and position of each of that
+     gradient's two stops. The names are written out rather than assembled, so
+     every one of them is a value the compiler checks. *)
+  type stop_vars = {
+    slot : Css.background_image Var.channel;
+    from_position : Css.length_percentage Var.channel;
+    to_position : Css.length_percentage Var.channel;
+    from_color : Css.color Var.channel;
+    to_color : Css.color Var.channel;
+  }
 
-  (* Generate the gradient value for a direction *)
-  let gradient_for_direction dir =
-    let dir_name = direction_name dir in
-    "linear-gradient(to " ^ dir_name ^ ", var(--tw-mask-" ^ dir_name
-    ^ "-from-color) var(--tw-mask-" ^ dir_name
-    ^ "-from-position), var(--tw-mask-" ^ dir_name ^ "-to-color) var(--tw-mask-"
-    ^ dir_name ^ "-to-position))"
+  let stop_vars ~slot ~from_position ~to_position ~from_color ~to_color =
+    {
+      slot = Var.channel Background_image slot;
+      from_position = Var.channel Length_percentage from_position;
+      to_position = Var.channel Length_percentage to_position;
+      from_color = Var.channel Color from_color;
+      to_color = Var.channel Color to_color;
+    }
 
-  (* Radial mask uses a stops variable for composability *)
+  let top_vars =
+    stop_vars ~slot:"tw-mask-top" ~from_position:"tw-mask-top-from-position"
+      ~to_position:"tw-mask-top-to-position"
+      ~from_color:"tw-mask-top-from-color" ~to_color:"tw-mask-top-to-color"
+
+  let right_vars =
+    stop_vars ~slot:"tw-mask-right" ~from_position:"tw-mask-right-from-position"
+      ~to_position:"tw-mask-right-to-position"
+      ~from_color:"tw-mask-right-from-color" ~to_color:"tw-mask-right-to-color"
+
+  let bottom_vars =
+    stop_vars ~slot:"tw-mask-bottom"
+      ~from_position:"tw-mask-bottom-from-position"
+      ~to_position:"tw-mask-bottom-to-position"
+      ~from_color:"tw-mask-bottom-from-color"
+      ~to_color:"tw-mask-bottom-to-color"
+
+  let left_vars =
+    stop_vars ~slot:"tw-mask-left" ~from_position:"tw-mask-left-from-position"
+      ~to_position:"tw-mask-left-to-position"
+      ~from_color:"tw-mask-left-from-color" ~to_color:"tw-mask-left-to-color"
+
+  let linear_vars =
+    stop_vars ~slot:"tw-mask-linear"
+      ~from_position:"tw-mask-linear-from-position"
+      ~to_position:"tw-mask-linear-to-position"
+      ~from_color:"tw-mask-linear-from-color"
+      ~to_color:"tw-mask-linear-to-color"
+
+  let radial_vars =
+    stop_vars ~slot:"tw-mask-radial"
+      ~from_position:"tw-mask-radial-from-position"
+      ~to_position:"tw-mask-radial-to-position"
+      ~from_color:"tw-mask-radial-from-color"
+      ~to_color:"tw-mask-radial-to-color"
+
+  let conic_vars =
+    stop_vars ~slot:"tw-mask-conic" ~from_position:"tw-mask-conic-from-position"
+      ~to_position:"tw-mask-conic-to-position"
+      ~from_color:"tw-mask-conic-from-color" ~to_color:"tw-mask-conic-to-color"
+
+  (* [mask-x] and [mask-y] write both edges of their axis, so they own no
+     variables themselves. *)
+  let vars_for = function
+    | Top -> top_vars
+    | Right -> right_vars
+    | Bottom -> bottom_vars
+    | Left -> left_vars
+    | Linear -> linear_vars
+    | Radial -> radial_vars
+    | Conic -> conic_vars
+    | (X | Y) as d ->
+        invalid_arg ("mask-" ^ direction_short d ^ " has no variables")
+
+  (* Everything between a gradient's parentheses, so a stop utility can replace
+     one stop without restating the others. *)
+  let linear_stops_var = Var.channel Gradient_stop "tw-mask-linear-stops"
+  let conic_stops_var = Var.channel Gradient_stop "tw-mask-conic-stops"
+
+  (* The angle [mask-linear-45] and [mask-conic-45] turn their gradient by. *)
+  let linear_position_var = Var.channel Angle "tw-mask-linear-position"
+  let conic_position_var = Var.channel Angle "tw-mask-conic-position"
+
+  (* The [@property] initial values. A utility reads variables it does not set
+     itself, so the initial is both what the browser starts from and what the
+     inline renderer puts in the reference's place. *)
+  let white_gradient : background_image =
+    Linear_gradient
+      ( Default_direction,
+        [
+          Color_percentage (hex "#fff", None, None);
+          Color_percentage (hex "#fff", None, None);
+        ] )
+
+  let start_position : length_percentage = Pct 0.
+  let end_position : length_percentage = Pct 100.
+  let start_color : Css.color = Named Black
+  let end_color : Css.color = Transparent
+  let no_rotation : angle = Deg 0.
+
+  (* Reading a mask variable. The [@property] rule gives it an initial value, so
+     the reference needs no fallback of its own. *)
+  let read v initial = snd (Var.binding v initial)
+
+  (* Writing one. *)
+  let set v value = fst (Var.binding v value)
+
+  (* The two stops a mask gradient runs between. *)
+  let stops v : gradient_stop list =
+    [
+      Color_percentage
+        ( Var (read v.from_color start_color),
+          Some (Var (read v.from_position start_position)),
+          None );
+      Color_percentage
+        ( Var (read v.to_color end_color),
+          Some (Var (read v.to_position end_position)),
+          None );
+    ]
+
+  let edge_of : direction -> gradient_direction * stop_vars = function
+    | Top -> (To_top, top_vars)
+    | Right -> (To_right, right_vars)
+    | Bottom -> (To_bottom, bottom_vars)
+    | Left -> (To_left, left_vars)
+    | (X | Y | Linear | Radial | Conic) as d ->
+        invalid_arg ("mask-" ^ direction_short d ^ " is not an edge")
+
+  (* [--tw-mask-<edge>] runs its two stops towards that edge. *)
+  let edge_gradient dir =
+    let side, v = edge_of dir in
+    set v.slot (Linear_gradient (side, stops v))
+
+  (* A directional utility layers the four edges into [--tw-mask-linear]. The
+     edges it did not touch still contribute their initial white gradient, which
+     masks nothing. *)
+  let edge_composition =
+    set linear_vars.slot
+      (List
+         [
+           Var (read left_vars.slot white_gradient);
+           Var (read right_vars.slot white_gradient);
+           Var (read bottom_vars.slot white_gradient);
+           Var (read top_vars.slot white_gradient);
+         ])
+
+  let linear_stops : gradient_stop =
+    List
+      (Direction (Angle (Var (read linear_position_var no_rotation)))
+      :: stops linear_vars)
+
+  let conic_stops : gradient_stop =
+    List
+      (Position
+         (Conic_position
+            (conic_gradient_config
+               ~angle:(Var (read conic_position_var no_rotation))
+               ()))
+      :: stops conic_vars)
+
+  let linear_stops_decls =
+    let decl, stops_ref = Var.binding linear_stops_var linear_stops in
+    [ decl; set linear_vars.slot (Linear_gradient_var stops_ref) ]
+
+  let conic_stops_decls =
+    let decl, stops_ref = Var.binding conic_stops_var conic_stops in
+    [ decl; set conic_vars.slot (Conic_gradient_var stops_ref) ]
+
+  (* [--tw-mask-radial-shape], [--tw-mask-radial-size] and
+     [--tw-mask-radial-position] have no {!Css.kind}, so cascade types neither a
+     declaration that sets one nor a reference that reads one. The radial stops
+     read all three, so this family stays a token stream. *)
   let radial_stops_decl =
     "var(--tw-mask-radial-shape) var(--tw-mask-radial-size) at \
      var(--tw-mask-radial-position), var(--tw-mask-radial-from-color) \
@@ -161,21 +295,12 @@ module Handler = struct
 
   let radial_gradient_decl = "radial-gradient(var(--tw-mask-radial-stops))"
 
-  (* Conic mask uses a stops variable for composability *)
-  let conic_stops_decl =
-    "from var(--tw-mask-conic-position), var(--tw-mask-conic-from-color) \
-     var(--tw-mask-conic-from-position), var(--tw-mask-conic-to-color) \
-     var(--tw-mask-conic-to-position)"
-
-  let conic_gradient_decl = "conic-gradient(var(--tw-mask-conic-stops))"
-
-  (* Linear mask uses a stops variable for composability *)
-  let linear_stops_decl =
-    "var(--tw-mask-linear-position), var(--tw-mask-linear-from-color) \
-     var(--tw-mask-linear-from-position), var(--tw-mask-linear-to-color) \
-     var(--tw-mask-linear-to-position)"
-
-  let linear_gradient_decl = "linear-gradient(var(--tw-mask-linear-stops))"
+  let radial_stops_decls =
+    [
+      custom_property ~layer:"utilities" "--tw-mask-radial-stops"
+        radial_stops_decl;
+      custom_property ~layer:"utilities" "--tw-mask-radial" radial_gradient_decl;
+    ]
 
   (* Common composite declarations *)
   let composite_decls =
@@ -325,112 +450,93 @@ module Handler = struct
     | Radial -> radial_property_rules
     | Conic -> conic_property_rules
 
+  (* A stop is a <length-percentage>. A bracket value cascade cannot read goes
+     into the sheet as the author wrote it. *)
+  let position_var v = function From -> v.from_position | To -> v.to_position
+  let color_var v = function From -> v.from_color | To -> v.to_color
+
+  let arbitrary_length_percentage s : length_percentage option =
+    match
+      Cascade.Cursor.try_parse_full_err Css.Values.read_length_percentage
+        (Cascade.Cursor.of_string s)
+    with
+    | Ok lp -> Some lp
+    | Error _ -> None
+
+  let position_decl ?theme v pos_end value =
+    let var = position_var v pos_end in
+    match value with
+    | Spacing 0. ->
+        (* The zero spacing step keeps its unit ([0px]) here, where a bare [0]
+           would be the folded length. *)
+        set var (Length (Px 0.))
+    | Spacing n ->
+        let _, len = Theme.spacing_calc_float ?theme n in
+        set var (Length len)
+    | Percent p -> set var (Pct p)
+    | Arbitrary raw -> (
+        match arbitrary_length_percentage raw with
+        | Some lp -> set var lp
+        | None -> custom_property ~layer:"utilities" (Var.css_name var) raw)
+
   (* Build the style for a directional mask position *)
   let build_directional_style ?theme dir pos_end value =
-    let dir_name = direction_name dir in
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
-    (* The variable being set *)
-    let var_name = "--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position" in
-
     let property_rules = property_rules_for_direction dir in
 
     (* Common declarations for all directional masks *)
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
       @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
-          custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
-            (gradient_for_direction dir);
-          custom_property ~layer:"utilities" var_name pos_value;
+          edge_composition;
+          edge_gradient dir;
+          position_decl ?theme (vars_for dir) pos_end value;
         ]
     in
     style ~property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-x (both left and right) *)
   let build_x_style ?theme pos_end value =
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
       @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
+          edge_composition;
           (* Right group first, then left group — interleaved order *)
-          custom_property ~layer:"utilities" "--tw-mask-right"
-            (gradient_for_direction Right);
-          custom_property ~layer:"utilities"
-            ("--tw-mask-right-" ^ pos_name ^ "-position")
-            pos_value;
-          custom_property ~layer:"utilities" "--tw-mask-left"
-            (gradient_for_direction Left);
-          custom_property ~layer:"utilities"
-            ("--tw-mask-left-" ^ pos_name ^ "-position")
-            pos_value;
+          edge_gradient Right;
+          position_decl ?theme right_vars pos_end value;
+          edge_gradient Left;
+          position_decl ?theme left_vars pos_end value;
         ]
     in
     style ~property_rules:x_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-y (both top and bottom) *)
   let build_y_style ?theme pos_end value =
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
       @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
+          edge_composition;
           (* Top group first, then bottom group — interleaved order *)
-          custom_property ~layer:"utilities" "--tw-mask-top"
-            (gradient_for_direction Top);
-          custom_property ~layer:"utilities"
-            ("--tw-mask-top-" ^ pos_name ^ "-position")
-            pos_value;
-          custom_property ~layer:"utilities" "--tw-mask-bottom"
-            (gradient_for_direction Bottom);
-          custom_property ~layer:"utilities"
-            ("--tw-mask-bottom-" ^ pos_name ^ "-position")
-            pos_value;
+          edge_gradient Top;
+          position_decl ?theme top_vars pos_end value;
+          edge_gradient Bottom;
+          position_decl ?theme bottom_vars pos_end value;
         ]
     in
     style ~property_rules:y_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-linear (generic linear gradient) *)
   let build_linear_style ?theme pos_end value =
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
     let common_decls =
-      spacing_theme_decl value @ mask_image_decls
-      @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear-stops"
-            linear_stops_decl;
-          custom_property ~layer:"utilities" "--tw-mask-linear"
-            linear_gradient_decl;
-          custom_property ~layer:"utilities"
-            ("--tw-mask-linear-" ^ pos_name ^ "-position")
-            pos_value;
-        ]
+      spacing_theme_decl value @ mask_image_decls @ linear_stops_decls
+      @ [ position_decl ?theme linear_vars pos_end value ]
     in
     style ~property_rules:linear_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-radial position *)
   let build_radial_style ?theme pos_end value =
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
     let common_decls =
-      spacing_theme_decl value @ mask_image_decls
-      @ [
-          custom_property ~layer:"utilities" "--tw-mask-radial-stops"
-            radial_stops_decl;
-          custom_property ~layer:"utilities" "--tw-mask-radial"
-            radial_gradient_decl;
-          custom_property ~layer:"utilities"
-            ("--tw-mask-radial-" ^ pos_name ^ "-position")
-            pos_value;
-        ]
+      spacing_theme_decl value @ mask_image_decls @ radial_stops_decls
+      @ [ position_decl ?theme radial_vars pos_end value ]
     in
     style ~property_rules:radial_property_rules (common_decls @ composite_decls)
 
@@ -515,246 +621,159 @@ module Handler = struct
 
   (* Build the style for mask-conic position *)
   let build_conic_style ?theme pos_end value =
-    let pos_name = position_end_name pos_end in
-    let pos_value = format_position_value ?theme value in
-
     let common_decls =
-      spacing_theme_decl value @ mask_image_decls
-      @ [
-          custom_property ~layer:"utilities" "--tw-mask-conic-stops"
-            conic_stops_decl;
-          custom_property ~layer:"utilities" "--tw-mask-conic"
-            conic_gradient_decl;
-          custom_property ~layer:"utilities"
-            ("--tw-mask-conic-" ^ pos_name ^ "-position")
-            pos_value;
-        ]
+      spacing_theme_decl value @ mask_image_decls @ conic_stops_decls
+      @ [ position_decl ?theme conic_vars pos_end value ]
     in
     style ~property_rules:conic_property_rules (common_decls @ composite_decls)
 
-  (* Convert arbitrary angle values (e.g. "3rad") to degrees *)
-  let convert_angle_to_css s =
-    let to_deg n =
-      let rounded = Float.round (n *. 1000.0) /. 1000.0 in
-      Pp.string_of_float ~max_decimals:3 rounded ^ "deg"
-    in
-    let len = String.length s in
-    if len > 3 && String.sub s (len - 3) 3 = "rad" then
-      let num_str = String.sub s 0 (len - 3) in
-      match float_of_string_opt num_str with
-      | Some n -> to_deg (n *. 180.0 /. Float.pi)
-      | None -> s
-    else if len > 4 && String.sub s (len - 4) 4 = "turn" then
-      let num_str = String.sub s 0 (len - 4) in
-      match float_of_string_opt num_str with
-      | Some n -> to_deg (n *. 360.0)
-      | None -> s
-    else if len > 4 && String.sub s (len - 4) 4 = "grad" then
-      let num_str = String.sub s 0 (len - 4) in
-      match float_of_string_opt num_str with
-      | Some n -> to_deg (n *. 0.9)
-      | None -> s
-    else s
+  (* Tailwind writes an arbitrary radian or turn angle into the position
+     variable as degrees; every other unit goes in as the author spelled it. *)
+  let to_degrees : angle -> angle =
+    let deg n : angle = Deg (Float.round (n *. 1000.0) /. 1000.0) in
+    function
+    | Rad n -> deg (n *. 180.0 /. Float.pi)
+    | Turn n -> deg (n *. 360.0)
+    | a -> a
 
-  let format_angle_position = function
+  let arbitrary_angle s : angle option =
+    match
+      Cascade.Cursor.try_parse_full_err Css.Values.read_angle
+        (Cascade.Cursor.of_string s)
+    with
+    | Ok a -> Some (to_degrees a)
+    | Error _ -> None
+
+  (* [--tw-mask-*-position] is an opaque [syntax: "*"] custom property, so the
+     value reproduces Tailwind's own output: a bare degree for the trivial
+     multipliers -1/0/1, and [calc(1deg * n)] otherwise. *)
+  let angle_position_decl var angle =
+    let negated a : angle = Calc (Expr (Val a, Mul, Num (-1.0))) in
+    match angle with
+    | Angle_int n when n >= -1 && n <= 1 -> set var (Deg (float_of_int n))
     | Angle_int n ->
-        (* [--tw-mask-*-position] is an opaque [syntax: "*"] custom property, so
-           the value must reproduce Tailwind's own output verbatim: a bare
-           degree for the trivial multipliers -1/0/1, and [calc(1deg * n)]
-           otherwise. *)
-        let a : Css.angle =
-          if n >= -1 && n <= 1 then Deg (float_of_int n)
-          else Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n)))
-        in
-        Css.Pp.to_string ~minify:false Css.pp_angle a
-    | Angle_arb s -> convert_angle_to_css s
-    | Angle_arb_neg s -> "calc(" ^ convert_angle_to_css s ^ " * -1)"
+        set var (Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n))))
+    (* A bracket value that is not an angle still reaches the sheet, negation
+       and all, because the variable takes any token stream and Tailwind writes
+       the text through. *)
+    | Angle_arb s -> (
+        match arbitrary_angle s with
+        | Some a -> set var a
+        | None -> custom_property ~layer:"utilities" (Var.css_name var) s)
+    | Angle_arb_neg s -> (
+        match arbitrary_angle s with
+        | Some a -> set var (negated a)
+        | None ->
+            custom_property ~layer:"utilities" (Var.css_name var)
+              ("calc(" ^ s ^ " * -1)"))
 
-  (* Build the style for mask-linear-N (angle shorthand) *)
+  (* The angle shorthands take the whole gradient from the position variable
+     unless a stop utility has filled the stops variable in. *)
   let build_linear_angle_style angle =
-    let pos_value = format_angle_position angle in
+    let stops_ref =
+      Var.reference_with_fallback linear_stops_var
+        (Direction (Angle (Var (read linear_position_var no_rotation))))
+    in
     let decls =
       mask_image_decls
       @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear"
-            "linear-gradient(var(--tw-mask-linear-stops, \
-             var(--tw-mask-linear-position)))";
-          custom_property ~layer:"utilities" "--tw-mask-linear-position"
-            pos_value;
+          set linear_vars.slot (Linear_gradient_var stops_ref);
+          angle_position_decl linear_position_var angle;
         ]
     in
     style ~property_rules:linear_property_rules (decls @ composite_decls)
 
-  (* Build the style for mask-conic-N (angle shorthand) *)
   let build_conic_angle_style angle =
-    let pos_value = format_angle_position angle in
+    let stops_ref =
+      Var.reference_with_fallback conic_stops_var
+        (Direction (Angle (Var (read conic_position_var no_rotation))))
+    in
     let decls =
       mask_image_decls
       @ [
-          custom_property ~layer:"utilities" "--tw-mask-conic"
-            "conic-gradient(var(--tw-mask-conic-stops, \
-             var(--tw-mask-conic-position)))";
-          custom_property ~layer:"utilities" "--tw-mask-conic-position"
-            pos_value;
+          set conic_vars.slot (Conic_gradient_var stops_ref);
+          angle_position_decl conic_position_var angle;
         ]
     in
     style ~property_rules:conic_property_rules (decls @ composite_decls)
 
-  (* Build directional var ref/color ref declarations for a single direction *)
-  let single_dir_value_decls dir_name pos_name prop value =
-    [
-      custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
-        (gradient_for_direction
-           (match dir_name with
-           | "left" -> Left
-           | "right" -> Right
-           | "top" -> Top
-           | "bottom" -> Bottom
-           | d -> failwith ("unexpected direction " ^ d)));
-      custom_property ~layer:"utilities"
-        ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-" ^ prop)
-        value;
-    ]
+  (* [(--x)] keeps the leading dashes the class was written with; the reference
+     takes the bare name. *)
+  let bare_var_name name =
+    if String.length name > 2 && name.[0] = '-' && name.[1] = '-' then
+      String.sub name 2 (String.length name - 2)
+    else name
 
-  let single_dir_var_decls dir_name pos_name prop var_name =
-    single_dir_value_decls dir_name pos_name prop ("var(" ^ var_name ^ ")")
-
-  (* Helper to get the stops + gradient decls for a gradient-type direction *)
-  let stops_based_decls dir_name stops_decl gradient_decl =
-    [
-      custom_property ~layer:"utilities"
-        ("--tw-mask-" ^ dir_name ^ "-stops")
-        stops_decl;
-      custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name) gradient_decl;
-    ]
+  (* A stop utility restates the gradient it belongs to, then writes its own end
+     of it. *)
+  let stop_decls dir stop =
+    let dir_decls =
+      match dir with
+      | X ->
+          [ edge_gradient Right; stop right_vars ]
+          @ [ edge_gradient Left; stop left_vars ]
+      | Y ->
+          [ edge_gradient Top; stop top_vars ]
+          @ [ edge_gradient Bottom; stop bottom_vars ]
+      | Linear -> linear_stops_decls @ [ stop linear_vars ]
+      | Radial -> radial_stops_decls @ [ stop radial_vars ]
+      | Conic -> conic_stops_decls @ [ stop conic_vars ]
+      | Top | Right | Bottom | Left ->
+          [ edge_gradient dir; stop (vars_for dir) ]
+    in
+    (* Linear, radial and conic own the whole mask-image slot, so only the four
+       edges have to layer themselves into [--tw-mask-linear]. *)
+    let linear_decl =
+      match dir with
+      | Linear | Radial | Conic -> []
+      | Top | Right | Bottom | Left | X | Y -> [ edge_composition ]
+    in
+    mask_image_decls @ linear_decl @ dir_decls
 
   (* Build the style for parenthesized var reference setting position *)
   let build_var_ref_style dir pos_end var_name =
-    let pos_name = position_end_name pos_end in
     let property_rules = property_rules_for_direction dir in
     let merge_key =
-      "mask-" ^ direction_short dir ^ "-" ^ pos_name ^ "-var-position"
+      "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
+      ^ "-var-position"
     in
-    let dir_decls =
-      match dir with
-      | X ->
-          single_dir_var_decls "right" pos_name "position" var_name
-          @ single_dir_var_decls "left" pos_name "position" var_name
-      | Y ->
-          single_dir_var_decls "top" pos_name "position" var_name
-          @ single_dir_var_decls "bottom" pos_name "position" var_name
-      | Linear ->
-          stops_based_decls "linear" linear_stops_decl linear_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-linear-" ^ pos_name ^ "-position")
-                ("var(" ^ var_name ^ ")");
-            ]
-      | Radial ->
-          stops_based_decls "radial" radial_stops_decl radial_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-radial-" ^ pos_name ^ "-position")
-                ("var(" ^ var_name ^ ")");
-            ]
-      | Conic ->
-          stops_based_decls "conic" conic_stops_decl conic_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-conic-" ^ pos_name ^ "-position")
-                ("var(" ^ var_name ^ ")");
-            ]
-      | _ ->
-          let dir_name = direction_name dir in
-          [
-            custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
-              (gradient_for_direction dir);
-            custom_property ~layer:"utilities"
-              ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position")
-              ("var(" ^ var_name ^ ")");
-          ]
+    let position : length_percentage =
+      Var (Var.bracket (bare_var_name var_name))
     in
-    (* For Linear/Radial/Conic, dir_decls already sets --tw-mask-linear via
-       stops_based_decls. For others, we need the mask_linear_decl. *)
-    let linear_decl =
-      match dir with
-      | Linear | Radial | Conic -> []
-      | _ ->
-          [
-            custom_property ~layer:"utilities" "--tw-mask-linear"
-              mask_linear_decl;
-          ]
-    in
-    let common_decls = mask_image_decls @ linear_decl @ dir_decls in
-    style ~merge_key ~property_rules (common_decls @ composite_decls)
+    let stop v = set (position_var v pos_end) position in
+    style ~merge_key ~property_rules (stop_decls dir stop @ composite_decls)
 
-  (* The stop colour, as a CSS value: [var(--color-black)] for a palette entry,
-     the keyword itself for [transparent] / [current]. *)
+  (* The stop colour: [var(--color-black)] for a palette entry, the keyword
+     itself for [transparent] / [current]. *)
   let build_color_value_style dir pos_end value =
-    let pos_name = position_end_name pos_end in
     let property_rules = property_rules_for_direction dir in
-    let dir_decls =
-      match dir with
-      | X ->
-          single_dir_value_decls "right" pos_name "color" value
-          @ single_dir_value_decls "left" pos_name "color" value
-      | Y ->
-          single_dir_value_decls "top" pos_name "color" value
-          @ single_dir_value_decls "bottom" pos_name "color" value
-      | Linear ->
-          stops_based_decls "linear" linear_stops_decl linear_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-linear-" ^ pos_name ^ "-color")
-                value;
-            ]
-      | Radial ->
-          stops_based_decls "radial" radial_stops_decl radial_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-radial-" ^ pos_name ^ "-color")
-                value;
-            ]
-      | Conic ->
-          stops_based_decls "conic" conic_stops_decl conic_gradient_decl
-          @ [
-              custom_property ~layer:"utilities"
-                ("--tw-mask-conic-" ^ pos_name ^ "-color")
-                value;
-            ]
-      | _ ->
-          let dir_name = direction_name dir in
-          [
-            custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
-              (gradient_for_direction dir);
-            custom_property ~layer:"utilities"
-              ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-color")
-              value;
-          ]
+    let stop v = set (color_var v pos_end) value in
+    style ~property_rules (stop_decls dir stop @ composite_decls)
+
+  (* A custom property spells the keyword [currentcolor], which is what cascade
+     folds a token stream to and what Tailwind writes; the typed colour prints
+     as the [currentColor] a colour property takes, so this one keyword goes in
+     as text. *)
+  let build_current_color_style dir pos_end =
+    let property_rules = property_rules_for_direction dir in
+    let stop v =
+      custom_property ~layer:"utilities"
+        (Var.css_name (color_var v pos_end))
+        "currentcolor"
     in
-    let linear_decl =
-      match dir with
-      | Linear | Radial | Conic -> []
-      | _ ->
-          [
-            custom_property ~layer:"utilities" "--tw-mask-linear"
-              mask_linear_decl;
-          ]
-    in
-    let common_decls = mask_image_decls @ linear_decl @ dir_decls in
-    style ~property_rules (common_decls @ composite_decls)
+    style ~property_rules (stop_decls dir stop @ composite_decls)
 
   (* A named stop colour points at its palette token, and carries the token's
      own theme declaration along so the sheet defines what it references. *)
   let build_stop_color_style ?theme dir pos_end c shade =
     let decl, token = Color.Handler.color_binding ?theme c shade in
-    let value = Pp.to_string (Css.Values.pp_var Css.pp_color) token in
-    match build_color_value_style dir pos_end value with
+    match build_color_value_style dir pos_end (Var token : Css.color) with
     | Style.Style st -> Style.Style { st with props = decl :: st.props }
     | other -> other
 
   let build_color_ref_style dir pos_end var_name =
-    build_color_value_style dir pos_end ("var(" ^ var_name ^ ")")
+    build_color_value_style dir pos_end
+      (Var (Var.bracket (bare_var_name var_name)) : Css.color)
 
   let to_style theme =
     let build_directional_style dir pos_end value =
@@ -797,8 +816,10 @@ module Handler = struct
         build_color_ref_style dir pos_end var_name
     | Mask_stop_color (dir, pos_end, c, shade) ->
         build_stop_color_style ~theme dir pos_end c shade
+    | Mask_stop_keyword (dir, pos_end, Current, _) ->
+        build_current_color_style dir pos_end
     | Mask_stop_keyword (dir, pos_end, value, _) ->
-        build_color_value_style dir pos_end (Pp.to_string Css.pp_color value)
+        build_color_value_style dir pos_end value
 
   let suborder = function
     | Mask_stop_keyword (dir, pos_end, _, _)
