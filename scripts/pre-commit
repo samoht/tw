@@ -16,9 +16,12 @@ STAGED_ML=$(git diff --cached --name-only --diff-filter=ACM |
 
 # Formatting.
 
-# dune fmt exits non-zero when it reformats something, so its status says
-# nothing about whether it succeeded; the staged files themselves do.
-dune fmt >/dev/null 2>&1 || true
+# Format only this commit's OCaml sources. A repo-wide [dune fmt] can rewrite
+# another session's files while the check below only notices staged paths.
+if ! ocamlformat -i $STAGED_ML; then
+    echo "ocamlformat failed on the staged OCaml sources." >&2
+    exit 1
+fi
 
 CHANGED=$(git diff --name-only $STAGED_ML 2>/dev/null || true)
 if [ -n "$CHANGED" ]; then

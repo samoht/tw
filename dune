@@ -13,6 +13,11 @@
   (flags
    (:standard -w -58))))
 
+; Scratch projects under tmp/ are private diagnostics. Keep them out of the
+; workspace so local probes cannot affect formatting, linting or release gates.
+
+(dirs :standard \ tmp)
+
 ; mdx only sees fenced blocks that start at column 0. CLAUDE.md keeps most of
 ; its commands inside list items, where mdx cannot reach them; only its
 ; column-0 blocks are checked.
