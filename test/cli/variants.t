@@ -31,6 +31,22 @@ A project [@custom-variant] wins over the built-in, and is not emitted itself:
   0
   [1]
 
+The parenthesized shorthand declares the same selector template without an
+explicit [@slot] block:
+
+  $ cat > shorthand.css <<EOF
+  > @import "tailwindcss";
+  > @custom-variant theme-midnight (&:where([data-theme="midnight"] *));
+  > EOF
+  $ cat > shorthand.html <<EOF
+  > <div class="theme-midnight:flex"></div>
+  > EOF
+  $ tw --minify --input-css shorthand.css shorthand.html | grep -cF '.theme-midnight\:flex:where([data-theme=midnight] *){display:flex}'
+  1
+  $ tw --minify --input-css shorthand.css shorthand.html | grep -c 'custom-variant'
+  0
+  [1]
+
 The redefinition governs a scanned class-list utility too, not only author
 CSS: [dark:flex] uses the project's selector, and a compound keeps its pseudo.
 No [prefers-color-scheme] query is emitted for this selector-only override:
