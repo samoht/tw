@@ -642,9 +642,21 @@ module Handler = struct
   let sized_style theme prop v =
     let f = family prop in
     let set len = style (List.map (fun decl -> decl len) f.decls) in
+    let set_arbitrary raw len =
+      let theme_decl : Css.declaration option =
+        let bare_name = Parse.extract_var_name raw in
+        if String.equal bare_name raw then Option.None
+        else
+          Scheme.token theme bare_name
+          |> Option.map (fun value ->
+              Css.custom_property ~layer:"theme" ("--" ^ bare_name) value)
+      in
+      style
+        (Option.to_list theme_decl @ List.map (fun decl -> decl len) f.decls)
+    in
     match v with
     | Keyword k -> set k.length
-    | Arbitrary (_, len) -> set len
+    | Arbitrary (raw, len) -> set_arbitrary raw len
     | Fraction s -> (
         match fraction_pct s with
         | Some pct -> set (Pct pct)
