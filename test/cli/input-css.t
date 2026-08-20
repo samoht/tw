@@ -126,6 +126,20 @@ document, both the way Tailwind emits them:
   .after{color:red}
   @keyframes spin
 
+A statement-form layer list gives each name a slot. A later block fills its
+named slot without discarding the other declarations in the list:
+
+  $ cat > layer-list.css <<EOF
+  > @import "tailwindcss";
+  > @layer aa, bb;
+  > .after-list { color: red }
+  > @layer bb { .card-list { padding: 1rem } }
+  > EOF
+  $ tw --minify --input-css layer-list.css index.html | grep -oE '@layer aa;|@layer bb\{\.card-list\{padding:1rem\}\}|\.after-list\{color:red\}' | tail -3
+  @layer aa;
+  @layer bb{.card-list{padding:1rem}}
+  .after-list{color:red}
+
 A project can declare [@keyframes] inside its [@theme], beside the [--animate-*]
 token that names it. The theme block becomes a [:root] rule, where a nested
 [@keyframes] would be invalid, so it is lifted to the top level:
