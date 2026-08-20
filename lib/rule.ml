@@ -2292,15 +2292,21 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   else base_rule @ ordered_entries
 
 let outputs ?(theme = Scheme.default) ?order_tbl util =
+  let rec utility_order = function
+    | Utility.Base b -> Some (Utility.order b)
+    | Utility.Modified (_, u) | Utility.Important (_, u)
+    | Utility.Aliased (_, u) -> utility_order u
+    | Utility.Group _ -> None
+  in
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
         (* Record the base utility's order under the class name we already
            built, so the caller does not have to re-derive it from the
            string. *)
-        (match (order_tbl, util_inner) with
-        | Some tbl, Utility.Base b ->
+        (match (order_tbl, utility_order util_inner) with
+        | Some tbl, Some order ->
             if not (Hashtbl.mem tbl class_name) then
-              Hashtbl.add tbl class_name (Utility.order b)
+              Hashtbl.add tbl class_name order
         | _ -> ());
         let sel =
           match pseudo_suffix with
