@@ -81,3 +81,21 @@ that only [Tw.of_string] knows.
   1
   $ tw --minify --input-css line.css line.html | grep -cF '.hover\:line-t:hover:before{'
   1
+
+Declaration-only utilities join the property family they write. Within that
+family Tailwind orders every utility by class name, whether it is built in or
+declared by the project:
+
+  $ cat > order.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility alpha { padding: 1rem }
+  > @utility zebra { padding: 2rem }
+  > EOF
+  $ cat > order.html <<EOF
+  > <div class="p-1 p-4 alpha zebra"></div>
+  > EOF
+  $ tw --minify --input-css order.css order.html | grep -oE '\.(alpha|p-1|p-4|zebra)\{[^}]*\}'
+  .alpha{padding:1rem}
+  .p-1{padding:var(--spacing)}
+  .p-4{padding:calc(var(--spacing)*4)}
+  .zebra{padding:2rem}
