@@ -278,7 +278,7 @@ let is_css_color_fn s =
   in
   starts "rgb" || starts "rgba" || starts "hsl" || starts "hsla" || starts "hwb"
   || starts "oklch" || starts "oklab" || starts "lch" || starts "lab"
-  || starts "color" || starts "color-mix"
+  || starts "color" || starts "color-mix" || starts "light-dark"
 
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =

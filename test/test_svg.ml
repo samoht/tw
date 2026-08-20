@@ -34,13 +34,10 @@ let stroke_light_dark_color () =
   | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   | Ok u ->
       Alcotest.(check string) "class" cls (Tw.pp u);
-      let css =
-        Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-      in
+      let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
       Alcotest.(check bool)
         "light-dark() is routed as a stroke colour" true
-        (Astring.String.is_infix
-           ~affix:"stroke:light-dark(red,blue)" css)
+        (Astring.String.is_infix ~affix:"stroke:light-dark(red,blue)" css)
 
 let tests =
   [
