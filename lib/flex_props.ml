@@ -412,25 +412,10 @@ module Handler = struct
     | Basis_fraction (n, m) ->
         "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Basis_named s -> "basis-" ^ s
-    | Basis_arbitrary len -> (
-        match len with
-        | Px n ->
-            let s = string_of_float n in
-            let s =
-              if String.ends_with ~suffix:"." s then
-                String.sub s 0 (String.length s - 1)
-              else s
-            in
-            "basis-[" ^ s ^ "px]"
-        | Rem n ->
-            let s = string_of_float n in
-            let s =
-              if String.ends_with ~suffix:"." s then
-                String.sub s 0 (String.length s - 1)
-              else s
-            in
-            "basis-[" ^ s ^ "rem]"
-        | _ -> "basis-[<length>]")
+    | Basis_arbitrary len ->
+        "basis-["
+        ^ Css.Pp.to_string ~minify:true Css.Properties.pp_flex_basis len
+        ^ "]"
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
