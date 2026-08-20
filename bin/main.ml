@@ -14,17 +14,41 @@ let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
           None)
     class_names
 
-(* Recursively get files in directories *)
+let ignored_scan_entry name =
+  name = "_build" || name = "node_modules" || name = ".git"
+  || String.starts_with ~prefix:"." name
+
+let scan_warning path message =
+  Fmt.epr "Warning: cannot scan %s: %s@." path message
+
+(* Recursively get content files without following directory symlinks or
+   descending into generated/dependency/metadata trees. A bad subtree is local
+   to that path: readable siblings still contribute their candidates. *)
 let rec files path patterns =
-  if Sys.is_directory path then
-    let entries = Sys.readdir path |> Array.to_list in
-    List.concat_map
-      (fun entry -> files (Filename.concat path entry) patterns)
-      entries
-  else if
-    List.exists (fun pattern -> Filename.check_suffix path pattern) patterns
-  then [ path ]
-  else []
+  let regular_file () =
+    if List.exists (fun pattern -> Filename.check_suffix path pattern) patterns
+    then [ path ]
+    else []
+  in
+  try
+    match (Unix.lstat path).st_kind with
+    | Unix.S_DIR ->
+        Sys.readdir path |> Array.to_list
+        |> List.filter (fun entry -> not (ignored_scan_entry entry))
+        |> List.concat_map (fun entry ->
+            files (Filename.concat path entry) patterns)
+    | Unix.S_LNK -> (
+        match (Unix.stat path).st_kind with
+        | Unix.S_DIR -> []
+        | _ -> regular_file ())
+    | _ -> regular_file ()
+  with
+  | Sys_error message ->
+      scan_warning path message;
+      []
+  | Unix.Unix_error (error, _, _) ->
+      scan_warning path (Unix.error_message error);
+      []
 
 (* Generation backend - determines which tool to use *)
 type backend =
