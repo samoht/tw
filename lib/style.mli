@@ -265,6 +265,9 @@ type modifier =
       (** [prose-X:] — prose element variant for targeting specific HTML
           elements within prose content *)
 
+val equal_modifier : modifier -> modifier -> bool
+(** [equal_modifier a b] is whether [a] and [b] describe the same modifier. *)
+
 type t =
   | Style of {
       props : Css.declaration list;
