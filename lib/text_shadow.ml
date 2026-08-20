@@ -70,6 +70,15 @@ module Handler = struct
     Css.custom_property ~layer:"utilities" "--tw-text-shadow-alpha"
       (pp_float percent ^ "%")
 
+  let opacity_css_value opacity =
+    match Color.opacity_var_bare_of opacity with
+    | Some name -> "var(--" ^ name ^ ")"
+    | None -> pp_float (Color.opacity_to_percent opacity) ^ "%"
+
+  let opacity_decl opacity =
+    Css.custom_property ~layer:"utilities" "--tw-text-shadow-alpha"
+      (opacity_css_value opacity)
+
   let color_mix_supports decls =
     Css.supports ~condition:Color.color_mix_supports_condition
       [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
@@ -84,9 +93,9 @@ module Handler = struct
     | Some c -> c
     | None -> make_color_var (Parse.extract_var_name v)
 
-  let relative_oklab_from_var v percent =
+  let relative_oklab_from_color v opacity =
     Css.parse_color
-      (pp_str [ "oklab(from "; v; " l a b / "; pp_float percent; "%)" ])
+      (pp_str [ "oklab(from "; v; " l a b / "; opacity_css_value opacity; ")" ])
 
   (* ============ Parse arbitrary shadow ============ *)
 
@@ -508,7 +517,8 @@ module Handler = struct
     | Some (h_offset, v_offset, blur, color) ->
         let percent = Color.opacity_to_percent opacity in
         let alpha = percent /. 100.0 in
-        let alpha_d = alpha_decl percent in
+        let dynamic_opacity = Color.opacity_var_bare_of opacity <> None in
+        let alpha_d = opacity_decl opacity in
         let base_fallback : Css.color =
           match color with
           | Hex c -> Color.hex_to_oklab_alpha c alpha
@@ -516,7 +526,8 @@ module Handler = struct
           | Css_color c -> (
               match hex_string_of_css_color c with
               | Some hex -> Color.hex_to_oklab_alpha hex alpha
-              | None -> c)
+              | None -> if dynamic_opacity then c else Color.mix_alpha opacity c
+              )
           | No_color -> Css.Current
         in
         let base_color_ref =
@@ -527,40 +538,42 @@ module Handler = struct
             (Css.Text_shadow
                { h_offset; v_offset; blur; color = Some (Var base_color_ref) })
         in
+        let relative_support origin =
+          match relative_oklab_from_color origin opacity with
+          | Some relative_color ->
+              let enhanced_ref =
+                Var.reference_with_fallback text_shadow_color_var relative_color
+              in
+              let enhanced_shadow =
+                Css.text_shadow
+                  (Css.Text_shadow
+                     {
+                       h_offset;
+                       v_offset;
+                       blur;
+                       color = Some (Var enhanced_ref);
+                     })
+              in
+              Some
+                [
+                  Css.supports ~condition:relative_color_supports
+                    [
+                      Css.rule ~selector:(Css.Selector.class_ "_")
+                        [ enhanced_shadow ];
+                    ];
+                ]
+          | None -> Stdlib.Option.None
+        in
         let rules =
           match color with
+          | Hex c when dynamic_opacity -> relative_support c
+          | Css_color c when dynamic_opacity ->
+              let origin = Css.Pp.to_string ~minify:true Css.pp_color c in
+              relative_support origin
           | Hex _ | Css_color _ -> Stdlib.Option.None
-          | Var_ref v -> (
-              match relative_oklab_from_var v percent with
-              | Some relative_color ->
-                  let enhanced_ref =
-                    Var.reference_with_fallback text_shadow_color_var
-                      relative_color
-                  in
-                  let enhanced_shadow =
-                    Css.text_shadow
-                      (Css.Text_shadow
-                         {
-                           h_offset;
-                           v_offset;
-                           blur;
-                           color = Some (Var enhanced_ref);
-                         })
-                  in
-                  let supports_block =
-                    Css.supports ~condition:relative_color_supports
-                      [
-                        Css.rule ~selector:(Css.Selector.class_ "_")
-                          [ enhanced_shadow ];
-                      ]
-                  in
-                  Some [ supports_block ]
-              | None -> Stdlib.Option.None)
+          | Var_ref v -> relative_support v
           | No_color ->
-              let color_mix_fallback =
-                Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-                  ~percent1:percent
-              in
+              let color_mix_fallback = Color.mix_alpha opacity Css.Current in
               let enhanced_ref =
                 Var.reference_with_fallback text_shadow_color_var
                   color_mix_fallback

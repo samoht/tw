@@ -107,8 +107,7 @@ let test_arbitrary_colour_opacity () =
   in
   has "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     "var(--tw-text-shadow-color,color-mix(";
-  has "text-shadow-[0_0_8px_#f00]/[var(--x)]"
-    "--tw-text-shadow-alpha:var(--x)";
+  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-text-shadow-alpha:var(--x)";
   has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
 
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
