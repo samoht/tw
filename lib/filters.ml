@@ -54,6 +54,8 @@ module Handler = struct
     | Drop_shadow_opacity of Color.opacity_modifier
     | Drop_shadow_keyword_color of Css.color * string
       (* drop-shadow-current / -transparent: a colour with no theme token *)
+    | Drop_shadow_keyword_color_opacity of
+        Css.color * string * Color.opacity_modifier
     | Drop_shadow_size_opacity of
         string * (Css.length * Css.length) * Color.opacity_modifier
     | Backdrop_filter
@@ -790,6 +792,27 @@ module Handler = struct
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
+  let drop_shadow_keyword_color_opacity color opacity =
+    let inner = Color.apply_alpha opacity color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            [
+              bind_drop_shadow_color
+                (Css.color_mix_var_percent ~in_space:Oklab
+                   ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent);
+            ];
+        ]
+    in
+    Group
+      [
+        style ~rules:(Option.Some [ supports_block ])
+          [ bind_drop_shadow_color color ];
+        style ~property_rules:filter_property_rules
+          [ bind_drop_shadow drop_shadow_size_ref ];
+      ]
+
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
@@ -1195,6 +1218,8 @@ module Handler = struct
         drop_shadow_color_opacity c shade op
     | Drop_shadow_opacity op -> drop_shadow_opacity op
     | Drop_shadow_keyword_color (c, _) -> drop_shadow_keyword_color c
+    | Drop_shadow_keyword_color_opacity (c, _, opacity) ->
+        drop_shadow_keyword_color_opacity c opacity
     | Drop_shadow_size_opacity (_, geom, op) -> drop_shadow_size_opacity geom op
     | Backdrop_blur_none -> backdrop_blur_none ()
     | Backdrop_blur_xs -> backdrop_blur_xs ()
@@ -1267,8 +1292,8 @@ module Handler = struct
     (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
        orders them among themselves by class name, which the alphabetical
        tie-break already does. *)
-    | Drop_shadow_keyword_color _ | Drop_shadow_inherit | Drop_shadow_color _
-    | Drop_shadow_color_opacity _ ->
+    | Drop_shadow_keyword_color _ | Drop_shadow_keyword_color_opacity _
+    | Drop_shadow_inherit | Drop_shadow_color _ | Drop_shadow_color_opacity _ ->
         2710
     | Filter -> 9000
     | Filter_arbitrary _ -> 9001
@@ -1440,6 +1465,14 @@ module Handler = struct
             | Option.Some geom -> Ok (Drop_shadow_size_opacity (base, geom, op))
             | Option.None -> (
                 if base = "" then Ok (Drop_shadow_opacity op)
+                else if base = "inherit" then
+                  Ok (Drop_shadow_keyword_color_opacity (Css.Inherit, base, op))
+                else if base = "transparent" then
+                  Ok
+                    (Drop_shadow_keyword_color_opacity
+                       (Css.Transparent, base, op))
+                else if base = "current" then
+                  Ok (Drop_shadow_keyword_color_opacity (Css.Current, base, op))
                 else
                   match
                     Color.shade_and_opacity_of_strings
@@ -1595,6 +1628,8 @@ module Handler = struct
         ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_opacity op -> "drop-shadow/" ^ Color.pp_opacity op
     | Drop_shadow_keyword_color (_, name) -> "drop-shadow-" ^ name
+    | Drop_shadow_keyword_color_opacity (_, name, opacity) ->
+        "drop-shadow-" ^ name ^ "/" ^ Color.pp_opacity opacity
     | Drop_shadow_size_opacity (size, _, op) ->
         "drop-shadow-" ^ size ^ "/" ^ Color.pp_opacity op
     | Backdrop_blur_none -> "backdrop-blur-none"

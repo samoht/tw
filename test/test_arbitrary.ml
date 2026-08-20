@@ -13,6 +13,8 @@ let of_string_valid () =
   check "[border-color:#ff0000]/25";
   (* var-valued colours and custom properties with /opacity round-trip *)
   check "[color:var(--my-color)]/50";
+  check "[color:rgb(255_0_0)]/50";
+  check "[border-color:oklch(0.5_0.2_250)]/[var(--x)]";
   check "[--x:#ff0000]/50";
   check "[--gradient-bg:var(--color-black)]/15";
   (* Plain custom-property declarations and non-colour standard properties parse
@@ -87,6 +89,18 @@ let test_var_color_opacity () =
     "oklab color-mix on the var" true
     (Astring.String.is_infix
        ~affix:"color-mix(in oklab, var(--my-color) 50%, transparent)" out)
+
+(* Arbitrary-value underscores encode spaces before the colour is parsed. The
+   plain declaration path already decoded them; the /opacity path did not. *)
+let test_encoded_space_color_opacity () =
+  Alcotest.(check bool)
+    "rgb underscores are decoded" true
+    (Astring.String.is_infix ~affix:"rgb(255 0 0)"
+       (css "[color:rgb(255_0_0)]/50"));
+  Alcotest.(check bool)
+    "oklch underscores are decoded" true
+    (Astring.String.is_infix ~affix:"oklch(.5 .2 250)"
+       (css "[border-color:oklch(0.5_0.2_250)]/[var(--x)]"))
 
 (* A custom property with /opacity sets the property to a color-mix via the
    typed [Css.var] form (no token stream). *)
@@ -207,6 +221,8 @@ let tests =
     test_case "property value --alpha()" `Quick test_alpha_fn;
     test_case "theme() dot-notation" `Quick test_theme_dot_notation;
     test_case "var-valued colour with opacity" `Quick test_var_color_opacity;
+    test_case "encoded-space colour with opacity" `Quick
+      test_encoded_space_color_opacity;
     test_case "custom property with opacity" `Quick test_custom_prop_opacity;
     test_case "deferred and var inputs never crash" `Quick test_no_crash;
   ]

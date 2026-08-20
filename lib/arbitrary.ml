@@ -260,7 +260,7 @@ module Handler = struct
             if Parse.is_var value then
               color_var_opacity_style theme emit value inner
             else
-              match Css.parse_color value with
+              match Css.parse_color (Parse.decode_arbitrary_value value) with
               | Some color -> color_opacity_render theme emit color inner
               | None -> style []))
 
@@ -358,7 +358,9 @@ module Handler = struct
                        rejected (Tailwind blindly color-mixes them, which is
                        meaningless). *)
                     let is_colour_value =
-                      Parse.is_var value || Css.parse_color value <> None
+                      Parse.is_var value
+                      || Css.parse_color (Parse.decode_arbitrary_value value)
+                         <> None
                     in
                     if color_emitter property <> None && is_colour_value then
                       Ok

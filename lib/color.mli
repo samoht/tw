@@ -201,6 +201,11 @@ val is_base_color : color -> bool
 val is_custom_color : color -> bool
 (** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
+val opacity_keyword : color -> Css.color option
+(** [opacity_keyword color] returns [transparent] or [inherit] when [color] is
+    one of the CSS-wide keywords accepted by opacity-bearing colour utilities.
+*)
+
 val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
@@ -349,6 +354,11 @@ val mix_alpha :
 (** [mix_alpha ?in_space opacity color] is [color] with the modifier's alpha
     applied: a percentage folds into the [color-mix], an alpha read from a var
     is referenced by name. *)
+
+val apply_alpha :
+  ?in_space:Css.color_space -> opacity_modifier -> Css.color -> Css.color
+(** [apply_alpha ?in_space opacity color] applies the modifier while preserving
+    the identity that every alpha of [transparent] is still [transparent]. *)
 
 val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
 (** [opacity_of_string ?theme s] parses the modifier that follows the [/] in a
