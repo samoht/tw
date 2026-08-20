@@ -179,12 +179,19 @@ are parsed, including candidates discovered by a file scan:
 
   $ cat > custom-breakpoint.css <<EOF
   > @import "tailwindcss";
-  > @theme { --breakpoint-10xl: 1600px; }
+  > @theme {
+  >   --breakpoint-10xl: 1600px;
+  >   --breakpoint-cinema: 100rem;
+  > }
   > EOF
   $ cat > custom-breakpoint.html <<EOF
-  > <div class="10xl:flex"></div>
+  > <div class="10xl:flex cinema:grid"></div>
   > EOF
   $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'min-width:1600px'
   1
   $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'display:flex'
+  1
+  $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'min-width:100rem'
+  1
+  $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'display:grid'
   1
