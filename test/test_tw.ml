@@ -1129,7 +1129,7 @@ let paren_var_shorthand () =
   (* fallback form keeps the default inside var() *)
   Alcotest.(check bool)
     "top-(--top,0) keeps the fallback" true
-    (Astring.String.is_infix ~affix:"top: var(--top,0)" (css "top-(--top,0)"));
+    (Astring.String.is_infix ~affix:"top: var(--top, 0)" (css "top-(--top,0)"));
   (* typed hint maps to the bracket typed form *)
   Alcotest.(check bool)
     "font-(family-name:--font-x) sets font-family: var(--font-x)" true
