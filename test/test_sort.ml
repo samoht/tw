@@ -988,6 +988,32 @@ let test_arbitrary_named_by_suffix () =
   Test_helpers.check_ordering_matches
     ~test_name:"arbitrary value sorts by suffix within family" utilities
 
+let test_sizing_values_natural_order () =
+  let classes =
+    [
+      "w-(--w)";
+      "w-2";
+      "w-2xl";
+      "w-10";
+      "w-[50%]";
+      "w-auto";
+      "max-w-(--breakpoint-md)";
+      "max-w-2xl";
+      "max-w-10";
+      "max-w-[50%]";
+      "max-w-sm";
+      "basis-(--basis)";
+      "basis-2";
+      "basis-2xl";
+      "basis-10";
+      "basis-[50%]";
+      "basis-auto";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"sizing values use natural candidate order" utilities
+
 let test_bracket_value_holding_a_colon () =
   (* An arbitrary value can hold a colon, so the variant prefix has to be taken
      with the modifier parser: splitting on the last ':' reads the prefix of
@@ -1521,6 +1547,8 @@ let tests =
       test_arbitrary_vs_named_order;
     test_case "arbitrary value sorts by suffix within family" `Slow
       test_arbitrary_named_by_suffix;
+    test_case "sizing values use natural candidate order" `Slow
+      test_sizing_values_natural_order;
     test_case "bracket value holding a colon" `Slow
       test_bracket_value_holding_a_colon;
     test_case "stacked variant outline order" `Slow
