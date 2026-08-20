@@ -76,18 +76,18 @@ let build_property_slots () =
       List.iter
         (fun example ->
           let order = (M.priority example, M.suborder example) in
-          (* The property a utility claims is the one it writes first: the one
-             it is named for. A later declaration is incidental - line-clamp
-             ends with [display: -webkit-box] but the display slot belongs to
-             the display utilities, which sort elsewhere. *)
-          match style_declarations (M.to_style Scheme.default example) with
-          | [] -> ()
-          | d :: _ -> (
+          (* The property a utility claims is the first named property it
+             writes: the one it is named for. Theme-token declarations that make
+             that value available are not slots of their own. A later named
+             declaration is incidental - line-clamp ends with [display:
+             -webkit-box] but the display slot belongs to the display utilities,
+             which sort elsewhere. *)
+          style_declarations (M.to_style Scheme.default example)
+          |> List.find_map (fun d ->
               match Cascade.Css.Declaration.property_key d with
-              (* An author's own variable is not a slot: only the properties
-                 Tailwind orders utilities by are. *)
-              | Key (Custom_property _) | Key (Unknown_property _) -> ()
-              | key -> record key order))
+              | Key (Custom_property _) | Key (Unknown_property _) -> None
+              | key -> Some key)
+          |> Option.iter (fun key -> record key order))
         M.examples)
     !handlers;
   tbl

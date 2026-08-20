@@ -154,12 +154,12 @@ let test_order_of_property () =
   check
     (option (pair int int))
     "margin skips its spacing token declaration"
-    (Some (order_of "m-4"))
+    (Some (order_of "m-auto"))
     (order_of_property (Key Margin));
   check
     (option (pair int int))
     "color skips its palette token declaration"
-    (Some (order_of "text-red-500"))
+    (Some (order_of "placeholder-transparent"))
     (order_of_property (Key Color))
 
 let tests =
