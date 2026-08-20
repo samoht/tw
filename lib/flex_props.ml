@@ -189,13 +189,9 @@ module Handler = struct
     | Basis_arbitrary len -> style [ flex_basis len ]
     | Order n -> order_style n
     | Neg_order n -> style [ order (Int (-n)) ]
-    | Neg_order_arbitrary s -> (
-        match int_of_string_opt s with
-        | Some n -> style [ order (Int (-n)) ]
-        | None ->
-            let o = Css.Properties.read_order (Cascade.Cursor.of_string s) in
-            style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
-        )
+    | Neg_order_arbitrary s ->
+        let o = Css.Properties.read_order (Cascade.Cursor.of_string s) in
+        style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
     | Order_arbitrary s ->
         style [ order (Css.Properties.read_order (Cascade.Cursor.of_string s)) ]
     | Order_first -> order_first ()
@@ -316,7 +312,7 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "basis"; value ] -> (
-        match int_of_string_opt value with
+        match Parse.decimal_int value with
         | Some n when n >= 0 -> Ok (Basis_spacing n)
         | _ -> (
             match parse_fraction value with
@@ -341,7 +337,7 @@ module Handler = struct
           let inner = String.sub value 1 (String.length value - 2) in
           Ok (Order_arbitrary inner)
         else
-          match int_of_string_opt value with
+          match Parse.decimal_int value with
           | Some n when n >= 0 -> Ok (Order n)
           | _ -> err_not_utility)
     | "" :: "order" :: rest when rest <> [] -> (
@@ -355,7 +351,7 @@ module Handler = struct
           let inner = String.sub value 1 (String.length value - 2) in
           Ok (Neg_order_arbitrary inner)
         else
-          match int_of_string_opt value with
+          match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
           | _ -> err_not_utility)
     | [ "flex"; value ] when String.length value > 0 && value.[0] = '[' ->
@@ -373,7 +369,7 @@ module Handler = struct
         | Some (n, m) -> Ok (Flex_fraction (n, m))
         | None -> (
             (* Try numeric value (e.g., "99") *)
-            match int_of_string_opt value with
+            match Parse.decimal_int value with
             | Some n when n > 1 -> Ok (Flex_n n)
             | _ -> err_not_utility))
     | _ -> err_not_utility

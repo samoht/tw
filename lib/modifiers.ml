@@ -1039,7 +1039,8 @@ let is_plain_ident str =
    selector browsers parse and keep although nothing ever matches it, so it is
    not a variant. An underscore stands for a space, so it is empty as well. *)
 let names_attribute expr =
-  String.trim (String.map (fun c -> if c = '_' then ' ' else c) expr) <> ""
+  let decoded = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  decoded <> "" && String.equal decoded (String.trim decoded)
 
 (* [group-data-dragging] is [group-data-[dragging]] with a different spelling,
    so it keeps its own class name. *)

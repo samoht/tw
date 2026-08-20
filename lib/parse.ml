@@ -14,13 +14,15 @@ let is_digits s =
 let without_sign s =
   if s <> "" && s.[0] = '-' then String.sub s 1 (String.length s - 1) else s
 
+let is_canonical_digits s = is_digits s && (String.length s = 1 || s.[0] <> '0')
+
 (* A class suffix is written in plain decimal, but OCaml's literal grammar also
    admits [0x]/[0o]/[0b] bases, [_] digit separators, hex-float exponents and a
    leading [+]. Handing a suffix straight to [int_of_string_opt] therefore reads
    [p-0x4] as 4 and emits [.p-4] — a rule nobody wrote, and not a class Tailwind
    accepts. Both readers below check the spelling first. *)
 let decimal_int s =
-  if is_digits (without_sign s) then int_of_string_opt s else None
+  if is_canonical_digits (without_sign s) then int_of_string_opt s else None
 
 (* Plain decimal: digits, then at most one fractional part with digits of its
    own. [.5], [1.] and [1e2] are not spellings of a class suffix. *)
@@ -28,10 +30,14 @@ let decimal_float s =
   let digits = without_sign s in
   let plain =
     match String.index_opt digits '.' with
-    | None -> is_digits digits
+    | None -> is_canonical_digits digits
     | Some i ->
-        is_digits (String.sub digits 0 i)
-        && is_digits (String.sub digits (i + 1) (String.length digits - i - 1))
+        let whole = String.sub digits 0 i in
+        let fraction =
+          String.sub digits (i + 1) (String.length digits - i - 1)
+        in
+        is_canonical_digits whole && is_digits fraction
+        && fraction.[String.length fraction - 1] <> '0'
   in
   if plain then float_of_string_opt s else None
 

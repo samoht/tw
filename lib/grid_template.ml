@@ -433,7 +433,7 @@ module Handler = struct
           | Some _ -> Ok (Grid_cols_arbitrary inner)
           | None -> err_invalid_cols
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i when i >= 1 && i <= 999 -> Ok (Grid_cols i)
           | Some _ | None -> err_invalid_cols)
     | [ "grid"; "rows"; "none" ] -> Ok Grid_rows_none
@@ -446,7 +446,7 @@ module Handler = struct
           | Some _ -> Ok (Grid_rows_arbitrary inner)
           | None -> err_invalid_rows
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i when i >= 1 && i <= 999 -> Ok (Grid_rows i)
           | Some _ | None -> err_invalid_rows)
     | [ "grid"; "flow"; "row" ] -> Ok Grid_flow_row
