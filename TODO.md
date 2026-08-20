@@ -28,13 +28,6 @@ pre-existing). Decide whether tw should keep theme value strings verbatim.
 Arbitrary-property findings from the provenance work (2026-08-01, verified
 against Tailwind while gating PR #284):
 
-- Underscore-encoded colour values are rejected on the opacity path: the value
-  is not run through `Parse.decode_arbitrary_value` before `Css.parse_color`,
-  so `[border-color:oklch(0.5_0.2_250)]/[var(--x)]` errors - and that exact
-  class is the documented example in arbitrary.mli:4 - as does
-  `[color:rgb(255_0_0)]/50`. Tailwind emits both. Decode at the two
-  `Css.parse_color` call sites; widens the acceptance surface for every
-  arbitrary colour value, so it needs its own review.
 - The rejection message at tw.ml:268 says plain `[--name:value]` declarations
   and non-colour properties "are not yet supported", but `[--foo:bar]` and
   `[mask-type:luminance]` both work today; the message is wrong guidance for
@@ -43,19 +36,6 @@ against Tailwind while gating PR #284):
 Colour-family findings from the decoration work (2026-08-01, verified against
 Tailwind while gating PR #281):
 
-- `*-transparent/50` and `*-inherit/50` are rejected family-wide (bg, text,
-  border, decoration, ...) while Tailwind emits `color-mix(in oklab,
-  transparent 50%, transparent)` / `... inherit 50% ...`. `Color.color` has no
-  Transparent/Inherit constructor - each family models them as separate
-  variants with no opacity path - so this is one cross-family change, not
-  per-family patches. `*-current/50` already works.
-- `*-white-500/50` is wrongly accepted family-wide and renamed to `*-white/50`:
-  `Color.is_valid_shade` short-circuits to `true` for shadeless colours, so
-  `shade_and_opacity_of_strings` accepts any shade segment. Tailwind rejects
-  `bg-white-500/50`. Reject a shade segment on a shadeless colour.
-- `decoration-<custom-theme-colour>/<opacity>` still fails to parse: divide and
-  backgrounds fall back to `Theme_named` when `Color.of_string` fails,
-  decoration does not.
 - grid_template.ml:192 and modifiers.ml:1076 still call
   `Css.parse_length (Parse.decode_arbitrary_value ...)` inline; same
   `Parse.arbitrary_length` consolidation as PR #281.
