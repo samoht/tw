@@ -74,7 +74,11 @@ let priority_seven_namespace_order () =
     ]
   in
   let theme =
-    { Tw.Scheme.default with token_overrides = [ ("animate-none", "none") ] }
+    {
+      Tw.Scheme.default with
+      token_overrides =
+        [ ("ease-linear", "steps(4)"); ("animate-none", "none") ];
+    }
   in
   let classes =
     [
