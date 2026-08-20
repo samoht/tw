@@ -59,7 +59,7 @@ let is_allowed_canonicalization_diff diff =
     | _ -> false
   in
   match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules = []; containers; layer_order = _ } ->
+  | Some Tree_diff.{ rules = []; containers; layer_order = None } ->
       containers <> [] && List.for_all allowed_container containers
   | _ -> false
 
