@@ -10,6 +10,16 @@ val has_prefix : prefix:string -> string -> bool
     [String.starts_with] but allocation-free (no per-call closure), for hot
     prefix tests in ordering. *)
 
+val decimal_int : string -> int option
+(** [decimal_int s] reads the canonical plain-decimal spelling of an integer.
+    OCaml-only forms such as [0x10] and [1_0], and redundant leading zeroes, are
+    rejected. *)
+
+val decimal_float : string -> float option
+(** [decimal_float s] reads a canonical plain-decimal integer or fraction.
+    Exponents, digit separators, redundant leading or trailing zeroes, and
+    missing digits around the decimal point are rejected. *)
+
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
 (** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
     [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used

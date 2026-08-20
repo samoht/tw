@@ -914,7 +914,7 @@ module Handler = struct
     | [ "border"; "4" ] -> Ok Border_4
     | [ "border"; "8" ] -> Ok Border_8
     | [ "border"; n ]
-      when match int_of_string_opt n with Some w -> w > 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w > 0 | None -> false ->
         Ok (Border_width (int_of_string n))
     | [ "border"; "t" ] -> Ok Border_t
     | [ "border"; "r" ] -> Ok Border_r
@@ -923,26 +923,26 @@ module Handler = struct
     | [ "border"; "x" ] -> Ok Border_x
     | [ "border"; "y" ] -> Ok Border_y
     | [ "border"; "x"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_x_width (int_of_string n))
     | [ "border"; "y"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_y_width (int_of_string n))
     | [ "border"; "s" ] -> Ok Border_s
     | [ "border"; "e" ] -> Ok Border_e
     | [ "border"; "bs" ] -> Ok Border_bs
     | [ "border"; "be" ] -> Ok Border_be
     | [ "border"; "s"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_s_width (int_of_string n))
     | [ "border"; "e"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_e_width (int_of_string n))
     | [ "border"; "bs"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_bs_width (int_of_string n))
     | [ "border"; "be"; n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_be_width (int_of_string n))
     | [ "border"; "t"; "0" ] -> Ok Border_t_0
     | [ "border"; "t"; "2" ] -> Ok Border_t_2
@@ -961,7 +961,7 @@ module Handler = struct
     | [ "border"; "l"; "4" ] -> Ok Border_l_4
     | [ "border"; "l"; "8" ] -> Ok Border_l_8
     | [ "border"; (("t" | "r" | "b" | "l") as side); n ]
-      when match int_of_string_opt n with Some w -> w >= 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_side_width (side, int_of_string n))
     | [ "border"; "solid" ] -> Ok Border_solid
     | [ "border"; "dashed" ] -> Ok Border_dashed
@@ -1021,7 +1021,7 @@ module Handler = struct
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
     | [ "outline"; n ]
-      when match int_of_string_opt n with Some w -> w > 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w > 0 | None -> false ->
         Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
@@ -1058,7 +1058,7 @@ module Handler = struct
           Ok (Outline_offset_arbitrary inner)
         else err_not_utility
     | [ "outline"; "offset"; n ] -> (
-        match int_of_string_opt n with
+        match Parse.decimal_int n with
         | Some i when i >= 0 -> Ok (Outline_offset i)
         | _ -> err_not_utility)
     (* Negative outline offset: -outline-offset-N starts with empty string *)
@@ -1069,7 +1069,7 @@ module Handler = struct
           if Parse.is_var inner then Ok (Neg_outline_offset_var inner)
           else err_not_utility
         else
-          match int_of_string_opt value with
+          match Parse.decimal_int value with
           | Some i when i > 0 -> Ok (Neg_outline_offset i)
           | _ -> err_not_utility)
     (* ring* handled in Effects *)

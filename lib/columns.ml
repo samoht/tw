@@ -174,7 +174,7 @@ module Handler = struct
               Ok (Columns_arbitrary_len inner)
           | None -> Error (`Msg "Invalid columns arbitrary value")
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i -> Ok (Columns_count i)
           | None -> Error (`Msg "Invalid columns value"))
     | _ -> Error (`Msg "Not a columns utility")

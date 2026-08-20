@@ -35,6 +35,16 @@ let test_int_rejects_non_decimal_spellings () =
       "duration-0x4";
       "delay-1_0";
       "rotate-0x4";
+      "z-0x10";
+      "order-1_0";
+      "columns-0x2";
+      "grid-cols-0x2";
+      "grid-rows-0x2";
+      "basis-1_0";
+      "flex-0x2";
+      "w-0x4";
+      "h-0x4";
+      "border-0x2";
       "line-clamp-0x2";
       "opacity-0x10";
     ]
@@ -42,7 +52,7 @@ let test_int_rejects_non_decimal_spellings () =
 (* The sign is stripped before the suffix is read, so a negative utility takes
    the same grammar. *)
 let test_negative_int_rejects_non_decimal_spellings () =
-  List.iter unknown [ "-m-1_0"; "-rotate-0x4"; "-translate-x-0x4" ]
+  List.iter unknown [ "-m-1_0"; "-rotate-0x4"; "-translate-x-0x4"; "-z-0x10" ]
 
 (* [Float.of_string] reads the same non-decimal spellings plus hex-float
    exponents, which would make [p-0x1p4] mean [.p-16]. A fractional suffix needs
@@ -76,6 +86,11 @@ let test_decimal_class_suffixes_round_trip () =
       "-rotate-45";
     ]
 
+(* A valid suffix must also be the canonical decimal spelling. Otherwise the
+   parser would accept one class and emit a selector for a different class. *)
+let test_redundant_zero_spellings_are_rejected () =
+  List.iter unknown [ "p-04"; "p-4.0"; "p-1.50" ]
+
 let tests =
   Alcotest.
     [
@@ -89,6 +104,8 @@ let tests =
         test_decimal_rejects_non_decimal_spellings;
       test_case "decimal class suffixes round-trip" `Quick
         test_decimal_class_suffixes_round_trip;
+      test_case "redundant zero suffixes are rejected" `Quick
+        test_redundant_zero_spellings_are_rejected;
     ]
 
 let suite = ("parse", tests)

@@ -807,6 +807,15 @@ let test_empty_attribute_brackets () =
   rejected "group-data-_:flex";
   rejected "peer-data-_:flex"
 
+let test_padded_attribute_brackets () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "aria-[_modal_]:flex";
+  rejected "data-[_state=open_]:flex"
+
 (* The attribute spellings that do name something keep working, including the
    empty-name-with-value form Tailwind also accepts. *)
 let test_attribute_brackets_still_parse () =
@@ -850,6 +859,8 @@ let tests =
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
+      test_case "padded attribute brackets" `Quick
+        test_padded_attribute_brackets;
       test_case "attribute brackets still parse" `Quick
         test_attribute_brackets_still_parse;
       test_case "not-[selector] arbitrary negation" `Quick
