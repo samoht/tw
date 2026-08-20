@@ -160,7 +160,12 @@ let test_order_of_property () =
     (option (pair int int))
     "color skips its palette token declaration"
     (Some (order_of "placeholder-transparent"))
-    (order_of_property (Key Color))
+    (order_of_property (Key Color));
+  check
+    (option (pair int int))
+    "border style skips width-utility carrier declarations"
+    (Some (order_of "border-solid"))
+    (order_of_property (Key Border_style))
 
 let tests =
   [
