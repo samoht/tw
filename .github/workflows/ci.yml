@@ -32,13 +32,6 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
-      - name: Make Cascade 1.1.0 available before opam publication
-        run: |
-          if ! opam show cascade.1.1.0 >/dev/null 2>&1; then
-            opam pin add -n cascade.1.1.0 \
-              https://github.com/samoht/cascade.git#1.1.0
-          fi
-
       - name: Install dependencies
         run: opam install . --deps-only --with-test -y
 
