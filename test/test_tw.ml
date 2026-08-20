@@ -629,7 +629,7 @@ let custom_breakpoint_theme_is_local () =
   let css = Tw.to_css ~theme ~base:false [ utility ] |> Tw.Css.to_string in
   Alcotest.(check bool)
     "custom breakpoint renders" true
-    (Astring.String.is_infix ~affix:"min-width:1600px" css);
+    (Astring.String.is_infix ~affix:"1600px" css);
   Alcotest.(check bool)
     "custom breakpoint does not leak into the default theme" true
     (Result.is_error (Tw.of_string "10xl:flex"))

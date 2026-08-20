@@ -125,6 +125,32 @@ let has_explicit_radius scheme name = Option.is_some (radius scheme name)
 (** Lookup a breakpoint px value in the scheme *)
 let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
 
+(** Lookup the exact CSS length of a breakpoint. Entrypoint [@theme] tokens take
+    precedence over the legacy px-only record field. *)
+let breakpoint_length scheme name =
+  match List.assoc_opt ("breakpoint-" ^ name) scheme.token_overrides with
+  | Some value -> Css.parse_length (String.trim value)
+  | None ->
+      Option.map (fun px -> (Css.Px px : Css.length)) (breakpoint scheme name)
+
+let breakpoint_names scheme =
+  let from_tokens =
+    List.filter_map
+      (fun (name, value) ->
+        let prefix = "breakpoint-" in
+        if
+          String.starts_with ~prefix name
+          && Option.is_some (Css.parse_length (String.trim value))
+        then
+          Some
+            (String.sub name (String.length prefix)
+               (String.length name - String.length prefix))
+        else None)
+      scheme.token_overrides
+  in
+  List.sort_uniq String.compare (List.map fst scheme.breakpoints @ from_tokens)
+  |> List.filter (fun name -> Option.is_some (breakpoint_length scheme name))
+
 (** Lookup a per-render theme token override (from a [@theme] block). *)
 let token_override scheme name = List.assoc_opt name scheme.token_overrides
 
@@ -143,8 +169,24 @@ let token scheme name =
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)
 let with_overrides ?(inline = []) scheme overrides =
+  let breakpoints =
+    List.fold_left
+      (fun breakpoints (name, value) ->
+        let prefix = "breakpoint-" in
+        if String.starts_with ~prefix name then
+          let name =
+            String.sub name (String.length prefix)
+              (String.length name - String.length prefix)
+          in
+          match Css.parse_length (String.trim value) with
+          | Some (Css.Px px) -> (name, px) :: List.remove_assoc name breakpoints
+          | _ -> breakpoints
+        else breakpoints)
+      scheme.breakpoints overrides
+  in
   {
     scheme with
+    breakpoints;
     token_overrides = overrides @ scheme.token_overrides;
     inline_tokens = inline @ scheme.inline_tokens;
   }

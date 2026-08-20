@@ -255,19 +255,19 @@ let negate_media = function
   | Css.Media.List _ as media ->
       Css.Media.of_string ("not " ^ Css.Media.to_string media)
 
-(** Get the media condition for a breakpoint, using px from scheme if available,
-    otherwise rem. *)
+(** Get the media condition for a breakpoint, using the scheme override when
+    available, otherwise the default rem value. *)
 let breakpoint_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint (resolve_scheme theme) name with
-  | Some px -> media_min_width_px px
+  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  | Some length -> Css.media_min_width_length length
   | None -> media_min_width_rem (breakpoint_rem bp)
 
 (** Get the negated media condition for max-* breakpoints. *)
 let breakpoint_not_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint (resolve_scheme theme) name with
-  | Some px -> media_not_min_width_px px
+  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  | Some length -> Css.media_not_min_width_length length
   | None -> media_not_min_width_rem (breakpoint_rem bp)
 
 (** Get the media condition and class prefix for a responsive modifier. *)
@@ -314,26 +314,26 @@ let responsive_modifier_condition ?theme = function
       let len_str = Modifiers.compact_length l in
       (Css.media_not_min_width_length l, "max-[" ^ len_str ^ "]")
   | Style.Custom_responsive name ->
-      let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
-        | Some px -> px
+      let length =
+        match Scheme.breakpoint_length (resolve_scheme theme) name with
+        | Some length -> length
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (media_min_width_px px, name)
+      (Css.media_min_width_length length, name)
   | Style.Min_custom name ->
-      let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
-        | Some px -> px
+      let length =
+        match Scheme.breakpoint_length (resolve_scheme theme) name with
+        | Some length -> length
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (media_min_width_px px, "min-" ^ name)
+      (Css.media_min_width_length length, "min-" ^ name)
   | Style.Max_custom name ->
-      let px =
-        match Scheme.breakpoint (resolve_scheme theme) name with
-        | Some px -> px
+      let length =
+        match Scheme.breakpoint_length (resolve_scheme theme) name with
+        | Some length -> length
         | None -> failwith ("unknown custom breakpoint: " ^ name)
       in
-      (media_not_min_width_px px, "max-" ^ name)
+      (Css.media_not_min_width_length length, "max-" ^ name)
   | _ -> failwith "not a responsive modifier"
 
 let selector_with_data_key selector key value =
@@ -427,30 +427,31 @@ let max_arbitrary_length_rule ?inner_has_hover l base_class selector props =
     l base_class selector props
 
 let custom_breakpoint ?theme name =
-  match Scheme.breakpoint (resolve_scheme theme) name with
-  | Some px -> px
+  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  | Some length -> length
   | None -> failwith ("unknown custom breakpoint: " ^ name)
 
-let custom_media_rule ?theme ?inner_has_hover prefix condition_of_px name
+let custom_media_rule ?theme ?inner_has_hover prefix condition_of_length name
     base_class selector props =
-  let px = custom_breakpoint ?theme name in
-  media_rule_with_prefix ?inner_has_hover (prefix name) (condition_of_px px)
+  let length = custom_breakpoint ?theme name in
+  media_rule_with_prefix ?inner_has_hover (prefix name)
+    (condition_of_length length)
     base_class selector props
 
 let custom_responsive_rule ?theme ?inner_has_hover name base_class selector
     props =
-  custom_media_rule ?theme ?inner_has_hover Fun.id media_min_width_px name
-    base_class selector props
+  custom_media_rule ?theme ?inner_has_hover Fun.id Css.media_min_width_length
+    name base_class selector props
 
 let min_custom_rule ?theme ?inner_has_hover name base_class selector props =
   custom_media_rule ?theme ?inner_has_hover
     (fun name -> "min-" ^ name)
-    media_min_width_px name base_class selector props
+    Css.media_min_width_length name base_class selector props
 
 let max_custom_rule ?theme ?inner_has_hover name base_class selector props =
   custom_media_rule ?theme ?inner_has_hover
     (fun name -> "max-" ^ name)
-    media_not_min_width_px name base_class selector props
+    Css.media_not_min_width_length name base_class selector props
 
 let container_rule ?(inner_has_hover = false) query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in

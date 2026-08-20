@@ -17,8 +17,7 @@ let test_find_color () =
 
 let test_breakpoint_override () =
   let s =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("breakpoint-10xl", "1600px") ]
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-10xl", "1600px") ]
   in
   Alcotest.(check (option (float 0.)))
     "breakpoint token populates the typed theme" (Some 1600.)
