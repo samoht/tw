@@ -154,18 +154,6 @@ escapes: `strip_tailwind_import_options` (paren counting),
 string inside an `@apply` line still misfires) and `fill_slots` (`@slot`
 literal scan). Port them to the `Scan` module #288 added. Found 2026-08-01.
 
-`drop_unread_inline_tokens` (:975) decides `@theme inline` token liveness by
-asking whether the minified sheet contains the literal needle
-`"var(" ^ name ^ ")"` (:980), so any reference with a fallback is invisible:
-with `@theme inline { --default-font-family: "Satoshi", sans-serif; }` the token
-is dropped from `:root` even though the base layer reads
-`var(--default-font-family, -apple-system, ...)`, and the fallback silently
-wins. The same trick decides self-reference on the next lines. cascade owns this
-analysis - `Variables.var_refs_in_value_string` (variables.mli:21, whose
-docstring says explicitly that it beats a textual scan), `vars_of_declarations`,
-`declaration_uses_var`, `any_var_name` - and tw already passes
-`~prune_unused_custom_props:true` to `Css_compare.diff` at :1120.
-
 - `@theme inline` is smuggled through as the selector `:root inline`:
   `theme_blocks_as_root` (:137) rewrites the raw text and
   `theme_overrides_of_css` recovers the modifier at :199-201 with
@@ -189,15 +177,6 @@ docstring says explicitly that it beats a textual scan), `vars_of_declarations`,
   calls out round-trips), so this is fragility, not a live bug. Do the rewrite
   on the AST: `Selector.as_list`, `Selector.map` replacing the `Class` node with
   `Nesting`, `Selector.list`.
-- `tw -s CLASS --input-css app.css` ignores the project theme: the Native branch
-  calls `parse_classes ~warn:false class_str` (:1154) and
-  `Tw.to_css ~base:include_base styles` (:1159) with no `~theme`, while the Diff
-  branch (:1115/:1117) and `native_files` (:1474/:1481) pass
-  `~theme:opts.theme`. So `tw -s foo --input-css app.css --diff` reports no
-  differences while the plain form emits default-theme CSS, and a token-
-  dependent class can be rejected outright. Debugging affordance only; the file
-  scan is theme-correct. Thread the theme through both calls and through
-  `unknown_class_error` (:1105).
 - `:1698` reconciles the three "mutually exclusive" backend modes with an `if`
   over two bools: `--tailwind --diff` silently drops `--tailwind`.
 - `files path patterns` (:18-27) recurses on `Sys.is_directory` (follows

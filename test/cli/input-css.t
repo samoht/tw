@@ -64,7 +64,7 @@ the token it declared:
 The single-class path reads that same project theme instead of parsing against
 the defaults:
 
-  $ tw --minify --input-css font.css -s font-source | grep -cF '.font-source{font-family:var(--font-source)}'
+  $ tw --minify --input-css font.css -s font-source | grep -cF '.font-source{font-family:Georgia,serif}'
   1
 
 An [@theme inline] token has no declaration of its own: the utility carries
