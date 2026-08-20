@@ -1,13 +1,5 @@
 # TODO
 
-## Bracket-value parity gaps
-
-- Parity gaps #257 left as-is (pre-existing, behaviour unchanged):
-  `decoration-[2]` is a colour in Tailwind (`text-decoration-color: 2`) but a
-  thickness here - the only one visible in `--diff`; `border-[3]` and
-  `outline-[3]` emit `3px` where Tailwind keeps raw `3`; `decoration-[50%]`
-  is `50%` in Tailwind but `.5em` here.
-
 ## Wrong CSS emitted (audit 2026-07-31, verified against source)
 
 Modifier-level silent empties (found 2026-08-01 by a corpus scan over
