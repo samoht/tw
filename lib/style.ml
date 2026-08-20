@@ -260,6 +260,8 @@ type modifier =
           selector targeting specific HTML elements within prose content. E.g.
           [prose-headings:text-white] targets h1-h6,th inside prose. *)
 
+let equal_modifier (a : modifier) b = a = b
+
 type t =
   | Style of {
       props : Css.declaration list;

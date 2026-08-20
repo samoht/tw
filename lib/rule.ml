@@ -2151,7 +2151,8 @@ let handle_modified ?theme util_inner modifier base_style extract_fn =
      .dark\:aria-selected\:... *)
   let inner_util, style =
     match util_inner with
-    | Utility.Modified (inner_mod, u) when inner_mod = modifier ->
+    | Utility.Modified (inner_mod, u)
+      when Style.equal_modifier inner_mod modifier ->
         (* Same modifier - strip it to avoid doubling *)
         (u, base_style)
     | _ ->
