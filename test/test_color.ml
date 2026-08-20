@@ -424,6 +424,66 @@ let test_invalid_shade () =
   ignore (Tw.bg ~shade:200 Tw.gray);
   ignore (Tw.bg ~shade:250 (Tw.hex "#aabbcc"))
 
+(* Colour keywords accept an opacity modifier wherever Tailwind exposes a colour
+   family. Keep the original class spelling: several handlers used to either
+   reject these or silently drop [/50] from the round-trip. *)
+let test_keyword_opacity_families () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) cls cls (Tw.pp u))
+    [
+      "bg-transparent/50";
+      "text-inherit/50";
+      "border-transparent/50";
+      "accent-inherit/50";
+      "caret-transparent/50";
+      "outline-inherit/50";
+      "placeholder-transparent/50";
+      "from-inherit/50";
+      "via-transparent/50";
+      "to-inherit/50";
+      "decoration-inherit/50";
+      "divide-transparent/50";
+      "fill-inherit/50";
+      "stroke-transparent/50";
+      "shadow-transparent/50";
+      "inset-shadow-transparent/50";
+      "ring-inherit/50";
+      "ring-offset-transparent/50";
+      "inset-ring-inherit/50";
+      "drop-shadow-inherit/50";
+      "text-shadow-transparent/50";
+    ];
+  (* Tailwind has no inherited text-shadow-with-opacity candidate. *)
+  match Tw.of_string "text-shadow-inherit/50" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "text-shadow-inherit/50 should be rejected"
+
+(* A palette colour with no shade segment must not absorb one and rename the
+   class. Tailwind rejects the candidate instead. *)
+let test_shadeless_colour_rejects_shade_segment () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s was renamed to %s" cls (Tw.pp u))
+    [ "bg-white-500/50"; "text-black-500/50"; "border-white-500/50" ]
+
+(* A project-defined, shadeless colour follows the same opacity path as the
+   built-in shadeless colours. *)
+let test_decoration_theme_colour_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% .2 250)") ]
+  in
+  match Tw.of_string ~theme "decoration-brand/50" with
+  | Error (`Msg m) -> Alcotest.fail m
+  | Ok u ->
+      Alcotest.(check string)
+        "custom theme colour round-trips" "decoration-brand/50" (Tw.pp u)
+
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
    the same but folds to a plain hex, which pins the hue that interpolation is
@@ -560,6 +620,13 @@ let tests =
       test_bracket_rgb_unresolvable_channels );
     ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
+    ("Keyword opacity families", `Quick, test_keyword_opacity_families);
+    ( "Shadeless colour rejects a shade segment",
+      `Quick,
+      test_shadeless_colour_rejects_shade_segment );
+    ( "Decoration theme colour opacity",
+      `Quick,
+      test_decoration_theme_colour_opacity );
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);
