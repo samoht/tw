@@ -615,10 +615,6 @@ together, the rest are cleanups to take while nearby.
   `Css_compare.No_diff` nullary; every local gate green, main's CI red on
   warning 28 - tw PR #297). Make the mismatch visible: have the build or the
   test harness report the cascade revision against the pin, or gate on it.
-- The merlint pre-commit hook blocks any commit touching bin/main.ml on 7
-  pre-existing findings (5 over-long functions, 2 needless `let rec ... and`),
-  so unrelated one-line fixes there are forced onto `--no-verify` (hit by tw
-  PR #297). Fix those findings so the hook stops training people to bypass it.
 - `.gitignore` has `node_modules/` which does not match the node_modules
   SYMLINK every worktree setup creates, so it shows as untracked noise in every
   worktree (three agent sessions noted it 2026-08-01). Add `node_modules` (no
