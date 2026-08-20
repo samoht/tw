@@ -61,6 +61,12 @@ the token it declared:
   0
   [1]
 
+The single-class path reads that same project theme instead of parsing against
+the defaults:
+
+  $ tw --minify --input-css font.css -s font-source | grep -cF '.font-source{font-family:Georgia,serif}'
+  1
+
 An [@theme inline] token has no declaration of its own: the utility carries
 the value. A self-referential one is the exception, since inlining it would
 leave the reference dangling.
@@ -204,4 +210,16 @@ settings declared beside it. A project override wins over the built-in default:
   0
   [1]
   $ tw --minify --input-css inl.css inl.html | grep -cF -- '--default-font-family:var(--font-inter),system-ui'
+  1
+
+A fallback reference is still a real read. The base layer reads the default
+font token with a fallback, so an inline project override must remain live:
+
+  $ cat > inl-default.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme inline {
+  >   --default-font-family: "Satoshi", sans-serif;
+  > }
+  > EOF
+  $ tw --minify --input-css inl-default.css index.html | grep -cF -- '--default-font-family:"Satoshi",sans-serif'
   1
