@@ -1539,14 +1539,6 @@ let output_base_class_and_props = function
   | Supports_query { base_class; props; _ } ->
       (base_class, props)
 
-let first_named_property props =
-  List.find_map
-    (fun decl ->
-      match Css.Declaration.property_key decl with
-      | Key (Custom_property _) | Key (Unknown_property _) -> None
-      | key -> Some key)
-    props
-
 (* Tailwind orders utilities that write the same property by candidate name.
    Built-in values carry distinct numeric suborders in TW, so when a declared
    utility joins one of those property families, normalize that family's
@@ -1559,7 +1551,7 @@ let normalize_declared_property_families order_map builtins extra_outputs =
         List.find_map
           (fun output ->
             let _, props = output_base_class_and_props output in
-            first_named_property props)
+            Utility.ordering_property props)
           outputs
       with
       | None -> ()
@@ -1568,7 +1560,7 @@ let normalize_declared_property_families order_map builtins extra_outputs =
             List.filter_map
               (fun output ->
                 let base_class, props = output_base_class_and_props output in
-                match (base_class, first_named_property props) with
+                match (base_class, Utility.ordering_property props) with
                 | Some cls, Some key when key = property ->
                     let base = extract_base_utility cls in
                     Option.map

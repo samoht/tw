@@ -135,6 +135,13 @@ val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
     is where a declared [@utility] gets its place: Tailwind sorts one by the
     property it declares, not by its name. *)
 
+val ordering_property :
+  Cascade.Css.declaration list -> Cascade.Css.Declaration.prop_key option
+(** [ordering_property declarations] is the first property that determines a
+    utility's Tailwind family. It skips theme-token declarations and incidental
+    carrier declarations such as the [border-style] reference emitted by a
+    border-width utility. *)
+
 val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
 (** [base_of_class theme class_name] parses a class name into a base utility
     (without modifiers). For internal use by the Tw module. *)

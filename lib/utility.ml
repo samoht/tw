@@ -64,6 +64,22 @@ let rec style_declarations (s : Style.t) =
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 
+let is_ordering_carrier decl =
+  match Cascade.Css.Declaration.property_key decl with
+  | Key Border_style ->
+      Cascade.Css.declaration_value ~minify:true decl = "var(--tw-border-style)"
+  | _ -> false
+
+let ordering_property declarations =
+  List.find_map
+    (fun decl ->
+      if is_ordering_carrier decl then None
+      else
+        match Cascade.Css.Declaration.property_key decl with
+        | Key (Custom_property _) | Key (Unknown_property _) -> None
+        | key -> Some key)
+    declarations
+
 let build_property_slots () =
   let tbl = Hashtbl.create 512 in
   let record key order =
@@ -83,10 +99,7 @@ let build_property_slots () =
              -webkit-box] but the display slot belongs to the display utilities,
              which sort elsewhere. *)
           style_declarations (M.to_style Scheme.default example)
-          |> List.find_map (fun d ->
-              match Cascade.Css.Declaration.property_key d with
-              | Key (Custom_property _) | Key (Unknown_property _) -> None
-              | key -> Some key)
+          |> ordering_property
           |> Option.iter (fun key -> record key order))
         M.examples)
     !handlers;
