@@ -1246,6 +1246,8 @@ let to_name color =
           Css.Pp.string ctx ")]"
         in
         Css.Pp.to_string ~minify:false pp_oklch oklch
+    | Css Css.Transparent -> "transparent"
+    | Css Css.Inherit -> "inherit"
     | Css c ->
         (* Serialize CSS color to bracket string for class names *)
         let s = Css.Pp.to_string ~minify:true Css.pp_color c in
@@ -1292,6 +1294,8 @@ let pp color =
           Css.Pp.string ctx ")"
         in
         Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
+    | Css Css.Transparent -> "transparent"
+    | Css Css.Inherit -> "inherit"
     | Css c ->
         let s = Css.Pp.to_string ~minify:true Css.pp_color c in
         "Css(" ^ s ^ ")"
@@ -1305,6 +1309,14 @@ let is_base_color = function Black | White -> true | _ -> false
 let is_custom_color = function
   | Hex _ | Rgb _ | Oklch _ | Css _ -> true
   | _ -> false
+
+(* CSS-wide colour keywords need no palette or theme lookup. Keep them out of
+   [of_string]: a few utility families intentionally support only one of
+   them. *)
+let opacity_keyword = function
+  | Css Css.Transparent -> Some Css.Transparent
+  | Css Css.Inherit -> Some Css.Inherit
+  | _ -> None
 
 (* Check if a color is a theme-named color (no shade suffix) *)
 let is_theme_named = function Theme_named _ -> true | _ -> false
@@ -1557,6 +1569,8 @@ let color_to_string (c : color) : string =
           Css.Pp.float ctx o.h;
           Css.Pp.string ctx ")]")
         oklch
+  | Css Css.Transparent -> "transparent"
+  | Css Css.Inherit -> "inherit"
   | Css c ->
       let s = Css.Pp.to_string ~minify:true Css.pp_color c in
       let s = String.map (fun ch -> if ch = ' ' then '_' else ch) s in
@@ -1635,7 +1649,10 @@ let shade_of_strings = function
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
-          | Some shade when shade >= 0 && is_valid_shade color shade ->
+          | Some shade
+            when shade >= 0
+                 && (not (is_shadeless color))
+                 && is_valid_shade color shade ->
               Ok (color, shade)
           | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
@@ -1656,16 +1673,38 @@ let shade_and_opacity_of_strings ?theme = function
       match of_string color_str with
       | Ok color -> (
           match int_of_string_opt shade_str with
-          | Some shade when shade >= 0 && is_valid_shade color shade ->
+          | Some shade
+            when shade >= 0
+                 && (not (is_shadeless color))
+                 && is_valid_shade color shade ->
               Ok (color, shade, opacity)
           | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
       | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
   | [ color_str ] -> (
       (* Could be "current/50" or just "black" *)
       let base_str, opacity = parse_opacity_modifier ?theme color_str in
-      match of_string base_str with
-      | Ok color -> Ok (color, 500, opacity)
-      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+      let keyword =
+        match (base_str, opacity) with
+        | ( "transparent",
+            ( Opacity_percent _ | Opacity_arbitrary _
+            | Opacity_bracket_percent _ | Opacity_named _ | Opacity_var _ ) ) ->
+            Some Css.Transparent
+        | ( "inherit",
+            ( Opacity_percent _ | Opacity_arbitrary _
+            | Opacity_bracket_percent _ | Opacity_named _ | Opacity_var _ ) ) ->
+            Some Css.Inherit
+        | _ -> None
+      in
+      match keyword with
+      | Some keyword -> Ok (Css keyword, 500, opacity)
+      | None -> (
+          match of_string base_str with
+          | Ok color -> Ok (color, 500, opacity)
+          | Error _
+            when Parse.is_valid_theme_name base_str
+                 && Scheme.theme_value theme ("color-" ^ base_str) <> None ->
+              Ok (Theme_named base_str, 500, opacity)
+          | Error _ -> Error (`Msg ("Invalid color: " ^ color_str))))
   | [] -> Error (`Msg "No color specified")
   | _ -> Error (`Msg "Too many color parts")
 
@@ -1904,8 +1943,13 @@ module Handler = struct
   let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
+    let parse_theme_color value =
+      match Css.parse_color value with
+      | Some color -> color
+      | None -> invalid_arg ("Invalid theme colour: " ^ value)
+    in
     match Scheme.theme_value theme prop_name with
-    | Some value -> Css.hex value
+    | Some value -> parse_theme_color value
     | None -> (
         match Scheme.hex_color (resolve_scheme theme) color_name with
         | Some hex -> Css.hex hex
@@ -1913,7 +1957,7 @@ module Handler = struct
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
             match Scheme.theme_value theme std_name with
-            | Some value -> Css.hex value
+            | Some value -> parse_theme_color value
             | None -> to_css c (if is_base_color c then 500 else shade)))
 
   (* Aliases for color constructors/functions that will be shadowed by open
@@ -2598,6 +2642,13 @@ module Handler = struct
         Css.color_mix ~in_space color Css.Transparent
           ~percent1:(opacity_to_percent opacity)
 
+  (* Multiplying a fully transparent colour by another alpha is still fully
+     transparent. Keep that identity explicit: older cascade releases folded
+     [color-mix(transparent N%, transparent)] to an opaque-alpha black. *)
+  let apply_alpha ?(in_space : Css.color_space = Oklab) opacity = function
+    | Css.Transparent -> Css.Transparent
+    | color -> mix_alpha ~in_space opacity color
+
   (** Condition for progressive enhancement with color-mix in oklab *)
   let color_mix_supports_condition =
     Css.Supports.property "color" "color-mix(in lab, red, red)"
@@ -2614,109 +2665,112 @@ module Handler = struct
       shade opacity =
     let property_decls value = List.map (fun set -> set value) properties in
     let percent = opacity_to_percent opacity in
-    if is_fully_opaque opacity && not (is_custom_color c) then
-      (* At 100% the mix is a no-op, so Tailwind writes the colour itself and
-         needs neither the fallback nor the [@supports] pair. *)
-      let theme_decl, color_ref =
-        Var.binding (color_var c shade) (to_css c shade)
-      in
-      let value : Css.color = Var color_ref in
-      style ?merge_key (theme_decl :: property_decls value)
-    else if is_custom_color c && opacity_var_name opacity <> None then
-      style ?merge_key (property_decls (mix_alpha opacity (to_css c shade)))
-    else if is_custom_color c then
-      (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
-         variables, no @supports, no hex+alpha fallback. *)
-      let ok_l, ok_a, ok_b =
-        match c with
-        | Hex h -> (
-            match hex_to_rgb h with
-            | Some rgb -> rgb_to_oklab rgb
-            | None -> (0.0, 0.0, 0.0))
-        | Rgb { red; green; blue } ->
-            rgb_to_oklab { r = red; g = green; b = blue }
-        | _ -> (0.0, 0.0, 0.0)
-      in
-      let alpha = percent /. 100.0 in
-      let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-      style ?merge_key (property_decls oklab_value)
-    else
-      let scheme = resolve_scheme theme in
-      let color_name = scheme_color_name c shade in
-      (* Check if color is defined as hex in the scheme *)
-      match Scheme.hex_color scheme color_name with
-      | Some hex_value ->
-          (* Scheme has hex color: use hex+alpha fallback with top-level
-             @supports *)
-          let hex_with_alpha = hex_with_alpha hex_value percent in
-          let fallback_decls = property_decls (Css.hex hex_with_alpha) in
-          (* Theme declaration for the variable *)
-          let color_var = color_var c shade in
-          let theme_decl, color_ref =
-            Var.binding color_var (Css.hex hex_value)
-          in
-          (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
-             transparent) *)
-          let oklab_color =
-            Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-              ~percent1:percent
-          in
-          (* Create @supports block with oklab version as top-level rule. Use
-             placeholder selector that rules.ml replaces with actual class. *)
-          let supports_block =
-            Css.supports ~condition:color_mix_supports_condition
-              [
-                Css.rule ~selector:(Css.Selector.class_ "_")
-                  (property_decls oklab_color);
-              ]
-          in
-          style ?merge_key ~rules:(Some [ supports_block ])
-            (theme_decl :: fallback_decls)
-      | None ->
-          (* Non-scheme color: use property-scoped variable if prefix given *)
-          let color_var =
-            match property_prefix with
-            | Some prefix ->
-                property_color_var ?theme ~property_prefix:prefix c shade
-            | Stdlib.Option.None -> color_var c shade
-          in
-          let color_value =
-            match property_prefix with
-            | Some prefix ->
-                property_color_value ?theme ~property_prefix:prefix c shade
-            | Stdlib.Option.None ->
-                to_css c (if is_base_color c then 500 else shade)
-          in
-          let theme_decl, color_ref = Var.binding color_var color_value in
-          (* An opacity read from a var has no percentage to fold into a hex
-             fallback, so the fallback is the colour at full opacity. *)
-          let fallback_decls =
-            match opacity_var_name opacity with
-            | Some _ -> property_decls (Css.Var color_ref)
-            | None ->
-                let oklch = to_oklch c shade in
-                let rgb = oklch_to_rgb oklch in
-                let hex_value = rgb_to_hex rgb in
-                property_decls (Css.hex (hex_with_alpha hex_value percent))
-          in
-          let oklab_color =
-            match opacity_var_name opacity with
-            | Some var_name ->
-                Css.color_mix_var_percent ~in_space:Oklab ~var_name
-                  (Css.Var color_ref) Css.Transparent
-            | None ->
-                Css.color_mix ~in_space:Oklab (Css.Var color_ref)
-                  Css.Transparent ~percent1:percent
-          in
-          let supports_block =
-            Css.supports ~condition:color_mix_supports_condition
-              [
-                Css.rule ~selector:(Css.Selector.class_ "_")
-                  (property_decls oklab_color);
-              ]
-          in
-          style ?merge_key ~rules:(Some [ supports_block ])
-            (theme_decl :: fallback_decls)
+    match opacity_keyword c with
+    | Some keyword ->
+        style ?merge_key (property_decls (apply_alpha opacity keyword))
+    | None when is_fully_opaque opacity && not (is_custom_color c) ->
+        (* At 100% the mix is a no-op, so Tailwind writes the colour itself and
+           needs neither the fallback nor the [@supports] pair. *)
+        let theme_decl, color_ref =
+          Var.binding (color_var c shade) (to_css c shade)
+        in
+        let value : Css.color = Var color_ref in
+        style ?merge_key (theme_decl :: property_decls value)
+    | None when is_custom_color c && opacity_var_name opacity <> None ->
+        style ?merge_key (property_decls (mix_alpha opacity (to_css c shade)))
+    | None when is_custom_color c ->
+        (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
+           variables, no @supports, no hex+alpha fallback. *)
+        let ok_l, ok_a, ok_b =
+          match c with
+          | Hex h -> (
+              match hex_to_rgb h with
+              | Some rgb -> rgb_to_oklab rgb
+              | None -> (0.0, 0.0, 0.0))
+          | Rgb { red; green; blue } ->
+              rgb_to_oklab { r = red; g = green; b = blue }
+          | _ -> (0.0, 0.0, 0.0)
+        in
+        let alpha = percent /. 100.0 in
+        let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
+        style ?merge_key (property_decls oklab_value)
+    | None -> (
+        let scheme = resolve_scheme theme in
+        let color_name = scheme_color_name c shade in
+        (* Check if color is defined as hex in the scheme *)
+        match Scheme.hex_color scheme color_name with
+        | Some hex_value ->
+            (* Scheme has hex color: use hex+alpha fallback with top-level
+               @supports *)
+            let hex_with_alpha = hex_with_alpha hex_value percent in
+            let fallback_decls = property_decls (Css.hex hex_with_alpha) in
+            (* Theme declaration for the variable *)
+            let color_var = color_var c shade in
+            let theme_decl, color_ref =
+              Var.binding color_var (Css.hex hex_value)
+            in
+            (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
+               transparent) *)
+            let oklab_color =
+              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+                ~percent1:percent
+            in
+            (* Create @supports block with oklab version as top-level rule. Use
+               placeholder selector that rules.ml replaces with actual class. *)
+            let supports_block =
+              Css.supports ~condition:color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    (property_decls oklab_color);
+                ]
+            in
+            style ?merge_key ~rules:(Some [ supports_block ])
+              (theme_decl :: fallback_decls)
+        | None ->
+            (* Non-scheme color: use property-scoped variable if prefix given *)
+            let color_var =
+              match property_prefix with
+              | Some prefix ->
+                  property_color_var ?theme ~property_prefix:prefix c shade
+              | Stdlib.Option.None -> color_var c shade
+            in
+            let color_value =
+              match property_prefix with
+              | Some prefix ->
+                  property_color_value ?theme ~property_prefix:prefix c shade
+              | Stdlib.Option.None ->
+                  to_css c (if is_base_color c then 500 else shade)
+            in
+            let theme_decl, color_ref = Var.binding color_var color_value in
+            (* An opacity read from a var has no percentage to fold into a hex
+               fallback, so the fallback is the colour at full opacity. *)
+            let fallback_decls =
+              match opacity_var_name opacity with
+              | Some _ -> property_decls (Css.Var color_ref)
+              | None ->
+                  let oklch = to_oklch c shade in
+                  let rgb = oklch_to_rgb oklch in
+                  let hex_value = rgb_to_hex rgb in
+                  property_decls (Css.hex (hex_with_alpha hex_value percent))
+            in
+            let oklab_color =
+              match opacity_var_name opacity with
+              | Some var_name ->
+                  Css.color_mix_var_percent ~in_space:Oklab ~var_name
+                    (Css.Var color_ref) Css.Transparent
+              | None ->
+                  Css.color_mix ~in_space:Oklab (Css.Var color_ref)
+                    Css.Transparent ~percent1:percent
+            in
+            let supports_block =
+              Css.supports ~condition:color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    (property_decls oklab_color);
+                ]
+            in
+            style ?merge_key ~rules:(Some [ supports_block ])
+              (theme_decl :: fallback_decls))
 
   let color_with_opacity_style ?theme ~property ?property_prefix ?merge_key c
       shade opacity =
@@ -3447,6 +3501,7 @@ let color_mix_supports_stmts ~stmts =
   Css.supports ~condition:color_mix_supports_condition stmts
 
 let mix_alpha = Handler.mix_alpha
+let apply_alpha = Handler.apply_alpha
 
 let oklab_with_supports ~property ~fallback_decl c shade opacity =
   let cvar = color_var c shade in
@@ -3461,39 +3516,41 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let alpha_var = opacity_var_name opacity <> None in
-  if is_fully_opaque opacity && not (is_custom_color c) then
-    (* At 100% the mix is a no-op, so Tailwind writes the colour itself. *)
-    let theme_decl, color_ref =
-      Var.binding (color_var c shade) (to_css c shade)
-    in
-    let value : Css.color = Var color_ref in
-    Style.style [ theme_decl; property value ]
-  else if is_custom_color c then
-    if alpha_var then
-      Style.style [ property (mix_alpha opacity (to_css c shade)) ]
-    else
-      let ok_l, ok_a, ok_b = custom_color_to_oklab c in
-      let oklab_value = Css.oklaba ok_l ok_a ok_b (percent /. 100.0) in
-      Style.style [ property oklab_value ]
-  else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
-    | Some hex_value ->
-        let fallback_decl =
-          if alpha_var then property (Css.hex hex_value)
-          else property (Css.hex (hex_with_alpha hex_value percent))
-        in
-        oklab_with_supports ~property ~fallback_decl c shade opacity
-    | None ->
-        let oklch = to_oklch c shade in
-        let fallback_color =
-          if alpha_var then css_color_of_oklch oklch
-          else
-            Css.color_mix ~in_space:Srgb (css_color_of_oklch oklch)
-              Css.Transparent ~percent1:percent
-        in
-        oklab_with_supports ~property ~fallback_decl:(property fallback_color) c
-          shade opacity
+  match opacity_keyword c with
+  | Some keyword -> Style.style [ property (apply_alpha opacity keyword) ]
+  | None when is_fully_opaque opacity && not (is_custom_color c) ->
+      (* At 100% the mix is a no-op, so Tailwind writes the colour itself. *)
+      let theme_decl, color_ref =
+        Var.binding (color_var c shade) (to_css c shade)
+      in
+      let value : Css.color = Var color_ref in
+      Style.style [ theme_decl; property value ]
+  | None when is_custom_color c ->
+      if alpha_var then
+        Style.style [ property (mix_alpha opacity (to_css c shade)) ]
+      else
+        let ok_l, ok_a, ok_b = custom_color_to_oklab c in
+        let oklab_value = Css.oklaba ok_l ok_a ok_b (percent /. 100.0) in
+        Style.style [ property oklab_value ]
+  | None -> (
+      let color_name = scheme_color_name c shade in
+      match Scheme.hex_color (resolve_scheme theme) color_name with
+      | Some hex_value ->
+          let fallback_decl =
+            if alpha_var then property (Css.hex hex_value)
+            else property (Css.hex (hex_with_alpha hex_value percent))
+          in
+          oklab_with_supports ~property ~fallback_decl c shade opacity
+      | None ->
+          let oklch = to_oklch c shade in
+          let fallback_color =
+            if alpha_var then css_color_of_oklch oklch
+            else
+              Css.color_mix ~in_space:Srgb (css_color_of_oklch oklch)
+                Css.Transparent ~percent1:percent
+          in
+          oklab_with_supports ~property ~fallback_decl:(property fallback_color)
+            c shade opacity)
 
 let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   let oklab_color = mix_alpha opacity Css.Current in
@@ -3577,43 +3634,49 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let alpha_var = opacity_var_name opacity <> None in
-  if is_fully_opaque opacity && not (is_custom_color c) then
-    let theme_decl, color_ref =
-      Var.binding (color_var c shade) (to_css c shade)
-    in
-    let value : Css.color = Var color_ref in
-    let rule = Css.rule ~selector [ Css.border_color value ] in
-    Style.style ~rules:(Some [ rule ]) [ theme_decl ]
-  else if is_custom_color c then
-    let value =
-      if alpha_var then mix_alpha opacity (to_css c shade)
-      else
-        let ok_l, ok_a, ok_b = custom_color_to_oklab c in
-        Css.oklaba ok_l ok_a ok_b (percent /. 100.0)
-    in
-    let rule = Css.rule ~selector [ Css.border_color value ] in
-    Style.style ~rules:(Some [ rule ]) []
-  else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
-    | Some hex_value ->
-        let hex_alpha =
-          if alpha_var then hex_value else hex_with_alpha hex_value percent
-        in
-        let fallback_rule =
-          Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
-        in
-        let cvar = color_var c shade in
-        let _theme_decl, color_ref = Var.binding cvar (Css.hex hex_value) in
-        let oklab_color = mix_alpha opacity (Css.Var color_ref) in
-        let supports_rule =
-          Css.rule ~selector [ Css.border_color oklab_color ]
-        in
-        let supports_block =
-          color_mix_supports_stmts ~stmts:[ supports_rule ]
-        in
-        Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
-    | None -> divide_opacity_via_property ?theme ~selector c shade opacity
+  match opacity_keyword c with
+  | Some keyword ->
+      let rule =
+        Css.rule ~selector [ Css.border_color (apply_alpha opacity keyword) ]
+      in
+      Style.style ~rules:(Some [ rule ]) []
+  | None when is_fully_opaque opacity && not (is_custom_color c) ->
+      let theme_decl, color_ref =
+        Var.binding (color_var c shade) (to_css c shade)
+      in
+      let value : Css.color = Var color_ref in
+      let rule = Css.rule ~selector [ Css.border_color value ] in
+      Style.style ~rules:(Some [ rule ]) [ theme_decl ]
+  | None when is_custom_color c ->
+      let value =
+        if alpha_var then mix_alpha opacity (to_css c shade)
+        else
+          let ok_l, ok_a, ok_b = custom_color_to_oklab c in
+          Css.oklaba ok_l ok_a ok_b (percent /. 100.0)
+      in
+      let rule = Css.rule ~selector [ Css.border_color value ] in
+      Style.style ~rules:(Some [ rule ]) []
+  | None -> (
+      let color_name = scheme_color_name c shade in
+      match Scheme.hex_color (resolve_scheme theme) color_name with
+      | Some hex_value ->
+          let hex_alpha =
+            if alpha_var then hex_value else hex_with_alpha hex_value percent
+          in
+          let fallback_rule =
+            Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
+          in
+          let cvar = color_var c shade in
+          let _theme_decl, color_ref = Var.binding cvar (Css.hex hex_value) in
+          let oklab_color = mix_alpha opacity (Css.Var color_ref) in
+          let supports_rule =
+            Css.rule ~selector [ Css.border_color oklab_color ]
+          in
+          let supports_block =
+            color_mix_supports_stmts ~stmts:[ supports_rule ]
+          in
+          Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+      | None -> divide_opacity_via_property ?theme ~selector c shade opacity)
 
 let divide_with_opacity ?theme c shade opacity selector =
   divide_with_opacity_selector ?theme ~selector c shade opacity
@@ -3640,40 +3703,44 @@ let divide_current_with_opacity opacity selector =
 let bg_with_opacity ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
-  if is_fully_opaque opacity then
-    (* 100% opacity = no transparency. Tailwind outputs the plain color var
-       reference, identical to the no-opacity case. *)
-    let cvar = color_var c shade in
-    let color_value = to_css c (if is_base_color c then 500 else shade) in
-    let _d, color_ref = Var.binding cvar color_value in
-    Style.style [ Css.background_color (Var color_ref) ]
-  else if is_custom_color c then
-    let value =
-      if opacity_var_name opacity <> None then
-        mix_alpha opacity (to_css c shade)
-      else
-        let ok_l, ok_a, ok_b = custom_color_to_oklab c in
-        Css.oklaba_none_zeros ok_l ok_a ok_b (percent /. 100.0)
-    in
-    Style.style [ Css.background_color value ]
-  else
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
-    | Some hex_value ->
-        let cvar = color_var c shade in
-        let theme_decl, color_ref = Var.binding cvar (Css.hex hex_value) in
-        let fallback_decl =
-          if opacity_var_name opacity <> None then
-            Css.background_color (Css.Var color_ref)
-          else Css.background_color (Css.hex (hex_with_alpha hex_value percent))
-        in
-        let oklab_decl =
-          Css.background_color (mix_alpha opacity (Css.Var color_ref))
-        in
-        let supports_block = color_mix_supports ~decls:[ oklab_decl ] in
-        Style.style ~rules:(Some [ supports_block ])
-          [ theme_decl; fallback_decl ]
-    | None -> bg_opacity_via_property c shade opacity
+  match opacity_keyword c with
+  | Some keyword ->
+      Style.style [ Css.background_color (apply_alpha opacity keyword) ]
+  | None when is_fully_opaque opacity ->
+      (* 100% opacity = no transparency. Tailwind outputs the plain color var
+         reference, identical to the no-opacity case. *)
+      let cvar = color_var c shade in
+      let color_value = to_css c (if is_base_color c then 500 else shade) in
+      let _d, color_ref = Var.binding cvar color_value in
+      Style.style [ Css.background_color (Var color_ref) ]
+  | None when is_custom_color c ->
+      let value =
+        if opacity_var_name opacity <> None then
+          mix_alpha opacity (to_css c shade)
+        else
+          let ok_l, ok_a, ok_b = custom_color_to_oklab c in
+          Css.oklaba_none_zeros ok_l ok_a ok_b (percent /. 100.0)
+      in
+      Style.style [ Css.background_color value ]
+  | None -> (
+      let color_name = scheme_color_name c shade in
+      match Scheme.hex_color (resolve_scheme theme) color_name with
+      | Some hex_value ->
+          let cvar = color_var c shade in
+          let theme_decl, color_ref = Var.binding cvar (Css.hex hex_value) in
+          let fallback_decl =
+            if opacity_var_name opacity <> None then
+              Css.background_color (Css.Var color_ref)
+            else
+              Css.background_color (Css.hex (hex_with_alpha hex_value percent))
+          in
+          let oklab_decl =
+            Css.background_color (mix_alpha opacity (Css.Var color_ref))
+          in
+          let supports_block = color_mix_supports ~decls:[ oklab_decl ] in
+          Style.style ~rules:(Some [ supports_block ])
+            [ theme_decl; fallback_decl ]
+      | None -> bg_opacity_via_property c shade opacity)
 
 (** Determine the appropriate fallback for an opacity theme variable. If the
     theme defines a concrete value (e.g., "0.5"), use [Fallback (Num f)]. If the

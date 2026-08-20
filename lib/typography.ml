@@ -2304,58 +2304,67 @@ module Typography_late = struct
     let percent = Color.opacity_to_percent opacity in
     let scheme = match theme with Some t -> t | None -> Scheme.default in
     let color_name = Color.scheme_color_name color shade in
-    match Scheme.hex_color scheme color_name with
-    | Some hex_value ->
-        (* Scheme has hex: fallback is hex+alpha, @supports has color-mix with
-           webkit *)
-        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-        let fallback_decl = text_decoration_color (Css.hex hex_with_alpha) in
-        let color_var = Color.color_var color shade in
-        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let webkit_decl = webkit_text_decoration_color oklab_color in
-        let oklab_decl = text_decoration_color oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ webkit_decl; oklab_decl ];
-            ]
-        in
-        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
-    | None ->
-        (* No scheme hex: use property-scoped variable *)
-        let color_var =
-          Color.property_color_var ?theme
-            ~property_prefix:"text-decoration-color" color shade
-        in
-        let color_value =
-          Color.property_color_value ~property_prefix:"text-decoration-color"
-            color shade
-        in
-        let oklch = Color.to_oklch color shade in
-        let rgb = Color.oklch_to_rgb oklch in
-        let hex_value = Color.rgb_to_hex rgb in
-        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-        let fallback_decl = text_decoration_color (Css.hex hex_with_alpha) in
-        let theme_decl, color_ref = Var.binding color_var color_value in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let webkit_decl = webkit_text_decoration_color oklab_color in
-        let oklab_decl = text_decoration_color oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ webkit_decl; oklab_decl ];
-            ]
-        in
-        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+    match Color.opacity_keyword color with
+    | Some keyword ->
+        let color = Color.apply_alpha opacity keyword in
+        style
+          [ webkit_text_decoration_color color; text_decoration_color color ]
+    | None -> (
+        match Scheme.hex_color scheme color_name with
+        | Some hex_value ->
+            (* Scheme has hex: fallback is hex+alpha, @supports has color-mix
+               with webkit *)
+            let hex_with_alpha = Color.hex_with_alpha hex_value percent in
+            let fallback_decl =
+              text_decoration_color (Css.hex hex_with_alpha)
+            in
+            let color_var = Color.color_var color shade in
+            let theme_decl, color_ref =
+              Var.binding color_var (Css.hex hex_value)
+            in
+            let oklab_color =
+              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+                ~percent1:percent
+            in
+            let webkit_decl = webkit_text_decoration_color oklab_color in
+            let oklab_decl = text_decoration_color oklab_color in
+            let supports_block =
+              Css.supports ~condition:Color.color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    [ webkit_decl; oklab_decl ];
+                ]
+            in
+            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+        | None ->
+            (* No scheme hex: use property-scoped variable *)
+            let color_var =
+              Color.property_color_var ?theme
+                ~property_prefix:"text-decoration-color" color shade
+            in
+            let color_value =
+              Color.property_color_value ?theme
+                ~property_prefix:"text-decoration-color" color shade
+            in
+            (* A project token may be any CSS colour, not necessarily a palette
+               colour that can be converted to a compile-time hex fallback. *)
+            let fallback_decl = text_decoration_color color_value in
+            let theme_decl, color_ref = Var.binding color_var color_value in
+            let oklab_color =
+              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+                ~percent1:percent
+            in
+            let webkit_decl = webkit_text_decoration_color oklab_color in
+            let oklab_decl = text_decoration_color oklab_color in
+            let supports_block =
+              Css.supports ~condition:Color.color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    [ webkit_decl; oklab_decl ];
+                ]
+            in
+            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+        )
 
   let decoration_transparent = style [ text_decoration_color (Css.hex "#0000") ]
   let decoration_current = style [ text_decoration_color Current ]

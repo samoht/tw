@@ -67,6 +67,7 @@ module Handler = struct
     | Shadow_current_opacity of Color.opacity_modifier
     | Shadow_inherit
     | Shadow_transparent
+    | Shadow_transparent_opacity of Color.opacity_modifier
     | Shadow_bracket_color of string * Css.color
     | Shadow_bracket_color_opacity of
         string * Css.color * Color.opacity_modifier
@@ -92,6 +93,7 @@ module Handler = struct
     | Inset_shadow_current_opacity of Color.opacity_modifier
     | Inset_shadow_inherit
     | Inset_shadow_transparent
+    | Inset_shadow_transparent_opacity of Color.opacity_modifier
     | Inset_shadow_bracket_color of string * Css.color
     | Inset_shadow_bracket_color_opacity of
         string * Css.color * Color.opacity_modifier
@@ -115,10 +117,12 @@ module Handler = struct
     | Ring_inset
     | Ring_color of Color.color * int
     | Ring_color_opacity of Color.color * int * Color.opacity_modifier
+    | Ring_keyword_opacity of Css.color * string * Color.opacity_modifier
     | Ring_offset_width of int
     | Ring_offset_bracket_length of string
     | Ring_offset_color of Color.color * int
     | Ring_offset_color_opacity of Color.color * int * Color.opacity_modifier
+    | Ring_offset_keyword_opacity of Css.color * string * Color.opacity_modifier
     | Ring_offset_transparent
     | Ring_offset_current
     | Ring_offset_current_opacity of Color.opacity_modifier
@@ -132,6 +136,7 @@ module Handler = struct
     | Ring_offset_bracket_var_opacity of string * Color.opacity_modifier
     | Inset_ring_color of Color.color * int
     | Inset_ring_color_opacity of Color.color * int * Color.opacity_modifier
+    | Inset_ring_keyword_opacity of Css.color * string * Color.opacity_modifier
     | Inset_ring_transparent
     | Inset_ring_current
     | Inset_ring_current_opacity of Color.opacity_modifier
@@ -775,6 +780,18 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
       [ base_decl ]
 
+  let set_shadow_transparent_opacity opacity =
+    let base_decl, _ = Var.binding shadow_color_var Css.Transparent in
+    let inner_mix = Color.apply_alpha opacity Css.Transparent in
+    let enhanced_color =
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
+        inner_mix Css.Transparent
+    in
+    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let supports_block = color_mix_supports [ enhanced_decl ] in
+    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
+      [ base_decl ]
+
   let set_shadow_inherit () =
     let base_decl, _ = Var.binding shadow_color_var Css.Inherit in
     style ~property_rules:shadow_property_rules [ base_decl ]
@@ -1347,6 +1364,18 @@ module Handler = struct
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" Css.Transparent Css.Transparent
+    in
+    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let supports_block = color_mix_supports [ enhanced_decl ] in
+    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
+      [ base_decl ]
+
+  let set_inset_shadow_transparent_opacity opacity =
+    let base_decl, _ = Var.binding inset_shadow_color_var Css.Transparent in
+    let inner_mix = Color.apply_alpha opacity Css.Transparent in
+    let enhanced_color =
+      Css.color_mix_var_percent ~in_space:Oklab
+        ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
@@ -1975,6 +2004,16 @@ module Handler = struct
     let d, _ = Var.binding ring_color_var Css.Inherit in
     style [ d ]
 
+  let ring_keyword_with_opacity var keyword opacity =
+    let fallback, _ = Var.binding var keyword in
+    let mixed = Color.apply_alpha opacity keyword in
+    let enhanced, _ = Var.binding var mixed in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced ] ]
+    in
+    style ~rules:(Some [ supports_block ]) [ fallback ]
+
   let ring_bracket_color (c : Css.color) =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let d, _ = Var.binding ring_color_var c in
@@ -2121,6 +2160,7 @@ module Handler = struct
     | Shadow_current_opacity op -> set_shadow_current_opacity op
     | Shadow_inherit -> set_shadow_inherit ()
     | Shadow_transparent -> set_shadow_transparent ()
+    | Shadow_transparent_opacity op -> set_shadow_transparent_opacity op
     | Shadow_bracket_color (_orig, c) -> set_shadow_bracket_color c
     | Shadow_bracket_color_opacity (_orig, c, op) ->
         set_shadow_bracket_color_opacity c op
@@ -2146,6 +2186,8 @@ module Handler = struct
     | Inset_shadow_current_opacity op -> set_inset_shadow_current_opacity op
     | Inset_shadow_inherit -> set_inset_shadow_inherit ()
     | Inset_shadow_transparent -> set_inset_shadow_transparent ()
+    | Inset_shadow_transparent_opacity op ->
+        set_inset_shadow_transparent_opacity op
     | Inset_shadow_bracket_color (_orig, c) -> set_inset_shadow_bracket_color c
     | Inset_shadow_bracket_color_opacity (_orig, c, op) ->
         set_ishadow_bracket_color_opacity c op
@@ -2174,6 +2216,8 @@ module Handler = struct
     | Ring_color (color, shade) -> ring_color color shade
     | Ring_color_opacity (color, shade, opacity) ->
         ring_color_with_opacity color shade opacity
+    | Ring_keyword_opacity (keyword, _, opacity) ->
+        ring_keyword_with_opacity ring_color_var keyword opacity
     | Ring_transparent -> ring_transparent
     | Ring_current -> ring_current
     | Ring_current_opacity opacity -> ring_current_with_opacity opacity
@@ -2237,6 +2281,8 @@ module Handler = struct
     | Ring_offset_color (color, shade) -> ring_offset_color color shade
     | Ring_offset_color_opacity (color, shade, opacity) ->
         ring_offset_color_with_opacity color shade opacity
+    | Ring_offset_keyword_opacity (keyword, _, opacity) ->
+        ring_keyword_with_opacity ring_offset_color_var keyword opacity
     | Ring_offset_transparent -> ring_offset_transparent
     | Ring_offset_current -> ring_offset_current
     | Ring_offset_current_opacity opacity ->
@@ -2254,6 +2300,8 @@ module Handler = struct
     | Inset_ring_color (color, shade) -> inset_ring_color color shade
     | Inset_ring_color_opacity (color, shade, opacity) ->
         inset_ring_color_with_opacity color shade opacity
+    | Inset_ring_keyword_opacity (keyword, _, opacity) ->
+        ring_keyword_with_opacity inset_ring_color_var keyword opacity
     | Inset_ring_transparent -> inset_ring_transparent
     | Inset_ring_current -> inset_ring_current
     | Inset_ring_current_opacity opacity ->
@@ -2557,6 +2605,7 @@ module Handler = struct
         | "lg", op -> Ok (Shadow_shape_opacity (Lg, op))
         | "xl", op -> Ok (Shadow_shape_opacity (Xl, op))
         | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
+        | "transparent", op -> Ok (Shadow_transparent_opacity op)
         (* Not a size: a shadeless colour with an alpha, e.g. shadow-white/10 *)
         | base, op -> (
             match Color.shade_of_strings [ base ] with
@@ -2607,6 +2656,7 @@ module Handler = struct
         | "2xs", op -> Ok (Inset_shadow_shape_opacity (Ish_2xs, op))
         | "xs", op -> Ok (Inset_shadow_shape_opacity (Ish_xs, op))
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
+        | "transparent", op -> Ok (Inset_shadow_transparent_opacity op)
         | base, op -> (
             match Color.shade_of_strings [ base ] with
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
@@ -2652,6 +2702,15 @@ module Handler = struct
     | [ "ring"; "inset" ] -> Ok Ring_inset
     | [ "ring"; "transparent" ] -> Ok Ring_transparent
     | [ "ring"; "inherit" ] -> Ok Ring_inherit
+    | [ "ring"; value ]
+      when let base, opacity = Color.parse_opacity_modifier ~theme value in
+           opacity <> Color.No_opacity
+           && (base = "transparent" || base = "inherit") ->
+        let base, opacity = Color.parse_opacity_modifier ~theme value in
+        let keyword =
+          if base = "transparent" then Css.Transparent else Css.Inherit
+        in
+        Ok (Ring_keyword_opacity (keyword, base, opacity))
     | [ "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
@@ -2681,6 +2740,15 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "ring"; "offset"; "transparent" ] -> Ok Ring_offset_transparent
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
+    | [ "ring"; "offset"; value ]
+      when let base, opacity = Color.parse_opacity_modifier ~theme value in
+           opacity <> Color.No_opacity
+           && (base = "transparent" || base = "inherit") ->
+        let base, opacity = Color.parse_opacity_modifier ~theme value in
+        let keyword =
+          if base = "transparent" then Css.Transparent else Css.Inherit
+        in
+        Ok (Ring_offset_keyword_opacity (keyword, base, opacity))
     | [ "ring"; "offset"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
@@ -2718,6 +2786,15 @@ module Handler = struct
     | [ "inset"; "ring" ] -> Ok Inset_ring_default
     | [ "inset"; "ring"; "transparent" ] -> Ok Inset_ring_transparent
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
+    | [ "inset"; "ring"; value ]
+      when let base, opacity = Color.parse_opacity_modifier ~theme value in
+           opacity <> Color.No_opacity
+           && (base = "transparent" || base = "inherit") ->
+        let base, opacity = Color.parse_opacity_modifier ~theme value in
+        let keyword =
+          if base = "transparent" then Css.Transparent else Css.Inherit
+        in
+        Ok (Inset_ring_keyword_opacity (keyword, base, opacity))
     | [ "inset"; "ring"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
@@ -2828,6 +2905,8 @@ module Handler = struct
     | Shadow_current_opacity op -> "shadow-current/" ^ Color.pp_opacity op
     | Shadow_inherit -> "shadow-inherit"
     | Shadow_transparent -> "shadow-transparent"
+    | Shadow_transparent_opacity op ->
+        "shadow-transparent/" ^ Color.pp_opacity op
     | Shadow_bracket_color (orig, _c) -> "shadow-[" ^ orig ^ "]"
     | Shadow_bracket_color_opacity (orig, _c, op) ->
         "shadow-[" ^ orig ^ "]/" ^ Color.pp_opacity op
@@ -2858,6 +2937,8 @@ module Handler = struct
         "inset-shadow-current/" ^ Color.pp_opacity op
     | Inset_shadow_inherit -> "inset-shadow-inherit"
     | Inset_shadow_transparent -> "inset-shadow-transparent"
+    | Inset_shadow_transparent_opacity op ->
+        "inset-shadow-transparent/" ^ Color.pp_opacity op
     | Inset_shadow_bracket_color (orig, _c) -> "inset-shadow-[" ^ orig ^ "]"
     | Inset_shadow_bracket_color_opacity (orig, _c, op) ->
         "inset-shadow-[" ^ orig ^ "]/" ^ Color.pp_opacity op
@@ -2887,6 +2968,8 @@ module Handler = struct
           else "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
         in
         base ^ "/" ^ Color.pp_opacity opacity
+    | Ring_keyword_opacity (_, spelling, opacity) ->
+        "ring-" ^ spelling ^ "/" ^ Color.pp_opacity opacity
     | Ring_transparent -> "ring-transparent"
     | Ring_current -> "ring-current"
     | Ring_current_opacity o -> "ring-current/" ^ Color.pp_opacity o
@@ -2908,6 +2991,8 @@ module Handler = struct
     | Ring_offset_color_opacity (color, shade, opacity) ->
         "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
         ^ Color.pp_opacity opacity
+    | Ring_offset_keyword_opacity (_, spelling, opacity) ->
+        "ring-offset-" ^ spelling ^ "/" ^ Color.pp_opacity opacity
     | Ring_offset_transparent -> "ring-offset-transparent"
     | Ring_offset_current -> "ring-offset-current"
     | Ring_offset_current_opacity o ->
@@ -2931,6 +3016,8 @@ module Handler = struct
           else "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
         in
         base ^ "/" ^ Color.pp_opacity opacity
+    | Inset_ring_keyword_opacity (_, spelling, opacity) ->
+        "inset-ring-" ^ spelling ^ "/" ^ Color.pp_opacity opacity
     | Inset_ring_transparent -> "inset-ring-transparent"
     | Inset_ring_current -> "inset-ring-current"
     | Inset_ring_current_opacity o -> "inset-ring-current/" ^ Color.pp_opacity o
@@ -3015,8 +3102,9 @@ module Handler = struct
     (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
     | Shadow_current_opacity _ | Shadow_inherit | Shadow_transparent
-    | Shadow_bracket_color _ | Shadow_bracket_color_opacity _
-    | Shadow_bracket_color_var _ | Shadow_bracket_color_var_opacity _ ->
+    | Shadow_transparent_opacity _ | Shadow_bracket_color _
+    | Shadow_bracket_color_opacity _ | Shadow_bracket_color_var _
+    | Shadow_bracket_color_var_opacity _ ->
         35000
     (* Inset shadow opacity utilities — same relative scheme as shadow *)
     | Inset_shadow_arbitrary_opacity (arb, _) ->
@@ -3045,8 +3133,8 @@ module Handler = struct
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
     | Inset_shadow_current_opacity _ | Inset_shadow_inherit
     | Inset_shadow_transparent | Inset_shadow_bracket_color _
-    | Inset_shadow_bracket_color_opacity _ | Inset_shadow_bracket_color_var _
-    | Inset_shadow_bracket_cvar_opacity _ ->
+    | Inset_shadow_transparent_opacity _ | Inset_shadow_bracket_color_opacity _
+    | Inset_shadow_bracket_color_var _ | Inset_shadow_bracket_cvar_opacity _ ->
         36000
     (* Background blend modes come after opacity, before mix-blend *)
     | Bg_blend_color -> 22000
@@ -3095,18 +3183,19 @@ module Handler = struct
     | Ring_xl -> 40005
     | Ring_width _ -> 40005
     | Ring_bracket_length _ -> 40010
-    | Ring_color _ | Ring_color_opacity _ | Ring_transparent | Ring_current
-    | Ring_current_opacity _ | Ring_inherit | Ring_bracket_color _
-    | Ring_bracket_color_opacity _ | Ring_bracket_color_var _
-    | Ring_bracket_color_var_opacity _ | Ring_bracket_var _
-    | Ring_bracket_var_opacity _ ->
+    | Ring_color _ | Ring_color_opacity _ | Ring_keyword_opacity _
+    | Ring_transparent | Ring_current | Ring_current_opacity _ | Ring_inherit
+    | Ring_bracket_color _ | Ring_bracket_color_opacity _
+    | Ring_bracket_color_var _ | Ring_bracket_color_var_opacity _
+    | Ring_bracket_var _ | Ring_bracket_var_opacity _ ->
         50000
     | Ring_inset -> 51000
     | Inset_ring_default -> 55000
     | Inset_ring_width n -> 55001 + n
     | Inset_ring_bracket_length _ -> 55100
-    | Inset_ring_color _ | Inset_ring_color_opacity _ | Inset_ring_transparent
-    | Inset_ring_current | Inset_ring_current_opacity _ | Inset_ring_inherit
+    | Inset_ring_color _ | Inset_ring_color_opacity _
+    | Inset_ring_keyword_opacity _ | Inset_ring_transparent | Inset_ring_current
+    | Inset_ring_current_opacity _ | Inset_ring_inherit
     | Inset_ring_bracket_color _ | Inset_ring_bracket_color_opacity _
     | Inset_ring_bracket_color_var _ | Inset_ring_bracket_cvar_opacity _
     | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
@@ -3114,8 +3203,8 @@ module Handler = struct
     | Ring_offset_width n -> 80000 + n
     | Ring_offset_bracket_length _ -> 80100
     | Ring_offset_color _ | Ring_offset_color_opacity _
-    | Ring_offset_transparent | Ring_offset_current
-    | Ring_offset_current_opacity _ | Ring_offset_inherit
+    | Ring_offset_keyword_opacity _ | Ring_offset_transparent
+    | Ring_offset_current | Ring_offset_current_opacity _ | Ring_offset_inherit
     | Ring_offset_bracket_color _ | Ring_offset_bracket_color_opacity _
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_cvar_opacity _
     | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->

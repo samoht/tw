@@ -30,6 +30,7 @@ module Handler = struct
     | Text_shadow_current_opacity of Color.opacity_modifier
     | Text_shadow_inherit
     | Text_shadow_transparent
+    | Text_shadow_transparent_opacity of Color.opacity_modifier
     | Text_shadow_bracket_hex of string
     | Text_shadow_bracket_hex_opacity of string * Color.opacity_modifier
     | Text_shadow_bracket_color_var of string
@@ -413,6 +414,18 @@ module Handler = struct
     style ~rules:(Some [ supports_block ])
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
+  let set_transparent_opacity opacity =
+    let base_decl, _ = Var.binding text_shadow_color_var Css.Transparent in
+    let inner_mix = Color.apply_alpha opacity Css.Transparent in
+    let enhanced_color =
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+        inner_mix Css.Transparent
+    in
+    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
+    let supports_block = color_mix_supports [ enhanced_decl ] in
+    style ~rules:(Some [ supports_block ])
+      ~property_rules:text_shadow_property_rules [ base_decl ]
+
   let set_inherit () =
     let base_decl, _ = Var.binding text_shadow_color_var Css.Inherit in
     style ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -611,6 +624,7 @@ module Handler = struct
     | Text_shadow_current_opacity opacity -> set_current_opacity opacity
     | Text_shadow_inherit -> set_inherit ()
     | Text_shadow_transparent -> set_transparent ()
+    | Text_shadow_transparent_opacity opacity -> set_transparent_opacity opacity
     | Text_shadow_bracket_hex hex -> set_bracket_hex hex
     | Text_shadow_bracket_hex_opacity (hex, opacity) ->
         set_bracket_hex_opacity hex opacity
@@ -692,9 +706,13 @@ module Handler = struct
         match (shape_opt, opacity) with
         | Some shape, Color.No_opacity -> Ok (Text_shadow_shape shape)
         | Some shape, op -> Ok (Text_shadow_shape_opacity (shape, op))
-        | Stdlib.Option.None, _ when base = "inherit" -> Ok Text_shadow_inherit
-        | Stdlib.Option.None, _ when base = "transparent" ->
+        | Stdlib.Option.None, Color.No_opacity when base = "inherit" ->
+            Ok Text_shadow_inherit
+        | Stdlib.Option.None, _ when base = "inherit" -> err_not_utility
+        | Stdlib.Option.None, Color.No_opacity when base = "transparent" ->
             Ok Text_shadow_transparent
+        | Stdlib.Option.None, op when base = "transparent" ->
+            Ok (Text_shadow_transparent_opacity op)
         | Stdlib.Option.None, _ when starts_with "current" base -> (
             match opacity with
             | Color.No_opacity when base = "current" -> Ok Text_shadow_current
@@ -774,6 +792,8 @@ module Handler = struct
         "text-shadow-current/" ^ Color.pp_opacity opacity
     | Text_shadow_inherit -> "text-shadow-inherit"
     | Text_shadow_transparent -> "text-shadow-transparent"
+    | Text_shadow_transparent_opacity opacity ->
+        "text-shadow-transparent/" ^ Color.pp_opacity opacity
     | Text_shadow_bracket_hex hex -> "text-shadow-[#" ^ hex ^ "]"
     | Text_shadow_bracket_hex_opacity (hex, opacity) ->
         "text-shadow-[#" ^ hex ^ "]/" ^ Color.pp_opacity opacity
