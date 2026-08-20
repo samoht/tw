@@ -59,9 +59,19 @@ let is_allowed_canonicalization_diff diff =
     | _ -> false
   in
   match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules = []; containers } ->
+  | Some Tree_diff.{ rules = []; containers; layer_order = None } ->
       containers <> [] && List.for_all allowed_container containers
   | _ -> false
+
+let test_layer_order_not_tolerated () =
+  let expected =
+    "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
+  in
+  let actual = "@layer strong, weak;@media (width >= 1px){.x{--font-sans:b}}" in
+  let diff = Css_compare.diff ~mode:`Tree expected actual in
+  Alcotest.(check bool)
+    "a tolerated declaration cannot hide a layer-order change" false
+    (is_allowed_canonicalization_diff diff)
 
 (* File utilities *)
 let write_file path content =
@@ -1287,6 +1297,8 @@ let property_order_cross_family () =
 
 let core_tests =
   [
+    test_case "canonical tolerance rejects layer order" `Quick
+      test_layer_order_not_tolerated;
     test_case "debug artefacts" `Quick debug_artefacts;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
