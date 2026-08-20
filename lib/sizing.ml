@@ -708,7 +708,7 @@ module Handler = struct
           | Some (raw, len) -> Ok (Sized (prop, Arbitrary (raw, len)))
           | None -> err_invalid_value f.css_name v
         else
-          match float_of_string_opt v with
+          match Parse.decimal_float v with
           | Some n when n >= 0. -> Ok (Sized (prop, Spacing (n *. 0.25)))
           | _ -> err_invalid_value f.css_name v)
 

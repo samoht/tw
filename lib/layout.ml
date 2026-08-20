@@ -484,13 +484,9 @@ module Handler = struct
     | Z_arbitrary s ->
         style
           [ z_index (Css.Properties.read_z_index (Cascade.Cursor.of_string s)) ]
-    | Neg_z_arbitrary s -> (
-        match int_of_string_opt s with
-        | Some n -> style [ z_index (Index (-n)) ]
-        | None ->
-            let zi = Css.Properties.read_z_index (Cascade.Cursor.of_string s) in
-            style
-              [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ])
+    | Neg_z_arbitrary s ->
+        let zi = Css.Properties.read_z_index (Cascade.Cursor.of_string s) in
+        style [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ]
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
@@ -643,7 +639,7 @@ module Handler = struct
         else Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
     | [ "z"; n ] -> (
         (* Dynamic z-index: z-5, z-100, etc. *)
-        match int_of_string_opt n with
+        match Parse.decimal_int n with
         | Some i -> Ok (Z i)
         | None -> Error (`Msg ("Invalid z-index value: " ^ n)))
     | "" :: "z" :: rest when rest <> [] -> (
@@ -657,7 +653,7 @@ module Handler = struct
           let inner = String.sub value 1 (String.length value - 2) in
           Ok (Neg_z_arbitrary inner)
         else
-          match int_of_string_opt value with
+          match Parse.decimal_int value with
           | Some i -> Ok (Neg_z i)
           | None -> Error (`Msg ("Invalid negative z-index value: " ^ value)))
     | [ "object"; "contain" ] -> Ok Object_contain

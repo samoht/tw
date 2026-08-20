@@ -75,20 +75,6 @@ now goes through Nest.substitute; port them to the typed selector API.
   `var(--x, var(--y))`. `var( --x )` fails the exact prefix test and falls
   through unchanged. See the blocked-on-cascade section for the shared fix.
 
-Residuals found gating PR #282 (2026-08-01), same symptom on other paths:
-
-- Several utilities read their suffix with a direct `int_of_string_opt` /
-  `float_of_string_opt` instead of `Parse`, so non-decimal spellings still
-  pass: `z-0x10` -> `.z-16` and `-z-0x10` -> `.-z-16` (layout.ml),
-  `order-1_0`, `columns-0x2`, `grid-cols-0x2`, `grid-rows-0x2`, `basis-1_0`,
-  `flex-0x2`, `w-0x4`, `h-0x4`, `border-0x2`. A blanket substitution is not
-  safe - some of these readers also serve bracket values, where CSS does allow
-  `1e3` - so each site needs its class-suffix path separated first.
-- Redundant-zero decimals are accepted although Tailwind rejects them:
-  `p-04` -> `.p-4`, `p-4.0` -> `.p-4`, `p-1.50` -> `.p-1.5`; likewise
-  `aria-[_modal_]` -> `[aria-modal]` where Tailwind rejects the padded
-  spelling. Canonical-form questions rather than base/separator bugs.
-
 ## Sort and priority
 
 Still open:
