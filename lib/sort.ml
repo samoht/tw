@@ -632,6 +632,44 @@ let natural_compare s1 s2 =
   in
   compare_at 0 0
 
+(* Tailwind orders the values of sizing and flex-basis candidates by the raw
+   candidate spelling. This naturally interleaves digit-led theme names with
+   numeric values (2, 2xl, 10), and puts the [(--var)] shorthand before both.
+   The handler suborders still separate the property families themselves. *)
+let candidate_value_family base_class =
+  let _, base = Modifiers.of_string base_class in
+  List.find_opt
+    (fun prefix ->
+      let n = String.length prefix in
+      String.length base > n && String.starts_with ~prefix:(prefix ^ "-") base)
+    [
+      "min-inline";
+      "max-inline";
+      "min-block";
+      "max-block";
+      "min-w";
+      "max-w";
+      "min-h";
+      "max-h";
+      "inline";
+      "block";
+      "size";
+      "basis";
+      "w";
+      "h";
+    ]
+
+let compare_candidate_values r1 r2 =
+  if fst r1.order <> fst r2.order then None
+  else
+    match
+      ( candidate_value_family r1.base_class_key,
+        candidate_value_family r2.base_class_key )
+    with
+    | Some f1, Some f2 when String.equal f1 f2 ->
+        Some (natural_compare r1.base_class_key r2.base_class_key)
+    | _ -> None
+
 let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2 else compare_by_priority_index r1 r2
@@ -739,20 +777,23 @@ let compare_cross_utility_regular r1 r2 =
            kind_str kind2;
            ")\n";
          ]));
-  let same_order = p1 = p2 && s1 = s2 in
-  match
-    if same_order then
-      compare_pseudo_elements kind1 kind2 r1.selector r2.selector
-    else None
-  with
-  | Some cmp -> cmp
-  | None -> (
-      match compare_focus_visible_state r1 r2 kind1 kind2 with
+  match compare_candidate_values r1 r2 with
+  | Some cmp when cmp <> 0 -> cmp
+  | Some _ | None -> (
+      let same_order = p1 = p2 && s1 = s2 in
+      match
+        if same_order then
+          compare_pseudo_elements kind1 kind2 r1.selector r2.selector
+        else None
+      with
       | Some cmp -> cmp
       | None -> (
-          match compare_focus_modifier_ordering r1 r2 kind1 kind2 with
+          match compare_focus_visible_state r1 r2 kind1 kind2 with
           | Some cmp -> cmp
-          | None -> compare_by_prio_sub_late r1 r2 kind1 kind2))
+          | None -> (
+              match compare_focus_modifier_ordering r1 r2 kind1 kind2 with
+              | Some cmp -> cmp
+              | None -> compare_by_prio_sub_late r1 r2 kind1 kind2)))
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
@@ -1037,29 +1078,35 @@ let nested_order rule_type nested =
 (* Last resort for two rules that share a variant group, a breakpoint and a
    prefix: the utility's own priority, then the selector. *)
 let compare_variant_tail r1 r2 =
-  let p1, s1 = r1.order and p2, s2 = r2.order in
-  let prio_cmp = Int.compare p1 p2 in
-  if prio_cmp <> 0 then prio_cmp
-  else
-    let sub_cmp = Int.compare s1 s2 in
-    if sub_cmp <> 0 then sub_cmp
-    else
-      match (r1.selector_kind, r2.selector_kind) with
-      | Simple, Simple ->
-          (* Same priority/suborder simple rules (e.g. two arbitrary bg colors)
-             break ties by selector like the regular layer, matching Tailwind's
-             alphabetical order. *)
-          natural_compare r1.selector_str r2.selector_str
-      | _ ->
-          (* Complex rules (prose's descendant selectors) keep base class +
-             source order so a component stays one block. Arbitrary values in a
-             variant, e.g. hover:from-[rgba(5,...)] vs
-             hover:from-[rgba(14,...)], share a prefix and differ only in the
-             numeric part, so order those numerically like Tailwind. Identical
-             base classes (prose's :where rules all key on "prose") tie at 0 and
-             fall back to source order, unchanged. *)
-          let class_cmp = natural_compare r1.base_class_key r2.base_class_key in
-          if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+  match compare_candidate_values r1 r2 with
+  | Some cmp when cmp <> 0 -> cmp
+  | Some _ | None -> (
+      let p1, s1 = r1.order and p2, s2 = r2.order in
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else
+          match (r1.selector_kind, r2.selector_kind) with
+          | Simple, Simple ->
+              (* Same priority/suborder simple rules (e.g. two arbitrary bg
+                 colors) break ties by selector like the regular layer, matching
+                 Tailwind's alphabetical order. *)
+              natural_compare r1.selector_str r2.selector_str
+          | _ ->
+              (* Complex rules (prose's descendant selectors) keep base class +
+                 source order so a component stays one block. Arbitrary values
+                 in a variant, e.g. hover:from-[rgba(5,...)] vs
+                 hover:from-[rgba(14,...)], share a prefix and differ only in
+                 the numeric part, so order those numerically like Tailwind.
+                 Identical base classes (prose's :where rules all key on
+                 "prose") tie at 0 and fall back to source order, unchanged. *)
+              let class_cmp =
+                natural_compare r1.base_class_key r2.base_class_key
+              in
+              if class_cmp <> 0 then class_cmp
+              else Int.compare r1.index r2.index)
 
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with

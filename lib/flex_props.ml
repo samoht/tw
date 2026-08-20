@@ -304,17 +304,19 @@ module Handler = struct
     | [ "basis"; "full" ] -> Ok Basis_full
     | [ "basis"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
-        if String.ends_with ~suffix:"px" inner then
-          let n = String.sub inner 0 (String.length inner - 2) in
-          match float_of_string_opt n with
-          | Some f -> Ok (Basis_arbitrary (Css.Px f))
-          | None -> err_not_utility
-        else if String.ends_with ~suffix:"rem" inner then
-          let n = String.sub inner 0 (String.length inner - 3) in
-          match float_of_string_opt n with
-          | Some f -> Ok (Basis_arbitrary (Css.Rem f))
-          | None -> err_not_utility
-        else err_not_utility
+        let cursor =
+          Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
+        in
+        (match
+           let value = Css.Properties.read_flex_basis cursor in
+           Cascade.Cursor.ws cursor;
+           Cascade.Cursor.expect_eof cursor;
+           Some value
+         with
+          | value -> value
+          | exception Cascade.Cursor.Parse_error _ -> None)
+        |> Option.fold ~none:err_not_utility ~some:(fun value ->
+            Ok (Basis_arbitrary value))
     | [ "basis"; value ] -> (
         match int_of_string_opt value with
         | Some n when n >= 0 -> Ok (Basis_spacing n)
