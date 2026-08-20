@@ -62,6 +62,18 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
+let block_end css from =
+  let len = String.length css in
+  let rec scan j depth =
+    if j >= len then j
+    else
+      match css.[j] with
+      | '{' -> scan (j + 1) (depth + 1)
+      | '}' -> if depth = 1 then j + 1 else scan (j + 1) (depth - 1)
+      | _ -> scan (j + 1) depth
+  in
+  scan from 0
+
 (* Rewrite each Tailwind [@theme [modifiers] {] header to a rule selector.
    Cascade's parser accepts [@theme] but drops its body (it is not a standard
    at-rule), so this swaps only the at-rule keyword and its modifiers up to the
@@ -76,17 +88,6 @@ let hoist_theme_keyframes css =
   let len = String.length css in
   let buf = Buffer.create len in
   let lifted = Buffer.create 0 in
-  let block_end from =
-    let rec scan j depth =
-      if j >= len then j
-      else
-        match css.[j] with
-        | '{' -> scan (j + 1) (depth + 1)
-        | '}' -> if depth = 1 then j + 1 else scan (j + 1) (depth - 1)
-        | _ -> scan (j + 1) depth
-    in
-    scan from 0
-  in
   let rec go i inside_theme =
     if i >= len then ()
     else if inside_theme && i + 10 <= len && String.sub css i 10 = "@keyframes"
@@ -96,7 +97,7 @@ let hoist_theme_keyframes css =
           Buffer.add_char buf css.[i];
           go (i + 1) inside_theme
       | Some brace ->
-          let stop = block_end brace in
+          let stop = block_end css brace in
           Buffer.add_string lifted (String.sub css i (stop - i));
           go stop inside_theme
       end
@@ -106,7 +107,7 @@ let hoist_theme_keyframes css =
           Buffer.add_char buf css.[i];
           go (i + 1) inside_theme
       | Some brace ->
-          let stop = block_end brace in
+          let stop = block_end css brace in
           Buffer.add_string buf (String.sub css i (brace + 1 - i));
           go_theme (brace + 1) stop
       end
@@ -122,7 +123,7 @@ let hoist_theme_keyframes css =
           Buffer.add_char buf css.[i];
           go_theme (i + 1) stop
       | Some brace ->
-          let k_end = block_end brace in
+          let k_end = block_end css brace in
           Buffer.add_string lifted (String.sub css i (k_end - i));
           go_theme k_end stop)
     else begin
@@ -424,6 +425,28 @@ let take_custom_utilities css =
   let css, defs = take_named_defs "@utility" css in
   (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
 
+let fill_slots template body =
+  let len = String.length template in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else if i + 5 <= len && String.sub template i 5 = "@slot" then begin
+      Buffer.add_string buf body;
+      (* swallow the terminating [;] so the slot does not leave a stray one *)
+      let j = ref (i + 5) in
+      while !j < len && (template.[!j] = ' ' || template.[!j] = '\n') do
+        incr j
+      done;
+      go (if !j < len && template.[!j] = ';' then !j + 1 else !j)
+    end
+    else begin
+      Buffer.add_char buf template.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
 (* Replace [@variant NAME { decls }] with the variant's body, substituting the
    declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
    the recursion re-runs over the result. *)
@@ -451,28 +474,6 @@ let rec expand_variants ~depth defs css =
     go 0;
     let out = Buffer.contents buf in
     if !changed then expand_variants ~depth:(depth + 1) defs out else out
-
-and fill_slots template body =
-  let len = String.length template in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else if i + 5 <= len && String.sub template i 5 = "@slot" then begin
-      Buffer.add_string buf body;
-      (* swallow the terminating [;] so the slot does not leave a stray one *)
-      let j = ref (i + 5) in
-      while !j < len && (template.[!j] = ' ' || template.[!j] = '\n') do
-        incr j
-      done;
-      go (if !j < len && template.[!j] = ';' then !j + 1 else !j)
-    end
-    else begin
-      Buffer.add_char buf template.[i];
-      go (i + 1)
-    end
-  in
-  go 0;
-  Buffer.contents buf
 
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
@@ -667,6 +668,28 @@ let split_declared_variants defs name =
       in
       (declared, String.concat ":" (builtin @ [ bare ]))
 
+let is_utility_statement stmt =
+  match Css.statement_selector stmt with
+  | None -> true
+  | Some sel ->
+      let s = Cascade.Selector.to_string ~minify:true sel in
+      String.contains s '.'
+
+let rec merge_same_selector = function
+  | a :: b :: rest -> (
+      match (Css.as_rule a, Css.as_rule b) with
+      | Some (sa, da, []), Some (sb, db, [])
+        when Cascade.Selector.to_string ~minify:true sa
+             = Cascade.Selector.to_string ~minify:true sb ->
+          merge_same_selector (Css.rule ~selector:sa (da @ db) :: rest)
+      | _ -> a :: merge_same_selector (b :: rest))
+  | stmts -> stmts
+
+let render_nested_utilities stmts =
+  stmts
+  |> Css.map (fun sel decls -> Css.rule ~selector:(nest_on_ampersand sel) decls)
+  |> merge_same_selector |> Css.v |> Css.to_string ~minify:true
+
 (* The declarations of [names], rewritten to nest under the [&] of whatever rule
    applies them, plus the statements that must stay at the top of the sheet. A
    [@layer properties] block holds the initial value of the variables the
@@ -688,18 +711,12 @@ let nested_utilities ~theme names =
          selector is [:root]. A utility's own rule names its class somewhere,
          but not always first: [divide-*] wraps it in
          [:where(.divide-x > :not(:last-child))]. *)
-      let from_utility stmt =
-        match Css.statement_selector stmt with
-        | None -> true
-        | Some sel ->
-            let s = Cascade.Selector.to_string ~minify:true sel in
-            String.contains s '.'
-      in
       (* [@property] belongs beside the utilities too, not inside the rule that
          applied them: nested there it is emitted once per applying rule, and
          the same property comes back for every utility that sets it. *)
       let hoisted, nestable =
-        Css.statements sheet |> List.filter from_utility
+        Css.statements sheet
+        |> List.filter is_utility_statement
         |> List.partition (fun stmt ->
             Css.as_layer stmt <> None || Css.as_property stmt <> None)
       in
@@ -707,26 +724,10 @@ let nested_utilities ~theme names =
          They all decorate the same [&], so they belong in one rule, the way
          Tailwind emits them; left apart, each is a rule of the author's
          selector holding one declaration. *)
-      let rec merge_same_selector = function
-        | a :: b :: rest -> (
-            match (Css.as_rule a, Css.as_rule b) with
-            | Some (sa, da, []), Some (sb, db, [])
-              when Cascade.Selector.to_string ~minify:true sa
-                   = Cascade.Selector.to_string ~minify:true sb ->
-                merge_same_selector (Css.rule ~selector:sa (da @ db) :: rest)
-            | _ -> a :: merge_same_selector (b :: rest))
-        | stmts -> stmts
-      in
-      let render stmts =
-        stmts
-        |> Css.map (fun sel decls ->
-            Css.rule ~selector:(nest_on_ampersand sel) decls)
-        |> merge_same_selector |> Css.v |> Css.to_string ~minify:true
-      in
       (* One string per hoisted statement, not one for the whole block: two
          utilities bring overlapping [@property] sets, and deduping the blocks
          whole re-emits every property they do not share. *)
-      ( render nestable,
+      ( render_nested_utilities nestable,
         List.map (fun st -> Css.to_string ~minify:true (Css.v [ st ])) hoisted
       )
 
@@ -741,6 +742,63 @@ let add_once buf seen items =
       end)
     items
 
+let is_css_ident_char c =
+  (c >= 'a' && c <= 'z')
+  || (c >= 'A' && c <= 'Z')
+  || (c >= '0' && c <= '9')
+  || c = '-' || c = '_'
+
+let apply_names css start stop =
+  String.sub css start (stop - start)
+  |> String.split_on_char ' '
+  |> List.concat_map (String.split_on_char '\n')
+  |> List.map String.trim
+  |> List.filter (fun name -> name <> "")
+
+let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
+  let variants, bare = split_declared_variants defs name in
+  (* [@apply line-t] names a utility the project declared, whose body is author
+     CSS in its own right. *)
+  let body, top =
+    match List.assoc_opt bare udefs with
+    | Some decls -> (decls, [])
+    | None -> nested_utilities ~theme [ bare ]
+  in
+  add_once hoisted seen top;
+  if body <> "" then begin
+    List.iter
+      (fun variant ->
+        Buffer.add_string buf (String.concat "" [ "@variant "; variant; "{" ]))
+      variants;
+    Buffer.add_string buf body;
+    List.iter (fun _ -> Buffer.add_char buf '}') variants
+  end
+
+let plain_apply_name ~defs ~udefs name =
+  match split_declared_variants defs name with
+  | [], bare when not (List.mem_assoc bare udefs) -> Some bare
+  | _ -> None
+
+let rec take_plain_apply_run ~defs ~udefs acc = function
+  | name :: rest when Option.is_some (plain_apply_name ~defs ~udefs name) ->
+      take_plain_apply_run ~defs ~udefs (name :: acc) rest
+  | rest -> (List.rev acc, rest)
+
+let rec emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen = function
+  | [] -> ()
+  | name :: rest as names -> (
+      match plain_apply_name ~defs ~udefs name with
+      | None ->
+          emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name;
+          emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen rest
+      | Some _ ->
+          let run, rest = take_plain_apply_run ~defs ~udefs [] names in
+          let bare = List.filter_map (plain_apply_name ~defs ~udefs) run in
+          let body, top = nested_utilities ~theme bare in
+          add_once hoisted seen top;
+          Buffer.add_string buf body;
+          emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen rest)
+
 (* Tailwind's [@apply] pulls a utility's declarations into an author rule. It is
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
@@ -749,82 +807,23 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
-  let ident c =
-    (c >= 'a' && c <= 'z')
-    || (c >= 'A' && c <= 'Z')
-    || (c >= '0' && c <= '9')
-    || c = '-' || c = '_'
-  in
   let rec go i =
     if i >= len then ()
     else if
       i + 6 <= len
       && String.sub css i 6 = "@apply"
-      && (i = 0 || not (ident css.[i - 1]))
+      && (i = 0 || not (is_css_ident_char css.[i - 1]))
     then begin
       let stop = ref (i + 6) in
       while !stop < len && css.[!stop] <> ';' && css.[!stop] <> '}' do
         incr stop
       done;
-      let names =
-        String.sub css (i + 6) (!stop - i - 6)
-        |> String.split_on_char ' '
-        |> List.concat_map (String.split_on_char '\n')
-        |> List.map String.trim
-        |> List.filter (fun n -> n <> "")
-      in
-      let emit name =
-        let variants, bare = split_declared_variants defs name in
-        (* [@apply line-t] names a utility the project declared, whose body is
-           author CSS in its own right. *)
-        let body, top =
-          match List.assoc_opt bare udefs with
-          | Some decls -> (decls, [])
-          | None -> nested_utilities ~theme [ bare ]
-        in
-        add_once hoisted seen top;
-        if body = "" then ()
-        else begin
-          List.iter
-            (fun v ->
-              Buffer.add_string buf (String.concat "" [ "@variant "; v; "{" ]))
-            variants;
-          Buffer.add_string buf body;
-          List.iter (fun _ -> Buffer.add_char buf '}') variants
-        end
-      in
       (* A utility with no declared variant and no body of its own decorates the
          applying rule's [&] directly. A run of those renders in one call, so
          their declarations land in a single rule the way Tailwind emits them,
          rather than one rule of the author's selector per utility. *)
-      let plain name =
-        match split_declared_variants defs name with
-        | [], bare when not (List.mem_assoc bare udefs) -> Some bare
-        | _ -> None
-      in
-      let rec emit_all = function
-        | [] -> ()
-        | name :: tl as all -> (
-            match plain name with
-            | None ->
-                emit name;
-                emit_all tl
-            | Some _ ->
-                let run, rest =
-                  let rec span acc = function
-                    | n :: tl when plain n <> None -> span (n :: acc) tl
-                    | rest -> (List.rev acc, rest)
-                  in
-                  span [] all
-                in
-                let body, top =
-                  nested_utilities ~theme (List.filter_map plain run)
-                in
-                add_once hoisted seen top;
-                Buffer.add_string buf body;
-                emit_all rest)
-      in
-      emit_all names;
+      let names = apply_names css (i + 6) !stop in
+      emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
       go (if !stop < len && css.[!stop] = ';' then !stop + 1 else !stop)
     end
     else begin
@@ -955,25 +954,28 @@ let preload_imports ~transform ~base_url stylesheet =
    [@layer properties] blocks each applied utility hoists arrive separately, so
    fold every repeat of a name into the first, dropping content the first
    already has. *)
+let named_layer stmt =
+  match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
+
+let layer_statements stmt =
+  match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
+
+let repeated_layer_names stmts =
+  let counts = Hashtbl.create 8 in
+  List.iter
+    (fun stmt ->
+      match named_layer stmt with
+      | Some name ->
+          Hashtbl.replace counts name
+            (1 + Option.value ~default:0 (Hashtbl.find_opt counts name))
+      | None -> ())
+    stmts;
+  Hashtbl.fold
+    (fun name count acc -> if count > 1 then name :: acc else acc)
+    counts []
+
 let merge_named_layers stmts =
-  let name_of stmt =
-    match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
-  in
-  let inner stmt =
-    match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
-  in
-  let repeated =
-    let counts = Hashtbl.create 8 in
-    List.iter
-      (fun stmt ->
-        match name_of stmt with
-        | Some n ->
-            Hashtbl.replace counts n
-              (1 + Option.value ~default:0 (Hashtbl.find_opt counts n))
-        | None -> ())
-      stmts;
-    Hashtbl.fold (fun n c acc -> if c > 1 then n :: acc else acc) counts []
-  in
+  let repeated = repeated_layer_names stmts in
   if repeated = [] then stmts
   else
     let merged = Hashtbl.create 8 in
@@ -982,7 +984,8 @@ let merge_named_layers stmts =
         let seen = Hashtbl.create 64 in
         let body =
           List.concat_map
-            (fun stmt -> if name_of stmt = Some n then inner stmt else [])
+            (fun stmt ->
+              if named_layer stmt = Some n then layer_statements stmt else [])
             stmts
           |> List.filter (fun st ->
               let key = Css.to_string ~minify:true (Css.v [ st ]) in
@@ -997,7 +1000,7 @@ let merge_named_layers stmts =
     let emitted = Hashtbl.create 8 in
     List.filter_map
       (fun stmt ->
-        match name_of stmt with
+        match named_layer stmt with
         | Some n when List.mem n repeated ->
             if Hashtbl.mem emitted n then None
             else begin
@@ -1418,173 +1421,177 @@ let rec slot_of_statement stmt =
           | Some (_, inner) -> List.find_map slot_of_statement inner
           | None -> None))
 
+let routed_template ~theme derived name =
+  match Hashtbl.find_opt derived name with
+  | Some template -> template
+  | None ->
+      let template = builtin_variant_template ~theme name in
+      Hashtbl.add derived name template;
+      template
+
+let record_routed_order ~theme own_order cls name =
+  match Tw.Utility.base_of_class theme name with
+  | Ok base -> Hashtbl.replace own_order cls (Tw.Utility.order base)
+  | Error _ -> ()
+
+let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
+  let variants, bare = split_declared_variants defs cls in
+  (* [bare] still carries the built-in prefixes; the utility itself is its last
+     segment. *)
+  let segments = variant_segments bare in
+  let last = List.length segments - 1 in
+  let name = List.nth segments last in
+  let builtin = List.filteri (fun index _ -> index < last) segments in
+  match List.assoc_opt name udefs with
+  | Some decls ->
+      (* A declared utility means nothing to [Tw.of_string], so every prefix has
+         to become a [@variant], the built-in ones included. *)
+      if
+        List.for_all
+          (fun variant ->
+            Option.is_some (routed_template ~theme derived variant))
+          builtin
+      then Some (wrapped_block cls (variants @ builtin) decls)
+      else None
+  | None when variants = [] -> None
+  | None ->
+      let body, top = nested_utilities ~theme [ bare ] in
+      add_once hoisted seen top;
+      if body = "" then None
+      else begin
+        record_routed_order ~theme own_order cls name;
+        Some (wrapped_block cls variants body)
+      end
+
+let collect_routed_templates ~theme derived udefs =
+  List.iter
+    (fun (_, body) ->
+      List.iter
+        (fun name -> ignore (routed_template ~theme derived name))
+        (variant_names_in body))
+    udefs
+
+let routed_variant_defs defs derived =
+  defs
+  @ Hashtbl.fold
+      (fun name template acc ->
+        match template with Some body -> (name, body) :: acc | None -> acc)
+      derived []
+
+let dedup_statements stmts =
+  let seen = Hashtbl.create 8 in
+  List.filter
+    (fun stmt ->
+      let key = Css.to_string ~minify:true (Css.v [ stmt ]) in
+      if Hashtbl.mem seen key then false
+      else begin
+        Hashtbl.add seen key ();
+        true
+      end)
+    stmts
+
+let group_routed_rules ~own_order rules =
+  let group = Hashtbl.create 8 in
+  let order_of = Hashtbl.create 8 in
+  let classless = ref [] in
+  List.iter
+    (fun stmt ->
+      match first_class_of_statement stmt with
+      | None -> classless := stmt :: !classless
+      | Some cls -> (
+          let prev =
+            Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
+          in
+          Hashtbl.replace group cls (prev @ [ stmt ]);
+          if (not (Hashtbl.mem own_order cls)) && not (Hashtbl.mem order_of cls)
+          then
+            match slot_of_statement stmt with
+            | Some order -> Hashtbl.add order_of cls order
+            | None -> ()))
+    rules;
+  (group, order_of, List.rev !classless)
+
+let routed_slot ~own_order ~order_of cls =
+  match Hashtbl.find_opt own_order cls with
+  | Some order -> order
+  | None ->
+      Stdlib.Option.value ~default:(max_int, max_int)
+        (Hashtbl.find_opt order_of cls)
+
+let compare_routed_entries ~own_order ~order_of (c1, _) (c2, _) =
+  let p1, s1 = routed_slot ~own_order ~order_of c1 in
+  let p2, s2 = routed_slot ~own_order ~order_of c2 in
+  let priority = Int.compare p1 p2 in
+  let suborder = if priority <> 0 then priority else Int.compare s1 s2 in
+  if suborder <> 0 then suborder else String.compare c1 c2
+
+let ordered_routed_entries ~own_order ~order_of group =
+  Hashtbl.fold (fun cls stmts acc -> (cls, stmts) :: acc) group []
+  |> List.sort (compare_routed_entries ~own_order ~order_of)
+
+let place_routed_entries ~own_order ~order_of ~classless entries =
+  let offset = ref 0 in
+  let ordered, unordered =
+    List.fold_left
+      (fun (ordered, unordered) (cls, stmts) ->
+        match Hashtbl.find_opt own_order cls with
+        | Some order -> ((cls, order, stmts) :: ordered, unordered)
+        | None -> (
+            match Hashtbl.find_opt order_of cls with
+            | Some (priority, suborder) ->
+                incr offset;
+                ( (cls, (priority, suborder + !offset), stmts) :: ordered,
+                  unordered )
+            | None -> (ordered, unordered @ stmts)))
+      ([], classless) entries
+  in
+  (List.rev ordered, unordered)
+
+let routed_statements ~block_count ~own_order stmts =
+  (* [@layer properties] and [@property] sit beside the utilities layer, not in
+     it: nested, the first would become [utilities.properties]. *)
+  let hoisted, rules =
+    List.partition
+      (fun stmt -> Css.as_layer stmt <> None || Css.as_property stmt <> None)
+      stmts
+  in
+  let group, order_of, classless = group_routed_rules ~own_order rules in
+  let entries = ordered_routed_entries ~own_order ~order_of group in
+  let ordered, unordered =
+    place_routed_entries ~own_order ~order_of ~classless entries
+  in
+  let unplaced =
+    if unordered = [] then [] else [ Css.layer ~name:"utilities" unordered ]
+  in
+  (block_count, ordered, unplaced @ dedup_statements hoisted)
+
+let parse_routed_blocks ~block_count ~own_order css =
+  match Css.of_string css with
+  | Error _ -> (0, [], [])
+  | Ok parsed ->
+      Css.statements (Css.flatten_nesting parsed.Css.stylesheet)
+      |> routed_statements ~block_count ~own_order
+
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
-  (* Templates derived on demand for the built-in variants a declared utility is
-     prefixed with. *)
   let derived = Hashtbl.create 8 in
-  let template name =
-    match Hashtbl.find_opt derived name with
-    | Some t -> t
-    | None ->
-        let t = builtin_variant_template ~theme name in
-        Hashtbl.add derived name t;
-        t
-  in
-  (* A declared variant only decorates the selector: the utility underneath is
-     one the handlers know, so it sorts by its own order - the same one the
-     built-in generator gives it. Reading a slot off the emitted property would
-     lose the value's place within its family ([p-2] before [p-10]). *)
   let own_order = Hashtbl.create 8 in
-  let record_own_order cls name =
-    match Tw.Utility.base_of_class theme name with
-    | Ok base -> Hashtbl.replace own_order cls (Tw.Utility.order base)
-    | Error _ -> ()
+  let blocks =
+    List.filter_map
+      (routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order)
+      candidates
   in
-  let one cls =
-    let variants, bare = split_declared_variants defs cls in
-    (* [bare] still carries the built-in prefixes; the utility itself is its
-       last segment. *)
-    let segs = variant_segments bare in
-    let name = List.nth segs (List.length segs - 1) in
-    let builtin = List.filteri (fun i _ -> i < List.length segs - 1) segs in
-    match List.assoc_opt name udefs with
-    | Some decls ->
-        (* A declared utility means nothing to [Tw.of_string], so every prefix
-           has to become a [@variant], the built-in ones included. *)
-        if List.for_all (fun v -> template v <> None) builtin then
-          Some (wrapped_block cls (variants @ builtin) decls)
-        else None
-    | None when variants = [] -> None
-    | None ->
-        let body, top = nested_utilities ~theme [ bare ] in
-        add_once hoisted seen top;
-        if body = "" then None
-        else begin
-          record_own_order cls name;
-          Some (wrapped_block cls variants body)
-        end
-  in
-  match List.filter_map one candidates with
+  match blocks with
   | [] -> (0, [], [])
-  | blocks -> (
-      (* A [@variant] inside a declared utility's body names a built-in too. *)
-      List.iter
-        (fun (_, body) ->
-          List.iter (fun name -> ignore (template name)) (variant_names_in body))
-        udefs;
-      let extra_defs =
-        defs
-        @ Hashtbl.fold
-            (fun name t acc ->
-              match t with Some t -> (name, t) :: acc | None -> acc)
-            derived []
-      in
+  | _ ->
+      collect_routed_templates ~theme derived udefs;
+      let extra_defs = routed_variant_defs defs derived in
       (* A [@utility] body is author CSS: it may hold [@apply], [@variant] and
          the [--spacing()]/[theme()] shorthands. *)
-      let css =
-        apply_variants ~extra_defs ~udefs ~theme
-          (String.concat "" (blocks @ [ Buffer.contents hoisted ]))
-      in
-      match Css.of_string css with
-      | Error _ -> (0, [], [])
-      | Ok p ->
-          let stmts = Css.statements (Css.flatten_nesting p.Css.stylesheet) in
-          (* [@layer properties] and [@property] sit beside the utilities layer,
-             not in it: nested, the first would become [utilities.properties].
-             Each comes back once per utility that sets the variable. *)
-          let hoisted_stmts, rules =
-            List.partition
-              (fun s -> Css.as_layer s <> None || Css.as_property s <> None)
-              stmts
-          in
-          let seen = Hashtbl.create 8 in
-          let hoisted_stmts =
-            List.filter
-              (fun s ->
-                let k = Css.to_string ~minify:true (Css.v [ s ]) in
-                if Hashtbl.mem seen k then false
-                else begin
-                  Hashtbl.add seen k ();
-                  true
-                end)
-              hoisted_stmts
-          in
-          (* Tailwind sorts a declared utility at the slot of the property it
-             declares, so group the rules it produced under their own class and
-             read that slot off the first declaration. A utility that carries
-             its own order needs no slot. A property no handler claims leaves
-             the group without either; those keep their old place at the end of
-             the layer rather than being dropped. *)
-          let group = Hashtbl.create 8 in
-          let order_of = Hashtbl.create 8 in
-          let classless = ref [] in
-          List.iter
-            (fun stmt ->
-              match first_class_of_statement stmt with
-              | None -> classless := stmt :: !classless
-              | Some cls -> (
-                  let prev =
-                    Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
-                  in
-                  Hashtbl.replace group cls (prev @ [ stmt ]);
-                  if
-                    (not (Hashtbl.mem own_order cls))
-                    && not (Hashtbl.mem order_of cls)
-                  then
-                    match slot_of_statement stmt with
-                    | Some order -> Hashtbl.add order_of cls order
-                    | None -> ()))
-            rules;
-          (* Two declared utilities can land on the same slot, and their rules
-             would then interleave by selector, splitting each one's own rules
-             apart. Offset the suborder per class so each stays contiguous. The
-             offset counts along a slot-then-name walk of the groups, not along
-             the hash table's, so it does not depend on the class names' hashes.
-             A utility with an order of its own takes no offset: it already sits
-             where the built-in generator would put it, and nudging it would
-             break the ties the layer resolves by name. *)
-          let slot_of cls =
-            match Hashtbl.find_opt own_order cls with
-            | Some order -> order
-            | None ->
-                Stdlib.Option.value
-                  ~default:(max_int, max_int)
-                  (Hashtbl.find_opt order_of cls)
-          in
-          let by_slot (c1, _) (c2, _) =
-            let p1, s1 = slot_of c1 and p2, s2 = slot_of c2 in
-            let cmp = Int.compare p1 p2 in
-            let cmp = if cmp <> 0 then cmp else Int.compare s1 s2 in
-            if cmp <> 0 then cmp else String.compare c1 c2
-          in
-          let entries =
-            Hashtbl.fold (fun cls stmts acc -> (cls, stmts) :: acc) group []
-            |> List.sort by_slot
-          in
-          let nth = ref 0 in
-          let ordered, unordered =
-            List.fold_left
-              (fun (ordered, unordered) (cls, stmts) ->
-                match Hashtbl.find_opt own_order cls with
-                | Some order -> ((cls, order, stmts) :: ordered, unordered)
-                | None -> (
-                    match Hashtbl.find_opt order_of cls with
-                    | Some (priority, suborder) ->
-                        incr nth;
-                        ( (cls, (priority, suborder + !nth), stmts) :: ordered,
-                          unordered )
-                    | None -> (ordered, unordered @ stmts)))
-              ([], List.rev !classless)
-              entries
-          in
-          let ordered = List.rev ordered in
-          let unplaced =
-            if unordered = [] then []
-            else [ Css.layer ~name:"utilities" unordered ]
-          in
-          (List.length blocks, ordered, unplaced @ hoisted_stmts))
+      String.concat "" (blocks @ [ Buffer.contents hoisted ])
+      |> apply_variants ~extra_defs ~udefs ~theme
+      |> parse_routed_blocks ~block_count:(List.length blocks) ~own_order
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
