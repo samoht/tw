@@ -11,7 +11,7 @@ bug-reports: "https://github.com/samoht/tw/issues"
 depends: [
   "ocaml" {>= "5.2"}
   "dune" {>= "3.21"}
-  "cascade" {>= "1.0.0"}
+  "cascade" {>= "1.1.0"}
   "cmdliner"
   "dune-build-info"
   "fmt"

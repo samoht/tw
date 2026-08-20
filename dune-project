@@ -27,7 +27,7 @@
  (depends
   (ocaml (>= 5.2))
   dune
-  (cascade (>= 1.0.0))
+  (cascade (>= 1.1.0))
   cmdliner
   dune-build-info
   fmt
