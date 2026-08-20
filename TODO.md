@@ -93,11 +93,6 @@ Residuals found gating PR #282 (2026-08-01), same symptom on other paths:
 
 Still open:
 
-- Within a family, a named theme value sorts before an arbitrary/var() value:
-  `max-w-2xl max-w-(--breakpoint-md)` renders named-first where Tailwind orders
-  by candidate string (`(` before `2`); surfaced on the site as the
-  `@media not (width >= 80rem)` position pair (2026-08-01 measurement). Likely
-  the same shared value-sort model as the digit-led named sizes below.
 - `not-supports-*:X` sorts beside its base utility's property family instead of
   into the `not-*` variant group: `px-4 not-supports-hanging-punctuation:px-4
   flex not-supports-[display:grid]:flex` interleaves where Tailwind puts all
@@ -108,10 +103,6 @@ Still open:
   rules; the stacked `**:`/`first:` order key outranks the `sm:` media
   grouping. Probe with `tw -s "container sm:bg-top **:[svg]:first:sm:size-4
   md:block" --tailwind`. 2026-08-01 measurement.
-- Digit-led named sizes sort wrongly family-wide: Tailwind natural-sorts the
-  value string (`basis-2xl` lands between `basis-2` and `basis-10`); tw puts
-  named sizes after all numerics. `max-w-2xl` and `w-2xl` are each wrong in
-  their own way, so this is one shared value-sort model, not per-family patches.
 - The priority-7 theme-layer emission order differs from real Tailwind behind
   a differ blind spot: ten overlapping slot collisions across
   radius/drop-shadow/ease/animate/perspective, and upstream emits
