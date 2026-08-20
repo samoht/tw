@@ -1422,6 +1422,7 @@ module Typography_late = struct
     | Decoration_current_opacity of Color.opacity_modifier
     | Decoration_inherit
     | Decoration_bracket_color of string * Css.color
+    | Decoration_bracket_invalid_color of string
     | Decoration_bracket_color_opacity of
         string * Css.color * Color.opacity_modifier
     | Decoration_bracket_var of string
@@ -1677,6 +1678,12 @@ module Typography_late = struct
                 match parse_decoration_pct inner with
                 | Some len -> Ok (Decoration_bracket_pct (inner, len))
                 | None -> err_not_utility
+              else if Result.is_ok (Parse.int_any inner) then
+                (* Tailwind resolves the ambiguous unitless spelling through the
+                   colour candidate path. Its declaration is invalid CSS and
+                   browsers discard it; accepting an inert candidate is
+                   therefore equivalent, while treating it as px is not. *)
+                Ok (Decoration_bracket_invalid_color inner)
               else
                 match parse_decoration_thickness inner with
                 | Some len -> Ok (Decoration_bracket_thickness (inner, len))
@@ -1934,6 +1941,7 @@ module Typography_late = struct
         "decoration-current/" ^ Color.pp_opacity opacity
     | Decoration_inherit -> "decoration-inherit"
     | Decoration_bracket_color (v, _) -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_invalid_color v -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_color_opacity (v, _, opacity) ->
         "decoration-[" ^ v ^ "]/" ^ Color.pp_opacity opacity
     | Decoration_bracket_var v -> "decoration-[" ^ v ^ "]"
@@ -2091,6 +2099,7 @@ module Typography_late = struct
     | Decoration_current_opacity _ -> 5000
     | Decoration_inherit -> 5000
     | Decoration_bracket_color _ -> 4000
+    | Decoration_bracket_invalid_color _ -> 4000
     | Decoration_bracket_color_opacity _ -> 4000
     | Decoration_bracket_color_var _ -> 4100
     | Decoration_bracket_color_var_opacity _ -> 4100
@@ -2923,6 +2932,7 @@ module Typography_late = struct
     | Decoration_inherit -> decoration_inherit
     | Decoration_bracket_color (inner, c) ->
         decoration_bracket_color_style inner c
+    | Decoration_bracket_invalid_color _ -> style []
     | Decoration_bracket_color_opacity (inner, c, opacity) ->
         decoration_bracket_color_with_opacity inner c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
