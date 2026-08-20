@@ -22,6 +22,44 @@ let var_fallback_in_css () =
   (* Should produce valid CSS *)
   check bool "produces valid CSS" (String.length css_str > 0) true
 
+(* Arbitrary var() values keep the outer variable and its fallback. This is
+   shared by typed utility families, so cover both a length and a keyword-like
+   property. *)
+let arbitrary_var_fallbacks () =
+  let sheet class_name =
+    match Tw.of_string class_name with
+    | Ok utility -> Tw.to_css ~base:false [ utility ]
+    | Error (`Msg msg) -> failf "%s: %s" class_name msg
+  in
+  let refs class_name =
+    sheet class_name |> Css.vars_of_stylesheet |> List.map Css.any_var_name
+  in
+  let css class_name = Css.to_string ~minify:true (sheet class_name) in
+  let inline_css class_name =
+    sheet class_name |> Css.inline_vars |> Css.to_string ~minify:true
+  in
+  check (list string) "padding outer reference" [ "--x" ]
+    (refs "p-[var(--x,var(--y))]");
+  check (list string) "cursor outer reference" [ "--c" ]
+    (refs "cursor-[var(--c,var(--d))]");
+  check bool "padding keeps nested fallback" true
+    (Astring.String.is_infix ~affix:"padding:var(--x,var(--y))"
+       (css "p-[var(--x,var(--y))]"));
+  check bool "cursor keeps nested fallback" true
+    (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
+       (css "cursor-[var(--c,var(--d))]"));
+  (* Closed-world inlining assumes no runtime mutation, so an unresolved outer
+     reference reduces to its fallback. *)
+  check bool "padding inline resolves the outer reference" true
+    (Astring.String.is_infix ~affix:"padding:var(--y)"
+       (inline_css "p-[var(--x,var(--y))]"));
+  check bool "cursor inline resolves the outer reference" true
+    (Astring.String.is_infix ~affix:"cursor:var(--d)"
+       (inline_css "cursor-[var(--c,var(--d))]"));
+  check (list string) "paren outer reference" [ "--top" ] (refs "top-(--top,0)");
+  check bool "paren shorthand keeps its override point" true
+    (Astring.String.is_infix ~affix:"top:var(--top," (css "top-(--top,0)"))
+
 (* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
@@ -141,6 +179,7 @@ let tests =
   [
     test_case "var CSS output" `Quick var_css_output;
     test_case "var fallback in CSS" `Quick var_fallback_in_css;
+    test_case "arbitrary var fallbacks" `Quick arbitrary_var_fallbacks;
     test_case "var in theme layer" `Quick var_in_theme_layer;
     test_case "order of shared slot" `Quick order_of_shared_slot;
     test_case "order of shared slot tokens" `Quick order_of_shared_slot_tokens;
