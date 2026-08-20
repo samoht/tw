@@ -1062,22 +1062,14 @@ let hoist_layer_blocks stmts =
 let drop_unread_inline_tokens ~theme stmts =
   if Tw.Scheme.(theme.inline_tokens) = [] then stmts
   else
-    let rendered = Css.to_string ~minify:true (Css.v stmts) in
-    let reads name =
-      let needle = "var(" ^ name ^ ")" in
-      let nl = String.length needle and hl = String.length rendered in
-      let rec at i =
-        i + nl <= hl && (String.sub rendered i nl = needle || at (i + 1))
-      in
-      at 0
+    let reads =
+      Css.vars_of_stylesheet (Css.v stmts) |> List.map Css.any_var_name
     in
     let keep decl =
       match Css.custom_declaration_name decl with
       | Some n when String.length n > 2 ->
           let bare = String.sub n 2 (String.length n - 2) in
-          (not (Tw.Scheme.is_inline_token theme bare))
-          || String.trim (Css.declaration_value decl) = "var(" ^ n ^ ")"
-          || reads n
+          (not (Tw.Scheme.is_inline_token theme bare)) || List.mem n reads
       | _ -> true
     in
     let rec go stmts =
@@ -1188,8 +1180,8 @@ let render_css ~(opts : gen_opts) stylesheet =
 
 (* Surface of_string's specific message (e.g. the actionable arbitrary-property
    feedback) for a single unknown class; fall back to a generic message. *)
-let unknown_class_error class_str =
-  match Tw.of_string class_str with
+let unknown_class_error ~theme class_str =
+  match Tw.of_string ~theme class_str with
   | Error (`Msg m) -> Fmt.str "Error: %s" m
   | Ok _ -> Fmt.str "Error: Unknown class: %s" class_str
 
@@ -1211,7 +1203,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     | [] when class_str = "" ->
         print_diff_result " (empty/base only)" diff;
         `Ok ()
-    | [] -> `Error (false, unknown_class_error class_str)
+    | [] -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
     | _ ->
         print_diff_result
           (Fmt.str " between Tailwind and tw for '%s'" class_str)
@@ -1227,7 +1219,8 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       try
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true [ class_str ]
+            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            [ class_str ]
         in
         print_string css;
         `Ok ()
@@ -1238,12 +1231,15 @@ let process_single_class class_str flag ~(opts : gen_opts) =
           ))
   | Native -> (
       let include_base = eval_flag flag ~default:false in
-      let tw_styles = parse_classes ~warn:false class_str in
+      let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
       let styles = match tw_styles with [] -> [] | s -> s in
       match tw_styles with
-      | [] when class_str <> "" -> `Error (false, unknown_class_error class_str)
+      | [] when class_str <> "" ->
+          `Error (false, unknown_class_error ~theme:opts.theme class_str)
       | _ ->
-          let stylesheet = Tw.to_css ~base:include_base styles in
+          let stylesheet =
+            Tw.to_css ~theme:opts.theme ~base:include_base styles
+          in
           print_string (render_css ~opts stylesheet);
           `Ok ())
 
