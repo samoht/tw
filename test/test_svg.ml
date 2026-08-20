@@ -28,10 +28,25 @@ let stroke_shadeless_colors () =
     "stroke-2 stays a width" true
     (Astring.String.is_infix ~affix:"stroke-width:2px" (css "stroke-2"))
 
+let stroke_light_dark_color () =
+  let cls = "stroke-[light-dark(red,blue)]" in
+  match Tw.of_string cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      Alcotest.(check string) "class" cls (Tw.pp u);
+      let css =
+        Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+      in
+      Alcotest.(check bool)
+        "light-dark() is routed as a stroke colour" true
+        (Astring.String.is_infix
+           ~affix:"stroke:light-dark(red,blue)" css)
+
 let tests =
   [
     test_case "basic svg" `Quick basic_svg;
     test_case "stroke shadeless colors" `Quick stroke_shadeless_colors;
+    test_case "stroke light-dark color" `Quick stroke_light_dark_color;
   ]
 
 let suite = ("svg", tests)
