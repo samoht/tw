@@ -173,3 +173,18 @@ guessing:
   $ tw --minify --input-css nope.css index.html | grep -c 'color:red'
   0
   [1]
+
+A breakpoint declared by the entrypoint theme is available while candidates
+are parsed, including candidates discovered by a file scan:
+
+  $ cat > custom-breakpoint.css <<EOF
+  > @import "tailwindcss";
+  > @theme { --breakpoint-10xl: 1600px; }
+  > EOF
+  $ cat > custom-breakpoint.html <<EOF
+  > <div class="10xl:flex"></div>
+  > EOF
+  $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'min-width:1600px'
+  1
+  $ tw --minify --input-css custom-breakpoint.css custom-breakpoint.html | grep -c 'display:flex'
+  1
