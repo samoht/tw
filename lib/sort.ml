@@ -829,23 +829,28 @@ let compare_by_base_class r1 r2 =
   let class_cmp = String.compare r1.base_class_key r2.base_class_key in
   if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
 
-(* Sort key for supports modifier variants: named before bracket *)
+let supports_suffix s =
+  if String.length s > 9 && String.sub s 0 9 = "supports-" then
+    Some (String.sub s 9 (String.length s - 9))
+  else if String.length s > 13 && String.sub s 0 13 = "not-supports-" then
+    Some (String.sub s 13 (String.length s - 13))
+  else None
+
+(* Sort key for supports modifier variants: named before bracket. Negating a
+   supports variant changes its condition, not its position within this
+   group. *)
 let supports_sort_key bc =
-  match bc with
-  | Some s when String.length s > 9 && String.sub s 0 9 = "supports-" ->
-      let after = String.sub s 9 (String.length s - 9) in
+  match Option.bind bc supports_suffix with
+  | Some after ->
       if String.length after > 0 && after.[0] = '[' then (1, after)
       else (0, after)
-  | Some s -> (0, s)
   | None -> (0, "")
 
 (* A [supports-*] variant rule, whose @supports condition is the variant itself.
    A colour utility's progressive-enhancement @supports carries the colour's own
    base class and must not be ordered by this key. *)
 let is_modifier_supports bc =
-  match bc with
-  | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
-  | None -> false
+  match bc with Some s -> Option.is_some (supports_suffix s) | None -> false
 
 (* Compare supports modifier rules by sort key *)
 let compare_supports_by_key r1 r2 =
@@ -1190,8 +1195,18 @@ let compare_indexed_rules r1 r2 =
   else if r1.variant_order > 0 then 1
   else if r2.variant_order > 0 then -1
   else if r1.not_order > 0 || r2.not_order > 0 then
-    let order_cmp = compare r1.order r2.order in
-    if order_cmp <> 0 then order_cmp else compare_by_base_class r1 r2
+    if r1.not_order = 0 then -1
+    else if r2.not_order = 0 then 1
+    else
+      let not_cmp = Int.compare r1.not_order r2.not_order in
+      if not_cmp <> 0 then not_cmp
+      else
+        match (r1.rule_type, r2.rule_type) with
+        | `Supports _, `Supports _
+          when is_modifier_supports r1.base_class
+               && is_modifier_supports r2.base_class ->
+            compare_supports_by_key r1 r2
+        | _ -> compare_by_base_class r1 r2
   else
     let type_cmp =
       Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)

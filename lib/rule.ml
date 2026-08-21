@@ -1040,24 +1040,17 @@ let has_substring s pat =
   in
   check 0
 
-(** Compute variant_order from base_class and selector. Extracts the modifier
-    prefix from base_class (everything before the last ":") and maps it to a
-    variant order number. For before/after, the base_class is the raw utility
-    name without prefix, so we detect them from the selector content. *)
+(** Compute variant_order from base_class and selector. A stacked candidate is
+    placed by its highest-order modifier, matching the descending key list used
+    by the comparator. For before/after, the base_class is the raw utility name
+    without prefix, so we detect them from the selector content. *)
 let compute_variant_order base_class selector =
   let from_base_class bc =
-    match String.rindex_opt bc ':' with
-    | Some i -> (
-        let prefix = String.sub bc 0 i in
-        let vo = Modifiers.variant_order_of_prefix prefix in
-        if vo > 0 then vo
-        else
-          (* For compound prefixes like "dark:group-focus", try the outermost
-             modifier (before the first colon in the prefix). *)
-          match String.index_opt prefix ':' with
-          | Some j -> Modifiers.variant_order_of_prefix (String.sub prefix 0 j)
-          | None -> 0)
-    | None -> 0
+    let modifiers, _ = Modifiers.of_string bc in
+    List.fold_left
+      (fun order modifier ->
+        Int.max order (Modifiers.variant_order_of_prefix modifier))
+      0 modifiers
   in
   let vo = match base_class with None -> 0 | Some bc -> from_base_class bc in
   (* If no variant_order from base_class, check selector for modifier-based

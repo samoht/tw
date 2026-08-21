@@ -1051,6 +1051,59 @@ let test_stacked_variant_outline_order () =
   Test_helpers.check_ordering_matches ~test_name:"stacked variant outline order"
     utilities
 
+let test_not_supports_variant_order () =
+  let classes =
+    [
+      "px-4";
+      "not-supports-hanging-punctuation:px-4";
+      "flex";
+      "not-supports-[display:grid]:flex";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [
+        ".flex{";
+        ".px-4{";
+        "not-supports-hanging-punctuation";
+        "not-supports-\\[display";
+      ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions;
+  Test_helpers.check_ordering_matches
+    ~test_name:"not-supports variants follow base utilities" utilities
+
+let test_stacked_responsive_variant_order () =
+  let classes =
+    [ "container"; "sm:bg-top"; "**:[svg]:first:sm:size-4"; "md:block" ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position [ "sm\\:bg-top"; "md\\:block"; "\\*\\*\\:\\[svg\\]" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions;
+  Test_helpers.check_ordering_matches
+    ~test_name:"stacked variants retain their highest-order component" utilities
+
 let test_rounded_position_order () =
   (* Border-radius position groups sort by the CSS corners they write, matching
      Tailwind: the physical ones grouped by first corner clockwise -- top, then
@@ -1553,6 +1606,9 @@ let tests =
       test_bracket_value_holding_a_colon;
     test_case "stacked variant outline order" `Slow
       test_stacked_variant_outline_order;
+    test_case "not-supports variant order" `Slow test_not_supports_variant_order;
+    test_case "stacked responsive variant order" `Slow
+      test_stacked_responsive_variant_order;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
