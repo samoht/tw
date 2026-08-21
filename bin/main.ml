@@ -1786,8 +1786,9 @@ let minify_flag =
 
 let optimize_flag =
   let doc =
-    "Pass CSS optimization through to the Tailwind backend. tw output is not \
-     pre-optimized."
+    "Optimize the generated CSS: merge and deduplicate rules, and drop theme \
+     tokens nothing references. Also passed to the Tailwind backend under \
+     --tailwind and --diff."
   in
   Arg.(value & flag & info [ "optimize" ] ~doc)
 
