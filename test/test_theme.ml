@@ -48,10 +48,80 @@ let theme_cross_module_vars () =
         ]
         (List.sort String.compare custom_props)
 
+let priority_seven_namespace_order () =
+  let expected =
+    [
+      "--radius-3xl";
+      "--drop-shadow-sm";
+      "--ease-in";
+      "--radius-4xl";
+      "--drop-shadow-md";
+      "--ease-out";
+      "--drop-shadow-lg";
+      "--ease-in-out";
+      "--drop-shadow-xl";
+      "--ease-linear";
+      "--animate-none";
+      "--drop-shadow-2xl";
+      "--animate-spin";
+      "--perspective-dramatic";
+      "--animate-ping";
+      "--perspective-near";
+      "--animate-pulse";
+      "--perspective-normal";
+      "--animate-bounce";
+      "--perspective-midrange";
+    ]
+  in
+  let theme =
+    {
+      Tw.Scheme.default with
+      token_overrides =
+        [ ("ease-linear", "steps(4)"); ("animate-none", "none") ];
+    }
+  in
+  let classes =
+    [
+      "rounded-3xl";
+      "rounded-4xl";
+      "drop-shadow-sm";
+      "drop-shadow-md";
+      "drop-shadow-lg";
+      "drop-shadow-xl";
+      "drop-shadow-2xl";
+      "ease-in";
+      "ease-out";
+      "ease-in-out";
+      "ease-linear";
+      "animate-none";
+      "animate-spin";
+      "animate-ping";
+      "animate-pulse";
+      "animate-bounce";
+      "perspective-dramatic";
+      "perspective-near";
+      "perspective-normal";
+      "perspective-midrange";
+    ]
+  in
+  let styles =
+    List.map (fun cls -> Result.get_ok (Tw.of_string ~theme cls)) classes
+  in
+  let actual =
+    match Css.layer_block "theme" (Tw.to_css ~theme ~base:false styles) with
+    | None -> fail "Expected @layer theme"
+    | Some statements ->
+        Css.rules_of_statements statements
+        |> Css.custom_props_of_rules
+        |> List.filter (fun name -> List.mem name expected)
+  in
+  check (list string) "Tailwind namespace order at shared slots" expected actual
+
 let tests =
   [
     test_case "theme layer stable order" `Quick theme_layer_stable_order;
     test_case "theme cross-module vars" `Quick theme_cross_module_vars;
+    test_case "priority-7 namespace order" `Quick priority_seven_namespace_order;
   ]
 
 let suite = ("theme", tests)
