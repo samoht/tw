@@ -81,3 +81,41 @@ that only [Tw.of_string] knows.
   1
   $ tw --minify --input-css line.css line.html | grep -cF '.hover\:line-t:hover:before{'
   1
+
+Declaration-only utilities join the property family they write. Within that
+family Tailwind orders every utility by class name, whether it is built in or
+declared by the project:
+
+  $ cat > order.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility alpha { padding: 1rem }
+  > @utility zebra { padding: 2rem }
+  > EOF
+  $ cat > order.html <<EOF
+  > <div class="p-1 p-4 alpha zebra"></div>
+  > EOF
+  $ tw --minify --input-css order.css order.html | grep -oE '\.(alpha|p-1|p-4|zebra)\{[^}]*\}'
+  .alpha{padding:1rem}
+  .p-1{padding:var(--spacing)}
+  .p-4{padding:calc(var(--spacing)*4)}
+  .zebra{padding:2rem}
+
+A border-width utility carries [border-style: var(--tw-border-style)] before
+its width. That carrier does not make it a border-style utility: declared
+border-style utilities join the real style family after the width family.
+
+  $ cat > border-style.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @utility custom-alpha { border-style: groove }
+  > @utility custom-zebra { border-style: ridge }
+  > EOF
+  $ cat > border-style.html <<EOF
+  > <div class="border border-2 border-dashed border-double custom-alpha custom-zebra"></div>
+  > EOF
+  $ tw --minify --input-css border-style.css border-style.html | grep -oE '\.(custom-(alpha|zebra)|border(-[a-z0-9]+)?)\{[^}]*\}'
+  .border{border-style:var(--tw-border-style);border-width:1px}
+  .border-2{border-style:var(--tw-border-style);border-width:2px}
+  .border-dashed{--tw-border-style:dashed;border-style:dashed}
+  .border-double{--tw-border-style:double;border-style:double}
+  .custom-alpha{border-style:groove}
+  .custom-zebra{border-style:ridge}

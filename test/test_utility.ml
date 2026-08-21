@@ -145,7 +145,27 @@ let test_order_of_property () =
     (option (pair int int))
     "isolation keeps its own slot, not the display family's"
     (Some (order_of "isolate"))
-    (order_of_property (Key Isolation))
+    (order_of_property (Key Isolation));
+  check
+    (option (pair int int))
+    "padding skips its spacing token declaration"
+    (Some (order_of "p-4"))
+    (order_of_property (Key Padding));
+  check
+    (option (pair int int))
+    "margin skips its spacing token declaration"
+    (Some (order_of "m-auto"))
+    (order_of_property (Key Margin));
+  check
+    (option (pair int int))
+    "color skips its palette token declaration"
+    (Some (order_of "placeholder-transparent"))
+    (order_of_property (Key Color));
+  check
+    (option (pair int int))
+    "border style skips width-utility carrier declarations"
+    (Some (order_of "border-solid"))
+    (order_of_property (Key Border_style))
 
 let tests =
   [

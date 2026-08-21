@@ -1526,7 +1526,6 @@ let ordered_routed_entries ~own_order ~order_of group =
   |> List.sort (compare_routed_entries ~own_order ~order_of)
 
 let place_routed_entries ~own_order ~order_of ~classless entries =
-  let offset = ref 0 in
   let ordered, unordered =
     List.fold_left
       (fun (ordered, unordered) (cls, stmts) ->
@@ -1535,9 +1534,7 @@ let place_routed_entries ~own_order ~order_of ~classless entries =
         | None -> (
             match Hashtbl.find_opt order_of cls with
             | Some (priority, suborder) ->
-                incr offset;
-                ( (cls, (priority, suborder + !offset), stmts) :: ordered,
-                  unordered )
+                ((cls, (priority, suborder), stmts) :: ordered, unordered)
             | None -> (ordered, unordered @ stmts)))
       ([], classless) entries
   in

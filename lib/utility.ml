@@ -64,6 +64,22 @@ let rec style_declarations (s : Style.t) =
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 
+let is_ordering_carrier decl =
+  match Cascade.Css.Declaration.property_key decl with
+  | Key Border_style ->
+      Cascade.Css.declaration_value ~minify:true decl = "var(--tw-border-style)"
+  | _ -> false
+
+let ordering_property declarations =
+  List.find_map
+    (fun decl ->
+      if is_ordering_carrier decl then None
+      else
+        match Cascade.Css.Declaration.property_key decl with
+        | Key (Custom_property _) | Key (Unknown_property _) -> None
+        | key -> Some key)
+    declarations
+
 let build_property_slots () =
   let tbl = Hashtbl.create 512 in
   let record key order =
@@ -76,18 +92,15 @@ let build_property_slots () =
       List.iter
         (fun example ->
           let order = (M.priority example, M.suborder example) in
-          (* The property a utility claims is the one it writes first: the one
-             it is named for. A later declaration is incidental - line-clamp
-             ends with [display: -webkit-box] but the display slot belongs to
-             the display utilities, which sort elsewhere. *)
-          match style_declarations (M.to_style Scheme.default example) with
-          | [] -> ()
-          | d :: _ -> (
-              match Cascade.Css.Declaration.property_key d with
-              (* An author's own variable is not a slot: only the properties
-                 Tailwind orders utilities by are. *)
-              | Key (Custom_property _) | Key (Unknown_property _) -> ()
-              | key -> record key order))
+          (* The property a utility claims is the first named property it
+             writes: the one it is named for. Theme-token declarations that make
+             that value available are not slots of their own. A later named
+             declaration is incidental - line-clamp ends with [display:
+             -webkit-box] but the display slot belongs to the display utilities,
+             which sort elsewhere. *)
+          style_declarations (M.to_style Scheme.default example)
+          |> ordering_property
+          |> Option.iter (fun key -> record key order))
         M.examples)
     !handlers;
   tbl

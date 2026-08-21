@@ -1531,13 +1531,71 @@ let outputs_of_statement ~base_class stmt =
                     inner
               | _ -> [])))
 
+let output_base_class_and_props = function
+  | Output.Regular { base_class; props; _ }
+  | Media_query { base_class; props; _ }
+  | Container_query { base_class; props; _ }
+  | Starting_style { base_class; props; _ }
+  | Supports_query { base_class; props; _ } ->
+      (base_class, props)
+
+(* Tailwind orders utilities that write the same property by candidate name.
+   Built-in values carry distinct numeric suborders in TW, so when a declared
+   utility joins one of those property families, normalize that family's
+   suborder for this render and let the existing candidate-name tiebreaker
+   interleave both kinds of utility. *)
+let normalize_declared_property_families order_map builtins extra_outputs =
+  List.iter
+    (fun (class_name, (priority, _), outputs) ->
+      match
+        List.find_map
+          (fun output ->
+            let _, props = output_base_class_and_props output in
+            Utility.ordering_property props)
+          outputs
+      with
+      | None -> ()
+      | Some property ->
+          let family =
+            List.filter_map
+              (fun output ->
+                let base_class, props = output_base_class_and_props output in
+                match (base_class, Utility.ordering_property props) with
+                | Some cls, Some key when key = property ->
+                    let base = extract_base_utility cls in
+                    Option.map
+                      (fun order -> (base, order))
+                      (Hashtbl.find_opt order_map base)
+                | _ -> None)
+              builtins
+          in
+          let suborder =
+            List.fold_left
+              (fun acc (_, (p, s)) ->
+                if p <> priority then acc
+                else Some (Option.fold ~none:s ~some:(Int.min s) acc))
+              None family
+          in
+          Option.iter
+            (fun suborder ->
+              List.iter
+                (fun (base, (p, _)) ->
+                  if p = priority then
+                    Hashtbl.replace order_map base (priority, suborder))
+                family;
+              Hashtbl.replace order_map
+                (extract_base_utility class_name)
+                (priority, suborder))
+            suborder)
+    extra_outputs
+
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
      name it already builds, so [order_of_base] looks it up instead of
      re-parsing the class string while building/sorting rules. *)
   let order_map = Hashtbl.create 256 in
-  let selector_props =
+  let builtin_selector_props =
     List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
   (* A declared utility means nothing to the handlers, so its order arrives with
@@ -1545,17 +1603,23 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
      the base name, which a plain utility of the same name shares: seed it only
      when it is free, so an incoming order never moves a rule the handlers
      already placed. *)
-  let selector_props =
-    selector_props
-    @ List.concat_map
-        (fun (class_name, order, statements) ->
-          let key = extract_base_utility class_name in
-          if not (Hashtbl.mem order_map key) then
-            Hashtbl.add order_map key order;
+  let extra_outputs =
+    List.map
+      (fun (class_name, order, statements) ->
+        let key = extract_base_utility class_name in
+        if not (Hashtbl.mem order_map key) then Hashtbl.add order_map key order;
+        ( class_name,
+          order,
           List.concat_map
             (outputs_of_statement ~base_class:class_name)
-            statements)
-        extra
+            statements ))
+      extra
+  in
+  normalize_declared_property_families order_map builtin_selector_props
+    extra_outputs;
+  let selector_props =
+    builtin_selector_props
+    @ List.concat_map (fun (_, _, outputs) -> outputs) extra_outputs
   in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
