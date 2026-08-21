@@ -118,3 +118,12 @@ val has_explicit_radius : t -> string -> bool
 
 val breakpoint : t -> string -> float option
 (** [breakpoint t name] looks up a breakpoint px value in the scheme. *)
+
+val breakpoint_length : t -> string -> Css.length option
+(** [breakpoint_length t name] looks up a breakpoint as its exact CSS length. A
+    [breakpoint-NAME] token override takes precedence over the legacy px-only
+    {!breakpoint} field. *)
+
+val breakpoint_names : t -> string list
+(** [breakpoint_names t] returns the custom breakpoint names available while
+    parsing variants. *)

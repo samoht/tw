@@ -39,8 +39,9 @@ val normalize_supports_condition : string -> string
     validates its result, so only conditions that parse reach a rule. *)
 
 val register_custom_breakpoints : (string * float) list -> unit
-(** [register_custom_breakpoints bps] sets the custom breakpoint names and their
-    px values for modifier parsing. *)
+(** [register_custom_breakpoints bps] sets the legacy custom breakpoint names
+    used only when {!apply} receives no [breakpoints]. Prefer passing a
+    [Scheme.t] to [Tw.of_string]. *)
 
 val clear_custom_breakpoints : unit -> unit
 (** [clear_custom_breakpoints ()] clears the custom breakpoint registry. *)
@@ -699,9 +700,9 @@ val pp_modifier : modifier -> string
 (** [pp_modifier m] returns the string prefix for a modifier (e.g., "hover" for
     Hover). *)
 
-val apply : string list -> t -> t option
-(** [apply modifiers style] applies a list of modifier strings to a base style.
-    Returns [None] if any modifier is unrecognized. Example:
+val apply : ?breakpoints:string list -> string list -> t -> t option
+(** [apply ?breakpoints modifiers style] applies a list of modifier strings to a
+    base style. Returns [None] if any modifier is unrecognized. Example:
     [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
 *)
 

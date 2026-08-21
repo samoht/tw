@@ -616,6 +616,24 @@ let responsive_breakpoints () =
   check (sm [ text_lg ]);
   check (md [ p 8 ])
 
+let custom_breakpoint_theme_is_local () =
+  Tw.Modifiers.clear_custom_breakpoints ();
+  let theme : Tw.Scheme.t =
+    { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
+  in
+  let utility =
+    match Tw.of_string ~theme "10xl:flex" with
+    | Ok utility -> utility
+    | Error (`Msg msg) -> Alcotest.fail msg
+  in
+  let css = Tw.to_css ~theme ~base:false [ utility ] |> Tw.Css.to_string in
+  Alcotest.(check bool)
+    "custom breakpoint renders" true
+    (Astring.String.is_infix ~affix:"1600px" css);
+  Alcotest.(check bool)
+    "custom breakpoint does not leak into the default theme" true
+    (Result.is_error (Tw.of_string "10xl:flex"))
+
 let layout () =
   check static;
   check relative;
@@ -1312,6 +1330,8 @@ let core_tests =
     test_case "hex colors" `Slow hex_colors;
     test_case "gradients" `Slow gradients;
     test_case "responsive breakpoints" `Slow responsive_breakpoints;
+    test_case "custom breakpoint theme is local" `Quick
+      custom_breakpoint_theme_is_local;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;

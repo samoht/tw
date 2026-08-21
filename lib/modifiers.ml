@@ -103,7 +103,8 @@ let arbitrary_length_class prefix (l : Css.length) cls =
   let len_str = compact_length l in
   Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
 
-(** Registry for custom breakpoint names (set via scheme) *)
+(** Legacy registry for callers of [Modifiers.apply] without an explicit
+    breakpoint list. [Tw.of_string] always supplies its threaded scheme. *)
 let custom_breakpoints : (string * float) list ref = ref []
 
 let register_custom_breakpoints bps = custom_breakpoints := bps
@@ -1541,22 +1542,18 @@ let simple_modifiers =
   ]
 
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
-let try_custom_breakpoint s =
+let try_custom_breakpoint breakpoints s =
   (* Direct name: e.g., "10xl" → Custom_responsive *)
-  match List.assoc_opt s !custom_breakpoints with
-  | Some _px -> Some (Custom_responsive s)
-  | None ->
+  match List.mem s breakpoints with
+  | true -> Some (Custom_responsive s)
+  | false ->
       (* min-<name>: e.g., "min-10xl" → Min_custom *)
       if String.length s > 4 && String.sub s 0 4 = "min-" then
         let name = String.sub s 4 (String.length s - 4) in
-        match List.assoc_opt name !custom_breakpoints with
-        | Some _px -> Some (Min_custom name)
-        | None -> None
+        if List.mem name breakpoints then Some (Min_custom name) else None
       else if String.length s > 4 && String.sub s 0 4 = "max-" then
         let name = String.sub s 4 (String.length s - 4) in
-        match List.assoc_opt name !custom_breakpoints with
-        | Some _px -> Some (Max_custom name)
-        | None -> None
+        if List.mem name breakpoints then Some (Max_custom name) else None
       else None
 
 (** Try not-* shorthand patterns that aren't in simple_modifiers or bracket
@@ -1934,7 +1931,7 @@ and try_scoped_container_query s =
         | _ -> None)
 
 (* Parse a modifier string into a typed Style.modifier *)
-let rec parse_modifier s : modifier option =
+let rec parse_modifier ~breakpoints s : modifier option =
   let fns =
     [
       (fun () -> List.assoc_opt s simple_modifiers);
@@ -1942,25 +1939,25 @@ let rec parse_modifier s : modifier option =
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);
-      (fun () -> try_has_variant s);
+      (fun () -> try_has_variant ~breakpoints s);
       (fun () -> try_numeric_nth s);
       (fun () -> try_compound_named_group s);
       (fun () -> try_in_modifier s);
       (fun () -> try_not_in_modifier s);
       (fun () -> try_group_peer_not s);
-      (fun () -> try_group_peer_not_variant s);
+      (fun () -> try_group_peer_not_variant ~breakpoints s);
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
       (fun () -> try_container_variant s);
       (fun () -> try_not_modifier s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
-      (fun () -> try_custom_breakpoint s);
+      (fun () -> try_custom_breakpoint breakpoints s);
       (fun () -> try_custom_variant s);
       (* Last: a [not-] over any other variant negates the selector it produces.
          The readings above come first because several [not-] spellings need
          their own handling. *)
-      (fun () -> try_not_of_modifier s);
+      (fun () -> try_not_of_modifier ~breakpoints s);
     ]
   in
   List.find_map (fun f -> f ()) fns
@@ -1968,7 +1965,7 @@ let rec parse_modifier s : modifier option =
 (* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
    its own. The reading above only knows the simple state names and a bare
    bracket. *)
-and try_group_peer_not_variant s =
+and try_group_peer_not_variant ~breakpoints s =
   let try_prefix prefix make =
     let plen = String.length prefix in
     if String.length s <= plen || String.sub s 0 plen <> prefix then None
@@ -1976,7 +1973,7 @@ and try_group_peer_not_variant s =
       let base, name =
         split_name (String.sub s plen (String.length s - plen))
       in
-      match parse_modifier base with
+      match parse_modifier ~breakpoints base with
       | Some m when is_not_compatible m -> Some (make m name)
       | Some _ | None -> None
   in
@@ -1987,22 +1984,29 @@ and try_group_peer_not_variant s =
 (* [has-<variant>]: the argument is any variant, and that variant's own selector
    goes inside [:has()]. The shorthand reading only knows the state names and a
    bracket, so [has-peer-checked] fell through. *)
-and try_has_variant s =
+and try_has_variant ~breakpoints s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
-    match parse_modifier (String.sub s 4 (String.length s - 4)) with
+    match
+      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
+    with
     | Some m when is_not_compatible m -> Some (Has_variant m)
     | Some _ | None -> None
   else None
 
-and try_not_of_modifier s =
+and try_not_of_modifier ~breakpoints s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
-    match parse_modifier (String.sub s 4 (String.length s - 4)) with
+    match
+      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
+    with
     | Some m when is_not_compatible m -> Some (Not m)
     | Some _ | None -> None
 
 (* Apply a list of modifier strings to a base utility *)
-let apply modifiers base_utility =
+let apply ?breakpoints modifiers base_utility =
+  let breakpoints =
+    Option.value ~default:(List.map fst !custom_breakpoints) breakpoints
+  in
   (* Convert utility to a list for wrapping *)
   let to_list = function
     | Utility.Group styles -> styles
@@ -2013,7 +2017,7 @@ let apply modifiers base_utility =
     match acc with
     | None -> None
     | Some u -> (
-        match parse_modifier modifier_str with
+        match parse_modifier ~breakpoints modifier_str with
         | Some m -> Some (wrap m (to_list u))
         | None -> None)
   in
