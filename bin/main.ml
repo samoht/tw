@@ -172,10 +172,11 @@ let is_tailwind_import url =
   let u = Css.decode_import_url url in
   u = "tailwindcss" || String.starts_with ~prefix:"tailwindcss/" u
 
-(* Tailwind's [@custom-variant NAME { ... @slot; ... }] declares a variant, and
-   [@variant NAME { decls }] applies it inside author CSS. Both are Tailwind
-   syntax, so a CSS parser drops them and the declarations they guard vanish.
-   Expanding here keeps the [&] nesting for cascade to flatten.
+(* Tailwind's [@custom-variant NAME { ... @slot; ... }] and selector shorthand
+   [@custom-variant NAME (...);] declare variants, and [@variant NAME { decls }]
+   applies one inside author CSS. These are Tailwind syntax, so a CSS parser
+   drops them and the declarations they guard vanish. Expanding here keeps the
+   [&] nesting for cascade to flatten.
 
    Only the built-in [dark] is known without a declaration; other names need one
    in the entrypoint. *)
@@ -442,7 +443,58 @@ let take_named_defs keyword css =
   go 0;
   (Buffer.contents buf, !defs)
 
-let take_custom_variants css = take_named_defs "@custom-variant" css
+let shorthand_variant prelude =
+  let prelude = String.trim prelude in
+  let len = String.length prelude in
+  let whitespace = function
+    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
+    | _ -> false
+  in
+  let rec name_end i =
+    if i >= len || prelude.[i] = '(' || whitespace prelude.[i] then i
+    else name_end (i + 1)
+  in
+  let i = name_end 0 in
+  let name = String.sub prelude 0 i in
+  let selector = String.trim (String.sub prelude i (len - i)) in
+  if
+    name = ""
+    || String.length selector < 2
+    || selector.[0] <> '('
+    || selector.[String.length selector - 1] <> ')'
+  then None
+  else
+    let selector = String.sub selector 1 (String.length selector - 2) in
+    Some (name, selector ^ " { @slot; }")
+
+let take_custom_variants css =
+  let scan = Scan.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let defs = ref [] in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Scan.at_rule scan ~name:"@custom-variant" i with
+      | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
+          defs := (prelude, body) :: !defs;
+          go next
+      | _ -> (
+          match Scan.at_statement scan ~name:"@custom-variant" i with
+          | Some { prelude; next } -> (
+              match shorthand_variant prelude with
+              | Some def ->
+                  defs := def :: !defs;
+                  go next
+              | None ->
+                  Buffer.add_char buf css.[i];
+                  go (i + 1))
+          | None ->
+              Buffer.add_char buf css.[i];
+              go (i + 1))
+  in
+  go 0;
+  (Buffer.contents buf, !defs)
 
 (* [@utility NAME { ... }] declares a project's own utility class. Only the
    static form is read here; the functional [@utility NAME-* { ... }] one needs
