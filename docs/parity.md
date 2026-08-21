@@ -1,8 +1,8 @@
 Title: Measuring parity with Tailwind
 
-`tw` claims to produce the same CSS as Tailwind v4. This doc says how that claim
-is checked, which checks run automatically, how to read their output, and why the
-number does not reach zero.
+`tw` aims to produce the same CSS as Tailwind v4. This document explains how
+that parity is checked, which checks run automatically, how to read their
+output, and why the whole-site comparison does not reach zero.
 
 ## What is gated
 
@@ -10,10 +10,12 @@ Three checks run in CI, all through `dune runtest`.
 
 ### Upstream fixtures - `test/upstream/`
 
-`utilities.txt` and `variants.txt` are Tailwind's own test corpus: a class list
-and the CSS Tailwind emits for it. `test/upstream/test.exe` replays every case
-(782 of them) and fails when tw parses a class Tailwind accepts, or emits
-different CSS for it.
+`utilities.txt` and `variants.txt` are generated from Tailwind's own test corpus:
+a class list and the CSS Tailwind emits for it. `test/upstream/test.exe` replays
+every case and fails when tw's resulting stylesheet differs outside the
+documented canonicalization tolerances. It also reports rejected classes; a
+rejection is harmless when the case's expected CSS is empty or its other
+classes already account for the expected stylesheet.
 
 <!-- $MDX skip -->
 ```sh
