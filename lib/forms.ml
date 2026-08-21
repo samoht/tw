@@ -710,6 +710,7 @@ let select_base () =
     rule
       ~selector:(Selector.element "select")
       [
+        webkit_print_color_adjust Exact;
         print_color_adjust Exact;
         background_image
           (Url
@@ -846,6 +847,7 @@ let checkbox_radio_base () =
       ~selector:Selector.(list [ type_checkbox; type_radio ])
       [
         appearance None;
+        webkit_print_color_adjust Exact;
         print_color_adjust Exact;
         vertical_align Middle;
         webkit_user_select None;
