@@ -60,9 +60,9 @@ flattens it. Measured on the site corpus:
 
 | harness | utilities layer | components layer |
 |---|---|---|
-| minify both sides | 47 added | 3 modified |
-| neither side minified | 45 added, 11 removed, 527 modified | 55 removed, 1 modified |
-| neither minified, both flattened | 45 added, 11 removed, 527 modified | 55 removed, 1 modified |
+| minify both sides | 47 added | 2 modified |
+| neither side minified | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
+| neither minified, both flattened | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
 
 Flattening afterwards changes nothing, because the canonical comparator already
 folds nesting.
@@ -97,7 +97,10 @@ position, and `css_compare.mli` says it does not reason about cascade-affecting
 reorderings. Block structure does surface as `N blocks merged into M`, but tw's
 `--minify` runs cascade's printer without its optimizer, so most of those
 entries are adjacent identical `@media` and `@container` blocks that
-lightningcss merged on the reference side.
+lightningcss merged on the reference side. The same mismatch turns a rule that
+moved between two blocks with the same condition into a `removed` entry paired
+with an `added` entry carrying those rules back, so look for the twin before
+treating either half as a gap.
 
 ### Recurring bug shapes
 
@@ -133,7 +136,9 @@ Three more come from lightningcss on the reference side:
 
 - It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
   spelling as well, which is the other two added rules.
-- It emits `-webkit-text-decoration-color` twice.
+- It autoprefixes the site's own CSS, so `user-select: none` on
+  `.with-line-numbers .line::before` arrives as
+  `-webkit-user-select: none; user-select: none`. cascade adds no prefix.
 - It serialises the DocSearch dark-variant rules with an empty `:where()`, which
   matches nothing and drops a background colour that Tailwind's own unminified
   output gets right.
