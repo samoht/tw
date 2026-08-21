@@ -126,10 +126,11 @@ In the utilities layer:
   selector. U+2197 is not one of the non-ASCII ident code points CSS Syntax 3
   admits, so an ident cannot carry it literally; tw writes `\2197 `. The two
   selectors match the same element.
-- `supports-[backdrop-filter]:*`. cascade keeps the `@supports` guard,
-  lightningcss elides it under Tailwind's browserslist.
-- `hue-rotate-0` and `backdrop-hue-rotate-0`. `hue-rotate()` is the spec-legal
-  minification of `hue-rotate(0deg)`; lightningcss does not perform it.
+- `supports-[backdrop-filter]:*`. Both sides keep the `@supports` guard;
+  lightningcss rewrites the condition to also accept `-webkit-backdrop-filter`.
+- `hue-rotate-0` and `backdrop-hue-rotate-0`. Both sides hold the value in
+  `--tw-hue-rotate`. cascade folds `hue-rotate(0deg)` to `hue-rotate()` inside
+  the custom property; lightningcss leaves custom-property values alone.
 - `@container` block splits, from container variants written as function calls.
   Given `@min-[theme(--breakpoint-lg)]`, tw resolves the token and sorts the
   block by the width it denotes; Tailwind sorts by the bracket text. The blocks
@@ -166,16 +167,30 @@ implementations:
 
 | difference | cascade | lightningcss |
 |---|---|---|
-| `hue-rotate(0deg)` | `hue-rotate()` | keeps it |
-| `@supports (backdrop-filter: ...)` | keeps the guard | elides it |
-| `@media not (X)` | Level 4 form | `not all and (X)` |
+| `--tw-hue-rotate: hue-rotate(0deg)` | folds to `hue-rotate()` | leaves it |
+| `@supports (backdrop-filter: ...)` | as written | also accepts `-webkit-` |
 | `text-decoration-color` | no prefix | adds `-webkit-` |
 | `-webkit-text-decoration-color` | one declaration | two |
 | `calc(28 / 18)` | keeps it | folds to `1.55556` |
 
-The guard and the downlevelling are threshold differences: cascade's bar is
-Baseline "widely available", lightningcss's is Tailwind's browserslist. The
-`calc` refusal is a precision commitment - the quotient does not survive
+The `hue-rotate` row is about custom properties, not about the filter fold.
+lightningcss performs that fold too, unconditionally and at every target it
+supports, so on a bare `filter` declaration the two agree. Both generators put
+the value in `--tw-hue-rotate` instead, tw in `hue_rotate` in `lib/filters.ml`,
+and there they diverge: lightningcss treats a custom-property value as opaque
+and will not touch inside it, while cascade folds substreams whose type it can
+prove (`hue_rotate_zero_argument` in cascade's `lib/properties.ml`).
+
+The `@supports` row is not a threshold difference. Neither minifier elides the
+guard, and neither should: `backdrop-filter` has been Baseline newly available
+only since September 2024, short of cascade's greenfield bar, and the guard
+survives Tailwind's floor of Safari 16.4 too, because Safari needs
+`-webkit-backdrop-filter` up to 17.6. What lightningcss does is rewrite the
+condition to `((-webkit-backdrop-filter: ...) or (backdrop-filter: ...))`, which
+widens a test the author wrote against the unprefixed property. cascade does no
+target-driven prefixing, so it leaves the condition as written.
+
+The `calc` refusal is a precision commitment - the quotient does not survive
 cascade's serialisation rounding.
 
 The two decoration rows are one difference seen from either side. Tailwind's
@@ -184,6 +199,20 @@ emits it twice, so `decoration-sky-500` arrives as
 `-webkit-text-decoration-color; -webkit-text-decoration-color;
 text-decoration-color`. tw writes the prefixed declaration itself, once, and
 cascade neither adds nor removes it.
+
+The two sheets also spell a negated media query differently, and that one is
+generator-side. tw writes `not all and (min-width: 48rem)`, Tailwind writes
+`not (width >= 48rem)`. The legacy shape comes from neither minifier: under
+Tailwind's own lightningcss options the query is printed back verbatim, and
+lightningcss has no path that produces `not all and (X)`. It is a deliberate
+choice in `negate_media` in `lib/rule.ml`, taken to match Tailwind. cascade's
+canonical comparator equates the two forms, so it does not reach the residual.
+
+With no targets set lightningcss goes the other way, shortening
+`not (width >= X)` to `(width < X)`. That collapse is not worth copying. Media
+Queries 4 makes a feature that does not apply to the current media type evaluate
+to false, so on such a medium `not (width >= 100px)` is true while
+`(width < 100px)` is false. They are not the same query.
 
 There is also one real bug in the Tailwind minification path. The site's search
 CSS contains:
@@ -224,8 +253,10 @@ hundreds of structural ones. Minifying both sides is the cleanest comparison
 available.
 
 This means parity as measured includes a minifier-agreement component that will
-not reach zero unless cascade adopts lightningcss's choices - and for at least
-three of the six, cascade's choice is the better one.
+not reach zero unless cascade adopts lightningcss's choices - and for four of
+the five, cascade's choice is the better one. The exception is the `@supports`
+condition, where the two are weighing an author's feature test against a
+browser-target fact and neither answer is wrong.
 
 ## Recurring bug shapes
 
