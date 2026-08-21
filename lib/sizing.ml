@@ -651,8 +651,7 @@ module Handler = struct
           |> Option.map (fun value ->
               Css.custom_property ~layer:"theme" ("--" ^ bare_name) value)
       in
-      style
-        (Option.to_list theme_decl @ List.map (fun decl -> decl len) f.decls)
+      style (Option.to_list theme_decl @ List.map (fun decl -> decl len) f.decls)
     in
     match v with
     | Keyword k -> set k.length
