@@ -1,4 +1,5 @@
 open Alcotest
+module Css = Cascade.Css
 
 let check class_name =
   match Tw.Forms.Handler.of_class Tw.Scheme.default class_name with
@@ -46,11 +47,59 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches ~forms:true
     ~test_name:"forms suborder matches Tailwind" shuffled
 
+(* Tailwind writes the unprefixed property and leaves the -webkit- spelling to
+   Lightning, which prefixes every [exact] and leaves [unset] alone. Its base
+   rules and its .form-* utilities carry the same declarations, so the pair
+   shows up under either strategy. *)
+let spellings_of css selector =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_rule stmt with
+      | Some (sel, decls, _) when Css.Selector.to_string sel = selector ->
+          acc
+          @ List.filter_map
+              (fun decl ->
+                let name = Css.Declaration.property_name decl in
+                if String.ends_with ~suffix:"print-color-adjust" name then
+                  Some name
+                else None)
+              decls
+      | _ -> acc)
+    [] css
+
+let prefixed = [ "-webkit-print-color-adjust"; "print-color-adjust" ]
+
+let check_spellings css selector expected =
+  Alcotest.(check (list string)) selector expected (spellings_of css selector)
+
+let base_strategy_spellings () =
+  let css = Tw.to_css ~base:true ~forms:true [] in
+  check_spellings css "select" prefixed;
+  check_spellings css
+    "input:where([type=\"checkbox\"]), input:where([type=\"radio\"])" prefixed;
+  check_spellings css
+    "select:where([multiple]), select:where([size]:not([size=\"1\"]))"
+    [ "print-color-adjust" ]
+
+let class_strategy_spellings () =
+  let css =
+    Tw.to_css ~base:false Tw.[ form_checkbox; form_radio; form_select ]
+  in
+  check_spellings css ".form-checkbox" prefixed;
+  check_spellings css ".form-radio" prefixed;
+  check_spellings css ".form-select" prefixed;
+  check_spellings css ".form-select:where([size]:not([size=\"1\"]))"
+    [ "print-color-adjust" ]
+
 let tests =
   [
     test_case "inputs" `Quick test_inputs;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "forms suborder matches Tailwind" `Quick suborder_matches_tailwind;
+    test_case "base strategy spells print-color-adjust twice" `Quick
+      base_strategy_spellings;
+    test_case "class strategy spells print-color-adjust twice" `Quick
+      class_strategy_spellings;
   ]
 
 let suite = ("forms", tests)
