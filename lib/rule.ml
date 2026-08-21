@@ -2288,8 +2288,9 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
 let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec utility_order = function
     | Utility.Base b -> Some (Utility.order b)
-    | Utility.Modified (_, u) | Utility.Important (_, u)
-    | Utility.Aliased (_, u) -> utility_order u
+    | Utility.Modified (_, u) | Utility.Important (_, u) | Utility.Aliased (_, u)
+      ->
+        utility_order u
     | Utility.Group _ -> None
   in
   let rec extract_with_class class_name util_inner = function
