@@ -129,3 +129,53 @@ Outside a string they still resolve:
   1
   $ tw --minify --input-css fn2.css plain.html | grep -cF '.g{margin-left:calc(var(--spacing)*6)}'
   1
+
+The remaining entrypoint rewrites use the same token boundaries. A literal
+[@slot] in a custom variant's declaration is not its substitution point:
+
+  $ cat > slot.css <<EOF
+  > @import "tailwindcss";
+  > @custom-variant weird { &:hover { content: "@slot"; @slot; } }
+  > EOF
+  $ tw --minify --input-css slot.css index.html | grep -cF 'content:"@slot"'
+  1
+  $ tw --minify --input-css slot.css index.html | grep -cF '.weird\:flex:hover{display:flex}'
+  1
+
+Likewise, Tailwind-looking at-rules inside a string are ordinary string
+content. They neither open a theme block nor create a keyframe:
+
+  $ cat > false-theme.css <<EOF
+  > @import "tailwindcss";
+  > .note { content: "@theme { @keyframes fake { from { opacity: 0 } } }"; }
+  > EOF
+  $ tw --minify --input-css false-theme.css plain.html | grep -cF '.note{content:"@theme { @keyframes fake { from { opacity: 0 } } }"}'
+  1
+  $ tw --minify --input-css false-theme.css plain.html | grep -c '@keyframes fake{'
+  0
+  [1]
+
+An arbitrary content utility can contain a closing brace while it is being
+expanded by [@apply]; that brace is not the end of the author rule:
+
+  $ cat > apply.css <<EOF
+  > @import "tailwindcss";
+  > .box { @apply content-['}'] flex; color: red; }
+  > EOF
+  $ tw --minify --input-css apply.css plain.html | grep -c '\.box{[^}]*--tw-content:"}"'
+  1
+  $ tw --minify --input-css apply.css plain.html | grep -c '\.box{[^}]*display:flex'
+  1
+  $ tw --minify --input-css apply.css plain.html | grep -c '\.box{[^}]*color:red'
+  1
+
+Finally, a closing parenthesis inside a quoted Tailwind import option belongs
+to the option value. It must not leave a broken suffix that causes the package
+import marker to disappear:
+
+  $ mkdir -p 'foo)bar'
+  $ cat > import.css <<EOF
+  > @import "tailwindcss" source("./foo)bar");
+  > EOF
+  $ tw --minify --input-css import.css plain.html | grep -cF '.flex{display:flex}'
+  1

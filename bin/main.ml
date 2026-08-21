@@ -62,79 +62,12 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-let block_end css from =
-  let len = String.length css in
-  let rec scan j depth =
-    if j >= len then j
-    else
-      match css.[j] with
-      | '{' -> scan (j + 1) (depth + 1)
-      | '}' -> if depth = 1 then j + 1 else scan (j + 1) (depth - 1)
-      | _ -> scan (j + 1) depth
-  in
-  scan from 0
-
 (* Rewrite each Tailwind [@theme [modifiers] {] header to a rule selector.
    Cascade's parser accepts [@theme] but drops its body (it is not a standard
    at-rule), so this swaps only the at-rule keyword and its modifiers up to the
    opening brace; the declarations themselves are left for the real parser.
    [@theme inline] becomes [:root inline] so the modifier survives as part of
    the selector, which is all [theme_overrides_of_css] reads it for. *)
-(* A project can declare [@keyframes] inside its [@theme] block, beside the
-   [--animate-*] token that names it. The theme block is not CSS — it becomes a
-   [:root] rule — and a nested [@keyframes] there is invalid, so it went out
-   with the rewrite. Lift them to the top level, where Tailwind emits them. *)
-let hoist_theme_keyframes css =
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let lifted = Buffer.create 0 in
-  let rec go i inside_theme =
-    if i >= len then ()
-    else if inside_theme && i + 10 <= len && String.sub css i 10 = "@keyframes"
-    then
-      begin match String.index_from_opt css i '{' with
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1) inside_theme
-      | Some brace ->
-          let stop = block_end css brace in
-          Buffer.add_string lifted (String.sub css i (stop - i));
-          go stop inside_theme
-      end
-    else if i + 6 <= len && String.sub css i 6 = "@theme" then
-      begin match String.index_from_opt css i '{' with
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1) inside_theme
-      | Some brace ->
-          let stop = block_end css brace in
-          Buffer.add_string buf (String.sub css i (brace + 1 - i));
-          go_theme (brace + 1) stop
-      end
-    else begin
-      Buffer.add_char buf css.[i];
-      go (i + 1) inside_theme
-    end
-  and go_theme i stop =
-    if i >= stop then go i false
-    else if i + 10 <= stop && String.sub css i 10 = "@keyframes" then (
-      match String.index_from_opt css i '{' with
-      | None ->
-          Buffer.add_char buf css.[i];
-          go_theme (i + 1) stop
-      | Some brace ->
-          let k_end = block_end css brace in
-          Buffer.add_string lifted (String.sub css i (k_end - i));
-          go_theme k_end stop)
-    else begin
-      Buffer.add_char buf css.[i];
-      go_theme (i + 1) stop
-    end
-  in
-  go 0 false;
-  Buffer.add_string buf (Buffer.contents lifted);
-  Buffer.contents buf
-
 let theme_blocks_as_root css =
   let len = String.length css in
   let buf = Buffer.create len in
@@ -215,48 +148,6 @@ let is_tailwind_import url =
   let u = Css.decode_import_url url in
   u = "tailwindcss" || String.starts_with ~prefix:"tailwindcss/" u
 
-(* Tailwind extends [@import] with options CSS has no grammar for
-   ([theme(static)], [source(none)], [prefix(tw)]). A CSS parser reads the
-   trailing prelude as a media-query list, fails on it, and drops the whole
-   statement, taking the import marker with it. Strip those options so the
-   import survives as a plain one. *)
-let strip_tailwind_import_options css =
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let opt_at i =
-    List.find_opt
-      (fun k ->
-        i + String.length k <= len && String.sub css i (String.length k) = k)
-      [ "theme("; "source("; "prefix(" ]
-  in
-  let rec skip_group i depth =
-    if i >= len then i
-    else if css.[i] = '(' then skip_group (i + 1) (depth + 1)
-    else if css.[i] = ')' then
-      if depth = 1 then i + 1 else skip_group (i + 1) (depth - 1)
-    else skip_group (i + 1) depth
-  in
-  let rec go i in_import =
-    if i >= len then ()
-    else if (not in_import) && i + 7 <= len && String.sub css i 7 = "@import"
-    then begin
-      Buffer.add_string buf "@import";
-      go (i + 7) true
-    end
-    else if in_import && css.[i] = ';' then begin
-      Buffer.add_char buf ';';
-      go (i + 1) false
-    end
-    else
-      match if in_import then opt_at i else None with
-      | Some k -> go (skip_group (i + String.length k) 1) in_import
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1) in_import
-  in
-  go 0 false;
-  Buffer.contents buf
-
 (* Tailwind's [@custom-variant NAME { ... @slot; ... }] declares a variant, and
    [@variant NAME { decls }] applies it inside author CSS. Both are Tailwind
    syntax, so a CSS parser drops them and the declarations they guard vanish.
@@ -286,11 +177,17 @@ module Scan = struct
   (** An [@name PRELUDE { ... }] header: what stands between the at-keyword and
       the [{], where that [{] is, and the block it opens. *)
 
+  type statement = { prelude : string; next : int }
+  (** A blockless at-rule's prelude and the offset after its semicolon. When a
+      closing brace terminates it, [next] points at that brace. *)
+
   type t = {
     call : (int, string * block) Hashtbl.t;
         (** function-token offset -> the name it calls and its arguments *)
     at : (int, string * header) Hashtbl.t;
         (** at-keyword offset -> its at-name and its header *)
+    statement : (int, string * statement) Hashtbl.t;
+        (** at-keyword offset -> its at-name and blockless statement *)
   }
 
   let start (t : Token.t) = t.loc.Loc.start_pos
@@ -356,10 +253,31 @@ module Scan = struct
           if close.(i) < 0 then None else brace_of toks close (close.(i) + 1)
       | _ -> brace_of toks close (i + 1)
 
+  (* The semicolon or enclosing close brace that terminates a blockless at-rule.
+     Bracket groups in its prelude are stepped over whole. *)
+  let rec statement_end (toks : Token.t array) close i source_end =
+    if i >= Array.length toks then (source_end, source_end)
+    else
+      match toks.(i).Token.kind with
+      | Token.Semicolon -> (start toks.(i), stop toks.(i))
+      | Token.Close Token.Curly ->
+          let at = start toks.(i) in
+          (at, at)
+      | Token.Open _ | Token.Function _ ->
+          if close.(i) < 0 then (source_end, source_end)
+          else statement_end toks close (close.(i) + 1) source_end
+      | _ -> statement_end toks close (i + 1) source_end
+
   let v css =
     let toks = tokens css in
     let close = close_of toks in
-    let t = { call = Hashtbl.create 16; at = Hashtbl.create 16 } in
+    let t =
+      {
+        call = Hashtbl.create 16;
+        at = Hashtbl.create 16;
+        statement = Hashtbl.create 16;
+      }
+    in
     let header i (token : Token.t) name =
       match brace_of toks close (i + 1) with
       | None -> ()
@@ -370,12 +288,20 @@ module Scan = struct
           Hashtbl.replace t.at (start token)
             (name, { prelude; brace = upto; block })
     in
+    let statement i (token : Token.t) name =
+      let from = stop token in
+      let upto, next = statement_end toks close (i + 1) (String.length css) in
+      let prelude = String.sub css from (upto - from) in
+      Hashtbl.replace t.statement (start token) (name, { prelude; next })
+    in
     Array.iteri
       (fun i (token : Token.t) ->
         match token.kind with
         | Token.Function name ->
             Hashtbl.replace t.call (start token) (name, block css toks close i)
-        | Token.At_keyword name -> header i token name
+        | Token.At_keyword name ->
+            header i token name;
+            statement i token name
         | _ -> ())
       toks;
     t
@@ -392,7 +318,83 @@ module Scan = struct
     match Hashtbl.find_opt t.at i with
     | Some (n, header) when "@" ^ n = name -> Some header
     | _ -> None
+
+  (* A blockless [@name PRELUDE;] starting at [i]. *)
+  let at_statement t ~name i =
+    match Hashtbl.find_opt t.statement i with
+    | Some (n, statement) when "@" ^ n = name -> Some statement
+    | _ -> None
 end
+
+(* A project can declare [@keyframes] inside its [@theme] block, beside the
+   [--animate-*] token that names it. The theme block is not CSS — it becomes a
+   [:root] rule — and a nested [@keyframes] there is invalid, so lift actual
+   keyframe at-rules to the top level, where Tailwind emits them. *)
+let hoist_theme_keyframes css =
+  let scan = Scan.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let lifted = Buffer.create 0 in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Scan.at_rule scan ~name:"@theme" i with
+      | Some { brace; block = { next; _ }; _ } ->
+          Buffer.add_string buf (String.sub css i (brace + 1 - i));
+          go_theme (brace + 1) next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  and go_theme i stop =
+    if i >= stop then go i
+    else
+      match Scan.at_rule scan ~name:"@keyframes" i with
+      | Some { block = { next; _ }; _ } when next <= stop ->
+          Buffer.add_string lifted (String.sub css i (next - i));
+          go_theme next stop
+      | Some _ | None ->
+          Buffer.add_char buf css.[i];
+          go_theme (i + 1) stop
+  in
+  go 0;
+  Buffer.add_buffer buf lifted;
+  Buffer.contents buf
+
+(* Tailwind extends [@import] with options CSS has no grammar for
+   ([theme(static)], [source(none)], [prefix(tw)]). Strip actual option function
+   tokens from actual import statements so quoted parentheses and comments do
+   not alter their boundaries. *)
+let strip_tailwind_import_options css =
+  let scan = Scan.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let option_at i =
+    List.find_map
+      (fun name -> Scan.call scan ~name i)
+      [ "theme"; "source"; "prefix" ]
+  in
+  let rec copy_import i stop =
+    if i >= stop then ()
+    else
+      match option_at i with
+      | Some { next; _ } when next <= stop -> copy_import next stop
+      | Some _ | None ->
+          Buffer.add_char buf css.[i];
+          copy_import (i + 1) stop
+  in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Scan.at_statement scan ~name:"@import" i with
+      | Some { next; _ } ->
+          copy_import i next;
+          go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
 
 (* Pull out the [@KEYWORD NAME { ... }] declarations, dropping them from the
    CSS: they declare something for the generator, and Tailwind does not emit
@@ -426,23 +428,19 @@ let take_custom_utilities css =
   (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
 
 let fill_slots template body =
+  let scan = Scan.v template in
   let len = String.length template in
   let buf = Buffer.create len in
   let rec go i =
     if i >= len then ()
-    else if i + 5 <= len && String.sub template i 5 = "@slot" then begin
-      Buffer.add_string buf body;
-      (* swallow the terminating [;] so the slot does not leave a stray one *)
-      let j = ref (i + 5) in
-      while !j < len && (template.[!j] = ' ' || template.[!j] = '\n') do
-        incr j
-      done;
-      go (if !j < len && template.[!j] = ';' then !j + 1 else !j)
-    end
-    else begin
-      Buffer.add_char buf template.[i];
-      go (i + 1)
-    end
+    else
+      match Scan.at_statement scan ~name:"@slot" i with
+      | Some { next; _ } ->
+          Buffer.add_string buf body;
+          go next
+      | None ->
+          Buffer.add_char buf template.[i];
+          go (i + 1)
   in
   go 0;
   Buffer.contents buf
@@ -742,12 +740,6 @@ let add_once buf seen items =
       end)
     items
 
-let is_css_ident_char c =
-  (c >= 'a' && c <= 'z')
-  || (c >= 'A' && c <= 'Z')
-  || (c >= '0' && c <= '9')
-  || c = '-' || c = '_'
-
 let apply_names css start stop =
   String.sub css start (stop - start)
   |> String.split_on_char ' '
@@ -803,33 +795,27 @@ let rec emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen = function
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
 let expand_apply ~theme ~defs ?(udefs = []) css =
+  let scan = Scan.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
   let seen = ref [] in
   let rec go i =
     if i >= len then ()
-    else if
-      i + 6 <= len
-      && String.sub css i 6 = "@apply"
-      && (i = 0 || not (is_css_ident_char css.[i - 1]))
-    then begin
-      let stop = ref (i + 6) in
-      while !stop < len && css.[!stop] <> ';' && css.[!stop] <> '}' do
-        incr stop
-      done;
-      (* A utility with no declared variant and no body of its own decorates the
-         applying rule's [&] directly. A run of those renders in one call, so
-         their declarations land in a single rule the way Tailwind emits them,
-         rather than one rule of the author's selector per utility. *)
-      let names = apply_names css (i + 6) !stop in
-      emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
-      go (if !stop < len && css.[!stop] = ';' then !stop + 1 else !stop)
-    end
-    else begin
-      Buffer.add_char buf css.[i];
-      go (i + 1)
-    end
+    else
+      match Scan.at_statement scan ~name:"@apply" i with
+      | Some { prelude; next } ->
+          (* A utility with no declared variant and no body of its own decorates
+             the applying rule's [&] directly. A run of those renders in one
+             call, so their declarations land in a single rule the way Tailwind
+             emits them, rather than one rule of the author's selector per
+             utility. *)
+          let names = apply_names prelude 0 (String.length prelude) in
+          emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
+          go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
   in
   go 0;
   (* The hoisted blocks go last: their layer is ordered by the sheet's [@layer]
