@@ -96,6 +96,20 @@ let test_arbitrary_color_function () =
     "var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
   rejected "text-shadow-[0_1px_rgb(zz)]"
 
+let test_arbitrary_colour_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
+    "var(--tw-text-shadow-color,color-mix(";
+  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-text-shadow-alpha:var(--x)";
+  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
+
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
    whole bracket and as the colour of an arbitrary shadow. The reader kept the
    text after the [#] as-is and the raising constructor saw it when the sheet
@@ -133,6 +147,8 @@ let tests =
         test_theme_override;
       Alcotest.test_case "arbitrary colour function" `Quick
         test_arbitrary_color_function;
+      Alcotest.test_case "arbitrary colour opacity" `Quick
+        test_arbitrary_colour_opacity;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     ]
 

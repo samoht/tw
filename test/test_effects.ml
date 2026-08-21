@@ -331,6 +331,25 @@ let test_arbitrary_shadow_lengths () =
   | Ok _ -> Alcotest.fail "expected shadow-[0_bogus_2px] to be rejected"
   | Error _ -> ()
 
+let test_arbitrary_shadow_colour_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
+    "var(--tw-shadow-color,color-mix(";
+  has "inset-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
+    "var(--tw-inset-shadow-color,color-mix(";
+  has "shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-shadow-alpha:var(--x)";
+  has "shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from";
+  has "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
+    "--tw-inset-shadow-alpha:var(--x)";
+  has "inset-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
+
 (* An arbitrary shadow that is not a shadow is not a utility: it used to fall
    back to the zero shadow. *)
 let test_invalid_arbitrary_shadow () =
@@ -396,6 +415,8 @@ let tests =
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
+    test_case "arbitrary shadow colour opacity" `Quick
+      test_arbitrary_shadow_colour_opacity;
     test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
