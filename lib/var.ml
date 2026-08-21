@@ -555,4 +555,28 @@ let properties vars =
   Css.v filtered
 
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
-let bracket ?fallback name = Css.var_ref ?fallback name
+
+let bracket ?fallback name =
+  let parsed_reference =
+    match fallback with
+    | Some _ -> None
+    | None ->
+        let expression =
+          if Parse.has_prefix ~prefix:"var(" name then Some name
+          else if String.contains name ',' then Some ("var(--" ^ name ^ ")")
+          else None
+        in
+        Option.bind expression (fun expression ->
+            try
+              Some
+                (Css.Variables.read_reference
+                   (Cascade.Cursor.of_string expression))
+            with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None)
+  in
+  match parsed_reference with
+  | Some (name, Some fallback) ->
+      Css.var_ref ~runtime:true
+        ~fallback:(Css.Values.syntax_fallback fallback)
+        name
+  | Some (name, None) -> Css.var_ref ~runtime:true name
+  | None -> Css.var_ref ?fallback name

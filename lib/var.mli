@@ -653,5 +653,6 @@ val property_initial_string : Css.property_info -> string
 
 val bracket : ?fallback:'a Css.fallback -> string -> 'a Css.var
 (** [bracket ?fallback name] creates a reference to a user-supplied CSS variable
-    from bracket notation. The [name] is the bare variable name without [--]
-    prefix. *)
+    from bracket notation. [name] may be the bare variable name without [--],
+    the inner arguments retained by {!Parse.extract_var_name}, or a complete
+    [var()] expression. A fallback in the expression is preserved. *)
