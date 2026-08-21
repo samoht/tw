@@ -23,6 +23,10 @@ val form_textarea : t
 val form_select : t
 (** [form_select] applies select dropdown styles with a custom arrow. *)
 
+val form_multiselect : t
+(** [form_multiselect] applies multi-select ([select] with [multiple]) styles.
+*)
+
 val form_checkbox : t
 (** [form_checkbox] applies checkbox input styles. *)
 
