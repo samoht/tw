@@ -1025,25 +1025,14 @@ let merge_named_layers stmts =
    in the slot, so move it there. The declared order already makes this
    cascade-neutral; it is the document shape that differs. *)
 let hoist_layer_blocks stmts =
-  let declared_name stmt =
-    match Css.as_layer stmt with
-    | Some _ -> None
-    | None -> (
-        let s = Css.to_string ~minify:true (Css.v [ stmt ]) in
-        match String.index_opt s ';' with
-        | Some semi
-          when String.length s > 7
-               && String.sub s 0 7 = "@layer "
-               && semi = String.length s - 1 ->
-            let name = String.sub s 7 (semi - 7) in
-            if String.contains name ',' || name = "" then None else Some name
-        | _ -> None)
-  in
+  let declared_names = Css.layer_statement_name_list in
   let block_name stmt =
-    match Css.as_layer stmt with Some (Some n, _) -> Some n | _ -> None
+    match Css.layer_block_name stmt with Some "" | None -> None | name -> name
   in
   let slots =
-    List.filter_map declared_name stmts |> List.sort_uniq String.compare
+    List.filter_map declared_names stmts
+    |> List.concat
+    |> List.sort_uniq String.compare
   in
   let movable =
     List.filter
@@ -1053,14 +1042,25 @@ let hoist_layer_blocks stmts =
   if movable = [] then stmts
   else
     let block_for n = List.find_opt (fun st -> block_name st = Some n) stmts in
-    List.filter_map
+    let emitted = Hashtbl.create 8 in
+    List.concat_map
       (fun stmt ->
-        match declared_name stmt with
-        | Some n when List.mem n movable -> block_for n
+        match declared_names stmt with
+        | Some names when List.exists (fun n -> List.mem n movable) names ->
+            List.filter_map
+              (fun n ->
+                if List.mem n movable then
+                  if Hashtbl.mem emitted n then None
+                  else begin
+                    Hashtbl.add emitted n ();
+                    block_for n
+                  end
+                else Some (Css.layer_decl [ n ]))
+              names
         | _ -> (
             match block_name stmt with
-            | Some n when List.mem n movable -> None
-            | _ -> Some stmt))
+            | Some n when List.mem n movable -> []
+            | _ -> [ stmt ]))
       stmts
 
 (* A token the project declared in an [@theme inline] block has no declaration
