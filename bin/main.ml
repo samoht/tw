@@ -1834,14 +1834,17 @@ let cmd =
     Term.(
       ret
         (const (fun s b css_m m o q tailwind diff diff_mode input_css paths ->
-             let backend, diff_mode =
-               if diff then (Diff, diff_mode)
-               else
-                 let backend = if tailwind then Tailwind else Native in
-                 (backend, `Canonical)
-             in
-             tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
-               ~diff_mode ~input_css paths)
+             if tailwind && diff then
+               `Error (true, "--tailwind and --diff are mutually exclusive")
+             else
+               let backend, diff_mode =
+                 if diff then (Diff, diff_mode)
+                 else
+                   let backend = if tailwind then Tailwind else Native in
+                   (backend, `Canonical)
+               in
+               tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q
+                 ~backend ~diff_mode ~input_css paths)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
         $ quiet_flag $ tailwind_flag $ diff_flag $ diff_mode_arg $ input_css_arg
         $ paths_arg))
