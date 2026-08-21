@@ -1,63 +1,41 @@
 Title: Measuring parity with Tailwind
 
-`tw` claims to produce the same CSS as Tailwind v4. This doc says how that claim
-is checked, which checks run automatically, how to read their output, and why the
-number does not reach zero.
+tw aims to produce the same CSS as Tailwind v4.3.3. Two checks in CI measure how
+close it gets, and a third comparison against tailwindcss.com runs by hand.
 
-## What is gated
+## Checks that run in CI
 
-Three checks run in CI, all through `dune runtest`.
+Both run under `dune runtest`.
 
-### Upstream fixtures - `test/upstream/`
+**Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
+Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the
+CSS Tailwind emits for it. `test/upstream/test.exe` replays 783 cases and fails
+when tw rejects a class Tailwind accepts, or emits different CSS for one it
+accepts. The two fixtures are generated, and `test/upstream/extract_tests.ml`
+carries the command that regenerates them. Editing them by hand removes the
+oracle the check depends on.
 
-`utilities.txt` and `variants.txt` are Tailwind's own test corpus: a class list
-and the CSS Tailwind emits for it. `test/upstream/test.exe` replays every case
-(782 of them) and fails when tw parses a class Tailwind accepts, or emits
-different CSS for it.
+**Example pages, `examples/*/dune`.** Each of the nine examples builds its CSS
+twice, once through tw and once through `npx tailwindcss`, then diffs the two
+with `cascade diff --diff=canonical --prune-unused-custom-props`. The rule is
+guarded by `(enabled_if %{bin-available:npx})`, so it is skipped where npx is
+absent, and `%{bin:cascade}` resolves through the dune workspace, so the diff
+runs the freshly built cascade rather than whatever sits on `PATH`.
 
-<!-- $MDX skip -->
-```sh
-dune exec test/upstream/test.exe
-```
+## The site comparison
 
-These files are generated. Never hand-edit them; regenerate from upstream.
+The comparison against tailwindcss.com finds most real bugs, because it
+exercises class combinations no fixture covers, but it is neither committed nor
+automated. It lives in `tmp/site` (gitignored), over three inputs rebuilt by
+hand:
 
-### Example pages - `examples/*/dune`
-
-Each of the nine examples builds its CSS twice, once through tw and once through
-`npx tailwindcss`, then diffs the two:
-
-<!-- $MDX skip -->
-```sh
-cascade diff --diff=canonical --prune-unused-custom-props landing.css tailwind.css
-```
-
-The rule is `(enabled_if %{bin-available:npx})`, so it is skipped where npx is
-absent. `%{bin:cascade}` resolves through the dune workspace, so this is the
-freshly built cascade, not whatever is on `PATH`.
-
-### One class at a time
-
-<!-- $MDX skip -->
-```sh
-dune exec -- tw --single="hover:bg-blue-600" --diff
-```
-
-Generates the class through both implementations and diffs them. Use
-`--single=` rather than `-s` for a class starting with `-` or containing spaces.
-
-## What is not gated
-
-The whole-site comparison against tailwindcss.com is **not** automated and not
-committed. It lives in `tmp/` (gitignored) and has to be reconstructed:
-
-- `src/classlist.txt` - every class the deployed site uses, extracted from its
+- `src/classlist.txt` is every class the deployed site uses, extracted from its
   CSS. A class name escapes every character outside `[A-Za-z0-9_-]`, so an
-  unescaped `:` or `(` ends it, and non-ASCII does not.
-- `src/globals.css` - the site's entrypoint, plus the files it imports.
-- `src/ref-entry.css` - the same entrypoint with `source(none)` and an explicit
-  `@source "./classlist.txt"`. Without this, Tailwind auto-scans the whole repo,
-  picks up tw's own output, and the comparison goes circular.
+  unescaped `:` or `(` ends it and non-ASCII does not.
+- `src/globals.css` is the site's entrypoint plus the files it imports.
+- `src/ref-entry.css` is the same entrypoint with `source(none)` and an explicit
+  `@source "./classlist.txt"`. Without it Tailwind auto-scans the whole
+  directory, picks up tw's own output, and the comparison goes circular.
 
 Both sheets are then generated and diffed:
 
@@ -70,171 +48,68 @@ Both sheets are then generated and diffed:
   tw_all.css ref_local.css
 ```
 
-This is the measurement that finds most real bugs, because it exercises class
-combinations no fixture covers. Making it a committed gate means committing
-roughly 150 KB of fixtures; until then, treat a change to the residual below as
-something to investigate by hand.
+Committing it as a gate means committing about 150 KB of fixtures, so for now a
+change in the reported gap is something to look at by hand.
 
-## Reading the output
+**Both sides are minified because every other configuration is noisier.** The
+reference passes through lightningcss, so part of what the diff reports is
+cascade disagreeing with lightningcss rather than tw disagreeing with Tailwind.
+Dropping `--minify` raises that cost rather than removing it, because Tailwind's
+unminified output is heavily nested and `--minify` is where lightningcss
+flattens it. Measured on the site corpus:
 
-**Use the built cascade, not the one on `PATH`.** An installed `cascade` from an
-opam switch can be months old and will invent differences that do not exist. A
-stale binary once reported two byte-identical rules as added and appeared to skip
-most of a layer.
+| harness | utilities layer | components layer |
+|---|---|---|
+| minify both sides | 47 added | 2 modified |
+| neither side minified | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
+| neither minified, both flattened | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
 
-**Read the whole diff.** The summary line counts *containers*, not their
-contents, so `4 changed containers` can hide a hundred rule entries. Always:
+Flattening afterwards changes nothing, because the canonical comparator already
+folds nesting.
+
+## Reading a failure
+
+A single class goes through both implementations with `--diff`:
 
 <!-- $MDX skip -->
 ```sh
-grep -nE "^├─|^└─" diff.txt
+dune exec -- tw --single="hover:bg-blue-600" --diff
 ```
 
-**`--diff` has two blind spots.** It forces `--minify --optimize`, so the value
-it attributes to Tailwind is post-minification - cross-check with
+Use `--single=` rather than `-s` for a class that starts with `-` or contains
+spaces. Both that output and the site diff have traps.
+
+**Use the built cascade, not the one on `PATH`.** An installed `cascade` from an
+opam switch can be months old and will invent differences that do not exist.
+
+**Pass `--depth=max`.** The default truncates the tree, and the summary line
+counts containers rather than contents, so `3 changed containers` can hide a
+hundred rule entries.
+
+**`--diff` compares two minified sheets.** The CSS it attributes to Tailwind has
+already been through lightningcss, so cross-check against
 `tw -s "<class>" --tailwind`, which is unminified, before calling something a tw
-bug. It also passes `--prune-unused-custom-props`, which makes it blind to a
-utility whose whole effect is a custom property nothing reads;
-`[--checkered-bg:--alpha(...)]` reported no differences in isolation while the
-site comparison caught it.
+bug. `--diff` also passes `--prune-unused-custom-props`, which makes it blind to
+a utility whose whole effect is a custom property nothing reads.
 
-**Order is not compared.** `--diff=canonical` matches rules by key, not
-position, and `css_compare.mli` says it "does not reason about cascade-affecting
-rule reorderings". Sorting both utilities layers identically leaves the counts
-unchanged. What *does* surface is block structure - `N blocks merged into M` -
-because a rule sorting between two `@media` blocks stops them merging.
+**Order is not compared.** `--diff=canonical` matches rules by key rather than
+position, and `css_compare.mli` says it does not reason about cascade-affecting
+reorderings. Block structure does surface as `N blocks merged into M`, but tw's
+`--minify` runs cascade's printer without its optimizer, so most of those
+entries are adjacent identical `@media` and `@container` blocks that
+lightningcss merged on the reference side. The same mismatch turns a rule that
+moved between two blocks with the same condition into a `removed` entry paired
+with an `added` entry carrying those rules back, so look for the twin before
+treating either half as a gap.
 
-**Do not infer a cause from the differ's categories.** Two conclusions drawn that
-way turned out to be wrong: that ordering caused the diff, and that a third of
-the entries were byte-identical artefacts. Extract every rule from both
-canonicalised sheets and diff the multisets instead.
+### Recurring bug shapes
 
-## Why the number is not zero
+Four patterns account for most of what the site comparison has found, so a new
+family of utilities is worth checking against all four.
 
-### The current residual
-
-Every entry the whole-site comparison still reports is tolerated: a class tw
-rejects on purpose, a disagreement between the two minifiers, or a spelling that
-selects the same elements. None of them changes what a browser renders. Treat a
-new entry, or the disappearance of one of these, as something to investigate.
-
-In the utilities layer:
-
-- The docs pages' literal `[<value>]` placeholder classes, which Tailwind
-  splices verbatim into CSS no browser accepts and tw rejects. See below.
-- `after:content-['_↗']`. Tailwind leaves the arrow unescaped in the class
-  selector. U+2197 is not one of the non-ASCII ident code points CSS Syntax 3
-  admits, so an ident cannot carry it literally; tw writes `\2197 `. The two
-  selectors match the same element.
-- `supports-[backdrop-filter]:*`. cascade keeps the `@supports` guard,
-  lightningcss elides it under Tailwind's browserslist.
-- `hue-rotate-0` and `backdrop-hue-rotate-0`. `hue-rotate()` is the spec-legal
-  minification of `hue-rotate(0deg)`; lightningcss does not perform it.
-- `@container` block splits, from container variants written as function calls.
-  Given `@min-[theme(--breakpoint-lg)]`, tw resolves the token and sorts the
-  block by the width it denotes; Tailwind sorts by the bracket text. The blocks
-  land in different places, so different neighbours merge with them.
-
-In the components layer:
-
-- `calc(28 / 18)`, which cascade will not fold.
-- `-webkit-text-decoration-color`, which lightningcss emits twice.
-
-The four minifier entries are in the table under *Two minifiers*, the
-placeholders under *Placeholder classes*.
-
-### Placeholder classes
-
-The docs pages contain literal `<value>` placeholders, so the site's class list
-includes `blur-[<value>]`, `shadow-[<value>]` and about forty more. Tailwind
-emits them as CSS - `filter: blur(<value>)` - which no browser accepts. tw
-rejects the class. This is deliberate: an arbitrary value the property cannot
-take is not a utility, and coercing it to a plausible fallback (`center`, `auto`,
-`0px`, the zero shadow) produces a silently wrong declaration instead of an
-error. These account for most of the residual.
-
-The same applies to `bg-[--brand-color]` (v3 syntax, emits
-`background-color: --brand-color`), `grid-cols-[1rem,1fr]`, and
-`justify-baseline` - CSS Box Alignment 3 gives `justify-content` no
-`<baseline-position>`, so `justify-content: baseline` is dropped by browsers.
-
-### Two minifiers
-
-What the harness compares is `cascade(tw)` against `lightningcss(tailwind)`, so
-some differences are between the two minifiers rather than between the two
-implementations:
-
-| difference | cascade | lightningcss |
-|---|---|---|
-| `hue-rotate(0deg)` | `hue-rotate()` | keeps it |
-| `@supports (backdrop-filter: ...)` | keeps the guard | elides it |
-| `@media not (X)` | Level 4 form | `not all and (X)` |
-| `text-decoration-color` | no prefix | adds `-webkit-` |
-| `-webkit-text-decoration-color` | one declaration | two |
-| `calc(28 / 18)` | keeps it | folds to `1.55556` |
-
-The guard and the downlevelling are threshold differences: cascade's bar is
-Baseline "widely available", lightningcss's is Tailwind's browserslist. The
-`calc` refusal is a precision commitment - the quotient does not survive
-cascade's serialisation rounding.
-
-The two decoration rows are one difference seen from either side. Tailwind's
-unminified output carries no prefix; lightningcss adds one while minifying and
-emits it twice, so `decoration-sky-500` arrives as
-`-webkit-text-decoration-color; -webkit-text-decoration-color;
-text-decoration-color`. tw writes the prefixed declaration itself, once, and
-cascade neither adds nor removes it.
-
-There is also one real bug in the Tailwind minification path. The site's search
-CSS contains:
-
-```css
-.DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]::before {
-  @apply bg-sky-100 dark:bg-gray-700/40;
-}
-```
-
-Tailwind's unminified output correctly expands the dark variant with
-`:where(.dark, .dark *)`. After `--minify`, lightningcss serialises both the
-direct dark rule and its system-dark counterpart with an empty `:where()`:
-
-```css
-.DocSearch-Hit[aria-selected=true] [title="Remove this search from favorites"]:before:where() {
-  background-color: #36415366;
-}
-```
-
-The selector no longer matches, so this is not an equivalent minifier choice:
-the dark background is lost. tw's output retains `:where(.dark, .dark *)`, and
-the unminified Tailwind output is correct, which locates the corruption in the
-Tailwind/lightningcss minification step rather than in tw or cascade.
-
-Removing lightningcss from the comparison does not help. Measured on the site
-corpus:
-
-| harness | utilities layer |
-|---|---|
-| minify both sides (current) | 47 added, 1 removed, **8 modified** |
-| neither side minified | 45 added, 12 removed, **527 modified** |
-| neither minified, both flattened | 45 added, 8 removed, **162 modified** |
-
-Tailwind's unminified output is heavily nested, and `--minify` is where
-lightningcss flattens it, so dropping it trades six known differences for
-hundreds of structural ones. Minifying both sides is the cleanest comparison
-available.
-
-This means parity as measured includes a minifier-agreement component that will
-not reach zero unless cascade adopts lightningcss's choices - and for at least
-three of the six, cascade's choice is the better one.
-
-## Recurring bug shapes
-
-Four patterns account for most of what the site comparison has found. When a new
-family of utilities is added, check it against all four.
-
-- **Invented theme token.** A utility references `var(--<family>-<name>)` when no
-  `@theme` declares it, leaving a reference that resolves to nothing. Write the
-  keyword instead.
+- **Invented theme token.** A utility references `var(--<family>-<name>)` when
+  no `@theme` declares it, leaving a reference that resolves to nothing. Write
+  the keyword instead.
 - **Silent coercion.** An arbitrary value that does not parse falls back to a
   plausible one, so `rounded-[calc(...)]` became `0` and `object-[50%]` became
   `var(--50)`. Reject the class.
@@ -242,5 +117,35 @@ family of utilities is added, check it against all four.
   inner variant already did. Rebase on the incoming selector instead; see
   `route_regular` in `lib/rule.ml`.
 - **A palette colour looked up only in `Scheme.hex_color`**, which holds
-  per-render overrides and is empty by default, so the palette hex is never found
-  and the fallback degrades.
+  per-render overrides and is empty by default, so the palette hex is never
+  found and the fallback degrades.
+
+## What parity does not cover
+
+tw rejects a class whose arbitrary value the property cannot take, where
+Tailwind splices the value into CSS anyway. The docs pages carry literal
+`<value>` placeholders, so the site's class list holds `blur-[<value>]`,
+`shadow-[<value>]` and about forty more, which Tailwind emits as
+`filter: blur(<value>)` and no browser accepts. `bg-[--brand-color]` emits
+`background-color: --brand-color` (v3 syntax), `grid-cols-[1rem,1fr]` emits
+`grid-template-columns: 1rem,1fr`, and `justify-baseline` emits a
+`justify-content` value CSS Box Alignment 3 does not define. Together these are
+45 of the 47 rules the site comparison reports as added.
+
+Three more come from lightningcss on the reference side:
+
+- It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
+  spelling as well, which is the other two added rules.
+- It autoprefixes the site's own CSS, so `user-select: none` on
+  `.with-line-numbers .line::before` arrives as
+  `-webkit-user-select: none; user-select: none`. cascade adds no prefix.
+- It serialises the DocSearch dark-variant rules with an empty `:where()`, which
+  matches nothing and drops a background colour that Tailwind's own unminified
+  output gets right.
+
+The last difference is between the two minifiers. cascade folds `calc()` only
+where the fold is exact, so the typography component keeps
+`line-height: calc(28 / 18)` where lightningcss rounds it to `1.55556`.
+
+Anything else the site comparison reports is worth investigating, and so is the
+disappearance of any of the above.
