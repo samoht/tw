@@ -3208,6 +3208,10 @@ val form_select : t
 (** [form_select] provides base styles for select dropdowns; normalizes
     appearance across browsers while maintaining native functionality. *)
 
+val form_multiselect : t
+(** [form_multiselect] provides base styles for multi-select lists ([select]
+    with [multiple]); matches the input styling without the dropdown chevron. *)
+
 val form_checkbox : t
 (** [form_checkbox] provides base styles for checkbox inputs; enables custom
     styling while maintaining accessibility. *)

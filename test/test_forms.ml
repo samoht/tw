@@ -6,9 +6,21 @@ let check class_name =
   | Ok u -> check string "forms class" class_name (Tw.Forms.Handler.to_class u)
   | Error (`Msg msg) -> fail msg
 
+let check_select class_name =
+  match Tw.Forms.Select.of_class Tw.Scheme.default class_name with
+  | Ok u ->
+      Alcotest.check string "forms class" class_name
+        (Tw.Forms.Select.to_class u)
+  | Error (`Msg msg) -> fail msg
+
 let test_inputs () =
   check "form-input";
   check "form-checkbox"
+
+let test_selects () =
+  check_select "form-select";
+  check_select "form-textarea";
+  check_select "form-multiselect"
 
 let test_of_string_invalid () =
   (* Invalid form utilities *)
@@ -42,7 +54,14 @@ let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
     Test_helpers.shuffle
-      [ form_input; form_checkbox; form_radio; form_select; form_textarea ]
+      [
+        form_input;
+        form_checkbox;
+        form_radio;
+        form_select;
+        form_textarea;
+        form_multiselect;
+      ]
   in
   Test_helpers.check_ordering_matches ~forms:true
     ~test_name:"forms suborder matches Tailwind" shuffled
@@ -94,6 +113,7 @@ let class_strategy_spellings () =
 let tests =
   [
     test_case "inputs" `Quick test_inputs;
+    test_case "selects" `Quick test_selects;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "forms suborder matches Tailwind" `Quick suborder_matches_tailwind;
     test_case "base strategy spells print-color-adjust twice" `Quick
