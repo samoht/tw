@@ -19,6 +19,33 @@ let test_font_family () =
   check "font-serif";
   check "font-mono"
 
+(* Tailwind v4.3.2 moved [--font-sans] off [ui-sans-serif, system-ui, ...] to
+   the platform system-font stack; v4.3.3 theme.css still carries that stack,
+   and preflight's [html] fallback has to agree with it. *)
+let test_font_family_default_stack () =
+  let css ?(base = false) cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Tw.to_css ~base [ u ] |> Tw.Css.inline_vars
+        |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let sans = css "font-sans" in
+  Alcotest.(check bool)
+    "font-sans leads with the platform stack" true
+    (Astring.String.is_infix ~affix:"-apple-system,BlinkMacSystemFont," sans);
+  Alcotest.(check bool)
+    "font-sans dropped ui-sans-serif" false
+    (Astring.String.is_infix ~affix:"ui-sans-serif" sans);
+  let base = css ~base:true "font-sans" in
+  Alcotest.(check bool)
+    "preflight html falls back to the platform stack" true
+    (Astring.String.is_infix
+       ~affix:"font-family:-apple-system,BlinkMacSystemFont," base);
+  Alcotest.(check bool)
+    "preflight html dropped ui-sans-serif" false
+    (Astring.String.is_infix ~affix:"ui-sans-serif" base)
+
 let test_font_size () =
   List.iter
     (fun s -> check ("text-" ^ s))
@@ -664,6 +691,7 @@ let tests =
     test_case "leading-none inline" `Quick test_leading_none_inline;
     test_case "text line-height override" `Quick test_text_line_height_override;
     test_case "font family" `Quick test_font_family;
+    test_case "font family default stack" `Quick test_font_family_default_stack;
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;
     test_case "text alignment" `Quick test_text_alignment;
