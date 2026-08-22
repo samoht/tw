@@ -8,3 +8,19 @@
  (modules test)
  (libraries alcotest tw cascade cascade.diff fmt re)
  (deps utilities.txt variants.txt))
+
+; Pins the [@theme] scanner on the declaration shapes Prettier produces:
+; values wrapped over several lines, a [;] or [}] inside a string or a
+; comment, and brackets that span lines.
+
+(rule
+ (action
+  (with-stdout-to
+   theme_scanner_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:theme_scanner_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff theme_scanner_expected.txt theme_scanner_actual.txt)))
