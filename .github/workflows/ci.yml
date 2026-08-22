@@ -47,6 +47,15 @@ jobs:
       - name: Test
         run: opam exec -- dune runtest
 
+      # dune runtest leaves the upstream parity runner's canonicalization
+      # tolerance in place. Running it again with the tolerance off means a
+      # case that starts leaning on it fails under its own name here, instead
+      # of passing quietly on the way through.
+      - name: Upstream parity without the canonicalization tolerance
+        env:
+          TW_UPSTREAM_STRICT: 1
+        run: opam exec -- dune exec test/upstream/test.exe
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
