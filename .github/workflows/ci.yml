@@ -46,3 +46,16 @@ jobs:
 
       - name: Test
         run: opam exec -- dune runtest
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.4"
+
+      # Reads the pinned version from .ocamlformat and runs dune build @fmt.
+      - uses: ocaml/setup-ocaml/lint-fmt@v3
