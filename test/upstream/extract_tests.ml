@@ -319,6 +319,67 @@ let is_empty_string_arg arg =
   in
   arg = "''" || arg = {|""|}
 
+(* A [test(...)] block opens with the call's own indentation and closes at the
+   [})] sitting at that same indentation: Prettier indents every line of the
+   body further, so the pair is unambiguous, and a block nested in one or more
+   [describe(...)] blocks is read like any other. The name is a character stream
+   from the opening paren, so a [(], a [)] or a quote of another style inside
+   the name closes nothing, and the three quote styles are all read.
+
+   [test.each([...])(name, fn)] is not a [test(] head and stays out: the three
+   such blocks in v4.3.3 assert on Tailwind's own JS helpers
+   ([isValidStaticUtilityName], [compoundsForSelectors]), never call [run] and
+   compile no CSS. *)
+let test_open_re = Re.Pcre.regexp {|^([ \t]*)test[ \t]*\(|}
+
+(* Read the quoted first argument of a [test(] call from [start], just past the
+   opening paren, and return it as it is spelled in the source. [None] when the
+   argument is not a string literal closed on this line. *)
+let test_name line ~start =
+  let len = String.length line in
+  let i = ref start in
+  while !i < len && (line.[!i] = ' ' || line.[!i] = '\t') do
+    incr i
+  done;
+  if !i >= len then None
+  else
+    match line.[!i] with
+    | ('\'' | '"' | '`') as quote ->
+        let buf = Buffer.create 64 in
+        let closed = ref false in
+        incr i;
+        while (not !closed) && !i < len do
+          let c = line.[!i] in
+          if c = '\\' && !i + 1 < len then (
+            Buffer.add_char buf c;
+            Buffer.add_char buf line.[!i + 1];
+            i := !i + 2)
+          else if c = quote then (
+            closed := true;
+            incr i)
+          else (
+            Buffer.add_char buf c;
+            incr i)
+        done;
+        if !closed then Some (Buffer.contents buf) else None
+    | _ -> None
+
+(* [Some (indent, name)] when [line] opens a test block. *)
+let test_open line =
+  match Re.exec_opt test_open_re line with
+  | None -> None
+  | Some g ->
+      let start = snd (Re.Group.offset g 0) in
+      Option.map (fun name -> (Re.Group.get g 1, name)) (test_name line ~start)
+
+(* [true] when [line] is the [})] closing a block opened at [indent]. *)
+let test_close ~indent line =
+  let n = String.length indent in
+  String.length line >= n + 2
+  && String.sub line 0 n = indent
+  && line.[n] = '}'
+  && line.[n + 1] = ')'
+
 type parse_state =
   | Outside
   | In_test of string
@@ -332,7 +393,6 @@ let parse_file filename =
 
   let tests = ref [] in
   let lines = String.split_on_char '\n' content in
-  let test_pattern = Re.Pcre.regexp {|^test\('([^']+)'|} in
   (* Match array content between [ and ], handling ] inside quoted strings *)
   let run_pattern =
     Re.Pcre.regexp {|run\(\[((?:[^\]'"]|'[^']*'|"[^"]*")*)\]|}
@@ -358,6 +418,19 @@ let parse_file filename =
   let theme_re = Re.Pcre.regexp {|@theme\s*\{|} in
 
   let state = ref Outside in
+  (* Indentation of the [test(] opening the block being read, so its own [})] is
+     told apart from one closing a [describe(...)] around it. *)
+  let test_indent = ref "" in
+  (* Cases produced by the block being read, held back until it ends. A block
+     that defines its own [@utility] is dropped whole: the extractor carries a
+     candidate list and the [@theme] tokens, not the CSS around them, so the
+     expected snapshot of such a block holds rules for utilities the runner is
+     never told about and no run can produce. In v4.3.3 that is the
+     [describe('custom utilities')] block and the one [@utility container]
+     case. *)
+  let block_tests = ref [] in
+  let saw_custom_utility = ref false in
+  let utility_def_re = Re.Pcre.regexp {|@utility\s|} in
   let current_classes = ref [] in
   let current_config = ref No_theme in
   (* A single test can mix a keep [@theme { ... }] block with an inline [@theme
@@ -394,7 +467,7 @@ let parse_file filename =
       |> List.filter_map (fun n -> Hashtbl.find_opt variant_defs n)
     in
     if classes <> [] then
-      tests :=
+      block_tests :=
         {
           name;
           config = !current_config;
@@ -403,7 +476,7 @@ let parse_file filename =
           variants;
           theme_vars = List.rev !current_theme_vars;
         }
-        :: !tests;
+        :: !block_tests;
     current_classes := [];
     current_variant_names := [];
     current_theme_vars := [];
@@ -411,17 +484,26 @@ let parse_file filename =
     in_expect := None
   in
 
+  let close_block () =
+    if not !saw_custom_utility then tests := !block_tests @ !tests;
+    block_tests := [];
+    saw_custom_utility := false
+  in
+
   List.iter
     (fun line ->
+      if Re.execp utility_def_re line then saw_custom_utility := true;
       match !state with
       | Outside -> (
-          match Re.exec_opt test_pattern line with
-          | Some groups ->
+          match test_open line with
+          | Some (indent, name) ->
               current_config := No_theme;
               saw_keep_theme := false;
-              state := In_test (Re.Group.get groups 1)
+              saw_custom_utility := false;
+              test_indent := indent;
+              state := In_test name
           | None -> ())
-      | In_test name ->
+      | In_test name -> (
           (* Detect compileCss/run calls to track theme configuration.
              compileCss() resets config (each call has its own @theme). run()
              uses built-in defaults. *)
@@ -530,19 +612,23 @@ let parse_file filename =
           else if Re.execp snapshot_start line then
             state := In_snapshot (name, !current_classes, Buffer.create 256)
             (* Check for new test *)
-          else if Astring.String.is_prefix ~affix:"test('" line then (
-            flush_test name None;
-            current_classes := [];
-            current_config := No_theme;
-            match Re.exec_opt test_pattern line with
-            | Some groups -> state := In_test (Re.Group.get groups 1)
-            | None -> state := Outside
-            (* Check for test end without snapshot *))
-          else if Astring.String.is_prefix ~affix:"})" line then (
-            flush_test name None;
-            current_classes := [];
-            current_config := No_theme;
-            state := Outside)
+          else
+            match test_open line with
+            | Some (indent, next) ->
+                flush_test name None;
+                close_block ();
+                current_classes := [];
+                current_config := No_theme;
+                test_indent := indent;
+                state := In_test next
+            (* Check for test end without snapshot *)
+            | None ->
+                if test_close ~indent:!test_indent line then (
+                  flush_test name None;
+                  close_block ();
+                  current_classes := [];
+                  current_config := No_theme;
+                  state := Outside))
       | In_array name ->
           current_classes :=
             List.rev_append (extract_quoted_strings line) !current_classes;
@@ -573,6 +659,7 @@ let parse_file filename =
             Buffer.add_string buf line;
             Buffer.add_char buf '\n'))
     lines;
+  close_block ();
 
   List.rev !tests
 

@@ -3099,6 +3099,122 @@ max-block-4 max-block-[4px] max-block-dvh max-block-fit max-block-full max-block
 ---
 
 <<<>>>
+# creates the right media queries and sorts it before width
+@config theme
+@theme-var breakpoint-sm 40rem
+@theme-var breakpoint-md 48rem
+@theme-var breakpoint-lg 64rem
+@theme-var breakpoint-xl 80rem
+@theme-var breakpoint-2xl 96rem
+container max-w-[var(--breakpoint-sm)] w-1/2
+---
+
+      :root, :host {
+        --breakpoint-sm: 40rem;
+      }
+
+      .container {
+        width: 100%;
+      }
+
+      @media (min-width: 40rem) {
+        .container {
+          max-width: 40rem;
+        }
+      }
+
+      @media (min-width: 48rem) {
+        .container {
+          max-width: 48rem;
+        }
+      }
+
+      @media (min-width: 64rem) {
+        .container {
+          max-width: 64rem;
+        }
+      }
+
+      @media (min-width: 80rem) {
+        .container {
+          max-width: 80rem;
+        }
+      }
+
+      @media (min-width: 96rem) {
+        .container {
+          max-width: 96rem;
+        }
+      }
+
+      .w-1\/2 {
+        width: 50%;
+      }
+
+      .max-w-\[var\(--breakpoint-sm\)\] {
+        max-width: var(--breakpoint-sm);
+      }
+      
+<<<>>>
+# sorts breakpoints based on unit and then in ascending aOrder
+@config theme-reference
+@theme-var breakpoint-lg 64rem
+@theme-var breakpoint-xl 80rem
+@theme-var breakpoint-3xl 1600px
+@theme-var breakpoint-sm 40em
+@theme-var breakpoint-2xl 96rem
+@theme-var breakpoint-xs 30px
+@theme-var breakpoint-md 48em
+container
+---
+
+      .container {
+        width: 100%;
+      }
+
+      @media (min-width: 40em) {
+        .container {
+          max-width: 40em;
+        }
+      }
+
+      @media (min-width: 48em) {
+        .container {
+          max-width: 48em;
+        }
+      }
+
+      @media (min-width: 30px) {
+        .container {
+          max-width: 30px;
+        }
+      }
+
+      @media (min-width: 1600px) {
+        .container {
+          max-width: 1600px;
+        }
+      }
+
+      @media (min-width: 64rem) {
+        .container {
+          max-width: 64rem;
+        }
+      }
+
+      @media (min-width: 80rem) {
+        .container {
+          max-width: 80rem;
+        }
+      }
+
+      @media (min-width: 96rem) {
+        .container {
+          max-width: 96rem;
+        }
+      }
+      
+<<<>>>
 # flex
 @config run
 flex-1 flex-1/2 flex-99 flex-[123] flex-auto flex-initial flex-none
@@ -22253,4 +22369,93 @@ ring-offset-0 ring-offset-1 ring-offset-2 ring-offset-4 ring-offset-[#0088cc] ri
 -@container -@container-normal -@container-normal/sidebar -@container-size -@container-size/sidebar -@container/sidebar
 ---
 
+<<<>>>
+# `--spacing: initial` disables the spacing multiplier
+@config theme
+@theme-var spacing initial
+@theme-var spacing-4 1rem
+px-1 px-4
+---
+
+      :root, :host {
+        --spacing-4: 1rem;
+      }
+
+      .px-4 {
+        padding-inline: var(--spacing-4);
+      }
+      
+<<<>>>
+# `--spacing-*: initial` disables the spacing multiplier
+@config theme
+@theme-var spacing-4 1rem
+px-1 px-4
+---
+
+      :root, :host {
+        --spacing-4: 1rem;
+      }
+
+      .px-4 {
+        padding-inline: var(--spacing-4);
+      }
+      
+<<<>>>
+# only multiples of 0.25 with no trailing zeroes are supported with the spacing multiplier
+@config theme
+@theme-var spacing 4px
+px-.75 px-0.25 px-0.375 px-1.5 px-2.50 px-2.75
+---
+
+      :root, :host {
+        --spacing: 4px;
+      }
+
+      .px-0\.25 {
+        padding-inline: calc(var(--spacing) * .25);
+      }
+
+      .px-1\.5 {
+        padding-inline: calc(var(--spacing) * 1.5);
+      }
+
+      .px-2\.75 {
+        padding-inline: calc(var(--spacing) * 2.75);
+      }
+      
+<<<>>>
+# spacing utilities must have a value
+@config theme-reference
+@theme-var spacing 4px
+px
+---
+
+<<<>>>
+# --spacing-* variables take precedence over --container-* variables
+@config theme
+@theme-var spacing-sm 8px
+@theme-var container-sm 256px
+basis-sm max-w-sm min-w-sm w-sm
+---
+
+      :root, :host {
+        --spacing-sm: 8px;
+      }
+
+      .w-sm {
+        width: var(--spacing-sm);
+      }
+
+      .max-w-sm {
+        max-width: var(--spacing-sm);
+      }
+
+      .min-w-sm {
+        min-width: var(--spacing-sm);
+      }
+
+      .basis-sm {
+        flex-basis: var(--spacing-sm);
+      }
+      
 <<<>>>
