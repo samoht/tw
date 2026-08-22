@@ -562,39 +562,23 @@ module Strings = Set.Make (String)
 (* Helpers for theme layer extraction and ordering *)
 let collect_selector_props tw_classes = List.concat_map Rule.outputs tw_classes
 
-(* Helper to extract theme declarations from nested CSS statements
-   recursively *)
+(* Collect the theme-layer tokens a statement tree declares. A compound variant
+   nests its rule under whichever at-rules its modifiers ask for, so the walk
+   has to reach a declaration under any of them; [Css.Stylesheet]'s pair of
+   exhaustive readers is that walk. *)
 let rec extract_theme_from_statements theme_vars insertion_order statements =
   List.iter
     (fun stmt ->
-      (* Check if this is a rule with declarations *)
-      (match Css.statement_declarations stmt with
-      | Some props ->
-          Css.custom_declarations ~layer:"theme" props
-          |> List.iter (fun decl ->
-              match Css.custom_declaration_name decl with
-              | Some name when not (Hashtbl.mem theme_vars name) ->
-                  Hashtbl.add theme_vars name decl;
-                  insertion_order := decl :: !insertion_order
-              | _ -> ())
-      | None -> ());
-      (* Recurse into nested statements *)
-      (match Css.as_rule stmt with
-      | Some (_, _, nested) ->
-          extract_theme_from_statements theme_vars insertion_order nested
-      | None -> ());
-      (match Css.as_media stmt with
-      | Some (_, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ());
-      (match Css.as_layer stmt with
-      | Some (_, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ());
-      match Css.as_container stmt with
-      | Some (_, _, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ())
+      Css.Stylesheet.statement_declarations stmt
+      |> Css.custom_declarations ~layer:"theme"
+      |> List.iter (fun decl ->
+          match Css.custom_declaration_name decl with
+          | Some name when not (Hashtbl.mem theme_vars name) ->
+              Hashtbl.add theme_vars name decl;
+              insertion_order := decl :: !insertion_order
+          | _ -> ());
+      extract_theme_from_statements theme_vars insertion_order
+        (Css.Stylesheet.statement_children stmt))
     statements
 
 let extract_non_tw_custom_declarations selector_props =
