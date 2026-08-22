@@ -40,3 +40,20 @@
  (alias runtest)
  (action
   (diff empty_expect_expected.txt empty_expect_actual.txt)))
+
+; Pins the [test(] scan on the block shapes utilities.test.ts uses: a block
+; indented inside one or more [describe(...)] blocks, the three quote styles a
+; name can take, a [test.each([...])(...)] block staying out, and a block
+; defining its own [@utility] dropped whole.
+
+(rule
+ (action
+  (with-stdout-to
+   test_blocks_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:test_blocks_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff test_blocks_expected.txt test_blocks_actual.txt)))
