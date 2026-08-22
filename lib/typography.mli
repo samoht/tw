@@ -470,6 +470,13 @@ val font_serif_var : Css.font_family Var.theme
 val font_mono_var : Css.font_family Var.theme
 (** [font_mono_var] is the CSS variable for the monospace font family. *)
 
+val default_sans_stack : Css.font_family
+(** [default_sans_stack] is Tailwind's default [--font-sans] value: the platform
+    system-font stack. *)
+
+val default_mono_stack : Css.font_family
+(** [default_mono_stack] is Tailwind's default [--font-mono] value. *)
+
 val default_font_declarations : Css.declaration list
 (** [default_font_declarations] are the default font variable declarations for
     the theme layer. *)
