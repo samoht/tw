@@ -919,37 +919,12 @@ module Typography_early = struct
     style [ serif_decl; font_family (Css.Var serif_ref) ]
 
   let font_mono =
-    let mono_decl, mono_ref =
-      Var.binding font_mono_var
-        (List
-           [
-             Ui_monospace;
-             SFMono_regular;
-             Menlo;
-             Monaco;
-             Consolas;
-             Liberation_mono;
-             Courier_new;
-             Monospace;
-           ])
-    in
+    let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
     style [ mono_decl; font_family (Css.Var mono_ref) ]
 
   (* Font family utilities use the font variables directly *)
   let font_sans =
-    let sans_decl, sans_ref =
-      Var.binding font_sans_var
-        (List
-           [
-             Ui_sans_serif;
-             System_ui;
-             Sans_serif;
-             Apple_color_emoji;
-             Segoe_ui_emoji;
-             Segoe_ui_symbol;
-             Noto_color_emoji;
-           ])
-    in
+    let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
     style [ sans_decl; font_family (Css.Var sans_ref) ]
 
   (* [font-source] reads --font-source from the theme; the token has to be
