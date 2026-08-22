@@ -17304,6 +17304,7 @@ align-[var(--value)] align-baseline align-bottom align-middle align-sub align-su
 <<<>>>
 # font
 @config theme
+@theme-var font-sans ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'
 @theme-var font-weight-bold 650
 font-["arial_rounded"] font-[100] font-[family-name:var(--my-family)] font-[generic-name:var(--my-family)] font-[number:var(--my-weight)] font-[ui-sans-serif] font-[var(--my-family)] font-bold font-sans
 ---
@@ -17366,6 +17367,7 @@ font-["arial_rounded"] font-[100] font-[family-name:var(--my-family)] font-[gene
 <<<>>>
 # font
 @config theme-reference
+@theme-var font-sans ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'
 @theme-var font-weight-bold 650
 -font-bold -font-sans font font-["arial_rounded"]/foo font-[100]/foo font-[family-name:var(--my-family)]/foo font-[generic-name:var(--my-family)]/foo font-[number:var(--my-weight)]/foo font-[ui-sans-serif]/foo font-[var(--my-family)]/foo font-bold/foo font-sans/foo font-weight-bold
 ---
@@ -18720,6 +18722,7 @@ backdrop-blur-none
 @config theme
 @theme-var default-transition-timing-function ease
 @theme-var default-transition-duration 100ms
+@theme-var transition-property color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter
 @theme-var transition-property-opacity opacity
 transition transition-[var(--value)] transition-all transition-colors transition-none transition-opacity transition-shadow transition-transform
 ---

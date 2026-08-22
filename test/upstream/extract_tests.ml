@@ -168,6 +168,96 @@ let parse_custom_variant_containers content =
     (Re.all re content);
   tbl
 
+(* A [@theme] block is read as a character stream, not line by line: a
+   declaration value runs to the [;] that ends it at the block's own nesting
+   level, and Prettier wraps a long value (a font stack, a transition list) over
+   several lines. A [;] [{] [}] inside a string, a comment or a nested bracket
+   ends nothing. Whitespace outside strings folds to a single space so the
+   captured value fits the one-line [@theme-var] fixture format. *)
+type theme_scanner = {
+  decl : Buffer.t;  (** the declaration read so far *)
+  mutable quote : char option;  (** the open string delimiter, if any *)
+  mutable in_comment : bool;
+  mutable depth : int;  (** bracket nesting; [0] is the block's own level *)
+  mutable pending_space : bool;
+}
+
+let theme_scanner () =
+  {
+    decl = Buffer.create 128;
+    quote = None;
+    in_comment = false;
+    depth = 0;
+    pending_space = false;
+  }
+
+let theme_decl_re = Re.Pcre.regexp {|^--([A-Za-z0-9-]+)\s*:\s*(.*)$|}
+
+let scanner_add s c =
+  if s.pending_space && Buffer.length s.decl > 0 then Buffer.add_char s.decl ' ';
+  s.pending_space <- false;
+  Buffer.add_char s.decl c
+
+(* Emit the declaration read so far, if it is a [--name: value] one. *)
+let scanner_flush s emit =
+  let text = String.trim (Buffer.contents s.decl) in
+  Buffer.clear s.decl;
+  s.pending_space <- false;
+  match Re.exec_opt theme_decl_re text with
+  | Some g -> emit (Re.Group.get g 1, String.trim (Re.Group.get g 2))
+  | None -> ()
+
+(* Read one line of an open [@theme] block from [start]. Returns [true] while
+   the block is still open. *)
+let scanner_feed s line ~start emit =
+  let len = String.length line in
+  let closed = ref false in
+  let i = ref start in
+  while (not !closed) && !i < len do
+    let c = line.[!i] in
+    (match s.quote with
+    | Some q ->
+        scanner_add s c;
+        if c = '\\' && !i + 1 < len then (
+          scanner_add s line.[!i + 1];
+          incr i)
+        else if c = q then s.quote <- None
+    | None -> (
+        if s.in_comment then (
+          if c = '*' && !i + 1 < len && line.[!i + 1] = '/' then (
+            s.in_comment <- false;
+            s.pending_space <- true;
+            incr i))
+        else if c = '/' && !i + 1 < len && line.[!i + 1] = '*' then (
+          s.in_comment <- true;
+          incr i)
+        else
+          match c with
+          | ' ' | '\t' | '\r' -> s.pending_space <- true
+          | '\'' | '"' ->
+              s.quote <- Some c;
+              scanner_add s c
+          | '(' | '[' | '{' ->
+              s.depth <- s.depth + 1;
+              scanner_add s c
+          | ')' | ']' ->
+              if s.depth > 0 then s.depth <- s.depth - 1;
+              scanner_add s c
+          | '}' ->
+              if s.depth = 0 then (
+                scanner_flush s emit;
+                closed := true)
+              else (
+                s.depth <- s.depth - 1;
+                scanner_add s c)
+          | ';' -> if s.depth = 0 then scanner_flush s emit else scanner_add s c
+          | c -> scanner_add s c));
+    incr i
+  done;
+  (* The line break itself is whitespace within the value. *)
+  if not !closed then s.pending_space <- true;
+  not !closed
+
 type parse_state =
   | Outside
   | In_test of string
@@ -225,16 +315,11 @@ let parse_file filename =
     Re.Pcre.regexp {|@custom-variant\s+([A-Za-z0-9_-]+)|}
   in
   let current_variant_names = ref [] in
-  (* Capture [@theme] token declarations [--name: value;].
-     [in_theme]/[theme_depth] track the brace nesting of the active [@theme
-     {...}] block within a compileCss template. *)
+  (* Capture [@theme] token declarations [--name: value;]. [in_theme] holds the
+     scanner of the active [@theme {...}] block within a compileCss template. *)
   let current_theme_vars = ref [] in
-  let in_theme = ref false in
-  let theme_depth = ref 0 in
+  let in_theme = ref None in
   let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
-  let theme_var_re =
-    Re.Pcre.regexp {|^\s*--([A-Za-z0-9-]+)\s*:\s*(.+?)\s*;\s*$|}
-  in
 
   let flush_test name expected =
     let classes =
@@ -259,8 +344,7 @@ let parse_file filename =
     current_classes := [];
     current_variant_names := [];
     current_theme_vars := [];
-    in_theme := false;
-    theme_depth := 0
+    in_theme := None
   in
 
   List.iter
@@ -310,23 +394,24 @@ let parse_file filename =
             saw_keep_theme := true;
             current_config := Theme);
 
-          (* Capture [@theme] token declarations. Enter on the opener line,
-             capture [--name: value;] lines, exit when braces balance. *)
-          if (not !in_theme) && Re.execp theme_open_re line then (
-            in_theme := true;
-            theme_depth := 0);
-          if !in_theme then (
-            (match Re.exec_opt theme_var_re line with
-            | Some g ->
-                current_theme_vars :=
-                  (Re.Group.get g 1, Re.Group.get g 2) :: !current_theme_vars
-            | None -> ());
-            String.iter
-              (fun c ->
-                if c = '{' then incr theme_depth
-                else if c = '}' then decr theme_depth)
-              line;
-            if !theme_depth <= 0 then in_theme := false);
+          (* Capture [@theme] token declarations. Enter just after the opener's
+             [{] and read on until the block's closing [}]. *)
+          let scan_from =
+            match !in_theme with
+            | Some s -> Some (s, 0)
+            | None -> (
+                match Re.exec_opt theme_open_re line with
+                | Some g ->
+                    let s = theme_scanner () in
+                    in_theme := Some s;
+                    Some (s, snd (Re.Group.offset g 0))
+                | None -> None)
+          in
+          (match scan_from with
+          | None -> ()
+          | Some (s, start) ->
+              let emit v = current_theme_vars := v :: !current_theme_vars in
+              if not (scanner_feed s line ~start emit) then in_theme := None);
 
           (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
