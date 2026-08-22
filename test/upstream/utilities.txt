@@ -829,6 +829,8 @@ isolate isolation-auto
 # isolation
 @config run
 -isolate -isolation-auto isolate/foo isolation-auto/foo
+---
+
 <<<>>>
 # z-index
 @config run
@@ -3239,6 +3241,8 @@ table-auto table-fixed
 # table-layout
 @config run
 -table-auto -table-fixed table-auto/foo table-fixed/foo
+---
+
 <<<>>>
 # caption-side
 @config run
@@ -5432,6 +5436,8 @@ snap-always snap-normal
 # scroll-snap-stop
 @config run
 -snap-always -snap-normal snap-always/foo snap-normal/foo
+---
+
 <<<>>>
 # scroll-m
 @config theme
@@ -8575,6 +8581,8 @@ text-clip text-ellipsis
 # text-overflow
 @config run
 -text-clip -text-ellipsis text-clip/foo text-ellipsis/foo
+---
+
 <<<>>>
 # hyphens
 @config run
@@ -19155,6 +19163,8 @@ content-["hello_world"] content-slash
 # content
 @config run
 -content-["hello_world"] content content-["hello_world"]/foo
+---
+
 <<<>>>
 # forced-color-adjust
 @config run

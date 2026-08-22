@@ -1,0 +1,32 @@
+# wrapped-empty
+@config run
+wrapped-keep
+---
+
+    .wrapped-keep {
+      display: block;
+    }
+    
+<<<>>>
+# wrapped-empty
+@config run
+-wrapped-keep wrapped-keep/foo
+---
+
+<<<>>>
+# inline-empty
+@config run
+-inline-empty
+---
+
+<<<>>>
+# wrapped-non-empty
+@config run
+wrapped-non-empty
+<<<>>>
+# after-the-wrapping
+@config run
+-after-the-wrapping
+---
+
+<<<>>>

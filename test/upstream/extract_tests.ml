@@ -258,6 +258,67 @@ let scanner_feed s line ~start emit =
   if not !closed then s.pending_space <- true;
   not !closed
 
+(* [.toEqual('')] asserts that a candidate list compiles to nothing. Like a
+   [@theme] declaration, the assertion is read as a character stream: Prettier
+   wraps the call when the [expect(...)] head is long, leaving the argument and
+   the closing [)] on later lines. A bracket inside a string closes nothing. *)
+type expect_scanner = {
+  arg : Buffer.t;  (** the argument text read so far *)
+  mutable arg_quote : char option;  (** the open string delimiter, if any *)
+  mutable arg_depth : int;  (** bracket nesting; [0] is the call's own level *)
+}
+
+let expect_scanner () =
+  { arg = Buffer.create 32; arg_quote = None; arg_depth = 0 }
+
+(* Read one line of an open [.toEqual(] call from [start]. Returns [Some arg]
+   with the argument text once the closing [)] is read, [None] while the call is
+   still open. *)
+let expect_feed s line ~start =
+  let len = String.length line in
+  let closed = ref None in
+  let i = ref start in
+  while Option.is_none !closed && !i < len do
+    let c = line.[!i] in
+    (match s.arg_quote with
+    | Some q ->
+        Buffer.add_char s.arg c;
+        if c = '\\' && !i + 1 < len then (
+          Buffer.add_char s.arg line.[!i + 1];
+          incr i)
+        else if c = q then s.arg_quote <- None
+    | None -> (
+        match c with
+        | '\'' | '"' | '`' ->
+            s.arg_quote <- Some c;
+            Buffer.add_char s.arg c
+        | '(' | '[' | '{' ->
+            s.arg_depth <- s.arg_depth + 1;
+            Buffer.add_char s.arg c
+        | ']' | '}' ->
+            if s.arg_depth > 0 then s.arg_depth <- s.arg_depth - 1;
+            Buffer.add_char s.arg c
+        | ')' ->
+            if s.arg_depth = 0 then closed := Some (Buffer.contents s.arg)
+            else (
+              s.arg_depth <- s.arg_depth - 1;
+              Buffer.add_char s.arg c)
+        | c -> Buffer.add_char s.arg c));
+    incr i
+  done;
+  !closed
+
+(* The empty assertion is [.toEqual('')]; wrapping it leaves the argument on its
+   own line, and Prettier gives that line a trailing comma. *)
+let is_empty_string_arg arg =
+  let arg = String.trim arg in
+  let arg =
+    let n = String.length arg in
+    if n > 0 && arg.[n - 1] = ',' then String.trim (String.sub arg 0 (n - 1))
+    else arg
+  in
+  arg = "''" || arg = {|""|}
+
 type parse_state =
   | Outside
   | In_test of string
@@ -282,9 +343,9 @@ let parse_file filename =
   in
   let snapshot_start = Re.Pcre.regexp {|toMatchInlineSnapshot\(`|} in
   let snapshot_end = Re.Pcre.regexp {|`\)|} in
-  (* Pattern for .toEqual('') which means the classes should produce empty
-     output *)
-  let empty_expect = Re.Pcre.regexp {|\.toEqual\s*\(\s*['"]{2}\s*\)|} in
+  (* Head of the [.toEqual(...)] assertion; the argument is read from there to
+     the [)] that closes the call. *)
+  let expect_open = Re.Pcre.regexp {|\.toEqual\s*\(|} in
 
   (* Config detection patterns — order matters: most specific first *)
   let compile_css_re = Re.Pcre.regexp {|compileCss\s*\(|} in
@@ -320,6 +381,8 @@ let parse_file filename =
   let current_theme_vars = ref [] in
   let in_theme = ref None in
   let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
+  (* Scanner of the [.toEqual(] call still being read, if any. *)
+  let in_expect = ref None in
 
   let flush_test name expected =
     let classes =
@@ -344,7 +407,8 @@ let parse_file filename =
     current_classes := [];
     current_variant_names := [];
     current_theme_vars := [];
-    in_theme := None
+    in_theme := None;
+    in_expect := None
   in
 
   List.iter
@@ -434,7 +498,28 @@ let parse_file filename =
               | None -> ()));
           (* Check for .toEqual('') which means classes should produce empty
              output. Flush test with empty expected, then clear classes. *)
-          if Re.execp empty_expect line then (
+          let saw_empty_expect =
+            let scan =
+              match !in_expect with
+              | Some s -> Some (s, 0)
+              | None -> (
+                  match Re.exec_opt expect_open line with
+                  | Some g ->
+                      let s = expect_scanner () in
+                      in_expect := Some s;
+                      Some (s, snd (Re.Group.offset g 0))
+                  | None -> None)
+            in
+            match scan with
+            | None -> false
+            | Some (s, start) -> (
+                match expect_feed s line ~start with
+                | None -> false
+                | Some arg ->
+                    in_expect := None;
+                    is_empty_string_arg arg)
+          in
+          if saw_empty_expect then (
             flush_test name (Some "");
             current_classes := [] (* Check for array continuation *))
           else if
