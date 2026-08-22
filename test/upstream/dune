@@ -24,3 +24,19 @@
  (alias runtest)
  (action
   (diff theme_scanner_expected.txt theme_scanner_actual.txt)))
+
+; Pins the [.toEqual('')] scan on the assertion shapes Prettier produces: an
+; argument and a closing [)] on lines of their own, and a wrapped assertion
+; whose argument is not the empty string.
+
+(rule
+ (action
+  (with-stdout-to
+   empty_expect_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:empty_expect_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff empty_expect_expected.txt empty_expect_actual.txt)))
