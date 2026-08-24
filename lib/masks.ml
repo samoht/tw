@@ -422,36 +422,37 @@ module Handler = struct
             Css.mask_size (Var var_ref);
           ]
 
-  (* Tailwind sorts by the property a utility sets, in the order of its property
-     table: mask-image, mask-composite, mask-mode, mask-type, mask-size,
-     mask-clip, mask-position, mask-repeat, mask-origin. Utilities that set the
-     same property share a slot, where the class name breaks the tie. *)
-  let suborder_in_family = function
+  (* Tailwind sorts by the property a utility sets, at the rank its property
+     table gives it: mask-image (209), then mask-composite (257) through
+     mask-origin (264). Utilities that set the same property share a slot, where
+     the class name breaks the tie. *)
+  let property_rank = function
     | Bracket_image_var _ | Bracket_image _ | Bracket_url _ | Bracket_url_var _
     | Bracket_var _ | No_mask ->
-        100
-    | Add | Exclude | Intersect | Subtract -> 200
-    | Alpha | Luminance | Match -> 300
-    | Type_alpha | Type_luminance -> 400
+        209
+    | Add | Exclude | Intersect | Subtract -> 257
+    | Alpha | Luminance | Match -> 258
+    | Type_alpha | Type_luminance -> 259
     | Bracket_contain | Bracket_cover | Bracket_length _ | Bracket_size _ | Auto
     | Contain | Cover | Size_bracket _ | Size_bracket_var _ ->
-        500
+        260
     | Clip_border | Clip_content | Clip_fill | Clip_padding | Clip_stroke
     | Clip_view | No_clip ->
-        600
+        261
     | Bracket_position _ | Bracket_typed_position _ | Position _
     | Position_bracket _ | Position_bracket_var _ ->
-        700
+        262
     | No_repeat | Repeat | Repeat_round | Repeat_space | Repeat_x | Repeat_y ->
-        800
+        263
     | Origin_border | Origin_content | Origin_fill | Origin_padding
     | Origin_stroke | Origin_view ->
-        900
+        264
 
-  (* These share a priority with the mask-gradient utilities. The gradient stops
-     all set mask-image, so they sort below this band; the mask-radial keywords
-     set only a variable and land between mask-none and mask-add. *)
-  let suborder t = 10000 + suborder_in_family t
+  (* Each of these writes one property and stops there, so it closes that
+     property's slot: the mask-gradient utilities that write mask-image and
+     carry on sort inside mask-image's, and the background sizing utilities that
+     share this priority take the slots between the two families. *)
+  let suborder t = Utility.Property_order.last (property_rank t)
 
   (* [mask-[<image>]] takes any background-image value, so what makes one is
      whether the value parser accepts it, not which gradient function it

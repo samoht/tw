@@ -828,9 +828,14 @@ module Handler = struct
      --tw-mask-linear, --tw-mask-radial and --tw-mask-conic blocks, then
      mask-composite. Two rules sort on the first table index that separates
      them, and one that runs out of properties sorts after one that keeps going.
-     These suborders are those indices, spread four apart to leave room for the
-     two tie-breaks below. *)
-  let property_suborder index = 4 * index
+     Every utility here writes mask-image and carries on, so they share its
+     slot; inside it they sort by the index that separates them, spread four
+     apart to leave room for the two tie-breaks below. *)
+  let mask_image_rank = 209
+  let first_stop_rank = 210
+
+  let property_suborder index =
+    Utility.Property_order.slot mask_image_rank + (4 * (index - first_stop_rank))
 
   (* mask-x-* and mask-y-* write the opposite side too, so they lead the
      mask-r-* and mask-t-* they share a first property with. Tailwind breaks the
@@ -871,17 +876,14 @@ module Handler = struct
     | Mask_radial -> property_suborder 236
     | Mask_radial_size (Arbitrary_size _) -> property_suborder 238
     | Mask_conic_angle _ -> property_suborder 245
-    (* mask-circle, the radial size keywords and mask-radial-at-* set a
-       --tw-mask-radial-* variable and no mask-image, so they trail every
-       mask-image utility, [Masks]'s mask-none and mask-[<image>] forms at 10100
-       included, and still lead its mask-composite band at 10200. *)
-    | Mask_radial_shape Circle -> 10150
-    | Mask_radial_shape Ellipse -> 10151
-    | Mask_radial_size Closest_corner -> 10160
-    | Mask_radial_size Closest_side -> 10161
-    | Mask_radial_size Farthest_corner -> 10162
-    | Mask_radial_size Farthest_side -> 10163
-    | Mask_radial_at _ -> 10170
+    (* mask-circle, the radial size keywords and mask-radial-at-* write a
+       --tw-mask-radial-* variable and no mask-image, so each closes the slot of
+       the variable it names: --tw-mask-radial-shape (237),
+       --tw-mask-radial-size (238) and --tw-mask-radial-position (239). The
+       class name orders the ones sharing a slot. *)
+    | Mask_radial_shape _ -> Utility.Property_order.last 237
+    | Mask_radial_size _ -> Utility.Property_order.last 238
+    | Mask_radial_at _ -> Utility.Property_order.last 239
 
   (* Check if a float is a valid Tailwind spacing multiplier: non-negative,
      either an integer or ending in .5 *)

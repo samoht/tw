@@ -430,7 +430,74 @@ module Handler = struct
   open Css
 
   let name = "backgrounds"
-  let priority _ = 20
+
+  (* Tailwind sorts a layer by the rank its property table gives the property
+     each rule writes. The background utilities take two stretches of that
+     table: background-color (198) and background-image (199) with the gradient
+     variables (202-208), then background-size (251) through background-origin
+     (256). The second stretch falls between the mask-image utilities and
+     mask-composite, so it sorts with the masks. *)
+  let property_rank = function
+    | Bg _ | Bg_opacity _ | Bg_inherit | Bg_current | Bg_current_opacity _
+    | Bg_transparent | Bg_bracket_color _ | Bg_bracket_color_opacity _
+    | Bg_bracket_color_var _ | Bg_bracket_color_var_opacity _ | Bg_bracket_var _
+    | Bg_bracket_var_opacity _ ->
+        198
+    | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
+    | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
+    | Bg_linear_angle_neg_interp _ | Bg_linear_bracket _
+    | Bg_linear_bracket_neg _ | Bg_conic | Bg_conic_angle _
+    | Bg_conic_angle_neg _ | Bg_conic_interp _ | Bg_conic_angle_interp _
+    | Bg_conic_angle_neg_interp _ | Bg_radial | Bg_radial_interp _
+    | Bg_radial_bracket _ | Bg_bracket_image_var _ | Bg_bracket_image _
+    | Bg_bracket_linear_gradient _ | Bg_bracket_url _ | Bg_bracket_image_url _
+    | Bg_bracket_url_var _ | Bg_none ->
+        199
+    | Via_none -> 202
+    | Gradient_color (From, _) -> 203
+    | Gradient_stop_position (From, _) -> 204
+    | Gradient_color (Via, _) -> 205
+    | Gradient_stop_position (Via, _) -> 206
+    | Gradient_color (To, _) -> 207
+    | Gradient_stop_position (To, _) -> 208
+    | Bg_auto | Bg_cover | Bg_contain | Bg_bracket_contain | Bg_bracket_cover
+    | Bg_bracket_size _ | Bg_bracket_length _ | Bg_size_bracket _ ->
+        251
+    | Bg_fixed | Bg_local | Bg_scroll -> 252
+    | Bg_clip_border | Bg_clip_padding | Bg_clip_content | Bg_clip_text -> 253
+    | Bg_position _ | Bg_bracket_position _ | Bg_bracket_typed_position _
+    | Bg_position_bracket _ ->
+        254
+    | Bg_repeat | Bg_no_repeat | Bg_repeat_x | Bg_repeat_y | Bg_repeat_round
+    | Bg_repeat_space ->
+        255
+    | Bg_origin_border | Bg_origin_padding | Bg_origin_content -> 256
+
+  (* The masks open their band at mask-image; every rank past it belongs to
+     them, and the background properties in that stretch interleave. *)
+  let mask_image_rank = 209
+  let background_image_rank = 199
+  let priority t = if property_rank t > mask_image_rank then 21 else 20
+
+  (* Rules sharing a slot sort by declaration count, most first, then by class
+     name. In background-image's slot the linear directions and angles carry an
+     @supports fallback the other gradient functions do not, and the plain
+     images write nothing past background-image, so they close it. *)
+  let suborder t =
+    let rank = property_rank t in
+    if rank <> background_image_rank then Utility.Property_order.last rank
+    else
+      match t with
+      | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
+      | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
+      | Bg_linear_angle_neg_interp _ ->
+          Utility.Property_order.slot rank
+      | Bg_linear_bracket _ | Bg_linear_bracket_neg _ | Bg_conic
+      | Bg_conic_angle _ | Bg_conic_angle_neg _ | Bg_conic_interp _
+      | Bg_conic_angle_interp _ | Bg_conic_angle_neg_interp _ | Bg_radial
+      | Bg_radial_interp _ | Bg_radial_bracket _ ->
+          Utility.Property_order.slot rank + 1
+      | _ -> Utility.Property_order.last rank
 
   (* Gradient variables with proper @property definitions matching Tailwind v4.
      Order in @layer properties: translate (0-2), scale (3-5), border-style (6),
@@ -1477,78 +1544,6 @@ module Handler = struct
             let ref : Css.background_size Css.var = Var.bracket var_name in
             style [ Css.background_size (Var ref) ]
         | None -> style [ Css.background_size Auto ])
-
-  let suborder = function
-    (* All bg-color utilities share the same suborder (10000) to allow
-       alphabetical selector sorting within the optimizer. This matches
-       Tailwind's output ordering. *)
-    | Bg _ | Bg_inherit | Bg_bracket_color_var _ | Bg_bracket_var _
-    | Bg_bracket_color_var_opacity _ | Bg_bracket_var_opacity _
-    | Bg_bracket_color _ | Bg_bracket_color_opacity _ | Bg_current
-    | Bg_current_opacity _ | Bg_transparent | Bg_opacity _ ->
-        10000
-    (* Gradient direction utilities - same suborder for alphabetical sorting *)
-    | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
-    | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
-    | Bg_linear_angle_neg_interp _ ->
-        100000
-    (* Conic/radial/bracket gradients - same suborder for alphabetical *)
-    | Bg_linear_bracket _ | Bg_linear_bracket_neg _ | Bg_conic
-    | Bg_conic_angle _ | Bg_conic_angle_neg _ | Bg_conic_interp _
-    | Bg_conic_angle_interp _ | Bg_conic_angle_neg_interp _ | Bg_radial
-    | Bg_radial_interp _ | Bg_radial_bracket _ ->
-        200000
-    (* Gradient color utilities *)
-    | Gradient_color (From, _) -> 110000
-    | Gradient_color (Via, _) -> 120000
-    | Via_none -> 120002
-    | Gradient_color (To, _) -> 130000
-    (* Gradient position utilities *)
-    | Gradient_stop_position (From, _) -> 110001
-    | Gradient_stop_position (Via, _) -> 120001
-    | Gradient_stop_position (To, _) -> 130001
-    (* bg-origin utilities *)
-    | Bg_origin_border -> 140000
-    | Bg_origin_content -> 140001
-    | Bg_origin_padding -> 140002
-    (* bg-clip utilities *)
-    | Bg_clip_border -> 150000
-    | Bg_clip_content -> 150001
-    | Bg_clip_padding -> 150002
-    | Bg_clip_text -> 150003
-    (* Bracket image variants — before bg-none *)
-    | Bg_bracket_image_var _ -> 210010
-    | Bg_bracket_image _ -> 210011
-    | Bg_bracket_linear_gradient _ -> 210011
-    | Bg_bracket_url _ -> 210012
-    | Bg_bracket_image_url _ -> 210012
-    | Bg_bracket_url_var _ -> 210013
-    | Bg_none -> 210020
-    (* bg-size: bracket before named; length before size for merge order *)
-    | Bg_bracket_contain -> 299990
-    | Bg_bracket_cover -> 299991
-    | Bg_bracket_length _ -> 299992
-    | Bg_bracket_size _ -> 299993
-    | Bg_size_bracket _ -> 299994
-    | Bg_auto -> 300000
-    | Bg_contain -> 300001
-    | Bg_cover -> 300002
-    (* bg-attachment utilities *)
-    | Bg_fixed -> 400000
-    | Bg_local -> 400001
-    | Bg_scroll -> 400002
-    (* bg-position: bracket before named *)
-    | Bg_bracket_position _ -> 499980
-    | Bg_bracket_typed_position _ -> 499981
-    | Bg_position_bracket _ -> 499982
-    | Bg_position _ -> 500000
-    (* bg-repeat utilities *)
-    | Bg_no_repeat -> 600000
-    | Bg_repeat -> 600001
-    | Bg_repeat_round -> 600002
-    | Bg_repeat_space -> 600003
-    | Bg_repeat_x -> 600004
-    | Bg_repeat_y -> 600005
 
   (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
       → ("r", Some "oklab"), "45" → ("45", None) *)

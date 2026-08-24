@@ -89,6 +89,24 @@ val important : ?suffix:bool -> t -> t
 val pp : t -> string
 (** [pp u] is a human-readable representation of [u] for debugging. *)
 
+(** Tailwind's property table, read as a suborder scale.
+
+    Tailwind sorts a layer by the ranks its property table gives the properties
+    each rule writes: two rules are separated by the first rank they do not
+    share, and one whose ranks run out there sorts after one that keeps going. A
+    {!Handler.suborder} is a single integer, so each rank takes a slot a
+    thousand values wide. *)
+module Property_order : sig
+  val slot : int -> int
+  (** [slot rank] is the suborder of a utility whose sort key reaches [rank] and
+      writes a further property. Add what separates it from the others sharing
+      [rank], keeping the total below [slot (rank + 1)]. *)
+
+  val last : int -> int
+  (** [last rank] is the suborder of a utility whose sort key ends at [rank]. It
+      sorts after every utility in [rank]'s slot. *)
+end
+
 (** Handler module type for utility registration *)
 module type Handler = sig
   type t
