@@ -82,16 +82,9 @@
 
 ### Public OCaml API
 
-- Publish the complete utility surface directly as `Tw.<name>` while keeping
-  implementation modules under the explicitly unstable `Tw.Private` module
-  (#273).
-- Rename `Tw.pp` to `Tw.to_string` and `Tw.str` to `Tw.of_classes_exn`, add the
-  result-returning `Tw.of_classes`, make `Tw.to_css` take `Tw.Config.t`, and
-  rename the public scheme abstraction to `Tw.Theme` (#274).
-- Add typed constructors for logical sizing and borders, divide, masks, and
-  missing background, outline, ring, and blend utilities; use a closed shade
-  type and correct the `Svg.fill` and `Svg.stroke` signatures
-  (#127, #180, #182, #222, #239, #275, #296).
+- Add the typed `divide` constructors, from `divide_x` to `divide_style`: only
+  the two reverse utilities were exposed, so the rest of the family was
+  reachable from a class string but not from OCaml (#239, closes #5).
 
 ### Documentation, compatibility, and release quality
 
