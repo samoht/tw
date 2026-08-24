@@ -13,7 +13,7 @@ let extract_utilities_layer_rules css =
   List.find_map
     (fun stmt ->
       match Css.as_layer stmt with
-      | Some (Some "utilities", rules) -> Some rules
+      | Some (Some [ "utilities" ], rules) -> Some rules
       | _ -> None)
     stmts
   |> Option.value ~default:[]
@@ -318,12 +318,14 @@ let has_layer name css =
   List.exists
     (fun stmt ->
       match Css.as_layer stmt with
-      | Some (Some layer_name, _) when layer_name = name -> true
+      | Some (Some declared, _)
+        when Css.Stylesheet.equal_layer_name declared [ name ] ->
+          true
       | _ -> false)
     (Css.statements css)
 
 (** Get all custom property names from a layer *)
-let vars_in_layer layer_name css = Css.custom_props ~layer:layer_name css
+let vars_in_layer layer_name css = Css.custom_props ~layer:[ layer_name ] css
 
 (** Check if a variable name exists in a layer *)
 let has_var_in_layer var_name layer_name css =
@@ -332,7 +334,7 @@ let has_var_in_layer var_name layer_name css =
 
 (** Get all selectors from a layer *)
 let selectors_in_layer layer_name css =
-  match Css.layer_block layer_name css with
+  match Css.layer_block [ layer_name ] css with
   | None -> []
   | Some stmts ->
       List.filter_map

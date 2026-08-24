@@ -64,7 +64,7 @@ let arbitrary_var_fallbacks () =
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
   let css = Tw.to_css ~base:true styles in
-  let theme_layer = Css.layer_block "theme" css in
+  let theme_layer = Css.layer_block [ "theme" ] css in
 
   match theme_layer with
   | None -> fail "Expected @layer theme"

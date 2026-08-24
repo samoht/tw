@@ -211,16 +211,18 @@ let check_layer_declaration_and_ordering () =
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
   let expected = [ "properties"; "theme"; "components"; "utilities" ] in
   let layer_names =
-    Css.statements sheet |> List.find_map Css.layer_statement_name_list
+    Css.statements sheet
+    |> List.find_map Css.layer_statement_name_list
+    |> Option.map (List.map Css.Stylesheet.string_of_layer_name)
   in
   check (option (list string)) "layer decl order" (Some expected) layer_names;
   check bool "has properties layer block" true
-    (Css.layer_block "properties" sheet <> None)
+    (Css.layer_block [ "properties" ] sheet <> None)
 
 let check_properties_layer_internal_order () =
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
   let props =
-    Css.layer_block "properties" sheet
+    Css.layer_block [ "properties" ] sheet
     |> or_fail "Expected a @layer properties block"
   in
   let supports =
@@ -262,7 +264,7 @@ let check_property_rules_order () =
   let util_idx =
     stmt_index sheet (fun s ->
         match Css.as_layer s with
-        | Some (Some "utilities", _) -> true
+        | Some (Some [ "utilities" ], _) -> true
         | _ -> false)
     |> or_fail "Expected a utilities layer"
   in
@@ -458,7 +460,7 @@ let test_theme_layer_media_refs () =
     Tw.Build.theme_layer_of ~default_decls [ sm [ Tw.Typography.text_xl ] ]
   in
   let all_vars =
-    Css.layer_block "theme" theme_layer
+    Css.layer_block [ "theme" ] theme_layer
     |> Option.map Css.rules_of_statements
     |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
@@ -480,7 +482,7 @@ let test_theme_media_refs_md () =
     Tw.Build.theme_layer_of ~default_decls [ md [ Tw.Typography.text_xl ] ]
   in
   let all_vars =
-    Css.layer_block "theme" theme_layer
+    Css.layer_block [ "theme" ] theme_layer
     |> Option.map Css.rules_of_statements
     |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
