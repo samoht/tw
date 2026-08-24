@@ -113,11 +113,32 @@ let test_invalid_arbitrary_span () =
   accepted "col-span-[mycol]";
   accepted "col-span-[var(--my-variable)]"
 
+let css cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+(* A var() reference is not a <custom-ident>: it substitutes before the
+   <grid-line> grammar applies, so its parentheses must reach the output
+   unescaped. *)
+let test_arbitrary_span_var () =
+  let has affix cls =
+    Alcotest.(check bool)
+      (Fmt.str "%s emits %s" cls affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "grid-column: span var(--my-variable) / span var(--my-variable)"
+    "col-span-[var(--my-variable)]";
+  has "grid-row: span var(--my-variable) / span var(--my-variable)"
+    "row-span-[var(--my-variable)]"
+
 let tests =
   [
     test_case "grid_item of_string - valid values" `Quick of_string_valid;
     test_case "grid_item of_string - invalid values" `Quick of_string_invalid;
     test_case "invalid arbitrary span" `Quick test_invalid_arbitrary_span;
+    test_case "arbitrary span var()" `Quick test_arbitrary_span_var;
     test_case "grid_item suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
