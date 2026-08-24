@@ -125,12 +125,27 @@ module Handler = struct
   let is_span_value s =
     int_of_string_opt s <> None || Parse.is_var s || Parse.is_ident s
 
-  let col_span_arbitrary s =
-    let gl =
-      match int_of_string_opt s with Some n -> Span n | None -> Span_name s
+  (* var() substitutes before the <grid-line> grammar applies, so the text in
+     [span var(--x)] is not a <custom-ident> and a printer that escapes it as
+     one corrupts the parentheses. The declaration parser keeps it raw. *)
+  let span_arbitrary property_name property s =
+    let raw =
+      if Parse.is_var s then
+        Css.parse_declaration property_name
+          (String.concat "" [ "span "; s; " / span "; s ])
+      else None
     in
-    style [ grid_column (gl, gl) ]
+    match raw with
+    | Some decl -> style [ decl ]
+    | None ->
+        let gl =
+          match int_of_string_opt s with
+          | Some n -> Span n
+          | None -> Span_name s
+        in
+        style [ property (gl, gl) ]
 
+  let col_span_arbitrary s = span_arbitrary "grid-column" grid_column s
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
@@ -167,13 +182,7 @@ module Handler = struct
     | None -> style [ grid_row (Auto, Auto) ]
 
   let row_span n = style [ grid_row (Span n, Span n) ]
-
-  let row_span_arbitrary s =
-    let gl =
-      match int_of_string_opt s with Some n -> Span n | None -> Span_name s
-    in
-    style [ grid_row (gl, gl) ]
-
+  let row_span_arbitrary s = span_arbitrary "grid-row" grid_row s
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
