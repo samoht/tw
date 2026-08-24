@@ -62,6 +62,14 @@ val check_ordering_matches :
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
 
+val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
+(** [check_class_order ?forms ~test_name classes] compares where each of
+    [classes] lands in tw's sheet against where the pinned Tailwind CLI puts it.
+    {!check_ordering_matches} pairs rules up by key, so a layer holding every
+    expected rule in the wrong places still compares equal; reading the
+    positions back is what catches a reorder. Skips when the CLI is unavailable.
+*)
+
 val check_rendering_matches :
   ?forms:bool -> test_name:string -> Tw.t list -> unit
 (** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
