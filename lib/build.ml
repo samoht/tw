@@ -613,17 +613,18 @@ let extract_non_tw_custom_declarations selector_props =
    declarations. This is the threaded replacement for the override seam that
    used to live in [Var.binding]: a Theme-role variable whose token is
    overridden in [theme] emits the override value instead of its registered
-   default. [custom_declaration_name] returns the full [--name] form; the scheme
-   keys overrides by the bare name. *)
+   default. A token the block removed ([--spacing: initial]) has no declaration
+   left to emit. [custom_declaration_name] returns the full [--name] form; the
+   scheme keys overrides by the bare name. *)
 let apply_token_override theme decl =
   match Css.custom_declaration_name decl with
   | Some full_name
     when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
       match Scheme.token_override theme bare with
-      | Some css -> Css.custom_property ~layer:"theme" full_name css
-      | None -> decl)
-  | _ -> decl
+      | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
+      | None -> if Scheme.is_removed theme bare then None else Some decl)
+  | _ -> Some decl
 
 (* Check if declaration name is a default font family indirection *)
 let is_default_family_name = function
@@ -809,7 +810,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
   let extracted =
     extract_non_tw_custom_declarations selector_props
-    |> List.map (apply_token_override theme)
+    |> List.filter_map (apply_token_override theme)
   in
   let extracted =
     extracted
@@ -852,7 +853,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   (* A project [@theme] override wins wherever the declaration came from: the
      built-in defaults carry the same token names as the extracted ones. *)
   pre @ extracted @ post
-  |> List.map (apply_token_override theme)
+  |> List.filter_map (apply_token_override theme)
   |> List.map (inline_default_family theme)
   |> sort_by_var_order |> theme_layer_rule ~layers
 

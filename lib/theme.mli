@@ -19,6 +19,13 @@ val spacing_n_var : int -> Css.length Var.theme
 (** [spacing_n_var n] creates the [--spacing-n] variable for explicit spacing
     values. *)
 
+val has_spacing_step : ?theme:Scheme.t -> float -> bool
+(** [has_spacing_step ?theme n] is whether step [n] of the spacing scale still
+    resolves. Tailwind reads a bare step off [--spacing-<n>] when the theme
+    binds one and off the [--spacing] multiplier otherwise, so
+    [\@theme \{ --spacing: initial \}] leaves the multiplied steps with nothing
+    to read and they stop being utilities. *)
+
 val spacing_calc : ?theme:Scheme.t -> int -> Css.declaration * Css.length
 (** [spacing_calc ?theme n] returns the theme declaration and a length for [n].
 

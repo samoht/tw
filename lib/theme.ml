@@ -42,6 +42,26 @@ let spacing_times n =
 (* Create a spacing variable for explicit spacing values (e.g., --spacing-4) *)
 let spacing_n_var n = Var.theme Css.Length ("spacing-" ^ Pp.int n) ~order:(3, n)
 
+(* The length the theme binds to step [n] outright, as [--spacing-<n>]. Tailwind
+   reads a bare step off that binding first and off the [--spacing] multiplier
+   only when there is none. *)
+let explicit_spacing scheme n =
+  match Scheme.spacing scheme n with
+  | Some _ as length -> length
+  | None ->
+      Option.bind
+        (Scheme.token scheme ("spacing-" ^ Pp.int n))
+        (fun css -> Css.parse_length (String.trim css))
+
+(* Whether the bare step [n] of the spacing scale still resolves: [@theme {
+   --spacing: initial }] removes the multiplier, and every step that relied on
+   it stops being a utility. *)
+let has_spacing_step ?theme n =
+  let scheme = resolve_scheme theme in
+  Float.is_integer n
+  && explicit_spacing scheme (int_of_float (Float.abs n)) <> None
+  || Scheme.token scheme "spacing" <> None
+
 (* Create a spacing length value. When scheme has explicit spacing for |n|,
    returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.
    Otherwise returns calc(var(--spacing) * n). Returns the theme declaration and
@@ -49,7 +69,7 @@ let spacing_n_var n = Var.theme Css.Length ("spacing-" ^ Pp.int n) ~order:(3, n)
 let spacing_calc ?theme n : Css.declaration * Css.length =
   let abs_n = abs n in
   let is_negative = n < 0 in
-  match Scheme.spacing (resolve_scheme theme) abs_n with
+  match explicit_spacing (resolve_scheme theme) abs_n with
   | Some explicit_length ->
       (* Scheme has explicit spacing: use var(--spacing-|n|) *)
       let spacing_n = spacing_n_var abs_n in

@@ -706,7 +706,7 @@ module Handler = struct
 
   (* One parser for all thirteen sizing families: the family's own keyword
      table, then the fraction, bracket and spacing tails they share. *)
-  let parse_sized prop v =
+  let parse_sized ~theme prop v =
     let f = family prop in
     match lookup f v with
     | Some value -> Ok (Sized (prop, value))
@@ -720,7 +720,8 @@ module Handler = struct
           | None -> err_invalid_value f.css_name v
         else
           match Parse.decimal_float v with
-          | Some n when n >= 0. -> Ok (Sized (prop, Spacing (n *. 0.25)))
+          | Some n when n >= 0. && Theme.has_spacing_step ~theme n ->
+              Ok (Sized (prop, Spacing (n *. 0.25)))
           | _ -> err_invalid_value f.css_name v)
 
   let parse_max_w_screen s =
@@ -742,7 +743,8 @@ module Handler = struct
         | _ -> err_not_utility)
     | _ -> err_not_utility
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
+    let parse_sized prop v = parse_sized ~theme prop v in
     match Parse.split_class class_name with
     | [ "w"; value ] -> parse_sized Width value
     | [ "h"; value ] -> parse_sized Height value

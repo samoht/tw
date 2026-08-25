@@ -433,7 +433,7 @@ module Handler = struct
                 Ok (Space_arb { axis = `X; value = len; raw = value })
             | _ -> (
                 match Parse.spacing_value ~name:"space-x" value with
-                | Ok n ->
+                | Ok n when Theme.has_spacing_step ~theme n ->
                     Ok
                       (Space
                          {
@@ -441,7 +441,7 @@ module Handler = struct
                            axis = `X;
                            value = `Rem (n *. 0.25);
                          })
-                | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> err_not_utility))
       | [ "space"; "y"; value ] -> (
           if value = "reverse" then Ok Space_y_reverse
           else if value = "px" then
@@ -452,7 +452,7 @@ module Handler = struct
                 Ok (Space_arb { axis = `Y; value = len; raw = value })
             | _ -> (
                 match Parse.spacing_value ~name:"space-y" value with
-                | Ok n ->
+                | Ok n when Theme.has_spacing_step ~theme n ->
                     Ok
                       (Space
                          {
@@ -460,27 +460,27 @@ module Handler = struct
                            axis = `Y;
                            value = `Rem (n *. 0.25);
                          })
-                | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> err_not_utility))
       | [ ""; "space"; "x"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `X; value = `Px })
           else
             match Parse.spacing_value ~name:"space-x" value with
-            | Ok n ->
+            | Ok n when Theme.has_spacing_step ~theme n ->
                 Ok
                   (Space
                      { negative = true; axis = `X; value = `Rem (n *. 0.25) })
-            | Error _ -> err_not_utility)
+            | Ok _ | Error _ -> err_not_utility)
       | [ ""; "space"; "y"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `Y; value = `Px })
           else
             match Parse.spacing_value ~name:"space-y" value with
-            | Ok n ->
+            | Ok n when Theme.has_spacing_step ~theme n ->
                 Ok
                   (Space
                      { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
-            | Error _ -> err_not_utility)
+            | Ok _ | Error _ -> err_not_utility)
       | _ -> err_not_utility
     in
     parse_class parts

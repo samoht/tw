@@ -202,7 +202,7 @@ module Handler = struct
     | Border_spacing_y n -> 2032 + int_of_float (n *. 10.)
     | Border_spacing_y_arb _ -> 3000
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "border"; "collapse" ] -> Ok Border_collapse
@@ -217,8 +217,8 @@ module Handler = struct
         else err_not_utility
     | [ "border"; "spacing"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing" n with
-        | Ok f -> Ok (Border_spacing f)
-        | Error _ -> err_not_utility)
+        | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing f)
+        | Ok _ | Error _ -> err_not_utility)
     | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
         if String.ends_with ~suffix:"px" inner then
@@ -229,8 +229,8 @@ module Handler = struct
         else err_not_utility
     | [ "border"; "spacing"; "x"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-x" n with
-        | Ok f -> Ok (Border_spacing_x f)
-        | Error _ -> err_not_utility)
+        | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_x f)
+        | Ok _ | Error _ -> err_not_utility)
     | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
         if String.ends_with ~suffix:"px" inner then
@@ -241,8 +241,8 @@ module Handler = struct
         else err_not_utility
     | [ "border"; "spacing"; "y"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-y" n with
-        | Ok f -> Ok (Border_spacing_y f)
-        | Error _ -> err_not_utility)
+        | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_y f)
+        | Ok _ | Error _ -> err_not_utility)
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
     | [ "caption"; "top" ] -> Ok Caption_top

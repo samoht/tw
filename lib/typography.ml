@@ -1844,12 +1844,12 @@ module Typography_late = struct
         else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
-        | Ok f -> Ok (Indent f)
-        | Error _ -> err_not_utility)
+        | Ok f when Theme.has_spacing_step ~theme f -> Ok (Indent f)
+        | Ok _ | Error _ -> err_not_utility)
     | [ ""; "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
-        | Ok f -> Ok (Indent_neg f)
-        | Error _ -> err_not_utility)
+        | Ok f when Theme.has_spacing_step ~theme f -> Ok (Indent_neg f)
+        | Ok _ | Error _ -> err_not_utility)
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
