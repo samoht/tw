@@ -503,6 +503,58 @@ let take_custom_utilities css =
   let css, defs = take_named_defs "@utility" css in
   (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
 
+(* The at-keywords Tailwind's dialect adds to CSS. They are input for the
+   generator, which reads each of them above -- for a definition, for an
+   expansion, or for the theme and the plugins the entrypoint asks for -- and
+   Tailwind emits none of them. This list is the whole of what makes an at-rule
+   one of Tailwind's; anything else is the author's CSS, and passes through
+   whether or not tw or a parser knows what it means. *)
+let tailwind_directives =
+  [
+    "@apply";
+    "@config";
+    "@custom-variant";
+    "@plugin";
+    "@reference";
+    "@slot";
+    "@source";
+    "@tailwind";
+    "@theme";
+    "@utility";
+    "@variant";
+  ]
+
+(* Drop them, so none reaches a browser that has no meaning for it. What is
+   still here declared nothing usable -- an [@utility] with no name, a variant
+   tw cannot expand -- or names something outside the stylesheet, so there is
+   nothing to salvage from the text either. *)
+let drop_directives css =
+  let scan = Scan.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let directive_at i =
+    List.find_map
+      (fun name ->
+        match Scan.at_rule scan ~name i with
+        | Some { block = { next; _ }; _ } -> Some next
+        | None ->
+            Option.map
+              (fun ({ next; _ } : Scan.statement) -> next)
+              (Scan.at_statement scan ~name i))
+      tailwind_directives
+  in
+  let rec go i =
+    if i >= len then ()
+    else
+      match directive_at i with
+      | Some next -> go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 let fill_slots template body =
   let scan = Scan.v template in
   let len = String.length template in
@@ -968,8 +1020,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
     let out = expand_apply ~theme ~defs ~udefs css in
     if depth >= 4 || String.equal out css then out else expand (depth + 1) out
   in
-  resolve_theme_fn ~theme
-    (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css)))
+  drop_directives
+    (resolve_theme_fn ~theme
+       (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
