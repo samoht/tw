@@ -97,8 +97,29 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"flex_props suborder matches Tailwind" shuffled
 
+(* [basis] lists --flex-basis, then --spacing, then --container, so a theme that
+   sets both --spacing-sm and --container-sm reads the spacing one. *)
+let test_basis_named_prefers_spacing () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("spacing-sm", "8px"); ("container-sm", "256px") ]
+  in
+  let css =
+    match Tw.of_string ~theme "basis-sm" with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "basis-sm: %s" m
+  in
+  Alcotest.(check bool)
+    "basis-sm reads --spacing-sm" true
+    (Astring.String.is_infix ~affix:"var(--spacing-sm)" css);
+  Alcotest.(check bool)
+    "basis-sm declares --spacing-sm" true
+    (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css)
+
 let tests =
   [
+    test_case "basis-* prefers --spacing-*" `Quick
+      test_basis_named_prefers_spacing;
     test_case "flex_props of_string - valid values" `Quick of_string_valid;
     test_case "flex_props of_string - invalid values" `Quick of_string_invalid;
     test_case "flex_props suborder matches Tailwind" `Quick

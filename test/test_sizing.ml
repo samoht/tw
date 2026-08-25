@@ -442,8 +442,35 @@ let test_logical_px_step () =
     "inline-px is 1px" true
     (Astring.String.is_infix ~affix:"inline-size: 1px" (css_of "inline-px"))
 
+(* v4 resolves a named size through the namespaces the family lists ahead of the
+   container scale, so a theme that sets both --spacing-sm and --container-sm
+   reads the spacing one. *)
+let test_named_size_prefers_spacing () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("spacing-sm", "8px"); ("container-sm", "256px") ]
+  in
+  List.iter
+    (fun cls ->
+      let css =
+        match Tw.of_string ~theme cls with
+        | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Css.to_string
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      in
+      Alcotest.(check bool)
+        (cls ^ " reads --spacing-sm")
+        true
+        (Astring.String.is_infix ~affix:"var(--spacing-sm)" css);
+      Alcotest.(check bool)
+        (cls ^ " declares --spacing-sm")
+        true
+        (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css))
+    [ "w-sm"; "min-w-sm"; "max-w-sm" ]
+
 let tests =
   [
+    test_case "named size prefers --spacing-*" `Quick
+      test_named_size_prefers_spacing;
     test_case "fractional spacing" `Quick test_fractional_spacing;
     test_case "logical px step" `Quick test_logical_px_step;
     test_case "bracket keeps its slash" `Quick test_bracket_keeps_its_slash;
