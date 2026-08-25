@@ -63,6 +63,60 @@ let test_named_spacing_declares_token () =
               cls)
     [ "m-form"; "-m-form"; "p-form"; "px-form"; "gap-form"; "gap-x-form" ]
 
+(* Tailwind reads [--spacing: initial] as "remove the multiplier", so a bare
+   step has nothing to compute from and stops being a utility across every
+   family that offers the scale. A step the theme binds outright survives, and
+   the removed token itself never reaches the theme layer. *)
+let test_removed_spacing_multiplier () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("spacing", "initial"); ("spacing-4", "1rem") ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Ok _ -> Alcotest.failf "%s is a utility with no --spacing to read" cls
+      | Error _ -> ())
+    [
+      "px-1";
+      "-m-2";
+      "gap-3";
+      "space-x-1";
+      "w-1";
+      "top-1";
+      "indent-1";
+      "scroll-m-1";
+      "border-spacing-1";
+    ];
+  match Tw.of_string ~theme "px-4" with
+  | Error (`Msg m) -> Alcotest.failf "px-4 rejected: %s" m
+  | Ok u ->
+      let css = Tw.to_css ~theme ~base:false [ u ] in
+      Alcotest.(check bool)
+        "the step the theme binds is declared" true
+        (Test_helpers.has_var_in_layer "--spacing-4" "theme" css);
+      Alcotest.(check bool)
+        "the removed multiplier is not declared" false
+        (Test_helpers.has_var_in_layer "--spacing" "theme" css)
+
+(* [--spacing-*: initial] resets the whole namespace, the multiplier included,
+   and only the steps the block goes on to declare survive it. *)
+let test_reset_spacing_namespace () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("spacing-*", "initial"); ("spacing-4", "1rem") ]
+  in
+  (match Tw.of_string ~theme "px-1" with
+  | Ok _ -> Alcotest.fail "px-1 is a utility after the namespace reset"
+  | Error _ -> ());
+  match Tw.of_string ~theme "px-4" with
+  | Error (`Msg m) -> Alcotest.failf "px-4 rejected: %s" m
+  | Ok u ->
+      let css = Tw.to_css ~theme ~base:false [ u ] in
+      Alcotest.(check bool)
+        "the step declared after the reset survives" true
+        (Test_helpers.has_var_in_layer "--spacing-4" "theme" css)
+
 let tests =
   [
     test_case "pp_spacing_suffix" `Quick test_pp_spacing_suffix;
@@ -70,6 +124,10 @@ let tests =
     test_case "int constructor" `Quick test_int_constructor;
     test_case "named spacing declares its token" `Quick
       test_named_spacing_declares_token;
+    test_case "--spacing: initial removes the multiplier" `Quick
+      test_removed_spacing_multiplier;
+    test_case "--spacing-*: initial resets the namespace" `Quick
+      test_reset_spacing_namespace;
   ]
 
 let suite = ("spacing", tests)

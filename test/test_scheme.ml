@@ -23,10 +23,26 @@ let test_breakpoint_override () =
     "breakpoint token populates the typed theme" (Some 1600.)
     (Tw.Scheme.breakpoint s "10xl")
 
+(* A namespace reset spares the scales Tailwind lists as separate even though
+   they share the prefix, so [--text-*: initial] drops the font sizes and leaves
+   [--text-shadow-*] standing. *)
+let test_namespace_reset_spares_nested_scales () =
+  let s =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("text-*", "initial") ]
+  in
+  Alcotest.(check bool)
+    "the font sizes go" true
+    (Tw.Scheme.token s "text-sm" = None);
+  Alcotest.(check bool)
+    "the text shadows stay" true
+    (Tw.Scheme.token s "text-shadow-2xs" <> None)
+
 let tests =
   Alcotest.
     [
       test_case "default scheme" `Quick test_default;
+      test_case "namespace reset spares nested scales" `Quick
+        test_namespace_reset_spares_nested_scales;
       test_case "find color" `Quick test_find_color;
       test_case "breakpoint override" `Quick test_breakpoint_override;
     ]
