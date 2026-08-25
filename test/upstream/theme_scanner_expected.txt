@@ -1,5 +1,6 @@
 # multiline-theme
 @config theme
+@theme-var spacing-* initial
 @theme-var font-sans ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'
 @theme-var single-line 1rem
 @theme-var quoted 'a;b}c'

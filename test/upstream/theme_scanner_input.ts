@@ -7,6 +7,7 @@ test('multiline-theme', async () => {
       ['font-sans', 'shadow-wrapped'],
       css`
         @theme {
+          --spacing-*: initial;
           --font-sans:
             ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
             'Segoe UI Symbol', 'Noto Color Emoji';

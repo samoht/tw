@@ -11,7 +11,7 @@
 
 ; Pins the [@theme] scanner on the declaration shapes Prettier produces:
 ; values wrapped over several lines, a [;] or [}] inside a string or a
-; comment, and brackets that span lines.
+; comment, brackets that span lines, and a [--namespace-*] reset.
 
 (rule
  (action
