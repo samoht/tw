@@ -22,6 +22,9 @@
   and make recursive content scans safe
   (#142, #144, #145, #208, #288, #318, #321).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
+- Keep Tailwind's own at-rules out of the generated CSS: `@theme`, `@source`,
+  `@plugin`, `@config`, `@reference`, and `@tailwind` used to reach the
+  browser, which has no meaning for any of them (#361).
 
 ### Utility coverage
 
