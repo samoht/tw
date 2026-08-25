@@ -48,23 +48,27 @@ let arbitrary_var_fallbacks () =
   check bool "cursor keeps nested fallback" true
     (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
        (css "cursor-[var(--c,var(--d))]"));
-  (* Closed-world inlining assumes no runtime mutation, so an unresolved outer
-     reference reduces to its fallback. *)
-  check bool "padding inline resolves the outer reference" true
-    (Astring.String.is_infix ~affix:"padding:var(--y)"
+  (* The outer name is the author's own, set from a style attribute or from
+     script, so inlining keeps the reference. Collapsing it to the fallback
+     would answer for an element the sheet never saw. *)
+  check bool "padding inline keeps the override point" true
+    (Astring.String.is_infix ~affix:"padding:var(--x,var(--y))"
        (inline_css "p-[var(--x,var(--y))]"));
-  check bool "cursor inline resolves the outer reference" true
-    (Astring.String.is_infix ~affix:"cursor:var(--d)"
+  check bool "cursor inline keeps the override point" true
+    (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
        (inline_css "cursor-[var(--c,var(--d))]"));
   check (list string) "paren outer reference" [ "--top" ] (refs "top-(--top,0)");
   check bool "paren shorthand keeps its override point" true
-    (Astring.String.is_infix ~affix:"top:var(--top," (css "top-(--top,0)"))
+    (Astring.String.is_infix ~affix:"top:var(--top," (css "top-(--top,0)"));
+  check bool "paren shorthand inline keeps its override point" true
+    (Astring.String.is_infix ~affix:"top:var(--top,"
+       (inline_css "top-(--top,0)"))
 
 (* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
   let css = Tw.to_css ~base:true styles in
-  let theme_layer = Css.layer_block "theme" css in
+  let theme_layer = Css.layer_block [ "theme" ] css in
 
   match theme_layer with
   | None -> fail "Expected @layer theme"

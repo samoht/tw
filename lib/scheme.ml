@@ -151,8 +151,58 @@ let breakpoint_names scheme =
   List.sort_uniq String.compare (List.map fst scheme.breakpoints @ from_tokens)
   |> List.filter (fun name -> Option.is_some (breakpoint_length scheme name))
 
+(* Tailwind reads [--name: initial] in a [@theme] block as "remove this token",
+   and [--namespace-*: initial] as "remove the whole namespace", so a candidate
+   that needed the token stops resolving. *)
+let removed_value = "initial"
+
+(* Scales whose names begin with another scale's name and are not part of it:
+   [--font-*: initial] resets the font families, not the weights or the sizes.
+   Mirrors Tailwind's own [ignoredThemeKeyMap]. *)
+let nested_scales =
+  [
+    ("font", [ "font-weight"; "font-size" ]);
+    ("inset", [ "inset-shadow"; "inset-ring" ]);
+    ( "text",
+      [
+        "text-color";
+        "text-decoration-color";
+        "text-decoration-thickness";
+        "text-indent";
+        "text-shadow";
+        "text-underline-offset";
+      ] );
+    ("grid-column", [ "grid-column-start"; "grid-column-end" ]);
+    ("grid-row", [ "grid-row-start"; "grid-row-end" ]);
+  ]
+
+let in_nested_scale namespace name =
+  List.exists
+    (fun nested ->
+      String.equal name nested || String.starts_with ~prefix:(nested ^ "-") name)
+    (Option.value ~default:[] (List.assoc_opt namespace nested_scales))
+
+let clears_namespace name (key, value) =
+  String.equal value removed_value
+  && String.length key > 2
+  && String.equal (String.sub key (String.length key - 2) 2) "-*"
+  &&
+  let namespace = String.sub key 0 (String.length key - 2) in
+  String.starts_with ~prefix:namespace name
+  && not (in_nested_scale namespace name)
+
+(** Whether a [@theme] block removed [name], either outright or by resetting the
+    namespace it belongs to. A token the block goes on to declare survives its
+    own namespace reset. *)
+let is_removed scheme name =
+  match List.assoc_opt name scheme.token_overrides with
+  | Some value -> String.equal value removed_value
+  | None -> List.exists (clears_namespace name) scheme.token_overrides
+
 (** Lookup a per-render theme token override (from a [@theme] block). *)
-let token_override scheme name = List.assoc_opt name scheme.token_overrides
+let token_override scheme name =
+  if is_removed scheme name then None
+  else List.assoc_opt name scheme.token_overrides
 
 (** [theme_value theme name] looks up a per-render token override from the
     optionally-threaded [theme] ([None] when no theme is threaded). Threaded
@@ -160,11 +210,43 @@ let token_override scheme name = List.assoc_opt name scheme.token_overrides
 let theme_value theme name =
   match theme with Some s -> token_override s name | None -> None
 
-(** Resolve a theme token: override (if any) else the registered default. *)
+(** Resolve a theme token: override (if any) else the registered default. A
+    token the [@theme] block removed resolves to nothing, default or not. *)
 let token scheme name =
   match token_override scheme name with
   | Some _ as v -> v
-  | None -> token_default name
+  | None -> if is_removed scheme name then None else token_default name
+
+(** Every breakpoint the theme defines, keyed by name: the registered defaults,
+    the [--breakpoint-*] tokens a [@theme] block set, and the legacy px-only
+    field. *)
+let all_breakpoints scheme =
+  let prefix = "breakpoint-" in
+  let suffix (key, _) =
+    if String.starts_with ~prefix key then
+      Some
+        (String.sub key (String.length prefix)
+           (String.length key - String.length prefix))
+    else None
+  in
+  let names =
+    List.filter_map suffix (all_default_tokens ())
+    @ List.filter_map suffix scheme.token_overrides
+    @ List.map fst scheme.breakpoints
+  in
+  List.sort_uniq String.compare names
+  |> List.filter_map (fun name ->
+      if is_removed scheme (prefix ^ name) then None
+      else
+        let length =
+          match breakpoint_length scheme name with
+          | Some _ as length -> length
+          | None ->
+              Option.bind
+                (token_default (prefix ^ name))
+                (fun css -> Css.parse_length (String.trim css))
+        in
+        Option.map (fun length -> (name, length)) length)
 
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)

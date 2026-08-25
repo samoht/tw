@@ -47,7 +47,7 @@ let extract_var_names_with_prefix (prefix : string) (props : string list) :
     props
 
 let extract_theme_color_vars sheet =
-  Css.layer_block "theme" sheet
+  Css.layer_block [ "theme" ] sheet
   |> Option.map Css.rules_of_statements
   |> Option.map Css.custom_props_of_rules
   |> Option.map (extract_var_names_with_prefix "--color-")
@@ -62,7 +62,7 @@ let extract_bg_color_name sel_str =
   else None
 
 let extract_utility_selectors sheet =
-  Css.layer_block "utilities" sheet
+  Css.layer_block [ "utilities" ] sheet
   |> Option.map (fun stmts ->
       Css.rules_of_statements stmts
       |> List.filter_map (fun (sel, _) ->
@@ -581,7 +581,14 @@ let test_suborder_within_group () =
       ( "position",
         [ static; fixed; absolute; relative; sticky; inset 0; top 4; left 2 ] );
       ( "forms",
-        [ form_input; form_checkbox; form_radio; form_select; form_textarea ] );
+        [
+          form_input;
+          form_checkbox;
+          form_radio;
+          form_select;
+          form_textarea;
+          form_multiselect;
+        ] );
       ("transforms", [ translate_x 4; translate_y 2; rotate 90; scale 50 ]);
       ( "interactivity",
         [ select_none; select_text; select_all; scroll_auto; scroll_smooth ] );

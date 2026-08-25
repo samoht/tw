@@ -622,22 +622,30 @@ module Handler = struct
 
   let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
 
-  (* v4 resolves w-<name> to --width-<name> when the theme defines it, and
-     otherwise to the --container-<name> scale (the default). Only w-* reads
-     --width-*. *)
-  let width_override theme prop spelling : Style.t option =
-    match prop with
-    | Width -> (
-        match Scheme.theme_value (Some theme) ("width-" ^ spelling) with
-        | None -> None
-        | Some v ->
+  (* v4 resolves a named size through the namespaces its family lists before the
+     container scale: [w-sm] reads [--width-sm], then [--spacing-sm], and only
+     then the [--container-sm] default. *)
+  let named_namespaces = function
+    | Width -> [ "width"; "spacing" ]
+    | Min_width -> [ "min-width"; "spacing" ]
+    | Max_width -> [ "max-width"; "spacing" ]
+    | Inline_size | Min_inline_size | Max_inline_size -> [ "spacing" ]
+    | _ -> []
+
+  let named_override theme prop spelling : Style.t option =
+    let f = family prop in
+    List.find_map
+      (fun namespace ->
+        let token = namespace ^ "-" ^ spelling in
+        Option.map
+          (fun value ->
             let decl =
-              Css.custom_property ~layer:"theme" ("--width-" ^ spelling) v
+              Css.custom_property ~layer:"theme" ("--" ^ token) value
             in
-            Some
-              (style
-                 [ decl; width (Var (Var.theme_ref ("width-" ^ spelling))) ]))
-    | _ -> None
+            let length : length = Var (Var.theme_ref token) in
+            style (decl :: List.map (fun decl -> decl length) f.decls))
+          (Scheme.theme_value (Some theme) token))
+      (named_namespaces prop)
 
   let sized_style theme prop v =
     let f = family prop in
@@ -651,8 +659,7 @@ module Handler = struct
           |> Option.map (fun value ->
               Css.custom_property ~layer:"theme" ("--" ^ bare_name) value)
       in
-      style
-        (Option.to_list theme_decl @ List.map (fun decl -> decl len) f.decls)
+      style (Option.to_list theme_decl @ List.map (fun decl -> decl len) f.decls)
     in
     match v with
     | Keyword k -> set k.length
@@ -667,7 +674,7 @@ module Handler = struct
         let decl, len = Theme.spacing_calc_float ~theme (n *. 4.) in
         style (decl :: List.map (fun d -> d len) f.decls)
     | Themed t -> (
-        match width_override theme prop t.spelling with
+        match named_override theme prop t.spelling with
         | Some s -> s
         | None -> style (t.decl :: List.map (fun d -> d t.value) f.decls))
 
@@ -707,7 +714,7 @@ module Handler = struct
 
   (* One parser for all thirteen sizing families: the family's own keyword
      table, then the fraction, bracket and spacing tails they share. *)
-  let parse_sized prop v =
+  let parse_sized ~theme prop v =
     let f = family prop in
     match lookup f v with
     | Some value -> Ok (Sized (prop, value))
@@ -721,7 +728,8 @@ module Handler = struct
           | None -> err_invalid_value f.css_name v
         else
           match Parse.decimal_float v with
-          | Some n when n >= 0. -> Ok (Sized (prop, Spacing (n *. 0.25)))
+          | Some n when n >= 0. && Theme.has_spacing_step ~theme n ->
+              Ok (Sized (prop, Spacing (n *. 0.25)))
           | _ -> err_invalid_value f.css_name v)
 
   let parse_max_w_screen s =
@@ -743,7 +751,8 @@ module Handler = struct
         | _ -> err_not_utility)
     | _ -> err_not_utility
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
+    let parse_sized prop v = parse_sized ~theme prop v in
     match Parse.split_class class_name with
     | [ "w"; value ] -> parse_sized Width value
     | [ "h"; value ] -> parse_sized Height value

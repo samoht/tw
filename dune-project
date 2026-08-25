@@ -23,11 +23,11 @@
  (name tw)
  (synopsis "Type-safe Tailwind CSS v4 in OCaml")
  (description
-  "tw is a type-safe OCaml implementation of Tailwind CSS v4. It compiles to CSS through a strongly-typed variable system that mirrors Tailwind's pipeline, producing byte-for-byte identical output. Supports all core utilities and the official forms and typography plugins.")
+  "tw is a type-safe OCaml implementation of Tailwind CSS v4. It compiles typed utilities to CSS through a strongly-typed variable and layer pipeline, with generated output continuously compared against Tailwind's upstream fixtures. Supports all core utilities and the official forms and typography plugins.")
  (depends
   (ocaml (>= 5.2))
   dune
-  (cascade (>= 1.1.0))
+  (cascade (and (>= 1.2.0) (< 1.3.0)))
   cmdliner
   dune-build-info
   fmt

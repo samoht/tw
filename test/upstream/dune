@@ -8,3 +8,52 @@
  (modules test)
  (libraries alcotest tw cascade cascade.diff fmt re)
  (deps utilities.txt variants.txt))
+
+; Pins the [@theme] scanner on the declaration shapes Prettier produces:
+; values wrapped over several lines, a [;] or [}] inside a string or a
+; comment, brackets that span lines, and a [--namespace-*] reset.
+
+(rule
+ (action
+  (with-stdout-to
+   theme_scanner_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:theme_scanner_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff theme_scanner_expected.txt theme_scanner_actual.txt)))
+
+; Pins the [.toEqual('')] scan on the assertion shapes Prettier produces: an
+; argument and a closing [)] on lines of their own, and a wrapped assertion
+; whose argument is not the empty string.
+
+(rule
+ (action
+  (with-stdout-to
+   empty_expect_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:empty_expect_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff empty_expect_expected.txt empty_expect_actual.txt)))
+
+; Pins the [test(] scan on the block shapes utilities.test.ts uses: a block
+; indented inside one or more [describe(...)] blocks, the three quote styles a
+; name can take, a [test.each([...])(...)] block staying out, and a block
+; defining its own [@utility] dropped whole.
+
+(rule
+ (action
+  (with-stdout-to
+   test_blocks_actual.txt
+   (ignore-stderr
+    (run %{exe:extract_tests.exe} %{dep:test_blocks_input.ts})))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff test_blocks_expected.txt test_blocks_actual.txt)))

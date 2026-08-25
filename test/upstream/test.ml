@@ -399,15 +399,27 @@ let extract_root_vars expected =
       with Not_found | Failure _ -> None)
     matches
 
+(* The expected CSS is Tailwind's own output, so a token read back out of it and
+   handed to tw is compared against itself: on that token the runner is blind.
+   Reading one back is only legitimate where the test's own [@theme] block
+   declares it, since there the test supplies the theme and the expected [:root]
+   holds it in the spelling Tailwind normalises to. Every other name the scan
+   turns up -- a built-in token, a [--tw-*] emitted by a utility, a [--name:]
+   read out of a [@supports] condition -- is tw's own output to produce. *)
+let declared_root_vars ~declared expected =
+  List.filter
+    (fun (name, _) -> List.mem name declared)
+    (extract_root_vars expected)
+
 (** Build theme configuration for CSS emission. *)
-let theme_config config expected =
+let theme_config ~declared config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
       ("default-transition-duration", ".1s", "0");
     ]
   in
-  let root_vars = extract_root_vars expected in
+  let root_vars = declared_root_vars ~declared expected in
   let combined_defaults name =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
@@ -540,6 +552,20 @@ let is_allowed_canonicalization_diff diff =
       && List.for_all allowed_container containers
   | _ -> false
 
+(* Guards [declared_root_vars]: only a token the test's own [@theme] block
+   declared is read back out of the expected CSS, so the runner never hands tw
+   the very value it is about to compare against. *)
+let test_echo_only_declared_tokens () =
+  let expected =
+    ":root, :host { --radius: .25rem; --leading-snug: 1.375 }\n\
+     .rounded { border-radius: var(--radius) }\n\
+     @supports (--test: var(--tw)) { .x { display: flex } }"
+  in
+  Alcotest.(check (list string))
+    "a built-in token, and a name read out of a @supports condition, stay out"
+    [ "radius" ]
+    (List.map fst (declared_root_vars ~declared:[ "radius" ] expected))
+
 let test_layer_order_not_tolerated () =
   let expected =
     "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
@@ -569,33 +595,23 @@ let extract_var_fallbacks expected =
       with Not_found | Failure _ -> None)
     matches
 
-(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
-   runtime [--tw-*] vars). These must NOT become token overrides: doing so would
-   emit them verbatim as raw custom properties instead of through their typed
-   binding (e.g. [--spacing: 0.25rem] instead of the normalized [.25rem]). Named
-   spacings like [spacing-big] are passed through. *)
+(* The [--tw-*] vars a utility emits at runtime are tw's own output, not theme
+   tokens a test declares, so they must not become token overrides. Everything
+   the test's own [@theme] block sets goes through, the spacing scale included:
+   no [Scheme.t] field owns the bare [--spacing] multiplier, and filtering the
+   scale out only hid the tests that set it. *)
 
-(** Set theme value overrides for non-spacing root vars from expected CSS. This
-    enables utilities like z-auto and order-first to produce custom declarations
-    in the :root, :host block when [@config] theme is used. *)
-let is_scheme_typed_var name =
-  let is_numbered_spacing =
-    String.length name > 8
-    && String.sub name 0 8 = "spacing-"
-    &&
-    let rest = String.sub name 8 (String.length name - 8) in
-    match int_of_string_opt rest with Some _ -> true | None -> false
-  in
-  let is_bare_spacing = name = "spacing" in
-  let is_tw_var = String.length name > 3 && String.sub name 0 3 = "tw-" in
-  is_numbered_spacing || is_bare_spacing || is_tw_var
+(** Set theme value overrides for root vars from expected CSS. This enables
+    utilities like z-auto and order-first to produce custom declarations in the
+    :root, :host block when [@config] theme is used. *)
+let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
 
-let theme_overrides_of config expected =
+let theme_overrides_of ~declared config expected =
   match config with
   | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
-      let root_vars = extract_root_vars expected in
+      let root_vars = declared_root_vars ~declared expected in
       let base =
-        List.filter (fun (name, _) -> not (is_scheme_typed_var name)) root_vars
+        List.filter (fun (name, _) -> not (is_runtime_var name)) root_vars
       in
       (* For theme-reference mode, also extract var(--name, fallback) patterns
          from expected CSS. This provides fallback values for opacity modifiers
@@ -839,21 +855,23 @@ let run_test_case test () =
     in
     (* Thread the @theme token overrides into the scheme so utilities read them
        from ~theme (parse and render); the Var global is no longer consulted. *)
+    let declared = List.map fst test.theme_vars in
     let scheme =
-      (* [theme_overrides_of] derives values from the expected [:root] (already
-         normalized as Tailwind emits them), so it must win over the raw
-         [@theme-var] source values for theme-layer emission; [test.theme_vars]
-         is the fallback for tokens not present in the expected [:root] (e.g.
-         inlined [@theme] blocks like text-shadow). *)
+      (* [theme_overrides_of] reads the values of the test's own [@theme] tokens
+         back out of the expected [:root] (already normalized as Tailwind emits
+         them), so it must win over the raw [@theme-var] source values for
+         theme-layer emission; [test.theme_vars] is the fallback for tokens not
+         present in the expected [:root] (e.g. inlined [@theme] blocks like
+         text-shadow). *)
       let theme_vars =
-        List.filter
-          (fun (name, _) -> not (is_scheme_typed_var name))
-          test.theme_vars
+        List.filter (fun (name, _) -> not (is_runtime_var name)) test.theme_vars
       in
       Tw.Scheme.with_overrides scheme
-        (theme_overrides_of test.config test.expected @ theme_vars)
+        (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
-    let theme, theme_defaults = theme_config test.config test.expected in
+    let theme, theme_defaults =
+      theme_config ~declared test.config test.expected
+    in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
@@ -1029,6 +1047,8 @@ let () =
       test_case "oklab precision truncation" `Quick test_color_tolerance;
       test_case "canonical tolerance rejects layer order" `Quick
         test_layer_order_not_tolerated;
+      test_case "the theme echo is limited to declared tokens" `Quick
+        test_echo_only_declared_tokens;
     ]
   in
   let suites =

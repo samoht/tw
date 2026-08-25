@@ -422,67 +422,37 @@ module Handler = struct
             Css.mask_size (Var var_ref);
           ]
 
-  let suborder_in_family = function
-    | Bracket_image_var _ -> 100
-    | Bracket_image _ -> 101
-    | Bracket_url _ -> 102
-    | Bracket_url_var _ -> 103
-    | Bracket_var _ -> 104
-    | No_mask -> 105
-    | Add -> 200
-    | Exclude -> 201
-    | Intersect -> 202
-    | Subtract -> 203
-    | Alpha -> 300
-    | Luminance -> 301
-    | Match -> 302
-    | Type_alpha -> 303
-    | Type_luminance -> 304
-    | Bracket_contain -> 400
-    | Bracket_cover -> 401
-    | Bracket_length _ -> 402
-    | Bracket_size _ -> 403
-    | Auto -> 404
-    | Contain -> 405
-    | Cover -> 406
-    | Bracket_position _ -> 500
-    | Bracket_typed_position _ -> 501
-    | Position Keyword.Bottom -> 502
-    | Position Keyword.Bottom_left -> 503
-    | Position Keyword.Bottom_right -> 504
-    | Position Keyword.Center -> 505
-    | Position Keyword.Left -> 506
-    | Position Keyword.Right -> 507
-    | Position Keyword.Top -> 508
-    | Position Keyword.Top_left -> 509
-    | Position Keyword.Top_right -> 510
-    | No_repeat -> 600
-    | Repeat -> 601
-    | Repeat_round -> 602
-    | Repeat_space -> 603
-    | Repeat_x -> 604
-    | Repeat_y -> 605
-    | Clip_border -> 700
-    | Clip_content -> 701
-    | Clip_fill -> 702
-    | Clip_padding -> 703
-    | Clip_stroke -> 704
-    | Clip_view -> 705
-    | No_clip -> 706
-    | Origin_border -> 800
-    | Origin_content -> 801
-    | Origin_fill -> 802
-    | Origin_padding -> 803
-    | Origin_stroke -> 804
-    | Origin_view -> 805
-    | Position_bracket _ -> 511
-    | Position_bracket_var _ -> 512
-    | Size_bracket _ -> 407
-    | Size_bracket_var _ -> 408
+  (* Tailwind sorts by the property a utility sets, at the rank its property
+     table gives it: mask-image (209), then mask-composite (257) through
+     mask-origin (264). Utilities that set the same property share a slot, where
+     the class name breaks the tie. *)
+  let property_rank = function
+    | Bracket_image_var _ | Bracket_image _ | Bracket_url _ | Bracket_url_var _
+    | Bracket_var _ | No_mask ->
+        209
+    | Add | Exclude | Intersect | Subtract -> 257
+    | Alpha | Luminance | Match -> 258
+    | Type_alpha | Type_luminance -> 259
+    | Bracket_contain | Bracket_cover | Bracket_length _ | Bracket_size _ | Auto
+    | Contain | Cover | Size_bracket _ | Size_bracket_var _ ->
+        260
+    | Clip_border | Clip_content | Clip_fill | Clip_padding | Clip_stroke
+    | Clip_view | No_clip ->
+        261
+    | Bracket_position _ | Bracket_typed_position _ | Position _
+    | Position_bracket _ | Position_bracket_var _ ->
+        262
+    | No_repeat | Repeat | Repeat_round | Repeat_space | Repeat_x | Repeat_y ->
+        263
+    | Origin_border | Origin_content | Origin_fill | Origin_padding
+    | Origin_stroke | Origin_view ->
+        264
 
-  (* These share a priority with the mask-gradient utilities and sort after
-     them, so the two families occupy disjoint suborder bands. *)
-  let suborder t = 10000 + suborder_in_family t
+  (* Each of these writes one property and stops there, so it closes that
+     property's slot: the mask-gradient utilities that write mask-image and
+     carry on sort inside mask-image's, and the background sizing utilities that
+     share this priority take the slots between the two families. *)
+  let suborder t = Utility.Property_order.last (property_rank t)
 
   (* [mask-[<image>]] takes any background-image value, so what makes one is
      whether the value parser accepts it, not which gradient function it

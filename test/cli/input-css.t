@@ -146,6 +146,20 @@ named slot without discarding the other declarations in the list:
   @layer bb{.card-list{padding:1rem}}
   .after-list{color:red}
 
+A [<layer-name>] is a dot-separated list of idents, so [a.b] names two of them
+and [a\2e b] names one ident that carries a dot. They are different layers, and
+each block fills its own slot:
+
+  $ cat > layer-dot.css <<EOF
+  > @import "tailwindcss";
+  > @layer a.b, a\2e b;
+  > @layer a\2e b { .escaped { padding: 2rem } }
+  > @layer a.b { .dotted { padding: 1rem } }
+  > EOF
+  $ tw --minify --input-css layer-dot.css index.html | grep -oE '@layer a\.b\{\.dotted\{padding:1rem\}\}|@layer a\\\.b\{\.escaped\{padding:2rem\}\}'
+  @layer a.b{.dotted{padding:1rem}}
+  @layer a\.b{.escaped{padding:2rem}}
+
 A project can declare [@keyframes] inside its [@theme], beside the [--animate-*]
 token that names it. The theme block becomes a [:root] rule, where a nested
 [@keyframes] would be invalid, so it is lifted to the top level:

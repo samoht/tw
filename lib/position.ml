@@ -701,6 +701,21 @@ module Handler = struct
     || Scheme.theme_value (Some theme) ("spacing-" ^ n) <> None
 
   let of_class theme class_name =
+    (* Every numeric inset step reads the spacing scale, so both readers below
+       answer for the whole family once the theme removes it. *)
+    let int_of_string_with_sign n =
+      match int_of_string_with_sign n with
+      | Ok x when Theme.has_spacing_step ~theme (Float.abs (float_of_int x)) ->
+          Ok x
+      | Ok _ -> Error (`Msg "the spacing scale has no such step")
+      | Error _ as error -> error
+    in
+    let parse_pos_spacing n : Style.spacing option =
+      match parse_pos_spacing n with
+      | Some (`Rem f) when not (Theme.has_spacing_step ~theme (f /. 0.25)) ->
+          None
+      | parsed -> parsed
+    in
     let parts = Parse.split_class class_name in
     match parts with
     | [ "static" ] -> Ok Position_static

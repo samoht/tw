@@ -367,7 +367,7 @@ end
 module Select = struct
   open Style
 
-  type t = Select | Textarea
+  type t = Select | Textarea | Multiselect
   type Utility.base += Self of t
 
   let name = "forms_select"
@@ -475,20 +475,53 @@ module Select = struct
     in
     style ~rules:(Some rules) []
 
+  (* The class-strategy stand-in for [select:where([multiple])]. It gets the
+     shared field declarations alone: no chevron, and the placeholder rule
+     covers input and textarea only. *)
+  let form_multiselect =
+    let open Css in
+    let open Css.Selector in
+    let base_sel = class_ "form-multiselect" in
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+    let rules =
+      [
+        rule ~selector:base_sel
+          [
+            appearance None;
+            d_shadow;
+            background_color (hex "#fff");
+            border_width (Px 1.);
+            border_color gray_500;
+            border_radius (radius Zero);
+            padding [ Rem 0.5; Rem 0.75 ];
+            font_size (Rem 1.);
+            line_height (Rem 1.5);
+          ];
+        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
+      ]
+    in
+    style ~rules:(Some rules) []
+
   let to_style _theme = function
     | Select -> form_select
     | Textarea -> form_textarea
+    | Multiselect -> form_multiselect
 
-  let suborder = function Select -> 0 | Textarea -> 1
+  let suborder = function Select -> 0 | Textarea -> 1 | Multiselect -> 2
 
   let of_class _theme = function
     | "form-select" -> Ok Select
     | "form-textarea" -> Ok Textarea
+    | "form-multiselect" -> Ok Multiselect
     | _ -> Error (`Msg "Not a form select utility")
 
   let to_class = function
     | Select -> "form-select"
     | Textarea -> "form-textarea"
+    | Multiselect -> "form-multiselect"
 
   let examples = []
 end
@@ -503,6 +536,7 @@ let form_checkbox = Utility.base (Handler.Self Handler.Checkbox)
 let form_radio = Utility.base (Handler.Self Handler.Radio)
 let form_select = Utility.base (Select.Self Select.Select)
 let form_textarea = Utility.base (Select.Self Select.Textarea)
+let form_multiselect = Utility.base (Select.Self Select.Multiselect)
 
 (* ======================================================================== Base
    layer stylesheet - rules that apply to native HTML form elements when the
@@ -710,6 +744,7 @@ let select_base () =
     rule
       ~selector:(Selector.element "select")
       [
+        webkit_print_color_adjust Exact;
         print_color_adjust Exact;
         background_image
           (Url
@@ -846,6 +881,7 @@ let checkbox_radio_base () =
       ~selector:Selector.(list [ type_checkbox; type_radio ])
       [
         appearance None;
+        webkit_print_color_adjust Exact;
         print_color_adjust Exact;
         vertical_align Middle;
         webkit_user_select None;

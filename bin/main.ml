@@ -503,6 +503,58 @@ let take_custom_utilities css =
   let css, defs = take_named_defs "@utility" css in
   (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
 
+(* The at-keywords Tailwind's dialect adds to CSS. They are input for the
+   generator, which reads each of them above -- for a definition, for an
+   expansion, or for the theme and the plugins the entrypoint asks for -- and
+   Tailwind emits none of them. This list is the whole of what makes an at-rule
+   one of Tailwind's; anything else is the author's CSS, and passes through
+   whether or not tw or a parser knows what it means. *)
+let tailwind_directives =
+  [
+    "@apply";
+    "@config";
+    "@custom-variant";
+    "@plugin";
+    "@reference";
+    "@slot";
+    "@source";
+    "@tailwind";
+    "@theme";
+    "@utility";
+    "@variant";
+  ]
+
+(* Drop them, so none reaches a browser that has no meaning for it. What is
+   still here declared nothing usable -- an [@utility] with no name, a variant
+   tw cannot expand -- or names something outside the stylesheet, so there is
+   nothing to salvage from the text either. *)
+let drop_directives css =
+  let scan = Scan.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let directive_at i =
+    List.find_map
+      (fun name ->
+        match Scan.at_rule scan ~name i with
+        | Some { block = { next; _ }; _ } -> Some next
+        | None ->
+            Option.map
+              (fun ({ next; _ } : Scan.statement) -> next)
+              (Scan.at_statement scan ~name i))
+      tailwind_directives
+  in
+  let rec go i =
+    if i >= len then ()
+    else
+      match directive_at i with
+      | Some next -> go next
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 let fill_slots template body =
   let scan = Scan.v template in
   let len = String.length template in
@@ -968,8 +1020,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
     let out = expand_apply ~theme ~defs ~udefs css in
     if depth >= 4 || String.equal out css then out else expand (depth + 1) out
   in
-  resolve_theme_fn ~theme
-    (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css)))
+  drop_directives
+    (resolve_theme_fn ~theme
+       (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -1012,6 +1065,8 @@ let preload_imports ~transform ~base_url stylesheet =
    redundant. Keep the first, and put them all at the end of the document, where
    Tailwind emits them: spliced at the [@import] instead, they sit ahead of the
    author's own rules and shift every one of them. *)
+let equal_layer = Css.Stylesheet.equal_layer_name
+
 (* A named layer appears once in Tailwind's output. The generated sheet and the
    [@layer properties] blocks each applied utility hoists arrive separately, so
    fold every repeat of a name into the first, dropping content the first
@@ -1047,7 +1102,9 @@ let merge_named_layers stmts =
         let body =
           List.concat_map
             (fun stmt ->
-              if named_layer stmt = Some n then layer_statements stmt else [])
+              match named_layer stmt with
+              | Some m when equal_layer m n -> layer_statements stmt
+              | _ -> [])
             stmts
           |> List.filter (fun st ->
               let key = Css.to_string ~minify:true (Css.v [ st ]) in
@@ -1063,7 +1120,7 @@ let merge_named_layers stmts =
     List.filter_map
       (fun stmt ->
         match named_layer stmt with
-        | Some n when List.mem n repeated ->
+        | Some n when List.exists (equal_layer n) repeated ->
             if Hashtbl.mem emitted n then None
             else begin
               Hashtbl.add emitted n ();
@@ -1079,29 +1136,37 @@ let merge_named_layers stmts =
 let hoist_layer_blocks stmts =
   let declared_names = Css.layer_statement_name_list in
   let block_name stmt =
-    match Css.layer_block_name stmt with Some "" | None -> None | name -> name
+    match Css.layer_block_name stmt with Some [] | None -> None | name -> name
+  in
+  let is_block_of n st =
+    match block_name st with Some m -> equal_layer m n | None -> false
+  in
+  (* Two layer names never share their printed text, so it keys them. *)
+  let by_text a b =
+    String.compare
+      (Css.Stylesheet.string_of_layer_name a)
+      (Css.Stylesheet.string_of_layer_name b)
   in
   let slots =
     List.filter_map declared_names stmts
-    |> List.concat
-    |> List.sort_uniq String.compare
+    |> List.concat |> List.sort_uniq by_text
   in
   let movable =
-    List.filter
-      (fun n -> List.exists (fun st -> block_name st = Some n) stmts)
-      slots
+    List.filter (fun n -> List.exists (is_block_of n) stmts) slots
   in
   if movable = [] then stmts
   else
-    let block_for n = List.find_opt (fun st -> block_name st = Some n) stmts in
+    let block_for n = List.find_opt (is_block_of n) stmts in
     let emitted = Hashtbl.create 8 in
     List.concat_map
       (fun stmt ->
         match declared_names stmt with
-        | Some names when List.exists (fun n -> List.mem n movable) names ->
+        | Some names
+          when List.exists (fun n -> List.exists (equal_layer n) movable) names
+          ->
             List.filter_map
               (fun n ->
-                if List.mem n movable then
+                if List.exists (equal_layer n) movable then
                   if Hashtbl.mem emitted n then None
                   else begin
                     Hashtbl.add emitted n ();
@@ -1111,7 +1176,7 @@ let hoist_layer_blocks stmts =
               names
         | _ -> (
             match block_name stmt with
-            | Some n when List.mem n movable -> []
+            | Some n when List.exists (equal_layer n) movable -> []
             | _ -> [ stmt ]))
       stmts
 
@@ -1616,7 +1681,7 @@ let routed_statements ~block_count ~own_order stmts =
     place_routed_entries ~own_order ~order_of ~classless entries
   in
   let unplaced =
-    if unordered = [] then [] else [ Css.layer ~name:"utilities" unordered ]
+    if unordered = [] then [] else [ Css.layer ~name:[ "utilities" ] unordered ]
   in
   (block_count, ordered, unplaced @ dedup_statements hoisted)
 

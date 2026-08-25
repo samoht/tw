@@ -230,6 +230,41 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"backgrounds suborder matches Tailwind" shuffled
 
+(* Tailwind's property table runs the background properties in two stretches:
+   background-color and background-image with the gradient variables come first,
+   then background-size through background-origin, which sit between the
+   mask-image utilities and mask-composite. The masks have to interleave with
+   that second stretch. *)
+let order_matches_tailwind () =
+  let classes =
+    [
+      "bg-red-500";
+      "bg-linear-to-r";
+      "bg-conic";
+      "bg-none";
+      "via-none";
+      "from-red-500";
+      "to-90%";
+      "mask-t-from-50%";
+      "mask-circle";
+      "mask-none";
+      "bg-cover";
+      "bg-fixed";
+      "bg-clip-text";
+      "bg-center";
+      "bg-repeat-x";
+      "bg-origin-border";
+      "mask-add";
+      "mask-alpha";
+      "mask-cover";
+      "mask-top";
+      "mask-repeat-x";
+      "mask-origin-border";
+    ]
+  in
+  Test_helpers.check_class_order
+    ~test_name:"background and mask order matches Tailwind" classes
+
 (* A gradient and a background colour both end up in background-image and
    background-color, and the gradient stops share the --tw-gradient-* slots.
    Palette colours are left out: tw declares the theme token as a hex where
@@ -416,6 +451,8 @@ let tests =
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "background and mask order matches Tailwind" `Slow
+      order_matches_tailwind;
     test_case "backgrounds render like Tailwind" `Slow
       rendering_matches_tailwind;
   ]

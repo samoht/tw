@@ -17,6 +17,13 @@ let base x = Base x
 let important ?(suffix = false) x = Important (suffix, x)
 let alias class_name u = Aliased (class_name, u)
 
+(* See the .mli. *)
+module Property_order = struct
+  let width = 1000
+  let slot rank = width * rank
+  let last rank = slot rank + (width - 1)
+end
+
 module type Handler = sig
   type t
   type base += Self of t

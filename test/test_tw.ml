@@ -444,19 +444,9 @@ let extract_var_fallbacks expected =
         Some (name, fallback)
       with Not_found | Failure _ -> None)
 
-(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
-   runtime [--tw-*] vars); they must not become token overrides. *)
-let is_scheme_typed_var name =
-  let is_numbered_spacing =
-    String.length name > 8
-    && String.sub name 0 8 = "spacing-"
-    &&
-    let rest = String.sub name 8 (String.length name - 8) in
-    match int_of_string_opt rest with Some _ -> true | None -> false
-  in
-  let is_bare_spacing = name = "spacing" in
-  let is_tw_var = String.length name > 3 && String.sub name 0 3 = "tw-" in
-  is_numbered_spacing || is_bare_spacing || is_tw_var
+(* The [--tw-*] vars a utility emits at runtime are tw's own output rather than
+   theme tokens a test declares; they must not become token overrides. *)
+let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
 
 (* Build the per-test scheme from the @theme tokens in the expected CSS, so
    of_string validates custom tokens against the threaded theme. *)
@@ -466,7 +456,7 @@ let upstream_scheme config theme_vars expected =
     | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
         let base =
           extract_root_vars expected
-          |> List.filter (fun (name, _) -> not (is_scheme_typed_var name))
+          |> List.filter (fun (name, _) -> not (is_runtime_var name))
         in
         if config = Theme_reference || config = Theme_inline_reference then
           let extra =
@@ -484,8 +474,7 @@ let upstream_scheme config theme_vars expected =
     let extra =
       theme_vars
       |> List.filter (fun (name, _) ->
-          (not (is_scheme_typed_var name))
-          && not (List.mem_assoc name overrides))
+          (not (is_runtime_var name)) && not (List.mem_assoc name overrides))
     in
     overrides @ extra
   in

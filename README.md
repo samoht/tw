@@ -2,12 +2,15 @@
 
 `tw` is an OCaml implementation of [Tailwind CSS v4](https://tailwindcss.com/).
 You assemble utilities as ordinary OCaml values and compile them to CSS through
-the same typed variable-and-layer pipeline Tailwind uses, producing
-byte-for-byte identical output. Unknown utilities are caught at compile time,
-and nothing depends on Node.js, PostCSS, or the Tailwind CLI at run time.
+the same typed variable-and-layer pipeline Tailwind uses. The generated output
+is continuously compared against Tailwind CSS 4.3.3. Unknown utilities are
+caught at compile time, and nothing depends on Node.js, PostCSS, or the Tailwind
+CLI at run time.
 
 **Tracked version:** `tw` targets **Tailwind CSS v4.3.3** (the latest release).
-Its generated CSS is checked byte-for-byte against that exact version.
+The upstream utility and variant fixtures and the example stylesheets are
+checked against that exact version; the [parity notes](docs/parity.md) document
+the gates and the remaining equivalent output differences.
 
 ```ocaml
 open Tw
@@ -25,8 +28,8 @@ let card =
 
 ## Features
 
-- **Tailwind v4 parity** — output is checked byte-for-byte against the real
-  Tailwind CSS CLI across the upstream utility and variant test suites.
+- **Tailwind v4 fixture parity** — output is checked against the real Tailwind
+  CSS CLI across the upstream utility and variant suites and example sheets.
 - **Both official plugins** — `@tailwindcss/typography` (`prose`) and
   `@tailwindcss/forms` are fully implemented.
 - **Type-safe** — utilities are typed constructors, so invalid combinations are
@@ -172,9 +175,9 @@ dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff
 
 ### Parity with Tailwind
 
-[docs/parity.md](docs/parity.md) describes how the claim of identical output is
-checked: which comparisons run in `dune runtest`, how to read a diff, and why a
-small residual remains.
+[docs/parity.md](docs/parity.md) describes how output parity is checked: which
+comparisons run in `dune runtest`, how to read a diff, and why a small residual
+remains.
 
 ## License
 

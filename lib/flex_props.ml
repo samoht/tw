@@ -108,19 +108,27 @@ module Handler = struct
     let pct_value = Float.round (raw *. 10000.0) /. 10000.0 in
     style [ flex_basis (Pct pct_value) ]
 
+  (* [basis] lists --flex-basis, then --spacing, then --container, so a named
+     size reads the first of those the theme defines. *)
   let basis_named_style ?theme name =
     let var_name = "container-" ^ name in
-    match Scheme.theme_value theme var_name with
-    | Some value_str ->
-        let decl =
-          Css.custom_property ~layer:"theme" ("--" ^ var_name) value_str
-        in
-        let ref : Css.flex_basis Css.var =
-          Var.theme_ref var_name
-            ~default:(Css.Zero : Css.flex_basis)
-            ~default_css:"0px"
-        in
-        style [ decl; flex_basis (Var ref) ]
+    let overridden namespace =
+      let token = namespace ^ "-" ^ name in
+      Option.map
+        (fun value_str ->
+          let decl =
+            Css.custom_property ~layer:"theme" ("--" ^ token) value_str
+          in
+          let ref : Css.flex_basis Css.var =
+            Var.theme_ref token
+              ~default:(Css.Zero : Css.flex_basis)
+              ~default_css:"0px"
+          in
+          style [ decl; flex_basis (Var ref) ])
+        (Scheme.theme_value theme token)
+    in
+    match List.find_map overridden [ "flex-basis"; "spacing"; "container" ] with
+    | Some styled -> styled
     (* Without an override the container scale still declares its own default,
        so the token the utility reads is in the sheet. *)
     | None -> (

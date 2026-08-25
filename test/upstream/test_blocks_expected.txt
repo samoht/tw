@@ -1,0 +1,54 @@
+# top level
+@config run
+top-level
+---
+
+    .top-level {
+      display: block;
+    }
+    
+<<<>>>
+# indented once
+@config run
+indented-once
+---
+
+      .indented-once {
+        display: flex;
+      }
+      
+<<<>>>
+# double quoted name (with a paren in it)
+@config run
+double-quoted
+---
+
+<<<>>>
+# backtick name
+@config run
+backtick
+---
+
+<<<>>>
+# indented twice
+@config run
+indented-twice
+---
+
+        .indented-twice {
+          display: grid;
+        }
+        
+<<<>>>
+# after the inner block
+@config run
+after-inner
+---
+
+<<<>>>
+# after the outer block
+@config run
+after-outer
+---
+
+<<<>>>

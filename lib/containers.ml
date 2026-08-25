@@ -33,27 +33,62 @@ module Handler = struct
     | Container_size -> "@container-size"
     | Container_named name -> "@container/" ^ name
 
-  let layout_container_style =
+  (* The unit a breakpoint value carries: what is left once its digits and dots
+     are gone, or the head of a function call. *)
+  let breakpoint_unit value =
+    match String.index_opt value '(' with
+    | Some i -> String.sub value 0 i
+    | None ->
+        let unit = Buffer.create (String.length value) in
+        String.iter
+          (fun c ->
+            if not ((c >= '0' && c <= '9') || c = '.') then
+              Buffer.add_char unit c)
+          value;
+        Buffer.contents unit
+
+  (* The integer a breakpoint value starts with, the way [parseInt] reads it. *)
+  let breakpoint_number value : int option =
+    let stop = ref 0 in
+    let len = String.length value in
+    if len > 0 && (value.[0] = '-' || value.[0] = '+') then incr stop;
+    let digits = !stop in
+    while !stop < len && value.[!stop] >= '0' && value.[!stop] <= '9' do
+      incr stop
+    done;
+    if !stop = digits then None
+    else int_of_string_opt (String.sub value 0 !stop)
+
+  (* Tailwind sorts the scale by unit first and then by number, ascending, so an
+     [em] breakpoint precedes a [px] one whatever their widths. A value with no
+     leading number falls back to comparing the spellings. *)
+  let compare_breakpoints a b =
+    if String.equal a b then 0
+    else
+      match String.compare (breakpoint_unit a) (breakpoint_unit b) with
+      | 0 -> (
+          match (breakpoint_number a, breakpoint_number b) with
+          | Some x, Some y -> Int.compare x y
+          | _ -> String.compare a b)
+      | order -> order
+
+  let layout_container_style theme =
     let open Css in
     (* Use top-level media queries to match Tailwind's minified output.
        Container media queries should come AFTER the base .container rule.
        rules.ml handles this ordering since container has only media rules and
        base props. *)
     let container_selector = Selector.class_ "container" in
-    let min_width_rem rem = media_min_width_length (Rem rem) in
+    let spelling length = Css.Pp.to_string Css.pp_length length in
     let media_rules =
-      [
-        media ~condition:(min_width_rem 40.)
-          [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
-        media ~condition:(min_width_rem 48.)
-          [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
-        media ~condition:(min_width_rem 64.)
-          [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
-        media ~condition:(min_width_rem 80.)
-          [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
-        media ~condition:(min_width_rem 96.)
-          [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
-      ]
+      Scheme.all_breakpoints theme
+      |> List.map snd
+      |> List.stable_sort (fun a b ->
+          compare_breakpoints (spelling a) (spelling b))
+      |> List.map (fun length ->
+          media
+            ~condition:(media_min_width_length length)
+            [ rule ~selector:container_selector [ max_width length ] ])
     in
     style ~rules:(Some media_rules) [ width (Pct 100.) ]
 
@@ -66,8 +101,8 @@ module Handler = struct
   let container_named_style name =
     style [ Css.Declaration.container ~type_:Inline_size name ]
 
-  let to_style _theme = function
-    | Layout_container -> layout_container_style
+  let to_style theme = function
+    | Layout_container -> layout_container_style theme
     | Container -> container_query
     | Container_normal -> container_normal_style
     | Container_size -> container_size_style

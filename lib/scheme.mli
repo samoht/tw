@@ -73,9 +73,17 @@ val all_default_tokens : unit -> (string * string) list
 val token_default : string -> string option
 (** [token_default name] returns the registered baseline default for [name]. *)
 
+val is_removed : t -> string -> bool
+(** [is_removed t name] is whether the [\@theme] block removed [name]. Tailwind
+    reads [--name: initial] as "remove this token" and [--namespace-*: initial]
+    as "remove the whole namespace", and a candidate that needed the token stops
+    resolving. A token the block declares in its own right survives a reset of
+    its namespace, and so does a nested scale that merely shares the prefix:
+    [--font-*: initial] leaves [--font-weight-*] alone. *)
+
 val token_override : t -> string -> string option
 (** [token_override t name] returns the per-render override for [name], if any.
-*)
+    A removed token has none. *)
 
 val theme_value : t option -> string -> string option
 (** [theme_value theme name] looks up a per-render token override from the
@@ -83,7 +91,8 @@ val theme_value : t option -> string -> string option
     replacement for the global [Var.theme_value]. *)
 
 val token : t -> string -> string option
-(** [token t name] resolves a theme token: override (if any) else default. *)
+(** [token t name] resolves a theme token: override (if any) else default, or
+    nothing at all when the [\@theme] block removed it. *)
 
 val with_overrides : ?inline:string list -> t -> (string * string) list -> t
 (** [with_overrides ?inline t overrides] applies [overrides] on top of [t]'s
@@ -123,6 +132,12 @@ val breakpoint_length : t -> string -> Css.length option
 (** [breakpoint_length t name] looks up a breakpoint as its exact CSS length. A
     [breakpoint-NAME] token override takes precedence over the legacy px-only
     {!breakpoint} field. *)
+
+val all_breakpoints : t -> (string * Css.length) list
+(** [all_breakpoints t] is every breakpoint [t] defines, keyed by name and
+    sorted by name: the registered defaults, the [--breakpoint-*] tokens a
+    [\@theme] block set, and the legacy px-only {!breakpoints} field. A
+    breakpoint the block removed is left out. *)
 
 val breakpoint_names : t -> string list
 (** [breakpoint_names t] returns the custom breakpoint names available while

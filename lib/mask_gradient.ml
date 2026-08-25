@@ -821,65 +821,69 @@ module Handler = struct
     | Mask_stop_keyword (dir, pos_end, value, _) ->
         build_color_value_style dir pos_end value
 
+  (* Tailwind sorts a layer's rules by the properties they set, walking the
+     fixed table its property-order list gives: mask-image, then a block per
+     side (--tw-mask-top, then its from-color, from-position, to-color and
+     to-position stops, then the same for right, bottom and left), then the
+     --tw-mask-linear, --tw-mask-radial and --tw-mask-conic blocks, then
+     mask-composite. Two rules sort on the first table index that separates
+     them, and one that runs out of properties sorts after one that keeps going.
+     Every utility here writes mask-image and carries on, so they share its
+     slot; inside it they sort by the index that separates them, spread four
+     apart to leave room for the two tie-breaks below. *)
+  let mask_image_rank = 209
+  let first_stop_rank = 210
+
+  let property_suborder index =
+    Utility.Property_order.slot mask_image_rank + (4 * (index - first_stop_rank))
+
+  (* mask-x-* and mask-y-* write the opposite side too, so they lead the
+     mask-r-* and mask-t-* they share a first property with. Tailwind breaks the
+     remaining ties on the class name, where the (--var) spellings lead the
+     lengths and percentages. *)
+  let stop_suborder dir pos_end ~color ~var =
+    let block =
+      match dir with
+      | Top | Y -> 210
+      | Right | X -> 215
+      | Bottom -> 220
+      | Left -> 225
+      | Linear -> 231
+      | Radial -> 239
+      | Conic -> 245
+    in
+    let stop =
+      match (pos_end, color) with
+      | From, true -> 1
+      | From, false -> 2
+      | To, true -> 3
+      | To, false -> 4
+    in
+    let sides = match dir with X | Y -> 0 | _ -> 2 in
+    property_suborder (block + stop) + sides + if var then 0 else 1
+
   let suborder = function
     | Mask_stop_keyword (dir, pos_end, _, _)
-    | Mask_stop_color (dir, pos_end, _, _)
+    | Mask_stop_color (dir, pos_end, _, _) ->
+        stop_suborder dir pos_end ~color:true ~var:false
     | Mask_color_ref (dir, pos_end, _) ->
-        let dir_offset =
-          match dir with
-          | Top -> 0
-          | Right -> 100
-          | Bottom -> 200
-          | Left -> 300
-          | X -> 400
-          | Y -> 500
-          | Linear -> 600
-          | Radial -> 700
-          | Conic -> 800
-        in
-        let pos_offset = match pos_end with From -> 0 | To -> 50 in
-        dir_offset + pos_offset
+        stop_suborder dir pos_end ~color:true ~var:true
     | Mask_var_ref (dir, pos_end, _, _) ->
-        let dir_offset =
-          match dir with
-          | Top -> 0
-          | Right -> 100
-          | Bottom -> 200
-          | Left -> 300
-          | X -> 400
-          | Y -> 500
-          | Linear -> 600
-          | Radial -> 700
-          | Conic -> 800
-        in
-        let pos_offset = match pos_end with From -> 0 | To -> 50 in
-        dir_offset + pos_offset + 1
+        stop_suborder dir pos_end ~color:false ~var:true
     | Mask_position (dir, pos_end, _) ->
-        let dir_offset =
-          match dir with
-          | Top -> 0
-          | Right -> 100
-          | Bottom -> 200
-          | Left -> 300
-          | X -> 400
-          | Y -> 500
-          | Linear -> 600
-          | Radial -> 700
-          | Conic -> 800
-        in
-        let pos_offset = match pos_end with From -> 0 | To -> 50 in
-        dir_offset + pos_offset + 10
-    | Mask_linear_angle _ -> 650
-    | Mask_conic_angle _ -> 850
-    | Mask_radial -> 750
-    | Mask_radial_size (Arbitrary_size _) -> 755
-    | Mask_radial_at _ -> 760
-    | Mask_radial_shape Circle -> 770
-    | Mask_radial_shape Ellipse -> 771
-    | Mask_radial_size Closest_corner -> 780
-    | Mask_radial_size Closest_side -> 781
-    | Mask_radial_size Farthest_corner -> 782
-    | Mask_radial_size Farthest_side -> 783
+        stop_suborder dir pos_end ~color:false ~var:false
+    | Mask_linear_angle _ -> property_suborder 231
+    | Mask_radial -> property_suborder 236
+    | Mask_radial_size (Arbitrary_size _) -> property_suborder 238
+    | Mask_conic_angle _ -> property_suborder 245
+    (* mask-circle, the radial size keywords and mask-radial-at-* write a
+       --tw-mask-radial-* variable and no mask-image, so each closes the slot of
+       the variable it names: --tw-mask-radial-shape (237),
+       --tw-mask-radial-size (238) and --tw-mask-radial-position (239). The
+       class name orders the ones sharing a slot. *)
+    | Mask_radial_shape _ -> Utility.Property_order.last 237
+    | Mask_radial_size _ -> Utility.Property_order.last 238
+    | Mask_radial_at _ -> Utility.Property_order.last 239
 
   (* Check if a float is a valid Tailwind spacing multiplier: non-negative,
      either an integer or ending in .5 *)

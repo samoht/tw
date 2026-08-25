@@ -13,7 +13,7 @@ let extract_utilities_layer_rules css =
   List.find_map
     (fun stmt ->
       match Css.as_layer stmt with
-      | Some (Some "utilities", rules) -> Some rules
+      | Some (Some [ "utilities" ], rules) -> Some rules
       | _ -> None)
     stmts
   |> Option.value ~default:[]
@@ -311,6 +311,47 @@ let check_ordering_matches ?forms ~test_name utilities =
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
+(* Where a class's rule starts in a sheet. The selector is matched up to its
+   closing delimiter so [.bg-top] does not report [.bg-top-left]. *)
+let class_position sheet cls =
+  let sel = Css.Selector.to_string (Css.Selector.class_ cls) in
+  let n = String.length sel and len = String.length sheet in
+  let rec scan i =
+    if i + n > len then None
+    else if
+      String.sub sheet i n = sel
+      && i + n < len
+      && (sheet.[i + n] = '{' || sheet.[i + n] = ',')
+    then Some i
+    else scan (i + 1)
+  in
+  scan 0
+
+let check_class_order ?forms ~test_name classes =
+  let utilities =
+    List.map
+      (fun c ->
+        match Tw.of_string c with
+        | Ok u -> u
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" c m)
+      classes
+  in
+  let order label sheet =
+    List.map
+      (fun cls ->
+        match class_position sheet cls with
+        | Some i -> (i, cls)
+        | None ->
+            Alcotest.failf "%s: %s missing from the %s sheet" test_name cls
+              label)
+      classes
+    |> List.sort compare |> List.map snd
+  in
+  let expected = order "Tailwind" (tailwind_css ?forms classes) in
+  Alcotest.(check (list string))
+    test_name expected
+    (order "tw" (our_css utilities))
+
 (** CSS Test Helpers *)
 
 (** Check if a layer exists in the stylesheet *)
@@ -318,12 +359,14 @@ let has_layer name css =
   List.exists
     (fun stmt ->
       match Css.as_layer stmt with
-      | Some (Some layer_name, _) when layer_name = name -> true
+      | Some (Some declared, _)
+        when Css.Stylesheet.equal_layer_name declared [ name ] ->
+          true
       | _ -> false)
     (Css.statements css)
 
 (** Get all custom property names from a layer *)
-let vars_in_layer layer_name css = Css.custom_props ~layer:layer_name css
+let vars_in_layer layer_name css = Css.custom_props ~layer:[ layer_name ] css
 
 (** Check if a variable name exists in a layer *)
 let has_var_in_layer var_name layer_name css =
@@ -332,7 +375,7 @@ let has_var_in_layer var_name layer_name css =
 
 (** Get all selectors from a layer *)
 let selectors_in_layer layer_name css =
-  match Css.layer_block layer_name css with
+  match Css.layer_block [ layer_name ] css with
   | None -> []
   | Some stmts ->
       List.filter_map

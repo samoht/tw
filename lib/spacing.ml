@@ -145,8 +145,8 @@ let parse_value_string ?theme ~allow_auto value : margin option =
   else if allow_auto && value = "auto" then Some `Auto
   else
     match Parse.spacing_value ~name:"spacing" value with
-    | Ok f -> Some (`Rem (f *. 0.25))
-    | Error _ ->
+    | Ok f when Theme.has_spacing_step ?theme f -> Some (`Rem (f *. 0.25))
+    | Ok _ | Error _ ->
         (* A named spacing (mx-big) is valid only when the theme defines the
            [--spacing-<name>] token; without that gate a stray source token like
            [my-form] would parse as a utility. *)

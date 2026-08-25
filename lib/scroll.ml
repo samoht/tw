@@ -182,7 +182,7 @@ module Handler = struct
     | "be" -> Some Be
     | _ -> None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* scroll-m-4, scroll-p-4, scroll-mx-4, scroll-py-4, etc. *)
@@ -208,8 +208,9 @@ module Handler = struct
         | Some kind, Some axis -> (
             (* Try as spacing value (integer or fractional like 0.5, 2.5) *)
             match Parse.spacing_value ~name:"scroll" value with
-            | Ok n -> Ok { kind; negative; axis; value = Spacing n }
-            | Error _ -> (
+            | Ok n when Theme.has_spacing_step ~theme n ->
+                Ok { kind; negative; axis; value = Spacing n }
+            | Ok _ | Error _ -> (
                 (* Try as arbitrary value *)
                 match parse_arbitrary value with
                 | Some value -> Ok { kind; negative; axis; value }
