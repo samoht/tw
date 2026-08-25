@@ -176,9 +176,47 @@ let test_variant_width_order () =
     (List.sort Int.compare positions)
     positions
 
+(* Tailwind builds the .container media queries out of the --breakpoint-* tokens
+   themselves, sorted by unit and then ascending, so a theme that re-units or
+   extends the scale moves them. *)
+let test_container_reads_the_breakpoint_scale () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("breakpoint-lg", "64rem");
+        ("breakpoint-xl", "80rem");
+        ("breakpoint-3xl", "1600px");
+        ("breakpoint-sm", "40em");
+        ("breakpoint-2xl", "96rem");
+        ("breakpoint-xs", "30px");
+        ("breakpoint-md", "48em");
+      ]
+  in
+  let css =
+    match Tw.of_string ~theme "container" with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "container: %s" m
+  in
+  let position width =
+    match Astring.String.find_sub ~sub:("max-width:" ^ width) css with
+    | Some i -> i
+    | None -> Alcotest.failf "no %s in %s" width css
+  in
+  let positions =
+    List.map position
+      [ "40em"; "48em"; "30px"; "1600px"; "64rem"; "80rem"; "96rem" ]
+  in
+  Alcotest.(check (list int))
+    "the scale sorts by unit and then ascending"
+    (List.sort Int.compare positions)
+    positions
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
+    test_case "container reads the breakpoint scale" `Quick
+      test_container_reads_the_breakpoint_scale;
     test_case "variant width order" `Quick test_variant_width_order;
     test_case "variant composition" `Quick test_container_variant_composition;
     test_case "name" `Quick test_container_name;
