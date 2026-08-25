@@ -22388,6 +22388,7 @@ px-1 px-4
 <<<>>>
 # `--spacing-*: initial` disables the spacing multiplier
 @config theme
+@theme-var spacing-* initial
 @theme-var spacing-4 1rem
 px-1 px-4
 ---

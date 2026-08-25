@@ -191,7 +191,10 @@ let theme_scanner () =
     pending_space = false;
   }
 
-let theme_decl_re = Re.Pcre.regexp {|^--([A-Za-z0-9-]+)\s*:\s*(.*)$|}
+(* [--spacing-*: initial] resets a whole namespace, so [*] belongs in a token
+   name: without it the reset reads as no declaration at all and the test that
+   sets it silently loses its theme. *)
+let theme_decl_re = Re.Pcre.regexp {|^--([A-Za-z0-9*-]+)\s*:\s*(.*)$|}
 
 let scanner_add s c =
   if s.pending_space && Buffer.length s.decl > 0 then Buffer.add_char s.decl ' ';
