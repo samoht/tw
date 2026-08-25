@@ -464,7 +464,7 @@ let utilities_layer ~layers ~statements =
   (* Statements are already in the correct order with media queries interleaved.
      Consecutive media queries with the same condition will be merged by the
      optimizer (css/optimize.ml) while preserving cascade order. *)
-  if layers then Css.v [ Css.layer ~name:"utilities" statements ]
+  if layers then Css.v [ Css.layer ~name:[ "utilities" ] statements ]
   else Css.v statements
 
 (* [@starting-style] carries no condition, so a run of [starting:] utilities is
@@ -562,39 +562,23 @@ module Strings = Set.Make (String)
 (* Helpers for theme layer extraction and ordering *)
 let collect_selector_props tw_classes = List.concat_map Rule.outputs tw_classes
 
-(* Helper to extract theme declarations from nested CSS statements
-   recursively *)
+(* Collect the theme-layer tokens a statement tree declares. A compound variant
+   nests its rule under whichever at-rules its modifiers ask for, so the walk
+   has to reach a declaration under any of them; [Css.Stylesheet]'s pair of
+   exhaustive readers is that walk. *)
 let rec extract_theme_from_statements theme_vars insertion_order statements =
   List.iter
     (fun stmt ->
-      (* Check if this is a rule with declarations *)
-      (match Css.statement_declarations stmt with
-      | Some props ->
-          Css.custom_declarations ~layer:"theme" props
-          |> List.iter (fun decl ->
-              match Css.custom_declaration_name decl with
-              | Some name when not (Hashtbl.mem theme_vars name) ->
-                  Hashtbl.add theme_vars name decl;
-                  insertion_order := decl :: !insertion_order
-              | _ -> ())
-      | None -> ());
-      (* Recurse into nested statements *)
-      (match Css.as_rule stmt with
-      | Some (_, _, nested) ->
-          extract_theme_from_statements theme_vars insertion_order nested
-      | None -> ());
-      (match Css.as_media stmt with
-      | Some (_, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ());
-      (match Css.as_layer stmt with
-      | Some (_, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ());
-      match Css.as_container stmt with
-      | Some (_, _, content) ->
-          extract_theme_from_statements theme_vars insertion_order content
-      | None -> ())
+      Css.Stylesheet.statement_declarations stmt
+      |> Css.custom_declarations ~layer:"theme"
+      |> List.iter (fun decl ->
+          match Css.custom_declaration_name decl with
+          | Some name when not (Hashtbl.mem theme_vars name) ->
+              Hashtbl.add theme_vars name decl;
+              insertion_order := decl :: !insertion_order
+          | _ -> ());
+      extract_theme_from_statements theme_vars insertion_order
+        (Css.Stylesheet.statement_children stmt))
     statements
 
 let extract_non_tw_custom_declarations selector_props =
@@ -730,11 +714,11 @@ let sort_by_var_order decls =
 
 (* Build theme layer rule from declarations *)
 let theme_layer_rule ~layers = function
-  | [] -> if layers then Css.v [ Css.layer ~name:"theme" [] ] else Css.empty
+  | [] -> if layers then Css.v [ Css.layer ~name:[ "theme" ] [] ] else Css.empty
   | decls ->
       let selector = Css.Selector.(list [ Root; host () ]) in
       let rule = Css.rule ~selector decls in
-      if layers then Css.v [ Css.layer ~name:"theme" [ rule ] ]
+      if layers then Css.v [ Css.layer ~name:[ "theme" ] [ rule ] ]
       else Css.v [ rule ]
 
 (* Every var() referenced anywhere in a utility's output (top-level props and
@@ -917,7 +901,7 @@ let base_layer ?supports ?(forms_base = false) () =
     if forms_base then Css.concat [ preflight; Forms.base_stylesheet () ]
     else preflight
   in
-  Css.layer_of ~name:"base" base
+  Css.layer_of ~name:[ "base" ] base
 
 (* Use the centralized conversion function from Var module *)
 
@@ -1124,7 +1108,7 @@ let property_layer_content first_usage_order initial_values other_statements =
   let rule = Css.rule ~selector initial_declarations in
   let supports_stmt = Css.supports ~condition:browser_detection [ rule ] in
   let layer_content = [ supports_stmt ] @ other_statements in
-  Css.v [ Css.layer ~name:"properties" layer_content ]
+  Css.v [ Css.layer ~name:[ "properties" ] layer_content ]
 
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
@@ -1229,7 +1213,7 @@ let layer_declaration ~has_properties ~include_base =
     if include_base then [ "theme"; "base"; "components"; "utilities" ]
     else [ "theme"; "components"; "utilities" ]
   in
-  Css.v [ Css.layer_decl names ]
+  Css.v [ Css.layer_decl (List.map (fun n -> [ n ]) names) ]
 
 (* Sort [@property] rules using first-usage order. Variables are ordered by when
    they first appear across all utilities. For variables within the same family
@@ -1292,7 +1276,9 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   in
   let layers_without_property =
     if layers then
-      let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
+      let components_declaration =
+        Css.v [ Css.layer_decl [ [ "components" ] ] ]
+      in
       let layer_names =
         layer_declaration
           ~has_properties:(Option.is_some properties_layer)
@@ -1590,7 +1576,8 @@ let normalize_declared_property_families order_map builtins extra_outputs =
               (fun output ->
                 let base_class, props = output_base_class_and_props output in
                 match (base_class, Utility.ordering_property props) with
-                | Some cls, Some key when key = property ->
+                | Some cls, Some key
+                  when Css.Declaration.equal_prop_key key property ->
                     let base = extract_base_utility cls in
                     Option.map
                       (fun order -> (base, order))
