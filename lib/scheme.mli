@@ -133,6 +133,12 @@ val breakpoint_length : t -> string -> Css.length option
     [breakpoint-NAME] token override takes precedence over the legacy px-only
     {!breakpoint} field. *)
 
+val all_breakpoints : t -> (string * Css.length) list
+(** [all_breakpoints t] is every breakpoint [t] defines, keyed by name and
+    sorted by name: the registered defaults, the [--breakpoint-*] tokens a
+    [\@theme] block set, and the legacy px-only {!breakpoints} field. A
+    breakpoint the block removed is left out. *)
+
 val breakpoint_names : t -> string list
 (** [breakpoint_names t] returns the custom breakpoint names available while
     parsing variants. *)

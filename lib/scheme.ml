@@ -217,6 +217,37 @@ let token scheme name =
   | Some _ as v -> v
   | None -> if is_removed scheme name then None else token_default name
 
+(** Every breakpoint the theme defines, keyed by name: the registered defaults,
+    the [--breakpoint-*] tokens a [@theme] block set, and the legacy px-only
+    field. *)
+let all_breakpoints scheme =
+  let prefix = "breakpoint-" in
+  let suffix (key, _) =
+    if String.starts_with ~prefix key then
+      Some
+        (String.sub key (String.length prefix)
+           (String.length key - String.length prefix))
+    else None
+  in
+  let names =
+    List.filter_map suffix (all_default_tokens ())
+    @ List.filter_map suffix scheme.token_overrides
+    @ List.map fst scheme.breakpoints
+  in
+  List.sort_uniq String.compare names
+  |> List.filter_map (fun name ->
+      if is_removed scheme (prefix ^ name) then None
+      else
+        let length =
+          match breakpoint_length scheme name with
+          | Some _ as length -> length
+          | None ->
+              Option.bind
+                (token_default (prefix ^ name))
+                (fun css -> Css.parse_length (String.trim css))
+        in
+        Option.map (fun length -> (name, length)) length)
+
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)
 let with_overrides ?(inline = []) scheme overrides =
