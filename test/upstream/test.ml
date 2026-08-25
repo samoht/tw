@@ -595,33 +595,23 @@ let extract_var_fallbacks expected =
       with Not_found | Failure _ -> None)
     matches
 
-(* Vars whose value the typed [Scheme.t] fields own (the spacing scale and
-   runtime [--tw-*] vars). These must NOT become token overrides: doing so would
-   emit them verbatim as raw custom properties instead of through their typed
-   binding (e.g. [--spacing: 0.25rem] instead of the normalized [.25rem]). Named
-   spacings like [spacing-big] are passed through. *)
+(* The [--tw-*] vars a utility emits at runtime are tw's own output, not theme
+   tokens a test declares, so they must not become token overrides. Everything
+   the test's own [@theme] block sets goes through, the spacing scale included:
+   no [Scheme.t] field owns the bare [--spacing] multiplier, and filtering the
+   scale out only hid the tests that set it. *)
 
-(** Set theme value overrides for non-spacing root vars from expected CSS. This
-    enables utilities like z-auto and order-first to produce custom declarations
-    in the :root, :host block when [@config] theme is used. *)
-let is_scheme_typed_var name =
-  let is_numbered_spacing =
-    String.length name > 8
-    && String.sub name 0 8 = "spacing-"
-    &&
-    let rest = String.sub name 8 (String.length name - 8) in
-    match int_of_string_opt rest with Some _ -> true | None -> false
-  in
-  let is_bare_spacing = name = "spacing" in
-  let is_tw_var = String.length name > 3 && String.sub name 0 3 = "tw-" in
-  is_numbered_spacing || is_bare_spacing || is_tw_var
+(** Set theme value overrides for root vars from expected CSS. This enables
+    utilities like z-auto and order-first to produce custom declarations in the
+    :root, :host block when [@config] theme is used. *)
+let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
 
 let theme_overrides_of ~declared config expected =
   match config with
   | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
       let root_vars = declared_root_vars ~declared expected in
       let base =
-        List.filter (fun (name, _) -> not (is_scheme_typed_var name)) root_vars
+        List.filter (fun (name, _) -> not (is_runtime_var name)) root_vars
       in
       (* For theme-reference mode, also extract var(--name, fallback) patterns
          from expected CSS. This provides fallback values for opacity modifiers
@@ -874,9 +864,7 @@ let run_test_case test () =
          present in the expected [:root] (e.g. inlined [@theme] blocks like
          text-shadow). *)
       let theme_vars =
-        List.filter
-          (fun (name, _) -> not (is_scheme_typed_var name))
-          test.theme_vars
+        List.filter (fun (name, _) -> not (is_runtime_var name)) test.theme_vars
       in
       Tw.Scheme.with_overrides scheme
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
