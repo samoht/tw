@@ -133,6 +133,30 @@ let test_arbitrary_span_var () =
   has "grid-row: span var(--my-variable) / span var(--my-variable)"
     "row-span-[var(--my-variable)]"
 
+(* [col-[...]] and [row-start-[...]] take grid lines. A bracket the grid-line
+   grammar cannot read is accepted and then raises out of [to_css], a pure
+   conversion, so the rejection belongs at parse time. *)
+let test_invalid_arbitrary_grid_line () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "col-[50%]";
+  rejected "row-[1.5]";
+  rejected "col-start-[1fr]";
+  rejected "row-end-[50%]";
+  renders "col-[2]";
+  renders "col-[span_2/span_3]";
+  renders "col-[var(--x)]";
+  renders "col-start-[7]";
+  renders "row-end-[3]"
+
 let tests =
   [
     test_case "grid_item of_string - valid values" `Quick of_string_valid;
@@ -141,6 +165,8 @@ let tests =
     test_case "arbitrary span var()" `Quick test_arbitrary_span_var;
     test_case "grid_item suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "invalid arbitrary grid line" `Quick
+      test_invalid_arbitrary_grid_line;
   ]
 
 let suite = ("grid_item", tests)
