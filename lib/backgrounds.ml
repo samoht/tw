@@ -225,8 +225,7 @@ module Handler = struct
   let to_class (t : t) =
     match t with
     | Bg (color, shade) ->
-        if Color.is_base_color color || Color.is_custom_color color then
-          "bg-" ^ Color.pp color
+        if Color.is_shadeless color then "bg-" ^ Color.pp color
         else "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Bg_gradient_to dir -> (
         match dir with
@@ -245,13 +244,11 @@ module Handler = struct
         in
         let color_class = function
           | Color_source.Named (color, shade) ->
-              if Color.is_base_color color || Color.is_custom_color color then
-                Color.pp color
+              if Color.is_shadeless color then Color.pp color
               else Color.pp color ^ "-" ^ string_of_int shade
           | Color_source.Named_opacity (color, shade, opacity) ->
               let base =
-                if Color.is_base_color color || Color.is_custom_color color then
-                  Color.pp color
+                if Color.is_shadeless color then Color.pp color
                 else Color.pp color ^ "-" ^ string_of_int shade
               in
               base ^ opacity_suffix opacity
@@ -346,8 +343,7 @@ module Handler = struct
     | Bg_transparent -> "bg-transparent"
     | Bg_opacity (color, shade, opacity) ->
         let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            "bg-" ^ Color.pp color
+          if Color.is_shadeless color then "bg-" ^ Color.pp color
           else "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
         in
         base ^ opacity_suffix opacity
@@ -1105,9 +1101,27 @@ module Handler = struct
     in
 
     (* Without a scheme override the palette still has a hex for the colour, and
-       Tailwind emits the same fallback + [@supports] pair either way. *)
-    let hex_of_palette () =
-      Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch color shade))
+       Tailwind emits the same fallback + [@supports] pair either way. A project
+       token has no palette entry, so its value comes from the theme instead. *)
+    let hex_pair hex =
+      ( Css.hex hex,
+        Css.hex
+          (if Color.opacity_var_bare_of opacity <> None then hex
+           else Color.hex_with_alpha hex percent) )
+    in
+    let value_pair () =
+      match Scheme.hex_color scheme color_name with
+      | Some hex -> hex_pair hex
+      | None -> (
+          match Color.to_oklch_opt color shade with
+          | Some oklch -> hex_pair (Color.rgb_to_hex (Color.oklch_to_rgb oklch))
+          | None ->
+              let value = Color.to_css ?theme color shade in
+              ( value,
+                if Color.opacity_var_bare_of opacity <> None then value
+                else
+                  Css.color_mix ~in_space:Srgb value Css.Transparent
+                    ~percent1:percent ))
     in
     match Color.opacity_keyword color with
     | Some keyword ->
@@ -1120,72 +1134,47 @@ module Handler = struct
           | None -> [ d_var; d_stops ]
         in
         style ~property_rules declarations
-    | None -> (
-        match
-          match Scheme.hex_color scheme color_name with
-          | Some _ as h -> h
-          | None -> Some (hex_of_palette ())
-        with
-        | Some hex_value ->
-            (* Scheme color: generate fallback + @supports + stops (same as
-               Tailwind) Tailwind outputs: 1. .from-X/N { --tw-gradient-from:
-               #RRGGBBAA } 2. @supports { .from-X/N { --tw-gradient-from:
-               color-mix(...) } } 3. .from-X/N { --tw-gradient-stops: ... } To
-               match, we put fallback in props, @supports in rules, and stops as
-               separate rule in rules. *)
-            let hex_alpha =
-              if Color.opacity_var_bare_of opacity <> None then hex_value
-              else Color.hex_with_alpha hex_value percent
-            in
-            let d_fallback, _ = Var.binding set_var (Css.hex hex_alpha) in
+    | None ->
+        (* Tailwind outputs three rules: 1. .from-X/N { --tw-gradient-from:
+           <fallback> } 2. @supports { .from-X/N { --tw-gradient-from:
+           color-mix(...) } } 3. .from-X/N { --tw-gradient-stops: ... } To
+           match, we put fallback in props, @supports in rules, and stops as
+           separate rule in rules. *)
+        let color_value, fallback_value = value_pair () in
+        let d_fallback, _ = Var.binding set_var fallback_value in
 
-            (* Theme variable for @supports block *)
-            let color_var = Color.color_var color shade in
-            let theme_decl, color_ref =
-              Var.binding color_var (Css.hex hex_value)
-            in
-            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
-            let d_oklab, _ = Var.binding set_var oklab_color in
+        (* Theme variable for @supports block *)
+        let color_var = Color.color_var color shade in
+        let theme_decl, color_ref = Var.binding color_var color_value in
+        let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+        let d_oklab, _ = Var.binding set_var oklab_color in
 
-            (* Build @supports block with placeholder selector *)
-            let supports_rule =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ theme_decl; d_oklab ];
-                ]
-            in
+        (* Build @supports block with placeholder selector *)
+        let supports_rule =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ theme_decl; d_oklab ];
+            ]
+        in
 
-            (* Build stops rule with placeholder selector (will be replaced) *)
-            let stops_decls =
-              match d_via_stops_opt with
-              | Some d_via_stops -> [ d_via_stops; d_stops ]
-              | None -> [ d_stops ]
-            in
-            let stops_rule =
-              Css.rule ~selector:(Css.Selector.class_ "_") stops_decls
-            in
+        (* Build stops rule with placeholder selector (will be replaced) *)
+        let stops_decls =
+          match d_via_stops_opt with
+          | Some d_via_stops -> [ d_via_stops; d_stops ]
+          | None -> [ d_stops ]
+        in
+        let stops_rule =
+          Css.rule ~selector:(Css.Selector.class_ "_") stops_decls
+        in
 
-            (* Three separate rules: fallback, @supports, stops *)
-            let fallback_rule =
-              Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
-            in
-            style ~property_rules
-              ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
-              []
-        | None ->
-            (* Non-scheme color: use color-mix directly *)
-            let oklch = Color.to_oklch color shade in
-            let color_value =
-              Color.mix_alpha opacity (Css.oklch oklch.l oklch.c oklch.h)
-            in
-            let d_var, _ = Var.binding set_var color_value in
-            let declarations =
-              match d_via_stops_opt with
-              | Some d_via_stops -> [ d_var; d_via_stops; d_stops ]
-              | None -> [ d_var; d_stops ]
-            in
-            style ~property_rules declarations)
+        (* Three separate rules: fallback, @supports, stops *)
+        let fallback_rule =
+          Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
+        in
+        style ~property_rules
+          ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
+          []
 
   (** Build gradient stops declarations for a given prefix (from-/via-/to-).
       Returns (d_stops, d_via_stops_opt) *)

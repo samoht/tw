@@ -72,8 +72,10 @@ val rgb_to_hex : rgb -> string
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
-val to_css : color -> int -> Css.color
-(** [to_css color shade] converts a color to CSS color value. *)
+val to_css : ?theme:Scheme.t -> color -> int -> Css.color
+(** [to_css ?theme color shade] converts a color to CSS color value. A project
+    token declared in an [\@theme] block has no palette entry, so [theme]
+    supplies its value; without one such a colour reads as transparent. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -180,7 +182,14 @@ val of_string : string -> (color, [ `Msg of string ]) result
 (** {1 Color Conversion} *)
 
 val to_oklch : color -> int -> oklch
-(** [to_oklch color shade] converts color to OKLCH data for a given shade. *)
+(** [to_oklch color shade] converts color to OKLCH data for a given shade. A
+    colour the palette does not define reads as black; use {!to_oklch_opt} to
+    tell that case apart. *)
+
+val to_oklch_opt : color -> int -> oklch option
+(** [to_oklch_opt color shade] is the OKLCH data for [color] at [shade], or
+    [None] for a colour the palette does not define - a project token, whose
+    value only the theme knows. *)
 
 val to_oklch_css : color -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given

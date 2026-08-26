@@ -45,8 +45,7 @@ module Handler = struct
     !v
 
   let color_suffix color shade =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Color.color_to_string color
+    if Color.is_shadeless color then Color.color_to_string color
     else Color.color_to_string color ^ "-" ^ string_of_int shade
 
   (* Bracket values sort first, then keywords/theme colours alphabetically (ties
@@ -87,8 +86,7 @@ module Handler = struct
   let spec_class = function
     | Theme (color, shade, op) ->
         let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            Color.color_to_string color
+          if Color.is_shadeless color then Color.color_to_string color
           else Color.color_to_string color ^ "-" ^ string_of_int shade
         in
         base ^ opacity_suffix op

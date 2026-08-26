@@ -982,23 +982,24 @@ let rgb r g b =
   Rgb { red = r; green = g; blue = b }
 
 (* Convert color to OKLCH data for a given shade *)
-let to_oklch color shade =
+let to_oklch_opt color shade =
   match color with
-  | Black -> { l = 0.0; c = 0.0; h = 0.0 }
-  | White -> { l = 100.0; c = 0.0; h = 0.0 }
-  | Oklch oklch -> oklch
+  | Black -> Some { l = 0.0; c = 0.0; h = 0.0 }
+  | White -> Some { l = 100.0; c = 0.0; h = 0.0 }
+  | Oklch oklch -> Some oklch
   | Hex h -> (
       match hex_to_rgb h with
-      | Some rgb -> rgb_to_oklch rgb
-      | None -> { l = 0.0; c = 0.0; h = 0.0 })
-  | Rgb { red; green; blue } -> rgb_to_oklch { r = red; g = green; b = blue }
+      | Some rgb -> Some (rgb_to_oklch rgb)
+      | None -> Some { l = 0.0; c = 0.0; h = 0.0 })
+  | Rgb { red; green; blue } ->
+      Some (rgb_to_oklch { r = red; g = green; b = blue })
   | Css c -> (
       (* Extract RGB channels from CSS color for oklch conversion *)
       match c with
       | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } -> (
           match hex_to_rgb (hex_string_of_rgb (r, g, b)) with
-          | Some rgb -> rgb_to_oklch rgb
-          | None -> { l = 0.0; c = 0.0; h = 0.0 })
+          | Some rgb -> Some (rgb_to_oklch rgb)
+          | None -> Some { l = 0.0; c = 0.0; h = 0.0 })
       | Css.Rgb (Channels { r; g; b })
       | Css.Rgba { rgb = Channels { r; g; b }; _ } ->
           let chan_to_int : Css.channel -> int = function
@@ -1008,10 +1009,11 @@ let to_oklch color shade =
             | Var _ -> 0
             | None -> 0
           in
-          rgb_to_oklch
-            { r = chan_to_int r; g = chan_to_int g; b = chan_to_int b }
-      | _ -> { l = 0.0; c = 0.0; h = 0.0 })
-  | _ -> (
+          Some
+            (rgb_to_oklch
+               { r = chan_to_int r; g = chan_to_int g; b = chan_to_int b })
+      | _ -> Some { l = 0.0; c = 0.0; h = 0.0 })
+  | _ ->
       (* For named colors, get OKLCH data directly from Tailwind *)
       let color_name =
         match color with
@@ -1043,12 +1045,15 @@ let to_oklch color shade =
         | Rose -> "rose"
         | _ -> ""
       in
-      match Tailwind.get_color_oklch color_name shade with
-      | Some oklch -> oklch
-      | None ->
-          failwith
-            ("No OKLCH data for color " ^ color_name ^ " shade "
-           ^ string_of_int shade))
+      Tailwind.get_color_oklch color_name shade
+
+(* A colour outside the palette has no OKLCH of its own; reading it as black
+   keeps the conversion total. Callers that can do better - the ones with a
+   theme to consult - go through [to_oklch_opt] instead. *)
+let to_oklch color shade =
+  match to_oklch_opt color shade with
+  | Some oklch -> oklch
+  | None -> { l = 0.0; c = 0.0; h = 0.0 }
 
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
@@ -1106,6 +1111,14 @@ let oklch_node_of color shade =
   let oklch = to_oklch color shade in
   css_color_of_oklch oklch
 
+(* A project token declared in an [\@theme] block names a colour the palette
+   knows nothing about: [--color-brand] has no shades to convert, and its value
+   is whatever the block bound it to. *)
+let theme_named_color ?theme name =
+  match Scheme.theme_value theme ("color-" ^ name) with
+  | Some value -> Css.parse_color value
+  | None -> None
+
 (* The palette ([Red], [Blue], ...) is a fixed set of (colour, shade) pairs and
    its oklch nodes are immutable, so materialise each node once and share it
    across every utility and variant that uses the colour, instead of
@@ -1152,7 +1165,7 @@ let palette_nodes =
      table)
 
 (* Convert color to CSS color value *)
-let to_css color shade =
+let to_css ?theme color shade =
   match color with
   | Black -> Css.hex "#000"
   | White -> Css.hex "#fff"
@@ -1168,7 +1181,13 @@ let to_css color shade =
       Css.hex ("#" ^ shorten_hex_str hex_value)
   | Oklch oklch -> css_color_of_oklch oklch
   | Css c -> c
-  | Rgb _ | Theme_named _ -> oklch_node_of color shade
+  | Theme_named name -> (
+      match theme_named_color ?theme name with
+      | Some c -> c
+      (* Only a token the theme declares parses into [Theme_named], so a class
+         never lands here; a colour built by hand out of thin air does. *)
+      | None -> Css.Transparent)
+  | Rgb _ -> oklch_node_of color shade
   | _ -> (
       match Hashtbl.find_opt (Lazy.force palette_nodes) (color, shade) with
       | Some node -> node
@@ -1832,7 +1851,7 @@ module Handler = struct
     let color_name = scheme_color_name c shade in
     match Scheme.hex_color (resolve_scheme theme) color_name with
     | Some hex -> Css.hex hex
-    | None -> to_css c (if is_base_color c then 500 else shade)
+    | None -> to_css ?theme c (if is_base_color c then 500 else shade)
 
   (* The theme-layer declaration for a palette colour together with the typed
      reference to it, so a utility outside this module can both emit the token
@@ -1958,7 +1977,7 @@ module Handler = struct
             let std_name = "color-" ^ color_name in
             match Scheme.theme_value theme std_name with
             | Some value -> parse_theme_color value
-            | None -> to_css c (if is_base_color c then 500 else shade)))
+            | None -> to_css ?theme c (if is_base_color c then 500 else shade)))
 
   (* Aliases for color constructors/functions that will be shadowed by open
      Css *)
@@ -2652,6 +2671,18 @@ module Handler = struct
   let color_mix_supports_condition =
     Css.Supports.property "color" "color-mix(in lab, red, red)"
 
+  (* What a browser without [color-mix()] reads. A palette colour converts to a
+     plain hex carrying the alpha. A project token has no such conversion - its
+     value is whatever the [\@theme] block bound it to, and that may be a colour
+     space no hex can spell - so it takes the sRGB mix Tailwind writes instead.
+     [value] is the colour already resolved against the theme. *)
+  let opacity_fallback ~percent c shade value =
+    match to_oklch_opt c shade with
+    | Some oklch ->
+        Css.hex (hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent)
+    | None ->
+        Css.color_mix ~in_space:Srgb value Css.Transparent ~percent1:percent
+
   (* The same colour set on several properties at once: a per-side border colour
      on the [x]/[y] axes needs two. *)
 
@@ -2738,7 +2769,7 @@ module Handler = struct
               | Some prefix ->
                   property_color_value ?theme ~property_prefix:prefix c shade
               | Stdlib.Option.None ->
-                  to_css c (if is_base_color c then 500 else shade)
+                  to_css ?theme c (if is_base_color c then 500 else shade)
             in
             let theme_decl, color_ref = Var.binding color_var color_value in
             (* An opacity read from a var has no percentage to fold into a hex
@@ -2747,10 +2778,7 @@ module Handler = struct
               match opacity_var_name opacity with
               | Some _ -> property_decls (Css.Var color_ref)
               | None ->
-                  let oklch = to_oklch c shade in
-                  let rgb = oklch_to_rgb oklch in
-                  let hex_value = rgb_to_hex rgb in
-                  property_decls (Css.hex (hex_with_alpha hex_value percent))
+                  property_decls (opacity_fallback ~percent c shade color_value)
             in
             let oklab_color =
               match opacity_var_name opacity with
@@ -3253,10 +3281,10 @@ module Handler = struct
 
   let to_class = function
     | Bg (c, shade) ->
-        if is_base_color c || is_custom_color c then "bg-" ^ color_to_string c
+        if is_shadeless c then "bg-" ^ color_to_string c
         else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Bg_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "bg-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3265,10 +3293,10 @@ module Handler = struct
     | Bg_current -> "bg-current"
     | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
     | Text (c, shade) ->
-        if is_base_color c || is_custom_color c then "text-" ^ color_to_string c
+        if is_shadeless c then "text-" ^ color_to_string c
         else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Text_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "text-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3287,11 +3315,10 @@ module Handler = struct
     | Text_bracket_typed_var_opacity (v, opacity) ->
         "text-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Border (c, shade) ->
-        if is_base_color c || is_custom_color c then
-          "border-" ^ color_to_string c
+        if is_shadeless c then "border-" ^ color_to_string c
         else "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Border_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "border-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3318,10 +3345,10 @@ module Handler = struct
         let v =
           match value with
           | Side_color.Named (c, shade) ->
-              if is_base_color c || is_custom_color c then color_to_string c
+              if is_shadeless c then color_to_string c
               else color_to_string c ^ "-" ^ string_of_int shade
           | Side_color.Named_opacity (c, shade, opacity) ->
-              (if is_base_color c || is_custom_color c then color_to_string c
+              (if is_shadeless c then color_to_string c
                else color_to_string c ^ "-" ^ string_of_int shade)
               ^ opacity_suffix opacity
           | Side_color.Bracket (orig, _) -> "[" ^ orig ^ "]"
@@ -3332,11 +3359,10 @@ module Handler = struct
     | Border_bracket_color_opacity (v, _, opacity) ->
         "border-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Accent (c, shade) ->
-        if is_base_color c || is_custom_color c then
-          "accent-" ^ color_to_string c
+        if is_shadeless c then "accent-" ^ color_to_string c
         else "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Accent_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "accent-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3350,11 +3376,10 @@ module Handler = struct
     | Accent_bracket_color_opacity (v, _, opacity) ->
         "accent-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Caret (c, shade) ->
-        if is_base_color c || is_custom_color c then
-          "caret-" ^ color_to_string c
+        if is_shadeless c then "caret-" ^ color_to_string c
         else "caret-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Caret_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "caret-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "caret-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3367,11 +3392,10 @@ module Handler = struct
     | Caret_bracket_color_opacity (v, _, opacity) ->
         "caret-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Outline (c, shade) ->
-        if is_base_color c || is_custom_color c then
-          "outline-" ^ color_to_string c
+        if is_shadeless c then "outline-" ^ color_to_string c
         else "outline-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Outline_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "outline-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "outline-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3391,11 +3415,10 @@ module Handler = struct
     | Outline_bracket_typed_var_opacity (v, opacity) ->
         "outline-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Placeholder (c, shade) ->
-        if is_base_color c || is_custom_color c then
-          "placeholder-" ^ color_to_string c
+        if is_shadeless c then "placeholder-" ^ color_to_string c
         else "placeholder-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Placeholder_opacity (c, shade, opacity) ->
-        if is_base_color c || is_custom_color c then
+        if is_shadeless c then
           "placeholder-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "placeholder-" ^ color_to_string c ^ "-" ^ string_of_int shade
@@ -3502,9 +3525,9 @@ let color_mix_supports_stmts ~stmts =
 let mix_alpha = Handler.mix_alpha
 let apply_alpha = Handler.apply_alpha
 
-let oklab_with_supports ~property ~fallback_decl c shade opacity =
+let oklab_with_supports ?theme ~property ~fallback_decl c shade opacity =
   let cvar = color_var c shade in
-  let color_value = to_css c (if is_base_color c then 500 else shade) in
+  let color_value = to_css ?theme c (if is_base_color c then 500 else shade) in
   let theme_decl, color_ref = Var.binding cvar color_value in
   let oklab_color = mix_alpha opacity (Css.Var color_ref) in
   let oklab_decl = property oklab_color in
@@ -3520,7 +3543,7 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
   | None when is_fully_opaque opacity && not (is_custom_color c) ->
       (* At 100% the mix is a no-op, so Tailwind writes the colour itself. *)
       let theme_decl, color_ref =
-        Var.binding (color_var c shade) (to_css c shade)
+        Var.binding (color_var c shade) (to_css ?theme c shade)
       in
       let value : Css.color = Var color_ref in
       Style.style [ theme_decl; property value ]
@@ -3539,17 +3562,19 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
             if alpha_var then property (Css.hex hex_value)
             else property (Css.hex (hex_with_alpha hex_value percent))
           in
-          oklab_with_supports ~property ~fallback_decl c shade opacity
+          oklab_with_supports ?theme ~property ~fallback_decl c shade opacity
       | None ->
-          let oklch = to_oklch c shade in
+          (* A palette colour renders as its oklch node; a project token as
+             whatever the theme bound it to. *)
+          let base = to_css ?theme c shade in
           let fallback_color =
-            if alpha_var then css_color_of_oklch oklch
+            if alpha_var then base
             else
-              Css.color_mix ~in_space:Srgb (css_color_of_oklch oklch)
-                Css.Transparent ~percent1:percent
+              Css.color_mix ~in_space:Srgb base Css.Transparent
+                ~percent1:percent
           in
-          oklab_with_supports ~property ~fallback_decl:(property fallback_color)
-            c shade opacity)
+          oklab_with_supports ?theme ~property
+            ~fallback_decl:(property fallback_color) c shade opacity)
 
 let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   let oklab_color = mix_alpha opacity Css.Current in
@@ -3588,17 +3613,16 @@ let divide_opacity_via_property ?theme ~selector c shade opacity =
     property_color_var ?theme ~property_prefix:"border-color" c shade
   in
   let color_value =
-    property_color_value ~property_prefix:"border-color" c shade
+    property_color_value ?theme ~property_prefix:"border-color" c shade
   in
-  let hex_alpha =
-    let oklch = to_oklch c shade in
-    let hex = rgb_to_hex (oklch_to_rgb oklch) in
-    if Handler.opacity_var_name opacity <> None then hex
-    else hex_with_alpha hex (Handler.opacity_to_percent opacity)
+  let fallback_color =
+    if Handler.opacity_var_name opacity <> None then color_value
+    else
+      Handler.opacity_fallback
+        ~percent:(Handler.opacity_to_percent opacity)
+        c shade color_value
   in
-  let fallback_rule =
-    Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
-  in
+  let fallback_rule = Css.rule ~selector [ Css.border_color fallback_color ] in
   let theme_decl, color_ref = Var.binding cvar color_value in
   let oklab_color = mix_alpha opacity (Css.Var color_ref) in
   let supports_rule =
@@ -3607,9 +3631,9 @@ let divide_opacity_via_property ?theme ~selector c shade opacity =
   let supports_block = color_mix_supports_stmts ~stmts:[ supports_rule ] in
   Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
 
-let bg_opacity_via_property c shade opacity =
+let bg_opacity_via_property ?theme c shade opacity =
   let cvar = color_var c shade in
-  let color_value = to_css c (if is_base_color c then 500 else shade) in
+  let color_value = to_css ?theme c (if is_base_color c then 500 else shade) in
   let theme_decl, color_ref = Var.binding cvar color_value in
   (* An opacity read from a var has no percentage to fold into the fallback, so
      that is the colour at full opacity, as Tailwind emits. *)
@@ -3617,10 +3641,10 @@ let bg_opacity_via_property c shade opacity =
     match Handler.opacity_var_name opacity with
     | Some _ -> Css.background_color (Css.Var color_ref)
     | None ->
-        let oklch = to_oklch c shade in
-        let hex = rgb_to_hex (oklch_to_rgb oklch) in
         Css.background_color
-          (Css.hex (hex_with_alpha hex (Handler.opacity_to_percent opacity)))
+          (Handler.opacity_fallback
+             ~percent:(Handler.opacity_to_percent opacity)
+             c shade color_value)
   in
   let oklab_decl =
     Css.background_color (mix_alpha opacity (Css.Var color_ref))
@@ -3641,7 +3665,7 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
       Style.style ~rules:(Some [ rule ]) []
   | None when is_fully_opaque opacity && not (is_custom_color c) ->
       let theme_decl, color_ref =
-        Var.binding (color_var c shade) (to_css c shade)
+        Var.binding (color_var c shade) (to_css ?theme c shade)
       in
       let value : Css.color = Var color_ref in
       let rule = Css.rule ~selector [ Css.border_color value ] in
@@ -3709,7 +3733,9 @@ let bg_with_opacity ?theme c shade opacity =
       (* 100% opacity = no transparency. Tailwind outputs the plain color var
          reference, identical to the no-opacity case. *)
       let cvar = color_var c shade in
-      let color_value = to_css c (if is_base_color c then 500 else shade) in
+      let color_value =
+        to_css ?theme c (if is_base_color c then 500 else shade)
+      in
       let _d, color_ref = Var.binding cvar color_value in
       Style.style [ Css.background_color (Var color_ref) ]
   | None when is_custom_color c ->
@@ -3739,7 +3765,7 @@ let bg_with_opacity ?theme c shade opacity =
           let supports_block = color_mix_supports ~decls:[ oklab_decl ] in
           Style.style ~rules:(Some [ supports_block ])
             [ theme_decl; fallback_decl ]
-      | None -> bg_opacity_via_property c shade opacity)
+      | None -> bg_opacity_via_property ?theme c shade opacity)
 
 (** Determine the appropriate fallback for an opacity theme variable. If the
     theme defines a concrete value (e.g., "0.5"), use [Fallback (Num f)]. If the

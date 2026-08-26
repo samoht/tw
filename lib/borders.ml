@@ -1125,8 +1125,7 @@ module Handler = struct
     | Border_hidden -> "border-hidden"
     | Border_none -> "border-none"
     | Border_color (c, shade) ->
-        if Color.is_base_color c || Color.is_custom_color c then
-          "border-" ^ Color.color_to_string c
+        if Color.is_shadeless c then "border-" ^ Color.color_to_string c
         else "border-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Border_transparent -> "border-transparent"
     | Border_current -> "border-current"
