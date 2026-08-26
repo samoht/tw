@@ -76,7 +76,7 @@ module Handler = struct
     let open Css in
     (* Use top-level media queries to match Tailwind's minified output.
        Container media queries should come AFTER the base .container rule.
-       rules.ml handles this ordering since container has only media rules and
+       sort.ml handles this ordering since container has only media rules and
        base props. *)
     let container_selector = Selector.class_ "container" in
     let spelling length = Css.Pp.to_string Css.pp_length length in

@@ -2,7 +2,7 @@ module Css = Cascade.Css
 (* Typed CSS custom properties (variables) - Simplified API
 
    This module provides the core extensible variable system for CSS custom
-   properties following the simplified design from todo/vars.md *)
+   properties following the simplified design documented in var.mli *)
 
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
@@ -147,7 +147,7 @@ module Registry = struct
     | None -> false
 end
 
-(* Get property order for a variable name (for external use in rules.ml) *)
+(* Get property order for a variable name (for external use in build.ml) *)
 let property_order = Registry.property_order
 let register_property_order = Registry.register_property_order
 let order = Registry.order
