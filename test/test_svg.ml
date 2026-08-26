@@ -39,11 +39,57 @@ let stroke_light_dark_color () =
         "light-dark() is routed as a stroke colour" true
         (Astring.String.is_infix ~affix:"stroke:light-dark(red,blue)" css)
 
+(* An arbitrary stroke width is read with the whole CSS length grammar, so a
+   unit the reader does not name is not silently rendered as a zero width. *)
+let stroke_arbitrary_width_units () =
+  let width cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls value =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ value)
+      true
+      (Astring.String.is_infix ~affix:("stroke-width:" ^ value) (width cls))
+  in
+  emits "stroke-[1.5rem]" "1.5rem";
+  emits "stroke-[2em]" "2em";
+  emits "stroke-[3pt]" "3pt";
+  emits "stroke-[1.5vw]" "1.5vw";
+  emits "stroke-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
+  (* the units the reader already named keep their value *)
+  emits "stroke-[12px]" "12px";
+  emits "stroke-[50%]" "50%";
+  emits "stroke-[1.5]" "1.5px";
+  (* the class name is spelled as it was written *)
+  Alcotest.(check string)
+    "stroke-[1.5rem] round-trips" "stroke-[1.5rem]"
+    (Tw.pp (Result.get_ok (Tw.of_string "stroke-[1.5rem]")))
+
+(* A bracket that is not a length is refused, rather than accepted and rendered
+   as a zero width. *)
+let stroke_arbitrary_width_invalid () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  rejected "stroke-[1zz]";
+  rejected "stroke-[12px3]";
+  rejected "stroke-[.]";
+  rejected "stroke-[-]"
+
 let tests =
   [
     test_case "basic svg" `Quick basic_svg;
     test_case "stroke shadeless colors" `Quick stroke_shadeless_colors;
     test_case "stroke light-dark color" `Quick stroke_light_dark_color;
+    test_case "stroke arbitrary width units" `Quick stroke_arbitrary_width_units;
+    test_case "stroke arbitrary width invalid" `Quick
+      stroke_arbitrary_width_invalid;
   ]
 
 let suite = ("svg", tests)
