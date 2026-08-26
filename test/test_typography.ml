@@ -698,6 +698,35 @@ let test_decoration_shadeless_opacity () =
   rejected "decoration-nosuchcolor/50";
   rejected "decoration-white/"
 
+(* The pre-color-mix fallback has to carry the modifier's alpha, or a browser
+   without [color-mix()] paints the decoration fully opaque. A palette colour
+   folds the alpha into a hex; a project token, whose value the theme supplies,
+   takes the sRGB mix instead. *)
+let test_decoration_opacity_fallback () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "text-decoration-color:#fb2c3680" "decoration-red-500/50";
+  emits "text-decoration-color:#ffffff80" "decoration-white/50";
+  emits
+    "text-decoration-color:color-mix(in srgb,oklch(55%.2 250) 50%,transparent)"
+    "decoration-brand/50";
+  (* An alpha read from a var has no percentage to fold in, so the fallback is
+     the colour itself and the enhanced value reads the var. *)
+  emits "text-decoration-color:oklch(55%.2 250)" "decoration-brand/(--a)";
+  emits "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
+    "decoration-brand/(--a)"
+
 (* A [#] bracket is only a decoration colour when what follows is a hex
    spelling. The decoration reader handed everything after the [#] to the
    raising constructor from inside [of_class], so a malformed hex escaped the
@@ -775,6 +804,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "line-clamp sorts with box-sizing" `Quick
       line_clamp_sorts_with_box_sizing;
+    test_case "decoration opacity fallback" `Quick
+      test_decoration_opacity_fallback;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]

@@ -369,6 +369,13 @@ val apply_alpha :
 (** [apply_alpha ?in_space opacity color] applies the modifier while preserving
     the identity that every alpha of [transparent] is still [transparent]. *)
 
+val opacity_fallback : percent:float -> color -> int -> Css.color -> Css.color
+(** [opacity_fallback ~percent c shade value] is what a browser without
+    [color-mix()] reads for [c] at [percent] opacity. A palette colour folds the
+    alpha into a plain hex; a project token, whose [value] the theme supplies
+    and which may name a colour space no hex can spell, takes an sRGB mix
+    instead. *)
+
 val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
 (** [opacity_of_string ?theme s] parses the modifier that follows the [/] in a
     colour class: a percentage, a bracket value, the [(--x)] shorthand, or a
