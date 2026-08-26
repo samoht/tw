@@ -298,6 +298,18 @@ let test_class_attribute_whitespace () =
   check string "rendered on one line"
     "<div class=\"flex items-center gap-4\"></div>" (to_string elem)
 
+let test_document_rendering () =
+  (* The whole document is written into one buffer, so the doctype, the empty
+     node and raw text must each still land exactly once and in place. *)
+  let doc = root [ body [ txt "x" ] ] in
+  check string "doctype heads the document"
+    "<!DOCTYPE html>\n<html><body>x</body></html>"
+    (to_string ~doctype:true doc);
+  let nested = div [ doc; empty; raw "<b>&</b>" ] in
+  check string "no second doctype, empty writes nothing, raw is verbatim"
+    "<div><html><body>x</body></html><b>&</b></div>"
+    (to_string ~doctype:true nested)
+
 let test_to_tw_document_order () =
   (* A node reports its own utilities before its children's, and its children's
      in document order, however deep the tree. *)
@@ -355,6 +367,7 @@ let suite =
       test_case "html escaping" `Quick test_html_escaping;
       test_case "boolean + aria/data attrs" `Quick test_boolean_and_data_attrs;
       test_case "nesting" `Quick test_nesting;
+      test_case "document rendering" `Quick test_document_rendering;
       test_case "to_tw" `Quick test_to_tw;
       test_case "to_tw document order" `Quick test_to_tw_document_order;
       test_case "pretty printing" `Quick test_pp;

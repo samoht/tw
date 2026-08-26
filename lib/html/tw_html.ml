@@ -27,8 +27,7 @@ module El = struct
   let void = Void
   let unsafe_raw s = Raw s
 
-  let escape_html s =
-    let b = Buffer.create (String.length s) in
+  let add_escaped b s =
     String.iter
       (function
         | '<' -> Buffer.add_string b "&lt;"
@@ -37,8 +36,7 @@ module El = struct
         | '"' -> Buffer.add_string b "&quot;"
         | '\'' -> Buffer.add_string b "&#x27;"
         | c -> Buffer.add_char b c)
-      s;
-    Buffer.contents b
+      s
 
   let add_open_tag b name attrs =
     Buffer.add_char b '<';
@@ -48,29 +46,33 @@ module El = struct
         Buffer.add_char b ' ';
         Buffer.add_string b k;
         Buffer.add_string b "=\"";
-        Buffer.add_string b (escape_html v);
+        add_escaped b v;
         Buffer.add_char b '"')
       attrs
 
-  let rec to_string ?(doctype = false) = function
-    | Text s -> escape_html s
-    | Raw s -> s
-    | Void -> ""
+  (* One buffer serves the whole document. Rendering each element to its own
+     string and copying that into its parent's buffer would copy every byte once
+     per level of nesting. *)
+  let rec add_html b ~doctype = function
+    | Text s -> add_escaped b s
+    | Raw s -> Buffer.add_string b s
+    | Void -> ()
     | Void_element (name, attrs) ->
-        let b = Buffer.create 64 in
         add_open_tag b name attrs;
-        Buffer.add_string b " />";
-        Buffer.contents b
+        Buffer.add_string b " />"
     | Element (name, attrs, children) ->
-        let b = Buffer.create 256 in
         if doctype && name = "html" then Buffer.add_string b "<!DOCTYPE html>\n";
         add_open_tag b name attrs;
         Buffer.add_char b '>';
-        List.iter (fun child -> Buffer.add_string b (to_string child)) children;
+        List.iter (add_html b ~doctype:false) children;
         Buffer.add_string b "</";
         Buffer.add_string b name;
-        Buffer.add_char b '>';
-        Buffer.contents b
+        Buffer.add_char b '>'
+
+  let to_string ?(doctype = false) html =
+    let b = Buffer.create 1024 in
+    add_html b ~doctype html;
+    Buffer.contents b
 end
 
 module At = struct
