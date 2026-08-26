@@ -1133,6 +1133,27 @@ let test_breakpoint_groups_stacked_variants () =
     (List.sort Int.compare positions)
     positions
 
+let test_stacked_media_outer_query_order () =
+  (* hover:sm: and sm:hover: carry the same variants, so the stack alone cannot
+     separate them. The query each writes on the outside does: hover before sm,
+     sm before md. Tailwind's order for this class list. *)
+  let classes = [ "hover:sm:block"; "sm:hover:block"; "md:block" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [ ".hover\\:sm\\:block"; ".sm\\:hover\\:block"; ".md\\:block" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
+
 let test_stacked_responsive_variant_order () =
   let classes =
     [ "container"; "sm:bg-top"; "**:[svg]:first:sm:size-4"; "md:block" ]
@@ -1661,6 +1682,8 @@ let tests =
       test_stacked_responsive_variant_order;
     test_case "breakpoint groups stacked variants" `Slow
       test_breakpoint_groups_stacked_variants;
+    test_case "stacked media outer query order" `Slow
+      test_stacked_media_outer_query_order;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
