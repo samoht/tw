@@ -1040,9 +1040,10 @@ let test_bracket_value_holding_a_colon () =
     utilities
 
 let test_stacked_variant_outline_order () =
-  (* The outline-sorts-last rule reads the base class, so it sees a stacked
-     variant: dark:focus:outline-none is an outline utility as much as
-     focus:outline-none is. Matching from the first colon saw neither. *)
+  (* An outline utility sorts after the other focus modifiers on its own
+     priority, whatever variants are stacked in front of it: focus:outline-none
+     follows focus:bg-red-500, and dark:focus:outline-none closes the dark
+     group. The order below is Tailwind's for this class list. *)
   let classes =
     [
       "dark:focus:outline-none";
@@ -1055,6 +1056,28 @@ let test_stacked_variant_outline_order () =
     ]
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [
+        ".focus\\:bg-red-500";
+        ".focus\\:outline-none";
+        ".first\\:focus\\:border-2";
+        ".first\\:focus\\:outline-2";
+        ".dark\\:focus\\:bg-blue-500";
+        ".dark\\:focus\\:ring-2";
+        ".dark\\:focus\\:outline-none";
+      ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions;
   Test_helpers.check_ordering_matches ~test_name:"stacked variant outline order"
     utilities
 
