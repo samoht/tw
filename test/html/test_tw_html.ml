@@ -298,6 +298,22 @@ let test_class_attribute_whitespace () =
   check string "rendered on one line"
     "<div class=\"flex items-center gap-4\"></div>" (to_string elem)
 
+let test_to_tw_document_order () =
+  (* A node reports its own utilities before its children's, and its children's
+     in document order, however deep the tree. *)
+  let leaf n = span ~tw:[ Tw.p n ] [] in
+  let tree =
+    div
+      ~tw:Tw.[ flex ]
+      [
+        section ~tw:Tw.[ m 1 ] [ leaf 1; div [ leaf 2 ] ];
+        section ~tw:Tw.[ m 2 ] [ leaf 3 ];
+      ]
+  in
+  check (list string) "pre-order, own before children"
+    [ "flex"; "m-1"; "p-1"; "p-2"; "m-2"; "p-3" ]
+    (List.map Tw.pp (to_tw tree))
+
 let sheet p = Tw.Css.to_string ~minify:true (snd (css p))
 
 let test_repeated_utilities_emit_one_sheet () =
@@ -340,6 +356,7 @@ let suite =
       test_case "boolean + aria/data attrs" `Quick test_boolean_and_data_attrs;
       test_case "nesting" `Quick test_nesting;
       test_case "to_tw" `Quick test_to_tw;
+      test_case "to_tw document order" `Quick test_to_tw_document_order;
       test_case "pretty printing" `Quick test_pp;
       test_case "page cache busting" `Quick test_page_cache_busting;
       test_case "cache busting consistency" `Quick
