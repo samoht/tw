@@ -699,62 +699,32 @@ let resolve_theme_fn ~theme css =
   go 0;
   Buffer.contents buf
 
-(* Split a selector on its top-level commas, so each part can be rewritten on
-   its own. A comma inside [:where(...)] or an attribute test is not a
-   separator. *)
-let selector_parts s =
-  let len = String.length s in
-  let parts = ref [] and start = ref 0 in
-  let rec go i depth =
-    if i >= len then parts := String.sub s !start (len - !start) :: !parts
-    else
-      match s.[i] with
-      | '\\' -> go (i + 2) depth
-      | '(' | '[' -> go (i + 1) (depth + 1)
-      | ')' | ']' -> go (i + 1) (depth - 1)
-      | ',' when depth = 0 ->
-          parts := String.sub s !start (i - !start) :: !parts;
-          start := i + 1;
-          go (i + 1) depth
-      | _ -> go (i + 1) depth
-  in
-  go 0 0;
-  List.rev !parts
-
 (* [to_css] heads a utility's selector with the utility's own class, and a
    variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
    Swapping that class for [&] turns the rule into a nested one the author's
    selector can host, so a variant survives [@apply] without being reimplemented
-   here. *)
-let nest_on_ampersand sel =
-  (* the class token runs to the first delimiter a backslash does not escape, so
-     [dark\:fill-gray-400] stays one token *)
-  let rec class_end part i =
-    if i >= String.length part then i
+   here. The class is not always the leftmost one in the selector: [divide-*]
+   wraps it in [:where(.divide-x > :not(:last-child))] and [in-*] heads the
+   selector with the ancestor's class instead, so it is picked out by name among
+   the classes the [@apply] asked for. A selector naming none of them keeps the
+   leftmost class, which is what the variants tw generates put there. *)
+let nest_on_ampersand ~classes sel =
+  let swap pick =
+    Cascade.Selector.map (function
+      | Cascade.Selector.Class name when pick name -> Cascade.Selector.Nesting
+      | node -> node)
+  in
+  let own name = List.mem name classes in
+  let arm a =
+    if Cascade.Selector.exists_class own a then swap own a
     else
-      match part.[i] with
-      | '\\' -> class_end part (i + 2)
-      | ' ' | '.' | '#' | ':' | '[' | '>' | '+' | '~' | ')' | '*' -> i
-      | _ -> class_end part (i + 1)
+      match Cascade.Selector.first_class a with
+      | Some name -> swap (String.equal name) a
+      | None -> a
   in
-  (* The class does not always head the selector: [divide-*] wraps it in
-     [:where(.divide-x > :not(:last-child))], so look for it wherever it is. *)
-  let rewrite part =
-    let part = String.trim part in
-    let n = String.length part in
-    let rec at i =
-      if i >= n then part
-      else if part.[i] = '.' && (i = 0 || part.[i - 1] <> '\\') then
-        let stop = min (class_end part (i + 1)) n in
-        String.concat ""
-          [ String.sub part 0 i; "&"; String.sub part stop (n - stop) ]
-      else at (i + 1)
-    in
-    at 0
-  in
-  Cascade.Selector.to_string ~minify:true sel
-  |> selector_parts |> List.map rewrite |> String.concat ","
-  |> Cascade.Selector.of_string
+  match Cascade.Selector.as_list sel with
+  | Some arms -> Cascade.Selector.list (List.map arm arms)
+  | None -> arm sel
 
 (* Split a class name on its variant separators. A [:] inside [[&>*]] or [(--x)]
    is part of the segment, not a separator. *)
@@ -811,9 +781,10 @@ let rec merge_same_selector = function
       | _ -> a :: merge_same_selector (b :: rest))
   | stmts -> stmts
 
-let render_nested_utilities stmts =
+let render_nested_utilities ~classes stmts =
   stmts
-  |> Css.map (fun sel decls -> Css.rule ~selector:(nest_on_ampersand sel) decls)
+  |> Css.map (fun sel decls ->
+      Css.rule ~selector:(nest_on_ampersand ~classes sel) decls)
   |> merge_same_selector |> Css.v |> Css.to_string ~minify:true
 
 (* The declarations of [names], rewritten to nest under the [&] of whatever rule
@@ -831,12 +802,13 @@ let nested_utilities ~theme names =
       let sheet =
         Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
       in
-      (* [to_css] also emits the theme block the utilities read from. It belongs
-         at the top of the sheet, not inside the rule that applied them. *)
+      (* The class each utility carries in its own selector, spelled the way
+         [to_css] spells it rather than the way the [@apply] did. *)
+      let classes = String.split_on_char ' ' (Tw.to_classes styles) in
       (* [to_css] also emits the theme block the utilities read from, whose
-         selector is [:root]. A utility's own rule names its class somewhere,
-         but not always first: [divide-*] wraps it in
-         [:where(.divide-x > :not(:last-child))]. *)
+         selector is [:root]. It belongs at the top of the sheet, not inside the
+         rule that applied them, and [is_utility_statement] tells the two apart
+         by whether the selector names a class at all. *)
       (* [@property] belongs beside the utilities too, not inside the rule that
          applied them: nested there it is emitted once per applying rule, and
          the same property comes back for every utility that sets it. *)
@@ -853,7 +825,7 @@ let nested_utilities ~theme names =
       (* One string per hoisted statement, not one for the whole block: two
          utilities bring overlapping [@property] sets, and deduping the blocks
          whole re-emits every property they do not share. *)
-      ( render_nested_utilities nestable,
+      ( render_nested_utilities ~classes nestable,
         List.map (fun st -> Css.to_string ~minify:true (Css.v [ st ])) hoisted
       )
 
