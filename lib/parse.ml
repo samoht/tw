@@ -337,7 +337,7 @@ let bare_var_inner s =
 (** Split a class name on '-' but treat '[...]' as atomic. E.g.
     "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
     [""; "m"; "[var(--value)]"] *)
-let split_class class_name =
+let split_class_uncached class_name =
   let len = String.length class_name in
   let buf = Buffer.create 16 in
   let parts = ref [] in
@@ -376,3 +376,18 @@ let split_class class_name =
   done;
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
+
+(* Utility.base_of_class offers one class name to every handler in turn until
+   one accepts it, and most handlers open by splitting that same name, so a
+   single class is split once per handler tried. The split is a pure function of
+   its argument, so remembering the last one collapses that run to one. *)
+let last_split : (string * string list) option ref = ref None
+
+let split_class class_name =
+  match !last_split with
+  | Some (key, parts) when key == class_name || String.equal key class_name ->
+      parts
+  | _ ->
+      let parts = split_class_uncached class_name in
+      last_split := Some (class_name, parts);
+      parts
