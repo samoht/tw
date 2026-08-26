@@ -174,8 +174,16 @@ end
 
 type tw = Tw.t
 
+(* The utilities of a node and of everything below it. Concatenating a subtree's
+   utilities into its parent copies that list once per level above it, so a
+   document costs O(nodes x depth) to collect. The children are held unflattened
+   instead and walked once, when the utilities are asked for. *)
+type tw_tree = { own : tw list; kids : tw_tree list }
+
+let no_tw = { own = []; kids = [] }
+
 (* Type that combines HTML element with its Tailwind classes *)
-type t = { el : El.html; tw : tw list; forms : bool }
+type t = { el : El.html; tw : tw_tree; forms : bool }
 
 (* Attribute type - abstract to prevent direct usage of class' *)
 type attr = At.t
@@ -193,17 +201,23 @@ end
 
 (* Internal helper to convert to El.html *)
 let to_htmlit t = t.el
-let to_tw t = t.tw
+
+let to_tw t =
+  let rec collect acc node =
+    List.fold_left collect (List.rev_append node.own acc) node.kids
+  in
+  List.rev (collect [] t.tw)
+
 let has_forms t = t.forms
 
 (* Text helpers *)
-let txt s = { el = El.txt s; tw = []; forms = false }
+let txt s = { el = El.txt s; tw = no_tw; forms = false }
 let txtf segments = txt (str segments)
-let raw s = { el = El.unsafe_raw s; tw = []; forms = false }
+let raw s = { el = El.unsafe_raw s; tw = no_tw; forms = false }
 let rawf segments = raw (str segments)
 
 (* Empty element *)
-let empty = { el = El.void; tw = []; forms = false }
+let empty = { el = El.void; tw = no_tw; forms = false }
 
 (* Build final attribute list from tw styles, raw class strings, and non-class
    attrs *)
@@ -250,7 +264,9 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
-  let all_tw = all_tw_styles @ List.concat_map to_tw children in
+  let all_tw =
+    { own = all_tw_styles; kids = List.map (fun c -> c.tw) children }
+  in
   (* Propagate forms flag from children or this element *)
   let has_forms = forms || List.exists (fun c -> c.forms) children in
   { el = El.v ~at:atts_with_tw name child_els; tw = all_tw; forms = has_forms }
@@ -328,7 +344,11 @@ let void_el ?(forms = false) name ?at ?(tw = []) () =
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw = tw @ tw_from_at in
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
-  { el = El.void_v ~at:atts_with_tw name; tw = all_tw; forms }
+  {
+    el = El.void_v ~at:atts_with_tw name;
+    tw = { own = all_tw; kids = [] };
+    forms;
+  }
 
 let img ?at ?tw () = void_el "img" ?at ?tw ()
 let meta ?at ?tw () = void_el "meta" ?at ?tw ()
@@ -344,7 +364,7 @@ let style ?at ?(tw = []) css =
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
   {
     el = El.v ~at:atts_with_tw "style" [ El.unsafe_raw css ];
-    tw = all_tw;
+    tw = { own = all_tw; kids = [] };
     forms = false;
   }
 
@@ -516,7 +536,7 @@ let css page =
 
 (* Pretty printing *)
 let pp t =
-  let tw_classes = Tw.to_classes t.tw in
+  let tw_classes = Tw.to_classes (to_tw t) in
   let el_str = El.to_string ~doctype:false t.el in
   if tw_classes = "" then el_str
   else
