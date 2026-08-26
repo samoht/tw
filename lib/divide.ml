@@ -16,8 +16,10 @@ module Handler = struct
   type t =
     | X of int (* divide-x = 1, divide-x-4 = 4 *)
     | Y of int
-    | X_arb of Css.border_width (* divide-x-[4px] *)
-    | Y_arb of Css.border_width
+    (* The author's bracket text travels with the parsed width so that the class
+       name is spelled exactly as it was written. *)
+    | X_arb of string * Css.border_width (* divide-x-[4px] *)
+    | Y_arb of string * Css.border_width
     | X_reverse
     | Y_reverse
     | Named_color of Color.color * int
@@ -342,28 +344,8 @@ module Handler = struct
   let to_class = function
     | X n -> if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
     | Y n -> if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
-    | X_arb len -> (
-        match len with
-        | Px f ->
-            let s = string_of_float f in
-            let s =
-              if String.ends_with ~suffix:"." s then
-                String.sub s 0 (String.length s - 1)
-              else s
-            in
-            "divide-x-[" ^ s ^ "px]"
-        | _ -> "divide-x-[<length>]")
-    | Y_arb len -> (
-        match len with
-        | Px f ->
-            let s = string_of_float f in
-            let s =
-              if String.ends_with ~suffix:"." s then
-                String.sub s 0 (String.length s - 1)
-              else s
-            in
-            "divide-y-[" ^ s ^ "px]"
-        | _ -> "divide-y-[<length>]")
+    | X_arb (spelling, _) -> "divide-x-[" ^ spelling ^ "]"
+    | Y_arb (spelling, _) -> "divide-y-[" ^ spelling ^ "]"
     | X_reverse -> "divide-x-reverse"
     | Y_reverse -> "divide-y-reverse"
     | Named_color (c, shade) ->
@@ -404,12 +386,12 @@ module Handler = struct
         in
         let w = if n = 1 then theme.Scheme.default_border_width else n in
         divide_y_width_style ~class_name ~width:(Px (float_of_int w))
-    | X_arb len ->
-        let class_name = to_class (X_arb len) in
-        divide_x_width_style ~class_name ~width:len
-    | Y_arb len ->
-        let class_name = to_class (Y_arb len) in
-        divide_y_width_style ~class_name ~width:len
+    | X_arb (spelling, width) ->
+        let class_name = to_class (X_arb (spelling, width)) in
+        divide_x_width_style ~class_name ~width
+    | Y_arb (spelling, width) ->
+        let class_name = to_class (Y_arb (spelling, width)) in
+        divide_y_width_style ~class_name ~width
     | X_reverse -> divide_x_reverse_style ()
     | Y_reverse -> divide_y_reverse_style ()
     | Named_color (color, shade) -> divide_color_style color shade
@@ -452,16 +434,57 @@ module Handler = struct
     | Transparent -> 400000
     | X_reverse -> 500000
 
-  let parse_bracket_width s : Css.border_width option =
+  (* The bracket spelling of an arbitrary width, for the typed constructors,
+     which are handed a width rather than the text an author wrote. Keywords and
+     CSS functions have no bracket spelling. *)
+  let bracket_spelling (width : Css.border_width) : string option =
+    let length : Css.length option =
+      match width with
+      | Px f -> Some (Px f)
+      | Cm f -> Some (Cm f)
+      | Mm f -> Some (Mm f)
+      | Q f -> Some (Q f)
+      | In f -> Some (In f)
+      | Pt f -> Some (Pt f)
+      | Pc f -> Some (Pc f)
+      | Rem f -> Some (Rem f)
+      | Em f -> Some (Em f)
+      | Ex f -> Some (Ex f)
+      | Cap f -> Some (Cap f)
+      | Ic f -> Some (Ic f)
+      | Ric f -> Some (Ric f)
+      | Rlh f -> Some (Rlh f)
+      | Ch f -> Some (Ch f)
+      | Lh f -> Some (Lh f)
+      | Vh f -> Some (Vh f)
+      | Vw f -> Some (Vw f)
+      | Vmin f -> Some (Vmin f)
+      | Vmax f -> Some (Vmax f)
+      | Pct f -> Some (Pct f)
+      | Zero -> Some (Px 0.)
+      | Thin | Medium | Thick | Auto | Max_content | Min_content | Fit_content
+      | From_font | Calc _ | Min _ | Max _ | Clamp _ | Inherit | Initial | Unset
+      | Revert | Revert_layer | Var _ ->
+          None
+    in
+    Stdlib.Option.map (Css.Pp.to_string (Css.pp_length ~always:true)) length
+
+  (* The bracket text and the width it denotes. The text is what [to_class]
+     spells, so a class parsed here is reproduced verbatim. *)
+  let parse_bracket_width s : (string * Css.border_width) option =
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
       if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with Some f -> Some (Px f) | None -> None
+        match float_of_string_opt n with
+        | Some f -> Some (inner, Px f)
+        | None -> None
       else if String.ends_with ~suffix:"rem" inner then
         let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with Some f -> Some (Rem f) | None -> None
+        match float_of_string_opt n with
+        | Some f -> Some (inner, Rem f)
+        | None -> None
       else None
     else None
 
@@ -474,14 +497,14 @@ module Handler = struct
     | [ "divide"; "y"; "reverse" ] -> Ok Y_reverse
     | [ "divide"; "x"; value ] -> (
         match parse_bracket_width value with
-        | Some w -> Ok (X_arb w)
+        | Some (spelling, w) -> Ok (X_arb (spelling, w))
         | None -> (
             match int_of_string_opt value with
             | Some n when n >= 0 -> Ok (X n)
             | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "y"; value ] -> (
         match parse_bracket_width value with
-        | Some w -> Ok (Y_arb w)
+        | Some (spelling, w) -> Ok (Y_arb (spelling, w))
         | None -> (
             match int_of_string_opt value with
             | Some n when n >= 0 -> Ok (Y n)
@@ -567,8 +590,17 @@ let divide_y_reverse = utility Y_reverse
 
 let divide_x n = utility (X n)
 let divide_y n = utility (Y n)
-let divide_x_length w = utility (X_arb w)
-let divide_y_length w = utility (Y_arb w)
+
+let bracket_spelling ~name w =
+  match Handler.bracket_spelling w with
+  | Some spelling -> spelling
+  | None -> invalid_arg (name ^ ": width has no arbitrary-value spelling")
+
+let divide_x_length w =
+  utility (X_arb (bracket_spelling ~name:"divide_x_length" w, w))
+
+let divide_y_length w =
+  utility (Y_arb (bracket_spelling ~name:"divide_y_length" w, w))
 
 (** {1 Divide Colour Utilities} *)
 

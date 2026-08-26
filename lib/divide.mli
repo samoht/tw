@@ -26,10 +26,18 @@ val divide_y : int -> t
 
 val divide_x_length : Css.border_width -> t
 (** [divide_x_length w] is {!val-divide_x} with an arbitrary width, as
-    [divide-x-[3px]]. *)
+    [divide-x-[3px]].
+
+    @raise Invalid_argument
+      if [w] is a keyword or a CSS function, which has no spelling inside a
+      class name. *)
 
 val divide_y_length : Css.border_width -> t
-(** [divide_y_length w] is {!val-divide_y} with an arbitrary width. *)
+(** [divide_y_length w] is {!val-divide_y} with an arbitrary width.
+
+    @raise Invalid_argument
+      if [w] is a keyword or a CSS function, which has no spelling inside a
+      class name. *)
 
 (** {1 Divide Colour Utilities} *)
 
