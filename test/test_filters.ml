@@ -265,8 +265,39 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"filters render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
+(* An arbitrary angle is spelled in the class name the way the author wrote it.
+   Rendering it back from the parsed angle left the trailing dot of an integral
+   float on every unit but [deg], so the selector could not match the markup. *)
+let test_arbitrary_angle_class_name () =
+  List.iter check
+    [
+      "hue-rotate-[2rad]";
+      "hue-rotate-[1turn]";
+      "hue-rotate-[100grad]";
+      "hue-rotate-[45deg]";
+      "hue-rotate-[0.5rad]";
+      "-hue-rotate-[2rad]";
+      "backdrop-hue-rotate-[2rad]";
+      "-backdrop-hue-rotate-[1turn]";
+    ]
+
+(* A bracket that is not an angle is refused. *)
+let test_invalid_arbitrary_angle () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "hue-rotate-[2]";
+  rejected "hue-rotate-[2zz]";
+  rejected "hue-rotate-[deg]";
+  rejected "backdrop-hue-rotate-[2px]"
+
 let tests =
   [
+    test_case "arbitrary angle class name" `Quick
+      test_arbitrary_angle_class_name;
+    test_case "invalid arbitrary angle" `Quick test_invalid_arbitrary_angle;
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
     test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;

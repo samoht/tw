@@ -35,8 +35,10 @@ module Handler = struct
     | Invert of int
     | Invert_arbitrary of string
     | Hue_rotate of int
-    | Hue_rotate_arbitrary of Css.angle
-    | Neg_hue_rotate_arbitrary of Css.angle
+    (* The author's bracket text travels with the angle it denotes, so the class
+       name is spelled exactly as it was written. *)
+    | Hue_rotate_arbitrary of string * Css.angle
+    | Neg_hue_rotate_arbitrary of string * Css.angle
     | Drop_shadow
     | Drop_shadow_xs
     | Drop_shadow_sm
@@ -86,8 +88,8 @@ module Handler = struct
     | Backdrop_sepia of int
     | Backdrop_sepia_arbitrary of string
     | Backdrop_hue_rotate of int
-    | Backdrop_hue_rotate_arbitrary of Css.angle
-    | Neg_backdrop_hue_rotate_arbitrary of Css.angle
+    | Backdrop_hue_rotate_arbitrary of string * Css.angle
+    | Neg_backdrop_hue_rotate_arbitrary of string * Css.angle
 
   type Utility.base += Self of t
 
@@ -1199,8 +1201,8 @@ module Handler = struct
     | Invert n -> invert n
     | Invert_arbitrary s -> invert_arbitrary s
     | Hue_rotate n -> hue_rotate n
-    | Hue_rotate_arbitrary angle -> hue_rotate_arbitrary angle
-    | Neg_hue_rotate_arbitrary angle -> neg_hue_rotate_arbitrary angle
+    | Hue_rotate_arbitrary (_, angle) -> hue_rotate_arbitrary angle
+    | Neg_hue_rotate_arbitrary (_, angle) -> neg_hue_rotate_arbitrary angle
     | Drop_shadow -> drop_shadow_ ()
     | Drop_shadow_xs -> drop_shadow_xs_ ()
     | Drop_shadow_sm -> drop_shadow_sm_ ()
@@ -1249,8 +1251,9 @@ module Handler = struct
         if n = 100 then backdrop_sepia_default else backdrop_sepia n
     | Backdrop_sepia_arbitrary s -> backdrop_sepia_arbitrary s
     | Backdrop_hue_rotate n -> backdrop_hue_rotate n
-    | Backdrop_hue_rotate_arbitrary angle -> backdrop_hue_rotate_arbitrary angle
-    | Neg_backdrop_hue_rotate_arbitrary angle ->
+    | Backdrop_hue_rotate_arbitrary (_, angle) ->
+        backdrop_hue_rotate_arbitrary angle
+    | Neg_backdrop_hue_rotate_arbitrary (_, angle) ->
         neg_backdrop_hue_rotate_arbitrary angle
     | Backdrop_filter -> backdrop_filter_
     | Backdrop_filter_none -> backdrop_filter_none
@@ -1397,13 +1400,15 @@ module Handler = struct
     | [ "invert" ] -> Ok (Invert 100)
     | [ "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ "hue"; "rotate"; n ] -> Parse.int_any n >|= fun x -> Hue_rotate x
     (* Negative hue-rotate: -hue-rotate-N or -hue-rotate-[Ndeg] *)
     | [ ""; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Neg_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Neg_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ ""; "hue"; "rotate"; n ] ->
         Parse.int_pos ~name:"hue-rotate" n >|= fun x -> Hue_rotate (-x)
@@ -1538,33 +1543,22 @@ module Handler = struct
     | [ "backdrop"; "sepia" ] -> Ok (Backdrop_sepia 100)
     | [ "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Backdrop_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ "backdrop"; "hue"; "rotate"; n ] ->
         Parse.int_any n >|= fun x -> Backdrop_hue_rotate x
     (* Negative backdrop hue-rotate *)
     | [ ""; "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Neg_backdrop_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok
+              (Neg_backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ ""; "backdrop"; "hue"; "rotate"; n ] ->
         Parse.int_pos ~name:"backdrop-hue-rotate" n >|= fun x ->
         Backdrop_hue_rotate (-x)
     | _ -> err_not_utility
-
-  let pp_angle_bracket = function
-    | Css.Deg n ->
-        let s = string_of_float n in
-        let s =
-          if String.length s > 0 && s.[String.length s - 1] = '.' then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        s ^ "deg"
-    | Rad n -> string_of_float n ^ "rad"
-    | Turn n -> string_of_float n ^ "turn"
-    | Grad n -> string_of_float n ^ "grad"
-    | _ -> "0deg"
 
   let to_class = function
     | Filter -> "filter"
@@ -1604,10 +1598,8 @@ module Handler = struct
     | Hue_rotate n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "hue-rotate-" ^ string_of_int (abs n)
-    | Hue_rotate_arbitrary angle ->
-        "hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
-    | Neg_hue_rotate_arbitrary angle ->
-        "-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
+    | Hue_rotate_arbitrary (spelling, _) -> "hue-rotate-[" ^ spelling ^ "]"
+    | Neg_hue_rotate_arbitrary (spelling, _) -> "-hue-rotate-[" ^ spelling ^ "]"
     | Drop_shadow -> "drop-shadow"
     | Drop_shadow_xs -> "drop-shadow-xs"
     | Drop_shadow_sm -> "drop-shadow-sm"
@@ -1669,10 +1661,10 @@ module Handler = struct
     | Backdrop_hue_rotate n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "backdrop-hue-rotate-" ^ string_of_int (abs n)
-    | Backdrop_hue_rotate_arbitrary angle ->
-        "backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
-    | Neg_backdrop_hue_rotate_arbitrary angle ->
-        "-backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
+    | Backdrop_hue_rotate_arbitrary (spelling, _) ->
+        "backdrop-hue-rotate-[" ^ spelling ^ "]"
+    | Neg_backdrop_hue_rotate_arbitrary (spelling, _) ->
+        "-backdrop-hue-rotate-[" ^ spelling ^ "]"
 
   let examples = [ Filter_none; Backdrop_filter_none ]
 end
