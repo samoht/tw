@@ -362,6 +362,24 @@ let test_important_prefix () =
     "!p-4 leaves the --spacing theme token normal" false
     (Astring.String.is_infix ~affix:"--spacing:.25rem!important" (css "!p-4"))
 
+(* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
+   left the selector reader to raise out of [to_css], a pure conversion, while
+   the bracket form [has-[...]] validated its selector. *)
+let test_not_has_shorthand_selector () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "not-has-a\\:flex";
+  renders "not-has-checked:flex";
+  renders "not-has-hover:flex"
+
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
@@ -922,6 +940,8 @@ let tests =
         test_nested_modifier_class_names;
       test_case "nested modifier CSS generation" `Quick
         test_nested_modifier_css_generation;
+      test_case "not-has shorthand selector" `Quick
+        test_not_has_shorthand_selector;
     ]
 
 let suite = ("modifiers", tests)
