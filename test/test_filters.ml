@@ -53,7 +53,7 @@ let test_drop_shadow_color () =
 let test_drop_shadow_opacity_keeps_both_layers () =
   let css =
     match Tw.of_string "drop-shadow/50" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/50: %s" m
   in
   let has affix = Astring.String.is_infix ~affix css in
@@ -68,7 +68,7 @@ let test_drop_shadow_opacity_keeps_both_layers () =
 let test_drop_shadow_fractional_alpha () =
   let css =
     match Tw.of_string "drop-shadow/12.5" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/12.5: %s" m
   in
   Alcotest.(check bool)
@@ -134,7 +134,9 @@ let suborder_matches_tailwind () =
 (* backdrop-blur-N must reference the unified v4 --blur-N token (not the dropped
    --backdrop-blur-N) and emit the shipped --blur-N decl. *)
 let test_backdrop_blur_token () =
-  let css = Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.pp ~minify:true in
+  let css =
+    Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.to_string ~minify:true
+  in
   Alcotest.(check bool)
     "references var(--blur-sm)" true
     (Astring.String.is_infix ~affix:"var(--blur-sm)" css);

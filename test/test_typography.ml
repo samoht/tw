@@ -251,7 +251,7 @@ let test_named_font_family () =
   let css theme cls =
     match Tw.of_string ~theme cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.Css.pp ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+    | Ok u -> Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
   in
   let themed =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -446,7 +446,7 @@ let rendering_matches_tailwind () =
 
 (* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
 let test_tracking_normal_unit () =
-  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.pp ~minify:true in
+  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.to_string ~minify:true in
   Alcotest.check bool "tracking-normal token keeps em unit" true
     (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
 
@@ -509,7 +509,7 @@ let test_text_line_height_override () =
 let test_text_bracket_functions () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)

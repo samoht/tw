@@ -581,12 +581,14 @@ let is_outline_utility bc =
       | _ :: _, base -> String.starts_with ~prefix:"outline" base)
   | None -> false
 
+let is_digit c = c >= '0' && c <= '9'
+
 (* Natural sort comparison: treats consecutive digit sequences as integers.
    E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
    Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
 let natural_extract_number s i =
   let rec go j acc =
-    if j >= String.length s || not (Cascade.Reader.is_digit s.[j]) then (acc, j)
+    if j >= String.length s || not (is_digit s.[j]) then (acc, j)
     else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
   in
   go i 0
@@ -621,7 +623,7 @@ let natural_compare s1 s2 =
     | `Greater -> 1
     | `Continue ->
         let c1 = s1.[i1] and c2 = s2.[i2] in
-        if Cascade.Reader.is_digit c1 && Cascade.Reader.is_digit c2 then
+        if is_digit c1 && is_digit c2 then
           let n1, end1 = natural_extract_number s1 i1 in
           let n2, end2 = natural_extract_number s2 i2 in
           let num_cmp = Int.compare n1 n2 in

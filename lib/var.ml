@@ -205,11 +205,13 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Rotate -> Css.Properties.Rotate
   | Scale -> Css.Properties.Scale
   | Shadow -> Css.Properties.Shadow
-  | Box_shadow -> Css.Properties.Box_shadow
   | Content -> Css.Properties.Content
   | Gradient_stop -> Css.Properties.Gradient_stop
   | Gradient_direction -> Css.Properties.Gradient_direction
   | Gradient_position -> Css.Properties.Gradient_position
+  | Radial_shape -> Css.Properties.Radial_shape
+  | Radial_size -> Css.Properties.Radial_size
+  | Position_value -> Css.Properties.Position_value
   | Animation -> Css.Properties.Animation
   | Timing_function -> Css.Properties.Timing_function
   | Transform -> Css.Properties.Transform

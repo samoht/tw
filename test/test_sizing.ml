@@ -167,7 +167,7 @@ let test_aspect_classes () =
 
 let test_aspect_css () =
   let open Tw in
-  let css = to_css [ aspect_ratio 16 9 ] |> Css.pp ~minify:true in
+  let css = to_css [ aspect_ratio 16 9 ] |> Css.to_string ~minify:true in
   Alcotest.check bool "has aspect-ratio" true
     (Astring.String.is_infix ~affix:"aspect-ratio" css);
   Alcotest.check bool "has 16/9" true
@@ -211,7 +211,7 @@ let test_logical_size_fractions () =
    var(--aspect-square) with a stray --aspect-square theme token that bare
    Tailwind does not define. *)
 let test_aspect_square_inlined () =
-  let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.pp ~minify:true in
+  let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.to_string ~minify:true in
   Alcotest.check bool "aspect-square inlines the ratio" true
     (Astring.String.is_infix ~affix:"aspect-ratio:1" css);
   Alcotest.check bool "aspect-square references no var" false
@@ -238,7 +238,7 @@ let test_class_generation () =
   (* Verify CSS values are correct. These use calc(var(--spacing)*N) format
      where N is the class number (NOT the rem value). Tailwind v4: w-64 =>
      calc(var(--spacing)*64), h-10 => calc(var(--spacing)*10) *)
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.pp ~minify:true in
+  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
   (* w-64 => calc(var(--spacing)*64) *)
   Alcotest.check bool "w-64 uses spacing*64" true
     (Astring.String.is_infix ~affix:"*64)" (css_for (w 64)));
