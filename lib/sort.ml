@@ -567,20 +567,6 @@ let compare_by_priority_index r1 r2 =
         if idx_cmp <> 0 then idx_cmp
         else String.compare r1.selector_str r2.selector_str
 
-(* The outline utilities sort after the other focus modifiers. Read the base
-   class with the modifier parser: taking the first colon meant a stacked
-   variant never matched, so dark:focus:outline-none was never recognised. The
-   rule is inert on the current corpus - removing it altogether leaves the suite
-   and the Tailwind diffs green - so this makes the predicate say what it means
-   rather than changing an order that is already right. *)
-let is_outline_utility bc =
-  match bc with
-  | Some s -> (
-      match Modifiers.of_string s with
-      | [], _ -> false
-      | _ :: _, base -> String.starts_with ~prefix:"outline" base)
-  | None -> false
-
 let is_digit c = c >= '0' && c <= '9'
 
 (* Natural sort comparison: treats consecutive digit sequences as integers.
@@ -676,13 +662,6 @@ let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2 else compare_by_priority_index r1 r2
 
-let compare_focus_modifiers r1 r2 =
-  let outline1 = is_outline_utility r1.base_class in
-  let outline2 = is_outline_utility r2.base_class in
-  if outline1 && not outline2 then 1
-  else if outline2 && not outline1 then -1
-  else compare_by_priority_index r1 r2
-
 (** Check if a selector kind is a focus-visible late modifier *)
 let is_focus_visible_late_modifier kind has_modifier_colon =
   is_late_modifier kind has_modifier_colon
@@ -715,7 +694,7 @@ let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
   let f2 = is_focus_modifier_rule kind2 r2.has_modifier_colon in
   if f1 && not f2 then Some 1
   else if f2 && not f1 then Some (-1)
-  else if f1 && f2 then Some (compare_focus_modifiers r1 r2)
+  else if f1 && f2 then Some (compare_by_priority_index r1 r2)
   else None
 
 (** Compare by priority, suborder, late modifiers, then natural selector sort.
