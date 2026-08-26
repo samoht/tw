@@ -99,6 +99,29 @@ module Registry = struct
         Hashtbl.replace name_registry name order;
         order
 
+  (* A name owns its family and its [@property] need: each is a fact about one
+     custom property, not a slot several families share. A second registration
+     that agrees restates the fact; one that disagrees is a constant copied by
+     hand that has drifted, so it is refused rather than letting module
+     initialisation order decide the properties layer. *)
+  let register_once tbl ~what ~pp ~name ~value =
+    match Hashtbl.find_opt tbl name with
+    | Some established when established <> value ->
+        invalid_arg
+          (Pp.str
+             [
+               "--";
+               name;
+               ": ";
+               what;
+               " is ";
+               pp established;
+               ", registered again as ";
+               pp value;
+             ])
+    | Some _ -> ()
+    | None -> Hashtbl.replace tbl name value
+
   let register_property_order ~name ~order =
     Hashtbl.replace property_order_registry name order
 
@@ -120,8 +143,30 @@ module Registry = struct
     in
     Hashtbl.find_opt name_registry name
 
+  let family_name : family -> string = function
+    | `Border -> "Border"
+    | `Rotate -> "Rotate"
+    | `Skew -> "Skew"
+    | `Scale -> "Scale"
+    | `Translate -> "Translate"
+    | `Gradient -> "Gradient"
+    | `Shadow -> "Shadow"
+    | `Inset_shadow -> "Inset_shadow"
+    | `Ring -> "Ring"
+    | `Inset_ring -> "Inset_ring"
+    | `Leading -> "Leading"
+    | `Font_weight -> "Font_weight"
+    | `Duration -> "Duration"
+    | `Tracking -> "Tracking"
+    | `Content -> "Content"
+    | `Text_shadow -> "Text_shadow"
+    | `Filter -> "Filter"
+    | `Drop_shadow -> "Drop_shadow"
+    | `Backdrop_filter -> "Backdrop_filter"
+
   let register_family ~name ~family =
-    Hashtbl.replace family_registry name family
+    register_once family_registry ~what:"family" ~pp:family_name ~name
+      ~value:family
 
   let family name =
     (* Strip leading -- if present *)
@@ -133,7 +178,8 @@ module Registry = struct
     Hashtbl.find_opt family_registry name
 
   let register_needs_property ~name ~needs =
-    Hashtbl.replace needs_property_registry name needs
+    register_once needs_property_registry ~what:"@property need" ~pp:Pp.bool
+      ~name ~value:needs
 
   let needs_property name =
     (* Strip leading -- if present *)
