@@ -80,7 +80,12 @@ module Handler = struct
   end
 
   (* Gradient position source *)
-  type gradient_position_source = Percent of float | Bracket of string
+  (* A bracket stop position carries the author's text alongside the value it
+     denotes, so the class name is spelled exactly as it was written. *)
+  type gradient_position_source =
+    | Percent of float
+    | Bracket of string * Css.length_percentage
+
   type gradient_target = From | Via | To
 
   type t =
@@ -280,7 +285,7 @@ module Handler = struct
               else string_of_float p
             in
             prefix ^ p_str ^ "%"
-        | Bracket v -> prefix ^ "[" ^ v ^ "]")
+        | Bracket (spelling, _) -> prefix ^ "[" ^ spelling ^ "]")
     | Bg_origin_border -> "bg-origin-border"
     | Bg_origin_padding -> "bg-origin-padding"
     | Bg_origin_content -> "bg-origin-content"
@@ -1315,34 +1320,34 @@ module Handler = struct
     let d_var, _ = Var.binding pos_var value in
     style ~property_rules:(gradient_position_property_rules ()) [ d_var ]
 
-  (* Parse bracket inner to a length_percentage value *)
-  let parse_bracket_position_value (inner : string) : Css.length_percentage =
-    if String.ends_with ~suffix:"%" inner then
-      let num_s = String.sub inner 0 (String.length inner - 1) in
-      match float_of_string_opt num_s with
-      | Some p -> Pct p
-      | None -> Pct 0. (* fallback *)
-    else if String.ends_with ~suffix:"px" inner then
-      let num_s = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt num_s with
-      | Some p -> Length (Px p)
-      | None -> Pct 0. (* fallback *)
-    else if Parse.is_var inner then
+  (* The one reader for a bracket stop position, used both to decide that a
+     bracket is a position and to convert it, so the two cannot disagree. A stop
+     takes a [<length-percentage>]; Tailwind reads any other bracket - a
+     keyword, a unitless number, the docs' [<value>] placeholder - as a colour,
+     and a colour spelled that way has no typed rendering here, so it is
+     refused. *)
+  let parse_bracket_position_value (inner : string) :
+      Css.length_percentage option =
+    let typed_var prefix =
+      let n = String.length prefix in
+      if String.length inner > n && String.sub inner 0 n = prefix then
+        let var_str = String.sub inner n (String.length inner - n) in
+        let bare = Parse.extract_var_name var_str in
+        let vr : Css.length_percentage Css.var = Var.bracket bare in
+        Some (Css.Var vr : Css.length_percentage)
+      else None
+    in
+    if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
       let vr : Css.length_percentage Css.var = Var.bracket bare in
-      Var vr
-    else if String.length inner > 11 && String.sub inner 0 11 = "percentage:"
-    then
-      let var_str = String.sub inner 11 (String.length inner - 11) in
-      let bare = Parse.extract_var_name var_str in
-      let vr : Css.length_percentage Css.var = Var.bracket bare in
-      Var vr
-    else if String.length inner > 7 && String.sub inner 0 7 = "length:" then
-      let var_str = String.sub inner 7 (String.length inner - 7) in
-      let bare = Parse.extract_var_name var_str in
-      let vr : Css.length_percentage Css.var = Var.bracket bare in
-      Var vr
-    else Pct 0. (* fallback *)
+      Some (Css.Var vr : Css.length_percentage)
+    else
+      match typed_var "percentage:" with
+      | Some v -> Some v
+      | None -> (
+          match typed_var "length:" with
+          | Some v -> Some v
+          | None -> Parse.arbitrary_length_percentage inner)
 
   (** Convert a var string to a typed CSS color value *)
   let color_var_ref v : Css.color =
@@ -1415,8 +1420,7 @@ module Handler = struct
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
         | Percent p -> gradient_position_style pos_var (Pct p)
-        | Bracket v ->
-            gradient_position_style pos_var (parse_bracket_position_value v))
+        | Bracket (_, value) -> gradient_position_style pos_var value)
     | Via_none ->
         let property_rules =
           match Var.property_rule gradient_via_stops_var with
@@ -1553,21 +1557,6 @@ module Handler = struct
         (String.sub s 0 i, Some (String.sub s (i + 1) (String.length s - i - 1)))
     | None -> (s, None)
 
-  (* A gradient stop bracket that is not a colour is a stop position: a
-     percentage, a length, or a var(). Anything else - the docs' [<value>]
-     placeholder included - is neither, and used to land as [0%]. *)
-
-  (** Parse gradient color/position from token list for a given target *)
-  let is_gradient_position inner =
-    Parse.is_var inner
-    || (String.length inner > 11 && String.sub inner 0 11 = "percentage:")
-    || (String.length inner > 7 && String.sub inner 0 7 = "length:")
-    ||
-    let n = String.length inner in
-    String.ends_with ~suffix:"%" inner
-    && float_of_string_opt (String.sub inner 0 (n - 1)) <> None
-    || Css.parse_length inner <> None
-
   (* A [#] stop only names a colour when what follows is a hex spelling. The
      stop keeps the text after the [#] and hands it to the raising [Css.hex]
      when the sheet is rendered, so the parser has to decide here. *)
@@ -1599,7 +1588,7 @@ module Handler = struct
           Color.parse_opacity_modifier ?theme bracket_opacity
         in
         match opacity_opt with
-        | Color.No_opacity when Parse.is_bracket_value bracket_opacity ->
+        | Color.No_opacity when Parse.is_bracket_value bracket_opacity -> (
             (* No valid opacity found — treat as plain bracket *)
             let inner = Parse.bracket_inner bracket_opacity in
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
@@ -1610,8 +1599,10 @@ module Handler = struct
                 (Color_source.Bracket_hex
                    (String.sub inner 1 (String.length inner - 1)))
             else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
-            else if is_gradient_position inner then gp (Bracket inner)
-            else Error (`Msg "Invalid gradient stop value")
+            else
+              match parse_bracket_position_value inner with
+              | Some value -> gp (Bracket (inner, value))
+              | None -> Error (`Msg "Invalid gradient stop value"))
         | Color.No_opacity ->
             Error (`Msg "Invalid gradient bracket with opacity")
         | opacity when Parse.is_bracket_value base ->
@@ -1635,7 +1626,7 @@ module Handler = struct
                 gc (Color_source.Named_opacity (color, shade, opacity))
             | Error e -> Error e))
     (* Bracket notation without opacity *)
-    | [ bracket ] when Parse.is_bracket_value bracket ->
+    | [ bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         if String.length inner > 6 && String.sub inner 0 6 = "color:" then
           let var_str = String.sub inner 6 (String.length inner - 6) in
@@ -1647,8 +1638,10 @@ module Handler = struct
         else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
         else if Color.parse_bracket_color inner <> None then
           gc (Color_source.Bracket_color inner)
-        else if is_gradient_position inner then gp (Bracket inner)
-        else Error (`Msg "Invalid gradient stop value")
+        else
+          match parse_bracket_position_value inner with
+          | Some value -> gp (Bracket (inner, value))
+          | None -> Error (`Msg "Invalid gradient stop value"))
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with

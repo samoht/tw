@@ -250,6 +250,41 @@ let decode_arbitrary_value s =
 
 let arbitrary_length s = Cascade.Css.parse_length (decode_arbitrary_value s)
 
+(* [<length-percentage>] is the length grammar minus the keywords the length
+   reader also admits ([auto], [none], [max-content], ...) and minus a unitless
+   number, which only reads as a length because [0] is one. The match is
+   exhaustive so a length constructor cascade adds later has to be classified
+   here rather than passing silently. *)
+let length_percentage_of_length (l : Cascade.Css.length) :
+    Cascade.Css.length_percentage option =
+  match l with
+  | Pct p -> Some (Pct p)
+  | Px _ | Cm _ | Mm _ | Q _ | In _ | Pt _ | Pc _ | Rem _ | Em _ | Ex _ | Cap _
+  | Ic _ | Ric _ | Rlh _ | Vw _ | Vh _ | Vmin _ | Vmax _ | Vi _ | Vb _ | Dvh _
+  | Dvw _ | Dvmin _ | Dvmax _ | Lvh _ | Lvw _ | Lvmin _ | Lvmax _ | Svh _
+  | Svw _ | Svmin _ | Svmax _ | Cqw _ | Cqh _ | Cqi _ | Cqb _ | Cqmin _
+  | Cqmax _ | Ch _ | Lh _ | Dimension _ ->
+      Some (Length l)
+  (* Math functions and references resolve to a length at used-value time. *)
+  | Clamp _ | Min _ | Max _ | Round _ | Mod _ | Rem_fn _ | Hypot _ | Abs _
+  | Sign _ | Env _ | Var _ | Calc _ ->
+      Some (Length l)
+  | Zero -> None
+  (* Keywords, and the functions that stand for an intrinsic size or an anchor
+     position rather than for a length. *)
+  | Size | Auto | None | Normal | Inherit | Initial | Unset | Revert
+  | Revert_layer | Fit_content | Fit_content_arg _ | Content | Contain
+  | Max_content | Min_content | Webkit_max_content | Webkit_min_content
+  | Webkit_fit_content | Moz_max_content | Moz_min_content | Moz_fit_content
+  | From_font | Hairline | Thin | Medium | Thick | Stretch | Minmax _
+  | Calc_size _ | Anchor_size _ | Anchor _ | Attr _ ->
+      None
+
+let arbitrary_length_percentage s =
+  match arbitrary_length s with
+  | Some l -> length_percentage_of_length l
+  | None -> None
+
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
    that are not CSS, and passing one through emits an invalid declaration. *)
