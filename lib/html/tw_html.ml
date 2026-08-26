@@ -13,11 +13,16 @@ let str = String.concat ""
 module El = struct
   type html =
     | Element of string * (string * string) list * html list
+    | Void_element of string * (string * string) list
+        (** An HTML void element: no children, no end tag. Only {!void_v} builds
+            one, so the elements rendered without an end tag are exactly the
+            constructors that call it. *)
     | Text of string
     | Void
     | Raw of string
 
   let v ~at name children = Element (name, at, children)
+  let void_v ~at name = Void_element (name, at)
   let txt s = Text s
   let void = Void
   let unsafe_raw s = Raw s
@@ -35,35 +40,36 @@ module El = struct
       s;
     Buffer.contents b
 
+  let add_open_tag b name attrs =
+    Buffer.add_char b '<';
+    Buffer.add_string b name;
+    List.iter
+      (fun (k, v) ->
+        Buffer.add_char b ' ';
+        Buffer.add_string b k;
+        Buffer.add_string b "=\"";
+        Buffer.add_string b (escape_html v);
+        Buffer.add_char b '"')
+      attrs
+
   let rec to_string ?(doctype = false) = function
     | Text s -> escape_html s
     | Raw s -> s
     | Void -> ""
+    | Void_element (name, attrs) ->
+        let b = Buffer.create 64 in
+        add_open_tag b name attrs;
+        Buffer.add_string b " />";
+        Buffer.contents b
     | Element (name, attrs, children) ->
         let b = Buffer.create 256 in
         if doctype && name = "html" then Buffer.add_string b "<!DOCTYPE html>\n";
-        Buffer.add_char b '<';
+        add_open_tag b name attrs;
+        Buffer.add_char b '>';
+        List.iter (fun child -> Buffer.add_string b (to_string child)) children;
+        Buffer.add_string b "</";
         Buffer.add_string b name;
-        List.iter
-          (fun (k, v) ->
-            Buffer.add_char b ' ';
-            Buffer.add_string b k;
-            Buffer.add_string b "=\"";
-            Buffer.add_string b (escape_html v);
-            Buffer.add_char b '"')
-          attrs;
-        if
-          children = []
-          && List.mem name [ "img"; "br"; "hr"; "input"; "meta"; "link" ]
-        then Buffer.add_string b " />"
-        else (
-          Buffer.add_char b '>';
-          List.iter
-            (fun child -> Buffer.add_string b (to_string child))
-            children;
-          Buffer.add_string b "</";
-          Buffer.add_string b name;
-          Buffer.add_char b '>');
+        Buffer.add_char b '>';
         Buffer.contents b
 end
 
@@ -324,7 +330,7 @@ let void_el ?(forms = false) name ?at ?(tw = []) () =
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw = tw @ tw_from_at in
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
-  { el = El.v ~at:atts_with_tw name []; tw = all_tw; forms }
+  { el = El.void_v ~at:atts_with_tw name; tw = all_tw; forms }
 
 let img ?at ?tw () = void_el "img" ?at ?tw ()
 let meta ?at ?tw () = void_el "meta" ?at ?tw ()
