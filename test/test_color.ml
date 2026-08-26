@@ -461,6 +461,30 @@ let test_keyword_opacity_families () =
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "text-shadow-inherit/50 should be rejected"
 
+(* A colour keyword carries its opacity modifier into a mix like any other
+   colour. Only a fully opaque modifier collapses back to the bare keyword. *)
+let test_keyword_opacity_mixes () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-transparent/50"
+    "background-color: color-mix(in oklab, transparent 50%, transparent)";
+  has "text-transparent/25"
+    "color: color-mix(in oklab, transparent 25%, transparent)";
+  has "border-transparent/[0.25]"
+    "border-color: color-mix(in oklab, transparent 25%, transparent)";
+  has "decoration-transparent/50"
+    "text-decoration-color: color-mix(in oklab, transparent 50%, transparent)";
+  has "bg-inherit/50"
+    "background-color: color-mix(in oklab, inherit 50%, transparent)";
+  has "bg-transparent/100" "background-color: transparent";
+  has "border-inherit/100" "border-color: inherit"
+
 (* A palette colour with no shade segment must not absorb one and rename the
    class. Tailwind rejects the candidate instead. *)
 let test_shadeless_colour_rejects_shade_segment () =
@@ -621,6 +645,7 @@ let tests =
     ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("Keyword opacity families", `Quick, test_keyword_opacity_families);
+    ("Keyword opacity mixes", `Quick, test_keyword_opacity_mixes);
     ( "Shadeless colour rejects a shade segment",
       `Quick,
       test_shadeless_colour_rejects_shade_segment );
