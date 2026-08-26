@@ -268,6 +268,27 @@ let test_no_class_without_tw () =
   check bool "no class attribute" false
     (Astring.String.is_infix ~affix:"class=" html_str)
 
+let test_void_elements () =
+  (* A void element carries no end tag, whichever constructor built it. *)
+  let s = to_string (picture [ source ~at:[ At.src "a.webp" ] () ]) in
+  check bool "source self-closed" true
+    (Astring.String.is_infix ~affix:"<source src=\"a.webp\" />" s);
+  check bool "no source end tag" false
+    (Astring.String.is_infix ~affix:"</source>" s);
+  let img_str = to_string (img ~at:[ At.src "a.png" ] ()) in
+  check bool "img self-closed" true
+    (Astring.String.is_infix ~affix:"<img src=\"a.png\" />" img_str);
+  let br_str = to_string (br ()) in
+  check string "br self-closed" "<br />" br_str;
+  let hr_str = to_string (hr ()) in
+  check string "hr self-closed" "<hr />" hr_str;
+  let meta_str = to_string (meta ~at:[ At.charset "utf-8" ] ()) in
+  check string "meta self-closed" "<meta charset=\"utf-8\" />" meta_str;
+  let link_str = to_string (link ~at:[ At.rel "icon" ] ()) in
+  check string "link self-closed" "<link rel=\"icon\" />" link_str;
+  let input_str = to_string (input ~at:[ At.name "q" ] ()) in
+  check string "input self-closed" "<input name=\"q\" />" input_str
+
 let suite =
   ( "tw_html",
     [
@@ -285,4 +306,5 @@ let suite =
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
       test_case "inline css" `Quick test_inline_css;
+      test_case "void elements" `Quick test_void_elements;
     ] )
