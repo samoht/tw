@@ -70,6 +70,9 @@ type indexed_rule = {
          [Css.Media.compare_keys] instead of re-serializing the query. *)
   nested_media_key : Css.Media.key option;
       (* Precomputed sort key of a single nested media condition. *)
+  responsive_media_key : Css.Media.key option;
+      (* Precomputed sort key of the rule's breakpoint condition, taken from
+         whichever nesting level carries it - see [responsive_media_key]. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -260,6 +263,24 @@ let media_sort_keys rule_type nested =
   in
   (media_key, nested_media_key)
 
+(* The breakpoint a rule sorts under, wherever its variant stack puts it:
+   sm:hover: writes the breakpoint outside the hover query and hover:sm: writes
+   it inside, and Tailwind groups both under that breakpoint. *)
+let responsive_media_key rule_type nested =
+  let of_cond c =
+    match Css.Media.kind c with
+    | Css.Media.Responsive _ | Css.Media.Responsive_max _ ->
+        Some (Css.Media.sort_key c)
+    | _ -> None
+  in
+  match rule_type with
+  | `Media c when Stdlib.Option.is_some (of_cond c) -> of_cond c
+  | _ -> (
+      match nested with
+      | [ n ] -> (
+          match Css.as_media n with Some (c, _) -> of_cond c | None -> None)
+      | _ -> None)
+
 (* ======================================================================== *)
 (* Priority Comparison *)
 (* ======================================================================== *)
@@ -336,6 +357,10 @@ let responsive_group =
 
 let accessibility_preference_group =
   fst (Css.Media.group_order Css.Media.Preference_accessibility)
+
+(* The rank the variant table gives a breakpoint prefix. Read back from the
+   table for the same reason as the two groups above. *)
+let responsive_variant_order = Modifiers.variant_order_of_prefix "sm"
 
 (** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
@@ -1094,6 +1119,19 @@ let compare_variant_tail r1 r2 =
               if class_cmp <> 0 then class_cmp
               else Int.compare r1.index r2.index)
 
+(* Tailwind groups a rule under its breakpoint before it reads the rest of the
+   variant stack, so first:sm:m-2 stays beside sm:bg-top instead of falling past
+   md:block. Only when the breakpoint is the highest-order component on both
+   sides: dark:sm:flex sorts under dark, not under sm. *)
+let compare_responsive_breakpoint r1 r2 =
+  match (r1.variant_orders, r2.variant_orders) with
+  | (p1, _) :: _, (p2, _) :: _
+    when p1 = responsive_variant_order && p2 = responsive_variant_order -> (
+      match (r1.responsive_media_key, r2.responsive_media_key) with
+      | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+      | _ -> 0)
+  | _ -> 0
+
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
   | `Supports _, `Supports _
@@ -1102,42 +1140,45 @@ let compare_variant_ordered r1 r2 =
          && is_modifier_supports r2.base_class ->
       compare_supports_by_key r1 r2
   | _ ->
-      let list_cmp =
-        compare_variant_order_lists r1.variant_orders r2.variant_orders
-      in
-      if list_cmp <> 0 then list_cmp
+      let breakpoint_cmp = compare_responsive_breakpoint r1 r2 in
+      if breakpoint_cmp <> 0 then breakpoint_cmp
       else
-        let p1_prefix, _ = r1.variant_key in
-        let p2_prefix, _ = r2.variant_key in
-        (* The descending variant-order lists tie (same variant multiset). The
-           remaining keys order within that group: a nested breakpoint or hover,
-           the media condition itself (sm before md), then the prefix and the
-           utility's own priority. *)
-        let nested_cmp =
-          Int.compare
-            (nested_order r1.rule_type r1.nested)
-            (nested_order r2.rule_type r2.nested)
+        let list_cmp =
+          compare_variant_order_lists r1.variant_orders r2.variant_orders
         in
-        if nested_cmp <> 0 then nested_cmp
+        if list_cmp <> 0 then list_cmp
         else
-          let media_cmp =
-            match (r1.media_key, r2.media_key) with
-            | Some k1, Some k2 ->
-                let cmp = Css.Media.compare_keys k1 k2 in
-                if cmp <> 0 then cmp else compare_nested_media r1 r2
-            | _ -> 0
+          let p1_prefix, _ = r1.variant_key in
+          let p2_prefix, _ = r2.variant_key in
+          (* The descending variant-order lists tie (same variant multiset). The
+             remaining keys order within that group: a nested breakpoint or
+             hover, the media condition itself (sm before md), then the prefix
+             and the utility's own priority. *)
+          let nested_cmp =
+            Int.compare
+              (nested_order r1.rule_type r1.nested)
+              (nested_order r2.rule_type r2.nested)
           in
-          if media_cmp <> 0 then media_cmp
+          if nested_cmp <> 0 then nested_cmp
           else
-            (* Two container variants at the same width are already fully
-               ordered: what remains is the utility's own priority, so the
-               prefix must not step in and group @sm/main away from @sm. *)
-            let prefix_cmp =
-              match (r1.rule_type, r2.rule_type) with
-              | `Container _, `Container _ -> 0
-              | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+            let media_cmp =
+              match (r1.media_key, r2.media_key) with
+              | Some k1, Some k2 ->
+                  let cmp = Css.Media.compare_keys k1 k2 in
+                  if cmp <> 0 then cmp else compare_nested_media r1 r2
+              | _ -> 0
             in
-            if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
+            if media_cmp <> 0 then media_cmp
+            else
+              (* Two container variants at the same width are already fully
+                 ordered: what remains is the utility's own priority, so the
+                 prefix must not step in and group @sm/main away from @sm. *)
+              let prefix_cmp =
+                match (r1.rule_type, r2.rule_type) with
+                | `Container _, `Container _ -> 0
+                | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+              in
+              if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
