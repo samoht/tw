@@ -1512,6 +1512,40 @@ supports-[(display:grid)_and_font-format(opentype)]:grid supports-[--test]:flex 
 <<<>>>
 # supports
 @config run
+supports-[user-select]:flex supports-backdrop-filter:flex supports-hyphens:flex supports-text-size-adjust:flex supports-user-select:flex
+---
+
+    @supports (backdrop-filter: var(--tw)) {
+      .supports-backdrop-filter\:flex {
+        display: flex;
+      }
+    }
+
+    @supports (hyphens: var(--tw)) {
+      .supports-hyphens\:flex {
+        display: flex;
+      }
+    }
+
+    @supports (text-size-adjust: var(--tw)) {
+      .supports-text-size-adjust\:flex {
+        display: flex;
+      }
+    }
+
+    @supports (user-select: var(--tw)) {
+      .supports-user-select\:flex {
+        display: flex;
+      }
+
+      .supports-\[user-select\]\:flex {
+        display: flex;
+      }
+    }
+    
+<<<>>>
+# supports
+@config run
 supports-[(display:grid)_and_font-format(opentype)]/foo:grid supports-[display:grid]/foo:flex supports-[font-format(opentype)]/foo:grid supports-[font-tech(color-COLRv1)]/foo:flex supports-[selector(A_>_B)]/foo:flex supports-[var(--test)]/foo:flex supports-gap/foo:grid
 ---
 

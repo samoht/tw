@@ -851,6 +851,35 @@ let test_valid_bracket_modifiers () =
   emits ":nth-of-type(odd)" "nth-of-type-[odd]:flex";
   emits "@supports (display: grid)" "supports-[display:grid]:flex"
 
+(* A [supports-<property>] test names the property the author wrote, even for a
+   property browsers once shipped behind a vendor prefix: Tailwind emits
+   [@supports (hyphens: var(--tw))], so the shorthand and the bracket spelling
+   of one property give the same condition. *)
+let test_supports_property_is_unprefixed () =
+  let condition cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (condition cls))
+  in
+  let unprefixed cls =
+    let css = condition cls in
+    check bool cls false (Astring.String.is_infix ~affix:"-webkit-" css);
+    check bool cls false (Astring.String.is_infix ~affix:"-moz-" css)
+  in
+  emits "@supports (hyphens: var(--tw))" "supports-hyphens:flex";
+  emits "@supports (user-select: var(--tw))" "supports-user-select:flex";
+  emits "@supports (user-select: var(--tw))" "supports-[user-select]:flex";
+  emits "@supports (text-size-adjust: var(--tw))"
+    "supports-text-size-adjust:flex";
+  emits "@supports (backdrop-filter: var(--tw))" "supports-backdrop-filter:flex";
+  unprefixed "supports-hyphens:flex";
+  unprefixed "supports-user-select:flex";
+  unprefixed "supports-text-size-adjust:flex";
+  unprefixed "supports-backdrop-filter:flex"
+
 (* Extend the suite with new tests *)
 let tests =
   tests
@@ -858,6 +887,8 @@ let tests =
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
+      test_case "supports property is unprefixed" `Quick
+        test_supports_property_is_unprefixed;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
       test_case "padded attribute brackets" `Quick
         test_padded_attribute_brackets;
