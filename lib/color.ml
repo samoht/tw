@@ -2642,12 +2642,11 @@ module Handler = struct
         Css.color_mix ~in_space color Css.Transparent
           ~percent1:(opacity_to_percent opacity)
 
-  (* Multiplying a fully transparent colour by another alpha is still fully
-     transparent. Keep that identity explicit: older cascade releases folded
-     [color-mix(transparent N%, transparent)] to an opaque-alpha black. *)
-  let apply_alpha ?(in_space : Css.color_space = Oklab) opacity = function
-    | Css.Transparent -> Css.Transparent
-    | color -> mix_alpha ~in_space opacity color
+  (* A colour keyword takes the modifier's alpha through the same mix as any
+     other colour. At full opacity the mix is a no-op and Tailwind writes the
+     keyword itself. *)
+  let apply_alpha ?(in_space : Css.color_space = Oklab) opacity color =
+    if is_fully_opaque opacity then color else mix_alpha ~in_space opacity color
 
   (** Condition for progressive enhancement with color-mix in oklab *)
   let color_mix_supports_condition =
