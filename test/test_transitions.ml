@@ -62,12 +62,37 @@ let test_invalid_arbitrary_property () =
   accepted "transition-[opacity,transform]";
   accepted "transition-[var(--x)]"
 
+(* [ease-[...]] takes a timing function. A bracket the timing-function grammar
+   cannot read used to be accepted and then raise out of [to_css], which is a
+   pure conversion. *)
+let test_invalid_arbitrary_ease () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "ease-[foo]";
+  rejected "ease-[1]";
+  rejected "ease-[50%]";
+  rejected "ease-[]";
+  renders "ease-[linear]";
+  renders "ease-[cubic-bezier(0.4,0,0.2,1)]";
+  renders "ease-[steps(4,end)]";
+  renders "ease-[var(--my-ease)]"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
       Alcotest.test_case "invalid arbitrary property" `Quick
         test_invalid_arbitrary_property;
+      Alcotest.test_case "invalid arbitrary ease" `Quick
+        test_invalid_arbitrary_ease;
     ]
 
 let suite = ("transitions", tests)
