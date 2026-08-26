@@ -381,9 +381,12 @@ val parse_opacity_modifier :
     ("500", Opacity_percent 50.0). Named opacities are validated at parse time
     against the [@theme] tokens in [theme]. *)
 
-val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
-(** [shade_of_strings parts] parses a color and shade from a list of strings.
-    Example: ["blue"; "500"] -> Ok (Blue, 500). *)
+val shade_of_strings :
+  ?theme:Scheme.t -> string list -> (color * int, [ `Msg of string ]) result
+(** [shade_of_strings ?theme parts] parses a color and shade from a list of
+    strings. Example: ["blue"; "500"] -> Ok (Blue, 500). A name the palette does
+    not know resolves against [theme]: a [--color-<name>] token the project
+    declared is a shadeless colour of its own. *)
 
 val shade_and_opacity_of_strings :
   ?theme:Scheme.t ->

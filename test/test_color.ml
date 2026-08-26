@@ -545,6 +545,62 @@ let test_theme_colour_opacity_families () =
       "from-brand/50";
     ]
 
+(* A project token is a colour in its own right, with or without a modifier: at
+   full opacity the utility simply references it. *)
+let test_theme_colour_without_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " references the token")
+        true
+        (Astring.String.is_infix ~affix:"var(--color-brand)" (css cls)))
+    [
+      "bg-brand";
+      "text-brand";
+      "border-brand";
+      "divide-brand";
+      "fill-brand";
+      "stroke-brand";
+      "accent-brand";
+      "caret-brand";
+      "outline-brand";
+      "from-brand";
+    ]
+
+(* A token name is not limited to one segment, and the modifier still rides on
+   the last one. *)
+let test_multi_segment_theme_colour () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand-primary", "#123456") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-brand-primary references the token" true
+    (Astring.String.is_infix ~affix:"var(--color-brand-primary)"
+       (css "bg-brand-primary"));
+  Alcotest.(check bool)
+    "bg-brand-primary/50 keeps the alpha" true
+    (Astring.String.is_infix ~affix:"color-mix(in srgb,#123456 50%,transparent)"
+       (css "bg-brand-primary/50"))
+
 (* A name no [@theme] block declared is not a colour, whatever it looks like. *)
 let test_undeclared_theme_colour_rejected () =
   List.iter
@@ -552,7 +608,15 @@ let test_undeclared_theme_colour_rejected () =
       match Tw.of_string cls with
       | Error _ -> ()
       | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
-    [ "bg-brand/50"; "text-brand/50"; "border-brand/50" ]
+    [
+      "bg-brand/50";
+      "text-brand/50";
+      "border-brand/50";
+      "bg-brand";
+      "text-brand";
+      "border-brand";
+      "bg-brand-primary";
+    ]
 
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
@@ -701,6 +765,8 @@ let tests =
     ( "Theme colour opacity across families",
       `Quick,
       test_theme_colour_opacity_families );
+    ("Theme colour without opacity", `Quick, test_theme_colour_without_opacity);
+    ("Multi-segment theme colour", `Quick, test_multi_segment_theme_colour);
     ( "Undeclared theme colour rejected",
       `Quick,
       test_undeclared_theme_colour_rejected );

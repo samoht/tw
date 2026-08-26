@@ -407,7 +407,7 @@ module Handler = struct
             Ok (Fill_color_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "fill" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Fill_color (color, shade))
         | Error e -> Error e)
     | [ "stroke"; "none" ] -> Ok Stroke_none
@@ -447,7 +447,7 @@ module Handler = struct
             Ok (Stroke_color_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "stroke" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Stroke_color (color, shade))
         | Error e -> Error e)
     | _ -> err_not_utility

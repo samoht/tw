@@ -1662,8 +1662,19 @@ let parse_opacity_modifier ?theme s =
       | Some opacity -> (base, opacity)
       | None -> (s, No_opacity))
 
-(* Parse color and shade from string list *)
-let shade_of_strings = function
+(* Parse color and shade from string list. A name the palette does not know is
+   still a colour when the [\@theme] block declared [--color-<name>]; such a
+   token carries no shade, and its name may span several segments. *)
+let shade_of_strings ?theme parts =
+  let theme_named () =
+    let name = String.concat "-" parts in
+    if
+      Parse.is_valid_theme_name name
+      && Scheme.theme_value theme ("color-" ^ name) <> None
+    then Ok (Theme_named name, 500)
+    else Error (`Msg ("Invalid color: " ^ name))
+  in
+  match parts with
   | [ color_str; shade_str ] -> (
       match of_string color_str with
       | Ok color -> (
@@ -1673,18 +1684,33 @@ let shade_of_strings = function
                  && (not (is_shadeless color))
                  && is_valid_shade color shade ->
               Ok (color, shade)
-          | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
-      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+          | _ -> theme_named ())
+      | Error _ -> theme_named ())
   | [ color_str ] -> (
       match of_string color_str with
       | Ok color -> Ok (color, 500) (* Default shade *)
-      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+      | Error _ -> theme_named ())
   | [] -> Error (`Msg "No color specified")
-  | _ -> Error (`Msg "Too many color parts")
+  | _ -> theme_named ()
 
 (* Parse color, shade, and optional opacity modifier from string list. Handles
    formats like ["red"; "500/50"] or ["red"; "500/[0.5]"] *)
-let shade_and_opacity_of_strings ?theme = function
+let shade_and_opacity_of_strings ?theme parts =
+  (* The modifier rides on the last segment however long the name: a project
+     token spelled [brand-primary/50] splits into ["brand"; "primary/50"]. *)
+  let theme_named () =
+    match List.rev parts with
+    | [] -> Error (`Msg "No color specified")
+    | last :: front ->
+        let base, opacity = parse_opacity_modifier ?theme last in
+        let name = String.concat "-" (List.rev (base :: front)) in
+        if
+          Parse.is_valid_theme_name name
+          && Scheme.theme_value theme ("color-" ^ name) <> None
+        then Ok (Theme_named name, 500, opacity)
+        else Error (`Msg ("Invalid color: " ^ name))
+  in
+  match parts with
   | [ color_str; shade_opacity_str ] -> (
       let shade_str, opacity =
         parse_opacity_modifier ?theme shade_opacity_str
@@ -1697,8 +1723,8 @@ let shade_and_opacity_of_strings ?theme = function
                  && (not (is_shadeless color))
                  && is_valid_shade color shade ->
               Ok (color, shade, opacity)
-          | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
-      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+          | _ -> theme_named ())
+      | Error _ -> theme_named ())
   | [ color_str ] -> (
       (* Could be "current/50" or just "black" *)
       let base_str, opacity = parse_opacity_modifier ?theme color_str in
@@ -1719,13 +1745,9 @@ let shade_and_opacity_of_strings ?theme = function
       | None -> (
           match of_string base_str with
           | Ok color -> Ok (color, 500, opacity)
-          | Error _
-            when Parse.is_valid_theme_name base_str
-                 && Scheme.theme_value theme ("color-" ^ base_str) <> None ->
-              Ok (Theme_named base_str, 500, opacity)
-          | Error _ -> Error (`Msg ("Invalid color: " ^ color_str))))
+          | Error _ -> theme_named ()))
   | [] -> Error (`Msg "No color specified")
-  | _ -> Error (`Msg "Too many color parts")
+  | _ -> theme_named ()
 
 (** {1 Parsing Functions} *)
 
@@ -2112,7 +2134,7 @@ module Handler = struct
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error e -> Error e)
     | [ "text"; "transparent" ] -> Ok Text_transparent
@@ -2162,7 +2184,7 @@ module Handler = struct
             Ok (Text_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "text" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Text (color, shade))
         | Error e -> Error e)
     | [ "border"; "transparent" ] -> Ok Border_transparent
@@ -2229,7 +2251,7 @@ module Handler = struct
                      (bs, Side_color.Named_opacity (color, shade, opacity)))
             | Error e -> Error e)
         | color_parts -> (
-            match shade_of_strings color_parts with
+            match shade_of_strings ~theme color_parts with
             | Ok (color, shade) ->
                 Ok (Border_side_color (bs, Side_color.Named (color, shade)))
             | Error e -> Error e))
@@ -2239,7 +2261,7 @@ module Handler = struct
             Ok (Border_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "border" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Border (color, shade))
         | Error e -> Error e)
     | [ "accent"; "transparent" ] -> Ok Accent_transparent
@@ -2273,7 +2295,7 @@ module Handler = struct
             Ok (Accent_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "accent" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Accent (color, shade))
         | Error e -> Error e)
     | [ "caret"; "inherit" ] -> Ok Caret_inherit
@@ -2307,7 +2329,7 @@ module Handler = struct
             Ok (Caret_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "caret" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Caret (color, shade))
         | Error e -> Error e)
     | [ "outline"; "transparent" ] -> Ok Outline_transparent
@@ -2358,7 +2380,7 @@ module Handler = struct
             Ok (Outline_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "outline" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Outline (color, shade))
         | Error e -> Error e)
     | [ "placeholder"; "transparent" ] -> Ok Placeholder_transparent
@@ -2394,7 +2416,7 @@ module Handler = struct
             Ok (Placeholder_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "placeholder" :: color_parts -> (
-        match shade_of_strings color_parts with
+        match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Placeholder (color, shade))
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
