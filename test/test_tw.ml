@@ -1153,6 +1153,34 @@ let unterminated_theme_call () =
            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
   | Error (`Msg m) -> Alcotest.failf "bg-[theme(colors.red.500)]: %s" m
 
+(* The rejection an unrecognised [prop:value] candidate gets has to describe the
+   shape one must have. Plain [--name:value] declarations and non-colour
+   properties are emitted, so the message must not point the reader at those. *)
+let arbitrary_property_rejection_message () =
+  let message cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error (`Msg m) -> m
+  in
+  List.iter
+    (fun cls ->
+      let m = message cls in
+      Alcotest.(check bool)
+        (cls ^ " does not call the supported forms unsupported")
+        false
+        (Astring.String.is_infix ~affix:"not yet supported" m);
+      Alcotest.(check bool)
+        (cls ^ " names the shape a candidate must have")
+        true
+        (Astring.String.is_infix ~affix:"[property:value]" m))
+    [ "[color:red]xyz"; "[--foo:bar]xyz"; "[:red]"; "[color:red]/notanopacity" ];
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    [ "[--foo:bar]"; "[mask-type:luminance]" ]
+
 let all_colors_grays () =
   check_list
     (bg_shades slate shades @ bg_shades gray shades @ bg_shades zinc shades
@@ -1380,6 +1408,8 @@ let core_tests =
     test_case "style combination" `Slow style_combination;
     test_case "paren var shorthand" `Quick paren_var_shorthand;
     test_case "unterminated theme() call" `Quick unterminated_theme_call;
+    test_case "arbitrary property rejection message" `Quick
+      arbitrary_property_rejection_message;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;
