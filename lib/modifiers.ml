@@ -1532,8 +1532,11 @@ let try_not_shorthand inner =
     Some (Not (Data_custom (attr, "")))
     (* has-X shorthand — :has(:X) pseudo-class *)
   else if String.length inner > 4 && String.sub inner 0 4 = "has-" then
-    let pseudo = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Has (":" ^ pseudo))) (* nth-X shorthand — :nth-child(X) *)
+    (* The shorthand names a pseudo-class, so it has to read as one; the bracket
+       form validates its selector the same way. *)
+    let sel = ":" ^ String.sub inner 4 (String.length inner - 4) in
+    if is_valid_has_selector sel then Some (Not (Has sel)) else None
+    (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
     Some (Not (Nth expr))
