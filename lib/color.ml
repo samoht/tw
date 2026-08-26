@@ -1340,7 +1340,7 @@ let check_shade ~utility color shade =
 
 (** Background color utilities *)
 
-(* Theme layer color variable ordering map. See rules.mli for detailed layer
+(* Theme layer color variable ordering map. See build.mli for detailed layer
    ordering documentation. *)
 let theme_color_order_map =
   [
@@ -2716,7 +2716,7 @@ module Handler = struct
                 ~percent1:percent
             in
             (* Create @supports block with oklab version as top-level rule. Use
-               placeholder selector that rules.ml replaces with actual class. *)
+               placeholder selector that rule.ml replaces with actual class. *)
             let supports_block =
               Css.supports ~condition:color_mix_supports_condition
                 [
@@ -2846,7 +2846,7 @@ module Handler = struct
     in
     let oklab_decl = property oklab_color in
     (* Create @supports block with oklab version as top-level rule. Use
-       placeholder selector that rules.ml replaces with actual class. *)
+       placeholder selector that rule.ml replaces with actual class. *)
     let supports_block =
       Css.supports ~condition:color_mix_supports_condition
         [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]

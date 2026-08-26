@@ -453,7 +453,7 @@ val property_default :
     initial value may be generated, breaking the CSS output.
 
     TODO: Fix this architecture limitation to automatically include property
-    rules for property_default variables in rules.ml without requiring explicit
+    rules for property_default variables in build.ml without requiring explicit
     inclusion. *)
 
 val channel :
