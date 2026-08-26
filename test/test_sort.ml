@@ -1113,6 +1113,26 @@ let test_not_supports_variant_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"not-supports variants follow base utilities" utilities
 
+let test_breakpoint_groups_stacked_variants () =
+  (* A stacked variant sorts under its breakpoint, so first:sm:m-2 stays with
+     the other sm rules instead of falling past md:block. Tailwind's order for
+     this class list. *)
+  let classes = [ "sm:bg-top"; "first:sm:m-2"; "md:block" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position [ ".sm\\:bg-top"; ".first\\:sm\\:m-2"; ".md\\:block" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
+
 let test_stacked_responsive_variant_order () =
   let classes =
     [ "container"; "sm:bg-top"; "**:[svg]:first:sm:size-4"; "md:block" ]
@@ -1639,6 +1659,8 @@ let tests =
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
     test_case "stacked responsive variant order" `Slow
       test_stacked_responsive_variant_order;
+    test_case "breakpoint groups stacked variants" `Slow
+      test_breakpoint_groups_stacked_variants;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
