@@ -617,15 +617,6 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
     Only use this for property_default variables where you expect a property
     rule. *)
 
-(** {1 Heterogeneous Collections} *)
-
-(** Existential type for heterogeneous collections of variables *)
-type any_var = Any : ('a, 'r) t -> any_var
-
-val properties : any_var list -> Css.t
-(** [properties vars] generates deduplicated [@property] rules for all variables
-    that need them, sorted deterministically by (name, kind). *)
-
 (** {1 Helper Types and Functions} *)
 
 val css_name : ('a, _) t -> string

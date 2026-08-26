@@ -349,7 +349,8 @@ let property_typed : type a.
   | Color, None -> property ~name Universal ~inherits ()
   | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
   | Percentage, None -> property ~name Percentage ~inherits ()
-  | Percentage, Some v -> property ~name Percentage ~initial_value:v ~inherits ()
+  | Percentage, Some v ->
+      property ~name Percentage ~initial_value:v ~inherits ()
   | Length_percentage, None -> property ~name Length_percentage ~inherits ()
   | Length_percentage, Some v ->
       property ~name Length_percentage ~initial_value:v ~inherits ()
@@ -531,31 +532,6 @@ let order_of_declaration decl =
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
 let property_initial_string = property_info_to_declaration_value
-
-(* Heterogeneous collections *)
-type any_var = Any : ('a, 'r) t -> any_var
-
-let properties vars =
-  (* Collect statements from property rules and deduplicate by name *)
-  let stmts =
-    vars
-    |> List.filter_map (fun (Any v) -> property_rule v)
-    |> List.concat_map Css.statements
-  in
-  let seen = Hashtbl.create 32 in
-  let filtered =
-    List.filter
-      (fun stmt ->
-        match Css.as_property stmt with
-        | Some (Css.Property_info info) ->
-            if Hashtbl.mem seen info.name then false
-            else (
-              Hashtbl.add seen info.name ();
-              true)
-        | None -> true)
-      stmts
-  in
-  Css.v filtered
 
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
 
