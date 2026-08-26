@@ -222,9 +222,7 @@ let class_atts tw_styles raw_classes other_atts =
 
 (* Parse a class string, returning (recognized_tw, raw_strings) *)
 let parse_class_value value =
-  let classes =
-    String.split_on_char ' ' value |> List.filter (fun s -> s <> "")
-  in
+  let classes = Tw.split_whitespace value in
   List.fold_left
     (fun (tw_acc, raw_acc) cls ->
       match Tw.of_string cls with
