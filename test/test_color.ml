@@ -508,6 +508,52 @@ let test_decoration_theme_colour_opacity () =
       Alcotest.(check string)
         "custom theme colour round-trips" "decoration-brand/50" (Tw.pp u)
 
+(* A colour a project declared in an [@theme] block has no palette entry to
+   convert, so the opacity path has to read its value off the theme rather than
+   ask the palette for a shade it never had. *)
+let test_theme_colour_opacity_families () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  List.iter
+    (fun cls ->
+      (* The pre-color-mix fallback keeps the modifier's alpha. *)
+      has cls "color-mix(in srgb,oklch(55%.2 250) 50%,transparent)";
+      (* The enhanced value reads the token rather than inlining it. *)
+      has cls "color-mix(in oklab,var(--color-brand) 50%,transparent)")
+    [
+      "bg-brand/50";
+      "text-brand/50";
+      "border-brand/50";
+      "divide-brand/50";
+      "fill-brand/50";
+      "accent-brand/50";
+      "from-brand/50";
+    ]
+
+(* A name no [@theme] block declared is not a colour, whatever it looks like. *)
+let test_undeclared_theme_colour_rejected () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    [ "bg-brand/50"; "text-brand/50"; "border-brand/50" ]
+
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
    the same but folds to a plain hex, which pins the hue that interpolation is
@@ -652,6 +698,12 @@ let tests =
     ( "Decoration theme colour opacity",
       `Quick,
       test_decoration_theme_colour_opacity );
+    ( "Theme colour opacity across families",
+      `Quick,
+      test_theme_colour_opacity_families );
+    ( "Undeclared theme colour rejected",
+      `Quick,
+      test_undeclared_theme_colour_rejected );
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);

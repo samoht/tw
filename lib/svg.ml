@@ -219,8 +219,7 @@ module Handler = struct
     !v
 
   let color_suffix color shade =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Color.color_to_string color
+    if Color.is_shadeless color then Color.color_to_string color
     else Color.color_to_string color ^ "-" ^ string_of_int shade
 
   (* Suborder: determines ordering within the svg priority group. Three groups:
@@ -267,11 +266,10 @@ module Handler = struct
     | Fill_current -> "fill-current"
     | Fill_current_opacity opacity -> "fill-current" ^ opacity_suffix opacity
     | Fill_color (c, shade) ->
-        if Color.is_base_color c || Color.is_custom_color c then
-          "fill-" ^ Color.color_to_string c
+        if Color.is_shadeless c then "fill-" ^ Color.color_to_string c
         else "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Fill_color_opacity (c, shade, opacity) ->
-        if Color.is_base_color c || Color.is_custom_color c then
+        if Color.is_shadeless c then
           "fill-" ^ Color.color_to_string c ^ opacity_suffix opacity
         else
           "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
@@ -292,11 +290,10 @@ module Handler = struct
     | Stroke_current_opacity opacity ->
         "stroke-current" ^ opacity_suffix opacity
     | Stroke_color (c, shade) ->
-        if Color.is_base_color c || Color.is_custom_color c then
-          "stroke-" ^ Color.color_to_string c
+        if Color.is_shadeless c then "stroke-" ^ Color.color_to_string c
         else "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Stroke_color_opacity (c, shade, opacity) ->
-        if Color.is_base_color c || Color.is_custom_color c then
+        if Color.is_shadeless c then
           "stroke-" ^ Color.color_to_string c ^ opacity_suffix opacity
         else
           "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
