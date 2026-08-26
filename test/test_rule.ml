@@ -278,8 +278,8 @@ let test_opacity_supports_under_variant () =
 
 (* An at-rule written in brackets wraps the utility rather than selecting it,
    and keeps its own spelling in the class name: reading it as the [supports-]
-   variant gave a class the HTML would not match. A property test also runs
-   against the prefixed spellings, as Tailwind's browser data has it. *)
+   variant gave a class the HTML would not match. Its condition is emitted as
+   written, prefixed property or not. *)
 let test_bracketed_at_rule_variant () =
   let css cls =
     match Tw.of_string cls with
@@ -295,8 +295,7 @@ let test_bracketed_at_rule_variant () =
   has "[@supports(display:grid)]:grid"
     ".\\[\\@supports\\(display\\:grid\\)\\]\\:grid";
   has "[@supports(backdrop-filter:blur(0))]:backdrop-blur"
-    "@supports(-webkit-backdrop-filter:blur(0))or (backdrop-filter:blur(0))";
-  (* an unprefixed property stays a single test *)
+    "@supports(backdrop-filter:blur(0))";
   has "supports-[display:grid]:flex" "@supports(display:grid)"
 
 (* [in-focus] scopes to an ancestor in that state, the same state names the

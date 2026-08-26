@@ -1126,42 +1126,6 @@ let try_bracket_at_rule s =
     else None
   else None
 
-(* Whether every [(] in [s] closes: a compound condition keeps its own parens,
-   so unwrapping one pair only makes sense when what is left is balanced. *)
-let is_balanced s =
-  let rec go i depth =
-    if i >= String.length s then depth = 0
-    else
-      match s.[i] with
-      | '(' -> go (i + 1) (depth + 1)
-      | ')' when depth = 0 -> false
-      | ')' -> go (i + 1) (depth - 1)
-      | _ -> go (i + 1) depth
-  in
-  go 0 0
-
-(* Properties whose [@supports] test Tailwind also runs against the prefixed
-   spelling, so a browser that only ships the prefix still matches. The set is
-   its browser-support data; these are the entries observed against v4.3.3.
-   [text-size-adjust] additionally carries the [-moz-] spelling. *)
-let supports_vendor_prefixes = function
-  | "backdrop-filter" | "background-clip" | "box-decoration-break" | "hyphens"
-  | "mask" | "mask-image" | "mask-origin" | "mask-size" | "print-color-adjust"
-  | "text-decoration-skip-ink" | "user-select" ->
-      [ "-webkit-" ]
-  | "text-size-adjust" -> [ "-webkit-"; "-moz-" ]
-  | _ -> []
-
-(* [(prop: value)] as Tailwind writes it: one test per prefixed spelling, the
-   unprefixed one last, joined with [or]. *)
-let supports_property_test prop value =
-  let one p = String.concat "" [ "("; p; prop; ":"; value; ")" ] in
-  match supports_vendor_prefixes prop with
-  | [] -> one ""
-  | prefixes ->
-      String.concat ""
-        [ "("; String.concat " or " (List.map one prefixes @ [ one "" ]); ")" ]
-
 let normalize_supports_condition condition_str =
   (* Convert underscores to spaces (Tailwind bracket notation) *)
   let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
@@ -1175,23 +1139,16 @@ let normalize_supports_condition condition_str =
     "(" ^ cond ^ ": var(--tw))"
   else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
   then
-    (* Already wrapped. A single [(prop: value)] still has to go through the
-       prefix expansion, so unwrap it and rebuild; anything else (a compound
-       condition, a [not]) is left as written. *)
-    let inner = String.sub cond 1 (String.length cond - 2) in
-    if is_balanced inner && String.contains inner ':' then
-      let i = String.index inner ':' in
-      supports_property_test
-        (String.trim (String.sub inner 0 i))
-        (String.trim (String.sub inner (i + 1) (String.length inner - i - 1)))
-    else cond
+    (* Already parenthesised, so it is the condition the author wrote. *)
+    cond
   else if String.contains cond ':' then
+    (* [prop: value] -> [(prop:value)], the property test Tailwind emits. *)
     let i = String.index cond ':' in
     let prop = String.trim (String.sub cond 0 i) in
     let value =
       String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
     in
-    supports_property_test prop value
+    String.concat "" [ "("; prop; ":"; value; ")" ]
   else if String.contains cond '(' then
     (* Function call like font-format(opentype) or var(--test) *)
     cond
