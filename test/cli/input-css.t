@@ -89,6 +89,24 @@ leave the reference dangling.
   $ tw --minify --input-css inline.css inline.html | grep -cF -- '--font-a:var(--font-a)'
   1
 
+The modifiers are read from the at-rule's prelude, so [inline] counts wherever
+it sits among them:
+
+  $ cat > multi.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > @theme inline static {
+  >   --font-x: var(--font-ext), system-ui;
+  > }
+  > EOF
+  $ cat > multi.html <<EOF
+  > <div class="font-x"></div>
+  > EOF
+  $ tw --minify --input-css multi.css multi.html | grep -cF '.font-x{font-family:var(--font-ext),system-ui}'
+  1
+  $ tw --minify --input-css multi.css multi.html | grep -c -- '--font-x:'
+  0
+  [1]
+
 [theme()] also takes the dotted path of a v3 config, which names the same
 token under its old namespace. The [spacing] and [lineHeight] scales are the
 spacing step times the key, which v4 keeps no token for, so those are computed:
@@ -161,8 +179,8 @@ each block fills its own slot:
   @layer a\.b{.escaped{padding:2rem}}
 
 A project can declare [@keyframes] inside its [@theme], beside the [--animate-*]
-token that names it. The theme block becomes a [:root] rule, where a nested
-[@keyframes] would be invalid, so it is lifted to the top level:
+token that names it. [@theme] is a build-time directive and does not reach the
+output, so the keyframes are lifted to the top level to survive it:
 
   $ cat > kf.css <<EOF
   > @import "tailwindcss" theme(static);
