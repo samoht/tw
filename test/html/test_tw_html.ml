@@ -289,6 +289,15 @@ let test_void_elements () =
   let input_str = to_string (input ~at:[ At.name "q" ] ()) in
   check string "input self-closed" "<input name=\"q\" />" input_str
 
+let test_class_attribute_whitespace () =
+  (* A class attribute written across lines is still a list of classes. *)
+  let elem = div ~at:[ At.v "class" "flex\n  items-center\tgap-4" ] [] in
+  check (list string) "every class recognised"
+    [ "flex"; "items-center"; "gap-4" ]
+    (List.map Tw.pp (to_tw elem));
+  check string "rendered on one line"
+    "<div class=\"flex items-center gap-4\"></div>" (to_string elem)
+
 let suite =
   ( "tw_html",
     [
@@ -307,4 +316,6 @@ let suite =
         test_page_cache_busting_consistency;
       test_case "inline css" `Quick test_inline_css;
       test_case "void elements" `Quick test_void_elements;
+      test_case "class attribute whitespace" `Quick
+        test_class_attribute_whitespace;
     ] )

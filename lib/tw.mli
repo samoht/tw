@@ -3703,9 +3703,21 @@ val of_string : ?theme:Scheme.t -> string -> (t, [ `Msg of string ]) result
 
     Returns [Error (`Msg reason)] if the class string is not recognized. *)
 
+val split_whitespace : string -> string list
+(** [split_whitespace s] splits a [class] attribute into its class names on any
+    HTML whitespace - space, tab, newline, carriage return or form feed - and
+    drops empty runs. This is the split {!str} performs, exposed so that a
+    consumer parsing each name itself, such as {!Tw_html}, agrees with it on
+    what a class name is.
+
+    Example:
+    {[
+    let names = split_whitespace "flex\n  items-center"
+    ]} *)
+
 val str : string -> t list
-(** [str s] parses a space-separated string of Tailwind class names into a list
-    of styles. Raises [Invalid_argument] if any class is not recognized.
+(** [str s] parses a whitespace-separated string of Tailwind class names into a
+    list of styles. Raises [Invalid_argument] if any class is not recognized.
 
     Example:
     {[
