@@ -132,14 +132,10 @@ let name_of_base u =
   try_handlers !handlers
 
 let class_of_base u =
-  let found = ref None in
   let visit (H (module M)) =
-    match (!found, u) with
-    | None, M.Self x -> found := Some (M.to_class x)
-    | _ -> ()
+    match u with M.Self x -> Some (M.to_class x) | _ -> None
   in
-  List.iter visit !handlers;
-  match !found with
+  match List.find_map visit !handlers with
   | Some class_name -> class_name
   | None -> failwith "name_of_base"
 

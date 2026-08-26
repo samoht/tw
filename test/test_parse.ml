@@ -91,6 +91,22 @@ let test_decimal_class_suffixes_round_trip () =
 let test_redundant_zero_spellings_are_rejected () =
   List.iter unknown [ "p-04"; "p-4.0"; "p-1.50" ]
 
+(* [Parse.split_class] remembers the split of the last class name it was given,
+   because every handler in turn splits the same one. A parse must therefore not
+   depend on what was parsed before it, nor on whether two equal class names are
+   the same string. *)
+let test_parse_is_independent_of_history () =
+  let classes =
+    [ "p-4"; "px-4"; "m-[calc(1rem-2px)]"; "grid-cols-2"; "bg-blue-500" ]
+  in
+  List.iter round_trips classes;
+  List.iter round_trips (List.rev classes);
+  List.iter round_trips classes;
+  let built = String.concat "-" [ "grid"; "cols"; "2" ] in
+  round_trips "grid-cols-3";
+  round_trips built;
+  unknown "grid-cols-"
+
 let tests =
   Alcotest.
     [
@@ -106,6 +122,8 @@ let tests =
         test_decimal_class_suffixes_round_trip;
       test_case "redundant zero suffixes are rejected" `Quick
         test_redundant_zero_spellings_are_rejected;
+      test_case "parsing is independent of parse history" `Quick
+        test_parse_is_independent_of_history;
     ]
 
 let suite = ("parse", tests)
