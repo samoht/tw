@@ -898,14 +898,19 @@ module Handler = struct
     style ~property_rules:props
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
+  (* A project that declares [--perspective-none] chooses the length the utility
+     resolves to, so read its value with the CSS length grammar rather than a
+     px-only test whose failure arm was a fabricated zero. A value the grammar
+     cannot read falls back to the utility's own meaning and still reaches the
+     sheet unaltered, since the theme layer restores the project's own text over
+     the bound value. *)
   let perspective_none ?theme () =
     match Scheme.theme_value theme "perspective-none" with
-    | Some value_str ->
-        let len : Css.length =
-          if String.ends_with ~suffix:"px" value_str then
-            let n = String.sub value_str 0 (String.length value_str - 2) in
-            match float_of_string_opt n with Some f -> Px f | None -> Px 0.
-          else Px 0.
+    | Some value ->
+        let len =
+          Stdlib.Option.value
+            (Css.parse_length (String.trim value))
+            ~default:(None : Css.length)
         in
         let decl, r = Var.binding perspective_none_var len in
         style (decl :: [ Css.perspective (Var r) ])
