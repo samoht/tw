@@ -426,6 +426,23 @@ type tw_css = Link of string | Inline
 (* Type for page generation result *)
 type page = { html : string; css : Tw.Css.t; tw_css : tw_css }
 
+(* A page carries one [Tw.t] per class occurrence, and a page repeats its
+   utilities across every element that wears them. [Tw.to_css] does drop the
+   repeats, but only once each has been compiled to rules, so they are dropped
+   here first. Utilities with the same class name compile to the same rules, and
+   the first occurrence is the one kept on both paths, so the sheet is
+   unchanged. *)
+let dedup_by_class utilities =
+  let seen = Hashtbl.create 256 in
+  List.filter
+    (fun u ->
+      let cls = Tw.pp u in
+      if Hashtbl.mem seen cls then false
+      else (
+        Hashtbl.add seen cls ();
+        true))
+    utilities
+
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
     body_content =
   (* Build HTML tree with placeholder for CSS link *)
@@ -443,7 +460,7 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
   let all_tw = to_tw body_element in
 
   (* Add styles from head content *)
-  let all_tw = all_tw @ List.concat_map to_tw head_content in
+  let all_tw = dedup_by_class (all_tw @ List.concat_map to_tw head_content) in
 
   (* The forms plugin base layer follows Tailwind's [\@plugin] model: it is
      emitted only when the plugin is explicitly enabled ([~forms:true]), since a

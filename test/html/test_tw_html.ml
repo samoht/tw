@@ -298,6 +298,36 @@ let test_class_attribute_whitespace () =
   check string "rendered on one line"
     "<div class=\"flex items-center gap-4\"></div>" (to_string elem)
 
+let sheet p = Tw.Css.to_string ~minify:true (snd (css p))
+
+let test_repeated_utilities_emit_one_sheet () =
+  (* Repeating a utility across a page must not change the sheet: that is what
+     lets the repeats be dropped before they are compiled. *)
+  let markup children = page ~tw_css:Inline [] children in
+  let once =
+    markup
+      [
+        div
+          ~at:[ At.v "class" "underline" ]
+          ~tw:Tw.[ p 4; flex; hover [ bg white ] ]
+          [ span ~tw:Tw.[ m 2 ] [ txt "a" ] ];
+      ]
+  in
+  let repeated =
+    markup
+      [
+        div
+          ~at:[ At.v "class" "underline" ]
+          ~tw:Tw.[ p 4; flex; hover [ bg white ] ]
+          (List.init 20 (fun _ ->
+               span
+                 ~at:[ At.v "class" "underline" ]
+                 ~tw:Tw.[ p 4; m 2; flex; hover [ bg white ] ]
+                 [ txt "a" ]));
+      ]
+  in
+  check string "sheet is the same" (sheet once) (sheet repeated)
+
 let suite =
   ( "tw_html",
     [
@@ -318,4 +348,6 @@ let suite =
       test_case "void elements" `Quick test_void_elements;
       test_case "class attribute whitespace" `Quick
         test_class_attribute_whitespace;
+      test_case "repeated utilities emit one sheet" `Quick
+        test_repeated_utilities_emit_one_sheet;
     ] )
