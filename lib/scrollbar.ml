@@ -239,7 +239,7 @@ module Handler = struct
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
     | parts -> (
-        match Color.shade_of_strings parts with
+        match Color.shade_of_strings ?theme parts with
         | Ok (c, shade) -> Ok (mk (Theme (c, shade, Color.No_opacity)))
         | Error e -> Error e)
 

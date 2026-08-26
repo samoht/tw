@@ -1639,7 +1639,7 @@ module Handler = struct
         | Error e -> Error e)
     (* Named color *)
     | _ -> (
-        match Color.shade_of_strings rest with
+        match Color.shade_of_strings ?theme rest with
         | Ok (color, shade) -> gc (Color_source.Named (color, shade))
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
@@ -1893,7 +1893,7 @@ module Handler = struct
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "bg" :: rest -> (
-        match Color.shade_of_strings rest with
+        match Color.shade_of_strings ~theme rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
     | "from" :: rest -> parse_gradient_color ~theme From rest
