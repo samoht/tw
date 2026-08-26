@@ -86,43 +86,6 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* Rewrite each Tailwind [@theme [modifiers] {] header to a rule selector.
-   Cascade's parser accepts [@theme] but drops its body (it is not a standard
-   at-rule), so this swaps only the at-rule keyword and its modifiers up to the
-   opening brace; the declarations themselves are left for the real parser.
-   [@theme inline] becomes [:root inline] so the modifier survives as part of
-   the selector, which is all [theme_overrides_of_css] reads it for. *)
-let theme_blocks_as_root css =
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let i = ref 0 in
-  while !i < len do
-    if !i + 6 <= len && String.sub css !i 6 = "@theme" then begin
-      (* Skip the header up to the block's opening brace. *)
-      let j = ref (!i + 6) in
-      while !j < len && css.[!j] <> '{' && css.[!j] <> ';' do
-        incr j
-      done;
-      if !j < len && css.[!j] = '{' then begin
-        let modifiers = String.sub css (!i + 6) (!j - !i - 6) in
-        let inline =
-          List.mem "inline" (String.split_on_char ' ' (String.trim modifiers))
-        in
-        Buffer.add_string buf (if inline then ":root inline " else ":root ");
-        i := !j (* keep the '{' and the body verbatim *)
-      end
-      else begin
-        Buffer.add_char buf css.[!i];
-        incr i
-      end
-    end
-    else begin
-      Buffer.add_char buf css.[!i];
-      incr i
-    end
-  done;
-  Buffer.contents buf
-
 (* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
    variables a utility used. The option is stripped before parsing, so it is
    read from the raw text. *)
@@ -133,36 +96,53 @@ let imports_static_theme css =
   in
   go 0
 
+(* Tailwind's [@theme] is not a CSS at-rule, so cascade keeps it whole rather
+   than interpreting it (CSS Syntax 3 sec. 5.5.2, "consume an at-rule"): the
+   prelude carries the modifiers, the block its declarations, both as the source
+   text they were written as. *)
+let theme_block = function
+  | Cascade.Stylesheet.Unknown_at_rule
+      { name = "theme"; prelude; block = Some body } ->
+      Some (prelude, body)
+  | _ -> None
+
+(* The [(bare-name, value)] pairs a [@theme] block declares. Its body is a
+   declaration list, read here the way a rule's body is read: what cascade
+   cannot make a declaration of is dropped, which is what becomes of Tailwind's
+   own [--color-*: initial] resets, and reading carries on past a nested at-rule
+   such as the [@keyframes] a project writes beside its [--animate-*] token. *)
+let theme_tokens body =
+  Cascade.Reader.of_string body
+  |> Cascade.Parser.block_contents
+  |> (fun out -> out.Cascade.Parser.value)
+  |> List.concat_map (function `Decls decls -> decls | `Rule _ -> [])
+  |> List.filter_map (fun (decl : Cascade.Component.declaration) ->
+      let { Cascade.Component.name; value; _ } = decl.Cascade.Component.node in
+      if String.length name > 2 && String.sub name 0 2 = "--" then
+        Some
+          ( String.sub name 2 (String.length name - 2),
+            Cascade.Parser.to_string_custom value )
+      else None)
+
 (* Extract @theme token overrides from a project CSS entrypoint, so tw renders
-   with the same tokens Tailwind reads from it: the [(bare-name, value)] pairs,
+   with the same tokens Tailwind reads from it: the pairs every block declares,
    and the names among them that came from an [@theme inline] block. The
-   declarations are parsed by cascade (after the @theme header swap); the
    resulting strings feed Scheme.with_overrides. *)
 let theme_overrides_of_css css =
-  match Css.of_string (theme_blocks_as_root css) with
+  match Css.of_string css with
   | Error _ -> ([], [])
   | Ok parse ->
-      let block (sel, decls) =
-        let names =
-          List.filter_map
-            (fun d ->
-              match Css.custom_declaration_name d with
-              | Some n when String.length n > 2 && String.sub n 0 2 = "--" ->
-                  Some
-                    ( String.sub n 2 (String.length n - 2),
-                      Css.declaration_value d )
-              | _ -> None)
-            decls
-        in
+      let block (prelude, body) =
+        let names = theme_tokens body in
         let inline =
-          String.ends_with ~suffix:"inline"
-            (Cascade.Selector.to_string ~minify:true sel)
+          List.mem "inline" (String.split_on_char ' ' (String.trim prelude))
         in
         (names, if inline then List.map fst names else [])
       in
       let blocks =
-        List.map block
-          (Css.rules_of_statements (Css.statements parse.Css.stylesheet))
+        Css.statements parse.Css.stylesheet
+        |> List.filter_map theme_block
+        |> List.map block
       in
       (List.concat_map fst blocks, List.concat_map snd blocks)
 
@@ -352,9 +332,9 @@ module Scan = struct
 end
 
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
-   [--animate-*] token that names it. The theme block is not CSS — it becomes a
-   [:root] rule — and a nested [@keyframes] there is invalid, so lift actual
-   keyframe at-rules to the top level, where Tailwind emits them. *)
+   [--animate-*] token that names it. [@theme] is a build-time directive, so
+   [drop_directives] takes the whole block out of the emitted CSS; lift actual
+   keyframe at-rules to the top level first, where Tailwind emits them. *)
 let hoist_theme_keyframes css =
   let scan = Scan.v css in
   let len = String.length css in
