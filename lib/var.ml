@@ -323,10 +323,9 @@ let property_universal : type a.
   | None -> property ~name Universal ~inherits ()
   | Some v -> (
       match (kind, v) with
-      | Gradient_stop, List []
-      | Percentage, Pct 0.
-      | Gradient_direction, To_bottom ->
-          property ~name Universal ~inherits ()
+      | Gradient_stop, List [] -> property ~name Universal ~inherits ()
+      | Percentage, Pct 0. -> property ~name Universal ~inherits ()
+      | Gradient_direction, To_bottom -> property ~name Universal ~inherits ()
       | Gradient_position, Linear_position To_bottom ->
           property ~name Universal ~inherits ()
       | _ ->
