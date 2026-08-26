@@ -2335,10 +2335,7 @@ module Typography_late = struct
             let theme_decl, color_ref =
               Var.binding color_var (Css.hex hex_value)
             in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-                ~percent1:percent
-            in
+            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
@@ -2360,13 +2357,17 @@ module Typography_late = struct
                 ~property_prefix:"text-decoration-color" color shade
             in
             (* A project token may be any CSS colour, not necessarily a palette
-               colour that can be converted to a compile-time hex fallback. *)
-            let fallback_decl = text_decoration_color color_value in
-            let theme_decl, color_ref = Var.binding color_var color_value in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-                ~percent1:percent
+               colour that can be converted to a compile-time hex fallback, so
+               the modifier's alpha rides on an sRGB mix of the value itself. An
+               alpha read from a var has no percentage to mix in, leaving the
+               colour at full opacity. *)
+            let fallback_color =
+              if Color.opacity_var_bare_of opacity <> None then color_value
+              else Color.opacity_fallback ~percent color shade color_value
             in
+            let fallback_decl = text_decoration_color fallback_color in
+            let theme_decl, color_ref = Var.binding color_var color_value in
+            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =

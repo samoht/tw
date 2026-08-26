@@ -3442,6 +3442,7 @@ let color_mix_supports_stmts ~stmts =
   Css.supports ~condition:color_mix_supports_condition stmts
 
 let mix_alpha = Handler.mix_alpha
+let opacity_fallback = Handler.opacity_fallback
 let apply_alpha = Handler.apply_alpha
 
 let oklab_with_supports ?theme ~property ~fallback_decl c shade opacity =
