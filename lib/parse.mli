@@ -84,6 +84,13 @@ val arbitrary_length : string -> Cascade.Css.length option
     and [--spacing()] all read; the whole CSS length grammar is accepted, not a
     hand-picked subset of units. Returns [None] when [s] is not a length. *)
 
+val arbitrary_length_percentage : string -> Cascade.Css.length_percentage option
+(** [arbitrary_length_percentage s] reads the inside of an arbitrary value as a
+    CSS [<length-percentage>]. It is {!arbitrary_length} narrowed to the values
+    that spelling admits: the keywords the length reader also accepts ([auto],
+    [none], [max-content], ...) and a unitless number are [None], because
+    neither is a length-percentage. *)
+
 val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
     property name written in an arbitrary value has to be. *)
