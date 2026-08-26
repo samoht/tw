@@ -211,6 +211,23 @@ let resolve_theme_functions s =
   done;
   Buffer.contents buf
 
+(* The rejection a class gets once no handler has claimed it. A bracket class
+   that looks like an arbitrary property but that nothing accepted is malformed
+   rather than unsupported: the bracket has no property name or does not end the
+   class, or the modifier after it is not an opacity on a colour. *)
+let unknown_class_error ~base_class class_str =
+  if
+    String.length base_class > 2
+    && base_class.[0] = '['
+    && String.contains base_class ':'
+  then
+    Error
+      (`Msg
+         ("Invalid arbitrary property '" ^ class_str
+        ^ "': expected [property:value], optionally followed by an /opacity \
+           modifier on a colour value (e.g. [color:var(--x)]/50)"))
+  else Error (`Msg ("Unknown class: " ^ class_str))
+
 (* Parse a single class string into a Tw.t *)
 let of_string ?(theme = Scheme.default) class_str =
   let modifiers, base_class = modifiers_of_string class_str in
@@ -258,23 +275,7 @@ let of_string ?(theme = Scheme.default) class_str =
           match Utility.base_of_class theme normalized with
           | Ok base_utility -> finish ~alias:base_class base_utility
           | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
-      | None ->
-          (* An arbitrary-property class ([prop:value]) that no handler accepted
-             gets actionable feedback: only colour properties with an /opacity
-             modifier are emitted today. *)
-          if
-            String.length base_class > 2
-            && base_class.[0] = '['
-            && String.contains base_class ':'
-          then
-            Error
-              (`Msg
-                 ("Unsupported arbitrary property '" ^ class_str
-                ^ "': only colour properties with an /opacity modifier are \
-                   emitted (e.g. [color:var(--x)]/50); plain [--name:value] \
-                   declarations and non-colour properties are not yet \
-                   supported"))
-          else Error (`Msg ("Unknown class: " ^ class_str)))
+      | None -> unknown_class_error ~base_class class_str)
 
 let str s =
   let classes = split_whitespace s in
