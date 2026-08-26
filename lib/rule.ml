@@ -83,10 +83,14 @@ module Rules_selector = struct
           (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Cue selectors ->
         Css.Selector.Cue
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
+          (Option.map
+             (List.map (replace_class_with ~old_class ~replacement))
+             selectors)
     | Css.Selector.Cue_region selectors ->
         Css.Selector.Cue_region
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
+          (Option.map
+             (List.map (replace_class_with ~old_class ~replacement))
+             selectors)
     | Css.Selector.Nth_child (nth, of_) ->
         Css.Selector.Nth_child
           ( nth,
