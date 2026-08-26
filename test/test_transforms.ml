@@ -217,8 +217,62 @@ let test_translate_spacing_steps () =
     "-translate-y-0.5 round-trips" "-translate-y-0.5"
     (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")))
 
+(* [perspective-none] resolves to whatever a project declared [--perspective-
+   none] to be. Reading that value back with a px-only test lost every other
+   spelling to a zero before the theme layer restored the project's own text. *)
+let perspective_none_bound_value value =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("perspective-none", value) ]
+  in
+  let u =
+    Result.get_ok (Tw.Transforms.Handler.of_class theme "perspective-none")
+  in
+  match Tw.Transforms.Handler.to_style theme u with
+  | Tw.Style.Style { props; _ } ->
+      List.filter_map
+        (fun d ->
+          match Tw.Css.custom_declaration_name d with
+          | Some "--perspective-none" ->
+              Some (String.trim (Tw.Css.declaration_value d))
+          | _ -> None)
+        props
+  | Tw.Style.Modified _ | Tw.Style.Group _ -> []
+
+let test_perspective_none_theme_override () =
+  let binds value =
+    Alcotest.(check (list string))
+      ("--perspective-none: " ^ value)
+      [ value ]
+      (perspective_none_bound_value value)
+  in
+  binds "0rem";
+  binds "2rem";
+  binds "500px";
+  binds "none";
+  (* A value the length grammar cannot read falls back to the utility's own
+     meaning rather than to a zero; the theme layer still emits the project's
+     text over it. *)
+  Alcotest.(check (list string))
+    "unreadable override" [ "none" ]
+    (perspective_none_bound_value "banana")
+
+(* With no override the utility keeps its own meaning rather than referencing a
+   token nothing declares. *)
+let test_perspective_none_without_override () =
+  let css =
+    Tw.to_css ~base:false [ Result.get_ok (Tw.of_string "perspective-none") ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "perspective:none" true
+    (Astring.String.is_infix ~affix:"perspective:none" css)
+
 let tests =
   [
+    test_case "perspective-none theme override" `Quick
+      test_perspective_none_theme_override;
+    test_case "perspective-none without override" `Quick
+      test_perspective_none_without_override;
     test_case "translate spacing steps" `Quick test_translate_spacing_steps;
     test_case "translate zero keeps its unit" `Quick
       test_translate_zero_keeps_unit;
