@@ -331,6 +331,55 @@ let test_bracket_length_units () =
   emits "text-indent: 3ch" "indent-[3ch]";
   emits "text-indent: -3ch" "-indent-[3ch]"
 
+(* The [/leading] modifier on a text size and the standalone [leading-[...]]
+   utility read an arbitrary line-height with one reader, so they agree on every
+   spelling. The modifier used to render anything but px, rem or a bare number
+   as a zero, collapsing the line box under a selector that matched. *)
+let test_arbitrary_leading () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls value =
+    Alcotest.(check bool)
+      (cls ^ " emits line-height: " ^ value)
+      true
+      (Astring.String.is_infix ~affix:("line-height: " ^ value) (css cls))
+  in
+  let agree spelling value =
+    emits ("leading-[" ^ spelling ^ "]") value;
+    emits ("text-lg/[" ^ spelling ^ "]") value
+  in
+  agree "2em" "2em";
+  agree "150%" "150%";
+  agree "normal" "normal";
+  agree "var(--lh)" "var(--lh)";
+  agree "calc(1rem_+_2px)" "calc(1rem + 2px)";
+  (* the spellings that already worked keep working *)
+  agree "24px" "24px";
+  agree "2rem" "2rem";
+  agree "1.5" "1.5";
+  (* the class name is spelled as the author wrote it *)
+  Alcotest.(check string)
+    "text-lg/[2em] round-trips" "text-lg/[2em]"
+    (Tw.pp (Result.get_ok (Tw.of_string "text-lg/[2em]")))
+
+(* A bracket that is not a line-height is refused by both, rather than accepted
+   and rendered as a zero. *)
+let test_arbitrary_leading_invalid () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  rejected "leading-[red]";
+  rejected "leading-[1zz]";
+  rejected "text-lg/[red]";
+  rejected "text-lg/[1zz]"
+
 let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
@@ -716,6 +765,8 @@ let tests =
     test_case "text-[<font-size>] invalid values" `Quick
       test_text_bracket_size_invalid;
     test_case "bracket length units" `Quick test_bracket_length_units;
+    test_case "arbitrary leading" `Quick test_arbitrary_leading;
+    test_case "arbitrary leading invalid" `Quick test_arbitrary_leading_invalid;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
