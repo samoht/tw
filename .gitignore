@@ -52,6 +52,7 @@ tmp/
 
 # Node.js
 node_modules/
+node_modules
 .npm/
 
 # Generated example files
