@@ -179,6 +179,30 @@ let order_of_unknown_name () =
   check order "unknown" None (Tw.Var.order "test-never-defined");
   check order "leading -- stripped" (Some (6, 8)) (Tw.Var.order "--text-xl")
 
+(* A name owns its family and its [@property] need: each is a fact about one
+   custom property, not a slot several families share. A second registration
+   that agrees restates the fact; one that disagrees is a constant copied by
+   hand that has drifted, and it is refused rather than letting module
+   initialisation order decide the properties layer. *)
+let family_registered_once () =
+  let (_ : Css.length Tw.Var.channel) =
+    Tw.Var.channel ~family:`Ring Css.Length "test-family-owner"
+  in
+  let (_ : Css.length Tw.Var.channel) =
+    Tw.Var.channel ~family:`Ring Css.Length "test-family-owner"
+  in
+  check
+    (Alcotest.option Alcotest.string)
+    "established" (Some "Ring")
+    (Option.map
+       (function `Ring -> "Ring" | _ -> "other")
+       (Tw.Var.family "test-family-owner"));
+  Alcotest.check_raises "a disagreeing family is refused"
+    (Invalid_argument
+       "--test-family-owner: family is Ring, registered again as Shadow")
+    (fun () ->
+      ignore (Tw.Var.channel ~family:`Shadow Css.Length "test-family-owner"))
+
 let tests =
   [
     test_case "var CSS output" `Quick var_css_output;
@@ -194,6 +218,7 @@ let tests =
     test_case "order of theme-renamed weight" `Quick
       order_of_theme_renamed_weight;
     test_case "order of unknown name" `Quick order_of_unknown_name;
+    test_case "family registered once" `Quick family_registered_once;
   ]
 
 let suite = ("var", tests)
