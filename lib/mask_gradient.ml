@@ -193,6 +193,13 @@ module Handler = struct
      one stop without restating the others. *)
   let linear_stops_var = Var.channel Gradient_stop "tw-mask-linear-stops"
   let conic_stops_var = Var.channel Gradient_stop "tw-mask-conic-stops"
+  let radial_stops_var = Var.channel Gradient_stop "tw-mask-radial-stops"
+
+  (* The radial gradient's own geometry, which its stops read alongside the two
+     colour stops every direction owns. *)
+  let radial_shape_var = Var.channel Radial_shape "tw-mask-radial-shape"
+  let radial_size_var = Var.channel Radial_size "tw-mask-radial-size"
+  let radial_position_var = Var.channel Position_value "tw-mask-radial-position"
 
   (* The angle [mask-linear-45] and [mask-conic-45] turn their gradient by. *)
   let linear_position_var = Var.channel Angle "tw-mask-linear-position"
@@ -214,6 +221,9 @@ module Handler = struct
   let start_color : Css.color = Named Black
   let end_color : Css.color = Transparent
   let no_rotation : angle = Deg 0.
+  let default_shape : Css.radial_shape = Ellipse
+  let default_size : Css.radial_size = Farthest_corner
+  let default_position : position_value = Center
 
   (* Reading a mask variable. The [@property] rule gives it an initial value, so
      the reference needs no fallback of its own. *)
@@ -283,24 +293,23 @@ module Handler = struct
     let decl, stops_ref = Var.binding conic_stops_var conic_stops in
     [ decl; set conic_vars.slot (Conic_gradient_var stops_ref) ]
 
-  (* [--tw-mask-radial-shape], [--tw-mask-radial-size] and
-     [--tw-mask-radial-position] have no {!Css.kind}, so cascade types neither a
-     declaration that sets one nor a reference that reads one. The radial stops
-     read all three, so this family stays a token stream. *)
-  let radial_stops_decl =
-    "var(--tw-mask-radial-shape) var(--tw-mask-radial-size) at \
-     var(--tw-mask-radial-position), var(--tw-mask-radial-from-color) \
-     var(--tw-mask-radial-from-position), var(--tw-mask-radial-to-color) \
-     var(--tw-mask-radial-to-position)"
+  (* The radial gradient reads its shape, size and position out of variables, so
+     a shape or size utility can move one of them without restating the stops.
+     [radial_geometry] is that [<ending-shape> <size> at <position>] prelude. *)
+  let radial_geometry : gradient_position =
+    Radial_position
+      (radial_gradient_config
+         ~shape:(Var (read radial_shape_var default_shape))
+         ~size:(Var (read radial_size_var default_size))
+         ~position:(Var (read radial_position_var default_position))
+         ())
 
-  let radial_gradient_decl = "radial-gradient(var(--tw-mask-radial-stops))"
+  let radial_stops : gradient_stop =
+    List (Position radial_geometry :: stops radial_vars)
 
   let radial_stops_decls =
-    [
-      custom_property ~layer:"utilities" "--tw-mask-radial-stops"
-        radial_stops_decl;
-      custom_property ~layer:"utilities" "--tw-mask-radial" radial_gradient_decl;
-    ]
+    let decl, stops_ref = Var.binding radial_stops_var radial_stops in
+    [ decl; set radial_vars.slot (Radial_gradient_var stops_ref) ]
 
   (* Common composite declarations *)
   let composite_decls =
@@ -561,63 +570,91 @@ module Handler = struct
           (Css.parse_length v)
     | _ -> None
 
-  (* Build the style for mask-radial-at-* - only sets the position variable *)
+  (* A bracket [mask-radial-at-*] is a position value, and of_class has already
+     read it as one. The keyword form is the class's own words: it admits runs
+     no position value carries ([center center], [top top]), so it goes into the
+     sheet as the author spelled it. *)
   let build_radial_at_style pos =
-    let position_str =
-      match pos with
-      | At_keyword s -> s
-      | At_arbitrary s -> (
-          match radial_at_position s with
-          | Some p -> Cascade.Pp.to_string Css.Properties.pp_position_value p
-          | None -> s)
-    in
-    let decls =
-      [
-        custom_property ~layer:"utilities" "--tw-mask-radial-position"
-          position_str;
-      ]
-    in
-    style decls
+    match pos with
+    | At_arbitrary s -> (
+        match radial_at_position s with
+        | Some p -> style [ set radial_position_var p ]
+        | None ->
+            style
+              [
+                custom_property ~layer:"utilities"
+                  (Var.css_name radial_position_var)
+                  s;
+              ])
+    | At_keyword s ->
+        style
+          [
+            custom_property ~layer:"utilities"
+              (Var.css_name radial_position_var)
+              s;
+          ]
 
   (* Build the style for mask-circle/mask-ellipse *)
-  let build_radial_shape_style shape =
-    let shape_str =
-      match shape with Circle -> "circle" | Ellipse -> "ellipse"
+  let build_radial_shape_style (shape : radial_shape) =
+    let shape : Css.radial_shape =
+      match shape with Circle -> Circle | Ellipse -> Ellipse
     in
-    style
-      [ custom_property ~layer:"utilities" "--tw-mask-radial-shape" shape_str ]
+    style [ set radial_shape_var shape ]
+
+  (* [mask-radial-[...]] takes whatever the author wrote, so a size cascade can
+     read becomes a typed radius and anything else goes into the sheet as
+     written. *)
+  let radial_size_decl s =
+    let typed : Css.radial_size option =
+      match String.split_on_char ' ' s with
+      | [ one ] ->
+          Option.map
+            (fun l : Css.radial_size -> Circle_radius l)
+            (Css.parse_length one)
+      | [ x; y ] -> (
+          match
+            (arbitrary_length_percentage x, arbitrary_length_percentage y)
+          with
+          | Some x, Some y -> Some (Ellipse_radii (x, y))
+          | _ -> None)
+      | _ -> None
+    in
+    match typed with
+    | Some size -> set radial_size_var size
+    | None ->
+        custom_property ~layer:"utilities" (Var.css_name radial_size_var) s
 
   (* Build the style for mask-radial size keywords and arbitrary sizes *)
-  let build_radial_size_style size =
-    let size_str =
+  let build_radial_size_style (size : radial_size) =
+    let size_decl =
       match size with
-      | Closest_corner -> "closest-corner"
-      | Closest_side -> "closest-side"
-      | Farthest_corner -> "farthest-corner"
-      | Farthest_side -> "farthest-side"
-      | Arbitrary_size s -> s
+      | Closest_corner -> set radial_size_var Closest_corner
+      | Closest_side -> set radial_size_var Closest_side
+      | Farthest_corner -> set radial_size_var Farthest_corner
+      | Farthest_side -> set radial_size_var Farthest_side
+      | Arbitrary_size s -> radial_size_decl s
     in
     (* Arbitrary sizes get full mask setup with property_rules, keywords just
        set the variable without property rules *)
     match size with
     | Arbitrary_size _ ->
+        (* With no stops of its own the gradient falls back to the bare size,
+           which is the whole argument list a size utility leaves. *)
+        let stops_ref =
+          Var.reference_with_fallback radial_stops_var
+            (Position
+               (Radial_position
+                  (radial_gradient_config
+                     ~size:(Var (read radial_size_var default_size))
+                     ())))
+        in
         let common_decls =
           mask_image_decls
-          @ [
-              custom_property ~layer:"utilities" "--tw-mask-radial"
-                "radial-gradient(var(--tw-mask-radial-stops, \
-                 var(--tw-mask-radial-size)))";
-              custom_property ~layer:"utilities" "--tw-mask-radial-size"
-                size_str;
-            ]
+          @ [ set radial_vars.slot (Radial_gradient_var stops_ref); size_decl ]
         in
         style ~property_rules:radial_property_rules
           (common_decls @ composite_decls)
-    | _ ->
-        style
-          [
-            custom_property ~layer:"utilities" "--tw-mask-radial-size" size_str;
-          ]
+    | _ -> style [ size_decl ]
 
   (* Build the style for mask-conic position *)
   let build_conic_style ?theme pos_end value =
@@ -635,6 +672,11 @@ module Handler = struct
     | Rad n -> deg (n *. 180.0 /. Float.pi)
     | Turn n -> deg (n *. 360.0)
     | a -> a
+
+  (* A bracket angle cascade cannot read is kept as the tokens the author wrote,
+     so it still reaches the sheet through a typed angle. *)
+  let invalid_angle s : angle =
+    Invalid (Css.Values.read_invalid_value (Cascade.Cursor.of_string s))
 
   let arbitrary_angle s : angle option =
     match
@@ -655,11 +697,11 @@ module Handler = struct
         set var (Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n))))
     (* A bracket value that is not an angle still reaches the sheet, negation
        and all, because the variable takes any token stream and Tailwind writes
-       the text through. *)
-    | Angle_arb s -> (
-        match arbitrary_angle s with
-        | Some a -> set var a
-        | None -> custom_property ~layer:"utilities" (Var.css_name var) s)
+       the text through. On its own it is carried as the spec-invalid angle it
+       is; negated it is spelled out, because a typed [calc] over an invalid
+       operand loses the spaces around the operator that both tools write. *)
+    | Angle_arb s ->
+        set var (Option.value (arbitrary_angle s) ~default:(invalid_angle s))
     | Angle_arb_neg s -> (
         match arbitrary_angle s with
         | Some a -> set var (negated a)
