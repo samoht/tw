@@ -40,7 +40,7 @@ module Handler = struct
     | Stroke_1
     | Stroke_2
     | Stroke_width of int
-    | Stroke_width_bracket of string
+    | Stroke_width_bracket of string * Css.length
     | Stroke_width_typed_var of
         string (* full inner: "length:var(--my-width)" *)
 
@@ -149,20 +149,6 @@ module Handler = struct
     in
     Style.style ~merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  (* Parse bracket width value *)
-  let parse_bracket_width inner : Css.length =
-    if
-      String.length inner > 2
-      && String.sub inner (String.length inner - 2) 2 = "px"
-    then
-      let num_str = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt num_str with Some f -> Px f | None -> Px 0.
-    else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
-    then
-      let num_str = String.sub inner 0 (String.length inner - 1) in
-      match float_of_string_opt num_str with Some f -> Pct f | None -> Pct 0.
-    else match float_of_string_opt inner with Some f -> Px f | None -> Px 0.
-
   let to_style theme =
     let fill_color_style color shade = fill_color_style ~theme color shade in
     let stroke_color_style color shade =
@@ -212,8 +198,7 @@ module Handler = struct
     | Stroke_2 -> style Css.[ stroke_width (Length (Length (Px 2.))) ]
     | Stroke_width n ->
         style Css.[ stroke_width (Length (Length (Px (float_of_int n)))) ]
-    | Stroke_width_bracket inner ->
-        let w = parse_bracket_width inner in
+    | Stroke_width_bracket (_, w) ->
         style [ Css.stroke_width (Length (Length w)) ]
     | Stroke_width_typed_var inner ->
         let var_part =
@@ -329,7 +314,7 @@ module Handler = struct
     | Stroke_1 -> "stroke-1"
     | Stroke_2 -> "stroke-2"
     | Stroke_width n -> "stroke-" ^ string_of_int n
-    | Stroke_width_bracket v -> "stroke-[" ^ v ^ "]"
+    | Stroke_width_bracket (v, _) -> "stroke-[" ^ v ^ "]"
     | Stroke_width_typed_var v -> "stroke-[" ^ v ^ "]"
 
   let has_opacity s = String.contains s '/'
@@ -337,8 +322,6 @@ module Handler = struct
   let starts prefix s =
     String.length s >= String.length prefix
     && String.sub s 0 (String.length prefix) = prefix
-
-  let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-'
 
   (* Parse bracket value for fill/stroke: determine if it's a color or typed
      var. Returns the variant constructor for the appropriate type. *)
@@ -386,16 +369,24 @@ module Handler = struct
           )
       | None -> err_not_utility
 
-  (* Parse bracket value for stroke width: [1.5], [12px], [50%],
-     [length:var(...)], [number:var(...)], [percentage:var(...)] *)
+  (* Parse bracket value for stroke width: [1.5], [12px], [50%], [2em],
+     [calc(1rem_+_2px)], [length:var(...)], [number:var(...)],
+     [percentage:var(...)]. A bracket the length reader cannot read is not a
+     stroke width, so it is refused here rather than reaching to_style. *)
   let parse_bracket_stroke_width inner =
     if
       starts "length:" inner || starts "number:" inner
       || starts "percentage:" inner
     then Ok (Stroke_width_typed_var inner)
-    else if String.length inner > 0 && is_numeric_start inner.[0] then
-      Ok (Stroke_width_bracket inner)
-    else err_not_utility
+    else
+      match Parse.arbitrary_length inner with
+      | Some length -> Ok (Stroke_width_bracket (inner, length))
+      | None -> (
+          (* A bare number reads as pixels, which is what Tailwind's own fixture
+             corpus records for stroke-[1.5]. *)
+          match float_of_string_opt inner with
+          | Some f -> Ok (Stroke_width_bracket (inner, Px f))
+          | None -> err_not_utility)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
