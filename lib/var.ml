@@ -323,10 +323,14 @@ let property_universal : type a.
   | None -> property ~name Universal ~inherits ()
   | Some v -> (
       match (kind, v) with
-      | Gradient_stop, List [] -> property ~name Universal ~inherits ()
-      | Percentage, Pct 0. -> property ~name Universal ~inherits ()
-      | Gradient_direction, To_bottom -> property ~name Universal ~inherits ()
-      | Gradient_position, Linear_position To_bottom ->
+      | Gradient_stop, (List [] : Css.gradient_stop) ->
+          property ~name Universal ~inherits ()
+      | Percentage, (Pct 0. : Css.percentage) ->
+          property ~name Universal ~inherits ()
+      | Gradient_direction, (To_bottom : Css.gradient_direction) ->
+          property ~name Universal ~inherits ()
+      | Gradient_position, (Linear_position To_bottom : Css.gradient_position)
+        ->
           property ~name Universal ~inherits ()
       | _ ->
           let initial_str = string_of_kind_value kind v in
@@ -347,7 +351,8 @@ let property_typed : type a.
   | Percentage, None -> property ~name Length_percentage ~inherits ()
   | Percentage, Some v ->
       property ~name Length_percentage
-        ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
+        ~initial_value:
+          (Pct (match (v : Css.percentage) with Pct f -> f | _ -> 0.0))
         ~inherits ()
   | Length_percentage, None -> property ~name Length_percentage ~inherits ()
   | Length_percentage, Some v ->
@@ -357,7 +362,8 @@ let property_typed : type a.
       let initial_str = string_of_kind_value kind v in
       property ~name Universal ~initial_value:initial_str ~inherits ()
   | Gradient_stop, None -> property ~name Universal ~inherits ()
-  | Gradient_stop, Some (List []) -> property ~name Universal ~inherits ()
+  | Gradient_stop, Some (List [] : Css.gradient_stop) ->
+      property ~name Universal ~inherits ()
   | Gradient_stop, Some v ->
       property ~name Universal
         ~initial_value:(string_of_kind_value kind v)
