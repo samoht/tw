@@ -348,12 +348,8 @@ let property_typed : type a.
       property ~name Percentage ~initial_value:(Pct v) ~inherits ()
   | Color, None -> property ~name Universal ~inherits ()
   | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
-  | Percentage, None -> property ~name Length_percentage ~inherits ()
-  | Percentage, Some v ->
-      property ~name Length_percentage
-        ~initial_value:
-          (Pct (match (v : Css.percentage) with Pct f -> f | _ -> 0.0))
-        ~inherits ()
+  | Percentage, None -> property ~name Percentage ~inherits ()
+  | Percentage, Some v -> property ~name Percentage ~initial_value:v ~inherits ()
   | Length_percentage, None -> property ~name Length_percentage ~inherits ()
   | Length_percentage, Some v ->
       property ~name Length_percentage ~initial_value:v ~inherits ()
