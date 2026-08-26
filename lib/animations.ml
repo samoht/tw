@@ -25,7 +25,9 @@ module Handler = struct
     | Ping
     | Pulse
     | Bounce
-    | Bracket of string
+    (* The author's bracket text travels with the animation it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Bracket of string * Css.animation
     | Named of string
 
   type Utility.base += Self of t
@@ -248,27 +250,34 @@ module Handler = struct
     | "spin" -> Some spin_keyframes
     | _ -> Option.None
 
-  let animate_bracket value =
+  (* Tailwind moves the animation name to the end of the shorthand, so the
+     bracket reads as (name, shorthand). *)
+  let animation_parts value =
     let css_value = String.map (fun c -> if c = '_' then ' ' else c) value in
-    let parts = String.split_on_char ' ' css_value in
-    (* Tailwind moves the animation name to the end of the shorthand *)
-    let anim_name, reordered =
-      match parts with
-      | name :: rest when rest <> [] ->
-          (name, String.concat " " (rest @ [ name ]))
-      | _ -> (css_value, css_value)
-    in
+    match String.split_on_char ' ' css_value with
+    | name :: (_ :: _ as rest) -> (name, String.concat " " (rest @ [ name ]))
+    | _ -> (css_value, css_value)
+
+  (* The animation an [animate-[...]] bracket denotes. [None] is a bracket the
+     animation grammar cannot read, and [of_class] refuses the utility rather
+     than leaving [to_style] to raise. *)
+  let arbitrary_animation value : Css.animation option =
+    let _, reordered = animation_parts value in
+    let cursor = Cascade.Cursor.of_string reordered in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_animation cursor
+    with
+    | Ok anim -> Some anim
+    | Error _ -> None
+
+  let animate_bracket value anim =
+    let anim_name, _ = animation_parts value in
     let rules =
       match known_keyframes anim_name with
       | Some kf -> opt_some [ kf ]
       | Option.None -> opt_none
     in
-    let cursor = Cascade.Cursor.of_string reordered in
-    match
-      Cascade.Cursor.try_parse_full_err Css.Properties.read_animation cursor
-    with
-    | Ok anim -> style ~rules [ Css.animation anim ]
-    | Error _ -> invalid_arg ("animate-[" ^ value ^ "]: not a valid animation")
+    style ~rules [ Css.animation anim ]
 
   let animate_named name =
     let var_name = "animate-" ^ name in
@@ -302,7 +311,7 @@ module Handler = struct
     | Ping -> animate_ping ()
     | Pulse -> animate_pulse ()
     | Bounce -> animate_bounce ()
-    | Bracket value -> animate_bracket value
+    | Bracket (value, anim) -> animate_bracket value anim
     | Named name -> animate_named name
 
   let suborder = function
@@ -325,7 +334,10 @@ module Handler = struct
     | "animate" :: rest ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
-          Ok (Bracket (Parse.bracket_inner value))
+          let inner = Parse.bracket_inner value in
+          match arbitrary_animation inner with
+          | Some anim -> Ok (Bracket (inner, anim))
+          | Option.None -> Error (`Msg "Invalid animation value")
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
@@ -340,7 +352,7 @@ module Handler = struct
     | Ping -> "animate-ping"
     | Pulse -> "animate-pulse"
     | Bounce -> "animate-bounce"
-    | Bracket v -> "animate-[" ^ v ^ "]"
+    | Bracket (v, _) -> "animate-[" ^ v ^ "]"
     | Named name -> "animate-" ^ name
 
   let examples = [ No_animation ]
