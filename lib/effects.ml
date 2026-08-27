@@ -1741,48 +1741,37 @@ module Handler = struct
     let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
-  let parse_bracket_width inner : Css.length =
+  (* One unit table, read once. [parse_bracket_width] is the option form with
+     the zero the callers that cannot fail fall back to; the two used to be
+     written out separately and agreed only by hand, so adding a unit to one
+     alone would have reintroduced a silently-zero width. *)
+  let parse_bracket_width_opt inner : Css.length option =
+    let suffixed suffix mk =
+      let n = String.length suffix in
+      if
+        String.length inner > n
+        && String.sub inner (String.length inner - n) n = suffix
+      then
+        Some (String.sub inner 0 (String.length inner - n))
+        |> Option.map (fun num -> Option.map mk (float_of_string_opt num))
+      else None
+    in
     if String.length inner > 6 && String.sub inner 0 7 = "length:" then
       let v = String.sub inner 7 (String.length inner - 7) in
-      let bare = Parse.extract_var_name v in
-      Var (Var.bracket bare)
-    else if
-      String.length inner > 2
-      && String.sub inner (String.length inner - 2) 2 = "px"
-    then
-      let num_str = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt num_str with Some f -> Px f | None -> Px 0.
-    else if
-      String.length inner > 3
-      && String.sub inner (String.length inner - 3) 3 = "rem"
-    then
-      let num_str = String.sub inner 0 (String.length inner - 3) in
-      match float_of_string_opt num_str with Some f -> Rem f | None -> Rem 0.
-    else match float_of_string_opt inner with Some f -> Px f | None -> Px 0.
-
-  let parse_bracket_width_opt inner =
-    if String.length inner > 6 && String.sub inner 0 7 = "length:" then
-      Some (parse_bracket_width inner)
-    else if
-      String.length inner > 2
-      && String.sub inner (String.length inner - 2) 2 = "px"
-    then
-      let num_str = String.sub inner 0 (String.length inner - 2) in
-      match float_of_string_opt num_str with
-      | Some _ -> Some (parse_bracket_width inner)
-      | None -> None
-    else if
-      String.length inner > 3
-      && String.sub inner (String.length inner - 3) 3 = "rem"
-    then
-      let num_str = String.sub inner 0 (String.length inner - 3) in
-      match float_of_string_opt num_str with
-      | Some _ -> Some (parse_bracket_width inner)
-      | None -> None
+      Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
     else
-      match float_of_string_opt inner with
-      | Some _ -> Some (parse_bracket_width inner)
-      | None -> None
+      match suffixed "px" (fun f -> (Px f : Css.length)) with
+      | Some found -> found
+      | None -> (
+          match suffixed "rem" (fun f -> (Rem f : Css.length)) with
+          | Some found -> found
+          | None ->
+              Option.map
+                (fun f -> (Px f : Css.length))
+                (float_of_string_opt inner))
+
+  let parse_bracket_width inner : Css.length =
+    match parse_bracket_width_opt inner with Some l -> l | None -> Px 0.
 
   (* Ring-offset color utilities *)
   let ring_offset_color_with_opacity ?theme color shade opacity =
