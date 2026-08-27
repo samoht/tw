@@ -851,14 +851,19 @@ module Handler = struct
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
-    let with_alpha =
+    (* Tailwind writes the plain fallback as a hex carrying the alpha byte and
+       keeps the oklab spelling for the [color-mix] the [@supports] block
+       guards, so the two are built separately. Folding the fallback through
+       oklab as well made it depend on a colour-space round trip. *)
+    let base_value, with_alpha =
       match c with
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
-          Color.hex_to_oklab_alpha hex alpha
-      | _ -> c
+          ( Css.hex (Color.hex_with_alpha hex percent),
+            Color.hex_to_oklab_alpha hex alpha )
+      | _ -> (c, c)
     in
-    let base_decl, _ = Var.binding shadow_color_var with_alpha in
+    let base_decl, _ = Var.binding shadow_color_var base_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         with_alpha Css.Transparent
@@ -1471,14 +1476,17 @@ module Handler = struct
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
-    let with_alpha =
+    (* As for the outer shadow: the plain fallback is a hex carrying the alpha
+       byte, and the oklab spelling is kept for the guarded [color-mix]. *)
+    let base_value, with_alpha =
       match c with
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
-          Color.hex_to_oklab_alpha hex alpha
-      | _ -> c
+          ( Css.hex (Color.hex_with_alpha hex percent),
+            Color.hex_to_oklab_alpha hex alpha )
+      | _ -> (c, c)
     in
-    let base_decl, _ = Var.binding inset_shadow_color_var with_alpha in
+    let base_decl, _ = Var.binding inset_shadow_color_var base_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" with_alpha Css.Transparent
