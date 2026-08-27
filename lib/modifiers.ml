@@ -99,25 +99,6 @@ let arbitrary_length_class prefix (l : Css.length) cls =
   let len_str = compact_length l in
   Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
 
-(** Legacy registry for callers of [Modifiers.apply] without an explicit
-    breakpoint list. [Tw.of_string] always supplies its threaded scheme. *)
-let custom_breakpoints : (string * float) list ref = ref []
-
-let register_custom_breakpoints bps = custom_breakpoints := bps
-let clear_custom_breakpoints () = custom_breakpoints := []
-
-type custom_variant = { values : (string * string) list; template : string }
-(** A [matchVariant]-registered variant: a value map (including a [DEFAULT]
-    entry under the key [""]) and a selector template containing [{}] where the
-    resolved value is substituted. *)
-
-(** Registry for [matchVariant] custom variants (set per-test by the harness or
-    by callers that mirror a Tailwind plugin). *)
-let custom_variants : (string * custom_variant) list ref = ref []
-
-let register_custom_variants vs = custom_variants := vs
-let clear_custom_variants () = custom_variants := []
-
 (* Substitute the resolved value into a template's [{}] placeholder. *)
 let custom_variant_apply template value =
   let tlen = String.length template in
@@ -132,10 +113,10 @@ let custom_variant_apply template value =
       ^ String.sub template (i + 2) (tlen - i - 2)
   | None -> template
 
-(* Parse [is-data], [is-data-foo], or [is-data-[potato]] against the registry,
-   returning the (token, resolved-selector) for a [Custom_variant]. *)
-let try_custom_variant s =
-  let resolve name cv =
+(* Parse [is-data], [is-data-foo], or [is-data-[potato]] against the theme's own
+   variants, returning the (token, resolved-selector) for a [Custom_variant]. *)
+let try_custom_variant (theme : Scheme.t) s =
+  let resolve name (cv : Scheme.custom_variant) =
     if s = name then
       Option.map
         (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
@@ -163,16 +144,7 @@ let try_custom_variant s =
           value
       else None
   in
-  List.find_map (fun (name, cv) -> resolve name cv) !custom_variants
-
-(** Registry for [@custom-variant]s whose body is a container query (e.g.
-    [@custom-variant has-a { @container style(--a) { @slot } }]). Kept separate
-    from {!custom_variants} because the condition is structural
-    ([Css.Container.t]) so the [not-] prefix can negate it soundly. *)
-let container_variants : (string * Css.Container.t) list ref = ref []
-
-let register_container_variants vs = container_variants := vs
-let clear_container_variants () = container_variants := []
+  List.find_map (fun (name, cv) -> resolve name cv) theme.custom_variants
 
 (* Negate a container condition, cancelling double-negation and pushing through
    a named container: [not (not C)] = [C]; [name (C)] -> [name (not C)]. *)
@@ -183,10 +155,10 @@ let rec negate_container (c : Css.Container.t) : Css.Container.t =
       Css.Container.Named (name, negate_container x)
   | x -> Css.Container.Not x
 
-(* Parse [has-a] (registered) or [not-has-a] (negated) against the
-   container-variant registry, yielding a [Container_style] modifier. *)
-let try_container_variant s =
-  let lookup name = List.assoc_opt name !container_variants in
+(* Parse [has-a] (declared) or [not-has-a] (negated) against the theme's
+   container variants, yielding a [Container_style] modifier. *)
+let try_container_variant (theme : Scheme.t) s =
+  let lookup name = List.assoc_opt name theme.container_variants in
   match lookup s with
   | Some cond -> Some (Container_style (s, cond))
   | None ->
@@ -1894,7 +1866,7 @@ and try_scoped_container_query s =
         | _ -> None)
 
 (* Parse a modifier string into a typed Style.modifier *)
-let rec parse_modifier ~breakpoints s : modifier option =
+let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
       (fun () -> List.assoc_opt s simple_modifiers);
@@ -1902,25 +1874,25 @@ let rec parse_modifier ~breakpoints s : modifier option =
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);
-      (fun () -> try_has_variant ~breakpoints s);
+      (fun () -> try_has_variant ~theme s);
       (fun () -> try_numeric_nth s);
       (fun () -> try_compound_named_group s);
       (fun () -> try_in_modifier s);
       (fun () -> try_not_in_modifier s);
       (fun () -> try_group_peer_not s);
-      (fun () -> try_group_peer_not_variant ~breakpoints s);
+      (fun () -> try_group_peer_not_variant ~theme s);
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
-      (fun () -> try_container_variant s);
+      (fun () -> try_container_variant theme s);
       (fun () -> try_not_modifier s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
-      (fun () -> try_custom_breakpoint breakpoints s);
-      (fun () -> try_custom_variant s);
+      (fun () -> try_custom_breakpoint (Scheme.breakpoint_names theme) s);
+      (fun () -> try_custom_variant theme s);
       (* Last: a [not-] over any other variant negates the selector it produces.
          The readings above come first because several [not-] spellings need
          their own handling. *)
-      (fun () -> try_not_of_modifier ~breakpoints s);
+      (fun () -> try_not_of_modifier ~theme s);
     ]
   in
   List.find_map (fun f -> f ()) fns
@@ -1928,7 +1900,7 @@ let rec parse_modifier ~breakpoints s : modifier option =
 (* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
    its own. The reading above only knows the simple state names and a bare
    bracket. *)
-and try_group_peer_not_variant ~breakpoints s =
+and try_group_peer_not_variant ~theme s =
   let try_prefix prefix make =
     let plen = String.length prefix in
     if String.length s <= plen || String.sub s 0 plen <> prefix then None
@@ -1936,7 +1908,7 @@ and try_group_peer_not_variant ~breakpoints s =
       let base, name =
         split_name (String.sub s plen (String.length s - plen))
       in
-      match parse_modifier ~breakpoints base with
+      match parse_modifier ~theme base with
       | Some m when is_not_compatible m -> Some (make m name)
       | Some _ | None -> None
   in
@@ -1947,29 +1919,22 @@ and try_group_peer_not_variant ~breakpoints s =
 (* [has-<variant>]: the argument is any variant, and that variant's own selector
    goes inside [:has()]. The shorthand reading only knows the state names and a
    bracket, so [has-peer-checked] fell through. *)
-and try_has_variant ~breakpoints s =
+and try_has_variant ~theme s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
-    match
-      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
-    with
+    match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Has_variant m)
     | Some _ | None -> None
   else None
 
-and try_not_of_modifier ~breakpoints s =
+and try_not_of_modifier ~theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
-    match
-      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
-    with
+    match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Not m)
     | Some _ | None -> None
 
 (* Apply a list of modifier strings to a base utility *)
-let apply ?breakpoints modifiers base_utility =
-  let breakpoints =
-    Option.value ~default:(List.map fst !custom_breakpoints) breakpoints
-  in
+let apply ?(theme = Scheme.default) modifiers base_utility =
   (* Convert utility to a list for wrapping *)
   let to_list = function
     | Utility.Group styles -> styles
@@ -1980,7 +1945,7 @@ let apply ?breakpoints modifiers base_utility =
     match acc with
     | None -> None
     | Some u -> (
-        match parse_modifier ~breakpoints modifier_str with
+        match parse_modifier ~theme modifier_str with
         | Some m -> Some (wrap m (to_list u))
         | None -> None)
   in
