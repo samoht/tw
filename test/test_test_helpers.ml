@@ -46,6 +46,40 @@ let test_position_absent_class () =
   Alcotest.(check (option int))
     "flex is not in the sheet" None (position "flex")
 
+(* Every declaration a class emits, theme bindings included. *)
+let declarations_of cls =
+  match Tw.of_string cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      Tw.to_css ~base:false [ u ]
+      |> Cascade.Css.fold
+           (fun acc stmt ->
+             match Cascade.Css.as_rule stmt with
+             | Some (_, decls, _) -> decls @ acc
+             | None -> acc)
+           []
+
+let references_var cls =
+  Test_helpers.has_var_in_declarations (declarations_of cls)
+
+(* A [var()] under calc() is still a variable reference. A predicate that only
+   reads the head of the value calls the spacing scale no reference at all, and
+   every assertion that a sheet holds none passes on it by accident. *)
+let test_var_under_calc () =
+  Alcotest.(check bool)
+    "p-4 references the spacing variable" true (references_var "p-4")
+
+(* Same shape one function further in: the colour sits inside color-mix. *)
+let test_var_under_color_mix () =
+  Alcotest.(check bool)
+    "bg-black/50 references the palette variable" true
+    (references_var "bg-black/50")
+
+let test_no_var_when_none_referenced () =
+  Alcotest.(check bool)
+    "text-left references no variable" false
+    (references_var "text-left")
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -56,6 +90,10 @@ let tests =
       test_position_ignores_longer_class;
     Alcotest.test_case "class position: absent class" `Quick
       test_position_absent_class;
+    Alcotest.test_case "var under calc" `Quick test_var_under_calc;
+    Alcotest.test_case "var under color-mix" `Quick test_var_under_color_mix;
+    Alcotest.test_case "no var referenced" `Quick
+      test_no_var_when_none_referenced;
   ]
 
 let suite = ("test_helpers", tests)
