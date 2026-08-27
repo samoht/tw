@@ -828,17 +828,21 @@ module Handler = struct
 
   (** Convert a bracket gradient value to its CSS string. "125deg" → "125deg",
       "1.3rad" → "74.4845deg", "to_bottom" → "to bottom", "circle_at_center" →
-      "circle at center" *)
+      "circle at center". "100grad" stays "100grad": gradians are a distinct CSS
+      angle unit from radians, even though the word ends in the same three
+      letters. Reading the value as a real [<angle>] tells the two apart instead
+      of matching on the "rad" suffix, which "grad" also has. *)
   let bracket_value_to_css inner =
-    if String.ends_with ~suffix:"rad" inner then
-      let rad_s = String.sub inner 0 (String.length inner - 3) in
-      match float_of_string_opt rad_s with
-      | Some rad ->
-          let deg = rad *. 180.0 /. Float.pi in
-          (* Round to 4 decimal places to match Lightning CSS *)
-          Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
-      | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
-    else String.map (fun c -> if c = '_' then ' ' else c) inner
+    let decoded = String.map (fun c -> if c = '_' then ' ' else c) inner in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Values.read_angle
+        (Cascade.Cursor.of_string decoded)
+    with
+    | Ok (Css.Rad rad) ->
+        let deg = rad *. 180.0 /. Float.pi in
+        (* Round to 4 decimal places to match Lightning CSS *)
+        Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
+    | Ok _ | Error _ -> decoded
 
   (* [interp_decl] for a typed direction [dir_val]: [With_interpolation] typed
      when [ci_opt] covers the modifier, printing [dir_val] back to CSS rather
