@@ -1522,12 +1522,14 @@ let try_not_shorthand inner =
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
     starting style, children/descendants, and container queries cannot be
-    negated. *)
+    negated: a container query has no negated selector form, and tw used to
+    build [.not-\@md\:flex:not(.flex)] for one, negating the utility's own class
+    so the rule matched nothing. *)
 let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
-  | Descendants | Prose_element _ ->
+  | Descendants | Prose_element _ | Container _ ->
       false
   | _ -> true
 
