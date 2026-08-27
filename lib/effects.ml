@@ -58,6 +58,8 @@ module Handler = struct
     | Shadow_2xl
     | Shadow_inner
     | Shadow_arbitrary of string
+    | Shadow_theme of string (* shadow from a --shadow-* token *)
+    | Inset_shadow_theme of string (* shadow from an --inset-shadow-* token *)
     | Shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Shadow_shape_opacity of shadow_shape * Color.opacity_modifier
     (* Shadows — color utilities *)
@@ -602,6 +604,29 @@ module Handler = struct
               [ d_shadow; box_shadow_composition v_shadow ]
         | None -> shadow_none)
 
+  let is_theme_shadow theme n =
+    Scheme.theme_value (Some theme) ("shadow-" ^ n) <> None
+
+  let is_theme_inset_shadow theme n =
+    Scheme.theme_value (Some theme) ("inset-shadow-" ^ n) <> None
+
+  (* A shadow the project named in its [@theme]. Tailwind inlines the token's
+     value rather than referencing it, routing the colour through the family's
+     shadow-colour channel exactly as an arbitrary shadow does. *)
+  let shadow_theme theme name =
+    match Scheme.theme_value (Some theme) ("shadow-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_shadow raw with
+        | None -> style []
+        | Some shadow ->
+            let shadow_value =
+              wrap_shadow_colors ~color_var:shadow_color_var shadow
+            in
+            let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
+            style ~property_rules:shadow_property_rules
+              [ d_shadow; box_shadow_composition v_shadow ])
+
   let shadow_arbitrary_opacity (arb : string) opacity =
     match parse_arbitrary_shadow arb with
     | Some { h_offset; v_offset; blur; spread; color } -> (
@@ -905,6 +930,16 @@ module Handler = struct
     in
     style ~property_rules:shadow_property_rules
       [ d_inset_shadow; Css.box_shadows box_shadow_vars ]
+
+  let inset_shadow_theme theme name =
+    match Scheme.theme_value (Some theme) ("inset-shadow-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_shadow raw with
+        | None -> style []
+        | Some shadow ->
+            inset_shadow_compose
+              (wrap_shadow_colors ~color_var:inset_shadow_color_var shadow))
 
   (* v4.3.1 default inset-shadow scale (verified against the bare CLI). The
      named utilities are inset-shadow-{2xs,xs,sm}; each is a single inset
@@ -2186,6 +2221,8 @@ module Handler = struct
     | Shadow_2xl -> shadow_2xl
     | Shadow_inner -> shadow_inner
     | Shadow_arbitrary arb -> shadow_arbitrary arb
+    | Shadow_theme name -> shadow_theme theme name
+    | Inset_shadow_theme name -> inset_shadow_theme theme name
     | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
     | Shadow_shape_opacity (shape, op) -> shadow_shape_opacity_style shape op
     | Shadow_color (c, s) -> set_shadow_color c s
@@ -2651,6 +2688,8 @@ module Handler = struct
         | Ok (c, s, opacity) -> Ok (Shadow_color_opacity (c, s, opacity))
         | Error _ -> err_not_utility)
     (* A shadeless colour has no shade segment: shadow-white, shadow-black. *)
+    | [ "shadow"; name ] when is_theme_shadow theme name ->
+        Ok (Shadow_theme name)
     | [ "shadow"; color ] -> (
         match Color.shade_of_strings [ color ] with
         | Ok (c, s) -> Ok (Shadow_color (c, s))
@@ -2666,6 +2705,8 @@ module Handler = struct
       when Scheme.theme_value (Some theme) "inset-shadow" <> None ->
         Ok Inset_shadow
     | [ "inset"; "shadow" ] -> err_not_utility
+    | [ "inset"; "shadow"; name ] when is_theme_inset_shadow theme name ->
+        Ok (Inset_shadow_theme name)
     | [ "inset"; "shadow"; "inherit" ] -> Ok Inset_shadow_inherit
     | [ "inset"; "shadow"; "transparent" ] -> Ok Inset_shadow_transparent
     | [ "inset"; "shadow"; current_str ]
@@ -2901,6 +2942,8 @@ module Handler = struct
     | Shadow_2xl -> "shadow-2xl"
     | Shadow_inner -> "shadow-inner"
     | Shadow_arbitrary arb -> "shadow-[" ^ arb ^ "]"
+    | Shadow_theme name -> "shadow-" ^ name
+    | Inset_shadow_theme name -> "inset-shadow-" ^ name
     | Shadow_arbitrary_opacity (arb, op) ->
         "shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity op
     | Shadow_shape_opacity (shape, op) ->
@@ -3114,7 +3157,7 @@ module Handler = struct
        within-group order: bracket values ([) sort before named (none/sm/xl) *)
     | Shadow | Shadow_2xs | Shadow_xs | Shadow_2xl | Shadow_inner | Shadow_lg
     | Shadow_md | Shadow_none | Shadow_sm | Shadow_xl | Shadow_arbitrary _
-    | Shadow_bracket_shadow _ | Shadow_bracket_var _ ->
+    | Shadow_bracket_shadow _ | Shadow_bracket_var _ | Shadow_theme _ ->
         30000
     (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
@@ -3144,7 +3187,7 @@ module Handler = struct
        decides *)
     | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
     | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_bracket_shadow _
-    | Inset_shadow_bracket_var _ ->
+    | Inset_shadow_bracket_var _ | Inset_shadow_theme _ ->
         31000
     (* Inset shadow color utilities *)
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
