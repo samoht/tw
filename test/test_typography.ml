@@ -809,6 +809,21 @@ let test_font_bracket_family_quoted () =
     (Astring.String.is_infix ~affix:{|font-family: "\"liga\"|}
        (css {|font-["liga"_0x10]|}))
 
+(* A comma-separated bracket family list ([font-[Papyrus,fantasy]]) is a
+   fallback stack, not one literal name: each comma segment is its own
+   [<family-name>], so a bare generic keyword among them (here [fantasy]) stays
+   an unquoted keyword rather than folding into one quoted string. *)
+let test_font_bracket_family_comma_list () =
+  let css cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "unquoted comma list, generic keyword kept bare" true
+    (Astring.String.is_infix ~affix:"font-family:Papyrus,fantasy"
+       (css "font-[Papyrus,fantasy]"))
+
 (* An arbitrary decoration thickness takes any CSS length unit, not just the px
    the hand-rolled suffix parser knew; the percentage form keeps its em
    conversion. A bracket that is not a length is rejected by the parser rather
@@ -1022,6 +1037,8 @@ let tests =
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font bracket family quoted" `Quick
       test_font_bracket_family_quoted;
+    test_case "font bracket family comma list" `Quick
+      test_font_bracket_family_comma_list;
     test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
