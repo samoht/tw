@@ -995,6 +995,24 @@ let test_at_rule_variant_over_media () =
   emits "starting:sm:flex" [ "@starting-style"; "min-width: 40rem" ];
   emits "@md:sm:flex" [ "@container"; "min-width: 40rem" ]
 
+(* A container query is not a [not-*] inner. Tailwind rejects the class
+   outright; tw built a rule whose selector negates the utility's own class
+   ([.not-\@md\:flex:not(.flex)]), which can never match anything. *)
+let test_not_container_rejected () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "not-@md:flex";
+  rejected "not-@lg:flex";
+  rejected "not-@min-[30rem]:flex";
+  (* The negatable inners still parse. *)
+  check bool "not-hover still parses" true
+    (Result.is_ok (Tw.of_string "not-hover:flex"));
+  check bool "not-first still parses" true
+    (Result.is_ok (Tw.of_string "not-first:flex"))
+
 (* Extend the suite with new tests *)
 let tests =
   tests
@@ -1006,6 +1024,7 @@ let tests =
         test_supports_property_is_unprefixed;
       test_case "at-rule variant over a media query" `Quick
         test_at_rule_variant_over_media;
+      test_case "not-container is rejected" `Quick test_not_container_rejected;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
       test_case "padded attribute brackets" `Quick
         test_padded_attribute_brackets;
