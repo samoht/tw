@@ -955,6 +955,22 @@ let test_container_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"container width-property order" utilities
 
+(* Tailwind sorts a container variant on the text of its value, not on the width
+   that text resolves to: the key is the value's unit, or the name before the
+   parenthesis when the value is a call. A [theme(--breakpoint-sm)] bracket
+   therefore sorts under "theme", after every px and rem width, while the 40rem
+   it resolves to would place it among them. Two overlapping conditions setting
+   the same property pick different winners under the two orders. *)
+let test_container_query_call_order () =
+  Test_helpers.check_class_order ~test_name:"container call sorts by its name"
+    [
+      "@min-[100px]:inline";
+      "@min-[2rem]:table";
+      "@lg:grid";
+      "@min-[64rem]:block";
+      "@min-[theme(--breakpoint-sm)]:flex";
+    ]
+
 let test_arbitrary_vs_named_order () =
   (* Within a variant block, arbitrary values sort by their raw class name ('['
      = 0x5b, before lowercase letters), so dark:bg-[#...] precedes
@@ -1667,6 +1683,8 @@ let tests =
     test_case "border width and color ordering" `Quick
       test_border_width_color_ordering;
     test_case "container width-property order" `Slow test_container_order;
+    test_case "container call sorts by its name" `Slow
+      test_container_query_call_order;
     test_case "arbitrary before named within family" `Slow
       test_arbitrary_vs_named_order;
     test_case "arbitrary value sorts by suffix within family" `Slow
