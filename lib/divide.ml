@@ -31,7 +31,12 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "divide"
-  let priority _ = 5
+
+  (* [divide-x-reverse] is the one member of the family Tailwind sorts after
+     everything else, borders included, while [divide-y-reverse] stays with the
+     rest. It sets only [--tw-divide-x-reverse], so the position is
+     cascade-neutral and the canonical differ cannot see it. *)
+  let priority = function X_reverse -> 39 | _ -> 5
 
   (* CSS Variables for divide reverse. Property order 4/5 places these BEFORE
      --tw-border-style (order 6) in within-utility sorting, which determines
