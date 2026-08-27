@@ -151,7 +151,10 @@ val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
 (** [order_of_property k] is the [(priority, suborder)] of the utility family
     that sets property [k], or [None] when no registered handler claims it. This
     is where a declared [@utility] gets its place: Tailwind sorts one by the
-    property it declares, not by its name. *)
+    property it declares, not by its name. A family that writes [k] on the
+    element itself outranks one that writes it only on a pseudo-element, so
+    [color] resolves to the text colours rather than to
+    [placeholder-transparent]. *)
 
 val ordering_property :
   Cascade.Css.declaration list -> Cascade.Css.Declaration.prop_key option
