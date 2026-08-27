@@ -41,8 +41,9 @@ let theme_src =
 
 let test_theme_overrides () =
   let tokens, inline = theme_overrides_of_css theme_src in
-  check pair_list "tokens, minus the reset cascade cannot read"
+  check pair_list "every token each block declares, in source order"
     [
+      ("color-*", "initial");
       ("color-brand", "red");
       ("animate-flash", "flash 2s");
       ("spacing", "0.3rem");
@@ -50,6 +51,19 @@ let test_theme_overrides () =
     ]
     tokens;
   check string_list "only the inline block's names" [ "font-x" ] inline
+
+(* [--<ns>-*: initial] takes a whole namespace out of the theme. The name is not
+   a <dashed-ident>, so no CSS parser can build a declaration from it and the
+   reset has to be read off the token stream; without it a project's reset never
+   reaches the renderer, which then keeps the built-in scale. *)
+let test_theme_namespace_reset () =
+  let tokens, _ =
+    theme_overrides_of_css
+      "@theme {\n  --breakpoint-*: initial;\n  --breakpoint-tablet: 800px;\n}"
+  in
+  check pair_list "the reset stands among the tokens beside it"
+    [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "800px") ]
+    tokens
 
 let test_imports_static_theme () =
   check bool "declared" true (imports_static_theme theme_src);
@@ -135,6 +149,7 @@ let tests =
     test_case "variant segments" `Quick test_variant_segments;
     test_case "declared variants split out" `Quick test_split_declared_variants;
     test_case "theme overrides" `Quick test_theme_overrides;
+    test_case "theme namespace reset" `Quick test_theme_namespace_reset;
     test_case "static theme import" `Quick test_imports_static_theme;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "import options stripped" `Quick
