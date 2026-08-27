@@ -71,21 +71,51 @@ let rec style_declarations (s : Style.t) =
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 
+(* A width utility writes the style property as a bare reference to the style
+   utilities' channel, so the declaration says nothing about which family the
+   utility belongs to. No cascade API tells a bare var() carrier from a real
+   value, so the two carriers are named here. *)
 let is_ordering_carrier decl =
   match Cascade.Css.Declaration.property_key decl with
   | Key Border_style ->
       Cascade.Css.declaration_value ~minify:true decl = "var(--tw-border-style)"
+  | Key Outline_style ->
+      Cascade.Css.declaration_value ~minify:true decl
+      = "var(--tw-outline-style)"
   | _ -> false
 
+(* The property name a vendor-prefixed one stands in for: [-webkit-user-select]
+   is [user-select]. *)
+let unprefixed_name name =
+  if String.length name > 1 && name.[0] = '-' then
+    Option.map
+      (fun i -> String.sub name (i + 1) (String.length name - i - 1))
+      (String.index_from_opt name 1 '-')
+  else None
+
+(* A prefixed declaration a later one repeats unprefixed is the same property
+   written twice for reach, and the slot belongs to the standard spelling. One
+   with no unprefixed twin ([-webkit-line-clamp]) is the utility's own. *)
+let is_prefixed_duplicate decl rest =
+  match unprefixed_name (Cascade.Css.Declaration.property_name decl) with
+  | None -> false
+  | Some plain ->
+      List.exists
+        (fun d -> String.equal (Cascade.Css.Declaration.property_name d) plain)
+        rest
+
 let ordering_property declarations =
-  List.find_map
-    (fun decl ->
-      if is_ordering_carrier decl then None
-      else
-        match Cascade.Css.Declaration.property_key decl with
-        | Key (Custom_property _) | Key (Unknown_property _) -> None
-        | key -> Some key)
-    declarations
+  let rec scan = function
+    | [] -> None
+    | decl :: rest ->
+        if is_ordering_carrier decl || is_prefixed_duplicate decl rest then
+          scan rest
+        else (
+          match Cascade.Css.Declaration.property_key decl with
+          | Key (Custom_property _) | Key (Unknown_property _) -> scan rest
+          | key -> Some key)
+  in
+  scan declarations
 
 let build_property_slots () =
   let tbl = Hashtbl.create 512 in
