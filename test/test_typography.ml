@@ -244,6 +244,35 @@ let test_content_named_requires_theme () =
    parse, so a stray source word (font-awesome) stays an unknown class; an
    @theme inline token carries its value into the utility rather than a
    reference, except when the value refers back to the token itself. *)
+(* A [--text-*] token the project declared names a font size, the way a
+   [--font-*] one names a family. Tailwind emits the reference alone: the token
+   carries no line height, so the utility sets none. *)
+let test_named_text_size () =
+  (match Tw.of_string "text-huge" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "text-huge should be rejected without a token");
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("text-huge", "9rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+  in
+  Alcotest.(check bool)
+    "text-huge references its token" true
+    (Astring.String.is_infix ~affix:"font-size:var(--text-huge)"
+       (css "text-huge"));
+  Alcotest.(check bool)
+    "text-huge sets no line height" false
+    (Astring.String.is_infix ~affix:"line-height" (css "text-huge"));
+  Alcotest.(check bool)
+    "text-huge/7 takes the modifier's leading" true
+    (Astring.String.is_infix ~affix:"line-height:calc(var(--spacing)*7)"
+       (css "text-huge/7"))
+
 let test_named_font_family () =
   (match Tw.of_string "font-awesome" with
   | Error _ -> ()
@@ -863,6 +892,7 @@ let tests =
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
+    test_case "named text size from the theme" `Quick test_named_text_size;
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
