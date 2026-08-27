@@ -227,6 +227,43 @@ let test_order_of_property_skips_outline_carrier () =
     (Some (order_of "outline-solid"))
     (order_of_property (Key Outline_style))
 
+(* Tailwind sorts a declared [@utility] by the property it writes, so every
+   property a family is named for needs a slot. A family with no example
+   covering its property leaves a declared utility at the layer's tail. *)
+let test_order_of_property_covers_named_families () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun (key, cls) ->
+      check
+        (option (pair int int))
+        (cls ^ " owns the property it is named for")
+        (Some (order_of cls))
+        (order_of_property key))
+    [
+      ((Key Order : Cascade.Css.Declaration.prop_key), "order-1");
+      (Key Rotate, "rotate-45");
+      (Key Scale, "scale-50");
+      (Key Translate, "translate-x-2");
+      (Key Transform, "transform-none");
+      (Key Transform_style, "transform-flat");
+      (Key Scroll_snap_stop, "snap-always");
+      (Key Break_before, "break-before-page");
+      (Key Break_after, "break-after-page");
+      (Key Break_inside, "break-inside-avoid");
+      (Key Border_radius, "rounded-sm");
+      (Key Outline_offset, "outline-offset-2");
+      (Key Background_position, "bg-center");
+      (Key Text_align, "text-center");
+      (Key Font_family, "font-sans");
+      (Key Font_style, "italic");
+      (Key Line_height, "leading-none");
+    ]
+
 let tests =
   [
     test_case "base_of_class valid input" `Quick test_base_of_class_valid;
@@ -240,6 +277,8 @@ let tests =
       test_order_of_property_skips_vendor_prefix;
     test_case "order_of_property skips the outline carrier" `Quick
       test_order_of_property_skips_outline_carrier;
+    test_case "order_of_property covers the named families" `Quick
+      test_order_of_property_covers_named_families;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;
