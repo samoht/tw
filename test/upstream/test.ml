@@ -109,33 +109,6 @@ let scheme_of_theme_vars theme_vars : Tw.Scheme.t =
       px "default-outline-width" default.default_outline_width;
   }
 
-(** Extract all CSS variable names referenced in expected CSS text. *)
-let extract_var_names expected =
-  let vars = ref Css.Pp.String_set.empty in
-  let len = String.length expected in
-  let rec scan i =
-    if i < len - 2 && expected.[i] = '-' && expected.[i + 1] = '-' then (
-      let j = ref (i + 2) in
-      while
-        !j < len
-        &&
-        let c = expected.[!j] in
-        (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || (c >= '0' && c <= '9')
-        || c = '-' || c = '_'
-      do
-        incr j
-      done;
-      if !j > i + 2 then
-        vars :=
-          Css.Pp.String_set.add (String.sub expected (i + 2) (!j - i - 2)) !vars;
-      scan !j)
-    else if i < len then scan (i + 1)
-  in
-  scan 0;
-  !vars
-
 (* The expected CSS is Tailwind's own output, so a token read back out of it and
    handed to tw is compared against itself: on that token the runner is blind.
    Reading one back is only legitimate where the test's own [@theme] block
@@ -148,8 +121,25 @@ let declared_root_vars ~declared expected =
     (fun (name, _) -> List.mem name declared)
     (extract_root_vars expected)
 
-(** Build theme configuration for CSS emission. *)
-let theme_config ~declared config expected =
+(* [Css.resolve_theme]'s keep-set decides which of tw's [var()] references
+   survive and which are inlined from [theme_defaults]. Keying it on the names
+   the expected CSS happens to spell makes the comparison one-directional: where
+   tw emits [var(--color-red-500)] and Tailwind emitted [#ef4444], the name is
+   absent from the expected bytes, so tw's reference is inlined to the same
+   literal before the diff and the case passes. That is exactly the
+   variables-versus-inline choice the [Var] system exists to get right.
+
+   Which tokens are inlined is a property of the fixture's own [@config], not of
+   the output being compared: [@theme inline] inlines every token by definition,
+   and the [run()] harness inlines the two [--default-transition-*] tokens it
+   treats as literal fallbacks. Every other reference is tw's to defend, so the
+   keep-set holds it live and the diff sees it. Binding a free reference at
+   [:root] is a separate pass with no keep-set: it adds the declaration tw's
+   [~base:false] render leaves out rather than replacing a value. *)
+let inlined_tokens =
+  [ "default-transition-timing-function"; "default-transition-duration" ]
+
+let theme_resolution ~declared config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
@@ -157,43 +147,63 @@ let theme_config ~declared config expected =
     ]
   in
   let root_vars = declared_root_vars ~declared expected in
-  let combined_defaults name =
-    match List.assoc_opt name root_vars with
-    | Some _ as result -> result
-    | None -> (
-        match Tw.Var.resolve_theme_refs name with
-        | Some _ as result -> result
-        | None ->
-            List.find_map
-              (fun (var_name, _, default) ->
-                if name = var_name then Some default else None)
-              hardcoded)
-  in
-  let hardcoded_only name =
+  let of_hardcoded pick name =
     List.find_map
-      (fun (var_name, _, default) ->
-        if name = var_name then Some default else None)
+      (fun (var_name, inline_val, default) ->
+        if name = var_name then Some (pick (inline_val, default)) else None)
       hardcoded
   in
-  let combined_inline_defaults name =
+  let defaults pick name =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
         match Tw.Var.resolve_theme_refs name with
         | Some _ as result -> result
-        | None ->
-            List.find_map
-              (fun (var_name, inline_val, _) ->
-                if name = var_name then Some inline_val else None)
-              hardcoded)
+        | None -> of_hardcoded pick name)
+  in
+  let combined_defaults = defaults snd in
+  let combined_inline_defaults = defaults fst in
+  (* Inline the named tokens and nothing else: an empty keep-set with a lookup
+     that answers only for them. *)
+  let inline_pass names theme_defaults stylesheet =
+    Css.resolve_theme ~theme:Css.Pp.String_set.empty
+      ~theme_defaults:(fun name ->
+        if List.mem name names then theme_defaults name else None)
+      stylesheet
+  in
+  let bind_pass theme_defaults stylesheet =
+    Css.resolve_theme ~theme_defaults stylesheet
   in
   match config with
-  | Run -> (extract_var_names expected, combined_defaults)
-  | Theme -> (extract_var_names expected, combined_defaults)
-  | Theme_inline -> (Css.Pp.String_set.empty, combined_inline_defaults)
-  | No_theme -> (extract_var_names expected, hardcoded_only)
-  | Theme_reference | Theme_inline_reference ->
-      (extract_var_names expected, fun _ -> None)
+  | Run ->
+      (* The [run()] harness renders the [--default-*] tokens as literal
+         fallbacks whether or not the case redeclares them. *)
+      fun stylesheet ->
+        stylesheet
+        |> inline_pass inlined_tokens combined_defaults
+        |> bind_pass combined_defaults
+  | Theme ->
+      (* Under [@theme] a token the case declares is a real theme token with a
+         [:root] declaration behind it, so its reference stays live; one it does
+         not declare comes from the implicit default theme, which the fixtures
+         render inline. *)
+      let inlined =
+        List.filter (fun name -> not (List.mem name declared)) inlined_tokens
+      in
+      fun stylesheet ->
+        stylesheet
+        |> inline_pass inlined combined_defaults
+        |> bind_pass combined_defaults
+  | Theme_inline ->
+      (* [@theme inline] means every token is inlined at its use site, so the
+         empty keep-set is the config's own semantics rather than a reading of
+         the expected output. *)
+      fun stylesheet ->
+        Css.resolve_theme ~theme:Css.Pp.String_set.empty
+          ~theme_defaults:combined_inline_defaults stylesheet
+  | No_theme ->
+      fun stylesheet -> inline_pass inlined_tokens (of_hardcoded snd) stylesheet
+  | Theme_reference | Theme_inline_reference -> Fun.id
 
 let canonical_stylesheet_css css = String.trim css
 
@@ -372,6 +382,36 @@ let test_scheme_from_declared_tokens_only () =
     "an undeclared spacing step stays absent" false
     (Tw.Scheme.has_explicit_spacing scheme 8)
 
+(* Guards [theme_resolution]: what gets inlined before the diff is decided by
+   the case's [@config] and its own declarations, not by the names the expected
+   CSS happens to spell. The keep-set used to be every [--name] in the expected
+   bytes, so a reference tw emitted where Tailwind emitted a literal was inlined
+   off tw's side first and the case could not fail -- the one behaviour the
+   [Var] system exists to get right, never compared. *)
+let test_reference_survives_theme_resolution () =
+  let stylesheet =
+    match
+      Css.of_string
+        ".x { transition-duration: var(--default-transition-duration) }"
+    with
+    | Ok { stylesheet; _ } -> stylesheet
+    | Error _ -> Alcotest.fail "the fixture stylesheet does not parse"
+  in
+  (* An expected CSS that spells no variable at all: under the old keep-set
+     every reference was inlined away. *)
+  let rendered ~declared =
+    Css.to_string ~minify:true (theme_resolution ~declared Theme "" stylesheet)
+  in
+  let references css =
+    Re.execp (Re.compile (Re.str "var(--default-transition-duration)")) css
+  in
+  Alcotest.(check bool)
+    "a token the case declares keeps tw's reference" true
+    (references (rendered ~declared:[ "default-transition-duration" ]));
+  Alcotest.(check bool)
+    "a token the case does not declare is inlined, as @theme renders it" false
+    (references (rendered ~declared:[]))
+
 let test_layer_order_not_tolerated () =
   let expected =
     "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
@@ -497,9 +537,7 @@ let run_test_case test () =
       Tw.Scheme.with_overrides scheme
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
-    let theme, theme_defaults =
-      theme_config ~declared test.config test.expected
-    in
+    let resolve_theme = theme_resolution ~declared test.config test.expected in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
@@ -525,9 +563,8 @@ let run_test_case test () =
       match our_stylesheet with
       | None -> ""
       | Some stylesheet ->
-          stylesheet
-          |> Css.resolve_theme ~theme ~theme_defaults
-          |> Css.to_string ~minify:true |> String.trim
+          stylesheet |> resolve_theme |> Css.to_string ~minify:true
+          |> String.trim
     in
     let expected = test.expected in
     let expected_css = canonical_stylesheet_css expected in
@@ -554,9 +591,8 @@ let run_test_case test () =
           match our_stylesheet with
           | None -> ""
           | Some stylesheet ->
-              stylesheet
-              |> Css.resolve_theme ~theme ~theme_defaults
-              |> Css.to_string ~indent:2 |> String.trim
+              stylesheet |> resolve_theme |> Css.to_string ~indent:2
+              |> String.trim
         in
         (* When a class tw rejected is a candidate cause of the mismatch, name
            it so the diff is not the only clue (the old runner dropped it
@@ -699,6 +735,8 @@ let () =
         test_echo_only_declared_tokens;
       test_case "the scheme is built from declared tokens only" `Quick
         test_scheme_from_declared_tokens_only;
+      test_case "a tw reference survives theme resolution" `Quick
+        test_reference_survives_theme_resolution;
     ]
   in
   let suites =
