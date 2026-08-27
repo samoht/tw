@@ -255,23 +255,56 @@ let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
         | Error _ -> None)
     candidates
 
+let scanned_classes paths =
+  collect_files paths
+  |> List.concat_map Tw_tools.Source_scan.candidates_from_file
+  |> List.sort_uniq String.compare
+
+(* The whole sheet tw generates for a scanned project: the built-in utilities,
+   the classes the project's own [@utility] and [@custom-variant] declarations
+   route, and the entrypoint all of it is spliced into. A comparison against the
+   real Tailwind has to be made against this, not against the built-in utilities
+   alone: Tailwind reads the same entrypoint, so every declared utility would
+   otherwise read as a rule tw failed to emit. *)
+let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
+  let defs = Entrypoint.entry_variant_defs opts.input_css_path in
+  let udefs = Entrypoint.entry_utility_defs opts.input_css_path in
+  let routed, normal =
+    List.partition (Entrypoint.is_custom_routed ~defs ~udefs) all_classes
+  in
+  let known =
+    parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
+  in
+  let routed_count, routed_extra, routed_stmts =
+    Entrypoint.custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
+  in
+  let stylesheet =
+    Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
+      (List.map snd known)
+  in
+  let stylesheet =
+    match routed_stmts with
+    | [] -> stylesheet
+    | extra -> Css.v (Css.statements stylesheet @ extra)
+  in
+  let stylesheet =
+    match opts.input_css_path with
+    | Some path ->
+        Entrypoint.splice_into_entrypoint ~theme:opts.theme ~path stylesheet
+    | None -> stylesheet
+  in
+  (List.length known + routed_count, stylesheet)
+
 let diff_files paths ~(opts : gen_opts) =
   try
-    let all_files = collect_files paths in
-    let all_classes =
-      List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
-      |> List.sort_uniq String.compare
-    in
+    let all_classes = scanned_classes paths in
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true ?input_css:opts.input_css all_classes
     in
-    let tw_styles =
-      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css
-        all_classes
-      |> List.map snd
+    let _, stylesheet =
+      native_stylesheet ~opts ~include_base:true all_classes
     in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true tw_styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
       Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
@@ -285,41 +318,13 @@ let diff_files paths ~(opts : gen_opts) =
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
   try
-    let all_files = collect_files paths in
-    let all_classes =
-      List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
-      |> List.sort_uniq String.compare
-    in
-    let defs = Entrypoint.entry_variant_defs opts.input_css_path in
-    let udefs = Entrypoint.entry_utility_defs opts.input_css_path in
-    let routed, normal =
-      List.partition (Entrypoint.is_custom_routed ~defs ~udefs) all_classes
-    in
-    let known =
-      parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
-    in
-    let tw_styles = List.map snd known in
-    let routed_count, routed_extra, routed_stmts =
-      Entrypoint.custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
-    in
-    let stylesheet =
-      Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
-        tw_styles
-    in
-    let stylesheet =
-      match routed_stmts with
-      | [] -> stylesheet
-      | extra -> Css.v (Css.statements stylesheet @ extra)
-    in
-    let stylesheet =
-      match opts.input_css_path with
-      | Some path ->
-          Entrypoint.splice_into_entrypoint ~theme:opts.theme ~path stylesheet
-      | None -> stylesheet
+    let all_classes = scanned_classes paths in
+    let known_count, stylesheet =
+      native_stylesheet ~opts ~include_base all_classes
     in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
-      ~known_count:(List.length known + routed_count);
+      ~known_count;
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
@@ -328,15 +333,10 @@ let process_files paths flag ~(opts : gen_opts) =
   | Diff -> diff_files paths ~opts
   | Tailwind -> (
       try
-        let all_files = collect_files paths in
-        let all_classes =
-          List.concat_map Tw_tools.Source_scan.candidates_from_file all_files
-          |> List.sort_uniq String.compare
-        in
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
             ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
-            all_classes
+            (scanned_classes paths)
         in
         print_string css;
         `Ok ()
