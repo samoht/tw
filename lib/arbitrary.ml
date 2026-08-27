@@ -99,7 +99,7 @@ module Handler = struct
             [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
         in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | Color.Opacity_percent p ->
+    | Color.Opacity_percent { value = p; _ } ->
         let srgb_fallback =
           Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
         in
@@ -114,7 +114,7 @@ module Handler = struct
         in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_arbitrary f ->
-        let p = f *. 100.0 in
+        let p = f.value *. 100.0 in
         let srgb_fallback =
           Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
         in
@@ -128,7 +128,7 @@ module Handler = struct
             [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
         in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | Color.Opacity_bracket_percent p ->
+    | Color.Opacity_bracket_percent { value = p; _ } ->
         let srgb_fallback =
           Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
         in
@@ -266,24 +266,12 @@ module Handler = struct
 
   let suborder _ = 0
 
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-        else "/" ^ Pp.float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-        else "/[" ^ Pp.float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/" ^ v
-
   let to_class = function
     | Color_opacity { property; value; alpha_fn; opacity } ->
         let written =
           match alpha_fn with Some { spelling; _ } -> spelling | None -> value
         in
-        "[" ^ property ^ ":" ^ written ^ "]" ^ opacity_suffix opacity
+        "[" ^ property ^ ":" ^ written ^ "]" ^ Color.opacity_suffix opacity
     | Parsed_decl { property; value } -> "[" ^ property ^ ":" ^ value ^ "]"
 
   let of_class theme class_name =

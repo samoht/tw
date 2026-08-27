@@ -7,10 +7,6 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
-
-  let pp_int = Pp.int
-  let pp_float = Pp.float
-
   open Css
 
   type t =
@@ -304,26 +300,13 @@ module Handler = struct
     let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
     style ~rules:(Some [ rule ]) []
 
-  (* Format opacity modifier for class names *)
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ pp_int (int_of_float p)
-        else "/" ^ pp_float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ pp_int (int_of_float p) ^ "%]"
-        else "/[" ^ pp_float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
-    | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/" ^ v
-
   (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style ?theme color shade opacity =
     let base_class_name =
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
     in
-    let class_name = base_class_name ^ opacity_suffix opacity in
+    let class_name = base_class_name ^ Color.opacity_suffix opacity in
     let selector =
       Css.Selector.(
         where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
@@ -331,7 +314,7 @@ module Handler = struct
     Color.divide_with_opacity ?theme color shade opacity selector
 
   let divide_current_opacity_style opacity =
-    let class_name = "divide-current" ^ opacity_suffix opacity in
+    let class_name = "divide-current" ^ Color.opacity_suffix opacity in
     let selector =
       Css.Selector.(
         where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
@@ -353,17 +336,17 @@ module Handler = struct
         else "divide-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Named_color_opacity (c, shade, opacity) ->
         if Color.is_shadeless c then
-          "divide-" ^ Color.color_to_string c ^ opacity_suffix opacity
+          "divide-" ^ Color.color_to_string c ^ Color.opacity_suffix opacity
         else
           "divide-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
-          ^ opacity_suffix opacity
+          ^ Color.opacity_suffix opacity
     | Transparent -> "divide-transparent"
     | Current -> "divide-current"
-    | Current_opacity opacity -> "divide-current" ^ opacity_suffix opacity
+    | Current_opacity opacity -> "divide-current" ^ Color.opacity_suffix opacity
     | Inherit -> "divide-inherit"
     | Bracket_color (v, _) -> "divide-[" ^ v ^ "]"
     | Bracket_color_opacity (v, _, opacity) ->
-        "divide-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "divide-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Line_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style theme =
@@ -609,9 +592,7 @@ let divide_color ?opacity ?(shade = 500) color =
   match opacity with
   | None -> utility (Named_color (color, shade))
   | Some pct ->
-      utility
-        (Named_color_opacity
-           (color, shade, Color.Opacity_percent (float_of_int pct)))
+      utility (Named_color_opacity (color, shade, Color.opacity_of_int pct))
 
 let divide_transparent = utility Transparent
 let divide_current = utility Current

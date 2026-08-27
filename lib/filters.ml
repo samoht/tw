@@ -857,14 +857,14 @@ module Handler = struct
   let drop_shadow_opacity ?theme opacity =
     let alpha_str =
       match opacity with
-      | Color.Opacity_percent p ->
+      | Color.Opacity_percent { value = p; _ } ->
           (* keep a fractional alpha (/12.5 -> 12.5%), do not truncate to 12% *)
           if Float.is_integer p then string_of_int (int_of_float p) ^ "%"
           else Css.Pp.string_of_float p ^ "%"
       | _ -> "100%"
     in
     let percent =
-      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
     (* The modifier recolours the shadow, so it applies to the size, which is
@@ -907,7 +907,7 @@ module Handler = struct
 
   let drop_shadow_size_opacity (v, blur) opacity =
     let percent =
-      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
     in
     let alpha_str =
       if Float.is_integer percent then

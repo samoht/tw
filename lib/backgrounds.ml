@@ -209,19 +209,6 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  (* Format opacity modifier for class names *)
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-        else "/" ^ Pp.float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-        else "/[" ^ Pp.float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/" ^ v
-
   let to_class (t : t) =
     match t with
     | Bg (color, shade) ->
@@ -251,24 +238,24 @@ module Handler = struct
                 if Color.is_shadeless color then Color.pp color
                 else Color.pp color ^ "-" ^ string_of_int shade
               in
-              base ^ opacity_suffix opacity
+              base ^ Color.opacity_suffix opacity
           | Color_source.Current -> "current"
           | Color_source.Current_opacity opacity ->
-              "current" ^ opacity_suffix opacity
+              "current" ^ Color.opacity_suffix opacity
           | Color_source.Inherit -> "inherit"
           | Color_source.Transparent -> "transparent"
           | Color_source.Bracket_hex h -> "[#" ^ h ^ "]"
           | Color_source.Bracket_hex_opacity (h, opacity) ->
-              "[#" ^ h ^ "]" ^ opacity_suffix opacity
+              "[#" ^ h ^ "]" ^ Color.opacity_suffix opacity
           | Color_source.Bracket_color_var v -> "[color:" ^ v ^ "]"
           | Color_source.Bracket_color_var_opacity (v, opacity) ->
-              "[color:" ^ v ^ "]" ^ opacity_suffix opacity
+              "[color:" ^ v ^ "]" ^ Color.opacity_suffix opacity
           | Color_source.Bracket_var v -> "[" ^ v ^ "]"
           | Color_source.Bracket_var_opacity (v, opacity) ->
-              "[" ^ v ^ "]" ^ opacity_suffix opacity
+              "[" ^ v ^ "]" ^ Color.opacity_suffix opacity
           | Color_source.Bracket_color v -> "[" ^ v ^ "]"
           | Color_source.Bracket_color_opacity (v, opacity) ->
-              "[" ^ v ^ "]" ^ opacity_suffix opacity
+              "[" ^ v ^ "]" ^ Color.opacity_suffix opacity
         in
         prefix ^ color_class src
     | Gradient_stop_position (target, src) -> (
@@ -332,21 +319,21 @@ module Handler = struct
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
     | Bg_bracket_linear_gradient (v, _) -> "bg-[" ^ v ^ "]"
     | Bg_bracket_color_var_opacity (v, opacity) ->
-        "bg-[color:" ^ v ^ "]" ^ opacity_suffix opacity
+        "bg-[color:" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Bg_bracket_var_opacity (v, opacity) ->
-        "bg-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "bg-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Bg_bracket_color (orig, _) -> "bg-[" ^ orig ^ "]"
     | Bg_bracket_color_opacity (orig, _, opacity) ->
-        "bg-[" ^ orig ^ "]" ^ opacity_suffix opacity
+        "bg-[" ^ orig ^ "]" ^ Color.opacity_suffix opacity
     | Bg_current -> "bg-current"
-    | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
+    | Bg_current_opacity opacity -> "bg-current" ^ Color.opacity_suffix opacity
     | Bg_transparent -> "bg-transparent"
     | Bg_opacity (color, shade, opacity) ->
         let base =
           if Color.is_shadeless color then "bg-" ^ Color.pp color
           else "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
         in
-        base ^ opacity_suffix opacity
+        base ^ Color.opacity_suffix opacity
     | Bg_linear_to dir -> (
         match dir with
         | Bottom -> "bg-linear-to-b"
@@ -1923,9 +1910,7 @@ let bg ?opacity ?(shade = 500) color =
   Color.check_shade ~utility:"bg" color shade;
   match opacity with
   | None -> utility (Bg (color, shade))
-  | Some pct ->
-      utility
-        (Bg_opacity (color, shade, Color.Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Bg_opacity (color, shade, Color.opacity_of_int pct))
 
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
