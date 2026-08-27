@@ -311,8 +311,18 @@ let check_ordering_matches ?forms ~test_name utilities =
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
-(* Where a class's rule starts in a sheet. The selector is matched up to its
-   closing delimiter so [.bg-top] does not report [.bg-top-left]. *)
+(* Where a class's rule starts in a sheet. The match has to end where the class
+   name ends, so [.bg-top] does not report [.bg-top-left]; what follows it is
+   not constrained beyond that, so a selector that carries on past the class
+   ([.divide-x>*], [.group:hover .x]) is found rather than reported absent. *)
+let continues_class_name c =
+  match c with
+  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' | '_' -> true
+  (* A backslash starts an escape, which is part of the name it sits in; a byte
+     at or above 0x80 is part of a non-ASCII identifier. *)
+  | '\\' -> true
+  | c -> Char.code c >= 0x80
+
 let class_position sheet cls =
   let sel = Css.Selector.to_string (Css.Selector.class_ cls) in
   let n = String.length sel and len = String.length sheet in
@@ -320,8 +330,10 @@ let class_position sheet cls =
     if i + n > len then None
     else if
       String.sub sheet i n = sel
-      && i + n < len
-      && (sheet.[i + n] = '{' || sheet.[i + n] = ',')
+      (* An escaped dot belongs to the class name before it: [.w-1\.5] is one
+         class, not a [.5] inside another. *)
+      && (i = 0 || sheet.[i - 1] <> '\\')
+      && (i + n = len || not (continues_class_name sheet.[i + n]))
     then Some i
     else scan (i + 1)
   in
