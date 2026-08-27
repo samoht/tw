@@ -971,8 +971,7 @@ let handle_supports_condition_modifier condition_str base_class selector props =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  let condition_input = normalize_supports_condition condition_str in
-  let condition = Css.Supports.of_string condition_input in
+  let condition = normalize_supports_condition condition_str in
   supports_query ~condition ~selector:new_selector ~props
     ~base_class:modified_class ()
 
@@ -1216,8 +1215,7 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
           ~base_class:modified_class ();
       ]
   | Style.Supports_condition condition_str ->
-      let condition_input = normalize_supports_condition condition_str in
-      let inner_condition = Css.Supports.of_string condition_input in
+      let inner_condition = normalize_supports_condition condition_str in
       [
         supports_query ~not_order:nvo
           ~condition:(Css.Supports.Not inner_condition)
@@ -1681,9 +1679,7 @@ let at_rule_variant content ~selector base_class props =
     starting_style ~selector ~props ~base_class:modified_class ()
   else
     let cond = String.trim (String.sub content 9 (String.length content - 9)) in
-    let condition =
-      Css.Supports.of_string (normalize_supports_condition cond)
-    in
+    let condition = normalize_supports_condition cond in
     supports_query ~condition ~selector ~props ~base_class:modified_class ()
 
 (* A [matchVariant]-registered custom variant. The class name is the token
