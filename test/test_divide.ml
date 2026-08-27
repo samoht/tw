@@ -19,11 +19,27 @@ let test_roundtrip () =
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo";
-  (* Units the width reader does not read are refused rather than accepted and
-     spelled as something else. *)
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-x-[2em]";
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-y-[3vw]";
+  (* A bracket with no number is not a length, so it is refused rather than read
+     as a bare identifier. *)
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-x-[rem]"
+
+(* divide-x-[2em] and divide-y-[3vw] used to be refused: the width reader only
+   knew px and rem, so an em or a vw stop fell through to "not a divide utility"
+   instead of reading as the length it is. *)
+let test_arbitrary_width_units () =
+  check "divide-x-[2em]";
+  check "divide-y-[3vw]";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "divide-x-[2em] carries the em unit into the calc" true
+    (Astring.String.is_infix ~affix:"calc(2em*" (css "divide-x-[2em]"));
+  Alcotest.(check bool)
+    "divide-y-[3vw] carries the vw unit into the calc" true
+    (Astring.String.is_infix ~affix:"calc(3vw*" (css "divide-y-[3vw]"))
 
 (* Every arbitrary width the reader accepts is spelled back exactly as it was
    written, so the selector matches the class in the markup. A width the reader
@@ -184,6 +200,8 @@ let tests =
         test_arbitrary_width_roundtrip;
       Alcotest.test_case "typed arbitrary width" `Quick
         test_typed_arbitrary_width;
+      Alcotest.test_case "arbitrary width units" `Quick
+        test_arbitrary_width_units;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
       Alcotest.test_case "reverse class order matches Tailwind" `Slow
         reverse_class_order_matches_tailwind;
