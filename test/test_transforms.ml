@@ -267,6 +267,46 @@ let test_perspective_none_without_override () =
     "perspective:none" true
     (Astring.String.is_infix ~affix:"perspective:none" css)
 
+(* An arbitrary transform names its class after the bracket, so the bracket has
+   to come back out spelled as the author wrote it. Re-printing the parsed
+   number or angle drops a redundant zero and leaves a selector the markup does
+   not carry. *)
+let test_arbitrary_transform_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [
+      "scale-[1.5]";
+      "scale-[1.50]";
+      "scale-[2]";
+      "scale-[1.0_2_3]";
+      "scale-x-[1.50]";
+      "scale-y-[1.50]";
+      "rotate-[1.50deg]";
+      "rotate-[1.50_2_3_45deg]";
+      "-rotate-[1.50deg]";
+      "rotate-x-[1.50deg]";
+      "rotate-y-[1.50turn]";
+      "rotate-z-[1.50grad]";
+      "-rotate-x-[1.50deg]";
+      "-rotate-y-[1.50deg]";
+      "-rotate-z-[1.50deg]";
+      "skew-[1.50deg]";
+      "skew-x-[1.50deg]";
+      "skew-y-[1.50deg]";
+    ]
+
+(* The bracket holds a number or an angle, so a word is not a transform. *)
+let test_arbitrary_transform_rejects_non_number () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "scale-[abc]"; "rotate-[abc]"; "skew-[1.5]"; "rotate-[1.5px]" ]
+
 let tests =
   [
     test_case "perspective-none theme override" `Quick
@@ -285,6 +325,10 @@ let tests =
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "arbitrary transform spelling" `Quick
+      test_arbitrary_transform_spelling;
+    test_case "arbitrary transform rejects non-number" `Quick
+      test_arbitrary_transform_rejects_non_number;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 

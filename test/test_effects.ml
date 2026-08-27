@@ -408,6 +408,25 @@ let test_invalid_bracket_hex () =
   emits "inset-shadow-[0_1px_2px_#000]"
     "--tw-inset-shadow:inset 0 1px 2px var(--tw-inset-shadow-color,#000)"
 
+(* [opacity-[<n>]] names its class after the bracket, so the number has to come
+   back out spelled as the author wrote it rather than re-printed. *)
+let test_arbitrary_opacity_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [ "opacity-[0.5]"; "opacity-[0.50]"; "opacity-[.5]"; "opacity-[1]" ]
+
+(* The bracket holds a number, so a word is not an opacity. *)
+let test_arbitrary_opacity_rejects_non_number () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "opacity-[abc]"; "opacity-[]" ]
+
 let tests =
   [
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
@@ -436,6 +455,10 @@ let tests =
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "arbitrary opacity spelling" `Quick
+      test_arbitrary_opacity_spelling;
+    test_case "arbitrary opacity rejects non-number" `Quick
+      test_arbitrary_opacity_rejects_non_number;
     test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
