@@ -65,8 +65,8 @@ let test_property_calc_operators () =
        (css "[width:calc(var(--a)-var(--b))]"))
 
 (* theme() dot-notation inside an arbitrary value resolves statically:
-   theme(colors.red.500) to the red-500 oklch (with /alpha appended for the
-   opacity form), and the class name round-trips via its alias. *)
+   theme(colors.red.500) to the red-500 oklch, the opacity form to that colour
+   mixed with the alpha, and the class name round-trips via its alias. *)
 let test_theme_dot_notation () =
   let g =
     "bg-[image:linear-gradient(to_right,theme(colors.red.500)_75%,theme(colors.red.500/25%))]"
@@ -75,8 +75,10 @@ let test_theme_dot_notation () =
     "theme(colors.red.500) resolves to the red-500 oklch" true
     (Astring.String.is_infix ~affix:"oklch(63.7%" (css g));
   Alcotest.(check bool)
-    "theme(colors.red.500/25%) appends the alpha" true
-    (Astring.String.is_infix ~affix:"25.331 / 25%" (css g));
+    "theme(colors.red.500/25%) mixes the alpha in" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, oklch(63.7% .237 25.331) 25%, transparent)"
+       (css g));
   Alcotest.(check string)
     "theme() class round-trips" g
     (Tw.pp (Result.get_ok (Tw.of_string g)))
