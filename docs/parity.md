@@ -183,6 +183,13 @@ Tailwind splices the value into CSS anyway. The docs pages carry literal
 the 45 rules the site comparison reports as added directly under
 `@layer utilities`.
 
+A bracket value neither property can take is placed differently by the two:
+`border-[50%]` is `border-color: 50%` in Tailwind and `border-width: 50%` in tw,
+and `decoration-[2]` is `text-decoration-color: 2` in Tailwind and nothing in
+tw. `Css.color` has no numeric inhabitant, so tw cannot spell the Tailwind form
+without an untyped escape hatch. Browsers drop both declarations either way, so
+the rendered result matches.
+
 Three more differences come from lightningcss on the reference side:
 
 - It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
