@@ -104,7 +104,7 @@ module Handler = struct
     (* Opacity *)
     | Opacity of int
     | Opacity_decimal of float (* For values like opacity-2.5 *)
-    | Opacity_arbitrary of float
+    | Opacity_arbitrary of string * float (* the bracket as written *)
     | Opacity_var of string (* opacity-[var(--value)] *)
     (* Rings *)
     | Ring_none
@@ -2234,7 +2234,7 @@ module Handler = struct
     | Opacity_decimal f ->
         let value = f /. 100.0 in
         style [ Css.opacity (Css.Opacity_number value) ]
-    | Opacity_arbitrary f -> style [ Css.opacity (Css.Opacity_number f) ]
+    | Opacity_arbitrary (_, f) -> style [ Css.opacity (Css.Opacity_number f) ]
     | Opacity_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.opacity Css.var = Var.bracket bare_name in
@@ -2714,7 +2714,7 @@ module Handler = struct
           if Parse.is_var inner then Ok (Opacity_var inner)
           else
             match float_of_string_opt inner with
-            | Some f -> Ok (Opacity_arbitrary f)
+            | Some f -> Ok (Opacity_arbitrary (inner, f))
             | None -> err_not_utility
         else err_not_utility
     | [ "opacity"; n ] -> (
@@ -2983,7 +2983,7 @@ module Handler = struct
     | Inset_shadow_bracket_var v -> "inset-shadow-[" ^ v ^ "]"
     | Opacity n -> "opacity-" ^ string_of_int n
     | Opacity_decimal f -> "opacity-" ^ pp_float f
-    | Opacity_arbitrary f -> "opacity-[" ^ pp_float f ^ "]"
+    | Opacity_arbitrary (raw, _) -> "opacity-[" ^ raw ^ "]"
     | Opacity_var v -> "opacity-[" ^ v ^ "]"
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"

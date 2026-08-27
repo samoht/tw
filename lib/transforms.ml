@@ -12,12 +12,12 @@ module Handler = struct
   type t =
     | (* 2D Transforms *)
       Rotate of int
-    | Rotate_arbitrary of Css.angle
+    | Rotate_arbitrary of string * Css.angle
     | Rotate_none
-    | Rotate_3d_arbitrary of float * float * float * Css.angle
+    | Rotate_3d_arbitrary of string * float * float * float * Css.angle
     | Rotate_bare_var of string
     | Neg_rotate_bare_var of string
-    | Neg_rotate_arbitrary of Css.angle
+    | Neg_rotate_arbitrary of string * Css.angle
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
@@ -30,17 +30,17 @@ module Handler = struct
     | Translate_y_arbitrary of string * Css.length
     | Scale of int
     | Scale_x of int
-    | Scale_x_arbitrary of float
+    | Scale_x_arbitrary of string * float
     | Scale_y of int
-    | Scale_y_arbitrary of float
-    | Scale_raw_1 of float
-    | Scale_raw_3 of float * float * float
+    | Scale_y_arbitrary of string * float
+    | Scale_raw_1 of string * float
+    | Scale_raw_3 of string * float * float * float
     | Skew_x of int
-    | Skew_x_arbitrary of Css.angle
+    | Skew_x_arbitrary of string * Css.angle
     | Skew_y of int
-    | Skew_y_arbitrary of Css.angle
+    | Skew_y_arbitrary of string * Css.angle
     | Skew of int
-    | Skew_arbitrary of Css.angle
+    | Skew_arbitrary of string * Css.angle
     | Translate_x_fraction of int * int
     | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
@@ -74,20 +74,20 @@ module Handler = struct
     | Neg_translate_z_px
     | Translate_3d
     | Rotate_x of int
-    | Rotate_x_arbitrary of Css.angle
+    | Rotate_x_arbitrary of string * Css.angle
     | Rotate_x_bare_var of string
     | Neg_rotate_x_bare_var of string
-    | Neg_rotate_x_arbitrary of Css.angle
+    | Neg_rotate_x_arbitrary of string * Css.angle
     | Rotate_y of int
-    | Rotate_y_arbitrary of Css.angle
+    | Rotate_y_arbitrary of string * Css.angle
     | Rotate_y_bare_var of string
     | Neg_rotate_y_bare_var of string
-    | Neg_rotate_y_arbitrary of Css.angle
+    | Neg_rotate_y_arbitrary of string * Css.angle
     | Rotate_z of int
-    | Rotate_z_arbitrary of Css.angle
+    | Rotate_z_arbitrary of string * Css.angle
     | Rotate_z_bare_var of string
     | Neg_rotate_z_bare_var of string
-    | Neg_rotate_z_arbitrary of Css.angle
+    | Neg_rotate_z_arbitrary of string * Css.angle
     | Scale_z of int
     | Scale_z_arbitrary of string
     | Scale_3d
@@ -352,7 +352,8 @@ module Handler = struct
             | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
-  let parse_bracket_angle s : (Css.angle, _) result =
+  (* The bracket names the class, so hand its text back beside the angle. *)
+  let parse_bracket_angle s : (string * Css.angle, _) result =
     if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
       let inner = String.sub s 1 (String.length s - 2) in
       let slen = String.length inner in
@@ -373,18 +374,18 @@ module Handler = struct
         | Option.None -> Error (`Msg ("Invalid angle value: " ^ inner))
         | Option.Some n -> (
             match unit_s with
-            | "deg" -> Ok (Css.Deg n : Css.angle)
-            | "rad" -> Ok (Rad n)
-            | "turn" -> Ok (Turn n)
-            | "grad" -> Ok (Grad n)
+            | "deg" -> Ok (inner, (Css.Deg n : Css.angle))
+            | "rad" -> Ok (inner, Rad n)
+            | "turn" -> Ok (inner, Turn n)
+            | "grad" -> Ok (inner, Grad n)
             | _ -> Error (`Msg ("Invalid angle unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
-  let parse_bracket_number s : (float, _) result =
+  let parse_bracket_number s : (string * float, _) result =
     if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
       let inner = String.sub s 1 (String.length s - 2) in
       match Float.of_string_opt inner with
-      | Some f -> Ok f
+      | Some f -> Ok (inner, f)
       | None -> Error (`Msg ("Invalid number: " ^ inner))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
@@ -1208,12 +1209,12 @@ module Handler = struct
     let origin_bottom_right () = origin_bottom_right ~theme () in
     function
     | Rotate n -> rotate n
-    | Rotate_arbitrary a -> rotate_arbitrary a
+    | Rotate_arbitrary (_, a) -> rotate_arbitrary a
     | Rotate_none -> style [ Css.rotate None ]
-    | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a
+    | Rotate_3d_arbitrary (_, x, y, z, a) -> rotate_3d_arbitrary x y z a
     | Rotate_bare_var name -> rotate_bare_var name
     | Neg_rotate_bare_var name -> neg_rotate_bare_var name
-    | Neg_rotate_arbitrary a -> neg_rotate_arbitrary a
+    | Neg_rotate_arbitrary (_, a) -> neg_rotate_arbitrary a
     | Translate_x n -> translate_x n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
@@ -1257,36 +1258,37 @@ module Handler = struct
     | Translate_3d -> translate_3d
     | Scale n -> scale n
     | Scale_x n -> scale_x n
-    | Scale_x_arbitrary f -> scale_x_arbitrary f
+    | Scale_x_arbitrary (_, f) -> scale_x_arbitrary f
     | Scale_y n -> scale_y n
-    | Scale_y_arbitrary f -> scale_y_arbitrary f
-    | Scale_raw_1 f -> style [ Css.scale (X (Num f)) ]
-    | Scale_raw_3 (x, y, z) -> style [ Css.scale (XYZ (Num x, Num y, Num z)) ]
+    | Scale_y_arbitrary (_, f) -> scale_y_arbitrary f
+    | Scale_raw_1 (_, f) -> style [ Css.scale (X (Num f)) ]
+    | Scale_raw_3 (_, x, y, z) ->
+        style [ Css.scale (XYZ (Num x, Num y, Num z)) ]
     | Scale_z n -> scale_z n
     | Scale_z_arbitrary s -> scale_z_arbitrary s
     | Scale_3d -> scale_3d
     | Scale_none -> style [ Css.scale None ]
     | Skew_x n -> skew_x n
-    | Skew_x_arbitrary a -> skew_x_arbitrary a
+    | Skew_x_arbitrary (_, a) -> skew_x_arbitrary a
     | Skew_y n -> skew_y n
-    | Skew_y_arbitrary a -> skew_y_arbitrary a
+    | Skew_y_arbitrary (_, a) -> skew_y_arbitrary a
     | Skew n -> transform_with_both_skew n
-    | Skew_arbitrary a -> transform_with_both_skew_angle a
+    | Skew_arbitrary (_, a) -> transform_with_both_skew_angle a
     | Rotate_x n -> rotate_x n
-    | Rotate_x_arbitrary a -> rotate_x_arbitrary a
+    | Rotate_x_arbitrary (_, a) -> rotate_x_arbitrary a
     | Rotate_x_bare_var name -> rotate_x_bare_var name
     | Neg_rotate_x_bare_var name -> neg_rotate_x_bare_var name
-    | Neg_rotate_x_arbitrary a -> neg_rotate_x_arbitrary a
+    | Neg_rotate_x_arbitrary (_, a) -> neg_rotate_x_arbitrary a
     | Rotate_y n -> rotate_y n
-    | Rotate_y_arbitrary a -> rotate_y_arbitrary a
+    | Rotate_y_arbitrary (_, a) -> rotate_y_arbitrary a
     | Rotate_y_bare_var name -> rotate_y_bare_var name
     | Neg_rotate_y_bare_var name -> neg_rotate_y_bare_var name
-    | Neg_rotate_y_arbitrary a -> neg_rotate_y_arbitrary a
+    | Neg_rotate_y_arbitrary (_, a) -> neg_rotate_y_arbitrary a
     | Rotate_z n -> rotate_z n
-    | Rotate_z_arbitrary a -> rotate_z_arbitrary a
+    | Rotate_z_arbitrary (_, a) -> rotate_z_arbitrary a
     | Rotate_z_bare_var name -> rotate_z_bare_var name
     | Neg_rotate_z_bare_var name -> neg_rotate_z_bare_var name
-    | Neg_rotate_z_arbitrary a -> neg_rotate_z_arbitrary a
+    | Neg_rotate_z_arbitrary (_, a) -> neg_rotate_z_arbitrary a
     | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
     | Perspective_near -> perspective_near
@@ -1517,15 +1519,15 @@ module Handler = struct
                 Float.of_string_opt z,
                 parse_bracket_angle ("[" ^ a ^ "]") )
             with
-            | Some fx, Some fy, Some fz, Ok angle ->
-                Ok (Rotate_3d_arbitrary (fx, fy, fz, angle))
+            | Some fx, Some fy, Some fz, Ok (_, angle) ->
+                Ok (Rotate_3d_arbitrary (inner, fx, fy, fz, angle))
             | _ -> (
                 match parse_bracket_angle n with
-                | Ok a -> Ok (Rotate_arbitrary a)
+                | Ok (raw, a) -> Ok (Rotate_arbitrary (raw, a))
                 | Error _ -> err_not_utility))
         | _ -> (
             match parse_bracket_angle n with
-            | Ok a -> Ok (Rotate_arbitrary a)
+            | Ok (raw, a) -> Ok (Rotate_arbitrary (raw, a))
             | Error _ -> err_not_utility))
     | [ "rotate"; "none" ] -> Ok Rotate_none
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
@@ -1643,11 +1645,11 @@ module Handler = struct
                 Float.of_string_opt y,
                 Float.of_string_opt z )
             with
-            | Some fx, Some fy, Some fz -> Ok (Scale_raw_3 (fx, fy, fz))
+            | Some fx, Some fy, Some fz -> Ok (Scale_raw_3 (inner, fx, fy, fz))
             | _ -> err_not_utility)
         | [ _ ] -> (
             match Float.of_string_opt inner with
-            | Some f -> Ok (Scale_raw_1 f)
+            | Some f -> Ok (Scale_raw_1 (inner, f))
             | None -> err_not_utility)
         | _ -> err_not_utility)
     | [ "scale"; "3d" ] -> Ok Scale_3d
@@ -1655,13 +1657,13 @@ module Handler = struct
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
     | [ "scale"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_number n with
-        | Ok f -> Ok (Scale_x_arbitrary f)
+        | Ok (raw, f) -> Ok (Scale_x_arbitrary (raw, f))
         | Error _ -> err_not_utility)
     | [ "scale"; "x"; n ] ->
         Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n
     | [ "scale"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_number n with
-        | Ok f -> Ok (Scale_y_arbitrary f)
+        | Ok (raw, f) -> Ok (Scale_y_arbitrary (raw, f))
         | Error _ -> err_not_utility)
     | [ "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
@@ -1671,38 +1673,38 @@ module Handler = struct
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
     | [ "skew"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Skew_x_arbitrary a)
+        | Ok (raw, a) -> Ok (Skew_x_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "skew"; "x"; n ] -> Parse.int_any n >|= fun n -> Skew_x n
     | [ "skew"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Skew_y_arbitrary a)
+        | Ok (raw, a) -> Ok (Skew_y_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
     | [ "skew"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Skew_arbitrary a)
+        | Ok (raw, a) -> Ok (Skew_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "skew"; n ] -> Parse.int_any n >|= fun n -> Skew n
     | [ "rotate"; "x"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_x_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Rotate_x_arbitrary a)
+        | Ok (raw, a) -> Ok (Rotate_x_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
     | [ "rotate"; "y"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_y_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Rotate_y_arbitrary a)
+        | Ok (raw, a) -> Ok (Rotate_y_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
     | [ "rotate"; "z"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_z_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; "z"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Rotate_z_arbitrary a)
+        | Ok (raw, a) -> Ok (Rotate_z_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
     (* Negative rotate: -rotate-N, -rotate-(--var), -rotate-[123deg] *)
@@ -1710,7 +1712,7 @@ module Handler = struct
         Ok (Neg_rotate_bare_var (Parse.bare_var_inner n))
     | [ ""; "rotate"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Neg_rotate_arbitrary a)
+        | Ok (raw, a) -> Ok (Neg_rotate_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ ""; "rotate"; n ] ->
         Parse.int_pos ~name:"rotate" n >|= fun n -> Rotate (-n)
@@ -1718,7 +1720,7 @@ module Handler = struct
         Ok (Neg_rotate_x_bare_var (Parse.bare_var_inner n))
     | [ ""; "rotate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Neg_rotate_x_arbitrary a)
+        | Ok (raw, a) -> Ok (Neg_rotate_x_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ ""; "rotate"; "x"; n ] ->
         Parse.int_pos ~name:"rotate-x" n >|= fun n -> Rotate_x (-n)
@@ -1726,7 +1728,7 @@ module Handler = struct
         Ok (Neg_rotate_y_bare_var (Parse.bare_var_inner n))
     | [ ""; "rotate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Neg_rotate_y_arbitrary a)
+        | Ok (raw, a) -> Ok (Neg_rotate_y_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ ""; "rotate"; "y"; n ] ->
         Parse.int_pos ~name:"rotate-y" n >|= fun n -> Rotate_y (-n)
@@ -1734,7 +1736,7 @@ module Handler = struct
         Ok (Neg_rotate_z_bare_var (Parse.bare_var_inner n))
     | [ ""; "rotate"; "z"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
-        | Ok a -> Ok (Neg_rotate_z_arbitrary a)
+        | Ok (raw, a) -> Ok (Neg_rotate_z_arbitrary (raw, a))
         | Error _ -> err_not_utility)
     | [ ""; "rotate"; "z"; n ] ->
         Parse.int_pos ~name:"rotate-z" n >|= fun n -> Rotate_z (-n)
@@ -1824,16 +1826,6 @@ module Handler = struct
         else err_not_utility
     | _ -> err_not_utility
 
-  let pp_angle_bracket a = "[" ^ Css.Pp.to_string Css.pp_angle a ^ "]"
-
-  let pp_number_bracket f =
-    let s = string_of_float f in
-    let s =
-      if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
-      else s
-    in
-    "[" ^ s ^ "]"
-
   (* [translate-x-0.5], and [-translate-x-0.5] for the negative step. Tailwind
      writes the fraction as the author did, so keep the trailing digits. *)
   let step_class prefix f =
@@ -1848,21 +1840,12 @@ module Handler = struct
 
   let to_class = function
     | Rotate n -> neg_class "rotate-" n
-    | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
+    | Rotate_arbitrary (raw, _) -> "rotate-" ^ "[" ^ raw ^ "]"
     | Rotate_none -> "rotate-none"
-    | Rotate_3d_arbitrary (x, y, z, a) ->
-        let pp f =
-          let s = string_of_float f in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "rotate-[" ^ pp x ^ "_" ^ pp y ^ "_" ^ pp z ^ "_"
-        ^ Css.Pp.to_string Css.pp_angle a
-        ^ "]"
+    | Rotate_3d_arbitrary (raw, _, _, _, _) -> "rotate-[" ^ raw ^ "]"
     | Rotate_bare_var name -> "rotate-(" ^ name ^ ")"
     | Neg_rotate_bare_var name -> "-rotate-(" ^ name ^ ")"
-    | Neg_rotate_arbitrary a -> "-rotate-" ^ pp_angle_bracket a
+    | Neg_rotate_arbitrary (raw, _) -> "-rotate-" ^ "[" ^ raw ^ "]"
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
@@ -1910,50 +1893,36 @@ module Handler = struct
         "-translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Scale n -> neg_class "scale-" n
     | Scale_x n -> neg_class "scale-x-" n
-    | Scale_x_arbitrary f -> "scale-x-" ^ pp_number_bracket f
+    | Scale_x_arbitrary (raw, _) -> "scale-x-[" ^ raw ^ "]"
     | Scale_y n -> neg_class "scale-y-" n
-    | Scale_y_arbitrary f -> "scale-y-" ^ pp_number_bracket f
-    | Scale_raw_1 f ->
-        let s = string_of_float f in
-        let s =
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "scale-[" ^ s ^ "]"
-    | Scale_raw_3 (x, y, z) ->
-        let pp f =
-          let s = string_of_float f in
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "scale-[" ^ pp x ^ "_" ^ pp y ^ "_" ^ pp z ^ "]"
+    | Scale_y_arbitrary (raw, _) -> "scale-y-[" ^ raw ^ "]"
+    | Scale_raw_1 (raw, _) -> "scale-[" ^ raw ^ "]"
+    | Scale_raw_3 (raw, _, _, _) -> "scale-[" ^ raw ^ "]"
     | Scale_z n -> neg_class "scale-z-" n
     | Scale_z_arbitrary s -> "scale-z-[" ^ s ^ "]"
     | Scale_3d -> "scale-3d"
     | Scale_none -> "scale-none"
     | Skew_x n -> neg_class "skew-x-" n
-    | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
+    | Skew_x_arbitrary (raw, _) -> "skew-x-" ^ "[" ^ raw ^ "]"
     | Skew_y n -> neg_class "skew-y-" n
-    | Skew_y_arbitrary a -> "skew-y-" ^ pp_angle_bracket a
+    | Skew_y_arbitrary (raw, _) -> "skew-y-" ^ "[" ^ raw ^ "]"
     | Skew n -> neg_class "skew-" n
-    | Skew_arbitrary a -> "skew-" ^ pp_angle_bracket a
+    | Skew_arbitrary (raw, _) -> "skew-" ^ "[" ^ raw ^ "]"
     | Rotate_x n -> neg_class "rotate-x-" n
-    | Rotate_x_arbitrary a -> "rotate-x-" ^ pp_angle_bracket a
+    | Rotate_x_arbitrary (raw, _) -> "rotate-x-" ^ "[" ^ raw ^ "]"
     | Rotate_x_bare_var name -> "rotate-x-(" ^ name ^ ")"
     | Neg_rotate_x_bare_var name -> "-rotate-x-(" ^ name ^ ")"
-    | Neg_rotate_x_arbitrary a -> "-rotate-x-" ^ pp_angle_bracket a
+    | Neg_rotate_x_arbitrary (raw, _) -> "-rotate-x-" ^ "[" ^ raw ^ "]"
     | Rotate_y n -> neg_class "rotate-y-" n
-    | Rotate_y_arbitrary a -> "rotate-y-" ^ pp_angle_bracket a
+    | Rotate_y_arbitrary (raw, _) -> "rotate-y-" ^ "[" ^ raw ^ "]"
     | Rotate_y_bare_var name -> "rotate-y-(" ^ name ^ ")"
     | Neg_rotate_y_bare_var name -> "-rotate-y-(" ^ name ^ ")"
-    | Neg_rotate_y_arbitrary a -> "-rotate-y-" ^ pp_angle_bracket a
+    | Neg_rotate_y_arbitrary (raw, _) -> "-rotate-y-" ^ "[" ^ raw ^ "]"
     | Rotate_z n -> neg_class "rotate-z-" n
-    | Rotate_z_arbitrary a -> "rotate-z-" ^ pp_angle_bracket a
+    | Rotate_z_arbitrary (raw, _) -> "rotate-z-" ^ "[" ^ raw ^ "]"
     | Rotate_z_bare_var name -> "rotate-z-(" ^ name ^ ")"
     | Neg_rotate_z_bare_var name -> "-rotate-z-(" ^ name ^ ")"
-    | Neg_rotate_z_arbitrary a -> "-rotate-z-" ^ pp_angle_bracket a
+    | Neg_rotate_z_arbitrary (raw, _) -> "-rotate-z-" ^ "[" ^ raw ^ "]"
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
     | Perspective_near -> "perspective-near"

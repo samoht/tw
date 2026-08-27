@@ -50,7 +50,7 @@ module Handler = struct
     | Aspect_square
     | Aspect_video
     | Aspect_ratio of float * float (* aspect-4/3, aspect-8.5/11 *)
-    | Aspect_bracket of float * float (* aspect-[10/9] *)
+    | Aspect_bracket of string * float * float (* aspect-[10/9], as written *)
     | Aspect_bracket_num of string (* aspect-[1.333] single number *)
 
   type Utility.base += Self of t
@@ -684,7 +684,7 @@ module Handler = struct
     | Aspect_square -> aspect_square'
     | Aspect_video -> aspect_video'
     | Aspect_ratio (w, h) -> aspect_ratio' w h
-    | Aspect_bracket (w, h) -> aspect_ratio' w h
+    | Aspect_bracket (_, w, h) -> aspect_ratio' w h
     | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
 
   let err_not_utility = Error (`Msg "Not a sizing utility")
@@ -773,7 +773,9 @@ module Handler = struct
     | [ "aspect"; "video" ] -> Ok Aspect_video
     | [ "aspect"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
-        match parse_aspect_ratio inner (fun w h -> Aspect_bracket (w, h)) with
+        match
+          parse_aspect_ratio inner (fun w h -> Aspect_bracket (inner, w, h))
+        with
         | Ok _ as ok -> ok
         | Error _ -> (
             (* A bare number arbitrary ratio (aspect-[1.333]) is a single-value
@@ -792,7 +794,7 @@ module Handler = struct
     (* Aspect: ratios -> brackets -> keywords *)
     | Aspect_ratio (rw, rh) ->
         aspect_base + int_of_float (rw *. 10.) + int_of_float rh
-    | Aspect_bracket (rw, rh) ->
+    | Aspect_bracket (_, rw, rh) ->
         aspect_base + 1000 + int_of_float (rw *. 10.) + int_of_float rh
     | Aspect_bracket_num s ->
         aspect_base + 1000 + int_of_float (float_of_string s *. 10.) + 1
@@ -816,12 +818,7 @@ module Handler = struct
           else string_of_float f
         in
         "aspect-" ^ num w ^ "/" ^ num h
-    | Aspect_bracket (w, h) ->
-        let num f =
-          if Float.is_integer f then string_of_int (int_of_float f)
-          else string_of_float f
-        in
-        "aspect-[" ^ num w ^ "/" ^ num h ^ "]"
+    | Aspect_bracket (raw, _, _) -> "aspect-[" ^ raw ^ "]"
     | Aspect_bracket_num s -> "aspect-[" ^ s ^ "]"
 
   let examples =
