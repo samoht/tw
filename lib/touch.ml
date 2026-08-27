@@ -44,47 +44,60 @@ module Handler = struct
     let decl, _ = Var.binding var value in
     style ~property_rules:touch_props [ decl; composable_touch_action () ]
 
-  (* Single source of truth: (touch-action value, class_suffix, style_fn) *)
-  (* Alphabetically ordered - suborder derived from position *)
-  let touch_data : (Css.touch_action * string * (unit -> Style.t)) list =
+  (* Class suffix, style and cascade suborder of one utility, alphabetical
+     except that the x-axis pans come before the y-axis ones. Written as a match
+     rather than a lookup table: a constructor added to [Css.touch_action]
+     without an entry here is a compile error, not a [Not_found] raised out of
+     [to_class] partway through rendering a sheet. The CSS-wide keywords and the
+     composed and var() forms are spelled out for the same reason. *)
+  let data : Css.touch_action -> string * Style.t * int = function
+    | Css.Auto -> ("auto", style [ touch_action Css.Auto ], 0)
+    | Css.Manipulation ->
+        ("manipulation", style [ touch_action Css.Manipulation ], 1)
+    | Css.None -> ("none", style [ touch_action Css.None ], 2)
+    | Css.Pan_left -> ("pan-left", composable_style tw_pan_x_var Css.Pan_left, 3)
+    | Css.Pan_right ->
+        ("pan-right", composable_style tw_pan_x_var Css.Pan_right, 4)
+    | Css.Pan_x -> ("pan-x", composable_style tw_pan_x_var Css.Pan_x, 5)
+    | Css.Pan_down -> ("pan-down", composable_style tw_pan_y_var Css.Pan_down, 6)
+    | Css.Pan_up -> ("pan-up", composable_style tw_pan_y_var Css.Pan_up, 7)
+    | Css.Pan_y -> ("pan-y", composable_style tw_pan_y_var Css.Pan_y, 8)
+    | Css.Pinch_zoom ->
+        ("pinch-zoom", composable_style tw_pinch_zoom_var Css.Pinch_zoom, 9)
+    | Css.Actions _ | Css.Inherit | Css.Initial | Css.Unset | Css.Revert
+    | Css.Revert_layer | Css.Vars _ | Css.Var _ ->
+        (* No touch class names a composed list, a CSS-wide keyword or a var(),
+           so [of_class] never builds one. *)
+        invalid_arg "touch: value has no class name"
+
+  (* Every value a class names, for the class-name lookup. *)
+  let all : Css.touch_action list =
     [
-      (Css.Auto, "auto", fun () -> style [ touch_action Css.Auto ]);
-      ( Css.Manipulation,
-        "manipulation",
-        fun () -> style [ touch_action Css.Manipulation ] );
-      (Css.None, "none", fun () -> style [ touch_action Css.None ]);
-      (* x-axis pan utilities come before y-axis *)
-      ( Css.Pan_left,
-        "pan-left",
-        fun () -> composable_style tw_pan_x_var Css.Pan_left );
-      ( Css.Pan_right,
-        "pan-right",
-        fun () -> composable_style tw_pan_x_var Css.Pan_right );
-      (Css.Pan_x, "pan-x", fun () -> composable_style tw_pan_x_var Css.Pan_x);
-      ( Css.Pan_down,
-        "pan-down",
-        fun () -> composable_style tw_pan_y_var Css.Pan_down );
-      (Css.Pan_up, "pan-up", fun () -> composable_style tw_pan_y_var Css.Pan_up);
-      (Css.Pan_y, "pan-y", fun () -> composable_style tw_pan_y_var Css.Pan_y);
-      ( Css.Pinch_zoom,
-        "pinch-zoom",
-        fun () -> composable_style tw_pinch_zoom_var Css.Pinch_zoom );
+      Css.Auto;
+      Css.Manipulation;
+      Css.None;
+      Css.Pan_left;
+      Css.Pan_right;
+      Css.Pan_x;
+      Css.Pan_down;
+      Css.Pan_up;
+      Css.Pan_y;
+      Css.Pinch_zoom;
     ]
 
-  (* Derived lookup tables *)
-  let to_class_map =
-    List.map (fun (v, suffix, _) -> (v, "touch-" ^ suffix)) touch_data
+  let to_class (Action v) =
+    let suffix, _, _ = data v in
+    "touch-" ^ suffix
 
-  let to_style_map = List.map (fun (v, _, style_fn) -> (v, style_fn)) touch_data
-  let suborder_map = List.mapi (fun i (v, _, _) -> (v, i)) touch_data
+  let to_style _theme (Action v) =
+    let _, s, _ = data v in
+    s
 
-  let of_class_map =
-    List.map (fun (v, suffix, _) -> ("touch-" ^ suffix, Action v)) touch_data
+  let suborder (Action v) =
+    let _, _, o = data v in
+    o
 
-  (* Handler functions derived from maps *)
-  let to_class (Action v) = List.assoc v to_class_map
-  let to_style _theme (Action v) = (List.assoc v to_style_map) ()
-  let suborder (Action v) = List.assoc v suborder_map
+  let of_class_map = List.map (fun v -> (to_class (Action v), Action v)) all
 
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with

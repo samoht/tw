@@ -14,62 +14,105 @@ module Handler = struct
   let name = "cursor"
   let priority _ = 11
 
-  (* Single source of truth: (css value, class_suffix) *)
-  (* Alphabetically ordered - suborder derived from position *)
-  let cursor_data : (Css.cursor * string) list =
+  (* Class suffix and cascade suborder of one cursor keyword, alphabetical by
+     suffix. Written as a match rather than a lookup table: a constructor added
+     to [Css.cursor] without an entry here is a compile error, not a [Not_found]
+     raised out of [to_class] partway through rendering a sheet. The [url()]
+     form, the CSS-wide keywords and [var()] are spelled out for the same
+     reason. *)
+  let data : Css.cursor -> string * int = function
+    | Css.Alias -> ("alias", 10)
+    | Css.All_scroll -> ("all-scroll", 20)
+    | Css.Auto -> ("auto", 30)
+    | Css.Cell -> ("cell", 40)
+    | Css.Col_resize -> ("col-resize", 50)
+    | Css.Context_menu -> ("context-menu", 60)
+    | Css.Copy -> ("copy", 70)
+    | Css.Crosshair -> ("crosshair", 80)
+    | Css.Default -> ("default", 90)
+    | Css.E_resize -> ("e-resize", 100)
+    | Css.Ew_resize -> ("ew-resize", 110)
+    | Css.Grab -> ("grab", 120)
+    | Css.Grabbing -> ("grabbing", 130)
+    | Css.Help -> ("help", 140)
+    | Css.Move -> ("move", 150)
+    | Css.N_resize -> ("n-resize", 160)
+    | Css.Ne_resize -> ("ne-resize", 170)
+    | Css.Nesw_resize -> ("nesw-resize", 180)
+    | Css.No_drop -> ("no-drop", 190)
+    | Css.None -> ("none", 200)
+    | Css.Not_allowed -> ("not-allowed", 210)
+    | Css.Ns_resize -> ("ns-resize", 220)
+    | Css.Nw_resize -> ("nw-resize", 230)
+    | Css.Nwse_resize -> ("nwse-resize", 240)
+    | Css.Pointer -> ("pointer", 250)
+    | Css.Progress -> ("progress", 260)
+    | Css.Row_resize -> ("row-resize", 270)
+    | Css.S_resize -> ("s-resize", 280)
+    | Css.Se_resize -> ("se-resize", 290)
+    | Css.Sw_resize -> ("sw-resize", 300)
+    | Css.Text -> ("text", 310)
+    | Css.Vertical_text -> ("vertical-text", 320)
+    | Css.W_resize -> ("w-resize", 330)
+    | Css.Wait -> ("wait", 340)
+    | Css.Zoom_in -> ("zoom-in", 350)
+    | Css.Zoom_out -> ("zoom-out", 360)
+    | Css.Url _ | Css.Inherit | Css.Initial | Css.Unset | Css.Revert
+    | Css.Revert_layer | Css.Var _ ->
+        (* No cursor class names a url(), a CSS-wide keyword or a var(), so
+           [of_class] never builds one: the bracket and theme forms have their
+           own constructors. *)
+        invalid_arg "cursor: value has no class name"
+
+  (* Every keyword a class names, in suffix order, for the class-name lookup and
+     for placing a theme cursor among them. *)
+  let all : Css.cursor list =
     [
-      (Css.Alias, "alias");
-      (Css.All_scroll, "all-scroll");
-      (Css.Auto, "auto");
-      (Css.Cell, "cell");
-      (Css.Col_resize, "col-resize");
-      (Css.Context_menu, "context-menu");
-      (Css.Copy, "copy");
-      (Css.Crosshair, "crosshair");
-      (Css.Default, "default");
-      (Css.E_resize, "e-resize");
-      (Css.Ew_resize, "ew-resize");
-      (Css.Grab, "grab");
-      (Css.Grabbing, "grabbing");
-      (Css.Help, "help");
-      (Css.Move, "move");
-      (Css.N_resize, "n-resize");
-      (Css.Ne_resize, "ne-resize");
-      (Css.Nesw_resize, "nesw-resize");
-      (Css.No_drop, "no-drop");
-      (Css.None, "none");
-      (Css.Not_allowed, "not-allowed");
-      (Css.Ns_resize, "ns-resize");
-      (Css.Nw_resize, "nw-resize");
-      (Css.Nwse_resize, "nwse-resize");
-      (Css.Pointer, "pointer");
-      (Css.Progress, "progress");
-      (Css.Row_resize, "row-resize");
-      (Css.S_resize, "s-resize");
-      (Css.Se_resize, "se-resize");
-      (Css.Sw_resize, "sw-resize");
-      (Css.Text, "text");
-      (Css.Vertical_text, "vertical-text");
-      (Css.W_resize, "w-resize");
-      (Css.Wait, "wait");
-      (Css.Zoom_in, "zoom-in");
-      (Css.Zoom_out, "zoom-out");
+      Css.Alias;
+      Css.All_scroll;
+      Css.Auto;
+      Css.Cell;
+      Css.Col_resize;
+      Css.Context_menu;
+      Css.Copy;
+      Css.Crosshair;
+      Css.Default;
+      Css.E_resize;
+      Css.Ew_resize;
+      Css.Grab;
+      Css.Grabbing;
+      Css.Help;
+      Css.Move;
+      Css.N_resize;
+      Css.Ne_resize;
+      Css.Nesw_resize;
+      Css.No_drop;
+      Css.None;
+      Css.Not_allowed;
+      Css.Ns_resize;
+      Css.Nw_resize;
+      Css.Nwse_resize;
+      Css.Pointer;
+      Css.Progress;
+      Css.Row_resize;
+      Css.S_resize;
+      Css.Se_resize;
+      Css.Sw_resize;
+      Css.Text;
+      Css.Vertical_text;
+      Css.W_resize;
+      Css.Wait;
+      Css.Zoom_in;
+      Css.Zoom_out;
     ]
 
-  (* Derived lookup tables *)
-  let to_class_map =
-    List.map (fun (v, suffix) -> (v, "cursor-" ^ suffix)) cursor_data
-
-  let suborder_map = List.mapi (fun i (v, _) -> (v, (i + 1) * 10)) cursor_data
-
   let of_class_map =
-    List.map (fun (v, suffix) -> ("cursor-" ^ suffix, Keyword v)) cursor_data
+    List.map (fun v -> ("cursor-" ^ fst (data v), Keyword v)) all
 
-  (* Handler functions derived from maps *)
   let to_class = function
     | Bracket_var s -> "cursor-[" ^ s ^ "]"
     | Theme name -> "cursor-" ^ name
-    | Keyword v -> List.assoc v to_class_map
+    | Keyword v -> "cursor-" ^ fst (data v)
 
   let to_style theme = function
     | Bracket_var s ->
@@ -92,9 +135,9 @@ module Handler = struct
         | None -> style [ Css.cursor (Css.Var ref) ])
     | Keyword v -> style [ Css.cursor v ]
 
-  (* Sorted suffixes from cursor_data for computing theme suborder *)
-  let sorted_suffixes =
-    List.mapi (fun i (_, suffix) -> (suffix, (i + 1) * 10)) cursor_data
+  (* The keyword suffixes with their suborders, for placing a theme cursor among
+     them. *)
+  let sorted_suffixes = List.map data all
 
   let theme_suborder name =
     (* Find alphabetical position among known cursors *)
@@ -108,7 +151,7 @@ module Handler = struct
   let suborder = function
     | Bracket_var _ -> -1
     | Theme name -> theme_suborder name
-    | Keyword v -> List.assoc v suborder_map
+    | Keyword v -> snd (data v)
 
   let of_class _theme cls =
     let parts = Parse.split_class cls in

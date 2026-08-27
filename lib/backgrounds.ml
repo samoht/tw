@@ -1335,17 +1335,25 @@ module Handler = struct
         match Color.parse_bracket_color v with
         | Some c -> c
         | None -> Css.Transparent)
-    | Color_source.Named _ | Color_source.Named_opacity _ -> assert false
+    | Color_source.Named _ | Color_source.Named_opacity _ ->
+        (* A palette colour resolves through the scheme, not into a plain CSS
+           colour; [to_style] answers those before it reaches here. *)
+        invalid_arg "backgrounds: a palette colour has no plain CSS colour"
 
   (** Extract opacity from a Color_source.t, if present *)
-  let opacity_of_source = function
+  let opacity_of_source : Color_source.t -> Color.opacity_modifier option =
+    function
     | Color_source.Current_opacity o
     | Color_source.Bracket_hex_opacity (_, o)
     | Color_source.Bracket_color_var_opacity (_, o)
     | Color_source.Bracket_var_opacity (_, o)
     | Color_source.Bracket_color_opacity (_, o) ->
         Some o
-    | _ -> None
+    | Color_source.Named _ | Color_source.Named_opacity _ | Color_source.Current
+    | Color_source.Inherit | Color_source.Transparent
+    | Color_source.Bracket_hex _ | Color_source.Bracket_color_var _
+    | Color_source.Bracket_var _ | Color_source.Bracket_color _ ->
+        None
 
   let to_style theme =
     let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
@@ -1371,8 +1379,15 @@ module Handler = struct
             let alpha = Color.opacity_to_percent opacity /. 100.0 in
             let color = Color.hex_to_oklab_alpha h alpha in
             gradient_simple ~prefix ~set_var color []
-        | _ -> (
-            (* All other sources: keyword, bracket var *)
+        | Color_source.Current | Color_source.Current_opacity _
+        | Color_source.Inherit | Color_source.Transparent
+        | Color_source.Bracket_hex _ | Color_source.Bracket_color_var _
+        | Color_source.Bracket_color_var_opacity _ | Color_source.Bracket_var _
+        | Color_source.Bracket_var_opacity _ | Color_source.Bracket_color _
+        | Color_source.Bracket_color_opacity _ -> (
+            (* A keyword or a bracket value: the colour is known without the
+               scheme. Spelled out rather than swept up, so a source added to
+               [Color_source.t] is a compile error here. *)
             let color = css_color_of_source src in
             match opacity_of_source src with
             | None -> gradient_simple ~prefix ~set_var color []

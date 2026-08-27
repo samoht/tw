@@ -450,6 +450,23 @@ module Handler = struct
     | Break_inside_avoid_column -> "break-inside-avoid-column"
     | Break_inside_avoid_page -> "break-inside-avoid-page"
 
+  (* An [object-<position>] class reads its keyword off
+     [--object-position-<pos>] when the theme binds one. The token name and the
+     keyword travel together with the constructor that names them, so there is
+     no second list of positions to keep in step with the first. *)
+  let object_position_style theme pos (default : Css.position_value) =
+    let name = "object-position-" ^ pos in
+    match Scheme.theme_value (Some theme) name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_property ~layer:"theme" ("--" ^ name) value
+        in
+        let pos_ref : Css.position_value Css.var = Var.bracket name in
+        style [ theme_decl; object_position (Var pos_ref) ]
+    (* Without a theme override Tailwind writes the keyword, not a reference to
+       a token nothing declares. *)
+    | None -> style [ object_position default ]
+
   let to_style theme =
     let z_auto_style () = z_auto_style ~theme () in
     function
@@ -492,43 +509,23 @@ module Handler = struct
     | Object_fill -> style [ object_fit Fill ]
     | Object_none -> style [ object_fit None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
-    | ( Object_center | Object_top | Object_bottom | Object_left | Object_right
-      | Object_bottom_left | Object_bottom_right | Object_left_bottom
-      | Object_left_top | Object_right_bottom | Object_right_top
-      | Object_top_left | Object_top_right ) as obj -> (
-        let name, (default : Css.position_value), _default_css =
-          match obj with
-          | Object_center -> ("object-position-center", Center, "center")
-          | Object_top -> ("object-position-top", Top, "top")
-          | Object_bottom -> ("object-position-bottom", Bottom, "bottom")
-          | Object_left -> ("object-position-left", Left, "left")
-          | Object_right -> ("object-position-right", Right, "right")
-          | Object_bottom_left ->
-              ("object-position-bottom-left", Bottom_left, "left bottom")
-          | Object_bottom_right ->
-              ("object-position-bottom-right", Bottom_right, "right bottom")
-          | Object_left_bottom ->
-              ("object-position-left-bottom", Left_bottom, "left bottom")
-          | Object_left_top -> ("object-position-left-top", Left_top, "left top")
-          | Object_right_bottom ->
-              ("object-position-right-bottom", Right_bottom, "right bottom")
-          | Object_right_top ->
-              ("object-position-right-top", Right_top, "right top")
-          | Object_top_left -> ("object-position-top-left", Top_left, "left top")
-          | Object_top_right ->
-              ("object-position-top-right", Top_right, "right top")
-          | _ -> assert false
-        in
-        match Scheme.theme_value (Some theme) name with
-        | Some value ->
-            let theme_decl =
-              Css.custom_property ~layer:"theme" ("--" ^ name) value
-            in
-            let pos_ref : Css.position_value Css.var = Var.bracket name in
-            style [ theme_decl; object_position (Var pos_ref) ]
-        (* Without a theme override Tailwind writes the keyword, not a reference
-           to a token nothing declares. *)
-        | None -> style [ object_position default ])
+    | Object_center -> object_position_style theme "center" Center
+    | Object_top -> object_position_style theme "top" Top
+    | Object_bottom -> object_position_style theme "bottom" Bottom
+    | Object_left -> object_position_style theme "left" Left
+    | Object_right -> object_position_style theme "right" Right
+    | Object_bottom_left ->
+        object_position_style theme "bottom-left" Bottom_left
+    | Object_bottom_right ->
+        object_position_style theme "bottom-right" Bottom_right
+    | Object_left_bottom ->
+        object_position_style theme "left-bottom" Left_bottom
+    | Object_left_top -> object_position_style theme "left-top" Left_top
+    | Object_right_bottom ->
+        object_position_style theme "right-bottom" Right_bottom
+    | Object_right_top -> object_position_style theme "right-top" Right_top
+    | Object_top_left -> object_position_style theme "top-left" Top_left
+    | Object_top_right -> object_position_style theme "top-right" Top_right
     | Object_arbitrary raw -> (
         (* Only a var() reference names a variable; anything else is a position
            value, which [object-[50%]] used to turn into [var(--50)]. *)
