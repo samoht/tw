@@ -1477,22 +1477,40 @@ module Typography_early = struct
           in
           style [ font_family (Invalid tokens) ]
     | Font_bracket_family_name (_, s) ->
-        (* Parse known generic family names *)
+        (* Each comma segment is its own [<family-name>] (CSS Fonts 4 sec. 2.1),
+           so a generic keyword only matches a segment on its own, not the
+           bracket as a whole; [font-[Papyrus,fantasy]] is the two-entry stack
+           [Papyrus, fantasy], never the single literal name
+           ["Papyrus,fantasy"]. A quoted segment is always a custom-ident
+           literal, so it never resolves to a generic keyword either. *)
+        let family_of_entry entry : Css.font_family =
+          let entry = String.trim entry in
+          let n = String.length entry in
+          if
+            n >= 2
+            && (entry.[0] = '"' || entry.[0] = '\'')
+            && entry.[n - 1] = entry.[0]
+          then Css.Name (String.sub entry 1 (n - 2))
+          else
+            match entry with
+            | "ui-sans-serif" -> Css.Ui_sans_serif
+            | "ui-serif" -> Css.Ui_serif
+            | "ui-monospace" -> Css.Ui_monospace
+            | "ui-rounded" -> Css.Ui_rounded
+            | "sans-serif" -> Css.Sans_serif
+            | "serif" -> Css.Serif
+            | "monospace" -> Css.Monospace
+            | "cursive" -> Css.Cursive
+            | "fantasy" -> Css.Fantasy
+            | "system-ui" -> Css.System_ui
+            | "emoji" -> Css.Emoji
+            | "math" -> Css.Math
+            | name -> Css.Name name
+        in
         let family =
-          match s with
-          | "ui-sans-serif" -> Css.Ui_sans_serif
-          | "ui-serif" -> Css.Ui_serif
-          | "ui-monospace" -> Css.Ui_monospace
-          | "ui-rounded" -> Css.Ui_rounded
-          | "sans-serif" -> Css.Sans_serif
-          | "serif" -> Css.Serif
-          | "monospace" -> Css.Monospace
-          | "cursive" -> Css.Cursive
-          | "fantasy" -> Css.Fantasy
-          | "system-ui" -> Css.System_ui
-          | "emoji" -> Css.Emoji
-          | "math" -> Css.Math
-          | _ -> Css.Name s
+          match String.split_on_char ',' s with
+          | [ single ] -> family_of_entry single
+          | entries -> Css.List (List.map family_of_entry entries)
         in
         style [ font_family family ]
     | Font_bracket_family_var (_, var_str) ->
