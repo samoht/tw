@@ -134,6 +134,37 @@ let test_line_clamp () =
   check "line-clamp-0";
   check "line-clamp-3"
 
+(* A project [@theme] override of [--line-clamp-none] is a namespace key, not a
+   value Tailwind type-checks at build time: any override at all, decimal or
+   not, switches line-clamp-none to the variable-driven form. Reading the value
+   with [int_of_string_opt] read [0x3] as the integer 3 (an OCaml-only spelling)
+   yet rejected a non-numeric override like [banana], which Tailwind still
+   honours the same way. *)
+let test_line_clamp_none_theme_override () =
+  let css theme cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let hex =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "0x3") ]
+  in
+  let out = css hex "line-clamp-none" in
+  Alcotest.(check bool)
+    "a hex-looking override still drives the variable form" true
+    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
+       out);
+  Alcotest.(check bool)
+    "the theme layer keeps the override text as authored" true
+    (Astring.String.is_infix ~affix:"--line-clamp-none: 0x3" out);
+  let non_numeric =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "banana") ]
+  in
+  Alcotest.(check bool)
+    "a non-numeric override still drives the variable form, too" true
+    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
+       (css non_numeric "line-clamp-none"))
+
 let test_text_overflow_wrap () =
   check "text-ellipsis";
   check "overflow-ellipsis";
@@ -1006,6 +1037,8 @@ let tests =
     test_case "line height" `Quick test_line_height;
     test_case "letter spacing" `Quick test_letter_spacing;
     test_case "line clamp" `Quick test_line_clamp;
+    test_case "line-clamp-none theme override" `Quick
+      test_line_clamp_none_theme_override;
     test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
     test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
     test_case "hyphens" `Quick test_hyphens;
