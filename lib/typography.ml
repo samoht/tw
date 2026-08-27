@@ -232,6 +232,18 @@ let text_named_var name =
       Hashtbl.add text_named_cache name var;
       var
 
+(* The same for a [--leading-*] token the project declared. *)
+let leading_named_cache : (string, Css.line_height Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let leading_named_var name =
+  match Hashtbl.find_opt leading_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Line_height ("leading-" ^ name) ~order:(6, 53) in
+      Hashtbl.add leading_named_cache name var;
+      var
+
 let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
 let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
 let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
@@ -618,7 +630,9 @@ module Typography_early = struct
   let known_leading_names =
     [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ]
 
-  let parse_lh_modifier s =
+  (* The modifier names a [--leading-*] token, and one the project declared
+     counts the same as a built-in one. *)
+  let parse_lh_modifier theme s =
     if s = "none" then Stdlib.Option.Some No_leading
     else if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
@@ -629,7 +643,10 @@ module Typography_early = struct
       match int_of_string_opt s with
       | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Spacing n)
       | _ ->
-          if List.mem s known_leading_names then Stdlib.Option.Some (Named s)
+          if
+            List.mem s known_leading_names
+            || Scheme.theme_value (Some theme) ("leading-" ^ s) <> None
+          then Stdlib.Option.Some (Named s)
           else Stdlib.Option.None
 
   (* A font family the project named in its [@theme]. Gated on the token being
@@ -752,7 +769,7 @@ module Typography_early = struct
     | [ "text"; part ] -> (
         match split_on_slash part with
         | Stdlib.Option.Some (base, lh_str) -> (
-            match parse_lh_modifier lh_str with
+            match parse_lh_modifier theme lh_str with
             | Stdlib.Option.Some lh_mod ->
                 if Parse.is_bracket_value base then
                   let inner = Parse.bracket_inner base in
@@ -782,7 +799,7 @@ module Typography_early = struct
         match split_on_slash joined with
         | Stdlib.Option.Some (base, lh_str) when is_theme_text_size theme base
           -> (
-            match parse_lh_modifier lh_str with
+            match parse_lh_modifier theme lh_str with
             | Stdlib.Option.Some lh_mod -> Ok (Text_theme_lh (base, lh_mod))
             | Stdlib.Option.None -> err_not_utility)
         | _ when is_theme_text_size theme joined -> Ok (Text_theme joined)
@@ -1203,9 +1220,23 @@ module Typography_early = struct
           (Css.Pp.to_string Css.pp_length (Css.Rem rem)))
       text_size_data
 
+  (* A theme token's value is text; read it back at the type the property
+     wants. *)
+  let parse_theme_line_height theme token =
+    match Scheme.theme_value (Some theme) token with
+    | None -> Stdlib.Option.None
+    | Some raw -> (
+        let cursor = Cascade.Cursor.of_string raw in
+        match
+          Cascade.Cursor.try_parse_full_err Css.Properties.read_line_height
+            cursor
+        with
+        | Ok lh -> Stdlib.Option.Some lh
+        | Error _ -> Stdlib.Option.None)
+
   (** Convert a line-height modifier to (extra_declarations, line_height_value).
   *)
-  let lh_modifier_to_css = function
+  let lh_modifier_to_css theme = function
     | Spacing n ->
         let spacing_decl, _spacing_ref =
           Var.binding Theme.spacing_var Theme.spacing_base
@@ -1236,11 +1267,18 @@ module Typography_early = struct
         | Stdlib.Option.Some (theme_var, default_val) ->
             let decl, ref_ = Var.binding theme_var default_val in
             ([ decl ], Var ref_)
-        | Stdlib.Option.None ->
-            let ref_ : Css.line_height Css.var =
-              Var.bracket ("leading-" ^ name)
-            in
-            ([], Var ref_))
+        | Stdlib.Option.None -> (
+            (* A [--leading-*] the project declared: bind it, so the theme layer
+               carries the token the utility reads. *)
+            match parse_theme_line_height theme ("leading-" ^ name) with
+            | Stdlib.Option.Some lh ->
+                let decl, ref_ = Var.binding (leading_named_var name) lh in
+                ([ decl ], Css.Var ref_)
+            | Stdlib.Option.None ->
+                let ref_ : Css.line_height Css.var =
+                  Var.bracket ("leading-" ^ name)
+                in
+                ([], Css.Var ref_)))
     | Bracket (_, lh) -> ([], lh)
 
   (* A size the project declared carries no line height of its own, so the
@@ -1260,14 +1298,14 @@ module Typography_early = struct
 
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
-  let text_named_with_lh name lh_mod =
+  let text_named_with_lh theme name lh_mod =
     match
       List.assoc_opt name
         (List.map (fun (n, v, d) -> (n, (v, d))) text_size_data)
     with
     | Stdlib.Option.Some (size_var, default_rem) ->
         let size_decl, size_ref = Var.binding size_var (Rem default_rem) in
-        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         ( (size_decl :: lh_extra) @ [ font_size (Css.Var size_ref) ],
           [ line_height lh_value ] )
     | Stdlib.Option.None ->
@@ -1445,16 +1483,16 @@ module Typography_early = struct
         in
         style ~property_rules [ channel_decl; line_height lh ]
     | Text_named_lh (name, lh_mod) ->
-        let fs_decl, lh_decls = text_named_with_lh name lh_mod in
+        let fs_decl, lh_decls = text_named_with_lh theme name lh_mod in
         style (fs_decl @ lh_decls)
     | Text_theme name -> style (text_theme_decls theme name)
     | Text_theme_lh (name, lh_mod) ->
-        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
     | Text_bracket_fs_lh (raw, lh_mod) ->
         let fs_decls = bracket_font_size_decls raw in
-        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
 
   let examples =
