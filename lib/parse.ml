@@ -226,7 +226,11 @@ let normalize_css_math_operators s =
   Buffer.contents buf
 
 (* Tailwind's [--spacing(N)] shorthand: the spacing scale as a function. It is
-   not CSS, so a value holding it fails to parse and the utility drops out. *)
+   not CSS, so a value holding it fails to parse and the utility drops out. The
+   scan skips over quoted CSS strings ['...'] and ["..."] verbatim (with their
+   backslash escapes), so the same bytes inside a string literal - e.g. an
+   arbitrary [content:'--spacing(1)'] - are left as literal text rather than
+   expanded. *)
 let expand_spacing_fn s =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -241,18 +245,39 @@ let expand_spacing_fn s =
   in
   let rec go i =
     if i >= len then ()
-    else if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
-      let stop, next = close_paren (i + 9) 0 in
-      let n = String.sub s (i + 10) (stop - i - 10) in
-      (* [--spacing(1)] is the scale itself; only a multiplier needs calc. *)
-      if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
-      else
-        Buffer.add_string buf
-          (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
-      go next)
-    else (
-      Buffer.add_char buf s.[i];
-      go (i + 1))
+    else
+      match s.[i] with
+      | ('\'' | '"') as quote ->
+          Buffer.add_char buf quote;
+          in_string quote (i + 1)
+      | _ ->
+          if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
+            let stop, next = close_paren (i + 9) 0 in
+            let n = String.sub s (i + 10) (stop - i - 10) in
+            (* [--spacing(1)] is the scale itself; only a multiplier needs
+               calc. *)
+            if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
+            else
+              Buffer.add_string buf
+                (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
+            go next)
+          else (
+            Buffer.add_char buf s.[i];
+            go (i + 1))
+  and in_string quote i =
+    if i >= len then ()
+    else
+      match s.[i] with
+      | '\\' when i + 1 < len ->
+          Buffer.add_char buf s.[i];
+          Buffer.add_char buf s.[i + 1];
+          in_string quote (i + 2)
+      | c when c = quote ->
+          Buffer.add_char buf c;
+          go (i + 1)
+      | c ->
+          Buffer.add_char buf c;
+          in_string quote (i + 1)
   in
   go 0;
   Buffer.contents buf

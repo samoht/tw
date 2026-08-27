@@ -141,6 +141,24 @@ let test_double_bracket_class_rejected () =
   accepted "text-[10px]/[1.5]";
   accepted "bg-red-500/[0.5]"
 
+(* [--spacing(N)] is Tailwind's spacing-scale shorthand, expanded outside any
+   quoting. The same bytes inside a quoted string are a CSS string literal, not
+   the function, so [expand_spacing_fn] must leave them alone. *)
+let test_spacing_shorthand_ignored_in_quotes () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "single-quoted content keeps the literal text" true
+    (Astring.String.is_infix ~affix:{|content: '--spacing(1)'|}
+       (css {|[content:'--spacing(1)']|}));
+  Alcotest.(check bool)
+    "double-quoted content keeps the literal text" true
+    (Astring.String.is_infix ~affix:{|content: "--spacing(1)"|}
+       (css {|[content:"--spacing(1)"]|}))
+
 let tests =
   Alcotest.
     [
@@ -160,6 +178,8 @@ let tests =
         test_redundant_zero_spellings_are_rejected;
       test_case "parsing is independent of parse history" `Quick
         test_parse_is_independent_of_history;
+      test_case "--spacing() shorthand ignored inside quotes" `Quick
+        test_spacing_shorthand_ignored_in_quotes;
     ]
 
 let suite = ("parse", tests)
