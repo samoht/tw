@@ -1,7 +1,8 @@
-# tailwind_gen drives the reference tailwindcss CLI for differential tests; it
-# is dev-only (never in the JS bundle), so Fmt is fine there. Relax the lib/
-# disallowed_modules ban (E221) for that one file only -- every other file here
-# stays under the ban.
+# tailwind_gen drives the reference tailwindcss CLI for differential tests and
+# cascade_provenance shells out to git to report the local cascade checkout;
+# both are dev-only (never in the JS bundle), so Fmt is fine there. Relax the
+# lib/ disallowed_modules ban (E221) for these files only -- every other file
+# here stays under the ban.
 [[rules]]
-files = ["tailwind_gen.ml"]
+files = ["tailwind_gen.ml", "cascade_provenance.ml"]
 exclude = ["E221"]

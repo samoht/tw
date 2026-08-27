@@ -827,6 +827,7 @@ let load basename floor =
       cases
 
 let () =
+  Tw_tools.Cascade_provenance.report ();
   let utility_tests = load "utilities.txt" utilities_floor in
   let variant_tests = load "variants.txt" variants_floor in
   let total = List.length utility_tests + List.length variant_tests in
