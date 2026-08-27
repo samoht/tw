@@ -1312,8 +1312,10 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables, set var names, and property rules from all utilities *)
-let extract_vars_and_rules theme utilities =
-  let styles = List.map (Utility.to_style theme) utilities in
+(* Takes the already-built styles rather than the utilities: [layers] has just
+   built the same tree, and [Utility.to_style] dispatches through every
+   registered handler and allocates the whole declaration tree per class. *)
+let extract_vars_and_rules styles =
   let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
@@ -1441,7 +1443,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
   let styles = List.map (Utility.to_style theme) tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
-    extract_vars_and_rules theme tw_classes
+    extract_vars_and_rules styles
   in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
