@@ -98,11 +98,10 @@ let extract_var_name s =
     String.trim (String.sub s 6 (len - 7))
   else s
 
-(** Check if a string is a bracket-wrapped value like "[...]" *)
-(* One bracket, not two: the [\]] that closes the opening [\[] has to be the
-   last character. [[a]/[b]] is a bracket carrying a modifier and [[a]-[b]] is
-   two brackets; reading either as one leaves the inner text with its brackets
-   unbalanced, which no declaration value takes. *)
+(* One bracket, not two: the closing bracket has to be the last character. A
+   suffix carrying a second bracket - one bracket with a bracket modifier, or
+   two brackets in a row - would otherwise read as one bracket whose inner text
+   has a stray bracket in it, which no declaration value takes. *)
 let is_bracket_value s =
   let len = String.length s in
   let rec close i depth =

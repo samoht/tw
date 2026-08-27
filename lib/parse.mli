@@ -56,10 +56,10 @@ val extract_var_name : string -> string
 *)
 
 val is_bracket_value : string -> bool
-(** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value like
-    ["[...]"]. The ["]"] closing the opening ["["] has to be the last character,
-    so ["[a]/[b]"] (a bracket with a modifier) and ["[a]-[b]"] (two brackets)
-    are not one bracket value. *)
+(** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
+    closing bracket has to be the last character, so a suffix carrying a second
+    bracket - one bracket with a bracket modifier, or two brackets in a row - is
+    not one bracket value. *)
 
 val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
