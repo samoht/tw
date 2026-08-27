@@ -380,6 +380,37 @@ let test_arbitrary_leading_invalid () =
   rejected "text-lg/[red]";
   rejected "text-lg/[1zz]"
 
+(* [tracking-[...]] takes a length. A bracket the length grammar cannot read was
+   accepted and then raised out of [to_css], which is a pure conversion. Reading
+   the bracket with cascade's grammar also earns [calc()], which the old reader
+   could not take. *)
+let test_arbitrary_tracking_invalid () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "tracking-[foo]";
+  rejected "tracking-[red]";
+  rejected "tracking-[45deg]";
+  rejected "tracking-[1e]";
+  rejected "tracking-[a,b]";
+  rejected "-tracking-[foo]";
+  renders "tracking-[1px]";
+  renders "tracking-[.5em]";
+  renders "tracking-[-1px]";
+  renders "tracking-[2%]";
+  renders "tracking-[calc(1px_+_2px)]";
+  renders "tracking-[var(--x)]";
+  renders "-tracking-[.5em]"
+
 let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
@@ -796,6 +827,8 @@ let tests =
     test_case "bracket length units" `Quick test_bracket_length_units;
     test_case "arbitrary leading" `Quick test_arbitrary_leading;
     test_case "arbitrary leading invalid" `Quick test_arbitrary_leading_invalid;
+    test_case "arbitrary tracking invalid" `Quick
+      test_arbitrary_tracking_invalid;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
