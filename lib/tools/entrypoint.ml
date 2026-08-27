@@ -16,6 +16,90 @@ let imports_static_theme css =
   in
   go 0
 
+(* Where a token begins and ends in the source it was read from. *)
+let start (t : Cascade.Token.t) = t.loc.Cascade.Loc.start_pos
+let stop (t : Cascade.Token.t) = t.loc.Cascade.Loc.end_pos
+
+(* Every token of [css], in order, without the terminating [Eof]. *)
+let tokens css =
+  let lexer = Cascade.Lexer.of_string css in
+  let rec go acc =
+    let token = Cascade.Lexer.next lexer in
+    match token.Cascade.Token.kind with
+    | Cascade.Token.Eof -> Array.of_list (List.rev acc)
+    | _ -> go (token :: acc)
+  in
+  go []
+
+(* The first token from [i] on that is not whitespace, or the end of [toks]. *)
+let rec after_whitespace (toks : Cascade.Token.t array) i =
+  if
+    i < Array.length toks
+    && Cascade.Token.equal_kind toks.(i).kind Cascade.Token.Whitespace
+  then after_whitespace toks (i + 1)
+  else i
+
+(* Index of the [;] closing the declaration whose value starts at [i], or of the
+   [}] that ends the block first. A bracket group inside the value is stepped
+   over whole, so a [;] within one does not end the declaration. *)
+let rec declaration_end (toks : Cascade.Token.t array) i depth =
+  if i >= Array.length toks then i
+  else
+    match toks.(i).kind with
+    | Cascade.Token.Semicolon when depth = 0 -> i
+    | Cascade.Token.Open _ | Cascade.Token.Function _ ->
+        declaration_end toks (i + 1) (depth + 1)
+    | Cascade.Token.Close _ when depth = 0 -> i
+    | Cascade.Token.Close _ -> declaration_end toks (i + 1) (depth - 1)
+    | _ -> declaration_end toks (i + 1) depth
+
+(* [--<ns>-*: initial] takes a whole [@theme] namespace out of the theme, and
+   [--<ns>-*] is not a custom-property name: the [*] ends the ident, so "consume
+   a declaration" (CSS Syntax 3 sec. 5.5.15) finds no [:] where it wants one and
+   the block loses the reset. The token stream still has it, so it is read from
+   there, keyed by where it starts so it can go back among the declarations in
+   the order the block wrote them. *)
+let namespace_resets body =
+  let toks = tokens body in
+  let text from upto = String.trim (String.sub body from (upto - from)) in
+  (* The reset an ident at [i] opens, and the index to carry on from. *)
+  let reset i name acc =
+    let star = after_whitespace toks (i + 1) in
+    let colon = after_whitespace toks (star + 1) in
+    if
+      colon < Array.length toks
+      && Cascade.Token.equal_kind toks.(star).kind (Cascade.Token.Delim "*")
+      && Cascade.Token.equal_kind toks.(colon).kind Cascade.Token.Colon
+    then
+      let last = declaration_end toks (colon + 1) 0 in
+      let upto =
+        if last < Array.length toks then start toks.(last)
+        else String.length body
+      in
+      let namespace = String.sub name 2 (String.length name - 2) ^ "*" in
+      ( last + 1,
+        (start toks.(i), (namespace, text (stop toks.(colon)) upto)) :: acc )
+    else (i + 1, acc)
+  in
+  (* Only a declaration of the block itself is a reset, so a [*] under a nested
+     rule or inside a bracket group is stepped past. *)
+  let rec go i depth acc =
+    if i >= Array.length toks then List.rev acc
+    else
+      match toks.(i).kind with
+      | Cascade.Token.Open _ | Cascade.Token.Function _ ->
+          go (i + 1) (depth + 1) acc
+      | Cascade.Token.Close _ -> go (i + 1) (max 0 (depth - 1)) acc
+      | Cascade.Token.Ident name
+        when depth = 0
+             && String.length name >= 2
+             && String.equal (String.sub name 0 2) "--" ->
+          let i, acc = reset i name acc in
+          go i depth acc
+      | _ -> go (i + 1) depth acc
+  in
+  go 0 0 []
+
 (* Tailwind's [@theme] is not a CSS at-rule, so cascade keeps it whole rather
    than interpreting it (CSS Syntax 3 sec. 5.5.2, "consume an at-rule"): the
    prelude carries the modifiers, the block its declarations, both as the source
@@ -27,22 +111,31 @@ let theme_block = function
   | _ -> None
 
 (* The [(bare-name, value)] pairs a [@theme] block declares. Its body is a
-   declaration list, read here the way a rule's body is read: what cascade
-   cannot make a declaration of is dropped, which is what becomes of Tailwind's
-   own [--color-*: initial] resets, and reading carries on past a nested at-rule
-   such as the [@keyframes] a project writes beside its [--animate-*] token. *)
+   declaration list, read here the way a rule's body is read, so reading carries
+   on past a nested at-rule such as the [@keyframes] a project writes beside its
+   [--animate-*] token. The namespace resets come off the token stream and are
+   merged back in by where each one starts. *)
 let theme_tokens body =
-  Cascade.Reader.of_string body
-  |> Cascade.Parser.block_contents
-  |> (fun out -> out.Cascade.Parser.value)
-  |> List.concat_map (function `Decls decls -> decls | `Rule _ -> [])
-  |> List.filter_map (fun (decl : Cascade.Component.declaration) ->
-      let { Cascade.Component.name; value; _ } = decl.Cascade.Component.node in
-      if String.length name > 2 && String.sub name 0 2 = "--" then
-        Some
-          ( String.sub name 2 (String.length name - 2),
-            Cascade.Parser.to_string_custom value )
-      else None)
+  let declared =
+    Cascade.Reader.of_string body
+    |> Cascade.Parser.block_contents
+    |> (fun out -> out.Cascade.Parser.value)
+    |> List.concat_map (function `Decls decls -> decls | `Rule _ -> [])
+    |> List.filter_map (fun (decl : Cascade.Component.declaration) ->
+        let { Cascade.Component.name; value; _ } =
+          decl.Cascade.Component.node
+        in
+        if String.length name > 2 && String.sub name 0 2 = "--" then
+          Some
+            ( decl.Cascade.Component.loc.Cascade.Loc.start_pos,
+              ( String.sub name 2 (String.length name - 2),
+                Cascade.Parser.to_string_custom value ) )
+        else None)
+  in
+  List.stable_sort
+    (fun (a, _) (b, _) -> Int.compare a b)
+    (declared @ namespace_resets body)
+  |> List.map snd
 
 (* Extract @theme token overrides from a project CSS entrypoint, so tw renders
    with the same tokens Tailwind reads from it: the pairs every block declares,
@@ -114,19 +207,6 @@ module Scan = struct
     statement : (int, string * statement) Hashtbl.t;
         (** at-keyword offset -> its at-name and blockless statement *)
   }
-
-  let start (t : Token.t) = t.loc.Loc.start_pos
-  let stop (t : Token.t) = t.loc.Loc.end_pos
-
-  let tokens css =
-    let lexer = Lexer.of_string css in
-    let rec go acc =
-      let token = Lexer.next lexer in
-      match token.Token.kind with
-      | Token.Eof -> Array.of_list (List.rev acc)
-      | _ -> go (token :: acc)
-    in
-    go []
 
   (* For each token opening a bracket, the index of the token closing it, or
      [-1] when the source ends first. Per CSS Syntax 3 sec. 5.4.7 a close
