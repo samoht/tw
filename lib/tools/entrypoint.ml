@@ -1001,17 +1001,27 @@ let merge_named_layers stmts =
         | _ -> Some stmt)
       stmts
 
+let layer_block_name stmt =
+  match Css.layer_block_name stmt with Some [] | None -> None | name -> name
+
+(* A layer is declared by the first mention of its name, so a later declaration
+   of the same slot says nothing. Expanding a layer list writes a slot where its
+   name sat and the sheet carries a standalone declaration of that same slot
+   further on, so track what has been declared and keep only the first. *)
+let slot_registry () =
+  let declared = Hashtbl.create 8 in
+  let key n = Css.Stylesheet.string_of_layer_name n in
+  let declare n = Hashtbl.replace declared (key n) () in
+  let is_declared n = Hashtbl.mem declared (key n) in
+  (declare, is_declared)
+
 (* [@layer components;] on its own declares the layer's slot; the block that
    fills it can come much later, from an imported file. Tailwind emits the block
    in the slot, so move it there. The declared order already makes this
    cascade-neutral; it is the document shape that differs. *)
-let hoist_layer_blocks stmts =
-  let declared_names = Css.layer_statement_name_list in
-  let block_name stmt =
-    match Css.layer_block_name stmt with Some [] | None -> None | name -> name
-  in
+let movable_layer_slots stmts =
   let is_block_of n st =
-    match block_name st with Some m -> equal_layer m n | None -> false
+    match layer_block_name st with Some m -> equal_layer m n | None -> false
   in
   (* Two layer names never share their printed text, so it keys them. *)
   let by_text a b =
@@ -1019,37 +1029,58 @@ let hoist_layer_blocks stmts =
       (Css.Stylesheet.string_of_layer_name a)
       (Css.Stylesheet.string_of_layer_name b)
   in
-  let slots =
-    List.filter_map declared_names stmts
-    |> List.concat |> List.sort_uniq by_text
-  in
-  let movable =
-    List.filter (fun n -> List.exists (is_block_of n) stmts) slots
-  in
+  List.filter_map Css.layer_statement_name_list stmts
+  |> List.concat |> List.sort_uniq by_text
+  |> List.filter (fun n -> List.exists (is_block_of n) stmts)
+
+let expand_layer_list ~movable ~emitted ~declare ~is_declared ~block_for names =
+  List.filter_map
+    (fun n ->
+      let repeat = is_declared n in
+      declare n;
+      if List.exists (equal_layer n) movable then
+        if Hashtbl.mem emitted n then None
+        else begin
+          Hashtbl.add emitted n ();
+          block_for n
+        end
+      else if repeat then None
+      else Some (Css.layer_decl [ n ]))
+    names
+
+let fresh_layer_decl ~declare ~is_declared names =
+  match List.filter (fun n -> not (is_declared n)) names with
+  | [] -> []
+  | fresh ->
+      List.iter declare fresh;
+      [ Css.layer_decl fresh ]
+
+let hoist_layer_blocks stmts =
+  let movable = movable_layer_slots stmts in
   if movable = [] then stmts
   else
+    let is_block_of n st =
+      match layer_block_name st with Some m -> equal_layer m n | None -> false
+    in
     let block_for n = List.find_opt (is_block_of n) stmts in
     let emitted = Hashtbl.create 8 in
+    let declare, is_declared = slot_registry () in
     List.concat_map
       (fun stmt ->
-        match declared_names stmt with
+        match Css.layer_statement_name_list stmt with
         | Some names
           when List.exists (fun n -> List.exists (equal_layer n) movable) names
           ->
-            List.filter_map
-              (fun n ->
-                if List.exists (equal_layer n) movable then
-                  if Hashtbl.mem emitted n then None
-                  else begin
-                    Hashtbl.add emitted n ();
-                    block_for n
-                  end
-                else Some (Css.layer_decl [ n ]))
+            expand_layer_list ~movable ~emitted ~declare ~is_declared ~block_for
               names
-        | _ -> (
-            match block_name stmt with
+        | Some names -> fresh_layer_decl ~declare ~is_declared names
+        | None -> (
+            match layer_block_name stmt with
             | Some n when List.exists (equal_layer n) movable -> []
-            | _ -> [ stmt ]))
+            | Some n ->
+                declare n;
+                [ stmt ]
+            | None -> [ stmt ]))
       stmts
 
 (* A token the project declared in an [@theme inline] block has no declaration
