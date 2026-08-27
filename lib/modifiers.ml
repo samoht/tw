@@ -1059,32 +1059,19 @@ let parse_px_value s =
   | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
   | None -> None
 
-(* Preprocess a has-selector string: & → * and ensure combinator spacing. *)
-let preprocess_has_selector s =
-  let buf = Buffer.create (String.length s + 4) in
-  let len = String.length s in
-  for i = 0 to len - 1 do
-    match s.[i] with
-    | '&' -> Buffer.add_char buf '*'
-    | ('+' | '>' | '~') as c ->
-        if
-          Buffer.length buf > 0
-          &&
-          let b = Buffer.contents buf in
-          b.[String.length b - 1] <> ' '
-        then Buffer.add_char buf ' ';
-        Buffer.add_char buf c;
-        if i + 1 < len && s.[i + 1] <> ' ' then Buffer.add_char buf ' '
-    | c -> Buffer.add_char buf c
-  done;
-  Buffer.contents buf
+(* Parse a has-selector string as a relative CSS selector ([:has()] accepts a
+   bare leading combinator, e.g. [>div] or [~img]), with [&] resolved to the
+   universal selector via {!Cascade.Nest.substitute}, the same substitution
+   {!nest_selector} performs for anchored templates. *)
+let has_relative_selector s =
+  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
+  Cascade.Nest.substitute ~parent:Css.Selector.universal sel
 
 (* Validate that a has-selector string can be parsed as a CSS selector. Rejects
    invalid selectors like "@media_print" at parse time. *)
 let is_valid_has_selector sel =
   try
-    let processed = preprocess_has_selector sel in
-    ignore (Css.Selector.read_relative (Cascade.Cursor.of_string processed));
+    ignore (has_relative_selector sel);
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
