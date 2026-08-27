@@ -755,6 +755,29 @@ let test_invalid_font_family () =
   accepted "font-[var(--x)]";
   accepted "font-[600]"
 
+(* A quoted bracket font family carries its own quoting; Tailwind passes the
+   decoded text through rather than wrapping it in one more layer of quotes.
+   When the bracket mixes a quoted string with a trailing bare token
+   ([font-["liga"_0x10]]) the decoded text is not a single family name at all
+   (CSS Fonts 4 sec. 2.1 has no such shape); cascade's own reader marks it
+   [Invalid] and the printer drops the declaration, the same fate a browser
+   gives Tailwind's literal (spec-invalid) text, so the double-quoted mangling
+   must not appear either. *)
+let test_font_bracket_family_quoted () =
+  let css cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.Css.to_string (Tw.to_css ~base:false [ u ])
+  in
+  Alcotest.(check bool)
+    "a single quoted name keeps exactly one layer of quotes" true
+    (Astring.String.is_infix ~affix:{|font-family: "arial rounded"|}
+       (css {|font-["arial_rounded"]|}));
+  Alcotest.(check bool)
+    "a quoted string mixed with a bare token is never double-quoted" false
+    (Astring.String.is_infix ~affix:{|font-family: "\"liga\"|}
+       (css {|font-["liga"_0x10]|}))
+
 (* An arbitrary decoration thickness takes any CSS length unit, not just the px
    the hand-rolled suffix parser knew; the percentage form keeps its em
    conversion. A bracket that is not a length is rejected by the parser rather
@@ -966,6 +989,8 @@ let tests =
       test_decoration_shadeless_opacity;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "invalid font family" `Quick test_invalid_font_family;
+    test_case "font bracket family quoted" `Quick
+      test_font_bracket_family_quoted;
     test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
