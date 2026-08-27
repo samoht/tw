@@ -556,7 +556,11 @@ let property_info_to_declaration_value (Css.Property_info info) =
                   match v with
                   | Zero -> "0"
                   | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-              | Number -> Pp.float v ^ "%"
+              (* A [<number>] initial value is a number: appending [%] made it a
+                 percentage, which is a different type. Unreachable today
+                 because [property_typed] emits no Number syntax, so this is the
+                 arm a new one would land on. *)
+              | Number -> Pp.float v
               | syntax -> Css.Pp.to_string (pp_value syntax) v)))
 
 let name var = var.name

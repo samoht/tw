@@ -579,7 +579,13 @@ let spacing_values =
 let test_rng =
   let seed =
     match Sys.getenv_opt "TEST_SEED" with
-    | Some s -> int_of_string s
+    | Some s -> (
+        match int_of_string_opt s with
+        | Some n -> n
+        | None ->
+            (* Raising here aborts the whole suite at module initialisation with
+               a message that never mentions the variable. *)
+            Fmt.failwith "TEST_SEED is not an integer: %S" s)
     | None ->
         Random.self_init ();
         Random.bits ()
