@@ -52,10 +52,62 @@ let properties_of_class cls =
              | _ -> acc)
            []
 
-(* Classes that write on each other, paired up. An ordering difference is only
-   observable on an element carrying two such classes; one class on its own can
-   only show a difference in value. *)
-let interacting_pairs classes =
+(* What a class writes on an element carrying it, as one rule. The theme
+   bindings it drags in are left out - every class reading the spacing scale
+   writes [--spacing], which says nothing about what two of them do to each
+   other - and so are the [*, ::before] property defaults: neither is a selector
+   holding a [.]. *)
+let class_rule cls =
+  let decls =
+    match Tw.of_string cls with
+    | Error _ -> []
+    | Ok u ->
+        Tw.to_css ~base:false [ u ]
+        |> Css.fold
+             (fun acc stmt ->
+               match Css.as_rule stmt with
+               | Some (sel, decls, _)
+                 when String.contains (Css.Selector.to_string sel) '.' ->
+                   decls @ acc
+               | _ -> acc)
+             []
+  in
+  Css.rule ~selector:(Css.Selector.class_ cls) decls
+
+(* Two classes whose relative order is cascade-significant. Canonicalisation
+   sorts statements that cannot observe each other into a content-keyed order
+   and leaves the order of the ones that can, so a pair whose two spellings
+   canonicalise apart is a pair writing a common slot - cascade's own footprint
+   model, shorthand expansion included. This is what pairing on the declared
+   property name cannot see: [inset-px] and [top-px] share no property name and
+   both decide [top]. *)
+let cascade_conflict a b =
+  let canon stmts =
+    Css.canonicalize_rule_order (Css.v stmts) |> Css.to_string ~minify:true
+  in
+  canon [ a; b ] <> canon [ b; a ]
+
+let overlapping_pairs classes =
+  let rules = List.map (fun cls -> (cls, class_rule cls)) classes in
+  let rec go acc = function
+    | [] | [ _ ] -> acc
+    | (a, ra) :: tl ->
+        let acc =
+          List.fold_left
+            (fun acc (b, rb) ->
+              if cascade_conflict ra rb then (a, b) :: acc else acc)
+            acc tl
+        in
+        go acc tl
+  in
+  go [] rules
+
+(* Classes that declare a property in common. Kept alongside the footprint
+   model, which is about order alone: two classes writing the same property with
+   the same value do not conflict, and still compose - [shadow-lg] reads the
+   colour [shadow-current] writes, and only an element carrying both shows what
+   the pair computes to. *)
+let same_property_pairs classes =
   let by_prop = Hashtbl.create 256 in
   List.iter
     (fun cls ->
@@ -86,6 +138,14 @@ let interacting_pairs classes =
       in
       pairs acc cs)
     by_prop []
+
+(* Classes that write on each other, paired up. An ordering difference is only
+   observable on an element carrying two such classes; one class on its own can
+   only show a difference in value. *)
+let interacting_pairs classes =
+  let key (a, b) = if a <= b then (a, b) else (b, a) in
+  same_property_pairs classes @ overlapping_pairs classes
+  |> List.map key |> List.sort_uniq compare
 
 (* The single ordering predicate. The fuzzer minimises with it and every suite
    asserts on it, so a minimal case it reports is a case the assertion also
