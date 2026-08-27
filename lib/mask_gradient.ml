@@ -352,9 +352,11 @@ module Handler = struct
         prop ~order:61 "top" "linear-gradient(#fff, #fff)";
       ]
 
-  (* @property rules for a specific direction's from/to vars. Order offset
-     varies by direction so that e.g. left endpoints sort before right endpoints
-     in the properties layer. *)
+  (* @property rules for a specific direction's from/to vars. The order offset
+     varies by axis so that e.g. right endpoints sort before left endpoints in
+     the properties layer. A direction keeps one slot whichever utility emits
+     it: [mask-l-*] and the left half of [mask-x-*] name the same four custom
+     properties, so both ask for 66. *)
   let direction_endpoint_rules ?(order_base = 62) dir_name =
     concat
       [
@@ -388,7 +390,7 @@ module Handler = struct
       [
         common_property_rules;
         directional_gradient_property_rules;
-        direction_endpoint_rules "bottom";
+        direction_endpoint_rules ~order_base:66 "bottom";
       ]
 
   let left_property_rules =
@@ -396,7 +398,7 @@ module Handler = struct
       [
         common_property_rules;
         directional_gradient_property_rules;
-        direction_endpoint_rules "left";
+        direction_endpoint_rules ~order_base:66 "left";
       ]
 
   let x_property_rules =

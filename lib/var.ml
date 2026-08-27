@@ -123,7 +123,8 @@ module Registry = struct
     | None -> Hashtbl.replace tbl name value
 
   let register_property_order ~name ~order =
-    Hashtbl.replace property_order_registry name order
+    register_once property_order_registry ~what:"property order" ~pp:Pp.int
+      ~name ~value:order
 
   let property_order name =
     (* Strip leading -- if present *)
@@ -578,7 +579,6 @@ let order_of_declaration decl =
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
 let property_initial_string = property_info_to_declaration_value
-
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
 
 let bracket ?fallback name =
