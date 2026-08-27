@@ -338,6 +338,27 @@ let test_arbitrary_transform_rejects_non_number () =
       | Error (`Msg _) -> ())
     [ "scale-[abc]"; "rotate-[abc]"; "skew-[1.5]"; "rotate-[1.5px]" ]
 
+(* A [--perspective-*] token the project declared in its [@theme] names a depth
+   the built-in scale has no slot for. Tailwind generates the utility from it;
+   tw rejected the class outright. *)
+let test_project_perspective_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("perspective-deep", "1200px") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "perspective-deep references its token" true
+    (Astring.String.is_infix ~affix:"perspective: var(--perspective-deep)"
+       (css "perspective-deep"));
+  Alcotest.(check bool)
+    "an undeclared perspective name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "perspective-nope"))
+
 let tests =
   [
     test_case "invalid arbitrary transform" `Quick
@@ -362,6 +383,7 @@ let tests =
       test_arbitrary_transform_spelling;
     test_case "arbitrary transform rejects non-number" `Quick
       test_arbitrary_transform_rejects_non_number;
+    test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
