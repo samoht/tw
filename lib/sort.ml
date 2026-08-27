@@ -912,50 +912,6 @@ let strip_group_peer_vo p =
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
-(* Find the first ':' in a string that is not inside brackets. Returns None if
-   all colons are inside bracket pairs. *)
-let index_colon_outside_brackets s =
-  let len = String.length s in
-  let rec loop i depth =
-    if i >= len then None
-    else
-      match s.[i] with
-      | '[' -> loop (i + 1) (depth + 1)
-      | ']' -> loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 -> Some i
-      | _ -> loop (i + 1) depth
-  in
-  loop 0 0
-
-(* Split a string on ':' but respecting bracket nesting, so colons inside [...]
-   are not treated as separators. *)
-let split_on_colon_outside_brackets s =
-  let len = String.length s in
-  let buf = Buffer.create 16 in
-  let acc = ref [] in
-  let rec loop i depth =
-    if i >= len then (
-      let last = Buffer.contents buf in
-      if last <> "" then acc := last :: !acc;
-      List.rev !acc)
-    else
-      match s.[i] with
-      | '[' ->
-          Buffer.add_char buf '[';
-          loop (i + 1) (depth + 1)
-      | ']' ->
-          Buffer.add_char buf ']';
-          loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 ->
-          acc := Buffer.contents buf :: !acc;
-          Buffer.clear buf;
-          loop (i + 1) depth
-      | c ->
-          Buffer.add_char buf c;
-          loop (i + 1) depth
-  in
-  loop 0 0
-
 (* What Tailwind sorts a container variant on. It reads the value off the class
    rather than the width that value resolves to, and keys it by the unit -- or,
    when the value is a call, by the name before the parenthesis. A size off the
@@ -1005,8 +961,7 @@ let container_value_of_token token =
     else Some { name = "rem"; call = false; text = body }
 
 let container_value_of_prefix prefix =
-  List.find_map container_value_of_token
-    (split_on_colon_outside_brackets prefix)
+  List.find_map container_value_of_token (Parse.split_on_colon prefix)
 
 (* Only a call keys on a name the resolved length cannot carry, so every other
    pair keeps the length key, which already orders the way Tailwind does. *)
@@ -1022,20 +977,9 @@ let compare_container_values r1 r2 p1 p2 =
 
 (* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
-  match index_colon_outside_brackets prefix with
-  | Some j ->
-      let outer = String.sub prefix 0 j in
-      if
-        String.starts_with ~prefix:"group-" outer
-        || String.starts_with ~prefix:"peer-" outer
-      then
-        let parts = split_on_colon_outside_brackets prefix in
-        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
-        + 1
-      else
-        let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
-        Modifiers.variant_order_of_prefix inner
-  | None ->
+  match Parse.split_on_colon prefix with
+  | [] -> 0
+  | [ _ ] ->
       if String.starts_with ~prefix:"group-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 6 (String.length prefix - 6))
@@ -1043,6 +987,14 @@ let inner_vo prefix =
         Modifiers.variant_order_of_prefix
           (String.sub prefix 5 (String.length prefix - 5))
       else 0
+  | outer :: _ :: _ as parts ->
+      if
+        String.starts_with ~prefix:"group-" outer
+        || String.starts_with ~prefix:"peer-" outer
+      then
+        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
+        + 1
+      else Modifiers.variant_order_of_prefix (String.concat ":" (List.tl parts))
 
 (* Effective inner variant order: prefer prefix-derived, fall back to nested
    media *)

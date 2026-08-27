@@ -404,6 +404,49 @@ let split_class_uncached class_name =
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
 
+(** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
+    colon inside an arbitrary value or a shorthand var reference (e.g.
+    "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
+    yields (colon count + 1) tokens: joining the result back with ':'
+    reconstructs the input. *)
+let split_on_colon s =
+  let len = String.length s in
+  let buf = Buffer.create 16 in
+  let parts = ref [] in
+  let i = ref 0 in
+  while !i < len do
+    let c = s.[!i] in
+    if c = '[' then (
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = s.[!i] in
+        Buffer.add_char buf c;
+        if c = '[' then incr depth else if c = ']' then decr depth;
+        incr i
+      done)
+    else if c = '(' then (
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = s.[!i] in
+        Buffer.add_char buf c;
+        if c = '(' then incr depth else if c = ')' then decr depth;
+        incr i
+      done)
+    else if c = ':' then (
+      parts := Buffer.contents buf :: !parts;
+      Buffer.clear buf;
+      incr i)
+    else (
+      Buffer.add_char buf c;
+      incr i)
+  done;
+  parts := Buffer.contents buf :: !parts;
+  List.rev !parts
+
 (* Utility.base_of_class offers one class name to every handler in turn until
    one accepts it, and most handlers open by splitting that same name, so a
    single class is split once per handler tried. The split is a pure function of
