@@ -3,7 +3,6 @@
  (libraries
   tw
   alcotest
-  re
   astring
   fmt
   cmdliner
