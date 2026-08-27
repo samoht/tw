@@ -216,6 +216,27 @@ let test_bracket_gradient_radians () =
   has "bg-linear-[-0.5rad]" "--tw-gradient-position: -28.6479deg";
   has "bg-linear-[1.3rad]" "--tw-gradient-position: 74.4845deg"
 
+(* [-bg-linear-[value]] accepts only angles, gated by a check that used to spell
+   "is this an angle" as [String.ends_with ~suffix:"rad" value]. That suffix
+   also matches "grad" (gradians end in "rad" too), so it stripped "100grad"
+   down to "100g", failed to read it as a number, and rejected the class
+   outright where Tailwind accepts it and negates the value as calc(100grad *
+   -1). Reading the bracket as a real CSS angle tells grad and rad apart; a
+   non-angle bracket like [to_bottom] still has to be rejected. *)
+let test_bracket_gradient_negated_angle_units () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  in
+  has "-bg-linear-[100grad]" "calc(100grad * -1)";
+  match Tw.of_string "-bg-linear-[to_bottom]" with
+  | Ok _ -> Alcotest.fail "expected -bg-linear-[to_bottom] to be rejected"
+  | Error _ -> ()
+
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
@@ -526,6 +547,8 @@ let tests =
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "bracket gradient angle in radians" `Quick
       test_bracket_gradient_radians;
+    test_case "negated bracket gradient angle units" `Quick
+      test_bracket_gradient_negated_angle_units;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
