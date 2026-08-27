@@ -843,9 +843,9 @@ let compare_by_base_class r1 r2 =
   if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
 
 let supports_suffix s =
-  if String.length s > 9 && String.sub s 0 9 = "supports-" then
+  if String.starts_with ~prefix:"supports-" s then
     Some (String.sub s 9 (String.length s - 9))
-  else if String.length s > 13 && String.sub s 0 13 = "not-supports-" then
+  else if String.starts_with ~prefix:"not-supports-" s then
     Some (String.sub s 13 (String.length s - 13))
   else None
 
@@ -906,9 +906,9 @@ let variant_prefix = function
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
 let strip_group_peer_vo p =
-  if Parse.has_prefix ~prefix:"group-" p then
+  if String.starts_with ~prefix:"group-" p then
     Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
-  else if Parse.has_prefix ~prefix:"peer-" p then
+  else if String.starts_with ~prefix:"peer-" p then
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
@@ -988,8 +988,8 @@ let container_value_of_token token =
     let body = String.sub token 1 (n - 1) in
     let body =
       if
-        Parse.has_prefix ~prefix:"min-" body
-        || Parse.has_prefix ~prefix:"max-" body
+        String.starts_with ~prefix:"min-" body
+        || String.starts_with ~prefix:"max-" body
       then String.sub body 4 (String.length body - 4)
       else body
     in
@@ -1026,8 +1026,8 @@ let inner_vo prefix =
   | Some j ->
       let outer = String.sub prefix 0 j in
       if
-        Parse.has_prefix ~prefix:"group-" outer
-        || Parse.has_prefix ~prefix:"peer-" outer
+        String.starts_with ~prefix:"group-" outer
+        || String.starts_with ~prefix:"peer-" outer
       then
         let parts = split_on_colon_outside_brackets prefix in
         List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
@@ -1036,10 +1036,10 @@ let inner_vo prefix =
         let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
         Modifiers.variant_order_of_prefix inner
   | None ->
-      if Parse.has_prefix ~prefix:"group-" prefix then
+      if String.starts_with ~prefix:"group-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 6 (String.length prefix - 6))
-      else if Parse.has_prefix ~prefix:"peer-" prefix then
+      else if String.starts_with ~prefix:"peer-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 5 (String.length prefix - 5))
       else 0
@@ -1072,8 +1072,8 @@ let token_order_key token =
   let primary = Modifiers.variant_order_of_prefix token in
   let secondary =
     if
-      Parse.has_prefix ~prefix:"group-" token
-      || Parse.has_prefix ~prefix:"peer-" token
+      String.starts_with ~prefix:"group-" token
+      || String.starts_with ~prefix:"peer-" token
     then strip_group_peer_vo token
     else 0
   in

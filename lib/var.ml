@@ -592,7 +592,7 @@ let bracket ?fallback name =
     | Some _ -> None
     | None ->
         let expression =
-          if Parse.has_prefix ~prefix:"var(" name then Some name
+          if String.starts_with ~prefix:"var(" name then Some name
           else if String.contains name ',' then Some ("var(--" ^ name ^ ")")
           else None
         in
