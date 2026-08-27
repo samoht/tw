@@ -95,6 +95,21 @@ let font_weight_extrabold_var =
 let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:(6, 38)
 
+(* A [--font-weight-*] token the project declared names a weight the built-in
+   scale has no slot for; they share the slot after the scale. *)
+let font_weight_named_cache : (string, Css.font_weight Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let font_weight_named_var name =
+  match Hashtbl.find_opt font_weight_named_cache name with
+  | Some var -> var
+  | None ->
+      let var =
+        Var.theme Css.Font_weight ("font-weight-" ^ name) ~order:(6, 38)
+      in
+      Hashtbl.add font_weight_named_cache name var;
+      var
+
 (* Theme variables for named tracking values *)
 let tracking_tighter_var = Var.theme Css.Length "tracking-tighter" ~order:(6, 39)
 let tracking_tight_var = Var.theme Css.Length "tracking-tight" ~order:(6, 40)
@@ -405,6 +420,8 @@ module Typography_early = struct
     | Font_serif
     | Font_mono
     | Font_named of string (* font-source, from a --font-* theme token *)
+    | Font_weight_theme of string (* weight from a --font-weight-* token *)
+    | Leading_theme of string (* line height from a --leading-* token *)
     | (* Font styles *)
       Italic
     | Not_italic
@@ -665,6 +682,17 @@ module Typography_early = struct
 
   (* A font family the project named in its [@theme]. Gated on the token being
      there so a stray source word (font-awesome) is not a utility. *)
+  (* A weight or line height the project named in its [@theme]. The built-in
+     scales are matched before these are consulted. *)
+  let is_theme_font_weight theme n =
+    Scheme.theme_value (Some theme) ("font-weight-" ^ n) <> None
+
+  (* [leading-6] is the spacing-derived numeric form, whatever a project happens
+     to have declared, so a plain number is never a token name. *)
+  let is_theme_leading theme n =
+    Parse.decimal_int n = None
+    && Scheme.theme_value (Some theme) ("leading-" ^ n) <> None
+
   let is_named_font theme n =
     Scheme.theme_value (Some theme) ("font-" ^ n) <> None
 
@@ -764,6 +792,9 @@ module Typography_early = struct
     | "font" :: (_ :: _ as rest)
       when is_named_font theme (String.concat "-" rest) ->
         Ok (Font_named (String.concat "-" rest))
+    | "font" :: (_ :: _ as rest)
+      when is_theme_font_weight theme (String.concat "-" rest) ->
+        Ok (Font_weight_theme (String.concat "-" rest))
     | [ "italic" ] -> Ok Italic
     | [ "not"; "italic" ] -> Ok Not_italic
     | [ "text"; "left" ] -> Ok Text_left
@@ -785,6 +816,9 @@ module Typography_early = struct
           match parse_bracket_leading inner with
           | Stdlib.Option.Some lh -> Ok (Leading_bracket (inner, lh))
           | Stdlib.Option.None -> err_not_utility)
+    | "leading" :: (_ :: _ as rest)
+      when is_theme_leading theme (String.concat "-" rest) ->
+        Ok (Leading_theme (String.concat "-" rest))
     | [ "leading"; n ] ->
         (* Tailwind accepts any non-negative leading-N, derived from spacing. *)
         Parse.int_pos ~name:"leading" n >|= fun i -> Leading i
@@ -866,6 +900,8 @@ module Typography_early = struct
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
     | Font_named name -> "font-" ^ name
+    | Font_weight_theme name -> "font-" ^ name
+    | Leading_theme name -> "leading-" ^ name
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -913,6 +949,8 @@ module Typography_early = struct
     | Font_sans -> 1502
     | Font_serif -> 1503
     | Font_named _ -> 1504
+    | Font_weight_theme _ -> 4201
+    | Leading_theme _ -> 3206
     (* Bracket font-size with line-height modifier — before named sizes *)
     | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
@@ -1107,6 +1145,15 @@ module Typography_early = struct
     | None -> []
     | Some v -> [ font_feature_settings (Css.Feature_list v) ]
 
+  let font_weight_theme theme name =
+    match Scheme.theme_value (Some theme) ("font-weight-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Parse.decimal_int raw with
+        | None -> style []
+        | Some n ->
+            font_weight_utility (font_weight_named_var name) (Css.Weight n))
+
   let font_named ?fallback theme name =
     let token = "font-" ^ name in
     match Scheme.theme_value (Some theme) token with
@@ -1144,6 +1191,15 @@ module Typography_early = struct
     in
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
+
+  let leading_theme theme name =
+    match Scheme.theme_value (Some theme) ("leading-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match parse_bracket_leading raw with
+        | Stdlib.Option.None -> style []
+        | Stdlib.Option.Some lh ->
+            leading_with_theme_var (leading_named_var name) lh)
 
   let leading_none ?theme () =
     match Scheme.theme_value theme "leading-none" with
@@ -1472,6 +1528,8 @@ module Typography_early = struct
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_named name -> font_named theme name
+    | Font_weight_theme name -> font_weight_theme theme name
+    | Leading_theme name -> leading_theme theme name
     | Font_sans -> font_named ~fallback:font_sans theme "sans"
     | Font_serif -> font_named ~fallback:font_serif theme "serif"
     | Font_mono -> font_named ~fallback:font_mono theme "mono"
