@@ -300,16 +300,11 @@ let upstream_scheme (config : Upstream_fixture.config) theme_vars variants
     in
     overrides @ extra
   in
+  (* Every custom breakpoint a case uses arrives as a [--breakpoint-*] token in
+     [overrides], so the parse reads it from the threaded theme. *)
   let custom_variants, container_variants = upstream_variants variants in
   let base : Tw.Scheme.t =
-    {
-      Tw.Scheme.default with
-      (* The breakpoint names the fixture corpus declares in its own [@theme]
-         blocks; a case that uses one has it in the theme it is parsed with. *)
-      breakpoints = [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
-      custom_variants;
-      container_variants;
-    }
+    { Tw.Scheme.default with custom_variants; container_variants }
   in
   Tw.Scheme.with_overrides base overrides
 
