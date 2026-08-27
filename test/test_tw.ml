@@ -113,6 +113,7 @@ let check_exact_match tw_styles =
       Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
         tailwind_css tw_css
     in
+    Test_helpers.check_no_dropped_declarations ~test_name diff_result;
     let parity_equal =
       match diff_result.Css_compare.result with
       | Css_compare.No_diff -> true

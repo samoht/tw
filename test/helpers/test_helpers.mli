@@ -39,6 +39,23 @@ val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
     Pruning is what makes it blind to a utility whose only output is an
     unreferenced binding; {!check_rendering_matches} covers that class. *)
 
+val dropped_declarations : Cascade_diff.Css_compare.t -> Error.t list
+(** [dropped_declarations diff] is the parse warnings either side of [diff]
+    carries, minus the one allowed exception. A warning means the reader
+    rejected a declaration and dropped it from that side's AST before the
+    comparison, so the diff read less than it appears to. *)
+
+val check_no_dropped_declarations :
+  test_name:string -> Cascade_diff.Css_compare.t -> unit
+(** [check_no_dropped_declarations ~test_name diff] fails when either side of
+    [diff] carries a parse warning, i.e. a declaration the reader rejected and
+    dropped from that side's AST before the comparison. Such a drop makes the
+    comparison read as a phantom addition on the side that parsed, or as no
+    difference at all when both sides collapse to the same AST, so it is a
+    finding rather than noise. Tailwind's bare-number [color-mix] mixing amount,
+    which CSS Color 5 sec. 3.1 does not admit and a browser drops too, is the
+    one allowed exception. *)
+
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
 (** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
     finds a difference. The minimisation predicate. *)

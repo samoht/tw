@@ -178,6 +178,38 @@ let ordering_diff ?(forms = false) utilities =
     (tailwind_css ~forms classnames)
     (our_css utilities)
 
+(* [Css_compare] drops a declaration its reader rejects from that side's AST
+   before the comparison runs, so a real difference can surface as a phantom
+   addition on the side that parsed, or as no difference at all when both sides
+   collapse to the same AST. A rejection is a finding about the comparison, not
+   noise to ignore.
+
+   One rejection is known and is Tailwind's own: it writes the [color-mix]
+   mixing amount as a bare number ([color-mix(in srgb, red .5, transparent)]),
+   where CSS Color 5 sec. 3.1 admits only a [<percentage>], so a browser drops
+   that declaration too. The upstream runner rewrites that spelling before
+   either side is parsed, so the exception is there for the suites that compare
+   against the live Tailwind CLI, which does not go through that rewrite. *)
+let known_reader_rejection (error : Cascade.Error.t) =
+  match error.kind with
+  | Cascade.Error.Bad_value { reason = "expected color-mix percentage"; _ } ->
+      true
+  | _ -> false
+
+let dropped_declarations (diff : Css_compare.t) =
+  diff.Css_compare.expected_warnings @ diff.Css_compare.actual_warnings
+  |> List.filter (fun e -> not (known_reader_rejection e))
+
+let check_no_dropped_declarations ~test_name diff =
+  let dropped = dropped_declarations diff in
+  if dropped <> [] then
+    Alcotest.failf
+      "%s: the comparison could not read %d declaration(s) and dropped them, \
+       so it compared less than it appears to:\n\
+       %s"
+      test_name (List.length dropped)
+      (String.concat "\n" (List.map Cascade.Error.to_string dropped))
+
 let check_ordering_fails ?forms utilities =
   match (ordering_diff ?forms utilities).Css_compare.result with
   | Css_compare.No_diff -> false
@@ -390,6 +422,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
 
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in
+  check_no_dropped_declarations ~test_name diff;
   match diff.Css_compare.result with
   | Css_compare.No_diff -> ()
   | _ ->

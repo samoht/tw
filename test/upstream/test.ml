@@ -381,6 +381,23 @@ let test_reference_survives_theme_resolution () =
     "a token the case does not declare is inlined, as @theme renders it" false
     (references (rendered ~declared:[]))
 
+(* Guards [Test_helpers.check_no_dropped_declarations], which every comparison
+   in the runner goes through: a declaration the reader rejects is dropped from
+   that side's AST, so the diff compares less than it appears to. Only
+   Tailwind's own bare-number [color-mix] amount is let through. *)
+let test_dropped_declarations_are_reported () =
+  let reported declaration =
+    Css_compare.diff ~mode:`Canonical
+      (Fmt.str ".x{%s}" declaration)
+      ".x{color:red}"
+    |> Test_helpers.dropped_declarations <> []
+  in
+  Alcotest.(check bool)
+    "a declaration the reader drops is reported" true (reported "width:12quux");
+  Alcotest.(check bool)
+    "Tailwind's bare-number color-mix amount is allowed through" false
+    (reported "color:color-mix(in srgb, red .5, transparent)")
+
 (** Set theme value overrides for root vars from expected CSS. This enables
     utilities like z-auto and order-first to produce custom declarations in the
     :root, :host block when [@config] theme is used. Everything the test's own
@@ -537,6 +554,9 @@ let run_test_case test () =
           (normalize_colors expected_css)
           (normalize_colors our_css)
       in
+      Test_helpers.check_no_dropped_declarations
+        ~test_name:(String.concat " " test.classes)
+        result;
       if
         match result.Css_compare.result with
         | Css_compare.No_diff -> true
@@ -693,6 +713,8 @@ let () =
         test_scheme_from_declared_tokens_only;
       test_case "a tw reference survives theme resolution" `Quick
         test_reference_survives_theme_resolution;
+      test_case "a dropped declaration is reported" `Quick
+        test_dropped_declarations_are_reported;
     ]
   in
   let suites =
