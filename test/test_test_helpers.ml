@@ -80,6 +80,41 @@ let test_no_var_when_none_referenced () =
     "text-left references no variable" false
     (references_var "text-left")
 
+(* Where an ordering difference becomes observable: an element carrying two
+   classes that write on each other. *)
+let paired a b =
+  let pairs = Test_helpers.interacting_pairs [ a; b ] in
+  List.exists (fun p -> p = (a, b) || p = (b, a)) pairs
+
+(* [inset] and [top] are one property after shorthand expansion, so which of the
+   two rules comes last decides where the element sits. They share no property
+   name, so pairing on the name alone never puts them on one element. The [px]
+   step rather than a scale step: [inset-4] and [top-4] each write [--spacing]
+   too, which pairs them for a reason that says nothing about the two
+   properties. *)
+let test_pairs_shorthand_with_longhand () =
+  Alcotest.(check bool)
+    "inset-px and top-px share an element" true
+    (paired "inset-px" "top-px")
+
+(* The same relation one family over: [flex] writes [flex-grow]. *)
+let test_pairs_shorthand_with_its_own_longhand () =
+  Alcotest.(check bool)
+    "flex-1 and grow share an element" true (paired "flex-1" "grow")
+
+(* A pair that interacts through a variable rather than a slot: shadow-current
+   feeds the colour the size utility's shadow reads, which neither class shows
+   on its own. *)
+let test_pairs_composed_through_a_variable () =
+  Alcotest.(check bool)
+    "shadow-lg and shadow-current share an element" true
+    (paired "shadow-lg" "shadow-current")
+
+let test_unrelated_classes_are_not_paired () =
+  Alcotest.(check bool)
+    "text-left and italic do not share an element" false
+    (paired "text-left" "italic")
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -94,6 +129,14 @@ let tests =
     Alcotest.test_case "var under color-mix" `Quick test_var_under_color_mix;
     Alcotest.test_case "no var referenced" `Quick
       test_no_var_when_none_referenced;
+    Alcotest.test_case "pairs shorthand with longhand" `Quick
+      test_pairs_shorthand_with_longhand;
+    Alcotest.test_case "pairs shorthand with its own longhand" `Quick
+      test_pairs_shorthand_with_its_own_longhand;
+    Alcotest.test_case "pairs classes composed through a variable" `Quick
+      test_pairs_composed_through_a_variable;
+    Alcotest.test_case "unrelated classes are not paired" `Quick
+      test_unrelated_classes_are_not_paired;
   ]
 
 let suite = ("test_helpers", tests)
