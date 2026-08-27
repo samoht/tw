@@ -949,6 +949,70 @@ let split_on_colon_outside_brackets s =
   in
   loop 0 0
 
+(* What Tailwind sorts a container variant on. It reads the value off the class
+   rather than the width that value resolves to, and keys it by the unit -- or,
+   when the value is a call, by the name before the parenthesis. A size off the
+   [--container] scale is resolved through the theme before the key is taken,
+   and that scale is rem throughout. *)
+type container_value = {
+  name : string; (* The value's unit, or the name of the call it is. *)
+  call : bool; (* The value is a function call. *)
+  text : string; (* The value as the class spells it. *)
+}
+
+(* Tailwind strips every run of digits and dots to reach the unit, so a sign
+   stays behind with it. *)
+let unit_of_container_value text =
+  let buf = Buffer.create (String.length text) in
+  String.iter
+    (fun c ->
+      if not ((c >= '0' && c <= '9') || c = '.') then Buffer.add_char buf c)
+    text;
+  Buffer.contents buf
+
+(* Read the container value out of one modifier token: [@min-[64rem]] and
+   [@[theme(--breakpoint-lg)]] carry it in the bracket, [@lg] and [@min-lg] name
+   a size on the [--container] scale. A [/name] tail aims the query at a named
+   container and says nothing about the width. *)
+let container_value_of_token token =
+  let n = String.length token in
+  if n < 2 || token.[0] <> '@' then None
+  else
+    let body = String.sub token 1 (n - 1) in
+    let body =
+      if
+        Parse.has_prefix ~prefix:"min-" body
+        || Parse.has_prefix ~prefix:"max-" body
+      then String.sub body 4 (String.length body - 4)
+      else body
+    in
+    if String.length body > 1 && body.[0] = '[' then
+      match String.rindex_opt body ']' with
+      | Some i when i > 1 -> (
+          let text = String.sub body 1 (i - 1) in
+          match String.index_opt text '(' with
+          | Some j -> Some { name = String.sub text 0 j; call = true; text }
+          | None ->
+              Some { name = unit_of_container_value text; call = false; text })
+      | _ -> None
+    else Some { name = "rem"; call = false; text = body }
+
+let container_value_of_prefix prefix =
+  List.find_map container_value_of_token
+    (split_on_colon_outside_brackets prefix)
+
+(* Only a call keys on a name the resolved length cannot carry, so every other
+   pair keeps the length key, which already orders the way Tailwind does. *)
+let compare_container_values r1 r2 p1 p2 =
+  match (r1.rule_type, r2.rule_type) with
+  | `Container _, `Container _ -> (
+      match (container_value_of_prefix p1, container_value_of_prefix p2) with
+      | Some v1, Some v2 when v1.call || v2.call ->
+          let c = String.compare v1.name v2.name in
+          if c <> 0 then Some c else Some (String.compare v1.text v2.text)
+      | _ -> None)
+  | _ -> None
+
 (* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
   match index_colon_outside_brackets prefix with
@@ -1156,9 +1220,12 @@ let compare_variant_ordered r1 r2 =
              and sm before md; a nested breakpoint or hover, the prefix and the
              utility's own priority order what is left. *)
           let media_cmp =
-            match (r1.media_key, r2.media_key) with
-            | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
-            | _ -> 0
+            match compare_container_values r1 r2 p1_prefix p2_prefix with
+            | Some c -> c
+            | None -> (
+                match (r1.media_key, r2.media_key) with
+                | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+                | _ -> 0)
           in
           if media_cmp <> 0 then media_cmp
           else
