@@ -273,6 +273,26 @@ let test_named_text_size () =
     (Astring.String.is_infix ~affix:"line-height:calc(var(--spacing)*7)"
        (css "text-huge/7"))
 
+(* [--text-shadow-*] is a namespace of its own and [--text-<name>--line-height]
+   is a modifier on another token, so neither names a font size. Nor does a
+   [--text-*] token whose value is not a length. *)
+let test_text_size_namespace_boundaries () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("text-shadow-pop", "0 1px 0 teal");
+        ("text-huge", "9rem");
+        ("text-huge--line-height", "1.5rem");
+        ("text-loud", "bolder");
+      ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as a font size (%s)" cls (Tw.pp u))
+    [ "text-shadow-pop"; "text-huge--line-height"; "text-loud" ]
+
 (* The line-height modifier names a [--leading-*] token, and a project's own
    counts the same as a built-in one. *)
 let test_theme_leading_modifier () =
@@ -918,6 +938,8 @@ let tests =
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
     test_case "named text size from the theme" `Quick test_named_text_size;
+    test_case "text size namespace boundaries" `Quick
+      test_text_size_namespace_boundaries;
     test_case "leading modifier from the theme" `Quick
       test_theme_leading_modifier;
     test_case "decoration undefined colour shade" `Quick
