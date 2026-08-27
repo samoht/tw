@@ -406,7 +406,7 @@ let add_index triples =
       let selector_str = Buffer.contents buf in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
       let responsive_media_key = Sort.responsive_media_key typ nested in
-      let variant_order = Rule.compute_variant_order base_class sel in
+      let variant_order = Rule.compute_variant_order ~selector_str base_class in
       ({
          index = i;
          rule_type = typ;

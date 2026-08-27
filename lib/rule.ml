@@ -1036,8 +1036,10 @@ let has_substring s pat =
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
     by the comparator. For before/after, the base_class is the raw utility name
-    without prefix, so we detect them from the selector content. *)
-let compute_variant_order base_class selector =
+    without prefix, so we detect them from the selector content. [selector_str]
+    is the caller's already-rendered selector: [Build.add_index] renders it two
+    lines before calling this. *)
+let compute_variant_order ~selector_str base_class =
   let from_base_class bc =
     let modifiers, _ = Modifiers.of_string bc in
     List.fold_left
@@ -1052,11 +1054,9 @@ let compute_variant_order base_class selector =
      to avoid matching utility-generated pseudo-elements like prose's
      ::before. *)
   if vo > 0 then vo
-  else
-    let sel_str = Css.Selector.to_string selector in
-    if has_substring sel_str "before\\:" then 1600
-    else if has_substring sel_str "after\\:" then 1601
-    else 0
+  else if has_substring selector_str "before\\:" then 1600
+  else if has_substring selector_str "after\\:" then 1601
+  else 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
     forms like data-foo, has-checked, nth-2 that need different class names than
