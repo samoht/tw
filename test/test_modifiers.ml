@@ -917,6 +917,37 @@ let test_attribute_brackets_still_parse () =
   emits "[data-dragging]" "peer-data-[dragging]:flex";
   emits "[data-modified]" "group-data-modified:flex"
 
+(* A bare [[...]] variant compounds its selector onto the utility's own class,
+   so what the brackets hold has to be a compound selector. [~] is both the
+   sibling combinator and the [~=] whitespace-list attribute operator, and only
+   reading the bracket as a selector tells them apart: a character scan that
+   rejects every [~] rejects [[data-size~=large]] along with [p_~_span]. *)
+let test_bare_selector_variant_attribute_operators () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  emits "[data-size~=large]" "[[data-size~=large]]:underline";
+  emits "[data-size~=large]" "group-[[data-size~=large]]:underline";
+  emits "[data-size~=large]" "peer-[[data-size~=large]]:underline";
+  (* the attribute operators that never collided with a combinator stay put *)
+  emits "[lang|=en]" "[[lang|=en]]:underline";
+  emits "[href^=https]" "[[href^=https]]:underline";
+  (* a combinator really is one, and none of these is a compound *)
+  rejected "[p_~_span]:underline";
+  rejected "[>img]:underline";
+  rejected "[.a_.b]:underline";
+  rejected "[@media_print]:underline"
+
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
   let css cls =
@@ -1053,6 +1084,8 @@ let tests =
         test_padded_attribute_brackets;
       test_case "attribute brackets still parse" `Quick
         test_attribute_brackets_still_parse;
+      test_case "bare selector variant attribute operators" `Quick
+        test_bare_selector_variant_attribute_operators;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick
