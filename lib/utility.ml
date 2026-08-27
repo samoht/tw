@@ -188,7 +188,7 @@ let class_of_base u =
   in
   match List.find_map visit !handlers with
   | Some class_name -> class_name
-  | None -> failwith "name_of_base"
+  | None -> failwith "class_of_base"
 
 let base_of_class theme class_name =
   let rec try_handlers = function
