@@ -454,6 +454,40 @@ let theme_function_reads_the_project_palette () =
     (Astring.String.is_infix ~affix:"oklch"
        (css "[color:theme(colors.blue.500)]"))
 
+(* [theme(colors.<name>.<shade>/<alpha>)] mixes the alpha into whatever value
+   the theme bound the colour to, the way Tailwind does. The alpha was spliced
+   in by chopping the value's closing paren, so a project that bound its palette
+   entry to a hex kept the colour and silently lost the alpha. *)
+let theme_function_alpha_reads_any_palette_value () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#ef4444") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "a hex palette value keeps the alpha" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
+       (css "[color:theme(colors.red.500/25%)]"));
+  Alcotest.(check bool)
+    "a fraction is the same alpha as the percentage" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
+       (css "[color:theme(colors.red.500/0.25)]"));
+  Alcotest.(check bool)
+    "an unoverridden colour mixes its own value" true
+    (Astring.String.is_infix ~affix:"color-mix(in oklab, oklch("
+       (css "[color:theme(colors.blue.500/25%)]"));
+  (* an alpha that names no number leaves the call verbatim, the way an unknown
+     path already does, rather than dropping the alpha *)
+  Alcotest.(check bool)
+    "theme(colors.red.500/abc) stays verbatim" true
+    (Astring.String.is_infix ~affix:"theme(colors.red"
+       (css "[color:theme(colors.red.500/abc)]"))
+
 let custom_breakpoint_theme_is_local () =
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
@@ -1199,6 +1233,8 @@ let core_tests =
       custom_breakpoint_theme_is_local;
     test_case "theme() reads the project palette" `Quick
       theme_function_reads_the_project_palette;
+    test_case "theme() alpha reads any palette value" `Quick
+      theme_function_alpha_reads_any_palette_value;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
