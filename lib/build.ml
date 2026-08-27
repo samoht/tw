@@ -50,8 +50,7 @@ let extract_base_utility class_name_no_pseudo =
 
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =
-  let parts = String.split_on_char '-' base_utility in
-  match Utility.base_of_strings Scheme.default parts with
+  match Utility.base_of_class Scheme.default base_utility with
   | Ok u -> Utility.order u
   | Error _ ->
       (* Some selectors (like .group, .peer, .container) are marker classes that
@@ -342,8 +341,7 @@ let order_of_base order_map base_class selector =
       match Hashtbl.find_opt order_map base_utility with
       | Some order -> adjust_pseudo class_name order
       | None -> (
-          let parts = String.split_on_char '-' base_utility in
-          match Utility.base_of_strings Scheme.default parts with
+          match Utility.base_of_class Scheme.default base_utility with
           | Ok u -> adjust_pseudo class_name (Utility.order u)
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
@@ -527,7 +525,12 @@ let sort_vars_by_property_order vars =
     | Some o -> o
     | None -> 1000 (* Default for vars without property_order *)
   in
-  List.sort (fun n1 n2 -> compare (get_order n1) (get_order n2)) vars
+  (* Decorate-sort-undecorate: [get_order] allocates a [String.sub] per call,
+     and a comparator runs it on both operands of every comparison. *)
+  vars
+  |> List.map (fun name -> (get_order name, name))
+  |> List.stable_sort (fun (o1, _) (o2, _) -> Int.compare o1 o2)
+  |> List.map snd
 
 (* Extract all var names from sorted indexed rules in utility order. For each
    utility, collects: 1. Vars that are SET (custom declarations) 2. Vars that
