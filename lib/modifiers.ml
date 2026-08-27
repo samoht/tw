@@ -580,6 +580,20 @@ let to_selector (modifier : modifier) cls =
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
 
+(* Modifiers whose whole effect is a media query. A group or peer negation
+   builds a selector, and a media query has no negated selector form, so one of
+   these cannot be its inner: [rule.ml] answers such a pair with no rules at
+   all, which reaches the author as a class that silently does nothing. The list
+   is the one [Rule.media_condition_of_modifier] answers for, plus [Hover] and
+   [Device_hocus], which gate on [\@media (hover: hover)]. *)
+let renders_as_media = function
+  | Hover | Device_hocus | Dark | Motion_safe | Motion_reduce | Contrast_more
+  | Contrast_less | Print | Portrait | Landscape | Forced_colors
+  | Inverted_colors | Pointer_none | Pointer_coarse | Pointer_fine
+  | Any_pointer_none | Any_pointer_coarse | Any_pointer_fine | Noscript ->
+      true
+  | _ -> false
+
 let wrap m styles =
   match styles with
   | [] -> Utility.Group []
@@ -1582,14 +1596,14 @@ let parse_group_peer_not_inner rest =
         let name = String.sub rest (i + 1) (String.length rest - i - 1) in
         let inner_mod =
           match List.assoc_opt inner_str simple_modifiers with
-          | Some m -> Some m
-          | None -> None
+          | Some m when not (renders_as_media m) -> Some m
+          | Some _ | None -> None
         in
         Option.map (fun m -> (m, Some name)) inner_mod
     | None -> (
         match List.assoc_opt rest simple_modifiers with
-        | Some m -> Some (m, None)
-        | None -> None)
+        | Some m when not (renders_as_media m) -> Some (m, None)
+        | Some _ | None -> None)
 
 (* Try to parse compound named group variants: not-group-STATE/name,
    has-group-STATE/name, in-group-STATE/name, group-peer-STATE/name *)
@@ -1901,7 +1915,11 @@ and try_group_peer_not_variant ~theme s =
         split_name (String.sub s plen (String.length s - plen))
       in
       match parse_modifier ~theme base with
-      | Some m when is_not_compatible m -> Some (make m name)
+      (* A plain [not-hover] is fine - it negates the selector and keeps the
+         hover media gate. A group or peer negation has only the selector, so a
+         media-rendered inner leaves it with nothing to emit. *)
+      | Some m when is_not_compatible m && not (renders_as_media m) ->
+          Some (make m name)
       | Some _ | None -> None
   in
   match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
