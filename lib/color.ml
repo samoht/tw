@@ -1598,16 +1598,36 @@ let color_to_string (c : color) : string =
 
 (** Color parsing utilities *)
 
+(* A number in an opacity modifier, with the digits the author wrote beside the
+   value they denote. The class name is a selector, so it has to repeat the
+   spelling: [/[25]] and [/[25.0]] are one alpha and two different classes, and
+   re-printing the float picks the wrong one. *)
+type opacity_number = { value : float; text : string }
+
 (** Opacity modifier type *)
 type opacity_modifier =
   | No_opacity
-  | Opacity_percent of float (* e.g., /50 means 50% *)
-  | Opacity_arbitrary of float (* e.g., /[0.5] means 0.5 *)
+  | Opacity_percent of opacity_number (* e.g., /50 means 50% *)
+  | Opacity_arbitrary of opacity_number (* e.g., /[0.5] means 0.5 *)
   | Opacity_bracket_percent of
-      float (* e.g., /[50%] means 50% but preserves bracket form *)
+      opacity_number (* e.g., /[50%] means 50% but preserves bracket form *)
   | Opacity_named of string (* e.g., /half, /custom - theme-defined names *)
   | Opacity_var of string
 (* the modifier as written: /[var(--x)] or the /(--x) shorthand *)
+
+let opacity_of_int pct =
+  Opacity_percent { value = Float.of_int pct; text = string_of_int pct }
+
+(* The class-name spelling of a modifier, without the leading [/]. *)
+let pp_opacity = function
+  | No_opacity -> ""
+  | Opacity_percent n -> n.text
+  | Opacity_bracket_percent n -> "[" ^ n.text ^ "%]"
+  | Opacity_arbitrary n -> "[" ^ n.text ^ "]"
+  | Opacity_named name -> name
+  | Opacity_var v -> v
+
+let opacity_suffix = function No_opacity -> "" | o -> "/" ^ pp_opacity o
 
 (** Parse the modifier that follows the [/] in a colour class. *)
 let opacity_of_string ?theme opacity_str =
@@ -1621,11 +1641,11 @@ let opacity_of_string ?theme opacity_str =
     if String.ends_with ~suffix:"%" inner then
       let num_str = String.sub inner 0 (String.length inner - 1) in
       match float_of_string_opt num_str with
-      | Some f -> Some (Opacity_bracket_percent f)
+      | Some f -> Some (Opacity_bracket_percent { value = f; text = num_str })
       | None -> None
     else
       match float_of_string_opt inner with
-      | Some f -> Some (Opacity_arbitrary f)
+      | Some f -> Some (Opacity_arbitrary { value = f; text = inner })
       | None ->
           if Parse.is_var inner then Some (Opacity_var opacity_str) else None
   else if
@@ -1641,7 +1661,8 @@ let opacity_of_string ?theme opacity_str =
   else
     (* Numeric value like 50 or 2.5, or named opacity like half/custom *)
     match float_of_string_opt opacity_str with
-    | Some f when f >= 0. -> Some (Opacity_percent f)
+    | Some f when f >= 0. ->
+        Some (Opacity_percent { value = f; text = opacity_str })
     | _ ->
         (* Not a number — check if it's a named opacity defined in the theme
            (e.g., /half when --opacity-half exists) *)
@@ -2005,8 +2026,6 @@ module Handler = struct
      Css *)
   let mk_color_hex s : color = Hex s
   let color_of_string = of_string
-  let pp_int = Pp.int
-  let pp_float = Pp.float
 
   open Style
   open Css
@@ -2639,9 +2658,9 @@ module Handler = struct
   (** Convert opacity modifier to a percentage value (0-100) *)
   let opacity_to_percent = function
     | No_opacity -> 100.0
-    | Opacity_percent p -> p (* Already a percentage like 50 *)
-    | Opacity_bracket_percent p -> p (* [50%] is also a percentage *)
-    | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
+    | Opacity_percent p -> p.value (* Already a percentage like 50 *)
+    | Opacity_bracket_percent p -> p.value (* [50%] is also a percentage *)
+    | Opacity_arbitrary f -> f.value *. 100.0 (* e.g., 0.5 -> 50 *)
     | Opacity_named _ | Opacity_var _ ->
         (* Named/var opacity requires variable lookup, default to 100% *)
         100.0
@@ -2928,16 +2947,7 @@ module Handler = struct
         (* Named bracket colors: unique per variant to prevent merging.
            Different opacity syntaxes (e.g. /50 vs /[0.5]) produce identical CSS
            but Tailwind keeps them separate. *)
-        let opacity_tag =
-          match opacity with
-          | No_opacity -> ""
-          | Opacity_percent p -> "/" ^ string_of_float p
-          | Opacity_arbitrary f -> "/[" ^ string_of_float f ^ "]"
-          | Opacity_bracket_percent p -> "/[" ^ string_of_float p ^ "%]"
-          | Opacity_named n -> "/" ^ n
-          | Opacity_var v -> "/" ^ v
-        in
-        "outline-[" ^ inner ^ "]" ^ opacity_tag
+        "outline-[" ^ inner ^ "]" ^ opacity_suffix opacity
     in
     color_with_opacity_style ~property:Css.outline_color ~merge_key c 500
       opacity
@@ -3288,19 +3298,6 @@ module Handler = struct
     | Placeholder_bracket_color _ -> 80000
     | Placeholder_bracket_color_opacity _ -> 80000
 
-  (* Format opacity modifier for class names *)
-  let opacity_suffix = function
-    | No_opacity -> ""
-    | Opacity_percent p ->
-        if Float.is_integer p then "/" ^ pp_int (int_of_float p)
-        else "/" ^ pp_float p
-    | Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ pp_int (int_of_float p) ^ "%]"
-        else "/[" ^ pp_float p ^ "%]"
-    | Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
-    | Opacity_named name -> "/" ^ name
-    | Opacity_var v -> "/" ^ v
-
   let to_class = function
     | Bg (c, shade) ->
         if is_shadeless c then "bg-" ^ color_to_string c
@@ -3479,23 +3476,6 @@ let property_color_value = Handler.property_color_value
 let opacity_to_percent = Handler.opacity_to_percent
 let opacity_var_bare = Handler.opacity_var_bare
 let opacity_var_bare_of = Handler.opacity_var_name
-
-let pp_opacity = function
-  | No_opacity -> ""
-  | Opacity_percent pct ->
-      (* Handle both integer and decimal values *)
-      let rounded = Float.round pct in
-      if Float.equal pct rounded then string_of_int (int_of_float pct)
-      else Pp.float pct
-  | Opacity_bracket_percent pct ->
-      let rounded = Float.round pct in
-      if Float.equal pct rounded then
-        "[" ^ string_of_int (int_of_float pct) ^ "%]"
-      else "[" ^ Pp.float pct ^ "%]"
-  | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
-  | Opacity_named name -> name
-  | Opacity_var v -> v
-
 let shorten_hex_str = shorten_hex_str
 let bracket_color_to_custom = Handler.bracket_color_to_custom
 let css_color_to_hex = Handler.css_color_to_hex
@@ -3848,23 +3828,19 @@ let bg ?opacity ?(shade = 500) color =
   check_shade ~utility:"bg" color shade;
   match opacity with
   | None -> utility (Bg (color, shade))
-  | Some pct ->
-      utility (Bg_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Bg_opacity (color, shade, opacity_of_int pct))
 
 let text ?opacity ?(shade = 500) color =
   check_shade ~utility:"text" color shade;
   match opacity with
   | None -> utility (Text (color, shade))
-  | Some pct ->
-      utility (Text_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Text_opacity (color, shade, opacity_of_int pct))
 
 let border_color ?opacity ?(shade = 500) color =
   check_shade ~utility:"border_color" color shade;
   match opacity with
   | None -> utility (Border (color, shade))
-  | Some pct ->
-      utility
-        (Border_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Border_opacity (color, shade, opacity_of_int pct))
 
 let bg_transparent = utility Bg_transparent
 let bg_current = utility Bg_current
@@ -3878,9 +3854,7 @@ let accent ?opacity ?(shade = 500) color =
   check_shade ~utility:"accent" color shade;
   match opacity with
   | None -> utility (Accent (color, shade))
-  | Some pct ->
-      utility
-        (Accent_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Accent_opacity (color, shade, opacity_of_int pct))
 
 let accent_current = utility Accent_current
 let accent_inherit = utility Accent_inherit
@@ -3889,8 +3863,7 @@ let caret ?opacity ?(shade = 500) color =
   check_shade ~utility:"caret" color shade;
   match opacity with
   | None -> utility (Caret (color, shade))
-  | Some pct ->
-      utility (Caret_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+  | Some pct -> utility (Caret_opacity (color, shade, opacity_of_int pct))
 
 let caret_current = utility Caret_current
 let caret_inherit = utility Caret_inherit

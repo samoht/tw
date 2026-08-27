@@ -3291,8 +3291,7 @@ let ring_color ?opacity ?(shade = 500) color =
   match opacity with
   | None -> utility (Ring_color (color, shade))
   | Some pct ->
-      utility
-        (Ring_color_opacity (color, shade, Opacity_percent (Float.of_int pct)))
+      utility (Ring_color_opacity (color, shade, Color.opacity_of_int pct))
 
 let inset_ring = utility Inset_ring_default
 let opacity n = utility (Opacity n)

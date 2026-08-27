@@ -49,19 +49,6 @@ module Handler = struct
   let name = "svg"
   let priority _ = 22
 
-  (* Format opacity modifier for class names *)
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-        else "/" ^ Pp.float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-        else "/[" ^ Pp.float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named name -> "/" ^ name
-    | Color.Opacity_var v -> "/" ^ v
-
   (* Fill color style with scheme support *)
   let fill_color_style ?theme color shade =
     if Color.is_custom_color color then
@@ -262,49 +249,50 @@ module Handler = struct
     | Fill_inherit -> "fill-inherit"
     | Fill_transparent -> "fill-transparent"
     | Fill_current -> "fill-current"
-    | Fill_current_opacity opacity -> "fill-current" ^ opacity_suffix opacity
+    | Fill_current_opacity opacity ->
+        "fill-current" ^ Color.opacity_suffix opacity
     | Fill_color (c, shade) ->
         if Color.is_shadeless c then "fill-" ^ Color.color_to_string c
         else "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Fill_color_opacity (c, shade, opacity) ->
         if Color.is_shadeless c then
-          "fill-" ^ Color.color_to_string c ^ opacity_suffix opacity
+          "fill-" ^ Color.color_to_string c ^ Color.opacity_suffix opacity
         else
           "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
-          ^ opacity_suffix opacity
+          ^ Color.opacity_suffix opacity
     | Fill_bracket_color (v, _) -> "fill-[" ^ v ^ "]"
     | Fill_bracket_color_opacity (v, _, opacity) ->
-        "fill-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "fill-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Fill_bracket_var v -> "fill-[" ^ v ^ "]"
     | Fill_bracket_var_opacity (v, opacity) ->
-        "fill-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "fill-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Fill_bracket_typed_var v -> "fill-[color:" ^ v ^ "]"
     | Fill_bracket_typed_var_opacity (v, opacity) ->
-        "fill-[color:" ^ v ^ "]" ^ opacity_suffix opacity
+        "fill-[color:" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Stroke_none -> "stroke-none"
     | Stroke_inherit -> "stroke-inherit"
     | Stroke_transparent -> "stroke-transparent"
     | Stroke_current -> "stroke-current"
     | Stroke_current_opacity opacity ->
-        "stroke-current" ^ opacity_suffix opacity
+        "stroke-current" ^ Color.opacity_suffix opacity
     | Stroke_color (c, shade) ->
         if Color.is_shadeless c then "stroke-" ^ Color.color_to_string c
         else "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Stroke_color_opacity (c, shade, opacity) ->
         if Color.is_shadeless c then
-          "stroke-" ^ Color.color_to_string c ^ opacity_suffix opacity
+          "stroke-" ^ Color.color_to_string c ^ Color.opacity_suffix opacity
         else
           "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
-          ^ opacity_suffix opacity
+          ^ Color.opacity_suffix opacity
     | Stroke_bracket_color (v, _) -> "stroke-[" ^ v ^ "]"
     | Stroke_bracket_color_opacity (v, _, opacity) ->
-        "stroke-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "stroke-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Stroke_bracket_var v -> "stroke-[" ^ v ^ "]"
     | Stroke_bracket_var_opacity (v, opacity) ->
-        "stroke-[" ^ v ^ "]" ^ opacity_suffix opacity
+        "stroke-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Stroke_bracket_typed_var v -> "stroke-[color:" ^ v ^ "]"
     | Stroke_bracket_typed_var_opacity (v, opacity) ->
-        "stroke-[color:" ^ v ^ "]" ^ opacity_suffix opacity
+        "stroke-[color:" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Stroke_0 -> "stroke-0"
     | Stroke_1 -> "stroke-1"
     | Stroke_2 -> "stroke-2"

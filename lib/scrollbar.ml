@@ -71,26 +71,14 @@ module Handler = struct
     in
     (group lsl 32) + detail
 
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-        else "/" ^ Pp.float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-        else "/[" ^ Pp.float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named n -> "/" ^ n
-    | Color.Opacity_var v -> "/" ^ v
-
   let spec_class = function
     | Theme (color, shade, op) ->
         let base =
           if Color.is_shadeless color then Color.color_to_string color
           else Color.color_to_string color ^ "-" ^ string_of_int shade
         in
-        base ^ opacity_suffix op
-    | Bracket (raw, _, op) -> raw ^ opacity_suffix op
+        base ^ Color.opacity_suffix op
+    | Bracket (raw, _, op) -> raw ^ Color.opacity_suffix op
     | Current -> "current"
     | Inherit -> "inherit"
     | Transparent -> "transparent"

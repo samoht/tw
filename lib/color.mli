@@ -340,15 +340,26 @@ val caret_transparent : t
 
 (** {1 Opacity Modifiers} *)
 
+type opacity_number = {
+  value : float;  (** the number the modifier denotes *)
+  text : string;  (** the digits the author wrote, for the class name *)
+}
+(** A number in an opacity modifier. The class name is a selector, so it repeats
+    [text] rather than re-printing [value]: [/[25]] and [/[25.0]] denote one
+    alpha and are two different classes. *)
+
 type opacity_modifier =
   | No_opacity
-  | Opacity_percent of float  (** e.g., /50 means 50% *)
-  | Opacity_arbitrary of float  (** e.g., /[0.5] means 0.5 *)
-  | Opacity_bracket_percent of float
+  | Opacity_percent of opacity_number  (** e.g., /50 means 50% *)
+  | Opacity_arbitrary of opacity_number  (** e.g., /[0.5] means 0.5 *)
+  | Opacity_bracket_percent of opacity_number
       (** e.g., /[50%] means 50% but preserves bracket form in class name *)
   | Opacity_named of string  (** e.g., /half, /custom - theme-defined names *)
   | Opacity_var of string
       (** e.g., /[var(--x)] - var ref used directly as percentage *)
+
+val opacity_of_int : int -> opacity_modifier
+(** [opacity_of_int pct] is the modifier a class spells [/pct]. *)
 
 val opacity_var_bare : string -> string
 (** [opacity_var_bare v] is the bare custom-property name inside an opacity
@@ -501,9 +512,13 @@ val opacity_to_percent : opacity_modifier -> float
 (** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
 
 val pp_opacity : opacity_modifier -> string
-(** [pp_opacity modifier] returns a string representation of the opacity
-    modifier for use in class names. E.g., Opacity_percent 50. -> "50",
-    Opacity_arbitrary 0.5 -> "[0.5]". *)
+(** [pp_opacity modifier] is the class-name spelling of [modifier], without the
+    leading ["/"]: ["50"] for [/50], ["[0.5]"] for [/[0.5]], [""] for
+    {!No_opacity}. *)
+
+val opacity_suffix : opacity_modifier -> string
+(** [opacity_suffix modifier] is {!pp_opacity} behind the ["/"] that separates
+    it from the colour, and [""] for {!No_opacity}. *)
 
 val hex_alpha_color :
   ?theme:Scheme.t -> color -> int -> opacity_modifier -> string option
