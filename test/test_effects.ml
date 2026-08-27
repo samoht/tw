@@ -408,6 +408,38 @@ let test_invalid_bracket_hex () =
   emits "inset-shadow-[0_1px_2px_#000]"
     "--tw-inset-shadow:inset 0 1px 2px var(--tw-inset-shadow-color,#000)"
 
+(* A shade the palette does not define is not a colour. These utilities read the
+   shade without checking it, so the class was accepted and then rendered a
+   fabricated black or a reference to a variable no theme declares. *)
+let test_undefined_shade () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "shadow-red-999";
+  rejected "inset-shadow-red-999";
+  rejected "ring-red-999";
+  rejected "ring-offset-red-999";
+  rejected "inset-ring-red-999";
+  rejected "shadow-red-0";
+  rejected "shadow-red-550";
+  rejected "ring-red-42";
+  rejected "shadow-red-999/50";
+  accepted "shadow-red-500";
+  accepted "inset-shadow-red-500";
+  accepted "ring-red-950";
+  accepted "ring-offset-red-50";
+  accepted "inset-ring-red-500";
+  accepted "shadow-red-500/50"
+
 (* [opacity-[<n>]] names its class after the bracket, so the number has to come
    back out spelled as the author wrote it rather than re-printed. *)
 let test_arbitrary_opacity_spelling () =
@@ -430,6 +462,7 @@ let test_arbitrary_opacity_rejects_non_number () =
 let tests =
   [
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+    test_case "undefined colour shade" `Quick test_undefined_shade;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
