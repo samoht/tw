@@ -103,6 +103,20 @@ let tracking_wide_var = Var.theme Css.Length "tracking-wide" ~order:(6, 42)
 let tracking_wider_var = Var.theme Css.Length "tracking-wider" ~order:(6, 43)
 let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
 
+(* A [--tracking-*] token the project declared names a letter spacing the
+   built-in scale has no slot for; they share the slot after the scale, the way
+   the project's font families and text sizes share theirs. *)
+let tracking_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let tracking_named_var name =
+  match Hashtbl.find_opt tracking_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Length ("tracking-" ^ name) ~order:(6, 45) in
+      Hashtbl.add tracking_named_cache name var;
+      var
+
 (* Theme variables for named leading values *)
 let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
 let leading_tight_var = Var.theme Css.Line_height "leading-tight" ~order:(6, 48)
@@ -1578,6 +1592,8 @@ module Typography_late = struct
     | Tracking_wide
     | Tracking_wider
     | Tracking_widest
+    | (* Letter spacing named by a project [--tracking-*] token *)
+      Tracking_theme of string
     | (* Text transform *)
       Uppercase
     | Lowercase
@@ -1723,6 +1739,11 @@ module Typography_late = struct
   let arbitrary_tracking inner : Css.length option =
     Css.parse_length (Parse.decode_underscores inner)
 
+  (* A letter spacing the project named in its [@theme]. The built-in scale is
+     matched before this is consulted, so those names never reach here. *)
+  let is_theme_tracking theme n =
+    Scheme.theme_value (Some theme) ("tracking-" ^ n) <> None
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1858,6 +1879,11 @@ module Typography_late = struct
     | [ "tracking"; "wide" ] -> Ok Tracking_wide
     | [ "tracking"; "wider" ] -> Ok Tracking_wider
     | [ "tracking"; "widest" ] -> Ok Tracking_widest
+    | [ "tracking"; name ] when is_theme_tracking theme name ->
+        Ok (Tracking_theme name)
+    | "tracking" :: (_ :: _ :: _ as rest)
+      when is_theme_tracking theme (String.concat "-" rest) ->
+        Ok (Tracking_theme (String.concat "-" rest))
     | [ "uppercase" ] -> Ok Uppercase
     | [ "lowercase" ] -> Ok Lowercase
     | [ "capitalize" ] -> Ok Capitalize
@@ -2104,6 +2130,7 @@ module Typography_late = struct
     | Tracking_wide -> "tracking-wide"
     | Tracking_wider -> "tracking-wider"
     | Tracking_widest -> "tracking-widest"
+    | Tracking_theme name -> "tracking-" ^ name
     | Uppercase -> "uppercase"
     | Lowercase -> "lowercase"
     | Capitalize -> "capitalize"
@@ -2266,6 +2293,7 @@ module Typography_late = struct
     | Tracking_wide -> 8303
     | Tracking_wider -> 8304
     | Tracking_widest -> 8305
+    | Tracking_theme _ -> 8306
     (* Text transform - alphabetical order *)
     | Capitalize -> 8360
     | Lowercase -> 8361
@@ -2645,6 +2673,26 @@ module Typography_late = struct
     in
     style ~property_rules
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
+  let tracking_theme theme name =
+    let token = "tracking-" ^ name in
+    match Scheme.theme_value (Some theme) token with
+    | Stdlib.Option.None -> style []
+    | Stdlib.Option.Some raw -> (
+        match Css.parse_length raw with
+        | Stdlib.Option.None -> style []
+        | Stdlib.Option.Some len ->
+            let theme_decl, theme_ref =
+              Var.binding (tracking_named_var name) len
+            in
+            let channel_decl, _ =
+              Var.binding tracking_var (Css.Var theme_ref)
+            in
+            let property_rules =
+              Var.property_rule tracking_var |> Option.to_list |> Css.concat
+            in
+            style ~property_rules
+              [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ])
 
   let tracking_wider =
     let theme_decl, theme_ref = Var.binding tracking_wider_var (Em 0.05) in
@@ -3116,6 +3164,7 @@ module Typography_late = struct
     | Tracking_wide -> tracking_wide
     | Tracking_wider -> tracking_wider
     | Tracking_widest -> tracking_widest
+    | Tracking_theme name -> tracking_theme theme name
     | Uppercase -> uppercase
     | Lowercase -> lowercase
     | Capitalize -> capitalize
