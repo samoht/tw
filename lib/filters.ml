@@ -520,10 +520,6 @@ module Handler = struct
          ~color:(Css.Var (drop_shadow_color_ref fallback))
          ())
 
-  let parse_filter_value css =
-    let cursor = Cascade.Cursor.of_string css in
-    Cascade.Cursor.try_parse_full_err Css.Properties.read_filter cursor
-
   let drop_shadow_none =
     style ~property_rules:filter_property_rules
       [
@@ -723,26 +719,36 @@ module Handler = struct
         filter composable_filter_chain;
       ]
 
-  (* The [--tw-drop-shadow-size] filter behind [drop-shadow-[...]]: the last
-     space-separated word is the colour, hoisted into the
-     [--tw-drop-shadow-color] fallback. [None] means the bracket is not a
+  (* The [--tw-drop-shadow-size] filter behind [drop-shadow-[...]]: a bracket
+     that parses as a [<shadow>] hoists its colour into the
+     [--tw-drop-shadow-color] fallback via [drop_shadow_size_of_body],
+     defaulting to [currentcolor] when the shadow has none (matching Tailwind -
+     not the last space-separated token, which need not be a colour). A bracket
+     that is itself a bare [var()] passes through unchanged, since the browser
+     resolves the whole shadow from it. [None] means the bracket is not a
      shadow, which [of_class] rejects. *)
   let drop_shadow_arbitrary_value s : Css.filter option =
-    let inner = Parse.bracket_inner s in
-    let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
-    let parts = String.split_on_char ' ' inner in
-    let non_color, color =
-      match List.rev parts with
-      | c :: rest -> (String.concat " " (List.rev rest), c)
-      | [] -> (inner, "black")
-    in
-    match
-      parse_filter_value
-        ("drop-shadow(" ^ non_color ^ " var(--tw-drop-shadow-color, " ^ color
-       ^ "))")
-    with
-    | Ok size -> Some size
-    | Error _ -> None
+    let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
+    match Css.parse_shadow inner with
+    | Some (Css.Var _ as v) -> Some (Css.Drop_shadow v)
+    | Some (Css.Shadow body) -> Some (drop_shadow_size_of_body body)
+    | Some (Css.List shadows) -> (
+        match
+          List.filter_map
+            (fun (sh : Css.shadow) ->
+              match sh with
+              | Css.Shadow body -> Some (drop_shadow_size_of_body body)
+              | _ -> None)
+            shadows
+        with
+        | [] -> None
+        | [ single ] -> Some single
+        | many -> Some (Css.List many))
+    | Some
+        ( Css.Inset _ | Css.None | Css.Inherit | Css.Initial | Css.Unset
+        | Css.Revert | Css.Revert_layer )
+    | None ->
+        None
 
   let drop_shadow_arbitrary_impl size =
     style ~property_rules:filter_property_rules
