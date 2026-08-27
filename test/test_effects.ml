@@ -459,9 +459,37 @@ let test_arbitrary_opacity_rejects_non_number () =
       | Error (`Msg _) -> ())
     [ "opacity-[abc]"; "opacity-[]" ]
 
+(* A [--shadow-*] or [--inset-shadow-*] token the project declared in its
+   [@theme] names a shadow the built-in scale has no slot for. Tailwind
+   generates the utility from each, routing the colour through the family's
+   shadow-colour channel; tw rejected both outright. *)
+let test_project_shadow_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("shadow-halo", "0 0 8px #f00");
+        ("inset-shadow-dent", "inset 0 1px 2px #000");
+      ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "--tw-shadow: 0 0 8px var(--tw-shadow-color, #f00)" "shadow-halo";
+  emits "--tw-inset-shadow: inset 0 1px 2px var(--tw-inset-shadow-color, #000)"
+    "inset-shadow-dent";
+  Alcotest.(check bool)
+    "an undeclared shadow name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "shadow-nope"))
+
 let tests =
   [
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+    test_case "project shadow tokens" `Quick test_project_shadow_tokens;
     test_case "undefined colour shade" `Quick test_undefined_shade;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
