@@ -936,9 +936,8 @@ module Handler = struct
   let parse_value suffix =
     if String.length suffix > 0 && suffix.[0] = '[' then
       (* Arbitrary value - reject negative values *)
-      let len = String.length suffix in
-      if len > 2 && suffix.[len - 1] = ']' then
-        let inner = String.sub suffix 1 (len - 2) in
+      if Parse.is_bracket_value suffix then
+        let inner = Parse.bracket_inner suffix in
         if String.length inner > 0 && inner.[0] = '-' then Option.none
         else Option.some (Arbitrary inner)
       else Option.none
@@ -1051,9 +1050,8 @@ module Handler = struct
         parse_directional Linear To rest
     (* mask-linear-N (angle), mask-linear-[arb] *)
     | [ "mask"; "linear"; n ] -> (
-        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
-        then
-          let inner = String.sub n 1 (String.length n - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           Ok (Mask_linear_angle (Angle_arb inner))
         else
           match int_of_string_opt n with
@@ -1061,9 +1059,8 @@ module Handler = struct
           | None -> Error (`Msg "Invalid mask-linear angle value"))
     (* -mask-linear-N (negative angle), -mask-linear-[arb] *)
     | [ ""; "mask"; "linear"; n ] -> (
-        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
-        then
-          let inner = String.sub n 1 (String.length n - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           Ok (Mask_linear_angle (Angle_arb_neg inner))
         else
           match int_of_string_opt n with
@@ -1075,12 +1072,8 @@ module Handler = struct
     | "mask" :: "radial" :: "at" :: rest when rest <> [] ->
         let position = String.concat " " rest in
         (* Handle arbitrary values - strip brackets *)
-        if
-          String.length position > 2
-          && position.[0] = '['
-          && position.[String.length position - 1] = ']'
-        then
-          let inner = String.sub position 1 (String.length position - 2) in
+        if Parse.is_bracket_value position then
+          let inner = Parse.bracket_inner position in
           if radial_at_position inner = None then
             Error (`Msg ("Invalid mask-radial-at position: " ^ position))
           else Ok (Mask_radial_at (At_arbitrary inner))
@@ -1107,9 +1100,8 @@ module Handler = struct
         parse_directional Conic To rest
     (* mask-conic-N (angle), mask-conic-[arb] *)
     | [ "mask"; "conic"; n ] -> (
-        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
-        then
-          let inner = String.sub n 1 (String.length n - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           Ok (Mask_conic_angle (Angle_arb inner))
         else
           match int_of_string_opt n with
@@ -1117,9 +1109,8 @@ module Handler = struct
           | None -> Error (`Msg "Invalid mask-conic angle value"))
     (* -mask-conic-N (negative angle), -mask-conic-[arb] *)
     | [ ""; "mask"; "conic"; n ] -> (
-        if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
-        then
-          let inner = String.sub n 1 (String.length n - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           Ok (Mask_conic_angle (Angle_arb_neg inner))
         else
           match int_of_string_opt n with
@@ -1138,11 +1129,8 @@ module Handler = struct
     | [ "mask"; "radial"; "farthest"; "side" ] ->
         Ok (Mask_radial_size Farthest_side)
     (* mask-radial-[size] - arbitrary size *)
-    | [ "mask"; "radial"; arb ]
-      when String.length arb > 2
-           && arb.[0] = '['
-           && arb.[String.length arb - 1] = ']' ->
-        let size_value = String.sub arb 1 (String.length arb - 2) in
+    | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
+        let size_value = Parse.bracket_inner arb in
         (* Replace underscores with spaces *)
         let size_value =
           String.map (fun c -> if c = '_' then ' ' else c) size_value
