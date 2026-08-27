@@ -83,9 +83,13 @@ type indexed_rule = {
 (* Debug *)
 (* ======================================================================== *)
 
-let debug_compare = ref false
-let set_debug_compare b = debug_compare := b
-let debug_compare_enabled () = !debug_compare
+(* The comparator's tracing, driven by [TW_DEBUG_SORT]. Nothing called the
+   setter this used to expose, so the flag was always false and every trace
+   below it was unreachable in any build - the diagnostic that sort work most
+   wants was dead. An environment variable makes it usable without a recompile
+   and without an API nobody calls. *)
+let debug_compare = Sys.getenv_opt "TW_DEBUG_SORT" <> None
+let debug_compare_enabled () = debug_compare
 
 (* ======================================================================== *)
 (* Selector Classification *)
@@ -752,7 +756,7 @@ let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
   let kind1 = r1.selector_kind in
   let kind2 = r2.selector_kind in
-  if !debug_compare then (
+  if debug_compare then (
     let sel1 = r1.selector_str in
     let sel2 = r2.selector_str in
     let kind_str = function
@@ -811,7 +815,7 @@ let compare_cross_utility_regular r1 r2 =
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
   let rel = rule_relationship r1 r2 in
-  if !debug_compare then
+  if debug_compare then
     prerr_string
       (String.concat ""
          [
@@ -1220,7 +1224,7 @@ let compare_supports_rules r1 r2 =
     rule_type. This is the main entry point for sorting assembled CSS rules into
     Tailwind v4 cascade order. *)
 let compare_indexed_rules r1 r2 =
-  (if !debug_compare then
+  (if debug_compare then
      let rule_type_str = function
        | `Regular -> "R"
        | `Media _ -> "M"
