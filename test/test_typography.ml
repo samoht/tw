@@ -273,6 +273,31 @@ let test_named_text_size () =
     (Astring.String.is_infix ~affix:"line-height:calc(var(--spacing)*7)"
        (css "text-huge/7"))
 
+(* The line-height modifier names a [--leading-*] token, and a project's own
+   counts the same as a built-in one. *)
+let test_theme_leading_modifier () =
+  (match Tw.of_string "text-base/airy" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "text-base/airy should be rejected without a token");
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("leading-airy", "2.5"); ("text-huge", "9rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " reads the token") true
+        (Astring.String.is_infix ~affix:"line-height:var(--leading-airy)"
+           (css cls)))
+    [ "text-base/airy"; "text-huge/airy" ]
+
 let test_named_font_family () =
   (match Tw.of_string "font-awesome" with
   | Error _ -> ()
@@ -893,6 +918,8 @@ let tests =
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
     test_case "named text size from the theme" `Quick test_named_text_size;
+    test_case "leading modifier from the theme" `Quick
+      test_theme_leading_modifier;
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
