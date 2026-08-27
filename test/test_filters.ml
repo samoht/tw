@@ -293,11 +293,43 @@ let test_invalid_arbitrary_angle () =
   rejected "hue-rotate-[deg]";
   rejected "backdrop-hue-rotate-[2px]"
 
+(* [blur-[...]] takes a length. A bracket the length grammar cannot read was
+   accepted and then raised out of [to_css], which is a pure conversion. Reading
+   the bracket with cascade's grammar also earns [calc()] and the units the
+   hand-rolled reader never took. *)
+let test_invalid_arbitrary_blur () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "blur-[foo]";
+  rejected "blur-[red]";
+  rejected "blur-[1]";
+  rejected "backdrop-blur-[foo]";
+  rejected "backdrop-blur-[a,b]";
+  renders "blur-[4px]";
+  renders "blur-[.5rem]";
+  renders "blur-[calc(1px_+_2px)]";
+  renders "blur-[1vw]";
+  renders "blur-[var(--x)]";
+  (* A sizing keyword is not a [blur()] argument, but Tailwind writes it through
+     and so do we; rejecting it would drop CSS Tailwind emits. *)
+  renders "blur-[none]";
+  renders "backdrop-blur-[4px]";
+  renders "backdrop-blur-[calc(1px_+_2px)]"
+
 let tests =
   [
     test_case "arbitrary angle class name" `Quick
       test_arbitrary_angle_class_name;
     test_case "invalid arbitrary angle" `Quick test_invalid_arbitrary_angle;
+    test_case "invalid arbitrary blur" `Quick test_invalid_arbitrary_blur;
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
     test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;
