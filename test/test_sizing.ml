@@ -486,6 +486,33 @@ let test_arbitrary_aspect_rejects_non_ratio () =
       | Error (`Msg _) -> ())
     [ "aspect-[abc]"; "aspect-[16/abc]"; "aspect-[]" ]
 
+(* An [--aspect-*] or [--container-*] token the project declared in its [@theme]
+   names a value the built-in scale has no slot for. Tailwind generates the
+   utility from each; tw rejected both outright. [--perspective-*] has the same
+   gap in transforms.ml and is not this module's to test. *)
+let test_project_theme_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("aspect-golden", "1.618");
+        ("perspective-deep", "1200px");
+        ("container-tiny", "12rem");
+      ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "aspect-ratio: var(--aspect-golden)" "aspect-golden";
+  emits "max-width: var(--container-tiny)" "max-w-tiny";
+  Alcotest.(check bool)
+    "an undeclared aspect name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "aspect-nope"))
+
 let tests =
   [
     test_case "named size prefers --spacing-*" `Quick
@@ -513,6 +540,7 @@ let tests =
       suborder_matches_tailwind;
     test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
     test_case "arbitrary aspect spelling" `Quick test_arbitrary_aspect_spelling;
+    test_case "project theme tokens" `Quick test_project_theme_tokens;
     test_case "arbitrary aspect rejects non-ratio" `Quick
       test_arbitrary_aspect_rejects_non_ratio;
     test_case "sizing fraction interleave matches Tailwind" `Quick
