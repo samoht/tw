@@ -377,6 +377,13 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
     | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
     | _ -> 0
 
+(* The [order] field is a [(priority, suborder)] pair; comparing it with the
+   polymorphic [compare] boxes both ints on every call, and the comparator runs
+   once per rule pair. *)
+let compare_order (p1, s1) (p2, s2) =
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp else Int.compare s1 s2
+
 (* For hover media, separate rules by modifier depth so that single-modifier
    hover rules (group-hover:flex) form a separate block from stacked hover rules
    (group-focus:group-hover:flex) *)
@@ -412,7 +419,7 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
         | _ -> false
       in
       if same_utility then
-        let order_cmp = compare r1.order r2.order in
+        let order_cmp = compare_order r1.order r2.order in
         if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
       else
         compare_by_priority_suborder_alpha r1.selector_kind r2.selector_kind
@@ -565,7 +572,7 @@ let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
 (** Compare rules by order tuple then index. Used for same-utility regular
     rules, starting style rules, and as a generic tiebreaker. *)
 let compare_by_order_then_index r1 r2 =
-  let order_cmp = compare r1.order r2.order in
+  let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
 
 let compare_same_utility_regular = compare_by_order_then_index
@@ -870,7 +877,7 @@ let compare_supports_by_key r1 r2 =
 
 (* Compare by order tuple, then selector, then index *)
 let compare_by_order_then_selector r1 r2 =
-  let order_cmp = compare r1.order r2.order in
+  let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp
   else
     let sel_cmp = natural_compare r1.selector_str r2.selector_str in
