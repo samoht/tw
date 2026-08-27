@@ -469,8 +469,48 @@ let test_gradient_stop_position_not_a_length () =
   rejected "from-[1zz]";
   rejected "via-[12px3]"
 
+(* A gradient interpolation modifier names a colour space. Tailwind writes an
+   unknown one through as [in <space>], so only the shapes it refuses are
+   refused here; the ones it took used to raise out of [to_css], and the linear
+   forms silently dropped the modifier instead. *)
+let test_gradient_interpolation () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  in
+  (* A second modifier, a function, a leading dot or sign, and the empty
+     modifier: Tailwind emits nothing for any of them. *)
+  rejected "bg-conic-45/oklab/foo";
+  rejected "bg-conic/foo(1)";
+  rejected "bg-conic/.5";
+  rejected "bg-conic/[]";
+  rejected "bg-radial/foo(1)";
+  (* An unknown colour space still names one. *)
+  has "bg-conic/foo" "--tw-gradient-position: in foo";
+  has "bg-conic-45/999" "--tw-gradient-position: from 45deg in 999";
+  has "bg-radial/foo" "--tw-gradient-position: in foo";
+  has "bg-conic/oklab" "--tw-gradient-position: in oklab";
+  has "bg-conic/shorter" "--tw-gradient-position: in oklch shorter hue";
+  has "bg-conic/[in_hsl_longer_hue]" "--tw-gradient-position: in hsl longer hue";
+  (* The linear forms carry the modifier into the @supports rule rather than
+     dropping it. *)
+  has "bg-linear-45/foo" "--tw-gradient-position: 45deg in foo";
+  has "bg-linear-to-r/foo" "--tw-gradient-position: to right in foo"
+
 let tests =
   [
+    test_case "gradient interpolation" `Quick test_gradient_interpolation;
     test_case "gradient stop position units" `Quick
       test_gradient_stop_position_units;
     test_case "gradient stop position is a length-percentage" `Quick
