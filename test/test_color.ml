@@ -738,6 +738,63 @@ let test_invalid_bracket_hex () =
   emits "outline-[#abc]" "outline-color:#abc";
   emits "placeholder-[#abc]" "color:#abc"
 
+(* A class name is a selector, so it has to repeat the text the author wrote
+   rather than a re-print of the number it parsed to. [/[25]] and [/[25.0]]
+   denote one alpha and are two distinct classes; only the author's spelling
+   matches the markup. *)
+let test_opacity_modifier_class_roundtrip () =
+  let roundtrip cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.(check string) "class" cls (Tw.pp u)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter roundtrip
+    [
+      "bg-red-500/50";
+      "bg-red-500/2.5";
+      "bg-red-500/[25]";
+      "bg-red-500/[.5]";
+      "bg-red-500/[25%]";
+      "bg-red-500/[25.50%]";
+      "bg-red-500/[var(--o)]";
+      "bg-red-500/(--o)";
+      "text-red-500/[25]";
+      "border-red-500/[25]";
+      "shadow-lg/[25]";
+      "shadow-red-500/[25]";
+      "inset-shadow-sm/[25]";
+      "ring-red-500/[25]";
+      "ring-offset-red-500/[25]";
+      "inset-ring-red-500/[25]";
+      "drop-shadow-lg/[25]";
+      "drop-shadow/[25]";
+      "text-shadow-lg/[25]";
+      "decoration-red-500/[25]";
+      "divide-red-500/[25]";
+      "fill-red-500/[25]";
+      "accent-red-500/[25]";
+      "outline-red-500/[25]";
+      "placeholder-red-500/[25]";
+      "from-red-500/[25]";
+      "[color:red]/[25]";
+    ]
+
+(* The bracket modifier holds a number, so a non-numeric spelling is not a
+   utility at all rather than one with a surprising class name. *)
+let test_opacity_modifier_rejects_non_numeric () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [
+      "bg-red-500/[abc]";
+      "bg-red-500/[]";
+      "bg-red-500/[25px]";
+      "bg-red-500/[%]";
+      "shadow-lg/[25px]";
+    ]
+
 let tests =
   [
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
@@ -779,6 +836,12 @@ let tests =
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
     ("v4.3.3 colour families", `Quick, test_v433_color_families);
     ("Full opacity and important", `Quick, test_full_opacity_and_important);
+    ( "Opacity modifier class roundtrip",
+      `Quick,
+      test_opacity_modifier_class_roundtrip );
+    ( "Opacity modifier rejects non-numeric",
+      `Quick,
+      test_opacity_modifier_rejects_non_numeric );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
   ]
 
