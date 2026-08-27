@@ -167,6 +167,66 @@ let test_order_of_property () =
     (Some (order_of "border-solid"))
     (order_of_property (Key Border_style))
 
+(* A utility writes a property twice when the vendor-prefixed spelling still
+   buys reach ([-webkit-user-select] then [user-select]). The slot belongs to
+   the standard spelling, so a declared [@utility] setting it sorts with the
+   family rather than at the layer's tail. A prefixed property with no
+   unprefixed twin ([-webkit-line-clamp]) is the utility's own and keeps its
+   slot. *)
+let test_order_of_property_skips_vendor_prefix () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check
+    (option (pair int int))
+    "user-select resolves to the select utilities"
+    (Some (order_of "select-none"))
+    (order_of_property (Key User_select));
+  check
+    (option (pair int int))
+    "hyphens resolves to the hyphens utilities"
+    (Some (order_of "hyphens-auto"))
+    (order_of_property (Key Hyphens));
+  check
+    (option (pair int int))
+    "backdrop-filter resolves to the backdrop utilities"
+    (Some (order_of "backdrop-filter-none"))
+    (order_of_property (Key Backdrop_filter));
+  check
+    (option (pair int int))
+    "mask-image resolves to the mask utilities"
+    (Some (order_of "mask-none"))
+    (order_of_property (Key Mask_image));
+  check
+    (option (pair int int))
+    "a prefixed property with no twin keeps its own slot"
+    (Some (order_of "line-clamp-2"))
+    (order_of_property (Key Webkit_line_clamp))
+
+(* [outline-2] writes [outline-style: var(--tw-outline-style)] as a carrier for
+   the style utilities, the same shape [border-2] uses. The width utility owns
+   the width slot and the style utilities own the style slot. *)
+let test_order_of_property_skips_outline_carrier () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check
+    (option (pair int int))
+    "outline width skips the style carrier"
+    (Some (order_of "outline-2"))
+    (order_of_property (Key Outline_width));
+  check
+    (option (pair int int))
+    "outline style resolves to the style utilities"
+    (Some (order_of "outline-dashed"))
+    (order_of_property (Key Outline_style))
+
 let tests =
   [
     test_case "base_of_class valid input" `Quick test_base_of_class_valid;
@@ -176,6 +236,10 @@ let tests =
     (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)
     (* test_case "css_of_string invalid input" `Quick test_css_of_string_invalid; *)
     test_case "order_of_property" `Quick test_order_of_property;
+    test_case "order_of_property skips a vendor prefix" `Quick
+      test_order_of_property_skips_vendor_prefix;
+    test_case "order_of_property skips the outline carrier" `Quick
+      test_order_of_property_skips_outline_carrier;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;
