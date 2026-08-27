@@ -397,6 +397,24 @@ let test_project_radius_token () =
     "an undeclared radius name is rejected" true
     (Result.is_error (Tw.of_string ~theme "rounded-nope"))
 
+(* Every [border-<side>-<n>] writes the same [border-top-width], so their
+   relative order decides which one wins. The four nullary widths (0, 2, 4, 8)
+   were sorted on an ordinal that packed them into four slots and left the
+   bracket in the next one, so any other width sorted past the bracket:
+   [border-t-6] landed after [border-t-\[3px\]] where Tailwind puts it between 4
+   and 8. *)
+let test_side_width_order () =
+  Test_helpers.check_class_order ~test_name:"border side widths"
+    [
+      "border-t";
+      "border-t-0";
+      "border-t-2";
+      "border-t-4";
+      "border-t-6";
+      "border-t-8";
+      "border-t-[3px]";
+    ]
+
 (* A bracket whose content is not a length is not an outline or border width:
    the parser rejects it, rather than accepting it and raising from the length
    conversion once the sheet is rendered. *)
@@ -420,6 +438,7 @@ let tests =
     test_case "bracket line-width keywords" `Quick
       test_bracket_line_width_keywords;
     test_case "project radius token" `Quick test_project_radius_token;
+    test_case "border side width order" `Slow test_side_width_order;
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "rounded-xs default radius" `Quick test_rounded_xs;
     test_case "rounded-4xl default radius" `Quick test_rounded_4xl;
