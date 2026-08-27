@@ -267,6 +267,37 @@ let test_perspective_none_without_override () =
     "perspective:none" true
     (Astring.String.is_infix ~affix:"perspective:none" css)
 
+(* [transform-[...]], [origin-[...]] and [perspective-origin-[...]] each take a
+   grammar cascade already reads. Reading it in [to_style] left a bracket the
+   grammar refuses accepted and then raising out of [to_css], which is a pure
+   conversion. *)
+let test_invalid_arbitrary_transform () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "transform-[foo]";
+  rejected "transform-[1px]";
+  rejected "transform-[a,b]";
+  rejected "origin-[foo]";
+  rejected "origin-[red]";
+  rejected "perspective-origin-[foo]";
+  rejected "perspective-origin-[red]";
+  renders "transform-[rotate(45deg)]";
+  renders "transform-[translateX(1px)_rotate(45deg)]";
+  renders "origin-[50px_100px]";
+  renders "origin-[center]";
+  renders "perspective-origin-[50px_100px]";
+  renders "perspective-origin-[bottom_right]"
+
 (* An arbitrary transform names its class after the bracket, so the bracket has
    to come back out spelled as the author wrote it. Re-printing the parsed
    number or angle drops a redundant zero and leaves a selector the markup does
@@ -309,6 +340,8 @@ let test_arbitrary_transform_rejects_non_number () =
 
 let tests =
   [
+    test_case "invalid arbitrary transform" `Quick
+      test_invalid_arbitrary_transform;
     test_case "perspective-none theme override" `Quick
       test_perspective_none_theme_override;
     test_case "perspective-none without override" `Quick
