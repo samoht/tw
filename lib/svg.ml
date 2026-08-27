@@ -40,7 +40,7 @@ module Handler = struct
     | Stroke_1
     | Stroke_2
     | Stroke_width of int
-    | Stroke_width_bracket of string * Css.length
+    | Stroke_width_bracket of string * Css.length_percentage
     | Stroke_width_typed_var of
         string (* full inner: "length:var(--my-width)" *)
 
@@ -180,11 +180,12 @@ module Handler = struct
     | Stroke_bracket_typed_var_opacity (v, opacity) ->
         bracket_var_opacity_style ~property:Css.stroke ~merge_key:"stroke-" v
           opacity
-    | Stroke_0 -> style Css.[ stroke_width (Px 0.) ]
-    | Stroke_1 -> style Css.[ stroke_width (Px 1.) ]
-    | Stroke_2 -> style Css.[ stroke_width (Px 2.) ]
-    | Stroke_width n -> style Css.[ stroke_width (Px (float_of_int n)) ]
-    | Stroke_width_bracket (_, w) -> style [ Css.stroke_width w ]
+    | Stroke_0 -> style Css.[ stroke_width (Length (Length (Px 0.))) ]
+    | Stroke_1 -> style Css.[ stroke_width (Length (Length (Px 1.))) ]
+    | Stroke_2 -> style Css.[ stroke_width (Length (Length (Px 2.))) ]
+    | Stroke_width n ->
+        style Css.[ stroke_width (Length (Length (Px (float_of_int n)))) ]
+    | Stroke_width_bracket (_, w) -> style [ Css.stroke_width (Length w) ]
     | Stroke_width_typed_var inner ->
         let var_part =
           match String.index_opt inner ':' with
@@ -362,13 +363,14 @@ module Handler = struct
       || starts "percentage:" inner
     then Ok (Stroke_width_typed_var inner)
     else
-      match Parse.arbitrary_length inner with
-      | Some length -> Ok (Stroke_width_bracket (inner, length))
+      match Parse.arbitrary_length_percentage inner with
+      | Some lp -> Ok (Stroke_width_bracket (inner, lp))
       | None -> (
           (* A bare number reads as pixels, which is what Tailwind's own fixture
-             corpus records for stroke-[1.5]. *)
+             corpus records for stroke-[1.5]. cascade now models the SVG
+             [<number>] spelling too, but the fixture is the gate. *)
           match float_of_string_opt inner with
-          | Some f -> Ok (Stroke_width_bracket (inner, Px f))
+          | Some f -> Ok (Stroke_width_bracket (inner, Length (Px f)))
           | None -> err_not_utility)
 
   let of_class theme class_name =
