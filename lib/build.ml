@@ -679,9 +679,34 @@ let priority_seven_namespace = function
       else 5
   | None -> 5
 
+(* The position of a theme token within the project's [@theme] declaration list,
+   keyed by its bare name. [Scheme.token_overrides] preserves the source order
+   the CSS entrypoint (or [Scheme.with_overrides] caller) declared them in. *)
+let declared_index theme =
+  List.mapi (fun i (name, _) -> (name, i)) theme.Scheme.token_overrides
+
+(* [declared] is the bare-name -> declaration-index table [declared_index]
+   built; strips the leading [--] a custom declaration's name carries before
+   looking it up. *)
+let declared_order declared name =
+  match name with
+  | None -> None
+  | Some full ->
+      let bare =
+        if String.length full > 2 && String.sub full 0 2 = "--" then
+          String.sub full 2 (String.length full - 2)
+        else full
+      in
+      List.assoc_opt bare declared
+
 (* Sort declarations by their Var order metadata, namespace at a shared slot,
-   then alphabetical fallback. *)
-let sort_by_var_order decls =
+   declaration order within that slot, then alphabetical fallback. A project-
+   named family (--font-<name>, --text-<name>, --leading-<name>, ...) funnels
+   every member into one shared (priority, suborder) slot (see [Var.mli]), so
+   two project tokens tie there; Tailwind keeps the order the [@theme] block
+   wrote them in rather than sorting by name. *)
+let sort_by_var_order ~theme decls =
+  let declared = declared_index theme in
   decls
   |> List.map (fun d ->
       let name = Css.custom_declaration_name d in
@@ -690,8 +715,8 @@ let sort_by_var_order decls =
         | Some _ as order -> order
         | None -> Option.bind name Var.order
       in
-      (d, order, name))
-  |> List.sort (fun (_, a, na) (_, b, nb) ->
+      (d, order, name, declared_order declared name))
+  |> List.sort (fun (_, a, na, ia) (_, b, nb, ib) ->
       let c = compare_orders a b in
       if c <> 0 then c
       else
@@ -703,8 +728,12 @@ let sort_by_var_order decls =
                 (priority_seven_namespace nb)
           | _ -> 0
         in
-        if namespace_cmp <> 0 then namespace_cmp else compare na nb)
-  |> List.map (fun (d, _, _) -> d)
+        if namespace_cmp <> 0 then namespace_cmp
+        else
+          match (ia, ib) with
+          | Some ia, Some ib -> Int.compare ia ib
+          | _ -> compare na nb)
+  |> List.map (fun (d, _, _, _) -> d)
 
 (* Build theme layer rule from declarations *)
 let theme_layer_rule ~layers = function
@@ -848,11 +877,11 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
   |> List.map (inline_default_family theme)
-  |> sort_by_var_order |> theme_layer_rule ~layers
+  |> sort_by_var_order ~theme |> theme_layer_rule ~layers
 
-let theme_layer_of ?(default_decls = []) tw_classes =
+let theme_layer_of ?theme ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
-  theme_layer_of_props ~default_decls selector_props
+  theme_layer_of_props ?theme ~default_decls selector_props
 
 let placeholder_supports =
   let placeholder = Css.Selector.Placeholder in
