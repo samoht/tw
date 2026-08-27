@@ -754,9 +754,7 @@ let is_utility_statement stmt =
 let rec merge_same_selector = function
   | a :: b :: rest -> (
       match (Css.as_rule a, Css.as_rule b) with
-      | Some (sa, da, []), Some (sb, db, [])
-        when Cascade.Selector.to_string ~minify:true sa
-             = Cascade.Selector.to_string ~minify:true sb ->
+      | Some (sa, da, []), Some (sb, db, []) when Css.Selector.equal sa sb ->
           merge_same_selector (Css.rule ~selector:sa (da @ db) :: rest)
       | _ -> a :: merge_same_selector (b :: rest))
   | stmts -> stmts

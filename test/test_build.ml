@@ -600,6 +600,23 @@ let test_md_media_dedup () =
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
 
+(* Duplicate rules are dropped on cascade's structural selector equality, so a
+   class repeated in the input reaches the utilities layer once, and two
+   distinct selectors are never taken for one another. *)
+let test_duplicate_selector_dedup () =
+  let count css sel =
+    extract_utilities_layer_rules css
+    |> List.filter_map Css.statement_selector
+    |> List.filter (Css.Selector.equal sel)
+    |> List.length
+  in
+  let repeated = Tw.Build.to_css [ p 4; p 4 ] in
+  check int "repeated p-4 emits one rule" 1
+    (count repeated (Css.Selector.class_ "p-4"));
+  let distinct = Tw.Build.to_css [ p 4; m 4 ] in
+  check int "p-4 kept beside m-4" 1 (count distinct (Css.Selector.class_ "p-4"));
+  check int "m-4 kept beside p-4" 1 (count distinct (Css.Selector.class_ "m-4"))
+
 let test_md_hover_extra_media () =
   (* A responsive prefix wraps the hover rule's own (hover:hover) gate rather
      than replacing it, which is the structure Tailwind emits. *)
@@ -996,6 +1013,7 @@ let tests =
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
     test_case "multi-breakpoint grouping+order" `Quick test_media_grouping_order;
     test_case "md media dedup" `Quick test_md_media_dedup;
+    test_case "duplicate selector dedup" `Quick test_duplicate_selector_dedup;
     test_case "md:hover nests the hover gate" `Quick test_md_hover_extra_media;
     test_case "container hover nests the gate" `Quick test_container_hover_nests;
     test_case "container + media together" `Quick test_container_and_media;

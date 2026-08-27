@@ -144,6 +144,33 @@ let test_hoist_theme_keyframes () =
        \  @keyframes flash { to { opacity: 0 } }\n\
         }\n")
 
+(* One [@apply] pulls in a rule per utility, each decorating the same [&]. They
+   are merged on selector equality, so the author's rule comes back once holding
+   every declaration rather than once per utility. *)
+let test_apply_merges_one_rule () =
+  let path = "apply-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc "@import \"tailwindcss\";\n.btn { @apply p-4 m-4; }\n");
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v []))
+  in
+  let btn = Cascade.Selector.class_ "btn" in
+  let rules =
+    Cascade.Css.statements out
+    |> List.filter_map Cascade.Css.statement_selector
+    |> List.filter (Cascade.Selector.equal btn)
+  in
+  check int "one .btn rule" 1 (List.length rules);
+  check string "holding both declarations"
+    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
+    (Cascade.Css.to_string ~minify:true out)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -159,6 +186,7 @@ let tests =
     test_case "custom utilities taken" `Quick test_take_custom_utilities;
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
+    test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
   ]
 
 let suite = ("entrypoint", tests)

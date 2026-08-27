@@ -277,16 +277,19 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.supports ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
-(* Deduplicate typed triples while preserving first occurrence order *)
+(* Deduplicate typed triples while preserving first occurrence order. Selectors
+   are compared with cascade's structural equality; the bucket key carries their
+   hash, which cascade keeps consistent with that equality. *)
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
     (fun (typ, sel, props, _order, nested, _base_class, _merge_key, _not_order)
        ->
-      let key = (typ, Css.Selector.to_string sel, props, nested) in
-      if Hashtbl.mem seen key then false
+      let bucket = (typ, Css.Selector.hash sel, props, nested) in
+      if List.exists (Css.Selector.equal sel) (Hashtbl.find_all seen bucket)
+      then false
       else (
-        Hashtbl.add seen key ();
+        Hashtbl.add seen bucket sel;
         true))
     triples
 
