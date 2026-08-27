@@ -70,10 +70,15 @@ val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string
 (** {1 Layer building} *)
 
 val theme_layer_of :
-  ?default_decls:Css.declaration list -> Utility.t list -> Css.t
-(** [theme_layer_of ?default_decls utilities] builds the [@layer theme] block
-    containing all CSS custom property variables referenced by [utilities], plus
-    any [default_decls] (e.g. baseline font-family declarations). *)
+  ?theme:Scheme.t ->
+  ?default_decls:Css.declaration list ->
+  Utility.t list ->
+  Css.t
+(** [theme_layer_of ?theme ?default_decls utilities] builds the [@layer theme]
+    block containing all CSS custom property variables referenced by
+    [utilities], plus any [default_decls] (e.g. baseline font-family
+    declarations). [theme] (default {!Scheme.default}) supplies the token
+    overrides and their declaration order. *)
 
 val rule_sets : Utility.t list -> Css.statement list
 (** [rule_sets utilities] extracts and sorts CSS statements for [utilities] with
