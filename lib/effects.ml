@@ -2654,13 +2654,10 @@ module Handler = struct
             | Ok (c, s) -> Ok (Shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Shadow_color (c, s))
-            | _ -> Ok (Shadow_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Shadow_color (c, s))
+        | Ok (c, s, opacity) -> Ok (Shadow_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     (* A shadeless colour has no shade segment: shadow-white, shadow-black. *)
     | [ "shadow"; color ] -> (
         match Color.shade_of_strings [ color ] with
@@ -2704,13 +2701,10 @@ module Handler = struct
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "inset"; "shadow"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Inset_shadow_color (c, s))
-            | _ -> Ok (Inset_shadow_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Inset_shadow_color (c, s))
+        | Ok (c, s, opacity) -> Ok (Inset_shadow_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; color ] -> (
         match Color.shade_of_strings [ color ] with
         | Ok (c, s) -> Ok (Inset_shadow_color (c, s))
@@ -2808,23 +2802,15 @@ module Handler = struct
         | Ok width -> Ok (Ring_offset_width width)
         | Error _ -> err_not_utility)
     | [ "ring"; color; shade ] -> (
-        (* Check for opacity modifier in shade (e.g., "500/50" or
-           "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Ring_color (c, s))
-            | _ -> Ok (Ring_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Ring_color (c, s))
+        | Ok (c, s, opacity) -> Ok (Ring_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     | [ "ring"; "offset"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Ring_offset_color (c, s))
-            | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Ring_offset_color (c, s))
+        | Ok (c, s, opacity) -> Ok (Ring_offset_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     | [ "inset"; "ring" ] -> Ok Inset_ring_default
     | [ "inset"; "ring"; "transparent" ] -> Ok Inset_ring_transparent
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
@@ -2867,13 +2853,10 @@ module Handler = struct
         | Ok width -> Ok (Inset_ring_width width)
         | Error _ -> err_not_utility)
     | [ "inset"; "ring"; color; shade ] -> (
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Inset_ring_color (c, s))
-            | _ -> Ok (Inset_ring_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Inset_ring_color (c, s))
+        | Ok (c, s, opacity) -> Ok (Inset_ring_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
     | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
     | [ "mix"; "blend"; "screen" ] -> Ok Mix_blend_screen

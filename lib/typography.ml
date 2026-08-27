@@ -1717,15 +1717,10 @@ module Typography_late = struct
                       Ok (Decoration_color_opacity (c, shade, opacity))
                   | Error _ -> err_not_utility)))
     | [ "decoration"; color; shade ] -> (
-        (* Check for opacity modifier in shade (e.g., "500/50" or
-           "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Decoration_color (c, Some s))
-            | _ -> Ok (Decoration_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Decoration_color (c, Some s))
+        | Ok (c, s, opacity) -> Ok (Decoration_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
     | [ "tracking"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Tracking_var inner)
