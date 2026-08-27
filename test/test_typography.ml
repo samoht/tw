@@ -411,6 +411,30 @@ let test_arbitrary_tracking_invalid () =
   renders "tracking-[var(--x)]";
   renders "-tracking-[.5em]"
 
+(* A shade the palette does not define is not a colour. [decoration-*] read the
+   shade without checking it, so the class was accepted and then referenced a
+   variable no theme declares. *)
+let test_decoration_undefined_shade () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "decoration-red-999";
+  rejected "decoration-red-0";
+  rejected "decoration-red-42";
+  rejected "decoration-red-999/50";
+  accepted "decoration-red-500";
+  accepted "decoration-red-950";
+  accepted "decoration-red-500/50"
+
 let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
@@ -832,6 +856,8 @@ let tests =
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
+    test_case "decoration undefined colour shade" `Quick
+      test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
