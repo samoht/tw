@@ -71,6 +71,10 @@ val int : int -> Style.spacing
     @param n The scale factor (will be multiplied by 0.25 to get rem value)
     @return A spacing value in rem units. *)
 
+val float : float -> Style.spacing
+(** [float n] is like {!int} but takes a fractional scale factor, for the
+    half-step classes (e.g. [p-0.5]): [float 0.5] = [`Rem 0.125]. *)
+
 (** {1 Shared Parsing Logic} *)
 
 val named_spacing_ref : string -> Css.length

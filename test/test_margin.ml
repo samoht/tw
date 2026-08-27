@@ -174,9 +174,25 @@ let test_arbitrary_length_grammar () =
   check "ml-[50%]";
   check "mb-[-5cqw]"
 
+(* The [']-suffixed sibling of each int constructor takes a half-step float (and
+   still supports negative values); the int base keeps emitting what it always
+   did. *)
+let typed_prime () =
+  let open Tw in
+  check_typed_class "m-0.5" (m' 0.5);
+  check_typed_class "-mt-0.5" (mt' (-0.5));
+  check_typed_class "mx-1.5" (mx' 1.5);
+  check_typed_class "my-0.5" (my' 0.5);
+  check_typed_class "mr-0.5" (mr' 0.5);
+  check_typed_class "mb-0.5" (mb' 0.5);
+  check_typed_class "ml-0.5" (ml' 0.5);
+  check_typed_class "m-4" (m 4);
+  check_typed_class "-mt-4" (mt (-4))
+
 let tests =
   [
     test_case "margin of_string - valid values" `Quick of_string_valid;
+    test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "margin of_string - invalid values" `Quick of_string_invalid;
     test_case "named spacing requires theme token" `Quick
       named_spacing_requires_theme_token;

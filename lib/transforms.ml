@@ -69,6 +69,7 @@ module Handler = struct
     | Neg_translate_y_fraction of int * int
     | (* 3D Transforms *)
       Translate_z of int
+    | Translate_z_step of float (* translate-z-0.5, a half-step scale value *)
     | Translate_z_px
     | Neg_translate_z_arbitrary of string
     | Neg_translate_z_px
@@ -857,6 +858,22 @@ module Handler = struct
     style ~property_rules:translate_props
       (spacing_decl :: axis_decl :: [ translate_xyz_refs ])
 
+  (* A fractional spacing step ([translate-z-0.5]), mirroring
+     [translate_axis_step] for the X/Y axes. *)
+  let translate_z_step f =
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var Theme.spacing_base
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float f))
+    in
+    let axis_decl, _ = Var.binding tw_translate_z_var spacing_value in
+    style ~property_rules:translate_props
+      (spacing_decl :: axis_decl :: [ translate_xyz_refs ])
+
   let translate_z_px =
     let axis_decl, _ = Var.binding tw_translate_z_var (Px 1.0) in
     style ~property_rules:translate_props (axis_decl :: [ translate_xyz_refs ])
@@ -1261,6 +1278,7 @@ module Handler = struct
     | Neg_translate_y_fraction (num, denom) ->
         neg_translate_y_fraction num denom
     | Translate_z n -> translate_z n
+    | Translate_z_step f -> translate_z_step f
     | Translate_z_px -> translate_z_px
     | Neg_translate_z_arbitrary s -> neg_translate_z_arbitrary_style s
     | Neg_translate_z_px -> neg_translate_z_px
@@ -1391,6 +1409,7 @@ module Handler = struct
     | Neg_translate_z_arbitrary _ -> 299
     | Neg_translate_z_px -> 300
     | Translate_z n -> 301 + n
+    | Translate_z_step f -> 300 + int_of_float (f *. 10.)
     | Translate_z_px -> 320
     | Translate_3d -> 320
     (* Scale utilities *)
@@ -1573,6 +1592,8 @@ module Handler = struct
         Ok (Translate_y_step (Option.get (parse_spacing_step n)))
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
+    | [ "translate"; "z"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_z_step (Option.get (parse_spacing_step n)))
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
     | [ "translate"; "none" ] -> Ok Translate_none
@@ -1641,6 +1662,8 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_z_arbitrary inner)
     | [ ""; "translate"; "z"; "px" ] -> Ok Neg_translate_z_px
+    | [ ""; "translate"; "z"; n ] when parse_spacing_step n <> None ->
+        Ok (Translate_z_step (-.Option.get (parse_spacing_step n)))
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
     | [ "scale"; n ] when String.length n > 0 && n.[0] = '[' -> (
@@ -1889,6 +1912,7 @@ module Handler = struct
     | Translate_y_fraction (num, denom) ->
         "translate-y-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_z n -> neg_class "translate-z-" n
+    | Translate_z_step f -> step_class "translate-z" f
     | Translate_z_px -> "translate-z-px"
     | Neg_translate_z_arbitrary s -> "-translate-z-[" ^ s ^ "]"
     | Neg_translate_z_px -> "-translate-z-px"
@@ -2019,8 +2043,21 @@ let utility x = Utility.base (Self x)
 
 let rotate n = utility (Rotate n)
 let translate_x n = utility (Translate_x n)
+
+(* A whole-number float keeps the int constructor's own 0/1 shortcuts
+   (calc(var(--spacing)) rather than calc(var(--spacing) * 1)); only a genuine
+   fractional value needs the step form. *)
+let translate_x' f =
+  if Float.is_integer f then translate_x (int_of_float f)
+  else utility (Translate_x_step f)
+
 let translate_x_fraction num denom = utility (Translate_x_fraction (num, denom))
 let translate_y n = utility (Translate_y n)
+
+let translate_y' f =
+  if Float.is_integer f then translate_y (int_of_float f)
+  else utility (Translate_y_step f)
+
 let translate_y_fraction num denom = utility (Translate_y_fraction (num, denom))
 let scale n = utility (Scale n)
 let scale_x n = utility (Scale_x n)
@@ -2028,6 +2065,11 @@ let scale_y n = utility (Scale_y n)
 let skew_x n = utility (Skew_x n)
 let skew_y n = utility (Skew_y n)
 let translate_z n = utility (Translate_z n)
+
+let translate_z' f =
+  if Float.is_integer f then translate_z (int_of_float f)
+  else utility (Translate_z_step f)
+
 let rotate_x n = utility (Rotate_x n)
 let rotate_y n = utility (Rotate_y n)
 let rotate_z n = utility (Rotate_z n)

@@ -513,6 +513,9 @@ let space_util negative axis value = utility (Space { negative; axis; value })
 let gap n = gap_util `All (Handler.Standard (Spacing.int n))
 let gap_x n = gap_util `X (Handler.Standard (Spacing.int n))
 let gap_y n = gap_util `Y (Handler.Standard (Spacing.int n))
+let gap' n = gap_util `All (Handler.Standard (Spacing.float n))
+let gap_x' n = gap_util `X (Handler.Standard (Spacing.float n))
+let gap_y' n = gap_util `Y (Handler.Standard (Spacing.float n))
 
 (** {2 Special Gap Values} *)
 
@@ -525,12 +528,15 @@ let gap_y_full = gap_util `Y (Handler.Standard `Full)
 
 (** {2 Space Between Utilities} *)
 
-let space_x n =
+let space_x' n =
   let s = `Rem (Float.abs n *. 0.25) in
   let neg = n < 0.0 in
   space_util neg `X s
 
-let space_y n =
+let space_y' n =
   let s = `Rem (Float.abs n *. 0.25) in
   let neg = n < 0.0 in
   space_util neg `Y s
+
+let space_x n = space_x' (float_of_int n)
+let space_y n = space_y' (float_of_int n)

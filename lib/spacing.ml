@@ -118,6 +118,7 @@ let margin_to_length_neg spacing_ref =
 (** {1 Spacing Constructors} *)
 
 let int n = `Rem (float_of_int n *. 0.25)
+let float n = `Rem (n *. 0.25)
 
 (** {1 Shared Parsing Logic} *)
 

@@ -295,7 +295,7 @@ let check_property_rules_order () =
    with no family, which forced it ahead of the transforms. *)
 let check_space_reverse_after_transforms () =
   let sheet =
-    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4. ]
+    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4 ]
   in
   let names = property_rule_names sheet in
   let index_of n =
@@ -324,7 +324,7 @@ let check_border_spacing_first () =
   let names =
     property_rule_names
       (Tw.to_css ~base:false ~layers:true
-         [ Tw.border_spacing 2.; Tw.translate_x 4; Tw.blur ])
+         [ Tw.border_spacing 2; Tw.translate_x 4; Tw.blur ])
   in
   let index_of = index_of_prop names in
   check bool "--tw-border-spacing-x before --tw-translate-x" true

@@ -393,6 +393,11 @@ let v d n =
   let neg = n < 0 in
   utility neg d (Handler.Standard s)
 
+let v' d n =
+  let s = (Spacing.float n :> Style.margin) in
+  let neg = n < 0.0 in
+  utility neg d (Handler.Standard s)
+
 let m n = v `All n
 let mx n = v `X n
 let my n = v `Y n
@@ -400,6 +405,13 @@ let mt n = v `T n
 let mr n = v `R n
 let mb n = v `B n
 let ml n = v `L n
+let m' n = v' `All n
+let mx' n = v' `X n
+let my' n = v' `Y n
+let mt' n = v' `T n
+let mr' n = v' `R n
+let mb' n = v' `B n
+let ml' n = v' `L n
 let m_auto = utility false `All (Handler.Standard `Auto)
 let mx_auto = utility false `X (Handler.Standard `Auto)
 let my_auto = utility false `Y (Handler.Standard `Auto)

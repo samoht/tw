@@ -178,6 +178,10 @@ val leading_loose : t
 val leading : int -> t
 (** [leading n] sets custom line-height based on the spacing scale. *)
 
+val leading' : float -> t
+(** [leading' n] is {!leading} for a half-step scale value (e.g. [leading' 1.5]
+    for [leading-1.5]). *)
+
 (** {1 Whitespace Utilities} *)
 
 val whitespace_normal : t
@@ -314,9 +318,12 @@ val list_image_url : string -> t
 
 (** {1 Text Indent} *)
 
-val indent : float -> t
-(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem).
-    Accepts fractional values like 0.5, 1.5, 2.5, 3.5. *)
+val indent : int -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+
+val indent' : float -> t
+(** [indent' n] is {!indent} for a half-step scale value (e.g. [indent' 0.5] for
+    [indent-0.5]). *)
 
 (** {1 Line Clamp} *)
 
