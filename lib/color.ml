@@ -49,43 +49,19 @@ type color =
   | Css of Css.color
   | Theme_named of string
 
+(* The colour-space primitives are cascade's, so a value tw converts one way and
+   cascade serialises back the other survives the round trip. tw used to carry
+   its own copies, and its forward matrix went straight to LMS while its inverse
+   went via XYZ: the two were not exact inverses, and [#0088cc] came back as
+   [#0288cc]. *)
 let linearize_channel c =
-  let c' = float_of_int c /. 255.0 in
-  if c' <= 0.04045 then c' /. 12.92 else ((c' +. 0.055) /. 1.055) ** 2.4
+  Cascade.Color_space.linear_of_srgb (float_of_int c /. 255.0)
 
 let gamma_correct c =
-  let c' =
-    if c <= 0.0031308 then c *. 12.92
-    else (1.055 *. (c ** (1.0 /. 2.4))) -. 0.055
-  in
-  int_of_float ((c' *. 255.0) +. 0.5)
-
-let cbrt_signed x =
-  if x < 0.0 then -.(-.x ** (1.0 /. 3.0)) else x ** (1.0 /. 3.0)
+  int_of_float ((Cascade.Color_space.srgb_of_linear c *. 255.0) +. 0.5)
 
 let linear_rgb_to_oklab r_lin g_lin b_lin =
-  let l =
-    (0.4122214708 *. r_lin) +. (0.5363325363 *. g_lin) +. (0.0514459929 *. b_lin)
-  in
-  let m =
-    (0.2119034982 *. r_lin) +. (0.6806995451 *. g_lin) +. (0.1073969566 *. b_lin)
-  in
-  let s =
-    (0.0883024619 *. r_lin) +. (0.2817188376 *. g_lin) +. (0.6299787005 *. b_lin)
-  in
-  let l' = cbrt_signed l in
-  let m' = cbrt_signed m in
-  let s' = cbrt_signed s in
-  let ok_l =
-    (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
-  in
-  let ok_a =
-    (1.9779984951 *. l') -. (2.4285922050 *. m') +. (0.4505937099 *. s')
-  in
-  let ok_b =
-    (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
-  in
-  (ok_l, ok_a, ok_b)
+  Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin)
 
 let rgb_to_oklch rgb =
   let r_lin = linearize_channel rgb.r in
@@ -110,91 +86,12 @@ let rgb_to_oklab rgb =
   let ok_l, ok_a, ok_b = linear_rgb_to_oklab r_lin g_lin b_lin in
   (ok_l *. 100.0, ok_a, ok_b)
 
-(* Convert OKLab to linear sRGB via XYZ intermediate, matching the CSS Color
-   Level 4 / lightningcss conversion path. *)
 let oklab_to_linear_srgb ok_l ok_a ok_b =
-  (* OKLab to LMS (cube root space) *)
-  let l' = ok_l +. (0.3963377774 *. ok_a) +. (0.2158037573 *. ok_b) in
-  let m' = ok_l -. (0.1055613458 *. ok_a) -. (0.0638541728 *. ok_b) in
-  let s' = ok_l -. (0.0894841775 *. ok_a) -. (1.2914855480 *. ok_b) in
-  (* Cube to get LMS *)
-  let l = l' *. l' *. l' in
-  let m = m' *. m' *. m' in
-  let s = s' *. s' *. s' in
-  (* LMS to XYZ (D65) *)
-  let x =
-    (1.2268798733741557 *. l) -. (0.5578149965554813 *. m)
-    +. (0.28139105017721583 *. s)
-  in
-  let y =
-    (-0.04057576262431372 *. l)
-    +. (1.1122868293970594 *. m) -. (0.07171106666151701 *. s)
-  in
-  let z =
-    (-0.07637294974672142 *. l)
-    -. (0.4214933239627914 *. m) +. (1.5869240244272418 *. s)
-  in
-  (* XYZ to linear sRGB *)
-  let r_lin =
-    (3.2409699419045226 *. x) -. (1.5373831775700939 *. y)
-    -. (0.4986107602930034 *. z)
-  in
-  let g_lin =
-    (-0.9692436362808796 *. x) +. (1.8759675015077202 *. y)
-    +. (0.04155505740717559 *. z)
-  in
-  let b_lin =
-    (0.05563007969699366 *. x) -. (0.20397696064091520 *. y)
-    +. (1.0569715142428786 *. z)
-  in
-  (r_lin, g_lin, b_lin)
+  Cascade.Color_space.linear_srgb_of_oklab (ok_l, ok_a, ok_b)
 
-(* Convert linear sRGB to OKLab via XYZ intermediate *)
 let linear_srgb_to_oklab r_lin g_lin b_lin =
-  (* linear sRGB to XYZ *)
-  let x =
-    (0.4123907992659595 *. r_lin)
-    +. (0.357584339383878 *. g_lin)
-    +. (0.1804807884018343 *. b_lin)
-  in
-  let y =
-    (0.21263900587151027 *. r_lin)
-    +. (0.715168678767756 *. g_lin)
-    +. (0.07219231536073371 *. b_lin)
-  in
-  let z =
-    (0.01933081871559182 *. r_lin)
-    +. (0.11919477979462598 *. g_lin)
-    +. (0.9505321522496607 *. b_lin)
-  in
-  (* XYZ to LMS *)
-  let l = (0.8189330101 *. x) +. (0.3618667424 *. y) -. (0.1288597137 *. z) in
-  let m = (0.0329845436 *. x) +. (0.9293118715 *. y) +. (0.0361456387 *. z) in
-  let s = (0.0482003018 *. x) +. (0.2643662691 *. y) +. (0.6338517070 *. z) in
-  (* Cube root *)
-  let cbrt x =
-    if x < 0.0 then -.(Float.abs x ** (1.0 /. 3.0))
-    else if x = 0.0 then 0.0
-    else x ** (1.0 /. 3.0)
-  in
-  let l' = cbrt l in
-  let m' = cbrt m in
-  let s' = cbrt s in
-  (* LMS' to OKLab *)
-  let ok_l =
-    (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
-  in
-  let ok_a =
-    (1.9779984951 *. l') -. (2.4285922050 *. m') +. (0.4505937099 *. s')
-  in
-  let ok_b =
-    (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
-  in
-  (ok_l, ok_a, ok_b)
+  Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin)
 
-(* CSS Color Level 4 gamut mapping algorithm, matching lightningcss. Uses binary
-   search on OKLCh chroma to find the closest in-gamut sRGB color. Reference:
-   https://www.w3.org/TR/css-color-4/#css-gamut-mapping *)
 let clip_val x = Float.max 0.0 (Float.min 1.0 x)
 let clip (r, g, b) = (clip_val r, clip_val g, clip_val b)
 
