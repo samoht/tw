@@ -188,7 +188,7 @@ let test_order_of_property_skips_vendor_prefix () =
   check
     (option (pair int int))
     "hyphens resolves to the hyphens utilities"
-    (Some (order_of "hyphens-auto"))
+    (Some (order_of "hyphens-none"))
     (order_of_property (Key Hyphens));
   check
     (option (pair int int))
@@ -197,13 +197,13 @@ let test_order_of_property_skips_vendor_prefix () =
     (order_of_property (Key Backdrop_filter));
   check
     (option (pair int int))
-    "mask-image resolves to the mask utilities"
-    (Some (order_of "mask-none"))
+    "mask-image resolves to the mask-gradient utilities"
+    (Some (order_of "mask-linear-0"))
     (order_of_property (Key Mask_image));
   check
     (option (pair int int))
     "a prefixed property with no twin keeps its own slot"
-    (Some (order_of "line-clamp-2"))
+    (Some (order_of "line-clamp-none"))
     (order_of_property (Key Webkit_line_clamp))
 
 (* [outline-2] writes [outline-style: var(--tw-outline-style)] as a carrier for
@@ -224,7 +224,7 @@ let test_order_of_property_skips_outline_carrier () =
   check
     (option (pair int int))
     "outline style resolves to the style utilities"
-    (Some (order_of "outline-dashed"))
+    (Some (order_of "outline-solid"))
     (order_of_property (Key Outline_style))
 
 let tests =
