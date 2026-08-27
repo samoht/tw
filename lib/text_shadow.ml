@@ -109,7 +109,10 @@ module Handler = struct
 
   (* ============ Parse arbitrary shadow ============ *)
 
-  let parse_arbitrary_shadow (s : string) :
+  (* The two colours the utility has to keep as written: a [#] hex it
+     re-shortens and a var() it wraps. Everything else in the value is read as a
+     length, so a colour spelled any other way lands in a length slot. *)
+  let scan_verbatim_colour (s : string) :
       (length * length * length option * arb_color) option =
     let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
     let parts = String.split_on_char ' ' normalized in
@@ -143,6 +146,29 @@ module Handler = struct
           | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
           | [ h; v; blur ] -> Some (h, v, Some blur, color)
           | _ -> Stdlib.Option.None)
+
+  (* What the scan above cannot spell goes to the value parser, which reads the
+     rest of the CSS colour grammar: [red] is a colour to it and a failed length
+     to the scan. This is the fallback the box-shadow family already has. *)
+  let parse_arbitrary_shadow (s : string) :
+      (length * length * length option * arb_color) option =
+    match scan_verbatim_colour s with
+    | Some _ as shadow -> shadow
+    | Stdlib.Option.None -> (
+        let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
+        match Css.parse_shadow normalized with
+        (* CSS text-shadow has no spread, so a body carrying one is not one. *)
+        | Some
+            (Shadow
+               { h_offset; v_offset; blur; spread = Stdlib.Option.None; color })
+          ->
+            let color =
+              match color with
+              | Some c -> Css_color c
+              | Stdlib.Option.None -> No_color
+            in
+            Some (h_offset, v_offset, blur, color)
+        | _ -> Stdlib.Option.None)
 
   (* ============ Shape definitions ============ *)
 
