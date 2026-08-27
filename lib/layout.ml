@@ -744,6 +744,9 @@ module Handler = struct
       Clear_both;
       Object_contain;
       Object_center;
+      Break_before_page;
+      Break_after_page;
+      Break_inside_avoid;
     ]
 end
 

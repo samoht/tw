@@ -1961,7 +1961,17 @@ module Handler = struct
     | Origin_arbitrary (s, _) -> "origin-[" ^ s ^ "]"
 
   let examples =
-    [ Origin_top; Perspective_none; Perspective_origin_top; Backface_hidden ]
+    [
+      Origin_top;
+      Perspective_none;
+      Perspective_origin_top;
+      Backface_hidden;
+      Transform_none;
+      Transform_style_flat;
+      Rotate 45;
+      Scale 50;
+      Translate_x 2;
+    ]
 end
 
 open Handler
