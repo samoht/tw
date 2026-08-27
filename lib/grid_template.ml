@@ -189,7 +189,7 @@ module Handler = struct
             (* A math-function track (min()/max()/clamp()/calc()), a var() or
                the [--spacing()] shorthand: all lengths the suffix-based parse
                above does not recognise. *)
-            match Css.parse_length (Parse.decode_arbitrary_value value) with
+            match Parse.arbitrary_length value with
             | Some l -> Some (Length l)
             | None -> None)
 
