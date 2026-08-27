@@ -663,8 +663,11 @@ module Typography_early = struct
           | Some length -> line_height_of_length length
           | None -> None)
 
-  let known_leading_names =
-    [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ]
+  (* [none] is not here: [parse_lh_modifier] answers it with [No_leading] before
+     this list is consulted, because Tailwind writes [line-height: 1] for it
+     rather than reading a [--leading-none] token it never defines. A row here
+     would contradict that the moment anyone removed the short-circuit. *)
+  let known_leading_names = [ "tight"; "snug"; "normal"; "relaxed"; "loose" ]
 
   (* The modifier names a [--leading-*] token, and one the project declared
      counts the same as a built-in one. *)
@@ -1304,8 +1307,8 @@ module Typography_early = struct
   let named_leading_table :
       (string * (Css.line_height Var.theme * Css.line_height)) list =
     [
-      ("none", (leading_none_var, (Num 1.0 : Css.line_height)));
-      ("tight", (leading_tight_var, Num 1.25));
+      (* [none] is absent for the reason [known_leading_names] gives. *)
+      ("tight", (leading_tight_var, (Num 1.25 : Css.line_height)));
       ("snug", (leading_snug_var, Num 1.375));
       ("normal", (leading_normal_var, Num 1.5));
       ("relaxed", (leading_relaxed_var, Num 1.625));
