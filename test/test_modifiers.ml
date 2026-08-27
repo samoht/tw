@@ -330,6 +330,36 @@ let test_modifier_class_roundtrip () =
       "marker:text-gray-500";
     ]
 
+(* [min-[<px>]] and [max-[<px>]] name themselves after the bracket, so the
+   bracket has to come back out spelled as the author wrote it. Re-printing the
+   parsed number drops a trailing zero, a leading zero and an exponent, and the
+   selector then matches nothing in the markup. *)
+let test_arbitrary_breakpoint_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [
+      "min-[320px]:flex";
+      "min-[600.50px]:flex";
+      "min-[0600px]:flex";
+      "min-[1e3px]:flex";
+      "min-[600]:flex";
+      "min-[.5rem]:flex";
+      "max-[48rem]:flex";
+      "max-[37.50px]:flex";
+    ]
+
+(* The bracket holds a length, so a word is not a breakpoint at all. *)
+let test_arbitrary_breakpoint_rejects_non_length () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "min-[abc]:flex"; "max-[abc]:flex"; "min-[]:flex" ]
+
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
@@ -942,6 +972,10 @@ let tests =
         test_nested_modifier_css_generation;
       test_case "not-has shorthand selector" `Quick
         test_not_has_shorthand_selector;
+      test_case "arbitrary breakpoint spelling" `Quick
+        test_arbitrary_breakpoint_spelling;
+      test_case "arbitrary breakpoint rejects non-length" `Quick
+        test_arbitrary_breakpoint_rejects_non_length;
     ]
 
 let suite = ("modifiers", tests)
