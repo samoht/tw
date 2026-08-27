@@ -226,57 +226,6 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
-(* Convert a [Css.kind] witness to the matching [Css.Properties.kind]. *)
-let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
-  let open Css in
-  function
-  | Length -> Css.Properties.Length
-  | Color -> Css.Properties.Color
-  | Rgb -> Css.Properties.Rgb
-  | Int -> Css.Properties.Int
-  | Number -> Css.Properties.Number
-  | Float -> Css.Properties.Float
-  | Percentage -> Css.Properties.Percentage
-  | Length_percentage -> Css.Properties.Length_percentage
-  | Number_percentage -> Css.Properties.Number_percentage
-  | Opacity -> Css.Properties.Opacity
-  | Value -> Css.Properties.Value
-  | Duration -> Css.Properties.Duration
-  | Aspect_ratio -> Css.Properties.Aspect_ratio
-  | Border_style -> Css.Properties.Border_style
-  | Outline_style -> Css.Properties.Outline_style
-  | Border -> Css.Properties.Border
-  | Font_weight -> Css.Properties.Font_weight
-  | Font_size -> Css.Properties.Font_size
-  | Line_height -> Css.Properties.Line_height
-  | Font_family -> Css.Properties.Font_family
-  | Font_feature_settings -> Css.Properties.Font_feature_settings
-  | Font_variation_settings -> Css.Properties.Font_variation_settings
-  | Numeric -> Css.Properties.Numeric
-  | Font_variant_numeric_token -> Css.Properties.Font_variant_numeric_token
-  | Blend_mode -> Css.Properties.Blend_mode
-  | Scroll_snap_strictness -> Css.Properties.Scroll_snap_strictness
-  | Angle -> Css.Properties.Angle
-  | Rotate -> Css.Properties.Rotate
-  | Scale -> Css.Properties.Scale
-  | Shadow -> Css.Properties.Shadow
-  | Content -> Css.Properties.Content
-  | Gradient_stop -> Css.Properties.Gradient_stop
-  | Gradient_direction -> Css.Properties.Gradient_direction
-  | Gradient_position -> Css.Properties.Gradient_position
-  | Radial_shape -> Css.Properties.Radial_shape
-  | Radial_size -> Css.Properties.Radial_size
-  | Position_value -> Css.Properties.Position_value
-  | Animation -> Css.Properties.Animation
-  | Timing_function -> Css.Properties.Timing_function
-  | Transform -> Css.Properties.Transform
-  | Touch_action -> Css.Properties.Touch_action
-  | Transition_property_value -> Css.Properties.Transition_property_value
-  | Background_image -> Css.Properties.Background_image
-  | Z_index -> Css.Properties.Z_index
-  | Filter -> Css.Properties.Filter
-  | Font_src -> Css.Properties.Font_src
-
 (* Create a variable template *)
 let v : type a r.
     a Css.kind ->
@@ -363,8 +312,7 @@ let string_of_kind_value : type a. a Css.kind -> a -> string =
   | Css.Color -> Css.Pp.to_string ~minify:true Css.Values.pp_color value
   | Css.Gradient_position ->
       Css.Pp.to_string ~minify:true Css.Properties.pp_gradient_position value
-  | _ ->
-      Css.Properties.string_of_kind_value (properties_kind_of_kind kind) value
+  | _ -> Css.Properties.string_of_kind_value kind value
 
 (* Helper to create @property with correct syntax based on kind *)
 let property_universal : type a.
