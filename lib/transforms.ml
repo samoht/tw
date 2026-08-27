@@ -109,7 +109,9 @@ module Handler = struct
     | Perspective_origin_top_right
     | Perspective_origin_bottom_left
     | Perspective_origin_bottom_right
-    | Perspective_origin_arbitrary of string
+    (* The author's bracket text travels with the value it denotes, so the class
+       name is spelled exactly as it was written. *)
+    | Perspective_origin_arbitrary of string * Css.perspective_origin
     | (* Transform style *)
       Transform_style_3d
     | Transform_style_flat
@@ -127,7 +129,7 @@ module Handler = struct
     | Transform_cpu
     | Transform_none
     | Transform_gpu
-    | Transform_arbitrary of string
+    | Transform_arbitrary of string * Css.transform list
     | (* Transform origin *)
       Origin_center
     | Origin_top
@@ -138,7 +140,7 @@ module Handler = struct
     | Origin_top_right
     | Origin_bottom_left
     | Origin_bottom_right
-    | Origin_arbitrary of string
+    | Origin_arbitrary of string * Css.transform_origin
 
   type Utility.base += Self of t
 
@@ -989,19 +991,7 @@ module Handler = struct
       (XY (Pct 100., Pct 100.))
       "100% 100%" ()
 
-  let perspective_origin_arbitrary s =
-    (* Convert underscore to space for arbitrary values like 50px_100px *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    let cursor = Cascade.Cursor.of_string value in
-    match
-      Cascade.Cursor.try_parse_full_err Css.Properties.read_perspective_origin
-        cursor
-    with
-    | Ok po -> style [ perspective_origin po ]
-    | Error _ ->
-        invalid_arg
-          ("perspective-origin-[" ^ s ^ "]: not a valid perspective-origin")
-
+  let perspective_origin_arbitrary po = style [ perspective_origin po ]
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
   let transform_box_border = style [ Css.transform_box Border_box ]
@@ -1063,16 +1053,7 @@ module Handler = struct
       (XY (Pct 100., Pct 100.))
       "100% 100%" ()
 
-  let origin_arbitrary s =
-    (* Convert underscore to space for arbitrary values like 50px_100px *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-    let cursor = Cascade.Cursor.of_string value in
-    match
-      Cascade.Cursor.try_parse_full_err Css.Properties.read_transform_origin
-        cursor
-    with
-    | Ok t -> style [ transform_origin t ]
-    | Error _ -> invalid_arg ("origin-[" ^ s ^ "]: not a valid transform-origin")
+  let origin_arbitrary t = style [ transform_origin t ]
 
   (** {1 Transform Control Utilities} *)
 
@@ -1305,7 +1286,7 @@ module Handler = struct
     | Perspective_origin_top_right -> perspective_origin_top_right ()
     | Perspective_origin_bottom_left -> perspective_origin_bottom_left ()
     | Perspective_origin_bottom_right -> perspective_origin_bottom_right ()
-    | Perspective_origin_arbitrary s -> perspective_origin_arbitrary s
+    | Perspective_origin_arbitrary (_, po) -> perspective_origin_arbitrary po
     | Transform_style_3d -> transform_style_3d
     | Transform_style_flat -> transform_style_flat
     | Transform_box_border -> transform_box_border
@@ -1319,16 +1300,7 @@ module Handler = struct
     | Transform_cpu -> transform_cpu
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
-    | Transform_arbitrary s -> (
-        let value = String.map (fun c -> if c = '_' then ' ' else c) s in
-        let cursor = Cascade.Cursor.of_string value in
-        match
-          Cascade.Cursor.try_parse_full_err Css.Properties.read_transforms
-            cursor
-        with
-        | Ok ts -> style [ transforms ts ]
-        | Error _ ->
-            invalid_arg ("transform-[" ^ s ^ "]: not a valid transform list"))
+    | Transform_arbitrary (_, ts) -> style [ transforms ts ]
     | Origin_center -> origin_center ()
     | Origin_top -> origin_top ()
     | Origin_bottom -> origin_bottom ()
@@ -1338,7 +1310,7 @@ module Handler = struct
     | Origin_top_right -> origin_top_right ()
     | Origin_bottom_left -> origin_bottom_left ()
     | Origin_bottom_right -> origin_bottom_right ()
-    | Origin_arbitrary s -> origin_arbitrary s
+    | Origin_arbitrary (_, t) -> origin_arbitrary t
 
   let suborder = function
     | Transform -> 2000
@@ -1498,6 +1470,15 @@ module Handler = struct
         | Some num, Some denom when num > 0 && denom > 0 -> Some (num, denom)
         | _ -> None)
     | _ -> None
+
+  (* The value a bracket denotes, read with the grammar cascade already has for
+     the property. [None] is a bracket that grammar refuses, and [of_class]
+     declines the utility rather than leaving [to_style] to raise. *)
+  let arbitrary_value read inner =
+    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    match Cascade.Cursor.try_parse_full_err read cursor with
+    | Ok v -> Some v
+    | Error _ -> None
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -1785,9 +1766,15 @@ module Handler = struct
         let len = String.length value in
         if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
           let inner = String.sub value 1 (len - 2) in
-          (* Convert underscores to spaces *)
-          let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
-          Ok (Perspective_origin_arbitrary inner)
+          match
+            arbitrary_value Css.Properties.read_perspective_origin inner
+          with
+          | Some po -> Ok (Perspective_origin_arbitrary (inner, po))
+          | None ->
+              Error
+                (`Msg
+                   ("perspective-origin-[" ^ inner
+                  ^ "]: not a valid perspective-origin"))
         else err_not_utility
     | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
     | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
@@ -1800,8 +1787,13 @@ module Handler = struct
     | [ "transform"; "fill" ] -> Ok Transform_box_fill
     | [ "transform"; "stroke" ] -> Ok Transform_box_stroke
     | [ "transform"; "view" ] -> Ok Transform_box_view
-    | [ "transform"; value ] when Parse.is_bracket_value value ->
-        Ok (Transform_arbitrary (Parse.bracket_inner value))
+    | [ "transform"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match arbitrary_value Css.Properties.read_transforms inner with
+        | Some ts -> Ok (Transform_arbitrary (inner, ts))
+        | None ->
+            Error
+              (`Msg ("transform-[" ^ inner ^ "]: not a valid transform list")))
     | [ "transform" ] -> Ok Transform
     | [ "transform"; "cpu" ] -> Ok Transform_cpu
     | [ "transform"; "none" ] -> Ok Transform_none
@@ -1820,9 +1812,11 @@ module Handler = struct
         let len = String.length value in
         if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
           let inner = String.sub value 1 (len - 2) in
-          (* Convert underscores to spaces *)
-          let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
-          Ok (Origin_arbitrary inner)
+          match arbitrary_value Css.Properties.read_transform_origin inner with
+          | Some t -> Ok (Origin_arbitrary (inner, t))
+          | None ->
+              Error
+                (`Msg ("origin-[" ^ inner ^ "]: not a valid transform-origin"))
         else err_not_utility
     | _ -> err_not_utility
 
@@ -1940,9 +1934,7 @@ module Handler = struct
     | Perspective_origin_top_right -> "perspective-origin-top-right"
     | Perspective_origin_bottom_left -> "perspective-origin-bottom-left"
     | Perspective_origin_bottom_right -> "perspective-origin-bottom-right"
-    | Perspective_origin_arbitrary s ->
-        let s = String.map (fun c -> if c = ' ' then '_' else c) s in
-        "perspective-origin-[" ^ s ^ "]"
+    | Perspective_origin_arbitrary (s, _) -> "perspective-origin-[" ^ s ^ "]"
     | Transform_style_3d -> "transform-3d"
     | Transform_style_flat -> "transform-flat"
     | Transform_box_border -> "transform-border"
@@ -1956,7 +1948,7 @@ module Handler = struct
     | Transform_cpu -> "transform-cpu"
     | Transform_none -> "transform-none"
     | Transform_gpu -> "transform-gpu"
-    | Transform_arbitrary s -> "transform-[" ^ s ^ "]"
+    | Transform_arbitrary (s, _) -> "transform-[" ^ s ^ "]"
     | Origin_center -> "origin-center"
     | Origin_top -> "origin-top"
     | Origin_bottom -> "origin-bottom"
@@ -1966,10 +1958,7 @@ module Handler = struct
     | Origin_top_right -> "origin-top-right"
     | Origin_bottom_left -> "origin-bottom-left"
     | Origin_bottom_right -> "origin-bottom-right"
-    | Origin_arbitrary s ->
-        (* Convert spaces back to underscores for class name *)
-        let s = String.map (fun c -> if c = ' ' then '_' else c) s in
-        "origin-[" ^ s ^ "]"
+    | Origin_arbitrary (s, _) -> "origin-[" ^ s ^ "]"
 
   let examples =
     [ Origin_top; Perspective_none; Perspective_origin_top; Backface_hidden ]
