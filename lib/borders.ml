@@ -56,6 +56,8 @@ type rounded_size =
   | Rsz_3xl
   | Rsz_4xl
   | Rsz_full
+  | Rsz_theme of string
+    (* radius named by a project [--radius-*] token (rounded-blob) *)
   | Rsz_arbitrary of string * Css.length
 
 module Handler = struct
@@ -460,6 +462,20 @@ module Handler = struct
         | Some f -> Some (Px f)
         | None -> None)
 
+  (* A [--radius-*] token the project declared names a radius the built-in scale
+     has no slot for; they share the slot after the scale, the way the project's
+     font families and text sizes share theirs. *)
+  let radius_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let radius_named_var name =
+    match Hashtbl.find_opt radius_named_cache name with
+    | Some var -> var
+    | None ->
+        let var = Var.theme Css.Length ("radius-" ^ name) ~order:(7, 11) in
+        Hashtbl.add radius_named_cache name var;
+        var
+
   let radius_none_var = Var.theme Css.Length "radius-none" ~order:(7, 0)
   let radius_full_var = Var.theme Css.Length "radius-full" ~order:(7, 1)
   let radius_xs_var = Var.theme Css.Length "radius-xs" ~order:(7, 2)
@@ -555,6 +571,21 @@ module Handler = struct
     | Rsz_2xl -> sized_radius radius_2xl_var (Css.Rem 1.0) pos
     | Rsz_3xl -> sized_radius radius_3xl_var (Css.Rem 1.5) pos
     | Rsz_4xl -> sized_radius radius_4xl_var (Css.Rem 2.0) pos
+    | Rsz_theme name -> (
+        let token = "radius-" ^ name in
+        match Scheme.theme_value theme token with
+        | None -> style []
+        | Some raw -> (
+            match Css.parse_length raw with
+            | None -> style []
+            | Some len ->
+                if Scheme.is_inline_token (resolve_scheme theme) token then
+                  style (radius_decls_for_position pos len)
+                else
+                  let decl, r = Var.binding (radius_named_var name) len in
+                  style
+                    (decl :: radius_decls_for_position pos (Var r : Css.length))
+            ))
     | Rsz_arbitrary (_, len) -> style (radius_decls_for_position pos len)
 
   (* Outline style variable - used by outline utilities that set the style *)
@@ -809,6 +840,13 @@ module Handler = struct
     | "full" -> Some Rsz_full
     | _ -> None
 
+  (* A radius the project named in its [@theme]. The built-in scale is published
+     through the same registry, so a built-in name is answered by
+     [rounded_size_of_string] before this is consulted. *)
+  let is_theme_radius theme n =
+    rounded_size_of_string n = None
+    && Scheme.theme_value (Some theme) ("radius-" ^ n) <> None
+
   let suborder = function
     (* Border radius utilities - flat suborder per position group for natural
        sort by class name *)
@@ -917,7 +955,7 @@ module Handler = struct
     | Outline_offset_var _ -> 2299
     | Outline_offset_arbitrary _ -> 2215
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "border" ] -> Ok Border
@@ -1028,7 +1066,10 @@ module Handler = struct
         | None -> (
             match corner_of_string tok with
             | Some pos -> Ok (Rounded (pos, Rsz_default))
-            | None -> err_not_utility))
+            | None ->
+                if is_theme_radius theme tok then
+                  Ok (Rounded (Corner.All, Rsz_theme tok))
+                else err_not_utility))
     | [ "rounded"; pos; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         match (corner_of_string pos, parse_length inner) with
@@ -1037,6 +1078,8 @@ module Handler = struct
     | [ "rounded"; pos; size ] -> (
         match (corner_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
+        | Some pos, None when is_theme_radius theme size ->
+            Ok (Rounded (pos, Rsz_theme size))
         | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
@@ -1181,6 +1224,7 @@ module Handler = struct
           | Rsz_3xl -> "-3xl"
           | Rsz_4xl -> "-4xl"
           | Rsz_full -> "-full"
+          | Rsz_theme name -> "-" ^ name
           | Rsz_arbitrary (raw, _) -> "-[" ^ raw ^ "]"
         in
         "rounded" ^ pos_str ^ size_str
