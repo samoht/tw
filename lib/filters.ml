@@ -24,6 +24,7 @@ module Handler = struct
     (* The author's bracket text travels with the length it denotes, so the
        class name is spelled exactly as it was written. *)
     | Blur_arbitrary of string * Css.length
+    | Blur_theme of string (* radius from a --blur-* token *)
     | Brightness of int
     | Brightness_arbitrary of string
     | Contrast of int
@@ -293,6 +294,20 @@ module Handler = struct
      [blur(8px)] inline. *)
   let blur_xs_var = Var.theme Css.Length "blur-xs" ~order:(8, 0)
   let blur_sm_var = Var.theme Css.Length "blur-sm" ~order:(8, 1)
+
+  (* A [--blur-*] token the project declared names a radius the built-in scale
+     has no slot for; they share the slot after the scale. *)
+  let blur_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let blur_named_var name =
+    match Hashtbl.find_opt blur_named_cache name with
+    | Some var -> var
+    | None ->
+        let var = Var.theme Css.Length ("blur-" ^ name) ~order:(8, 8) in
+        Hashtbl.add blur_named_cache name var;
+        var
+
   let blur_md_var = Var.theme Css.Length "blur-md" ~order:(8, 2)
   let blur_lg_var = Var.theme Css.Length "blur-lg" ~order:(8, 3)
   let blur_xl_var = Var.theme Css.Length "blur-xl" ~order:(8, 4)
@@ -307,6 +322,24 @@ module Handler = struct
         filter_var_decl "--tw-blur" (Blur (Var ref_));
         filter composable_filter_chain;
       ]
+
+  let is_theme_blur theme n =
+    Scheme.theme_value (Some theme) ("blur-" ^ n) <> None
+
+  let blur_theme theme name =
+    match Scheme.theme_value (Some theme) ("blur-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_length raw with
+        | None -> style []
+        | Some len ->
+            let decl, ref_ = Var.binding (blur_named_var name) len in
+            style ~property_rules:filter_property_rules
+              [
+                decl;
+                filter_var_decl "--tw-blur" (Blur (Var ref_));
+                filter composable_filter_chain;
+              ])
 
   let blur_xs = blur_size_utility blur_xs_var 4.
   let blur_sm = blur_size_utility blur_sm_var 8.
@@ -1158,6 +1191,7 @@ module Handler = struct
     | Blur_none -> blur_none ()
     | Blur_xs -> blur_xs ()
     | Blur_sm -> blur_sm ()
+    | Blur_theme name -> blur_theme theme name
     | Blur -> blur ()
     | Blur_md -> blur_md ()
     | Blur_lg -> blur_lg ()
@@ -1250,6 +1284,7 @@ module Handler = struct
     | Blur_md -> 5
     | Blur_none -> 6
     | Blur_sm -> 7
+    | Blur_theme _ -> 14
     | Blur_xl -> 8
     | Blur_xs -> 9
     | Brightness n -> 1000 + n
@@ -1348,6 +1383,9 @@ module Handler = struct
     | [ "blur"; "xl" ] -> Ok Blur_xl
     | [ "blur"; "2xl" ] -> Ok Blur_2xl
     | [ "blur"; "3xl" ] -> Ok Blur_3xl
+    | "blur" :: (_ :: _ as rest)
+      when is_theme_blur theme (String.concat "-" rest) ->
+        Ok (Blur_theme (String.concat "-" rest))
     | [ "blur"; s ] when Parse.is_bracket_value s -> (
         match arbitrary_blur s with
         | Option.Some len -> Ok (Blur_arbitrary (s, len))
@@ -1552,6 +1590,7 @@ module Handler = struct
     | Blur_none -> "blur-none"
     | Blur_xs -> "blur-xs"
     | Blur_sm -> "blur-sm"
+    | Blur_theme name -> "blur-" ^ name
     | Blur -> "blur"
     | Blur_md -> "blur-md"
     | Blur_lg -> "blur-lg"
