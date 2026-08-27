@@ -270,7 +270,7 @@ module Handler = struct
   let ring_offset_width_var =
     Var.property_default Css.Length
       ~initial:(Zero : Css.length)
-      ~initial_css:"0px" ~property_order:18 ~family:`Ring "tw-ring-offset-width"
+      ~property_order:18 ~family:`Ring "tw-ring-offset-width"
 
   let ring_offset_color_var =
     Var.property_default Css.Color ~initial:(Css.hex "#fff") ~universal:true
