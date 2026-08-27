@@ -490,10 +490,13 @@ let inline_has_property prop_name inline_style =
 
 (** Check if declarations contain any var() references *)
 let has_var_in_declarations ?(inline = false) decls =
+  (* Anywhere in the value, not only at its head: [calc(var(--spacing)*4)] and
+     [color-mix(in oklab, var(--c) 50%, #0000)] reference a variable as much as
+     a bare [var(--c)] does, and an assertion that a sheet holds none is vacuous
+     on them otherwise. *)
   List.exists
     (fun decl ->
-      let value = Css.declaration_value ~inline decl in
-      String.length value >= 4 && String.sub value 0 4 = "var(")
+      Astring.String.is_infix ~affix:"var(" (Css.declaration_value ~inline decl))
     decls
 
 (** {1 Utility Generators} *)
