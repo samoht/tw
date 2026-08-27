@@ -78,6 +78,11 @@ val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
     positions back is what catches a reorder. Skips when the CLI is unavailable.
 *)
 
+val render_elements : string list -> string list
+(** [render_elements classnames] is the element list {!check_rendering_matches}
+    renders: each class on its own, then one element per {!interacting_pairs}
+    pair, duplicates dropped and first occurrence kept. *)
+
 val check_rendering_matches :
   ?forms:bool -> test_name:string -> Tw.t list -> unit
 (** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in

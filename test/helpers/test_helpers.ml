@@ -310,13 +310,27 @@ let render_dir root test_name =
       dir)
     root [ "tmp"; "browser"; safe ]
 
+(* First occurrence wins and the order is kept. Through a table rather than a
+   scan of what has been seen: the list this runs on is quadratic in the number
+   of classes. *)
 let dedup l =
+  let seen = Hashtbl.create 256 in
   List.rev
-    (fst
-       (List.fold_left
-          (fun (acc, seen) x ->
-            if List.mem x seen then (acc, seen) else (x :: acc, x :: seen))
-          ([], []) l))
+    (List.fold_left
+       (fun acc x ->
+         if Hashtbl.mem seen x then acc
+         else (
+           Hashtbl.add seen x ();
+           x :: acc))
+       [] l)
+
+(* The elements the browser check builds: every class on its own, since a class
+   alone can still differ in value, and one carrying each interacting pair,
+   which is where an ordering difference shows. *)
+let render_elements classnames =
+  dedup
+    (classnames
+    @ List.map (fun (a, b) -> a ^ " " ^ b) (interacting_pairs classnames))
 
 let check_rendering_matches ?(forms = false) ~test_name utilities =
   let root =
@@ -324,13 +338,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   in
   if not (browser_available root) then Alcotest.skip ();
   let classnames = List.map Tw.pp utilities in
-  (* A class on its own can only show a difference in value; an ordering
-     difference needs an element carrying two classes that write the same
-     property. *)
-  let pairs = interacting_pairs classnames in
-  let elements =
-    dedup (classnames @ List.map (fun (a, b) -> a ^ " " ^ b) pairs)
-  in
+  let elements = render_elements classnames in
   let tailwind = tailwind_css ~forms classnames in
   let dir = render_dir root test_name in
   let path name = Filename.concat dir name in

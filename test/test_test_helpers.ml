@@ -115,6 +115,14 @@ let test_unrelated_classes_are_not_paired () =
     "text-left and italic do not share an element" false
     (paired "text-left" "italic")
 
+(* The list handed to the browser: singles first, then the pairs, with the
+   repeat of a class dropped rather than rendered twice. *)
+let test_render_elements_are_unique_and_ordered () =
+  Alcotest.(check (list string))
+    "m-2 twice renders once"
+    [ "m-2"; "ml-2"; "m-2 ml-2" ]
+    (Test_helpers.render_elements [ "m-2"; "ml-2"; "m-2" ])
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -137,6 +145,8 @@ let tests =
       test_pairs_composed_through_a_variable;
     Alcotest.test_case "unrelated classes are not paired" `Quick
       test_unrelated_classes_are_not_paired;
+    Alcotest.test_case "render elements are unique and ordered" `Quick
+      test_render_elements_are_unique_and_ordered;
   ]
 
 let suite = ("test_helpers", tests)
