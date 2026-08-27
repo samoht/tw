@@ -335,7 +335,8 @@ let process_files paths flag ~(opts : gen_opts) =
         in
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true all_classes
+            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            all_classes
         in
         print_string css;
         `Ok ()
