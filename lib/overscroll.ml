@@ -34,43 +34,41 @@ module Handler = struct
   (* Same priority as overflow (18) - these are related utilities *)
   let priority _ = 18
 
-  (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
-  let overscroll_data =
+  (* Class suffix, style and cascade suborder of one utility. Written as a
+     match, not a lookup table: a constructor added to [t] without an entry here
+     is a compile error rather than a [Not_found] raised out of [to_class]
+     halfway through rendering a sheet. *)
+  let data : t -> string * Style.t * int = function
+    | Auto -> ("auto", style [ overscroll_behavior [ Auto ] ], 600)
+    | Contain -> ("contain", style [ overscroll_behavior [ Contain ] ], 601)
+    | None_ -> ("none", style [ overscroll_behavior [ None ] ], 602)
+    | X_auto -> ("x-auto", style [ overscroll_behavior_x Auto ], 603)
+    | X_contain -> ("x-contain", style [ overscroll_behavior_x Contain ], 604)
+    | X_none -> ("x-none", style [ overscroll_behavior_x None ], 605)
+    | Y_auto -> ("y-auto", style [ overscroll_behavior_y Auto ], 606)
+    | Y_contain -> ("y-contain", style [ overscroll_behavior_y Contain ], 607)
+    | Y_none -> ("y-none", style [ overscroll_behavior_y None ], 608)
+
+  (* Every constructor, for the class-name lookup. A missing entry costs a class
+     that no longer parses, which the round-trip test reports. *)
+  let all =
     [
-      (Auto, "auto", (fun () -> style [ overscroll_behavior [ Auto ] ]), 600);
-      ( Contain,
-        "contain",
-        (fun () -> style [ overscroll_behavior [ Contain ] ]),
-        601 );
-      (None_, "none", (fun () -> style [ overscroll_behavior [ None ] ]), 602);
-      (X_auto, "x-auto", (fun () -> style [ overscroll_behavior_x Auto ]), 603);
-      ( X_contain,
-        "x-contain",
-        (fun () -> style [ overscroll_behavior_x Contain ]),
-        604 );
-      (X_none, "x-none", (fun () -> style [ overscroll_behavior_x None ]), 605);
-      (Y_auto, "y-auto", (fun () -> style [ overscroll_behavior_y Auto ]), 606);
-      ( Y_contain,
-        "y-contain",
-        (fun () -> style [ overscroll_behavior_y Contain ]),
-        607 );
-      (Y_none, "y-none", (fun () -> style [ overscroll_behavior_y None ]), 608);
+      Auto; Contain; None_; X_auto; X_contain; X_none; Y_auto; Y_contain; Y_none;
     ]
 
-  (* Derived lookup tables *)
-  let to_class_map =
-    List.map (fun (t, s, _, _) -> (t, "overscroll-" ^ s)) overscroll_data
+  let to_class t =
+    let suffix, _, _ = data t in
+    "overscroll-" ^ suffix
 
-  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) overscroll_data
-  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) overscroll_data
+  let to_style _theme t =
+    let _, s, _ = data t in
+    s
 
-  let of_class_map =
-    List.map (fun (t, s, _, _) -> ("overscroll-" ^ s, t)) overscroll_data
+  let suborder t =
+    let _, _, o = data t in
+    o
 
-  (* Handler functions derived from maps *)
-  let suborder t = List.assoc t suborder_map
-  let to_class t = List.assoc t to_class_map
-  let to_style _theme t = (List.assoc t to_style_map) ()
+  let of_class_map = List.map (fun t -> (to_class t, t)) all
 
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with

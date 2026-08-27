@@ -34,40 +34,61 @@ module Handler = struct
   (* Overflow comes after alignment (17) in Tailwind's utility ordering. *)
   let priority _ = 18
 
-  (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
-  let overflow_data =
+  (* Class suffix, style and cascade suborder of one utility. Written as a
+     match, not a lookup table: a constructor added to [t] without an entry here
+     is a compile error rather than a [Not_found] raised out of [to_class]
+     halfway through rendering a sheet. *)
+  let data : t -> string * Style.t * int = function
+    | Auto -> ("auto", style [ overflow Auto ], 550)
+    | Clip -> ("clip", style [ overflow Clip ], 551)
+    | Hidden -> ("hidden", style [ overflow Hidden ], 552)
+    | Scroll -> ("scroll", style [ overflow Scroll ], 553)
+    | Visible -> ("visible", style [ overflow Visible ], 554)
+    | X_auto -> ("x-auto", style [ overflow_x Auto ], 555)
+    | X_clip -> ("x-clip", style [ overflow_x Clip ], 556)
+    | X_hidden -> ("x-hidden", style [ overflow_x Hidden ], 557)
+    | X_scroll -> ("x-scroll", style [ overflow_x Scroll ], 558)
+    | X_visible -> ("x-visible", style [ overflow_x Visible ], 559)
+    | Y_auto -> ("y-auto", style [ overflow_y Auto ], 560)
+    | Y_clip -> ("y-clip", style [ overflow_y Clip ], 561)
+    | Y_hidden -> ("y-hidden", style [ overflow_y Hidden ], 562)
+    | Y_scroll -> ("y-scroll", style [ overflow_y Scroll ], 563)
+    | Y_visible -> ("y-visible", style [ overflow_y Visible ], 564)
+
+  (* Every constructor, for the class-name lookup. A missing entry costs a class
+     that no longer parses, which the round-trip test reports. *)
+  let all =
     [
-      (Auto, "auto", (fun () -> style [ overflow Auto ]), 550);
-      (Clip, "clip", (fun () -> style [ overflow Clip ]), 551);
-      (Hidden, "hidden", (fun () -> style [ overflow Hidden ]), 552);
-      (Scroll, "scroll", (fun () -> style [ overflow Scroll ]), 553);
-      (Visible, "visible", (fun () -> style [ overflow Visible ]), 554);
-      (X_auto, "x-auto", (fun () -> style [ overflow_x Auto ]), 555);
-      (X_clip, "x-clip", (fun () -> style [ overflow_x Clip ]), 556);
-      (X_hidden, "x-hidden", (fun () -> style [ overflow_x Hidden ]), 557);
-      (X_scroll, "x-scroll", (fun () -> style [ overflow_x Scroll ]), 558);
-      (X_visible, "x-visible", (fun () -> style [ overflow_x Visible ]), 559);
-      (Y_auto, "y-auto", (fun () -> style [ overflow_y Auto ]), 560);
-      (Y_clip, "y-clip", (fun () -> style [ overflow_y Clip ]), 561);
-      (Y_hidden, "y-hidden", (fun () -> style [ overflow_y Hidden ]), 562);
-      (Y_scroll, "y-scroll", (fun () -> style [ overflow_y Scroll ]), 563);
-      (Y_visible, "y-visible", (fun () -> style [ overflow_y Visible ]), 564);
+      Auto;
+      Clip;
+      Hidden;
+      Scroll;
+      Visible;
+      X_auto;
+      X_clip;
+      X_hidden;
+      X_scroll;
+      X_visible;
+      Y_auto;
+      Y_clip;
+      Y_hidden;
+      Y_scroll;
+      Y_visible;
     ]
 
-  (* Derived lookup tables *)
-  let to_class_map =
-    List.map (fun (t, s, _, _) -> (t, "overflow-" ^ s)) overflow_data
+  let to_class t =
+    let suffix, _, _ = data t in
+    "overflow-" ^ suffix
 
-  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) overflow_data
-  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) overflow_data
+  let to_style _theme t =
+    let _, s, _ = data t in
+    s
 
-  let of_class_map =
-    List.map (fun (t, s, _, _) -> ("overflow-" ^ s, t)) overflow_data
+  let suborder t =
+    let _, _, o = data t in
+    o
 
-  (* Handler functions derived from maps *)
-  let suborder t = List.assoc t suborder_map
-  let to_class t = List.assoc t to_class_map
-  let to_style _theme t = (List.assoc t to_style_map) ()
+  let of_class_map = List.map (fun t -> (to_class t, t)) all
 
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
