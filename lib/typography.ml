@@ -740,18 +740,11 @@ module Typography_early = struct
     | [ "font"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if String.length inner > 0 && inner.[0] = '"' then
-          (* font-["arial_rounded"] → quoted font family *)
-          let unquoted =
-            let s =
-              if
-                String.length inner >= 2
-                && inner.[String.length inner - 1] = '"'
-              then String.sub inner 1 (String.length inner - 2)
-              else inner
-            in
-            String.map (fun c -> if c = '_' then ' ' else c) s
-          in
-          Ok (Font_bracket_family_quoted (inner, unquoted))
+          (* font-["arial_rounded"] → the decoded bracket text becomes the
+             literal font-family value, quotes and all; Tailwind never wraps it
+             in another layer of quoting. *)
+          let decoded = Parse.decode_underscores inner in
+          Ok (Font_bracket_family_quoted (inner, decoded))
         else if
           String.length inner >= 12 && String.sub inner 0 12 = "family-name:"
         then
@@ -1468,7 +1461,21 @@ module Typography_early = struct
           | Some rule -> rule
         in
         style ~property_rules [ weight_util_decl; font_weight (Var var_ref) ]
-    | Font_bracket_family_quoted (_, s) -> style [ font_family (Name s) ]
+    | Font_bracket_family_quoted (_, decoded) ->
+        let n = String.length decoded in
+        if n >= 2 && decoded.[0] = '"' && decoded.[n - 1] = '"' then
+          (* font-["arial_rounded"] → the decoded text is one quoted family
+             name; strip the quotes cascade's own printer adds back. *)
+          style [ font_family (Name (String.sub decoded 1 (n - 2))) ]
+        else
+          (* font-["liga"_0x10] → not a single quoted name. The decoded text
+             already carries its own quoting (a quoted string mixed with other
+             tokens); tokenize it and pass the tokens through rather than
+             wrapping the whole string in one more layer of quotes. *)
+          let tokens =
+            Css.Values.read_invalid_value (Cascade.Cursor.of_string decoded)
+          in
+          style [ font_family (Invalid tokens) ]
     | Font_bracket_family_name (_, s) ->
         (* Parse known generic family names *)
         let family =
