@@ -99,8 +99,21 @@ let extract_var_name s =
   else s
 
 (** Check if a string is a bracket-wrapped value like "[...]" *)
+(* One bracket, not two: the [\]] that closes the opening [\[] has to be the
+   last character. [[a]/[b]] is a bracket carrying a modifier and [[a]-[b]] is
+   two brackets; reading either as one leaves the inner text with its brackets
+   unbalanced, which no declaration value takes. *)
 let is_bracket_value s =
-  String.length s > 2 && s.[0] = '[' && s.[String.length s - 1] = ']'
+  let len = String.length s in
+  let rec close i depth =
+    if i >= len then false
+    else
+      match s.[i] with
+      | '[' -> close (i + 1) (depth + 1)
+      | ']' -> if depth = 0 then i = len - 1 else close (i + 1) (depth - 1)
+      | _ -> close (i + 1) depth
+  in
+  len > 2 && s.[0] = '[' && close 1 0
 
 (** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
