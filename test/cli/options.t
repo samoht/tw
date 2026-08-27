@@ -21,7 +21,8 @@ A stub CLI stands in for the real one and echoes the entrypoint it was given:
   >     *) shift ;;
   >   esac
   > done
-  > cat "$in" > "$out"
+  > if [ -n "$TW_STUB_CSS" ]; then cat "$TW_STUB_CSS" > "$out"
+  > else cat "$in" > "$out"; fi
   > EOF
   $ chmod +x stub/tailwindcss
   $ export PATH="$PWD/stub:$PATH"
@@ -41,3 +42,25 @@ The single-class path already did:
 
   $ tw --tailwind --input-css app.css -s text-huge | grep -c -- '--text-huge: 9rem;'
   1
+
+The sheet [--diff] compares is the sheet tw generates. A project's own
+[@utility] declarations and its entrypoint belong to both, so handing the
+stub tw's own output must come back with nothing to report:
+
+  $ cat > decl.css <<EOF
+  > @import "tailwindcss";
+  > @utility line-t {
+  >   @apply border-t;
+  >   border-color: red;
+  > }
+  > .page { display: grid }
+  > EOF
+  $ cat > decl.html <<EOF
+  > <div class="line-t flex"></div>
+  > EOF
+
+  $ tw --minify --input-css decl.css decl.html > expected.css
+  $ grep -c '\.line-t{border-color:red}' expected.css
+  1
+  $ TW_STUB_CSS="$PWD/expected.css" tw --diff --input-css decl.css decl.html
+  ✓ No differences found
