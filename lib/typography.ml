@@ -657,11 +657,19 @@ module Typography_early = struct
   (* A font size the project named in its [@theme]. The built-in scale is
      published through the same registry, so exclude it: those names have their
      own constructors. [text-<name>] also spells a colour, and a project that
-     declares both under one name gets the colour, as Tailwind does. *)
+     declares both under one name gets the colour, as Tailwind does.
+     [--text-shadow-*] is a namespace of its own, and a doubled hyphen marks a
+     modifier on another token ([--text-lg--line-height]), so neither names a
+     size; nor does a token whose value is not a length. *)
   let is_theme_text_size theme n =
     (not (is_named_size n))
+    && (not (Parse.has_prefix ~prefix:"shadow-" n))
+    && List.for_all (fun seg -> seg <> "") (String.split_on_char '-' n)
     && Scheme.theme_value (Some theme) ("color-" ^ n) = None
-    && Scheme.theme_value (Some theme) ("text-" ^ n) <> None
+    &&
+    match Scheme.theme_value (Some theme) ("text-" ^ n) with
+    | None -> false
+    | Some raw -> Css.parse_length raw <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
