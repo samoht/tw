@@ -311,14 +311,17 @@ module Handler = struct
 
   let shorten_hex = Color.shorten_hex_str
 
-  let shadow_alpha_decl percent =
-    Css.custom_property ~layer:"utilities" "--tw-shadow-alpha"
-      (pp_float percent ^ "%")
-
+  (* A bracket alpha with no [%] records the author's own number, unscaled and
+     without a unit, which is what Tailwind writes: [shadow-lg/[25]] gives
+     [--tw-shadow-alpha: 25]. Every other spelling stays a percentage. The alpha
+     the shadow actually paints with is computed separately. *)
   let opacity_css_value opacity =
     match Color.opacity_var_bare_of opacity with
     | Some name -> "var(--" ^ name ^ ")"
-    | None -> pp_float (Color.opacity_to_percent opacity) ^ "%"
+    | None -> (
+        match opacity with
+        | Color.Opacity_arbitrary n -> pp_float n.value
+        | _ -> pp_float (Color.opacity_to_percent opacity) ^ "%")
 
   let shadow_opacity_decl opacity =
     Css.custom_property ~layer:"utilities" "--tw-shadow-alpha"
@@ -476,12 +479,11 @@ module Handler = struct
       [ d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_shape_opacity_style shape opacity =
-    let percent = Color.opacity_to_percent opacity in
     let d_shadow, v_shadow =
       Var.binding shadow_var (shape_shadow_opacity_value shape opacity)
     in
     style ~property_rules:shadow_property_rules
-      [ shadow_alpha_decl percent; d_shadow; box_shadow_composition v_shadow ]
+      [ shadow_opacity_decl opacity; d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_2xs = shadow_shape_style Two_xs
   let shadow_xs = shadow_shape_style Xs
@@ -1081,10 +1083,6 @@ module Handler = struct
 
   (* ============ Inset shadow helpers ============ *)
 
-  let inset_shadow_alpha_decl percent =
-    Css.custom_property ~layer:"utilities" "--tw-inset-shadow-alpha"
-      (pp_float percent ^ "%")
-
   let inset_shadow_opacity_decl opacity =
     Css.custom_property ~layer:"utilities" "--tw-inset-shadow-alpha"
       (opacity_css_value opacity)
@@ -1184,7 +1182,7 @@ module Handler = struct
     in
     style ~property_rules:shadow_property_rules
       [
-        inset_shadow_alpha_decl percent;
+        inset_shadow_opacity_decl opacity;
         d_inset_shadow;
         inset_box_shadow_composition v_inset_shadow;
       ]
