@@ -712,19 +712,26 @@ let test_decoration_bracket_thickness () =
   rejected "decoration-[.]";
   rejected "decoration-[1e]"
 
-(* Tailwind treats a unitless arbitrary decoration value as a colour candidate.
-   The resulting colour declaration is invalid CSS and has no browser effect; TW
-   must keep the candidate accepted without turning it into a visible pixel
-   thickness. *)
+(* Tailwind treats a unitless arbitrary decoration value as a colour candidate,
+   whether it is written as an integer or with a fractional part. The resulting
+   colour declaration is invalid CSS and has no browser effect; TW must keep the
+   candidate accepted without turning it into a visible pixel thickness. *)
 let test_decoration_bracket_unitless_is_color () =
-  let css =
-    match Tw.of_string "decoration-[2]" with
+  let css cls =
+    match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.fail m
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  Alcotest.(check bool)
-    "does not turn the invalid colour into a thickness" false
-    (Astring.String.is_infix ~affix:"text-decoration-thickness" css)
+  let inert cls =
+    Alcotest.(check bool)
+      (cls ^ " does not turn the invalid colour into a thickness")
+      false
+      (Astring.String.is_infix ~affix:"text-decoration-thickness" (css cls))
+  in
+  List.iter inert
+    [
+      "decoration-[0]"; "decoration-[2]"; "decoration-[1.5]"; "decoration-[.5]";
+    ]
 
 (* A shadeless decoration colour takes an opacity modifier the same way every
    other colour family does, and keeps its shadeless class name. *)
