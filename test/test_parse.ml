@@ -107,11 +107,47 @@ let test_parse_is_independent_of_history () =
   round_trips built;
   unknown "grid-cols-"
 
+(* The utilities that swallowed a second bracket refuse the class instead of
+   raising out of [to_css]. Tailwind emits nothing for any of them. *)
+let test_double_bracket_class_rejected () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "mask-b-from-[foo]/[bar]";
+  rejected "mask-linear-from-[foo]-[bar]";
+  rejected "bg-linear-[foo]/[bar]";
+  rejected "bg-radial-[foo]/[bar]";
+  rejected "scale-z-[foo]/[bar]";
+  rejected "mask-radial-[foo]/[bar]";
+  rejected "-mask-linear-[foo]/[bar]";
+  rejected "-mask-conic-[foo]/[bar]";
+  rejected "mask-radial-at-[foo]/[bar]";
+  accepted "mask-b-from-[10%]";
+  accepted "bg-linear-[45deg]";
+  accepted "scale-z-[2]";
+  accepted "mask-radial-[50%_50%]";
+  accepted "-mask-linear-[45deg]";
+  accepted "mask-radial-at-[50%_50%]";
+  (* A bracket modifier on a utility that takes one still reads. *)
+  accepted "text-[10px]/[1.5]";
+  accepted "bg-red-500/[0.5]"
+
 let tests =
   Alcotest.
     [
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
+      test_case "double bracket class rejected" `Quick
+        test_double_bracket_class_rejected;
       test_case "int suffixes reject non-decimal spellings" `Quick
         test_int_rejects_non_decimal_spellings;
       test_case "negative int suffixes reject non-decimal spellings" `Quick
