@@ -299,18 +299,9 @@ let responsive_modifier_condition ?theme = function
         | `Xl_2 -> "max-2xl"
       in
       (breakpoint_not_condition ?theme bp, prefix)
-  | Style.Min_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      (media_min_width_px px, "min-[" ^ px_str ^ "px]")
-  | Style.Max_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      (media_not_min_width_px px, "max-[" ^ px_str ^ "px]")
+  | Style.Min_arbitrary w -> (media_min_width_px w.px, "min-[" ^ w.text ^ "]")
+  | Style.Max_arbitrary w ->
+      (media_not_min_width_px w.px, "max-[" ^ w.text ^ "]")
   | Style.Min_arbitrary_length l ->
       let len_str = Modifiers.compact_length l in
       (Css.media_min_width_length l, "min-[" ^ len_str ^ "]")
@@ -398,19 +389,17 @@ let max_responsive_rule ?theme ?inner_has_hover breakpoint base_class selector
     (breakpoint_not_condition ?theme breakpoint)
     base_class selector props
 
-let arbitrary_px_string px =
-  if Float.is_integer px then Int.to_string (Float.to_int px)
-  else Float.to_string px
-
-let min_arbitrary_rule ?inner_has_hover px base_class selector props =
-  let prefix = "min-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix ?inner_has_hover prefix (media_min_width_px px)
+let min_arbitrary_rule ?inner_has_hover (w : Style.arbitrary_px) base_class
+    selector props =
+  let prefix = "min-[" ^ w.text ^ "]" in
+  media_rule_with_prefix ?inner_has_hover prefix (media_min_width_px w.px)
     base_class selector props
 
-let max_arbitrary_rule ?inner_has_hover px base_class selector props =
-  let prefix = "max-[" ^ arbitrary_px_string px ^ "px]" in
+let max_arbitrary_rule ?inner_has_hover (w : Style.arbitrary_px) base_class
+    selector props =
+  let prefix = "max-[" ^ w.text ^ "]" in
   media_rule_with_prefix ?inner_has_hover prefix
-    (media_not_min_width_px px)
+    (media_not_min_width_px w.px)
     base_class selector props
 
 let arbitrary_length_rule ?inner_has_hover prefix condition l base_class
@@ -1245,12 +1234,12 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
       not_media_rule ~nvo
         ~condition:(breakpoint_condition ?theme bp)
         modified_class props
-  | Style.Min_arbitrary px ->
+  | Style.Min_arbitrary w ->
       not_media_rule ~nvo
-        ~condition:(media_not_min_width_px px)
+        ~condition:(media_not_min_width_px w.px)
         modified_class props
-  | Style.Max_arbitrary px ->
-      not_media_rule ~nvo ~condition:(media_min_width_px px) modified_class
+  | Style.Max_arbitrary w ->
+      not_media_rule ~nvo ~condition:(media_min_width_px w.px) modified_class
         props
   | Style.Min_arbitrary_length l ->
       not_media_rule ~nvo
@@ -1770,10 +1759,10 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   | Style.Max_responsive breakpoint ->
       max_responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
         props
-  | Style.Min_arbitrary px ->
-      min_arbitrary_rule ~inner_has_hover px base_class selector props
-  | Style.Max_arbitrary px ->
-      max_arbitrary_rule ~inner_has_hover px base_class selector props
+  | Style.Min_arbitrary w ->
+      min_arbitrary_rule ~inner_has_hover w base_class selector props
+  | Style.Max_arbitrary w ->
+      max_arbitrary_rule ~inner_has_hover w base_class selector props
   | Style.Min_arbitrary_length l ->
       min_arbitrary_length_rule ~inner_has_hover l base_class selector props
   | Style.Max_arbitrary_length l ->

@@ -34,6 +34,15 @@ type container_query =
   | Container_scoped of string * container_query
       (** [@sm/main]: a size query aimed at the container named [main]. *)
 
+type arbitrary_px = {
+  px : float;  (** the width the bracket denotes, in pixels *)
+  text : string;  (** the bracket as the author wrote it, e.g. ["600.50px"] *)
+}
+(** The pixel width of a [min-[<w>]] or [max-[<w>]] breakpoint. The variant
+    names its own class, so the bracket has to come back out spelled as it went
+    in: re-printing [px] drops a trailing zero, a leading zero or an exponent
+    and leaves a selector the markup does not carry. *)
+
 type modifier =
   | Hover
   | Focus
@@ -45,8 +54,8 @@ type modifier =
   | Responsive of breakpoint
   | Min_responsive of breakpoint
   | Max_responsive of breakpoint
-  | Min_arbitrary of float
-  | Max_arbitrary of float
+  | Min_arbitrary of arbitrary_px
+  | Max_arbitrary of arbitrary_px
   | Min_arbitrary_length of Css.length
   | Max_arbitrary_length of Css.length
   | Peer_hover

@@ -56,12 +56,8 @@ let breakpoint_name qual bp =
   match qual with "" -> base | q -> q ^ "-" ^ base
 
 (** Helper: arbitrary breakpoint class selector *)
-let arbitrary_breakpoint_class prefix px cls =
-  let px_str =
-    if Float.is_integer px then Int.to_string (Float.to_int px)
-    else Float.to_string px
-  in
-  Css.Selector.Class (prefix ^ "[" ^ px_str ^ "px]:" ^ cls)
+let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
+  Css.Selector.Class (prefix ^ "[" ^ w.text ^ "]:" ^ cls)
 
 (** Render a CSS length in compact form (no spaces in calc operators) for class
     names. *)
@@ -716,13 +712,17 @@ let max_xl2 styles =
   wrap (Max_responsive `Xl_2) styles
 
 (* Arbitrary breakpoint variants *)
+(* A caller with a bare number has written no bracket, so spell one the way
+   [min-[600px]] reads. *)
+let arbitrary_px px : Style.arbitrary_px = { px; text = Pp.float px ^ "px" }
+
 let min_arbitrary px styles =
   validate_no_nested_responsive styles;
-  wrap (Min_arbitrary px) styles
+  wrap (Min_arbitrary (arbitrary_px px)) styles
 
 let max_arbitrary px styles =
   validate_no_nested_responsive styles;
-  wrap (Max_arbitrary px) styles
+  wrap (Max_arbitrary (arbitrary_px px)) styles
 
 (* ARIA/Peer/Data variants *)
 let peer_checked styles = wrap Peer_checked styles
@@ -1077,13 +1077,16 @@ let parse_css_length s : Css.length option =
      spec-valid [calc(1000px + 12em)] the length reader accepts. *)
   Css.parse_length (Parse.decode_arbitrary_value s)
 
-(* Parse a pixel value from a string like "600px" or "600" *)
+(* Parse a pixel value from a string like "600px" or "600", keeping the
+   spelling: it is what the variant's own class is named after. *)
 let parse_px_value s =
-  let s =
+  let digits =
     if String.ends_with ~suffix:"px" s then String.sub s 0 (String.length s - 2)
     else s
   in
-  try Some (float_of_string s) with Failure _ -> None
+  match float_of_string_opt digits with
+  | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
+  | None -> None
 
 (* Preprocess a has-selector string: & → * and ensure combinator spacing. *)
 let preprocess_has_selector s =
