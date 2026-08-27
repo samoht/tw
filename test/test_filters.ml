@@ -324,6 +324,26 @@ let test_invalid_arbitrary_blur () =
   renders "backdrop-blur-[4px]";
   renders "backdrop-blur-[calc(1px_+_2px)]"
 
+(* A [--blur-*] token the project declared in its [@theme] names a radius the
+   built-in scale has no slot for. Tailwind generates the utility from it,
+   filter chain included; tw rejected the class outright. *)
+let test_project_blur_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("blur-soft", "7px") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "blur-soft" in
+  Alcotest.(check bool)
+    "sets the blur channel" true
+    (Astring.String.is_infix ~affix:"--tw-blur: blur(var(--blur-soft))" out);
+  Alcotest.(check bool)
+    "an undeclared blur name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "blur-nope"))
+
 let tests =
   [
     test_case "arbitrary angle class name" `Quick
@@ -350,6 +370,7 @@ let tests =
     test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
+    test_case "project blur token" `Quick test_project_blur_token;
   ]
 
 let suite = ("filters", tests)
