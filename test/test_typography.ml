@@ -902,6 +902,31 @@ let test_non_decimal_integers () =
   rejected "line-clamp-[0x10]";
   rejected "line-clamp-[1_0]"
 
+(* A [--font-weight-*] or [--leading-*] token the project declared in its
+   [@theme] names a value the built-in scale has no slot for. Tailwind generates
+   the utility from each, channel variable included; tw rejected both
+   outright. *)
+let test_project_font_and_leading_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("font-weight-chonk", "900"); ("leading-roomy", "2.5") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "--tw-font-weight: var(--font-weight-chonk)" "font-chonk";
+  emits "font-weight: var(--font-weight-chonk)" "font-chonk";
+  emits "--tw-leading: var(--leading-roomy)" "leading-roomy";
+  emits "line-height: var(--leading-roomy)" "leading-roomy";
+  Alcotest.(check bool)
+    "an undeclared weight name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "font-nope"))
+
 (* A [--tracking-*] token the project declared in its [@theme] names a letter
    spacing the built-in scale has no slot for. Tailwind generates the utility
    from it, channel variable included; tw rejected the class outright. *)
@@ -931,6 +956,8 @@ let tests =
       test_invalid_decoration_bracket_hex;
     test_case "non-decimal integers" `Quick test_non_decimal_integers;
     test_case "project tracking token" `Quick test_project_tracking_token;
+    test_case "project font and leading tokens" `Quick
+      test_project_font_and_leading_tokens;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
     test_case "unitless decoration bracket is a colour" `Quick
