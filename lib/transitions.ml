@@ -40,6 +40,7 @@ module Handler = struct
     (* The author's bracket text travels with the timing function it denotes, so
        the class name is spelled exactly as it was written. *)
     | Ease_arbitrary of string * Css.timing_function
+    | Ease_theme of string (* timing function from an --ease-* token *)
 
   type Utility.base += Self of t
 
@@ -336,6 +337,21 @@ module Handler = struct
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 9)
   let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 10)
 
+  (* An [--ease-*] token the project declared names a timing function the
+     built-in scale has no slot for; they share the slot after the scale. *)
+  let ease_named_cache : (string, Css.timing_function Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let ease_named_var name =
+    match Hashtbl.find_opt ease_named_cache name with
+    | Some var -> var
+    | None ->
+        let var =
+          Var.theme Css.Timing_function ("ease-" ^ name) ~order:(7, 12)
+        in
+        Hashtbl.add ease_named_cache name var;
+        var
+
   let ease_in_out_var =
     Var.theme Css.Timing_function "ease-in-out" ~order:(7, 11)
 
@@ -421,6 +437,9 @@ module Handler = struct
   (* The timing function an [ease-[...]] bracket denotes, read with cascade's
      own grammar. [None] is a bracket no timing function reads from, and
      [of_class] refuses the utility rather than leaving [to_style] to raise. *)
+  let is_theme_ease theme n =
+    Scheme.theme_value (Some theme) ("ease-" ^ n) <> None
+
   let arbitrary_timing_function s : Css.timing_function option =
     if Parse.is_var s then
       Some (Css.Var (Var.bracket (Parse.extract_var_name s)))
@@ -439,6 +458,27 @@ module Handler = struct
       match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
     in
     style ~property_rules [ tw_ease_decl; Css.transition_timing_function tf ]
+
+  let ease_theme theme name =
+    match Scheme.theme_value (Some theme) ("ease-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match arbitrary_timing_function raw with
+        | None -> style []
+        | Some tf ->
+            let theme_decl, theme_ref = Var.binding (ease_named_var name) tf in
+            let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var theme_ref) in
+            let property_rules =
+              match Var.property_rule tw_ease_var with
+              | Some r -> r
+              | None -> Css.empty
+            in
+            style ~property_rules
+              [
+                theme_decl;
+                tw_ease_decl;
+                Css.transition_timing_function (Css.Var theme_ref);
+              ])
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
   let delay_arbitrary d = style [ Css.transition_delay d ]
@@ -482,6 +522,7 @@ module Handler = struct
     | Ease_in_out -> ease_in_out
     | Ease_initial -> ease_initial
     | Ease_arbitrary (_, tf) -> ease_arbitrary tf
+    | Ease_theme name -> ease_theme theme name
 
   let suborder = function
     | Transition -> 0
@@ -509,10 +550,11 @@ module Handler = struct
     | Ease_out -> 100003
     | Ease_initial -> 100004
     | Ease_arbitrary _ -> 99999
+    | Ease_theme _ -> 100005
 
   let ( >|= ) = Parse.( >|= )
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "transition"; "none" ] -> Ok Transition_none
@@ -591,6 +633,9 @@ module Handler = struct
     | [ "ease"; "out" ] -> Ok Ease_out
     | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
     | [ "ease"; "initial" ] -> Ok Ease_initial
+    | "ease" :: (_ :: _ as rest)
+      when is_theme_ease theme (String.concat "-" rest) ->
+        Ok (Ease_theme (String.concat "-" rest))
     | [ "ease"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         match arbitrary_timing_function inner with
@@ -620,6 +665,7 @@ module Handler = struct
     | Ease_in_out -> "ease-in-out"
     | Ease_initial -> "ease-initial"
     | Ease_arbitrary (s, _) -> "ease-[" ^ s ^ "]"
+    | Ease_theme name -> "ease-" ^ name
 
   let examples = [ Transition; Duration 150; Delay 150; Ease_linear ]
 end
