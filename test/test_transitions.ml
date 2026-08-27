@@ -85,6 +85,21 @@ let test_invalid_arbitrary_ease () =
   renders "ease-[steps(4,end)]";
   renders "ease-[var(--my-ease)]"
 
+(* CSS Easing 1 sec. 2: an omitted <step-position> defaults to [end]. Tailwind's
+   own minifier makes that default explicit, so a bracket steps() without a
+   position must render the same explicit keyword tw's sheet would otherwise
+   silently disagree over. *)
+let test_arbitrary_ease_steps_default_position () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an omitted step position becomes an explicit end" true
+    (Astring.String.is_infix ~affix:"transition-timing-function: steps(4, end)"
+       (css "ease-[steps(4)]"))
+
 (* An [--ease-*] token the project declared in its [@theme] names a timing
    function the built-in scale has no slot for. Tailwind generates the utility
    from it, channel variable included; tw rejected the class outright. *)
@@ -118,6 +133,8 @@ let tests =
         test_invalid_arbitrary_property;
       Alcotest.test_case "invalid arbitrary ease" `Quick
         test_invalid_arbitrary_ease;
+      Alcotest.test_case "arbitrary ease steps default position" `Quick
+        test_arbitrary_ease_steps_default_position;
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;
     ]
 
