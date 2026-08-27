@@ -52,10 +52,10 @@ let properties_of_class cls =
              | _ -> acc)
            []
 
-(* Classes that declare a property in common, paired up. An ordering difference
-   is only observable on an element carrying two such classes; one class on its
-   own can only show a difference in value. *)
-let same_property_pairs classes =
+(* Classes that write on each other, paired up. An ordering difference is only
+   observable on an element carrying two such classes; one class on its own can
+   only show a difference in value. *)
+let interacting_pairs classes =
   let by_prop = Hashtbl.create 256 in
   List.iter
     (fun cls ->
@@ -267,7 +267,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   (* A class on its own can only show a difference in value; an ordering
      difference needs an element carrying two classes that write the same
      property. *)
-  let pairs = same_property_pairs classnames in
+  let pairs = interacting_pairs classnames in
   let elements =
     dedup (classnames @ List.map (fun (a, b) -> a ^ " " ^ b) pairs)
   in
