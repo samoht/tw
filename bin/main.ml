@@ -282,10 +282,19 @@ let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
     Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
       (List.map snd known)
   in
+  (* A declared utility hoists the same [@layer properties] fallback block the
+     generated sheet emits, and that block belongs where the sheet puts its own:
+     ahead of the theme, not after the utilities it initialises. The rest of
+     what it hoists follows the sheet. *)
+  let is_properties_layer stmt =
+    match Css.layer_block_name stmt with
+    | Some name -> Css.Stylesheet.equal_layer_name name [ "properties" ]
+    | None -> false
+  in
   let stylesheet =
-    match routed_stmts with
-    | [] -> stylesheet
-    | extra -> Css.v (Css.statements stylesheet @ extra)
+    match List.partition is_properties_layer routed_stmts with
+    | [], [] -> stylesheet
+    | lead, trail -> Css.v (lead @ Css.statements stylesheet @ trail)
   in
   let stylesheet =
     match opts.input_css_path with
