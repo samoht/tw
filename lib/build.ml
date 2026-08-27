@@ -275,9 +275,10 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
       Css.rule ~selector:r.selector ?merge_key ~nested:filtered_nested
         filtered_props
   | `Starting ->
-      (* Wrap selector+declarations in @starting-style block
-         (Tailwind-compatible format) *)
-      Css.starting_style [ Css.rule ~selector:r.selector filtered_props ]
+      (* As for [`Media]: a variant stacked under [starting:] carries the inner
+         query in [nested] and has no declarations of its own. *)
+      if filtered_nested <> [] then Css.starting_style filtered_nested
+      else Css.starting_style [ Css.rule ~selector:r.selector filtered_props ]
   | `Media condition ->
       (* For compound modifiers (e.g., dark:hover:), nested contains the inner
          media query. Otherwise, just emit a simple rule inside the media. *)
@@ -295,8 +296,10 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.container ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Supports condition ->
-      Css.supports ~condition
-        [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
+      if filtered_nested <> [] then Css.supports ~condition filtered_nested
+      else
+        Css.supports ~condition
+          [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
@@ -380,17 +383,18 @@ let rule_to_triple order_map = function
       triple (`Container condition) ~selector ~props
         ~order:(order_of_base order_map base_class selector)
         ~nested ~base_class ~merge_key:None ~not_order:0
-  | Starting_style { selector; props; base_class } ->
+  | Starting_style { selector; props; base_class; nested } ->
       triple `Starting ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested:[] ~base_class ~merge_key:None ~not_order:0
+        ~nested ~base_class ~merge_key:None ~not_order:0
   | Supports_query
-      { condition; selector; props; base_class; merge_key; not_order } ->
+      { condition; selector; props; base_class; merge_key; not_order; nested }
+    ->
       let order =
         apply_not_order (order_of_base order_map base_class selector) not_order
       in
-      triple (`Supports condition) ~selector ~props ~order ~nested:[]
-        ~base_class ~merge_key ~not_order
+      triple (`Supports condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key ~not_order
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =
@@ -485,9 +489,16 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
     | (r : Sort.indexed_rule) :: rest when is_starting r ->
         let run, rest = take_run [ r ] rest in
         let inner =
-          List.map
+          List.concat_map
             (fun (x : Sort.indexed_rule) ->
-              Css.rule ~selector:x.selector (filter_utility_properties x.props))
+              (* A variant stacked under [starting:] carries its query in
+                 [nested] and has no declarations of its own. *)
+              if x.nested <> [] then filter_theme_from_statements x.nested
+              else
+                [
+                  Css.rule ~selector:x.selector
+                    (filter_utility_properties x.props);
+                ])
             run
         in
         go (Css.starting_style inner :: acc) rest
