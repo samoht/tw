@@ -85,6 +85,31 @@ let test_invalid_arbitrary_ease () =
   renders "ease-[steps(4,end)]";
   renders "ease-[var(--my-ease)]"
 
+(* An [--ease-*] token the project declared in its [@theme] names a timing
+   function the built-in scale has no slot for. Tailwind generates the utility
+   from it, channel variable included; tw rejected the class outright. *)
+let test_project_ease_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("ease-snap", "cubic-bezier(0.2, 0, 0, 1)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "ease-snap" in
+  Alcotest.(check bool)
+    "sets the channel" true
+    (Astring.String.is_infix ~affix:"--tw-ease: var(--ease-snap)" out);
+  Alcotest.(check bool)
+    "sets the timing function" true
+    (Astring.String.is_infix
+       ~affix:"transition-timing-function: var(--ease-snap)" out);
+  Alcotest.(check bool)
+    "an undeclared ease name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "ease-nope"))
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -93,6 +118,7 @@ let tests =
         test_invalid_arbitrary_property;
       Alcotest.test_case "invalid arbitrary ease" `Quick
         test_invalid_arbitrary_ease;
+      Alcotest.test_case "project ease token" `Quick test_project_ease_token;
     ]
 
 let suite = ("transitions", tests)
