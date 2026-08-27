@@ -435,7 +435,7 @@ module Handler = struct
 
   let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Theme.spacing_var Theme.spacing_base
     in
     (* [calc(var(--spacing) * 0)] is zero whatever the spacing is, and Tailwind
        writes that zero with a unit. The target is a [--tw-*] custom property,
@@ -462,7 +462,7 @@ module Handler = struct
      goes through the same path. *)
   let translate_axis_step axis_var f =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Theme.spacing_var Theme.spacing_base
     in
     let spacing_value : Css.length =
       Css.Calc
@@ -639,7 +639,7 @@ module Handler = struct
      calc(var(--spacing) * n); a negative n renders the "* -n" multiplier. *)
   let translate_spacing n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Theme.spacing_var Theme.spacing_base
     in
     let spacing_value : Css.length =
       Css.Calc
@@ -830,7 +830,7 @@ module Handler = struct
 
   let translate_z n =
     let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
+      Var.binding Theme.spacing_var Theme.spacing_base
     in
     let spacing_value : Css.length =
       Css.Calc

@@ -66,11 +66,11 @@ let to_decl_len ?theme ?(negative = false) (s : spacing) :
   match s with
   | `Px ->
       let len : Css.length = if negative then Px (-1.) else Px 1. in
-      let decl, _ = Var.binding var (Css.Rem 0.25) in
+      let decl, _ = Var.binding var Theme.spacing_base in
       (Some decl, len)
   | `Full ->
       let len : Css.length = if negative then Pct (-100.) else Pct 100. in
-      let decl, _ = Var.binding var (Css.Rem 0.25) in
+      let decl, _ = Var.binding var Theme.spacing_base in
       (Some decl, len)
   | `Named name -> (
       match named_spacing_binding ?theme name with

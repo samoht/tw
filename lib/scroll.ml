@@ -44,7 +44,7 @@ module Handler = struct
   *)
   let spacing_to_decl_len ?theme ~negative n : Css.declaration * Css.length =
     if n = 0.0 then
-      let decl, _ = Var.binding Theme.spacing_var (Css.Rem 0.25) in
+      let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
       (decl, Css.Px 0.)
     else
       let mult = if negative then -.n else n in
