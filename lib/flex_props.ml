@@ -94,9 +94,10 @@ module Handler = struct
      literal [100%]. *)
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+    let spacing = Var.name Theme.spacing_var in
     let value : Css.flex_basis =
-      if n = 1 then Var (Var.theme_ref "spacing")
-      else Calc Css.Calc.(mul (var "spacing") (float (float_of_int n)))
+      if n = 1 then Var (Var.theme_ref spacing)
+      else Calc Css.Calc.(mul (var spacing) (float (float_of_int n)))
     in
     style [ spacing_decl; flex_basis value ]
 

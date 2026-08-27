@@ -460,7 +460,7 @@ module Handler = struct
     fst (Var.binding drop_shadow_color_var value)
 
   let drop_shadow_size_ref : Css.filter =
-    Css.Var (Var.bracket "tw-drop-shadow-size")
+    Css.Var (Var.bracket (Var.name drop_shadow_size_var))
 
   let drop_shadow_theme_ref name : Css.filter =
     Css.Drop_shadow (Css.Var (Var.bracket name) : Css.shadow)

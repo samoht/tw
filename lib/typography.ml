@@ -1100,11 +1100,12 @@ module Typography_early = struct
         let spacing_decl, _ =
           Var.binding Theme.spacing_var Theme.spacing_base
         in
+        let spacing = Var.name Theme.spacing_var in
         let value : line_height =
-          if n = 1 then Css.Var (Var.theme_ref "spacing")
+          if n = 1 then Css.Var (Var.theme_ref spacing)
           else
             Css.Calc
-              (Css.Calc.mul (Css.Calc.var "spacing")
+              (Css.Calc.mul (Css.Calc.var spacing)
                  (Css.Calc.float (float_of_int n)))
         in
         let channel_decl, _ = Var.binding leading_var value in
@@ -1162,7 +1163,11 @@ module Typography_early = struct
         let spacing_decl, _spacing_ref =
           Var.binding Theme.spacing_var Theme.spacing_base
         in
-        let lh_spacing_ref : Css.line_height Css.var = Var.bracket "spacing" in
+        (* [--spacing] holds a length; here it is read as a line height, so the
+           reference is built at that kind off the same handle. *)
+        let lh_spacing_ref : Css.line_height Css.var =
+          Var.bracket (Var.name Theme.spacing_var)
+        in
         let lh : Css.line_height =
           Calc (Css.Calc.mul (Var lh_spacing_ref) (Num (float_of_int n)))
         in

@@ -622,6 +622,11 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
 
 (** {1 Helper Types and Functions} *)
 
+val name : ('a, _) t -> string
+(** [name var] is the custom property's name without the leading ["--"], the
+    spelling {!theme_ref} and {!bracket} take. Read it off the handle rather
+    than writing the name again beside it: the two cannot then drift apart. *)
+
 val css_name : ('a, _) t -> string
 (** [css_name var] returns the full CSS property name with [--] prefix. For
     example, [css_name gradient_from_var] returns ["--tw-gradient-from"]. Use
