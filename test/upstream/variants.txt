@@ -2264,3 +2264,40 @@ group-peer-focus/name:flex has-group-focus/name:flex in-group-focus/name:flex no
     }
     
 <<<>>>
+
+# container queries are sorted by the value the class spells
+@config run
+@min-[100px]:inline @min-[2rem]:table @lg:grid @min-[64rem]:block @min-[theme(--breakpoint-sm)]:flex
+---
+
+    @container (min-width: 100px) {
+      .\@min-\[100px\]\:inline {
+        display: inline;
+      }
+    }
+
+    @container (min-width: 2rem) {
+      .\@min-\[2rem\]\:table {
+        display: table;
+      }
+    }
+
+    @container (min-width: 32rem) {
+      .\@lg\:grid {
+        display: grid;
+      }
+    }
+
+    @container (min-width: 64rem) {
+      .\@min-\[64rem\]\:block {
+        display: block;
+      }
+    }
+
+    @container (min-width: 40rem) {
+      .\@min-\[theme\(--breakpoint-sm\)\]\:flex {
+        display: flex;
+      }
+    }
+    
+<<<>>>
