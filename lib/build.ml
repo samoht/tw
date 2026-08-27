@@ -1086,7 +1086,12 @@ let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
         compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2
           po1 po2 fam1 fam2
 
-let sort_properties_by_order first_usage_order initial_values =
+(* Shared by [sort_properties_by_order] (the @layer properties initial values)
+   and [sort_property_rules_by_usage] (the @property rules): the two MUST sort
+   variable names in lockstep, since one produces the initial-value order and
+   the other the @property emission order for the same variables, and a mismatch
+   would emit a properties layer that contradicts its own @property rules. *)
+let property_var_comparator first_usage_order =
   let family_order = family_order first_usage_order in
   let get_family_order name =
     match Var.family name with
@@ -1101,14 +1106,17 @@ let sort_properties_by_order first_usage_order initial_values =
     | Some idx -> idx
     | None -> 10000
   in
-  let cmp (n1, _) (n2, _) =
+  fun n1 n2 ->
     let fam1 = Var.family n1 in
     let fam2 = Var.family n2 in
     let po1 = property_order_from n1 in
     let po2 = property_order_from n2 in
     compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
       fam2
-  in
+
+let sort_properties_by_order first_usage_order initial_values =
+  let cmp_name = property_var_comparator first_usage_order in
+  let cmp (n1, _) (n2, _) = cmp_name n1 n2 in
   List.sort cmp initial_values
 
 (* Build property layer content with browser detection *)
@@ -1239,28 +1247,13 @@ let layer_declaration ~has_properties ~include_base =
    order determines @property order). Falls back to family order then
    property_order for cross-family sorting. *)
 let sort_property_rules_by_usage first_usage_order property_rules_for_end =
-  let family_order = family_order first_usage_order in
-  let get_family_order name =
-    match Var.family name with
-    | Some fam -> (
-        match Hashtbl.find_opt family_order fam with
-        | Some o -> o
-        | None -> 1000)
-    | None -> 1000
-  in
-  let get_first_usage name =
-    match Hashtbl.find_opt first_usage_order name with
-    | Some idx -> idx
-    | None -> 10000
-  in
+  let cmp_name = property_var_comparator first_usage_order in
   property_rules_for_end
   |> List.sort (fun s1 s2 ->
       match (Css.as_property s1, Css.as_property s2) with
       | ( Some (Css.Property_info { name = n1; _ }),
           Some (Css.Property_info { name = n2; _ }) ) ->
-          compare_property_vars ~get_family_order ~get_first_usage n1 n2
-            (property_order_from n1) (property_order_from n2) (Var.family n1)
-            (Var.family n2)
+          cmp_name n1 n2
       | _ -> 0)
 
 (** Deduplicate keyframes by name, keeping first occurrence, then convert to CSS
