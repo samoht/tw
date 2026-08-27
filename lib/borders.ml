@@ -97,23 +97,6 @@ module Handler = struct
     | Border_e_width of int
     | Border_bs_width of int
     | Border_be_width of int
-    | (* Border side utilities with widths *)
-      Border_t_0
-    | Border_t_2
-    | Border_t_4
-    | Border_t_8
-    | Border_r_0
-    | Border_r_2
-    | Border_r_4
-    | Border_r_8
-    | Border_b_0
-    | Border_b_2
-    | Border_b_4
-    | Border_b_8
-    | Border_l_0
-    | Border_l_2
-    | Border_l_4
-    | Border_l_8
     | (* Border style utilities *)
       Border_solid
     | Border_dashed
@@ -276,71 +259,8 @@ module Handler = struct
   let border_be_width n = border_be_of (float_of_int n)
 
   (** Border side utilities with specific widths *)
-  let border_t_0 =
-    make_side_util (fun border_var ->
-        [ border_top_style (Var border_var); border_top_width (Px 0.) ])
-
-  let border_t_2 =
-    make_side_util (fun border_var ->
-        [ border_top_style (Var border_var); border_top_width (Px 2.) ])
-
-  let border_t_4 =
-    make_side_util (fun border_var ->
-        [ border_top_style (Var border_var); border_top_width (Px 4.) ])
-
-  let border_t_8 =
-    make_side_util (fun border_var ->
-        [ border_top_style (Var border_var); border_top_width (Px 8.) ])
-
-  let border_r_0 =
-    make_side_util (fun border_var ->
-        [ border_right_style (Var border_var); border_right_width (Px 0.) ])
-
-  let border_r_2 =
-    make_side_util (fun border_var ->
-        [ border_right_style (Var border_var); border_right_width (Px 2.) ])
-
-  let border_r_4 =
-    make_side_util (fun border_var ->
-        [ border_right_style (Var border_var); border_right_width (Px 4.) ])
-
-  let border_r_8 =
-    make_side_util (fun border_var ->
-        [ border_right_style (Var border_var); border_right_width (Px 8.) ])
-
-  let border_b_0 =
-    make_side_util (fun border_var ->
-        [ border_bottom_style (Var border_var); border_bottom_width (Px 0.) ])
-
-  let border_b_2 =
-    make_side_util (fun border_var ->
-        [ border_bottom_style (Var border_var); border_bottom_width (Px 2.) ])
-
-  let border_b_4 =
-    make_side_util (fun border_var ->
-        [ border_bottom_style (Var border_var); border_bottom_width (Px 4.) ])
-
-  let border_b_8 =
-    make_side_util (fun border_var ->
-        [ border_bottom_style (Var border_var); border_bottom_width (Px 8.) ])
-
-  let border_l_0 =
-    make_side_util (fun border_var ->
-        [ border_left_style (Var border_var); border_left_width (Px 0.) ])
-
-  let border_l_2 =
-    make_side_util (fun border_var ->
-        [ border_left_style (Var border_var); border_left_width (Px 2.) ])
-
-  let border_l_4 =
-    make_side_util (fun border_var ->
-        [ border_left_style (Var border_var); border_left_width (Px 4.) ])
-
-  let border_l_8 =
-    make_side_util (fun border_var ->
-        [ border_left_style (Var border_var); border_left_width (Px 8.) ])
-
   let border_solid = border_style_util Solid
+
   let border_dashed = border_style_util Dashed
   let border_dotted = border_style_util Dotted
   let border_double = border_style_util Double
@@ -760,23 +680,6 @@ module Handler = struct
     | Border_e_width n -> border_e_width n
     | Border_bs_width n -> border_bs_width n
     | Border_be_width n -> border_be_width n
-    (* Border side utilities with widths *)
-    | Border_t_0 -> border_t_0
-    | Border_t_2 -> border_t_2
-    | Border_t_4 -> border_t_4
-    | Border_t_8 -> border_t_8
-    | Border_r_0 -> border_r_0
-    | Border_r_2 -> border_r_2
-    | Border_r_4 -> border_r_4
-    | Border_r_8 -> border_r_8
-    | Border_b_0 -> border_b_0
-    | Border_b_2 -> border_b_2
-    | Border_b_4 -> border_b_4
-    | Border_b_8 -> border_b_8
-    | Border_l_0 -> border_l_0
-    | Border_l_2 -> border_l_2
-    | Border_l_4 -> border_l_4
-    | Border_l_8 -> border_l_8
     (* Border style utilities *)
     | Border_solid -> border_solid
     | Border_dashed -> border_dashed
@@ -847,6 +750,9 @@ module Handler = struct
     rounded_size_of_string n = None
     && Scheme.theme_value (Some theme) ("radius-" ^ n) <> None
 
+  (* Forty apart, so a side's widths and its bracket never reach the next. *)
+  let side_band = function "t" -> 1160 | "r" -> 1200 | "b" -> 1240 | _ -> 1280
+
   let suborder = function
     (* Border radius utilities - flat suborder per position group for natural
        sort by class name *)
@@ -897,33 +803,17 @@ module Handler = struct
     | Border_bs_width n -> 1140 + n
     | Border_be -> 1150
     | Border_be_width n -> 1150 + n
-    | Border_side_width_bracket (side, _, _) -> (
-        match side with "t" -> 1165 | "r" -> 1175 | "b" -> 1185 | _ -> 1195)
-    | Border_side_width (side, n) ->
-        let base =
-          match side with "t" -> 1160 | "r" -> 1170 | "b" -> 1180 | _ -> 1190
-        in
-        base + n
-    | Border_t -> 1160
-    | Border_t_0 -> 1161
-    | Border_t_2 -> 1162
-    | Border_t_4 -> 1163
-    | Border_t_8 -> 1164
-    | Border_r -> 1170
-    | Border_r_0 -> 1171
-    | Border_r_2 -> 1172
-    | Border_r_4 -> 1173
-    | Border_r_8 -> 1174
-    | Border_b -> 1180
-    | Border_b_0 -> 1181
-    | Border_b_2 -> 1182
-    | Border_b_4 -> 1183
-    | Border_b_8 -> 1184
-    | Border_l -> 1190
-    | Border_l_0 -> 1191
-    | Border_l_2 -> 1192
-    | Border_l_4 -> 1193
-    | Border_l_8 -> 1194
+    (* Each side gets a band of its own: the bare side leads, then the widths in
+       numeric order, then the bracket. They all write one property, so the
+       order decides which one wins, and the band has to be wide enough for a
+       width the scale does not name - [border-t-6] used to sort past the
+       bracket. *)
+    | Border_side_width_bracket (side, _, _) -> side_band side + 30
+    | Border_side_width (side, n) -> side_band side + 1 + n
+    | Border_t -> side_band "t"
+    | Border_r -> side_band "r"
+    | Border_b -> side_band "b"
+    | Border_l -> side_band "l"
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
@@ -994,22 +884,6 @@ module Handler = struct
     | [ "border"; "be"; n ]
       when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_be_width (int_of_string n))
-    | [ "border"; "t"; "0" ] -> Ok Border_t_0
-    | [ "border"; "t"; "2" ] -> Ok Border_t_2
-    | [ "border"; "t"; "4" ] -> Ok Border_t_4
-    | [ "border"; "t"; "8" ] -> Ok Border_t_8
-    | [ "border"; "r"; "0" ] -> Ok Border_r_0
-    | [ "border"; "r"; "2" ] -> Ok Border_r_2
-    | [ "border"; "r"; "4" ] -> Ok Border_r_4
-    | [ "border"; "r"; "8" ] -> Ok Border_r_8
-    | [ "border"; "b"; "0" ] -> Ok Border_b_0
-    | [ "border"; "b"; "2" ] -> Ok Border_b_2
-    | [ "border"; "b"; "4" ] -> Ok Border_b_4
-    | [ "border"; "b"; "8" ] -> Ok Border_b_8
-    | [ "border"; "l"; "0" ] -> Ok Border_l_0
-    | [ "border"; "l"; "2" ] -> Ok Border_l_2
-    | [ "border"; "l"; "4" ] -> Ok Border_l_4
-    | [ "border"; "l"; "8" ] -> Ok Border_l_8
     | [ "border"; (("t" | "r" | "b" | "l") as side); n ]
       when match Parse.decimal_int n with Some w -> w >= 0 | None -> false ->
         Ok (Border_side_width (side, int_of_string n))
@@ -1165,22 +1039,6 @@ module Handler = struct
     | Border_e_width n -> "border-e-" ^ string_of_int n
     | Border_bs_width n -> "border-bs-" ^ string_of_int n
     | Border_be_width n -> "border-be-" ^ string_of_int n
-    | Border_t_0 -> "border-t-0"
-    | Border_t_2 -> "border-t-2"
-    | Border_t_4 -> "border-t-4"
-    | Border_t_8 -> "border-t-8"
-    | Border_r_0 -> "border-r-0"
-    | Border_r_2 -> "border-r-2"
-    | Border_r_4 -> "border-r-4"
-    | Border_r_8 -> "border-r-8"
-    | Border_b_0 -> "border-b-0"
-    | Border_b_2 -> "border-b-2"
-    | Border_b_4 -> "border-b-4"
-    | Border_b_8 -> "border-b-8"
-    | Border_l_0 -> "border-l-0"
-    | Border_l_2 -> "border-l-2"
-    | Border_l_4 -> "border-l-4"
-    | Border_l_8 -> "border-l-8"
     | Border_solid -> "border-solid"
     | Border_dashed -> "border-dashed"
     | Border_dotted -> "border-dotted"
