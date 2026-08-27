@@ -1534,9 +1534,9 @@ module Handler = struct
           | None -> css_color
         in
         style [ Css.background_color c ]
-    | Bg_bracket_color_opacity (orig, _, opacity) ->
-        let c = Color.bracket_color_to_custom orig in
-        bg_with_opacity c 500 opacity
+    | Bg_bracket_color_opacity (_, css_color, opacity) ->
+        Color.bracket_color_opacity_style ~property:Css.background_color
+          css_color opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]

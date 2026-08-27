@@ -2819,24 +2819,30 @@ module Handler = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  (** Convert a bracket color string to a custom Hex color for opacity handling.
-      Named colors like "black" are converted to their hex equivalent so they go
-      through the direct oklab path (is_custom_color = true). *)
-  let bracket_color_to_custom inner =
-    if String.length inner > 0 && inner.[0] = '#' then
-      mk_color_hex (String.sub inner 1 (String.length inner - 1))
-    else
-      match color_of_string inner with
-      | Ok Black -> mk_color_hex "000000"
-      | Ok White -> mk_color_hex "ffffff"
-      | Ok c ->
-          let oklch = to_oklch c 500 in
-          let rgb = oklch_to_rgb oklch in
-          mk_color_hex (rgb_to_hex rgb)
-      | Error _ -> mk_color_hex "000000"
+  (* The bracket colour as a palette-shaped [Hex], so an opacity modifier folds
+     the alpha in the same way it does for a hex bracket. [None] for a colour
+     with no hex form: [currentcolor], a [var()], or a colour whose channels are
+     not all static. *)
+  let bracket_color_to_custom css_color =
+    let c = Cascade.Values.nonkeyword_color css_color in
+    let c = match css_color_to_hex c with Some hex -> hex | None -> c in
+    match c with
+    | Hex { r; g; b; _ } | Authored_hex { r; g; b; _ } ->
+        Some (mk_color_hex (hex_string_of_rgb (r, g, b)))
+    | _ -> None
 
-  let outline_bracket_color_opacity_style inner opacity =
-    let c = bracket_color_to_custom inner in
+  (* A bracket colour arrives already parsed into a typed [Css.color], and an
+     opacity modifier applies to that value. Reading the bracket text back
+     through the palette parser answered black for every colour the palette does
+     not name. *)
+  let bracket_color_opacity_style ?merge_key ~property css_color opacity =
+    match bracket_color_to_custom css_color with
+    | Some c -> color_with_opacity_style ~property ?merge_key c 500 opacity
+    | None ->
+        let base = resolve_bracket_css_color css_color in
+        style ?merge_key [ property (apply_alpha opacity base) ]
+
+  let outline_bracket_color_opacity_style inner css_color opacity =
     let merge_key =
       if String.length inner > 0 && inner.[0] = '#' then
         (* Hex bracket colors: strip bracket+opacity for merging *)
@@ -2847,7 +2853,7 @@ module Handler = struct
            but Tailwind keeps them separate. *)
         "outline-[" ^ inner ^ "]" ^ opacity_suffix opacity
     in
-    color_with_opacity_style ~property:Css.outline_color ~merge_key c 500
+    bracket_color_opacity_style ~property:Css.outline_color ~merge_key css_color
       opacity
 
   let outline_bracket_var_opacity_style v opacity =
@@ -2881,10 +2887,6 @@ module Handler = struct
     in
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
-
-  let border_bracket_color_opacity_style inner opacity =
-    let c = bracket_color_to_custom inner in
-    color_with_opacity_style ~property:Css.border_color c 500 opacity
 
   let with_pseudo pseudo = function
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
@@ -2939,9 +2941,8 @@ module Handler = struct
     | Text_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"text-" [ Css.color c ]
-    | Text_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.color c 500 opacity
+    | Text_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.color css_color opacity
     | Text_bracket_var v ->
         let bare_name = Parse.extract_var_name v in
         style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
@@ -2991,8 +2992,8 @@ module Handler = struct
     | Border_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"border-" [ Css.border_color c ]
-    | Border_bracket_color_opacity (inner, _css_color, opacity) ->
-        border_bracket_color_opacity_style inner opacity
+    | Border_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.border_color css_color opacity
     | Accent (color, shade) -> accent' color shade
     | Accent_opacity (color, shade, opacity) ->
         accent_with_opacity color shade opacity
@@ -3004,9 +3005,8 @@ module Handler = struct
     | Accent_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"accent-" [ Css.accent_color c ]
-    | Accent_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.accent_color c 500 opacity
+    | Accent_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.accent_color css_color opacity
     | Caret (color, shade) -> caret' color shade
     | Caret_opacity (color, shade, opacity) ->
         caret_with_opacity color shade opacity
@@ -3018,9 +3018,8 @@ module Handler = struct
     | Caret_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"caret-" [ Css.caret_color c ]
-    | Caret_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.caret_color c 500 opacity
+    | Caret_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.caret_color css_color opacity
     | Outline (color, shade) -> outline' color shade
     | Outline_opacity (color, shade, opacity) ->
         outline_with_opacity color shade opacity
@@ -3032,8 +3031,8 @@ module Handler = struct
     | Outline_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"outline-" [ Css.outline_color c ]
-    | Outline_bracket_color_opacity (inner, _css_color, opacity) ->
-        outline_bracket_color_opacity_style inner opacity
+    | Outline_bracket_color_opacity (inner, css_color, opacity) ->
+        outline_bracket_color_opacity_style inner css_color opacity
     | Outline_bracket_var v -> outline_bracket_var_style v
     | Outline_bracket_var_opacity (v, opacity) ->
         outline_bracket_var_opacity_style v opacity
@@ -3059,10 +3058,9 @@ module Handler = struct
         let c = resolve_bracket_css_color css_color in
         let s = style [ Css.color c ] in
         with_pseudo Css.Selector.Placeholder s
-    | Placeholder_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
+    | Placeholder_bracket_color_opacity (_orig, css_color, opacity) ->
         with_pseudo Css.Selector.Placeholder
-          (color_with_opacity_style ~property:Css.color c 500 opacity)
+          (bracket_color_opacity_style ~property:Css.color css_color opacity)
 
   (* Suborder for the non-text color families: border (0-9999) then bg
      (10000-19999). text-color runs at priority 26 (see [priority]) with a fixed
@@ -3375,7 +3373,7 @@ let opacity_to_percent = Handler.opacity_to_percent
 let opacity_var_bare = Handler.opacity_var_bare
 let opacity_var_bare_of = Handler.opacity_var_name
 let shorten_hex_str = shorten_hex_str
-let bracket_color_to_custom = Handler.bracket_color_to_custom
+let bracket_color_opacity_style = Handler.bracket_color_opacity_style
 let css_color_to_hex = Handler.css_color_to_hex
 let parse_bracket_color = Handler.parse_bracket_color
 

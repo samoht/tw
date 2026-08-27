@@ -542,9 +542,16 @@ val rgb_to_oklab : rgb -> float * float * float
 val shorten_hex_str : string -> string
 (** [shorten_hex_str hex] shortens a hex color string if possible. *)
 
-val bracket_color_to_custom : string -> color
-(** [bracket_color_to_custom inner] converts a bracket color string to a custom
-    color for opacity handling. *)
+val bracket_color_opacity_style :
+  ?merge_key:string ->
+  property:(Css.color -> Css.declaration) ->
+  Css.color ->
+  opacity_modifier ->
+  Style.t
+(** [bracket_color_opacity_style ~property c opacity] sets [property] to the
+    bracket colour [c] with [opacity] mixed into it. [c] is the colour the
+    bracket was parsed into, so a CSS keyword or colour function keeps its own
+    value rather than being read back through the palette. *)
 
 val parse_bracket_color : string -> Css.color option
 (** [parse_bracket_color inner] parses a bracket color value into a typed
