@@ -244,6 +244,80 @@ let test_content_named_requires_theme () =
    parse, so a stray source word (font-awesome) stays an unknown class; an
    @theme inline token carries its value into the utility rather than a
    reference, except when the value refers back to the token itself. *)
+(* A [--text-*] token the project declared names a font size, the way a
+   [--font-*] one names a family. Tailwind emits the reference alone: the token
+   carries no line height, so the utility sets none. *)
+let test_named_text_size () =
+  (match Tw.of_string "text-huge" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "text-huge should be rejected without a token");
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("text-huge", "9rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+  in
+  Alcotest.(check bool)
+    "text-huge references its token" true
+    (Astring.String.is_infix ~affix:"font-size:var(--text-huge)"
+       (css "text-huge"));
+  Alcotest.(check bool)
+    "text-huge sets no line height" false
+    (Astring.String.is_infix ~affix:"line-height" (css "text-huge"));
+  Alcotest.(check bool)
+    "text-huge/7 takes the modifier's leading" true
+    (Astring.String.is_infix ~affix:"line-height:calc(var(--spacing)*7)"
+       (css "text-huge/7"))
+
+(* [--text-shadow-*] is a namespace of its own and [--text-<name>--line-height]
+   is a modifier on another token, so neither names a font size. Nor does a
+   [--text-*] token whose value is not a length. *)
+let test_text_size_namespace_boundaries () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("text-shadow-pop", "0 1px 0 teal");
+        ("text-huge", "9rem");
+        ("text-huge--line-height", "1.5rem");
+        ("text-loud", "bolder");
+      ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as a font size (%s)" cls (Tw.pp u))
+    [ "text-shadow-pop"; "text-huge--line-height"; "text-loud" ]
+
+(* The line-height modifier names a [--leading-*] token, and a project's own
+   counts the same as a built-in one. *)
+let test_theme_leading_modifier () =
+  (match Tw.of_string "text-base/airy" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "text-base/airy should be rejected without a token");
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("leading-airy", "2.5"); ("text-huge", "9rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " reads the token") true
+        (Astring.String.is_infix ~affix:"line-height:var(--leading-airy)"
+           (css cls)))
+    [ "text-base/airy"; "text-huge/airy" ]
+
 let test_named_font_family () =
   (match Tw.of_string "font-awesome" with
   | Error _ -> ()
@@ -251,7 +325,7 @@ let test_named_font_family () =
   let css theme cls =
     match Tw.of_string ~theme cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.Css.pp ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+    | Ok u -> Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
   in
   let themed =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -330,6 +404,110 @@ let test_bracket_length_units () =
   emits "font-size: calc(1rem + 2px)" "text-[calc(1rem+2px)]";
   emits "text-indent: 3ch" "indent-[3ch]";
   emits "text-indent: -3ch" "-indent-[3ch]"
+
+(* The [/leading] modifier on a text size and the standalone [leading-[...]]
+   utility read an arbitrary line-height with one reader, so they agree on every
+   spelling. The modifier used to render anything but px, rem or a bare number
+   as a zero, collapsing the line box under a selector that matched. *)
+let test_arbitrary_leading () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls value =
+    Alcotest.(check bool)
+      (cls ^ " emits line-height: " ^ value)
+      true
+      (Astring.String.is_infix ~affix:("line-height: " ^ value) (css cls))
+  in
+  let agree spelling value =
+    emits ("leading-[" ^ spelling ^ "]") value;
+    emits ("text-lg/[" ^ spelling ^ "]") value
+  in
+  agree "2em" "2em";
+  agree "150%" "150%";
+  agree "normal" "normal";
+  agree "var(--lh)" "var(--lh)";
+  agree "calc(1rem_+_2px)" "calc(1rem + 2px)";
+  (* the spellings that already worked keep working *)
+  agree "24px" "24px";
+  agree "2rem" "2rem";
+  agree "1.5" "1.5";
+  (* the class name is spelled as the author wrote it *)
+  Alcotest.(check string)
+    "text-lg/[2em] round-trips" "text-lg/[2em]"
+    (Tw.pp (Result.get_ok (Tw.of_string "text-lg/[2em]")))
+
+(* A bracket that is not a line-height is refused by both, rather than accepted
+   and rendered as a zero. *)
+let test_arbitrary_leading_invalid () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  rejected "leading-[red]";
+  rejected "leading-[1zz]";
+  rejected "text-lg/[red]";
+  rejected "text-lg/[1zz]"
+
+(* [tracking-[...]] takes a length. A bracket the length grammar cannot read was
+   accepted and then raised out of [to_css], which is a pure conversion. Reading
+   the bracket with cascade's grammar also earns [calc()], which the old reader
+   could not take. *)
+let test_arbitrary_tracking_invalid () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "tracking-[foo]";
+  rejected "tracking-[red]";
+  rejected "tracking-[45deg]";
+  rejected "tracking-[1e]";
+  rejected "tracking-[a,b]";
+  rejected "-tracking-[foo]";
+  renders "tracking-[1px]";
+  renders "tracking-[.5em]";
+  renders "tracking-[-1px]";
+  renders "tracking-[2%]";
+  renders "tracking-[calc(1px_+_2px)]";
+  renders "tracking-[var(--x)]";
+  renders "-tracking-[.5em]"
+
+(* A shade the palette does not define is not a colour. [decoration-*] read the
+   shade without checking it, so the class was accepted and then referenced a
+   variable no theme declares. *)
+let test_decoration_undefined_shade () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "decoration-red-999";
+  rejected "decoration-red-0";
+  rejected "decoration-red-42";
+  rejected "decoration-red-999/50";
+  accepted "decoration-red-500";
+  accepted "decoration-red-950";
+  accepted "decoration-red-500/50"
 
 let of_string_invalid () =
   (* Invalid typography values *)
@@ -446,7 +624,7 @@ let rendering_matches_tailwind () =
 
 (* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
 let test_tracking_normal_unit () =
-  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.pp ~minify:true in
+  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.to_string ~minify:true in
   Alcotest.check bool "tracking-normal token keeps em unit" true
     (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
 
@@ -509,7 +687,7 @@ let test_text_line_height_override () =
 let test_text_bracket_functions () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
@@ -608,19 +786,26 @@ let test_decoration_bracket_thickness () =
   rejected "decoration-[.]";
   rejected "decoration-[1e]"
 
-(* Tailwind treats a unitless arbitrary decoration value as a colour candidate.
-   The resulting colour declaration is invalid CSS and has no browser effect; TW
-   must keep the candidate accepted without turning it into a visible pixel
-   thickness. *)
+(* Tailwind treats a unitless arbitrary decoration value as a colour candidate,
+   whether it is written as an integer or with a fractional part. The resulting
+   colour declaration is invalid CSS and has no browser effect; TW must keep the
+   candidate accepted without turning it into a visible pixel thickness. *)
 let test_decoration_bracket_unitless_is_color () =
-  let css =
-    match Tw.of_string "decoration-[2]" with
+  let css cls =
+    match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.fail m
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  Alcotest.(check bool)
-    "does not turn the invalid colour into a thickness" false
-    (Astring.String.is_infix ~affix:"text-decoration-thickness" css)
+  let inert cls =
+    Alcotest.(check bool)
+      (cls ^ " does not turn the invalid colour into a thickness")
+      false
+      (Astring.String.is_infix ~affix:"text-decoration-thickness" (css cls))
+  in
+  List.iter inert
+    [
+      "decoration-[0]"; "decoration-[2]"; "decoration-[1.5]"; "decoration-[.5]";
+    ]
 
 (* A shadeless decoration colour takes an opacity modifier the same way every
    other colour family does, and keeps its shadeless class name. *)
@@ -649,6 +834,35 @@ let test_decoration_shadeless_opacity () =
   rejected "decoration-nosuchcolor/50";
   rejected "decoration-white/"
 
+(* The pre-color-mix fallback has to carry the modifier's alpha, or a browser
+   without [color-mix()] paints the decoration fully opaque. A palette colour
+   folds the alpha into a hex; a project token, whose value the theme supplies,
+   takes the sRGB mix instead. *)
+let test_decoration_opacity_fallback () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "text-decoration-color:#fb2c3680" "decoration-red-500/50";
+  emits "text-decoration-color:#ffffff80" "decoration-white/50";
+  emits
+    "text-decoration-color:color-mix(in srgb,oklch(55%.2 250) 50%,transparent)"
+    "decoration-brand/50";
+  (* An alpha read from a var has no percentage to fold in, so the fallback is
+     the colour itself and the enhanced value reads the var. *)
+  emits "text-decoration-color:oklch(55%.2 250)" "decoration-brand/(--a)";
+  emits "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
+    "decoration-brand/(--a)"
+
 (* A [#] bracket is only a decoration colour when what follows is a hex
    spelling. The decoration reader handed everything after the [#] to the
    raising constructor from inside [of_class], so a malformed hex escaped the
@@ -673,10 +887,77 @@ let test_invalid_decoration_bracket_hex () =
     (Astring.String.is_infix ~affix:"text-decoration-color:#f00"
        (css "decoration-[#ff0000]"))
 
+(* Integers in a class name are plain decimal here too: the leading modifier
+   [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
+   16, so tw painted a weight where Tailwind, which passes [0x10] through for
+   the browser to drop, paints nothing. *)
+let test_non_decimal_integers () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "text-lg/0x10";
+  rejected "font-[0x10]";
+  rejected "line-clamp-[0x10]";
+  rejected "line-clamp-[1_0]"
+
+(* A [--font-weight-*] or [--leading-*] token the project declared in its
+   [@theme] names a value the built-in scale has no slot for. Tailwind generates
+   the utility from each, channel variable included; tw rejected both
+   outright. *)
+let test_project_font_and_leading_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("font-weight-chonk", "900"); ("leading-roomy", "2.5") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "--tw-font-weight: var(--font-weight-chonk)" "font-chonk";
+  emits "font-weight: var(--font-weight-chonk)" "font-chonk";
+  emits "--tw-leading: var(--leading-roomy)" "leading-roomy";
+  emits "line-height: var(--leading-roomy)" "leading-roomy";
+  Alcotest.(check bool)
+    "an undeclared weight name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "font-nope"))
+
+(* A [--tracking-*] token the project declared in its [@theme] names a letter
+   spacing the built-in scale has no slot for. Tailwind generates the utility
+   from it, channel variable included; tw rejected the class outright. *)
+let test_project_tracking_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("tracking-airy", "0.2em") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "tracking-airy" in
+  Alcotest.(check bool)
+    "sets the channel" true
+    (Astring.String.is_infix ~affix:"--tw-tracking: var(--tracking-airy)" out);
+  Alcotest.(check bool)
+    "sets letter-spacing" true
+    (Astring.String.is_infix ~affix:"letter-spacing: var(--tracking-airy)" out);
+  Alcotest.(check bool)
+    "an undeclared tracking name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "tracking-nope"))
+
 let tests =
   [
     test_case "invalid decoration bracket hex" `Quick
       test_invalid_decoration_bracket_hex;
+    test_case "non-decimal integers" `Quick test_non_decimal_integers;
+    test_case "project tracking token" `Quick test_project_tracking_token;
+    test_case "project font and leading tokens" `Quick
+      test_project_font_and_leading_tokens;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
     test_case "unitless decoration bracket is a colour" `Quick
@@ -716,14 +997,27 @@ let tests =
     test_case "text-[<font-size>] invalid values" `Quick
       test_text_bracket_size_invalid;
     test_case "bracket length units" `Quick test_bracket_length_units;
+    test_case "arbitrary leading" `Quick test_arbitrary_leading;
+    test_case "arbitrary leading invalid" `Quick test_arbitrary_leading_invalid;
+    test_case "arbitrary tracking invalid" `Quick
+      test_arbitrary_tracking_invalid;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
+    test_case "named text size from the theme" `Quick test_named_text_size;
+    test_case "text size namespace boundaries" `Quick
+      test_text_size_namespace_boundaries;
+    test_case "leading modifier from the theme" `Quick
+      test_theme_leading_modifier;
+    test_case "decoration undefined colour shade" `Quick
+      test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "line-clamp sorts with box-sizing" `Quick
       line_clamp_sorts_with_box_sizing;
+    test_case "decoration opacity fallback" `Quick
+      test_decoration_opacity_fallback;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]

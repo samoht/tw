@@ -70,6 +70,9 @@ type indexed_rule = {
          [Css.Media.compare_keys] instead of re-serializing the query. *)
   nested_media_key : Css.Media.key option;
       (* Precomputed sort key of a single nested media condition. *)
+  responsive_media_key : Css.Media.key option;
+      (* Precomputed sort key of the rule's breakpoint condition, taken from
+         whichever nesting level carries it - see [responsive_media_key]. *)
 }
 (** An indexed CSS rule ready for sorting. [index] preserves source order;
     [order] is the [(priority, suborder)] pair from the utility definition;
@@ -260,6 +263,24 @@ let media_sort_keys rule_type nested =
   in
   (media_key, nested_media_key)
 
+(* The breakpoint a rule sorts under, wherever its variant stack puts it:
+   sm:hover: writes the breakpoint outside the hover query and hover:sm: writes
+   it inside, and Tailwind groups both under that breakpoint. *)
+let responsive_media_key rule_type nested =
+  let of_cond c =
+    match Css.Media.kind c with
+    | Css.Media.Responsive _ | Css.Media.Responsive_max _ ->
+        Some (Css.Media.sort_key c)
+    | _ -> None
+  in
+  match rule_type with
+  | `Media c when Stdlib.Option.is_some (of_cond c) -> of_cond c
+  | _ -> (
+      match nested with
+      | [ n ] -> (
+          match Css.as_media n with Some (c, _) -> of_cond c | None -> None)
+      | _ -> None)
+
 (* ======================================================================== *)
 (* Priority Comparison *)
 (* ======================================================================== *)
@@ -337,6 +358,10 @@ let responsive_group =
 let accessibility_preference_group =
   fst (Css.Media.group_order Css.Media.Preference_accessibility)
 
+(* The rank the variant table gives a breakpoint prefix. Read back from the
+   table for the same reason as the two groups above. *)
+let responsive_variant_order = Modifiers.variant_order_of_prefix "sm"
+
 (** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
   if group1 = responsive_group then Float.compare sub1 sub2
@@ -351,6 +376,13 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
     match (key1, key2) with
     | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
     | _ -> 0
+
+(* The [order] field is a [(priority, suborder)] pair; comparing it with the
+   polymorphic [compare] boxes both ints on every call, and the comparator runs
+   once per rule pair. *)
+let compare_order (p1, s1) (p2, s2) =
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp else Int.compare s1 s2
 
 (* For hover media, separate rules by modifier depth so that single-modifier
    hover rules (group-hover:flex) form a separate block from stacked hover rules
@@ -387,7 +419,7 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
         | _ -> false
       in
       if same_utility then
-        let order_cmp = compare r1.order r2.order in
+        let order_cmp = compare_order r1.order r2.order in
         if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
       else
         compare_by_priority_suborder_alpha r1.selector_kind r2.selector_kind
@@ -540,7 +572,7 @@ let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
 (** Compare rules by order tuple then index. Used for same-utility regular
     rules, starting style rules, and as a generic tiebreaker. *)
 let compare_by_order_then_index r1 r2 =
-  let order_cmp = compare r1.order r2.order in
+  let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
 
 let compare_same_utility_regular = compare_by_order_then_index
@@ -567,26 +599,14 @@ let compare_by_priority_index r1 r2 =
         if idx_cmp <> 0 then idx_cmp
         else String.compare r1.selector_str r2.selector_str
 
-(* The outline utilities sort after the other focus modifiers. Read the base
-   class with the modifier parser: taking the first colon meant a stacked
-   variant never matched, so dark:focus:outline-none was never recognised. The
-   rule is inert on the current corpus - removing it altogether leaves the suite
-   and the Tailwind diffs green - so this makes the predicate say what it means
-   rather than changing an order that is already right. *)
-let is_outline_utility bc =
-  match bc with
-  | Some s -> (
-      match Modifiers.of_string s with
-      | [], _ -> false
-      | _ :: _, base -> String.starts_with ~prefix:"outline" base)
-  | None -> false
+let is_digit c = c >= '0' && c <= '9'
 
 (* Natural sort comparison: treats consecutive digit sequences as integers.
    E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
    Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
 let natural_extract_number s i =
   let rec go j acc =
-    if j >= String.length s || not (Cascade.Reader.is_digit s.[j]) then (acc, j)
+    if j >= String.length s || not (is_digit s.[j]) then (acc, j)
     else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
   in
   go i 0
@@ -621,7 +641,7 @@ let natural_compare s1 s2 =
     | `Greater -> 1
     | `Continue ->
         let c1 = s1.[i1] and c2 = s2.[i2] in
-        if Cascade.Reader.is_digit c1 && Cascade.Reader.is_digit c2 then
+        if is_digit c1 && is_digit c2 then
           let n1, end1 = natural_extract_number s1 i1 in
           let n2, end2 = natural_extract_number s2 i2 in
           let num_cmp = Int.compare n1 n2 in
@@ -674,13 +694,6 @@ let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2 else compare_by_priority_index r1 r2
 
-let compare_focus_modifiers r1 r2 =
-  let outline1 = is_outline_utility r1.base_class in
-  let outline2 = is_outline_utility r2.base_class in
-  if outline1 && not outline2 then 1
-  else if outline2 && not outline1 then -1
-  else compare_by_priority_index r1 r2
-
 (** Check if a selector kind is a focus-visible late modifier *)
 let is_focus_visible_late_modifier kind has_modifier_colon =
   is_late_modifier kind has_modifier_colon
@@ -713,7 +726,7 @@ let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
   let f2 = is_focus_modifier_rule kind2 r2.has_modifier_colon in
   if f1 && not f2 then Some 1
   else if f2 && not f1 then Some (-1)
-  else if f1 && f2 then Some (compare_focus_modifiers r1 r2)
+  else if f1 && f2 then Some (compare_by_priority_index r1 r2)
   else None
 
 (** Compare by priority, suborder, late modifiers, then natural selector sort.
@@ -864,7 +877,7 @@ let compare_supports_by_key r1 r2 =
 
 (* Compare by order tuple, then selector, then index *)
 let compare_by_order_then_selector r1 r2 =
-  let order_cmp = compare r1.order r2.order in
+  let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp
   else
     let sel_cmp = natural_compare r1.selector_str r2.selector_str in
@@ -942,6 +955,70 @@ let split_on_colon_outside_brackets s =
           loop (i + 1) depth
   in
   loop 0 0
+
+(* What Tailwind sorts a container variant on. It reads the value off the class
+   rather than the width that value resolves to, and keys it by the unit -- or,
+   when the value is a call, by the name before the parenthesis. A size off the
+   [--container] scale is resolved through the theme before the key is taken,
+   and that scale is rem throughout. *)
+type container_value = {
+  name : string; (* The value's unit, or the name of the call it is. *)
+  call : bool; (* The value is a function call. *)
+  text : string; (* The value as the class spells it. *)
+}
+
+(* Tailwind strips every run of digits and dots to reach the unit, so a sign
+   stays behind with it. *)
+let unit_of_container_value text =
+  let buf = Buffer.create (String.length text) in
+  String.iter
+    (fun c ->
+      if not ((c >= '0' && c <= '9') || c = '.') then Buffer.add_char buf c)
+    text;
+  Buffer.contents buf
+
+(* Read the container value out of one modifier token: [@min-[64rem]] and
+   [@[theme(--breakpoint-lg)]] carry it in the bracket, [@lg] and [@min-lg] name
+   a size on the [--container] scale. A [/name] tail aims the query at a named
+   container and says nothing about the width. *)
+let container_value_of_token token =
+  let n = String.length token in
+  if n < 2 || token.[0] <> '@' then None
+  else
+    let body = String.sub token 1 (n - 1) in
+    let body =
+      if
+        Parse.has_prefix ~prefix:"min-" body
+        || Parse.has_prefix ~prefix:"max-" body
+      then String.sub body 4 (String.length body - 4)
+      else body
+    in
+    if String.length body > 1 && body.[0] = '[' then
+      match String.rindex_opt body ']' with
+      | Some i when i > 1 -> (
+          let text = String.sub body 1 (i - 1) in
+          match String.index_opt text '(' with
+          | Some j -> Some { name = String.sub text 0 j; call = true; text }
+          | None ->
+              Some { name = unit_of_container_value text; call = false; text })
+      | _ -> None
+    else Some { name = "rem"; call = false; text = body }
+
+let container_value_of_prefix prefix =
+  List.find_map container_value_of_token
+    (split_on_colon_outside_brackets prefix)
+
+(* Only a call keys on a name the resolved length cannot carry, so every other
+   pair keeps the length key, which already orders the way Tailwind does. *)
+let compare_container_values r1 r2 p1 p2 =
+  match (r1.rule_type, r2.rule_type) with
+  | `Container _, `Container _ -> (
+      match (container_value_of_prefix p1, container_value_of_prefix p2) with
+      | Some v1, Some v2 when v1.call || v2.call ->
+          let c = String.compare v1.name v2.name in
+          if c <> 0 then Some c else Some (String.compare v1.text v2.text)
+      | _ -> None)
+  | _ -> None
 
 (* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
@@ -1113,6 +1190,19 @@ let compare_variant_tail r1 r2 =
               if class_cmp <> 0 then class_cmp
               else Int.compare r1.index r2.index)
 
+(* Tailwind groups a rule under its breakpoint before it reads the rest of the
+   variant stack, so first:sm:m-2 stays beside sm:bg-top instead of falling past
+   md:block. Only when the breakpoint is the highest-order component on both
+   sides: dark:sm:flex sorts under dark, not under sm. *)
+let compare_responsive_breakpoint r1 r2 =
+  match (r1.variant_orders, r2.variant_orders) with
+  | (p1, _) :: _, (p2, _) :: _
+    when p1 = responsive_variant_order && p2 = responsive_variant_order -> (
+      match (r1.responsive_media_key, r2.responsive_media_key) with
+      | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+      | _ -> 0)
+  | _ -> 0
+
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
   | `Supports _, `Supports _
@@ -1121,42 +1211,51 @@ let compare_variant_ordered r1 r2 =
          && is_modifier_supports r2.base_class ->
       compare_supports_by_key r1 r2
   | _ ->
-      let list_cmp =
-        compare_variant_order_lists r1.variant_orders r2.variant_orders
-      in
-      if list_cmp <> 0 then list_cmp
+      let breakpoint_cmp = compare_responsive_breakpoint r1 r2 in
+      if breakpoint_cmp <> 0 then breakpoint_cmp
       else
-        let p1_prefix, _ = r1.variant_key in
-        let p2_prefix, _ = r2.variant_key in
-        (* The descending variant-order lists tie (same variant multiset). The
-           remaining keys order within that group: a nested breakpoint or hover,
-           the media condition itself (sm before md), then the prefix and the
-           utility's own priority. *)
-        let nested_cmp =
-          Int.compare
-            (nested_order r1.rule_type r1.nested)
-            (nested_order r2.rule_type r2.nested)
+        let list_cmp =
+          compare_variant_order_lists r1.variant_orders r2.variant_orders
         in
-        if nested_cmp <> 0 then nested_cmp
+        if list_cmp <> 0 then list_cmp
         else
+          let p1_prefix, _ = r1.variant_key in
+          let p2_prefix, _ = r2.variant_key in
+          (* The descending variant-order lists tie (same variant multiset), so
+             hover:sm: and sm:hover: arrive here indistinguishable. The query a
+             rule writes on the outside decides between them, hover before sm
+             and sm before md; a nested breakpoint or hover, the prefix and the
+             utility's own priority order what is left. *)
           let media_cmp =
-            match (r1.media_key, r2.media_key) with
-            | Some k1, Some k2 ->
-                let cmp = Css.Media.compare_keys k1 k2 in
-                if cmp <> 0 then cmp else compare_nested_media r1 r2
-            | _ -> 0
+            match compare_container_values r1 r2 p1_prefix p2_prefix with
+            | Some c -> c
+            | None -> (
+                match (r1.media_key, r2.media_key) with
+                | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+                | _ -> 0)
           in
           if media_cmp <> 0 then media_cmp
           else
-            (* Two container variants at the same width are already fully
-               ordered: what remains is the utility's own priority, so the
-               prefix must not step in and group @sm/main away from @sm. *)
-            let prefix_cmp =
-              match (r1.rule_type, r2.rule_type) with
-              | `Container _, `Container _ -> 0
-              | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+            let nested_cmp =
+              Int.compare
+                (nested_order r1.rule_type r1.nested)
+                (nested_order r2.rule_type r2.nested)
             in
-            if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
+            if nested_cmp <> 0 then nested_cmp
+            else
+              let nested_media_cmp = compare_nested_media r1 r2 in
+              if nested_media_cmp <> 0 then nested_media_cmp
+              else
+                (* Two container variants at the same width are already fully
+                   ordered: what remains is the utility's own priority, so the
+                   prefix must not step in and group @sm/main away from @sm. *)
+                let prefix_cmp =
+                  match (r1.rule_type, r2.rule_type) with
+                  | `Container _, `Container _ -> 0
+                  | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+                in
+                if prefix_cmp <> 0 then prefix_cmp
+                else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =

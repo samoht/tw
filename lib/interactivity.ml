@@ -369,6 +369,7 @@ module Handler = struct
       Scroll_auto;
       Snap_x;
       Snap_start;
+      Snap_always;
       Snap_mandatory;
       Resize_none;
       Pointer_events_none;

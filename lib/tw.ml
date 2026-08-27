@@ -139,7 +139,7 @@ let split_importance base_class =
    colors.<name>.<shade> (optionally with a /<alpha> suffix) becomes the
    colour's oklch value, and spacing.<n> becomes <n * 0.25>rem. Returns None for
    paths not resolved. *)
-let theme_resolve_path inner =
+let theme_resolve_path ~theme inner =
   let path, alpha =
     match String.index_opt inner '/' with
     | Some k ->
@@ -151,7 +151,14 @@ let theme_resolve_path inner =
   | [ "colors"; name; shade ] -> (
       match (Color.of_string name, int_of_string_opt shade) with
       | Ok c, Some sh ->
-          let base = Color.to_oklch_css c sh in
+          (* A project that renames a palette entry in its [@theme] gets its own
+             value back here, the way [bg-<name>-<shade>] already does. *)
+          let token = String.concat "-" [ "color"; name; shade ] in
+          let base =
+            match Scheme.theme_value (Some theme) token with
+            | Some v -> v
+            | None -> Color.to_oklch_css c sh
+          in
           Some
             (match alpha with
             | Some a
@@ -178,7 +185,7 @@ let theme_resolve_path inner =
 (* Replace each theme(<path>) in a class string with its resolved value, spaces
    re-encoded as [_] so downstream arbitrary-value decoding treats them as
    spaces. Unresolved theme() calls are left verbatim. *)
-let resolve_theme_functions s =
+let resolve_theme_functions ~theme s =
   let buf = Buffer.create (String.length s) in
   let n = String.length s in
   let i = ref 0 in
@@ -195,7 +202,7 @@ let resolve_theme_functions s =
          copied through and the class stays unresolved. *)
       let closed = !depth = 0 in
       let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
-      (match if closed then theme_resolve_path inner else None with
+      (match if closed then theme_resolve_path ~theme inner else None with
       | Some v ->
           Buffer.add_string buf
             (String.map (fun c -> if c = ' ' then '_' else c) v)
@@ -210,6 +217,23 @@ let resolve_theme_functions s =
     end
   done;
   Buffer.contents buf
+
+(* The rejection a class gets once no handler has claimed it. A bracket class
+   that looks like an arbitrary property but that nothing accepted is malformed
+   rather than unsupported: the bracket has no property name or does not end the
+   class, or the modifier after it is not an opacity on a colour. *)
+let unknown_class_error ~base_class class_str =
+  if
+    String.length base_class > 2
+    && base_class.[0] = '['
+    && String.contains base_class ':'
+  then
+    Error
+      (`Msg
+         ("Invalid arbitrary property '" ^ class_str
+        ^ "': expected [property:value], optionally followed by an /opacity \
+           modifier on a colour value (e.g. [color:var(--x)]/50)"))
+  else Error (`Msg ("Unknown class: " ^ class_str))
 
 (* Parse a single class string into a Tw.t *)
 let of_string ?(theme = Scheme.default) class_str =
@@ -231,17 +255,13 @@ let of_string ?(theme = Scheme.default) class_str =
       | `Suffix -> Utility.important ~suffix:true base_util
       | `None -> base_util
     in
-    match
-      Modifiers.apply
-        ~breakpoints:(Scheme.breakpoint_names theme)
-        modifiers base_util
-    with
+    match Modifiers.apply ~theme modifiers base_util with
     | Some u -> Ok u
     | None -> Error (`Msg ("Unknown modifier in: " ^ class_str))
   in
   (* Resolve theme() dot-paths for dispatch, keeping the original spelling as
      the class-name alias so the utility still round-trips. *)
-  let resolved_base = resolve_theme_functions base_class in
+  let resolved_base = resolve_theme_functions ~theme base_class in
   let theme_alias =
     if resolved_base = base_class then None else Some base_class
   in
@@ -258,23 +278,7 @@ let of_string ?(theme = Scheme.default) class_str =
           match Utility.base_of_class theme normalized with
           | Ok base_utility -> finish ~alias:base_class base_utility
           | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
-      | None ->
-          (* An arbitrary-property class ([prop:value]) that no handler accepted
-             gets actionable feedback: only colour properties with an /opacity
-             modifier are emitted today. *)
-          if
-            String.length base_class > 2
-            && base_class.[0] = '['
-            && String.contains base_class ':'
-          then
-            Error
-              (`Msg
-                 ("Unsupported arbitrary property '" ^ class_str
-                ^ "': only colour properties with an /opacity modifier are \
-                   emitted (e.g. [color:var(--x)]/50); plain [--name:value] \
-                   declarations and non-colour properties are not yet \
-                   supported"))
-          else Error (`Msg ("Unknown class: " ^ class_str)))
+      | None -> unknown_class_error ~base_class class_str)
 
 let str s =
   let classes = split_whitespace s in

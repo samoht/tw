@@ -53,7 +53,7 @@ let test_drop_shadow_color () =
 let test_drop_shadow_opacity_keeps_both_layers () =
   let css =
     match Tw.of_string "drop-shadow/50" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/50: %s" m
   in
   let has affix = Astring.String.is_infix ~affix css in
@@ -68,7 +68,7 @@ let test_drop_shadow_opacity_keeps_both_layers () =
 let test_drop_shadow_fractional_alpha () =
   let css =
     match Tw.of_string "drop-shadow/12.5" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "drop-shadow/12.5: %s" m
   in
   Alcotest.(check bool)
@@ -134,7 +134,9 @@ let suborder_matches_tailwind () =
 (* backdrop-blur-N must reference the unified v4 --blur-N token (not the dropped
    --backdrop-blur-N) and emit the shipped --blur-N decl. *)
 let test_backdrop_blur_token () =
-  let css = Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.pp ~minify:true in
+  let css =
+    Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.to_string ~minify:true
+  in
   Alcotest.(check bool)
     "references var(--blur-sm)" true
     (Astring.String.is_infix ~affix:"var(--blur-sm)" css);
@@ -263,8 +265,91 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"filters render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
+(* An arbitrary angle is spelled in the class name the way the author wrote it.
+   Rendering it back from the parsed angle left the trailing dot of an integral
+   float on every unit but [deg], so the selector could not match the markup. *)
+let test_arbitrary_angle_class_name () =
+  List.iter check
+    [
+      "hue-rotate-[2rad]";
+      "hue-rotate-[1turn]";
+      "hue-rotate-[100grad]";
+      "hue-rotate-[45deg]";
+      "hue-rotate-[0.5rad]";
+      "-hue-rotate-[2rad]";
+      "backdrop-hue-rotate-[2rad]";
+      "-backdrop-hue-rotate-[1turn]";
+    ]
+
+(* A bracket that is not an angle is refused. *)
+let test_invalid_arbitrary_angle () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "hue-rotate-[2]";
+  rejected "hue-rotate-[2zz]";
+  rejected "hue-rotate-[deg]";
+  rejected "backdrop-hue-rotate-[2px]"
+
+(* [blur-[...]] takes a length. A bracket the length grammar cannot read was
+   accepted and then raised out of [to_css], which is a pure conversion. Reading
+   the bracket with cascade's grammar also earns [calc()] and the units the
+   hand-rolled reader never took. *)
+let test_invalid_arbitrary_blur () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "blur-[foo]";
+  rejected "blur-[red]";
+  rejected "blur-[1]";
+  rejected "backdrop-blur-[foo]";
+  rejected "backdrop-blur-[a,b]";
+  renders "blur-[4px]";
+  renders "blur-[.5rem]";
+  renders "blur-[calc(1px_+_2px)]";
+  renders "blur-[1vw]";
+  renders "blur-[var(--x)]";
+  (* A sizing keyword is not a [blur()] argument, but Tailwind writes it through
+     and so do we; rejecting it would drop CSS Tailwind emits. *)
+  renders "blur-[none]";
+  renders "backdrop-blur-[4px]";
+  renders "backdrop-blur-[calc(1px_+_2px)]"
+
+(* A [--blur-*] token the project declared in its [@theme] names a radius the
+   built-in scale has no slot for. Tailwind generates the utility from it,
+   filter chain included; tw rejected the class outright. *)
+let test_project_blur_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("blur-soft", "7px") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let out = css "blur-soft" in
+  Alcotest.(check bool)
+    "sets the blur channel" true
+    (Astring.String.is_infix ~affix:"--tw-blur: blur(var(--blur-soft))" out);
+  Alcotest.(check bool)
+    "an undeclared blur name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "blur-nope"))
+
 let tests =
   [
+    test_case "arbitrary angle class name" `Quick
+      test_arbitrary_angle_class_name;
+    test_case "invalid arbitrary angle" `Quick test_invalid_arbitrary_angle;
+    test_case "invalid arbitrary blur" `Quick test_invalid_arbitrary_blur;
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
     test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;
@@ -285,6 +370,7 @@ let tests =
     test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
+    test_case "project blur token" `Quick test_project_blur_token;
   ]
 
 let suite = ("filters", tests)

@@ -427,16 +427,18 @@ let test_inline_style_no_vars () =
 let test_inline_vs_variables_diff () =
   (* Same utility under Variables vs Inline should differ: Inline has no var().
      Generate sheets in their respective modes to avoid carrying layer content
-     that may still contain var() in declarations. *)
+     that may still contain var() in declarations. p-4 spells its reference as
+     calc(var(--spacing) * 4), so the variables sheet only counts as referencing
+     one if the reference is read past the head of the value. *)
   let sheet_vars =
     Tw.Build.to_css
       ~config:{ Tw.Build.base = false; forms = None; layers = true }
-      [ Tw.Borders.rounded_sm ]
+      [ p 4 ]
   in
   let sheet_inline =
     Tw.Build.to_css
       ~config:{ Tw.Build.base = false; forms = None; layers = true }
-      [ Tw.Borders.rounded_sm ]
+      [ p 4 ]
     |> Css.inline_vars
   in
   (* Extract all declarations using fold *)

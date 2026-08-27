@@ -37,7 +37,10 @@ module Handler = struct
     | Ease_out
     | Ease_in_out
     | Ease_initial
-    | Ease_arbitrary of string
+    (* The author's bracket text travels with the timing function it denotes, so
+       the class name is spelled exactly as it was written. *)
+    | Ease_arbitrary of string * Css.timing_function
+    | Ease_theme of string (* timing function from an --ease-* token *)
 
   type Utility.base += Self of t
 
@@ -334,6 +337,21 @@ module Handler = struct
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 9)
   let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 10)
 
+  (* An [--ease-*] token the project declared names a timing function the
+     built-in scale has no slot for; they share the slot after the scale. *)
+  let ease_named_cache : (string, Css.timing_function Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let ease_named_var name =
+    match Hashtbl.find_opt ease_named_cache name with
+    | Some var -> var
+    | None ->
+        let var =
+          Var.theme Css.Timing_function ("ease-" ^ name) ~order:(7, 12)
+        in
+        Hashtbl.add ease_named_cache name var;
+        var
+
   let ease_in_out_var =
     Var.theme Css.Timing_function "ease-in-out" ~order:(7, 11)
 
@@ -416,64 +434,51 @@ module Handler = struct
         Css.transition_timing_function (Css.Var ease_in_out_ref);
       ]
 
-  let parse_cubic_bezier raw =
-    let prefix = "cubic-bezier(" in
-    if
-      String.length raw > String.length prefix + 1
-      && String.sub raw 0 (String.length prefix) = prefix
-      && raw.[String.length raw - 1] = ')'
-    then
-      let inner =
-        String.sub raw (String.length prefix)
-          (String.length raw - String.length prefix - 1)
-      in
-      match String.split_on_char ',' inner |> List.map String.trim with
-      | [ a; b; c; d ] -> (
-          match
-            ( float_of_string_opt a,
-              float_of_string_opt b,
-              float_of_string_opt c,
-              float_of_string_opt d )
-          with
-          | Some a, Some b, Some c, Some d ->
-              Some (Css.Cubic_bezier (a, b, c, d))
-          | _ -> None)
-      | _ -> None
-    else None
+  (* The timing function an [ease-[...]] bracket denotes, read with cascade's
+     own grammar. [None] is a bracket no timing function reads from, and
+     [of_class] refuses the utility rather than leaving [to_style] to raise. *)
+  let is_theme_ease theme n =
+    Scheme.theme_value (Some theme) ("ease-" ^ n) <> None
 
-  let parse_raw_timing_function raw : Css.timing_function =
-    match parse_cubic_bezier raw with
-    | Some tf -> tf
-    | None -> (
-        match raw with
-        | "linear" -> Linear
-        | "ease" -> Ease
-        | "ease-in" -> Ease_in
-        | "ease-out" -> Ease_out
-        | "ease-in-out" -> Ease_in_out
-        | _ -> invalid_arg ("Unsupported timing function: " ^ raw))
-
-  let ease_arbitrary s =
+  let arbitrary_timing_function s : Css.timing_function option =
     if Parse.is_var s then
-      let bare_name = Parse.extract_var_name s in
-      let ref_ : Css.timing_function Css.var = Var.bracket bare_name in
-      let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ref_) in
-      let prop_rule = Var.property_rule tw_ease_var in
-      let property_rules =
-        match prop_rule with Some r -> r | None -> Css.empty
-      in
-      style ~property_rules
-        [ tw_ease_decl; Css.transition_timing_function (Css.Var ref_) ]
+      Some (Css.Var (Var.bracket (Parse.extract_var_name s)))
     else
-      (* Raw timing function like "cubic-bezier(0.4,0,0.2,1)" *)
-      let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
-      let tf = parse_raw_timing_function raw in
-      let tw_ease_decl, _ = Var.binding tw_ease_var tf in
-      let prop_rule = Var.property_rule tw_ease_var in
-      let property_rules =
-        match prop_rule with Some r -> r | None -> Css.empty
-      in
-      style ~property_rules [ tw_ease_decl; Css.transition_timing_function tf ]
+      let cursor = Cascade.Cursor.of_string (Parse.decode_underscores s) in
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_timing_function
+          cursor
+      with
+      | Ok tf -> Some tf
+      | Error _ -> None
+
+  let ease_arbitrary tf =
+    let tw_ease_decl, _ = Var.binding tw_ease_var tf in
+    let property_rules =
+      match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
+    in
+    style ~property_rules [ tw_ease_decl; Css.transition_timing_function tf ]
+
+  let ease_theme theme name =
+    match Scheme.theme_value (Some theme) ("ease-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match arbitrary_timing_function raw with
+        | None -> style []
+        | Some tf ->
+            let theme_decl, theme_ref = Var.binding (ease_named_var name) tf in
+            let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var theme_ref) in
+            let property_rules =
+              match Var.property_rule tw_ease_var with
+              | Some r -> r
+              | None -> Css.empty
+            in
+            style ~property_rules
+              [
+                theme_decl;
+                tw_ease_decl;
+                Css.transition_timing_function (Css.Var theme_ref);
+              ])
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
   let delay_arbitrary d = style [ Css.transition_delay d ]
@@ -516,7 +521,8 @@ module Handler = struct
     | Ease_out -> ease_out
     | Ease_in_out -> ease_in_out
     | Ease_initial -> ease_initial
-    | Ease_arbitrary s -> ease_arbitrary s
+    | Ease_arbitrary (_, tf) -> ease_arbitrary tf
+    | Ease_theme name -> ease_theme theme name
 
   let suborder = function
     | Transition -> 0
@@ -544,10 +550,11 @@ module Handler = struct
     | Ease_out -> 100003
     | Ease_initial -> 100004
     | Ease_arbitrary _ -> 99999
+    | Ease_theme _ -> 100005
 
   let ( >|= ) = Parse.( >|= )
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "transition"; "none" ] -> Ok Transition_none
@@ -626,8 +633,14 @@ module Handler = struct
     | [ "ease"; "out" ] -> Ok Ease_out
     | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
     | [ "ease"; "initial" ] -> Ok Ease_initial
-    | [ "ease"; value ] when Parse.is_bracket_value value ->
-        Ok (Ease_arbitrary (Parse.bracket_inner value))
+    | "ease" :: (_ :: _ as rest)
+      when is_theme_ease theme (String.concat "-" rest) ->
+        Ok (Ease_theme (String.concat "-" rest))
+    | [ "ease"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match arbitrary_timing_function inner with
+        | Some tf -> Ok (Ease_arbitrary (inner, tf))
+        | None -> Error (`Msg "Invalid ease value"))
     | _ -> Error (`Msg "Not a transition utility")
 
   let to_class = function
@@ -651,7 +664,8 @@ module Handler = struct
     | Ease_out -> "ease-out"
     | Ease_in_out -> "ease-in-out"
     | Ease_initial -> "ease-initial"
-    | Ease_arbitrary s -> "ease-[" ^ s ^ "]"
+    | Ease_arbitrary (s, _) -> "ease-[" ^ s ^ "]"
+    | Ease_theme name -> "ease-" ^ name
 
   let examples = [ Transition; Duration 150; Delay 150; Ease_linear ]
 end

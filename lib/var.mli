@@ -453,7 +453,7 @@ val property_default :
     initial value may be generated, breaking the CSS output.
 
     TODO: Fix this architecture limitation to automatically include property
-    rules for property_default variables in rules.ml without requiring explicit
+    rules for property_default variables in build.ml without requiring explicit
     inclusion. *)
 
 val channel :
@@ -479,7 +479,10 @@ val register_property_order : name:string -> order:int -> unit
     variable name. Used by modules that create [\@property] rules directly
     (without using [Var.property_default]) and need to participate in the
     properties layer ordering. The [name] should be without the ["--"] prefix.
-*)
+
+    A name owns its slot: a second registration that agrees restates it, and one
+    that disagrees raises [Invalid_argument] rather than letting module
+    initialisation order decide the properties layer. *)
 
 val order : string -> (int * int) option
 (** [order name] returns the theme layer order for a variable name, with or
@@ -617,16 +620,12 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
     Only use this for property_default variables where you expect a property
     rule. *)
 
-(** {1 Heterogeneous Collections} *)
-
-(** Existential type for heterogeneous collections of variables *)
-type any_var = Any : ('a, 'r) t -> any_var
-
-val properties : any_var list -> Css.t
-(** [properties vars] generates deduplicated [@property] rules for all variables
-    that need them, sorted deterministically by (name, kind). *)
-
 (** {1 Helper Types and Functions} *)
+
+val name : ('a, _) t -> string
+(** [name var] is the custom property's name without the leading ["--"], the
+    spelling {!theme_ref} and {!bracket} take. Read it off the handle rather
+    than writing the name again beside it: the two cannot then drift apart. *)
 
 val css_name : ('a, _) t -> string
 (** [css_name var] returns the full CSS property name with [--] prefix. For

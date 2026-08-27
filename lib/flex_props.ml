@@ -45,8 +45,10 @@ module Handler = struct
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
-    | Neg_order_arbitrary of string (* -order-[var(--value)] *)
-    | Order_arbitrary of string (* order-[123] *)
+    (* The author's bracket text travels with the order it denotes, so the class
+       name is spelled exactly as it was written. *)
+    | Neg_order_arbitrary of string * Css.order (* -order-[var(--value)] *)
+    | Order_arbitrary of string * Css.order (* order-[123] *)
     | Order_first
     | Order_last
     | Order_none
@@ -92,9 +94,10 @@ module Handler = struct
      literal [100%]. *)
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+    let spacing = Var.name Theme.spacing_var in
     let value : Css.flex_basis =
-      if n = 1 then Var (Var.theme_ref "spacing")
-      else Calc Css.Calc.(mul (var "spacing") (float (float_of_int n)))
+      if n = 1 then Var (Var.theme_ref spacing)
+      else Calc Css.Calc.(mul (var spacing) (float (float_of_int n)))
     in
     style [ spacing_decl; flex_basis value ]
 
@@ -197,11 +200,9 @@ module Handler = struct
     | Basis_arbitrary len -> style [ flex_basis len ]
     | Order n -> order_style n
     | Neg_order n -> style [ order (Int (-n)) ]
-    | Neg_order_arbitrary s ->
-        let o = Css.Properties.read_order (Cascade.Cursor.of_string s) in
+    | Neg_order_arbitrary (_, o) ->
         style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
-    | Order_arbitrary s ->
-        style [ order (Css.Properties.read_order (Cascade.Cursor.of_string s)) ]
+    | Order_arbitrary (_, o) -> style [ order o ]
     | Order_first -> order_first ()
     | Order_last -> order_last ()
     | Order_none -> order_none
@@ -272,6 +273,17 @@ module Handler = struct
     | "5xl" | "6xl" | "7xl" ->
         true
     | _ -> false
+
+  (* The order an [order-[...]] bracket denotes. [None] is a bracket the order
+     grammar cannot read, and [of_class] refuses the utility rather than leaving
+     [to_style] to raise. *)
+  let arbitrary_order inner : Css.order option =
+    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_order cursor
+    with
+    | Ok o -> Some o
+    | Error _ -> None
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -345,7 +357,9 @@ module Handler = struct
           && value.[String.length value - 1] = ']'
         then
           let inner = String.sub value 1 (String.length value - 2) in
-          Ok (Order_arbitrary inner)
+          match arbitrary_order inner with
+          | Some o -> Ok (Order_arbitrary (inner, o))
+          | None -> err_not_utility
         else
           match Parse.decimal_int value with
           | Some n when n >= 0 -> Ok (Order n)
@@ -359,7 +373,9 @@ module Handler = struct
           && value.[String.length value - 1] = ']'
         then
           let inner = String.sub value 1 (String.length value - 2) in
-          Ok (Neg_order_arbitrary inner)
+          match arbitrary_order inner with
+          | Some o -> Ok (Neg_order_arbitrary (inner, o))
+          | None -> err_not_utility
         else
           match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
@@ -423,13 +439,13 @@ module Handler = struct
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
-    | Neg_order_arbitrary s -> "-order-[" ^ s ^ "]"
-    | Order_arbitrary s -> "order-[" ^ s ^ "]"
+    | Neg_order_arbitrary (s, _) -> "-order-[" ^ s ^ "]"
+    | Order_arbitrary (s, _) -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"
     | Order_none -> "order-none"
 
-  let examples = [ Flex_1; Flex_grow; Flex_shrink; Basis_0 ]
+  let examples = [ Flex_1; Flex_grow; Flex_shrink; Basis_0; Order 1 ]
 end
 
 open Handler

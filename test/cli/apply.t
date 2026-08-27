@@ -107,3 +107,35 @@ to leave a block per distinct set:
   1
   $ tw --minify --input-css props.css index.html | grep -oF '@layer utilities' | grep -c .
   1
+
+A class that starts with a digit is escaped as a hex code point, and the escape
+runs to a space: [2xl:flex] prints as [.\32 xl\:flex]. The class is read off the
+selector's syntax tree, so that space does not cut the class in two:
+
+  $ cat > digit.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .card { @apply 2xl:flex; }
+  > EOF
+  $ tw --minify --input-css digit.css index.html | grep -oF '@media(min-width:96rem){.card{display:flex}}'
+  @media(min-width:96rem){.card{display:flex}}
+
+An [in-*] variant heads the selector with the ancestor's class, so the utility's
+own class is not the leftmost one. It is picked out by name, and the ancestor's
+class stays a class:
+
+  $ cat > ancestor.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .item { @apply in-[.group]:flex; }
+  > EOF
+  $ tw --minify --input-css ancestor.css index.html | grep -oF ':where(.group) .item{display:flex}'
+  :where(.group) .item{display:flex}
+
+A [group-*] variant names the group's class beside the utility's own, and only
+the utility's is nested:
+
+  $ cat > group.css <<EOF
+  > @import "tailwindcss" theme(static);
+  > .row { @apply group-hover:flex; }
+  > EOF
+  $ tw --minify --input-css group.css index.html | grep -oF '.row:is(:where(.group):hover *){display:flex}'
+  .row:is(:where(.group):hover *){display:flex}

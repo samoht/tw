@@ -268,6 +268,94 @@ let test_no_class_without_tw () =
   check bool "no class attribute" false
     (Astring.String.is_infix ~affix:"class=" html_str)
 
+let test_void_elements () =
+  (* A void element carries no end tag, whichever constructor built it. *)
+  let s = to_string (picture [ source ~at:[ At.src "a.webp" ] () ]) in
+  check bool "source self-closed" true
+    (Astring.String.is_infix ~affix:"<source src=\"a.webp\" />" s);
+  check bool "no source end tag" false
+    (Astring.String.is_infix ~affix:"</source>" s);
+  let img_str = to_string (img ~at:[ At.src "a.png" ] ()) in
+  check bool "img self-closed" true
+    (Astring.String.is_infix ~affix:"<img src=\"a.png\" />" img_str);
+  let br_str = to_string (br ()) in
+  check string "br self-closed" "<br />" br_str;
+  let hr_str = to_string (hr ()) in
+  check string "hr self-closed" "<hr />" hr_str;
+  let meta_str = to_string (meta ~at:[ At.charset "utf-8" ] ()) in
+  check string "meta self-closed" "<meta charset=\"utf-8\" />" meta_str;
+  let link_str = to_string (link ~at:[ At.rel "icon" ] ()) in
+  check string "link self-closed" "<link rel=\"icon\" />" link_str;
+  let input_str = to_string (input ~at:[ At.name "q" ] ()) in
+  check string "input self-closed" "<input name=\"q\" />" input_str
+
+let test_class_attribute_whitespace () =
+  (* A class attribute written across lines is still a list of classes. *)
+  let elem = div ~at:[ At.v "class" "flex\n  items-center\tgap-4" ] [] in
+  check (list string) "every class recognised"
+    [ "flex"; "items-center"; "gap-4" ]
+    (List.map Tw.pp (to_tw elem));
+  check string "rendered on one line"
+    "<div class=\"flex items-center gap-4\"></div>" (to_string elem)
+
+let test_document_rendering () =
+  (* The whole document is written into one buffer, so the doctype, the empty
+     node and raw text must each still land exactly once and in place. *)
+  let doc = root [ body [ txt "x" ] ] in
+  check string "doctype heads the document"
+    "<!DOCTYPE html>\n<html><body>x</body></html>"
+    (to_string ~doctype:true doc);
+  let nested = div [ doc; empty; raw "<b>&</b>" ] in
+  check string "no second doctype, empty writes nothing, raw is verbatim"
+    "<div><html><body>x</body></html><b>&</b></div>"
+    (to_string ~doctype:true nested)
+
+let test_to_tw_document_order () =
+  (* A node reports its own utilities before its children's, and its children's
+     in document order, however deep the tree. *)
+  let leaf n = span ~tw:[ Tw.p n ] [] in
+  let tree =
+    div
+      ~tw:Tw.[ flex ]
+      [
+        section ~tw:Tw.[ m 1 ] [ leaf 1; div [ leaf 2 ] ];
+        section ~tw:Tw.[ m 2 ] [ leaf 3 ];
+      ]
+  in
+  check (list string) "pre-order, own before children"
+    [ "flex"; "m-1"; "p-1"; "p-2"; "m-2"; "p-3" ]
+    (List.map Tw.pp (to_tw tree))
+
+let sheet p = Tw.Css.to_string ~minify:true (snd (css p))
+
+let test_repeated_utilities_emit_one_sheet () =
+  (* Repeating a utility across a page must not change the sheet: that is what
+     lets the repeats be dropped before they are compiled. *)
+  let markup children = page ~tw_css:Inline [] children in
+  let once =
+    markup
+      [
+        div
+          ~at:[ At.v "class" "underline" ]
+          ~tw:Tw.[ p 4; flex; hover [ bg white ] ]
+          [ span ~tw:Tw.[ m 2 ] [ txt "a" ] ];
+      ]
+  in
+  let repeated =
+    markup
+      [
+        div
+          ~at:[ At.v "class" "underline" ]
+          ~tw:Tw.[ p 4; flex; hover [ bg white ] ]
+          (List.init 20 (fun _ ->
+               span
+                 ~at:[ At.v "class" "underline" ]
+                 ~tw:Tw.[ p 4; m 2; flex; hover [ bg white ] ]
+                 [ txt "a" ]));
+      ]
+  in
+  check string "sheet is the same" (sheet once) (sheet repeated)
+
 let suite =
   ( "tw_html",
     [
@@ -279,10 +367,17 @@ let suite =
       test_case "html escaping" `Quick test_html_escaping;
       test_case "boolean + aria/data attrs" `Quick test_boolean_and_data_attrs;
       test_case "nesting" `Quick test_nesting;
+      test_case "document rendering" `Quick test_document_rendering;
       test_case "to_tw" `Quick test_to_tw;
+      test_case "to_tw document order" `Quick test_to_tw_document_order;
       test_case "pretty printing" `Quick test_pp;
       test_case "page cache busting" `Quick test_page_cache_busting;
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
       test_case "inline css" `Quick test_inline_css;
+      test_case "void elements" `Quick test_void_elements;
+      test_case "class attribute whitespace" `Quick
+        test_class_attribute_whitespace;
+      test_case "repeated utilities emit one sheet" `Quick
+        test_repeated_utilities_emit_one_sheet;
     ] )

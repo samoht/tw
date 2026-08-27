@@ -167,7 +167,7 @@ let test_aspect_classes () =
 
 let test_aspect_css () =
   let open Tw in
-  let css = to_css [ aspect_ratio 16 9 ] |> Css.pp ~minify:true in
+  let css = to_css [ aspect_ratio 16 9 ] |> Css.to_string ~minify:true in
   Alcotest.check bool "has aspect-ratio" true
     (Astring.String.is_infix ~affix:"aspect-ratio" css);
   Alcotest.check bool "has 16/9" true
@@ -211,7 +211,7 @@ let test_logical_size_fractions () =
    var(--aspect-square) with a stray --aspect-square theme token that bare
    Tailwind does not define. *)
 let test_aspect_square_inlined () =
-  let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.pp ~minify:true in
+  let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.to_string ~minify:true in
   Alcotest.check bool "aspect-square inlines the ratio" true
     (Astring.String.is_infix ~affix:"aspect-ratio:1" css);
   Alcotest.check bool "aspect-square references no var" false
@@ -238,7 +238,7 @@ let test_class_generation () =
   (* Verify CSS values are correct. These use calc(var(--spacing)*N) format
      where N is the class number (NOT the rem value). Tailwind v4: w-64 =>
      calc(var(--spacing)*64), h-10 => calc(var(--spacing)*10) *)
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.pp ~minify:true in
+  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
   (* w-64 => calc(var(--spacing)*64) *)
   Alcotest.check bool "w-64 uses spacing*64" true
     (Astring.String.is_infix ~affix:"*64)" (css_for (w 64)));
@@ -467,6 +467,52 @@ let test_named_size_prefers_spacing () =
         (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css))
     [ "w-sm"; "min-w-sm"; "max-w-sm" ]
 
+(* [aspect-[<w>/<h>]] names its class after the bracket, so the ratio has to
+   come back out spelled as the author wrote it rather than re-printed. *)
+let test_arbitrary_aspect_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [ "aspect-[16/9]"; "aspect-[16.50/9]"; "aspect-[1.333]"; "aspect-16/9" ]
+
+(* The bracket holds a ratio or a number, so a word is not an aspect. *)
+let test_arbitrary_aspect_rejects_non_ratio () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "aspect-[abc]"; "aspect-[16/abc]"; "aspect-[]" ]
+
+(* An [--aspect-*] or [--container-*] token the project declared in its [@theme]
+   names a value the built-in scale has no slot for. Tailwind generates the
+   utility from each; tw rejected both outright. [--perspective-*] has the same
+   gap in transforms.ml and is not this module's to test. *)
+let test_project_theme_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("aspect-golden", "1.618");
+        ("perspective-deep", "1200px");
+        ("container-tiny", "12rem");
+      ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "aspect-ratio: var(--aspect-golden)" "aspect-golden";
+  emits "max-width: var(--container-tiny)" "max-w-tiny";
+  Alcotest.(check bool)
+    "an undeclared aspect name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "aspect-nope"))
+
 let tests =
   [
     test_case "named size prefers --spacing-*" `Quick
@@ -493,6 +539,10 @@ let tests =
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
+    test_case "arbitrary aspect spelling" `Quick test_arbitrary_aspect_spelling;
+    test_case "project theme tokens" `Quick test_project_theme_tokens;
+    test_case "arbitrary aspect rejects non-ratio" `Quick
+      test_arbitrary_aspect_rejects_non_ratio;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
   ]

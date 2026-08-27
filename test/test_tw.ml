@@ -19,24 +19,7 @@ let canonical_stylesheet_css css = String.trim css
 let is_allowed_canonicalization_diff diff =
   let allowed_custom_property = function
     | "--font-sans" | "--font-mono" -> true
-    | name
-      when String.starts_with ~prefix:"--text-" name
-           && String.ends_with ~suffix:"--line-height" name ->
-        true
     | name when String.starts_with ~prefix:"--tw-prose-" name -> true
-    | _ -> false
-  in
-  let known_selector_permutation expected actual =
-    match (expected, actual) with
-    | ( ".prose :where(ul ul, ul ol, ol ul, ol \
-         ol):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))",
-        ".prose :where(ol ol, ol ul, ul ol, ul \
-         ul):not(:where([class~=\"not-prose\"], [class~=\"not-prose\"] *))" )
-    | ( ".prose :where(th, td):not(:where([class~=\"not-prose\"], \
-         [class~=\"not-prose\"] *))",
-        ".prose :where(td, th):not(:where([class~=\"not-prose\"], \
-         [class~=\"not-prose\"] *))" ) ->
-        true
     | _ -> false
   in
   let allowed_rule_change = function
@@ -48,9 +31,6 @@ let is_allowed_canonicalization_diff diff =
              (fun (change : Tree_diff.declaration) ->
                allowed_custom_property change.property_name)
              property_changes
-    | Tree_diff.Selector_changed { old_selector; new_selector; declarations } ->
-        declarations <> []
-        && known_selector_permutation old_selector new_selector
     | _ -> false
   in
   let allowed_container = function
@@ -237,146 +217,10 @@ let check_list tw_styles = check_exact_match tw_styles
 
 (* ===== UPSTREAM PARSE PARITY ============================================= *)
 
-type upstream_case = {
-  source : string;
-  name : string;
-  config : upstream_config;
-  variants : string list;
-  theme_vars : (string * string) list;
-      (** [@theme-var name value] token declarations captured from the fixture;
-          they must be threaded into the per-case scheme so custom tokens (e.g.
-          a themed [--inset-shadow]) validate. *)
-  classes : string list;
-  expected : string;
-}
-
-and upstream_config =
-  | Theme
-  | Theme_inline
-  | Theme_reference
-  | Theme_inline_reference
-  | No_theme
-  | Run
-
-let upstream_config_of_string = function
-  | "theme" -> Theme
-  | "theme-inline" -> Theme_inline
-  | "theme-reference" -> Theme_reference
-  | "theme-inline-reference" -> Theme_inline_reference
-  | "none" -> No_theme
-  | "run" -> Run
-  | _ -> No_theme
-
-let split_classes line =
-  let len = String.length line in
-  let buf = Buffer.create 64 in
-  let acc = ref [] in
-  let depth = ref 0 in
-  for i = 0 to len - 1 do
-    let c = line.[i] in
-    if c = '[' then (
-      incr depth;
-      Buffer.add_char buf c)
-    else if c = ']' then (
-      decr depth;
-      Buffer.add_char buf c)
-    else if c = ' ' && !depth = 0 then (
-      let s = Buffer.contents buf in
-      if s <> "" then acc := s :: !acc;
-      Buffer.clear buf)
-    else Buffer.add_char buf c
-  done;
-  let s = Buffer.contents buf in
-  if s <> "" then acc := s :: !acc;
-  List.rev !acc
-
-let fixture_path filename =
-  (* Found at [upstream/<f>] under the dune sandbox (see the test/dune deps), or
-     [test/upstream/<f>] when run from the repo root. *)
-  [
-    filename;
-    Filename.concat "upstream" filename;
-    Filename.concat "test/upstream" filename;
-  ]
-  |> List.find_opt Sys.file_exists
-  |> Option.value ~default:filename
-
-let separator lines =
-  let rec go before = function
-    | [] -> None
-    | line :: rest ->
-        if String.trim line = "---" then Some (List.rev before, rest)
-        else go (line :: before) rest
-  in
-  go [] lines
-
-let parse_upstream_block source block =
-  let lines = String.split_on_char '\n' block in
-  match separator lines with
-  | None -> None
-  | Some (before, after) ->
-      let before = List.map String.trim before in
-      let name =
-        before
-        |> List.find_opt (String.starts_with ~prefix:"# ")
-        |> Option.map (fun s -> String.sub s 2 (String.length s - 2))
-        |> Option.value ~default:"<unnamed>"
-      in
-      let variants =
-        before
-        |> List.filter_map (fun s ->
-            if String.starts_with ~prefix:"@variant " s then
-              Some (String.sub s 9 (String.length s - 9))
-            else None)
-      in
-      let theme_vars =
-        before
-        |> List.filter_map (fun s ->
-            if String.starts_with ~prefix:"@theme-var " s then
-              (* "@theme-var <name> <value>": split on the first space. *)
-              let rest = String.sub s 11 (String.length s - 11) in
-              match String.index_opt rest ' ' with
-              | Some i ->
-                  let n = String.sub rest 0 i in
-                  let v =
-                    String.sub rest (i + 1) (String.length rest - i - 1)
-                  in
-                  Some (n, v)
-              | None -> None
-            else None)
-      in
-      let config =
-        before
-        |> List.find_opt (String.starts_with ~prefix:"@config ")
-        |> Option.map (fun s ->
-            String.sub s 8 (String.length s - 8) |> upstream_config_of_string)
-        |> Option.value ~default:No_theme
-      in
-      let class_line =
-        before
-        |> List.filter (fun s ->
-            s <> ""
-            && (not (String.starts_with ~prefix:"# " s))
-            && (not (String.starts_with ~prefix:"@config " s))
-            && (not (String.starts_with ~prefix:"@variant " s))
-            && not (String.starts_with ~prefix:"@theme-var " s))
-        |> List.rev
-        |> List.find_opt (fun _ -> true)
-      in
-      let classes = Option.value ~default:"" class_line |> split_classes in
-      let expected = after |> String.concat "\n" |> String.trim in
-      Some { source; name; config; variants; theme_vars; classes; expected }
-
-let read_upstream_cases filename =
-  let path = fixture_path filename in
-  let ic = open_in path in
-  let content = really_input_string ic (in_channel_length ic) in
-  close_in ic;
-  content
-  |> Astring.String.cuts ~sep:"<<<>>>"
-  |> List.filter_map (parse_upstream_block filename)
-
-let register_upstream_variant_directives directives =
+(* The case's own [@custom-variant]s, as the two scheme fields that carry them.
+   Directive form: "name <template> KEY=value ...", DEFAULT mapped to the
+   default slot; "container <name> <header>" for a container-query body. *)
+let upstream_variants directives =
   let parse_variant_directive d =
     match String.split_on_char ' ' d with
     | "container" :: _ -> None
@@ -392,7 +236,7 @@ let register_upstream_variant_directives directives =
               | None -> None)
             pairs
         in
-        Some (name, Tw.Modifiers.{ values; template })
+        Some (name, Tw.Scheme.{ values; template })
     | _ -> None
   in
   let parse_container_directive d =
@@ -412,55 +256,32 @@ let register_upstream_variant_directives directives =
         try Some (name, container_of_header header) with Failure _ -> None)
     | _ -> None
   in
-  Tw.Modifiers.register_custom_variants
-    (List.filter_map parse_variant_directive directives);
-  Tw.Modifiers.register_container_variants
-    (List.filter_map parse_container_directive directives)
+  ( List.filter_map parse_variant_directive directives,
+    List.filter_map parse_container_directive directives )
 
-let upstream_positive_cases filename =
-  read_upstream_cases filename
-  |> List.filter (fun c -> c.expected <> "" && c.classes <> [])
-
-let extract_root_vars expected =
-  let pattern = Re.Pcre.regexp {|--([a-zA-Z0-9_-]+):\s*([^;}]+)|} in
-  Re.all pattern expected
-  |> List.filter_map (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let value = String.trim (Re.Group.get m 2) in
-        Some (name, value)
-      with Not_found | Failure _ -> None)
-
-let extract_var_fallbacks expected =
-  let pattern =
-    Re.Pcre.regexp
-      {|var\(--([a-zA-Z0-9_-]+),\s*(var\(--[a-zA-Z0-9_-]+\)|[^)]+)\)|}
-  in
-  Re.all pattern expected
-  |> List.filter_map (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let fallback = String.trim (Re.Group.get m 2) in
-        Some (name, fallback)
-      with Not_found | Failure _ -> None)
-
-(* The [--tw-*] vars a utility emits at runtime are tw's own output rather than
-   theme tokens a test declares; they must not become token overrides. *)
-let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
+let upstream_positive_cases basename =
+  match Upstream_fixture.path basename with
+  | None -> Alcotest.failf "%s not found. Run extract_tests.exe first." basename
+  | Some p ->
+      Upstream_fixture.read p
+      |> List.filter (fun (c : Upstream_fixture.case) ->
+          c.expected <> "" && c.classes <> [])
 
 (* Build the per-test scheme from the @theme tokens in the expected CSS, so
    of_string validates custom tokens against the threaded theme. *)
-let upstream_scheme config theme_vars expected =
+let upstream_scheme (config : Upstream_fixture.config) theme_vars variants
+    expected =
   let overrides =
     match config with
     | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
         let base =
-          extract_root_vars expected
-          |> List.filter (fun (name, _) -> not (is_runtime_var name))
+          Upstream_fixture.extract_root_vars expected
+          |> List.filter (fun (name, _) ->
+              not (Upstream_fixture.is_runtime_var name))
         in
         if config = Theme_reference || config = Theme_inline_reference then
           let extra =
-            extract_var_fallbacks expected
+            Upstream_fixture.extract_var_fallbacks expected
             |> List.filter (fun (name, _) -> not (List.mem_assoc name base))
           in
           base @ extra
@@ -474,11 +295,18 @@ let upstream_scheme config theme_vars expected =
     let extra =
       theme_vars
       |> List.filter (fun (name, _) ->
-          (not (is_runtime_var name)) && not (List.mem_assoc name overrides))
+          (not (Upstream_fixture.is_runtime_var name))
+          && not (List.mem_assoc name overrides))
     in
     overrides @ extra
   in
-  Tw.Scheme.with_overrides Tw.Scheme.default overrides
+  (* Every custom breakpoint a case uses arrives as a [--breakpoint-*] token in
+     [overrides], so the parse reads it from the threaded theme. *)
+  let custom_variants, container_variants = upstream_variants variants in
+  let base : Tw.Scheme.t =
+    { Tw.Scheme.default with custom_variants; container_variants }
+  in
+  Tw.Scheme.with_overrides base overrides
 
 let class_is_emitted expected cls =
   String.contains expected '.'
@@ -488,13 +316,12 @@ let class_is_emitted expected cls =
 
 let check_upstream_positive_fixture_parse filename () =
   let cases = upstream_positive_cases filename in
-  Tw.Modifiers.register_custom_breakpoints
-    [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
   let rejected =
     cases
-    |> List.concat_map (fun c ->
-        register_upstream_variant_directives c.variants;
-        let theme = upstream_scheme c.config c.theme_vars c.expected in
+    |> List.concat_map (fun (c : Upstream_fixture.case) ->
+        let theme =
+          upstream_scheme c.config c.theme_vars c.variants c.expected
+        in
         c.classes
         |> List.filter (class_is_emitted c.expected)
         |> List.filter_map (fun cls ->
@@ -512,7 +339,7 @@ let check_upstream_positive_fixture_parse filename () =
       in
       let sample =
         rejected |> take 30
-        |> List.map (fun (c, cls, msg) ->
+        |> List.map (fun ((c : Upstream_fixture.case), cls, msg) ->
             Fmt.str "%s / %s / %s: %s" c.source c.name cls msg)
         |> String.concat "\n"
       in
@@ -605,8 +432,29 @@ let responsive_breakpoints () =
   check (sm [ text_lg ]);
   check (md [ p 8 ])
 
+(* [theme(colors.<name>.<shade>)] resolves against the threaded theme, not the
+   default palette: a project that overrides [--color-red-500] gets its own
+   colour back, the way [bg-red-500] already does. tw used to answer with the
+   built-in oklch, so one class read the override and the other did not. *)
+let theme_function_reads_the_project_palette () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#123456") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "theme(colors.red.500) reads the override" true
+    (Astring.String.is_infix ~affix:"#123456"
+       (css "[color:theme(colors.red.500)]"));
+  Alcotest.(check bool)
+    "an unoverridden colour keeps the default" true
+    (Astring.String.is_infix ~affix:"oklch"
+       (css "[color:theme(colors.blue.500)]"))
+
 let custom_breakpoint_theme_is_local () =
-  Tw.Modifiers.clear_custom_breakpoints ();
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
   in
@@ -1153,6 +1001,34 @@ let unterminated_theme_call () =
            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
   | Error (`Msg m) -> Alcotest.failf "bg-[theme(colors.red.500)]: %s" m
 
+(* The rejection an unrecognised [prop:value] candidate gets has to describe the
+   shape one must have. Plain [--name:value] declarations and non-colour
+   properties are emitted, so the message must not point the reader at those. *)
+let arbitrary_property_rejection_message () =
+  let message cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error (`Msg m) -> m
+  in
+  List.iter
+    (fun cls ->
+      let m = message cls in
+      Alcotest.(check bool)
+        (cls ^ " does not call the supported forms unsupported")
+        false
+        (Astring.String.is_infix ~affix:"not yet supported" m);
+      Alcotest.(check bool)
+        (cls ^ " names the shape a candidate must have")
+        true
+        (Astring.String.is_infix ~affix:"[property:value]" m))
+    [ "[color:red]xyz"; "[--foo:bar]xyz"; "[:red]"; "[color:red]/notanopacity" ];
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    [ "[--foo:bar]"; "[mask-type:luminance]" ]
+
 let all_colors_grays () =
   check_list
     (bg_shades slate shades @ bg_shades gray shades @ bg_shades zinc shades
@@ -1321,6 +1197,8 @@ let core_tests =
     test_case "responsive breakpoints" `Slow responsive_breakpoints;
     test_case "custom breakpoint theme is local" `Quick
       custom_breakpoint_theme_is_local;
+    test_case "theme() reads the project palette" `Quick
+      theme_function_reads_the_project_palette;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
@@ -1380,6 +1258,8 @@ let core_tests =
     test_case "style combination" `Slow style_combination;
     test_case "paren var shorthand" `Quick paren_var_shorthand;
     test_case "unterminated theme() call" `Quick unterminated_theme_call;
+    test_case "arbitrary property rejection message" `Quick
+      arbitrary_property_rejection_message;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;

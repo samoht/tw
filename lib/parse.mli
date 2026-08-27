@@ -56,8 +56,10 @@ val extract_var_name : string -> string
 *)
 
 val is_bracket_value : string -> bool
-(** [is_bracket_value s] returns [true] if [s] is a bracket-wrapped value like
-    ["[...]"]. *)
+(** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
+    closing bracket has to be the last character, so a suffix carrying a second
+    bracket - one bracket with a bracket modifier, or two brackets in a row - is
+    not one bracket value. *)
 
 val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
@@ -83,6 +85,13 @@ val arbitrary_length : string -> Cascade.Css.length option
     [s] goes through {!decode_arbitrary_value} first, so underscores, [calc()]
     and [--spacing()] all read; the whole CSS length grammar is accepted, not a
     hand-picked subset of units. Returns [None] when [s] is not a length. *)
+
+val arbitrary_length_percentage : string -> Cascade.Css.length_percentage option
+(** [arbitrary_length_percentage s] reads the inside of an arbitrary value as a
+    CSS [<length-percentage>]. It is {!arbitrary_length} narrowed to the values
+    that spelling admits: the keywords the length reader also accepts ([auto],
+    [none], [max-content], ...) and a unitless number are [None], because
+    neither is a length-percentage. *)
 
 val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a

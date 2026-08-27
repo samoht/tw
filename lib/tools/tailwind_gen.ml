@@ -286,7 +286,7 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
       Fmt.str
         "cd %s && %s -i input.css -o output.css --content input.html%s%s \
          2>/dev/null"
-        dir tailwind_cmd minify_flag optimize_flag
+        (Filename.quote dir) tailwind_cmd minify_flag optimize_flag
     in
 
     let exit_code = Sys.command cmd in

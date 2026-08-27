@@ -45,8 +45,7 @@ module Handler = struct
     !v
 
   let color_suffix color shade =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Color.color_to_string color
+    if Color.is_shadeless color then Color.color_to_string color
     else Color.color_to_string color ^ "-" ^ string_of_int shade
 
   (* Bracket values sort first, then keywords/theme colours alphabetically (ties
@@ -72,27 +71,14 @@ module Handler = struct
     in
     (group lsl 32) + detail
 
-  let opacity_suffix = function
-    | Color.No_opacity -> ""
-    | Color.Opacity_percent p ->
-        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
-        else "/" ^ Pp.float p
-    | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
-        else "/[" ^ Pp.float p ^ "%]"
-    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named n -> "/" ^ n
-    | Color.Opacity_var v -> "/" ^ v
-
   let spec_class = function
     | Theme (color, shade, op) ->
         let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            Color.color_to_string color
+          if Color.is_shadeless color then Color.color_to_string color
           else Color.color_to_string color ^ "-" ^ string_of_int shade
         in
-        base ^ opacity_suffix op
-    | Bracket (raw, _, op) -> raw ^ opacity_suffix op
+        base ^ Color.opacity_suffix op
+    | Bracket (raw, _, op) -> raw ^ Color.opacity_suffix op
     | Current -> "current"
     | Inherit -> "inherit"
     | Transparent -> "transparent"
@@ -122,15 +108,16 @@ module Handler = struct
 
   (* Return (declarations placed on the rule, optional @supports rules) that set
      [set_var] to the resolved colour. *)
-  let value_decls ?theme ~set_var ~prop_name spec :
+  let value_decls ?theme ~set_var spec :
       Css.declaration list * Css.statement list =
+    let keyword k =
+      Css.custom_property ~layer:"utilities" (Var.css_name set_var) k
+    in
     match spec with
     (* Tailwind keeps these keywords literal in the custom property, where
        cascade's typed pp would fold them ([#0000] / [currentColor]). *)
-    | Transparent ->
-        ([ Css.custom_property ~layer:"utilities" prop_name "transparent" ], [])
-    | Current ->
-        ([ Css.custom_property ~layer:"utilities" prop_name "currentcolor" ], [])
+    | Transparent -> ([ keyword "transparent" ], [])
+    | Current -> ([ keyword "currentcolor" ], [])
     | Inherit -> ([ fst (Var.binding set_var (Css.Inherit : Css.color)) ], [])
     | Theme (color, shade, Color.No_opacity) ->
         let color_decl, color_ref =
@@ -176,15 +163,12 @@ module Handler = struct
         in
         ([ fst (Var.binding set_var oklab) ], [])
 
-  let compose ?theme ~set_var ~prop_name spec =
-    let main_decls, supports_rules =
-      value_decls ?theme ~set_var ~prop_name spec
-    in
+  let compose ?theme ~set_var spec =
+    let main_decls, supports_rules = value_decls ?theme ~set_var spec in
     let scrollbar_color_decl =
       Css.scrollbar_color
         (Colors
-           ( Css.Var (Var.bracket "tw-scrollbar-thumb"),
-             Css.Var (Var.bracket "tw-scrollbar-track") ))
+           (Css.Var (Var.reference thumb_var), Css.Var (Var.reference track_var)))
     in
     let property_rules =
       [ Var.property_rule thumb_var; Var.property_rule track_var ]
@@ -206,7 +190,7 @@ module Handler = struct
         style ~property_rules ~rules:(Some ordered) []
 
   let to_style theme =
-    let compose ~set_var ~prop_name s = compose ~theme ~set_var ~prop_name s in
+    let compose ~set_var s = compose ~theme ~set_var s in
     function
     | Width_auto -> style [ Css.scrollbar_width Auto ]
     | Width_none -> style [ Css.scrollbar_width None ]
@@ -214,8 +198,8 @@ module Handler = struct
     | Gutter_auto -> style [ Css.scrollbar_gutter Auto ]
     | Gutter_stable -> style [ Css.scrollbar_gutter Stable ]
     | Gutter_both -> style [ Css.scrollbar_gutter Stable_both_edges ]
-    | Thumb s -> compose ~set_var:thumb_var ~prop_name:"--tw-scrollbar-thumb" s
-    | Track s -> compose ~set_var:track_var ~prop_name:"--tw-scrollbar-track" s
+    | Thumb s -> compose ~set_var:thumb_var s
+    | Track s -> compose ~set_var:track_var s
 
   let has_opacity s = String.contains s '/'
 
@@ -241,7 +225,7 @@ module Handler = struct
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
     | parts -> (
-        match Color.shade_of_strings parts with
+        match Color.shade_of_strings ?theme parts with
         | Ok (c, shade) -> Ok (mk (Theme (c, shade, Color.No_opacity)))
         | Error e -> Error e)
 

@@ -21,7 +21,10 @@ module Handler = struct
     | Blur_xl
     | Blur_2xl
     | Blur_3xl
-    | Blur_arbitrary of string
+    (* The author's bracket text travels with the length it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Blur_arbitrary of string * Css.length
+    | Blur_theme of string (* radius from a --blur-* token *)
     | Brightness of int
     | Brightness_arbitrary of string
     | Contrast of int
@@ -35,8 +38,10 @@ module Handler = struct
     | Invert of int
     | Invert_arbitrary of string
     | Hue_rotate of int
-    | Hue_rotate_arbitrary of Css.angle
-    | Neg_hue_rotate_arbitrary of Css.angle
+    (* The author's bracket text travels with the angle it denotes, so the class
+       name is spelled exactly as it was written. *)
+    | Hue_rotate_arbitrary of string * Css.angle
+    | Neg_hue_rotate_arbitrary of string * Css.angle
     | Drop_shadow
     | Drop_shadow_xs
     | Drop_shadow_sm
@@ -70,7 +75,7 @@ module Handler = struct
     | Backdrop_blur_xl
     | Backdrop_blur_2xl
     | Backdrop_blur_3xl
-    | Backdrop_blur_arbitrary of string
+    | Backdrop_blur_arbitrary of string * Css.length
     | Backdrop_brightness of int
     | Backdrop_brightness_arbitrary of string
     | Backdrop_contrast of int
@@ -86,8 +91,8 @@ module Handler = struct
     | Backdrop_sepia of int
     | Backdrop_sepia_arbitrary of string
     | Backdrop_hue_rotate of int
-    | Backdrop_hue_rotate_arbitrary of Css.angle
-    | Neg_backdrop_hue_rotate_arbitrary of Css.angle
+    | Backdrop_hue_rotate_arbitrary of string * Css.angle
+    | Neg_backdrop_hue_rotate_arbitrary of string * Css.angle
 
   type Utility.base += Self of t
 
@@ -289,6 +294,20 @@ module Handler = struct
      [blur(8px)] inline. *)
   let blur_xs_var = Var.theme Css.Length "blur-xs" ~order:(8, 0)
   let blur_sm_var = Var.theme Css.Length "blur-sm" ~order:(8, 1)
+
+  (* A [--blur-*] token the project declared names a radius the built-in scale
+     has no slot for; they share the slot after the scale. *)
+  let blur_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let blur_named_var name =
+    match Hashtbl.find_opt blur_named_cache name with
+    | Some var -> var
+    | None ->
+        let var = Var.theme Css.Length ("blur-" ^ name) ~order:(8, 8) in
+        Hashtbl.add blur_named_cache name var;
+        var
+
   let blur_md_var = Var.theme Css.Length "blur-md" ~order:(8, 2)
   let blur_lg_var = Var.theme Css.Length "blur-lg" ~order:(8, 3)
   let blur_xl_var = Var.theme Css.Length "blur-xl" ~order:(8, 4)
@@ -303,6 +322,24 @@ module Handler = struct
         filter_var_decl "--tw-blur" (Blur (Var ref_));
         filter composable_filter_chain;
       ]
+
+  let is_theme_blur theme n =
+    Scheme.theme_value (Some theme) ("blur-" ^ n) <> None
+
+  let blur_theme theme name =
+    match Scheme.theme_value (Some theme) ("blur-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_length raw with
+        | None -> style []
+        | Some len ->
+            let decl, ref_ = Var.binding (blur_named_var name) len in
+            style ~property_rules:filter_property_rules
+              [
+                decl;
+                filter_var_decl "--tw-blur" (Blur (Var ref_));
+                filter composable_filter_chain;
+              ])
 
   let blur_xs = blur_size_utility blur_xs_var 4.
   let blur_sm = blur_size_utility blur_sm_var 8.
@@ -321,27 +358,19 @@ module Handler = struct
       ]
 
   (* Parse bracket content for length values (e.g., "4px", "0.5rem") *)
-  let parse_bracket_length s =
+  (* The length a [blur-[...]] bracket denotes, read with cascade's own grammar
+     so calc() and every unit come for free. A var bracket keeps the tw-side
+     reference the variable system tracks. [None] is a bracket no length reads
+     from, and [of_class] refuses the utility rather than leaving [to_style] to
+     raise. *)
+  let arbitrary_blur s : Css.length option =
     let inner = Parse.bracket_inner s in
-    let slen = String.length inner in
-    let i = ref 0 in
-    while
-      !i < slen && ((inner.[!i] >= '0' && inner.[!i] <= '9') || inner.[!i] = '.')
-    do
-      incr i
-    done;
-    if !i = 0 || !i = slen then Option.None
-    else
-      let num_s = String.sub inner 0 !i in
-      let unit_s = String.sub inner !i (slen - !i) in
-      match Float.of_string_opt num_s with
-      | Option.None -> Option.None
-      | Option.Some n -> (
-          match unit_s with
-          | "px" -> Option.Some (Px n : Css.length)
-          | "rem" -> Option.Some (Rem n)
-          | "em" -> Option.Some (Em n)
-          | _ -> Option.None)
+    if Parse.is_var inner then
+      let ref_ : Css.length Css.var =
+        Var.bracket (Parse.extract_var_name inner)
+      in
+      Option.Some (Css.Var ref_ : Css.length)
+    else Css.parse_length (Parse.decode_underscores inner)
 
   (* Parse bracket content for angle values (e.g., "45deg") *)
   let parse_bracket_angle s =
@@ -394,16 +423,7 @@ module Handler = struct
   let parse_bracket_numpct inner : Css.number_percentage =
     Option.value (parse_bracket_numpct_opt inner) ~default:(Num 0.)
 
-  let blur_arbitrary s =
-    match parse_bracket_length s with
-    | Option.Some len -> set_filter_var "--tw-blur" (Blur len)
-    | Option.None ->
-        let inner = Parse.bracket_inner s in
-        if Parse.is_var inner then
-          let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Var.bracket bare in
-          set_filter_var "--tw-blur" (Blur (Var ref_))
-        else invalid_arg ("Invalid blur value: " ^ s)
+  let blur_arbitrary len = set_filter_var "--tw-blur" (Blur len)
 
   let brightness_arbitrary s =
     let inner = Parse.bracket_inner s in
@@ -473,7 +493,7 @@ module Handler = struct
     fst (Var.binding drop_shadow_color_var value)
 
   let drop_shadow_size_ref : Css.filter =
-    Css.Var (Var.bracket "tw-drop-shadow-size")
+    Css.Var (Var.bracket (Var.name drop_shadow_size_var))
 
   let drop_shadow_theme_ref name : Css.filter =
     Css.Drop_shadow (Css.Var (Var.bracket name) : Css.shadow)
@@ -855,14 +875,14 @@ module Handler = struct
   let drop_shadow_opacity ?theme opacity =
     let alpha_str =
       match opacity with
-      | Color.Opacity_percent p ->
+      | Color.Opacity_percent { value = p; _ } ->
           (* keep a fractional alpha (/12.5 -> 12.5%), do not truncate to 12% *)
           if Float.is_integer p then string_of_int (int_of_float p) ^ "%"
           else Css.Pp.string_of_float p ^ "%"
       | _ -> "100%"
     in
     let percent =
-      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
     (* The modifier recolours the shadow, so it applies to the size, which is
@@ -905,7 +925,7 @@ module Handler = struct
 
   let drop_shadow_size_opacity (v, blur) opacity =
     let percent =
-      match opacity with Color.Opacity_percent p -> p | _ -> 100.
+      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
     in
     let alpha_str =
       if Float.is_integer percent then
@@ -1053,16 +1073,8 @@ module Handler = struct
   let backdrop_blur_2xl = backdrop_blur_size blur_2xl_var 40.
   let backdrop_blur_3xl = backdrop_blur_size blur_3xl_var 64.
 
-  let backdrop_blur_arbitrary s =
-    match parse_bracket_length s with
-    | Option.Some len -> set_backdrop_var "--tw-backdrop-blur" (Blur len)
-    | Option.None ->
-        let inner = Parse.bracket_inner s in
-        if Parse.is_var inner then
-          let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Var.bracket bare in
-          set_backdrop_var "--tw-backdrop-blur" (Blur (Var ref_))
-        else invalid_arg ("Invalid backdrop-blur value: " ^ s)
+  let backdrop_blur_arbitrary len =
+    set_backdrop_var "--tw-backdrop-blur" (Blur len)
 
   let backdrop_brightness n =
     set_backdrop_var "--tw-backdrop-brightness"
@@ -1179,13 +1191,14 @@ module Handler = struct
     | Blur_none -> blur_none ()
     | Blur_xs -> blur_xs ()
     | Blur_sm -> blur_sm ()
+    | Blur_theme name -> blur_theme theme name
     | Blur -> blur ()
     | Blur_md -> blur_md ()
     | Blur_lg -> blur_lg ()
     | Blur_xl -> blur_xl ()
     | Blur_2xl -> blur_2xl ()
     | Blur_3xl -> blur_3xl ()
-    | Blur_arbitrary s -> blur_arbitrary s
+    | Blur_arbitrary (_, len) -> blur_arbitrary len
     | Brightness n -> brightness n
     | Brightness_arbitrary s -> brightness_arbitrary s
     | Contrast n -> contrast n
@@ -1199,8 +1212,8 @@ module Handler = struct
     | Invert n -> invert n
     | Invert_arbitrary s -> invert_arbitrary s
     | Hue_rotate n -> hue_rotate n
-    | Hue_rotate_arbitrary angle -> hue_rotate_arbitrary angle
-    | Neg_hue_rotate_arbitrary angle -> neg_hue_rotate_arbitrary angle
+    | Hue_rotate_arbitrary (_, angle) -> hue_rotate_arbitrary angle
+    | Neg_hue_rotate_arbitrary (_, angle) -> neg_hue_rotate_arbitrary angle
     | Drop_shadow -> drop_shadow_ ()
     | Drop_shadow_xs -> drop_shadow_xs_ ()
     | Drop_shadow_sm -> drop_shadow_sm_ ()
@@ -1230,7 +1243,7 @@ module Handler = struct
     | Backdrop_blur_xl -> backdrop_blur_xl ()
     | Backdrop_blur_2xl -> backdrop_blur_2xl ()
     | Backdrop_blur_3xl -> backdrop_blur_3xl ()
-    | Backdrop_blur_arbitrary s -> backdrop_blur_arbitrary s
+    | Backdrop_blur_arbitrary (_, len) -> backdrop_blur_arbitrary len
     | Backdrop_brightness n -> backdrop_brightness n
     | Backdrop_brightness_arbitrary s -> backdrop_brightness_arbitrary s
     | Backdrop_contrast n -> backdrop_contrast n
@@ -1249,8 +1262,9 @@ module Handler = struct
         if n = 100 then backdrop_sepia_default else backdrop_sepia n
     | Backdrop_sepia_arbitrary s -> backdrop_sepia_arbitrary s
     | Backdrop_hue_rotate n -> backdrop_hue_rotate n
-    | Backdrop_hue_rotate_arbitrary angle -> backdrop_hue_rotate_arbitrary angle
-    | Neg_backdrop_hue_rotate_arbitrary angle ->
+    | Backdrop_hue_rotate_arbitrary (_, angle) ->
+        backdrop_hue_rotate_arbitrary angle
+    | Neg_backdrop_hue_rotate_arbitrary (_, angle) ->
         neg_backdrop_hue_rotate_arbitrary angle
     | Backdrop_filter -> backdrop_filter_
     | Backdrop_filter_none -> backdrop_filter_none
@@ -1270,6 +1284,7 @@ module Handler = struct
     | Blur_md -> 5
     | Blur_none -> 6
     | Blur_sm -> 7
+    | Blur_theme _ -> 14
     | Blur_xl -> 8
     | Blur_xs -> 9
     | Brightness n -> 1000 + n
@@ -1368,7 +1383,13 @@ module Handler = struct
     | [ "blur"; "xl" ] -> Ok Blur_xl
     | [ "blur"; "2xl" ] -> Ok Blur_2xl
     | [ "blur"; "3xl" ] -> Ok Blur_3xl
-    | [ "blur"; s ] when Parse.is_bracket_value s -> Ok (Blur_arbitrary s)
+    | "blur" :: (_ :: _ as rest)
+      when is_theme_blur theme (String.concat "-" rest) ->
+        Ok (Blur_theme (String.concat "-" rest))
+    | [ "blur"; s ] when Parse.is_bracket_value s -> (
+        match arbitrary_blur s with
+        | Option.Some len -> Ok (Blur_arbitrary (s, len))
+        | Option.None -> Error (`Msg ("Invalid blur value: " ^ s)))
     | [ "brightness"; s ] when Parse.is_bracket_value s && is_numpct_bracket s
       ->
         Ok (Brightness_arbitrary s)
@@ -1397,13 +1418,15 @@ module Handler = struct
     | [ "invert" ] -> Ok (Invert 100)
     | [ "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ "hue"; "rotate"; n ] -> Parse.int_any n >|= fun x -> Hue_rotate x
     (* Negative hue-rotate: -hue-rotate-N or -hue-rotate-[Ndeg] *)
     | [ ""; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Neg_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Neg_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ ""; "hue"; "rotate"; n ] ->
         Parse.int_pos ~name:"hue-rotate" n >|= fun x -> Hue_rotate (-x)
@@ -1490,8 +1513,10 @@ module Handler = struct
     | [ "backdrop"; "blur"; "xl" ] -> Ok Backdrop_blur_xl
     | [ "backdrop"; "blur"; "2xl" ] -> Ok Backdrop_blur_2xl
     | [ "backdrop"; "blur"; "3xl" ] -> Ok Backdrop_blur_3xl
-    | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s ->
-        Ok (Backdrop_blur_arbitrary s)
+    | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s -> (
+        match arbitrary_blur s with
+        | Option.Some len -> Ok (Backdrop_blur_arbitrary (s, len))
+        | Option.None -> Error (`Msg ("Invalid backdrop-blur value: " ^ s)))
     | [ "backdrop"; "brightness"; s ]
       when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_brightness_arbitrary s)
@@ -1538,33 +1563,22 @@ module Handler = struct
     | [ "backdrop"; "sepia" ] -> Ok (Backdrop_sepia 100)
     | [ "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Backdrop_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok (Backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ "backdrop"; "hue"; "rotate"; n ] ->
         Parse.int_any n >|= fun x -> Backdrop_hue_rotate x
     (* Negative backdrop hue-rotate *)
     | [ ""; "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
         match parse_bracket_angle s with
-        | Option.Some angle -> Ok (Neg_backdrop_hue_rotate_arbitrary angle)
+        | Option.Some angle ->
+            Ok
+              (Neg_backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
         | Option.None -> err_not_utility)
     | [ ""; "backdrop"; "hue"; "rotate"; n ] ->
         Parse.int_pos ~name:"backdrop-hue-rotate" n >|= fun x ->
         Backdrop_hue_rotate (-x)
     | _ -> err_not_utility
-
-  let pp_angle_bracket = function
-    | Css.Deg n ->
-        let s = string_of_float n in
-        let s =
-          if String.length s > 0 && s.[String.length s - 1] = '.' then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        s ^ "deg"
-    | Rad n -> string_of_float n ^ "rad"
-    | Turn n -> string_of_float n ^ "turn"
-    | Grad n -> string_of_float n ^ "grad"
-    | _ -> "0deg"
 
   let to_class = function
     | Filter -> "filter"
@@ -1576,13 +1590,14 @@ module Handler = struct
     | Blur_none -> "blur-none"
     | Blur_xs -> "blur-xs"
     | Blur_sm -> "blur-sm"
+    | Blur_theme name -> "blur-" ^ name
     | Blur -> "blur"
     | Blur_md -> "blur-md"
     | Blur_lg -> "blur-lg"
     | Blur_xl -> "blur-xl"
     | Blur_2xl -> "blur-2xl"
     | Blur_3xl -> "blur-3xl"
-    | Blur_arbitrary s -> "blur-" ^ s
+    | Blur_arbitrary (s, _) -> "blur-" ^ s
     | Brightness n -> "brightness-" ^ string_of_int n
     | Brightness_arbitrary s -> "brightness-" ^ s
     | Contrast n -> "contrast-" ^ string_of_int n
@@ -1604,10 +1619,8 @@ module Handler = struct
     | Hue_rotate n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "hue-rotate-" ^ string_of_int (abs n)
-    | Hue_rotate_arbitrary angle ->
-        "hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
-    | Neg_hue_rotate_arbitrary angle ->
-        "-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
+    | Hue_rotate_arbitrary (spelling, _) -> "hue-rotate-[" ^ spelling ^ "]"
+    | Neg_hue_rotate_arbitrary (spelling, _) -> "-hue-rotate-[" ^ spelling ^ "]"
     | Drop_shadow -> "drop-shadow"
     | Drop_shadow_xs -> "drop-shadow-xs"
     | Drop_shadow_sm -> "drop-shadow-sm"
@@ -1641,7 +1654,7 @@ module Handler = struct
     | Backdrop_blur_xl -> "backdrop-blur-xl"
     | Backdrop_blur_2xl -> "backdrop-blur-2xl"
     | Backdrop_blur_3xl -> "backdrop-blur-3xl"
-    | Backdrop_blur_arbitrary s -> "backdrop-blur-" ^ s
+    | Backdrop_blur_arbitrary (s, _) -> "backdrop-blur-" ^ s
     | Backdrop_brightness n -> "backdrop-brightness-" ^ string_of_int n
     | Backdrop_brightness_arbitrary s -> "backdrop-brightness-" ^ s
     | Backdrop_contrast n -> "backdrop-contrast-" ^ string_of_int n
@@ -1669,10 +1682,10 @@ module Handler = struct
     | Backdrop_hue_rotate n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "backdrop-hue-rotate-" ^ string_of_int (abs n)
-    | Backdrop_hue_rotate_arbitrary angle ->
-        "backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
-    | Neg_backdrop_hue_rotate_arbitrary angle ->
-        "-backdrop-hue-rotate-[" ^ pp_angle_bracket angle ^ "]"
+    | Backdrop_hue_rotate_arbitrary (spelling, _) ->
+        "backdrop-hue-rotate-[" ^ spelling ^ "]"
+    | Neg_backdrop_hue_rotate_arbitrary (spelling, _) ->
+        "-backdrop-hue-rotate-[" ^ spelling ^ "]"
 
   let examples = [ Filter_none; Backdrop_filter_none ]
 end

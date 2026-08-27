@@ -63,6 +63,11 @@ type indexed_rule = {
           call. *)
   nested_media_key : Css.Media.key option;
       (** Precomputed sort key of a single nested media condition. *)
+  responsive_media_key : Css.Media.key option;
+      (** Precomputed sort key of the rule's breakpoint condition, built with
+          {!val-responsive_media_key}. A stacked variant writes the breakpoint
+          at either nesting level, and Tailwind groups the rule under it either
+          way. *)
 }
 
 val classify_selector : Css.Selector.t -> selector_kind
@@ -90,6 +95,19 @@ val media_sort_keys :
 (** [media_sort_keys rule_type nested] is the [(media_key, nested_media_key)]
     pair stored on an {!type-indexed_rule}, computed once so comparisons never
     re-serialize a media query. *)
+
+val responsive_media_key :
+  [ `Regular
+  | `Media of Css.Media.t
+  | `Container of Css.Container.t
+  | `Starting
+  | `Supports of Css.Supports.t ] ->
+  Css.statement list ->
+  Css.Media.key option
+(** [responsive_media_key rule_type nested] is the sort key of the breakpoint
+    condition the rule carries, taken from its own condition when that is a
+    width query and from a single nested one otherwise. [None] when neither is a
+    breakpoint. *)
 
 (** {1 Sorting} *)
 

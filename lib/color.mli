@@ -72,8 +72,10 @@ val rgb_to_hex : rgb -> string
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
-val to_css : color -> int -> Css.color
-(** [to_css color shade] converts a color to CSS color value. *)
+val to_css : ?theme:Scheme.t -> color -> int -> Css.color
+(** [to_css ?theme color shade] converts a color to CSS color value. A project
+    token declared in an [\@theme] block has no palette entry, so [theme]
+    supplies its value; without one such a colour reads as transparent. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -180,7 +182,14 @@ val of_string : string -> (color, [ `Msg of string ]) result
 (** {1 Color Conversion} *)
 
 val to_oklch : color -> int -> oklch
-(** [to_oklch color shade] converts color to OKLCH data for a given shade. *)
+(** [to_oklch color shade] converts color to OKLCH data for a given shade. A
+    colour the palette does not define reads as black; use {!to_oklch_opt} to
+    tell that case apart. *)
+
+val to_oklch_opt : color -> int -> oklch option
+(** [to_oklch_opt color shade] is the OKLCH data for [color] at [shade], or
+    [None] for a colour the palette does not define - a project token, whose
+    value only the theme knows. *)
 
 val to_oklch_css : color -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
@@ -331,15 +340,26 @@ val caret_transparent : t
 
 (** {1 Opacity Modifiers} *)
 
+type opacity_number = {
+  value : float;  (** the number the modifier denotes *)
+  text : string;  (** the digits the author wrote, for the class name *)
+}
+(** A number in an opacity modifier. The class name is a selector, so it repeats
+    [text] rather than re-printing [value]: [/[25]] and [/[25.0]] denote one
+    alpha and are two different classes. *)
+
 type opacity_modifier =
   | No_opacity
-  | Opacity_percent of float  (** e.g., /50 means 50% *)
-  | Opacity_arbitrary of float  (** e.g., /[0.5] means 0.5 *)
-  | Opacity_bracket_percent of float
+  | Opacity_percent of opacity_number  (** e.g., /50 means 50% *)
+  | Opacity_arbitrary of opacity_number  (** e.g., /[0.5] means 0.5 *)
+  | Opacity_bracket_percent of opacity_number
       (** e.g., /[50%] means 50% but preserves bracket form in class name *)
   | Opacity_named of string  (** e.g., /half, /custom - theme-defined names *)
   | Opacity_var of string
       (** e.g., /[var(--x)] - var ref used directly as percentage *)
+
+val opacity_of_int : int -> opacity_modifier
+(** [opacity_of_int pct] is the modifier a class spells [/pct]. *)
 
 val opacity_var_bare : string -> string
 (** [opacity_var_bare v] is the bare custom-property name inside an opacity
@@ -360,6 +380,13 @@ val apply_alpha :
 (** [apply_alpha ?in_space opacity color] applies the modifier while preserving
     the identity that every alpha of [transparent] is still [transparent]. *)
 
+val opacity_fallback : percent:float -> color -> int -> Css.color -> Css.color
+(** [opacity_fallback ~percent c shade value] is what a browser without
+    [color-mix()] reads for [c] at [percent] opacity. A palette colour folds the
+    alpha into a plain hex; a project token, whose [value] the theme supplies
+    and which may name a colour space no hex can spell, takes an sRGB mix
+    instead. *)
+
 val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
 (** [opacity_of_string ?theme s] parses the modifier that follows the [/] in a
     colour class: a percentage, a bracket value, the [(--x)] shorthand, or a
@@ -372,9 +399,12 @@ val parse_opacity_modifier :
     ("500", Opacity_percent 50.0). Named opacities are validated at parse time
     against the [@theme] tokens in [theme]. *)
 
-val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
-(** [shade_of_strings parts] parses a color and shade from a list of strings.
-    Example: ["blue"; "500"] -> Ok (Blue, 500). *)
+val shade_of_strings :
+  ?theme:Scheme.t -> string list -> (color * int, [ `Msg of string ]) result
+(** [shade_of_strings ?theme parts] parses a color and shade from a list of
+    strings. Example: ["blue"; "500"] -> Ok (Blue, 500). A name the palette does
+    not know resolves against [theme]: a [--color-<name>] token the project
+    declared is a shadeless colour of its own. *)
 
 val shade_and_opacity_of_strings :
   ?theme:Scheme.t ->
@@ -482,9 +512,13 @@ val opacity_to_percent : opacity_modifier -> float
 (** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
 
 val pp_opacity : opacity_modifier -> string
-(** [pp_opacity modifier] returns a string representation of the opacity
-    modifier for use in class names. E.g., Opacity_percent 50. -> "50",
-    Opacity_arbitrary 0.5 -> "[0.5]". *)
+(** [pp_opacity modifier] is the class-name spelling of [modifier], without the
+    leading ["/"]: ["50"] for [/50], ["[0.5]"] for [/[0.5]], [""] for
+    {!No_opacity}. *)
+
+val opacity_suffix : opacity_modifier -> string
+(** [opacity_suffix modifier] is {!pp_opacity} behind the ["/"] that separates
+    it from the colour, and [""] for {!No_opacity}. *)
 
 val hex_alpha_color :
   ?theme:Scheme.t -> color -> int -> opacity_modifier -> string option
@@ -516,6 +550,20 @@ val parse_bracket_color : string -> Css.color option
 (** [parse_bracket_color inner] parses a bracket color value into a typed
     {!Css.color}. Handles hex, CSS color functions (rgba, hsl, oklch, ...), and
     Tailwind named colors. Returns [None] if not a recognized color. *)
+
+(** What a bracket value names, once the [color:]/[var(] spellings are told
+    apart from a plain color. Every color-bearing utility (text, outline, ring,
+    shadow, fill, stroke, ...) classifies its bracket content this way; only the
+    variant it stores the result in differs. *)
+type bracket_hint =
+  | Typed_var of string  (** [color:<value>], the part after [color:] *)
+  | Bare_var of string  (** [var(--x)], the full [var(...)] text *)
+  | Plain_color of Css.color  (** any other color spelling *)
+
+val parse_bracket_hint : string -> bracket_hint option
+(** [parse_bracket_hint inner] classifies a bracket's inner text as a typed var,
+    a bare var, or a plain color parsed via {!parse_bracket_color}. Returns
+    [None] when [inner] is none of these. *)
 
 val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex

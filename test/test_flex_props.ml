@@ -116,6 +116,29 @@ let test_basis_named_prefers_spacing () =
     "basis-sm declares --spacing-sm" true
     (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css)
 
+(* [order-[...]] takes an order value. A bracket the order grammar cannot read
+   is accepted and then raises out of [to_css], a pure conversion, so the
+   rejection belongs at parse time. *)
+let test_invalid_arbitrary_order () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "order-[foo]";
+  rejected "order-[1abc]";
+  rejected "order-[1.5]";
+  rejected "-order-[foo]";
+  renders "order-[13]";
+  renders "order-[var(--x)]";
+  renders "-order-[13]";
+  renders "-order-[var(--x)]"
+
 let tests =
   [
     test_case "basis-* prefers --spacing-*" `Quick
@@ -124,6 +147,7 @@ let tests =
     test_case "flex_props of_string - invalid values" `Quick of_string_invalid;
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;
   ]
 
 let suite = ("flex_props", tests)

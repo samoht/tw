@@ -12,6 +12,11 @@ type color_value =
   | Oklch of { l : float; c : float; h : float }
       (** e.g., oklch(63.7% 0.237 25.331) *)
 
+type custom_variant = { values : (string * string) list; template : string }
+(** A [matchVariant]-registered variant: a value map (including a [DEFAULT]
+    entry under the key [""]) and a selector template containing [{}] where the
+    resolved value is substituted. *)
+
 type t = {
   colors : (string * color_value) list;
       (** Color overrides. Key is color name like "red-500". When a color is
@@ -47,6 +52,13 @@ type t = {
           variable name without the leading [--] (e.g. "text-shadow-2xs"), value
           is the CSS string. Threaded replacement for the global
           [Var.theme_value_overrides]. *)
+  custom_variants : (string * custom_variant) list;
+      (** The [@custom-variant]s this [@theme] declared as a value map plus a
+          selector template. *)
+  container_variants : (string * Css.Container.t) list;
+      (** The [@custom-variant]s this [@theme] declared with a container-query
+          body. Kept apart from {!custom_variants} because the condition is
+          structural, so the [not-] prefix can negate it soundly. *)
 }
 (** Theme scheme configuration *)
 
@@ -77,6 +89,8 @@ let default : t =
     token_overrides = [];
     inline_tokens = [];
     static_theme = false;
+    custom_variants = [];
+    container_variants = [];
   }
 
 let pp t =

@@ -68,6 +68,27 @@ let dom_dedup () =
   check bool "grows with new utility" true
     (String.length css3 > String.length css1)
 
+let style_el_text () =
+  match Brr.El.find_first_by_selector (Jstr.v "style[data-tw=\"runtime\"]") with
+  | Some el -> Jstr.to_string (Brr.El.text_content el)
+  | None -> ""
+
+let dom_batching () =
+  (* [use] coalesces its rebuild onto a microtask, so the sheet in the document
+     is only refreshed once the current task drains - or on demand. *)
+  Tw_dom.init ~base:false ();
+  Tw_dom.flush ();
+  let before = style_el_text () in
+  ignore (Tw_dom.use Tw.[ underline ]);
+  check string "sheet untouched within the task" before (style_el_text ());
+  Tw_dom.flush ();
+  check bool "sheet refreshed on flush" true
+    (Astring.String.is_infix ~affix:"underline" (style_el_text ()));
+  let flushed = style_el_text () in
+  Tw_dom.flush ();
+  check string "flush with nothing pending is a no-op" flushed
+    (style_el_text ())
+
 let has_dom =
   (* Check if document.createElement exists — absent in Node.js *)
   try
@@ -89,6 +110,7 @@ let dom_cases =
       test_case "use" `Quick dom_use;
       test_case "use_str" `Quick dom_use_str;
       test_case "dedup" `Quick dom_dedup;
+      test_case "batching" `Quick dom_batching;
     ]
   else []
 

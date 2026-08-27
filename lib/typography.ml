@@ -95,6 +95,21 @@ let font_weight_extrabold_var =
 let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:(6, 38)
 
+(* A [--font-weight-*] token the project declared names a weight the built-in
+   scale has no slot for; they share the slot after the scale. *)
+let font_weight_named_cache : (string, Css.font_weight Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let font_weight_named_var name =
+  match Hashtbl.find_opt font_weight_named_cache name with
+  | Some var -> var
+  | None ->
+      let var =
+        Var.theme Css.Font_weight ("font-weight-" ^ name) ~order:(6, 38)
+      in
+      Hashtbl.add font_weight_named_cache name var;
+      var
+
 (* Theme variables for named tracking values *)
 let tracking_tighter_var = Var.theme Css.Length "tracking-tighter" ~order:(6, 39)
 let tracking_tight_var = Var.theme Css.Length "tracking-tight" ~order:(6, 40)
@@ -102,6 +117,20 @@ let tracking_normal_var = Var.theme Css.Length "tracking-normal" ~order:(6, 41)
 let tracking_wide_var = Var.theme Css.Length "tracking-wide" ~order:(6, 42)
 let tracking_wider_var = Var.theme Css.Length "tracking-wider" ~order:(6, 43)
 let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
+
+(* A [--tracking-*] token the project declared names a letter spacing the
+   built-in scale has no slot for; they share the slot after the scale, the way
+   the project's font families and text sizes share theirs. *)
+let tracking_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let tracking_named_var name =
+  match Hashtbl.find_opt tracking_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Length ("tracking-" ^ name) ~order:(6, 45) in
+      Hashtbl.add tracking_named_cache name var;
+      var
 
 (* Theme variables for named leading values *)
 let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
@@ -216,6 +245,32 @@ let font_named_var name =
   | None ->
       let var = Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100) in
       Hashtbl.add font_named_cache name var;
+      var
+
+(* A [--text-*] token the project declared names a font size the built-in scale
+   has no slot for; they share the slot after the scale, the way the project's
+   font families share theirs. *)
+let text_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let text_named_var name =
+  match Hashtbl.find_opt text_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Length ("text-" ^ name) ~order:(6, 26) in
+      Hashtbl.add text_named_cache name var;
+      var
+
+(* The same for a [--leading-*] token the project declared. *)
+let leading_named_cache : (string, Css.line_height Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let leading_named_var name =
+  match Hashtbl.find_opt leading_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Line_height ("leading-" ^ name) ~order:(6, 53) in
+      Hashtbl.add leading_named_cache name var;
       var
 
 let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
@@ -365,6 +420,8 @@ module Typography_early = struct
     | Font_serif
     | Font_mono
     | Font_named of string (* font-source, from a --font-* theme token *)
+    | Font_weight_theme of string (* weight from a --font-weight-* token *)
+    | Leading_theme of string (* line height from a --leading-* token *)
     | (* Font styles *)
       Italic
     | Not_italic
@@ -384,9 +441,15 @@ module Typography_early = struct
     | Leading_loose
     | Leading of int
     | Leading_var of string (* leading-[var(--value)] *)
-    | Leading_bracket of string (* leading-[1.8], leading-[24px], etc. *)
+    (* The author's bracket text travels with the line-height it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Leading_bracket of
+        string * Css.line_height (* leading-[1.8], leading-[24px], etc. *)
     | (* Font-size with explicit line-height modifier (text-sm/6) *)
       Text_named_lh of string * lh_modifier
+    | (* Font size named by a project [--text-*] token (text-huge) *)
+      Text_theme of string
+    | Text_theme_lh of string * lh_modifier
     | (* Arbitrary font-size (text-[12px]) *)
       Text_bracket_fs of string
     | (* Arbitrary font-size with line-height (text-[12px]/6) *)
@@ -396,7 +459,7 @@ module Typography_early = struct
     | Spacing of int (* /6 → calc(var(--spacing) * 6) *)
     | No_leading (* /none → line-height: 1 *)
     | Named of string (* /snug → var(--leading-snug) *)
-    | Bracket of string (* /[4px] → 4px *)
+    | Bracket of string * Css.line_height (* /[4px] → 4px *)
 
   type Utility.base += Self of t
 
@@ -410,23 +473,28 @@ module Typography_early = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
-  let named_sizes =
+  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
+  let text_size_data =
     [
-      "xs";
-      "sm";
-      "base";
-      "lg";
-      "xl";
-      "2xl";
-      "3xl";
-      "4xl";
-      "5xl";
-      "6xl";
-      "7xl";
-      "8xl";
-      "9xl";
+      ("xs", text_xs_var, 0.75);
+      ("sm", text_sm_var, 0.875);
+      ("base", text_base_var, 1.0);
+      ("lg", text_lg_var, 1.125);
+      ("xl", text_xl_var, 1.25);
+      ("2xl", text_2xl_var, 1.5);
+      ("3xl", text_3xl_var, 1.875);
+      ("4xl", text_4xl_var, 2.25);
+      ("5xl", text_5xl_var, 3.0);
+      ("6xl", text_6xl_var, 3.75);
+      ("7xl", text_7xl_var, 4.5);
+      ("8xl", text_8xl_var, 6.0);
+      ("9xl", text_9xl_var, 8.0);
     ]
 
+  (* The acceptor for [text-<size>] reads the converter's own table: the two
+     have to hold the same names, and a name in one but not the other is an
+     accepted class that emits no declarations at all. *)
+  let named_sizes = List.map (fun (name, _, _) -> name) text_size_data
   let is_named_size s = List.mem s named_sizes
 
   (** Font-size keyword lookup. *)
@@ -526,24 +594,132 @@ module Typography_early = struct
     in
     find 0 0
 
-  let known_leading_names =
-    [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ]
+  (* The line-height that says what the length cascade read says. A unit
+     [Css.line_height] has no constructor for, such as [vw] or [ch], has no
+     line-height spelling here, and the caller refuses the utility rather than
+     approximating it. *)
+  let rec line_height_of_length (l : Css.length) : Css.line_height option =
+    match l with
+    | Px f -> Some (Px f)
+    | Rem f -> Some (Rem f)
+    | Em f -> Some (Em f)
+    | Pct f -> Some (Pct f)
+    | Zero -> Some (Num 0.)
+    | Normal -> Some Normal
+    | Inherit -> Some Inherit
+    | Initial -> Some Initial
+    | Unset -> Some Unset
+    | Revert -> Some Revert
+    | Revert_layer -> Some Revert_layer
+    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
+    | Calc c -> (
+        match line_height_of_calc c with
+        | Some c -> Some (Calc c)
+        | None -> None)
+    | _ -> None
 
-  let parse_lh_modifier s =
+  and line_height_of_calc (c : Css.length Css.calc) :
+      Css.line_height Css.calc option =
+    let both left right =
+      match (line_height_of_calc left, line_height_of_calc right) with
+      | Some left, Some right -> Some (left, right)
+      | _ -> None
+    in
+    match c with
+    | Val l -> (
+        match line_height_of_length l with
+        | Some lh -> Some (Val lh)
+        | None -> None)
+    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
+    | Num n -> Some (Num n)
+    | Math_const m -> Some (Math_const m)
+    | Sibling_index -> Some Sibling_index
+    | Sibling_count -> Some Sibling_count
+    | Math_fn f -> Some (Math_fn f)
+    | Nested c -> (
+        match line_height_of_calc c with
+        | Some c -> Some (Nested c)
+        | None -> None)
+    | Parens c -> (
+        match line_height_of_calc c with
+        | Some c -> Some (Parens c)
+        | None -> None)
+    | Expr (left, op, right) -> (
+        match both left right with
+        | Some (left, right) -> Some (Expr (left, op, right))
+        | None -> None)
+
+  (* The one reader for an arbitrary line-height, shared by [leading-[...]] and
+     by the [/leading] modifier on a text size. The string parsing is cascade's,
+     so every unit, [calc()] and [var()] spelling it reads is accepted; a
+     bracket it cannot read is not a line-height and the utility is refused. *)
+  let parse_bracket_leading raw : Css.line_height option =
+    if Parse.is_var raw then Some (Var (Var.bracket raw))
+    else
+      match float_of_string_opt (Parse.decode_arbitrary_value raw) with
+      | Some f -> Some (Num f)
+      | None -> (
+          match Parse.arbitrary_length raw with
+          | Some length -> line_height_of_length length
+          | None -> None)
+
+  (* [none] is not here: [parse_lh_modifier] answers it with [No_leading] before
+     this list is consulted, because Tailwind writes [line-height: 1] for it
+     rather than reading a [--leading-none] token it never defines. A row here
+     would contradict that the moment anyone removed the short-circuit. *)
+  let known_leading_names = [ "tight"; "snug"; "normal"; "relaxed"; "loose" ]
+
+  (* The modifier names a [--leading-*] token, and one the project declared
+     counts the same as a built-in one. *)
+  let parse_lh_modifier theme s =
     if s = "none" then Stdlib.Option.Some No_leading
     else if Parse.is_bracket_value s then
-      Stdlib.Option.Some (Bracket (Parse.bracket_inner s))
+      let inner = Parse.bracket_inner s in
+      match parse_bracket_leading inner with
+      | Stdlib.Option.Some lh -> Stdlib.Option.Some (Bracket (inner, lh))
+      | Stdlib.Option.None -> Stdlib.Option.None
     else
-      match int_of_string_opt s with
+      match Parse.decimal_int s with
       | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Spacing n)
       | _ ->
-          if List.mem s known_leading_names then Stdlib.Option.Some (Named s)
+          if
+            List.mem s known_leading_names
+            || Scheme.theme_value (Some theme) ("leading-" ^ s) <> None
+          then Stdlib.Option.Some (Named s)
           else Stdlib.Option.None
 
   (* A font family the project named in its [@theme]. Gated on the token being
      there so a stray source word (font-awesome) is not a utility. *)
+  (* A weight or line height the project named in its [@theme]. The built-in
+     scales are matched before these are consulted. *)
+  let is_theme_font_weight theme n =
+    Scheme.theme_value (Some theme) ("font-weight-" ^ n) <> None
+
+  (* [leading-6] is the spacing-derived numeric form, whatever a project happens
+     to have declared, so a plain number is never a token name. *)
+  let is_theme_leading theme n =
+    Parse.decimal_int n = None
+    && Scheme.theme_value (Some theme) ("leading-" ^ n) <> None
+
   let is_named_font theme n =
     Scheme.theme_value (Some theme) ("font-" ^ n) <> None
+
+  (* A font size the project named in its [@theme]. The built-in scale is
+     published through the same registry, so exclude it: those names have their
+     own constructors. [text-<name>] also spells a colour, and a project that
+     declares both under one name gets the colour, as Tailwind does.
+     [--text-shadow-*] is a namespace of its own, and a doubled hyphen marks a
+     modifier on another token ([--text-lg--line-height]), so neither names a
+     size; nor does a token whose value is not a length. *)
+  let is_theme_text_size theme n =
+    (not (is_named_size n))
+    && (not (Parse.has_prefix ~prefix:"shadow-" n))
+    && List.for_all (fun seg -> seg <> "") (String.split_on_char '-' n)
+    && Scheme.theme_value (Some theme) ("color-" ^ n) = None
+    &&
+    match Scheme.theme_value (Some theme) ("text-" ^ n) with
+    | None -> false
+    | Some raw -> Css.parse_length raw <> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -591,7 +767,7 @@ module Typography_early = struct
           let rest = String.sub inner 7 (String.length inner - 7) in
           Ok (Font_bracket_weight_var (inner, rest))
         else
-          match int_of_string_opt inner with
+          match Parse.decimal_int inner with
           | Some n -> Ok (Font_bracket_weight (inner, n))
           | None ->
               if Parse.is_var inner then
@@ -624,6 +800,9 @@ module Typography_early = struct
     | "font" :: (_ :: _ as rest)
       when is_named_font theme (String.concat "-" rest) ->
         Ok (Font_named (String.concat "-" rest))
+    | "font" :: (_ :: _ as rest)
+      when is_theme_font_weight theme (String.concat "-" rest) ->
+        Ok (Font_weight_theme (String.concat "-" rest))
     | [ "italic" ] -> Ok Italic
     | [ "not"; "italic" ] -> Ok Not_italic
     | [ "text"; "left" ] -> Ok Text_left
@@ -638,17 +817,23 @@ module Typography_early = struct
     | [ "leading"; "normal" ] -> Ok Leading_normal
     | [ "leading"; "relaxed" ] -> Ok Leading_relaxed
     | [ "leading"; "loose" ] -> Ok Leading_loose
-    | [ "leading"; v ] when Parse.is_bracket_value v ->
+    | [ "leading"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Leading_var inner)
-        else Ok (Leading_bracket inner)
+        else
+          match parse_bracket_leading inner with
+          | Stdlib.Option.Some lh -> Ok (Leading_bracket (inner, lh))
+          | Stdlib.Option.None -> err_not_utility)
+    | "leading" :: (_ :: _ as rest)
+      when is_theme_leading theme (String.concat "-" rest) ->
+        Ok (Leading_theme (String.concat "-" rest))
     | [ "leading"; n ] ->
         (* Tailwind accepts any non-negative leading-N, derived from spacing. *)
         Parse.int_pos ~name:"leading" n >|= fun i -> Leading i
     | [ "text"; part ] -> (
         match split_on_slash part with
         | Stdlib.Option.Some (base, lh_str) -> (
-            match parse_lh_modifier lh_str with
+            match parse_lh_modifier theme lh_str with
             | Stdlib.Option.Some lh_mod ->
                 if Parse.is_bracket_value base then
                   let inner = Parse.bracket_inner base in
@@ -658,6 +843,8 @@ module Typography_early = struct
                   else err_not_utility
                 else if is_named_size base then
                   Ok (Text_named_lh (base, lh_mod))
+                else if is_theme_text_size theme base then
+                  Ok (Text_theme_lh (base, lh_mod))
                 else err_not_utility
             | Stdlib.Option.None -> err_not_utility)
         | Stdlib.Option.None ->
@@ -667,14 +854,27 @@ module Typography_early = struct
               else if is_valid_bracket_font_size inner then
                 Ok (Text_bracket_fs inner)
               else err_not_utility
+            else if is_theme_text_size theme part then Ok (Text_theme part)
             else err_not_utility)
+    (* A project token's name may span several segments, and the line-height
+       modifier still rides on the last one. *)
+    | "text" :: (_ :: _ :: _ as rest) -> (
+        let joined = String.concat "-" rest in
+        match split_on_slash joined with
+        | Stdlib.Option.Some (base, lh_str) when is_theme_text_size theme base
+          -> (
+            match parse_lh_modifier theme lh_str with
+            | Stdlib.Option.Some lh_mod -> Ok (Text_theme_lh (base, lh_mod))
+            | Stdlib.Option.None -> err_not_utility)
+        | _ when is_theme_text_size theme joined -> Ok (Text_theme joined)
+        | _ -> err_not_utility)
     | _ -> err_not_utility
 
   let lh_to_string = function
     | Spacing n -> string_of_int n
     | No_leading -> "none"
     | Named name -> name
-    | Bracket v -> "[" ^ v ^ "]"
+    | Bracket (v, _) -> "[" ^ v ^ "]"
 
   let to_class = function
     | Text_xs -> "text-xs"
@@ -708,6 +908,8 @@ module Typography_early = struct
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
     | Font_named name -> "font-" ^ name
+    | Font_weight_theme name -> "font-" ^ name
+    | Leading_theme name -> "leading-" ^ name
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -727,8 +929,10 @@ module Typography_early = struct
     | Leading_loose -> "leading-loose"
     | Leading n -> "leading-" ^ string_of_int n
     | Leading_var v -> "leading-[" ^ v ^ "]"
-    | Leading_bracket v -> "leading-[" ^ v ^ "]"
+    | Leading_bracket (v, _) -> "leading-[" ^ v ^ "]"
     | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
+    | Text_theme name -> "text-" ^ name
+    | Text_theme_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
@@ -753,6 +957,8 @@ module Typography_early = struct
     | Font_sans -> 1502
     | Font_serif -> 1503
     | Font_named _ -> 1504
+    | Font_weight_theme _ -> 4201
+    | Leading_theme _ -> 3206
     (* Bracket font-size with line-height modifier — before named sizes *)
     | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
@@ -786,6 +992,10 @@ module Typography_early = struct
         | "xl" -> 2012
         | "xs" -> 2013
         | _ -> 2000)
+    (* A project's own size sorts after the whole built-in scale, the way
+       Tailwind orders it. *)
+    | Text_theme _ -> 2014
+    | Text_theme_lh _ -> 2014
     (* Bracket font-size without modifier — after named sizes *)
     | Text_bracket_fs _ -> 2100
     (* Leading comes third — numeric first, then arbitrary, then named
@@ -943,6 +1153,15 @@ module Typography_early = struct
     | None -> []
     | Some v -> [ font_feature_settings (Css.Feature_list v) ]
 
+  let font_weight_theme theme name =
+    match Scheme.theme_value (Some theme) ("font-weight-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Parse.decimal_int raw with
+        | None -> style []
+        | Some n ->
+            font_weight_utility (font_weight_named_var name) (Css.Weight n))
+
   let font_named ?fallback theme name =
     let token = "font-" ^ name in
     match Scheme.theme_value (Some theme) token with
@@ -980,6 +1199,15 @@ module Typography_early = struct
     in
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
+
+  let leading_theme theme name =
+    match Scheme.theme_value (Some theme) ("leading-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match parse_bracket_leading raw with
+        | Stdlib.Option.None -> style []
+        | Stdlib.Option.Some lh ->
+            leading_with_theme_var (leading_named_var name) lh)
 
   let leading_none ?theme () =
     match Scheme.theme_value theme "leading-none" with
@@ -1022,11 +1250,12 @@ module Typography_early = struct
         let spacing_decl, _ =
           Var.binding Theme.spacing_var Theme.spacing_base
         in
+        let spacing = Var.name Theme.spacing_var in
         let value : line_height =
-          if n = 1 then Css.Var (Var.theme_ref "spacing")
+          if n = 1 then Css.Var (Var.theme_ref spacing)
           else
             Css.Calc
-              (Css.Calc.mul (Css.Calc.var "spacing")
+              (Css.Calc.mul (Css.Calc.var spacing)
                  (Css.Calc.float (float_of_int n)))
         in
         let channel_decl, _ = Var.binding leading_var value in
@@ -1034,24 +1263,6 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ spacing_decl; channel_decl; line_height value ]
-
-  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
-  let text_size_data =
-    [
-      ("xs", text_xs_var, 0.75);
-      ("sm", text_sm_var, 0.875);
-      ("base", text_base_var, 1.0);
-      ("lg", text_lg_var, 1.125);
-      ("xl", text_xl_var, 1.25);
-      ("2xl", text_2xl_var, 1.5);
-      ("3xl", text_3xl_var, 1.875);
-      ("4xl", text_4xl_var, 2.25);
-      ("5xl", text_5xl_var, 3.0);
-      ("6xl", text_6xl_var, 3.75);
-      ("7xl", text_7xl_var, 4.5);
-      ("8xl", text_8xl_var, 6.0);
-      ("9xl", text_9xl_var, 8.0);
-    ]
 
   (* The leading scale, published the same way. *)
   let () =
@@ -1077,70 +1288,93 @@ module Typography_early = struct
           (Css.Pp.to_string Css.pp_length (Css.Rem rem)))
       text_size_data
 
+  (* A theme token's value is text; read it back at the type the property
+     wants. *)
+  let parse_theme_line_height theme token =
+    match Scheme.theme_value (Some theme) token with
+    | None -> Stdlib.Option.None
+    | Some raw -> (
+        let cursor = Cascade.Cursor.of_string raw in
+        match
+          Cascade.Cursor.try_parse_full_err Css.Properties.read_line_height
+            cursor
+        with
+        | Ok lh -> Stdlib.Option.Some lh
+        | Error _ -> Stdlib.Option.None)
+
+  (* Both tables are compile-time constants: building them per call allocated
+     the list and a second remapped copy once per utility rendered. *)
+  let named_leading_table :
+      (string * (Css.line_height Var.theme * Css.line_height)) list =
+    [
+      (* [none] is absent for the reason [known_leading_names] gives. *)
+      ("tight", (leading_tight_var, (Num 1.25 : Css.line_height)));
+      ("snug", (leading_snug_var, Num 1.375));
+      ("normal", (leading_normal_var, Num 1.5));
+      ("relaxed", (leading_relaxed_var, Num 1.625));
+      ("loose", (leading_loose_var, Num 2.0));
+    ]
+
+  let text_size_table = List.map (fun (n, v, d) -> (n, (v, d))) text_size_data
+
   (** Convert a line-height modifier to (extra_declarations, line_height_value).
   *)
-  let lh_modifier_to_css = function
+  let lh_modifier_to_css theme = function
     | Spacing n ->
         let spacing_decl, _spacing_ref =
-          Var.binding Theme.spacing_var (Css.Rem 0.25)
+          Var.binding Theme.spacing_var Theme.spacing_base
         in
-        let lh_spacing_ref : Css.line_height Css.var = Var.bracket "spacing" in
+        (* [--spacing] holds a length; here it is read as a line height, so the
+           reference is built at that kind off the same handle. *)
+        let lh_spacing_ref : Css.line_height Css.var =
+          Var.bracket (Var.name Theme.spacing_var)
+        in
         let lh : Css.line_height =
           Calc (Css.Calc.mul (Var lh_spacing_ref) (Num (float_of_int n)))
         in
         ([ spacing_decl ], lh)
     | No_leading -> ([], Num 1.0)
     | Named name -> (
-        let leading_data =
-          [
-            ("none", leading_none_var, (Num 1.0 : Css.line_height));
-            ("tight", leading_tight_var, Num 1.25);
-            ("snug", leading_snug_var, Num 1.375);
-            ("normal", leading_normal_var, Num 1.5);
-            ("relaxed", leading_relaxed_var, Num 1.625);
-            ("loose", leading_loose_var, Num 2.0);
-          ]
-        in
-        let assoc = List.map (fun (n, v, d) -> (n, (v, d))) leading_data in
-        match List.assoc_opt name assoc with
+        match List.assoc_opt name named_leading_table with
         | Stdlib.Option.Some (theme_var, default_val) ->
             let decl, ref_ = Var.binding theme_var default_val in
             ([ decl ], Var ref_)
-        | Stdlib.Option.None ->
-            let ref_ : Css.line_height Css.var =
-              Var.bracket ("leading-" ^ name)
-            in
-            ([], Var ref_))
-    | Bracket value ->
-        (* Parse bracket value as line-height *)
-        let lh =
-          if String.ends_with ~suffix:"px" value then
-            let n = String.sub value 0 (String.length value - 2) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> (Css.Px f : Css.line_height)
-            | Stdlib.Option.None -> Css.Num 0.
-          else if String.ends_with ~suffix:"rem" value then
-            let n = String.sub value 0 (String.length value - 3) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Css.Rem f
-            | Stdlib.Option.None -> Css.Num 0.
-          else
-            match float_of_string_opt value with
-            | Stdlib.Option.Some f -> Css.Num f
-            | Stdlib.Option.None -> Css.Num 0.
-        in
-        ([], lh)
+        | Stdlib.Option.None -> (
+            (* A [--leading-*] the project declared: bind it, so the theme layer
+               carries the token the utility reads. *)
+            match parse_theme_line_height theme ("leading-" ^ name) with
+            | Stdlib.Option.Some lh ->
+                let decl, ref_ = Var.binding (leading_named_var name) lh in
+                ([ decl ], Css.Var ref_)
+            | Stdlib.Option.None ->
+                let ref_ : Css.line_height Css.var =
+                  Var.bracket ("leading-" ^ name)
+                in
+                ([], Css.Var ref_)))
+    | Bracket (_, lh) -> ([], lh)
+
+  (* A size the project declared carries no line height of its own, so the
+     utility sets font-size alone unless a modifier asks for one. *)
+  let text_theme_decls theme name =
+    let token = "text-" ^ name in
+    match Scheme.theme_value (Some theme) token with
+    | None -> []
+    | Some raw -> (
+        match Css.parse_length raw with
+        | None -> []
+        | Some len ->
+            if Scheme.is_inline_token theme token then [ font_size len ]
+            else
+              let decl, ref = Var.binding (text_named_var name) len in
+              [ decl; font_size (Css.Var ref) ])
 
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
-  let text_named_with_lh name lh_mod =
-    match
-      List.assoc_opt name
-        (List.map (fun (n, v, d) -> (n, (v, d))) text_size_data)
-    with
+  let text_named_with_lh theme name lh_mod =
+    match List.assoc_opt name text_size_table with
     | Stdlib.Option.Some (size_var, default_rem) ->
         let size_decl, size_ref = Var.binding size_var (Rem default_rem) in
-        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         ( (size_decl :: lh_extra) @ [ font_size (Css.Var size_ref) ],
           [ line_height lh_value ] )
     | Stdlib.Option.None ->
@@ -1285,6 +1519,8 @@ module Typography_early = struct
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_named name -> font_named theme name
+    | Font_weight_theme name -> font_weight_theme theme name
+    | Leading_theme name -> leading_theme theme name
     | Font_sans -> font_named ~fallback:font_sans theme "sans"
     | Font_serif -> font_named ~fallback:font_serif theme "serif"
     | Font_mono -> font_named ~fallback:font_mono theme "mono"
@@ -1311,53 +1547,27 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
-    | Leading_bracket raw ->
-        let lh : Css.line_height =
-          if String.ends_with ~suffix:"px" raw then
-            let n = String.sub raw 0 (String.length raw - 2) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Px f
-            | Stdlib.Option.None ->
-                invalid_arg ("leading-[" ^ raw ^ "]: invalid px value")
-          else if String.ends_with ~suffix:"rem" raw then
-            let n = String.sub raw 0 (String.length raw - 3) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Rem f
-            | Stdlib.Option.None ->
-                invalid_arg ("leading-[" ^ raw ^ "]: invalid rem value")
-          else if String.ends_with ~suffix:"em" raw then
-            let n = String.sub raw 0 (String.length raw - 2) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Em f
-            | Stdlib.Option.None ->
-                invalid_arg ("leading-[" ^ raw ^ "]: invalid em value")
-          else if String.ends_with ~suffix:"%" raw then
-            let n = String.sub raw 0 (String.length raw - 1) in
-            match float_of_string_opt n with
-            | Stdlib.Option.Some f -> Pct f
-            | Stdlib.Option.None ->
-                invalid_arg ("leading-[" ^ raw ^ "]: invalid % value")
-          else
-            match float_of_string_opt raw with
-            | Stdlib.Option.Some f -> Num f
-            | Stdlib.Option.None ->
-                invalid_arg ("leading-[" ^ raw ^ "]: invalid value")
-        in
+    | Leading_bracket (_, lh) ->
         let channel_decl, _ = Var.binding leading_var lh in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height lh ]
     | Text_named_lh (name, lh_mod) ->
-        let fs_decl, lh_decls = text_named_with_lh name lh_mod in
+        let fs_decl, lh_decls = text_named_with_lh theme name lh_mod in
         style (fs_decl @ lh_decls)
+    | Text_theme name -> style (text_theme_decls theme name)
+    | Text_theme_lh (name, lh_mod) ->
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
+        style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
     | Text_bracket_fs_lh (raw, lh_mod) ->
         let fs_decls = bracket_font_size_decls raw in
-        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
 
-  let examples = [ Text_base; Font_normal ]
+  let examples =
+    [ Text_base; Font_normal; Font_sans; Italic; Text_center; Leading_none ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)
@@ -1365,22 +1575,18 @@ module Typography_late = struct
   open Style
   open Css
 
-  (* A bare number is not a CSS length, but Tailwind admits [decoration-[2]] and
-     emits it as a thickness, so it reads as px. *)
-  let parse_bare_number str =
+  (* Tailwind reads the bracket as a colour unless it is a length or a
+     percentage, so a bare number lands on the colour branch whether it is
+     written [2] or [1.5]. *)
+  let is_bare_number str =
     let is_number_char c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-    if str <> "" && String.for_all is_number_char str then
-      float_of_string_opt str
-    else None
+    str <> ""
+    && String.for_all is_number_char str
+    && float_of_string_opt str <> None
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
-    match Parse.arbitrary_length inner with
-    | Some _ as len -> len
-    | None -> (
-        match parse_bare_number inner with
-        | Some n -> Some (Px n)
-        | None -> None)
+    Parse.arbitrary_length inner
 
   (* Tailwind converts a percentage thickness to em: 50% -> .5em. *)
   let parse_decoration_pct inner : Css.length option =
@@ -1423,8 +1629,10 @@ module Typography_late = struct
     | Decoration_bracket_length_var of string
     | Decoration_bracket_pct_var of string
     | (* Tracking *)
-      Tracking_arbitrary of string
-    | Neg_tracking_arbitrary of string
+      (* The author's bracket text travels with the length it denotes, so the
+         class name is spelled exactly as it was written. *)
+      Tracking_arbitrary of string * Css.length
+    | Neg_tracking_arbitrary of string * Css.length
     | Tracking_var of string
     | Neg_tracking_var of string
     | Tracking_tighter
@@ -1433,6 +1641,8 @@ module Typography_late = struct
     | Tracking_wide
     | Tracking_wider
     | Tracking_widest
+    | (* Letter spacing named by a project [--tracking-*] token *)
+      Tracking_theme of string
     | (* Text transform *)
       Uppercase
     | Lowercase
@@ -1571,6 +1781,18 @@ module Typography_late = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
+  (* The length a [tracking-[...]] bracket denotes, read with cascade's own
+     grammar so [calc()] and the function forms come for free. [None] is a
+     bracket no length reads from, and [of_class] refuses the utility rather
+     than leaving [to_style] to raise. *)
+  let arbitrary_tracking inner : Css.length option =
+    Css.parse_length (Parse.decode_underscores inner)
+
+  (* A letter spacing the project named in its [@theme]. The built-in scale is
+     matched before this is consulted, so those names never reach here. *)
+  let is_theme_tracking theme n =
+    Scheme.theme_value (Some theme) ("tracking-" ^ n) <> None
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1653,7 +1875,7 @@ module Typography_late = struct
                 match parse_decoration_pct inner with
                 | Some len -> Ok (Decoration_bracket_pct (inner, len))
                 | None -> err_not_utility
-              else if Result.is_ok (Parse.int_any inner) then
+              else if is_bare_number inner then
                 (* Tailwind resolves the ambiguous unitless spelling through the
                    colour candidate path. Its declaration is invalid CSS and
                    browsers discard it; accepting an inert candidate is
@@ -1679,32 +1901,38 @@ module Typography_late = struct
                       Ok (Decoration_color_opacity (c, shade, opacity))
                   | Error _ -> err_not_utility)))
     | [ "decoration"; color; shade ] -> (
-        (* Check for opacity modifier in shade (e.g., "500/50" or
-           "500/[0.5]") *)
-        let shade_str, opacity = Color.parse_opacity_modifier ~theme shade in
-        match (Color.of_string color, Parse.int_any shade_str) with
-        | Ok c, Ok s -> (
-            match opacity with
-            | Color.No_opacity -> Ok (Decoration_color (c, Some s))
-            | _ -> Ok (Decoration_color_opacity (c, s, opacity)))
-        | _ -> err_not_utility)
-    | [ "tracking"; v ] when Parse.is_bracket_value v ->
+        match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
+        | Ok (c, s, Color.No_opacity) -> Ok (Decoration_color (c, Some s))
+        | Ok (c, s, opacity) -> Ok (Decoration_color_opacity (c, s, opacity))
+        | Error _ -> err_not_utility)
+    | [ "tracking"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Tracking_var inner)
-        else Ok (Tracking_arbitrary inner)
-    | "" :: "tracking" :: rest when rest <> [] ->
+        else
+          match arbitrary_tracking inner with
+          | Some len -> Ok (Tracking_arbitrary (inner, len))
+          | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
+    | "" :: "tracking" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
-        if Parse.is_bracket_value value then
+        if not (Parse.is_bracket_value value) then err_not_utility
+        else
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_tracking_var inner)
-          else Ok (Neg_tracking_arbitrary inner)
-        else err_not_utility
+          else
+            match arbitrary_tracking inner with
+            | Some len -> Ok (Neg_tracking_arbitrary (inner, len))
+            | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
     | [ "tracking"; "normal" ] -> Ok Tracking_normal
     | [ "tracking"; "wide" ] -> Ok Tracking_wide
     | [ "tracking"; "wider" ] -> Ok Tracking_wider
     | [ "tracking"; "widest" ] -> Ok Tracking_widest
+    | [ "tracking"; name ] when is_theme_tracking theme name ->
+        Ok (Tracking_theme name)
+    | "tracking" :: (_ :: _ :: _ as rest)
+      when is_theme_tracking theme (String.concat "-" rest) ->
+        Ok (Tracking_theme (String.concat "-" rest))
     | [ "uppercase" ] -> Ok Uppercase
     | [ "lowercase" ] -> Ok Lowercase
     | [ "capitalize" ] -> Ok Capitalize
@@ -1853,7 +2081,7 @@ module Typography_late = struct
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        match int_of_string_opt inner with
+        match Parse.decimal_int inner with
         | Some i -> Ok (Line_clamp_arbitrary i)
         | None -> err_not_utility)
     | [ "line"; "clamp"; n ] ->
@@ -1941,8 +2169,8 @@ module Typography_late = struct
     | Decoration_bracket_pct (v, _) -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
-    | Tracking_arbitrary v -> "tracking-[" ^ v ^ "]"
-    | Neg_tracking_arbitrary v -> "-tracking-[" ^ v ^ "]"
+    | Tracking_arbitrary (v, _) -> "tracking-[" ^ v ^ "]"
+    | Neg_tracking_arbitrary (v, _) -> "-tracking-[" ^ v ^ "]"
     | Tracking_var v -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
@@ -1951,6 +2179,7 @@ module Typography_late = struct
     | Tracking_wide -> "tracking-wide"
     | Tracking_wider -> "tracking-wider"
     | Tracking_widest -> "tracking-widest"
+    | Tracking_theme name -> "tracking-" ^ name
     | Uppercase -> "uppercase"
     | Lowercase -> "lowercase"
     | Capitalize -> "capitalize"
@@ -2113,6 +2342,7 @@ module Typography_late = struct
     | Tracking_wide -> 8303
     | Tracking_wider -> 8304
     | Tracking_widest -> 8305
+    | Tracking_theme _ -> 8306
     (* Text transform - alphabetical order *)
     | Capitalize -> 8360
     | Lowercase -> 8361
@@ -2306,10 +2536,7 @@ module Typography_late = struct
             let theme_decl, color_ref =
               Var.binding color_var (Css.hex hex_value)
             in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-                ~percent1:percent
-            in
+            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
@@ -2331,13 +2558,17 @@ module Typography_late = struct
                 ~property_prefix:"text-decoration-color" color shade
             in
             (* A project token may be any CSS colour, not necessarily a palette
-               colour that can be converted to a compile-time hex fallback. *)
-            let fallback_decl = text_decoration_color color_value in
-            let theme_decl, color_ref = Var.binding color_var color_value in
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-                ~percent1:percent
+               colour that can be converted to a compile-time hex fallback, so
+               the modifier's alpha rides on an sRGB mix of the value itself. An
+               alpha read from a var has no percentage to mix in, leaving the
+               colour at full opacity. *)
+            let fallback_color =
+              if Color.opacity_var_bare_of opacity <> None then color_value
+              else Color.opacity_fallback ~percent color shade color_value
             in
+            let fallback_decl = text_decoration_color fallback_color in
+            let theme_decl, color_ref = Var.binding color_var color_value in
+            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
@@ -2492,6 +2723,26 @@ module Typography_late = struct
     style ~property_rules
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
+  let tracking_theme theme name =
+    let token = "tracking-" ^ name in
+    match Scheme.theme_value (Some theme) token with
+    | Stdlib.Option.None -> style []
+    | Stdlib.Option.Some raw -> (
+        match Css.parse_length raw with
+        | Stdlib.Option.None -> style []
+        | Stdlib.Option.Some len ->
+            let theme_decl, theme_ref =
+              Var.binding (tracking_named_var name) len
+            in
+            let channel_decl, _ =
+              Var.binding tracking_var (Css.Var theme_ref)
+            in
+            let property_rules =
+              Var.property_rule tracking_var |> Option.to_list |> Css.concat
+            in
+            style ~property_rules
+              [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ])
+
   let tracking_wider =
     let theme_decl, theme_ref = Var.binding tracking_wider_var (Em 0.05) in
     let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
@@ -2515,13 +2766,7 @@ module Typography_late = struct
   let capitalize = style [ text_transform (Case Capitalize) ]
   let normal_case = style [ text_transform None ]
 
-  let parse_length_exn v =
-    match Css.parse_length v with
-    | Some len -> len
-    | None -> invalid_arg ("Invalid tracking length: " ^ v)
-
-  let tracking_arbitrary v =
-    let len = parse_length_exn v in
+  let tracking_arbitrary len =
     let channel_decl, _ = Var.binding tracking_var len in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
@@ -2544,8 +2789,7 @@ module Typography_late = struct
     | Pct n -> Pct (-.n)
     | len -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
 
-  let neg_tracking_arbitrary v =
-    let len = parse_length_exn v in
+  let neg_tracking_arbitrary len =
     (* --tw-tracking uses calc() form, letter-spacing uses direct negation *)
     let calc_neg : Css.length =
       Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
@@ -2585,7 +2829,9 @@ module Typography_late = struct
     text_indent (Indent { length; hanging = false; each_line = false })
 
   let indent n =
-    let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var Theme.spacing_base
+    in
     let base : Css.length_percentage = Length (Css.Var spacing_ref) in
     let calc : Css.length_percentage Css.calc = Expr (Val base, Mul, Num n) in
     let length : Css.length_percentage = Calc calc in
@@ -2941,8 +3187,8 @@ module Typography_late = struct
     | Decoration_bracket_pct (_, len) -> decoration_bracket_pct len
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
-    | Tracking_arbitrary v -> tracking_arbitrary v
-    | Neg_tracking_arbitrary v -> neg_tracking_arbitrary v
+    | Tracking_arbitrary (_, len) -> tracking_arbitrary len
+    | Neg_tracking_arbitrary (_, len) -> neg_tracking_arbitrary len
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
@@ -2967,6 +3213,7 @@ module Typography_late = struct
     | Tracking_wide -> tracking_wide
     | Tracking_wider -> tracking_wider
     | Tracking_widest -> tracking_widest
+    | Tracking_theme name -> tracking_theme theme name
     | Uppercase -> uppercase
     | Lowercase -> lowercase
     | Capitalize -> capitalize

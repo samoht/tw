@@ -91,11 +91,81 @@ let test_decimal_class_suffixes_round_trip () =
 let test_redundant_zero_spellings_are_rejected () =
   List.iter unknown [ "p-04"; "p-4.0"; "p-1.50" ]
 
+(* [Parse.split_class] remembers the split of the last class name it was given,
+   because every handler in turn splits the same one. A parse must therefore not
+   depend on what was parsed before it, nor on whether two equal class names are
+   the same string. *)
+let test_parse_is_independent_of_history () =
+  let classes =
+    [ "p-4"; "px-4"; "m-[calc(1rem-2px)]"; "grid-cols-2"; "bg-blue-500" ]
+  in
+  List.iter round_trips classes;
+  List.iter round_trips (List.rev classes);
+  List.iter round_trips classes;
+  let built = String.concat "-" [ "grid"; "cols"; "2" ] in
+  round_trips "grid-cols-3";
+  round_trips built;
+  unknown "grid-cols-"
+
+(* The utilities that swallowed a second bracket refuse the class instead of
+   raising out of [to_css]. Tailwind emits nothing for any of them. *)
+let test_double_bracket_class_rejected () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "mask-b-from-[foo]/[bar]";
+  rejected "mask-linear-from-[foo]-[bar]";
+  rejected "bg-linear-[foo]/[bar]";
+  rejected "bg-radial-[foo]/[bar]";
+  rejected "scale-z-[foo]/[bar]";
+  rejected "mask-radial-[foo]/[bar]";
+  rejected "-mask-linear-[foo]/[bar]";
+  rejected "-mask-conic-[foo]/[bar]";
+  rejected "mask-radial-at-[foo]/[bar]";
+  accepted "mask-b-from-[10%]";
+  accepted "bg-linear-[45deg]";
+  accepted "scale-z-[2]";
+  accepted "mask-radial-[50%_50%]";
+  accepted "-mask-linear-[45deg]";
+  accepted "mask-radial-at-[50%_50%]";
+  (* A bracket modifier on a utility that takes one still reads. *)
+  accepted "text-[10px]/[1.5]";
+  accepted "bg-red-500/[0.5]"
+
+(* [--spacing(N)] is Tailwind's spacing-scale shorthand, expanded outside any
+   quoting. The same bytes inside a quoted string are a CSS string literal, not
+   the function, so [expand_spacing_fn] must leave them alone. *)
+let test_spacing_shorthand_ignored_in_quotes () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "single-quoted content keeps the literal text" true
+    (Astring.String.is_infix ~affix:{|content: '--spacing(1)'|}
+       (css {|[content:'--spacing(1)']|}));
+  Alcotest.(check bool)
+    "double-quoted content keeps the literal text" true
+    (Astring.String.is_infix ~affix:{|content: "--spacing(1)"|}
+       (css {|[content:"--spacing(1)"]|}))
+
 let tests =
   Alcotest.
     [
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
+      test_case "double bracket class rejected" `Quick
+        test_double_bracket_class_rejected;
       test_case "int suffixes reject non-decimal spellings" `Quick
         test_int_rejects_non_decimal_spellings;
       test_case "negative int suffixes reject non-decimal spellings" `Quick
@@ -106,6 +176,10 @@ let tests =
         test_decimal_class_suffixes_round_trip;
       test_case "redundant zero suffixes are rejected" `Quick
         test_redundant_zero_spellings_are_rejected;
+      test_case "parsing is independent of parse history" `Quick
+        test_parse_is_independent_of_history;
+      test_case "--spacing() shorthand ignored inside quotes" `Quick
+        test_spacing_shorthand_ignored_in_quotes;
     ]
 
 let suite = ("parse", tests)

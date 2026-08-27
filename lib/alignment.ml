@@ -209,150 +209,229 @@ module Handler = struct
   let place_self_center_safe = style [ place_self (Safe_center, Safe_center) ]
   let place_self_end_safe = style [ place_self (Safe_end, Safe_end) ]
 
-  (* Single source of truth: (handler, class_name, style, suborder) *)
-  let alignment_data =
+  (* Class name, style and cascade suborder of one utility. Written as a match
+     rather than a lookup table: a constructor added to [t] without an entry
+     here is a compile error, not a [Not_found] raised out of [to_class] partway
+     through rendering a sheet. *)
+  let data : t -> string * Style.t * int = function
+    (* Justify content *)
+    | Justify_start -> ("justify-start", justify_start, 58)
+    | Justify_end -> ("justify-end", justify_end, 54)
+    | Justify_center -> ("justify-center", justify_center, 52)
+    | Justify_between -> ("justify-between", justify_between, 51)
+    | Justify_around -> ("justify-around", justify_around, 50)
+    | Justify_evenly -> ("justify-evenly", justify_evenly, 56)
+    | Justify_normal -> ("justify-normal", justify_normal, 57)
+    | Justify_stretch -> ("justify-stretch", justify_stretch, 59)
+    | Justify_center_safe -> ("justify-center-safe", justify_center_safe, 53)
+    | Justify_end_safe -> ("justify-end-safe", justify_end_safe, 55)
+    (* Align items *)
+    | Items_start -> ("items-start", items_start, 36)
+    | Items_end -> ("items-end", items_end, 34)
+    | Items_center -> ("items-center", items_center, 32)
+    | Items_baseline -> ("items-baseline", items_baseline, 30)
+    | Items_stretch -> ("items-stretch", items_stretch, 38)
+    | Items_baseline_last -> ("items-baseline-last", items_baseline_last, 31)
+    | Items_center_safe -> ("items-center-safe", items_center_safe, 33)
+    | Items_end_safe -> ("items-end-safe", items_end_safe, 35)
+    | Items_start_safe -> ("items-start-safe", items_start_safe, 37)
+    (* Align content *)
+    | Content_start -> ("content-start", content_start, 29)
+    | Content_end -> ("content-end", content_end, 25)
+    | Content_center -> ("content-center", content_center, 23)
+    | Content_between -> ("content-between", content_between, 22)
+    | Content_around -> ("content-around", content_around, 20)
+    | Content_evenly -> ("content-evenly", content_evenly, 27)
+    | Content_stretch -> ("content-stretch", content_stretch, 31)
+    | Content_baseline -> ("content-baseline", content_baseline, 21)
+    | Content_normal -> ("content-normal", content_normal, 28)
+    | Content_center_safe -> ("content-center-safe", content_center_safe, 24)
+    | Content_end_safe -> ("content-end-safe", content_end_safe, 26)
+    | Content_start_safe -> ("content-start-safe", content_start_safe, 30)
+    (* Align self *)
+    | Self_auto -> ("self-auto", self_auto, 76010)
+    | Self_start -> ("self-start", self_start, 76017)
+    | Self_end -> ("self-end", self_end, 76015)
+    | Self_center -> ("self-center", self_center, 76013)
+    | Self_baseline -> ("self-baseline", self_baseline, 76011)
+    | Self_baseline_last -> ("self-baseline-last", self_baseline_last, 76012)
+    | Self_stretch -> ("self-stretch", self_stretch, 76019)
+    | Self_center_safe -> ("self-center-safe", self_center_safe, 76014)
+    | Self_end_safe -> ("self-end-safe", self_end_safe, 76016)
+    | Self_start_safe -> ("self-start-safe", self_start_safe, 76018)
+    (* Justify items *)
+    | Justify_items_start -> ("justify-items-start", justify_items_start, 74)
+    | Justify_items_end -> ("justify-items-end", justify_items_end, 72)
+    | Justify_items_center -> ("justify-items-center", justify_items_center, 70)
+    | Justify_items_stretch ->
+        ("justify-items-stretch", justify_items_stretch, 75)
+    | Justify_items_normal -> ("justify-items-normal", justify_items_normal, 73)
+    | Justify_items_center_safe ->
+        ("justify-items-center-safe", justify_items_center_safe, 71)
+    | Justify_items_end_safe ->
+        ("justify-items-end-safe", justify_items_end_safe, 73)
+    (* Justify self *)
+    | Justify_self_auto -> ("justify-self-auto", justify_self_auto, 76030)
+    | Justify_self_start -> ("justify-self-start", justify_self_start, 76035)
+    | Justify_self_end -> ("justify-self-end", justify_self_end, 76033)
+    | Justify_self_center -> ("justify-self-center", justify_self_center, 76031)
+    | Justify_self_stretch ->
+        ("justify-self-stretch", justify_self_stretch, 76037)
+    | Justify_self_center_safe ->
+        ("justify-self-center-safe", justify_self_center_safe, 76032)
+    | Justify_self_end_safe ->
+        ("justify-self-end-safe", justify_self_end_safe, 76034)
+    | Justify_self_start_safe ->
+        ("justify-self-start-safe", justify_self_start_safe, 76036)
+    (* Place content *)
+    | Place_content_start -> ("place-content-start", place_content_start, 8)
+    | Place_content_end -> ("place-content-end", place_content_end, 5)
+    | Place_content_center -> ("place-content-center", place_content_center, 3)
+    | Place_content_between ->
+        ("place-content-between", place_content_between, 2)
+    | Place_content_around -> ("place-content-around", place_content_around, 0)
+    | Place_content_evenly -> ("place-content-evenly", place_content_evenly, 7)
+    | Place_content_stretch ->
+        ("place-content-stretch", place_content_stretch, 10)
+    | Place_content_baseline ->
+        ("place-content-baseline", place_content_baseline, 1)
+    | Place_content_center_safe ->
+        ("place-content-center-safe", place_content_center_safe, 4)
+    | Place_content_end_safe ->
+        ("place-content-end-safe", place_content_end_safe, 6)
+    | Place_content_start_safe ->
+        ("place-content-start-safe", place_content_start_safe, 9)
+    (* Place items *)
+    | Place_items_start -> ("place-items-start", place_items_start, 15)
+    | Place_items_end -> ("place-items-end", place_items_end, 13)
+    | Place_items_center -> ("place-items-center", place_items_center, 11)
+    | Place_items_stretch -> ("place-items-stretch", place_items_stretch, 17)
+    | Place_items_baseline -> ("place-items-baseline", place_items_baseline, 10)
+    | Place_items_center_safe ->
+        ("place-items-center-safe", place_items_center_safe, 12)
+    | Place_items_end_safe -> ("place-items-end-safe", place_items_end_safe, 14)
+    | Place_items_start_safe ->
+        ("place-items-start-safe", place_items_start_safe, 16)
+    (* Place self *)
+    | Place_self_auto -> ("place-self-auto", place_self_auto, 76000)
+    | Place_self_start -> ("place-self-start", place_self_start, 76005)
+    | Place_self_end -> ("place-self-end", place_self_end, 76003)
+    | Place_self_center -> ("place-self-center", place_self_center, 76001)
+    | Place_self_stretch -> ("place-self-stretch", place_self_stretch, 76006)
+    | Place_self_center_safe ->
+        ("place-self-center-safe", place_self_center_safe, 76002)
+    | Place_self_end_safe -> ("place-self-end-safe", place_self_end_safe, 76004)
+
+  (* Every constructor, for the class-name lookup. A missing entry costs a class
+     that no longer parses, which the round-trip test reports. *)
+  let all =
     [
       (* Justify content *)
-      (Justify_start, "justify-start", justify_start, 58);
-      (Justify_end, "justify-end", justify_end, 54);
-      (Justify_center, "justify-center", justify_center, 52);
-      (Justify_between, "justify-between", justify_between, 51);
-      (Justify_around, "justify-around", justify_around, 50);
-      (Justify_evenly, "justify-evenly", justify_evenly, 56);
-      (Justify_normal, "justify-normal", justify_normal, 57);
-      (Justify_stretch, "justify-stretch", justify_stretch, 59);
-      (Justify_center_safe, "justify-center-safe", justify_center_safe, 53);
-      (Justify_end_safe, "justify-end-safe", justify_end_safe, 55);
+      Justify_start;
+      Justify_end;
+      Justify_center;
+      Justify_between;
+      Justify_around;
+      Justify_evenly;
+      Justify_normal;
+      Justify_stretch;
+      Justify_center_safe;
+      Justify_end_safe;
       (* Align items *)
-      (Items_start, "items-start", items_start, 36);
-      (Items_end, "items-end", items_end, 34);
-      (Items_center, "items-center", items_center, 32);
-      (Items_baseline, "items-baseline", items_baseline, 30);
-      (Items_stretch, "items-stretch", items_stretch, 38);
-      (Items_baseline_last, "items-baseline-last", items_baseline_last, 31);
-      (Items_center_safe, "items-center-safe", items_center_safe, 33);
-      (Items_end_safe, "items-end-safe", items_end_safe, 35);
-      (Items_start_safe, "items-start-safe", items_start_safe, 37);
+      Items_start;
+      Items_end;
+      Items_center;
+      Items_baseline;
+      Items_stretch;
+      Items_baseline_last;
+      Items_center_safe;
+      Items_end_safe;
+      Items_start_safe;
       (* Align content *)
-      (Content_start, "content-start", content_start, 29);
-      (Content_end, "content-end", content_end, 25);
-      (Content_center, "content-center", content_center, 23);
-      (Content_between, "content-between", content_between, 22);
-      (Content_around, "content-around", content_around, 20);
-      (Content_evenly, "content-evenly", content_evenly, 27);
-      (Content_stretch, "content-stretch", content_stretch, 31);
-      (Content_baseline, "content-baseline", content_baseline, 21);
-      (Content_normal, "content-normal", content_normal, 28);
-      (Content_center_safe, "content-center-safe", content_center_safe, 24);
-      (Content_end_safe, "content-end-safe", content_end_safe, 26);
-      (Content_start_safe, "content-start-safe", content_start_safe, 30);
+      Content_start;
+      Content_end;
+      Content_center;
+      Content_between;
+      Content_around;
+      Content_evenly;
+      Content_stretch;
+      Content_baseline;
+      Content_normal;
+      Content_center_safe;
+      Content_end_safe;
+      Content_start_safe;
       (* Align self *)
-      (Self_auto, "self-auto", self_auto, 76010);
-      (Self_start, "self-start", self_start, 76017);
-      (Self_end, "self-end", self_end, 76015);
-      (Self_center, "self-center", self_center, 76013);
-      (Self_baseline, "self-baseline", self_baseline, 76011);
-      (Self_baseline_last, "self-baseline-last", self_baseline_last, 76012);
-      (Self_stretch, "self-stretch", self_stretch, 76019);
-      (Self_center_safe, "self-center-safe", self_center_safe, 76014);
-      (Self_end_safe, "self-end-safe", self_end_safe, 76016);
-      (Self_start_safe, "self-start-safe", self_start_safe, 76018);
+      Self_auto;
+      Self_start;
+      Self_end;
+      Self_center;
+      Self_baseline;
+      Self_baseline_last;
+      Self_stretch;
+      Self_center_safe;
+      Self_end_safe;
+      Self_start_safe;
       (* Justify items *)
-      (Justify_items_start, "justify-items-start", justify_items_start, 74);
-      (Justify_items_end, "justify-items-end", justify_items_end, 72);
-      (Justify_items_center, "justify-items-center", justify_items_center, 70);
-      (Justify_items_stretch, "justify-items-stretch", justify_items_stretch, 75);
-      (Justify_items_normal, "justify-items-normal", justify_items_normal, 73);
-      ( Justify_items_center_safe,
-        "justify-items-center-safe",
-        justify_items_center_safe,
-        71 );
-      ( Justify_items_end_safe,
-        "justify-items-end-safe",
-        justify_items_end_safe,
-        73 );
+      Justify_items_start;
+      Justify_items_end;
+      Justify_items_center;
+      Justify_items_stretch;
+      Justify_items_normal;
+      Justify_items_center_safe;
+      Justify_items_end_safe;
       (* Justify self *)
-      (Justify_self_auto, "justify-self-auto", justify_self_auto, 76030);
-      (Justify_self_start, "justify-self-start", justify_self_start, 76035);
-      (Justify_self_end, "justify-self-end", justify_self_end, 76033);
-      (Justify_self_center, "justify-self-center", justify_self_center, 76031);
-      (Justify_self_stretch, "justify-self-stretch", justify_self_stretch, 76037);
-      ( Justify_self_center_safe,
-        "justify-self-center-safe",
-        justify_self_center_safe,
-        76032 );
-      ( Justify_self_end_safe,
-        "justify-self-end-safe",
-        justify_self_end_safe,
-        76034 );
-      ( Justify_self_start_safe,
-        "justify-self-start-safe",
-        justify_self_start_safe,
-        76036 );
+      Justify_self_auto;
+      Justify_self_start;
+      Justify_self_end;
+      Justify_self_center;
+      Justify_self_stretch;
+      Justify_self_center_safe;
+      Justify_self_end_safe;
+      Justify_self_start_safe;
       (* Place content *)
-      (Place_content_start, "place-content-start", place_content_start, 8);
-      (Place_content_end, "place-content-end", place_content_end, 5);
-      (Place_content_center, "place-content-center", place_content_center, 3);
-      (Place_content_between, "place-content-between", place_content_between, 2);
-      (Place_content_around, "place-content-around", place_content_around, 0);
-      (Place_content_evenly, "place-content-evenly", place_content_evenly, 7);
-      (Place_content_stretch, "place-content-stretch", place_content_stretch, 10);
-      ( Place_content_baseline,
-        "place-content-baseline",
-        place_content_baseline,
-        1 );
-      ( Place_content_center_safe,
-        "place-content-center-safe",
-        place_content_center_safe,
-        4 );
-      ( Place_content_end_safe,
-        "place-content-end-safe",
-        place_content_end_safe,
-        6 );
-      ( Place_content_start_safe,
-        "place-content-start-safe",
-        place_content_start_safe,
-        9 );
+      Place_content_start;
+      Place_content_end;
+      Place_content_center;
+      Place_content_between;
+      Place_content_around;
+      Place_content_evenly;
+      Place_content_stretch;
+      Place_content_baseline;
+      Place_content_center_safe;
+      Place_content_end_safe;
+      Place_content_start_safe;
       (* Place items *)
-      (Place_items_start, "place-items-start", place_items_start, 15);
-      (Place_items_end, "place-items-end", place_items_end, 13);
-      (Place_items_center, "place-items-center", place_items_center, 11);
-      (Place_items_stretch, "place-items-stretch", place_items_stretch, 17);
-      (Place_items_baseline, "place-items-baseline", place_items_baseline, 10);
-      ( Place_items_center_safe,
-        "place-items-center-safe",
-        place_items_center_safe,
-        12 );
-      (Place_items_end_safe, "place-items-end-safe", place_items_end_safe, 14);
-      ( Place_items_start_safe,
-        "place-items-start-safe",
-        place_items_start_safe,
-        16 );
+      Place_items_start;
+      Place_items_end;
+      Place_items_center;
+      Place_items_stretch;
+      Place_items_baseline;
+      Place_items_center_safe;
+      Place_items_end_safe;
+      Place_items_start_safe;
       (* Place self *)
-      (Place_self_auto, "place-self-auto", place_self_auto, 76000);
-      (Place_self_start, "place-self-start", place_self_start, 76005);
-      (Place_self_end, "place-self-end", place_self_end, 76003);
-      (Place_self_center, "place-self-center", place_self_center, 76001);
-      (Place_self_stretch, "place-self-stretch", place_self_stretch, 76006);
-      ( Place_self_center_safe,
-        "place-self-center-safe",
-        place_self_center_safe,
-        76002 );
-      (Place_self_end_safe, "place-self-end-safe", place_self_end_safe, 76004);
+      Place_self_auto;
+      Place_self_start;
+      Place_self_end;
+      Place_self_center;
+      Place_self_stretch;
+      Place_self_center_safe;
+      Place_self_end_safe;
     ]
 
-  (* Derived lookup tables *)
-  let to_style_map =
-    List.map (fun (t, _, style, _) -> (t, style)) alignment_data
+  let to_class t =
+    let cls, _, _ = data t in
+    cls
 
-  let to_class_map = List.map (fun (t, cls, _, _) -> (t, cls)) alignment_data
-  let suborder_map = List.map (fun (t, _, _, ord) -> (t, ord)) alignment_data
-  let of_class_map = List.map (fun (t, cls, _, _) -> (cls, t)) alignment_data
+  let to_style _theme t =
+    let _, s, _ = data t in
+    s
 
-  (* Handler functions derived from maps *)
-  let to_style _theme t = List.assoc t to_style_map
-  let to_class t = List.assoc t to_class_map
-  let suborder t = List.assoc t suborder_map
+  let suborder t =
+    let _, _, o = data t in
+    o
+
+  let of_class_map = List.map (fun t -> (to_class t, t)) all
 
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with

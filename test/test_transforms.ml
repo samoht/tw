@@ -217,8 +217,156 @@ let test_translate_spacing_steps () =
     "-translate-y-0.5 round-trips" "-translate-y-0.5"
     (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")))
 
+(* [perspective-none] resolves to whatever a project declared [--perspective-
+   none] to be. Reading that value back with a px-only test lost every other
+   spelling to a zero before the theme layer restored the project's own text. *)
+let perspective_none_bound_value value =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("perspective-none", value) ]
+  in
+  let u =
+    Result.get_ok (Tw.Transforms.Handler.of_class theme "perspective-none")
+  in
+  match Tw.Transforms.Handler.to_style theme u with
+  | Tw.Style.Style { props; _ } ->
+      List.filter_map
+        (fun d ->
+          match Tw.Css.custom_declaration_name d with
+          | Some "--perspective-none" ->
+              Some (String.trim (Tw.Css.declaration_value d))
+          | _ -> None)
+        props
+  | Tw.Style.Modified _ | Tw.Style.Group _ -> []
+
+let test_perspective_none_theme_override () =
+  let binds value =
+    Alcotest.(check (list string))
+      ("--perspective-none: " ^ value)
+      [ value ]
+      (perspective_none_bound_value value)
+  in
+  binds "0rem";
+  binds "2rem";
+  binds "500px";
+  binds "none";
+  (* A value the length grammar cannot read falls back to the utility's own
+     meaning rather than to a zero; the theme layer still emits the project's
+     text over it. *)
+  Alcotest.(check (list string))
+    "unreadable override" [ "none" ]
+    (perspective_none_bound_value "banana")
+
+(* With no override the utility keeps its own meaning rather than referencing a
+   token nothing declares. *)
+let test_perspective_none_without_override () =
+  let css =
+    Tw.to_css ~base:false [ Result.get_ok (Tw.of_string "perspective-none") ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "perspective:none" true
+    (Astring.String.is_infix ~affix:"perspective:none" css)
+
+(* [transform-[...]], [origin-[...]] and [perspective-origin-[...]] each take a
+   grammar cascade already reads. Reading it in [to_style] left a bracket the
+   grammar refuses accepted and then raising out of [to_css], which is a pure
+   conversion. *)
+let test_invalid_arbitrary_transform () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "transform-[foo]";
+  rejected "transform-[1px]";
+  rejected "transform-[a,b]";
+  rejected "origin-[foo]";
+  rejected "origin-[red]";
+  rejected "perspective-origin-[foo]";
+  rejected "perspective-origin-[red]";
+  renders "transform-[rotate(45deg)]";
+  renders "transform-[translateX(1px)_rotate(45deg)]";
+  renders "origin-[50px_100px]";
+  renders "origin-[center]";
+  renders "perspective-origin-[50px_100px]";
+  renders "perspective-origin-[bottom_right]"
+
+(* An arbitrary transform names its class after the bracket, so the bracket has
+   to come back out spelled as the author wrote it. Re-printing the parsed
+   number or angle drops a redundant zero and leaves a selector the markup does
+   not carry. *)
+let test_arbitrary_transform_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [
+      "scale-[1.5]";
+      "scale-[1.50]";
+      "scale-[2]";
+      "scale-[1.0_2_3]";
+      "scale-x-[1.50]";
+      "scale-y-[1.50]";
+      "rotate-[1.50deg]";
+      "rotate-[1.50_2_3_45deg]";
+      "-rotate-[1.50deg]";
+      "rotate-x-[1.50deg]";
+      "rotate-y-[1.50turn]";
+      "rotate-z-[1.50grad]";
+      "-rotate-x-[1.50deg]";
+      "-rotate-y-[1.50deg]";
+      "-rotate-z-[1.50deg]";
+      "skew-[1.50deg]";
+      "skew-x-[1.50deg]";
+      "skew-y-[1.50deg]";
+    ]
+
+(* The bracket holds a number or an angle, so a word is not a transform. *)
+let test_arbitrary_transform_rejects_non_number () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "scale-[abc]"; "rotate-[abc]"; "skew-[1.5]"; "rotate-[1.5px]" ]
+
+(* A [--perspective-*] token the project declared in its [@theme] names a depth
+   the built-in scale has no slot for. Tailwind generates the utility from it;
+   tw rejected the class outright. *)
+let test_project_perspective_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("perspective-deep", "1200px") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "perspective-deep references its token" true
+    (Astring.String.is_infix ~affix:"perspective: var(--perspective-deep)"
+       (css "perspective-deep"));
+  Alcotest.(check bool)
+    "an undeclared perspective name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "perspective-nope"))
+
 let tests =
   [
+    test_case "invalid arbitrary transform" `Quick
+      test_invalid_arbitrary_transform;
+    test_case "perspective-none theme override" `Quick
+      test_perspective_none_theme_override;
+    test_case "perspective-none without override" `Quick
+      test_perspective_none_without_override;
     test_case "translate spacing steps" `Quick test_translate_spacing_steps;
     test_case "translate zero keeps its unit" `Quick
       test_translate_zero_keeps_unit;
@@ -231,6 +379,11 @@ let tests =
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "arbitrary transform spelling" `Quick
+      test_arbitrary_transform_spelling;
+    test_case "arbitrary transform rejects non-number" `Quick
+      test_arbitrary_transform_rejects_non_number;
+    test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 

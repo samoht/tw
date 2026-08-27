@@ -30,6 +30,7 @@
 module Css = Cascade.Css
 open Cascade_diff
 open Alcotest
+open Upstream_fixture
 
 (* Colour comparison is normalised the way Tailwind normalises its own
    snapshots: [color_mix_to_oklab] then [truncate_color_precision] run on both
@@ -47,184 +48,6 @@ open Alcotest
    gained typed calc + the custom-property prune, and the colour normalisation
    above replaced the allowlist.) *)
 let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
-
-type theme_config =
-  | Theme
-  | Theme_inline
-  | Theme_reference
-  | Theme_inline_reference
-  | No_theme
-  | Run
-
-let config_of_string = function
-  | "theme" -> Theme
-  | "theme-inline" -> Theme_inline
-  | "theme-reference" -> Theme_reference
-  | "theme-inline-reference" -> Theme_inline_reference
-  | "none" -> No_theme
-  | "run" -> Run
-  | _ -> No_theme
-
-type case = {
-  name : string;
-  config : theme_config;
-  classes : string list;
-  expected : string;
-  variants : string list;  (** [matchVariant] directive lines for this test. *)
-  theme_vars : (string * string) list;
-      (** [@theme] token overrides (name, value) captured from the test's CSS
-          template by the extractor (e.g. text-shadow sizes Tailwind inlines).
-      *)
-}
-
-(** Split a class line by spaces, but don't split inside brackets. *)
-let split_classes line =
-  let len = String.length line in
-  let buf = Buffer.create 64 in
-  let acc = ref [] in
-  let depth = ref 0 in
-  for i = 0 to len - 1 do
-    let c = line.[i] in
-    if c = '[' then (
-      incr depth;
-      Buffer.add_char buf c)
-    else if c = ']' then (
-      decr depth;
-      Buffer.add_char buf c)
-    else if c = ' ' && !depth = 0 then (
-      let s = Buffer.contents buf in
-      if s <> "" then acc := s :: !acc;
-      Buffer.clear buf)
-    else Buffer.add_char buf c
-  done;
-  let s = Buffer.contents buf in
-  if s <> "" then acc := s :: !acc;
-  List.rev !acc
-
-let read_test_cases filename =
-  if not (Sys.file_exists filename) then []
-  else
-    let ic = open_in filename in
-    let content = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-    let tests = ref [] in
-    let current_variants = ref [] in
-    let current_theme_vars = ref [] in
-    let lines = String.split_on_char '\n' content in
-    let parse_config_line line =
-      let line = String.trim line in
-      if String.length line > 8 && String.sub line 0 8 = "@config " then
-        Some (config_of_string (String.sub line 8 (String.length line - 8)))
-      else None
-    in
-    let rec parse lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
-            let name = String.sub line 2 (String.length line - 2) in
-            current_variants := [];
-            current_theme_vars := [];
-            parse_config name No_theme rest)
-          else parse rest
-    and parse_config name default_config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest -> (
-          match parse_config_line line with
-          | Some config -> parse_variants name config rest
-          | None -> parse_variants name default_config (line :: rest))
-    and parse_variants name config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let tl = String.trim line in
-          if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
-            current_variants :=
-              String.sub tl 9 (String.length tl - 9) :: !current_variants;
-            parse_variants name config rest)
-          else if String.length tl >= 11 && String.sub tl 0 11 = "@theme-var "
-          then (
-            (* "@theme-var <name> <value>" -- split on the first space. *)
-            let rest_str = String.sub tl 11 (String.length tl - 11) in
-            (match String.index_opt rest_str ' ' with
-            | Some i ->
-                let n = String.sub rest_str 0 i in
-                let v =
-                  String.sub rest_str (i + 1) (String.length rest_str - i - 1)
-                in
-                current_theme_vars := (n, v) :: !current_theme_vars
-            | None -> ());
-            parse_variants name config rest)
-          else parse_classes name config (line :: rest)
-    and parse_classes name config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if line = "<<<>>>" then parse rest
-          else if line = "---" then
-            (* No classes line before ---, skip *)
-            parse_expected name config [] (Buffer.create 256) rest
-          else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
-          then (
-            (* New test without classes *)
-            let new_name = String.sub line 2 (String.length line - 2) in
-            current_variants := [];
-            current_theme_vars := [];
-            parse_config new_name No_theme rest)
-          else
-            let classes = split_classes line in
-            parse_after_classes name config classes rest
-    and parse_after_classes name config classes lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if line = "---" then
-            parse_expected name config classes (Buffer.create 256) rest
-          else if line = "<<<>>>" then
-            (* No expected CSS, skip this test *)
-            parse rest
-          else parse rest
-    and parse_expected name config classes buf lines =
-      match lines with
-      | [] ->
-          let expected = Buffer.contents buf |> String.trim in
-          if classes <> [] then
-            tests :=
-              {
-                name;
-                config;
-                classes;
-                expected;
-                variants = List.rev !current_variants;
-                theme_vars = List.rev !current_theme_vars;
-              }
-              :: !tests
-      | line :: rest ->
-          if String.trim line = "<<<>>>" then (
-            let expected = Buffer.contents buf |> String.trim in
-            if classes <> [] then
-              tests :=
-                {
-                  name;
-                  config;
-                  classes;
-                  expected;
-                  variants = List.rev !current_variants;
-                  theme_vars = List.rev !current_theme_vars;
-                }
-                :: !tests;
-            parse rest)
-          else (
-            if Buffer.length buf > 0 then Buffer.add_char buf '\n';
-            Buffer.add_string buf line;
-            parse_expected name config classes buf rest)
-    in
-    parse lines;
-    List.rev !tests
 
 (** Extract spacing values from expected CSS. *)
 let extract_spacing_from_css css : (int * Css.length) list =
@@ -331,6 +154,7 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
   let default_outline_width = extract_outline_width expected in
   let breakpoints = extract_breakpoints_from_css expected in
   {
+    Tw.Scheme.default with
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
     radius;
@@ -338,24 +162,12 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     default_border_width;
     default_outline_width;
     breakpoints;
-    token_overrides = [];
-    inline_tokens = [];
-    static_theme = false;
   }
 
 let setup_scheme_for_test expected =
-  let scheme = scheme_from_expected_css expected in
-  (* The scheme is threaded into Tw.to_css via ~theme below; the per-module
-     set_scheme globals are no longer used for rendering. *)
-  (* Register custom breakpoints for modifier parsing *)
-  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
-  let custom_bps =
-    List.filter
-      (fun (name, _) -> not (List.mem name standard_names))
-      scheme.breakpoints
-  in
-  Tw.Modifiers.register_custom_breakpoints custom_bps;
-  scheme
+  (* The scheme is threaded into Tw.of_string and Tw.to_css via ~theme; the
+     custom breakpoints it carries are what the modifier parser reads. *)
+  scheme_from_expected_css expected
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -383,21 +195,6 @@ let extract_var_names expected =
   in
   scan 0;
   !vars
-
-(** Extract all CSS custom property definitions from :root, :host block. Returns
-    (name, value) pairs where name is without the -- prefix. E.g.,
-    "--spacing-big: 100rem" → ("spacing-big", "100rem") *)
-let extract_root_vars expected =
-  let pattern = Re.Pcre.regexp {|--([a-zA-Z0-9_-]+):\s*([^;}]+)|} in
-  let matches = Re.all pattern expected in
-  List.filter_map
-    (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let value = String.trim (Re.Group.get m 2) in
-        Some (name, value)
-      with Not_found | Failure _ -> None)
-    matches
 
 (* The expected CSS is Tailwind's own output, so a token read back out of it and
    handed to tw is compared against itself: on that token the runner is blind.
@@ -502,6 +299,28 @@ let color_mix_to_oklab s =
                   Fmt.str "oklab(%.6f%% %.6f %.6f / %.6f)" (l *. 100.) a b alpha
               | _ -> whole)))
 
+(* Tailwind writes the [color-mix] fallback percentage as a bare number:
+   [color-mix(in srgb, red .5, transparent)]. CSS Color 5 sec. 3.1 admits only a
+   [<percentage>] there, so a browser drops that declaration and cascade's
+   reader refuses it, which takes the whole declaration off the expected side
+   and reports tw's own (valid) [50%] as an addition. The two spell one value,
+   so the fixture's spelling is normalised to the percentage before either side
+   is parsed. Only a bare number directly before the closing paren or a comma
+   inside [color-mix(...)] is touched. *)
+let color_mix_percentage =
+  let mix = Re.Pcre.regexp {|\bcolor-mix\(([^()]*)\)|} in
+  let bare = Re.Pcre.regexp {|( )(\.\d+|0?\.\d+)(\s*[,)]|\s*$)|} in
+  fun s ->
+    Re.replace mix s ~f:(fun g ->
+        let args = Re.Group.get g 1 in
+        let args =
+          Re.replace bare args ~f:(fun d ->
+              let n = float_of_string (Re.Group.get d 2) in
+              Fmt.str "%s%g%%%s" (Re.Group.get d 1) (n *. 100.)
+                (Re.Group.get d 3))
+        in
+        "color-mix(" ^ args ^ ")")
+
 (* Reduce the precision of [oklab]/[oklch]/[lab]/[lch] coefficients to three
    decimals, mirroring Tailwind's own snapshot serialiser
    ([test-utils/custom-serializer.ts]): it truncates those axes because
@@ -576,36 +395,12 @@ let test_layer_order_not_tolerated () =
     "a tolerated declaration cannot hide a layer-order change" false
     (is_allowed_canonicalization_diff diff)
 
-(** Extract var(--name, fallback) patterns from expected CSS. Returns (name,
-    fallback) pairs where name is without the -- prefix. Handles both concrete
-    fallbacks (e.g., var(--opacity-half, .5)) and nested var fallbacks (e.g.,
-    var(--opacity-custom, var(--custom-opacity))). *)
-let extract_var_fallbacks expected =
-  let pattern =
-    Re.Pcre.regexp
-      {|var\(--([a-zA-Z0-9_-]+),\s*(var\(--[a-zA-Z0-9_-]+\)|[^)]+)\)|}
-  in
-  let matches = Re.all pattern expected in
-  List.filter_map
-    (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let fallback = String.trim (Re.Group.get m 2) in
-        Some (name, fallback)
-      with Not_found | Failure _ -> None)
-    matches
-
-(* The [--tw-*] vars a utility emits at runtime are tw's own output, not theme
-   tokens a test declares, so they must not become token overrides. Everything
-   the test's own [@theme] block sets goes through, the spacing scale included:
-   no [Scheme.t] field owns the bare [--spacing] multiplier, and filtering the
-   scale out only hid the tests that set it. *)
-
 (** Set theme value overrides for root vars from expected CSS. This enables
     utilities like z-auto and order-first to produce custom declarations in the
-    :root, :host block when [@config] theme is used. *)
-let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
-
+    :root, :host block when [@config] theme is used. Everything the test's own
+    [@theme] block sets goes through, the spacing scale included: no [Scheme.t]
+    field owns the bare [--spacing] multiplier, and filtering the scale out only
+    hid the tests that set it. *)
 let theme_overrides_of ~declared config expected =
   match config with
   | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
@@ -808,7 +603,7 @@ let run_test_case test () =
                 | None -> None)
               pairs
           in
-          Some (name, Tw.Modifiers.{ values; template })
+          Some (name, Tw.Scheme.{ values; template })
       | _ -> None
     in
     (* [@custom-variant <name> { @container <header> { @slot } }] directives,
@@ -833,25 +628,18 @@ let run_test_case test () =
           try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
-    Tw.Modifiers.register_custom_variants
-      (List.filter_map parse_variant_directive test.variants);
-    Tw.Modifiers.register_container_variants
-      (List.filter_map parse_container_directive test.variants);
-    (* Register custom breakpoints before parsing classes. The resulting scheme
-       (base plus any custom breakpoints) is the one threaded to [Tw.to_css]
-       below via [~theme]. *)
+    (* The case's own [@custom-variant]s and custom breakpoints ride on the
+       scheme threaded to [Tw.of_string] and [Tw.to_css] below, so they are
+       local to this case rather than left in a registry the next one reads. *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
     let scheme =
-      if custom_bps = [] then base_scheme
-      else
-        let updated_scheme =
-          {
-            base_scheme with
-            breakpoints = base_scheme.breakpoints @ custom_bps;
-          }
-        in
-        Tw.Modifiers.register_custom_breakpoints custom_bps;
-        updated_scheme
+      {
+        base_scheme with
+        breakpoints = base_scheme.breakpoints @ custom_bps;
+        custom_variants = List.filter_map parse_variant_directive test.variants;
+        container_variants =
+          List.filter_map parse_container_directive test.variants;
+      }
     in
     (* Thread the @theme token overrides into the scheme so utilities read them
        from ~theme (parse and render); the Var global is no longer consulted. *)
@@ -903,7 +691,7 @@ let run_test_case test () =
     if our_css = "" && expected = "" then ()
     else
       let normalize_colors s =
-        truncate_color_precision (color_mix_to_oklab s)
+        truncate_color_precision (color_mix_to_oklab (color_mix_percentage s))
       in
       let result =
         Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -944,6 +732,25 @@ let run_test_case test () =
           (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s%s"
              (String.concat " " test.classes)
              (Buffer.contents buf) expected got rejected_note)
+
+(* Guards [color_mix_percentage]: the bare-number mixing percentage Tailwind
+   writes in its [color-mix] fallback becomes the percentage CSS Color 5 sec.
+   3.1 requires, and nothing else in the function is touched. *)
+let test_color_mix_percentage () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (color_mix_percentage input)
+  in
+  check "bare fraction becomes a percentage"
+    "color-mix(in srgb, red 50%, transparent)"
+    "color-mix(in srgb, red .5, transparent)";
+  check "a percentage is left alone" "color-mix(in srgb, red 50%, transparent)"
+    "color-mix(in srgb, red 50%, transparent)";
+  (* The [var()] fallback spelling carries its own bare number and is a value,
+     not a mixing percentage, so it stays as written. *)
+  check "var fallback untouched"
+    "color-mix(in oklab, red var(--opacity-half, .5), transparent)"
+    "color-mix(in oklab, red var(--opacity-half, .5), transparent)";
+  check "text outside color-mix untouched" "opacity: .5" "opacity: .5"
 
 (* Guards [truncate_color_precision]: it truncates (never rounds) the
    oklab-family axes to three decimals like Tailwind's snapshot serialiser, so
@@ -996,10 +803,6 @@ let print_parity_report () =
      breaks parity fails the CSS diff and names the rejected classes)@.";
   Fmt.epr "==============================@."
 
-let file basename =
-  let paths = [ basename; "test/upstream/" ^ basename ] in
-  List.find_opt Sys.file_exists paths
-
 (* Both fixtures are checked in and declared as dune deps, so a missing one is a
    broken checkout rather than an optional extra. A floor on the parsed cases
    catches the other way this gate can go quiet: a fixture whose format drifts
@@ -1010,15 +813,15 @@ let utilities_floor = 300
 let variants_floor = 80
 
 let load basename floor =
-  match file basename with
+  match path basename with
   | None ->
       Fmt.epr "%s not found. Run extract_tests.exe first.@." basename;
       exit 1
-  | Some path ->
-      let cases = read_test_cases path in
+  | Some p ->
+      let cases = read p in
       let n = List.length cases in
       if n < floor then (
-        Fmt.epr "%s yielded %d test cases, fewer than the floor of %d.@." path n
+        Fmt.epr "%s yielded %d test cases, fewer than the floor of %d.@." p n
           floor;
         exit 1);
       cases
@@ -1045,6 +848,7 @@ let () =
   let tolerance_cases =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
+      test_case "color-mix percentage" `Quick test_color_mix_percentage;
       test_case "canonical tolerance rejects layer order" `Quick
         test_layer_order_not_tolerated;
       test_case "the theme echo is limited to declared tokens" `Quick

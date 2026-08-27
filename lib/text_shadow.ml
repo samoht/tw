@@ -3,7 +3,6 @@
 module Css = Cascade.Css
 
 (* Capture project Pp helpers before open Css shadows Pp with Css.Pp. *)
-let pp_float = Pp.float
 let pp_str = Pp.str
 let pp_hex_byte = Pp.hex_byte
 
@@ -49,9 +48,14 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:35 ~family:`Text_shadow
       Css.Color "tw-text-shadow-color"
 
+  (* The alpha channel is a [<percentage>], and an opacity modifier may name a
+     custom property to read it from, so the channel takes both spellings. *)
+  let text_shadow_alpha_name = "tw-text-shadow-alpha"
+  let full_alpha : Css.percentage = Pct 100.
+
   let text_shadow_alpha_var =
-    Var.property_default Css.Float ~initial:100.0 ~property_order:36
-      ~family:`Text_shadow "tw-text-shadow-alpha"
+    Var.property_default Css.Percentage ~initial:full_alpha ~property_order:36
+      ~family:`Text_shadow text_shadow_alpha_name
 
   let text_shadow_property_rules =
     [
@@ -68,17 +72,16 @@ module Handler = struct
     String.length s > 0 && s.[0] = '#' && Stdlib.Option.is_some (Css.hex_opt s)
 
   let alpha_decl percent =
-    Css.custom_property ~layer:"utilities" "--tw-text-shadow-alpha"
-      (pp_float percent ^ "%")
+    let alpha : Css.percentage = Pct percent in
+    fst (Var.binding text_shadow_alpha_var alpha)
 
-  let opacity_css_value opacity =
+  let opacity_percentage opacity : Css.percentage =
     match Color.opacity_var_bare_of opacity with
-    | Some name -> "var(--" ^ name ^ ")"
-    | None -> pp_float (Color.opacity_to_percent opacity) ^ "%"
+    | Some name -> Var (Var.bracket name)
+    | None -> Pct (Color.opacity_to_percent opacity)
 
   let opacity_decl opacity =
-    Css.custom_property ~layer:"utilities" "--tw-text-shadow-alpha"
-      (opacity_css_value opacity)
+    fst (Var.binding text_shadow_alpha_var (opacity_percentage opacity))
 
   let color_mix_supports decls =
     Css.supports ~condition:Color.color_mix_supports_condition
@@ -94,9 +97,15 @@ module Handler = struct
     | Some c -> c
     | None -> make_color_var (Parse.extract_var_name v)
 
+  (* A relative colour is carried as a verbatim body, so this one path spells
+     the alpha the channel would otherwise be given as a value. *)
   let relative_oklab_from_color v opacity =
-    Css.parse_color
-      (pp_str [ "oklab(from "; v; " l a b / "; opacity_css_value opacity; ")" ])
+    let alpha =
+      Css.Pp.to_string ~minify:true
+        (Css.Values.pp_percentage ~always:true)
+        (opacity_percentage opacity)
+    in
+    Css.parse_color (pp_str [ "oklab(from "; v; " l a b / "; alpha; ")" ])
 
   (* ============ Parse arbitrary shadow ============ *)
 
@@ -353,7 +362,7 @@ module Handler = struct
       Var.binding theme_color_var (Css.hex hex_value)
     in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         (Css.Var color_ref) Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -377,7 +386,7 @@ module Handler = struct
         ~percent1:percent
     in
     let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
@@ -388,7 +397,7 @@ module Handler = struct
   let set_current () =
     let base_decl, _ = Var.binding text_shadow_color_var Css.Current in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         Css.Current Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -404,7 +413,7 @@ module Handler = struct
         ~percent1:percent
     in
     let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
@@ -415,7 +424,7 @@ module Handler = struct
   let set_transparent () =
     let base_decl, _ = Var.binding text_shadow_color_var Css.Transparent in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         Css.Transparent Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -427,7 +436,7 @@ module Handler = struct
     let base_decl, _ = Var.binding text_shadow_color_var Css.Transparent in
     let inner_mix = Color.apply_alpha opacity Css.Transparent in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -443,7 +452,7 @@ module Handler = struct
     let short = shorten_hex ("#" ^ hex) in
     let base_decl, _ = Var.binding text_shadow_color_var (Css.hex short) in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         (Css.hex short) Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -460,7 +469,7 @@ module Handler = struct
     let alpha = percent /. 100.0 in
     let oklab_color = Color.hex_to_oklab_alpha hex alpha in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         oklab_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -473,7 +482,7 @@ module Handler = struct
     let var_color = make_color_var var_name in
     let base_decl, _ = Var.binding text_shadow_color_var var_color in
     let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         var_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
@@ -490,7 +499,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-text-shadow-alpha"
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in

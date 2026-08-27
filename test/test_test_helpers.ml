@@ -1,0 +1,152 @@
+(* The harness decides whether every other suite passes, so what its predicates
+   report is worth pinning on its own. Each case here feeds a predicate an input
+   whose answer is known by construction and checks the answer, rather than
+   checking anything the library emits. *)
+
+(* Two selector shapes a real utility has: divide's rule continues past the
+   class name into a combinator, and a longer class shares a shorter one's
+   prefix. Written the way a minified sheet spells them. *)
+let sheet =
+  ".divide-x>:not(:last-child){border-inline-width:1px}"
+  ^ ".bg-top{background-position:top}"
+  ^ ".divide-x-2>:not(:last-child){border-inline-width:2px}"
+  ^ ".bg-top-left{background-position:left top}"
+
+let position cls = Test_helpers.class_position sheet cls
+
+let index_of affix =
+  match Astring.String.find_sub ~sub:affix sheet with
+  | Some i -> i
+  | None -> Alcotest.failf "%s is not in the fixture sheet" affix
+
+(* [.divide-x] is followed by a combinator, not by [{] or [,]. A predicate that
+   only accepts those two delimiters reports the class as absent from a sheet
+   that declares it, and [check_class_order] then blames the generated CSS. *)
+let test_position_of_continuing_selector () =
+  Alcotest.(check (option int))
+    "divide-x is where its rule starts"
+    (Some (index_of ".divide-x>"))
+    (position "divide-x")
+
+(* The same shape one level down: the match has to end where the class name
+   ends, so [.divide-x] must not be read off [.divide-x-2]. *)
+let test_position_ignores_longer_class_with_combinator () =
+  Alcotest.(check (option int))
+    "divide-x-2 is its own rule"
+    (Some (index_of ".divide-x-2>"))
+    (position "divide-x-2")
+
+let test_position_ignores_longer_class () =
+  Alcotest.(check (option int))
+    "bg-top is not bg-top-left"
+    (Some (index_of ".bg-top{"))
+    (position "bg-top")
+
+let test_position_absent_class () =
+  Alcotest.(check (option int))
+    "flex is not in the sheet" None (position "flex")
+
+(* Every declaration a class emits, theme bindings included. *)
+let declarations_of cls =
+  match Tw.of_string cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      Tw.to_css ~base:false [ u ]
+      |> Cascade.Css.fold
+           (fun acc stmt ->
+             match Cascade.Css.as_rule stmt with
+             | Some (_, decls, _) -> decls @ acc
+             | None -> acc)
+           []
+
+let references_var cls =
+  Test_helpers.has_var_in_declarations (declarations_of cls)
+
+(* A [var()] under calc() is still a variable reference. A predicate that only
+   reads the head of the value calls the spacing scale no reference at all, and
+   every assertion that a sheet holds none passes on it by accident. *)
+let test_var_under_calc () =
+  Alcotest.(check bool)
+    "p-4 references the spacing variable" true (references_var "p-4")
+
+(* Same shape one function further in: the colour sits inside color-mix. *)
+let test_var_under_color_mix () =
+  Alcotest.(check bool)
+    "bg-black/50 references the palette variable" true
+    (references_var "bg-black/50")
+
+let test_no_var_when_none_referenced () =
+  Alcotest.(check bool)
+    "text-left references no variable" false
+    (references_var "text-left")
+
+(* Where an ordering difference becomes observable: an element carrying two
+   classes that write on each other. *)
+let paired a b =
+  let pairs = Test_helpers.interacting_pairs [ a; b ] in
+  List.exists (fun p -> p = (a, b) || p = (b, a)) pairs
+
+(* [inset] and [top] are one property after shorthand expansion, so which of the
+   two rules comes last decides where the element sits. They share no property
+   name, so pairing on the name alone never puts them on one element. The [px]
+   step rather than a scale step: [inset-4] and [top-4] each write [--spacing]
+   too, which pairs them for a reason that says nothing about the two
+   properties. *)
+let test_pairs_shorthand_with_longhand () =
+  Alcotest.(check bool)
+    "inset-px and top-px share an element" true
+    (paired "inset-px" "top-px")
+
+(* The same relation one family over: [flex] writes [flex-grow]. *)
+let test_pairs_shorthand_with_its_own_longhand () =
+  Alcotest.(check bool)
+    "flex-1 and grow share an element" true (paired "flex-1" "grow")
+
+(* A pair that interacts through a variable rather than a slot: shadow-current
+   feeds the colour the size utility's shadow reads, which neither class shows
+   on its own. *)
+let test_pairs_composed_through_a_variable () =
+  Alcotest.(check bool)
+    "shadow-lg and shadow-current share an element" true
+    (paired "shadow-lg" "shadow-current")
+
+let test_unrelated_classes_are_not_paired () =
+  Alcotest.(check bool)
+    "text-left and italic do not share an element" false
+    (paired "text-left" "italic")
+
+(* The list handed to the browser: singles first, then the pairs, with the
+   repeat of a class dropped rather than rendered twice. *)
+let test_render_elements_are_unique_and_ordered () =
+  Alcotest.(check (list string))
+    "m-2 twice renders once"
+    [ "m-2"; "ml-2"; "m-2 ml-2" ]
+    (Test_helpers.render_elements [ "m-2"; "ml-2"; "m-2" ])
+
+let tests =
+  [
+    Alcotest.test_case "class position: continuing selector" `Quick
+      test_position_of_continuing_selector;
+    Alcotest.test_case "class position: longer class with combinator" `Quick
+      test_position_ignores_longer_class_with_combinator;
+    Alcotest.test_case "class position: longer class" `Quick
+      test_position_ignores_longer_class;
+    Alcotest.test_case "class position: absent class" `Quick
+      test_position_absent_class;
+    Alcotest.test_case "var under calc" `Quick test_var_under_calc;
+    Alcotest.test_case "var under color-mix" `Quick test_var_under_color_mix;
+    Alcotest.test_case "no var referenced" `Quick
+      test_no_var_when_none_referenced;
+    Alcotest.test_case "pairs shorthand with longhand" `Quick
+      test_pairs_shorthand_with_longhand;
+    Alcotest.test_case "pairs shorthand with its own longhand" `Quick
+      test_pairs_shorthand_with_its_own_longhand;
+    Alcotest.test_case "pairs classes composed through a variable" `Quick
+      test_pairs_composed_through_a_variable;
+    Alcotest.test_case "unrelated classes are not paired" `Quick
+      test_unrelated_classes_are_not_paired;
+    Alcotest.test_case "render elements are unique and ordered" `Quick
+      test_render_elements_are_unique_and_ordered;
+  ]
+
+let suite = ("test_helpers", tests)

@@ -238,6 +238,30 @@ let test_object_and_z_values () =
   | Error _ -> ());
   has "z-auto" "z-index:auto"
 
+(* [z-[...]] takes a z-index. A bracket the z-index grammar cannot read is
+   accepted and then raises out of [to_css], a pure conversion, so the rejection
+   belongs at parse time. *)
+let test_invalid_arbitrary_z_index () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "z-[foo]";
+  rejected "z-[1.5]";
+  rejected "z-[50%]";
+  rejected "-z-[foo]";
+  renders "z-[13]";
+  renders "z-[auto]";
+  renders "z-[var(--x)]";
+  renders "-z-[13]";
+  renders "-z-[var(--x)]"
+
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
@@ -259,6 +283,7 @@ let tests =
     test_case "isolation and float slots" `Quick isolation_and_float_slots;
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "invalid arbitrary z-index" `Quick test_invalid_arbitrary_z_index;
   ]
 
 let suite = ("layout", tests)

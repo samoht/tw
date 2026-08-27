@@ -23,8 +23,18 @@ val init : ?base:bool -> unit -> unit
 
 val use : Tw.t list -> string
 (** [use styles] registers the given utilities and returns a space-separated
-    class name string. New CSS rules are injected into the DOM immediately.
-    Already-registered utilities are not re-injected. *)
+    class name string. Already-registered utilities are not re-injected.
+
+    Injecting the new rules is deferred to a microtask, so a pass of component
+    mounts that each call [use] compiles the sheet once rather than once per
+    mount. The browser drains microtasks before it paints, so the rules are in
+    the document by the time anything is rendered; call {!flush} to inject them
+    at once. *)
+
+val flush : unit -> unit
+(** [flush ()] injects any rules {!use} has registered but not yet written to
+    the document, and does nothing when there are none. Only needed to read the
+    style element back within the task that registered the utilities. *)
 
 val use_str : string -> string
 (** [use_str s] parses a space-separated Tailwind class string, registers the

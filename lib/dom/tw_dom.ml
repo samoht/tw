@@ -32,6 +32,23 @@ let rebuild_css () =
   let css_str = Css.to_string ~minify:true css in
   set_text_content el css_str
 
+(* Every rebuild compiles and serialises the whole accumulated sheet, so
+   rebuilding inside [use] costs one full compilation per component that
+   introduces a class: 1 + 2 + ... + n over a mount pass. The rebuild is instead
+   coalesced onto a microtask, which the browser drains at the end of the
+   current task and before it paints, so a mount pass compiles once. *)
+let pending : bool ref = ref false
+
+let flush () =
+  if !pending then (
+    pending := false;
+    rebuild_css ())
+
+let schedule_rebuild () =
+  if not !pending then (
+    pending := true;
+    Fut.await (Fut.return ()) flush)
+
 let init ?(base = true) () =
   include_base := base;
   ignore (ensure_style_el ())
@@ -46,7 +63,7 @@ let use styles =
         all_styles := s :: !all_styles;
         new_found := true))
     styles;
-  if !new_found then rebuild_css ();
+  if !new_found then schedule_rebuild ();
   Tw.to_classes styles
 
 let use_str s =

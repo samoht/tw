@@ -119,3 +119,19 @@ border-style utilities join the real style family after the width family.
   .border-double{--tw-border-style:double;border-style:double}
   .custom-alpha{border-style:groove}
   .custom-zebra{border-style:ridge}
+
+The [@layer properties] fallback block a declared utility brings is the same
+block the generated sheet emits, and it belongs where that one sits: ahead of
+the theme, not after the utilities it initialises.
+
+  $ cat > slot.css <<EOF
+  > @import "tailwindcss";
+  > @utility line-t { @apply border-t }
+  > EOF
+  $ cat > slot.html <<EOF
+  > <div class="line-t"></div>
+  > EOF
+  $ tw --minify --input-css slot.css slot.html | grep -oE '@layer (properties|theme|utilities)\{' | head -3
+  @layer properties{
+  @layer theme{
+  @layer utilities{

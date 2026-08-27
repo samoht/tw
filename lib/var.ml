@@ -2,7 +2,7 @@ module Css = Cascade.Css
 (* Typed CSS custom properties (variables) - Simplified API
 
    This module provides the core extensible variable system for CSS custom
-   properties following the simplified design from todo/vars.md *)
+   properties following the simplified design documented in var.mli *)
 
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
@@ -99,8 +99,32 @@ module Registry = struct
         Hashtbl.replace name_registry name order;
         order
 
+  (* A name owns its family and its [@property] need: each is a fact about one
+     custom property, not a slot several families share. A second registration
+     that agrees restates the fact; one that disagrees is a constant copied by
+     hand that has drifted, so it is refused rather than letting module
+     initialisation order decide the properties layer. *)
+  let register_once tbl ~what ~pp ~name ~value =
+    match Hashtbl.find_opt tbl name with
+    | Some established when established <> value ->
+        invalid_arg
+          (Pp.str
+             [
+               "--";
+               name;
+               ": ";
+               what;
+               " is ";
+               pp established;
+               ", registered again as ";
+               pp value;
+             ])
+    | Some _ -> ()
+    | None -> Hashtbl.replace tbl name value
+
   let register_property_order ~name ~order =
-    Hashtbl.replace property_order_registry name order
+    register_once property_order_registry ~what:"property order" ~pp:Pp.int
+      ~name ~value:order
 
   let property_order name =
     (* Strip leading -- if present *)
@@ -120,8 +144,30 @@ module Registry = struct
     in
     Hashtbl.find_opt name_registry name
 
+  let family_name : family -> string = function
+    | `Border -> "Border"
+    | `Rotate -> "Rotate"
+    | `Skew -> "Skew"
+    | `Scale -> "Scale"
+    | `Translate -> "Translate"
+    | `Gradient -> "Gradient"
+    | `Shadow -> "Shadow"
+    | `Inset_shadow -> "Inset_shadow"
+    | `Ring -> "Ring"
+    | `Inset_ring -> "Inset_ring"
+    | `Leading -> "Leading"
+    | `Font_weight -> "Font_weight"
+    | `Duration -> "Duration"
+    | `Tracking -> "Tracking"
+    | `Content -> "Content"
+    | `Text_shadow -> "Text_shadow"
+    | `Filter -> "Filter"
+    | `Drop_shadow -> "Drop_shadow"
+    | `Backdrop_filter -> "Backdrop_filter"
+
   let register_family ~name ~family =
-    Hashtbl.replace family_registry name family
+    register_once family_registry ~what:"family" ~pp:family_name ~name
+      ~value:family
 
   let family name =
     (* Strip leading -- if present *)
@@ -133,7 +179,8 @@ module Registry = struct
     Hashtbl.find_opt family_registry name
 
   let register_needs_property ~name ~needs =
-    Hashtbl.replace needs_property_registry name needs
+    register_once needs_property_registry ~what:"@property need" ~pp:Pp.bool
+      ~name ~value:needs
 
   let needs_property name =
     (* Strip leading -- if present *)
@@ -147,7 +194,7 @@ module Registry = struct
     | None -> false
 end
 
-(* Get property order for a variable name (for external use in rules.ml) *)
+(* Get property order for a variable name (for external use in build.ml) *)
 let property_order = Registry.property_order
 let register_property_order = Registry.register_property_order
 let order = Registry.order
@@ -205,11 +252,13 @@ let properties_kind_of_kind : type a. a Css.kind -> a Css.Properties.kind =
   | Rotate -> Css.Properties.Rotate
   | Scale -> Css.Properties.Scale
   | Shadow -> Css.Properties.Shadow
-  | Box_shadow -> Css.Properties.Box_shadow
   | Content -> Css.Properties.Content
   | Gradient_stop -> Css.Properties.Gradient_stop
   | Gradient_direction -> Css.Properties.Gradient_direction
   | Gradient_position -> Css.Properties.Gradient_position
+  | Radial_shape -> Css.Properties.Radial_shape
+  | Radial_size -> Css.Properties.Radial_size
+  | Position_value -> Css.Properties.Position_value
   | Animation -> Css.Properties.Animation
   | Timing_function -> Css.Properties.Timing_function
   | Transform -> Css.Properties.Transform
@@ -321,11 +370,14 @@ let property_universal : type a.
   | None -> property ~name Universal ~inherits ()
   | Some v -> (
       match (kind, v) with
-      | Gradient_stop, List []
-      | Percentage, Pct 0.
-      | Gradient_direction, To_bottom ->
+      | Gradient_stop, (List [] : Css.gradient_stop) ->
           property ~name Universal ~inherits ()
-      | Gradient_position, Linear_position To_bottom ->
+      | Percentage, (Pct 0. : Css.percentage) ->
+          property ~name Universal ~inherits ()
+      | Gradient_direction, (To_bottom : Css.gradient_direction) ->
+          property ~name Universal ~inherits ()
+      | Gradient_position, (Linear_position To_bottom : Css.gradient_position)
+        ->
           property ~name Universal ~inherits ()
       | _ ->
           let initial_str = string_of_kind_value kind v in
@@ -343,11 +395,9 @@ let property_typed : type a.
       property ~name Percentage ~initial_value:(Pct v) ~inherits ()
   | Color, None -> property ~name Universal ~inherits ()
   | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
-  | Percentage, None -> property ~name Length_percentage ~inherits ()
+  | Percentage, None -> property ~name Percentage ~inherits ()
   | Percentage, Some v ->
-      property ~name Length_percentage
-        ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
-        ~inherits ()
+      property ~name Percentage ~initial_value:v ~inherits ()
   | Length_percentage, None -> property ~name Length_percentage ~inherits ()
   | Length_percentage, Some v ->
       property ~name Length_percentage ~initial_value:v ~inherits ()
@@ -356,7 +406,8 @@ let property_typed : type a.
       let initial_str = string_of_kind_value kind v in
       property ~name Universal ~initial_value:initial_str ~inherits ()
   | Gradient_stop, None -> property ~name Universal ~inherits ()
-  | Gradient_stop, Some (List []) -> property ~name Universal ~inherits ()
+  | Gradient_stop, Some (List [] : Css.gradient_stop) ->
+      property ~name Universal ~inherits ()
   | Gradient_stop, Some v ->
       property ~name Universal
         ~initial_value:(string_of_kind_value kind v)
@@ -505,9 +556,14 @@ let property_info_to_declaration_value (Css.Property_info info) =
                   match v with
                   | Zero -> "0"
                   | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-              | Number -> Pp.float v ^ "%"
+              (* A [<number>] initial value is a number: appending [%] made it a
+                 percentage, which is a different type. Unreachable today
+                 because [property_typed] emits no Number syntax, so this is the
+                 arm a new one would land on. *)
+              | Number -> Pp.float v
               | syntax -> Css.Pp.to_string (pp_value syntax) v)))
 
+let name var = var.name
 let css_name var = "--" ^ var.name
 
 let needs_property_rule v =
@@ -528,32 +584,6 @@ let order_of_declaration decl =
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
 let property_initial_string = property_info_to_declaration_value
-
-(* Heterogeneous collections *)
-type any_var = Any : ('a, 'r) t -> any_var
-
-let properties vars =
-  (* Collect statements from property rules and deduplicate by name *)
-  let stmts =
-    vars
-    |> List.filter_map (fun (Any v) -> property_rule v)
-    |> List.concat_map Css.statements
-  in
-  let seen = Hashtbl.create 32 in
-  let filtered =
-    List.filter
-      (fun stmt ->
-        match Css.as_property stmt with
-        | Some (Css.Property_info info) ->
-            if Hashtbl.mem seen info.name then false
-            else (
-              Hashtbl.add seen info.name ();
-              true)
-        | None -> true)
-      stmts
-  in
-  Css.v filtered
-
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
 
 let bracket ?fallback name =

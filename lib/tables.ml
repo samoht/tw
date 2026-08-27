@@ -28,9 +28,11 @@ module Handler = struct
     | Border_spacing of float
     | Border_spacing_x of float
     | Border_spacing_y of float
-    | Border_spacing_arb of Css.length
-    | Border_spacing_x_arb of Css.length
-    | Border_spacing_y_arb of Css.length
+    (* The author's bracket text travels with the length it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Border_spacing_arb of string * Css.length
+    | Border_spacing_x_arb of string * Css.length
+    | Border_spacing_y_arb of string * Css.length
     | Table_auto
     | Table_fixed
     | Caption_top
@@ -177,9 +179,9 @@ module Handler = struct
     | Border_spacing n -> border_spacing_style n
     | Border_spacing_x n -> border_spacing_x_style n
     | Border_spacing_y n -> border_spacing_y_style n
-    | Border_spacing_arb len -> border_spacing_arb_style len
-    | Border_spacing_x_arb len -> border_spacing_x_arb_style len
-    | Border_spacing_y_arb len -> border_spacing_y_arb_style len
+    | Border_spacing_arb (_, len) -> border_spacing_arb_style len
+    | Border_spacing_x_arb (_, len) -> border_spacing_x_arb_style len
+    | Border_spacing_y_arb (_, len) -> border_spacing_y_arb_style len
     | Table_auto -> style [ Css.table_layout Auto ]
     | Table_fixed -> style [ Css.table_layout Fixed ]
     | Caption_top -> style [ Css.caption_side Top ]
@@ -207,38 +209,29 @@ module Handler = struct
     match parts with
     | [ "border"; "collapse" ] -> Ok Border_collapse
     | [ "border"; "separate" ] -> Ok Border_separate
-    | [ "border"; "spacing"; n ] when Parse.is_bracket_value n ->
+    | [ "border"; "spacing"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        if String.ends_with ~suffix:"px" inner then
-          let s = String.sub inner 0 (String.length inner - 2) in
-          match float_of_string_opt s with
-          | Some f -> Ok (Border_spacing_arb (Css.Px f))
-          | None -> err_not_utility
-        else err_not_utility
+        match Parse.arbitrary_length inner with
+        | Some len -> Ok (Border_spacing_arb (inner, len))
+        | None -> err_not_utility)
     | [ "border"; "spacing"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing f)
         | Ok _ | Error _ -> err_not_utility)
-    | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n ->
+    | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        if String.ends_with ~suffix:"px" inner then
-          let s = String.sub inner 0 (String.length inner - 2) in
-          match float_of_string_opt s with
-          | Some f -> Ok (Border_spacing_x_arb (Css.Px f))
-          | None -> err_not_utility
-        else err_not_utility
+        match Parse.arbitrary_length inner with
+        | Some len -> Ok (Border_spacing_x_arb (inner, len))
+        | None -> err_not_utility)
     | [ "border"; "spacing"; "x"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-x" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_x f)
         | Ok _ | Error _ -> err_not_utility)
-    | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n ->
+    | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        if String.ends_with ~suffix:"px" inner then
-          let s = String.sub inner 0 (String.length inner - 2) in
-          match float_of_string_opt s with
-          | Some f -> Ok (Border_spacing_y_arb (Css.Px f))
-          | None -> err_not_utility
-        else err_not_utility
+        match Parse.arbitrary_length inner with
+        | Some len -> Ok (Border_spacing_y_arb (inner, len))
+        | None -> err_not_utility)
     | [ "border"; "spacing"; "y"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-y" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_y f)
@@ -254,37 +247,15 @@ module Handler = struct
     | Border_separate -> "border-separate"
     | Border_spacing n ->
         "border-spacing-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
-    | Border_spacing_arb (Px n) ->
-        let s = string_of_float n in
-        let s =
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "border-spacing-[" ^ s ^ "px]"
-    | Border_spacing_arb _ -> "border-spacing-[<length>]"
+    | Border_spacing_arb (spelling, _) -> "border-spacing-[" ^ spelling ^ "]"
     | Border_spacing_x n ->
         "border-spacing-x-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
-    | Border_spacing_x_arb (Px n) ->
-        let s = string_of_float n in
-        let s =
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "border-spacing-x-[" ^ s ^ "px]"
-    | Border_spacing_x_arb _ -> "border-spacing-x-[<length>]"
+    | Border_spacing_x_arb (spelling, _) ->
+        "border-spacing-x-[" ^ spelling ^ "]"
     | Border_spacing_y n ->
         "border-spacing-y-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))
-    | Border_spacing_y_arb (Px n) ->
-        let s = string_of_float n in
-        let s =
-          if String.ends_with ~suffix:"." s then
-            String.sub s 0 (String.length s - 1)
-          else s
-        in
-        "border-spacing-y-[" ^ s ^ "px]"
-    | Border_spacing_y_arb _ -> "border-spacing-y-[<length>]"
+    | Border_spacing_y_arb (spelling, _) ->
+        "border-spacing-y-[" ^ spelling ^ "]"
     | Table_auto -> "table-auto"
     | Table_fixed -> "table-fixed"
     | Caption_top -> "caption-top"

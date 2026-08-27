@@ -461,6 +461,30 @@ let test_keyword_opacity_families () =
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "text-shadow-inherit/50 should be rejected"
 
+(* A colour keyword carries its opacity modifier into a mix like any other
+   colour. Only a fully opaque modifier collapses back to the bare keyword. *)
+let test_keyword_opacity_mixes () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-transparent/50"
+    "background-color: color-mix(in oklab, transparent 50%, transparent)";
+  has "text-transparent/25"
+    "color: color-mix(in oklab, transparent 25%, transparent)";
+  has "border-transparent/[0.25]"
+    "border-color: color-mix(in oklab, transparent 25%, transparent)";
+  has "decoration-transparent/50"
+    "text-decoration-color: color-mix(in oklab, transparent 50%, transparent)";
+  has "bg-inherit/50"
+    "background-color: color-mix(in oklab, inherit 50%, transparent)";
+  has "bg-transparent/100" "background-color: transparent";
+  has "border-inherit/100" "border-color: inherit"
+
 (* A palette colour with no shade segment must not absorb one and rename the
    class. Tailwind rejects the candidate instead. *)
 let test_shadeless_colour_rejects_shade_segment () =
@@ -483,6 +507,116 @@ let test_decoration_theme_colour_opacity () =
   | Ok u ->
       Alcotest.(check string)
         "custom theme colour round-trips" "decoration-brand/50" (Tw.pp u)
+
+(* A colour a project declared in an [@theme] block has no palette entry to
+   convert, so the opacity path has to read its value off the theme rather than
+   ask the palette for a shade it never had. *)
+let test_theme_colour_opacity_families () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  List.iter
+    (fun cls ->
+      (* The pre-color-mix fallback keeps the modifier's alpha. *)
+      has cls "color-mix(in srgb,oklch(55%.2 250) 50%,transparent)";
+      (* The enhanced value reads the token rather than inlining it. *)
+      has cls "color-mix(in oklab,var(--color-brand) 50%,transparent)")
+    [
+      "bg-brand/50";
+      "text-brand/50";
+      "border-brand/50";
+      "divide-brand/50";
+      "fill-brand/50";
+      "accent-brand/50";
+      "from-brand/50";
+    ]
+
+(* A project token is a colour in its own right, with or without a modifier: at
+   full opacity the utility simply references it. *)
+let test_theme_colour_without_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(55% 0.2 250)") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " references the token")
+        true
+        (Astring.String.is_infix ~affix:"var(--color-brand)" (css cls)))
+    [
+      "bg-brand";
+      "text-brand";
+      "border-brand";
+      "divide-brand";
+      "fill-brand";
+      "stroke-brand";
+      "accent-brand";
+      "caret-brand";
+      "outline-brand";
+      "from-brand";
+    ]
+
+(* A token name is not limited to one segment, and the modifier still rides on
+   the last one. *)
+let test_multi_segment_theme_colour () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand-primary", "#123456") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "bg-brand-primary references the token" true
+    (Astring.String.is_infix ~affix:"var(--color-brand-primary)"
+       (css "bg-brand-primary"));
+  Alcotest.(check bool)
+    "bg-brand-primary/50 keeps the alpha" true
+    (Astring.String.is_infix ~affix:"color-mix(in srgb,#123456 50%,transparent)"
+       (css "bg-brand-primary/50"))
+
+(* A name no [@theme] block declared is not a colour, whatever it looks like. *)
+let test_undeclared_theme_colour_rejected () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    [
+      "bg-brand/50";
+      "text-brand/50";
+      "border-brand/50";
+      "bg-brand";
+      "text-brand";
+      "border-brand";
+      "bg-brand-primary";
+    ]
 
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
@@ -507,7 +641,7 @@ let test_achromatic_none_hue () =
 let test_v433_color_families () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -527,7 +661,7 @@ let test_v433_color_families () =
 let test_full_opacity_and_important () =
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.pp ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
@@ -604,6 +738,63 @@ let test_invalid_bracket_hex () =
   emits "outline-[#abc]" "outline-color:#abc";
   emits "placeholder-[#abc]" "color:#abc"
 
+(* A class name is a selector, so it has to repeat the text the author wrote
+   rather than a re-print of the number it parsed to. [/[25]] and [/[25.0]]
+   denote one alpha and are two distinct classes; only the author's spelling
+   matches the markup. *)
+let test_opacity_modifier_class_roundtrip () =
+  let roundtrip cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.(check string) "class" cls (Tw.pp u)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter roundtrip
+    [
+      "bg-red-500/50";
+      "bg-red-500/2.5";
+      "bg-red-500/[25]";
+      "bg-red-500/[.5]";
+      "bg-red-500/[25%]";
+      "bg-red-500/[25.50%]";
+      "bg-red-500/[var(--o)]";
+      "bg-red-500/(--o)";
+      "text-red-500/[25]";
+      "border-red-500/[25]";
+      "shadow-lg/[25]";
+      "shadow-red-500/[25]";
+      "inset-shadow-sm/[25]";
+      "ring-red-500/[25]";
+      "ring-offset-red-500/[25]";
+      "inset-ring-red-500/[25]";
+      "drop-shadow-lg/[25]";
+      "drop-shadow/[25]";
+      "text-shadow-lg/[25]";
+      "decoration-red-500/[25]";
+      "divide-red-500/[25]";
+      "fill-red-500/[25]";
+      "accent-red-500/[25]";
+      "outline-red-500/[25]";
+      "placeholder-red-500/[25]";
+      "from-red-500/[25]";
+      "[color:red]/[25]";
+    ]
+
+(* The bracket modifier holds a number, so a non-numeric spelling is not a
+   utility at all rather than one with a surprising class name. *)
+let test_opacity_modifier_rejects_non_numeric () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [
+      "bg-red-500/[abc]";
+      "bg-red-500/[]";
+      "bg-red-500/[25px]";
+      "bg-red-500/[%]";
+      "shadow-lg/[25px]";
+    ]
+
 let tests =
   [
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
@@ -621,12 +812,21 @@ let tests =
     ("Alpha from a var", `Quick, test_alpha_from_a_var);
     ("Invalid shades", `Quick, test_invalid_shade);
     ("Keyword opacity families", `Quick, test_keyword_opacity_families);
+    ("Keyword opacity mixes", `Quick, test_keyword_opacity_mixes);
     ( "Shadeless colour rejects a shade segment",
       `Quick,
       test_shadeless_colour_rejects_shade_segment );
     ( "Decoration theme colour opacity",
       `Quick,
       test_decoration_theme_colour_opacity );
+    ( "Theme colour opacity across families",
+      `Quick,
+      test_theme_colour_opacity_families );
+    ("Theme colour without opacity", `Quick, test_theme_colour_without_opacity);
+    ("Multi-segment theme colour", `Quick, test_multi_segment_theme_colour);
+    ( "Undeclared theme colour rejected",
+      `Quick,
+      test_undeclared_theme_colour_rejected );
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);
@@ -636,6 +836,12 @@ let tests =
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
     ("v4.3.3 colour families", `Quick, test_v433_color_families);
     ("Full opacity and important", `Quick, test_full_opacity_and_important);
+    ( "Opacity modifier class roundtrip",
+      `Quick,
+      test_opacity_modifier_class_roundtrip );
+    ( "Opacity modifier rejects non-numeric",
+      `Quick,
+      test_opacity_modifier_rejects_non_numeric );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
   ]
 

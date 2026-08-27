@@ -47,14 +47,26 @@ let handlers : handler list ref = ref []
    properties they set, and the lowest order among the ones setting a property
    is that property's slot. The ordering itself stays declared once, on the
    utilities - nothing here restates it. *)
+(* [true] on an entry means it came from a property the utility writes on the
+   element itself, which outranks one it writes only inside a nested rule. *)
 let property_slots :
-    (Cascade.Css.Declaration.prop_key, int * int) Hashtbl.t option ref =
+    (Cascade.Css.Declaration.prop_key, bool * (int * int)) Hashtbl.t option ref
+    =
   ref None
 
 let register (type a) (module M : Handler with type t = a) =
   let internal_h = H (module M : Handler with type t = a) in
   property_slots := None;
   handlers := internal_h :: !handlers
+
+(* The declarations a style writes on the element itself: a pseudo-element
+   suffix or a rule of its own moves them off it. *)
+let rec style_own_declarations (s : Style.t) =
+  match s with
+  | Style.Style { pseudo_suffix = Some _; _ } -> []
+  | Style.Style { props; _ } -> props
+  | Style.Modified (_, inner) -> style_own_declarations inner
+  | Style.Group inner -> List.concat_map style_own_declarations inner
 
 (* The declarations a style writes, its own and those of the rules it
    carries. *)
@@ -71,43 +83,82 @@ let rec style_declarations (s : Style.t) =
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 
+(* A width utility writes the style property as a bare reference to the style
+   utilities' channel, so the declaration says nothing about which family the
+   utility belongs to. No cascade API tells a bare var() carrier from a real
+   value, so the two carriers are named here. *)
 let is_ordering_carrier decl =
   match Cascade.Css.Declaration.property_key decl with
   | Key Border_style ->
       Cascade.Css.declaration_value ~minify:true decl = "var(--tw-border-style)"
+  | Key Outline_style ->
+      Cascade.Css.declaration_value ~minify:true decl
+      = "var(--tw-outline-style)"
   | _ -> false
 
+(* The property name a vendor-prefixed one stands in for: [-webkit-user-select]
+   is [user-select]. *)
+let unprefixed_name name =
+  if String.length name > 1 && name.[0] = '-' then
+    Option.map
+      (fun i -> String.sub name (i + 1) (String.length name - i - 1))
+      (String.index_from_opt name 1 '-')
+  else None
+
+(* A prefixed declaration a later one repeats unprefixed is the same property
+   written twice for reach, and the slot belongs to the standard spelling. One
+   with no unprefixed twin ([-webkit-line-clamp]) is the utility's own. *)
+let is_prefixed_duplicate decl rest =
+  match unprefixed_name (Cascade.Css.Declaration.property_name decl) with
+  | None -> false
+  | Some plain ->
+      List.exists
+        (fun d -> String.equal (Cascade.Css.Declaration.property_name d) plain)
+        rest
+
 let ordering_property declarations =
-  List.find_map
-    (fun decl ->
-      if is_ordering_carrier decl then None
-      else
-        match Cascade.Css.Declaration.property_key decl with
-        | Key (Custom_property _) | Key (Unknown_property _) -> None
-        | key -> Some key)
-    declarations
+  let rec scan = function
+    | [] -> None
+    | decl :: rest -> (
+        if is_ordering_carrier decl || is_prefixed_duplicate decl rest then
+          scan rest
+        else
+          match Cascade.Css.Declaration.property_key decl with
+          | Key (Custom_property _) | Key (Unknown_property _) -> scan rest
+          | key -> Some key)
+  in
+  scan declarations
 
 let build_property_slots () =
   let tbl = Hashtbl.create 512 in
-  let record key order =
+  (* A property a utility writes on the element itself decides that utility's
+     family; one it writes only inside a rule it carries does not, unless
+     nothing else claims the property. [placeholder-transparent] writes [color]
+     in a [::placeholder] rule, and the [color] slot belongs to the text
+     colours. *)
+  let record ~own key order =
     match Hashtbl.find_opt tbl key with
-    | Some existing when existing <= order -> ()
-    | _ -> Hashtbl.replace tbl key order
+    | Some (true, _) when not own -> ()
+    | Some (had_own, existing) when had_own = own && existing <= order -> ()
+    | _ -> Hashtbl.replace tbl key (own, order)
   in
   List.iter
     (fun (H (module M)) ->
       List.iter
         (fun example ->
           let order = (M.priority example, M.suborder example) in
+          let style = M.to_style Scheme.default example in
           (* The property a utility claims is the first named property it
              writes: the one it is named for. Theme-token declarations that make
              that value available are not slots of their own. A later named
              declaration is incidental - line-clamp ends with [display:
              -webkit-box] but the display slot belongs to the display utilities,
              which sort elsewhere. *)
-          style_declarations (M.to_style Scheme.default example)
-          |> ordering_property
-          |> Option.iter (fun key -> record key order))
+          match ordering_property (style_own_declarations style) with
+          | Some key -> record ~own:true key order
+          | None ->
+              ordering_property (style_declarations style)
+              |> Option.iter (fun key -> record ~own:false key order))
         M.examples)
     !handlers;
   tbl
@@ -121,7 +172,7 @@ let order_of_property key =
         property_slots := Some tbl;
         tbl
   in
-  Hashtbl.find_opt tbl key
+  Option.map snd (Hashtbl.find_opt tbl key)
 
 let name_of_base u =
   let rec try_handlers = function
@@ -132,16 +183,12 @@ let name_of_base u =
   try_handlers !handlers
 
 let class_of_base u =
-  let found = ref None in
   let visit (H (module M)) =
-    match (!found, u) with
-    | None, M.Self x -> found := Some (M.to_class x)
-    | _ -> ()
+    match u with M.Self x -> Some (M.to_class x) | _ -> None
   in
-  List.iter visit !handlers;
-  match !found with
+  match List.find_map visit !handlers with
   | Some class_name -> class_name
-  | None -> failwith "name_of_base"
+  | None -> failwith "class_of_base"
 
 let base_of_class theme class_name =
   let rec try_handlers = function

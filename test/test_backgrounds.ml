@@ -426,8 +426,95 @@ let test_invalid_bracket_hex () =
   emits "via-[#abc]" "--tw-gradient-via:#abc";
   emits "to-[#123456]" "--tw-gradient-to:#123456"
 
+(* A bracket stop position is read with the CSS length-percentage grammar, so a
+   unit the reader does not name is not rendered as a zero position. *)
+let test_gradient_stop_position_units () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "from-[1rem]" "--tw-gradient-from-position:1rem";
+  emits "via-[10vw]" "--tw-gradient-via-position:10vw";
+  emits "to-[2em]" "--tw-gradient-to-position:2em";
+  emits "from-[calc(10%_+_2px)]" "--tw-gradient-from-position:calc(10% + 2px)";
+  (* the spellings the reader already named keep their value *)
+  emits "from-[50%]" "--tw-gradient-from-position:50%";
+  emits "from-[50px]" "--tw-gradient-from-position:50px";
+  emits "from-[length:var(--my-position)]"
+    "--tw-gradient-from-position:var(--my-position)";
+  (* the class name is spelled as it was written *)
+  Alcotest.(check string)
+    "from-[1rem] round-trips" "from-[1rem]"
+    (Tw.pp (Result.get_ok (Tw.of_string "from-[1rem]")))
+
+(* A bracket that is not a length-percentage is not a stop position. Tailwind
+   reads those as a colour, which has no typed spelling here, so the class is
+   refused rather than rendered as a zero position. *)
+let test_gradient_stop_position_not_a_length () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  rejected "from-[fit-content]";
+  rejected "from-[none]";
+  rejected "to-[max-content]";
+  rejected "from-[0]";
+  rejected "from-[1zz]";
+  rejected "via-[12px3]"
+
+(* A gradient interpolation modifier names a colour space. Tailwind writes an
+   unknown one through as [in <space>], so only the shapes it refuses are
+   refused here; the ones it took used to raise out of [to_css], and the linear
+   forms silently dropped the modifier instead. *)
+let test_gradient_interpolation () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  in
+  (* A second modifier, a function, a leading dot or sign, and the empty
+     modifier: Tailwind emits nothing for any of them. *)
+  rejected "bg-conic-45/oklab/foo";
+  rejected "bg-conic/foo(1)";
+  rejected "bg-conic/.5";
+  rejected "bg-conic/[]";
+  rejected "bg-radial/foo(1)";
+  (* An unknown colour space still names one. *)
+  has "bg-conic/foo" "--tw-gradient-position: in foo";
+  has "bg-conic-45/999" "--tw-gradient-position: from 45deg in 999";
+  has "bg-radial/foo" "--tw-gradient-position: in foo";
+  has "bg-conic/oklab" "--tw-gradient-position: in oklab";
+  has "bg-conic/shorter" "--tw-gradient-position: in oklch shorter hue";
+  has "bg-conic/[in_hsl_longer_hue]" "--tw-gradient-position: in hsl longer hue";
+  (* The linear forms carry the modifier into the @supports rule rather than
+     dropping it. *)
+  has "bg-linear-45/foo" "--tw-gradient-position: 45deg in foo";
+  has "bg-linear-to-r/foo" "--tw-gradient-position: to right in foo"
+
 let tests =
   [
+    test_case "gradient interpolation" `Quick test_gradient_interpolation;
+    test_case "gradient stop position units" `Quick
+      test_gradient_stop_position_units;
+    test_case "gradient stop position is a length-percentage" `Quick
+      test_gradient_stop_position_not_a_length;
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     test_case "bg colors" `Quick test_bg_colors;
     test_case "invalid gradient stop" `Quick test_invalid_gradient_stop;

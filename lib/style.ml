@@ -25,6 +25,12 @@ type container_query =
   | Container_len_cmp of container_cmp * string * Css.length
   | Container_scoped of string * container_query
 
+(* The pixel width of a [min-[<w>]] or [max-[<w>]] breakpoint, carrying the
+   bracket as the author wrote it: the variant names its own class, and
+   re-printing the number drops a trailing zero, a leading zero or an
+   exponent. *)
+type arbitrary_px = { px : float; text : string }
+
 type modifier =
   | Hover
   | Focus
@@ -36,8 +42,8 @@ type modifier =
   | Responsive of breakpoint
   | Min_responsive of breakpoint
   | Max_responsive of breakpoint
-  | Min_arbitrary of float
-  | Max_arbitrary of float
+  | Min_arbitrary of arbitrary_px
+  | Max_arbitrary of arbitrary_px
   | Min_arbitrary_length of Css.length
   | Max_arbitrary_length of Css.length
   | Peer_hover
@@ -451,18 +457,8 @@ let rec pp_modifier = function
   | Max_responsive `Lg -> "max-lg"
   | Max_responsive `Xl -> "max-xl"
   | Max_responsive `Xl_2 -> "max-2xl"
-  | Min_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      String.concat "" [ "min-["; px_str; "px]" ]
-  | Max_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      String.concat "" [ "max-["; px_str; "px]" ]
+  | Min_arbitrary w -> String.concat "" [ "min-["; w.text; "]" ]
+  | Max_arbitrary w -> String.concat "" [ "max-["; w.text; "]" ]
   | Min_arbitrary_length l ->
       "min-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
   | Max_arbitrary_length l ->

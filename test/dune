@@ -3,7 +3,6 @@
  (libraries
   tw
   alcotest
-  re
   astring
   fmt
   cmdliner
@@ -11,5 +10,6 @@
   tw_tools
   cascade
   cascade.diff
-  test_helpers)
+  test_helpers
+  upstream_fixture)
  (deps upstream/utilities.txt upstream/variants.txt))

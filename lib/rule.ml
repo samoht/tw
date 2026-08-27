@@ -17,27 +17,15 @@ let string_of_breakpoint = function
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
 
-(* Small memoization for escaping, as many utilities reuse the same base class
-   names across modifiers. *)
-let escape_cache : (string, string) Hashtbl.t = Hashtbl.create 256
-
+(* Delegate escaping to the selector printer for correctness and parity with the
+   rest of the system. This covers all special characters per CSS rules,
+   including ones Tailwind often uses (e.g., !, |, ^, ~, etc.) We strip the
+   leading '.' from the rendered class selector. *)
 let escape_class_name name =
-  match Hashtbl.find_opt escape_cache name with
-  | Some v -> v
-  | None ->
-      (* Delegate escaping to the selector printer for correctness and parity
-         with the rest of the system. This covers all special characters per CSS
-         rules, including ones Tailwind often uses (e.g., !, |, ^, ~, etc.) We
-         strip the leading '.' from the rendered class selector. *)
-      let sel = Css.Selector.class_ name in
-      let rendered = Css.Selector.to_string sel in
-      let escaped =
-        if String.length rendered > 0 && rendered.[0] = '.' then
-          String.sub rendered 1 (String.length rendered - 1)
-        else rendered
-      in
-      Hashtbl.add escape_cache name escaped;
-      escaped
+  let rendered = Css.Selector.to_string (Css.Selector.class_ name) in
+  if String.length rendered > 0 && rendered.[0] = '.' then
+    String.sub rendered 1 (String.length rendered - 1)
+  else rendered
 
 (* ======================================================================== *)
 (* Rule Extraction - Convert Core.t to CSS rules *)
@@ -83,10 +71,14 @@ module Rules_selector = struct
           (List.map (replace_class_with ~old_class ~replacement) selectors)
     | Css.Selector.Cue selectors ->
         Css.Selector.Cue
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
+          (Option.map
+             (List.map (replace_class_with ~old_class ~replacement))
+             selectors)
     | Css.Selector.Cue_region selectors ->
         Css.Selector.Cue_region
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
+          (Option.map
+             (List.map (replace_class_with ~old_class ~replacement))
+             selectors)
     | Css.Selector.Nth_child (nth, of_) ->
         Css.Selector.Nth_child
           ( nth,
@@ -295,18 +287,9 @@ let responsive_modifier_condition ?theme = function
         | `Xl_2 -> "max-2xl"
       in
       (breakpoint_not_condition ?theme bp, prefix)
-  | Style.Min_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      (media_min_width_px px, "min-[" ^ px_str ^ "px]")
-  | Style.Max_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      (media_not_min_width_px px, "max-[" ^ px_str ^ "px]")
+  | Style.Min_arbitrary w -> (media_min_width_px w.px, "min-[" ^ w.text ^ "]")
+  | Style.Max_arbitrary w ->
+      (media_not_min_width_px w.px, "max-[" ^ w.text ^ "]")
   | Style.Min_arbitrary_length l ->
       let len_str = Modifiers.compact_length l in
       (Css.media_min_width_length l, "min-[" ^ len_str ^ "]")
@@ -394,19 +377,17 @@ let max_responsive_rule ?theme ?inner_has_hover breakpoint base_class selector
     (breakpoint_not_condition ?theme breakpoint)
     base_class selector props
 
-let arbitrary_px_string px =
-  if Float.is_integer px then Int.to_string (Float.to_int px)
-  else Float.to_string px
-
-let min_arbitrary_rule ?inner_has_hover px base_class selector props =
-  let prefix = "min-[" ^ arbitrary_px_string px ^ "px]" in
-  media_rule_with_prefix ?inner_has_hover prefix (media_min_width_px px)
+let min_arbitrary_rule ?inner_has_hover (w : Style.arbitrary_px) base_class
+    selector props =
+  let prefix = "min-[" ^ w.text ^ "]" in
+  media_rule_with_prefix ?inner_has_hover prefix (media_min_width_px w.px)
     base_class selector props
 
-let max_arbitrary_rule ?inner_has_hover px base_class selector props =
-  let prefix = "max-[" ^ arbitrary_px_string px ^ "px]" in
+let max_arbitrary_rule ?inner_has_hover (w : Style.arbitrary_px) base_class
+    selector props =
+  let prefix = "max-[" ^ w.text ^ "]" in
   media_rule_with_prefix ?inner_has_hover prefix
-    (media_not_min_width_px px)
+    (media_not_min_width_px w.px)
     base_class selector props
 
 let arbitrary_length_rule ?inner_has_hover prefix condition l base_class
@@ -1043,8 +1024,10 @@ let has_substring s pat =
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
     by the comparator. For before/after, the base_class is the raw utility name
-    without prefix, so we detect them from the selector content. *)
-let compute_variant_order base_class selector =
+    without prefix, so we detect them from the selector content. [selector_str]
+    is the caller's already-rendered selector: [Build.add_index] renders it two
+    lines before calling this. *)
+let compute_variant_order ~selector_str base_class =
   let from_base_class bc =
     let modifiers, _ = Modifiers.of_string bc in
     List.fold_left
@@ -1059,11 +1042,9 @@ let compute_variant_order base_class selector =
      to avoid matching utility-generated pseudo-elements like prose's
      ::before. *)
   if vo > 0 then vo
-  else
-    let sel_str = Css.Selector.to_string selector in
-    if has_substring sel_str "before\\:" then 1600
-    else if has_substring sel_str "after\\:" then 1601
-    else 0
+  else if has_substring selector_str "before\\:" then 1600
+  else if has_substring selector_str "after\\:" then 1601
+  else 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
     forms like data-foo, has-checked, nth-2 that need different class names than
@@ -1241,12 +1222,12 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
       not_media_rule ~nvo
         ~condition:(breakpoint_condition ?theme bp)
         modified_class props
-  | Style.Min_arbitrary px ->
+  | Style.Min_arbitrary w ->
       not_media_rule ~nvo
-        ~condition:(media_not_min_width_px px)
+        ~condition:(media_not_min_width_px w.px)
         modified_class props
-  | Style.Max_arbitrary px ->
-      not_media_rule ~nvo ~condition:(media_min_width_px px) modified_class
+  | Style.Max_arbitrary w ->
+      not_media_rule ~nvo ~condition:(media_min_width_px w.px) modified_class
         props
   | Style.Min_arbitrary_length l ->
       not_media_rule ~nvo
@@ -1766,10 +1747,10 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   | Style.Max_responsive breakpoint ->
       max_responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
         props
-  | Style.Min_arbitrary px ->
-      min_arbitrary_rule ~inner_has_hover px base_class selector props
-  | Style.Max_arbitrary px ->
-      max_arbitrary_rule ~inner_has_hover px base_class selector props
+  | Style.Min_arbitrary w ->
+      min_arbitrary_rule ~inner_has_hover w base_class selector props
+  | Style.Max_arbitrary w ->
+      max_arbitrary_rule ~inner_has_hover w base_class selector props
   | Style.Min_arbitrary_length l ->
       min_arbitrary_length_rule ~inner_has_hover l base_class selector props
   | Style.Max_arbitrary_length l ->
@@ -2010,6 +1991,30 @@ let rebase_on_selector ~base_class ~selector rules =
           | rule -> rule)
         rules
 
+(* Variants whose whole effect is an at-rule around the utility, rather than a
+   change to its selector. Applied to a rule that is already a query, they have
+   to keep that at-rule and nest the inner query inside it; the selector-rewrite
+   arms cannot express them. *)
+let wraps_in_at_rule = function
+  | Style.Supports _ | Style.Starting | Style.Container _
+  | Style.Not (Style.Supports _) ->
+      true
+  | _ -> false
+
+(* Put [inner] inside the at-rule the variant just built. The wrapper is built
+   from an empty rule, so its own body is empty and [inner] is all it
+   carries. *)
+let nest_inside_at_rule inner = function
+  | Output.Supports_query ({ nested; _ } as r) ->
+      Output.Supports_query { r with nested = inner :: nested }
+  | Output.Starting_style ({ nested; _ } as r) ->
+      Output.Starting_style { r with nested = inner :: nested }
+  | Output.Container_query ({ nested; _ } as r) ->
+      Output.Container_query { r with nested = inner :: nested }
+  | Output.Media_query ({ nested; _ } as r) ->
+      Output.Media_query { r with nested = inner :: nested }
+  | other -> other
+
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
 let rec apply_modifier_to_rule ?theme modifier = function
@@ -2063,6 +2068,32 @@ let rec apply_modifier_to_rule ?theme modifier = function
                 bc selector props;
             ]
           with Invalid_argument _ -> []))
+  | Media_query
+      { condition = inner_condition; selector; props; base_class; nested; _ }
+    when wraps_in_at_rule modifier ->
+      let bc = Option.value base_class ~default:"" in
+      let wrappers =
+        apply_modifier_to_rule ?theme modifier
+          (regular ~selector:(Css.Selector.Class bc) ~props:[] ~base_class:bc ())
+      in
+      let nest wrapper =
+        let modified_class =
+          match Output.base_class wrapper with Some c -> c | None -> bc
+        in
+        let rename =
+          rename_class_in_stmt ~old_class:bc ~new_class:modified_class
+        in
+        let inner_selector =
+          Rules_selector.replace_class_in_selector ~old_class:bc
+            ~new_class:modified_class selector
+        in
+        let inner_media =
+          Css.media ~condition:inner_condition
+            (Css.rule ~selector:inner_selector props :: List.map rename nested)
+        in
+        nest_inside_at_rule inner_media wrapper
+      in
+      List.map nest wrappers
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
@@ -2168,9 +2199,12 @@ let handle_group class_name util_inner styles extract_fn =
       List.map2 extract_item styles util_items |> List.concat
   | _ -> List.concat_map (extract_fn class_name util_inner) styles
 
-(** Replace placeholder selector "_" with the actual utility class selector *)
+(** Replace placeholder selector "_" with the actual utility class selector.
+    Matches the node rather than rendering the selector to compare it: this runs
+    per rule for every utility carrying an explicit [rule_list] (prose, forms,
+    gradients). *)
 let resolve_placeholder_selector sel selector =
-  if Css.Selector.to_string selector = "._" then sel else selector
+  match selector with Css.Selector.Class "_" -> sel | _ -> selector
 
 let extract_rule_outputs build_output statements =
   statements

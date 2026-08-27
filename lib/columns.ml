@@ -101,49 +101,13 @@ module Handler = struct
         let ref : Css.columns_value Css.var = Var.bracket inner in
         style [ columns (Var ref) ]
 
-  (* Tailwind sorts column utilities lexicographically by their suffix. This
-     function computes a sort key that preserves lexicographic order: "1" < "10"
-     < "11" < "12" < "2" < "2xl" < "2xs" < "3" < ... < "auto" < "lg" < ... Uses
-     large weights so first character dominates the comparison. *)
-  let string_to_sortkey s =
-    let rec aux acc i =
-      if i >= String.length s || i >= 4 then acc
-      else
-        (* Each position uses 256x smaller weight than previous *)
-        let weight =
-          match i with
-          | 0 -> 256 * 256 * 256 (* 16777216 *)
-          | 1 -> 256 * 256 (* 65536 *)
-          | 2 -> 256
-          | _ -> 1
-        in
-        aux (acc + (Char.code s.[i] * weight)) (i + 1)
-    in
-    aux 0 0
-
-  let suborder t =
-    let suffix =
-      match t with
-      | Columns_auto -> "auto"
-      | Columns_count n -> string_of_int n
-      | Columns_3xs -> "3xs"
-      | Columns_2xs -> "2xs"
-      | Columns_xs -> "xs"
-      | Columns_sm -> "sm"
-      | Columns_md -> "md"
-      | Columns_lg -> "lg"
-      | Columns_xl -> "xl"
-      | Columns_2xl -> "2xl"
-      | Columns_3xl -> "3xl"
-      | Columns_4xl -> "4xl"
-      | Columns_5xl -> "5xl"
-      | Columns_6xl -> "6xl"
-      | Columns_7xl -> "7xl"
-      | Columns_arbitrary n -> "[" ^ string_of_int n ^ "]"
-      | Columns_arbitrary_len s -> "[" ^ s ^ "]"
-      | Columns_bracket_var _ -> "[z"
-    in
-    string_to_sortkey suffix
+  (* Every column utility shares one suborder. Tailwind orders the values of a
+     single utility by a natural, digit-aware compare of the candidate itself
+     (columns-9 before columns-10, columns-[100px] before columns-[100rem]),
+     which is what Sort falls back to once the suborders tie. A numeric key
+     built from a prefix of the suffix cannot express that order and, being
+     consulted first, would override it. *)
+  let suborder _ = 0
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -168,7 +132,7 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          match int_of_string_opt inner with
+          match Parse.decimal_int inner with
           | Some i -> Ok (Columns_arbitrary i)
           | None when parse_columns_length inner <> None ->
               Ok (Columns_arbitrary_len inner)

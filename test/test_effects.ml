@@ -408,9 +408,89 @@ let test_invalid_bracket_hex () =
   emits "inset-shadow-[0_1px_2px_#000]"
     "--tw-inset-shadow:inset 0 1px 2px var(--tw-inset-shadow-color,#000)"
 
+(* A shade the palette does not define is not a colour. These utilities read the
+   shade without checking it, so the class was accepted and then rendered a
+   fabricated black or a reference to a variable no theme declares. *)
+let test_undefined_shade () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u ->
+        Alcotest.failf "expected %s to be rejected, got %s" cls
+          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+    | Error _ -> ()
+  in
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok _ -> ()
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "shadow-red-999";
+  rejected "inset-shadow-red-999";
+  rejected "ring-red-999";
+  rejected "ring-offset-red-999";
+  rejected "inset-ring-red-999";
+  rejected "shadow-red-0";
+  rejected "shadow-red-550";
+  rejected "ring-red-42";
+  rejected "shadow-red-999/50";
+  accepted "shadow-red-500";
+  accepted "inset-shadow-red-500";
+  accepted "ring-red-950";
+  accepted "ring-offset-red-50";
+  accepted "inset-ring-red-500";
+  accepted "shadow-red-500/50"
+
+(* [opacity-[<n>]] names its class after the bracket, so the number has to come
+   back out spelled as the author wrote it rather than re-printed. *)
+let test_arbitrary_opacity_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [ "opacity-[0.5]"; "opacity-[0.50]"; "opacity-[.5]"; "opacity-[1]" ]
+
+(* The bracket holds a number, so a word is not an opacity. *)
+let test_arbitrary_opacity_rejects_non_number () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "opacity-[abc]"; "opacity-[]" ]
+
+(* A [--shadow-*] or [--inset-shadow-*] token the project declared in its
+   [@theme] names a shadow the built-in scale has no slot for. Tailwind
+   generates the utility from each, routing the colour through the family's
+   shadow-colour channel; tw rejected both outright. *)
+let test_project_shadow_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("shadow-halo", "0 0 8px #f00");
+        ("inset-shadow-dent", "inset 0 1px 2px #000");
+      ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "--tw-shadow: 0 0 8px var(--tw-shadow-color, #f00)" "shadow-halo";
+  emits "--tw-inset-shadow: inset 0 1px 2px var(--tw-inset-shadow-color, #000)"
+    "inset-shadow-dent";
+  Alcotest.(check bool)
+    "an undeclared shadow name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "shadow-nope"))
+
 let tests =
   [
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+    test_case "project shadow tokens" `Quick test_project_shadow_tokens;
+    test_case "undefined colour shade" `Quick test_undefined_shade;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
@@ -436,6 +516,10 @@ let tests =
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "arbitrary opacity spelling" `Quick
+      test_arbitrary_opacity_spelling;
+    test_case "arbitrary opacity rejects non-number" `Quick
+      test_arbitrary_opacity_rejects_non_number;
     test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 

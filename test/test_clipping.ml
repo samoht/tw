@@ -6,7 +6,7 @@ let test_clip_polygon () =
   let tri = Tw.clip_polygon [ (50., 0.); (0., 100.); (100., 100.) ] in
   check string "clip class" "clip-[polygon(50% 0%, 0% 100%, 100% 100%)]"
     (Tw.pp tri);
-  let css = to_css [ tri ] |> Css.pp ~minify:false in
+  let css = to_css [ tri ] |> Css.to_string ~minify:false in
   check bool "has clip-path property" true
     (Astring.String.is_infix ~affix:"clip-path:" css);
   (* Polygon points preserve percentage units and the API keeps compact

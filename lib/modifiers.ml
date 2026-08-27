@@ -56,12 +56,8 @@ let breakpoint_name qual bp =
   match qual with "" -> base | q -> q ^ "-" ^ base
 
 (** Helper: arbitrary breakpoint class selector *)
-let arbitrary_breakpoint_class prefix px cls =
-  let px_str =
-    if Float.is_integer px then Int.to_string (Float.to_int px)
-    else Float.to_string px
-  in
-  Css.Selector.Class (prefix ^ "[" ^ px_str ^ "px]:" ^ cls)
+let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
+  Css.Selector.Class (prefix ^ "[" ^ w.text ^ "]:" ^ cls)
 
 (** Render a CSS length in compact form (no spaces in calc operators) for class
     names. *)
@@ -103,25 +99,6 @@ let arbitrary_length_class prefix (l : Css.length) cls =
   let len_str = compact_length l in
   Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
 
-(** Legacy registry for callers of [Modifiers.apply] without an explicit
-    breakpoint list. [Tw.of_string] always supplies its threaded scheme. *)
-let custom_breakpoints : (string * float) list ref = ref []
-
-let register_custom_breakpoints bps = custom_breakpoints := bps
-let clear_custom_breakpoints () = custom_breakpoints := []
-
-type custom_variant = { values : (string * string) list; template : string }
-(** A [matchVariant]-registered variant: a value map (including a [DEFAULT]
-    entry under the key [""]) and a selector template containing [{}] where the
-    resolved value is substituted. *)
-
-(** Registry for [matchVariant] custom variants (set per-test by the harness or
-    by callers that mirror a Tailwind plugin). *)
-let custom_variants : (string * custom_variant) list ref = ref []
-
-let register_custom_variants vs = custom_variants := vs
-let clear_custom_variants () = custom_variants := []
-
 (* Substitute the resolved value into a template's [{}] placeholder. *)
 let custom_variant_apply template value =
   let tlen = String.length template in
@@ -136,10 +113,10 @@ let custom_variant_apply template value =
       ^ String.sub template (i + 2) (tlen - i - 2)
   | None -> template
 
-(* Parse [is-data], [is-data-foo], or [is-data-[potato]] against the registry,
-   returning the (token, resolved-selector) for a [Custom_variant]. *)
-let try_custom_variant s =
-  let resolve name cv =
+(* Parse [is-data], [is-data-foo], or [is-data-[potato]] against the theme's own
+   variants, returning the (token, resolved-selector) for a [Custom_variant]. *)
+let try_custom_variant (theme : Scheme.t) s =
+  let resolve name (cv : Scheme.custom_variant) =
     if s = name then
       Option.map
         (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
@@ -167,16 +144,7 @@ let try_custom_variant s =
           value
       else None
   in
-  List.find_map (fun (name, cv) -> resolve name cv) !custom_variants
-
-(** Registry for [@custom-variant]s whose body is a container query (e.g.
-    [@custom-variant has-a { @container style(--a) { @slot } }]). Kept separate
-    from {!custom_variants} because the condition is structural
-    ([Css.Container.t]) so the [not-] prefix can negate it soundly. *)
-let container_variants : (string * Css.Container.t) list ref = ref []
-
-let register_container_variants vs = container_variants := vs
-let clear_container_variants () = container_variants := []
+  List.find_map (fun (name, cv) -> resolve name cv) theme.custom_variants
 
 (* Negate a container condition, cancelling double-negation and pushing through
    a named container: [not (not C)] = [C]; [name (C)] -> [name (not C)]. *)
@@ -187,10 +155,10 @@ let rec negate_container (c : Css.Container.t) : Css.Container.t =
       Css.Container.Named (name, negate_container x)
   | x -> Css.Container.Not x
 
-(* Parse [has-a] (registered) or [not-has-a] (negated) against the
-   container-variant registry, yielding a [Container_style] modifier. *)
-let try_container_variant s =
-  let lookup name = List.assoc_opt name !container_variants in
+(* Parse [has-a] (declared) or [not-has-a] (negated) against the theme's
+   container variants, yielding a [Container_style] modifier. *)
+let try_container_variant (theme : Scheme.t) s =
+  let lookup name = List.assoc_opt name theme.container_variants in
   match lookup s with
   | Some cond -> Some (Container_style (s, cond))
   | None ->
@@ -716,13 +684,17 @@ let max_xl2 styles =
   wrap (Max_responsive `Xl_2) styles
 
 (* Arbitrary breakpoint variants *)
+(* A caller with a bare number has written no bracket, so spell one the way
+   [min-[600px]] reads. *)
+let arbitrary_px px : Style.arbitrary_px = { px; text = Pp.float px ^ "px" }
+
 let min_arbitrary px styles =
   validate_no_nested_responsive styles;
-  wrap (Min_arbitrary px) styles
+  wrap (Min_arbitrary (arbitrary_px px)) styles
 
 let max_arbitrary px styles =
   validate_no_nested_responsive styles;
-  wrap (Max_arbitrary px) styles
+  wrap (Max_arbitrary (arbitrary_px px)) styles
 
 (* ARIA/Peer/Data variants *)
 let peer_checked styles = wrap Peer_checked styles
@@ -1071,19 +1043,21 @@ let extract_bracket_content_with_name ~prefix s =
     | _ -> None
   else None
 
-(* Parse a CSS length from a string like "600px", "40rem", "100vh" *)
-let parse_css_length s : Css.length option =
-  (* Decode arbitrary-value syntax first so [min-[calc(1000px+12em)]] becomes a
-     spec-valid [calc(1000px + 12em)] the length reader accepts. *)
-  Css.parse_length (Parse.decode_arbitrary_value s)
+(* Parse a CSS length from a string like "600px", "40rem", "100vh". Arbitrary
+   value syntax is decoded first, so [min-[calc(1000px+12em)]] becomes a
+   spec-valid [calc(1000px + 12em)] the length reader accepts. *)
+let parse_css_length s : Css.length option = Parse.arbitrary_length s
 
-(* Parse a pixel value from a string like "600px" or "600" *)
+(* Parse a pixel value from a string like "600px" or "600", keeping the
+   spelling: it is what the variant's own class is named after. *)
 let parse_px_value s =
-  let s =
+  let digits =
     if String.ends_with ~suffix:"px" s then String.sub s 0 (String.length s - 2)
     else s
   in
-  try Some (float_of_string s) with Failure _ -> None
+  match float_of_string_opt digits with
+  | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
+  | None -> None
 
 (* Preprocess a has-selector string: & → * and ensure combinator spacing. *)
 let preprocess_has_selector s =
@@ -1126,42 +1100,6 @@ let try_bracket_at_rule s =
     else None
   else None
 
-(* Whether every [(] in [s] closes: a compound condition keeps its own parens,
-   so unwrapping one pair only makes sense when what is left is balanced. *)
-let is_balanced s =
-  let rec go i depth =
-    if i >= String.length s then depth = 0
-    else
-      match s.[i] with
-      | '(' -> go (i + 1) (depth + 1)
-      | ')' when depth = 0 -> false
-      | ')' -> go (i + 1) (depth - 1)
-      | _ -> go (i + 1) depth
-  in
-  go 0 0
-
-(* Properties whose [@supports] test Tailwind also runs against the prefixed
-   spelling, so a browser that only ships the prefix still matches. The set is
-   its browser-support data; these are the entries observed against v4.3.3.
-   [text-size-adjust] additionally carries the [-moz-] spelling. *)
-let supports_vendor_prefixes = function
-  | "backdrop-filter" | "background-clip" | "box-decoration-break" | "hyphens"
-  | "mask" | "mask-image" | "mask-origin" | "mask-size" | "print-color-adjust"
-  | "text-decoration-skip-ink" | "user-select" ->
-      [ "-webkit-" ]
-  | "text-size-adjust" -> [ "-webkit-"; "-moz-" ]
-  | _ -> []
-
-(* [(prop: value)] as Tailwind writes it: one test per prefixed spelling, the
-   unprefixed one last, joined with [or]. *)
-let supports_property_test prop value =
-  let one p = String.concat "" [ "("; p; prop; ":"; value; ")" ] in
-  match supports_vendor_prefixes prop with
-  | [] -> one ""
-  | prefixes ->
-      String.concat ""
-        [ "("; String.concat " or " (List.map one prefixes @ [ one "" ]); ")" ]
-
 let normalize_supports_condition condition_str =
   (* Convert underscores to spaces (Tailwind bracket notation) *)
   let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
@@ -1175,23 +1113,16 @@ let normalize_supports_condition condition_str =
     "(" ^ cond ^ ": var(--tw))"
   else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
   then
-    (* Already wrapped. A single [(prop: value)] still has to go through the
-       prefix expansion, so unwrap it and rebuild; anything else (a compound
-       condition, a [not]) is left as written. *)
-    let inner = String.sub cond 1 (String.length cond - 2) in
-    if is_balanced inner && String.contains inner ':' then
-      let i = String.index inner ':' in
-      supports_property_test
-        (String.trim (String.sub inner 0 i))
-        (String.trim (String.sub inner (i + 1) (String.length inner - i - 1)))
-    else cond
+    (* Already parenthesised, so it is the condition the author wrote. *)
+    cond
   else if String.contains cond ':' then
+    (* [prop: value] -> [(prop:value)], the property test Tailwind emits. *)
     let i = String.index cond ':' in
     let prop = String.trim (String.sub cond 0 i) in
     let value =
       String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
     in
-    supports_property_test prop value
+    String.concat "" [ "("; prop; ":"; value; ")" ]
   else if String.contains cond '(' then
     (* Function call like font-format(opentype) or var(--test) *)
     cond
@@ -1575,8 +1506,11 @@ let try_not_shorthand inner =
     Some (Not (Data_custom (attr, "")))
     (* has-X shorthand — :has(:X) pseudo-class *)
   else if String.length inner > 4 && String.sub inner 0 4 = "has-" then
-    let pseudo = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Has (":" ^ pseudo))) (* nth-X shorthand — :nth-child(X) *)
+    (* The shorthand names a pseudo-class, so it has to read as one; the bracket
+       form validates its selector the same way. *)
+    let sel = ":" ^ String.sub inner 4 (String.length inner - 4) in
+    if is_valid_has_selector sel then Some (Not (Has sel)) else None
+    (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
     Some (Not (Nth expr))
@@ -1931,7 +1865,7 @@ and try_scoped_container_query s =
         | _ -> None)
 
 (* Parse a modifier string into a typed Style.modifier *)
-let rec parse_modifier ~breakpoints s : modifier option =
+let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
       (fun () -> List.assoc_opt s simple_modifiers);
@@ -1939,25 +1873,25 @@ let rec parse_modifier ~breakpoints s : modifier option =
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);
-      (fun () -> try_has_variant ~breakpoints s);
+      (fun () -> try_has_variant ~theme s);
       (fun () -> try_numeric_nth s);
       (fun () -> try_compound_named_group s);
       (fun () -> try_in_modifier s);
       (fun () -> try_not_in_modifier s);
       (fun () -> try_group_peer_not s);
-      (fun () -> try_group_peer_not_variant ~breakpoints s);
+      (fun () -> try_group_peer_not_variant ~theme s);
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
-      (fun () -> try_container_variant s);
+      (fun () -> try_container_variant theme s);
       (fun () -> try_not_modifier s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
-      (fun () -> try_custom_breakpoint breakpoints s);
-      (fun () -> try_custom_variant s);
+      (fun () -> try_custom_breakpoint (Scheme.breakpoint_names theme) s);
+      (fun () -> try_custom_variant theme s);
       (* Last: a [not-] over any other variant negates the selector it produces.
          The readings above come first because several [not-] spellings need
          their own handling. *)
-      (fun () -> try_not_of_modifier ~breakpoints s);
+      (fun () -> try_not_of_modifier ~theme s);
     ]
   in
   List.find_map (fun f -> f ()) fns
@@ -1965,7 +1899,7 @@ let rec parse_modifier ~breakpoints s : modifier option =
 (* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
    its own. The reading above only knows the simple state names and a bare
    bracket. *)
-and try_group_peer_not_variant ~breakpoints s =
+and try_group_peer_not_variant ~theme s =
   let try_prefix prefix make =
     let plen = String.length prefix in
     if String.length s <= plen || String.sub s 0 plen <> prefix then None
@@ -1973,7 +1907,7 @@ and try_group_peer_not_variant ~breakpoints s =
       let base, name =
         split_name (String.sub s plen (String.length s - plen))
       in
-      match parse_modifier ~breakpoints base with
+      match parse_modifier ~theme base with
       | Some m when is_not_compatible m -> Some (make m name)
       | Some _ | None -> None
   in
@@ -1984,29 +1918,22 @@ and try_group_peer_not_variant ~breakpoints s =
 (* [has-<variant>]: the argument is any variant, and that variant's own selector
    goes inside [:has()]. The shorthand reading only knows the state names and a
    bracket, so [has-peer-checked] fell through. *)
-and try_has_variant ~breakpoints s =
+and try_has_variant ~theme s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
-    match
-      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
-    with
+    match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Has_variant m)
     | Some _ | None -> None
   else None
 
-and try_not_of_modifier ~breakpoints s =
+and try_not_of_modifier ~theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
-    match
-      parse_modifier ~breakpoints (String.sub s 4 (String.length s - 4))
-    with
+    match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Not m)
     | Some _ | None -> None
 
 (* Apply a list of modifier strings to a base utility *)
-let apply ?breakpoints modifiers base_utility =
-  let breakpoints =
-    Option.value ~default:(List.map fst !custom_breakpoints) breakpoints
-  in
+let apply ?(theme = Scheme.default) modifiers base_utility =
   (* Convert utility to a list for wrapping *)
   let to_list = function
     | Utility.Group styles -> styles
@@ -2017,7 +1944,7 @@ let apply ?breakpoints modifiers base_utility =
     match acc with
     | None -> None
     | Some u -> (
-        match parse_modifier ~breakpoints modifier_str with
+        match parse_modifier ~theme modifier_str with
         | Some m -> Some (wrap m (to_list u))
         | None -> None)
   in

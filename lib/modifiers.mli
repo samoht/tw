@@ -38,34 +38,6 @@ val normalize_supports_condition : string -> string
     test is repeated once per vendor prefix Tailwind checks. The modifier parser
     validates its result, so only conditions that parse reach a rule. *)
 
-val register_custom_breakpoints : (string * float) list -> unit
-(** [register_custom_breakpoints bps] sets the legacy custom breakpoint names
-    used only when {!apply} receives no [breakpoints]. Prefer passing a
-    [Scheme.t] to [Tw.of_string]. *)
-
-val clear_custom_breakpoints : unit -> unit
-(** [clear_custom_breakpoints ()] clears the custom breakpoint registry. *)
-
-type custom_variant = { values : (string * string) list; template : string }
-(** A [matchVariant]-registered variant: a value map (the [DEFAULT] value under
-    key [""]) and a selector template with [{}] where the value is substituted.
-    [&] in the template denotes the element's own class. *)
-
-val register_custom_variants : (string * custom_variant) list -> unit
-(** [register_custom_variants vs] sets the [matchVariant] custom variants used
-    during modifier parsing. *)
-
-val clear_custom_variants : unit -> unit
-(** [clear_custom_variants ()] clears the custom variant registry. *)
-
-val register_container_variants : (string * Css.Container.t) list -> unit
-(** [register_container_variants vs] sets the [@custom-variant]s whose body is a
-    container query (e.g. [has-a] -> [@container style(--a)]). The [not-] prefix
-    on these negates the condition structurally. *)
-
-val clear_container_variants : unit -> unit
-(** [clear_container_variants ()] clears the container-variant registry. *)
-
 (** {1 State Variants} *)
 
 val hover : t list -> t
@@ -700,9 +672,10 @@ val pp_modifier : modifier -> string
 (** [pp_modifier m] returns the string prefix for a modifier (e.g., "hover" for
     Hover). *)
 
-val apply : ?breakpoints:string list -> string list -> t -> t option
-(** [apply ?breakpoints modifiers style] applies a list of modifier strings to a
-    base style. Returns [None] if any modifier is unrecognized. Example:
+val apply : ?theme:Scheme.t -> string list -> t -> t option
+(** [apply ?theme modifiers style] applies a list of modifier strings to a base
+    style, reading the custom breakpoints and [\@custom-variant]s from [theme].
+    Returns [None] if any modifier is unrecognized. Example:
     [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
 *)
 

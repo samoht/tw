@@ -151,14 +151,19 @@ val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
 (** [order_of_property k] is the [(priority, suborder)] of the utility family
     that sets property [k], or [None] when no registered handler claims it. This
     is where a declared [@utility] gets its place: Tailwind sorts one by the
-    property it declares, not by its name. *)
+    property it declares, not by its name. A family that writes [k] on the
+    element itself outranks one that writes it only on a pseudo-element, so
+    [color] resolves to the text colours rather than to
+    [placeholder-transparent]. *)
 
 val ordering_property :
   Cascade.Css.declaration list -> Cascade.Css.Declaration.prop_key option
 (** [ordering_property declarations] is the first property that determines a
-    utility's Tailwind family. It skips theme-token declarations and incidental
-    carrier declarations such as the [border-style] reference emitted by a
-    border-width utility. *)
+    utility's Tailwind family. It skips theme-token declarations, the carrier
+    declarations a width utility emits to reference the style channel
+    ([border-style], [outline-style]), and a vendor-prefixed spelling a later
+    declaration repeats unprefixed. A prefixed property with no unprefixed twin
+    ([-webkit-line-clamp]) is the utility's own and keeps its slot. *)
 
 val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
 (** [base_of_class theme class_name] parses a class name into a base utility

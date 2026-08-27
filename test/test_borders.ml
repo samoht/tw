@@ -353,6 +353,50 @@ let test_bracket_width_units () =
   emits "border-width: .5rem" "border-[0.5rem]";
   emits "border-top-width: 3vw" "border-t-[3vw]"
 
+(* The three CSS line-width keywords are border widths in their own right, so a
+   bracket naming one is a width and not an unknown class: Tailwind emits
+   border-width: thin for border-[thin], and the same for medium and thick on
+   every side. *)
+let test_bracket_line_width_keywords () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "border-width: thin" "border-[thin]";
+  emits "border-width: medium" "border-[medium]";
+  emits "border-width: thick" "border-[thick]";
+  emits "border-top-width: thin" "border-t-[thin]";
+  emits "border-left-width: thick" "border-l-[thick]"
+
+(* A [--radius-*] token the project declared in its [@theme] names a corner
+   radius the built-in scale has no slot for. Tailwind generates the utility
+   from it, on the all-corners form and on every side and corner; tw rejected
+   the class outright, so the project token emitted nothing. *)
+let test_project_radius_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("radius-blob", "3rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "border-radius: var(--radius-blob)" "rounded-blob";
+  emits "border-top-left-radius: var(--radius-blob)" "rounded-t-blob";
+  emits "border-top-right-radius: var(--radius-blob)" "rounded-t-blob";
+  emits "border-top-left-radius: var(--radius-blob)" "rounded-tl-blob";
+  (* A name the project did not declare stays an unknown class. *)
+  Alcotest.(check bool)
+    "an undeclared radius name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "rounded-nope"))
+
 (* A bracket whose content is not a length is not an outline or border width:
    the parser rejects it, rather than accepting it and raising from the length
    conversion once the sheet is rendered. *)
@@ -373,6 +417,9 @@ let tests =
   [
     test_case "bracket width units" `Quick test_bracket_width_units;
     test_case "invalid bracket widths" `Quick test_invalid_bracket_widths;
+    test_case "bracket line-width keywords" `Quick
+      test_bracket_line_width_keywords;
+    test_case "project radius token" `Quick test_project_radius_token;
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;
     test_case "rounded-xs default radius" `Quick test_rounded_xs;
     test_case "rounded-4xl default radius" `Quick test_rounded_4xl;

@@ -330,6 +330,70 @@ let test_modifier_class_roundtrip () =
       "marker:text-gray-500";
     ]
 
+(* [min-[<px>]] and [max-[<px>]] name themselves after the bracket, so the
+   bracket has to come back out spelled as the author wrote it. Re-printing the
+   parsed number drops a trailing zero, a leading zero and an exponent, and the
+   selector then matches nothing in the markup. *)
+let test_arbitrary_breakpoint_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [
+      "min-[320px]:flex";
+      "min-[600.50px]:flex";
+      "min-[0600px]:flex";
+      "min-[1e3px]:flex";
+      "min-[600]:flex";
+      "min-[.5rem]:flex";
+      "max-[48rem]:flex";
+      "max-[37.50px]:flex";
+    ]
+
+(* The bracket holds a length, so a word is not a breakpoint at all. *)
+let test_arbitrary_breakpoint_rejects_non_length () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "min-[abc]:flex"; "max-[abc]:flex"; "min-[]:flex" ]
+
+(* A [@custom-variant] belongs to the [@theme] block that declared it. Two
+   stylesheets built in one process read different themes, so a variant the
+   first declared must be unknown to the second. *)
+let test_custom_variant_is_theme_local () =
+  let declaring : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      custom_variants =
+        [
+          ( "is-data",
+            Tw.Scheme.{ values = [ ("", "&[data-x]") ]; template = "&:is({})" }
+          );
+        ];
+    }
+  in
+  check bool "the declaring theme resolves its own variant" true
+    (Result.is_ok (Tw.of_string ~theme:declaring "is-data:flex"));
+  check bool "a second theme does not see it" true
+    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "is-data:flex"))
+
+(* Same for a [@custom-variant] whose body is a container query: it is held in
+   its own field, and belongs to its own theme just the same. *)
+let test_container_variant_is_theme_local () =
+  let declaring : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      container_variants = [ ("has-a", Css.Container.of_string "style(--a)") ];
+    }
+  in
+  check bool "the declaring theme resolves its own variant" true
+    (Result.is_ok (Tw.of_string ~theme:declaring "has-a:flex"));
+  check bool "a second theme does not see it" true
+    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "has-a:flex"))
+
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
@@ -361,6 +425,24 @@ let test_important_prefix () =
   Alcotest.(check bool)
     "!p-4 leaves the --spacing theme token normal" false
     (Astring.String.is_infix ~affix:"--spacing:.25rem!important" (css "!p-4"))
+
+(* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
+   left the selector reader to raise out of [to_css], a pure conversion, while
+   the bracket form [has-[...]] validated its selector. *)
+let test_not_has_shorthand_selector () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  let renders cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  rejected "not-has-a\\:flex";
+  renders "not-has-checked:flex";
+  renders "not-has-hover:flex"
 
 let tests =
   [
@@ -851,6 +933,68 @@ let test_valid_bracket_modifiers () =
   emits ":nth-of-type(odd)" "nth-of-type-[odd]:flex";
   emits "@supports (display: grid)" "supports-[display:grid]:flex"
 
+(* A [supports-<property>] test names the property the author wrote, even for a
+   property browsers once shipped behind a vendor prefix: Tailwind emits
+   [@supports (hyphens: var(--tw))], so the shorthand and the bracket spelling
+   of one property give the same condition. *)
+let test_supports_property_is_unprefixed () =
+  let condition cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (condition cls))
+  in
+  let unprefixed cls =
+    let css = condition cls in
+    check bool cls false (Astring.String.is_infix ~affix:"-webkit-" css);
+    check bool cls false (Astring.String.is_infix ~affix:"-moz-" css)
+  in
+  emits "@supports (hyphens: var(--tw))" "supports-hyphens:flex";
+  emits "@supports (user-select: var(--tw))" "supports-user-select:flex";
+  emits "@supports (user-select: var(--tw))" "supports-[user-select]:flex";
+  emits "@supports (text-size-adjust: var(--tw))"
+    "supports-text-size-adjust:flex";
+  emits "@supports (backdrop-filter: var(--tw))" "supports-backdrop-filter:flex";
+  unprefixed "supports-hyphens:flex";
+  unprefixed "supports-user-select:flex";
+  unprefixed "supports-text-size-adjust:flex";
+  unprefixed "supports-backdrop-filter:flex"
+
+(* A variant that wraps the utility in an at-rule keeps that at-rule when the
+   variant it decorates already produced a media query. [supports-grid:sm:flex]
+   used to render as [.sm\:flex] inside the breakpoint alone: the feature query
+   and the [supports-grid] half of the class name both disappeared, so the rule
+   applied unconditionally and matched a class the author never wrote. Tailwind
+   nests the two in the order the class spells them. *)
+let test_at_rule_variant_over_media () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affixes =
+    let out = css cls in
+    List.iter
+      (fun affix ->
+        check bool
+          (cls ^ " emits " ^ affix)
+          true
+          (Astring.String.is_infix ~affix out))
+      affixes
+  in
+  emits "supports-grid:sm:flex"
+    [
+      "@supports (grid: var(--tw))";
+      "min-width: 40rem";
+      ".supports-grid\\:sm\\:flex";
+    ];
+  emits "not-supports-grid:sm:flex"
+    [ "@supports not (grid: var(--tw))"; "min-width: 40rem" ];
+  emits "starting:sm:flex" [ "@starting-style"; "min-width: 40rem" ];
+  emits "@md:sm:flex" [ "@container"; "min-width: 40rem" ]
+
 (* Extend the suite with new tests *)
 let tests =
   tests
@@ -858,6 +1002,10 @@ let tests =
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
+      test_case "supports property is unprefixed" `Quick
+        test_supports_property_is_unprefixed;
+      test_case "at-rule variant over a media query" `Quick
+        test_at_rule_variant_over_media;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
       test_case "padded attribute brackets" `Quick
         test_padded_attribute_brackets;
@@ -891,6 +1039,16 @@ let tests =
         test_nested_modifier_class_names;
       test_case "nested modifier CSS generation" `Quick
         test_nested_modifier_css_generation;
+      test_case "not-has shorthand selector" `Quick
+        test_not_has_shorthand_selector;
+      test_case "arbitrary breakpoint spelling" `Quick
+        test_arbitrary_breakpoint_spelling;
+      test_case "arbitrary breakpoint rejects non-length" `Quick
+        test_arbitrary_breakpoint_rejects_non_length;
+      test_case "custom variant is theme-local" `Quick
+        test_custom_variant_is_theme_local;
+      test_case "container variant is theme-local" `Quick
+        test_container_variant_is_theme_local;
     ]
 
 let suite = ("modifiers", tests)

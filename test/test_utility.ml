@@ -156,16 +156,115 @@ let test_order_of_property () =
     "margin skips its spacing token declaration"
     (Some (order_of "m-auto"))
     (order_of_property (Key Margin));
+  (* [placeholder-transparent] writes [color] too, but inside a [::placeholder]
+     rule: the slot belongs to the utilities that colour the element itself. *)
   check
     (option (pair int int))
-    "color skips its palette token declaration"
-    (Some (order_of "placeholder-transparent"))
+    "color resolves to the text-colour utilities"
+    (Some (order_of "text-transparent"))
     (order_of_property (Key Color));
   check
     (option (pair int int))
     "border style skips width-utility carrier declarations"
     (Some (order_of "border-solid"))
     (order_of_property (Key Border_style))
+
+(* A utility writes a property twice when the vendor-prefixed spelling still
+   buys reach ([-webkit-user-select] then [user-select]). The slot belongs to
+   the standard spelling, so a declared [@utility] setting it sorts with the
+   family rather than at the layer's tail. A prefixed property with no
+   unprefixed twin ([-webkit-line-clamp]) is the utility's own and keeps its
+   slot. *)
+let test_order_of_property_skips_vendor_prefix () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check
+    (option (pair int int))
+    "user-select resolves to the select utilities"
+    (Some (order_of "select-none"))
+    (order_of_property (Key User_select));
+  check
+    (option (pair int int))
+    "hyphens resolves to the hyphens utilities"
+    (Some (order_of "hyphens-none"))
+    (order_of_property (Key Hyphens));
+  check
+    (option (pair int int))
+    "backdrop-filter resolves to the backdrop utilities"
+    (Some (order_of "backdrop-filter-none"))
+    (order_of_property (Key Backdrop_filter));
+  check
+    (option (pair int int))
+    "mask-image resolves to the mask-gradient utilities"
+    (Some (order_of "mask-linear-0"))
+    (order_of_property (Key Mask_image));
+  check
+    (option (pair int int))
+    "a prefixed property with no twin keeps its own slot"
+    (Some (order_of "line-clamp-none"))
+    (order_of_property (Key Webkit_line_clamp))
+
+(* [outline-2] writes [outline-style: var(--tw-outline-style)] as a carrier for
+   the style utilities, the same shape [border-2] uses. The width utility owns
+   the width slot and the style utilities own the style slot. *)
+let test_order_of_property_skips_outline_carrier () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  check
+    (option (pair int int))
+    "outline width skips the style carrier"
+    (Some (order_of "outline-2"))
+    (order_of_property (Key Outline_width));
+  check
+    (option (pair int int))
+    "outline style resolves to the style utilities"
+    (Some (order_of "outline-solid"))
+    (order_of_property (Key Outline_style))
+
+(* Tailwind sorts a declared [@utility] by the property it writes, so every
+   property a family is named for needs a slot. A family with no example
+   covering its property leaves a declared utility at the layer's tail. *)
+let test_order_of_property_covers_named_families () =
+  let open Tw.Utility in
+  let order_of cls =
+    match base_of_class Tw.Scheme.default cls with
+    | Ok b -> order b
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun (key, cls) ->
+      check
+        (option (pair int int))
+        (cls ^ " owns the property it is named for")
+        (Some (order_of cls))
+        (order_of_property key))
+    [
+      ((Key Order : Cascade.Css.Declaration.prop_key), "order-1");
+      (Key Rotate, "rotate-45");
+      (Key Scale, "scale-50");
+      (Key Translate, "translate-x-2");
+      (Key Transform, "transform-none");
+      (Key Transform_style, "transform-flat");
+      (Key Scroll_snap_stop, "snap-always");
+      (Key Break_before, "break-before-page");
+      (Key Break_after, "break-after-page");
+      (Key Break_inside, "break-inside-avoid");
+      (Key Border_radius, "rounded-sm");
+      (Key Outline_offset, "outline-offset-2");
+      (Key Background_position, "bg-center");
+      (Key Text_align, "text-center");
+      (Key Font_family, "font-sans");
+      (Key Font_style, "italic");
+      (Key Line_height, "leading-none");
+    ]
 
 let tests =
   [
@@ -176,6 +275,12 @@ let tests =
     (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)
     (* test_case "css_of_string invalid input" `Quick test_css_of_string_invalid; *)
     test_case "order_of_property" `Quick test_order_of_property;
+    test_case "order_of_property skips a vendor prefix" `Quick
+      test_order_of_property_skips_vendor_prefix;
+    test_case "order_of_property skips the outline carrier" `Quick
+      test_order_of_property_skips_outline_carrier;
+    test_case "order_of_property covers the named families" `Quick
+      test_order_of_property_covers_named_families;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;

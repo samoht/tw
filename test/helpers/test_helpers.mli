@@ -25,10 +25,10 @@ val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
     properties included: two utilities can conflict on a [--tw-*] alone. *)
 
-val same_property_pairs : string list -> (string * string) list
-(** [same_property_pairs classes] pairs up the classes that declare a property
-    in common. An element carrying such a pair is where an ordering difference
-    becomes observable; a class on its own can only differ in value. *)
+val interacting_pairs : string list -> (string * string) list
+(** [interacting_pairs classes] pairs up the classes that write on each other.
+    An element carrying such a pair is where an ordering difference becomes
+    observable; a class on its own can only differ in value. *)
 
 val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
 (** [ordering_diff ?forms utilities] compares tw's sheet for [utilities] against
@@ -62,6 +62,14 @@ val check_ordering_matches :
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
 
+val class_position : string -> string -> int option
+(** [class_position sheet cls] is the byte offset in [sheet] where the rule for
+    class [cls] starts, or [None] when the sheet declares no such class. The
+    match ends where the class name ends, so [.bg-top] is not read off
+    [.bg-top-left]; what follows it is not constrained, so a selector that
+    continues past the class ([.divide-x>*], [.group:hover .x]) is found too.
+    The oracle behind {!check_class_order}. *)
+
 val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
 (** [check_class_order ?forms ~test_name classes] compares where each of
     [classes] lands in tw's sheet against where the pinned Tailwind CLI puts it.
@@ -70,15 +78,20 @@ val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
     positions back is what catches a reorder. Skips when the CLI is unavailable.
 *)
 
+val render_elements : string list -> string list
+(** [render_elements classnames] is the element list {!check_rendering_matches}
+    renders: each class on its own, then one element per {!interacting_pairs}
+    pair, duplicates dropped and first occurrence kept. *)
+
 val check_rendering_matches :
   ?forms:bool -> test_name:string -> Tw.t list -> unit
 (** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
     headless Chromium and fails on any computed style that differs. Each class
-    gets an element of its own, plus one per {!same_property_pairs} pair, which
-    is where an ordering difference shows. Fails too when an element does not
-    carry the classes it was given, since then the comparison is vacuous. Skips
-    when node or Playwright is absent; [TW_BROWSER_TESTS=0] opts out where they
-    are present. *)
+    gets an element of its own, plus one per {!interacting_pairs} pair, which is
+    where an ordering difference shows. Fails too when an element does not carry
+    the classes it was given, since then the comparison is vacuous. Skips when
+    node or Playwright is absent; [TW_BROWSER_TESTS=0] opts out where they are
+    present. *)
 
 (** {1 CSS Test Helpers} *)
 

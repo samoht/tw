@@ -98,9 +98,21 @@ let extract_var_name s =
     String.trim (String.sub s 6 (len - 7))
   else s
 
-(** Check if a string is a bracket-wrapped value like "[...]" *)
+(* One bracket, not two: the closing bracket has to be the last character. A
+   suffix carrying a second bracket - one bracket with a bracket modifier, or
+   two brackets in a row - would otherwise read as one bracket whose inner text
+   has a stray bracket in it, which no declaration value takes. *)
 let is_bracket_value s =
-  String.length s > 2 && s.[0] = '[' && s.[String.length s - 1] = ']'
+  let len = String.length s in
+  let rec close i depth =
+    if i >= len then false
+    else
+      match s.[i] with
+      | '[' -> close (i + 1) (depth + 1)
+      | ']' -> if depth = 0 then i = len - 1 else close (i + 1) (depth - 1)
+      | _ -> close (i + 1) depth
+  in
+  len > 2 && s.[0] = '[' && close 1 0
 
 (** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
@@ -214,7 +226,11 @@ let normalize_css_math_operators s =
   Buffer.contents buf
 
 (* Tailwind's [--spacing(N)] shorthand: the spacing scale as a function. It is
-   not CSS, so a value holding it fails to parse and the utility drops out. *)
+   not CSS, so a value holding it fails to parse and the utility drops out. The
+   scan skips over quoted CSS strings ['...'] and ["..."] verbatim (with their
+   backslash escapes), so the same bytes inside a string literal - e.g. an
+   arbitrary [content:'--spacing(1)'] - are left as literal text rather than
+   expanded. *)
 let expand_spacing_fn s =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -229,18 +245,39 @@ let expand_spacing_fn s =
   in
   let rec go i =
     if i >= len then ()
-    else if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
-      let stop, next = close_paren (i + 9) 0 in
-      let n = String.sub s (i + 10) (stop - i - 10) in
-      (* [--spacing(1)] is the scale itself; only a multiplier needs calc. *)
-      if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
-      else
-        Buffer.add_string buf
-          (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
-      go next)
-    else (
-      Buffer.add_char buf s.[i];
-      go (i + 1))
+    else
+      match s.[i] with
+      | ('\'' | '"') as quote ->
+          Buffer.add_char buf quote;
+          in_string quote (i + 1)
+      | _ ->
+          if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
+            let stop, next = close_paren (i + 9) 0 in
+            let n = String.sub s (i + 10) (stop - i - 10) in
+            (* [--spacing(1)] is the scale itself; only a multiplier needs
+               calc. *)
+            if String.trim n = "1" then Buffer.add_string buf "var(--spacing)"
+            else
+              Buffer.add_string buf
+                (String.concat "" [ "calc(var(--spacing) * "; n; ")" ]);
+            go next)
+          else (
+            Buffer.add_char buf s.[i];
+            go (i + 1))
+  and in_string quote i =
+    if i >= len then ()
+    else
+      match s.[i] with
+      | '\\' when i + 1 < len ->
+          Buffer.add_char buf s.[i];
+          Buffer.add_char buf s.[i + 1];
+          in_string quote (i + 2)
+      | c when c = quote ->
+          Buffer.add_char buf c;
+          go (i + 1)
+      | c ->
+          Buffer.add_char buf c;
+          in_string quote (i + 1)
   in
   go 0;
   Buffer.contents buf
@@ -249,6 +286,41 @@ let decode_arbitrary_value s =
   s |> decode_underscores |> expand_spacing_fn |> normalize_css_math_operators
 
 let arbitrary_length s = Cascade.Css.parse_length (decode_arbitrary_value s)
+
+(* [<length-percentage>] is the length grammar minus the keywords the length
+   reader also admits ([auto], [none], [max-content], ...) and minus a unitless
+   number, which only reads as a length because [0] is one. The match is
+   exhaustive so a length constructor cascade adds later has to be classified
+   here rather than passing silently. *)
+let length_percentage_of_length (l : Cascade.Css.length) :
+    Cascade.Css.length_percentage option =
+  match l with
+  | Pct p -> Some (Pct p)
+  | Px _ | Cm _ | Mm _ | Q _ | In _ | Pt _ | Pc _ | Rem _ | Em _ | Ex _ | Cap _
+  | Ic _ | Ric _ | Rlh _ | Vw _ | Vh _ | Vmin _ | Vmax _ | Vi _ | Vb _ | Dvh _
+  | Dvw _ | Dvmin _ | Dvmax _ | Lvh _ | Lvw _ | Lvmin _ | Lvmax _ | Svh _
+  | Svw _ | Svmin _ | Svmax _ | Cqw _ | Cqh _ | Cqi _ | Cqb _ | Cqmin _
+  | Cqmax _ | Ch _ | Lh _ | Dimension _ ->
+      Some (Length l)
+  (* Math functions and references resolve to a length at used-value time. *)
+  | Clamp _ | Min _ | Max _ | Round _ | Mod _ | Rem_fn _ | Hypot _ | Abs _
+  | Sign _ | Env _ | Var _ | Calc _ ->
+      Some (Length l)
+  | Zero -> None
+  (* Keywords, and the functions that stand for an intrinsic size or an anchor
+     position rather than for a length. *)
+  | Size | Auto | None | Normal | Inherit | Initial | Unset | Revert
+  | Revert_layer | Fit_content | Fit_content_arg _ | Content | Contain
+  | Max_content | Min_content | Webkit_max_content | Webkit_min_content
+  | Webkit_fit_content | Moz_max_content | Moz_min_content | Moz_fit_content
+  | From_font | Hairline | Thin | Medium | Thick | Stretch | Minmax _
+  | Calc_size _ | Anchor_size _ | Anchor _ | Attr _ ->
+      None
+
+let arbitrary_length_percentage s =
+  match arbitrary_length s with
+  | Some l -> length_percentage_of_length l
+  | None -> None
 
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
@@ -302,7 +374,7 @@ let bare_var_inner s =
 (** Split a class name on '-' but treat '[...]' as atomic. E.g.
     "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
     [""; "m"; "[var(--value)]"] *)
-let split_class class_name =
+let split_class_uncached class_name =
   let len = String.length class_name in
   let buf = Buffer.create 16 in
   let parts = ref [] in
@@ -341,3 +413,18 @@ let split_class class_name =
   done;
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
+
+(* Utility.base_of_class offers one class name to every handler in turn until
+   one accepts it, and most handlers open by splitting that same name, so a
+   single class is split once per handler tried. The split is a pure function of
+   its argument, so remembering the last one collapses that run to one. *)
+let last_split : (string * string list) option ref = ref None
+
+let split_class class_name =
+  match !last_split with
+  | Some (key, parts) when key == class_name || String.equal key class_name ->
+      parts
+  | _ ->
+      let parts = split_class_uncached class_name in
+      last_split := Some (class_name, parts);
+      parts

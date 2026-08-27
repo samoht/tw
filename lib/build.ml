@@ -50,8 +50,7 @@ let extract_base_utility class_name_no_pseudo =
 
 (** Parse utility and get ordering, with fallback for non-utility classes *)
 let parse_utility_order base_utility =
-  let parts = String.split_on_char '-' base_utility in
-  match Utility.base_of_strings Scheme.default parts with
+  match Utility.base_of_class Scheme.default base_utility with
   | Ok u -> Utility.order u
   | Error _ ->
       (* Some selectors (like .group, .peer, .container) are marker classes that
@@ -275,9 +274,10 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
       Css.rule ~selector:r.selector ?merge_key ~nested:filtered_nested
         filtered_props
   | `Starting ->
-      (* Wrap selector+declarations in @starting-style block
-         (Tailwind-compatible format) *)
-      Css.starting_style [ Css.rule ~selector:r.selector filtered_props ]
+      (* As for [`Media]: a variant stacked under [starting:] carries the inner
+         query in [nested] and has no declarations of its own. *)
+      if filtered_nested <> [] then Css.starting_style filtered_nested
+      else Css.starting_style [ Css.rule ~selector:r.selector filtered_props ]
   | `Media condition ->
       (* For compound modifiers (e.g., dark:hover:), nested contains the inner
          media query. Otherwise, just emit a simple rule inside the media. *)
@@ -295,8 +295,10 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.container ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Supports condition ->
-      Css.supports ~condition
-        [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
+      if filtered_nested <> [] then Css.supports ~condition filtered_nested
+      else
+        Css.supports ~condition
+          [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
@@ -339,8 +341,7 @@ let order_of_base order_map base_class selector =
       match Hashtbl.find_opt order_map base_utility with
       | Some order -> adjust_pseudo class_name order
       | None -> (
-          let parts = String.split_on_char '-' base_utility in
-          match Utility.base_of_strings Scheme.default parts with
+          match Utility.base_of_class Scheme.default base_utility with
           | Ok u -> adjust_pseudo class_name (Utility.order u)
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
@@ -380,17 +381,18 @@ let rule_to_triple order_map = function
       triple (`Container condition) ~selector ~props
         ~order:(order_of_base order_map base_class selector)
         ~nested ~base_class ~merge_key:None ~not_order:0
-  | Starting_style { selector; props; base_class } ->
+  | Starting_style { selector; props; base_class; nested } ->
       triple `Starting ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested:[] ~base_class ~merge_key:None ~not_order:0
+        ~nested ~base_class ~merge_key:None ~not_order:0
   | Supports_query
-      { condition; selector; props; base_class; merge_key; not_order } ->
+      { condition; selector; props; base_class; merge_key; not_order; nested }
+    ->
       let order =
         apply_not_order (order_of_base order_map base_class selector) not_order
       in
-      triple (`Supports condition) ~selector ~props ~order ~nested:[]
-        ~base_class ~merge_key ~not_order
+      triple (`Supports condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key ~not_order
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =
@@ -401,7 +403,8 @@ let add_index triples =
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
-      let variant_order = Rule.compute_variant_order base_class sel in
+      let responsive_media_key = Sort.responsive_media_key typ nested in
+      let variant_order = Rule.compute_variant_order ~selector_str base_class in
       ({
          index = i;
          rule_type = typ;
@@ -421,6 +424,7 @@ let add_index triples =
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;
+         responsive_media_key;
        }
         : Sort.indexed_rule))
     triples
@@ -483,9 +487,16 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
     | (r : Sort.indexed_rule) :: rest when is_starting r ->
         let run, rest = take_run [ r ] rest in
         let inner =
-          List.map
+          List.concat_map
             (fun (x : Sort.indexed_rule) ->
-              Css.rule ~selector:x.selector (filter_utility_properties x.props))
+              (* A variant stacked under [starting:] carries its query in
+                 [nested] and has no declarations of its own. *)
+              if x.nested <> [] then filter_theme_from_statements x.nested
+              else
+                [
+                  Css.rule ~selector:x.selector
+                    (filter_utility_properties x.props);
+                ])
             run
         in
         go (Css.starting_style inner :: acc) rest
@@ -514,7 +525,12 @@ let sort_vars_by_property_order vars =
     | Some o -> o
     | None -> 1000 (* Default for vars without property_order *)
   in
-  List.sort (fun n1 n2 -> compare (get_order n1) (get_order n2)) vars
+  (* Decorate-sort-undecorate: [get_order] allocates a [String.sub] per call,
+     and a comparator runs it on both operands of every comparison. *)
+  vars
+  |> List.map (fun name -> (get_order name, name))
+  |> List.stable_sort (fun (o1, _) (o2, _) -> Int.compare o1 o2)
+  |> List.map snd
 
 (* Extract all var names from sorted indexed rules in utility order. For each
    utility, collects: 1. Vars that are SET (custom declarations) 2. Vars that
@@ -1299,8 +1315,10 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables, set var names, and property rules from all utilities *)
-let extract_vars_and_rules theme utilities =
-  let styles = List.map (Utility.to_style theme) utilities in
+(* Takes the already-built styles rather than the utilities: [layers] has just
+   built the same tree, and [Utility.to_style] dispatches through every
+   registered handler and allocates the whole declaration tree per class. *)
+let extract_vars_and_rules styles =
   let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
@@ -1428,7 +1446,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
   let styles = List.map (Utility.to_style theme) tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
-    extract_vars_and_rules theme tw_classes
+    extract_vars_and_rules styles
   in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.

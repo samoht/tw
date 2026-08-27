@@ -146,8 +146,11 @@ module Handler = struct
     | Z_auto
     | Z of int (* Dynamic z-index: z-5, z-100, etc. *)
     | Neg_z of int (* Negative z-index: -z-10, -z-50, etc. *)
-    | Z_arbitrary of string (* Arbitrary values: z-[123] *)
-    | Neg_z_arbitrary of string (* Negative arbitrary: -z-[var(--value)] *)
+    (* The author's bracket text travels with the z-index it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Z_arbitrary of string * Css.z_index (* Arbitrary values: z-[123] *)
+    | Neg_z_arbitrary of
+        string * Css.z_index (* Negative arbitrary: -z-[var(--value)] *)
     | (* Object fit *)
       Object_contain
     | Object_cover
@@ -390,8 +393,8 @@ module Handler = struct
     | Z_50 -> "z-50"
     | Z_auto -> "z-auto"
     | Neg_z n -> "-z-" ^ string_of_int n
-    | Z_arbitrary s -> "z-[" ^ s ^ "]"
-    | Neg_z_arbitrary s -> "-z-[" ^ s ^ "]"
+    | Z_arbitrary (s, _) -> "z-[" ^ s ^ "]"
+    | Neg_z_arbitrary (s, _) -> "-z-[" ^ s ^ "]"
     | Object_contain -> "object-contain"
     | Object_cover -> "object-cover"
     | Object_fill -> "object-fill"
@@ -447,6 +450,23 @@ module Handler = struct
     | Break_inside_avoid_column -> "break-inside-avoid-column"
     | Break_inside_avoid_page -> "break-inside-avoid-page"
 
+  (* An [object-<position>] class reads its keyword off
+     [--object-position-<pos>] when the theme binds one. The token name and the
+     keyword travel together with the constructor that names them, so there is
+     no second list of positions to keep in step with the first. *)
+  let object_position_style theme pos (default : Css.position_value) =
+    let name = "object-position-" ^ pos in
+    match Scheme.theme_value (Some theme) name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_property ~layer:"theme" ("--" ^ name) value
+        in
+        let pos_ref : Css.position_value Css.var = Var.bracket name in
+        style [ theme_decl; object_position (Var pos_ref) ]
+    (* Without a theme override Tailwind writes the keyword, not a reference to
+       a token nothing declares. *)
+    | None -> style [ object_position default ]
+
   let to_style theme =
     let z_auto_style () = z_auto_style ~theme () in
     function
@@ -481,54 +501,31 @@ module Handler = struct
     | Z_50 -> style [ z_index (Index 50) ]
     | Z_auto -> z_auto_style ()
     | Neg_z n -> style [ z_index (Index (-n)) ]
-    | Z_arbitrary s ->
-        style
-          [ z_index (Css.Properties.read_z_index (Cascade.Cursor.of_string s)) ]
-    | Neg_z_arbitrary s ->
-        let zi = Css.Properties.read_z_index (Cascade.Cursor.of_string s) in
+    | Z_arbitrary (_, zi) -> style [ z_index zi ]
+    | Neg_z_arbitrary (_, zi) ->
         style [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ]
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
     | Object_none -> style [ object_fit None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
-    | ( Object_center | Object_top | Object_bottom | Object_left | Object_right
-      | Object_bottom_left | Object_bottom_right | Object_left_bottom
-      | Object_left_top | Object_right_bottom | Object_right_top
-      | Object_top_left | Object_top_right ) as obj -> (
-        let name, (default : Css.position_value), _default_css =
-          match obj with
-          | Object_center -> ("object-position-center", Center, "center")
-          | Object_top -> ("object-position-top", Top, "top")
-          | Object_bottom -> ("object-position-bottom", Bottom, "bottom")
-          | Object_left -> ("object-position-left", Left, "left")
-          | Object_right -> ("object-position-right", Right, "right")
-          | Object_bottom_left ->
-              ("object-position-bottom-left", Bottom_left, "left bottom")
-          | Object_bottom_right ->
-              ("object-position-bottom-right", Bottom_right, "right bottom")
-          | Object_left_bottom ->
-              ("object-position-left-bottom", Left_bottom, "left bottom")
-          | Object_left_top -> ("object-position-left-top", Left_top, "left top")
-          | Object_right_bottom ->
-              ("object-position-right-bottom", Right_bottom, "right bottom")
-          | Object_right_top ->
-              ("object-position-right-top", Right_top, "right top")
-          | Object_top_left -> ("object-position-top-left", Top_left, "left top")
-          | Object_top_right ->
-              ("object-position-top-right", Top_right, "right top")
-          | _ -> assert false
-        in
-        match Scheme.theme_value (Some theme) name with
-        | Some value ->
-            let theme_decl =
-              Css.custom_property ~layer:"theme" ("--" ^ name) value
-            in
-            let pos_ref : Css.position_value Css.var = Var.bracket name in
-            style [ theme_decl; object_position (Var pos_ref) ]
-        (* Without a theme override Tailwind writes the keyword, not a reference
-           to a token nothing declares. *)
-        | None -> style [ object_position default ])
+    | Object_center -> object_position_style theme "center" Center
+    | Object_top -> object_position_style theme "top" Top
+    | Object_bottom -> object_position_style theme "bottom" Bottom
+    | Object_left -> object_position_style theme "left" Left
+    | Object_right -> object_position_style theme "right" Right
+    | Object_bottom_left ->
+        object_position_style theme "bottom-left" Bottom_left
+    | Object_bottom_right ->
+        object_position_style theme "bottom-right" Bottom_right
+    | Object_left_bottom ->
+        object_position_style theme "left-bottom" Left_bottom
+    | Object_left_top -> object_position_style theme "left-top" Left_top
+    | Object_right_bottom ->
+        object_position_style theme "right-bottom" Right_bottom
+    | Object_right_top -> object_position_style theme "right-top" Right_top
+    | Object_top_left -> object_position_style theme "top-left" Top_left
+    | Object_top_right -> object_position_style theme "top-right" Top_right
     | Object_arbitrary raw -> (
         (* Only a var() reference names a variable; anything else is a position
            value, which [object-[50%]] used to turn into [var(--50)]. *)
@@ -599,6 +596,17 @@ module Handler = struct
 
   (** {1 Parsing Functions} *)
 
+  (* The z-index a [z-[...]] bracket denotes. [None] is a bracket the z-index
+     grammar cannot read, and [of_class] refuses the utility rather than leaving
+     [to_style] to raise. *)
+  let arbitrary_z_index inner : Css.z_index option =
+    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_z_index cursor
+    with
+    | Ok zi -> Some zi
+    | Error _ -> None
+
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -635,7 +643,10 @@ module Handler = struct
         (* Arbitrary value: z-[123] *)
         let len = String.length n in
         if len > 2 && n.[len - 1] = ']' then
-          Ok (Z_arbitrary (String.sub n 1 (len - 2)))
+          let inner = String.sub n 1 (len - 2) in
+          match arbitrary_z_index inner with
+          | Some zi -> Ok (Z_arbitrary (inner, zi))
+          | None -> Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
         else Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
     | [ "z"; n ] -> (
         (* Dynamic z-index: z-5, z-100, etc. *)
@@ -651,7 +662,9 @@ module Handler = struct
           && value.[String.length value - 1] = ']'
         then
           let inner = String.sub value 1 (String.length value - 2) in
-          Ok (Neg_z_arbitrary inner)
+          match arbitrary_z_index inner with
+          | Some zi -> Ok (Neg_z_arbitrary (inner, zi))
+          | None -> Error (`Msg ("Invalid negative z-index value: " ^ value))
         else
           match Parse.decimal_int value with
           | Some i -> Ok (Neg_z i)
@@ -731,6 +744,9 @@ module Handler = struct
       Clear_both;
       Object_contain;
       Object_center;
+      Break_before_page;
+      Break_after_page;
+      Break_inside_avoid;
     ]
 end
 

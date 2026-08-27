@@ -38,11 +38,29 @@ let tailwind_css ?(forms = false) classnames =
 
 (* Which CSS properties a class declares. Custom properties count: a drop-shadow
    colour and a drop-shadow size conflict only on [--tw-drop-shadow]. *)
+(* Compiling a class is the expensive part of building the pair list, and each
+   class is compiled by both readers below, once for its property names and
+   once for its rule. Memoised on the class name; the suite's class set bounds
+   the table. *)
+let compiled_cache : (string, Css.t option) Hashtbl.t = Hashtbl.create 512
+
+let compiled cls =
+  match Hashtbl.find_opt compiled_cache cls with
+  | Some sheet -> sheet
+  | None ->
+      let sheet =
+        match Tw.of_string cls with
+        | Error _ -> None
+        | Ok u -> Some (Tw.to_css ~base:false [ u ])
+      in
+      Hashtbl.add compiled_cache cls sheet;
+      sheet
+
 let properties_of_class cls =
-  match Tw.of_string cls with
-  | Error _ -> []
-  | Ok u ->
-      Tw.to_css ~base:false [ u ]
+  match compiled cls with
+  | None -> []
+  | Some sheet ->
+      sheet
       |> Css.fold
            (fun acc stmt ->
              match Css.as_rule stmt with
@@ -52,9 +70,61 @@ let properties_of_class cls =
              | _ -> acc)
            []
 
-(* Classes that declare a property in common, paired up. An ordering difference
-   is only observable on an element carrying two such classes; one class on its
-   own can only show a difference in value. *)
+(* What a class writes on an element carrying it, as one rule. The theme
+   bindings it drags in are left out - every class reading the spacing scale
+   writes [--spacing], which says nothing about what two of them do to each
+   other - and so are the [*, ::before] property defaults: neither is a selector
+   holding a [.]. *)
+let class_rule cls =
+  let decls =
+    match compiled cls with
+    | None -> []
+    | Some sheet ->
+        sheet
+        |> Css.fold
+             (fun acc stmt ->
+               match Css.as_rule stmt with
+               | Some (sel, decls, _)
+                 when String.contains (Css.Selector.to_string sel) '.' ->
+                   decls @ acc
+               | _ -> acc)
+             []
+  in
+  Css.rule ~selector:(Css.Selector.class_ cls) decls
+
+(* Two classes whose relative order is cascade-significant. Canonicalisation
+   sorts statements that cannot observe each other into a content-keyed order
+   and leaves the order of the ones that can, so a pair whose two spellings
+   canonicalise apart is a pair writing a common slot - cascade's own footprint
+   model, shorthand expansion included. This is what pairing on the declared
+   property name cannot see: [inset-px] and [top-px] share no property name and
+   both decide [top]. *)
+let cascade_conflict a b =
+  let canon stmts =
+    Css.canonicalize_rule_order (Css.v stmts) |> Css.to_string ~minify:true
+  in
+  canon [ a; b ] <> canon [ b; a ]
+
+let overlapping_pairs classes =
+  let rules = List.map (fun cls -> (cls, class_rule cls)) classes in
+  let rec go acc = function
+    | [] | [ _ ] -> acc
+    | (a, ra) :: tl ->
+        let acc =
+          List.fold_left
+            (fun acc (b, rb) ->
+              if cascade_conflict ra rb then (a, b) :: acc else acc)
+            acc tl
+        in
+        go acc tl
+  in
+  go [] rules
+
+(* Classes that declare a property in common. Kept alongside the footprint
+   model, which is about order alone: two classes writing the same property with
+   the same value do not conflict, and still compose - [shadow-lg] reads the
+   colour [shadow-current] writes, and only an element carrying both shows what
+   the pair computes to. *)
 let same_property_pairs classes =
   let by_prop = Hashtbl.create 256 in
   List.iter
@@ -86,6 +156,14 @@ let same_property_pairs classes =
       in
       pairs acc cs)
     by_prop []
+
+(* Classes that write on each other, paired up. An ordering difference is only
+   observable on an element carrying two such classes; one class on its own can
+   only show a difference in value. *)
+let interacting_pairs classes =
+  let key (a, b) = if a <= b then (a, b) else (b, a) in
+  same_property_pairs classes @ overlapping_pairs classes
+  |> List.map key |> List.sort_uniq compare
 
 (* The single ordering predicate. The fuzzer minimises with it and every suite
    asserts on it, so a minimal case it reports is a case the assertion also
@@ -250,13 +328,27 @@ let render_dir root test_name =
       dir)
     root [ "tmp"; "browser"; safe ]
 
+(* First occurrence wins and the order is kept. Through a table rather than a
+   scan of what has been seen: the list this runs on is quadratic in the number
+   of classes. *)
 let dedup l =
+  let seen = Hashtbl.create 256 in
   List.rev
-    (fst
-       (List.fold_left
-          (fun (acc, seen) x ->
-            if List.mem x seen then (acc, seen) else (x :: acc, x :: seen))
-          ([], []) l))
+    (List.fold_left
+       (fun acc x ->
+         if Hashtbl.mem seen x then acc
+         else (
+           Hashtbl.add seen x ();
+           x :: acc))
+       [] l)
+
+(* The elements the browser check builds: every class on its own, since a class
+   alone can still differ in value, and one carrying each interacting pair,
+   which is where an ordering difference shows. *)
+let render_elements classnames =
+  dedup
+    (classnames
+    @ List.map (fun (a, b) -> a ^ " " ^ b) (interacting_pairs classnames))
 
 let check_rendering_matches ?(forms = false) ~test_name utilities =
   let root =
@@ -264,13 +356,7 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   in
   if not (browser_available root) then Alcotest.skip ();
   let classnames = List.map Tw.pp utilities in
-  (* A class on its own can only show a difference in value; an ordering
-     difference needs an element carrying two classes that write the same
-     property. *)
-  let pairs = same_property_pairs classnames in
-  let elements =
-    dedup (classnames @ List.map (fun (a, b) -> a ^ " " ^ b) pairs)
-  in
+  let elements = render_elements classnames in
   let tailwind = tailwind_css ~forms classnames in
   let dir = render_dir root test_name in
   let path name = Filename.concat dir name in
@@ -311,8 +397,18 @@ let check_ordering_matches ?forms ~test_name utilities =
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
-(* Where a class's rule starts in a sheet. The selector is matched up to its
-   closing delimiter so [.bg-top] does not report [.bg-top-left]. *)
+(* Where a class's rule starts in a sheet. The match has to end where the class
+   name ends, so [.bg-top] does not report [.bg-top-left]; what follows it is
+   not constrained beyond that, so a selector that carries on past the class
+   ([.divide-x>*], [.group:hover .x]) is found rather than reported absent. *)
+let continues_class_name c =
+  match c with
+  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' | '_' -> true
+  (* A backslash starts an escape, which is part of the name it sits in; a byte
+     at or above 0x80 is part of a non-ASCII identifier. *)
+  | '\\' -> true
+  | c -> Char.code c >= 0x80
+
 let class_position sheet cls =
   let sel = Css.Selector.to_string (Css.Selector.class_ cls) in
   let n = String.length sel and len = String.length sheet in
@@ -320,8 +416,10 @@ let class_position sheet cls =
     if i + n > len then None
     else if
       String.sub sheet i n = sel
-      && i + n < len
-      && (sheet.[i + n] = '{' || sheet.[i + n] = ',')
+      (* An escaped dot belongs to the class name before it: [.w-1\.5] is one
+         class, not a [.5] inside another. *)
+      && (i = 0 || sheet.[i - 1] <> '\\')
+      && (i + n = len || not (continues_class_name sheet.[i + n]))
     then Some i
     else scan (i + 1)
   in
@@ -478,10 +576,13 @@ let inline_has_property prop_name inline_style =
 
 (** Check if declarations contain any var() references *)
 let has_var_in_declarations ?(inline = false) decls =
+  (* Anywhere in the value, not only at its head: [calc(var(--spacing)*4)] and
+     [color-mix(in oklab, var(--c) 50%, #0000)] reference a variable as much as
+     a bare [var(--c)] does, and an assertion that a sheet holds none is vacuous
+     on them otherwise. *)
   List.exists
     (fun decl ->
-      let value = Css.declaration_value ~inline decl in
-      String.length value >= 4 && String.sub value 0 4 = "var(")
+      Astring.String.is_infix ~affix:"var(" (Css.declaration_value ~inline decl))
     decls
 
 (** {1 Utility Generators} *)
@@ -496,7 +597,13 @@ let spacing_values =
 let test_rng =
   let seed =
     match Sys.getenv_opt "TEST_SEED" with
-    | Some s -> int_of_string s
+    | Some s -> (
+        match int_of_string_opt s with
+        | Some n -> n
+        | None ->
+            (* Raising here aborts the whole suite at module initialisation with
+               a message that never mentions the variable. *)
+            Fmt.failwith "TEST_SEED is not an integer: %S" s)
     | None ->
         Random.self_init ();
         Random.bits ()

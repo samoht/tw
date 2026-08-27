@@ -32,6 +32,7 @@ type t =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      nested : Css.statement list;
     }
   | Supports_query of {
       condition : Css.Supports.t;
@@ -40,6 +41,7 @@ type t =
       base_class : string option;
       merge_key : string option;
       not_order : int;
+      nested : Css.statement list;
     }
 
 type by_type = {
@@ -62,13 +64,21 @@ let media_query ~condition ~selector ~props ?base_class ?(nested = [])
 let container_query ~condition ~selector ~props ?base_class ?(nested = []) () =
   Container_query { condition; selector; props; base_class; nested }
 
-let starting_style ~selector ~props ?base_class () =
-  Starting_style { selector; props; base_class }
+let starting_style ~selector ~props ?base_class ?(nested = []) () =
+  Starting_style { selector; props; base_class; nested }
 
 let supports_query ~condition ~selector ~props ?base_class ?merge_key
-    ?(not_order = 0) () =
+    ?(not_order = 0) ?(nested = []) () =
   Supports_query
-    { condition; selector; props; base_class; merge_key; not_order }
+    { condition; selector; props; base_class; merge_key; not_order; nested }
+
+let base_class = function
+  | Regular { base_class; _ }
+  | Media_query { base_class; _ }
+  | Container_query { base_class; _ }
+  | Starting_style { base_class; _ }
+  | Supports_query { base_class; _ } ->
+      base_class
 
 let pp = function
   | Regular { selector; _ } ->

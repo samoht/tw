@@ -13,17 +13,21 @@ let str = String.concat ""
 module El = struct
   type html =
     | Element of string * (string * string) list * html list
+    | Void_element of string * (string * string) list
+        (** An HTML void element: no children, no end tag. Only {!void_v} builds
+            one, so the elements rendered without an end tag are exactly the
+            constructors that call it. *)
     | Text of string
     | Void
     | Raw of string
 
   let v ~at name children = Element (name, at, children)
+  let void_v ~at name = Void_element (name, at)
   let txt s = Text s
   let void = Void
   let unsafe_raw s = Raw s
 
-  let escape_html s =
-    let b = Buffer.create (String.length s) in
+  let add_escaped b s =
     String.iter
       (function
         | '<' -> Buffer.add_string b "&lt;"
@@ -32,39 +36,43 @@ module El = struct
         | '"' -> Buffer.add_string b "&quot;"
         | '\'' -> Buffer.add_string b "&#x27;"
         | c -> Buffer.add_char b c)
-      s;
-    Buffer.contents b
+      s
 
-  let rec to_string ?(doctype = false) = function
-    | Text s -> escape_html s
-    | Raw s -> s
-    | Void -> ""
+  let add_open_tag b name attrs =
+    Buffer.add_char b '<';
+    Buffer.add_string b name;
+    List.iter
+      (fun (k, v) ->
+        Buffer.add_char b ' ';
+        Buffer.add_string b k;
+        Buffer.add_string b "=\"";
+        add_escaped b v;
+        Buffer.add_char b '"')
+      attrs
+
+  (* One buffer serves the whole document. Rendering each element to its own
+     string and copying that into its parent's buffer would copy every byte once
+     per level of nesting. *)
+  let rec add_html b ~doctype = function
+    | Text s -> add_escaped b s
+    | Raw s -> Buffer.add_string b s
+    | Void -> ()
+    | Void_element (name, attrs) ->
+        add_open_tag b name attrs;
+        Buffer.add_string b " />"
     | Element (name, attrs, children) ->
-        let b = Buffer.create 256 in
         if doctype && name = "html" then Buffer.add_string b "<!DOCTYPE html>\n";
-        Buffer.add_char b '<';
+        add_open_tag b name attrs;
+        Buffer.add_char b '>';
+        List.iter (add_html b ~doctype:false) children;
+        Buffer.add_string b "</";
         Buffer.add_string b name;
-        List.iter
-          (fun (k, v) ->
-            Buffer.add_char b ' ';
-            Buffer.add_string b k;
-            Buffer.add_string b "=\"";
-            Buffer.add_string b (escape_html v);
-            Buffer.add_char b '"')
-          attrs;
-        if
-          children = []
-          && List.mem name [ "img"; "br"; "hr"; "input"; "meta"; "link" ]
-        then Buffer.add_string b " />"
-        else (
-          Buffer.add_char b '>';
-          List.iter
-            (fun child -> Buffer.add_string b (to_string child))
-            children;
-          Buffer.add_string b "</";
-          Buffer.add_string b name;
-          Buffer.add_char b '>');
-        Buffer.contents b
+        Buffer.add_char b '>'
+
+  let to_string ?(doctype = false) html =
+    let b = Buffer.create 1024 in
+    add_html b ~doctype html;
+    Buffer.contents b
 end
 
 module At = struct
@@ -168,8 +176,16 @@ end
 
 type tw = Tw.t
 
+(* The utilities of a node and of everything below it. Concatenating a subtree's
+   utilities into its parent copies that list once per level above it, so a
+   document costs O(nodes x depth) to collect. The children are held unflattened
+   instead and walked once, when the utilities are asked for. *)
+type tw_tree = { own : tw list; kids : tw_tree list }
+
+let no_tw = { own = []; kids = [] }
+
 (* Type that combines HTML element with its Tailwind classes *)
-type t = { el : El.html; tw : tw list; forms : bool }
+type t = { el : El.html; tw : tw_tree; forms : bool }
 
 (* Attribute type - abstract to prevent direct usage of class' *)
 type attr = At.t
@@ -187,17 +203,23 @@ end
 
 (* Internal helper to convert to El.html *)
 let to_htmlit t = t.el
-let to_tw t = t.tw
+
+let to_tw t =
+  let rec collect acc node =
+    List.fold_left collect (List.rev_append node.own acc) node.kids
+  in
+  List.rev (collect [] t.tw)
+
 let has_forms t = t.forms
 
 (* Text helpers *)
-let txt s = { el = El.txt s; tw = []; forms = false }
+let txt s = { el = El.txt s; tw = no_tw; forms = false }
 let txtf segments = txt (str segments)
-let raw s = { el = El.unsafe_raw s; tw = []; forms = false }
+let raw s = { el = El.unsafe_raw s; tw = no_tw; forms = false }
 let rawf segments = raw (str segments)
 
 (* Empty element *)
-let empty = { el = El.void; tw = []; forms = false }
+let empty = { el = El.void; tw = no_tw; forms = false }
 
 (* Build final attribute list from tw styles, raw class strings, and non-class
    attrs *)
@@ -216,9 +238,7 @@ let class_atts tw_styles raw_classes other_atts =
 
 (* Parse a class string, returning (recognized_tw, raw_strings) *)
 let parse_class_value value =
-  let classes =
-    String.split_on_char ' ' value |> List.filter (fun s -> s <> "")
-  in
+  let classes = Tw.split_whitespace value in
   List.fold_left
     (fun (tw_acc, raw_acc) cls ->
       match Tw.of_string cls with
@@ -246,7 +266,9 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
-  let all_tw = all_tw_styles @ List.concat_map to_tw children in
+  let all_tw =
+    { own = all_tw_styles; kids = List.map (fun c -> c.tw) children }
+  in
   (* Propagate forms flag from children or this element *)
   let has_forms = forms || List.exists (fun c -> c.forms) children in
   { el = El.v ~at:atts_with_tw name child_els; tw = all_tw; forms = has_forms }
@@ -324,7 +346,11 @@ let void_el ?(forms = false) name ?at ?(tw = []) () =
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw = tw @ tw_from_at in
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
-  { el = El.v ~at:atts_with_tw name []; tw = all_tw; forms }
+  {
+    el = El.void_v ~at:atts_with_tw name;
+    tw = { own = all_tw; kids = [] };
+    forms;
+  }
 
 let img ?at ?tw () = void_el "img" ?at ?tw ()
 let meta ?at ?tw () = void_el "meta" ?at ?tw ()
@@ -340,7 +366,7 @@ let style ?at ?(tw = []) css =
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
   {
     el = El.v ~at:atts_with_tw "style" [ El.unsafe_raw css ];
-    tw = all_tw;
+    tw = { own = all_tw; kids = [] };
     forms = false;
   }
 
@@ -422,6 +448,23 @@ type tw_css = Link of string | Inline
 (* Type for page generation result *)
 type page = { html : string; css : Tw.Css.t; tw_css : tw_css }
 
+(* A page carries one [Tw.t] per class occurrence, and a page repeats its
+   utilities across every element that wears them. [Tw.to_css] does drop the
+   repeats, but only once each has been compiled to rules, so they are dropped
+   here first. Utilities with the same class name compile to the same rules, and
+   the first occurrence is the one kept on both paths, so the sheet is
+   unchanged. *)
+let dedup_by_class utilities =
+  let seen = Hashtbl.create 256 in
+  List.filter
+    (fun u ->
+      let cls = Tw.pp u in
+      if Hashtbl.mem seen cls then false
+      else (
+        Hashtbl.add seen cls ();
+        true))
+    utilities
+
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
     body_content =
   (* Build HTML tree with placeholder for CSS link *)
@@ -439,7 +482,7 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
   let all_tw = to_tw body_element in
 
   (* Add styles from head content *)
-  let all_tw = all_tw @ List.concat_map to_tw head_content in
+  let all_tw = dedup_by_class (all_tw @ List.concat_map to_tw head_content) in
 
   (* The forms plugin base layer follows Tailwind's [\@plugin] model: it is
      emitted only when the plugin is explicitly enabled ([~forms:true]), since a
@@ -495,7 +538,7 @@ let css page =
 
 (* Pretty printing *)
 let pp t =
-  let tw_classes = Tw.to_classes t.tw in
+  let tw_classes = Tw.to_classes (to_tw t) in
   let el_str = El.to_string ~doctype:false t.el in
   if tw_classes = "" then el_str
   else

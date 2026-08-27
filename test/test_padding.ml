@@ -56,7 +56,7 @@ let suborder_matches_tailwind () =
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
   let open Tw in
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.pp ~minify:true in
+  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
   (* p-64 => calc(var(--spacing)*64) *)
   Alcotest.check bool "p-64 uses spacing*64" true
     (Astring.String.is_infix ~affix:"*64)" (css_for (p 64)));

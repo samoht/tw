@@ -955,6 +955,22 @@ let test_container_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"container width-property order" utilities
 
+(* Tailwind sorts a container variant on the text of its value, not on the width
+   that text resolves to: the key is the value's unit, or the name before the
+   parenthesis when the value is a call. A [theme(--breakpoint-sm)] bracket
+   therefore sorts under "theme", after every px and rem width, while the 40rem
+   it resolves to would place it among them. Two overlapping conditions setting
+   the same property pick different winners under the two orders. *)
+let test_container_query_call_order () =
+  Test_helpers.check_class_order ~test_name:"container call sorts by its name"
+    [
+      "@min-[100px]:inline";
+      "@min-[2rem]:table";
+      "@lg:grid";
+      "@min-[64rem]:block";
+      "@min-[theme(--breakpoint-sm)]:flex";
+    ]
+
 let test_arbitrary_vs_named_order () =
   (* Within a variant block, arbitrary values sort by their raw class name ('['
      = 0x5b, before lowercase letters), so dark:bg-[#...] precedes
@@ -1040,9 +1056,10 @@ let test_bracket_value_holding_a_colon () =
     utilities
 
 let test_stacked_variant_outline_order () =
-  (* The outline-sorts-last rule reads the base class, so it sees a stacked
-     variant: dark:focus:outline-none is an outline utility as much as
-     focus:outline-none is. Matching from the first colon saw neither. *)
+  (* An outline utility sorts after the other focus modifiers on its own
+     priority, whatever variants are stacked in front of it: focus:outline-none
+     follows focus:bg-red-500, and dark:focus:outline-none closes the dark
+     group. The order below is Tailwind's for this class list. *)
   let classes =
     [
       "dark:focus:outline-none";
@@ -1055,6 +1072,28 @@ let test_stacked_variant_outline_order () =
     ]
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [
+        ".focus\\:bg-red-500";
+        ".focus\\:outline-none";
+        ".first\\:focus\\:border-2";
+        ".first\\:focus\\:outline-2";
+        ".dark\\:focus\\:bg-blue-500";
+        ".dark\\:focus\\:ring-2";
+        ".dark\\:focus\\:outline-none";
+      ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions;
   Test_helpers.check_ordering_matches ~test_name:"stacked variant outline order"
     utilities
 
@@ -1089,6 +1128,47 @@ let test_not_supports_variant_order () =
     positions;
   Test_helpers.check_ordering_matches
     ~test_name:"not-supports variants follow base utilities" utilities
+
+let test_breakpoint_groups_stacked_variants () =
+  (* A stacked variant sorts under its breakpoint, so first:sm:m-2 stays with
+     the other sm rules instead of falling past md:block. Tailwind's order for
+     this class list. *)
+  let classes = [ "sm:bg-top"; "first:sm:m-2"; "md:block" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position [ ".sm\\:bg-top"; ".first\\:sm\\:m-2"; ".md\\:block" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
+
+let test_stacked_media_outer_query_order () =
+  (* hover:sm: and sm:hover: carry the same variants, so the stack alone cannot
+     separate them. The query each writes on the outside does: hover before sm,
+     sm before md. Tailwind's order for this class list. *)
+  let classes = [ "hover:sm:block"; "sm:hover:block"; "md:block" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [ ".hover\\:sm\\:block"; ".sm\\:hover\\:block"; ".md\\:block" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
 
 let test_stacked_responsive_variant_order () =
   let classes =
@@ -1603,6 +1683,8 @@ let tests =
     test_case "border width and color ordering" `Quick
       test_border_width_color_ordering;
     test_case "container width-property order" `Slow test_container_order;
+    test_case "container call sorts by its name" `Slow
+      test_container_query_call_order;
     test_case "arbitrary before named within family" `Slow
       test_arbitrary_vs_named_order;
     test_case "arbitrary value sorts by suffix within family" `Slow
@@ -1616,6 +1698,10 @@ let tests =
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
     test_case "stacked responsive variant order" `Slow
       test_stacked_responsive_variant_order;
+    test_case "breakpoint groups stacked variants" `Slow
+      test_breakpoint_groups_stacked_variants;
+    test_case "stacked media outer query order" `Slow
+      test_stacked_media_outer_query_order;
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
