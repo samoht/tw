@@ -350,6 +350,33 @@ let test_arbitrary_shadow_colour_opacity () =
     "--tw-inset-shadow-alpha:var(--x)";
   has "inset-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
 
+(* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
+   modifier's own written text in --tw-shadow-alpha, the way Tailwind does,
+   rather than scaling it into a percentage: the alpha the shadow paints with
+   comes from a separate, correctly-scaled computation, so --tw-shadow-alpha
+   here is a plain, unconverted echo of what the class wrote. *)
+let test_shadow_bracket_alpha_tracking () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let lacks cls affix =
+    Alcotest.(check bool) cls false (Astring.String.is_infix ~affix (css cls))
+  in
+  has "shadow-lg/[25]" "--tw-shadow-alpha:25;";
+  lacks "shadow-lg/[25]" "--tw-shadow-alpha:2500%";
+  has "shadow-[0_1px_2px_#000]/[25]" "--tw-shadow-alpha:25;";
+  has "inset-shadow-sm/[25]" "--tw-inset-shadow-alpha:25;";
+  lacks "inset-shadow-sm/[25]" "--tw-inset-shadow-alpha:2500%";
+  (* A bracket alpha that does carry a [%] sign, or the plain percent form, both
+     keep behaving as a percentage. *)
+  has "shadow-lg/[25%]" "--tw-shadow-alpha:25%";
+  has "shadow-lg/50" "--tw-shadow-alpha:50%"
+
 (* An arbitrary shadow that is not a shadow is not a utility: it used to fall
    back to the zero shadow. *)
 let test_invalid_arbitrary_shadow () =
@@ -490,6 +517,8 @@ let tests =
   [
     test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
+    test_case "shadow bracket alpha tracking" `Quick
+      test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
     test_case "shadow-inner" `Quick test_shadow_inner;
@@ -497,6 +526,8 @@ let tests =
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
     test_case "arbitrary shadow colour opacity" `Quick
       test_arbitrary_shadow_colour_opacity;
+    test_case "shadow bracket alpha tracking" `Quick
+      test_shadow_bracket_alpha_tracking;
     test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
