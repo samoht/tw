@@ -1445,3 +1445,4 @@ let outline_offset_2 = utility (Outline_offset 2)
 let outline_offset_4 = utility (Outline_offset 4)
 let outline_offset_8 = utility (Outline_offset 8)
 let border_style_var = Handler.border_style_var
+let border_width_of_length = Handler.border_width_of_length

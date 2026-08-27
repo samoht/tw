@@ -434,22 +434,21 @@ module Handler = struct
     Stdlib.Option.map (Css.Pp.to_string (Css.pp_length ~always:true)) length
 
   (* The bracket text and the width it denotes. The text is what [to_class]
-     spells, so a class parsed here is reproduced verbatim. *)
+     spells, so a class parsed here is reproduced verbatim. [divide-x-[...]]
+     takes any CSS length, so the bracket is read with the value parser rather
+     than a hand-picked unit table; [Css.border_width] is a distinct type from
+     [Css.length], so the result is transposed through
+     [Borders.border_width_of_length]. *)
   let parse_bracket_width s : (string * Css.border_width) option =
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if String.ends_with ~suffix:"px" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (inner, Px f)
-        | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (inner, Rem f)
-        | None -> None
-      else None
+      match Parse.arbitrary_length inner with
+      | Some length -> (
+          match Borders.border_width_of_length length with
+          | Some width -> Some (inner, width)
+          | None -> None)
+      | None -> None
     else None
 
   let of_class theme class_name =
