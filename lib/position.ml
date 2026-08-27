@@ -1163,3 +1163,19 @@ let bottom n = utility (Bottom n)
 let left n = utility (Left n)
 let top_1_2 = utility (Top_fraction "1/2")
 let left_1_2 = utility (Left_fraction "1/2")
+
+(* A half-step (or any float) spacing value on a physical/axis inset side:
+   [Pos_spacing]/[Neg_pos_spacing] already carry the scale factor as a
+   [Style.spacing], the same representation [top-0.5] parses to from a class
+   string. *)
+let pos_prime side f =
+  if f < 0.0 then utility (Neg_pos_spacing (side, `Rem (Float.abs f *. 0.25)))
+  else utility (Pos_spacing (side, `Rem (f *. 0.25)))
+
+let inset' f = pos_prime Side.Inset f
+let inset_x' f = pos_prime Side.Inset_x f
+let inset_y' f = pos_prime Side.Inset_y f
+let top' f = pos_prime Side.Top f
+let right' f = pos_prime Side.Right f
+let bottom' f = pos_prime Side.Bottom f
+let left' f = pos_prime Side.Left f

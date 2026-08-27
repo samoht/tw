@@ -14,8 +14,15 @@ val rotate : int -> t
 val translate_x : int -> t
 (** [translate_x n] translates element horizontally by n * 0.25rem. *)
 
+val translate_x' : float -> t
+(** [translate_x' n] is {!translate_x} for a half-step scale value (e.g.
+    [translate_x' 0.5] for [translate-x-0.5]). *)
+
 val translate_y : int -> t
 (** [translate_y n] translates element vertically by n * 0.25rem. *)
+
+val translate_y' : float -> t
+(** [translate_y' n] is {!translate_y} for a half-step scale value. *)
 
 val scale : int -> t
 (** [scale n] scales element by n%. *)
@@ -61,6 +68,9 @@ val rotate_z : int -> t
 
 val translate_z : int -> t
 (** [translate_z n] translates element along Z axis by n pixels. *)
+
+val translate_z' : float -> t
+(** [translate_z' n] is {!translate_z} for a half-step scale value. *)
 
 val scale_z : int -> t
 (** [scale_z n] scales element along Z axis by n%. *)

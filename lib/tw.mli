@@ -574,11 +574,17 @@ val inset_0 : t
 val inset_x : int -> t
 (** [inset_x n] sets horizontal inset (left and right). *)
 
+val inset_x' : float -> t
+(** [inset_x' n] is {!inset_x} for a half-step scale value. *)
+
 val inset_x_0 : t
 (** [inset_x_0] sets left and right to 0. *)
 
 val inset_y : int -> t
 (** [inset_y n] sets vertical inset (top and bottom). *)
+
+val inset_y' : float -> t
+(** [inset_y' n] is {!inset_y} for a half-step scale value. *)
 
 val inset_y_0 : t
 (** [inset_y_0] sets top and bottom to 0. *)
@@ -586,18 +592,34 @@ val inset_y_0 : t
 val top : int -> t
 (** [top n] sets top position value. *)
 
+val top' : float -> t
+(** [top' n] is {!top} for a half-step scale value (e.g. [top' 0.5] for
+    [top-0.5]). *)
+
 val right : int -> t
 (** [right n] sets right position value. *)
+
+val right' : float -> t
+(** [right' n] is {!right} for a half-step scale value. *)
 
 val bottom : int -> t
 (** [bottom n] sets bottom position value. *)
 
+val bottom' : float -> t
+(** [bottom' n] is {!bottom} for a half-step scale value. *)
+
 val left : int -> t
 (** [left n] sets left position value. *)
+
+val left' : float -> t
+(** [left' n] is {!left} for a half-step scale value. *)
 
 val inset : int -> t
 (** [inset n] sets all position offsets (top, right, bottom, left) to the same
     value. *)
+
+val inset' : float -> t
+(** [inset' n] is {!inset} for a half-step scale value. *)
 
 val top_1_2 : t
 (** [top_1_2] positions the element at 50% from the top. *)
@@ -891,11 +913,21 @@ val gap : int -> t
     let button_row = to_classes [ flex; gap 4 ]
     ]} *)
 
+val gap' : float -> t
+(** [gap' n] is {!gap} for a half-step scale value (e.g. [gap' 0.5] for
+    [gap-0.5]). *)
+
 val gap_x : int -> t
 (** [gap_x n] sets only horizontal gaps in flex/grid containers. *)
 
+val gap_x' : float -> t
+(** [gap_x' n] is {!gap_x} for a half-step scale value. *)
+
 val gap_y : int -> t
 (** [gap_y n] sets only vertical gaps in flex/grid containers. *)
+
+val gap_y' : float -> t
+(** [gap_y' n] is {!gap_y} for a half-step scale value. *)
 
 val gap_px : t
 (** [gap_px] sets 1px gap between items. *)
@@ -1106,25 +1138,46 @@ val p : int -> t
     - [p 0]: Remove all padding
     - [p 8]: 2rem padding on all sides. *)
 
+val p' : float -> t
+(** [p' n] is {!p} for a half-step scale value (e.g. [p' 0.5] for [p-0.5]). *)
+
 val px : int -> t
 (** [px n] sets horizontal padding (left and right). Common for buttons and
     cards to have more horizontal than vertical padding. *)
+
+val px' : float -> t
+(** [px' n] is {!px} for a half-step scale value. *)
 
 val py : int -> t
 (** [py n] sets vertical padding (top and bottom). Often smaller than horizontal
     padding for better proportions. *)
 
+val py' : float -> t
+(** [py' n] is {!py} for a half-step scale value. *)
+
 val pt : int -> t
 (** [pt n] sets top padding. *)
+
+val pt' : float -> t
+(** [pt' n] is {!pt} for a half-step scale value. *)
 
 val pr : int -> t
 (** [pr n] sets right padding. *)
 
+val pr' : float -> t
+(** [pr' n] is {!pr} for a half-step scale value. *)
+
 val pb : int -> t
 (** [pb n] sets bottom padding. *)
 
+val pb' : float -> t
+(** [pb' n] is {!pb} for a half-step scale value. *)
+
 val pl : int -> t
 (** [pl n] sets left padding. *)
+
+val pl' : float -> t
+(** [pl' n] is {!pl} for a half-step scale value. *)
 
 val p_px : t
 (** [p_px] sets 1px padding on all sides. *)
@@ -1179,24 +1232,45 @@ val m : int -> t
     - [m 4]: 1rem margin on all sides
     - [m 0]: Remove all margins. *)
 
+val m' : float -> t
+(** [m' n] is {!m} for a half-step scale value (e.g. [m' 0.5] for [m-0.5]). *)
+
 val mx : int -> t
 (** [mx n] sets horizontal margin (left and right). *)
+
+val mx' : float -> t
+(** [mx' n] is {!mx} for a half-step scale value. *)
 
 val my : int -> t
 (** [my n] sets vertical margin (top and bottom). Useful for spacing between
     sections. *)
 
+val my' : float -> t
+(** [my' n] is {!my} for a half-step scale value. *)
+
 val mt : int -> t
 (** [mt n] sets top margin. *)
+
+val mt' : float -> t
+(** [mt' n] is {!mt} for a half-step scale value. *)
 
 val mr : int -> t
 (** [mr n] sets right margin. *)
 
+val mr' : float -> t
+(** [mr' n] is {!mr} for a half-step scale value. *)
+
 val mb : int -> t
 (** [mb n] sets bottom margin. *)
 
+val mb' : float -> t
+(** [mb' n] is {!mb} for a half-step scale value. *)
+
 val ml : int -> t
 (** [ml n] sets left margin. *)
+
+val ml' : float -> t
+(** [ml' n] is {!ml} for a half-step scale value. *)
 
 val m_auto : t
 (** [m_auto] sets auto margins on all sides (centers if width is defined). *)
@@ -1219,13 +1293,20 @@ val mb_auto : t
 val ml_auto : t
 (** [ml_auto] pushes element to right by setting auto left margin. *)
 
-val space_x : float -> t
+val space_x : int -> t
 (** [space_x n] sets horizontal space between child elements. [n] is the spacing
-    multiplier (e.g., 2.0 for space-x-2, 2.5 for space-x-2.5). *)
+    multiplier (e.g., 2 for space-x-2). *)
 
-val space_y : float -> t
+val space_x' : float -> t
+(** [space_x' n] is {!space_x} for a half-step scale value (e.g. [space_x' 2.5]
+    for [space-x-2.5]). *)
+
+val space_y : int -> t
 (** [space_y n] sets vertical space between child elements. [n] is the spacing
-    multiplier (e.g., 2.0 for space-y-2, 2.5 for space-y-2.5). *)
+    multiplier (e.g., 2 for space-y-2). *)
+
+val space_y' : float -> t
+(** [space_y' n] is {!space_y} for a half-step scale value. *)
 
 (** {1 Sizing} *)
 
@@ -1234,6 +1315,9 @@ val space_y : float -> t
 
 val w : int -> t
 (** [w n] sets element width using Tailwind scale (n × 0.25rem). *)
+
+val w' : float -> t
+(** [w' n] is {!w} for a half-step scale value (e.g. [w' 0.5] for [w-0.5]). *)
 
 val w_full : t
 (** [w_full] sets width to 100% of parent. *)
@@ -1256,6 +1340,9 @@ val w_max : t
 val min_w : int -> t
 (** [min_w n] sets minimum width using Tailwind scale. *)
 
+val min_w' : float -> t
+(** [min_w' n] is {!min_w} for a half-step scale value. *)
+
 val min_w_full : t
 (** [min_w_full] sets minimum width to 100% of parent. *)
 
@@ -1264,6 +1351,9 @@ val min_w_full : t
 
 val max_w : int -> t
 (** [max_w n] sets maximum width using Tailwind scale. *)
+
+val max_w' : float -> t
+(** [max_w' n] is {!max_w} for a half-step scale value. *)
 
 val max_w_xs : t
 (** [max_w_xs] sets maximum width to 20rem. *)
@@ -1337,6 +1427,9 @@ val max_w_screen_2xl : t
 val h : int -> t
 (** [h n] sets element height using Tailwind scale (n × 0.25rem). *)
 
+val h' : float -> t
+(** [h' n] is {!h} for a half-step scale value. *)
+
 val h_full : t
 (** [h_full] sets height to 100% of parent. *)
 
@@ -1358,6 +1451,9 @@ val h_max : t
 val min_h : int -> t
 (** [min_h n] sets minimum height using Tailwind scale. *)
 
+val min_h' : float -> t
+(** [min_h' n] is {!min_h} for a half-step scale value. *)
+
 val min_h_screen : t
 (** [min_h_screen] sets viewport minimum height. *)
 
@@ -1370,6 +1466,10 @@ val min_h_full : t
 val max_h : int -> t
 (** [max_h n] sets maximum height using Tailwind scale. *)
 
+val max_h' : float -> t
+(** [max_h' n] is {!max_h} for a half-step scale value (e.g. [max_h' 1.5] for
+    [max-h-1.5]). *)
+
 val max_h_full : t
 (** [max_h_full] sets maximum height to 100% of parent. *)
 
@@ -1378,6 +1478,10 @@ val max_h_full : t
 
 val size : int -> t
 (** [size n] sets both width and height using Tailwind scale (n × 0.25rem). *)
+
+val size' : float -> t
+(** [size' n] is {!size} for a half-step scale value (e.g. [size' 0.5] for
+    [size-0.5]). *)
 
 val size_auto : t
 (** [size_auto] sets both width and height to auto. *)
@@ -1596,6 +1700,10 @@ val leading : int -> t
 (** [leading n] sets arbitrary line-height from the spacing scale ([n] *
     0.25rem). *)
 
+val leading' : float -> t
+(** [leading' n] is {!leading} for a half-step scale value (e.g. [leading' 1.5]
+    for [leading-1.5]). *)
+
 (** {2 List Style Image}
     @see <https://tailwindcss.com/docs/list-style-image> List Style Image *)
 
@@ -1781,9 +1889,12 @@ val text_pretty : t
 (** {2 Text Indent}
     @see <https://tailwindcss.com/docs/text-indent> Text Indent *)
 
-val indent : float -> t
-(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem).
-    Accepts fractional values like 0.5, 1.5, 2.5, 3.5. *)
+val indent : int -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+
+val indent' : float -> t
+(** [indent' n] is {!indent} for a half-step scale value (e.g. [indent' 0.5] for
+    [indent-0.5]). *)
 
 (** {2 Vertical Align}
     @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
@@ -2867,9 +2978,13 @@ val border_separate : t
 (** {2 Border Spacing}
     @see <https://tailwindcss.com/docs/border-spacing> Border Spacing *)
 
-val border_spacing : float -> t
+val border_spacing : int -> t
 (** [border_spacing n] sets border spacing using spacing scale. [n] is the
-    spacing multiplier (e.g., 4.0 for border-spacing-4). *)
+    spacing multiplier (e.g., 4 for border-spacing-4). *)
+
+val border_spacing' : float -> t
+(** [border_spacing' n] is {!border_spacing} for a half-step scale value (e.g.
+    [border_spacing' 0.5] for [border-spacing-0.5]). *)
 
 (** {2 Table Layout}
     @see <https://tailwindcss.com/docs/table-layout> Table Layout *)
@@ -3092,8 +3207,15 @@ val origin_bottom_right : t
 val translate_x : int -> t
 (** [translate_x n] sets horizontal translation. *)
 
+val translate_x' : float -> t
+(** [translate_x' n] is {!translate_x} for a half-step scale value (e.g.
+    [translate_x' 0.5] for [translate-x-0.5]). *)
+
 val translate_y : int -> t
 (** [translate_y n] sets vertical translation. *)
+
+val translate_y' : float -> t
+(** [translate_y' n] is {!translate_y} for a half-step scale value. *)
 
 val neg_translate_x_1_2 : t
 (** [neg_translate_x_1_2] translates the element -50% horizontally (for
@@ -3118,6 +3240,9 @@ val rotate_z : int -> t
 val translate_z : int -> t
 (** [translate_z n] moves element along Z-axis (toward/away from viewer).
     Positive values move element closer, negative values move it away. *)
+
+val translate_z' : float -> t
+(** [translate_z' n] is {!translate_z} for a half-step scale value. *)
 
 val scale_z : int -> t
 (** [scale_z n] scales element along Z-axis for 3D effects. Requires
@@ -3473,75 +3598,142 @@ val divide_style : Css.border_style -> t
 (** {2 Scroll Margin}
     @see <https://tailwindcss.com/docs/scroll-margin> Scroll Margin *)
 
-val scroll_m : float -> t
+val scroll_m : int -> t
 (** [scroll_m n] sets [scroll-margin] to [n] spacing units (negative allowed).
 *)
 
-val scroll_mx : float -> t
+val scroll_m' : float -> t
+(** [scroll_m' n] is {!scroll_m} for a half-step scale value (e.g.
+    [scroll_m' 0.5] for [scroll-m-0.5]). *)
+
+val scroll_mx : int -> t
 (** [scroll_mx n] sets [scroll-margin-inline] to [n] spacing units. *)
 
-val scroll_my : float -> t
+val scroll_mx' : float -> t
+(** [scroll_mx' n] is {!scroll_mx} for a half-step scale value. *)
+
+val scroll_my : int -> t
 (** [scroll_my n] sets [scroll-margin-block] to [n] spacing units. *)
 
-val scroll_mt : float -> t
+val scroll_my' : float -> t
+(** [scroll_my' n] is {!scroll_my} for a half-step scale value. *)
+
+val scroll_mt : int -> t
 (** [scroll_mt n] sets [scroll-margin-top] to [n] spacing units. *)
 
-val scroll_mr : float -> t
+val scroll_mt' : float -> t
+(** [scroll_mt' n] is {!scroll_mt} for a half-step scale value. *)
+
+val scroll_mr : int -> t
 (** [scroll_mr n] sets [scroll-margin-right] to [n] spacing units. *)
 
-val scroll_mb : float -> t
+val scroll_mr' : float -> t
+(** [scroll_mr' n] is {!scroll_mr} for a half-step scale value. *)
+
+val scroll_mb : int -> t
 (** [scroll_mb n] sets [scroll-margin-bottom] to [n] spacing units. *)
 
-val scroll_ml : float -> t
+val scroll_mb' : float -> t
+(** [scroll_mb' n] is {!scroll_mb} for a half-step scale value. *)
+
+val scroll_ml : int -> t
 (** [scroll_ml n] sets [scroll-margin-left] to [n] spacing units. *)
 
-val scroll_ms : float -> t
+val scroll_ml' : float -> t
+(** [scroll_ml' n] is {!scroll_ml} for a half-step scale value. *)
+
+val scroll_ms : int -> t
 (** [scroll_ms n] sets [scroll-margin-inline-start] to [n] spacing units. *)
 
-val scroll_me : float -> t
+val scroll_ms' : float -> t
+(** [scroll_ms' n] is {!scroll_ms} for a half-step scale value. *)
+
+val scroll_me : int -> t
 (** [scroll_me n] sets [scroll-margin-inline-end] to [n] spacing units. *)
 
-val scroll_mbs : float -> t
+val scroll_me' : float -> t
+(** [scroll_me' n] is {!scroll_me} for a half-step scale value. *)
+
+val scroll_mbs : int -> t
 (** [scroll_mbs n] sets [scroll-margin-block-start] to [n] spacing units. *)
 
-val scroll_mbe : float -> t
+val scroll_mbs' : float -> t
+(** [scroll_mbs' n] is {!scroll_mbs} for a half-step scale value. *)
+
+val scroll_mbe : int -> t
 (** [scroll_mbe n] sets [scroll-margin-block-end] to [n] spacing units. *)
+
+val scroll_mbe' : float -> t
+(** [scroll_mbe' n] is {!scroll_mbe} for a half-step scale value. *)
 
 (** {2 Scroll Padding}
     @see <https://tailwindcss.com/docs/scroll-padding> Scroll Padding *)
 
-val scroll_p : float -> t
+val scroll_p : int -> t
 (** [scroll_p n] sets [scroll-padding] to [n] spacing units. *)
 
-val scroll_px : float -> t
+val scroll_p' : float -> t
+(** [scroll_p' n] is {!scroll_p} for a half-step scale value. *)
+
+val scroll_px : int -> t
 (** [scroll_px n] sets [scroll-padding-inline] to [n] spacing units. *)
 
-val scroll_py : float -> t
+val scroll_px' : float -> t
+(** [scroll_px' n] is {!scroll_px} for a half-step scale value. *)
+
+val scroll_py : int -> t
 (** [scroll_py n] sets [scroll-padding-block] to [n] spacing units. *)
 
-val scroll_pt : float -> t
+val scroll_py' : float -> t
+(** [scroll_py' n] is {!scroll_py} for a half-step scale value. *)
+
+val scroll_pt : int -> t
 (** [scroll_pt n] sets [scroll-padding-top] to [n] spacing units. *)
 
-val scroll_pr : float -> t
+val scroll_pt' : float -> t
+(** [scroll_pt' n] is {!scroll_pt} for a half-step scale value. *)
+
+val scroll_pr : int -> t
 (** [scroll_pr n] sets [scroll-padding-right] to [n] spacing units. *)
 
-val scroll_pb : float -> t
+val scroll_pr' : float -> t
+(** [scroll_pr' n] is {!scroll_pr} for a half-step scale value. *)
+
+val scroll_pb : int -> t
 (** [scroll_pb n] sets [scroll-padding-bottom] to [n] spacing units. *)
 
-val scroll_pl : float -> t
+val scroll_pb' : float -> t
+(** [scroll_pb' n] is {!scroll_pb} for a half-step scale value. *)
+
+val scroll_pl : int -> t
 (** [scroll_pl n] sets [scroll-padding-left] to [n] spacing units. *)
 
-val scroll_ps : float -> t
+val scroll_pl' : float -> t
+(** [scroll_pl' n] is {!scroll_pl} for a half-step scale value. *)
+
+val scroll_ps : int -> t
 (** [scroll_ps n] sets [scroll-padding-inline-start] to [n] spacing units. *)
 
-val scroll_pe : float -> t
+val scroll_ps' : float -> t
+(** [scroll_ps' n] is {!scroll_ps} for a half-step scale value. *)
+
+val scroll_pe : int -> t
 (** [scroll_pe n] sets [scroll-padding-inline-end] to [n] spacing units. *)
 
-val scroll_pbs : float -> t
+val scroll_pe' : float -> t
+(** [scroll_pe' n] is {!scroll_pe} for a half-step scale value. *)
+
+val scroll_pbs : int -> t
 (** [scroll_pbs n] sets [scroll-padding-block-start] to [n] spacing units. *)
 
-val scroll_pbe : float -> t
+val scroll_pbs' : float -> t
+(** [scroll_pbs' n] is {!scroll_pbs} for a half-step scale value. *)
+
+val scroll_pbe : int -> t
 (** [scroll_pbe n] sets [scroll-padding-block-end] to [n] spacing units. *)
+
+val scroll_pbe' : float -> t
+(** [scroll_pbe' n] is {!scroll_pbe} for a half-step scale value. *)
 
 (** {2 Appearance}
     @see <https://tailwindcss.com/docs/appearance> Appearance *)

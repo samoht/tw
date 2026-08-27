@@ -2,9 +2,6 @@
 
 module Css = Cascade.Css
 
-type size =
-  [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
-
 module Handler = struct
   let class_float = Pp.float
 
@@ -917,76 +914,21 @@ let utility x = Utility.base (Self x)
 
 let () = () (* Ensure utility is defined before usage below *)
 
-(* Expose prime helpers wrapped as Utility.t *)
-let prime_size_utility ~none ~xs ~sm ~md ~lg ~xl ~xl_2 ~xl_3 ~full ~rem =
-  function
-  | `None -> utility none
-  | `Xs -> utility xs
-  | `Sm -> utility sm
-  | `Md -> utility md
-  | `Lg -> utility lg
-  | `Xl -> utility xl
-  | `Xl_2 -> utility xl_2
-  | `Xl_3 -> utility xl_3
-  | `Full -> utility full
-  | `Rem n -> utility (rem n)
-
 (* [n] is in rem units; the spacing scale steps by 0.25rem. *)
 let spacing prop n = Sized (prop, Spacing n)
 let fraction prop f = Sized (prop, Fraction f)
 let scaled prop n = utility (spacing prop (float_of_int n *. 0.25))
 
-let w' =
-  prime_size_utility ~none:(spacing Width 0.) ~xs:(spacing Width 0.5)
-    ~sm:(spacing Width 1.0) ~md:(spacing Width 1.5) ~lg:(spacing Width 2.0)
-    ~xl:(spacing Width 3.0) ~xl_2:(spacing Width 4.0) ~xl_3:(spacing Width 6.0)
-    ~full:(keyword Width "full") ~rem:(spacing Width)
-
-let h' =
-  prime_size_utility ~none:(spacing Height 0.) ~xs:(spacing Height 0.5)
-    ~sm:(spacing Height 1.0) ~md:(spacing Height 1.5) ~lg:(spacing Height 2.0)
-    ~xl:(spacing Height 3.0) ~xl_2:(spacing Height 4.0)
-    ~xl_3:(spacing Height 6.0) ~full:(keyword Height "full")
-    ~rem:(spacing Height)
-
-let min_w' =
-  prime_size_utility ~none:(keyword Min_width "0") ~xs:(spacing Min_width 0.5)
-    ~sm:(spacing Min_width 1.0) ~md:(spacing Min_width 1.5)
-    ~lg:(spacing Min_width 2.0) ~xl:(spacing Min_width 3.0)
-    ~xl_2:(spacing Min_width 4.0) ~xl_3:(spacing Min_width 6.0)
-    ~full:(keyword Min_width "full") ~rem:(spacing Min_width)
-
-let max_w' =
-  prime_size_utility ~none:(keyword Max_width "none")
-    ~xs:(keyword Max_width "xs") ~sm:(keyword Max_width "sm")
-    ~md:(keyword Max_width "md") ~lg:(keyword Max_width "lg")
-    ~xl:(keyword Max_width "xl") ~xl_2:(keyword Max_width "2xl")
-    ~xl_3:(keyword Max_width "3xl") ~full:(keyword Max_width "full")
-    ~rem:(spacing Max_width)
-
-let min_h' =
-  prime_size_utility ~none:(keyword Min_height "0") ~xs:(spacing Min_height 0.5)
-    ~sm:(spacing Min_height 1.0) ~md:(spacing Min_height 1.5)
-    ~lg:(spacing Min_height 2.0) ~xl:(spacing Min_height 3.0)
-    ~xl_2:(spacing Min_height 4.0) ~xl_3:(spacing Min_height 6.0)
-    ~full:(keyword Min_height "full")
-    ~rem:(spacing Min_height)
-
-let max_h' =
-  prime_size_utility
-    ~none:(keyword Max_height "none")
-    ~xs:(spacing Max_height 0.5) ~sm:(spacing Max_height 1.0)
-    ~md:(spacing Max_height 1.5) ~lg:(spacing Max_height 2.0)
-    ~xl:(spacing Max_height 3.0) ~xl_2:(spacing Max_height 4.0)
-    ~xl_3:(spacing Max_height 6.0)
-    ~full:(keyword Max_height "full")
-    ~rem:(spacing Max_height)
+(* The half-step sibling of [scaled]: same spacing-scale value, a fractional
+   class number (e.g. [0.5]) instead of an integer one. *)
+let scaled' prop n = utility (spacing prop (n *. 0.25))
 
 (* Top-level wrappers returning Utility.t, following the Utility.Handler
    pattern *)
 
 (* Width *)
 let w n = scaled Width n
+let w' n = scaled' Width n
 let w_auto = utility (keyword Width "auto")
 let w_full = utility (keyword Width "full")
 let w_screen = utility (keyword Width "screen")
@@ -1005,6 +947,7 @@ let w_4_5 = utility (fraction Width "4/5")
 
 (* Height *)
 let h n = scaled Height n
+let h' n = scaled' Height n
 let h_auto = utility (keyword Height "auto")
 let h_full = utility (keyword Height "full")
 let h_screen = utility (keyword Height "screen")
@@ -1023,6 +966,7 @@ let h_4_5 = utility (fraction Height "4/5")
 
 (* Min width *)
 let min_w n = scaled Min_width n
+let min_w' n = scaled' Min_width n
 let min_w_0 = utility (keyword Min_width "0")
 let min_w_full = utility (keyword Min_width "full")
 let min_w_min = utility (keyword Min_width "min")
@@ -1031,6 +975,7 @@ let min_w_fit = utility (keyword Min_width "fit")
 
 (* Max width *)
 let max_w n = scaled Max_width n
+let max_w' n = scaled' Max_width n
 let max_w_none = utility (keyword Max_width "none")
 let max_w_xs = utility (keyword Max_width "xs")
 let max_w_sm = utility (keyword Max_width "sm")
@@ -1056,6 +1001,7 @@ let max_w_screen_2xl = utility (keyword Max_width "screen-2xl")
 
 (* Min height *)
 let min_h n = scaled Min_height n
+let min_h' n = scaled' Min_height n
 let min_h_0 = utility (keyword Min_height "0")
 let min_h_full = utility (keyword Min_height "full")
 let min_h_screen = utility (keyword Min_height "screen")
@@ -1065,6 +1011,7 @@ let min_h_fit = utility (keyword Min_height "fit")
 
 (* Max height *)
 let max_h n = scaled Max_height n
+let max_h' n = scaled' Max_height n
 let max_h_none = utility (keyword Max_height "none")
 let max_h_full = utility (keyword Max_height "full")
 let max_h_screen = utility (keyword Max_height "screen")
@@ -1074,6 +1021,7 @@ let max_h_fit = utility (keyword Max_height "fit")
 
 (* Size (width and height combined) *)
 let size n = scaled Width_and_height n
+let size' n = scaled' Width_and_height n
 let size_auto = utility (keyword Width_and_height "auto")
 let size_full = utility (keyword Width_and_height "full")
 let size_min = utility (keyword Width_and_height "min")

@@ -9,11 +9,21 @@ open Utility
 val gap : int -> t
 (** [gap n] sets gap to [n] × 0.25rem. *)
 
+val gap' : float -> t
+(** [gap' n] is {!gap} for a half-step scale value (e.g. [gap' 0.5] for
+    [gap-0.5]). *)
+
 val gap_x : int -> t
 (** [gap_x n] sets column-gap to [n] × 0.25rem. *)
 
+val gap_x' : float -> t
+(** [gap_x' n] is {!gap_x} for a half-step scale value. *)
+
 val gap_y : int -> t
 (** [gap_y n] sets row-gap to [n] × 0.25rem. *)
+
+val gap_y' : float -> t
+(** [gap_y' n] is {!gap_y} for a half-step scale value. *)
 
 (* Helper style functions live inside `Handler` and are not part of the public
    API. See Utility module pattern. *)
@@ -40,12 +50,19 @@ val gap_y_full : t
 
 (** {1 Space Between Utilities} *)
 
-val space_x : float -> t
+val space_x : int -> t
 (** [space_x n] creates horizontal space between child elements. [n] is the
-    spacing multiplier (e.g., 2.0 for space-x-2, 2.5 for space-x-2.5). *)
+    spacing multiplier (e.g., 2 for space-x-2). *)
 
-val space_y : float -> t
+val space_x' : float -> t
+(** [space_x' n] is {!space_x} for a half-step scale value (e.g. [space_x' 2.5]
+    for [space-x-2.5]). *)
+
+val space_y : int -> t
 (** [space_y n] creates vertical space between child elements. [n] is the
-    spacing multiplier (e.g., 2.0 for space-y-2, 2.5 for space-y-2.5). *)
+    spacing multiplier (e.g., 2 for space-y-2). *)
+
+val space_y' : float -> t
+(** [space_y' n] is {!space_y} for a half-step scale value. *)
 
 module Handler : Utility.Handler

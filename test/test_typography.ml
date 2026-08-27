@@ -202,6 +202,12 @@ let test_text_indent () =
   check "indent-px";
   check "-indent-px"
 
+(* [indent'] takes a half-step float; the int base keeps emitting what it always
+   did. *)
+let test_text_indent_prime () =
+  check_typed_class "indent-0.5" (Tw.indent' 0.5);
+  check_typed_class "indent-4" (Tw.indent 4)
+
 let test_vertical_align () =
   check "align-baseline";
   check "align-top";
@@ -680,6 +686,16 @@ let test_numeric_leading_spacing () =
   has "leading-1" "line-height:var(--spacing)";
   has "leading-0" "line-height:0"
 
+(* [leading'] takes a half-step float, same convention as [p]/[p']; the int base
+   keeps emitting what it always did. *)
+let test_leading_prime () =
+  check_typed_class "leading-1.5" (Tw.leading' 1.5);
+  check_typed_class "leading-6" (Tw.leading 6);
+  let css = Tw.to_css [ Tw.leading' 1.5 ] |> Tw.Css.to_string ~minify:true in
+  Alcotest.(check bool)
+    "leading-1.5 -> calc(var(--spacing)*1.5)" true
+    (Astring.String.is_infix ~affix:"calc(var(--spacing)*1.5)" css)
+
 (* leading-none has no v4.3 theme token, so it inlines line-height: 1 rather
    than minting a --leading-none var. *)
 let test_leading_none_inline () =
@@ -1042,6 +1058,7 @@ let tests =
     test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
+    test_case "leading half-step" `Quick test_leading_prime;
     test_case "leading-none inline" `Quick test_leading_none_inline;
     test_case "text line-height override" `Quick test_text_line_height_override;
     test_case "font family" `Quick test_font_family;
@@ -1061,6 +1078,7 @@ let tests =
     test_case "hyphens" `Quick test_hyphens;
     test_case "list style" `Quick test_list_style;
     test_case "text indent" `Quick test_text_indent;
+    test_case "text indent half-step" `Quick test_text_indent_prime;
     test_case "vertical align" `Quick test_vertical_align;
     test_case "font stretch" `Quick test_font_stretch;
     test_case "numeric variants" `Quick test_numeric_variants;
