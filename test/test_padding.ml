@@ -113,6 +113,20 @@ let test_arbitrary_spacing_fn () =
     "declares --spacing" true
     (Astring.String.is_infix ~affix:"--spacing:.25rem" s)
 
+(* The [']-suffixed sibling of each int constructor takes a half-step float; the
+   int base keeps emitting what it always did. *)
+let typed_prime () =
+  let open Tw in
+  check_typed_class "p-0.5" (p' 0.5);
+  check_typed_class "px-1.5" (px' 1.5);
+  check_typed_class "py-0.5" (py' 0.5);
+  check_typed_class "pt-0.5" (pt' 0.5);
+  check_typed_class "pr-0.5" (pr' 0.5);
+  check_typed_class "pb-0.5" (pb' 0.5);
+  check_typed_class "pl-0.5" (pl' 0.5);
+  check_typed_class "p-4" (p 4);
+  check_typed_class "px-8" (px 8)
+
 let tests =
   [
     test_case "arbitrary --spacing()" `Quick test_arbitrary_spacing_fn;
@@ -122,6 +136,7 @@ let tests =
       suborder_matches_tailwind;
     test_case "padding CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
+    test_case "typed constructors: half-step" `Quick typed_prime;
   ]
 
 let suite = ("padding", tests)

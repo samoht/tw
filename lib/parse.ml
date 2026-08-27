@@ -1,13 +1,3 @@
-(* [prefix_loop] is top-level so it captures nothing and allocates no closure -
-   unlike [String.starts_with]'s inner [aux], which allocates one per call in a
-   non-flambda build. Indices are kept in bounds by [has_prefix]. *)
-let rec prefix_loop prefix s i lp =
-  i = lp || (prefix.[i] = s.[i] && prefix_loop prefix s (i + 1) lp)
-
-let has_prefix ~prefix s =
-  let lp = String.length prefix in
-  lp <= String.length s && prefix_loop prefix s 0 lp
-
 let is_digits s =
   s <> "" && String.for_all (function '0' .. '9' -> true | _ -> false) s
 
@@ -404,6 +394,49 @@ let split_class_uncached class_name =
         incr i
       done)
     else if c = '-' then (
+      parts := Buffer.contents buf :: !parts;
+      Buffer.clear buf;
+      incr i)
+    else (
+      Buffer.add_char buf c;
+      incr i)
+  done;
+  parts := Buffer.contents buf :: !parts;
+  List.rev !parts
+
+(** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
+    colon inside an arbitrary value or a shorthand var reference (e.g.
+    "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
+    yields (colon count + 1) tokens: joining the result back with ':'
+    reconstructs the input. *)
+let split_on_colon s =
+  let len = String.length s in
+  let buf = Buffer.create 16 in
+  let parts = ref [] in
+  let i = ref 0 in
+  while !i < len do
+    let c = s.[!i] in
+    if c = '[' then (
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = s.[!i] in
+        Buffer.add_char buf c;
+        if c = '[' then incr depth else if c = ']' then decr depth;
+        incr i
+      done)
+    else if c = '(' then (
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = s.[!i] in
+        Buffer.add_char buf c;
+        if c = '(' then incr depth else if c = ')' then decr depth;
+        incr i
+      done)
+    else if c = ':' then (
       parts := Buffer.contents buf :: !parts;
       Buffer.clear buf;
       incr i)

@@ -451,29 +451,14 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
     container_query ~condition ~selector:new_selector ~props
       ~base_class:modified_class ()
 
-(** Preprocess a has-[...] selector string for CSS parsing. Replaces & with *
-    (nesting reference) and ensures combinators (+, >, ~) have proper spacing.
-*)
-let preprocess_has_selector s =
-  let buf = Buffer.create (String.length s + 4) in
-  let len = String.length s in
-  let i = ref 0 in
-  while !i < len do
-    (match s.[!i] with
-    | '&' -> Buffer.add_char buf '*'
-    | ('+' | '>' | '~') as c ->
-        (* Add space before combinator if not already present *)
-        if
-          Buffer.length buf = 0
-          || Buffer.contents buf |> fun b -> b.[String.length b - 1] <> ' '
-        then Buffer.add_char buf ' ';
-        Buffer.add_char buf c;
-        (* Add space after combinator if not already present *)
-        if !i + 1 < len && s.[!i + 1] <> ' ' then Buffer.add_char buf ' '
-    | c -> Buffer.add_char buf c);
-    incr i
-  done;
-  Buffer.contents buf
+(** Parse a has-[...] selector string as a relative CSS selector ([:has()]
+    accepts a bare leading combinator, e.g. [>div] or [~img]), with [&] (the
+    utility's own element) resolved to the universal selector - the same
+    substitution {!Modifiers.nest_selector} performs for [group-[...]] /
+    [peer-[...]] templates, via {!Cascade.Nest.substitute}. *)
+let has_relative_selector s =
+  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
+  Cascade.Nest.substitute ~parent:Css.Selector.universal sel
 
 (* The selector a has-shorthand name stands for. [has-<state>] takes the same
    state names as the group/peer variants and matches what that state matches,
@@ -497,10 +482,7 @@ let has_inner_selector raw =
   let str =
     if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
   in
-  match
-    Css.Selector.read_relative
-      (Cascade.Cursor.of_string (preprocess_has_selector str))
-  with
+  match has_relative_selector str with
   | Css.Selector.List sels when not (Style.is_has_shorthand raw) ->
       Css.Selector.is_ sels
   | sel -> sel
@@ -532,9 +514,8 @@ let route_regular ~selector ~base_class ~modified_class ~modified ?has_hover
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
     ~selector selector_str base_class props =
   let open Css.Selector in
-  let processed = preprocess_has_selector selector_str in
   let parsed_selector =
-    match Css.Selector.read_relative (Cascade.Cursor.of_string processed) with
+    match has_relative_selector selector_str with
     (* A bracket list is one relative selector, so it goes in an [:is()]. The
        [hocus] shorthand is genuinely two, and stays a list. *)
     | List sels when shorthand = None -> is_ sels
@@ -655,74 +636,6 @@ let route_data_modifier modifier base_class selector props =
       handle_data_modifier k v selector props base_class
   | _ -> regular ~selector ~props ~base_class ()
 
-(* Parse a data bracket expression into attribute name, match operator, and
-   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
-   Underscores in the value part are converted to spaces. *)
-(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
-let parse_value_and_flag value_str =
-  let vlen = String.length value_str in
-  let value_str, flag =
-    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Insensitive )
-    else if
-      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Sensitive )
-    else (value_str, None)
-  in
-  let value =
-    let vlen = String.length value_str in
-    if vlen >= 2 then
-      match (value_str.[0], value_str.[vlen - 1]) with
-      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
-      | _ -> value_str
-    else value_str
-  in
-  (value, flag)
-
-let parse_data_expr raw_expr =
-  (* Find the match operator in raw content (before underscore conversion) *)
-  let len = String.length raw_expr in
-  let in_quotes = ref false in
-  let rec find_op i =
-    if i >= len then None
-    else
-      match raw_expr.[i] with
-      | '"' | '\'' ->
-          in_quotes := not !in_quotes;
-          find_op (i + 1)
-      | ('$' | '^' | '*' | '~' | '|')
-        when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
-          Some (i, 2, raw_expr.[i])
-      | '=' when not !in_quotes -> Some (i, 1, '=')
-      | _ -> find_op (i + 1)
-  in
-  let underscore_to_space s =
-    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
-  in
-  match find_op 0 with
-  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
-  | Some (op_pos, op_len, op_char) ->
-      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
-      let value_str =
-        underscore_to_space
-          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
-      in
-      let value, flag = parse_value_and_flag value_str in
-      let match_op =
-        match op_char with
-        | '$' -> Css.Selector.Suffix value
-        | '^' -> Css.Selector.Prefix value
-        | '*' -> Css.Selector.Substring value
-        | '~' -> Css.Selector.Whitespace_list value
-        | '|' -> Css.Selector.Hyphen_list value
-        | _ -> Css.Selector.Exact value
-      in
-      ("data-" ^ attr, match_op, flag)
-
 (* Known data shorthand names *)
 let _is_data_shorthand_name = function
   | "disabled" | "active" | "inactive" -> true
@@ -745,7 +658,7 @@ let route_data_bracket_modifier modifier ~selector base_class props =
       String.sub raw_str 1 (n - 2)
     else raw_str
   in
-  let attr_name, attr_match, attr_flag = parse_data_expr expr in
+  let attr_name, attr_match, attr_flag = Modifiers.parse_data_expr expr in
   let open Css.Selector in
   let class_part = raw_str in
   let not_order = 20 in
@@ -951,23 +864,27 @@ let handle_pseudo_element_modifier modifier base_class props =
 
 let normalize_supports_condition = Modifiers.normalize_supports_condition
 
-(** Handle [@supports] modifier: builds modified class name, updates selector,
-    normalizes condition, and emits a supports query rule. *)
-let handle_supports_modifier condition_str base_class selector props =
-  (* Use shorthand class name for supports-<property> patterns, otherwise use
-     bracket notation *)
-  let modified_class =
-    if String.ends_with ~suffix:": var(--tw)" condition_str then
-      let prop_len = String.length condition_str - 11 in
-      "supports-" ^ String.sub condition_str 0 prop_len ^ ":" ^ base_class
-    else "supports-[" ^ condition_str ^ "]:" ^ base_class
-  in
+(** Handle [supports-<property>] modifier: builds the shorthand class name and
+    emits [\@supports (prop: var(--tw))] directly, typed. *)
+let handle_supports_property_modifier prop base_class selector props =
+  let modified_class = "supports-" ^ prop ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  let condition_input = normalize_supports_condition condition_str in
-  let condition = Css.Supports.of_string condition_input in
+  let condition = Css.Supports.property prop "var(--tw)" in
+  supports_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+(** Handle [supports-[condition]] modifier: builds the bracket class name,
+    normalizes the author's condition text, and emits a supports query rule. *)
+let handle_supports_condition_modifier condition_str base_class selector props =
+  let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  let condition = normalize_supports_condition condition_str in
   supports_query ~condition ~selector:new_selector ~props
     ~base_class:modified_class ()
 
@@ -1061,9 +978,7 @@ let not_class_prefix inner_modifier =
   | Style.Nth_last expr -> Style.pp_nth "nth-last" expr
   | Style.Nth_of_type expr -> Style.pp_nth "nth-of-type" expr
   | Style.Nth_last_of_type expr -> Style.pp_nth "nth-last-of-type" expr
-  | Style.Supports cond when String.ends_with ~suffix:": var(--tw)" cond ->
-      let prop_len = String.length cond - 11 in
-      "supports-" ^ String.sub cond 0 prop_len
+  | Style.Supports_property prop -> "supports-" ^ prop
   | inner -> Modifiers.pp_modifier inner
 
 (* The relative selector a [group-not-]/[peer-not-] variant contributes:
@@ -1205,9 +1120,15 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
       let condition = Option.get (media_condition_of_modifier inner_modifier) in
       not_media_rule ~nvo ~condition:(negate_media condition) modified_class
         props
-  | Style.Supports condition_str ->
-      let condition_input = normalize_supports_condition condition_str in
-      let inner_condition = Css.Supports.of_string condition_input in
+  | Style.Supports_property prop ->
+      [
+        supports_query ~not_order:nvo
+          ~condition:(Css.Supports.Not (Css.Supports.property prop "var(--tw)"))
+          ~selector:(Css.Selector.Class modified_class) ~props
+          ~base_class:modified_class ();
+      ]
+  | Style.Supports_condition condition_str ->
+      let inner_condition = normalize_supports_condition condition_str in
       [
         supports_query ~not_order:nvo
           ~condition:(Css.Supports.Not inner_condition)
@@ -1395,12 +1316,11 @@ let handle_not_bracket content base_class props =
        [:not(.os-macos <star>)]. Parse the transformed string as a selector so
        combinators and compounds flatten, rather than escaping it as a single
        class name. *)
-    let sel_str =
-      content
-      |> String.map (fun c -> if c = '_' then ' ' else c)
-      |> String.split_on_char '&' |> String.concat "*"
+    let sel_str = String.map (fun c -> if c = '_' then ' ' else c) content in
+    let inner =
+      Cascade.Nest.substitute ~parent:Css.Selector.universal
+        (Css.Selector.read (Cascade.Cursor.of_string sel_str))
     in
-    let inner = Css.Selector.read (Cascade.Cursor.of_string sel_str) in
     [
       regular ~not_order:nvo
         ~selector:
@@ -1671,9 +1591,7 @@ let at_rule_variant content ~selector base_class props =
     starting_style ~selector ~props ~base_class:modified_class ()
   else
     let cond = String.trim (String.sub content 9 (String.length content - 9)) in
-    let condition =
-      Css.Supports.of_string (normalize_supports_condition cond)
-    in
+    let condition = normalize_supports_condition cond in
     supports_query ~condition ~selector ~props ~base_class:modified_class ()
 
 (* A [matchVariant]-registered custom variant. The class name is the token
@@ -1735,8 +1653,10 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       handle_media_like_modifier modifier ~condition ~inner_has_hover base_class
         selector props
   (* Supports feature query *)
-  | Style.Supports condition_str ->
-      handle_supports_modifier condition_str base_class selector props
+  | Style.Supports_property prop ->
+      handle_supports_property_modifier prop base_class selector props
+  | Style.Supports_condition condition_str ->
+      handle_supports_condition_modifier condition_str base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
@@ -1996,8 +1916,10 @@ let rebase_on_selector ~base_class ~selector rules =
    to keep that at-rule and nest the inner query inside it; the selector-rewrite
    arms cannot express them. *)
 let wraps_in_at_rule = function
-  | Style.Supports _ | Style.Starting | Style.Container _
-  | Style.Not (Style.Supports _) ->
+  | Style.Supports_property _ | Style.Supports_condition _ | Style.Starting
+  | Style.Container _
+  | Style.Not (Style.Supports_property _)
+  | Style.Not (Style.Supports_condition _) ->
       true
   | _ -> false
 

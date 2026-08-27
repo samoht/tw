@@ -31,12 +31,15 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
-val normalize_supports_condition : string -> string
-(** [normalize_supports_condition cond] is the [supports-[...]] bracket content
-    as a CSS [@supports] condition: underscores become spaces, a bare property
-    or custom property expands to a [(prop: var(--tw))] test, and a property
-    test is repeated once per vendor prefix Tailwind checks. The modifier parser
-    validates its result, so only conditions that parse reach a rule. *)
+val normalize_supports_condition : string -> Css.Supports.t
+(** [normalize_supports_condition cond] builds the [supports-[...]] bracket
+    content as a typed CSS [@supports] condition: underscores become spaces, and
+    a bare property or custom property expands to a [(prop: var(--tw))] test,
+    built directly through {!Css.Supports.property} rather than assembled as a
+    string and re-parsed. An already-parenthesised condition or a function call
+    is the text the author wrote, so it is parsed with {!Css.Supports.of_string}
+    instead. The modifier parser validates the result, so only conditions that
+    parse reach a rule. *)
 
 (** {1 State Variants} *)
 
@@ -685,6 +688,19 @@ val is_aria_shorthand : string -> bool
 (** [is_aria_shorthand name] returns [true] if [name] is a known ARIA shorthand
     attribute (e.g., "checked", "expanded", "hidden") that maps to
     [aria-X=true]. *)
+
+(** {1 Data Helpers} *)
+
+val parse_data_expr :
+  string ->
+  string * Css.Selector.attribute_match * Css.Selector.attr_flag option
+(** [parse_data_expr expr] reads a [data-[expr]] bracket body (the interior
+    text, no brackets) into the attribute name (["data-" ^ name]), the match
+    operator, and an optional case-sensitivity flag. Handles [$=], [^=], [*=],
+    [~=], [|=] and bare [=]; underscores in the attribute name and value stand
+    for spaces, per Tailwind's arbitrary-value convention. Used both to build
+    the selector at render time and, via {!Css.Selector.attribute}'s own
+    identifier check, to validate the expression at parse time. *)
 
 (** {1 Variant Ordering} *)
 

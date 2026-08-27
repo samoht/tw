@@ -169,6 +169,17 @@ val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
 (** [base_of_class theme class_name] parses a class name into a base utility
     (without modifiers). For internal use by the Tw module. *)
 
+val examples_classes : unit -> string list
+(** [examples_classes ()] is the class name of every utility each registered
+    handler offers as one of its {!Handler.examples}. *)
+
+val claiming_handlers : Scheme.t -> string -> string list
+(** [claiming_handlers theme class_name] is the name of every registered handler
+    whose [of_class] accepts [class_name]. {!base_of_class} answers with the
+    first, and handlers are tried in dune link order, so a class more than one
+    handler accepts resolves on a build detail rather than on anything declared.
+    Exposed so a test can assert that no class is claimed twice. *)
+
 val base_of_strings :
   Scheme.t -> string list -> (base, [ `Msg of string ]) result
 (** [base_of_strings theme parts] parses a list of string parts into a base

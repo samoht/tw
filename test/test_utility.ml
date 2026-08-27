@@ -266,9 +266,101 @@ let test_order_of_property_covers_named_families () =
       (Key Line_height, "leading-none");
     ]
 
+(* [base_of_class] takes the FIRST handler that accepts a class, and handlers
+   are tried in dune link order, so a class two handlers both accept would
+   resolve on an unrelated build detail rather than on anything declared - and
+   would change silently when someone edits a dune file. No such class was ever
+   demonstrated; this asserts there is none, over the utilities every handler
+   offers as its own examples plus the families whose prefixes overlap most
+   (border/divide, text/font, shadow/inset-shadow, bg gradients, ring). *)
+let test_no_class_claimed_twice () =
+  let corpus =
+    Tw.Utility.examples_classes ()
+    @ [
+        "border-2";
+        "border-x-2";
+        "divide-x-2";
+        "divide-x-reverse";
+        "text-lg";
+        "text-red-500";
+        "text-center";
+        "font-bold";
+        "font-sans";
+        "shadow-lg";
+        "shadow-red-500";
+        "inset-shadow-sm";
+        "ring-2";
+        "ring-offset-2";
+        "inset-ring-2";
+        "bg-red-500";
+        "bg-linear-45";
+        "from-red-500";
+        "via-red-500";
+        "to-red-500";
+        "p-4";
+        "px-4";
+        "m-4";
+        "gap-4";
+        "space-x-4";
+        "w-4";
+        "h-4";
+        "size-4";
+        "min-w-4";
+        "max-w-4";
+        "rounded-lg";
+        "outline-2";
+        "leading-6";
+        "tracking-wide";
+        "opacity-50";
+        "blur-sm";
+        "drop-shadow-lg";
+        "scale-95";
+        "rotate-45";
+        "translate-x-4";
+        "grid-cols-3";
+        "col-span-2";
+        "flex-1";
+        "basis-1/2";
+        "aspect-video";
+        "columns-3";
+        "line-clamp-3";
+        "indent-4";
+        "border-spacing-2";
+        "scroll-m-4";
+        "stroke-2";
+        "fill-red-500";
+      ]
+  in
+  let doubled =
+    List.filter_map
+      (fun cls ->
+        match Tw.Utility.claiming_handlers Tw.Scheme.default cls with
+        | [] | [ _ ] -> None
+        | names -> Some (cls ^ " -> " ^ String.concat ", " names))
+      (List.sort_uniq String.compare corpus)
+  in
+  (* These five are claimed twice today: [backgrounds] and [color] both accept
+     [bg-<colour>], and [borders] and [color] both accept [border-current] and
+     [border-transparent]. Which one answers is decided by dune link order. The
+     output is right today, so this pins the set rather than the emptiness: a
+     sixth overlap fails here, and so does resolving one of these, which is the
+     prompt to update the list. *)
+  let known_doubled =
+    [
+      "bg-current -> backgrounds, color";
+      "bg-red-500 -> backgrounds, color";
+      "bg-transparent -> backgrounds, color";
+      "border-current -> borders, color";
+      "border-transparent -> borders, color";
+    ]
+  in
+  Alcotest.(check (list string))
+    "no class is claimed twice beyond the known set" known_doubled doubled
+
 let tests =
   [
     test_case "base_of_class valid input" `Quick test_base_of_class_valid;
+    test_case "no class claimed twice" `Quick test_no_class_claimed_twice;
     test_case "base_of_class invalid input" `Quick test_base_of_class_invalid;
     test_case "deduplicate preserves order" `Quick test_deduplicate;
     test_case "deduplicate handles empty list" `Quick test_deduplicate_empty;

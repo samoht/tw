@@ -295,7 +295,7 @@ let check_property_rules_order () =
    with no family, which forced it ahead of the transforms. *)
 let check_space_reverse_after_transforms () =
   let sheet =
-    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4. ]
+    Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4 ]
   in
   let names = property_rule_names sheet in
   let index_of n =
@@ -324,7 +324,7 @@ let check_border_spacing_first () =
   let names =
     property_rule_names
       (Tw.to_css ~base:false ~layers:true
-         [ Tw.border_spacing 2.; Tw.translate_x 4; Tw.blur ])
+         [ Tw.border_spacing 2; Tw.translate_x 4; Tw.blur ])
   in
   let index_of = index_of_prop names in
   check bool "--tw-border-spacing-x before --tw-translate-x" true
@@ -918,9 +918,37 @@ let test_starting_style_merges () =
   check bool "both utilities are in it" true
     (count ".starting\\:opacity-0" = 1 && count ".starting\\:scale-90" = 1)
 
+(* A project [@theme] can name a family member the built-in scale has no slot
+   for ([--font-<name>]); every such member funnels into one shared (priority,
+   suborder) slot (see [Typography.font_named_var]), so the two tokens tie
+   there. Tailwind keeps the order the [@theme] block declared them in rather
+   than re-sorting the tie alphabetically by name. *)
+let test_theme_named_family_declaration_order () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("font-zeta", "Zeta, serif"); ("font-alpha", "Alpha, serif") ]
+  in
+  let utilities =
+    [ "font-zeta"; "font-alpha" ]
+    |> List.map (fun c -> Result.get_ok (Tw.of_string ~theme c))
+  in
+  let css =
+    Css.to_string ~minify:true (Tw.to_css ~theme ~base:false utilities)
+  in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let zeta = position "--font-zeta:" and alpha = position "--font-alpha:" in
+  check bool "--font-zeta declared before --font-alpha, as in the @theme block"
+    true (zeta < alpha)
+
 let tests =
   [
     test_case "starting-style blocks merge" `Quick test_starting_style_merges;
+    test_case "theme-named family keeps @theme declaration order" `Quick
+      test_theme_named_family_declaration_order;
     test_case "referenced theme token emitted" `Quick
       test_referenced_theme_token;
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;

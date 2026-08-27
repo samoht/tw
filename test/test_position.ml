@@ -194,9 +194,29 @@ let inset_value_order_matches_tailwind () =
     ~test_name:"inset value order matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+(* top'/right'/bottom'/left'/inset'/inset_x'/inset_y' take a half-step float
+   (negative allowed, same as the int base); the int base keeps emitting what it
+   always did. *)
+let typed_prime () =
+  let open Tw in
+  let check_class expected value =
+    Alcotest.(check string) expected expected (Tw.pp value)
+  in
+  check_class "top-0.5" (top' 0.5);
+  check_class "-top-0.5" (top' (-0.5));
+  check_class "right-0.5" (right' 0.5);
+  check_class "bottom-0.5" (bottom' 0.5);
+  check_class "left-0.5" (left' 0.5);
+  check_class "inset-0.5" (inset' 0.5);
+  check_class "inset-x-0.5" (inset_x' 0.5);
+  check_class "inset-y-0.5" (inset_y' 0.5);
+  check_class "top-4" (top 4);
+  check_class "-top-4" (top (-4))
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
+    test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "negative top" `Quick test_negative;
     test_case "arbitrary value roundtrip" `Quick test_arbitrary_roundtrip;
     test_case "position utilities" `Quick test_position_utilities;

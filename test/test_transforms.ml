@@ -213,9 +213,32 @@ let test_translate_spacing_steps () =
   has "translate-x-0.5" "--tw-translate-x:calc(var(--spacing)*.5)";
   has "-translate-y-0.5" "--tw-translate-y:calc(var(--spacing)*-.5)";
   has "translate-x-1" "--tw-translate-x:var(--spacing)";
+  has "translate-z-0.5" "--tw-translate-z:calc(var(--spacing)*.5)";
   Alcotest.(check string)
     "-translate-y-0.5 round-trips" "-translate-y-0.5"
-    (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")))
+    (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")));
+  Alcotest.(check string)
+    "translate-z-0.5 round-trips" "translate-z-0.5"
+    (Tw.pp (Result.get_ok (Tw.of_string "translate-z-0.5")))
+
+(* [translate_x']/[translate_y']/[translate_z'] take a half-step float; the int
+   base keeps emitting what it always did. A whole-number float still keeps the
+   int constructor's own shortcuts (e.g. translate-x-1 is the bare variable, not
+   calc(var(--spacing) * 1)). *)
+let test_translate_prime () =
+  let check_class expected value =
+    Alcotest.(check string) expected expected (Tw.pp value)
+  in
+  check_class "translate-x-0.5" (Tw.translate_x' 0.5);
+  check_class "-translate-y-0.5" (Tw.translate_y' (-0.5));
+  check_class "translate-z-0.5" (Tw.translate_z' 0.5);
+  check_class "translate-x-4" (Tw.translate_x' 4.0);
+  check_class "translate-x-4" (Tw.translate_x 4);
+  let css u = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
+  Alcotest.(check bool)
+    "translate_x' 4.0 keeps the bare-var shortcut for 1, calc for others" true
+    (Astring.String.is_infix ~affix:"--tw-translate-x:calc(var(--spacing)*4)"
+       (css (Tw.translate_x' 4.0)))
 
 (* [perspective-none] resolves to whatever a project declared [--perspective-
    none] to be. Reading that value back with a px-only test lost every other
@@ -368,6 +391,8 @@ let tests =
     test_case "perspective-none without override" `Quick
       test_perspective_none_without_override;
     test_case "translate spacing steps" `Quick test_translate_spacing_steps;
+    test_case "translate half-step typed constructors" `Quick
+      test_translate_prime;
     test_case "translate zero keeps its unit" `Quick
       test_translate_zero_keeps_unit;
     test_case "translate spacing (both axes)" `Quick test_translate_spacing;

@@ -200,6 +200,24 @@ let base_of_class theme class_name =
   in
   try_handlers !handlers
 
+(* Every utility each handler offers as its own example, as class names. *)
+let examples_classes () =
+  List.concat_map
+    (fun (H (module M)) -> List.map M.to_class M.examples)
+    !handlers
+
+(* Every handler that would claim [class_name], by name. [base_of_class] takes
+   the first, and the order is the dune link order, so a class two handlers both
+   accept resolves on an unrelated build detail rather than on anything
+   declared. This is what lets a test assert there is no such class. *)
+let claiming_handlers theme class_name =
+  List.filter_map
+    (fun (H (module M)) ->
+      match M.of_class theme class_name with
+      | Ok _ -> Some M.name
+      | Error _ -> None)
+    !handlers
+
 (* Keep for backward compatibility with tests *)
 let base_of_strings theme parts =
   let class_name = String.concat "-" parts in

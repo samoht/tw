@@ -513,8 +513,23 @@ let test_project_theme_tokens () =
     "an undeclared aspect name is rejected" true
     (Result.is_error (Tw.of_string ~theme "aspect-nope"))
 
+(* w'/h'/min_w'/max_w'/min_h'/max_h'/size' take a half-step float; the int base
+   keeps emitting what it always did. *)
+let typed_prime () =
+  let open Tw in
+  check_typed_class "w-0.5" (w' 0.5);
+  check_typed_class "h-1.5" (h' 1.5);
+  check_typed_class "min-w-0.5" (min_w' 0.5);
+  check_typed_class "max-w-1.5" (max_w' 1.5);
+  check_typed_class "min-h-0.5" (min_h' 0.5);
+  check_typed_class "max-h-1.5" (max_h' 1.5);
+  check_typed_class "size-0.5" (size' 0.5);
+  check_typed_class "w-4" (w 4);
+  check_typed_class "size-4" (size 4)
+
 let tests =
   [
+    test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "named size prefers --spacing-*" `Quick
       test_named_size_prefers_spacing;
     test_case "fractional spacing" `Quick test_fractional_spacing;

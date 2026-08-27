@@ -133,9 +133,23 @@ let test_arbitrary_length_grammar () =
   check "gap-[inherit]";
   check "gap-[4px]"
 
+(* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y flipped from float
+   to int with a [']-suffixed float sibling, same convention as [p]/[p']. *)
+let typed_prime () =
+  let open Tw in
+  check_typed_class "gap-0.5" (gap' 0.5);
+  check_typed_class "gap-x-1.5" (gap_x' 1.5);
+  check_typed_class "gap-y-0.5" (gap_y' 0.5);
+  check_typed_class "gap-4" (gap 4);
+  check_typed_class "space-x-2" (space_x 2);
+  check_typed_class "space-x-2.5" (space_x' 2.5);
+  check_typed_class "space-y-4" (space_y 4);
+  check_typed_class "space-y-0.5" (space_y' 0.5)
+
 let tests =
   [
     test_case "gap of_string - valid values" `Quick of_string_valid;
+    test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "gap of_string - invalid values" `Quick of_string_invalid;
     test_case "gap suborder matches Tailwind" `Quick suborder_matches_tailwind;
     test_case "mixed gap/space order matches Tailwind" `Quick

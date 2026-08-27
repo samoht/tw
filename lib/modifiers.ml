@@ -580,6 +580,20 @@ let to_selector (modifier : modifier) cls =
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
 
+(* Modifiers whose whole effect is a media query. A group or peer negation
+   builds a selector, and a media query has no negated selector form, so one of
+   these cannot be its inner: [rule.ml] answers such a pair with no rules at
+   all, which reaches the author as a class that silently does nothing. The list
+   is the one [Rule.media_condition_of_modifier] answers for, plus [Hover] and
+   [Device_hocus], which gate on [\@media (hover: hover)]. *)
+let renders_as_media = function
+  | Hover | Device_hocus | Dark | Motion_safe | Motion_reduce | Contrast_more
+  | Contrast_less | Print | Portrait | Landscape | Forced_colors
+  | Inverted_colors | Pointer_none | Pointer_coarse | Pointer_fine
+  | Any_pointer_none | Any_pointer_coarse | Any_pointer_fine | Noscript ->
+      true
+  | _ -> false
+
 let wrap m styles =
   match styles with
   | [] -> Utility.Group []
@@ -836,7 +850,7 @@ let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
-let supports cond styles = wrap (Supports cond) styles
+let supports cond styles = wrap (Supports_condition cond) styles
 
 (* Prose element variants *)
 let prose_headings styles = wrap (Prose_element "headings") styles
@@ -1059,34 +1073,105 @@ let parse_px_value s =
   | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
   | None -> None
 
-(* Preprocess a has-selector string: & → * and ensure combinator spacing. *)
-let preprocess_has_selector s =
-  let buf = Buffer.create (String.length s + 4) in
-  let len = String.length s in
-  for i = 0 to len - 1 do
-    match s.[i] with
-    | '&' -> Buffer.add_char buf '*'
-    | ('+' | '>' | '~') as c ->
-        if
-          Buffer.length buf > 0
-          &&
-          let b = Buffer.contents buf in
-          b.[String.length b - 1] <> ' '
-        then Buffer.add_char buf ' ';
-        Buffer.add_char buf c;
-        if i + 1 < len && s.[i + 1] <> ' ' then Buffer.add_char buf ' '
-    | c -> Buffer.add_char buf c
-  done;
-  Buffer.contents buf
+(* Parse a has-selector string as a relative CSS selector ([:has()] accepts a
+   bare leading combinator, e.g. [>div] or [~img]), with [&] resolved to the
+   universal selector via {!Cascade.Nest.substitute}, the same substitution
+   {!nest_selector} performs for anchored templates. *)
+let has_relative_selector s =
+  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
+  Cascade.Nest.substitute ~parent:Css.Selector.universal sel
 
 (* Validate that a has-selector string can be parsed as a CSS selector. Rejects
    invalid selectors like "@media_print" at parse time. *)
 let is_valid_has_selector sel =
   try
-    let processed = preprocess_has_selector sel in
-    ignore (Css.Selector.read_relative (Cascade.Cursor.of_string processed));
+    ignore (has_relative_selector sel);
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
+
+(* Parse a data bracket expression into attribute name, match operator, and
+   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
+   Underscores in the value part are converted to spaces. *)
+(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
+let parse_value_and_flag value_str =
+  let vlen = String.length value_str in
+  let value_str, flag =
+    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Insensitive )
+    else if
+      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Sensitive )
+    else (value_str, None)
+  in
+  let value =
+    let vlen = String.length value_str in
+    if vlen >= 2 then
+      match (value_str.[0], value_str.[vlen - 1]) with
+      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
+      | _ -> value_str
+    else value_str
+  in
+  (value, flag)
+
+let parse_data_expr raw_expr =
+  (* Find the match operator in raw content (before underscore conversion) *)
+  let len = String.length raw_expr in
+  let in_quotes = ref false in
+  let rec find_op i =
+    if i >= len then None
+    else
+      match raw_expr.[i] with
+      | '"' | '\'' ->
+          in_quotes := not !in_quotes;
+          find_op (i + 1)
+      | ('$' | '^' | '*' | '~' | '|')
+        when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
+          Some (i, 2, raw_expr.[i])
+      | '=' when not !in_quotes -> Some (i, 1, '=')
+      | _ -> find_op (i + 1)
+  in
+  let underscore_to_space s =
+    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
+  in
+  match find_op 0 with
+  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
+  | Some (op_pos, op_len, op_char) ->
+      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
+      let value_str =
+        underscore_to_space
+          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
+      in
+      let value, flag = parse_value_and_flag value_str in
+      let match_op =
+        match op_char with
+        | '$' -> Css.Selector.Suffix value
+        | '^' -> Css.Selector.Prefix value
+        | '*' -> Css.Selector.Substring value
+        | '~' -> Css.Selector.Whitespace_list value
+        | '|' -> Css.Selector.Hyphen_list value
+        | _ -> Css.Selector.Exact value
+      in
+      ("data-" ^ attr, match_op, flag)
+
+(* Validate a data-[...] bracket expression by running it through the same
+   reading [parse_data_expr] does at render time, then handing the resulting
+   attribute name to {!Css.Selector.attribute}: it validates the name as a CSS
+   identifier and rejects a malformed one, such as the split operator [^_=] (a
+   space inside what must be the adjacent two-character [^=] token) falling
+   through to a bare [=] and dragging the stray [^] and a decoded space into
+   what becomes the attribute name. The value is left unvalidated here since
+   Tailwind's arbitrary values legitimately hold a decoded space (e.g.
+   [data-[foo=bar_baz]]) that the printer quotes on output. *)
+let is_valid_data_attr_expr expr =
+  let attr_name, attr_match, attr_flag = parse_data_expr expr in
+  try
+    ignore (Css.Selector.attribute ?flag:attr_flag attr_name attr_match);
+    true
+  with Invalid_argument _ -> false
 
 (* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
    [[@starting-style]] wrap the utility rather than select it. *)
@@ -1109,29 +1194,32 @@ let normalize_supports_condition condition_str =
     && cond.[1] = '-'
     && not (String.contains cond ':')
   then
-    (* Bare custom property: --test → (--test: var(--tw)) *)
-    "(" ^ cond ^ ": var(--tw))"
+    (* Bare custom property: --test tests against var(--tw), built directly
+       rather than assembled as "(--test: var(--tw))" and re-parsed. *)
+    Css.Supports.property cond "var(--tw)"
   else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
   then
-    (* Already parenthesised, so it is the condition the author wrote. *)
-    cond
+    (* Already parenthesised, so it is the condition the author wrote; only the
+       real grammar reader can make sense of arbitrary authored text. *)
+    Css.Supports.of_string cond
   else if String.contains cond ':' then
-    (* [prop: value] -> [(prop:value)], the property test Tailwind emits. *)
+    (* [prop: value], the property test Tailwind emits, built directly. *)
     let i = String.index cond ':' in
     let prop = String.trim (String.sub cond 0 i) in
     let value =
       String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
     in
-    String.concat "" [ "("; prop; ":"; value; ")" ]
+    Css.Supports.property prop value
   else if String.contains cond '(' then
-    (* Function call like font-format(opentype) or var(--test) *)
-    cond
+    (* Function call like font-format(opentype) or var(--test); again arbitrary
+       authored text, so the real grammar reader parses it. *)
+    Css.Supports.of_string cond
   else
-    (* Bare property name: backdrop-filter -> (backdrop-filter: var(--tw)), the
-       same expansion as the bare custom property above. A lone identifier is
-       not a condition the CSS grammar has a production for, so leaving it
-       raised a parse error out of the scanner. *)
-    "(" ^ cond ^ ": var(--tw))"
+    (* Bare property name: backdrop-filter tests against var(--tw), the same
+       expansion as the bare custom property above. A lone identifier is not a
+       condition the CSS grammar has a production for, so leaving it raised a
+       parse error out of the scanner. *)
+    Css.Supports.property cond "var(--tw)"
 
 (* Validate that a supports-[...] bracket normalizes to a condition the
    [@supports] grammar has a production for. An empty or half-written one used
@@ -1140,7 +1228,7 @@ let is_valid_supports_condition cond =
   cond <> ""
   &&
     try
-      ignore (Css.Supports.of_string (normalize_supports_condition cond));
+      ignore (normalize_supports_condition cond);
       true
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
@@ -1159,13 +1247,13 @@ let bracket_named_patterns s =
   let ( let* ) = Option.bind in
   (* Every aria- and data- bracket here takes an attribute expression, so the
      argument has to name an attribute. *)
-  let try_attr prefix make =
+  let try_attr ?(extra = fun _ -> true) prefix make =
     let* expr = extract_bracket_content ~prefix s in
-    if names_attribute expr then Some (make expr) else None
+    if names_attribute expr && extra expr then Some (make expr) else None
   in
-  let try_named prefix make =
+  let try_named ?(extra = fun _ -> true) prefix make =
     let* expr, name = extract_bracket_content_with_name ~prefix s in
-    if names_attribute expr then Some (make expr name) else None
+    if names_attribute expr && extra expr then Some (make expr name) else None
   in
   let try_named_has prefix make =
     let* sel, name = extract_bracket_content_with_name ~prefix s in
@@ -1176,14 +1264,18 @@ let bracket_named_patterns s =
     (fun () -> try_named "peer-aria-[" (fun e n -> Peer_aria (e, n)));
     (fun () -> try_attr "aria-[" (fun expr -> Aria_bracket expr));
     (fun () ->
-      try_named "group-data-[" (fun e n -> Group_data ("[" ^ e ^ "]", n)));
+      try_named "group-data-[" ~extra:is_valid_data_attr_expr (fun e n ->
+          Group_data ("[" ^ e ^ "]", n)));
     (fun () ->
-      try_named "peer-data-[" (fun e n -> Peer_data ("[" ^ e ^ "]", n)));
+      try_named "peer-data-[" ~extra:is_valid_data_attr_expr (fun e n ->
+          Peer_data ("[" ^ e ^ "]", n)));
     (* Bare shorthand: [group-data-dragging] is [group-data-[dragging]] with a
        different spelling, so it keeps its own class name. *)
     (fun () -> try_bare_data s "group-data-" (fun e n -> Group_data (e, n)));
     (fun () -> try_bare_data s "peer-data-" (fun e n -> Peer_data (e, n)));
-    (fun () -> try_attr "data-[" (fun expr -> Data_bracket expr));
+    (fun () ->
+      try_attr "data-[" ~extra:is_valid_data_attr_expr (fun expr ->
+          Data_bracket expr));
     (fun () -> try_named_has "group-has-[" (fun s n -> Group_has (s, n)));
     (fun () -> try_named_has "peer-has-[" (fun s n -> Peer_has (s, n)));
     (fun () ->
@@ -1215,7 +1307,8 @@ let bracket_value_patterns s =
     (fun () -> try_nth "nth-[" (fun e -> Nth e));
     (fun () ->
       let* cond = extract_bracket_content ~prefix:"supports-[" s in
-      if is_valid_supports_condition cond then Some (Supports cond) else None);
+      if is_valid_supports_condition cond then Some (Supports_condition cond)
+      else None);
     (fun () ->
       try_with "group-["
         (fun sel ->
@@ -1243,8 +1336,8 @@ let bracket_value_patterns s =
 
 let bracket_patterns s = bracket_named_patterns s @ bracket_value_patterns s
 
-(* Try supports-<property> shorthand: supports-grid → Supports "grid:
-   var(--tw)" *)
+(* Try supports-<property> shorthand: supports-grid → Supports_property
+   "grid" *)
 let try_supports_shorthand s =
   if
     String.length s > 9
@@ -1253,7 +1346,7 @@ let try_supports_shorthand s =
     && not (String.contains s '/')
   then
     let prop = String.sub s 9 (String.length s - 9) in
-    Some (Supports (prop ^ ": var(--tw)"))
+    Some (Supports_property prop)
   else None
 
 let try_bracketed_modifier s =
@@ -1499,7 +1592,7 @@ let try_not_shorthand inner =
     && not (String.contains inner '/')
   then
     let prop = String.sub inner 9 (String.length inner - 9) in
-    Some (Not (Supports (prop ^ ": var(--tw)")))
+    Some (Not (Supports_property prop))
     (* data-X shorthand — attribute presence check *)
   else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
     let attr = String.sub inner 5 (String.length inner - 5) in
@@ -1518,12 +1611,14 @@ let try_not_shorthand inner =
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
     starting style, children/descendants, and container queries cannot be
-    negated. *)
+    negated: a container query has no negated selector form, and tw used to
+    build [.not-\@md\:flex:not(.flex)] for one, negating the utility's own class
+    so the rule matched nothing. *)
 let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
-  | Descendants | Prose_element _ ->
+  | Descendants | Prose_element _ | Container _ ->
       false
   | _ -> true
 
@@ -1589,14 +1684,14 @@ let parse_group_peer_not_inner rest =
         let name = String.sub rest (i + 1) (String.length rest - i - 1) in
         let inner_mod =
           match List.assoc_opt inner_str simple_modifiers with
-          | Some m -> Some m
-          | None -> None
+          | Some m when not (renders_as_media m) -> Some m
+          | Some _ | None -> None
         in
         Option.map (fun m -> (m, Some name)) inner_mod
     | None -> (
         match List.assoc_opt rest simple_modifiers with
-        | Some m -> Some (m, None)
-        | None -> None)
+        | Some m when not (renders_as_media m) -> Some (m, None)
+        | Some _ | None -> None)
 
 (* Try to parse compound named group variants: not-group-STATE/name,
    has-group-STATE/name, in-group-STATE/name, group-peer-STATE/name *)
@@ -1706,7 +1801,8 @@ let try_bare_data_aria s =
   else if
     String.length s > 5
     && String.sub s 0 5 = "aria-"
-    && not (String.contains s '[')
+    && (not (String.contains s '['))
+    && not (String.contains s '/')
   then
     let expr = String.sub s 5 (String.length s - 5) in
     if names_attribute expr then Some (Aria_bracket expr) else None
@@ -1908,7 +2004,11 @@ and try_group_peer_not_variant ~theme s =
         split_name (String.sub s plen (String.length s - plen))
       in
       match parse_modifier ~theme base with
-      | Some m when is_not_compatible m -> Some (make m name)
+      (* A plain [not-hover] is fine - it negates the selector and keeps the
+         hover media gate. A group or peer negation has only the selector, so a
+         media-rendered inner leaves it with nothing to emit. *)
+      | Some m when is_not_compatible m && not (renders_as_media m) ->
+          Some (make m name)
       | Some _ | None -> None
   in
   match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
@@ -2021,7 +2121,7 @@ let not_variant_order = function
   | Nth_of_type _ -> 3600
   | Nth_last_of_type _ -> 3650
   (* @supports *)
-  | Supports _ -> 4000
+  | Supports_property _ | Supports_condition _ -> 4000
   (* Media: accessibility preferences *)
   | Motion_safe -> 5000
   | Motion_reduce -> 5100
@@ -2129,30 +2229,30 @@ let variant_order_of_prefix prefix =
   (* @starting-style: comes after all media queries including dark:hover *)
   | "starting" -> 95000
   | _ ->
-      if Parse.has_prefix ~prefix:"group-" prefix then 500
-      else if Parse.has_prefix ~prefix:"peer-" prefix then 600
-      else if Parse.has_prefix ~prefix:"has-" prefix then 30600
-      else if Parse.has_prefix ~prefix:"aria-" prefix then
+      if String.starts_with ~prefix:"group-" prefix then 500
+      else if String.starts_with ~prefix:"peer-" prefix then 600
+      else if String.starts_with ~prefix:"has-" prefix then 30600
+      else if String.starts_with ~prefix:"aria-" prefix then
         if String.length prefix > 5 && prefix.[5] <> '[' then 30700 else 30790
-      else if Parse.has_prefix ~prefix:"data-" prefix then
+      else if String.starts_with ~prefix:"data-" prefix then
         if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
       else if
-        Parse.has_prefix ~prefix:"supports-" prefix
-        || Parse.has_prefix ~prefix:"supports" prefix
+        String.starts_with ~prefix:"supports-" prefix
+        || String.starts_with ~prefix:"supports" prefix
       then 40000
       else if prefix = "motion-safe" then 50000
       else if prefix = "motion-reduce" then 50100
       else if prefix = "contrast-more" then 50200
       else if prefix = "contrast-less" then 50300
-      else if Parse.has_prefix ~prefix:"pointer-" prefix then 50400
-      else if Parse.has_prefix ~prefix:"any-pointer-" prefix then 50500
+      else if String.starts_with ~prefix:"pointer-" prefix then 50400
+      else if String.starts_with ~prefix:"any-pointer-" prefix then 50500
       else if
         prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
         || prefix = "2xl"
-        || Parse.has_prefix ~prefix:"min-" prefix
-        || Parse.has_prefix ~prefix:"max-" prefix
+        || String.starts_with ~prefix:"min-" prefix
+        || String.starts_with ~prefix:"max-" prefix
       then 60000
-      else if Parse.has_prefix ~prefix:"prose-" prefix then
+      else if String.starts_with ~prefix:"prose-" prefix then
         let name = String.sub prefix 6 (String.length prefix - 6) in
         prose_element_variant_order name
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000

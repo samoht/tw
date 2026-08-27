@@ -118,9 +118,7 @@ val compare_indexed_rules : indexed_rule -> indexed_rule -> int
 
 (** {1 Debug} *)
 
-val set_debug_compare : bool -> unit
-(** [set_debug_compare true] enables comparison traces on stderr. *)
-
 val debug_compare_enabled : unit -> bool
-(** [debug_compare_enabled ()] is [true] when comparison tracing is active.
-    Exposed so callers can guard their own debug output on the same flag. *)
+(** [debug_compare_enabled ()] is [true] when [TW_DEBUG_SORT] is set in the
+    environment, which turns on the comparator's stderr tracing. Exposed so
+    callers can guard their own debug output on the same flag. *)

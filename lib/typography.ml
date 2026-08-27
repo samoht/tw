@@ -440,6 +440,7 @@ module Typography_early = struct
     | Leading_relaxed
     | Leading_loose
     | Leading of int
+    | Leading_step of float (* leading-0.5, a half-step scale value *)
     | Leading_var of string (* leading-[var(--value)] *)
     (* The author's bracket text travels with the line-height it denotes, so the
        class name is spelled exactly as it was written. *)
@@ -470,7 +471,6 @@ module Typography_early = struct
      whitespace/text-transform), so it joins the late handler's band at priority
      26 via a suborder just above text-transform (~8360). *)
   let priority = function Italic | Not_italic -> 26 | _ -> 24
-  let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
   (* Lookup table for named text sizes: (name, size_var, default_rem) *)
@@ -713,7 +713,7 @@ module Typography_early = struct
      size; nor does a token whose value is not a length. *)
   let is_theme_text_size theme n =
     (not (is_named_size n))
-    && (not (Parse.has_prefix ~prefix:"shadow-" n))
+    && (not (String.starts_with ~prefix:"shadow-" n))
     && List.for_all (fun seg -> seg <> "") (String.split_on_char '-' n)
     && Scheme.theme_value (Some theme) ("color-" ^ n) = None
     &&
@@ -740,18 +740,11 @@ module Typography_early = struct
     | [ "font"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if String.length inner > 0 && inner.[0] = '"' then
-          (* font-["arial_rounded"] → quoted font family *)
-          let unquoted =
-            let s =
-              if
-                String.length inner >= 2
-                && inner.[String.length inner - 1] = '"'
-              then String.sub inner 1 (String.length inner - 2)
-              else inner
-            in
-            String.map (fun c -> if c = '_' then ' ' else c) s
-          in
-          Ok (Font_bracket_family_quoted (inner, unquoted))
+          (* font-["arial_rounded"] → the decoded bracket text becomes the
+             literal font-family value, quotes and all; Tailwind never wraps it
+             in another layer of quoting. *)
+          let decoded = Parse.decode_underscores inner in
+          Ok (Font_bracket_family_quoted (inner, decoded))
         else if
           String.length inner >= 12 && String.sub inner 0 12 = "family-name:"
         then
@@ -827,9 +820,13 @@ module Typography_early = struct
     | "leading" :: (_ :: _ as rest)
       when is_theme_leading theme (String.concat "-" rest) ->
         Ok (Leading_theme (String.concat "-" rest))
-    | [ "leading"; n ] ->
-        (* Tailwind accepts any non-negative leading-N, derived from spacing. *)
-        Parse.int_pos ~name:"leading" n >|= fun i -> Leading i
+    | [ "leading"; n ] -> (
+        (* Tailwind accepts any non-negative leading-N (or a quarter-step
+           leading-N.M), derived from spacing. *)
+        match Parse.spacing_value ~name:"leading" n with
+        | Ok f when Float.is_integer f -> Ok (Leading (int_of_float f))
+        | Ok f -> Ok (Leading_step f)
+        | Error _ as e -> e)
     | [ "text"; part ] -> (
         match split_on_slash part with
         | Stdlib.Option.Some (base, lh_str) -> (
@@ -928,6 +925,8 @@ module Typography_early = struct
     | Leading_relaxed -> "leading-relaxed"
     | Leading_loose -> "leading-loose"
     | Leading n -> "leading-" ^ string_of_int n
+    | Leading_step f ->
+        "leading-" ^ Spacing.pp_spacing_suffix (`Rem (f *. 0.25))
     | Leading_var v -> "leading-[" ^ v ^ "]"
     | Leading_bracket (v, _) -> "leading-[" ^ v ^ "]"
     | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
@@ -1001,6 +1000,7 @@ module Typography_early = struct
     (* Leading comes third — numeric first, then arbitrary, then named
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
+    | Leading_step f -> 3000 + int_of_float (f *. 10.)
     | Leading_var _ -> 3100
     | Leading_bracket _ -> 3100
     | Leading_loose -> 3201
@@ -1228,14 +1228,17 @@ module Typography_early = struct
   let leading_relaxed = leading_with_theme_var leading_relaxed_var (Num 1.625)
   let leading_loose = leading_with_theme_var leading_loose_var (Num 2.0)
 
-  let leading ?theme n =
-    let name = "leading-" ^ string_of_int n in
+  (* Shared by the int base ([leading]) and its half-step sibling ([leading']):
+     [n] is the class number (spacing-scale multiplier), an integer or a
+     fractional quarter-step alike. *)
+  let leading_calc ?theme (n : float) =
+    let name = "leading-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25)) in
     match Scheme.theme_value theme name with
     | Some _ ->
         (* A theme overrides --leading-N: reference it like a named leading. *)
         let theme_var = Var.theme Css.Line_height name ~order:(6, 53) in
-        leading_with_theme_var theme_var (Rem (float_of_int n *. 0.25))
-    | None when n = 0 ->
+        leading_with_theme_var theme_var (Rem (n *. 0.25))
+    | None when n = 0.0 ->
         (* leading-0 is a literal 0, not calc(var(--spacing) * 0). *)
         let value : line_height = Num 0.0 in
         let channel_decl, _ = Var.binding leading_var value in
@@ -1252,17 +1255,17 @@ module Typography_early = struct
         in
         let spacing = Var.name Theme.spacing_var in
         let value : line_height =
-          if n = 1 then Css.Var (Var.theme_ref spacing)
-          else
-            Css.Calc
-              (Css.Calc.mul (Css.Calc.var spacing)
-                 (Css.Calc.float (float_of_int n)))
+          if n = 1.0 then Css.Var (Var.theme_ref spacing)
+          else Css.Calc (Css.Calc.mul (Css.Calc.var spacing) (Css.Calc.float n))
         in
         let channel_decl, _ = Var.binding leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ spacing_decl; channel_decl; line_height value ]
+
+  let leading ?theme n = leading_calc ?theme (float_of_int n)
+  let leading' ?theme n = leading_calc ?theme n
 
   (* The leading scale, published the same way. *)
   let () =
@@ -1425,6 +1428,7 @@ module Typography_early = struct
   let to_style theme =
     let leading_none () = leading_none ~theme () in
     let leading n = leading ~theme n in
+    let leading_step f = leading' ~theme f in
     function
     | Text_xs -> text_xs ()
     | Text_sm -> text_sm ()
@@ -1468,24 +1472,56 @@ module Typography_early = struct
           | Some rule -> rule
         in
         style ~property_rules [ weight_util_decl; font_weight (Var var_ref) ]
-    | Font_bracket_family_quoted (_, s) -> style [ font_family (Name s) ]
+    | Font_bracket_family_quoted (_, decoded) ->
+        let n = String.length decoded in
+        if n >= 2 && decoded.[0] = '"' && decoded.[n - 1] = '"' then
+          (* font-["arial_rounded"] → the decoded text is one quoted family
+             name; strip the quotes cascade's own printer adds back. *)
+          style [ font_family (Name (String.sub decoded 1 (n - 2))) ]
+        else
+          (* font-["liga"_0x10] → not a single quoted name. The decoded text
+             already carries its own quoting (a quoted string mixed with other
+             tokens); tokenize it and pass the tokens through rather than
+             wrapping the whole string in one more layer of quotes. *)
+          let tokens =
+            Css.Values.read_invalid_value (Cascade.Cursor.of_string decoded)
+          in
+          style [ font_family (Invalid tokens) ]
     | Font_bracket_family_name (_, s) ->
-        (* Parse known generic family names *)
+        (* Each comma segment is its own [<family-name>] (CSS Fonts 4 sec. 2.1),
+           so a generic keyword only matches a segment on its own, not the
+           bracket as a whole; [font-[Papyrus,fantasy]] is the two-entry stack
+           [Papyrus, fantasy], never the single literal name
+           ["Papyrus,fantasy"]. A quoted segment is always a custom-ident
+           literal, so it never resolves to a generic keyword either. *)
+        let family_of_entry entry : Css.font_family =
+          let entry = String.trim entry in
+          let n = String.length entry in
+          if
+            n >= 2
+            && (entry.[0] = '"' || entry.[0] = '\'')
+            && entry.[n - 1] = entry.[0]
+          then Css.Name (String.sub entry 1 (n - 2))
+          else
+            match entry with
+            | "ui-sans-serif" -> Css.Ui_sans_serif
+            | "ui-serif" -> Css.Ui_serif
+            | "ui-monospace" -> Css.Ui_monospace
+            | "ui-rounded" -> Css.Ui_rounded
+            | "sans-serif" -> Css.Sans_serif
+            | "serif" -> Css.Serif
+            | "monospace" -> Css.Monospace
+            | "cursive" -> Css.Cursive
+            | "fantasy" -> Css.Fantasy
+            | "system-ui" -> Css.System_ui
+            | "emoji" -> Css.Emoji
+            | "math" -> Css.Math
+            | name -> Css.Name name
+        in
         let family =
-          match s with
-          | "ui-sans-serif" -> Css.Ui_sans_serif
-          | "ui-serif" -> Css.Ui_serif
-          | "ui-monospace" -> Css.Ui_monospace
-          | "ui-rounded" -> Css.Ui_rounded
-          | "sans-serif" -> Css.Sans_serif
-          | "serif" -> Css.Serif
-          | "monospace" -> Css.Monospace
-          | "cursive" -> Css.Cursive
-          | "fantasy" -> Css.Fantasy
-          | "system-ui" -> Css.System_ui
-          | "emoji" -> Css.Emoji
-          | "math" -> Css.Math
-          | _ -> Css.Name s
+          match String.split_on_char ',' s with
+          | [ single ] -> family_of_entry single
+          | entries -> Css.List (List.map family_of_entry entries)
         in
         style [ font_family family ]
     | Font_bracket_family_var (_, var_str) ->
@@ -1539,6 +1575,7 @@ module Typography_early = struct
     | Leading_relaxed -> leading_relaxed
     | Leading_loose -> leading_loose
     | Leading n -> leading n
+    | Leading_step f -> leading_step f
     | Leading_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.line_height Css.var = Var.bracket bare_name in
@@ -2856,36 +2893,31 @@ module Typography_late = struct
         overflow Hidden;
       ]
 
+  (* A project [@theme] token is a namespace key, not a value Tailwind type-
+     checks at build time: any override of [--line-clamp-none], decimal or not,
+     switches the utility to the variable-driven form. Reading it with
+     [int_of_string_opt] let an OCaml-only spelling like [0x3] through by
+     accident and rejected a spelling like [banana] that Tailwind still honours,
+     so the branch no longer parses the value at all. *)
   let line_clamp_none_style ?theme () =
     match Scheme.theme_value theme "line-clamp-none" with
-    | Some value_str -> (
-        match int_of_string_opt value_str with
-        | Some n ->
-            let decl =
-              Css.custom_property ~layer:"theme" "--line-clamp-none"
-                (string_of_int n)
-            in
-            let ref : Css.webkit_line_clamp Css.var =
-              Var.theme_ref "line-clamp-none"
-                ~default:(Css.Unset : Css.webkit_line_clamp)
-                ~default_css:"unset"
-            in
-            style
-              [
-                decl;
-                webkit_line_clamp (Var ref);
-                webkit_box_orient Vertical;
-                display Webkit_box;
-                overflow Hidden;
-              ]
-        | None ->
-            style
-              [
-                webkit_line_clamp Unset;
-                webkit_box_orient Horizontal;
-                display Block;
-                overflow Visible;
-              ])
+    | Some value_str ->
+        let decl =
+          Css.custom_property ~layer:"theme" "--line-clamp-none" value_str
+        in
+        let ref : Css.webkit_line_clamp Css.var =
+          Var.theme_ref "line-clamp-none"
+            ~default:(Css.Unset : Css.webkit_line_clamp)
+            ~default_css:"unset"
+        in
+        style
+          [
+            decl;
+            webkit_line_clamp (Var ref);
+            webkit_box_orient Vertical;
+            display Webkit_box;
+            overflow Hidden;
+          ]
     | None ->
         style
           [
@@ -3401,6 +3433,7 @@ let leading_normal = utility_early Typography_early.Leading_normal
 let leading_relaxed = utility_early Typography_early.Leading_relaxed
 let leading_loose = utility_early Typography_early.Leading_loose
 let leading n = utility_early (Typography_early.Leading n)
+let leading' n = utility_early (Typography_early.Leading_step n)
 
 (* Late typography utilities - priority 24 *)
 let utility_late x = Utility.base (Typography_late.Self x)
@@ -3469,7 +3502,8 @@ let list_inside = utility_late Typography_late.List_inside
 let list_outside = utility_late Typography_late.List_outside
 let list_image_none = utility_late Typography_late.List_image_none
 let list_image_url url = utility_late (Typography_late.List_image_url url)
-let indent n = utility_late (Typography_late.Indent n)
+let indent' n = utility_late (Typography_late.Indent n)
+let indent n = indent' (float_of_int n)
 let line_clamp n = utility_late (Typography_late.Line_clamp n)
 let content_none = utility_late Typography_late.Content_none
 let content s = utility_late (Typography_late.Content s)

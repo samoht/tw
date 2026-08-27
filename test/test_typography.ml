@@ -134,6 +134,37 @@ let test_line_clamp () =
   check "line-clamp-0";
   check "line-clamp-3"
 
+(* A project [@theme] override of [--line-clamp-none] is a namespace key, not a
+   value Tailwind type-checks at build time: any override at all, decimal or
+   not, switches line-clamp-none to the variable-driven form. Reading the value
+   with [int_of_string_opt] read [0x3] as the integer 3 (an OCaml-only spelling)
+   yet rejected a non-numeric override like [banana], which Tailwind still
+   honours the same way. *)
+let test_line_clamp_none_theme_override () =
+  let css theme cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let hex =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "0x3") ]
+  in
+  let out = css hex "line-clamp-none" in
+  Alcotest.(check bool)
+    "a hex-looking override still drives the variable form" true
+    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
+       out);
+  Alcotest.(check bool)
+    "the theme layer keeps the override text as authored" true
+    (Astring.String.is_infix ~affix:"--line-clamp-none: 0x3" out);
+  let non_numeric =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "banana") ]
+  in
+  Alcotest.(check bool)
+    "a non-numeric override still drives the variable form, too" true
+    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
+       (css non_numeric "line-clamp-none"))
+
 let test_text_overflow_wrap () =
   check "text-ellipsis";
   check "overflow-ellipsis";
@@ -170,6 +201,12 @@ let test_text_indent () =
   check "-indent-8";
   check "indent-px";
   check "-indent-px"
+
+(* [indent'] takes a half-step float; the int base keeps emitting what it always
+   did. *)
+let test_text_indent_prime () =
+  check_typed_class "indent-0.5" (Tw.indent' 0.5);
+  check_typed_class "indent-4" (Tw.indent 4)
 
 let test_vertical_align () =
   check "align-baseline";
@@ -649,6 +686,16 @@ let test_numeric_leading_spacing () =
   has "leading-1" "line-height:var(--spacing)";
   has "leading-0" "line-height:0"
 
+(* [leading'] takes a half-step float, same convention as [p]/[p']; the int base
+   keeps emitting what it always did. *)
+let test_leading_prime () =
+  check_typed_class "leading-1.5" (Tw.leading' 1.5);
+  check_typed_class "leading-6" (Tw.leading 6);
+  let css = Tw.to_css [ Tw.leading' 1.5 ] |> Tw.Css.to_string ~minify:true in
+  Alcotest.(check bool)
+    "leading-1.5 -> calc(var(--spacing)*1.5)" true
+    (Astring.String.is_infix ~affix:"calc(var(--spacing)*1.5)" css)
+
 (* leading-none has no v4.3 theme token, so it inlines line-height: 1 rather
    than minting a --leading-none var. *)
 let test_leading_none_inline () =
@@ -754,6 +801,44 @@ let test_invalid_font_family () =
   accepted "font-[ui-sans-serif]";
   accepted "font-[var(--x)]";
   accepted "font-[600]"
+
+(* A quoted bracket font family carries its own quoting; Tailwind passes the
+   decoded text through rather than wrapping it in one more layer of quotes.
+   When the bracket mixes a quoted string with a trailing bare token
+   ([font-["liga"_0x10]]) the decoded text is not a single family name at all
+   (CSS Fonts 4 sec. 2.1 has no such shape); cascade's own reader marks it
+   [Invalid] and the printer drops the declaration, the same fate a browser
+   gives Tailwind's literal (spec-invalid) text, so the double-quoted mangling
+   must not appear either. *)
+let test_font_bracket_family_quoted () =
+  let css cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.Css.to_string (Tw.to_css ~base:false [ u ])
+  in
+  Alcotest.(check bool)
+    "a single quoted name keeps exactly one layer of quotes" true
+    (Astring.String.is_infix ~affix:{|font-family: "arial rounded"|}
+       (css {|font-["arial_rounded"]|}));
+  Alcotest.(check bool)
+    "a quoted string mixed with a bare token is never double-quoted" false
+    (Astring.String.is_infix ~affix:{|font-family: "\"liga\"|}
+       (css {|font-["liga"_0x10]|}))
+
+(* A comma-separated bracket family list ([font-[Papyrus,fantasy]]) is a
+   fallback stack, not one literal name: each comma segment is its own
+   [<family-name>], so a bare generic keyword among them (here [fantasy]) stays
+   an unquoted keyword rather than folding into one quoted string. *)
+let test_font_bracket_family_comma_list () =
+  let css cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "unquoted comma list, generic keyword kept bare" true
+    (Astring.String.is_infix ~affix:"font-family:Papyrus,fantasy"
+       (css "font-[Papyrus,fantasy]"))
 
 (* An arbitrary decoration thickness takes any CSS length unit, not just the px
    the hand-rolled suffix parser knew; the percentage form keeps its em
@@ -966,9 +1051,14 @@ let tests =
       test_decoration_shadeless_opacity;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "invalid font family" `Quick test_invalid_font_family;
+    test_case "font bracket family quoted" `Quick
+      test_font_bracket_family_quoted;
+    test_case "font bracket family comma list" `Quick
+      test_font_bracket_family_comma_list;
     test_case "font-features value" `Quick test_font_features_value;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
+    test_case "leading half-step" `Quick test_leading_prime;
     test_case "leading-none inline" `Quick test_leading_none_inline;
     test_case "text line-height override" `Quick test_text_line_height_override;
     test_case "font family" `Quick test_font_family;
@@ -981,11 +1071,14 @@ let tests =
     test_case "line height" `Quick test_line_height;
     test_case "letter spacing" `Quick test_letter_spacing;
     test_case "line clamp" `Quick test_line_clamp;
+    test_case "line-clamp-none theme override" `Quick
+      test_line_clamp_none_theme_override;
     test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
     test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
     test_case "hyphens" `Quick test_hyphens;
     test_case "list style" `Quick test_list_style;
     test_case "text indent" `Quick test_text_indent;
+    test_case "text indent half-step" `Quick test_text_indent_prime;
     test_case "vertical align" `Quick test_vertical_align;
     test_case "font stretch" `Quick test_font_stretch;
     test_case "numeric variants" `Quick test_numeric_variants;

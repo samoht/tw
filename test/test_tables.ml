@@ -5,9 +5,14 @@ let check_class = Test_helpers.check_class
 let basic_tables () =
   check_class "border-collapse" Tw.Tables.border_collapse;
   check_class "border-separate" Tw.Tables.border_separate;
-  check_class "border-spacing-2" (Tw.Tables.border_spacing 2.);
+  check_class "border-spacing-2" (Tw.Tables.border_spacing 2);
   check_class "table-auto" Tw.Tables.table_auto;
   check_class "table-fixed" Tw.Tables.table_fixed
+
+(* [border_spacing'] is the half-step sibling of [border_spacing]: same
+   underlying value, a fractional multiplier instead of an integer one. *)
+let border_spacing_prime () =
+  check_class "border-spacing-0.5" (Tw.Tables.border_spacing' 0.5)
 
 (* An arbitrary border-spacing is read with the whole CSS length grammar and
    spelled in the class name the way the author wrote it. Reading only px left
@@ -53,6 +58,7 @@ let invalid_border_spacing () =
 let tests =
   [
     test_case "basic tables" `Quick basic_tables;
+    test_case "border-spacing half-step" `Quick border_spacing_prime;
     test_case "arbitrary border-spacing" `Quick arbitrary_border_spacing;
     test_case "invalid border-spacing" `Quick invalid_border_spacing;
   ]

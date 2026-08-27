@@ -282,11 +282,14 @@ let utility x = Utility.base (Self x)
 
 let border_collapse = utility Border_collapse
 let border_separate = utility Border_separate
-let border_spacing n = utility (Border_spacing n)
+let border_spacing' n = utility (Border_spacing n)
+let border_spacing n = border_spacing' (float_of_int n)
 let border_spacing_x n = utility (Border_spacing_x n)
 let border_spacing_y n = utility (Border_spacing_y n)
 
-(* Note: n is now a float multiplier, e.g., 4.0 for border-spacing-4 *)
+(* Note: the axis variants' [n] is still a float multiplier, e.g., 4.0 for
+   border-spacing-x-4; only the combined [border_spacing] is exposed through
+   [Tw], so only it follows the int/prime-float convention. *)
 let table_auto = utility Table_auto
 let table_fixed = utility Table_fixed
 let caption_top = utility Caption_top

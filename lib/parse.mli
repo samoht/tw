@@ -5,11 +5,6 @@
     results. All functions return [result] with [`Msg] error messages instead of
     raising. *)
 
-val has_prefix : prefix:string -> string -> bool
-(** [has_prefix ~prefix s] is [true] when [s] starts with [prefix]. Like
-    [String.starts_with] but allocation-free (no per-call closure), for hot
-    prefix tests in ordering. *)
-
 val decimal_int : string -> int option
 (** [decimal_int s] reads the canonical plain-decimal spelling of an integer.
     OCaml-only forms such as [0x10] and [1_0], and redundant leading zeroes, are
@@ -123,3 +118,11 @@ val split_class : string -> string list
 (** [split_class class_name] splits a class name on ['-'] but treats ['[...]']
     and ['(...)'] as atomic, so brackets and parentheses containing dashes are
     preserved. E.g. ["m-[var(--value)]"] becomes [["m"; "[var(--value)]"]]. *)
+
+val split_on_colon : string -> string list
+(** [split_on_colon s] splits a variant chain on [':'] but treats ['[...]'] and
+    ['(...)'] as atomic, so a colon inside an arbitrary value or a shorthand var
+    reference (e.g. ["hover:bg-[color:var(--x)]"]) is not read as a variant
+    separator. Always yields (colon count + 1) tokens: e.g. ["hover:focus:p-4"]
+    becomes [["hover"; "focus"; "p-4"]], and a string with no unbracketed colon
+    becomes a single-element list. *)

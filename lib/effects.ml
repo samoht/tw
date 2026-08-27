@@ -270,7 +270,7 @@ module Handler = struct
   let ring_offset_width_var =
     Var.property_default Css.Length
       ~initial:(Zero : Css.length)
-      ~initial_css:"0px" ~property_order:18 ~family:`Ring "tw-ring-offset-width"
+      ~property_order:18 ~family:`Ring "tw-ring-offset-width"
 
   let ring_offset_color_var =
     Var.property_default Css.Color ~initial:(Css.hex "#fff") ~universal:true
@@ -311,14 +311,17 @@ module Handler = struct
 
   let shorten_hex = Color.shorten_hex_str
 
-  let shadow_alpha_decl percent =
-    Css.custom_property ~layer:"utilities" "--tw-shadow-alpha"
-      (pp_float percent ^ "%")
-
+  (* A bracket alpha with no [%] records the author's own number, unscaled and
+     without a unit, which is what Tailwind writes: [shadow-lg/[25]] gives
+     [--tw-shadow-alpha: 25]. Every other spelling stays a percentage. The alpha
+     the shadow actually paints with is computed separately. *)
   let opacity_css_value opacity =
     match Color.opacity_var_bare_of opacity with
     | Some name -> "var(--" ^ name ^ ")"
-    | None -> pp_float (Color.opacity_to_percent opacity) ^ "%"
+    | None -> (
+        match opacity with
+        | Color.Opacity_arbitrary n -> pp_float n.value
+        | _ -> pp_float (Color.opacity_to_percent opacity) ^ "%")
 
   let shadow_opacity_decl opacity =
     Css.custom_property ~layer:"utilities" "--tw-shadow-alpha"
@@ -476,12 +479,11 @@ module Handler = struct
       [ d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_shape_opacity_style shape opacity =
-    let percent = Color.opacity_to_percent opacity in
     let d_shadow, v_shadow =
       Var.binding shadow_var (shape_shadow_opacity_value shape opacity)
     in
     style ~property_rules:shadow_property_rules
-      [ shadow_alpha_decl percent; d_shadow; box_shadow_composition v_shadow ]
+      [ shadow_opacity_decl opacity; d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_2xs = shadow_shape_style Two_xs
   let shadow_xs = shadow_shape_style Xs
@@ -1081,10 +1083,6 @@ module Handler = struct
 
   (* ============ Inset shadow helpers ============ *)
 
-  let inset_shadow_alpha_decl percent =
-    Css.custom_property ~layer:"utilities" "--tw-inset-shadow-alpha"
-      (pp_float percent ^ "%")
-
   let inset_shadow_opacity_decl opacity =
     Css.custom_property ~layer:"utilities" "--tw-inset-shadow-alpha"
       (opacity_css_value opacity)
@@ -1184,7 +1182,7 @@ module Handler = struct
     in
     style ~property_rules:shadow_property_rules
       [
-        inset_shadow_alpha_decl percent;
+        inset_shadow_opacity_decl opacity;
         d_inset_shadow;
         inset_box_shadow_composition v_inset_shadow;
       ]
@@ -1551,8 +1549,8 @@ module Handler = struct
            "tw-ring-color")
     in
     let ring_shadow_value =
-      Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-        ~blur:Zero ~spread ~color ()
+      Css.shadow ~inset_var:(Var.name ring_inset_var) ~h_offset:Zero
+        ~v_offset:Zero ~blur:Zero ~spread ~color ()
     in
     let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
 
@@ -1719,9 +1717,9 @@ module Handler = struct
     let d_width, width_ref = Var.binding ring_offset_width_var width_value in
     let color_ref = Var.reference ring_offset_color_var in
     let shadow_value =
-      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
-        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
-        ()
+      Css.shadow ~inset:false ~inset_var:(Var.name ring_inset_var)
+        ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
+        ~color:(Var color_ref) ()
     in
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
@@ -1836,9 +1834,9 @@ module Handler = struct
     let d_width, width_ref = Var.binding ring_offset_width_var width_value in
     let color_ref = Var.reference ring_offset_color_var in
     let shadow_value =
-      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
-        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
-        ()
+      Css.shadow ~inset:false ~inset_var:(Var.name ring_inset_var)
+        ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
+        ~color:(Var color_ref) ()
     in
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
@@ -2311,8 +2309,8 @@ module Handler = struct
                "tw-ring-color")
         in
         let ring_shadow_value =
-          Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-            ~blur:Zero ~spread ~color ()
+          Css.shadow ~inset_var:(Var.name ring_inset_var) ~h_offset:Zero
+            ~v_offset:Zero ~blur:Zero ~spread ~color ()
         in
         let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
         let v_inset = Var.reference inset_shadow_var in

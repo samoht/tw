@@ -10,9 +10,6 @@
 open Cascade
 open Utility
 
-type size =
-  [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
-
 val order : base -> (int * int) option
 (** [order u] returns the priority and suborder for sizing utilities. *)
 
@@ -20,11 +17,11 @@ module Handler : Utility.Handler
 
 (** {1 Width Utilities} *)
 
-val w' : size -> t
-(** [w' sz] sets width to predefined size [sz] (e.g., [`Sm], [`Full]). *)
-
 val w : int -> t
 (** [w n] sets width using spacing scale (n * 0.25rem). *)
+
+val w' : float -> t
+(** [w' n] is {!w} for a half-step scale value (e.g. [w' 0.5] for [w-0.5]). *)
 
 val w_auto : t
 (** [w_auto] sets width to auto. *)
@@ -71,11 +68,11 @@ val w_3_5 : t
 val w_4_5 : t
 (** [w_4_5] sets width to 4/5. *)
 
-val h' : size -> t
-(** [h' sz] sets height to predefined size [sz]. *)
-
 val h : int -> t
 (** [h n] sets height using spacing scale (n * 0.25rem). *)
+
+val h' : float -> t
+(** [h' n] is {!h} for a half-step scale value. *)
 
 val h_auto : t
 (** [h_auto] sets height to auto. *)
@@ -122,11 +119,11 @@ val h_3_5 : t
 val h_4_5 : t
 (** [h_4_5] sets height to 4/5. *)
 
-val min_w' : size -> t
-(** [min_w' sz] sets min-width to predefined size [sz]. *)
-
 val min_w : int -> t
 (** [min_w n] sets min-width using spacing scale. *)
+
+val min_w' : float -> t
+(** [min_w' n] is {!min_w} for a half-step scale value. *)
 
 val min_w_0 : t
 (** [min_w_0] sets min-width to 0. *)
@@ -143,11 +140,11 @@ val min_w_max : t
 val min_w_fit : t
 (** [min_w_fit] sets min-width to fit-content. *)
 
-val max_w' : size -> t
-(** [max_w' sz] sets max-width to predefined size [sz]. *)
-
 val max_w : int -> t
 (** [max_w n] sets max-width using spacing scale. *)
+
+val max_w' : float -> t
+(** [max_w' n] is {!max_w} for a half-step scale value. *)
 
 val max_w_none : t
 (** [max_w_none] removes the max-width constraint. *)
@@ -215,11 +212,11 @@ val max_w_screen_xl : t
 val max_w_screen_2xl : t
 (** [max_w_screen_2xl] sets max-width to 2× extra-large breakpoint width. *)
 
-val min_h' : size -> t
-(** [min_h' sz] sets min-height to predefined size [sz]. *)
-
 val min_h : int -> t
 (** [min_h n] sets min-height using spacing scale. *)
+
+val min_h' : float -> t
+(** [min_h' n] is {!min_h} for a half-step scale value. *)
 
 val min_h_0 : t
 (** [min_h_0] sets min-height to 0. *)
@@ -239,11 +236,11 @@ val min_h_max : t
 val min_h_fit : t
 (** [min_h_fit] sets min-height to fit-content. *)
 
-val max_h' : size -> t
-(** [max_h' sz] sets max-height to predefined size [sz]. *)
-
 val max_h : int -> t
 (** [max_h n] sets max-height using spacing scale. *)
+
+val max_h' : float -> t
+(** [max_h' n] is {!max_h} for a half-step scale value. *)
 
 val max_h_none : t
 (** [max_h_none] removes the max-height constraint. *)
@@ -268,6 +265,9 @@ val max_h_fit : t
 val size : int -> t
 (** [size n] sets both width and height using spacing scale (n * 0.25rem).
     Equivalent to combining [w n] and [h n]. *)
+
+val size' : float -> t
+(** [size' n] is {!size} for a half-step scale value. *)
 
 val size_auto : t
 (** [size_auto] sets both width and height to auto. *)

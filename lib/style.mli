@@ -209,7 +209,12 @@ type modifier =
   | Any_pointer_coarse
   | Any_pointer_fine
   | Noscript
-  | Supports of string
+  | Supports_property of string
+      (** [supports-<property>]: the bare property name, tested against
+          [var(--tw)] the way Tailwind's shorthand does. *)
+  | Supports_condition of string
+      (** [supports-[condition]]: the raw bracket text, parsed as a CSS
+          [\@supports] condition. *)
   | Group_hocus
   | Peer_hocus
   | Custom_responsive of string

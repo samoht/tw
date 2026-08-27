@@ -10,7 +10,15 @@ type layer = Theme | Utility
 (* Registry for custom properties-layer initial CSS values. Some variables need
    a different string in the properties layer than what pp_length produces
    (e.g., ring-offset-width needs "0px" in properties but "0" in @property). *)
-let properties_layer_overrides : (string, string) Hashtbl.t = Hashtbl.create 8
+(* The properties layer and the [@property] rule want different spellings of one
+   registered zero, and Tailwind emits both: [--tw-ring-offset-width: 0px] in
+   the layer, [initial-value: 0] in the rule. The layer's spelling is stated
+   here rather than carried on the variable, because the layer is built from
+   parsed [@property] statements whose only handle is the name. A total
+   function, so nothing depends on definition order. *)
+let properties_layer_override = function
+  | "--tw-ring-offset-width" -> Some "0px"
+  | _ -> None
 
 (* Variable definition - the main currency *)
 type 'a property_info = {
@@ -335,11 +343,8 @@ let theme kind ?runtime name ~order =
     ~layer:Theme
 
 let property_default kind ~initial ?(inherits = false) ?(universal = false)
-    ?initial_css ?property_order ?family name =
+    ?property_order ?family name =
   let property = property_info ~initial ~inherits ~universal () in
-  (match initial_css with
-  | Some css -> Hashtbl.replace properties_layer_overrides ("--" ^ name) css
-  | None -> ());
   v kind ~property ?property_order ?family ~role:Property_default name
     ~layer:Utility
 
@@ -535,7 +540,7 @@ let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
 (* Convert Property_info to the string value for properties layer This extracts
    the initial value and converts it to the appropriate CSS string *)
 let property_info_to_declaration_value (Css.Property_info info) =
-  match Hashtbl.find_opt properties_layer_overrides info.name with
+  match properties_layer_override info.name with
   | Some css -> css
   | None -> (
       match info.initial_value with
@@ -592,7 +597,7 @@ let bracket ?fallback name =
     | Some _ -> None
     | None ->
         let expression =
-          if Parse.has_prefix ~prefix:"var(" name then Some name
+          if String.starts_with ~prefix:"var(" name then Some name
           else if String.contains name ',' then Some ("var(--" ^ name ^ ")")
           else None
         in

@@ -115,6 +115,25 @@ let class_order_matches_tailwind () =
        (fun c -> Astring.String.is_prefix ~affix:"divide-" c)
        divide_classes)
 
+(* [divide-x-reverse] sorts last in Tailwind's sheet, after every border and
+   even after unrelated utilities, while [divide-y-reverse] stays with the
+   divide family. tw gave the whole family one priority, so both came first. The
+   rule only sets [--tw-divide-x-reverse], so the reorder is cascade-neutral and
+   the canonical differ passes it; reading the emitted positions is what sees
+   it. *)
+let reverse_class_order_matches_tailwind () =
+  Test_helpers.check_class_order
+    ~test_name:"divide-x-reverse sorts after the border family"
+    [
+      "divide-x-reverse";
+      "divide-y-reverse";
+      "divide-x-2";
+      "border-2";
+      "border-gray-500";
+      "rounded-lg";
+      "p-4";
+    ]
+
 (* divide-* and border-* write the same border properties, so what an element is
    actually bordered with is a rendering question, not only an ordering one. *)
 let rendering_matches_tailwind () =
@@ -166,6 +185,8 @@ let tests =
       Alcotest.test_case "typed arbitrary width" `Quick
         test_typed_arbitrary_width;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
+      Alcotest.test_case "reverse class order matches Tailwind" `Slow
+        reverse_class_order_matches_tailwind;
       Alcotest.test_case "class order matches Tailwind" `Slow
         class_order_matches_tailwind;
       Alcotest.test_case "renders like Tailwind" `Slow

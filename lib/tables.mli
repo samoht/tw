@@ -14,10 +14,13 @@ val border_collapse : t
 val border_separate : t
 (** [border_separate] separates table borders. *)
 
-val border_spacing : float -> t
+val border_spacing : int -> t
 (** [border_spacing n] sets uniform table border-spacing using CSS variables.
-    [n] is the spacing multiplier (e.g., 4.0 for border-spacing-4, 0.5 for
-    border-spacing-0.5). *)
+    [n] is the spacing multiplier (e.g., 4 for border-spacing-4). *)
+
+val border_spacing' : float -> t
+(** [border_spacing' n] is {!border_spacing} for a half-step scale value (e.g.
+    [border_spacing' 0.5] for [border-spacing-0.5]). *)
 
 val border_spacing_x : float -> t
 (** [border_spacing_x n] sets horizontal table border-spacing. [n] is the

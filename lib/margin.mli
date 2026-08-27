@@ -9,23 +9,44 @@ open Utility
 val m : int -> t
 (** [m n] creates margin on all sides (supports negative values). *)
 
+val m' : float -> t
+(** [m' n] is {!m} for a half-step scale value (e.g. [m' 0.5] for [m-0.5]). *)
+
 val mx : int -> t
 (** [mx n] creates horizontal margin (supports negative values). *)
+
+val mx' : float -> t
+(** [mx' n] is {!mx} for a half-step scale value. *)
 
 val my : int -> t
 (** [my n] creates vertical margin (supports negative values). *)
 
+val my' : float -> t
+(** [my' n] is {!my} for a half-step scale value. *)
+
 val mt : int -> t
 (** [mt n] creates top margin (supports negative values). *)
+
+val mt' : float -> t
+(** [mt' n] is {!mt} for a half-step scale value. *)
 
 val mr : int -> t
 (** [mr n] creates right margin (supports negative values). *)
 
+val mr' : float -> t
+(** [mr' n] is {!mr} for a half-step scale value. *)
+
 val mb : int -> t
 (** [mb n] creates bottom margin (supports negative values). *)
 
+val mb' : float -> t
+(** [mb' n] is {!mb} for a half-step scale value. *)
+
 val ml : int -> t
 (** [ml n] creates left margin (supports negative values). *)
+
+val ml' : float -> t
+(** [ml' n] is {!ml} for a half-step scale value. *)
 
 (** {1 Special Values} *)
 

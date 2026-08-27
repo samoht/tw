@@ -83,9 +83,13 @@ type indexed_rule = {
 (* Debug *)
 (* ======================================================================== *)
 
-let debug_compare = ref false
-let set_debug_compare b = debug_compare := b
-let debug_compare_enabled () = !debug_compare
+(* The comparator's tracing, driven by [TW_DEBUG_SORT]. Nothing called the
+   setter this used to expose, so the flag was always false and every trace
+   below it was unreachable in any build - the diagnostic that sort work most
+   wants was dead. An environment variable makes it usable without a recompile
+   and without an API nobody calls. *)
+let debug_compare = Sys.getenv_opt "TW_DEBUG_SORT" <> None
+let debug_compare_enabled () = debug_compare
 
 (* ======================================================================== *)
 (* Selector Classification *)
@@ -752,7 +756,7 @@ let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
   let kind1 = r1.selector_kind in
   let kind2 = r2.selector_kind in
-  if !debug_compare then (
+  if debug_compare then (
     let sel1 = r1.selector_str in
     let sel2 = r2.selector_str in
     let kind_str = function
@@ -811,7 +815,7 @@ let compare_cross_utility_regular r1 r2 =
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
   let rel = rule_relationship r1 r2 in
-  if !debug_compare then
+  if debug_compare then
     prerr_string
       (String.concat ""
          [
@@ -843,9 +847,9 @@ let compare_by_base_class r1 r2 =
   if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
 
 let supports_suffix s =
-  if String.length s > 9 && String.sub s 0 9 = "supports-" then
+  if String.starts_with ~prefix:"supports-" s then
     Some (String.sub s 9 (String.length s - 9))
-  else if String.length s > 13 && String.sub s 0 13 = "not-supports-" then
+  else if String.starts_with ~prefix:"not-supports-" s then
     Some (String.sub s 13 (String.length s - 13))
   else None
 
@@ -906,55 +910,11 @@ let variant_prefix = function
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
 let strip_group_peer_vo p =
-  if Parse.has_prefix ~prefix:"group-" p then
+  if String.starts_with ~prefix:"group-" p then
     Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
-  else if Parse.has_prefix ~prefix:"peer-" p then
+  else if String.starts_with ~prefix:"peer-" p then
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
-
-(* Find the first ':' in a string that is not inside brackets. Returns None if
-   all colons are inside bracket pairs. *)
-let index_colon_outside_brackets s =
-  let len = String.length s in
-  let rec loop i depth =
-    if i >= len then None
-    else
-      match s.[i] with
-      | '[' -> loop (i + 1) (depth + 1)
-      | ']' -> loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 -> Some i
-      | _ -> loop (i + 1) depth
-  in
-  loop 0 0
-
-(* Split a string on ':' but respecting bracket nesting, so colons inside [...]
-   are not treated as separators. *)
-let split_on_colon_outside_brackets s =
-  let len = String.length s in
-  let buf = Buffer.create 16 in
-  let acc = ref [] in
-  let rec loop i depth =
-    if i >= len then (
-      let last = Buffer.contents buf in
-      if last <> "" then acc := last :: !acc;
-      List.rev !acc)
-    else
-      match s.[i] with
-      | '[' ->
-          Buffer.add_char buf '[';
-          loop (i + 1) (depth + 1)
-      | ']' ->
-          Buffer.add_char buf ']';
-          loop (i + 1) (max 0 (depth - 1))
-      | ':' when depth = 0 ->
-          acc := Buffer.contents buf :: !acc;
-          Buffer.clear buf;
-          loop (i + 1) depth
-      | c ->
-          Buffer.add_char buf c;
-          loop (i + 1) depth
-  in
-  loop 0 0
 
 (* What Tailwind sorts a container variant on. It reads the value off the class
    rather than the width that value resolves to, and keys it by the unit -- or,
@@ -988,8 +948,8 @@ let container_value_of_token token =
     let body = String.sub token 1 (n - 1) in
     let body =
       if
-        Parse.has_prefix ~prefix:"min-" body
-        || Parse.has_prefix ~prefix:"max-" body
+        String.starts_with ~prefix:"min-" body
+        || String.starts_with ~prefix:"max-" body
       then String.sub body 4 (String.length body - 4)
       else body
     in
@@ -1005,8 +965,7 @@ let container_value_of_token token =
     else Some { name = "rem"; call = false; text = body }
 
 let container_value_of_prefix prefix =
-  List.find_map container_value_of_token
-    (split_on_colon_outside_brackets prefix)
+  List.find_map container_value_of_token (Parse.split_on_colon prefix)
 
 (* Only a call keys on a name the resolved length cannot carry, so every other
    pair keeps the length key, which already orders the way Tailwind does. *)
@@ -1022,27 +981,24 @@ let compare_container_values r1 r2 p1 p2 =
 
 (* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
-  match index_colon_outside_brackets prefix with
-  | Some j ->
-      let outer = String.sub prefix 0 j in
-      if
-        Parse.has_prefix ~prefix:"group-" outer
-        || Parse.has_prefix ~prefix:"peer-" outer
-      then
-        let parts = split_on_colon_outside_brackets prefix in
-        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
-        + 1
-      else
-        let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
-        Modifiers.variant_order_of_prefix inner
-  | None ->
-      if Parse.has_prefix ~prefix:"group-" prefix then
+  match Parse.split_on_colon prefix with
+  | [] -> 0
+  | [ _ ] ->
+      if String.starts_with ~prefix:"group-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 6 (String.length prefix - 6))
-      else if Parse.has_prefix ~prefix:"peer-" prefix then
+      else if String.starts_with ~prefix:"peer-" prefix then
         Modifiers.variant_order_of_prefix
           (String.sub prefix 5 (String.length prefix - 5))
       else 0
+  | outer :: _ :: _ as parts ->
+      if
+        String.starts_with ~prefix:"group-" outer
+        || String.starts_with ~prefix:"peer-" outer
+      then
+        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
+        + 1
+      else Modifiers.variant_order_of_prefix (String.concat ":" (List.tl parts))
 
 (* Effective inner variant order: prefer prefix-derived, fall back to nested
    media *)
@@ -1072,8 +1028,8 @@ let token_order_key token =
   let primary = Modifiers.variant_order_of_prefix token in
   let secondary =
     if
-      Parse.has_prefix ~prefix:"group-" token
-      || Parse.has_prefix ~prefix:"peer-" token
+      String.starts_with ~prefix:"group-" token
+      || String.starts_with ~prefix:"peer-" token
     then strip_group_peer_vo token
     else 0
   in
@@ -1268,7 +1224,7 @@ let compare_supports_rules r1 r2 =
     rule_type. This is the main entry point for sorting assembled CSS rules into
     Tailwind v4 cascade order. *)
 let compare_indexed_rules r1 r2 =
-  (if !debug_compare then
+  (if debug_compare then
      let rule_type_str = function
        | `Regular -> "R"
        | `Media _ -> "M"

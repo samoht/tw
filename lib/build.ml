@@ -14,33 +14,10 @@ open Output
     name. Modifier prefixes come before the utility name. Colons inside bracket
     values (e.g., [family-name:var(...)]) are not modifier separators. *)
 let extract_base_utility class_name_no_pseudo =
-  let len = String.length class_name_no_pseudo in
-  (* Find the last colon that is NOT inside brackets or parens *)
-  let rec find_last_colon i bracket_depth paren_depth last_colon =
-    if i >= len then last_colon
-    else
-      match class_name_no_pseudo.[i] with
-      | '[' ->
-          find_last_colon (i + 1) (bracket_depth + 1) paren_depth last_colon
-      | ']' ->
-          find_last_colon (i + 1)
-            (max 0 (bracket_depth - 1))
-            paren_depth last_colon
-      | '(' ->
-          find_last_colon (i + 1) bracket_depth (paren_depth + 1) last_colon
-      | ')' ->
-          find_last_colon (i + 1) bracket_depth
-            (max 0 (paren_depth - 1))
-            last_colon
-      | ':' when bracket_depth = 0 && paren_depth = 0 ->
-          find_last_colon (i + 1) bracket_depth paren_depth (Some i)
-      | _ -> find_last_colon (i + 1) bracket_depth paren_depth last_colon
-  in
   let base =
-    match find_last_colon 0 0 0 None with
-    | Some colon_pos ->
-        String.sub class_name_no_pseudo (colon_pos + 1) (len - colon_pos - 1)
-    | None -> class_name_no_pseudo
+    match List.rev (Parse.split_on_colon class_name_no_pseudo) with
+    | last :: _ -> last
+    | [] -> class_name_no_pseudo
   in
   (* Strip a leading [!] important marker so [!flex] orders like [flex] rather
      than failing to parse and falling to the default (last) order. *)
@@ -322,8 +299,8 @@ let deduplicate_typed_triples triples =
    Tailwind v4, where pseudo-elements appear late). *)
 let adjust_pseudo class_name (prio, suborder) =
   if
-    Parse.has_prefix ~prefix:"before:" class_name
-    || Parse.has_prefix ~prefix:"after:" class_name
+    String.starts_with ~prefix:"before:" class_name
+    || String.starts_with ~prefix:"after:" class_name
   then (prio, suborder + 5000)
   else (prio, suborder)
 
@@ -702,9 +679,34 @@ let priority_seven_namespace = function
       else 5
   | None -> 5
 
+(* The position of a theme token within the project's [@theme] declaration list,
+   keyed by its bare name. [Scheme.token_overrides] preserves the source order
+   the CSS entrypoint (or [Scheme.with_overrides] caller) declared them in. *)
+let declared_index theme =
+  List.mapi (fun i (name, _) -> (name, i)) theme.Scheme.token_overrides
+
+(* [declared] is the bare-name -> declaration-index table [declared_index]
+   built; strips the leading [--] a custom declaration's name carries before
+   looking it up. *)
+let declared_order declared name =
+  match name with
+  | None -> None
+  | Some full ->
+      let bare =
+        if String.length full > 2 && String.sub full 0 2 = "--" then
+          String.sub full 2 (String.length full - 2)
+        else full
+      in
+      List.assoc_opt bare declared
+
 (* Sort declarations by their Var order metadata, namespace at a shared slot,
-   then alphabetical fallback. *)
-let sort_by_var_order decls =
+   declaration order within that slot, then alphabetical fallback. A project-
+   named family (--font-<name>, --text-<name>, --leading-<name>, ...) funnels
+   every member into one shared (priority, suborder) slot (see [Var.mli]), so
+   two project tokens tie there; Tailwind keeps the order the [@theme] block
+   wrote them in rather than sorting by name. *)
+let sort_by_var_order ~theme decls =
+  let declared = declared_index theme in
   decls
   |> List.map (fun d ->
       let name = Css.custom_declaration_name d in
@@ -713,8 +715,8 @@ let sort_by_var_order decls =
         | Some _ as order -> order
         | None -> Option.bind name Var.order
       in
-      (d, order, name))
-  |> List.sort (fun (_, a, na) (_, b, nb) ->
+      (d, order, name, declared_order declared name))
+  |> List.sort (fun (_, a, na, ia) (_, b, nb, ib) ->
       let c = compare_orders a b in
       if c <> 0 then c
       else
@@ -726,8 +728,12 @@ let sort_by_var_order decls =
                 (priority_seven_namespace nb)
           | _ -> 0
         in
-        if namespace_cmp <> 0 then namespace_cmp else compare na nb)
-  |> List.map (fun (d, _, _) -> d)
+        if namespace_cmp <> 0 then namespace_cmp
+        else
+          match (ia, ib) with
+          | Some ia, Some ib -> Int.compare ia ib
+          | _ -> compare na nb)
+  |> List.map (fun (d, _, _, _) -> d)
 
 (* Build theme layer rule from declarations *)
 let theme_layer_rule ~layers = function
@@ -871,11 +877,11 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
   |> List.map (inline_default_family theme)
-  |> sort_by_var_order |> theme_layer_rule ~layers
+  |> sort_by_var_order ~theme |> theme_layer_rule ~layers
 
-let theme_layer_of ?(default_decls = []) tw_classes =
+let theme_layer_of ?theme ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
-  theme_layer_of_props ~default_decls selector_props
+  theme_layer_of_props ?theme ~default_decls selector_props
 
 let placeholder_supports =
   let placeholder = Css.Selector.Placeholder in
@@ -1086,7 +1092,12 @@ let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
         compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2
           po1 po2 fam1 fam2
 
-let sort_properties_by_order first_usage_order initial_values =
+(* Shared by [sort_properties_by_order] (the @layer properties initial values)
+   and [sort_property_rules_by_usage] (the @property rules): the two MUST sort
+   variable names in lockstep, since one produces the initial-value order and
+   the other the @property emission order for the same variables, and a mismatch
+   would emit a properties layer that contradicts its own @property rules. *)
+let property_var_comparator first_usage_order =
   let family_order = family_order first_usage_order in
   let get_family_order name =
     match Var.family name with
@@ -1101,14 +1112,17 @@ let sort_properties_by_order first_usage_order initial_values =
     | Some idx -> idx
     | None -> 10000
   in
-  let cmp (n1, _) (n2, _) =
+  fun n1 n2 ->
     let fam1 = Var.family n1 in
     let fam2 = Var.family n2 in
     let po1 = property_order_from n1 in
     let po2 = property_order_from n2 in
     compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
       fam2
-  in
+
+let sort_properties_by_order first_usage_order initial_values =
+  let cmp_name = property_var_comparator first_usage_order in
+  let cmp (n1, _) (n2, _) = cmp_name n1 n2 in
   List.sort cmp initial_values
 
 (* Build property layer content with browser detection *)
@@ -1239,28 +1253,13 @@ let layer_declaration ~has_properties ~include_base =
    order determines @property order). Falls back to family order then
    property_order for cross-family sorting. *)
 let sort_property_rules_by_usage first_usage_order property_rules_for_end =
-  let family_order = family_order first_usage_order in
-  let get_family_order name =
-    match Var.family name with
-    | Some fam -> (
-        match Hashtbl.find_opt family_order fam with
-        | Some o -> o
-        | None -> 1000)
-    | None -> 1000
-  in
-  let get_first_usage name =
-    match Hashtbl.find_opt first_usage_order name with
-    | Some idx -> idx
-    | None -> 10000
-  in
+  let cmp_name = property_var_comparator first_usage_order in
   property_rules_for_end
   |> List.sort (fun s1 s2 ->
       match (Css.as_property s1, Css.as_property s2) with
       | ( Some (Css.Property_info { name = n1; _ }),
           Some (Css.Property_info { name = n2; _ }) ) ->
-          compare_property_vars ~get_family_order ~get_first_usage n1 n2
-            (property_order_from n1) (property_order_from n2) (Var.family n1)
-            (Var.family n2)
+          cmp_name n1 n2
       | _ -> 0)
 
 (** Deduplicate keyframes by name, keeping first occurrence, then convert to CSS
