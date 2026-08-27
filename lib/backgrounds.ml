@@ -1744,15 +1744,18 @@ module Handler = struct
     (* -bg-linear-[value] - negated bracket linear gradient (only angles) *)
     | [ ""; "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        (* Only accept angle values for negation: 125deg, 1.3rad, etc. *)
+        (* Only accept angle values for negation: 125deg, 1.3rad, 100grad, etc.
+           A [String.ends_with ~suffix:"rad"] check also matches "grad" (which
+           ends in "rad" too), stripping "100grad" down to "100g" and rejecting
+           it outright where Tailwind accepts it; reading it as a real CSS angle
+           tells "grad" and "rad" apart. *)
         let is_angle =
-          String.ends_with ~suffix:"deg" inner
-          && float_of_string_opt (String.sub inner 0 (String.length inner - 3))
-             <> None
-          || String.ends_with ~suffix:"rad" inner
-             && float_of_string_opt
-                  (String.sub inner 0 (String.length inner - 3))
-                <> None
+          match
+            Cascade.Cursor.try_parse_full_err Css.Values.read_angle
+              (Cascade.Cursor.of_string (Parse.decode_underscores inner))
+          with
+          | Ok _ -> true
+          | Error _ -> false
         in
         if is_angle then Ok (Bg_linear_bracket_neg inner)
         else Error (`Msg ("Invalid -bg-linear bracket value: " ^ inner))
