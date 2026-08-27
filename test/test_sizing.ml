@@ -467,6 +467,25 @@ let test_named_size_prefers_spacing () =
         (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css))
     [ "w-sm"; "min-w-sm"; "max-w-sm" ]
 
+(* [aspect-[<w>/<h>]] names its class after the bracket, so the ratio has to
+   come back out spelled as the author wrote it rather than re-printed. *)
+let test_arbitrary_aspect_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [ "aspect-[16/9]"; "aspect-[16.50/9]"; "aspect-[1.333]"; "aspect-16/9" ]
+
+(* The bracket holds a ratio or a number, so a word is not an aspect. *)
+let test_arbitrary_aspect_rejects_non_ratio () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [ "aspect-[abc]"; "aspect-[16/abc]"; "aspect-[]" ]
+
 let tests =
   [
     test_case "named size prefers --spacing-*" `Quick
@@ -493,6 +512,9 @@ let tests =
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
+    test_case "arbitrary aspect spelling" `Quick test_arbitrary_aspect_spelling;
+    test_case "arbitrary aspect rejects non-ratio" `Quick
+      test_arbitrary_aspect_rejects_non_ratio;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
   ]
