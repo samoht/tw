@@ -17,27 +17,15 @@ let string_of_breakpoint = function
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
 
-(* Small memoization for escaping, as many utilities reuse the same base class
-   names across modifiers. *)
-let escape_cache : (string, string) Hashtbl.t = Hashtbl.create 256
-
+(* Delegate escaping to the selector printer for correctness and parity with the
+   rest of the system. This covers all special characters per CSS rules,
+   including ones Tailwind often uses (e.g., !, |, ^, ~, etc.) We strip the
+   leading '.' from the rendered class selector. *)
 let escape_class_name name =
-  match Hashtbl.find_opt escape_cache name with
-  | Some v -> v
-  | None ->
-      (* Delegate escaping to the selector printer for correctness and parity
-         with the rest of the system. This covers all special characters per CSS
-         rules, including ones Tailwind often uses (e.g., !, |, ^, ~, etc.) We
-         strip the leading '.' from the rendered class selector. *)
-      let sel = Css.Selector.class_ name in
-      let rendered = Css.Selector.to_string sel in
-      let escaped =
-        if String.length rendered > 0 && rendered.[0] = '.' then
-          String.sub rendered 1 (String.length rendered - 1)
-        else rendered
-      in
-      Hashtbl.add escape_cache name escaped;
-      escaped
+  let rendered = Css.Selector.to_string (Css.Selector.class_ name) in
+  if String.length rendered > 0 && rendered.[0] = '.' then
+    String.sub rendered 1 (String.length rendered - 1)
+  else rendered
 
 (* ======================================================================== *)
 (* Rule Extraction - Convert Core.t to CSS rules *)
