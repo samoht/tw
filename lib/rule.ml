@@ -636,74 +636,6 @@ let route_data_modifier modifier base_class selector props =
       handle_data_modifier k v selector props base_class
   | _ -> regular ~selector ~props ~base_class ()
 
-(* Parse a data bracket expression into attribute name, match operator, and
-   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
-   Underscores in the value part are converted to spaces. *)
-(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
-let parse_value_and_flag value_str =
-  let vlen = String.length value_str in
-  let value_str, flag =
-    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Insensitive )
-    else if
-      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Sensitive )
-    else (value_str, None)
-  in
-  let value =
-    let vlen = String.length value_str in
-    if vlen >= 2 then
-      match (value_str.[0], value_str.[vlen - 1]) with
-      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
-      | _ -> value_str
-    else value_str
-  in
-  (value, flag)
-
-let parse_data_expr raw_expr =
-  (* Find the match operator in raw content (before underscore conversion) *)
-  let len = String.length raw_expr in
-  let in_quotes = ref false in
-  let rec find_op i =
-    if i >= len then None
-    else
-      match raw_expr.[i] with
-      | '"' | '\'' ->
-          in_quotes := not !in_quotes;
-          find_op (i + 1)
-      | ('$' | '^' | '*' | '~' | '|')
-        when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
-          Some (i, 2, raw_expr.[i])
-      | '=' when not !in_quotes -> Some (i, 1, '=')
-      | _ -> find_op (i + 1)
-  in
-  let underscore_to_space s =
-    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
-  in
-  match find_op 0 with
-  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
-  | Some (op_pos, op_len, op_char) ->
-      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
-      let value_str =
-        underscore_to_space
-          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
-      in
-      let value, flag = parse_value_and_flag value_str in
-      let match_op =
-        match op_char with
-        | '$' -> Css.Selector.Suffix value
-        | '^' -> Css.Selector.Prefix value
-        | '*' -> Css.Selector.Substring value
-        | '~' -> Css.Selector.Whitespace_list value
-        | '|' -> Css.Selector.Hyphen_list value
-        | _ -> Css.Selector.Exact value
-      in
-      ("data-" ^ attr, match_op, flag)
-
 (* Known data shorthand names *)
 let _is_data_shorthand_name = function
   | "disabled" | "active" | "inactive" -> true
@@ -726,7 +658,7 @@ let route_data_bracket_modifier modifier ~selector base_class props =
       String.sub raw_str 1 (n - 2)
     else raw_str
   in
-  let attr_name, attr_match, attr_flag = parse_data_expr expr in
+  let attr_name, attr_match, attr_flag = Modifiers.parse_data_expr expr in
   let open Css.Selector in
   let class_part = raw_str in
   let not_order = 20 in

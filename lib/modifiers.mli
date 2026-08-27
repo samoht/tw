@@ -689,6 +689,19 @@ val is_aria_shorthand : string -> bool
     attribute (e.g., "checked", "expanded", "hidden") that maps to
     [aria-X=true]. *)
 
+(** {1 Data Helpers} *)
+
+val parse_data_expr :
+  string ->
+  string * Css.Selector.attribute_match * Css.Selector.attr_flag option
+(** [parse_data_expr expr] reads a [data-[expr]] bracket body (the interior
+    text, no brackets) into the attribute name (["data-" ^ name]), the match
+    operator, and an optional case-sensitivity flag. Handles [$=], [^=], [*=],
+    [~=], [|=] and bare [=]; underscores in the attribute name and value stand
+    for spaces, per Tailwind's arbitrary-value convention. Used both to build
+    the selector at render time and, via {!Css.Selector.attribute}'s own
+    identifier check, to validate the expression at parse time. *)
+
 (** {1 Variant Ordering} *)
 
 val not_variant_order : modifier -> int

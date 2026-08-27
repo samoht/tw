@@ -1089,6 +1089,90 @@ let is_valid_has_selector sel =
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
+(* Parse a data bracket expression into attribute name, match operator, and
+   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
+   Underscores in the value part are converted to spaces. *)
+(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
+let parse_value_and_flag value_str =
+  let vlen = String.length value_str in
+  let value_str, flag =
+    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Insensitive )
+    else if
+      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Sensitive )
+    else (value_str, None)
+  in
+  let value =
+    let vlen = String.length value_str in
+    if vlen >= 2 then
+      match (value_str.[0], value_str.[vlen - 1]) with
+      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
+      | _ -> value_str
+    else value_str
+  in
+  (value, flag)
+
+let parse_data_expr raw_expr =
+  (* Find the match operator in raw content (before underscore conversion) *)
+  let len = String.length raw_expr in
+  let in_quotes = ref false in
+  let rec find_op i =
+    if i >= len then None
+    else
+      match raw_expr.[i] with
+      | '"' | '\'' ->
+          in_quotes := not !in_quotes;
+          find_op (i + 1)
+      | ('$' | '^' | '*' | '~' | '|')
+        when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
+          Some (i, 2, raw_expr.[i])
+      | '=' when not !in_quotes -> Some (i, 1, '=')
+      | _ -> find_op (i + 1)
+  in
+  let underscore_to_space s =
+    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
+  in
+  match find_op 0 with
+  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
+  | Some (op_pos, op_len, op_char) ->
+      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
+      let value_str =
+        underscore_to_space
+          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
+      in
+      let value, flag = parse_value_and_flag value_str in
+      let match_op =
+        match op_char with
+        | '$' -> Css.Selector.Suffix value
+        | '^' -> Css.Selector.Prefix value
+        | '*' -> Css.Selector.Substring value
+        | '~' -> Css.Selector.Whitespace_list value
+        | '|' -> Css.Selector.Hyphen_list value
+        | _ -> Css.Selector.Exact value
+      in
+      ("data-" ^ attr, match_op, flag)
+
+(* Validate a data-[...] bracket expression by running it through the same
+   reading [parse_data_expr] does at render time, then handing the resulting
+   attribute name to {!Css.Selector.attribute}: it validates the name as a CSS
+   identifier and rejects a malformed one, such as the split operator [^_=] (a
+   space inside what must be the adjacent two-character [^=] token) falling
+   through to a bare [=] and dragging the stray [^] and a decoded space into
+   what becomes the attribute name. The value is left unvalidated here since
+   Tailwind's arbitrary values legitimately hold a decoded space (e.g.
+   [data-[foo=bar_baz]]) that the printer quotes on output. *)
+let is_valid_data_attr_expr expr =
+  let attr_name, attr_match, attr_flag = parse_data_expr expr in
+  try
+    ignore (Css.Selector.attribute ?flag:attr_flag attr_name attr_match);
+    true
+  with Invalid_argument _ -> false
+
 (* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
    [[@starting-style]] wrap the utility rather than select it. *)
 let try_bracket_at_rule s =
@@ -1163,13 +1247,13 @@ let bracket_named_patterns s =
   let ( let* ) = Option.bind in
   (* Every aria- and data- bracket here takes an attribute expression, so the
      argument has to name an attribute. *)
-  let try_attr prefix make =
+  let try_attr ?(extra = fun _ -> true) prefix make =
     let* expr = extract_bracket_content ~prefix s in
-    if names_attribute expr then Some (make expr) else None
+    if names_attribute expr && extra expr then Some (make expr) else None
   in
-  let try_named prefix make =
+  let try_named ?(extra = fun _ -> true) prefix make =
     let* expr, name = extract_bracket_content_with_name ~prefix s in
-    if names_attribute expr then Some (make expr name) else None
+    if names_attribute expr && extra expr then Some (make expr name) else None
   in
   let try_named_has prefix make =
     let* sel, name = extract_bracket_content_with_name ~prefix s in
@@ -1180,14 +1264,18 @@ let bracket_named_patterns s =
     (fun () -> try_named "peer-aria-[" (fun e n -> Peer_aria (e, n)));
     (fun () -> try_attr "aria-[" (fun expr -> Aria_bracket expr));
     (fun () ->
-      try_named "group-data-[" (fun e n -> Group_data ("[" ^ e ^ "]", n)));
+      try_named "group-data-[" ~extra:is_valid_data_attr_expr (fun e n ->
+          Group_data ("[" ^ e ^ "]", n)));
     (fun () ->
-      try_named "peer-data-[" (fun e n -> Peer_data ("[" ^ e ^ "]", n)));
+      try_named "peer-data-[" ~extra:is_valid_data_attr_expr (fun e n ->
+          Peer_data ("[" ^ e ^ "]", n)));
     (* Bare shorthand: [group-data-dragging] is [group-data-[dragging]] with a
        different spelling, so it keeps its own class name. *)
     (fun () -> try_bare_data s "group-data-" (fun e n -> Group_data (e, n)));
     (fun () -> try_bare_data s "peer-data-" (fun e n -> Peer_data (e, n)));
-    (fun () -> try_attr "data-[" (fun expr -> Data_bracket expr));
+    (fun () ->
+      try_attr "data-[" ~extra:is_valid_data_attr_expr (fun expr ->
+          Data_bracket expr));
     (fun () -> try_named_has "group-has-[" (fun s n -> Group_has (s, n)));
     (fun () -> try_named_has "peer-has-[" (fun s n -> Peer_has (s, n)));
     (fun () ->
@@ -1713,7 +1801,8 @@ let try_bare_data_aria s =
   else if
     String.length s > 5
     && String.sub s 0 5 = "aria-"
-    && not (String.contains s '[')
+    && (not (String.contains s '['))
+    && not (String.contains s '/')
   then
     let expr = String.sub s 5 (String.length s - 5) in
     if names_attribute expr then Some (Aria_bracket expr) else None
