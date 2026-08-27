@@ -451,29 +451,14 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
     container_query ~condition ~selector:new_selector ~props
       ~base_class:modified_class ()
 
-(** Preprocess a has-[...] selector string for CSS parsing. Replaces & with *
-    (nesting reference) and ensures combinators (+, >, ~) have proper spacing.
-*)
-let preprocess_has_selector s =
-  let buf = Buffer.create (String.length s + 4) in
-  let len = String.length s in
-  let i = ref 0 in
-  while !i < len do
-    (match s.[!i] with
-    | '&' -> Buffer.add_char buf '*'
-    | ('+' | '>' | '~') as c ->
-        (* Add space before combinator if not already present *)
-        if
-          Buffer.length buf = 0
-          || Buffer.contents buf |> fun b -> b.[String.length b - 1] <> ' '
-        then Buffer.add_char buf ' ';
-        Buffer.add_char buf c;
-        (* Add space after combinator if not already present *)
-        if !i + 1 < len && s.[!i + 1] <> ' ' then Buffer.add_char buf ' '
-    | c -> Buffer.add_char buf c);
-    incr i
-  done;
-  Buffer.contents buf
+(** Parse a has-[...] selector string as a relative CSS selector ([:has()]
+    accepts a bare leading combinator, e.g. [>div] or [~img]), with [&] (the
+    utility's own element) resolved to the universal selector - the same
+    substitution {!Modifiers.nest_selector} performs for [group-[...]] /
+    [peer-[...]] templates, via {!Cascade.Nest.substitute}. *)
+let has_relative_selector s =
+  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
+  Cascade.Nest.substitute ~parent:Css.Selector.universal sel
 
 (* The selector a has-shorthand name stands for. [has-<state>] takes the same
    state names as the group/peer variants and matches what that state matches,
@@ -497,10 +482,7 @@ let has_inner_selector raw =
   let str =
     if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
   in
-  match
-    Css.Selector.read_relative
-      (Cascade.Cursor.of_string (preprocess_has_selector str))
-  with
+  match has_relative_selector str with
   | Css.Selector.List sels when not (Style.is_has_shorthand raw) ->
       Css.Selector.is_ sels
   | sel -> sel
@@ -532,9 +514,8 @@ let route_regular ~selector ~base_class ~modified_class ~modified ?has_hover
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~not_order
     ~selector selector_str base_class props =
   let open Css.Selector in
-  let processed = preprocess_has_selector selector_str in
   let parsed_selector =
-    match Css.Selector.read_relative (Cascade.Cursor.of_string processed) with
+    match has_relative_selector selector_str with
     (* A bracket list is one relative selector, so it goes in an [:is()]. The
        [hocus] shorthand is genuinely two, and stays a list. *)
     | List sels when shorthand = None -> is_ sels
@@ -1403,12 +1384,11 @@ let handle_not_bracket content base_class props =
        [:not(.os-macos <star>)]. Parse the transformed string as a selector so
        combinators and compounds flatten, rather than escaping it as a single
        class name. *)
-    let sel_str =
-      content
-      |> String.map (fun c -> if c = '_' then ' ' else c)
-      |> String.split_on_char '&' |> String.concat "*"
+    let sel_str = String.map (fun c -> if c = '_' then ' ' else c) content in
+    let inner =
+      Cascade.Nest.substitute ~parent:Css.Selector.universal
+        (Css.Selector.read (Cascade.Cursor.of_string sel_str))
     in
-    let inner = Css.Selector.read (Cascade.Cursor.of_string sel_str) in
     [
       regular ~not_order:nvo
         ~selector:
