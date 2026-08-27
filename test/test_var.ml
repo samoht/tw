@@ -203,6 +203,23 @@ let family_registered_once () =
     (fun () ->
       ignore (Tw.Var.channel ~family:`Shadow Css.Length "test-family-owner"))
 
+(* A variable's slot in the properties layer is one fact about one custom
+   property, the same way its family is. A second registration that agrees
+   restates it; one that disagrees is a hand-copied constant that has drifted,
+   and it is refused rather than letting module initialisation order settle
+   it. *)
+let property_order_registered_once () =
+  Tw.Var.register_property_order ~name:"test-order-owner" ~order:6;
+  Tw.Var.register_property_order ~name:"test-order-owner" ~order:6;
+  check
+    (Alcotest.option Alcotest.int)
+    "established" (Some 6)
+    (Tw.Var.property_order "test-order-owner");
+  Alcotest.check_raises "a disagreeing property order is refused"
+    (Invalid_argument
+       "--test-order-owner: property order is 6, registered again as 7")
+    (fun () -> Tw.Var.register_property_order ~name:"test-order-owner" ~order:7)
+
 let tests =
   [
     test_case "var CSS output" `Quick var_css_output;
@@ -219,6 +236,8 @@ let tests =
       order_of_theme_renamed_weight;
     test_case "order of unknown name" `Quick order_of_unknown_name;
     test_case "family registered once" `Quick family_registered_once;
+    test_case "property order registered once" `Quick
+      property_order_registered_once;
   ]
 
 let suite = ("var", tests)
