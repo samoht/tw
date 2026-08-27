@@ -2472,121 +2472,92 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not an effects utility")
 
-  (** Try to parse a bracket inner string as a color: hex or CSS color function.
-      Returns [Some css_color] on success. *)
-  let parse_bracket_color inner =
-    let starts prefix s =
-      String.length s >= String.length prefix
-      && String.sub s 0 (String.length prefix) = prefix
-    in
-    (* A [#] prefix only names a colour when what follows is a hex spelling;
-       [Css.hex] raises on anything else, and this runs inside [of_class]. *)
-    if starts "#" inner then Css.hex_opt inner
-    else
-      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
-      if Parse.is_css_color_fn normalized then
-        match Css.parse_color normalized with Some c -> Some c | None -> None
-      else None
+  let starts prefix s =
+    String.length s >= String.length prefix
+    && String.sub s 0 (String.length prefix) = prefix
 
   let parse_ring_bracket kind v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
-    let starts prefix s =
-      String.length s >= String.length prefix
-      && String.sub s 0 (String.length prefix) = prefix
-    in
     match kind with
     | `Ring -> (
-        if starts "color:" inner then
-          let var_part = String.sub inner 6 (String.length inner - 6) in
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_bracket_color_var var_part)
-          | _ -> Ok (Ring_bracket_color_var_opacity (var_part, opacity))
-        else if starts "var(" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_bracket_var inner)
-          | _ -> Ok (Ring_bracket_var_opacity (inner, opacity))
-        else
-          match parse_bracket_color inner with
-          | Some c -> (
-              match opacity with
-              | Color.No_opacity -> Ok (Ring_bracket_color (inner, c))
-              | _ -> Ok (Ring_bracket_color_opacity (inner, c, opacity)))
-          | None -> (
-              if starts "length:" inner then Ok (Ring_bracket_length inner)
-              else
-                match parse_bracket_width_opt inner with
-                | Some _ -> Ok (Ring_bracket_length inner)
-                | None -> err_not_utility))
+        match Color.parse_bracket_hint inner with
+        | Some (Color.Typed_var var_part) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_bracket_color_var var_part)
+            | _ -> Ok (Ring_bracket_color_var_opacity (var_part, opacity)))
+        | Some (Color.Bare_var v) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_bracket_var v)
+            | _ -> Ok (Ring_bracket_var_opacity (v, opacity)))
+        | Some (Color.Plain_color c) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_bracket_color (inner, c))
+            | _ -> Ok (Ring_bracket_color_opacity (inner, c, opacity)))
+        | None -> (
+            if starts "length:" inner then Ok (Ring_bracket_length inner)
+            else
+              match parse_bracket_width_opt inner with
+              | Some _ -> Ok (Ring_bracket_length inner)
+              | None -> err_not_utility))
     | `Ring_offset -> (
-        if starts "color:" inner then
-          let var_part = String.sub inner 6 (String.length inner - 6) in
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_offset_bracket_color_var var_part)
-          | _ -> Ok (Ring_offset_bracket_cvar_opacity (var_part, opacity))
-        else if starts "var(" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Ring_offset_bracket_var inner)
-          | _ -> Ok (Ring_offset_bracket_var_opacity (inner, opacity))
-        else
-          match parse_bracket_color inner with
-          | Some c -> (
-              match opacity with
-              | Color.No_opacity -> Ok (Ring_offset_bracket_color (inner, c))
-              | _ -> Ok (Ring_offset_bracket_color_opacity (inner, c, opacity)))
-          | None -> (
-              if starts "length:" inner then
-                Ok (Ring_offset_bracket_length inner)
-              else
-                match parse_bracket_width_opt inner with
-                | Some _ -> Ok (Ring_offset_bracket_length inner)
-                | None -> err_not_utility))
+        match Color.parse_bracket_hint inner with
+        | Some (Color.Typed_var var_part) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_offset_bracket_color_var var_part)
+            | _ -> Ok (Ring_offset_bracket_cvar_opacity (var_part, opacity)))
+        | Some (Color.Bare_var v) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_offset_bracket_var v)
+            | _ -> Ok (Ring_offset_bracket_var_opacity (v, opacity)))
+        | Some (Color.Plain_color c) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_offset_bracket_color (inner, c))
+            | _ -> Ok (Ring_offset_bracket_color_opacity (inner, c, opacity)))
+        | None -> (
+            if starts "length:" inner then Ok (Ring_offset_bracket_length inner)
+            else
+              match parse_bracket_width_opt inner with
+              | Some _ -> Ok (Ring_offset_bracket_length inner)
+              | None -> err_not_utility))
     | `Inset_ring -> (
-        if starts "color:" inner then
-          let var_part = String.sub inner 6 (String.length inner - 6) in
-          match opacity with
-          | Color.No_opacity -> Ok (Inset_ring_bracket_color_var var_part)
-          | _ -> Ok (Inset_ring_bracket_cvar_opacity (var_part, opacity))
-        else if starts "var(" inner then
-          match opacity with
-          | Color.No_opacity -> Ok (Inset_ring_bracket_var inner)
-          | _ -> Ok (Inset_ring_bracket_var_opacity (inner, opacity))
-        else
-          match parse_bracket_color inner with
-          | Some c -> (
-              match opacity with
-              | Color.No_opacity -> Ok (Inset_ring_bracket_color (inner, c))
-              | _ -> Ok (Inset_ring_bracket_color_opacity (inner, c, opacity)))
-          | None -> (
-              if starts "length:" inner then
-                Ok (Inset_ring_bracket_length inner)
-              else
-                match parse_bracket_width_opt inner with
-                | Some _ -> Ok (Inset_ring_bracket_length inner)
-                | None -> err_not_utility))
+        match Color.parse_bracket_hint inner with
+        | Some (Color.Typed_var var_part) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Inset_ring_bracket_color_var var_part)
+            | _ -> Ok (Inset_ring_bracket_cvar_opacity (var_part, opacity)))
+        | Some (Color.Bare_var v) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Inset_ring_bracket_var v)
+            | _ -> Ok (Inset_ring_bracket_var_opacity (v, opacity)))
+        | Some (Color.Plain_color c) -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Inset_ring_bracket_color (inner, c))
+            | _ -> Ok (Inset_ring_bracket_color_opacity (inner, c, opacity)))
+        | None -> (
+            if starts "length:" inner then Ok (Inset_ring_bracket_length inner)
+            else
+              match parse_bracket_width_opt inner with
+              | Some _ -> Ok (Inset_ring_bracket_length inner)
+              | None -> err_not_utility))
 
   let parse_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
-    let starts prefix s =
-      String.length s >= String.length prefix
-      && String.sub s 0 (String.length prefix) = prefix
-    in
     if starts "shadow:" inner then
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
       Ok (Shadow_bracket_shadow shadow_part)
-    else if starts "color:" inner then
-      let var_part = String.sub inner 6 (String.length inner - 6) in
-      match opacity with
-      | Color.No_opacity -> Ok (Shadow_bracket_color_var var_part)
-      | _ -> Ok (Shadow_bracket_color_var_opacity (var_part, opacity))
-    else if starts "var(" inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Shadow_bracket_var inner)
-      | _ -> err_not_utility
     else
-      match parse_bracket_color inner with
-      | Some c -> (
+      match Color.parse_bracket_hint inner with
+      | Some (Color.Typed_var var_part) -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Shadow_bracket_color_var var_part)
+          | _ -> Ok (Shadow_bracket_color_var_opacity (var_part, opacity)))
+      | Some (Color.Bare_var v) -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Shadow_bracket_var v)
+          | _ -> err_not_utility)
+      | Some (Color.Plain_color c) -> (
           match opacity with
           | Color.No_opacity -> Ok (Shadow_bracket_color (inner, c))
           | _ -> Ok (Shadow_bracket_color_opacity (inner, c, opacity)))
@@ -2602,25 +2573,20 @@ module Handler = struct
   let parse_inset_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
-    let starts prefix s =
-      String.length s >= String.length prefix
-      && String.sub s 0 (String.length prefix) = prefix
-    in
     if starts "shadow:" inner then
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
       Ok (Inset_shadow_bracket_shadow shadow_part)
-    else if starts "color:" inner then
-      let var_part = String.sub inner 6 (String.length inner - 6) in
-      match opacity with
-      | Color.No_opacity -> Ok (Inset_shadow_bracket_color_var var_part)
-      | _ -> Ok (Inset_shadow_bracket_cvar_opacity (var_part, opacity))
-    else if starts "var(" inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Inset_shadow_bracket_var inner)
-      | _ -> err_not_utility
     else
-      match parse_bracket_color inner with
-      | Some c -> (
+      match Color.parse_bracket_hint inner with
+      | Some (Color.Typed_var var_part) -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_shadow_bracket_color_var var_part)
+          | _ -> Ok (Inset_shadow_bracket_cvar_opacity (var_part, opacity)))
+      | Some (Color.Bare_var v) -> (
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_shadow_bracket_var v)
+          | _ -> err_not_utility)
+      | Some (Color.Plain_color c) -> (
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_bracket_color (inner, c))
           | _ -> Ok (Inset_shadow_bracket_color_opacity (inner, c, opacity)))

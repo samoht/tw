@@ -551,6 +551,20 @@ val parse_bracket_color : string -> Css.color option
     {!Css.color}. Handles hex, CSS color functions (rgba, hsl, oklch, ...), and
     Tailwind named colors. Returns [None] if not a recognized color. *)
 
+(** What a bracket value names, once the [color:]/[var(] spellings are told
+    apart from a plain color. Every color-bearing utility (text, outline, ring,
+    shadow, fill, stroke, ...) classifies its bracket content this way; only the
+    variant it stores the result in differs. *)
+type bracket_hint =
+  | Typed_var of string  (** [color:<value>], the part after [color:] *)
+  | Bare_var of string  (** [var(--x)], the full [var(...)] text *)
+  | Plain_color of Css.color  (** any other color spelling *)
+
+val parse_bracket_hint : string -> bracket_hint option
+(** [parse_bracket_hint inner] classifies a bracket's inner text as a typed var,
+    a bare var, or a plain color parsed via {!parse_bracket_color}. Returns
+    [None] when [inner] is none of these. *)
+
 val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex
     color for Tailwind parity. Returns [None] for color types that cannot be

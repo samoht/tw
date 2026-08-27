@@ -313,46 +313,39 @@ module Handler = struct
   let parse_bracket_fill v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let base_inner = Parse.bracket_inner base_str in
-    if starts "color:" base_inner then
-      let var_part = String.sub base_inner 6 (String.length base_inner - 6) in
-      match opacity with
-      | Color.No_opacity -> Ok (Fill_bracket_typed_var var_part)
-      | _ -> Ok (Fill_bracket_typed_var_opacity (var_part, opacity))
-    else if starts "var(" base_inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Fill_bracket_var base_inner)
-      | _ -> Ok (Fill_bracket_var_opacity (base_inner, opacity))
-    else
-      match Color.parse_bracket_color base_inner with
-      | Some css_color -> (
-          match opacity with
-          | Color.No_opacity -> Ok (Fill_bracket_color (base_inner, css_color))
-          | _ ->
-              Ok (Fill_bracket_color_opacity (base_inner, css_color, opacity)))
-      | None -> err_not_utility
+    match Color.parse_bracket_hint base_inner with
+    | Some (Color.Typed_var var_part) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Fill_bracket_typed_var var_part)
+        | _ -> Ok (Fill_bracket_typed_var_opacity (var_part, opacity)))
+    | Some (Color.Bare_var v) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Fill_bracket_var v)
+        | _ -> Ok (Fill_bracket_var_opacity (v, opacity)))
+    | Some (Color.Plain_color css_color) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Fill_bracket_color (base_inner, css_color))
+        | _ -> Ok (Fill_bracket_color_opacity (base_inner, css_color, opacity)))
+    | None -> err_not_utility
 
   let parse_bracket_stroke_color v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let base_inner = Parse.bracket_inner base_str in
-    if starts "color:" base_inner then
-      let var_part = String.sub base_inner 6 (String.length base_inner - 6) in
-      match opacity with
-      | Color.No_opacity -> Ok (Stroke_bracket_typed_var var_part)
-      | _ -> Ok (Stroke_bracket_typed_var_opacity (var_part, opacity))
-    else if starts "var(" base_inner then
-      match opacity with
-      | Color.No_opacity -> Ok (Stroke_bracket_var base_inner)
-      | _ -> Ok (Stroke_bracket_var_opacity (base_inner, opacity))
-    else
-      match Color.parse_bracket_color base_inner with
-      | Some css_color -> (
-          match opacity with
-          | Color.No_opacity ->
-              Ok (Stroke_bracket_color (base_inner, css_color))
-          | _ ->
-              Ok (Stroke_bracket_color_opacity (base_inner, css_color, opacity))
-          )
-      | None -> err_not_utility
+    match Color.parse_bracket_hint base_inner with
+    | Some (Color.Typed_var var_part) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Stroke_bracket_typed_var var_part)
+        | _ -> Ok (Stroke_bracket_typed_var_opacity (var_part, opacity)))
+    | Some (Color.Bare_var v) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Stroke_bracket_var v)
+        | _ -> Ok (Stroke_bracket_var_opacity (v, opacity)))
+    | Some (Color.Plain_color css_color) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Stroke_bracket_color (base_inner, css_color))
+        | _ ->
+            Ok (Stroke_bracket_color_opacity (base_inner, css_color, opacity)))
+    | None -> err_not_utility
 
   (* Parse bracket value for stroke width: [1.5], [12px], [50%], [2em],
      [calc(1rem_+_2px)], [length:var(...)], [number:var(...)],
