@@ -207,13 +207,14 @@ module Handler = struct
     | Stroke_bracket_typed_var_opacity (v, opacity) ->
         bracket_var_opacity_style ~property:Css.stroke ~merge_key:"stroke-" v
           opacity
-    | Stroke_0 -> style Css.[ stroke_width (Px 0.) ]
-    | Stroke_1 -> style Css.[ stroke_width (Px 1.) ]
-    | Stroke_2 -> style Css.[ stroke_width (Px 2.) ]
-    | Stroke_width n -> style Css.[ stroke_width (Px (float_of_int n)) ]
+    | Stroke_0 -> style Css.[ stroke_width (Length (Length (Px 0.))) ]
+    | Stroke_1 -> style Css.[ stroke_width (Length (Length (Px 1.))) ]
+    | Stroke_2 -> style Css.[ stroke_width (Length (Length (Px 2.))) ]
+    | Stroke_width n ->
+        style Css.[ stroke_width (Length (Length (Px (float_of_int n)))) ]
     | Stroke_width_bracket inner ->
         let w = parse_bracket_width inner in
-        style [ Css.stroke_width w ]
+        style [ Css.stroke_width (Length (Length w)) ]
     | Stroke_width_typed_var inner ->
         let var_part =
           match String.index_opt inner ':' with
