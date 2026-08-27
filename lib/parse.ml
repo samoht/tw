@@ -1,13 +1,3 @@
-(* [prefix_loop] is top-level so it captures nothing and allocates no closure -
-   unlike [String.starts_with]'s inner [aux], which allocates one per call in a
-   non-flambda build. Indices are kept in bounds by [has_prefix]. *)
-let rec prefix_loop prefix s i lp =
-  i = lp || (prefix.[i] = s.[i] && prefix_loop prefix s (i + 1) lp)
-
-let has_prefix ~prefix s =
-  let lp = String.length prefix in
-  lp <= String.length s && prefix_loop prefix s 0 lp
-
 let is_digits s =
   s <> "" && String.for_all (function '0' .. '9' -> true | _ -> false) s
 

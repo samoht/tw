@@ -713,7 +713,7 @@ module Typography_early = struct
      size; nor does a token whose value is not a length. *)
   let is_theme_text_size theme n =
     (not (is_named_size n))
-    && (not (Parse.has_prefix ~prefix:"shadow-" n))
+    && (not (String.starts_with ~prefix:"shadow-" n))
     && List.for_all (fun seg -> seg <> "") (String.split_on_char '-' n)
     && Scheme.theme_value (Some theme) ("color-" ^ n) = None
     &&
