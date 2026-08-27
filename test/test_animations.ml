@@ -124,6 +124,64 @@ let test_invalid_arbitrary_animation () =
   renders "animate-[spin_1s_linear_infinite]";
   renders "animate-[bounce_1s]"
 
+(* The animations the [@keyframes] rules of a sheet define, sorted so the check
+   reads as a set. *)
+let keyframes_names css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_keyframes stmt with
+      | Some (name, _) -> name :: acc
+      | None -> acc)
+    [] css
+  |> List.sort String.compare
+
+let theme_token name value =
+  { Tw.Scheme.default with token_overrides = [ (name, value) ] }
+
+let animate_keyframes ?(theme = Tw.Scheme.default) cls =
+  match Tw.of_string ~theme cls with
+  | Ok u -> keyframes_names (Tw.to_css ~theme ~base:false [ u ])
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+(* Tailwind keys the built-in [@keyframes] off the animation the value names,
+   not off whether the [--animate-*] token carries its default: a project
+   [@theme] redefining [--animate-ping] keeps [@keyframes ping], one pointing
+   the token at another built-in pulls that one in instead, and one naming an
+   animation Tailwind has no keyframes for gets none invented. *)
+let test_keyframes_follow_the_animation_name () =
+  let check msg expected theme =
+    Alcotest.(check (list string))
+      msg expected
+      (animate_keyframes ~theme "animate-ping")
+  in
+  check "default theme" [ "ping" ] Tw.Scheme.default;
+  check "redefined token still names ping" [ "ping" ]
+    (theme_token "animate-ping" "ping 2s linear infinite");
+  check "token pointed at another built-in" [ "spin" ]
+    (theme_token "animate-ping" "spin 1s linear infinite");
+  check "both animations of a list" [ "ping"; "spin" ]
+    (theme_token "animate-ping"
+       "ping 1s linear infinite, spin 2s linear infinite");
+  check "no keyframes invented for an unknown animation" []
+    (theme_token "animate-ping" "wiggle 1s ease-in-out infinite");
+  check "a longer ident is not the animation" []
+    (theme_token "animate-ping" "pinger 1s linear infinite")
+
+(* A theme-declared animation and an [animate-[...]] bracket name their
+   animation the same way, so they pull in the same built-in keyframes. *)
+let test_keyframes_for_theme_and_bracket_names () =
+  Alcotest.(check (list string))
+    "theme animation naming a built-in" [ "spin" ]
+    (animate_keyframes
+       ~theme:(theme_token "animate-slow-spin" "spin 3s linear infinite")
+       "animate-slow-spin");
+  Alcotest.(check (list string))
+    "bracket naming a built-in" [ "ping" ]
+    (animate_keyframes "animate-[ping_2s_linear_infinite]");
+  Alcotest.(check (list string))
+    "bracket naming an unknown animation" []
+    (animate_keyframes "animate-[wiggle_1s_ease-in-out_infinite]")
+
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
@@ -135,6 +193,10 @@ let tests =
       suborder_matches_tailwind;
     test_case "invalid arbitrary animation" `Quick
       test_invalid_arbitrary_animation;
+    test_case "keyframes follow the animation name" `Quick
+      test_keyframes_follow_the_animation_name;
+    test_case "keyframes for theme and bracket names" `Quick
+      test_keyframes_for_theme_and_bracket_names;
   ]
 
 let suite = ("animations", tests)
