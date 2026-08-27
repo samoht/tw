@@ -49,12 +49,49 @@ let test_typed () =
   Test_helpers.check_typed_class "columns-2xl" Tw.columns_2xl;
   Test_helpers.check_typed_class "columns-7xl" Tw.columns_7xl
 
+(* Tailwind orders the values of one utility by a natural (digit-aware) compare
+   of the class name, so [columns-9] precedes [columns-10] and the theme names
+   interleave with the counts. *)
+let test_numeric_order () =
+  Test_helpers.check_class_order ~test_name:"columns numeric order"
+    [
+      "columns-1";
+      "columns-2";
+      "columns-2xl";
+      "columns-2xs";
+      "columns-3";
+      "columns-3xs";
+      "columns-7xl";
+      "columns-10";
+      "columns-11";
+      "columns-12";
+      "columns-auto";
+      "columns-lg";
+    ]
+
+(* Arbitrary widths sort by the same natural compare: a four-character prefix is
+   not enough to separate [100px] from [100rem], and the counts still order
+   numerically. *)
+let test_arbitrary_order () =
+  Test_helpers.check_class_order ~test_name:"columns arbitrary order"
+    [
+      "columns-[9rem]";
+      "columns-[10rem]";
+      "columns-[100px]";
+      "columns-[100rem]";
+      "columns-[1000px]";
+      "columns-[var(--a)]";
+      "columns-[var(--b)]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
       Alcotest.test_case "typed constructors" `Quick test_typed;
+      Alcotest.test_case "numeric order" `Quick test_numeric_order;
+      Alcotest.test_case "arbitrary order" `Quick test_arbitrary_order;
     ]
 
 let suite = ("columns", tests)
