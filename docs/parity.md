@@ -25,31 +25,76 @@ runs the freshly built cascade rather than whatever sits on `PATH`.
 ## The site comparison
 
 The comparison against tailwindcss.com finds most real bugs, because it
-exercises class combinations no fixture covers, but it is neither committed nor
-automated. It lives in `tmp/site` (gitignored), over three inputs rebuilt by
-hand:
-
-- `src/classlist.txt` is every class the deployed site uses, extracted from its
-  CSS. A class name escapes every character outside `[A-Za-z0-9_-]`, so an
-  unescaped `:` or `(` ends it and non-ASCII does not.
-- `src/globals.css` is the site's entrypoint plus the files it imports.
-- `src/ref-entry.css` is the same entrypoint with `source(none)` and an explicit
-  `@source "./classlist.txt"`. Without it Tailwind auto-scans the whole
-  directory, picks up tw's own output, and the comparison goes circular.
-
-Both sheets are then generated and diffed:
+exercises class combinations no fixture covers. Its inputs are committed under
+`test/parity/`, so anyone can re-derive the number:
 
 <!-- $MDX skip -->
 ```sh
-"$TW"/node_modules/.bin/tailwindcss -i src/ref-entry.css -o ref_local.css --minify
-"$TW"/_build/default/bin/main.exe --input-css src/globals.css --minify \
-  src/classlist.txt > tw_all.css
-"$TW"/cascade/_build/default/bin/main.exe diff --diff=canonical --depth=max \
-  tw_all.css ref_local.css
+sh test/parity/measure.sh
 ```
 
-Committing it as a gate means committing about 150 KB of fixtures, so for now a
-change in the reported gap is something to look at by hand.
+That takes about 17 seconds on a warm build: a fifth of a second in Tailwind,
+three seconds in tw, the rest in the differ. It writes `ref_local.css`,
+`tw_all.css` and `diff.txt` under `tmp/parity` and prints the diff followed by
+its top-level entries. It is not wired into `dune runtest`, because the
+reference half needs `npx tailwindcss`.
+
+The inputs are:
+
+- `classlist.txt` is every class the deployed site uses, extracted from its
+  CSS. A class name escapes every character outside `[A-Za-z0-9_-]`, so an
+  unescaped `:` or `(` ends it and non-ASCII does not.
+- `globals.css` is the site's entrypoint plus the files it imports,
+  `search.css` and `typography.css`. tw is run against this one.
+- `ref-entry.css` is the same entrypoint with `source(none)` and an explicit
+  `@source "./classlist.txt"`. Without it Tailwind auto-scans the whole
+  directory, picks up tw's own output, and the comparison goes circular.
+  Tailwind is run against this one.
+
+The script prints what the three commands print and derives nothing. Reading a
+class name back out of either sheet is not part of the measurement: doing it
+needs a full CSS-escape decoder, and the one that used to sit on the script
+could not decode a unicode escape, so it reported `after:content-['_↗']` as both
+missing from tw and emitted only by tw.
+
+`measure.sh` runs `dune build` first, so both binaries come from the workspace
+rather than from `PATH`.
+
+### Current measurement
+
+Attempted 2026-08-27 at 5dac2223. **The documented command does not complete.**
+cascade's differ raises `Assertion failed` in `pp_position_reorder`
+(`lib/diff/tree_diff.ml:445`, `assert (expected_pos <> actual_pos)`) and the
+whole report is buffered, so not even the summary line survives. Seven rules
+reach that renderer with the two positions equal, six `mask-[...]` classes and
+`md:text-[2.5rem]/14`, all of them selectors the site's CSS carries more than
+once. `selector_position` answers with the first rule matching the key while the
+`moved` set that decided a move refers to a later one.
+
+The reorder reporting the crash comes from is new: cascade 105eea05
+(2026-08-25) made the canonical comparison read positions back, where before it
+claimed an exact match wherever it sat. Any earlier site number was taken
+without it and is not comparable.
+
+With that assertion disabled locally, the run reports:
+
+```text
+CSS: 661576 chars vs 664632 chars (0.5% diff)
+Changes: 1 removed rule, 1 modified rule, 1 reordered rule, 3 changed containers
+├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
+├─ .with-line-numbers .line:before
+├─ .DocSearch-Hit[ari...favorites"]:before (position 114) ↔ .DocSearch-Hit[ari...DocSearch-Hit-icon (position 112)
+├─ @media (prefers-color-scheme: dark) (11 blocks merged into 10)
+├─ @layer utilities (45 added, 1453 reordered, 16 rearranged, 1 selector changed)
+└─ @layer components (2 modified)
+```
+
+Those figures come from a patched differ and are not a measurement. The 45
+added and the 2 modified match what the sections below describe. The 1453
+reordered is new information nobody has validated: it arrives from the same
+commit that produces the crash, so how much of it is tw's ordering debt and how
+much is the differ pairing duplicate selectors badly is unknown until the
+assertion is fixed properly in cascade.
 
 **Both sides are minified because every other configuration is noisier.** The
 reference passes through lightningcss, so part of what the diff reports is
@@ -63,6 +108,9 @@ flattens it. Measured on the site corpus:
 | minify both sides | 47 added | 2 modified |
 | neither side minified | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
 | neither minified, both flattened | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
+
+Those rows were taken before cascade started reading rule positions back, so
+none of them carries a reordered count.
 
 Flattening afterwards changes nothing, because the canonical comparator already
 folds nesting.
@@ -92,12 +140,14 @@ already been through lightningcss, so cross-check against
 bug. `--diff` also passes `--prune-unused-custom-props`, which makes it blind to
 a utility whose whole effect is a custom property nothing reads.
 
-**Order is not compared.** `--diff=canonical` matches rules by key rather than
-position, and `css_compare.mli` says it does not reason about cascade-affecting
-reorderings. Block structure does surface as `N blocks merged into M`, but tw's
-`--minify` runs cascade's printer without its optimizer, so most of those
-entries are adjacent identical `@media` and `@container` blocks that
-lightningcss merged on the reference side. The same mismatch turns a rule that
+**Order is compared, but only since cascade 105eea05.** `--diff=canonical`
+matches rules by key rather than position, and before that commit it said
+nothing about where the match sat. Every site number older than 2026-08-25 was
+taken with that blindness; a move now arrives as a `reordered` entry. Block
+structure surfaces as `N blocks merged into M`, but tw's `--minify` runs
+cascade's printer without its optimizer, so most of those entries are adjacent
+identical `@media` and `@container` blocks that lightningcss merged on the
+reference side. The same mismatch turns a rule that
 moved between two blocks with the same condition into a `removed` entry paired
 with an `added` entry carrying those rules back, so look for the twin before
 treating either half as a gap.
@@ -130,12 +180,14 @@ Tailwind splices the value into CSS anyway. The docs pages carry literal
 `background-color: --brand-color` (v3 syntax), `grid-cols-[1rem,1fr]` emits
 `grid-template-columns: 1rem,1fr`, and `justify-baseline` emits a
 `justify-content` value CSS Box Alignment 3 does not define. Together these are
-45 of the 47 rules the site comparison reports as added.
+the 45 rules the site comparison reports as added directly under
+`@layer utilities`.
 
-Three more come from lightningcss on the reference side:
+Three more differences come from lightningcss on the reference side:
 
 - It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
-  spelling as well, which is the other two added rules.
+  spelling as well, so that guard and the rules under it arrive as added
+  containers of their own.
 - It autoprefixes the site's own CSS, so `user-select: none` on
   `.with-line-numbers .line::before` arrives as
   `-webkit-user-select: none; user-select: none`. cascade adds no prefix.
