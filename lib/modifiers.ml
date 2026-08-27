@@ -1001,13 +1001,22 @@ let try_has_shorthand s =
 
 (* A bare arbitrary variant with no [&] anchor compounds onto the utility's own
    class, so it has to be a single compound selector: [[code]] and [[.line]] are
-   fine, [[>img]] and [[@media_print]] are not. *)
+   fine, [[>img]] and [[@media_print]] are not. The bracket is read as a
+   selector rather than scanned for combinator characters, because [~] and [|]
+   spell an attribute operator as well as a combinator: [[data-size~=large]] is
+   a compound and [[p_~_span]] is not, and only the grammar separates them. [_]
+   stands for a space here, the decoding {!nest_selector} applies. *)
 let is_compound_selector inner =
-  (match inner.[0] with
-    | 'a' .. 'z' | 'A' .. 'Z' | '.' | '#' | '[' | ':' | '*' -> true
-    | _ | (exception _) -> false)
-  && not
-       (String.exists (fun c -> c = '_' || c = '>' || c = '+' || c = '~') inner)
+  let s = String.map (fun c -> if c = '_' then ' ' else c) inner in
+  let cursor = Cascade.Cursor.of_string s in
+  match Css.Selector.read_strict_selector_list cursor with
+  | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
+  | List _ | Combined _ | Relative _ -> false
+  | _ ->
+      (* The reader stops at the first thing it cannot use, so trailing rubbish
+         has to be refused here: it is not part of the compound. *)
+      Cascade.Cursor.ws cursor;
+      Cascade.Cursor.is_done cursor
 
 (* A plain identifier: what a group/peer name or a bare data attribute may be
    spelled with. *)
