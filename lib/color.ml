@@ -49,48 +49,41 @@ type color =
   | Css of Css.color
   | Theme_named of string
 
-(* The colour-space primitives are cascade's, so a value tw converts one way and
-   cascade serialises back the other survives the round trip. tw used to carry
-   its own copies, and its forward matrix went straight to LMS while its inverse
-   went via XYZ: the two were not exact inverses, and [#0088cc] came back as
-   [#0288cc]. *)
+(* The colour-space arithmetic (linearisation, OKLab, the polar OKLCh form) is
+   cascade's: tw used to carry its own copies, and its forward matrix went
+   straight to LMS while its inverse went via XYZ, so the two were not exact
+   inverses and [#0088cc] came back as [#0288cc]. Only [linearize_channel] and
+   [gamma_correct] stay private, because they are byte <-> [0,1] float
+   conversions that cascade's float-only API has no reason to own.
+
+   The one algorithm cascade genuinely lacks is below: [gamut_map_chroma]'s
+   binary search for the widest in-gamut chroma. Cascade's
+   [srgb_bytes_of_linear] answers a narrower question - "is this exact colour
+   representable" - and returns [None] out of gamut instead of hunting for the
+   nearest one, which is what an out-of-gamut OKLCh colour (e.g.
+   [oklch(0.7_0.35_150)]) needs to render at all. *)
 let linearize_channel c =
   Cascade.Color_space.linear_of_srgb (float_of_int c /. 255.0)
 
 let gamma_correct c =
   int_of_float ((Cascade.Color_space.srgb_of_linear c *. 255.0) +. 0.5)
 
-let linear_rgb_to_oklab r_lin g_lin b_lin =
-  Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin)
-
 let rgb_to_oklch rgb =
   let r_lin = linearize_channel rgb.r in
   let g_lin = linearize_channel rgb.g in
   let b_lin = linearize_channel rgb.b in
-  let ok_l, ok_a, ok_b = linear_rgb_to_oklab r_lin g_lin b_lin in
-
-  (* Convert to LCH *)
-  let lightness = ok_l *. 100.0 in
-  let chroma = sqrt ((ok_a *. ok_a) +. (ok_b *. ok_b)) in
-  let hue =
-    let h = atan2 ok_b ok_a *. 180.0 /. Float.pi in
-    if h < 0.0 then h +. 360.0 else h
-  in
-
-  { l = lightness; c = chroma; h = hue }
+  let lab = Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin) in
+  let ok_l, chroma, hue = Cascade.Color_space.oklch_of_oklab lab in
+  { l = ok_l *. 100.0; c = chroma; h = hue }
 
 let rgb_to_oklab rgb =
   let r_lin = linearize_channel rgb.r in
   let g_lin = linearize_channel rgb.g in
   let b_lin = linearize_channel rgb.b in
-  let ok_l, ok_a, ok_b = linear_rgb_to_oklab r_lin g_lin b_lin in
+  let ok_l, ok_a, ok_b =
+    Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin)
+  in
   (ok_l *. 100.0, ok_a, ok_b)
-
-let oklab_to_linear_srgb ok_l ok_a ok_b =
-  Cascade.Color_space.linear_srgb_of_oklab (ok_l, ok_a, ok_b)
-
-let linear_srgb_to_oklab r_lin g_lin b_lin =
-  Cascade.Color_space.oklab_of_linear_srgb (r_lin, g_lin, b_lin)
 
 let clip_val x = Float.max 0.0 (Float.min 1.0 x)
 let clip (r, g, b) = (clip_val r, clip_val g, clip_val b)
@@ -102,13 +95,16 @@ let in_gamut (r, g, b) =
 let gamut_map_chroma ~ok_l ~cos_h ~sin_h chroma =
   let jnd = 0.02 in
   let epsilon = 0.00001 in
-  let oklch_to_linear c = oklab_to_linear_srgb ok_l (c *. cos_h) (c *. sin_h) in
+  (* [cos_h]/[sin_h] are precomputed once by the caller and reused across every
+     iteration of the search below, so this stays a closure over them rather
+     than a call to cascade's [oklab_of_oklch], which takes a hue in degrees and
+     would redo the trigonometry on each call. *)
+  let oklch_to_linear c =
+    Cascade.Color_space.linear_srgb_of_oklab (ok_l, c *. cos_h, c *. sin_h)
+  in
   let delta_e_ok (r, g, b) c =
-    let l1, a1, b1 = linear_srgb_to_oklab r g b in
-    let dl = l1 -. ok_l
-    and da = a1 -. (c *. cos_h)
-    and db = b1 -. (c *. sin_h) in
-    sqrt ((dl *. dl) +. (da *. da) +. (db *. db))
+    let lab = Cascade.Color_space.oklab_of_linear_srgb (r, g, b) in
+    Cascade.Color_space.oklab_distance lab (ok_l, c *. cos_h, c *. sin_h)
   in
   let rgb = oklch_to_linear chroma in
   if in_gamut rgb then clip rgb
