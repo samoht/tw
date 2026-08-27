@@ -93,6 +93,8 @@ module Handler = struct
     | Scale_3d
     | Scale_none
     | Perspective_none
+    | (* depth named by a project [--perspective-*] token *)
+      Perspective_theme of string
     | Perspective_dramatic
     | Perspective_near
     | Perspective_normal
@@ -219,6 +221,19 @@ module Handler = struct
 
   let perspective_distant_var =
     Var.theme Css.Length "perspective-distant" ~order:(7, 17)
+
+  (* A [--perspective-*] token the project declared names a depth the built-in
+     scale has no slot for; they share the slot after the scale. *)
+  let perspective_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let perspective_named_var name =
+    match Hashtbl.find_opt perspective_named_cache name with
+    | Some var -> var
+    | None ->
+        let var = Var.theme Css.Length ("perspective-" ^ name) ~order:(7, 19) in
+        Hashtbl.add perspective_named_cache name var;
+        var
 
   let perspective_none_var =
     Var.theme Css.Length "perspective-none" ~order:(7, 18)
@@ -919,6 +934,19 @@ module Handler = struct
         style (decl :: [ Css.perspective (Var r) ])
     | None -> style [ Css.perspective None ]
 
+  let is_theme_perspective theme n =
+    Scheme.theme_value (Some theme) ("perspective-" ^ n) <> None
+
+  let perspective_theme theme name =
+    match Scheme.theme_value (Some theme) ("perspective-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match Css.parse_length raw with
+        | None -> style []
+        | Some len ->
+            let decl, r = Var.binding (perspective_named_var name) len in
+            style (decl :: [ Css.perspective (Var r) ]))
+
   let perspective_dramatic =
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
     style (decl :: [ Css.perspective (Var r) ])
@@ -1272,6 +1300,7 @@ module Handler = struct
     | Neg_rotate_z_arbitrary (_, a) -> neg_rotate_z_arbitrary a
     | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
+    | Perspective_theme name -> perspective_theme theme name
     | Perspective_near -> perspective_near
     | Perspective_normal -> perspective_normal
     | Perspective_midrange -> perspective_midrange
@@ -1414,6 +1443,7 @@ module Handler = struct
     | Perspective_arbitrary _ -> 1400
     | Perspective_dramatic -> 1400
     | Perspective_none -> 1401
+    | Perspective_theme _ -> 1402
     | Perspective_normal -> 1402
     | Perspective_near -> 1403
     | Perspective_midrange -> 1404
@@ -1480,7 +1510,7 @@ module Handler = struct
     | Ok v -> Some v
     | Error _ -> None
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "rotate"; n ] when Parse.is_bare_var n ->
@@ -1743,6 +1773,10 @@ module Handler = struct
     | [ "perspective"; "midrange" ] -> Ok Perspective_midrange
     | [ "perspective"; "distant" ] -> Ok Perspective_distant
     | "perspective" :: rest
+      when (match rest with "origin" :: _ | [] -> false | _ -> true)
+           && is_theme_perspective theme (String.concat "-" rest) ->
+        Ok (Perspective_theme (String.concat "-" rest))
+    | "perspective" :: rest
       when match rest with "origin" :: _ | [] -> false | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
@@ -1919,6 +1953,7 @@ module Handler = struct
     | Neg_rotate_z_arbitrary (raw, _) -> "-rotate-z-" ^ "[" ^ raw ^ "]"
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
+    | Perspective_theme name -> "perspective-" ^ name
     | Perspective_near -> "perspective-near"
     | Perspective_normal -> "perspective-normal"
     | Perspective_midrange -> "perspective-midrange"
