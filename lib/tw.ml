@@ -139,7 +139,7 @@ let split_importance base_class =
    colors.<name>.<shade> (optionally with a /<alpha> suffix) becomes the
    colour's oklch value, and spacing.<n> becomes <n * 0.25>rem. Returns None for
    paths not resolved. *)
-let theme_resolve_path inner =
+let theme_resolve_path ~theme inner =
   let path, alpha =
     match String.index_opt inner '/' with
     | Some k ->
@@ -151,7 +151,14 @@ let theme_resolve_path inner =
   | [ "colors"; name; shade ] -> (
       match (Color.of_string name, int_of_string_opt shade) with
       | Ok c, Some sh ->
-          let base = Color.to_oklch_css c sh in
+          (* A project that renames a palette entry in its [@theme] gets its own
+             value back here, the way [bg-<name>-<shade>] already does. *)
+          let token = String.concat "-" [ "color"; name; shade ] in
+          let base =
+            match Scheme.theme_value (Some theme) token with
+            | Some v -> v
+            | None -> Color.to_oklch_css c sh
+          in
           Some
             (match alpha with
             | Some a
@@ -178,7 +185,7 @@ let theme_resolve_path inner =
 (* Replace each theme(<path>) in a class string with its resolved value, spaces
    re-encoded as [_] so downstream arbitrary-value decoding treats them as
    spaces. Unresolved theme() calls are left verbatim. *)
-let resolve_theme_functions s =
+let resolve_theme_functions ~theme s =
   let buf = Buffer.create (String.length s) in
   let n = String.length s in
   let i = ref 0 in
@@ -195,7 +202,7 @@ let resolve_theme_functions s =
          copied through and the class stays unresolved. *)
       let closed = !depth = 0 in
       let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
-      (match if closed then theme_resolve_path inner else None with
+      (match if closed then theme_resolve_path ~theme inner else None with
       | Some v ->
           Buffer.add_string buf
             (String.map (fun c -> if c = ' ' then '_' else c) v)
@@ -254,7 +261,7 @@ let of_string ?(theme = Scheme.default) class_str =
   in
   (* Resolve theme() dot-paths for dispatch, keeping the original spelling as
      the class-name alias so the utility still round-trips. *)
-  let resolved_base = resolve_theme_functions base_class in
+  let resolved_base = resolve_theme_functions ~theme base_class in
   let theme_alias =
     if resolved_base = base_class then None else Some base_class
   in
