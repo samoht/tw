@@ -2863,36 +2863,31 @@ module Typography_late = struct
         overflow Hidden;
       ]
 
+  (* A project [@theme] token is a namespace key, not a value Tailwind type-
+     checks at build time: any override of [--line-clamp-none], decimal or not,
+     switches the utility to the variable-driven form. Reading it with
+     [int_of_string_opt] let an OCaml-only spelling like [0x3] through by
+     accident and rejected a spelling like [banana] that Tailwind still honours,
+     so the branch no longer parses the value at all. *)
   let line_clamp_none_style ?theme () =
     match Scheme.theme_value theme "line-clamp-none" with
-    | Some value_str -> (
-        match int_of_string_opt value_str with
-        | Some n ->
-            let decl =
-              Css.custom_property ~layer:"theme" "--line-clamp-none"
-                (string_of_int n)
-            in
-            let ref : Css.webkit_line_clamp Css.var =
-              Var.theme_ref "line-clamp-none"
-                ~default:(Css.Unset : Css.webkit_line_clamp)
-                ~default_css:"unset"
-            in
-            style
-              [
-                decl;
-                webkit_line_clamp (Var ref);
-                webkit_box_orient Vertical;
-                display Webkit_box;
-                overflow Hidden;
-              ]
-        | None ->
-            style
-              [
-                webkit_line_clamp Unset;
-                webkit_box_orient Horizontal;
-                display Block;
-                overflow Visible;
-              ])
+    | Some value_str ->
+        let decl =
+          Css.custom_property ~layer:"theme" "--line-clamp-none" value_str
+        in
+        let ref : Css.webkit_line_clamp Css.var =
+          Var.theme_ref "line-clamp-none"
+            ~default:(Css.Unset : Css.webkit_line_clamp)
+            ~default_css:"unset"
+        in
+        style
+          [
+            decl;
+            webkit_line_clamp (Var ref);
+            webkit_box_orient Vertical;
+            display Webkit_box;
+            overflow Hidden;
+          ]
     | None ->
         style
           [
