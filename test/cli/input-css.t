@@ -269,3 +269,13 @@ font token with a fallback, so an inline project override must remain live:
   > EOF
   $ tw --minify --input-css inl-default.css index.html | grep -cF -- '--default-font-family:"Satoshi",sans-serif'
   1
+
+A layer slot is declared once. Splicing the generated sheet into the
+entrypoint expands its [@layer] list in place, and the standalone
+[@layer components;] it also carries must not come out a second time:
+
+  $ cat > slots.css <<EOF
+  > @import "tailwindcss";
+  > EOF
+  $ tw --input-css slots.css index.html | grep -c '^@layer components;'
+  1
