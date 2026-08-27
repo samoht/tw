@@ -2211,9 +2211,12 @@ let handle_group class_name util_inner styles extract_fn =
       List.map2 extract_item styles util_items |> List.concat
   | _ -> List.concat_map (extract_fn class_name util_inner) styles
 
-(** Replace placeholder selector "_" with the actual utility class selector *)
+(** Replace placeholder selector "_" with the actual utility class selector.
+    Matches the node rather than rendering the selector to compare it: this runs
+    per rule for every utility carrying an explicit [rule_list] (prose, forms,
+    gradients). *)
 let resolve_placeholder_selector sel selector =
-  if Css.Selector.to_string selector = "._" then sel else selector
+  match selector with Css.Selector.Class "_" -> sel | _ -> selector
 
 let extract_rule_outputs build_output statements =
   statements
