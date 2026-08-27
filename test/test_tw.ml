@@ -432,6 +432,28 @@ let responsive_breakpoints () =
   check (sm [ text_lg ]);
   check (md [ p 8 ])
 
+(* [theme(colors.<name>.<shade>)] resolves against the threaded theme, not the
+   default palette: a project that overrides [--color-red-500] gets its own
+   colour back, the way [bg-red-500] already does. tw used to answer with the
+   built-in oklch, so one class read the override and the other did not. *)
+let theme_function_reads_the_project_palette () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#123456") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "theme(colors.red.500) reads the override" true
+    (Astring.String.is_infix ~affix:"#123456"
+       (css "[color:theme(colors.red.500)]"));
+  Alcotest.(check bool)
+    "an unoverridden colour keeps the default" true
+    (Astring.String.is_infix ~affix:"oklch"
+       (css "[color:theme(colors.blue.500)]"))
+
 let custom_breakpoint_theme_is_local () =
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
@@ -1175,6 +1197,8 @@ let core_tests =
     test_case "responsive breakpoints" `Slow responsive_breakpoints;
     test_case "custom breakpoint theme is local" `Quick
       custom_breakpoint_theme_is_local;
+    test_case "theme() reads the project palette" `Quick
+      theme_function_reads_the_project_palette;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
