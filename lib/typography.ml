@@ -1312,6 +1312,21 @@ module Typography_early = struct
         | Ok lh -> Stdlib.Option.Some lh
         | Error _ -> Stdlib.Option.None)
 
+  (* Both tables are compile-time constants: building them per call allocated
+     the list and a second remapped copy once per utility rendered. *)
+  let named_leading_table :
+      (string * (Css.line_height Var.theme * Css.line_height)) list =
+    [
+      ("none", (leading_none_var, (Num 1.0 : Css.line_height)));
+      ("tight", (leading_tight_var, Num 1.25));
+      ("snug", (leading_snug_var, Num 1.375));
+      ("normal", (leading_normal_var, Num 1.5));
+      ("relaxed", (leading_relaxed_var, Num 1.625));
+      ("loose", (leading_loose_var, Num 2.0));
+    ]
+
+  let text_size_table = List.map (fun (n, v, d) -> (n, (v, d))) text_size_data
+
   (** Convert a line-height modifier to (extra_declarations, line_height_value).
   *)
   let lh_modifier_to_css theme = function
@@ -1330,18 +1345,7 @@ module Typography_early = struct
         ([ spacing_decl ], lh)
     | No_leading -> ([], Num 1.0)
     | Named name -> (
-        let leading_data =
-          [
-            ("none", leading_none_var, (Num 1.0 : Css.line_height));
-            ("tight", leading_tight_var, Num 1.25);
-            ("snug", leading_snug_var, Num 1.375);
-            ("normal", leading_normal_var, Num 1.5);
-            ("relaxed", leading_relaxed_var, Num 1.625);
-            ("loose", leading_loose_var, Num 2.0);
-          ]
-        in
-        let assoc = List.map (fun (n, v, d) -> (n, (v, d))) leading_data in
-        match List.assoc_opt name assoc with
+        match List.assoc_opt name named_leading_table with
         | Stdlib.Option.Some (theme_var, default_val) ->
             let decl, ref_ = Var.binding theme_var default_val in
             ([ decl ], Var ref_)
@@ -1377,10 +1381,7 @@ module Typography_early = struct
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
   let text_named_with_lh theme name lh_mod =
-    match
-      List.assoc_opt name
-        (List.map (fun (n, v, d) -> (n, (v, d))) text_size_data)
-    with
+    match List.assoc_opt name text_size_table with
     | Stdlib.Option.Some (size_var, default_rem) ->
         let size_decl, size_ref = Var.binding size_var (Rem default_rem) in
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
