@@ -68,10 +68,14 @@ let dom_dedup () =
   check bool "grows with new utility" true
     (String.length css3 > String.length css1)
 
+(* A newly discovered batch injects as its own small element rather than by
+   rewriting one growing element, so [data-tw="runtime"] can match several
+   elements at once; concatenate them all in document order. *)
 let style_el_text () =
-  match Brr.El.find_first_by_selector (Jstr.v "style[data-tw=\"runtime\"]") with
-  | Some el -> Jstr.to_string (Brr.El.text_content el)
-  | None -> ""
+  Brr.El.fold_find_by_selector
+    (fun el acc -> acc ^ Jstr.to_string (Brr.El.text_content el))
+    (Jstr.v "style[data-tw=\"runtime\"]")
+    ""
 
 let dom_batching () =
   (* [use] coalesces its rebuild onto a microtask, so the sheet in the document
@@ -88,6 +92,55 @@ let dom_batching () =
   Tw_dom.flush ();
   check string "flush with nothing pending is a no-op" flushed
     (style_el_text ())
+
+let style_el_count () =
+  Brr.El.fold_find_by_selector
+    (fun _ acc -> acc + 1)
+    (Jstr.v "style[data-tw=\"runtime\"]")
+    0
+
+(* A class registered on its own tick lands in its own small element rather than
+   a full recompile over everything seen so far - the fix for the quadratic
+   rebuild. Drip-feeding distinct classes one flush at a time must therefore see
+   more than one element at some point; a batch large enough to dwarf whatever
+   is already consolidated then folds everything - deltas and all - back into
+   exactly one element, and the aggregated content must match a plain
+   [Tw_dom.css ()] compile regardless of how many elements it came from. *)
+let dom_incremental_consolidation () =
+  Tw_dom.init ~base:false ();
+  Tw_dom.flush ();
+  let dripped = List.init 40 (fun i -> Fmt.str "pt-%d" (101 + i)) in
+  let saw_multiple = ref false in
+  List.iter
+    (fun cls ->
+      ignore (Tw_dom.use_str cls);
+      Tw_dom.flush ();
+      if style_el_count () > 1 then saw_multiple := true)
+    dripped;
+  check bool
+    "drip-feeding distinct classes uses more than one element at some point"
+    true !saw_multiple;
+  let final_batch = List.init 100 (fun i -> Fmt.str "pr-%d" (201 + i)) in
+  ignore (Tw_dom.use_str (String.concat " " final_batch));
+  Tw_dom.flush ();
+  check int
+    "a batch dwarfing what is consolidated folds everything into one element" 1
+    (style_el_count ());
+  let all = dripped @ final_batch in
+  let css = Tw_dom.css () in
+  let dom_css = style_el_text () in
+  List.iter
+    (fun cls ->
+      let selector = "." ^ cls in
+      check bool
+        (Fmt.str "css () has %s" cls)
+        true
+        (Astring.String.is_infix ~affix:selector css);
+      check bool
+        (Fmt.str "document has %s" cls)
+        true
+        (Astring.String.is_infix ~affix:selector dom_css))
+    all
 
 let has_dom =
   (* Check if document.createElement exists — absent in Node.js *)
@@ -111,6 +164,7 @@ let dom_cases =
       test_case "use_str" `Quick dom_use_str;
       test_case "dedup" `Quick dom_dedup;
       test_case "batching" `Quick dom_batching;
+      test_case "incremental consolidation" `Quick dom_incremental_consolidation;
     ]
   else []
 
