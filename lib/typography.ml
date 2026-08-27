@@ -1391,7 +1391,8 @@ module Typography_early = struct
         let lh_extra, lh_value = lh_modifier_to_css lh_mod in
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
 
-  let examples = [ Text_base; Font_normal ]
+  let examples =
+    [ Text_base; Font_normal; Font_sans; Italic; Text_center; Leading_none ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)

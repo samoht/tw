@@ -1924,6 +1924,7 @@ module Handler = struct
       Bg_clip_border;
       Bg_origin_border;
       Bg_current;
+      Bg_position Position.Center;
     ]
 end
 

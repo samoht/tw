@@ -1184,6 +1184,8 @@ module Handler = struct
       Border_solid;
       Border_current;
       Outline_width 2;
+      Outline_offset 2;
+      Rounded (Corner.All, Rsz_sm);
     ]
 end
 
