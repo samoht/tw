@@ -299,6 +299,28 @@ let color_mix_to_oklab s =
                   Fmt.str "oklab(%.6f%% %.6f %.6f / %.6f)" (l *. 100.) a b alpha
               | _ -> whole)))
 
+(* Tailwind writes the [color-mix] fallback percentage as a bare number:
+   [color-mix(in srgb, red .5, transparent)]. CSS Color 5 sec. 3.1 admits only a
+   [<percentage>] there, so a browser drops that declaration and cascade's
+   reader refuses it, which takes the whole declaration off the expected side
+   and reports tw's own (valid) [50%] as an addition. The two spell one value,
+   so the fixture's spelling is normalised to the percentage before either side
+   is parsed. Only a bare number directly before the closing paren or a comma
+   inside [color-mix(...)] is touched. *)
+let color_mix_percentage =
+  let mix = Re.Pcre.regexp {|\bcolor-mix\(([^()]*)\)|} in
+  let bare = Re.Pcre.regexp {|( )(\.\d+|0?\.\d+)(\s*[,)]|\s*$)|} in
+  fun s ->
+    Re.replace mix s ~f:(fun g ->
+        let args = Re.Group.get g 1 in
+        let args =
+          Re.replace bare args ~f:(fun d ->
+              let n = float_of_string (Re.Group.get d 2) in
+              Fmt.str "%s%g%%%s" (Re.Group.get d 1) (n *. 100.)
+                (Re.Group.get d 3))
+        in
+        "color-mix(" ^ args ^ ")")
+
 (* Reduce the precision of [oklab]/[oklch]/[lab]/[lch] coefficients to three
    decimals, mirroring Tailwind's own snapshot serialiser
    ([test-utils/custom-serializer.ts]): it truncates those axes because
@@ -669,7 +691,7 @@ let run_test_case test () =
     if our_css = "" && expected = "" then ()
     else
       let normalize_colors s =
-        truncate_color_precision (color_mix_to_oklab s)
+        truncate_color_precision (color_mix_to_oklab (color_mix_percentage s))
       in
       let result =
         Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -710,6 +732,25 @@ let run_test_case test () =
           (Fmt.str "CSS mismatch for: %s\n\n%s\n\nExpected:\n%s\n\nGot:\n%s%s"
              (String.concat " " test.classes)
              (Buffer.contents buf) expected got rejected_note)
+
+(* Guards [color_mix_percentage]: the bare-number mixing percentage Tailwind
+   writes in its [color-mix] fallback becomes the percentage CSS Color 5 sec.
+   3.1 requires, and nothing else in the function is touched. *)
+let test_color_mix_percentage () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (color_mix_percentage input)
+  in
+  check "bare fraction becomes a percentage"
+    "color-mix(in srgb, red 50%, transparent)"
+    "color-mix(in srgb, red .5, transparent)";
+  check "a percentage is left alone" "color-mix(in srgb, red 50%, transparent)"
+    "color-mix(in srgb, red 50%, transparent)";
+  (* The [var()] fallback spelling carries its own bare number and is a value,
+     not a mixing percentage, so it stays as written. *)
+  check "var fallback untouched"
+    "color-mix(in oklab, red var(--opacity-half, .5), transparent)"
+    "color-mix(in oklab, red var(--opacity-half, .5), transparent)";
+  check "text outside color-mix untouched" "opacity: .5" "opacity: .5"
 
 (* Guards [truncate_color_precision]: it truncates (never rounds) the
    oklab-family axes to three decimals like Tailwind's snapshot serialiser, so
@@ -807,6 +848,7 @@ let () =
   let tolerance_cases =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
+      test_case "color-mix percentage" `Quick test_color_mix_percentage;
       test_case "canonical tolerance rejects layer order" `Quick
         test_layer_order_not_tolerated;
       test_case "the theme echo is limited to declared tokens" `Quick
