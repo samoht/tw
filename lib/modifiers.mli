@@ -31,12 +31,15 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
-val normalize_supports_condition : string -> string
-(** [normalize_supports_condition cond] is the [supports-[...]] bracket content
-    as a CSS [@supports] condition: underscores become spaces, and a bare
-    property or custom property expands to a [(prop: var(--tw))] test. The
-    modifier parser validates its result, so only conditions that parse reach a
-    rule. *)
+val normalize_supports_condition : string -> Css.Supports.t
+(** [normalize_supports_condition cond] builds the [supports-[...]] bracket
+    content as a typed CSS [@supports] condition: underscores become spaces, and
+    a bare property or custom property expands to a [(prop: var(--tw))] test,
+    built directly through {!Css.Supports.property} rather than assembled as a
+    string and re-parsed. An already-parenthesised condition or a function call
+    is the text the author wrote, so it is parsed with {!Css.Supports.of_string}
+    instead. The modifier parser validates the result, so only conditions that
+    parse reach a rule. *)
 
 (** {1 State Variants} *)
 

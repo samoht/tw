@@ -1109,29 +1109,32 @@ let normalize_supports_condition condition_str =
     && cond.[1] = '-'
     && not (String.contains cond ':')
   then
-    (* Bare custom property: --test → (--test: var(--tw)) *)
-    "(" ^ cond ^ ": var(--tw))"
+    (* Bare custom property: --test tests against var(--tw), built directly
+       rather than assembled as "(--test: var(--tw))" and re-parsed. *)
+    Css.Supports.property cond "var(--tw)"
   else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
   then
-    (* Already parenthesised, so it is the condition the author wrote. *)
-    cond
+    (* Already parenthesised, so it is the condition the author wrote; only the
+       real grammar reader can make sense of arbitrary authored text. *)
+    Css.Supports.of_string cond
   else if String.contains cond ':' then
-    (* [prop: value] -> [(prop:value)], the property test Tailwind emits. *)
+    (* [prop: value], the property test Tailwind emits, built directly. *)
     let i = String.index cond ':' in
     let prop = String.trim (String.sub cond 0 i) in
     let value =
       String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
     in
-    String.concat "" [ "("; prop; ":"; value; ")" ]
+    Css.Supports.property prop value
   else if String.contains cond '(' then
-    (* Function call like font-format(opentype) or var(--test) *)
-    cond
+    (* Function call like font-format(opentype) or var(--test); again arbitrary
+       authored text, so the real grammar reader parses it. *)
+    Css.Supports.of_string cond
   else
-    (* Bare property name: backdrop-filter -> (backdrop-filter: var(--tw)), the
-       same expansion as the bare custom property above. A lone identifier is
-       not a condition the CSS grammar has a production for, so leaving it
-       raised a parse error out of the scanner. *)
-    "(" ^ cond ^ ": var(--tw))"
+    (* Bare property name: backdrop-filter tests against var(--tw), the same
+       expansion as the bare custom property above. A lone identifier is not a
+       condition the CSS grammar has a production for, so leaving it raised a
+       parse error out of the scanner. *)
+    Css.Supports.property cond "var(--tw)"
 
 (* Validate that a supports-[...] bracket normalizes to a condition the
    [@supports] grammar has a production for. An empty or half-written one used
@@ -1140,7 +1143,7 @@ let is_valid_supports_condition cond =
   cond <> ""
   &&
     try
-      ignore (Css.Supports.of_string (normalize_supports_condition cond));
+      ignore (normalize_supports_condition cond);
       true
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
