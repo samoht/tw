@@ -22,20 +22,38 @@ let split_whitespace s =
 
 type decoded = { starts : int array; chars : int array }
 
+(* Grow the two arrays directly. Folding the file into lists first costs about
+   twelve words per character and keeps both lists live until the arrays are
+   built, and a source file is kilobytes. A byte can decode to at most one
+   character, so the source length is a safe initial capacity. *)
 let decoded_utf_8 source =
-  let chars_rev, starts_rev =
-    Uutf.String.fold_utf_8
-      (fun (chars, starts) byte_pos decoded ->
-        let code =
-          match decoded with `Uchar u -> Uchar.to_int u | `Malformed _ -> -1
-        in
-        (code :: chars, byte_pos :: starts))
-      ([], []) source
+  let cap = max 16 (String.length source) in
+  let starts = ref (Array.make (cap + 1) 0) in
+  let chars = ref (Array.make cap 0) in
+  let n = ref 0 in
+  let push start code =
+    if !n >= Array.length !chars then begin
+      let bigger = Array.make (2 * Array.length !chars) 0 in
+      Array.blit !chars 0 bigger 0 !n;
+      chars := bigger;
+      let bigger_starts = Array.make ((2 * Array.length !chars) + 1) 0 in
+      Array.blit !starts 0 bigger_starts 0 !n;
+      starts := bigger_starts
+    end;
+    !starts.(!n) <- start;
+    !chars.(!n) <- code;
+    incr n
   in
-  {
-    starts = Array.of_list (List.rev (String.length source :: starts_rev));
-    chars = Array.of_list (List.rev chars_rev);
-  }
+  Uutf.String.fold_utf_8
+    (fun () byte_pos decoded ->
+      match decoded with
+      | `Uchar u -> push byte_pos (Uchar.to_int u)
+      | `Malformed _ -> push byte_pos (-1))
+    () source;
+  (* [byte_at d stop] is read at [stop = length], so [starts] carries one more
+     entry than [chars]. *)
+  !starts.(!n) <- String.length source;
+  { starts = Array.sub !starts 0 (!n + 1); chars = Array.sub !chars 0 !n }
 
 let char_at d i = d.chars.(i)
 let byte_at d i = d.starts.(i)
