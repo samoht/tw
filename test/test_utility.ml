@@ -156,10 +156,12 @@ let test_order_of_property () =
     "margin skips its spacing token declaration"
     (Some (order_of "m-auto"))
     (order_of_property (Key Margin));
+  (* [placeholder-transparent] writes [color] too, but inside a [::placeholder]
+     rule: the slot belongs to the utilities that colour the element itself. *)
   check
     (option (pair int int))
-    "color skips its palette token declaration"
-    (Some (order_of "placeholder-transparent"))
+    "color resolves to the text-colour utilities"
+    (Some (order_of "text-transparent"))
     (order_of_property (Key Color));
   check
     (option (pair int int))
