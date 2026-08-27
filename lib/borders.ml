@@ -432,13 +432,25 @@ module Handler = struct
       float_of_string_opt str
     else None
 
+  (* The CSS line-width keywords are border widths, not lengths, so
+     [Css.parse_length] never sees them. They are the only idents a width
+     bracket takes: anything else there is a colour or a mistake. *)
+  let line_width_keyword : string -> Css.border_width option = function
+    | "thin" -> Some Thin
+    | "medium" -> Some Medium
+    | "thick" -> Some Thick
+    | _ -> None
+
   let parse_border_width inner : Css.border_width option =
-    match parse_length inner with
-    | Some len -> border_width_of_length len
+    match line_width_keyword inner with
+    | Some _ as w -> w
     | None -> (
-        match parse_bare_number inner with
-        | Some f -> Some (Px f)
-        | None -> None)
+        match parse_length inner with
+        | Some len -> border_width_of_length len
+        | None -> (
+            match parse_bare_number inner with
+            | Some f -> Some (Px f)
+            | None -> None))
 
   let parse_outline_width inner : Css.length option =
     match parse_length inner with
@@ -974,7 +986,11 @@ module Handler = struct
     | [ "border"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-        if String.length inner > 0 && is_numeric_start inner.[0] then
+        let is_width =
+          (String.length inner > 0 && is_numeric_start inner.[0])
+          || line_width_keyword inner <> None
+        in
+        if is_width then
           match parse_border_width inner with
           | Some w -> Ok (Border_width_bracket (inner, w))
           | None -> err_not_utility
@@ -984,7 +1000,11 @@ module Handler = struct
            && Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
-        if String.length inner > 0 && is_numeric_start inner.[0] then
+        let is_width =
+          (String.length inner > 0 && is_numeric_start inner.[0])
+          || line_width_keyword inner <> None
+        in
+        if is_width then
           match parse_border_width inner with
           | Some w -> Ok (Border_side_width_bracket (side, inner, w))
           | None -> err_not_utility
