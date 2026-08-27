@@ -1,0 +1,146 @@
+@import "tailwindcss" theme(static) source(none);
+@source "./classlist.txt";
+@import "./search.css";
+@import "./typography.css" layer(components);
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui;
+  --font-source: var(--font-source-sans-pro), system-ui;
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  --font-mono: var(--font-plex-mono), monospace;
+  --font-mono--font-feature-settings: "ss02", "zero";
+  --font-ubuntu-mono: var(--font-ubuntu-mono);
+}
+
+@theme {
+  --animate-flash-code: flash-code 2s forwards;
+
+  /* This uses --color-sky-500 but it's inlined because of a bug in chrome */
+  @keyframes flash-code {
+    0% {
+      background-color: oklch(0.685 0.169 237.323 / 10%);
+    }
+
+    100% {
+      background-color: oklch(0.685 0.169 237.323 / 0%);
+    }
+  }
+}
+
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(.system, .system *) {
+      @slot;
+    }
+  }
+}
+
+@custom-variant not-dark {
+  &:not(:where(.dark, .dark *)) {
+    @media not (prefers-color-scheme: dark) {
+      @slot;
+    }
+
+    &:not(:where(.system, .system *)) {
+      @slot;
+    }
+  }
+}
+
+@utility line-t {
+  @apply relative;
+  @variant before {
+    @apply absolute top-0 left-[-100vw] h-px w-[200vw] bg-gray-950/5;
+  }
+  @apply dark:before:bg-white/10;
+}
+
+@utility line-b {
+  @apply relative;
+  @variant after {
+    @apply absolute bottom-0 left-[-100vw] h-px w-[200vw] bg-gray-950/5;
+  }
+  @apply dark:after:bg-white/10;
+}
+
+@utility line-y {
+  @apply line-t line-b relative;
+}
+
+@utility line-t/half {
+  @apply relative;
+  @variant before {
+    @apply absolute top-0 right-0 h-px w-screen bg-gray-950/5;
+  }
+  @apply dark:before:bg-white/10;
+}
+
+@utility line-b/half {
+  @apply relative;
+  @variant after {
+    @apply absolute right-0 bottom-0 h-px w-screen bg-gray-950/5;
+  }
+  @apply dark:after:bg-white/10;
+}
+
+@utility line-y/half {
+  @apply line-t/half line-b/half relative;
+}
+
+:root {
+  color-scheme: light dark;
+}
+.dark {
+  color-scheme: dark;
+}
+.light {
+  color-scheme: light;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Line numbers for code examples */
+.with-line-numbers {
+  code {
+    counter-reset: line;
+    position: relative;
+  }
+
+  .line {
+    counter-increment: line;
+    margin-left: --spacing(9);
+
+    @media (width <= theme(--breakpoint-sm)) {
+      margin-left: 0;
+    }
+
+    &::before {
+      position: absolute;
+      left: 0;
+      content: counter(line);
+      width: --spacing(6);
+      text-align: right;
+      user-select: none;
+      display: inline-block;
+      color: color-mix(in oklab, var(--color-slate-50) 40%, transparent);
+      font-family: theme(--font-mono);
+
+      @media (width <= theme(--breakpoint-sm)) {
+        display: none;
+      }
+    }
+  }
+}
