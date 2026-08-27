@@ -449,6 +449,10 @@ module Handler = struct
         Cascade.Cursor.try_parse_full_err Css.Properties.read_timing_function
           cursor
       with
+      (* CSS Easing 1 sec. 2: an omitted <step-position> defaults to [end];
+         Tailwind's own minifier makes that default explicit, so match it rather
+         than leave the sheets disagreeing over what is a no-op. *)
+      | Ok (Steps (n, None)) -> Some (Steps (n, Some End))
       | Ok tf -> Some tf
       | Error _ -> None
 
