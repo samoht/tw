@@ -2003,6 +2003,30 @@ let rebase_on_selector ~base_class ~selector rules =
           | rule -> rule)
         rules
 
+(* Variants whose whole effect is an at-rule around the utility, rather than a
+   change to its selector. Applied to a rule that is already a query, they have
+   to keep that at-rule and nest the inner query inside it; the selector-rewrite
+   arms cannot express them. *)
+let wraps_in_at_rule = function
+  | Style.Supports _ | Style.Starting | Style.Container _
+  | Style.Not (Style.Supports _) ->
+      true
+  | _ -> false
+
+(* Put [inner] inside the at-rule the variant just built. The wrapper is built
+   from an empty rule, so its own body is empty and [inner] is all it
+   carries. *)
+let nest_inside_at_rule inner = function
+  | Output.Supports_query ({ nested; _ } as r) ->
+      Output.Supports_query { r with nested = inner :: nested }
+  | Output.Starting_style ({ nested; _ } as r) ->
+      Output.Starting_style { r with nested = inner :: nested }
+  | Output.Container_query ({ nested; _ } as r) ->
+      Output.Container_query { r with nested = inner :: nested }
+  | Output.Media_query ({ nested; _ } as r) ->
+      Output.Media_query { r with nested = inner :: nested }
+  | other -> other
+
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
 let rec apply_modifier_to_rule ?theme modifier = function
@@ -2056,6 +2080,32 @@ let rec apply_modifier_to_rule ?theme modifier = function
                 bc selector props;
             ]
           with Invalid_argument _ -> []))
+  | Media_query
+      { condition = inner_condition; selector; props; base_class; nested; _ }
+    when wraps_in_at_rule modifier ->
+      let bc = Option.value base_class ~default:"" in
+      let wrappers =
+        apply_modifier_to_rule ?theme modifier
+          (regular ~selector:(Css.Selector.Class bc) ~props:[] ~base_class:bc ())
+      in
+      let nest wrapper =
+        let modified_class =
+          match Output.base_class wrapper with Some c -> c | None -> bc
+        in
+        let rename =
+          rename_class_in_stmt ~old_class:bc ~new_class:modified_class
+        in
+        let inner_selector =
+          Rules_selector.replace_class_in_selector ~old_class:bc
+            ~new_class:modified_class selector
+        in
+        let inner_media =
+          Css.media ~condition:inner_condition
+            (Css.rule ~selector:inner_selector props :: List.map rename nested)
+        in
+        nest_inside_at_rule inner_media wrapper
+      in
+      List.map nest wrappers
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector

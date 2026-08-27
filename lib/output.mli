@@ -50,6 +50,7 @@ type t =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      nested : Css.statement list;
     }
   | Supports_query of {
       condition : Css.Supports.t;
@@ -58,6 +59,7 @@ type t =
       base_class : string option;
       merge_key : string option;
       not_order : int;
+      nested : Css.statement list;
     }
 
 (** {1 Smart constructors}
@@ -105,6 +107,7 @@ val starting_style :
   selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
+  ?nested:Css.statement list ->
   unit ->
   t
 (** [starting_style ~selector ~props ()] constructs a
@@ -117,10 +120,14 @@ val supports_query :
   ?base_class:string ->
   ?merge_key:string ->
   ?not_order:int ->
+  ?nested:Css.statement list ->
   unit ->
   t
 (** [supports_query ~condition ~selector ~props ()] constructs a
     {!constructor-Supports_query} rule wrapped in [@supports condition]. *)
+
+val base_class : t -> string option
+(** [base_class rule] is the class name [rule] was built for, if it has one. *)
 
 val pp : t -> string
 (** [pp r] returns a short human-readable description of [r], e.g.
