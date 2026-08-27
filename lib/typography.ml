@@ -1160,7 +1160,7 @@ module Typography_early = struct
   let lh_modifier_to_css = function
     | Spacing n ->
         let spacing_decl, _spacing_ref =
-          Var.binding Theme.spacing_var (Css.Rem 0.25)
+          Var.binding Theme.spacing_var Theme.spacing_base
         in
         let lh_spacing_ref : Css.line_height Css.var = Var.bracket "spacing" in
         let lh : Css.line_height =
@@ -2618,7 +2618,9 @@ module Typography_late = struct
     text_indent (Indent { length; hanging = false; each_line = false })
 
   let indent n =
-    let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var Theme.spacing_base
+    in
     let base : Css.length_percentage = Length (Css.Var spacing_ref) in
     let calc : Css.length_percentage Css.calc = Expr (Val base, Mul, Num n) in
     let length : Css.length_percentage = Calc calc in

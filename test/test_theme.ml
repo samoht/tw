@@ -117,11 +117,63 @@ let priority_seven_namespace_order () =
   in
   check (list string) "Tailwind namespace order at shared slots" expected actual
 
+(* Utilities across ten modules bind [--spacing] as they emit, each supplying
+   the value the theme layer declares. Each has to bind it to
+   [Theme.spacing_base]: a hand-written copy of the step leaves whichever
+   utilities kept it declaring a stale [--spacing], and a sheet that mixes the
+   two keeps only one of the declarations. *)
+let one_spacing_declaration () =
+  let classes =
+    [
+      "p-4";
+      "gap-4";
+      "basis-4";
+      "grid-cols-[--spacing(4)]";
+      "mask-l-from-4";
+      "scroll-m-4";
+      "indent-4";
+      "leading-4";
+      "text-lg/4";
+      "translate-x-4";
+      "translate-x-0.5";
+      "translate-4";
+      "translate-z-4";
+      "p-px";
+      "p-full";
+    ]
+  in
+  let declared cls =
+    let style =
+      match Tw.of_string cls with
+      | Ok u -> u
+      | Error (`Msg m) -> failf "%s: %s" cls m
+    in
+    match Css.layer_block [ "theme" ] (Tw.to_css ~base:false [ style ]) with
+    | None -> failf "%s: expected @layer theme" cls
+    | Some statements ->
+        Css.rules_of_statements statements
+        |> List.concat_map snd
+        |> List.filter_map (fun d ->
+            match Css.custom_declaration_name d with
+            | Some "--spacing" -> Some (cls, Css.declaration_value d)
+            | _ -> None)
+  in
+  let base = Css.Pp.to_string Css.pp_length Tw.Theme.spacing_base in
+  let found = List.concat_map declared classes in
+  check int "every class declares --spacing" (List.length classes)
+    (List.length found);
+  check
+    (list (pair string string))
+    "every binding declares the same step"
+    (List.map (fun cls -> (cls, base)) classes)
+    found
+
 let tests =
   [
     test_case "theme layer stable order" `Quick theme_layer_stable_order;
     test_case "theme cross-module vars" `Quick theme_cross_module_vars;
     test_case "priority-7 namespace order" `Quick priority_seven_namespace_order;
+    test_case "one spacing declaration" `Quick one_spacing_declaration;
   ]
 
 let suite = ("theme", tests)
