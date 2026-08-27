@@ -640,7 +640,7 @@ module Typography_early = struct
       | Stdlib.Option.Some lh -> Stdlib.Option.Some (Bracket (inner, lh))
       | Stdlib.Option.None -> Stdlib.Option.None
     else
-      match int_of_string_opt s with
+      match Parse.decimal_int s with
       | Stdlib.Option.Some n when n >= 0 -> Stdlib.Option.Some (Spacing n)
       | _ ->
           if
@@ -717,7 +717,7 @@ module Typography_early = struct
           let rest = String.sub inner 7 (String.length inner - 7) in
           Ok (Font_bracket_weight_var (inner, rest))
         else
-          match int_of_string_opt inner with
+          match Parse.decimal_int inner with
           | Some n -> Ok (Font_bracket_weight (inner, n))
           | None ->
               if Parse.is_var inner then
@@ -2006,7 +2006,7 @@ module Typography_late = struct
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        match int_of_string_opt inner with
+        match Parse.decimal_int inner with
         | Some i -> Ok (Line_clamp_arbitrary i)
         | None -> err_not_utility)
     | [ "line"; "clamp"; n ] ->

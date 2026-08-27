@@ -132,7 +132,7 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          match int_of_string_opt inner with
+          match Parse.decimal_int inner with
           | Some i -> Ok (Columns_arbitrary i)
           | None when parse_columns_length inner <> None ->
               Ok (Columns_arbitrary_len inner)

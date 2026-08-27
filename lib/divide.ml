@@ -480,14 +480,14 @@ module Handler = struct
         match parse_bracket_width value with
         | Some (spelling, w) -> Ok (X_arb (spelling, w))
         | None -> (
-            match int_of_string_opt value with
+            match Parse.decimal_int value with
             | Some n when n >= 0 -> Ok (X n)
             | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "y"; value ] -> (
         match parse_bracket_width value with
         | Some (spelling, w) -> Ok (Y_arb (spelling, w))
         | None -> (
-            match int_of_string_opt value with
+            match Parse.decimal_int value with
             | Some n when n >= 0 -> Ok (Y n)
             | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "transparent" ] -> Ok Transparent
