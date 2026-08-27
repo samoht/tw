@@ -836,7 +836,7 @@ let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
-let supports cond styles = wrap (Supports cond) styles
+let supports cond styles = wrap (Supports_condition cond) styles
 
 (* Prose element variants *)
 let prose_headings styles = wrap (Prose_element "headings") styles
@@ -1215,7 +1215,8 @@ let bracket_value_patterns s =
     (fun () -> try_nth "nth-[" (fun e -> Nth e));
     (fun () ->
       let* cond = extract_bracket_content ~prefix:"supports-[" s in
-      if is_valid_supports_condition cond then Some (Supports cond) else None);
+      if is_valid_supports_condition cond then Some (Supports_condition cond)
+      else None);
     (fun () ->
       try_with "group-["
         (fun sel ->
@@ -1243,8 +1244,8 @@ let bracket_value_patterns s =
 
 let bracket_patterns s = bracket_named_patterns s @ bracket_value_patterns s
 
-(* Try supports-<property> shorthand: supports-grid → Supports "grid:
-   var(--tw)" *)
+(* Try supports-<property> shorthand: supports-grid → Supports_property
+   "grid" *)
 let try_supports_shorthand s =
   if
     String.length s > 9
@@ -1253,7 +1254,7 @@ let try_supports_shorthand s =
     && not (String.contains s '/')
   then
     let prop = String.sub s 9 (String.length s - 9) in
-    Some (Supports (prop ^ ": var(--tw)"))
+    Some (Supports_property prop)
   else None
 
 let try_bracketed_modifier s =
@@ -1499,7 +1500,7 @@ let try_not_shorthand inner =
     && not (String.contains inner '/')
   then
     let prop = String.sub inner 9 (String.length inner - 9) in
-    Some (Not (Supports (prop ^ ": var(--tw)")))
+    Some (Not (Supports_property prop))
     (* data-X shorthand — attribute presence check *)
   else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
     let attr = String.sub inner 5 (String.length inner - 5) in
@@ -2021,7 +2022,7 @@ let not_variant_order = function
   | Nth_of_type _ -> 3600
   | Nth_last_of_type _ -> 3650
   (* @supports *)
-  | Supports _ -> 4000
+  | Supports_property _ | Supports_condition _ -> 4000
   (* Media: accessibility preferences *)
   | Motion_safe -> 5000
   | Motion_reduce -> 5100

@@ -951,17 +951,22 @@ let handle_pseudo_element_modifier modifier base_class props =
 
 let normalize_supports_condition = Modifiers.normalize_supports_condition
 
-(** Handle [@supports] modifier: builds modified class name, updates selector,
-    normalizes condition, and emits a supports query rule. *)
-let handle_supports_modifier condition_str base_class selector props =
-  (* Use shorthand class name for supports-<property> patterns, otherwise use
-     bracket notation *)
-  let modified_class =
-    if String.ends_with ~suffix:": var(--tw)" condition_str then
-      let prop_len = String.length condition_str - 11 in
-      "supports-" ^ String.sub condition_str 0 prop_len ^ ":" ^ base_class
-    else "supports-[" ^ condition_str ^ "]:" ^ base_class
+(** Handle [supports-<property>] modifier: builds the shorthand class name and
+    emits [\@supports (prop: var(--tw))] directly, typed. *)
+let handle_supports_property_modifier prop base_class selector props =
+  let modified_class = "supports-" ^ prop ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
   in
+  let condition = Css.Supports.property prop "var(--tw)" in
+  supports_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+(** Handle [supports-[condition]] modifier: builds the bracket class name,
+    normalizes the author's condition text, and emits a supports query rule. *)
+let handle_supports_condition_modifier condition_str base_class selector props =
+  let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
@@ -1061,9 +1066,7 @@ let not_class_prefix inner_modifier =
   | Style.Nth_last expr -> Style.pp_nth "nth-last" expr
   | Style.Nth_of_type expr -> Style.pp_nth "nth-of-type" expr
   | Style.Nth_last_of_type expr -> Style.pp_nth "nth-last-of-type" expr
-  | Style.Supports cond when String.ends_with ~suffix:": var(--tw)" cond ->
-      let prop_len = String.length cond - 11 in
-      "supports-" ^ String.sub cond 0 prop_len
+  | Style.Supports_property prop -> "supports-" ^ prop
   | inner -> Modifiers.pp_modifier inner
 
 (* The relative selector a [group-not-]/[peer-not-] variant contributes:
@@ -1205,7 +1208,14 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
       let condition = Option.get (media_condition_of_modifier inner_modifier) in
       not_media_rule ~nvo ~condition:(negate_media condition) modified_class
         props
-  | Style.Supports condition_str ->
+  | Style.Supports_property prop ->
+      [
+        supports_query ~not_order:nvo
+          ~condition:(Css.Supports.Not (Css.Supports.property prop "var(--tw)"))
+          ~selector:(Css.Selector.Class modified_class) ~props
+          ~base_class:modified_class ();
+      ]
+  | Style.Supports_condition condition_str ->
       let condition_input = normalize_supports_condition condition_str in
       let inner_condition = Css.Supports.of_string condition_input in
       [
@@ -1735,8 +1745,10 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       handle_media_like_modifier modifier ~condition ~inner_has_hover base_class
         selector props
   (* Supports feature query *)
-  | Style.Supports condition_str ->
-      handle_supports_modifier condition_str base_class selector props
+  | Style.Supports_property prop ->
+      handle_supports_property_modifier prop base_class selector props
+  | Style.Supports_condition condition_str ->
+      handle_supports_condition_modifier condition_str base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
@@ -1996,8 +2008,10 @@ let rebase_on_selector ~base_class ~selector rules =
    to keep that at-rule and nest the inner query inside it; the selector-rewrite
    arms cannot express them. *)
 let wraps_in_at_rule = function
-  | Style.Supports _ | Style.Starting | Style.Container _
-  | Style.Not (Style.Supports _) ->
+  | Style.Supports_property _ | Style.Supports_condition _ | Style.Starting
+  | Style.Container _
+  | Style.Not (Style.Supports_property _)
+  | Style.Not (Style.Supports_condition _) ->
       true
   | _ -> false
 

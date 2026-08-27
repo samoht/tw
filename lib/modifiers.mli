@@ -33,10 +33,10 @@ val is_hover : modifier -> bool
 
 val normalize_supports_condition : string -> string
 (** [normalize_supports_condition cond] is the [supports-[...]] bracket content
-    as a CSS [@supports] condition: underscores become spaces, a bare property
-    or custom property expands to a [(prop: var(--tw))] test, and a property
-    test is repeated once per vendor prefix Tailwind checks. The modifier parser
-    validates its result, so only conditions that parse reach a rule. *)
+    as a CSS [@supports] condition: underscores become spaces, and a bare
+    property or custom property expands to a [(prop: var(--tw))] test. The
+    modifier parser validates its result, so only conditions that parse reach a
+    rule. *)
 
 (** {1 State Variants} *)
 
