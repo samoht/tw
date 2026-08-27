@@ -11,7 +11,7 @@
 (test
  (name test)
  (modules test)
- (libraries alcotest tw cascade cascade.diff fmt re upstream_fixture)
+ (libraries alcotest tw tw_tools cascade cascade.diff fmt re upstream_fixture)
  (deps utilities.txt variants.txt))
 
 ; Pins the [@theme] scanner on the declaration shapes Prettier produces:

@@ -22,6 +22,7 @@ let setup =
   Term.(const init $ seed)
 
 let () =
+  Tw_tools.Cascade_provenance.report ();
   (* Use Alcotest.run_with_args for proper CLI integration *)
   Tw_tools.Tailwind_gen.with_stats @@ fun () ->
   Alcotest.run_with_args "tw" setup
