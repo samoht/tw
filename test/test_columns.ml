@@ -28,6 +28,21 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns";
   Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-abc"
 
+(* An integer in a class name is written in plain decimal. A hex or
+   underscore-separated spelling is not that integer under another name: reading
+   it renames the class, so [columns-[0x10]] would generate a rule selecting
+   [.columns-\[16\]] that the markup can never match. Tailwind passes the
+   bracket through as [columns: 0x10], which no browser accepts. *)
+let test_non_decimal_integers () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "columns-[0x10]";
+  rejected "columns-[1_0]";
+  rejected "columns-[+3]"
+
 (* columns-[16rem] is a column-WIDTH (columns: 16rem), distinct from the integer
    count form (columns-[3]). *)
 let test_columns_arbitrary_width () =
@@ -89,6 +104,7 @@ let tests =
   @ [
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
+      Alcotest.test_case "non-decimal integers" `Quick test_non_decimal_integers;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "numeric order" `Quick test_numeric_order;
       Alcotest.test_case "arbitrary order" `Quick test_arbitrary_order;
