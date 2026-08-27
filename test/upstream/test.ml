@@ -257,6 +257,19 @@ let theme_config ~declared config expected =
 
 let canonical_stylesheet_css css = String.trim css
 
+(* Tailwind compiled the corpus from each case's own [@theme] block, with no
+   default theme behind it, so the [@keyframes] that theme declares are in no
+   expected sheet: even [animate-spin] comes out without [@keyframes spin]. tw
+   renders against the built-in theme, which carries them, so they are dropped
+   here rather than read as rules Tailwind failed to emit. The same classes
+   compiled against a real entrypoint do get them, and [tw --diff] covers
+   that. *)
+let drop_theme_keyframes stylesheet =
+  Css.v
+    (List.filter
+       (fun stmt -> Option.is_none (Css.as_keyframes stmt))
+       (Css.statements stylesheet))
+
 (* [color-mix(in oklab, C p%, transparent)] denotes the concrete colour C at
    alpha p, which LightningCSS folds to an [oklab(...)] in the fixtures. tw
    keeps the colour itself (exact and shorter once cascade folds it to a hex),
@@ -676,7 +689,10 @@ let run_test_case test () =
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
-      else Some (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities)
+      else
+        Some
+          (drop_theme_keyframes
+             (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities))
     in
     let our_css =
       match our_stylesheet with
