@@ -118,3 +118,11 @@ val split_class : string -> string list
 (** [split_class class_name] splits a class name on ['-'] but treats ['[...]']
     and ['(...)'] as atomic, so brackets and parentheses containing dashes are
     preserved. E.g. ["m-[var(--value)]"] becomes [["m"; "[var(--value)]"]]. *)
+
+val split_on_colon : string -> string list
+(** [split_on_colon s] splits a variant chain on [':'] but treats ['[...]'] and
+    ['(...)'] as atomic, so a colon inside an arbitrary value or a shorthand var
+    reference (e.g. ["hover:bg-[color:var(--x)]"]) is not read as a variant
+    separator. Always yields (colon count + 1) tokens: e.g. ["hover:focus:p-4"]
+    becomes [["hover"; "focus"; "p-4"]], and a string with no unbracketed colon
+    becomes a single-element list. *)
