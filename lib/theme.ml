@@ -26,7 +26,7 @@ let spacing_base : Css.length = Rem 0.25
    publishes the breakpoints, so [theme()] in a project's CSS resolves against
    the same value the utilities use. *)
 let () =
-  Scheme.register_default_token "spacing"
+  Scheme.register_default_token (Var.name spacing_var)
     (Css.Pp.to_string Css.pp_length spacing_base)
 
 (* The spacing step times [n], rendered. Tailwind's v3 [spacing] and
@@ -60,7 +60,7 @@ let has_spacing_step ?theme n =
   let scheme = resolve_scheme theme in
   Float.is_integer n
   && explicit_spacing scheme (int_of_float (Float.abs n)) <> None
-  || Scheme.token scheme "spacing" <> None
+  || Scheme.token scheme (Var.name spacing_var) <> None
 
 (* Create a spacing length value. When scheme has explicit spacing for |n|,
    returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.

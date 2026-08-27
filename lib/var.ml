@@ -559,6 +559,7 @@ let property_info_to_declaration_value (Css.Property_info info) =
               | Number -> Pp.float v ^ "%"
               | syntax -> Css.Pp.to_string (pp_value syntax) v)))
 
+let name var = var.name
 let css_name var = "--" ^ var.name
 
 let needs_property_rule v =
