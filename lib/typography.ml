@@ -218,6 +218,20 @@ let font_named_var name =
       Hashtbl.add font_named_cache name var;
       var
 
+(* A [--text-*] token the project declared names a font size the built-in scale
+   has no slot for; they share the slot after the scale, the way the project's
+   font families share theirs. *)
+let text_named_cache : (string, Css.length Var.theme) Hashtbl.t =
+  Hashtbl.create 8
+
+let text_named_var name =
+  match Hashtbl.find_opt text_named_cache name with
+  | Some var -> var
+  | None ->
+      let var = Var.theme Css.Length ("text-" ^ name) ~order:(6, 26) in
+      Hashtbl.add text_named_cache name var;
+      var
+
 let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
 let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
 let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
@@ -390,6 +404,9 @@ module Typography_early = struct
         string * Css.line_height (* leading-[1.8], leading-[24px], etc. *)
     | (* Font-size with explicit line-height modifier (text-sm/6) *)
       Text_named_lh of string * lh_modifier
+    | (* Font size named by a project [--text-*] token (text-huge) *)
+      Text_theme of string
+    | Text_theme_lh of string * lh_modifier
     | (* Arbitrary font-size (text-[12px]) *)
       Text_bracket_fs of string
     | (* Arbitrary font-size with line-height (text-[12px]/6) *)
@@ -620,6 +637,15 @@ module Typography_early = struct
   let is_named_font theme n =
     Scheme.theme_value (Some theme) ("font-" ^ n) <> None
 
+  (* A font size the project named in its [@theme]. The built-in scale is
+     published through the same registry, so exclude it: those names have their
+     own constructors. [text-<name>] also spells a colour, and a project that
+     declares both under one name gets the colour, as Tailwind does. *)
+  let is_theme_text_size theme n =
+    (not (is_named_size n))
+    && Scheme.theme_value (Some theme) ("color-" ^ n) = None
+    && Scheme.theme_value (Some theme) ("text-" ^ n) <> None
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -736,6 +762,8 @@ module Typography_early = struct
                   else err_not_utility
                 else if is_named_size base then
                   Ok (Text_named_lh (base, lh_mod))
+                else if is_theme_text_size theme base then
+                  Ok (Text_theme_lh (base, lh_mod))
                 else err_not_utility
             | Stdlib.Option.None -> err_not_utility)
         | Stdlib.Option.None ->
@@ -745,7 +773,20 @@ module Typography_early = struct
               else if is_valid_bracket_font_size inner then
                 Ok (Text_bracket_fs inner)
               else err_not_utility
+            else if is_theme_text_size theme part then Ok (Text_theme part)
             else err_not_utility)
+    (* A project token's name may span several segments, and the line-height
+       modifier still rides on the last one. *)
+    | "text" :: (_ :: _ :: _ as rest) -> (
+        let joined = String.concat "-" rest in
+        match split_on_slash joined with
+        | Stdlib.Option.Some (base, lh_str) when is_theme_text_size theme base
+          -> (
+            match parse_lh_modifier lh_str with
+            | Stdlib.Option.Some lh_mod -> Ok (Text_theme_lh (base, lh_mod))
+            | Stdlib.Option.None -> err_not_utility)
+        | _ when is_theme_text_size theme joined -> Ok (Text_theme joined)
+        | _ -> err_not_utility)
     | _ -> err_not_utility
 
   let lh_to_string = function
@@ -807,6 +848,8 @@ module Typography_early = struct
     | Leading_var v -> "leading-[" ^ v ^ "]"
     | Leading_bracket (v, _) -> "leading-[" ^ v ^ "]"
     | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
+    | Text_theme name -> "text-" ^ name
+    | Text_theme_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
@@ -864,6 +907,10 @@ module Typography_early = struct
         | "xl" -> 2012
         | "xs" -> 2013
         | _ -> 2000)
+    (* A project's own size sorts after the whole built-in scale, the way
+       Tailwind orders it. *)
+    | Text_theme _ -> 2014
+    | Text_theme_lh _ -> 2014
     (* Bracket font-size without modifier — after named sizes *)
     | Text_bracket_fs _ -> 2100
     (* Leading comes third — numeric first, then arbitrary, then named
@@ -1196,6 +1243,21 @@ module Typography_early = struct
             ([], Var ref_))
     | Bracket (_, lh) -> ([], lh)
 
+  (* A size the project declared carries no line height of its own, so the
+     utility sets font-size alone unless a modifier asks for one. *)
+  let text_theme_decls theme name =
+    let token = "text-" ^ name in
+    match Scheme.theme_value (Some theme) token with
+    | None -> []
+    | Some raw -> (
+        match Css.parse_length raw with
+        | None -> []
+        | Some len ->
+            if Scheme.is_inline_token theme token then [ font_size len ]
+            else
+              let decl, ref = Var.binding (text_named_var name) len in
+              [ decl; font_size (Css.Var ref) ])
+
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
   let text_named_with_lh name lh_mod =
@@ -1385,6 +1447,10 @@ module Typography_early = struct
     | Text_named_lh (name, lh_mod) ->
         let fs_decl, lh_decls = text_named_with_lh name lh_mod in
         style (fs_decl @ lh_decls)
+    | Text_theme name -> style (text_theme_decls theme name)
+    | Text_theme_lh (name, lh_mod) ->
+        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
     | Text_bracket_fs_lh (raw, lh_mod) ->
         let fs_decls = bracket_font_size_decls raw in
