@@ -962,6 +962,39 @@ let test_supports_property_is_unprefixed () =
   unprefixed "supports-text-size-adjust:flex";
   unprefixed "supports-backdrop-filter:flex"
 
+(* A variant that wraps the utility in an at-rule keeps that at-rule when the
+   variant it decorates already produced a media query. [supports-grid:sm:flex]
+   used to render as [.sm\:flex] inside the breakpoint alone: the feature query
+   and the [supports-grid] half of the class name both disappeared, so the rule
+   applied unconditionally and matched a class the author never wrote. Tailwind
+   nests the two in the order the class spells them. *)
+let test_at_rule_variant_over_media () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affixes =
+    let out = css cls in
+    List.iter
+      (fun affix ->
+        check bool
+          (cls ^ " emits " ^ affix)
+          true
+          (Astring.String.is_infix ~affix out))
+      affixes
+  in
+  emits "supports-grid:sm:flex"
+    [
+      "@supports (grid: var(--tw))";
+      "min-width: 40rem";
+      ".supports-grid\\:sm\\:flex";
+    ];
+  emits "not-supports-grid:sm:flex"
+    [ "@supports not (grid: var(--tw))"; "min-width: 40rem" ];
+  emits "starting:sm:flex" [ "@starting-style"; "min-width: 40rem" ];
+  emits "@md:sm:flex" [ "@container"; "min-width: 40rem" ]
+
 (* Extend the suite with new tests *)
 let tests =
   tests
@@ -971,6 +1004,8 @@ let tests =
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
       test_case "supports property is unprefixed" `Quick
         test_supports_property_is_unprefixed;
+      test_case "at-rule variant over a media query" `Quick
+        test_at_rule_variant_over_media;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
       test_case "padded attribute brackets" `Quick
         test_padded_attribute_brackets;
