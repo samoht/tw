@@ -473,23 +473,28 @@ module Typography_early = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
-  let named_sizes =
+  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
+  let text_size_data =
     [
-      "xs";
-      "sm";
-      "base";
-      "lg";
-      "xl";
-      "2xl";
-      "3xl";
-      "4xl";
-      "5xl";
-      "6xl";
-      "7xl";
-      "8xl";
-      "9xl";
+      ("xs", text_xs_var, 0.75);
+      ("sm", text_sm_var, 0.875);
+      ("base", text_base_var, 1.0);
+      ("lg", text_lg_var, 1.125);
+      ("xl", text_xl_var, 1.25);
+      ("2xl", text_2xl_var, 1.5);
+      ("3xl", text_3xl_var, 1.875);
+      ("4xl", text_4xl_var, 2.25);
+      ("5xl", text_5xl_var, 3.0);
+      ("6xl", text_6xl_var, 3.75);
+      ("7xl", text_7xl_var, 4.5);
+      ("8xl", text_8xl_var, 6.0);
+      ("9xl", text_9xl_var, 8.0);
     ]
 
+  (* The acceptor for [text-<size>] reads the converter's own table: the two
+     have to hold the same names, and a name in one but not the other is an
+     accepted class that emits no declarations at all. *)
+  let named_sizes = List.map (fun (name, _, _) -> name) text_size_data
   let is_named_size s = List.mem s named_sizes
 
   (** Font-size keyword lookup. *)
@@ -1255,24 +1260,6 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ spacing_decl; channel_decl; line_height value ]
-
-  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
-  let text_size_data =
-    [
-      ("xs", text_xs_var, 0.75);
-      ("sm", text_sm_var, 0.875);
-      ("base", text_base_var, 1.0);
-      ("lg", text_lg_var, 1.125);
-      ("xl", text_xl_var, 1.25);
-      ("2xl", text_2xl_var, 1.5);
-      ("3xl", text_3xl_var, 1.875);
-      ("4xl", text_4xl_var, 2.25);
-      ("5xl", text_5xl_var, 3.0);
-      ("6xl", text_6xl_var, 3.75);
-      ("7xl", text_7xl_var, 4.5);
-      ("8xl", text_8xl_var, 6.0);
-      ("9xl", text_9xl_var, 8.0);
-    ]
 
   (* The leading scale, published the same way. *)
   let () =
