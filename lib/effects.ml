@@ -1551,8 +1551,8 @@ module Handler = struct
            "tw-ring-color")
     in
     let ring_shadow_value =
-      Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-        ~blur:Zero ~spread ~color ()
+      Css.shadow ~inset_var:(Var.name ring_inset_var) ~h_offset:Zero
+        ~v_offset:Zero ~blur:Zero ~spread ~color ()
     in
     let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
 
@@ -1719,9 +1719,9 @@ module Handler = struct
     let d_width, width_ref = Var.binding ring_offset_width_var width_value in
     let color_ref = Var.reference ring_offset_color_var in
     let shadow_value =
-      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
-        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
-        ()
+      Css.shadow ~inset:false ~inset_var:(Var.name ring_inset_var)
+        ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
+        ~color:(Var color_ref) ()
     in
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
@@ -1836,9 +1836,9 @@ module Handler = struct
     let d_width, width_ref = Var.binding ring_offset_width_var width_value in
     let color_ref = Var.reference ring_offset_color_var in
     let shadow_value =
-      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
-        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
-        ()
+      Css.shadow ~inset:false ~inset_var:(Var.name ring_inset_var)
+        ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
+        ~color:(Var color_ref) ()
     in
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
@@ -2311,8 +2311,8 @@ module Handler = struct
                "tw-ring-color")
         in
         let ring_shadow_value =
-          Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-            ~blur:Zero ~spread ~color ()
+          Css.shadow ~inset_var:(Var.name ring_inset_var) ~h_offset:Zero
+            ~v_offset:Zero ~blur:Zero ~spread ~color ()
         in
         let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
         let v_inset = Var.reference inset_shadow_var in
