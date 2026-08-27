@@ -49,125 +49,65 @@ open Upstream_fixture
    above replaced the allowlist.) *)
 let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
 
-(** Extract spacing values from expected CSS. *)
-let extract_spacing_from_css css : (int * Css.length) list =
-  let spacing_pattern = Re.Pcre.regexp {|--spacing-(\d+):\s*([0-9.]+)rem|} in
-  let matches = Re.all spacing_pattern css in
+(** The scheme fields a fixture's own [@theme] declarations set.
+
+    Reading them out of the expected CSS instead would hand tw the very value it
+    is about to be compared against: on such a token the runner is blind, and a
+    built-in default can be wrong without a single case failing. A fixture's
+    [@theme-var] lines are the test's own input, so they are an oracle the run
+    cannot contaminate. Tokens with no typed [Scheme.t] field (the bare
+    [--spacing] multiplier, [--breakpoint-*], a named [--spacing-big]) ride on
+    the token overrides applied further down. *)
+let declared_with_prefix ~prefix theme_vars =
   List.filter_map
-    (fun m ->
-      try
-        let n = int_of_string (Re.Group.get m 1) in
-        let value = float_of_string (Re.Group.get m 2) in
-        Some (n, (Css.Rem value : Css.length))
-      with Not_found | Failure _ -> None)
-    matches
+    (fun (name, value) ->
+      if String.starts_with ~prefix name then
+        let n = String.length prefix in
+        Some (String.sub name n (String.length name - n), String.trim value)
+      else None)
+    theme_vars
 
-(** Extract radius values from expected CSS. *)
-let extract_radius_from_css css : (string * Css.length) list =
-  let radius_pattern =
-    Re.Pcre.regexp {|--radius-([a-zA-Z0-9-]+):\s*([0-9.]+)(px|rem)?|}
+let scheme_of_theme_vars theme_vars : Tw.Scheme.t =
+  let spacing =
+    declared_with_prefix ~prefix:"spacing-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        match (int_of_string_opt key, Css.parse_length value) with
+        | Some n, Some length -> Some (n, length)
+        | _ -> None)
   in
-  let matches = Re.all radius_pattern css in
-  List.filter_map
-    (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let value = float_of_string (Re.Group.get m 2) in
-        let unit = try Re.Group.get m 3 with Not_found -> "" in
-        let length : Css.length =
-          match unit with
-          | "px" -> Px value
-          | "rem" -> Rem value
-          | "" when value = 0.0 -> Zero
-          | _ -> Px value
-        in
-        Some (name, length)
-      with Not_found | Failure _ -> None)
-    matches
-
-let extract_ring_width css : int =
-  let pattern =
-    Re.Pcre.regexp
-      {|\.ring\s*\{[^}]*calc\((\d+)px\s*\+\s*var\(--tw-ring-offset-width\)\)|}
+  let radius =
+    declared_with_prefix ~prefix:"radius-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        Option.map (fun length -> (key, length)) (Css.parse_length value))
   in
-  match Re.exec_opt pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> 1
-
-let extract_border_width css : int =
-  let border_pattern =
-    Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|}
+  let colors =
+    declared_with_prefix ~prefix:"color-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        if String.length value > 0 && value.[0] = '#' then
+          Some (key, Tw.Scheme.Hex value)
+        else None)
   in
-  match Re.exec_opt border_pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> (
-      (* Also check divide-x/divide-y patterns: calc(Npx *
-         var(--tw-divide-...)) *)
-      let divide_pattern =
-        Re.Pcre.regexp
-          {|calc\((\d+)px \* (?:var\(--tw-divide-[xy]-reverse\)|\(1)|}
-      in
-      match Re.exec_opt divide_pattern css with
-      | Some m -> (
-          try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-      | None -> 1)
-
-let extract_outline_width css : int =
-  let pattern =
-    Re.Pcre.regexp {|\.outline\s*\{[^}]*outline-width:\s*(\d+)px|}
+  let px name default =
+    match List.assoc_opt name theme_vars with
+    | Some value -> (
+        match Css.parse_length (String.trim value) with
+        | Some (Css.Px px) -> int_of_float px
+        | Some Css.Zero -> 0
+        | _ -> default)
+    | None -> default
   in
-  match Re.exec_opt pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> 1
-
-(** Extract breakpoint values from expected CSS. Looks for patterns like
-    [@media (min-width: 640px)] and maps them to standard breakpoint names using
-    the known Tailwind v4 breakpoint→px mapping. Returns all standard
-    breakpoints when any px-based breakpoint is found. *)
-let extract_breakpoints_from_css expected =
-  let pattern = Re.Pcre.regexp {|@media[^(]*\(min-width:\s*(\d+)px\)|} in
-  let matches = Re.all pattern expected in
-  let px_values =
-    List.filter_map
-      (fun m ->
-        try Some (float_of_string (Re.Group.get m 1))
-        with Not_found | Failure _ -> None)
-      matches
-  in
-  (* Standard Tailwind v4 breakpoints *)
-  let standard =
-    [ ("sm", 640.); ("md", 768.); ("lg", 1024.); ("xl", 1280.); ("2xl", 1536.) ]
-  in
-  (* If any px-based breakpoint is found in expected CSS, return all standard
-     breakpoints that appear in the expected CSS *)
-  if px_values = [] then []
-  else List.filter (fun (_, px) -> List.mem px px_values) standard
-
-let scheme_from_expected_css expected : Tw.Scheme.t =
-  let spacing = extract_spacing_from_css expected in
-  let radius = extract_radius_from_css expected in
-  let default_ring_width = extract_ring_width expected in
-  let default_border_width = extract_border_width expected in
-  let default_outline_width = extract_outline_width expected in
-  let breakpoints = extract_breakpoints_from_css expected in
+  let default = Tw.Scheme.default in
   {
-    Tw.Scheme.default with
-    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
+    default with
+    colors;
     spacing;
     radius;
-    default_ring_width;
-    default_border_width;
-    default_outline_width;
-    breakpoints;
+    default_ring_width = px "default-ring-width" default.default_ring_width;
+    default_border_width =
+      px "default-border-width" default.default_border_width;
+    default_outline_width =
+      px "default-outline-width" default.default_outline_width;
   }
-
-let setup_scheme_for_test expected =
-  (* The scheme is threaded into Tw.of_string and Tw.to_css via ~theme; the
-     custom breakpoints it carries are what the modifier parser reads. *)
-  scheme_from_expected_css expected
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -398,6 +338,40 @@ let test_echo_only_declared_tokens () =
     [ "radius" ]
     (List.map fst (declared_root_vars ~declared:[ "radius" ] expected))
 
+(* Guards [scheme_of_theme_vars]: a value that only ever appears in the expected
+   CSS cannot reach tw as a scheme override, so a wrong built-in default still
+   fails the case. Only the fixture's own [@theme] declarations get through. *)
+let test_scheme_from_declared_tokens_only () =
+  let scheme =
+    scheme_of_theme_vars
+      [
+        ("spacing-4", "1rem");
+        ("radius-full", "9999px");
+        ("default-border-width", "2px");
+      ]
+  in
+  Alcotest.(check int)
+    "the declared border width is read" 2 scheme.Tw.Scheme.default_border_width;
+  Alcotest.(check int)
+    "an undeclared ring width keeps the built-in default"
+    Tw.Scheme.default.default_ring_width scheme.Tw.Scheme.default_ring_width;
+  Alcotest.(check int)
+    "an undeclared outline width keeps the built-in default"
+    Tw.Scheme.default.default_outline_width
+    scheme.Tw.Scheme.default_outline_width;
+  Alcotest.(check bool)
+    "the declared radius is read" true
+    (Tw.Scheme.radius scheme "full" = Some (Css.Px 9999.));
+  Alcotest.(check bool)
+    "an undeclared radius stays absent" false
+    (Tw.Scheme.has_explicit_radius scheme "sm");
+  Alcotest.(check bool)
+    "the declared spacing step is read" true
+    (Tw.Scheme.spacing scheme 4 = Some (Css.Rem 1.));
+  Alcotest.(check bool)
+    "an undeclared spacing step stays absent" false
+    (Tw.Scheme.has_explicit_spacing scheme 8)
+
 let test_layer_order_not_tolerated () =
   let expected =
     "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
@@ -435,153 +409,6 @@ let theme_overrides_of ~declared config expected =
       else base
   | No_theme -> []
 
-(** Extract custom breakpoints by matching input class modifiers with px values
-    from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
-    within min-/max- prefixes (e.g. "min-xs:max-sm:flex"). *)
-let extract_custom_breakpoints classes expected =
-  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
-  (* Split each class into modifier segments and extract breakpoint names. For
-     "min-xs:max-sm:flex", segments are ["min-xs"; "max-sm"; "flex"]. We extract
-     "xs" from "min-xs" and recognize it as a custom breakpoint. *)
-  let extract_bp_name segment =
-    (* Strip min-/max- prefix to get the breakpoint name *)
-    let name =
-      if String.length segment > 4 && String.sub segment 0 4 = "min-" then
-        Some (String.sub segment 4 (String.length segment - 4))
-      else if String.length segment > 4 && String.sub segment 0 4 = "max-" then
-        Some (String.sub segment 4 (String.length segment - 4))
-      else Some segment
-    in
-    match name with
-    | Some n when String.contains n '[' -> None (* arbitrary value *)
-    | Some n when List.mem n standard_names -> None (* standard *)
-    | Some n -> Some n
-    | None -> None
-  in
-  let is_known_modifier s =
-    let known =
-      [
-        "hover";
-        "focus";
-        "active";
-        "disabled";
-        "dark";
-        "motion-safe";
-        "motion-reduce";
-        "contrast-more";
-        "contrast-less";
-        "print";
-        "portrait";
-        "landscape";
-        "ltr";
-        "rtl";
-        "before";
-        "after";
-        "first";
-        "last";
-        "odd";
-        "even";
-        "open";
-        "checked";
-        "starting";
-        "focus-within";
-        "focus-visible";
-        "forced-colors";
-        "inverted-colors";
-        "noscript";
-        "marker";
-        "selection";
-        "placeholder";
-        "backdrop";
-        "file";
-        "first-letter";
-        "first-line";
-        "details-content";
-        "empty";
-        "default";
-        "required";
-        "valid";
-        "invalid";
-        "in-range";
-        "out-of-range";
-        "placeholder-shown";
-        "autofill";
-        "read-only";
-        "read-write";
-        "optional";
-        "enabled";
-        "target";
-        "visited";
-        "inert";
-        "user-valid";
-        "user-invalid";
-        "first-of-type";
-        "last-of-type";
-        "only-of-type";
-        "only";
-        "indeterminate";
-        "pointer-none";
-        "pointer-coarse";
-        "pointer-fine";
-        "any-pointer-none";
-        "any-pointer-coarse";
-        "any-pointer-fine";
-        "*";
-        "**";
-      ]
-    in
-    List.mem s known
-    || String.starts_with ~prefix:"group-" s
-    || String.starts_with ~prefix:"peer-" s
-    || String.starts_with ~prefix:"aria-" s
-    || String.starts_with ~prefix:"data-" s
-    || String.starts_with ~prefix:"not-" s
-    || String.starts_with ~prefix:"has-" s
-    || String.starts_with ~prefix:"supports-" s
-    || String.starts_with ~prefix:"@" s
-    || String.starts_with ~prefix:"nth-" s
-    || String.starts_with ~prefix:"in-" s
-    || String.contains s '['
-  in
-  let collect_custom_name acc seg =
-    if is_known_modifier seg then acc
-    else
-      match extract_bp_name seg with
-      | Some name when name <> "" && not (List.mem name acc) -> name :: acc
-      | _ -> acc
-  in
-  let modifiers_of_class cls =
-    let parts = String.split_on_char ':' cls in
-    match List.rev parts with _ :: rest -> List.rev rest | [] -> []
-  in
-  let custom_names =
-    List.fold_left
-      (fun acc cls ->
-        List.fold_left collect_custom_name acc (modifiers_of_class cls))
-      [] classes
-    |> List.rev
-  in
-  (* Extract all px values from expected CSS *)
-  let px_pattern = Re.Pcre.regexp {|min-width:\s*(\d+)px|} in
-  let px_matches = Re.all px_pattern expected in
-  let px_values =
-    List.filter_map
-      (fun m ->
-        try Some (float_of_string (Re.Group.get m 1))
-        with Not_found | Failure _ -> None)
-      px_matches
-  in
-  let standard_px = [ 640.; 768.; 1024.; 1280.; 1536. ] in
-  let custom_px =
-    List.filter (fun px -> not (List.mem px standard_px)) px_values
-    |> List.sort_uniq Float.compare
-  in
-  match (custom_names, custom_px) with
-  | [ name ], [ px ] -> [ (name, px) ]
-  | names, pxs when List.length names = List.length pxs ->
-      List.combine names pxs
-  | _ -> []
-
 (* Parity accounting, accumulated across every upstream case and printed as a
    report after the run. The old runner dropped classes [Tw.of_string] rejected
    with [filter_map ... -> None], so a class tw cannot parse left no trace.
@@ -598,7 +425,7 @@ let stat_expected_empty_cases = ref 0
 let run_test_case test () =
   if test.classes = [] then ()
   else
-    let base_scheme = setup_scheme_for_test test.expected in
+    let base_scheme = scheme_of_theme_vars test.theme_vars in
     (* Register any matchVariant custom variants for this test. Directive form:
        "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
     let parse_variant_directive d =
@@ -641,14 +468,14 @@ let run_test_case test () =
           try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
-    (* The case's own [@custom-variant]s and custom breakpoints ride on the
-       scheme threaded to [Tw.of_string] and [Tw.to_css] below, so they are
-       local to this case rather than left in a registry the next one reads. *)
-    let custom_bps = extract_custom_breakpoints test.classes test.expected in
+    (* The case's own [@custom-variant]s ride on the scheme threaded to
+       [Tw.of_string] and [Tw.to_css] below, so they are local to this case
+       rather than left in a registry the next one reads. Its custom breakpoints
+       arrive the same way, through the [@theme] token overrides applied just
+       below. *)
     let scheme =
       {
         base_scheme with
-        breakpoints = base_scheme.breakpoints @ custom_bps;
         custom_variants = List.filter_map parse_variant_directive test.variants;
         container_variants =
           List.filter_map parse_container_directive test.variants;
@@ -870,6 +697,8 @@ let () =
         test_layer_order_not_tolerated;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
+      test_case "the scheme is built from declared tokens only" `Quick
+        test_scheme_from_declared_tokens_only;
     ]
   in
   let suites =
