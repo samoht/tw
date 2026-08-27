@@ -43,6 +43,7 @@ module Handler = struct
     | Spacing of float
     | Fraction of string
     | Arbitrary of string * length
+    | Theme_named of string  (** a size the project named in its own [@theme] *)
 
   type t =
     | Sized of prop * value
@@ -52,6 +53,7 @@ module Handler = struct
     | Aspect_ratio of float * float (* aspect-4/3, aspect-8.5/11 *)
     | Aspect_bracket of string * float * float (* aspect-[10/9], as written *)
     | Aspect_bracket_num of string (* aspect-[1.333] single number *)
+    | Aspect_theme of string (* ratio named by a project [--aspect-*] token *)
 
   type Utility.base += Self of t
 
@@ -588,6 +590,7 @@ module Handler = struct
     | Spacing n -> class_float (n *. 4.)
     | Fraction f -> f
     | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
+    | Theme_named spelling -> spelling
 
   let value_order f = function
     | Keyword k -> k.order
@@ -595,6 +598,9 @@ module Handler = struct
     | Spacing n -> f.spacing_off + spacing_value_order n
     | Fraction s -> fraction_value_order s
     | Arbitrary _ -> arbitrary_off
+    (* A project-named size has no slot in the built-in scale, so it sorts with
+       the other project-supplied values and ties are broken by class name. *)
+    | Theme_named _ -> arbitrary_off
 
   let lookup f spelling =
     List.find_opt (fun v -> class_suffix v = spelling) f.entries
@@ -622,13 +628,55 @@ module Handler = struct
 
   let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]
 
+  (* A [--aspect-*] token the project declared names a ratio the built-in scale
+     has no slot for; the utility references it and the theme layer carries the
+     project's own spelling. *)
+  let aspect_named_cache : (string, Css.aspect_ratio Var.theme) Hashtbl.t =
+    Hashtbl.create 8
+
+  let aspect_named_var name =
+    match Hashtbl.find_opt aspect_named_cache name with
+    | Some var -> var
+    | None ->
+        let var = Var.theme Css.Aspect_ratio ("aspect-" ^ name) ~order:(4, 2) in
+        Hashtbl.add aspect_named_cache name var;
+        var
+
+  let is_theme_aspect theme n =
+    Scheme.theme_value (Some theme) ("aspect-" ^ n) <> None
+
+  let parse_theme_ratio raw =
+    match String.split_on_char '/' raw with
+    | [ w; h ] -> (
+        match
+          ( float_of_string_opt (String.trim w),
+            float_of_string_opt (String.trim h) )
+        with
+        | Some w, Some h -> Some (Css.Ratio (w, h) : Css.aspect_ratio)
+        | _ -> None)
+    | [ n ] -> (
+        match float_of_string_opt (String.trim n) with
+        | Some f -> Some (Css.Ratio (f, 1.) : Css.aspect_ratio)
+        | None -> None)
+    | _ -> None
+
+  let aspect_theme' theme name =
+    match Scheme.theme_value (Some theme) ("aspect-" ^ name) with
+    | None -> style []
+    | Some raw -> (
+        match parse_theme_ratio raw with
+        | None -> style []
+        | Some ratio ->
+            let decl, r = Var.binding (aspect_named_var name) ratio in
+            style [ decl; Css.aspect_ratio (Var r) ])
+
   (* v4 resolves a named size through the namespaces its family lists before the
      container scale: [w-sm] reads [--width-sm], then [--spacing-sm], and only
      then the [--container-sm] default. *)
   let named_namespaces = function
     | Width -> [ "width"; "spacing" ]
     | Min_width -> [ "min-width"; "spacing" ]
-    | Max_width -> [ "max-width"; "spacing" ]
+    | Max_width -> [ "max-width"; "spacing"; "container" ]
     | Inline_size | Min_inline_size | Max_inline_size -> [ "spacing" ]
     | _ -> []
 
@@ -645,6 +693,12 @@ module Handler = struct
             let length : length = Var (Var.theme_ref token) in
             style (decl :: List.map (fun decl -> decl length) f.decls))
           (Scheme.theme_value (Some theme) token))
+      (named_namespaces prop)
+
+  let is_theme_named theme prop spelling =
+    List.exists
+      (fun namespace ->
+        Scheme.theme_value (Some theme) (namespace ^ "-" ^ spelling) <> None)
       (named_namespaces prop)
 
   let sized_style theme prop v =
@@ -677,6 +731,10 @@ module Handler = struct
         match named_override theme prop t.spelling with
         | Some s -> s
         | None -> style (t.decl :: List.map (fun d -> d t.value) f.decls))
+    | Theme_named spelling -> (
+        match named_override theme prop spelling with
+        | Some s -> s
+        | None -> style [])
 
   let to_style theme = function
     | Sized (prop, v) -> sized_style theme prop v
@@ -686,6 +744,7 @@ module Handler = struct
     | Aspect_ratio (w, h) -> aspect_ratio' w h
     | Aspect_bracket (_, w, h) -> aspect_ratio' w h
     | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
+    | Aspect_theme name -> aspect_theme' theme name
 
   let err_not_utility = Error (`Msg "Not a sizing utility")
 
@@ -730,7 +789,12 @@ module Handler = struct
           match Parse.decimal_float v with
           | Some n when n >= 0. && Theme.has_spacing_step ~theme n ->
               Ok (Sized (prop, Spacing (n *. 0.25)))
-          | _ -> err_invalid_value f.css_name v)
+          | _ ->
+              (* A size the project named in its own [@theme], under one of the
+                 namespaces this family reads. *)
+              if is_theme_named theme prop v then
+                Ok (Sized (prop, Theme_named v))
+              else err_invalid_value f.css_name v)
 
   let parse_max_w_screen s =
     match lookup max_width_family ("screen-" ^ s) with
@@ -783,6 +847,8 @@ module Handler = struct
             match float_of_string_opt inner with
             | Some f when f > 0. -> Ok (Aspect_bracket_num inner)
             | _ -> err_not_utility))
+    | [ "aspect"; value ] when is_theme_aspect theme value ->
+        Ok (Aspect_theme value)
     | [ "aspect"; value ] ->
         parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
     | _ -> err_not_utility
@@ -801,6 +867,7 @@ module Handler = struct
     | Aspect_auto -> aspect_base + 2000
     | Aspect_square -> aspect_base + 2001
     | Aspect_video -> aspect_base + 2002
+    | Aspect_theme _ -> aspect_base + 1500
 
   (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
       flex-1/flex-col in Tailwind's order. The logical ones are registered after
@@ -812,6 +879,7 @@ module Handler = struct
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
+    | Aspect_theme name -> "aspect-" ^ name
     | Aspect_ratio (w, h) ->
         let num f =
           if Float.is_integer f then string_of_int (int_of_float f)
