@@ -62,6 +62,14 @@ val check_ordering_matches :
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
 
+val class_position : string -> string -> int option
+(** [class_position sheet cls] is the byte offset in [sheet] where the rule for
+    class [cls] starts, or [None] when the sheet declares no such class. The
+    match ends where the class name ends, so [.bg-top] is not read off
+    [.bg-top-left]; what follows it is not constrained, so a selector that
+    continues past the class ([.divide-x>*], [.group:hover .x]) is found too.
+    The oracle behind {!check_class_order}. *)
+
 val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
 (** [check_class_order ?forms ~test_name classes] compares where each of
     [classes] lands in tw's sheet against where the pinned Tailwind CLI puts it.
