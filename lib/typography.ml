@@ -1400,22 +1400,18 @@ module Typography_late = struct
   open Style
   open Css
 
-  (* A bare number is not a CSS length, but Tailwind admits [decoration-[2]] and
-     emits it as a thickness, so it reads as px. *)
-  let parse_bare_number str =
+  (* Tailwind reads the bracket as a colour unless it is a length or a
+     percentage, so a bare number lands on the colour branch whether it is
+     written [2] or [1.5]. *)
+  let is_bare_number str =
     let is_number_char c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-    if str <> "" && String.for_all is_number_char str then
-      float_of_string_opt str
-    else None
+    str <> ""
+    && String.for_all is_number_char str
+    && float_of_string_opt str <> None
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
-    match Parse.arbitrary_length inner with
-    | Some _ as len -> len
-    | None -> (
-        match parse_bare_number inner with
-        | Some n -> Some (Px n)
-        | None -> None)
+    Parse.arbitrary_length inner
 
   (* Tailwind converts a percentage thickness to em: 50% -> .5em. *)
   let parse_decoration_pct inner : Css.length option =
@@ -1697,7 +1693,7 @@ module Typography_late = struct
                 match parse_decoration_pct inner with
                 | Some len -> Ok (Decoration_bracket_pct (inner, len))
                 | None -> err_not_utility
-              else if Result.is_ok (Parse.int_any inner) then
+              else if is_bare_number inner then
                 (* Tailwind resolves the ambiguous unitless spelling through the
                    colour candidate path. Its declaration is invalid CSS and
                    browsers discard it; accepting an inert candidate is
