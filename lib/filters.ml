@@ -21,7 +21,9 @@ module Handler = struct
     | Blur_xl
     | Blur_2xl
     | Blur_3xl
-    | Blur_arbitrary of string
+    (* The author's bracket text travels with the length it denotes, so the
+       class name is spelled exactly as it was written. *)
+    | Blur_arbitrary of string * Css.length
     | Brightness of int
     | Brightness_arbitrary of string
     | Contrast of int
@@ -72,7 +74,7 @@ module Handler = struct
     | Backdrop_blur_xl
     | Backdrop_blur_2xl
     | Backdrop_blur_3xl
-    | Backdrop_blur_arbitrary of string
+    | Backdrop_blur_arbitrary of string * Css.length
     | Backdrop_brightness of int
     | Backdrop_brightness_arbitrary of string
     | Backdrop_contrast of int
@@ -323,27 +325,19 @@ module Handler = struct
       ]
 
   (* Parse bracket content for length values (e.g., "4px", "0.5rem") *)
-  let parse_bracket_length s =
+  (* The length a [blur-[...]] bracket denotes, read with cascade's own grammar
+     so calc() and every unit come for free. A var bracket keeps the tw-side
+     reference the variable system tracks. [None] is a bracket no length reads
+     from, and [of_class] refuses the utility rather than leaving [to_style] to
+     raise. *)
+  let arbitrary_blur s : Css.length option =
     let inner = Parse.bracket_inner s in
-    let slen = String.length inner in
-    let i = ref 0 in
-    while
-      !i < slen && ((inner.[!i] >= '0' && inner.[!i] <= '9') || inner.[!i] = '.')
-    do
-      incr i
-    done;
-    if !i = 0 || !i = slen then Option.None
-    else
-      let num_s = String.sub inner 0 !i in
-      let unit_s = String.sub inner !i (slen - !i) in
-      match Float.of_string_opt num_s with
-      | Option.None -> Option.None
-      | Option.Some n -> (
-          match unit_s with
-          | "px" -> Option.Some (Px n : Css.length)
-          | "rem" -> Option.Some (Rem n)
-          | "em" -> Option.Some (Em n)
-          | _ -> Option.None)
+    if Parse.is_var inner then
+      let ref_ : Css.length Css.var =
+        Var.bracket (Parse.extract_var_name inner)
+      in
+      Option.Some (Css.Var ref_ : Css.length)
+    else Css.parse_length (Parse.decode_underscores inner)
 
   (* Parse bracket content for angle values (e.g., "45deg") *)
   let parse_bracket_angle s =
@@ -396,16 +390,7 @@ module Handler = struct
   let parse_bracket_numpct inner : Css.number_percentage =
     Option.value (parse_bracket_numpct_opt inner) ~default:(Num 0.)
 
-  let blur_arbitrary s =
-    match parse_bracket_length s with
-    | Option.Some len -> set_filter_var "--tw-blur" (Blur len)
-    | Option.None ->
-        let inner = Parse.bracket_inner s in
-        if Parse.is_var inner then
-          let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Var.bracket bare in
-          set_filter_var "--tw-blur" (Blur (Var ref_))
-        else invalid_arg ("Invalid blur value: " ^ s)
+  let blur_arbitrary len = set_filter_var "--tw-blur" (Blur len)
 
   let brightness_arbitrary s =
     let inner = Parse.bracket_inner s in
@@ -1055,16 +1040,8 @@ module Handler = struct
   let backdrop_blur_2xl = backdrop_blur_size blur_2xl_var 40.
   let backdrop_blur_3xl = backdrop_blur_size blur_3xl_var 64.
 
-  let backdrop_blur_arbitrary s =
-    match parse_bracket_length s with
-    | Option.Some len -> set_backdrop_var "--tw-backdrop-blur" (Blur len)
-    | Option.None ->
-        let inner = Parse.bracket_inner s in
-        if Parse.is_var inner then
-          let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Var.bracket bare in
-          set_backdrop_var "--tw-backdrop-blur" (Blur (Var ref_))
-        else invalid_arg ("Invalid backdrop-blur value: " ^ s)
+  let backdrop_blur_arbitrary len =
+    set_backdrop_var "--tw-backdrop-blur" (Blur len)
 
   let backdrop_brightness n =
     set_backdrop_var "--tw-backdrop-brightness"
@@ -1187,7 +1164,7 @@ module Handler = struct
     | Blur_xl -> blur_xl ()
     | Blur_2xl -> blur_2xl ()
     | Blur_3xl -> blur_3xl ()
-    | Blur_arbitrary s -> blur_arbitrary s
+    | Blur_arbitrary (_, len) -> blur_arbitrary len
     | Brightness n -> brightness n
     | Brightness_arbitrary s -> brightness_arbitrary s
     | Contrast n -> contrast n
@@ -1232,7 +1209,7 @@ module Handler = struct
     | Backdrop_blur_xl -> backdrop_blur_xl ()
     | Backdrop_blur_2xl -> backdrop_blur_2xl ()
     | Backdrop_blur_3xl -> backdrop_blur_3xl ()
-    | Backdrop_blur_arbitrary s -> backdrop_blur_arbitrary s
+    | Backdrop_blur_arbitrary (_, len) -> backdrop_blur_arbitrary len
     | Backdrop_brightness n -> backdrop_brightness n
     | Backdrop_brightness_arbitrary s -> backdrop_brightness_arbitrary s
     | Backdrop_contrast n -> backdrop_contrast n
@@ -1371,7 +1348,10 @@ module Handler = struct
     | [ "blur"; "xl" ] -> Ok Blur_xl
     | [ "blur"; "2xl" ] -> Ok Blur_2xl
     | [ "blur"; "3xl" ] -> Ok Blur_3xl
-    | [ "blur"; s ] when Parse.is_bracket_value s -> Ok (Blur_arbitrary s)
+    | [ "blur"; s ] when Parse.is_bracket_value s -> (
+        match arbitrary_blur s with
+        | Option.Some len -> Ok (Blur_arbitrary (s, len))
+        | Option.None -> Error (`Msg ("Invalid blur value: " ^ s)))
     | [ "brightness"; s ] when Parse.is_bracket_value s && is_numpct_bracket s
       ->
         Ok (Brightness_arbitrary s)
@@ -1495,8 +1475,10 @@ module Handler = struct
     | [ "backdrop"; "blur"; "xl" ] -> Ok Backdrop_blur_xl
     | [ "backdrop"; "blur"; "2xl" ] -> Ok Backdrop_blur_2xl
     | [ "backdrop"; "blur"; "3xl" ] -> Ok Backdrop_blur_3xl
-    | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s ->
-        Ok (Backdrop_blur_arbitrary s)
+    | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s -> (
+        match arbitrary_blur s with
+        | Option.Some len -> Ok (Backdrop_blur_arbitrary (s, len))
+        | Option.None -> Error (`Msg ("Invalid backdrop-blur value: " ^ s)))
     | [ "backdrop"; "brightness"; s ]
       when Parse.is_bracket_value s && is_numpct_bracket s ->
         Ok (Backdrop_brightness_arbitrary s)
@@ -1576,7 +1558,7 @@ module Handler = struct
     | Blur_xl -> "blur-xl"
     | Blur_2xl -> "blur-2xl"
     | Blur_3xl -> "blur-3xl"
-    | Blur_arbitrary s -> "blur-" ^ s
+    | Blur_arbitrary (s, _) -> "blur-" ^ s
     | Brightness n -> "brightness-" ^ string_of_int n
     | Brightness_arbitrary s -> "brightness-" ^ s
     | Contrast n -> "contrast-" ^ string_of_int n
@@ -1633,7 +1615,7 @@ module Handler = struct
     | Backdrop_blur_xl -> "backdrop-blur-xl"
     | Backdrop_blur_2xl -> "backdrop-blur-2xl"
     | Backdrop_blur_3xl -> "backdrop-blur-3xl"
-    | Backdrop_blur_arbitrary s -> "backdrop-blur-" ^ s
+    | Backdrop_blur_arbitrary (s, _) -> "backdrop-blur-" ^ s
     | Backdrop_brightness n -> "backdrop-brightness-" ^ string_of_int n
     | Backdrop_brightness_arbitrary s -> "backdrop-brightness-" ^ s
     | Backdrop_contrast n -> "backdrop-contrast-" ^ string_of_int n
