@@ -38,16 +38,14 @@ open Upstream_fixture
    the same value. That is pure fixture skew, not a tw bug: Tailwind's snapshot
    serialiser truncates oklab axes for cross-OS stability, and the fixtures fold
    a concrete-colour opacity to [oklab] where tw keeps the shorter exact colour.
-   One tolerance remains on top of that -- [is_allowed_canonicalization_diff],
-   for [--font-sans] / [--tw-prose-*] custom-property skew. Set
-   [TW_UPSTREAM_STRICT=1] to disable it and watch for changes that close the
-   gap. (A [--text-*--line-height] allowance, a mask-angle calc allowance, an
-   [@property --spacing] hint, a prose selector-permutation allowance and the
-   hard-coded stale-colour allowlist were all dropped earlier, once tw honoured
-   theme line-height overrides, emitted Tailwind's exact mask degrees, cascade
-   gained typed calc + the custom-property prune, and the colour normalisation
-   above replaced the allowlist.) *)
-let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
+   Nothing else is tolerated: the diff a case reports is the diff it fails on.
+   (A [--font-sans] / [--tw-prose-*] custom-property allowance, a
+   [--text-*--line-height] allowance, a mask-angle calc allowance, an [@property
+   --spacing] hint, a prose selector-permutation allowance and the hard-coded
+   stale-colour allowlist were all dropped, once tw honoured theme line-height
+   overrides, emitted Tailwind's exact mask degrees, cascade gained typed calc +
+   the custom-property prune, and the colour normalisation above replaced the
+   allowlist.) *)
 
 (** The scheme fields a fixture's own [@theme] declarations set.
 
@@ -305,35 +303,6 @@ let truncate_color_precision =
         let args = Re.replace frac args ~f:(fun d -> "." ^ Re.Group.get d 1) in
         name ^ "(" ^ args ^ ")")
 
-let is_allowed_canonicalization_diff diff =
-  let allowed_custom_property = function
-    | "--font-sans" | "--font-mono" -> true
-    | name when String.starts_with ~prefix:"--tw-prose-" name -> true
-    | _ -> false
-  in
-  let allowed_rule_change = function
-    | Tree_diff.Content_changed
-        { property_changes; added_properties = []; removed_properties = []; _ }
-      ->
-        property_changes <> []
-        && List.for_all
-             (fun (change : Tree_diff.declaration) ->
-               allowed_custom_property change.property_name)
-             property_changes
-    | _ -> false
-  in
-  let allowed_container = function
-    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
-        List.for_all allowed_rule_change rule_changes
-    | _ -> false
-  in
-  match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules; containers; layer_order = None } ->
-      (rules <> [] || containers <> [])
-      && List.for_all allowed_rule_change rules
-      && List.for_all allowed_container containers
-  | _ -> false
-
 (* Guards [declared_root_vars]: only a token the test's own [@theme] block
    declared is read back out of the expected CSS, so the runner never hands tw
    the very value it is about to compare against. *)
@@ -411,16 +380,6 @@ let test_reference_survives_theme_resolution () =
   Alcotest.(check bool)
     "a token the case does not declare is inlined, as @theme renders it" false
     (references (rendered ~declared:[]))
-
-let test_layer_order_not_tolerated () =
-  let expected =
-    "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
-  in
-  let actual = "@layer strong, weak;@media (width >= 1px){.x{--font-sans:b}}" in
-  let diff = Css_compare.diff ~mode:`Tree expected actual in
-  Alcotest.(check bool)
-    "a tolerated declaration cannot hide a layer-order change" false
-    (is_allowed_canonicalization_diff diff)
 
 (** Set theme value overrides for root vars from expected CSS. This enables
     utilities like z-auto and order-first to produce custom declarations in the
@@ -579,10 +538,9 @@ let run_test_case test () =
           (normalize_colors our_css)
       in
       if
-        (match result.Css_compare.result with
-          | Css_compare.No_diff -> true
-          | _ -> false)
-        || ((not strict) && is_allowed_canonicalization_diff result)
+        match result.Css_compare.result with
+        | Css_compare.No_diff -> true
+        | _ -> false
       then ()
       else
         let buf = Buffer.create 1024 in
@@ -729,8 +687,6 @@ let () =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
       test_case "color-mix percentage" `Quick test_color_mix_percentage;
-      test_case "canonical tolerance rejects layer order" `Quick
-        test_layer_order_not_tolerated;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
       test_case "the scheme is built from declared tokens only" `Quick

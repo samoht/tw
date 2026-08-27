@@ -16,43 +16,6 @@ let generate_tw_css ?(minify = false) styles =
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 let canonical_stylesheet_css css = String.trim css
 
-let is_allowed_canonicalization_diff diff =
-  let allowed_custom_property = function
-    | "--font-sans" | "--font-mono" -> true
-    | name when String.starts_with ~prefix:"--tw-prose-" name -> true
-    | _ -> false
-  in
-  let allowed_rule_change = function
-    | Tree_diff.Content_changed
-        { property_changes; added_properties = []; removed_properties = []; _ }
-      ->
-        property_changes <> []
-        && List.for_all
-             (fun (change : Tree_diff.declaration) ->
-               allowed_custom_property change.property_name)
-             property_changes
-    | _ -> false
-  in
-  let allowed_container = function
-    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
-        List.for_all allowed_rule_change rule_changes
-    | _ -> false
-  in
-  match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules = []; containers; layer_order = None } ->
-      containers <> [] && List.for_all allowed_container containers
-  | _ -> false
-
-let test_layer_order_not_tolerated () =
-  let expected =
-    "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
-  in
-  let actual = "@layer strong, weak;@media (width >= 1px){.x{--font-sans:b}}" in
-  let diff = Css_compare.diff ~mode:`Tree expected actual in
-  Alcotest.(check bool)
-    "a tolerated declaration cannot hide a layer-order change" false
-    (is_allowed_canonicalization_diff diff)
-
 (* File utilities *)
 let write_file path content =
   let oc = open_out path in
@@ -151,10 +114,9 @@ let check_exact_match tw_styles =
         tailwind_css tw_css
     in
     let parity_equal =
-      (match diff_result.Css_compare.result with
-        | Css_compare.No_diff -> true
-        | _ -> false)
-      || is_allowed_canonicalization_diff diff_result
+      match diff_result.Css_compare.result with
+      | Css_compare.No_diff -> true
+      | _ -> false
     in
     if not parity_equal then (
       (* Only a failure is worth an artefact: a passing run has nothing to diff
@@ -1214,8 +1176,6 @@ let property_order_cross_family () =
 
 let core_tests =
   [
-    test_case "canonical tolerance rejects layer order" `Quick
-      test_layer_order_not_tolerated;
     test_case "debug artefacts" `Quick debug_artefacts;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
