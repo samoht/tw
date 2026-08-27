@@ -327,6 +327,53 @@ let test_bracket_css_colors () =
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red"
 
+(* An opacity modifier applies to the colour the bracket was parsed into. The
+   modifier read the bracket text back through the palette parser, which
+   answered black for every CSS colour the palette does not name, and answered
+   the palette entry for the names it shares with CSS. *)
+let test_bracket_colour_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  (* the value a class sets for [prop], so two spellings of one colour compare
+     without their class names *)
+  let value prop cls =
+    let sheet = css cls in
+    let key = prop ^ ":" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no %s: %s" cls prop sheet
+    | Some i ->
+        let start = i + String.length key in
+        Astring.String.with_range ~first:start sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  let same prop cls hex =
+    Alcotest.(check string)
+      (cls ^ " is " ^ hex)
+      (value prop hex) (value prop cls)
+  in
+  same "color" "text-[rebeccapurple]/50" "text-[#663399]/50";
+  same "color" "text-[hsl(200_50%_50%)]/50" "text-[#4095bf]/50";
+  (* a CSS keyword still beats the palette entry of the same name *)
+  same "background-color" "bg-[red]/50" "bg-[#ff0000]/50";
+  same "border-color" "border-[rebeccapurple]/50" "border-[#663399]/50";
+  same "accent-color" "accent-[rebeccapurple]/50" "accent-[#663399]/50";
+  same "caret-color" "caret-[rebeccapurple]/50" "caret-[#663399]/50";
+  same "outline-color" "outline-[rebeccapurple]/50" "outline-[#663399]/50";
+  same "color" "placeholder-[rebeccapurple]/50" "placeholder-[#663399]/50";
+  (* an alpha read from a var names the property in the mix *)
+  same "color" "text-[rebeccapurple]/(--a)" "text-[#663399]/(--a)";
+  (* the colour the palette cannot name is not black *)
+  Alcotest.(check bool)
+    "text-[rebeccapurple]/50 is not black" false
+    (Astring.String.is_infix ~affix:"oklab(0%" (css "text-[rebeccapurple]/50"));
+  (* a bracket that names no colour at all is still not a class *)
+  Alcotest.(check bool)
+    "text-[notacolour]/50 is not a class" true
+    (Result.is_error (Tw.of_string "text-[notacolour]/50"))
+
 (* An hsl() hue takes any angle unit. Folding one to a hex colour used to keep
    only bare numbers and [deg] and read every other unit as 0, so a half turn
    painted red instead of cyan. *)
@@ -803,6 +850,7 @@ let tests =
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
+    ("Bracket colour opacity", `Quick, test_bracket_colour_opacity);
     ("hsl hue units", `Quick, test_hsl_hue_units);
     ("hsl non-percentage channels", `Quick, test_hsl_non_percentage_channels);
     ("rgb non-numeric channels", `Quick, test_rgb_non_numeric_channels);
