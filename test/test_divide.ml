@@ -104,6 +104,17 @@ let order_matches_tailwind () =
   Test_helpers.check_ordering_matches ~test_name:"divide order matches Tailwind"
     (Test_helpers.shuffle (divide_utilities ()))
 
+(* divide's rules continue past the class name into a combinator, so where they
+   land in the sheet is a shape check_ordering_matches cannot see: it pairs
+   rules by key, and a layer holding each of them in the wrong place still
+   compares equal. *)
+let class_order_matches_tailwind () =
+  Test_helpers.check_class_order
+    ~test_name:"divide class order matches Tailwind"
+    (List.filter
+       (fun c -> Astring.String.is_prefix ~affix:"divide-" c)
+       divide_classes)
+
 (* divide-* and border-* write the same border properties, so what an element is
    actually bordered with is a rendering question, not only an ordering one. *)
 let rendering_matches_tailwind () =
@@ -142,6 +153,8 @@ let tests =
       Alcotest.test_case "typed arbitrary width" `Quick
         test_typed_arbitrary_width;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
+      Alcotest.test_case "class order matches Tailwind" `Slow
+        class_order_matches_tailwind;
       Alcotest.test_case "renders like Tailwind" `Slow
         rendering_matches_tailwind;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
