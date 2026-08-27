@@ -144,6 +144,19 @@ let test_invalid_bracket_hex () =
     "divide-[#ff0000] still emits the colour" true
     (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
 
+(* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
+   as 16 and emitted a rule selecting [.divide-x-16], a class the author never
+   wrote; Tailwind emits nothing for it. *)
+let test_non_decimal_widths () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "divide-x-0x10";
+  rejected "divide-y-0x10";
+  rejected "divide-x-1_0"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -158,6 +171,7 @@ let tests =
       Alcotest.test_case "renders like Tailwind" `Slow
         rendering_matches_tailwind;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+      Alcotest.test_case "non-decimal widths" `Quick test_non_decimal_widths;
     ]
 
 let suite = ("divide", tests)

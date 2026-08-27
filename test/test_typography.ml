@@ -887,10 +887,26 @@ let test_invalid_decoration_bracket_hex () =
     (Astring.String.is_infix ~affix:"text-decoration-color:#f00"
        (css "decoration-[#ff0000]"))
 
+(* Integers in a class name are plain decimal here too: the leading modifier
+   [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
+   16, so tw painted a weight where Tailwind, which passes [0x10] through for
+   the browser to drop, paints nothing. *)
+let test_non_decimal_integers () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  rejected "text-lg/0x10";
+  rejected "font-[0x10]";
+  rejected "line-clamp-[0x10]";
+  rejected "line-clamp-[1_0]"
+
 let tests =
   [
     test_case "invalid decoration bracket hex" `Quick
       test_invalid_decoration_bracket_hex;
+    test_case "non-decimal integers" `Quick test_non_decimal_integers;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
     test_case "unitless decoration bracket is a colour" `Quick
