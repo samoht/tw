@@ -217,7 +217,10 @@ let check_list tw_styles = check_exact_match tw_styles
 
 (* ===== UPSTREAM PARSE PARITY ============================================= *)
 
-let register_upstream_variant_directives directives =
+(* The case's own [@custom-variant]s, as the two scheme fields that carry them.
+   Directive form: "name <template> KEY=value ...", DEFAULT mapped to the
+   default slot; "container <name> <header>" for a container-query body. *)
+let upstream_variants directives =
   let parse_variant_directive d =
     match String.split_on_char ' ' d with
     | "container" :: _ -> None
@@ -233,7 +236,7 @@ let register_upstream_variant_directives directives =
               | None -> None)
             pairs
         in
-        Some (name, Tw.Modifiers.{ values; template })
+        Some (name, Tw.Scheme.{ values; template })
     | _ -> None
   in
   let parse_container_directive d =
@@ -253,10 +256,8 @@ let register_upstream_variant_directives directives =
         try Some (name, container_of_header header) with Failure _ -> None)
     | _ -> None
   in
-  Tw.Modifiers.register_custom_variants
-    (List.filter_map parse_variant_directive directives);
-  Tw.Modifiers.register_container_variants
-    (List.filter_map parse_container_directive directives)
+  ( List.filter_map parse_variant_directive directives,
+    List.filter_map parse_container_directive directives )
 
 let upstream_positive_cases basename =
   match Upstream_fixture.path basename with
@@ -268,7 +269,8 @@ let upstream_positive_cases basename =
 
 (* Build the per-test scheme from the @theme tokens in the expected CSS, so
    of_string validates custom tokens against the threaded theme. *)
-let upstream_scheme (config : Upstream_fixture.config) theme_vars expected =
+let upstream_scheme (config : Upstream_fixture.config) theme_vars variants
+    expected =
   let overrides =
     match config with
     | Run | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
@@ -298,7 +300,18 @@ let upstream_scheme (config : Upstream_fixture.config) theme_vars expected =
     in
     overrides @ extra
   in
-  Tw.Scheme.with_overrides Tw.Scheme.default overrides
+  let custom_variants, container_variants = upstream_variants variants in
+  let base : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      (* The breakpoint names the fixture corpus declares in its own [@theme]
+         blocks; a case that uses one has it in the theme it is parsed with. *)
+      breakpoints = [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
+      custom_variants;
+      container_variants;
+    }
+  in
+  Tw.Scheme.with_overrides base overrides
 
 let class_is_emitted expected cls =
   String.contains expected '.'
@@ -308,13 +321,12 @@ let class_is_emitted expected cls =
 
 let check_upstream_positive_fixture_parse filename () =
   let cases = upstream_positive_cases filename in
-  Tw.Modifiers.register_custom_breakpoints
-    [ ("xs", 320.); ("10xl", 1600.); ("lg-sm-potato", 1600.) ];
   let rejected =
     cases
     |> List.concat_map (fun (c : Upstream_fixture.case) ->
-        register_upstream_variant_directives c.variants;
-        let theme = upstream_scheme c.config c.theme_vars c.expected in
+        let theme =
+          upstream_scheme c.config c.theme_vars c.variants c.expected
+        in
         c.classes
         |> List.filter (class_is_emitted c.expected)
         |> List.filter_map (fun cls ->
@@ -426,7 +438,6 @@ let responsive_breakpoints () =
   check (md [ p 8 ])
 
 let custom_breakpoint_theme_is_local () =
-  Tw.Modifiers.clear_custom_breakpoints ();
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
   in

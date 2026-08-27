@@ -248,11 +248,7 @@ let of_string ?(theme = Scheme.default) class_str =
       | `Suffix -> Utility.important ~suffix:true base_util
       | `None -> base_util
     in
-    match
-      Modifiers.apply
-        ~breakpoints:(Scheme.breakpoint_names theme)
-        modifiers base_util
-    with
+    match Modifiers.apply ~theme modifiers base_util with
     | Some u -> Ok u
     | None -> Error (`Msg ("Unknown modifier in: " ^ class_str))
   in

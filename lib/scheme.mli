@@ -12,6 +12,11 @@ type color_value =
   | Oklch of { l : float; c : float; h : float }
       (** e.g., oklch(63.7% 0.237 25.331) *)
 
+type custom_variant = { values : (string * string) list; template : string }
+(** A [\@custom-variant] registered with a value map (the [DEFAULT] value under
+    key [""]) and a selector template with [{}] where the value is substituted.
+    [&] in the template denotes the element's own class. *)
+
 type t = {
   colors : (string * color_value) list;
       (** Color overrides. Key is color name like "red-500". When a color is
@@ -51,6 +56,15 @@ type t = {
   static_theme : bool;
       (** Whether the package was imported with [theme(static)], which emits
           every theme variable rather than only the ones a utility used. *)
+  custom_variants : (string * custom_variant) list;
+      (** The [\@custom-variant]s this [\@theme] declared, each a value map and
+          a selector template. A variant belongs to the theme that declared it,
+          so two stylesheets built in one process cannot see each other's. *)
+  container_variants : (string * Css.Container.t) list;
+      (** The [\@custom-variant]s this [\@theme] declared with a container-query
+          body (e.g. [has-a] -> [\@container style(--a)]). Kept apart from
+          {!custom_variants} because the condition is structural, so the [not-]
+          prefix negates it soundly. *)
 }
 (** Theme scheme configuration *)
 

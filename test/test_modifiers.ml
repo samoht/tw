@@ -364,36 +364,35 @@ let test_arbitrary_breakpoint_rejects_non_length () =
    stylesheets built in one process read different themes, so a variant the
    first declared must be unknown to the second. *)
 let test_custom_variant_is_theme_local () =
-  let declaring = Tw.Scheme.default in
-  let other =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-mine", "red") ]
-  in
-  Fun.protect ~finally:Tw.Modifiers.clear_custom_variants (fun () ->
-      Tw.Modifiers.register_custom_variants
+  let declaring : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      custom_variants =
         [
           ( "is-data",
-            Tw.Modifiers.
-              { values = [ ("", "&[data-x]") ]; template = "&:is({})" } );
+            Tw.Scheme.{ values = [ ("", "&[data-x]") ]; template = "&:is({})" }
+          );
         ];
-      check bool "the declaring theme resolves its own variant" true
-        (Result.is_ok (Tw.of_string ~theme:declaring "is-data:flex"));
-      check bool "a second theme does not see it" true
-        (Result.is_error (Tw.of_string ~theme:other "is-data:flex")))
+    }
+  in
+  check bool "the declaring theme resolves its own variant" true
+    (Result.is_ok (Tw.of_string ~theme:declaring "is-data:flex"));
+  check bool "a second theme does not see it" true
+    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "is-data:flex"))
 
 (* Same for a [@custom-variant] whose body is a container query: it is held in
-   its own registry, so it leaks the same way. *)
+   its own field, and belongs to its own theme just the same. *)
 let test_container_variant_is_theme_local () =
-  let declaring = Tw.Scheme.default in
-  let other =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-mine", "red") ]
+  let declaring : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      container_variants = [ ("has-a", Css.Container.of_string "style(--a)") ];
+    }
   in
-  Fun.protect ~finally:Tw.Modifiers.clear_container_variants (fun () ->
-      Tw.Modifiers.register_container_variants
-        [ ("has-a", Css.Container.of_string "style(--a)") ];
-      check bool "the declaring theme resolves its own variant" true
-        (Result.is_ok (Tw.of_string ~theme:declaring "has-a:flex"));
-      check bool "a second theme does not see it" true
-        (Result.is_error (Tw.of_string ~theme:other "has-a:flex")))
+  check bool "the declaring theme resolves its own variant" true
+    (Result.is_ok (Tw.of_string ~theme:declaring "has-a:flex"));
+  check bool "a second theme does not see it" true
+    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "has-a:flex"))
 
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme

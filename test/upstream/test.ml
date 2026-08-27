@@ -154,6 +154,7 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
   let default_outline_width = extract_outline_width expected in
   let breakpoints = extract_breakpoints_from_css expected in
   {
+    Tw.Scheme.default with
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
     radius;
@@ -161,24 +162,12 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     default_border_width;
     default_outline_width;
     breakpoints;
-    token_overrides = [];
-    inline_tokens = [];
-    static_theme = false;
   }
 
 let setup_scheme_for_test expected =
-  let scheme = scheme_from_expected_css expected in
-  (* The scheme is threaded into Tw.to_css via ~theme below; the per-module
-     set_scheme globals are no longer used for rendering. *)
-  (* Register custom breakpoints for modifier parsing *)
-  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
-  let custom_bps =
-    List.filter
-      (fun (name, _) -> not (List.mem name standard_names))
-      scheme.breakpoints
-  in
-  Tw.Modifiers.register_custom_breakpoints custom_bps;
-  scheme
+  (* The scheme is threaded into Tw.of_string and Tw.to_css via ~theme; the
+     custom breakpoints it carries are what the modifier parser reads. *)
+  scheme_from_expected_css expected
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -592,7 +581,7 @@ let run_test_case test () =
                 | None -> None)
               pairs
           in
-          Some (name, Tw.Modifiers.{ values; template })
+          Some (name, Tw.Scheme.{ values; template })
       | _ -> None
     in
     (* [@custom-variant <name> { @container <header> { @slot } }] directives,
@@ -617,25 +606,18 @@ let run_test_case test () =
           try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
-    Tw.Modifiers.register_custom_variants
-      (List.filter_map parse_variant_directive test.variants);
-    Tw.Modifiers.register_container_variants
-      (List.filter_map parse_container_directive test.variants);
-    (* Register custom breakpoints before parsing classes. The resulting scheme
-       (base plus any custom breakpoints) is the one threaded to [Tw.to_css]
-       below via [~theme]. *)
+    (* The case's own [@custom-variant]s and custom breakpoints ride on the
+       scheme threaded to [Tw.of_string] and [Tw.to_css] below, so they are
+       local to this case rather than left in a registry the next one reads. *)
     let custom_bps = extract_custom_breakpoints test.classes test.expected in
     let scheme =
-      if custom_bps = [] then base_scheme
-      else
-        let updated_scheme =
-          {
-            base_scheme with
-            breakpoints = base_scheme.breakpoints @ custom_bps;
-          }
-        in
-        Tw.Modifiers.register_custom_breakpoints custom_bps;
-        updated_scheme
+      {
+        base_scheme with
+        breakpoints = base_scheme.breakpoints @ custom_bps;
+        custom_variants = List.filter_map parse_variant_directive test.variants;
+        container_variants =
+          List.filter_map parse_container_directive test.variants;
+      }
     in
     (* Thread the @theme token overrides into the scheme so utilities read them
        from ~theme (parse and render); the Var global is no longer consulted. *)
