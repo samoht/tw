@@ -1452,8 +1452,10 @@ module Typography_late = struct
     | Decoration_bracket_length_var of string
     | Decoration_bracket_pct_var of string
     | (* Tracking *)
-      Tracking_arbitrary of string
-    | Neg_tracking_arbitrary of string
+      (* The author's bracket text travels with the length it denotes, so the
+         class name is spelled exactly as it was written. *)
+      Tracking_arbitrary of string * Css.length
+    | Neg_tracking_arbitrary of string * Css.length
     | Tracking_var of string
     | Neg_tracking_var of string
     | Tracking_tighter
@@ -1600,6 +1602,13 @@ module Typography_late = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
+  (* The length a [tracking-[...]] bracket denotes, read with cascade's own
+     grammar so [calc()] and the function forms come for free. [None] is a
+     bracket no length reads from, and [of_class] refuses the utility rather
+     than leaving [to_style] to raise. *)
+  let arbitrary_tracking inner : Css.length option =
+    Css.parse_length (Parse.decode_underscores inner)
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1717,17 +1726,23 @@ module Typography_late = struct
             | Color.No_opacity -> Ok (Decoration_color (c, Some s))
             | _ -> Ok (Decoration_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
-    | [ "tracking"; v ] when Parse.is_bracket_value v ->
+    | [ "tracking"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Tracking_var inner)
-        else Ok (Tracking_arbitrary inner)
-    | "" :: "tracking" :: rest when rest <> [] ->
+        else
+          match arbitrary_tracking inner with
+          | Some len -> Ok (Tracking_arbitrary (inner, len))
+          | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
+    | "" :: "tracking" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
-        if Parse.is_bracket_value value then
+        if not (Parse.is_bracket_value value) then err_not_utility
+        else
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_tracking_var inner)
-          else Ok (Neg_tracking_arbitrary inner)
-        else err_not_utility
+          else
+            match arbitrary_tracking inner with
+            | Some len -> Ok (Neg_tracking_arbitrary (inner, len))
+            | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
     | [ "tracking"; "normal" ] -> Ok Tracking_normal
@@ -1970,8 +1985,8 @@ module Typography_late = struct
     | Decoration_bracket_pct (v, _) -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
-    | Tracking_arbitrary v -> "tracking-[" ^ v ^ "]"
-    | Neg_tracking_arbitrary v -> "-tracking-[" ^ v ^ "]"
+    | Tracking_arbitrary (v, _) -> "tracking-[" ^ v ^ "]"
+    | Neg_tracking_arbitrary (v, _) -> "-tracking-[" ^ v ^ "]"
     | Tracking_var v -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
@@ -2545,13 +2560,7 @@ module Typography_late = struct
   let capitalize = style [ text_transform (Case Capitalize) ]
   let normal_case = style [ text_transform None ]
 
-  let parse_length_exn v =
-    match Css.parse_length v with
-    | Some len -> len
-    | None -> invalid_arg ("Invalid tracking length: " ^ v)
-
-  let tracking_arbitrary v =
-    let len = parse_length_exn v in
+  let tracking_arbitrary len =
     let channel_decl, _ = Var.binding tracking_var len in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
@@ -2574,8 +2583,7 @@ module Typography_late = struct
     | Pct n -> Pct (-.n)
     | len -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
 
-  let neg_tracking_arbitrary v =
-    let len = parse_length_exn v in
+  let neg_tracking_arbitrary len =
     (* --tw-tracking uses calc() form, letter-spacing uses direct negation *)
     let calc_neg : Css.length =
       Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
@@ -2971,8 +2979,8 @@ module Typography_late = struct
     | Decoration_bracket_pct (_, len) -> decoration_bracket_pct len
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
-    | Tracking_arbitrary v -> tracking_arbitrary v
-    | Neg_tracking_arbitrary v -> neg_tracking_arbitrary v
+    | Tracking_arbitrary (_, len) -> tracking_arbitrary len
+    | Neg_tracking_arbitrary (_, len) -> neg_tracking_arbitrary len
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
