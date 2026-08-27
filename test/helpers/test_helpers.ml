@@ -38,11 +38,29 @@ let tailwind_css ?(forms = false) classnames =
 
 (* Which CSS properties a class declares. Custom properties count: a drop-shadow
    colour and a drop-shadow size conflict only on [--tw-drop-shadow]. *)
+(* Compiling a class is the expensive part of building the pair list, and each
+   class is compiled by both readers below, once for its property names and
+   once for its rule. Memoised on the class name; the suite's class set bounds
+   the table. *)
+let compiled_cache : (string, Css.t option) Hashtbl.t = Hashtbl.create 512
+
+let compiled cls =
+  match Hashtbl.find_opt compiled_cache cls with
+  | Some sheet -> sheet
+  | None ->
+      let sheet =
+        match Tw.of_string cls with
+        | Error _ -> None
+        | Ok u -> Some (Tw.to_css ~base:false [ u ])
+      in
+      Hashtbl.add compiled_cache cls sheet;
+      sheet
+
 let properties_of_class cls =
-  match Tw.of_string cls with
-  | Error _ -> []
-  | Ok u ->
-      Tw.to_css ~base:false [ u ]
+  match compiled cls with
+  | None -> []
+  | Some sheet ->
+      sheet
       |> Css.fold
            (fun acc stmt ->
              match Css.as_rule stmt with
@@ -59,10 +77,10 @@ let properties_of_class cls =
    holding a [.]. *)
 let class_rule cls =
   let decls =
-    match Tw.of_string cls with
-    | Error _ -> []
-    | Ok u ->
-        Tw.to_css ~base:false [ u ]
+    match compiled cls with
+    | None -> []
+    | Some sheet ->
+        sheet
         |> Css.fold
              (fun acc stmt ->
                match Css.as_rule stmt with
