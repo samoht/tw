@@ -479,7 +479,10 @@ val register_property_order : name:string -> order:int -> unit
     variable name. Used by modules that create [\@property] rules directly
     (without using [Var.property_default]) and need to participate in the
     properties layer ordering. The [name] should be without the ["--"] prefix.
-*)
+
+    A name owns its slot: a second registration that agrees restates it, and one
+    that disagrees raises [Invalid_argument] rather than letting module
+    initialisation order decide the properties layer. *)
 
 val order : string -> (int * int) option
 (** [order name] returns the theme layer order for a variable name, with or

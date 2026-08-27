@@ -631,4 +631,10 @@ val outline_offset_4 : t
 val outline_offset_8 : t
 (** [outline_offset_8] sets outline offset to 8px. *)
 
+val border_style_var : Cascade.Css.border_style Var.property_default
+(** [border_style_var] is [--tw-border-style], the channel a border-width
+    utility reads its style from. Declared once here and shared, so the divide
+    utilities that read the same property cannot register a second, disagreeing
+    slot for it. *)
+
 module Handler : Utility.Handler

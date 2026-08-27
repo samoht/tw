@@ -45,12 +45,10 @@ module Handler = struct
     Var.property_default Css.Number_percentage ~initial:(Num 0.0)
       ~universal:true ~property_order:5 ~family:`Border "tw-divide-y-reverse"
 
-  (* Reference to --tw-border-style (defined in borders.ml). Must use the same
-     property_order:6 as borders.ml to avoid overwriting the registry. *)
-  let border_style_var =
-    Var.property_default Css.Border_style
-      ~initial:(Solid : Css.border_style)
-      ~property_order:6 ~family:`Border "tw-border-style"
+  (* [--tw-border-style] is one custom property with one slot in the properties
+     layer. Borders declares it; reading its handle here is what keeps the two
+     families pointing at the same declaration. *)
+  let border_style_var = Borders.border_style_var
 
   (* {2 Divide Width Utilities} *)
 
