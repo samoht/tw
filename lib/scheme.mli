@@ -89,11 +89,12 @@ val token_default : string -> string option
 
 val is_removed : t -> string -> bool
 (** [is_removed t name] is whether the [\@theme] block removed [name]. Tailwind
-    reads [--name: initial] as "remove this token" and [--namespace-*: initial]
-    as "remove the whole namespace", and a candidate that needed the token stops
-    resolving. A token the block declares in its own right survives a reset of
-    its namespace, and so does a nested scale that merely shares the prefix:
-    [--font-*: initial] leaves [--font-weight-*] alone. *)
+    reads [--name: initial] as "remove this token", [--namespace-*: initial] as
+    "remove the whole namespace" and the bare [--*: initial] as "remove every
+    token", and a candidate that needed the token stops resolving. A token the
+    block declares in its own right survives a reset, and so does a nested scale
+    that merely shares the prefix: [--font-*: initial] leaves [--font-weight-*]
+    alone. *)
 
 val token_override : t -> string -> string option
 (** [token_override t name] returns the per-render override for [name], if any.
