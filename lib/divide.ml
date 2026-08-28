@@ -372,39 +372,19 @@ module Handler = struct
     | X_reverse -> 500000
 
   (* The bracket spelling of an arbitrary width, for the typed constructors,
-     which are handed a width rather than the text an author wrote. Keywords and
-     CSS functions have no bracket spelling. *)
+     which are handed a width rather than the text an author wrote. cascade
+     prints the width, so a unit it learns needs no table here; the keywords and
+     the CSS functions have no bracket spelling at all. *)
   let bracket_spelling (width : Css.border_width) : string option =
-    let length : Css.length option =
-      match width with
-      | Px f -> Some (Px f)
-      | Cm f -> Some (Cm f)
-      | Mm f -> Some (Mm f)
-      | Q f -> Some (Q f)
-      | In f -> Some (In f)
-      | Pt f -> Some (Pt f)
-      | Pc f -> Some (Pc f)
-      | Rem f -> Some (Rem f)
-      | Em f -> Some (Em f)
-      | Ex f -> Some (Ex f)
-      | Cap f -> Some (Cap f)
-      | Ic f -> Some (Ic f)
-      | Ric f -> Some (Ric f)
-      | Rlh f -> Some (Rlh f)
-      | Ch f -> Some (Ch f)
-      | Lh f -> Some (Lh f)
-      | Vh f -> Some (Vh f)
-      | Vw f -> Some (Vw f)
-      | Vmin f -> Some (Vmin f)
-      | Vmax f -> Some (Vmax f)
-      | Pct f -> Some (Pct f)
-      | Zero -> Some (Px 0.)
-      | Thin | Medium | Thick | Auto | Max_content | Min_content | Fit_content
-      | From_font | Calc _ | Min _ | Max _ | Clamp _ | Inherit | Initial | Unset
-      | Revert | Revert_layer | Var _ ->
-          None
-    in
-    Stdlib.Option.map (Css.Pp.to_string (Css.pp_length ~always:true)) length
+    match width with
+    | Thin | Medium | Thick | Auto | Max_content | Min_content | Fit_content
+    | From_font | Calc _ | Min _ | Max _ | Clamp _ | Inherit | Initial | Unset
+    | Revert | Revert_layer | Var _ ->
+        None
+    (* The bracket is re-read as a width, and a bare [0] is not one, so the
+       unitless zero takes the unit back. *)
+    | Zero -> Some "0px"
+    | width -> Some (Css.Pp.to_string Css.Properties.pp_border_width width)
 
   (* The bracket text and the width it denotes. The text is what [to_class]
      spells, so a class parsed here is reproduced verbatim. A divide width sets
