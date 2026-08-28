@@ -485,37 +485,11 @@ let utilities_layer ~layers ~statements =
   else Css.v statements
 
 (* [@starting-style] carries no condition, so a run of [starting:] utilities is
-   one block in Tailwind's output. Each is wrapped on its own here, and the
-   optimizer's merging covers [@media] and [@supports] but not this, so collapse
-   a run before the statements are handed over. *)
+   one block in Tailwind's output. Each rule is wrapped on its own here, and
+   cascade collapses the run. *)
 let statements_of_sorted_rules ?verbatim sorted_rules =
-  let is_starting (r : Sort.indexed_rule) = r.rule_type = `Starting in
-  let rec take_run taken = function
-    | (x : Sort.indexed_rule) :: tl when is_starting x ->
-        take_run (x :: taken) tl
-    | tl -> (List.rev taken, tl)
-  in
-  let rec go acc = function
-    | [] -> List.rev acc
-    | (r : Sort.indexed_rule) :: rest when is_starting r ->
-        let run, rest = take_run [ r ] rest in
-        let inner =
-          List.concat_map
-            (fun (x : Sort.indexed_rule) ->
-              (* A variant stacked under [starting:] carries its query in
-                 [nested] and has no declarations of its own. *)
-              if x.nested <> [] then filter_theme_from_statements x.nested
-              else
-                [
-                  Css.rule ~selector:x.selector
-                    (filter_utility_properties x.props);
-                ])
-            run
-        in
-        go (Css.starting_style inner :: acc) rest
-    | r :: rest -> go (indexed_rule_to_statement ?verbatim r :: acc) rest
-  in
-  go [] sorted_rules
+  List.map (indexed_rule_to_statement ?verbatim) sorted_rules
+  |> Css.Optimize.merge_consecutive_starting_style
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
