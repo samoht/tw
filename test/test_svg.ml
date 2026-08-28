@@ -82,9 +82,52 @@ let stroke_arbitrary_width_invalid () =
   rejected "stroke-[.]";
   rejected "stroke-[-]"
 
+(* A bracket colour CSS names without spelling it as a function - a named
+   colour, a keyword - is a stroke colour too. The stroke reader told colours
+   from widths by looking for a [#] or a colour function, so
+   [stroke-[rebeccapurple]] fell through to the width reader and was refused. An
+   opacity modifier then folds into the colour the bracket named: fill and
+   stroke read the bracket text back as a hex and answered black for every
+   colour with no hex spelling. *)
+let bracket_named_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the value a class sets for [prop], so two spellings of one colour compare
+     without their class names *)
+  let value prop cls =
+    let sheet = css cls in
+    let key = prop ^ ":" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no %s: %s" cls prop sheet
+    | Some i ->
+        let first = i + String.length key in
+        Astring.String.with_range ~first sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  let same prop cls other =
+    Alcotest.(check string)
+      (cls ^ " is " ^ other)
+      (value prop other) (value prop cls)
+  in
+  emits "stroke:rebeccapurple" "stroke-[rebeccapurple]";
+  emits "stroke:currentColor" "stroke-[currentColor]";
+  same "stroke" "stroke-[rebeccapurple]/50" "stroke-[#663399]/50";
+  same "fill" "fill-[rebeccapurple]/50" "fill-[#663399]/50";
+  (* a bracket naming neither a colour nor a width is still not a class *)
+  Alcotest.(check bool)
+    "stroke-[notacolour] is not a class" true
+    (Result.is_error (Tw.of_string "stroke-[notacolour]"))
+
 let tests =
   [
     test_case "basic svg" `Quick basic_svg;
+    test_case "bracket named colour" `Quick bracket_named_color;
     test_case "stroke shadeless colors" `Quick stroke_shadeless_colors;
     test_case "stroke light-dark color" `Quick stroke_light_dark_color;
     test_case "stroke arbitrary width units" `Quick stroke_arbitrary_width_units;

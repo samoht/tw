@@ -948,6 +948,43 @@ let test_decoration_opacity_fallback () =
   emits "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
     "decoration-brand/(--a)"
 
+(* A bracket colour CSS names without spelling it as a function - a named
+   colour, a keyword - is a decoration colour too. The reader admitted only a
+   [#] hex and a colour function, so [decoration-[rebeccapurple]] was an unknown
+   class, with or without an opacity modifier. *)
+let test_decoration_bracket_named_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the value a class sets for [text-decoration-color], so two spellings of one
+     colour compare without their class names *)
+  let value cls =
+    let sheet = css cls in
+    let key = "text-decoration-color:" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no decoration colour: %s" cls sheet
+    | Some i ->
+        let first = i + String.length key in
+        Astring.String.with_range ~first sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  emits "text-decoration-color:rebeccapurple" "decoration-[rebeccapurple]";
+  emits "text-decoration-color:currentColor" "decoration-[currentColor]";
+  (* the modifier folds into the colour the bracket named, not into black *)
+  Alcotest.(check string)
+    "decoration-[rebeccapurple]/50 is decoration-[#663399]/50"
+    (value "decoration-[#663399]/50")
+    (value "decoration-[rebeccapurple]/50");
+  (* a bracket naming no colour and no thickness is still not a class *)
+  Alcotest.(check bool)
+    "decoration-[notacolour] is not a class" true
+    (Result.is_error (Tw.of_string "decoration-[notacolour]"))
+
 (* A [#] bracket is only a decoration colour when what follows is a hex
    spelling. The decoration reader handed everything after the [#] to the
    raising constructor from inside [of_class], so a malformed hex escaped the
@@ -1111,6 +1148,8 @@ let tests =
       line_clamp_sorts_with_box_sizing;
     test_case "decoration opacity fallback" `Quick
       test_decoration_opacity_fallback;
+    test_case "decoration bracket named colour" `Quick
+      test_decoration_bracket_named_color;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]

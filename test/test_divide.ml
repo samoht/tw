@@ -179,6 +179,43 @@ let test_invalid_bracket_hex () =
     "divide-[#ff0000] still emits the colour" true
     (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
 
+(* A bracket colour CSS names without spelling it as a function - a named
+   colour, a keyword - is a divide colour too. The reader admitted only a [#]
+   hex and a colour function, so [divide-[rebeccapurple]] was an unknown class,
+   with or without an opacity modifier. *)
+let test_bracket_named_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the value a class sets for [border-color], so two spellings of one colour
+     compare without their class names *)
+  let value cls =
+    let sheet = css cls in
+    let key = "border-color:" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no border colour: %s" cls sheet
+    | Some i ->
+        let first = i + String.length key in
+        Astring.String.with_range ~first sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
+  emits "border-color:currentColor" "divide-[currentColor]";
+  (* the modifier folds into the colour the bracket named, not into black *)
+  Alcotest.(check string)
+    "divide-[rebeccapurple]/50 is divide-[#663399]/50"
+    (value "divide-[#663399]/50")
+    (value "divide-[rebeccapurple]/50");
+  (* a bracket naming no colour is still not a class *)
+  Alcotest.(check bool)
+    "divide-[notacolour] is not a class" true
+    (Result.is_error (Tw.of_string "divide-[notacolour]"))
+
 (* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
    as 16 and emitted a rule selecting [.divide-x-16], a class the author never
    wrote; Tailwind emits nothing for it. *)
@@ -211,6 +248,7 @@ let tests =
         rendering_matches_tailwind;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
       Alcotest.test_case "non-decimal widths" `Quick test_non_decimal_widths;
+      Alcotest.test_case "bracket named colour" `Quick test_bracket_named_color;
     ]
 
 let suite = ("divide", tests)
