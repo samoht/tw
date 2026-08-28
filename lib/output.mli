@@ -28,8 +28,6 @@ type t =
           *)
       merge_key : string option;
           (** Override key for the CSS optimizer's merge heuristic. *)
-      not_order : int;
-          (** Sort key for [not-*] variant rules; 0 for normal rules. *)
     }
   | Media_query of {
       condition : Css.Media.t;
@@ -37,7 +35,6 @@ type t =
       props : Css.declaration list;
       base_class : string option;
       nested : Css.statement list;
-      not_order : int;
     }
   | Container_query of {
       condition : Css.Container.t;
@@ -58,14 +55,13 @@ type t =
       props : Css.declaration list;
       base_class : string option;
       merge_key : string option;
-      not_order : int;
       nested : Css.statement list;
     }
 
 (** {1 Smart constructors}
 
     All arguments except [selector] and [props] are optional and default to
-    sensible values ([false], [[]], [None], [0]). *)
+    sensible values ([false], [[]], [None]). *)
 
 val regular :
   selector:Css.Selector.t ->
@@ -74,7 +70,6 @@ val regular :
   ?has_hover:bool ->
   ?nested:Css.statement list ->
   ?merge_key:string ->
-  ?not_order:int ->
   unit ->
   t
 (** [regular ~selector ~props ()] constructs a plain (non-media,
@@ -86,7 +81,6 @@ val media_query :
   props:Css.declaration list ->
   ?base_class:string ->
   ?nested:Css.statement list ->
-  ?not_order:int ->
   unit ->
   t
 (** [media_query ~condition ~selector ~props ()] constructs a
@@ -119,7 +113,6 @@ val supports_query :
   props:Css.declaration list ->
   ?base_class:string ->
   ?merge_key:string ->
-  ?not_order:int ->
   ?nested:Css.statement list ->
   unit ->
   t

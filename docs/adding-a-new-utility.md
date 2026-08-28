@@ -222,9 +222,9 @@ conflict resolve in Tailwind's order:
 - **Lookup**: `Build.conflict_order` resolves the pair for a selector, and
   `Sort.compare_indexed_rules` sorts on it with the source index as a stable
   tiebreaker.
-- **Pseudo-elements**: `adjust_pseudo` in `lib/build.ml` adds 5000 to the suborder
-  of a `before:`/`after:` rule, so it trails the base utility rather than
-  interleaving with it.
+- **Variants**: a rule carrying a modifier prefix does not sort on the pair at
+  all until every variant key it holds has tied; `Sort.compare_indexed_rules`
+  reads `variant_orders` first, and `lib/sort.mli` describes the key.
 
 **CSS Minification Considerations**:
 - Minification is cascade's; `Css.Selector.to_string ~minify:true` is what tw calls

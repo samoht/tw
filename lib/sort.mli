@@ -59,7 +59,6 @@ type indexed_rule = {
   nested : Css.statement list;
   base_class : string option;
   merge_key : string option;
-  not_order : int;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
   variant_key : string * int;

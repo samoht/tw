@@ -1988,7 +1988,6 @@ module Handler = struct
     | Outline_bracket_var _ | Outline_bracket_var_opacity _
     | Outline_bracket_typed_var _ | Outline_bracket_typed_var_opacity _ ->
         28
-    | _ -> 25
 
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'

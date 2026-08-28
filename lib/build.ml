@@ -283,8 +283,7 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
-    (fun (typ, sel, props, _order, nested, _base_class, _merge_key, _not_order)
-       ->
+    (fun (typ, sel, props, _order, nested, _base_class, _merge_key) ->
       let bucket = (typ, Css.Selector.hash sel, props, nested) in
       if List.exists (Css.Selector.equal sel) (Hashtbl.find_all seen bucket)
       then false
@@ -293,47 +292,29 @@ let deduplicate_typed_triples triples =
         true))
     triples
 
-(* Get utility order from base class, with fallback to conflict order. Note:
-   base_class may contain modifier prefixes (e.g., "md:grid-cols-2"), so we need
-   to strip those before looking up the utility. Pseudo-element modifiers
-   (before:, after:) use a fixed high suborder to preserve source order. *)
-(* Pseudo-element modifiers add 5000 to the base utility's suborder, keeping
-   them near their base utility but after all regular utilities (matching
-   Tailwind v4, where pseudo-elements appear late). *)
-let adjust_pseudo class_name (prio, suborder) =
-  if
-    String.starts_with ~prefix:"before:" class_name
-    || String.starts_with ~prefix:"after:" class_name
-  then (prio, suborder + 5000)
-  else (prio, suborder)
-
 (* The base utility's order is [Utility.order] on its value, recovered here from
    the class string by re-parsing it through the handlers - the expensive part.
-   [order_map] is populated by [Rule.outputs ~order_tbl] from the class strings
-   it already builds, so the common case is a lookup; an unknown class (not in
-   the input set) falls back to the parse, or to a selector-based conflict order
-   when even that fails. *)
+   A base class carries its modifier prefixes ([md:grid-cols-2]), so those are
+   stripped before the lookup. [order_map] is populated by [Rule.outputs
+   ~order_tbl] from the class strings it already builds, so the common case is a
+   lookup; an unknown class (not in the input set) falls back to the parse, or
+   to a selector-based conflict order when even that fails. *)
 
 let order_of_base order_map base_class selector =
   match base_class with
   | Some class_name -> (
       let base_utility = extract_base_utility class_name in
       match Hashtbl.find_opt order_map base_utility with
-      | Some order -> adjust_pseudo class_name order
+      | Some order -> order
       | None -> (
           match Utility.base_of_class Scheme.default base_utility with
-          | Ok u -> adjust_pseudo class_name (Utility.order u)
+          | Ok u -> Utility.order u
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
 
-(* Adjust order with not-variant offset *)
-let apply_not_order (prio, sub) not_order =
-  if not_order = 0 then (prio, sub) else (prio, sub + not_order)
-
 (* Convert each rule type to typed triple *)
-let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key ~not_order
-    =
-  Some (typ, selector, props, order, nested, base_class, merge_key, not_order)
+let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key =
+  Some (typ, selector, props, order, nested, base_class, merge_key)
 
 (* The [(hover: hover)] media condition is the same for every hover rule. *)
 let hover_media : Css.Media.t =
@@ -342,37 +323,27 @@ let hover_media : Css.Media.t =
        (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
 
 let rule_to_triple order_map = function
-  | Regular
-      { selector; props; base_class; nested; has_hover; merge_key; not_order }
-    ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
+  | Regular { selector; props; base_class; nested; has_hover; merge_key } ->
+      let order = order_of_base order_map base_class selector in
       let typ = if has_hover then `Media hover_media else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
-        ~not_order
-  | Media_query { condition; selector; props; base_class; nested; not_order } ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
-      triple (`Media condition) ~selector ~props ~order ~nested ~base_class
-        ~merge_key:None ~not_order
+  | Media_query { condition; selector; props; base_class; nested } ->
+      triple (`Media condition) ~selector ~props
+        ~order:(order_of_base order_map base_class selector)
+        ~nested ~base_class ~merge_key:None
   | Container_query { condition; selector; props; base_class; nested } ->
       triple (`Container condition) ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None ~not_order:0
+        ~nested ~base_class ~merge_key:None
   | Starting_style { selector; props; base_class; nested } ->
       triple `Starting ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None ~not_order:0
-  | Supports_query
-      { condition; selector; props; base_class; merge_key; not_order; nested }
+        ~nested ~base_class ~merge_key:None
+  | Supports_query { condition; selector; props; base_class; merge_key; nested }
     ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
-      triple (`Supports condition) ~selector ~props ~order ~nested ~base_class
-        ~merge_key ~not_order
+      triple (`Supports condition) ~selector ~props
+        ~order:(order_of_base order_map base_class selector)
+        ~nested ~base_class ~merge_key
 
 (* Add index to each triple for stable sorting *)
 (* What [indexed_rule_to_statement] will emit, counted: the theme declarations
@@ -401,7 +372,7 @@ let rec declaration_count props nested =
 let add_index ?(declared = fun _ -> false) triples =
   let buf = Buffer.create 256 in
   List.mapi
-    (fun i (typ, sel, props, order, nested, base_class, merge_key, not_order) ->
+    (fun i (typ, sel, props, order, nested, base_class, merge_key) ->
       Buffer.clear buf;
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
@@ -423,7 +394,6 @@ let add_index ?(declared = fun _ -> false) triples =
          nested;
          base_class;
          merge_key;
-         not_order;
          variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
          variant_orders =

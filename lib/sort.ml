@@ -70,7 +70,6 @@ type indexed_rule = {
   nested : Css.statement list;
   base_class : string option;
   merge_key : string option;
-  not_order : int;
   variant_order : int;
   variant_key : string * int;
       (* Precomputed (variant prefix, effective inner order) - see
@@ -878,13 +877,6 @@ let compare_starting_rules = compare_by_order_then_index
 (* Main Rule Comparison *)
 (* ======================================================================== *)
 
-(* Compare by base class (precomputed in [add_index]), then index. Tailwind
-   sorts same-family variants by the raw class name (ASCII), so compare
-   as-is. *)
-let compare_by_base_class r1 r2 =
-  let class_cmp = String.compare r1.base_class_key r2.base_class_key in
-  if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
-
 let supports_suffix s =
   if String.starts_with ~prefix:"supports-" s then
     Some (String.sub s 9 (String.length s - 9))
@@ -1287,19 +1279,6 @@ let compare_indexed_rules r1 r2 =
     compare_variant_ordered r1 r2
   else if r1.variant_order > 0 then 1
   else if r2.variant_order > 0 then -1
-  else if r1.not_order > 0 || r2.not_order > 0 then
-    if r1.not_order = 0 then -1
-    else if r2.not_order = 0 then 1
-    else
-      let not_cmp = Int.compare r1.not_order r2.not_order in
-      if not_cmp <> 0 then not_cmp
-      else
-        match (r1.rule_type, r2.rule_type) with
-        | `Supports _, `Supports _
-          when is_modifier_supports r1.base_class
-               && is_modifier_supports r2.base_class ->
-            compare_supports_by_key r1 r2
-        | _ -> compare_by_base_class r1 r2
   else
     let type_cmp =
       Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
