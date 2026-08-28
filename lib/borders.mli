@@ -625,12 +625,13 @@ val border_style_var : Cascade.Css.border_style Var.property_default
     utilities that read the same property cannot register a second, disagreeing
     slot for it. *)
 
-val border_width_of_length :
-  Cascade.Css.length -> Cascade.Css.border_width option
-(** [border_width_of_length len] transposes a length read from an arbitrary
-    value into the [Css.border_width] type a border/divide width sets;
-    [Css.length] and [Css.border_width] cover overlapping unit sets but are
-    distinct types. [None] for units the length grammar has that a border width
-    does not (the dynamic-viewport and container-query units). *)
+val parse_border_width : string -> Cascade.Css.border_width option
+(** [parse_border_width text] reads the inside of an arbitrary width bracket
+    with cascade's border-width reader: a line-width keyword, a length in a unit
+    [Css.border_width] names, [calc()] or [var()]. A bare number reads as
+    pixels, which is what Tailwind emits for [border-[3]]. [None] for anything
+    else, including the units the length grammar has that a border width does
+    not (the dynamic-viewport and container-query families). Shared with the
+    divide utilities, which set the same property. *)
 
 module Handler : Utility.Handler

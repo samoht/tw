@@ -269,63 +269,6 @@ module Handler = struct
     Css.parse_length
       (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
 
-  (* [Css.length] and [Css.border_width] are distinct types over overlapping
-     unit sets, so an arbitrary width is read as a length and transposed one
-     unit at a time. The units only [length] has (the dynamic-viewport and
-     container-query families) are not border widths. *)
-  let border_width_of_unit value : string -> Css.border_width option = function
-    | "px" -> Some (Px value)
-    | "cm" -> Some (Cm value)
-    | "mm" -> Some (Mm value)
-    | "q" -> Some (Q value)
-    | "in" -> Some (In value)
-    | "pt" -> Some (Pt value)
-    | "pc" -> Some (Pc value)
-    | "rem" -> Some (Rem value)
-    | "em" -> Some (Em value)
-    | "ex" -> Some (Ex value)
-    | "cap" -> Some (Cap value)
-    | "ic" -> Some (Ic value)
-    | "ric" -> Some (Ric value)
-    | "rlh" -> Some (Rlh value)
-    | "ch" -> Some (Ch value)
-    | "lh" -> Some (Lh value)
-    | "vh" -> Some (Vh value)
-    | "vw" -> Some (Vw value)
-    | "vmin" -> Some (Vmin value)
-    | "vmax" -> Some (Vmax value)
-    | "%" -> Some (Pct value)
-    | _ -> None
-
-  let border_width_of_length : Css.length -> Css.border_width option = function
-    | Px f -> border_width_of_unit f "px"
-    | Cm f -> border_width_of_unit f "cm"
-    | Mm f -> border_width_of_unit f "mm"
-    | Q f -> border_width_of_unit f "q"
-    | In f -> border_width_of_unit f "in"
-    | Pt f -> border_width_of_unit f "pt"
-    | Pc f -> border_width_of_unit f "pc"
-    | Rem f -> border_width_of_unit f "rem"
-    | Em f -> border_width_of_unit f "em"
-    | Ex f -> border_width_of_unit f "ex"
-    | Cap f -> border_width_of_unit f "cap"
-    | Ic f -> border_width_of_unit f "ic"
-    | Ric f -> border_width_of_unit f "ric"
-    | Rlh f -> border_width_of_unit f "rlh"
-    | Ch f -> border_width_of_unit f "ch"
-    | Lh f -> border_width_of_unit f "lh"
-    | Vh f -> border_width_of_unit f "vh"
-    | Vw f -> border_width_of_unit f "vw"
-    | Vmin f -> border_width_of_unit f "vmin"
-    | Vmax f -> border_width_of_unit f "vmax"
-    | Pct f -> border_width_of_unit f "%"
-    (* [Dimension] carries a value whose authored spelling differs from the
-       canonical float ([0.5rem]); its unit names the constructor. *)
-    | Dimension { value; unit; _ } ->
-        border_width_of_unit value (String.lowercase_ascii unit)
-    | Zero -> Some Zero
-    | _ -> None
-
   (* A bare number is not a CSS length, but Tailwind admits [border-[3]] and
      emits it as a width, so it keeps the px reading it has always had. *)
   let parse_bare_number str =
@@ -334,25 +277,31 @@ module Handler = struct
       float_of_string_opt str
     else None
 
-  (* The CSS line-width keywords are border widths, not lengths, so
-     [Css.parse_length] never sees them. They are the only idents a width
-     bracket takes: anything else there is a colour or a mistake. *)
-  let line_width_keyword : string -> Css.border_width option = function
-    | "thin" -> Some Thin
-    | "medium" -> Some Medium
-    | "thick" -> Some Thick
-    | _ -> None
+  (* [border-[X]] is a width or a colour, and the class grammar has to say which
+     before the value is read. The three CSS line-width keywords are the only
+     idents on the width side. *)
+  let is_line_width_keyword = function
+    | "thin" | "medium" | "thick" -> true
+    | _ -> false
 
+  (* cascade's own border-width reader answers the line-width keywords, every
+     unit [Css.border_width] names, [calc()] and [var()]. The units only
+     [Css.length] has (the dynamic-viewport and container-query families) are
+     not border widths there either, so such a bracket is still refused. *)
   let parse_border_width inner : Css.border_width option =
-    match line_width_keyword inner with
-    | Some _ as w -> w
-    | None -> (
-        match parse_length inner with
-        | Some len -> border_width_of_length len
-        | None -> (
-            match parse_bare_number inner with
-            | Some f -> Some (Px f)
-            | None -> None))
+    let cursor =
+      Cascade.Cursor.of_string
+        (Parse.normalize_css_math_operators
+           (Parse.decode_arbitrary_value inner))
+    in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_border_width cursor
+    with
+    | Ok w -> Some w
+    | Error _ -> (
+        match parse_bare_number inner with
+        | Some f -> Some (Px f)
+        | None -> None)
 
   let parse_outline_width inner : Css.length option =
     match parse_length inner with
@@ -866,7 +815,7 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
-          || line_width_keyword inner <> None
+          || is_line_width_keyword inner
         in
         if is_width then
           match parse_border_width inner with
@@ -880,7 +829,7 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
-          || line_width_keyword inner <> None
+          || is_line_width_keyword inner
         in
         if is_width then
           match parse_border_width inner with
@@ -1392,4 +1341,4 @@ let outline_offset_2 = utility (Outline_offset 2)
 let outline_offset_4 = utility (Outline_offset 4)
 let outline_offset_8 = utility (Outline_offset 8)
 let border_style_var = Handler.border_style_var
-let border_width_of_length = Handler.border_width_of_length
+let parse_border_width = Handler.parse_border_width
