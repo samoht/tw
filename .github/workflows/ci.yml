@@ -28,6 +28,14 @@ jobs:
         # shifts output (units, calc folding, palette rounding).
         run: npm ci
 
+      # test/helpers/test_helpers.ml loads both sheets in headless Chromium and
+      # compares computed styles. npm ci installs the Playwright package but not
+      # the browser it drives, and the check skips silently when it cannot
+      # launch one, so without this step eight suites report no rendering
+      # differences because they never looked.
+      - name: Install the Chromium the rendering comparison drives
+        run: npx playwright install --with-deps chromium
+
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
@@ -45,6 +53,10 @@ jobs:
         run: opam exec -- dune build
 
       - name: Test
+        # TW_BROWSER_TESTS=1 turns a missing browser into a failure, so the
+        # rendering comparison cannot go back to passing by not running.
+        env:
+          TW_BROWSER_TESTS: 1
         run: opam exec -- dune runtest
 
   lint:

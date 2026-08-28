@@ -327,6 +327,21 @@ let browser_available root =
   && Sys.file_exists (Filename.concat root browser_script)
   && Sys.command "node --version > /dev/null 2>&1" = 0
 
+(* Skipping is right on a developer machine with no browser, and wrong on CI,
+   where it reports eight suites as finding no rendering difference because they
+   never looked. Set TW_BROWSER_TESTS=1 where the browser is meant to be present
+   and a missing one fails instead. *)
+let browser_required () = Sys.getenv_opt "TW_BROWSER_TESTS" = Some "1"
+
+let unavailable test_name reason =
+  if browser_required () then
+    Alcotest.failf "%s: TW_BROWSER_TESTS=1 but no usable browser: %s" test_name
+      reason
+  else begin
+    Fmt.epr "browser rendering unavailable: %s@." reason;
+    Alcotest.skip ()
+  end
+
 let write_file path content =
   let oc = open_out path in
   output_string oc content;
@@ -386,7 +401,8 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   let root =
     match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
   in
-  if not (browser_available root) then Alcotest.skip ();
+  if not (browser_available root) then
+    unavailable test_name "node, Playwright or the compare script is missing";
   let classnames = List.map Tw.pp utilities in
   let elements = render_elements classnames in
   let tailwind = tailwind_css ~forms classnames in
@@ -415,10 +431,8 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
         (read_file out)
   | _ ->
       (* No usable browser (Chromium not downloaded, sandbox refused to start).
-         Report it and skip: it is a missing tool, not a difference. *)
-      Fmt.epr "browser rendering unavailable: %s@."
-        (String.trim (read_file err));
-      Alcotest.skip ()
+         A missing tool, not a difference. *)
+      unavailable test_name (String.trim (read_file err))
 
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in
