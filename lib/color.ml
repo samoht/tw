@@ -2513,8 +2513,7 @@ module Handler = struct
            the same value. It leaves a colour whose channels are not all static
            alone, and that one has no hex form. *)
         match
-          Cascade.Values.nonkeyword_color
-            (Cascade.Values.normalize_color ~in_feature_query:false c)
+          Cascade.Values.nonkeyword_color (Cascade.Values.normalize_color c)
         with
         | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
             let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
