@@ -1448,13 +1448,23 @@ let flattened_statement stmt =
       [ stmt ]
   | _ -> Css.statements (Css.flatten_nesting (Css.v [ stmt ]))
 
-let parse_routed_blocks ~block_count ~own_order css =
+(* The statements of one generated block, or none when it will not parse at all.
+   A malformed body has to cost its own class and nothing else: read as one
+   assembled sheet, an unclosed brace nests every block written after it inside
+   the broken one, and a parse the recovery cannot save loses the lot. *)
+let parse_routed_block css =
   match Css.of_string css with
-  | Error _ -> (0, [], [])
+  | Error _ -> None
   | Ok parsed ->
-      Css.statements parsed.Css.stylesheet
-      |> List.concat_map flattened_statement
-      |> routed_statements ~block_count ~own_order
+      Some
+        (Css.statements parsed.Css.stylesheet
+        |> List.concat_map flattened_statement)
+
+let parse_routed_blocks ~own_order ~hoisted blocks =
+  let parsed = List.filter_map parse_routed_block blocks in
+  let hoisted = Option.value ~default:[] (parse_routed_block hoisted) in
+  List.concat parsed @ hoisted
+  |> routed_statements ~block_count:(List.length parsed) ~own_order
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
@@ -1472,7 +1482,9 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
       collect_routed_templates ~theme derived udefs;
       let extra_defs = routed_variant_defs defs derived in
       (* A [@utility] body is author CSS: it may hold [@apply], [@variant] and
-         the [--spacing()]/[theme()] shorthands. *)
-      String.concat "" (blocks @ [ Buffer.contents hoisted ])
-      |> apply_variants ~extra_defs ~udefs ~theme
-      |> parse_routed_blocks ~block_count:(List.length blocks) ~own_order
+         the [--spacing()]/[theme()] shorthands. Each block is expanded and read
+         on its own so one unparseable body cannot take the others down. *)
+      let expand = apply_variants ~extra_defs ~udefs ~theme in
+      parse_routed_blocks ~own_order
+        ~hoisted:(expand (Buffer.contents hoisted))
+        (List.map expand blocks)
