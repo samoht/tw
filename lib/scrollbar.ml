@@ -114,9 +114,14 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" (Var.css_name set_var) k
     in
     match spec with
-    (* Tailwind keeps these keywords literal in the custom property, where
-       cascade's typed pp would fold them ([#0000] / [currentColor]). *)
-    | Transparent -> ([ keyword "transparent" ], [])
+    (* [currentcolor] goes in as text: cascade's typed colour prints the
+       [currentColor] a colour property takes, and Tailwind writes the lowercase
+       spelling a token stream folds to. [transparent] does not need the same
+       treatment - a token stream is what the optimizer folds to [#0000], so
+       writing it as text produced the very divergence the text was meant to
+       avoid. *)
+    | Transparent ->
+        ([ fst (Var.binding set_var (Css.Transparent : Css.color)) ], [])
     | Current -> ([ keyword "currentcolor" ], [])
     | Inherit -> ([ fst (Var.binding set_var (Css.Inherit : Css.color)) ], [])
     | Theme (color, shade, Color.No_opacity) ->

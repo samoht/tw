@@ -863,7 +863,15 @@ module Handler = struct
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),
             Color.hex_to_oklab_alpha hex alpha )
-      | _ -> (c, c)
+      (* A colour with no sRGB hex has nothing to carry the alpha byte, so the
+         modifier stays a mix: sRGB for the plain fallback, oklab for the
+         guarded value. A modifier reading a custom property has no percentage a
+         plain fallback can hold, so only the guarded value mixes. *)
+      | _ ->
+          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+            (c, guarded)
+          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
     in
     let base_decl, _ = Var.binding shadow_color_var base_value in
     let enhanced_color =
@@ -1475,14 +1483,19 @@ module Handler = struct
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
     (* As for the outer shadow: the plain fallback is a hex carrying the alpha
-       byte, and the oklab spelling is kept for the guarded [color-mix]. *)
+       byte, the oklab spelling is kept for the guarded [color-mix], and a
+       colour with no hex keeps its alpha as a mix in each space. *)
     let base_value, with_alpha =
       match c with
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),
             Color.hex_to_oklab_alpha hex alpha )
-      | _ -> (c, c)
+      | _ ->
+          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+            (c, guarded)
+          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
     in
     let base_decl, _ = Var.binding inset_shadow_color_var base_value in
     let enhanced_color =
@@ -2640,7 +2653,7 @@ module Handler = struct
         | "transparent", op -> Ok (Shadow_transparent_opacity op)
         (* Not a size: a shadeless colour with an alpha, e.g. shadow-white/10 *)
         | base, op -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "shadow"; color; shade ] -> (
@@ -2652,7 +2665,7 @@ module Handler = struct
     | [ "shadow"; name ] when is_theme_shadow theme name ->
         Ok (Shadow_theme name)
     | [ "shadow"; color ] -> (
-        match Color.shade_of_strings [ color ] with
+        match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Shadow_color (c, s))
         | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
@@ -2691,7 +2704,7 @@ module Handler = struct
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
         | "transparent", op -> Ok (Inset_shadow_transparent_opacity op)
         | base, op -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "inset"; "shadow"; color; shade ] -> (
@@ -2700,7 +2713,7 @@ module Handler = struct
         | Ok (c, s, opacity) -> Ok (Inset_shadow_color_opacity (c, s, opacity))
         | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; color ] -> (
-        match Color.shade_of_strings [ color ] with
+        match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Inset_shadow_color (c, s))
         | Error _ -> err_not_utility)
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->

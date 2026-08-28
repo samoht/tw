@@ -353,6 +353,28 @@ let test_bracket_width_units () =
   emits "border-width: .5rem" "border-[0.5rem]";
   emits "border-top-width: 3vw" "border-t-[3vw]"
 
+(* A math function in a width bracket stands for the width it computes, so it is
+   a width and not a colour. The bracket was classified by its first character,
+   which put [calc(...)] on the colour side and refused the class Tailwind
+   renders. *)
+let test_bracket_math_function_width () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "border-width: calc(1rem + 2px)" "border-[calc(1rem_+_2px)]";
+  emits "border-top-width: calc(1rem + 2px)" "border-t-[calc(1rem_+_2px)]";
+  emits "border-width: min(2px, 1rem)" "border-[min(2px,1rem)]";
+  emits "border-width: clamp(1px, 2vw, 3rem)" "border-[clamp(1px,2vw,3rem)]";
+  emits "outline-width: calc(1rem + 2px)" "outline-[calc(1rem_+_2px)]";
+  (* a bare var() is still a colour on both *)
+  emits "border-color: var(--w)" "border-[var(--w)]";
+  emits "outline-color: var(--w)" "outline-[var(--w)]"
+
 (* The three CSS line-width keywords are border widths in their own right, so a
    bracket naming one is a width and not an unknown class: Tailwind emits
    border-width: thin for border-[thin], and the same for medium and thick on
@@ -437,6 +459,8 @@ let tests =
     test_case "invalid bracket widths" `Quick test_invalid_bracket_widths;
     test_case "bracket line-width keywords" `Quick
       test_bracket_line_width_keywords;
+    test_case "bracket math-function width" `Quick
+      test_bracket_math_function_width;
     test_case "project radius token" `Quick test_project_radius_token;
     test_case "border side width order" `Slow test_side_width_order;
     test_case "rounded-sm default radius" `Quick test_rounded_sm_default;

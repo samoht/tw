@@ -104,10 +104,6 @@ module Handler = struct
     | Border_double
     | Border_hidden
     | Border_none
-    | (* Border color utilities *)
-      Border_color of Color.color * int
-    | Border_transparent
-    | Border_current
     | (* Border radius utilities. One parametric variant over (position, size);
          the bare [rounded] is [Rounded (Corner.All, Rsz_default)] and arbitrary
          brackets are [Rounded (pos, Rsz_arbitrary inner)]. *)
@@ -267,84 +263,11 @@ module Handler = struct
   let border_hidden = border_style_util Hidden
   let border_none = border_style_util None
 
-  (* Border color utilities *)
-  let border_color' color shade =
-    if Color.is_custom_color color then
-      let css_color = Color.to_css color shade in
-      style [ Css.border_color css_color ]
-    else
-      let color_var = Color.color_var color shade in
-      let color_value =
-        Color.to_css color (if Color.is_base_color color then 500 else shade)
-      in
-      let decl, color_ref = Var.binding color_var color_value in
-      style (decl :: [ Css.border_color (Var color_ref) ])
-
-  let border_transparent' = style [ Css.border_color (Css.hex "#0000") ]
-  let border_current' = style [ Css.border_color Current ]
-
   (* Arbitrary radii go through the same normalisation as the other arbitrary
      length utilities, so calc() and var() references parse. *)
   let parse_length str : length option =
     Css.parse_length
       (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
-
-  (* [Css.length] and [Css.border_width] are distinct types over overlapping
-     unit sets, so an arbitrary width is read as a length and transposed one
-     unit at a time. The units only [length] has (the dynamic-viewport and
-     container-query families) are not border widths. *)
-  let border_width_of_unit value : string -> Css.border_width option = function
-    | "px" -> Some (Px value)
-    | "cm" -> Some (Cm value)
-    | "mm" -> Some (Mm value)
-    | "q" -> Some (Q value)
-    | "in" -> Some (In value)
-    | "pt" -> Some (Pt value)
-    | "pc" -> Some (Pc value)
-    | "rem" -> Some (Rem value)
-    | "em" -> Some (Em value)
-    | "ex" -> Some (Ex value)
-    | "cap" -> Some (Cap value)
-    | "ic" -> Some (Ic value)
-    | "ric" -> Some (Ric value)
-    | "rlh" -> Some (Rlh value)
-    | "ch" -> Some (Ch value)
-    | "lh" -> Some (Lh value)
-    | "vh" -> Some (Vh value)
-    | "vw" -> Some (Vw value)
-    | "vmin" -> Some (Vmin value)
-    | "vmax" -> Some (Vmax value)
-    | "%" -> Some (Pct value)
-    | _ -> None
-
-  let border_width_of_length : Css.length -> Css.border_width option = function
-    | Px f -> border_width_of_unit f "px"
-    | Cm f -> border_width_of_unit f "cm"
-    | Mm f -> border_width_of_unit f "mm"
-    | Q f -> border_width_of_unit f "q"
-    | In f -> border_width_of_unit f "in"
-    | Pt f -> border_width_of_unit f "pt"
-    | Pc f -> border_width_of_unit f "pc"
-    | Rem f -> border_width_of_unit f "rem"
-    | Em f -> border_width_of_unit f "em"
-    | Ex f -> border_width_of_unit f "ex"
-    | Cap f -> border_width_of_unit f "cap"
-    | Ic f -> border_width_of_unit f "ic"
-    | Ric f -> border_width_of_unit f "ric"
-    | Rlh f -> border_width_of_unit f "rlh"
-    | Ch f -> border_width_of_unit f "ch"
-    | Lh f -> border_width_of_unit f "lh"
-    | Vh f -> border_width_of_unit f "vh"
-    | Vw f -> border_width_of_unit f "vw"
-    | Vmin f -> border_width_of_unit f "vmin"
-    | Vmax f -> border_width_of_unit f "vmax"
-    | Pct f -> border_width_of_unit f "%"
-    (* [Dimension] carries a value whose authored spelling differs from the
-       canonical float ([0.5rem]); its unit names the constructor. *)
-    | Dimension { value; unit; _ } ->
-        border_width_of_unit value (String.lowercase_ascii unit)
-    | Zero -> Some Zero
-    | _ -> None
 
   (* A bare number is not a CSS length, but Tailwind admits [border-[3]] and
      emits it as a width, so it keeps the px reading it has always had. *)
@@ -354,25 +277,31 @@ module Handler = struct
       float_of_string_opt str
     else None
 
-  (* The CSS line-width keywords are border widths, not lengths, so
-     [Css.parse_length] never sees them. They are the only idents a width
-     bracket takes: anything else there is a colour or a mistake. *)
-  let line_width_keyword : string -> Css.border_width option = function
-    | "thin" -> Some Thin
-    | "medium" -> Some Medium
-    | "thick" -> Some Thick
-    | _ -> None
+  (* [border-[X]] is a width or a colour, and the class grammar has to say which
+     before the value is read. The three CSS line-width keywords are the only
+     idents on the width side. *)
+  let is_line_width_keyword = function
+    | "thin" | "medium" | "thick" -> true
+    | _ -> false
 
+  (* cascade's own border-width reader answers the line-width keywords, every
+     unit [Css.border_width] names, [calc()] and [var()]. The units only
+     [Css.length] has (the dynamic-viewport and container-query families) are
+     not border widths there either, so such a bracket is still refused. *)
   let parse_border_width inner : Css.border_width option =
-    match line_width_keyword inner with
-    | Some _ as w -> w
-    | None -> (
-        match parse_length inner with
-        | Some len -> border_width_of_length len
-        | None -> (
-            match parse_bare_number inner with
-            | Some f -> Some (Px f)
-            | None -> None))
+    let cursor =
+      Cascade.Cursor.of_string
+        (Parse.normalize_css_math_operators
+           (Parse.decode_arbitrary_value inner))
+    in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_border_width cursor
+    with
+    | Ok w -> Some w
+    | Error _ -> (
+        match parse_bare_number inner with
+        | Some f -> Some (Px f)
+        | None -> None)
 
   let parse_outline_width inner : Css.length option =
     match parse_length inner with
@@ -687,10 +616,6 @@ module Handler = struct
     | Border_double -> border_double
     | Border_hidden -> border_hidden
     | Border_none -> border_none
-    (* Border color utilities *)
-    | Border_color (color, shade) -> border_color' color shade
-    | Border_transparent -> border_transparent'
-    | Border_current -> border_current'
     (* Border radius utilities (parametric) *)
     | Rounded (pos, size) -> rounded_style ~theme pos size
     (* Outline utilities *)
@@ -821,14 +746,6 @@ module Handler = struct
     | Border_hidden -> 1403
     | Border_none -> 1404
     | Border_solid -> 1405
-    (* Border color utilities (1500-1999) All border colors use the same
-       suborder (1500) to allow alphabetical sorting, matching Tailwind v4
-       behavior. *)
-    | Border_color (color, shade) ->
-        let _ = (color, shade) in
-        1500
-    | Border_transparent -> 1500
-    | Border_current -> 1500
     (* Outline utilities — hidden first, then width, then offset. The colors
        (color.ml, 3000-28000) and the styles (Outline_style_handler,
        30000-30004) close the family. *)
@@ -893,14 +810,13 @@ module Handler = struct
     | [ "border"; "double" ] -> Ok Border_double
     | [ "border"; "hidden" ] -> Ok Border_hidden
     | [ "border"; "none" ] -> Ok Border_none
-    | [ "border"; "transparent" ] -> Ok Border_transparent
-    | [ "border"; "current" ] -> Ok Border_current
     | [ "border"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
-          || line_width_keyword inner <> None
+          || Parse.starts_with_math_function inner
+          || is_line_width_keyword inner
         in
         if is_width then
           match parse_border_width inner with
@@ -914,17 +830,14 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
-          || line_width_keyword inner <> None
+          || Parse.starts_with_math_function inner
+          || is_line_width_keyword inner
         in
         if is_width then
           match parse_border_width inner with
           | Some w -> Ok (Border_side_width_bracket (side, inner, w))
           | None -> err_not_utility
         else err_not_utility
-    | "border" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
-        | Ok (color, shade) -> Ok (Border_color (color, shade))
-        | Error _ -> err_not_utility)
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
@@ -980,7 +893,10 @@ module Handler = struct
           let is_numeric_start c =
             (c >= '0' && c <= '9') || c = '.' || c = '-'
           in
-          if String.length inner > 0 && is_numeric_start inner.[0] then
+          if
+            (String.length inner > 0 && is_numeric_start inner.[0])
+            || Parse.starts_with_math_function inner
+          then
             match parse_outline_width inner with
             | Some len -> Ok (Outline_width_bracket (inner, len))
             | None -> err_not_utility
@@ -1045,11 +961,6 @@ module Handler = struct
     | Border_double -> "border-double"
     | Border_hidden -> "border-hidden"
     | Border_none -> "border-none"
-    | Border_color (c, shade) ->
-        if Color.is_shadeless c then "border-" ^ Color.color_to_string c
-        else "border-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
-    | Border_transparent -> "border-transparent"
-    | Border_current -> "border-current"
     | Rounded (pos, size) ->
         let pos_str =
           match pos with
@@ -1104,7 +1015,6 @@ module Handler = struct
       Border_x;
       Border_y;
       Border_solid;
-      Border_current;
       Outline_width 2;
       Outline_offset 2;
       Rounded (Corner.All, Rsz_sm);
@@ -1205,15 +1115,6 @@ let border_hidden = utility Border_hidden
 let border_none = utility Border_none
 
 (** {1 Border Color Utilities} *)
-
-let border_color ?opacity ?(shade = 500) color =
-  Color.check_shade ~utility:"border_color" color shade;
-  match opacity with
-  | None -> utility (Border_color (color, shade))
-  | Some pct -> Color.border_color ~opacity:pct ~shade color
-
-let border_transparent = utility Border_transparent
-let border_current = utility Border_current
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -1445,3 +1346,4 @@ let outline_offset_2 = utility (Outline_offset 2)
 let outline_offset_4 = utility (Outline_offset 4)
 let outline_offset_8 = utility (Outline_offset 8)
 let border_style_var = Handler.border_style_var
+let parse_border_width = Handler.parse_border_width

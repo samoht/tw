@@ -154,6 +154,14 @@ let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
 
+(* A math function stands for the value it computes, so a bracket opening with
+   one denotes whatever the utility's numeric side takes. Utilities that tell a
+   width from a colour by the bracket's first character need to know. *)
+let starts_with_math_function s =
+  match String.index_opt s '(' with
+  | Some i -> is_css_math_function (String.lowercase_ascii (String.sub s 0 i))
+  | None -> false
+
 let normalize_css_math_operators s =
   let len = String.length s in
   let buf = Buffer.create (len + 8) in

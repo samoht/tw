@@ -356,6 +356,32 @@ let test_repeated_utilities_emit_one_sheet () =
   in
   check string "sheet is the same" (sheet once) (sheet repeated)
 
+(* A class the parser does not recognise still reaches the rendered attribute -
+   a framework hook or a JS selector belongs there - but it is no longer
+   invisible: [unknown_classes] reports it so a typo can be caught. *)
+let test_unknown_class_passes_through () =
+  let elem = div ~at:[ At.v "class" "flex bg-blu-500 my-app-header" ] [] in
+  check string "unknown names still rendered"
+    "<div class=\"flex bg-blu-500 my-app-header\"></div>" (to_string elem);
+  check (list string) "only the utility compiles" [ "flex" ]
+    (List.map Tw.pp (to_tw elem));
+  check (list string) "unknown names reported, in source order"
+    [ "bg-blu-500"; "my-app-header" ]
+    (unknown_classes elem)
+
+(* Reported the way utilities are: a node's own names before its children's,
+   children in document order. *)
+let test_unknown_classes_document_order () =
+  let hook n = span ~at:[ At.v "class" n ] [] in
+  let tree =
+    div
+      ~at:[ At.v "class" "outer-hook flex" ]
+      [ section [ hook "a-hook"; div [ hook "b-hook" ] ]; hook "c-hook" ]
+  in
+  check (list string) "pre-order, own before children"
+    [ "outer-hook"; "a-hook"; "b-hook"; "c-hook" ]
+    (unknown_classes tree)
+
 let suite =
   ( "tw_html",
     [
@@ -380,4 +406,8 @@ let suite =
         test_class_attribute_whitespace;
       test_case "repeated utilities emit one sheet" `Quick
         test_repeated_utilities_emit_one_sheet;
+      test_case "unknown class passes through" `Quick
+        test_unknown_class_passes_through;
+      test_case "unknown classes document order" `Quick
+        test_unknown_classes_document_order;
     ] )

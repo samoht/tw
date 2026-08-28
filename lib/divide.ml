@@ -212,50 +212,23 @@ module Handler = struct
     let rule = Css.rule ~selector [ Css.border_color color ] in
     style ~rules:(Some [ rule ]) []
 
-  let divide_bracket_color_opacity_style class_name inner _c opacity =
+  (* An opacity modifier applies to the colour the bracket was parsed into. The
+     modifier read the bracket text back through the CSS colour parser and
+     answered black whenever that failed, and it hung the [@supports] rule on
+     the bare class rather than on the children the utility borders. *)
+  let divide_bracket_color_opacity_style class_name c opacity =
     let selector = divide_children_selector class_name in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    if String.length inner > 0 && inner.[0] = '#' then
-      match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
-      | Some rgb ->
-          let value =
-            if Color.opacity_var_bare_of opacity <> None then
-              Color.mix_alpha opacity (Css.hex inner)
-            else
-              let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-              Css.oklaba_none_zeros ok_l ok_a ok_b alpha
-          in
-          let rule = Css.rule ~selector [ Css.border_color value ] in
-          style ~rules:(Some [ rule ]) []
-      | None ->
-          let rule = Css.rule ~selector [ Css.border_color (Css.hex "#000") ] in
-          style ~rules:(Some [ rule ]) []
-    else
-      let normalized = String.map (fun c -> if c = '_' then ' ' else c) inner in
-      let css_color =
-        match Css.parse_color normalized with
-        | Some c -> c
-        | None -> Css.hex "#000"
-      in
-      let hex_color =
-        match Color.css_color_to_hex css_color with
-        | Some h -> h
-        | None -> css_color
-      in
-      let _ = alpha in
-      let fallback_decl = Css.border_color hex_color in
-      let oklab_color =
-        Css.color_mix ~in_space:Oklab hex_color Css.Transparent
-          ~percent1:percent
-      in
-      let oklab_decl = Css.border_color oklab_color in
-      let supports_block =
-        Css.supports ~condition:Color.color_mix_supports_condition
-          [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-      in
-      let rule = Css.rule ~selector [ fallback_decl ] in
-      style ~rules:(Some [ rule; supports_block ]) []
+    match Color.bracket_color_opacity c opacity with
+    | Color.Folded value ->
+        let rule = Css.rule ~selector [ Css.border_color value ] in
+        style ~rules:(Some [ rule ]) []
+    | Color.Guarded { fallback; mixed } ->
+        let rule = Css.rule ~selector [ Css.border_color fallback ] in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ Css.rule ~selector [ Css.border_color mixed ] ]
+        in
+        style ~rules:(Some [ rule; supports_block ]) []
 
   let divide_style_of_string (s : string) =
     let open Css in
@@ -370,7 +343,7 @@ module Handler = struct
         divide_bracket_color_style class_name inner c
     | Bracket_color_opacity (inner, c, opacity) ->
         let class_name = to_class (Bracket_color_opacity (inner, c, opacity)) in
-        divide_bracket_color_opacity_style class_name inner c opacity
+        divide_bracket_color_opacity_style class_name c opacity
     | Line_style bs -> divide_style_style bs
 
   (* Tailwind's order across the family, read off its own output: divide-x,
@@ -399,57 +372,31 @@ module Handler = struct
     | X_reverse -> 500000
 
   (* The bracket spelling of an arbitrary width, for the typed constructors,
-     which are handed a width rather than the text an author wrote. Keywords and
-     CSS functions have no bracket spelling. *)
+     which are handed a width rather than the text an author wrote. cascade
+     prints the width, so a unit it learns needs no table here; the keywords and
+     the CSS functions have no bracket spelling at all. *)
   let bracket_spelling (width : Css.border_width) : string option =
-    let length : Css.length option =
-      match width with
-      | Px f -> Some (Px f)
-      | Cm f -> Some (Cm f)
-      | Mm f -> Some (Mm f)
-      | Q f -> Some (Q f)
-      | In f -> Some (In f)
-      | Pt f -> Some (Pt f)
-      | Pc f -> Some (Pc f)
-      | Rem f -> Some (Rem f)
-      | Em f -> Some (Em f)
-      | Ex f -> Some (Ex f)
-      | Cap f -> Some (Cap f)
-      | Ic f -> Some (Ic f)
-      | Ric f -> Some (Ric f)
-      | Rlh f -> Some (Rlh f)
-      | Ch f -> Some (Ch f)
-      | Lh f -> Some (Lh f)
-      | Vh f -> Some (Vh f)
-      | Vw f -> Some (Vw f)
-      | Vmin f -> Some (Vmin f)
-      | Vmax f -> Some (Vmax f)
-      | Pct f -> Some (Pct f)
-      | Zero -> Some (Px 0.)
-      | Thin | Medium | Thick | Auto | Max_content | Min_content | Fit_content
-      | From_font | Calc _ | Min _ | Max _ | Clamp _ | Inherit | Initial | Unset
-      | Revert | Revert_layer | Var _ ->
-          None
-    in
-    Stdlib.Option.map (Css.Pp.to_string (Css.pp_length ~always:true)) length
+    match width with
+    (* [None] is exactly what the bracket reader refuses, so the typed
+       constructor can build every class the parser accepts and no other. A
+       sizing keyword is not a width, and a [var()] has no spelling of its
+       own. *)
+    | Auto | Max_content | Min_content | Fit_content | From_font | Var _ -> None
+    (* The bracket is re-read as a width, and a bare [0] is not one, so the
+       unitless zero takes the unit back. *)
+    | Zero -> Some "0px"
+    | width -> Some (Css.Pp.to_string Css.Properties.pp_border_width width)
 
   (* The bracket text and the width it denotes. The text is what [to_class]
-     spells, so a class parsed here is reproduced verbatim. *)
+     spells, so a class parsed here is reproduced verbatim. A divide width sets
+     the same property a border width does, so it is read by the same reader. *)
   let parse_bracket_width s : (string * Css.border_width) option =
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if String.ends_with ~suffix:"px" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (inner, Px f)
-        | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (inner, Rem f)
-        | None -> None
-      else None
+      match Borders.parse_border_width inner with
+      | Some width -> Some (inner, width)
+      | None -> None
     else None
 
   let of_class theme class_name =
@@ -487,30 +434,17 @@ module Handler = struct
         | _ -> Ok (Current_opacity opacity))
     | [ "divide"; v ]
       when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ~theme v))
-      ->
+      -> (
         let base_str, opacity = Color.parse_opacity_modifier ~theme v in
         let inner = Parse.bracket_inner base_str in
-        let normalized =
-          String.map (fun c -> if c = '_' then ' ' else c) inner
-        in
-        if
-          (String.length inner > 0 && inner.[0] = '#')
-          || Parse.is_css_color_fn normalized
-        then
-          let css_color =
-            (* A [#] prefix only names a colour when what follows is a hex
-               spelling; [Css.hex] raises on anything else, and this runs inside
-               [of_class]. *)
-            if String.length inner > 0 && inner.[0] = '#' then Css.hex_opt inner
-            else Css.parse_color normalized
-          in
-          match css_color with
-          | Some c -> (
-              match opacity with
-              | Color.No_opacity -> Ok (Bracket_color (inner, c))
-              | _ -> Ok (Bracket_color_opacity (inner, c, opacity)))
-          | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))
-        else Error (`Msg ("Invalid divide bracket value: " ^ inner))
+        (* Every colour spelling CSS knows, not only a [#] hex and a colour
+           function: a named colour and a keyword name a divide colour too. *)
+        match Color.parse_bracket_color inner with
+        | Some c -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Bracket_color (inner, c))
+            | _ -> Ok (Bracket_color_opacity (inner, c, opacity)))
+        | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner)))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -526,7 +460,7 @@ module Handler = struct
             then Ok (Named_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Named_color (color, shade))
         | Error _ ->
             (* Try as theme-named color - check both generic and property-scoped

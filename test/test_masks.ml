@@ -88,7 +88,27 @@ let test_invalid_bracket_value () =
   in
   rejected "mask-size-[<value>]";
   rejected "mask-position-[<value>]";
-  rejected "mask-[position:nope]"
+  rejected "mask-[position:nope]";
+  (* mask-[length:nope] and mask-[size:nope] used to be accepted unvalidated and
+     silently emit mask-size:auto under a selector that matches the class. *)
+  rejected "mask-[length:nope]";
+  rejected "mask-[size:nope]"
+
+(* mask-size-[...], mask-[size:...] and mask-[length:...] only read px, %, and
+   rem before; every CSS length unit does now, matching real Tailwind's
+   mask-size-[2em]. *)
+let test_bracket_size_units () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "mask-size-[2em]" "mask-size:2em";
+  has "mask-[size:2em]" "mask-size:2em";
+  has "mask-[length:2em]" "mask-size:2em"
 
 (* A mask-position bracket takes the whole CSS grammar, the same as
    background-position: a single edge keyword and the edge/offset form. Both
@@ -143,6 +163,7 @@ let tests =
         test_invalid_bracket_value;
       Alcotest.test_case "bracket position grammar" `Quick
         test_bracket_position_grammar;
+      Alcotest.test_case "bracket size units" `Quick test_bracket_size_units;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
     ]
 

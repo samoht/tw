@@ -277,60 +277,44 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.supports ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
-(* Deduplicate typed triples while preserving first occurrence order *)
+(* Deduplicate typed triples while preserving first occurrence order. Selectors
+   are compared with cascade's structural equality; the bucket key carries their
+   hash, which cascade keeps consistent with that equality. *)
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
-    (fun (typ, sel, props, _order, nested, _base_class, _merge_key, _not_order)
-       ->
-      let key = (typ, Css.Selector.to_string sel, props, nested) in
-      if Hashtbl.mem seen key then false
+    (fun (typ, sel, props, _order, nested, _base_class, _merge_key) ->
+      let bucket = (typ, Css.Selector.hash sel, props, nested) in
+      if List.exists (Css.Selector.equal sel) (Hashtbl.find_all seen bucket)
+      then false
       else (
-        Hashtbl.add seen key ();
+        Hashtbl.add seen bucket sel;
         true))
     triples
 
-(* Get utility order from base class, with fallback to conflict order. Note:
-   base_class may contain modifier prefixes (e.g., "md:grid-cols-2"), so we need
-   to strip those before looking up the utility. Pseudo-element modifiers
-   (before:, after:) use a fixed high suborder to preserve source order. *)
-(* Pseudo-element modifiers add 5000 to the base utility's suborder, keeping
-   them near their base utility but after all regular utilities (matching
-   Tailwind v4, where pseudo-elements appear late). *)
-let adjust_pseudo class_name (prio, suborder) =
-  if
-    String.starts_with ~prefix:"before:" class_name
-    || String.starts_with ~prefix:"after:" class_name
-  then (prio, suborder + 5000)
-  else (prio, suborder)
-
 (* The base utility's order is [Utility.order] on its value, recovered here from
    the class string by re-parsing it through the handlers - the expensive part.
-   [order_map] is populated by [Rule.outputs ~order_tbl] from the class strings
-   it already builds, so the common case is a lookup; an unknown class (not in
-   the input set) falls back to the parse, or to a selector-based conflict order
-   when even that fails. *)
+   A base class carries its modifier prefixes ([md:grid-cols-2]), so those are
+   stripped before the lookup. [order_map] is populated by [Rule.outputs
+   ~order_tbl] from the class strings it already builds, so the common case is a
+   lookup; an unknown class (not in the input set) falls back to the parse, or
+   to a selector-based conflict order when even that fails. *)
 
 let order_of_base order_map base_class selector =
   match base_class with
   | Some class_name -> (
       let base_utility = extract_base_utility class_name in
       match Hashtbl.find_opt order_map base_utility with
-      | Some order -> adjust_pseudo class_name order
+      | Some order -> order
       | None -> (
           match Utility.base_of_class Scheme.default base_utility with
-          | Ok u -> adjust_pseudo class_name (Utility.order u)
+          | Ok u -> Utility.order u
           | Error _ -> conflict_order (Css.Selector.to_string selector)))
   | None -> conflict_order (Css.Selector.to_string selector)
 
-(* Adjust order with not-variant offset *)
-let apply_not_order (prio, sub) not_order =
-  if not_order = 0 then (prio, sub) else (prio, sub + not_order)
-
 (* Convert each rule type to typed triple *)
-let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key ~not_order
-    =
-  Some (typ, selector, props, order, nested, base_class, merge_key, not_order)
+let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key =
+  Some (typ, selector, props, order, nested, base_class, merge_key)
 
 (* The [(hover: hover)] media condition is the same for every hover rule. *)
 let hover_media : Css.Media.t =
@@ -339,43 +323,56 @@ let hover_media : Css.Media.t =
        (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
 
 let rule_to_triple order_map = function
-  | Regular
-      { selector; props; base_class; nested; has_hover; merge_key; not_order }
-    ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
+  | Regular { selector; props; base_class; nested; has_hover; merge_key } ->
+      let order = order_of_base order_map base_class selector in
       let typ = if has_hover then `Media hover_media else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
-        ~not_order
-  | Media_query { condition; selector; props; base_class; nested; not_order } ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
-      triple (`Media condition) ~selector ~props ~order ~nested ~base_class
-        ~merge_key:None ~not_order
+  | Media_query { condition; selector; props; base_class; nested } ->
+      triple (`Media condition) ~selector ~props
+        ~order:(order_of_base order_map base_class selector)
+        ~nested ~base_class ~merge_key:None
   | Container_query { condition; selector; props; base_class; nested } ->
       triple (`Container condition) ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None ~not_order:0
+        ~nested ~base_class ~merge_key:None
   | Starting_style { selector; props; base_class; nested } ->
       triple `Starting ~selector ~props
         ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None ~not_order:0
-  | Supports_query
-      { condition; selector; props; base_class; merge_key; not_order; nested }
+        ~nested ~base_class ~merge_key:None
+  | Supports_query { condition; selector; props; base_class; merge_key; nested }
     ->
-      let order =
-        apply_not_order (order_of_base order_map base_class selector) not_order
-      in
-      triple (`Supports condition) ~selector ~props ~order ~nested ~base_class
-        ~merge_key ~not_order
+      triple (`Supports condition) ~selector ~props
+        ~order:(order_of_base order_map base_class selector)
+        ~nested ~base_class ~merge_key
 
 (* Add index to each triple for stable sorting *)
-let add_index triples =
+(* What [indexed_rule_to_statement] will emit, counted: the theme declarations
+   the utilities layer drops are not part of the rule Tailwind orders. A
+   declared utility's rules arrive as finished CSS and carry none. *)
+let rec declaration_count props nested =
+  List.length (filter_utility_properties props)
+  + List.fold_left
+      (fun acc stmt ->
+        acc
+        +
+        match Css.as_rule stmt with
+        | Some (_, decls, inner) -> declaration_count decls inner
+        | None -> (
+            match Css.as_declarations stmt with
+            | Some decls -> declaration_count decls []
+            | None -> (
+                match Css.as_media stmt with
+                | Some (_, inner) -> declaration_count [] inner
+                | None -> (
+                    match Css.as_supports stmt with
+                    | Some (_, inner) -> declaration_count [] inner
+                    | None -> 0))))
+      0 nested
+
+let add_index ?(declared = fun _ -> false) triples =
   let buf = Buffer.create 256 in
   List.mapi
-    (fun i (typ, sel, props, order, nested, base_class, merge_key, not_order) ->
+    (fun i (typ, sel, props, order, nested, base_class, merge_key) ->
       Buffer.clear buf;
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
@@ -390,14 +387,17 @@ let add_index triples =
          selector_kind = Sort.classify_selector sel;
          has_modifier_colon = Css.Selector.contains_modifier_colon sel;
          props;
+         declared =
+           (match base_class with Some c -> declared c | None -> false);
+         declaration_count = declaration_count props nested;
          order;
          nested;
          base_class;
          merge_key;
-         not_order;
          variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
-         variant_orders = Sort.variant_order_list base_class variant_order;
+         variant_orders =
+           Sort.variant_order_list base_class variant_order responsive_media_key;
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;
@@ -483,10 +483,10 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules order_map all_rules =
+let sorted_indexed_rules ?declared order_map all_rules =
   all_rules
   |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index
+  |> deduplicate_typed_triples |> add_index ?declared
   |> List.sort Sort.compare_indexed_rules
 
 (* Sort var names by property_order. Names include -- prefix. *)
@@ -661,24 +661,6 @@ let compare_orders order_a order_b =
   | None, Some _ -> 1
   | None, None -> 0
 
-(* Tailwind's independently-numbered priority-7 namespaces overlap. Their
-   declaration order at a shared slot follows namespace registration order,
-   rather than the spelling of the complete token name. *)
-let priority_seven_namespace = function
-  | Some name ->
-      let name =
-        if String.starts_with ~prefix:"--" name then
-          String.sub name 2 (String.length name - 2)
-        else name
-      in
-      if String.starts_with ~prefix:"radius-" name then 0
-      else if String.starts_with ~prefix:"drop-shadow-" name then 1
-      else if String.starts_with ~prefix:"ease-" name then 2
-      else if String.starts_with ~prefix:"animate-" name then 3
-      else if String.starts_with ~prefix:"perspective-" name then 4
-      else 5
-  | None -> 5
-
 (* The position of a theme token within the project's [@theme] declaration list,
    keyed by its bare name. [Scheme.token_overrides] preserves the source order
    the CSS entrypoint (or [Scheme.with_overrides] caller) declared them in. *)
@@ -699,12 +681,12 @@ let declared_order declared name =
       in
       List.assoc_opt bare declared
 
-(* Sort declarations by their Var order metadata, namespace at a shared slot,
-   declaration order within that slot, then alphabetical fallback. A project-
-   named family (--font-<name>, --text-<name>, --leading-<name>, ...) funnels
-   every member into one shared (priority, suborder) slot (see [Var.mli]), so
-   two project tokens tie there; Tailwind keeps the order the [@theme] block
-   wrote them in rather than sorting by name. *)
+(* Sort declarations by their Var order metadata, then declaration order within
+   a shared slot, then alphabetical fallback. A project-named family
+   (--font-<name>, --text-<name>, --leading-<name>, ...) funnels every member
+   into one shared (priority, suborder) slot (see [Var.mli]), so two project
+   tokens tie there; Tailwind keeps the order the [@theme] block wrote them in
+   rather than sorting by name. *)
 let sort_by_var_order ~theme decls =
   let declared = declared_index theme in
   decls
@@ -720,19 +702,9 @@ let sort_by_var_order ~theme decls =
       let c = compare_orders a b in
       if c <> 0 then c
       else
-        let namespace_cmp =
-          match (a, b) with
-          | Some (7, _), Some (7, _) ->
-              Int.compare
-                (priority_seven_namespace na)
-                (priority_seven_namespace nb)
-          | _ -> 0
-        in
-        if namespace_cmp <> 0 then namespace_cmp
-        else
-          match (ia, ib) with
-          | Some ia, Some ib -> Int.compare ia ib
-          | _ -> compare na nb)
+        match (ia, ib) with
+        | Some ia, Some ib -> Int.compare ia ib
+        | _ -> compare na nb)
   |> List.map (fun (d, _, _, _) -> d)
 
 (* Build theme layer rule from declarations *)
@@ -791,10 +763,16 @@ let referenced_theme_decls ~theme ~exclude selector_props =
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
 
-(* [--default-font-family] points at [--font-sans]. When the project declared
-   that token in an [@theme inline] block it has no declaration of its own, so
-   the default carries its value instead of a reference nothing resolves. *)
-let inline_default_family theme decl =
+(* [--default-font-family] points at [--font-sans], [--default-mono-font-family]
+   at [--font-mono]. Tailwind spells the pair [--theme(--font-sans, initial)],
+   which reads two ways. When the project declared the source token in an
+   [@theme inline] block it has no declaration of its own, so the default
+   carries its value instead of a reference nothing resolves. When the project
+   took the source token out of its theme the [initial] fallback applies, and
+   the default goes with it rather than naming a variable nothing declares. A
+   default the project gave a value of its own points elsewhere, so neither
+   reading touches it. *)
+let resolve_default_family theme decl =
   match Css.custom_declaration_name decl with
   | Some name -> (
       let token =
@@ -805,14 +783,15 @@ let inline_default_family theme decl =
       in
       match token with
       | Some t
-        when Scheme.is_inline_token theme t
-             && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
-        -> (
-          match Scheme.theme_value (Some theme) t with
-          | Some v -> Css.custom_property ~layer:"theme" name v
-          | None -> decl)
-      | _ -> decl)
-  | None -> decl
+        when String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")" ->
+          if Scheme.is_removed theme t then None
+          else if Scheme.is_inline_token theme t then
+            match Scheme.theme_value (Some theme) t with
+            | Some v -> Some (Css.custom_property ~layer:"theme" name v)
+            | None -> Some decl
+          else Some decl
+      | _ -> Some decl)
+  | None -> Some decl
 
 (* Tailwind derives the default font-feature settings from the sans and mono
    tokens the project declared. *)
@@ -876,7 +855,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
      built-in defaults carry the same token names as the extracted ones. *)
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
-  |> List.map (inline_default_family theme)
+  |> List.filter_map (resolve_default_family theme)
   |> sort_by_var_order ~theme |> theme_layer_rule ~layers
 
 let theme_layer_of ?theme ?(default_decls = []) tw_classes =
@@ -1658,11 +1637,13 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
-  let sorted_rules = sorted_indexed_rules order_map selector_props in
   let verbatim =
     let names = Hashtbl.create 8 in
     List.iter (fun (cls, _, _) -> Hashtbl.replace names cls ()) extra;
     fun cls -> Hashtbl.mem names cls
+  in
+  let sorted_rules =
+    sorted_indexed_rules ~declared:verbatim order_map selector_props
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =

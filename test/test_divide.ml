@@ -19,11 +19,27 @@ let test_roundtrip () =
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo";
-  (* Units the width reader does not read are refused rather than accepted and
-     spelled as something else. *)
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-x-[2em]";
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-y-[3vw]";
+  (* A bracket with no number is not a length, so it is refused rather than read
+     as a bare identifier. *)
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-x-[rem]"
+
+(* divide-x-[2em] and divide-y-[3vw] used to be refused: the width reader only
+   knew px and rem, so an em or a vw stop fell through to "not a divide utility"
+   instead of reading as the length it is. *)
+let test_arbitrary_width_units () =
+  check "divide-x-[2em]";
+  check "divide-y-[3vw]";
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "divide-x-[2em] carries the em unit into the calc" true
+    (Astring.String.is_infix ~affix:"calc(2em*" (css "divide-x-[2em]"));
+  Alcotest.(check bool)
+    "divide-y-[3vw] carries the vw unit into the calc" true
+    (Astring.String.is_infix ~affix:"calc(3vw*" (css "divide-y-[3vw]"))
 
 (* Every arbitrary width the reader accepts is spelled back exactly as it was
    written, so the selector matches the class in the markup. A width the reader
@@ -50,16 +66,55 @@ let test_arbitrary_width_roundtrip () =
     (Astring.String.is_infix ~affix:".divide-x-\\[2rem\\]"
        (selector "divide-x-[2rem]"))
 
-(* The typed constructor spells the width itself, and refuses a width that has
-   no spelling inside a class name. *)
+(* The typed constructor spells the width itself, and builds exactly the classes
+   the bracket reader accepts. Tailwind takes a line-width keyword there -
+   [divide-x-[thin]] emits [calc(thin * var(--tw-divide-x-reverse))] - so
+   refusing [Thin] refused a class the parser already read. A sizing keyword is
+   not a width and stays refused. *)
 let test_typed_arbitrary_width () =
   let open Tw in
   Test_helpers.check_typed_class "divide-x-[4px]" (divide_x_length (Css.Px 4.));
   Test_helpers.check_typed_class "divide-y-[1rem]"
     (divide_y_length (Css.Rem 1.));
-  match divide_x_length Css.Thin with
+  Test_helpers.check_typed_class "divide-x-[thin]" (divide_x_length Css.Thin);
+  match divide_x_length Css.Auto with
   | exception Invalid_argument _ -> ()
-  | _ -> Alcotest.fail "expected divide_x_length Thin to be refused"
+  | _ -> Alcotest.fail "expected divide_x_length Auto to be refused"
+
+(* Every unit a border width names has a bracket spelling, so a typed
+   constructor handed one produces a class the parser reads back. *)
+let test_typed_width_units () =
+  let open Tw in
+  let spelled (expected, width) =
+    Test_helpers.check_typed_class
+      ("divide-x-[" ^ expected ^ "]")
+      (divide_x_length width)
+  in
+  List.iter spelled
+    [
+      ("4px", (Css.Px 4. : Css.border_width));
+      ("1cm", Css.Cm 1.);
+      ("2mm", Css.Mm 2.);
+      ("3q", Css.Q 3.);
+      ("1in", Css.In 1.);
+      ("12pt", Css.Pt 12.);
+      ("1pc", Css.Pc 1.);
+      ("1.5rem", Css.Rem 1.5);
+      ("2em", Css.Em 2.);
+      ("1ex", Css.Ex 1.);
+      ("1cap", Css.Cap 1.);
+      ("1ic", Css.Ic 1.);
+      ("1ric", Css.Ric 1.);
+      ("1rlh", Css.Rlh 1.);
+      ("2ch", Css.Ch 2.);
+      ("1lh", Css.Lh 1.);
+      ("3vh", Css.Vh 3.);
+      ("3vw", Css.Vw 3.);
+      ("3vmin", Css.Vmin 3.);
+      ("3vmax", Css.Vmax 3.);
+      ("50%", Css.Pct 50.);
+      ("0px", Css.Zero);
+    ]
 
 (* Every divide utility the parser accepts also has a typed constructor, and the
    two agree on the class name (issue #5). *)
@@ -163,6 +218,43 @@ let test_invalid_bracket_hex () =
     "divide-[#ff0000] still emits the colour" true
     (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
 
+(* A bracket colour CSS names without spelling it as a function - a named
+   colour, a keyword - is a divide colour too. The reader admitted only a [#]
+   hex and a colour function, so [divide-[rebeccapurple]] was an unknown class,
+   with or without an opacity modifier. *)
+let test_bracket_named_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the value a class sets for [border-color], so two spellings of one colour
+     compare without their class names *)
+  let value cls =
+    let sheet = css cls in
+    let key = "border-color:" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no border colour: %s" cls sheet
+    | Some i ->
+        let first = i + String.length key in
+        Astring.String.with_range ~first sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
+  emits "border-color:currentColor" "divide-[currentColor]";
+  (* the modifier folds into the colour the bracket named, not into black *)
+  Alcotest.(check string)
+    "divide-[rebeccapurple]/50 is divide-[#663399]/50"
+    (value "divide-[#663399]/50")
+    (value "divide-[rebeccapurple]/50");
+  (* a bracket naming no colour is still not a class *)
+  Alcotest.(check bool)
+    "divide-[notacolour] is not a class" true
+    (Result.is_error (Tw.of_string "divide-[notacolour]"))
+
 (* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
    as 16 and emitted a rule selecting [.divide-x-16], a class the author never
    wrote; Tailwind emits nothing for it. *)
@@ -184,6 +276,9 @@ let tests =
         test_arbitrary_width_roundtrip;
       Alcotest.test_case "typed arbitrary width" `Quick
         test_typed_arbitrary_width;
+      Alcotest.test_case "typed width units" `Quick test_typed_width_units;
+      Alcotest.test_case "arbitrary width units" `Quick
+        test_arbitrary_width_units;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
       Alcotest.test_case "reverse class order matches Tailwind" `Slow
         reverse_class_order_matches_tailwind;
@@ -193,6 +288,7 @@ let tests =
         rendering_matches_tailwind;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
       Alcotest.test_case "non-decimal widths" `Quick test_non_decimal_widths;
+      Alcotest.test_case "bracket named colour" `Quick test_bracket_named_color;
     ]
 
 let suite = ("divide", tests)

@@ -236,17 +236,10 @@ module Handler = struct
 
   (* Bracket notation helpers *)
 
-  let parse_bracket_len s =
-    if String.ends_with ~suffix:"px" s then
-      let n = String.sub s 0 (String.length s - 2) |> float_of_string_opt in
-      Option.map (fun f -> (Css.Px f : Css.length)) n
-    else if String.ends_with ~suffix:"%" s then
-      let n = String.sub s 0 (String.length s - 1) |> float_of_string_opt in
-      Option.map (fun f -> (Css.Pct f : Css.length)) n
-    else if String.ends_with ~suffix:"rem" s then
-      let n = String.sub s 0 (String.length s - 3) |> float_of_string_opt in
-      Option.map (fun f -> (Css.Rem f : Css.length)) n
-    else None
+  (* [mask-size-[...]], [mask-[size:...]] and [mask-[length:...]] take any CSS
+     length, so a token is read with the value parser rather than a hand-picked
+     unit table. *)
+  let parse_bracket_len s = Parse.arbitrary_length s
 
   let parse_bracket_size inner =
     let parts =
@@ -263,27 +256,11 @@ module Handler = struct
               ]
         | _ -> None)
     | [ v ] ->
-        let parse_size_val s : Css.background_size option =
-          if String.ends_with ~suffix:"px" s then
-            let n =
-              String.sub s 0 (String.length s - 2) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Length (Px f) : Css.background_size)) n
-          else if String.ends_with ~suffix:"%" s then
-            let n =
-              String.sub s 0 (String.length s - 1) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Length (Pct f) : Css.background_size)) n
-          else if String.ends_with ~suffix:"rem" s then
-            let n =
-              String.sub s 0 (String.length s - 3) |> float_of_string_opt
-            in
-            Option.map (fun f -> (Length (Rem f) : Css.background_size)) n
-          else None
-        in
         Option.map
-          (fun s -> [ Css.webkit_mask_size s; Css.mask_size s ])
-          (parse_size_val v)
+          (fun l ->
+            let size : Css.background_size = Length l in
+            [ Css.webkit_mask_size size; Css.mask_size size ])
+          (parse_bracket_len v)
     | _ -> None
 
   (* A bracket mask-position: the whole [<position>] grammar, one position per
@@ -532,9 +509,18 @@ module Handler = struct
         | "contain" -> Ok Bracket_contain
         | "cover" -> Ok Bracket_cover
         | _ when String.length inner > 7 && String.sub inner 0 7 = "length:" ->
-            Ok (Bracket_length (String.sub inner 7 (String.length inner - 7)))
+            (* The [length:] hint forces a mask-size; a value the size grammar
+               cannot take is not a utility. It used to fall through to a
+               plausible-looking [auto]. *)
+            let v = String.sub inner 7 (String.length inner - 7) in
+            if parse_bracket_size v = None then
+              Error (`Msg ("Unknown mask bracket length: " ^ v))
+            else Ok (Bracket_length v)
         | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
-            Ok (Bracket_size (String.sub inner 5 (String.length inner - 5)))
+            let v = String.sub inner 5 (String.length inner - 5) in
+            if parse_bracket_size v = None then
+              Error (`Msg ("Unknown mask bracket size: " ^ v))
+            else Ok (Bracket_size v)
         | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
           -> (
             (* The [position:] data-type hint forces a mask-position; a value

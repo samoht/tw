@@ -39,6 +39,23 @@ val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
     Pruning is what makes it blind to a utility whose only output is an
     unreferenced binding; {!check_rendering_matches} covers that class. *)
 
+val dropped_declarations : Cascade_diff.Css_compare.t -> Error.t list
+(** [dropped_declarations diff] is the parse warnings either side of [diff]
+    carries, minus the one allowed exception. A warning means the reader
+    rejected a declaration and dropped it from that side's AST before the
+    comparison, so the diff read less than it appears to. *)
+
+val check_no_dropped_declarations :
+  test_name:string -> Cascade_diff.Css_compare.t -> unit
+(** [check_no_dropped_declarations ~test_name diff] fails when either side of
+    [diff] carries a parse warning, i.e. a declaration the reader rejected and
+    dropped from that side's AST before the comparison. Such a drop makes the
+    comparison read as a phantom addition on the side that parsed, or as no
+    difference at all when both sides collapse to the same AST, so it is a
+    finding rather than noise. Tailwind's bare-number [color-mix] mixing amount,
+    which CSS Color 5 sec. 3.1 does not admit and a browser drops too, is the
+    one allowed exception. *)
+
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
 (** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
     finds a difference. The minimisation predicate. *)
@@ -84,14 +101,24 @@ val render_elements : string list -> string list
     pair, duplicates dropped and first occurrence kept. *)
 
 val check_rendering_matches :
-  ?forms:bool -> test_name:string -> Tw.t list -> unit
-(** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
-    headless Chromium and fails on any computed style that differs. Each class
-    gets an element of its own, plus one per {!interacting_pairs} pair, which is
-    where an ordering difference shows. Fails too when an element does not carry
-    the classes it was given, since then the comparison is vacuous. Skips when
-    node or Playwright is absent; [TW_BROWSER_TESTS=0] opts out where they are
-    present. *)
+  ?forms:bool -> ?inner:string -> test_name:string -> Tw.t list -> unit
+(** [check_rendering_matches ?forms ?inner ~test_name utilities] renders both
+    sheets in headless Chromium and fails on any computed style that differs.
+    Each class gets an element of its own, plus one per {!interacting_pairs}
+    pair, which is where an ordering difference shows. Fails too when an element
+    does not carry the classes it was given, since then the comparison is
+    vacuous. Skips when node or Playwright is absent; [TW_BROWSER_TESTS=0] opts
+    out where they are present.
+
+    [inner] is markup put inside every element built, and every descendant of it
+    is compared too. Without it the elements are bare, so a rule that only
+    matches a child - which is most of what [@tailwindcss/typography] emits -
+    has nothing to match and the comparison passes without reading it.
+
+    Every node is read four times: itself, then its [::before], [::after] and
+    [::marker]. A rule on a pseudo-element leaves the element's own computed
+    style untouched, so prose's list bullets and everything the [before:] and
+    [after:] variants write are invisible without it. *)
 
 (** {1 CSS Test Helpers} *)
 

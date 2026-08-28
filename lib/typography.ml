@@ -594,61 +594,6 @@ module Typography_early = struct
     in
     find 0 0
 
-  (* The line-height that says what the length cascade read says. A unit
-     [Css.line_height] has no constructor for, such as [vw] or [ch], has no
-     line-height spelling here, and the caller refuses the utility rather than
-     approximating it. *)
-  let rec line_height_of_length (l : Css.length) : Css.line_height option =
-    match l with
-    | Px f -> Some (Px f)
-    | Rem f -> Some (Rem f)
-    | Em f -> Some (Em f)
-    | Pct f -> Some (Pct f)
-    | Zero -> Some (Num 0.)
-    | Normal -> Some Normal
-    | Inherit -> Some Inherit
-    | Initial -> Some Initial
-    | Unset -> Some Unset
-    | Revert -> Some Revert
-    | Revert_layer -> Some Revert_layer
-    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
-    | Calc c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Calc c)
-        | None -> None)
-    | _ -> None
-
-  and line_height_of_calc (c : Css.length Css.calc) :
-      Css.line_height Css.calc option =
-    let both left right =
-      match (line_height_of_calc left, line_height_of_calc right) with
-      | Some left, Some right -> Some (left, right)
-      | _ -> None
-    in
-    match c with
-    | Val l -> (
-        match line_height_of_length l with
-        | Some lh -> Some (Val lh)
-        | None -> None)
-    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
-    | Num n -> Some (Num n)
-    | Math_const m -> Some (Math_const m)
-    | Sibling_index -> Some Sibling_index
-    | Sibling_count -> Some Sibling_count
-    | Math_fn f -> Some (Math_fn f)
-    | Nested c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Nested c)
-        | None -> None)
-    | Parens c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Parens c)
-        | None -> None)
-    | Expr (left, op, right) -> (
-        match both left right with
-        | Some (left, right) -> Some (Expr (left, op, right))
-        | None -> None)
-
   (* The one reader for an arbitrary line-height, shared by [leading-[...]] and
      by the [/leading] modifier on a text size. The string parsing is cascade's,
      so every unit, [calc()] and [var()] spelling it reads is accepted; a
@@ -656,12 +601,20 @@ module Typography_early = struct
   let parse_bracket_leading raw : Css.line_height option =
     if Parse.is_var raw then Some (Var (Var.bracket raw))
     else
-      match float_of_string_opt (Parse.decode_arbitrary_value raw) with
-      | Some f -> Some (Num f)
-      | None -> (
-          match Parse.arbitrary_length raw with
-          | Some length -> line_height_of_length length
-          | None -> None)
+      let cursor =
+        Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw)
+      in
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_line_height cursor
+      with
+      (* The reader keeps a dimension whose unit it does not know as verbatim
+         text, so a stray source word reading as one would become a utility. The
+         length grammar is what says whether the unit is a length; asking it
+         keeps the answer out of a unit table here. *)
+      | Ok (Number { repr; unit = Some unit; _ } as lh) ->
+          if Css.parse_length (repr ^ unit) = None then None else Some lh
+      | Ok lh -> Some lh
+      | Error _ -> None
 
   (* [none] is not here: [parse_lh_modifier] answers it with [No_leading] before
      this list is consulted, because Tailwind writes [line-height: 1] for it
@@ -1876,24 +1829,12 @@ module Typography_late = struct
               else if String.starts_with ~prefix:"percentage:" inner then
                 let var_part = String.sub inner 11 (String.length inner - 11) in
                 Ok (Decoration_bracket_pct_var var_part)
-              else if
-                String.length inner > 0
-                && (inner.[0] = '#'
-                   || Parse.is_css_color_fn
-                        (String.map (fun c -> if c = '_' then ' ' else c) inner)
-                   )
-              then
-                let normalized =
-                  String.map (fun c -> if c = '_' then ' ' else c) inner
-                in
-                let css_color =
-                  (* A [#] prefix only names a colour when what follows is a hex
-                     spelling; [Css.hex] raises on anything else, and this runs
-                     inside [of_class]. *)
-                  if inner.[0] = '#' then Css.hex_opt inner
-                  else Css.parse_color normalized
-                in
-                match css_color with
+              else
+                (* Every colour spelling CSS knows, not only a [#] hex and a
+                   colour function: a named colour and a keyword name a
+                   decoration colour too. The colour reader runs before the
+                   percentage one because [hsl(200_50%_50%)] ends in a [%]. *)
+                match Color.parse_bracket_color inner with
                 | Some c -> (
                     match opacity with
                     | Color.No_opacity ->
@@ -1903,25 +1844,25 @@ module Typography_late = struct
                           (Decoration_bracket_color_opacity (inner, c, opacity))
                     )
                 | None -> (
-                    match parse_decoration_thickness inner with
-                    | Some len -> Ok (Decoration_bracket_thickness (inner, len))
-                    | None -> err_not_utility)
-              else if
-                String.length inner > 0 && inner.[String.length inner - 1] = '%'
-              then
-                match parse_decoration_pct inner with
-                | Some len -> Ok (Decoration_bracket_pct (inner, len))
-                | None -> err_not_utility
-              else if is_bare_number inner then
-                (* Tailwind resolves the ambiguous unitless spelling through the
-                   colour candidate path. Its declaration is invalid CSS and
-                   browsers discard it; accepting an inert candidate is
-                   therefore equivalent, while treating it as px is not. *)
-                Ok (Decoration_bracket_invalid_color inner)
-              else
-                match parse_decoration_thickness inner with
-                | Some len -> Ok (Decoration_bracket_thickness (inner, len))
-                | None -> err_not_utility
+                    if
+                      String.length inner > 0
+                      && inner.[String.length inner - 1] = '%'
+                    then
+                      match parse_decoration_pct inner with
+                      | Some len -> Ok (Decoration_bracket_pct (inner, len))
+                      | None -> err_not_utility
+                    else if is_bare_number inner then
+                      (* Tailwind resolves the ambiguous unitless spelling
+                         through the colour candidate path. Its declaration is
+                         invalid CSS and browsers discard it; accepting an inert
+                         candidate is therefore equivalent, while treating it as
+                         px is not. *)
+                      Ok (Decoration_bracket_invalid_color inner)
+                    else
+                      match parse_decoration_thickness inner with
+                      | Some len ->
+                          Ok (Decoration_bracket_thickness (inner, len))
+                      | None -> err_not_utility)
             else
               (* Try parsing as number (decoration thickness) *)
               match Parse.int_any base_str with
@@ -2330,42 +2271,44 @@ module Typography_late = struct
   (** {1 Ordering Support} *)
 
   let suborder = function
-    (* Decoration color - comes first in late typography. All color variants use
-       the same suborder so the optimizer sorts them alphabetically by class
-       name. *)
-    | Decoration_color _ -> 5000
-    | Decoration_color_opacity _ -> 5000
-    | Decoration_transparent -> 5000
-    | Decoration_current -> 5000
-    | Decoration_current_opacity _ -> 5000
-    | Decoration_inherit -> 5000
-    | Decoration_bracket_color _ -> 4000
-    | Decoration_bracket_invalid_color _ -> 4000
-    | Decoration_bracket_color_opacity _ -> 4000
-    | Decoration_bracket_color_var _ -> 4100
-    | Decoration_bracket_color_var_opacity _ -> 4100
-    | Decoration_bracket_var _ -> 4200
-    | Decoration_bracket_var_opacity _ -> 4200
     (* Text decoration lines - suborder >= 8000 (alphabetical) *)
     | Line_through -> 8400
     | No_underline -> 8401
     | Overline -> 8402
     | Underline -> 8403
+    (* The decoration properties follow the line, in Tailwind's own order:
+       colour, then style, then thickness. All the colour variants share a
+       suborder so the tie is broken alphabetically by class name. *)
+    | Decoration_bracket_color _ -> 8410
+    | Decoration_bracket_invalid_color _ -> 8410
+    | Decoration_bracket_color_opacity _ -> 8410
+    | Decoration_bracket_color_var _ -> 8411
+    | Decoration_bracket_color_var_opacity _ -> 8411
+    | Decoration_bracket_var _ -> 8412
+    | Decoration_bracket_var_opacity _ -> 8412
+    | Decoration_color _ -> 8413
+    | Decoration_color_opacity _ -> 8413
+    | Decoration_transparent -> 8413
+    | Decoration_current -> 8413
+    | Decoration_current_opacity _ -> 8413
+    | Decoration_inherit -> 8413
     (* Decoration styles - same suborder, sorted by class name *)
-    | Decoration_solid -> 8100
-    | Decoration_double -> 8100
-    | Decoration_dotted -> 8100
-    | Decoration_dashed -> 8100
-    | Decoration_wavy -> 8100
+    | Decoration_solid -> 8420
+    | Decoration_double -> 8420
+    | Decoration_dotted -> 8420
+    | Decoration_dashed -> 8420
+    | Decoration_wavy -> 8420
     (* Decoration thickness - numeric values by n, then brackets, then
-       auto/from-font *)
-    | Decoration_thickness n -> 8200 + n
-    | Decoration_bracket_thickness _ -> 8400
-    | Decoration_bracket_pct _ -> 8400
-    | Decoration_bracket_length_var _ -> 8400
-    | Decoration_bracket_pct_var _ -> 8400
-    | Decoration_auto -> 8500
-    | Decoration_from_font -> 8500
+       auto/from-font. The numeric band is open-ended (the class carries any
+       integer), so the brackets sit far enough above it that no thickness a
+       stylesheet would ask for reaches them, and below the underline offset. *)
+    | Decoration_thickness n -> 8430 + n
+    | Decoration_bracket_thickness _ -> 30000
+    | Decoration_bracket_pct _ -> 30000
+    | Decoration_bracket_length_var _ -> 30000
+    | Decoration_bracket_pct_var _ -> 30000
+    | Decoration_auto -> 30010
+    | Decoration_from_font -> 30010
     (* Tracking — negative first, then arbitrary, then named *)
     | Neg_tracking_arbitrary _ -> 8245
     | Neg_tracking_var _ -> 8250
@@ -2652,36 +2595,27 @@ module Typography_late = struct
     in
     style ~merge_key:"decoration-" [ text_decoration_color color ]
 
-  let decoration_bracket_color_with_opacity inner c opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    if String.length inner > 0 && inner.[0] = '#' then
-      match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
-      | Some rgb ->
-          let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-          let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-          style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
-      | None -> style [ text_decoration_color (Css.hex "#000") ]
-    else
-      let hex_color =
-        match Color.css_color_to_hex c with Some h -> h | None -> c
-      in
-      let _ = alpha in
-      let fallback_decl = text_decoration_color hex_color in
-      let oklab_color =
-        Css.color_mix ~in_space:Oklab hex_color Css.Transparent
-          ~percent1:percent
-      in
-      let oklab_decl = text_decoration_color oklab_color in
-      let supports_block =
-        Css.supports ~condition:Color.color_mix_supports_condition
-          [
-            Css.rule ~selector:(Css.Selector.class_ "_")
-              [ webkit_text_decoration_color oklab_color; oklab_decl ];
-          ]
-      in
-      style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
-        [ fallback_decl ]
+  (* An opacity modifier applies to the colour the bracket was parsed into. The
+     modifier read the bracket text back as a hex and answered black whenever
+     that failed, and it wrote the mix in place of the colour for every spelling
+     that is not a [#] hex, where Tailwind folds the alpha in. *)
+  let decoration_bracket_color_with_opacity c opacity =
+    match Color.bracket_color_opacity c opacity with
+    | Color.Folded value ->
+        style ~merge_key:"decoration-" [ text_decoration_color value ]
+    | Color.Guarded { fallback; mixed } ->
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [
+                  webkit_text_decoration_color mixed;
+                  text_decoration_color mixed;
+                ];
+            ]
+        in
+        style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
+          [ text_decoration_color fallback ]
 
   let decoration_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
@@ -3195,8 +3129,8 @@ module Typography_late = struct
     | Decoration_bracket_color (inner, c) ->
         decoration_bracket_color_style inner c
     | Decoration_bracket_invalid_color _ -> style []
-    | Decoration_bracket_color_opacity (inner, c, opacity) ->
-        decoration_bracket_color_with_opacity inner c opacity
+    | Decoration_bracket_color_opacity (_, c, opacity) ->
+        decoration_bracket_color_with_opacity c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
     | Decoration_bracket_var_opacity (v, opacity) ->
         decoration_bracket_var_with_opacity v opacity

@@ -2,6 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Tw.Output
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Padding
 open Tw.Modifiers
 
@@ -452,6 +453,24 @@ let test_at_rule_keeps_inner () =
   variant_has "[@starting-style]:open:opacity-0"
     ":is([open],:popover-open,:open)"
 
+(* A prose element variant rebuilt its selector from the bare class, which threw
+   away whatever an inner variant had put on it: [prose-a:hover:text-red-500]
+   lost its [:hover] and coloured every link, [prose-li:marker:text-green-500]
+   lost its [::marker] and coloured the item's own text. *)
+let test_prose_element_keeps_inner () =
+  variant_has "prose-a:hover:text-red-500" "[class~=not-prose] *)):hover";
+  variant_has "prose-li:marker:text-green-500" "[class~=not-prose] *))::marker";
+  variant_has "prose-p:first-line:uppercase" "[class~=not-prose] *)):first-line";
+  variant_has "prose-code:after:content-['y']" "[class~=not-prose] *)):after"
+
+(* The reverse direction: a prose element variant over a rule that is already a
+   media query built its selector from [Modifiers.to_selector], which returned
+   the class alone, so the elements it targets went missing and the utility
+   landed on the container. *)
+let test_prose_element_over_media () =
+  variant_has "prose-p:md:text-lg" ".prose-p\\:md\\:text-lg :where(p)";
+  variant_has "prose-a:dark:text-white" ".prose-a\\:dark\\:text-white :where(a)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -487,6 +506,10 @@ let tests =
       test_outer_media_renames_nested;
     test_case "at-rule variant keeps the inner selector" `Quick
       test_at_rule_keeps_inner;
+    test_case "prose element variant keeps the inner selector" `Quick
+      test_prose_element_keeps_inner;
+    test_case "prose element variant over a media query" `Quick
+      test_prose_element_over_media;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;

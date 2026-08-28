@@ -33,9 +33,20 @@ dune build --root "$root" bin/main.exe cascade/bin/main.exe
 "$root"/_build/default/bin/main.exe \
   --input-css "$here"/globals.css --minify "$here"/classlist.txt > "$out"/tw_all.css
 
+# The differ exits 0 when the sheets are identical and 1 when they differ, and
+# both are measurements. Any other status is the differ failing -- an unusable
+# argument, an input it could not read, a crash -- which writes a short or empty
+# report that reads as parity. Propagate it instead.
+status=0
 "$root"/_build/default/cascade/bin/main.exe \
   diff --diff=canonical --depth=max "$out"/tw_all.css "$out"/ref_local.css \
-  > "$out"/diff.txt 2>&1 || true
+  > "$out"/diff.txt 2>&1 || status=$?
+
+if [ "$status" -gt 1 ]; then
+  cat "$out"/diff.txt
+  echo "cascade diff failed with status $status" >&2
+  exit "$status"
+fi
 
 cat "$out"/diff.txt
 

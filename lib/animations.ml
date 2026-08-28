@@ -37,12 +37,115 @@ module Handler = struct
   (* Match Tailwind ordering: animations after transforms, before cursor *)
   let priority _ = 10
 
+  (* The animations Tailwind's default theme carries [@keyframes] for, in the
+     order the theme declares them: a value naming several gets them back in
+     that order. *)
+  let builtin_keyframes =
+    [
+      ( "spin",
+        Css.keyframes "spin"
+          [
+            {
+              Css.Stylesheet.selector =
+                Css.Keyframe.Positions [ Css.Keyframe.To ];
+              declarations = [ Css.Declaration.transform (Rotate (Deg 360.)) ];
+            };
+          ] );
+      ( "ping",
+        Css.keyframes "ping"
+          [
+            {
+              Css.Stylesheet.selector =
+                Css.Keyframe.Positions
+                  [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
+              declarations =
+                [
+                  Css.Declaration.opacity (Opacity_number 0.0);
+                  Css.Declaration.transform (Scale (Num 2.0, opt_none));
+                ];
+            };
+          ] );
+      ( "pulse",
+        Css.keyframes "pulse"
+          [
+            {
+              Css.Stylesheet.selector =
+                Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
+              declarations = [ Css.Declaration.opacity (Opacity_number 0.5) ];
+            };
+          ] );
+      ( "bounce",
+        Css.keyframes "bounce"
+          [
+            {
+              Css.Stylesheet.selector =
+                Css.Keyframe.Positions
+                  [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
+              declarations =
+                [
+                  Css.Declaration.animation_timing_function
+                    (Cubic_bezier (0.8, 0., 1., 1.));
+                  Css.Declaration.transform (Translate_y (Pct (-25.)));
+                ];
+            };
+            {
+              Css.Stylesheet.selector =
+                Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
+              declarations =
+                [
+                  Css.Declaration.animation_timing_function
+                    (Cubic_bezier (0., 0., 0.2, 1.));
+                  Css.Declaration.transform None;
+                ];
+            };
+          ] );
+    ]
+
+  (* The animation a shorthand names, when it names one. *)
+  let shorthand_name (anim : Css.animation) : string option =
+    match anim with
+    | Shorthand { name = Some (Name n | Ambiguous n | Quoted n); _ } -> Some n
+    | _ -> opt_none
+
+  (* The animations a [--animate-*] value names, read through the animation
+     grammar rather than off the text, so a substring of a longer ident or a
+     function argument cannot pass for a name. *)
+  let animation_names value =
+    let cursor = Cascade.Cursor.of_string value in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Properties.read_animations cursor
+    with
+    | Ok anims -> List.filter_map shorthand_name anims
+    | Error _ -> []
+
+  (* Tailwind carries the built-in [@keyframes] of the animations a value names,
+     not of the token holding it: a [@theme] redefining [--animate-ping] keeps
+     [@keyframes ping] as long as the value still says [ping], one pointing the
+     token at another built-in pulls that one in instead, and one naming an
+     animation with no built-in keyframes gets none invented. *)
+  let keyframes_rules names =
+    match
+      List.filter_map
+        (fun (name, frames) ->
+          if List.mem name names then Some frames else opt_none)
+        builtin_keyframes
+    with
+    | [] -> opt_none
+    | frames -> opt_some frames
+
+  (* The keyframes for a [--animate-*] token, read off the theme's value for it
+     and falling back to the animation the built-in default names. *)
+  let theme_keyframes ?theme ~token default =
+    match Scheme.theme_value theme token with
+    | Some value -> keyframes_rules (animation_names value)
+    | Option.None -> keyframes_rules (Option.to_list (shorthand_name default))
+
   let animate_none ?theme () =
     (* If theme defines --animate-none, use the theme variable. Otherwise use
        animation: none directly. *)
     match Scheme.theme_value theme "animate-none" with
     | Some _ ->
-        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
+        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 40) in
         let none_animation : Css.animation =
           Css.Shorthand
             {
@@ -61,9 +164,9 @@ module Handler = struct
         style [ theme_decl; Css.animation (Css.Var none_var) ]
     | None -> style [ Css.animation None ]
 
-  (* Theme variable for animate-spin - order (7, 13) places it after ease (7,
-     9-11) *)
-  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 13)
+  (* Theme variable for animate-spin - slot (7, 41) places it after ease (7,
+     30-34) *)
+  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 41)
 
   let animate_spin ?theme () =
     let spin_animation : Css.animation =
@@ -81,28 +184,12 @@ module Handler = struct
         }
     in
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
-    (* Only include @keyframes when theme doesn't define the animation *)
-    let rules =
-      if Scheme.theme_value theme "animate-spin" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "spin"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.To ];
-                  declarations =
-                    [ Css.Declaration.transform (Rotate (Deg 360.)) ];
-                };
-              ];
-          ]
-    in
+    let rules = theme_keyframes ?theme ~token:"animate-spin" spin_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
 
-  (* Theme variable for animate-ping - order (7, 14) places it after
-     animate-spin (7, 13) *)
-  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 14)
+  (* Theme variable for animate-ping - slot (7, 42) places it after animate-spin
+     (7, 41) *)
+  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 42)
 
   let animate_ping ?theme () =
     let ping_animation : Css.animation =
@@ -120,31 +207,12 @@ module Handler = struct
         }
     in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
-    let rules =
-      if Scheme.theme_value theme "animate-ping" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "ping"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions
-                      [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
-                  declarations =
-                    [
-                      Css.Declaration.opacity (Opacity_number 0.0);
-                      Css.Declaration.transform (Scale (Num 2.0, opt_none));
-                    ];
-                };
-              ];
-          ]
-    in
+    let rules = theme_keyframes ?theme ~token:"animate-ping" ping_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
 
-  (* Theme variable for animate-pulse - order (7, 15) places it after
-     animate-ping (7, 14) *)
-  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 15)
+  (* Theme variable for animate-pulse - slot (7, 43) places it after
+     animate-ping (7, 42) *)
+  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 43)
 
   let animate_pulse ?theme () =
     let pulse_animation : Css.animation =
@@ -162,28 +230,13 @@ module Handler = struct
         }
     in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
-    let rules =
-      if Scheme.theme_value theme "animate-pulse" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "pulse"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  declarations =
-                    [ Css.Declaration.opacity (Opacity_number 0.5) ];
-                };
-              ];
-          ]
-    in
+    let rules = theme_keyframes ?theme ~token:"animate-pulse" pulse_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
-  (* Theme variable for animate-bounce - order (7, 16) places it after
-     animate-pulse (7, 15) *)
+  (* Theme variable for animate-bounce - slot (7, 44) places it after
+     animate-pulse (7, 43) *)
   let animate_bounce_var =
-    Var.theme Css.Animation "animate-bounce" ~order:(7, 16)
+    Var.theme Css.Animation "animate-bounce" ~order:(7, 44)
 
   let animate_bounce ?theme () =
     let bounce_animation : Css.animation =
@@ -204,100 +257,52 @@ module Handler = struct
       Var.binding animate_bounce_var bounce_animation
     in
     let rules =
-      if Scheme.theme_value theme "animate-bounce" <> opt_none then opt_none
-      else
-        opt_some
-          [
-            Css.keyframes "bounce"
-              [
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions
-                      [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
-                  declarations =
-                    [
-                      Css.Declaration.animation_timing_function
-                        (Cubic_bezier (0.8, 0., 1., 1.));
-                      Css.Declaration.transform (Translate_y (Pct (-25.)));
-                    ];
-                };
-                {
-                  Css.Stylesheet.selector =
-                    Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-                  declarations =
-                    [
-                      Css.Declaration.animation_timing_function
-                        (Cubic_bezier (0., 0., 0.2, 1.));
-                      Css.Declaration.transform None;
-                    ];
-                };
-              ];
-          ]
+      theme_keyframes ?theme ~token:"animate-bounce" bounce_animation
     in
     style ~rules [ theme_decl; Css.animation (Css.Var bounce_var) ]
 
-  (* Known @keyframes for bracket animation references *)
-  let spin_keyframes =
-    Css.keyframes "spin"
-      [
-        {
-          Css.Stylesheet.selector = Css.Keyframe.Positions [ Css.Keyframe.To ];
-          declarations = [ Css.Declaration.transform (Rotate (Deg 360.)) ];
-        };
-      ]
-
-  let known_keyframes = function
-    | "spin" -> Some spin_keyframes
-    | _ -> Option.None
-
-  (* Tailwind moves the animation name to the end of the shorthand, so the
-     bracket reads as (name, shorthand). *)
-  let animation_parts value =
+  (* Tailwind moves the animation name to the end of the shorthand. *)
+  let animation_shorthand value =
     let css_value = String.map (fun c -> if c = '_' then ' ' else c) value in
     match String.split_on_char ' ' css_value with
-    | name :: (_ :: _ as rest) -> (name, String.concat " " (rest @ [ name ]))
-    | _ -> (css_value, css_value)
+    | name :: (_ :: _ as rest) -> String.concat " " (rest @ [ name ])
+    | _ -> css_value
 
   (* The animation an [animate-[...]] bracket denotes. [None] is a bracket the
      animation grammar cannot read, and [of_class] refuses the utility rather
      than leaving [to_style] to raise. *)
   let arbitrary_animation value : Css.animation option =
-    let _, reordered = animation_parts value in
-    let cursor = Cascade.Cursor.of_string reordered in
+    let cursor = Cascade.Cursor.of_string (animation_shorthand value) in
     match
       Cascade.Cursor.try_parse_full_err Css.Properties.read_animation cursor
     with
     | Ok anim -> Some anim
     | Error _ -> None
 
-  let animate_bracket value anim =
-    let anim_name, _ = animation_parts value in
-    let rules =
-      match known_keyframes anim_name with
-      | Some kf -> opt_some [ kf ]
-      | Option.None -> opt_none
-    in
+  let animate_bracket anim =
+    let rules = keyframes_rules (Option.to_list (shorthand_name anim)) in
     style ~rules [ Css.animation anim ]
 
-  let animate_named name =
+  let animate_named ?theme name =
     let var_name = "animate-" ^ name in
-    let tv = Var.theme Css.Animation var_name ~order:(7, 16) in
-    let theme_decl, theme_ref =
-      Var.binding tv
-        (Shorthand
-           {
-             name = Some (Name name);
-             duration = None;
-             timing_function = None;
-             delay = None;
-             iteration_count = None;
-             direction = None;
-             fill_mode = None;
-             play_state = None;
-             timeline = None;
-           })
+    let tv = Var.theme Css.Animation var_name ~order:(7, 45) in
+    let animation : Css.animation =
+      Shorthand
+        {
+          name = Some (Name name);
+          duration = None;
+          timing_function = None;
+          delay = None;
+          iteration_count = None;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+          timeline = None;
+        }
     in
-    style [ theme_decl; Css.animation (Css.Var theme_ref) ]
+    let theme_decl, theme_ref = Var.binding tv animation in
+    let rules = theme_keyframes ?theme ~token:var_name animation in
+    style ~rules [ theme_decl; Css.animation (Css.Var theme_ref) ]
 
   let to_style theme =
     let animate_none () = animate_none ~theme () in
@@ -311,17 +316,16 @@ module Handler = struct
     | Ping -> animate_ping ()
     | Pulse -> animate_pulse ()
     | Bounce -> animate_bounce ()
-    | Bracket (value, anim) -> animate_bracket value anim
-    | Named name -> animate_named name
+    | Bracket (_, anim) -> animate_bracket anim
+    | Named name -> animate_named ~theme name
 
-  let suborder = function
-    | Bracket _ -> 0
-    | Bounce -> 1
-    | Named _ -> 2
-    | No_animation -> 3
-    | Ping -> 4
-    | Pulse -> 5
-    | Spin -> 6
+  (* Tailwind emits the animate-* rules in class-name order, with no family
+     structure above it: a project animation sits among the built-ins wherever
+     its own name falls, and an arbitrary one leads because the backslash its
+     bracket is escaped with precedes every letter. One shared slot hands the
+     whole family to the alphabetical tie-break, which is that order; numbering
+     the built-ins apart pins every theme-declared name to one gap instead. *)
+  let suborder _ = 0
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in

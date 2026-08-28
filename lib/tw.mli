@@ -3907,9 +3907,25 @@ val split_whitespace : string -> string list
     let names = split_whitespace "flex\n  items-center"
     ]} *)
 
+val of_classes : ?theme:Scheme.t -> string -> t list * string list
+(** [of_classes s] parses a whitespace-separated string of class names into the
+    utilities it recognised and, in source order, the names it did not. It never
+    raises.
+
+    A name that is no utility may be a typo or a deliberate non-tw class - a
+    framework hook, a JS selector, a third-party widget - and parsing cannot
+    tell the two apart, so it reports both and leaves the judgement to the
+    caller. The [Tw_html] and [Tw_dom] renderers pass such a name through to the
+    rendered [class] attribute and report it the same way.
+
+    Example:
+    {[
+    let styles, unknown = of_classes "flex my-app-header"
+    ]} *)
+
 val str : string -> t list
-(** [str s] parses a whitespace-separated string of Tailwind class names into a
-    list of styles. Raises [Invalid_argument] if any class is not recognized.
+(** [str s] is the utilities of {!of_classes} [s], dropping the names it did not
+    recognise. Use {!of_classes} to see them.
 
     Example:
     {[
@@ -4266,6 +4282,30 @@ val prose_h3 : t list -> t
 
 val prose_h4 : t list -> t
 (** [prose_h4 styles] applies [styles] to h4 elements within prose. *)
+
+val prose_h5 : t list -> t
+(** [prose_h5 styles] applies [styles] to h5 elements within prose. *)
+
+val prose_h6 : t list -> t
+(** [prose_h6 styles] applies [styles] to h6 elements within prose. *)
+
+val prose_dl : t list -> t
+(** [prose_dl styles] applies [styles] to dl elements within prose. *)
+
+val prose_dt : t list -> t
+(** [prose_dt styles] applies [styles] to dt elements within prose. *)
+
+val prose_dd : t list -> t
+(** [prose_dd styles] applies [styles] to dd elements within prose. *)
+
+val prose_table : t list -> t
+(** [prose_table styles] applies [styles] to table elements within prose. *)
+
+val prose_tr : t list -> t
+(** [prose_tr styles] applies [styles] to tr elements within prose. *)
+
+val prose_picture : t list -> t
+(** [prose_picture styles] applies [styles] to picture elements within prose. *)
 
 val prose_img : t list -> t
 (** [prose_img styles] applies [styles] to img elements within prose. *)

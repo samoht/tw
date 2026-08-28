@@ -572,8 +572,16 @@ let to_selector (modifier : modifier) cls =
   | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
   | Device_hocus ->
       compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
-  (* Prose element variants — outer selector is just the class *)
-  | Prose_element name -> Class ("prose-" ^ name ^ ":" ^ cls)
+  (* Prose element variants — the class, then the elements it targets inside it.
+     Returning the class alone loses the descendant part wherever the selector
+     is built from here rather than in the routing, which is every rule that is
+     already a query: [prose-p:md:text-lg] styled the container instead of its
+     paragraphs. *)
+  | Prose_element name ->
+      combine
+        (Class ("prose-" ^ name ^ ":" ^ cls))
+        Descendant
+        (prose_element_inner_selector name)
   (* Pseudo-elements, aria/data, structural, media, peer, form state *)
   | _ -> pseudo_element_selector cls modifier
 
@@ -868,6 +876,14 @@ let prose_h1 styles = wrap (Prose_element "h1") styles
 let prose_h2 styles = wrap (Prose_element "h2") styles
 let prose_h3 styles = wrap (Prose_element "h3") styles
 let prose_h4 styles = wrap (Prose_element "h4") styles
+let prose_h5 styles = wrap (Prose_element "h5") styles
+let prose_h6 styles = wrap (Prose_element "h6") styles
+let prose_dl styles = wrap (Prose_element "dl") styles
+let prose_dt styles = wrap (Prose_element "dt") styles
+let prose_dd styles = wrap (Prose_element "dd") styles
+let prose_table styles = wrap (Prose_element "table") styles
+let prose_tr styles = wrap (Prose_element "tr") styles
+let prose_picture styles = wrap (Prose_element "picture") styles
 let prose_img styles = wrap (Prose_element "img") styles
 let prose_video styles = wrap (Prose_element "video") styles
 let prose_figure styles = wrap (Prose_element "figure") styles
@@ -1001,13 +1017,22 @@ let try_has_shorthand s =
 
 (* A bare arbitrary variant with no [&] anchor compounds onto the utility's own
    class, so it has to be a single compound selector: [[code]] and [[.line]] are
-   fine, [[>img]] and [[@media_print]] are not. *)
+   fine, [[>img]] and [[@media_print]] are not. The bracket is read as a
+   selector rather than scanned for combinator characters, because [~] and [|]
+   spell an attribute operator as well as a combinator: [[data-size~=large]] is
+   a compound and [[p_~_span]] is not, and only the grammar separates them. [_]
+   stands for a space here, the decoding {!nest_selector} applies. *)
 let is_compound_selector inner =
-  (match inner.[0] with
-    | 'a' .. 'z' | 'A' .. 'Z' | '.' | '#' | '[' | ':' | '*' -> true
-    | _ | (exception _) -> false)
-  && not
-       (String.exists (fun c -> c = '_' || c = '>' || c = '+' || c = '~') inner)
+  let s = String.map (fun c -> if c = '_' then ' ' else c) inner in
+  let cursor = Cascade.Cursor.of_string s in
+  match Css.Selector.read_strict_selector_list cursor with
+  | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
+  | List _ | Combined _ | Relative _ -> false
+  | _ ->
+      (* The reader stops at the first thing it cannot use, so trailing rubbish
+         has to be refused here: it is not part of the compound. *)
+      Cascade.Cursor.ws cursor;
+      Cascade.Cursor.is_done cursor
 
 (* A plain identifier: what a group/peer name or a bare data attribute may be
    spelled with. *)
@@ -1565,6 +1590,22 @@ let simple_modifiers =
     ("@7xl", Container Container_7xl);
   ]
 
+(* [simple_modifiers] holds the built-in breakpoints as a fixed set, so a
+   [@theme] block that removed one is only visible through the scheme: [md:]
+   then names a breakpoint the project does not have, and stops resolving the
+   way an unknown variant does. *)
+let modifier_breakpoint_is_defined theme = function
+  | Responsive bp | Min_responsive bp | Max_responsive bp ->
+      Scheme.has_breakpoint theme (Style.pp_modifier (Responsive bp))
+  | _ -> true
+
+(* Look a variant up in [simple_modifiers], honouring the theme's
+   breakpoints. *)
+let lookup_simple theme s =
+  match List.assoc_opt s simple_modifiers with
+  | Some m when modifier_breakpoint_is_defined theme m -> Some m
+  | Some _ | None -> None
+
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
 let try_custom_breakpoint breakpoints s =
   (* Direct name: e.g., "10xl" → Custom_responsive *)
@@ -1770,12 +1811,13 @@ let try_group_peer_not s =
   | None -> try_prefix "peer-not-" (fun i n -> Peer_not (i, n))
 
 (* Try not-* prefix: wrap inner modifier in Not *)
-let try_not_modifier s =
+let try_not_modifier theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
     let inner = String.sub s 4 (String.length s - 4) in
     match List.assoc_opt inner simple_modifiers with
-    | Some m when is_not_compatible m -> Some (Not m)
+    | Some m when is_not_compatible m ->
+        if modifier_breakpoint_is_defined theme m then Some (Not m) else None
     | Some _ -> None
     | None ->
         let fns =
@@ -1808,40 +1850,53 @@ let try_bare_data_aria s =
     if names_attribute expr then Some (Aria_bracket expr) else None
   else None
 
-(* Ordering of prose element variants (matches Tailwind v4 typography plugin) *)
+(* The order @tailwindcss/typography registers its element variants in, which is
+   the order it emits their rules in. A variant missing from here sorts before
+   every other, so its utility loses to one it should win against. *)
 let prose_element_variant_order = function
   | "headings" -> 96001
   | "h1" -> 96002
   | "h2" -> 96003
   | "h3" -> 96004
   | "h4" -> 96005
-  | "p" -> 96006
-  | "a" -> 96007
-  | "blockquote" -> 96008
-  | "figure" -> 96009
-  | "figcaption" -> 96010
-  | "strong" -> 96011
-  | "em" -> 96012
-  | "kbd" -> 96013
-  | "code" -> 96014
-  | "pre" -> 96015
-  | "ol" -> 96016
-  | "ul" -> 96017
-  | "li" -> 96018
-  | "thead" -> 96019
-  | "th" -> 96020
-  | "td" -> 96021
-  | "img" -> 96022
-  | "video" -> 96023
-  | "hr" -> 96024
-  | "lead" -> 96025
+  | "h5" -> 96006
+  | "h6" -> 96007
+  | "p" -> 96008
+  | "a" -> 96009
+  | "blockquote" -> 96010
+  | "figure" -> 96011
+  | "figcaption" -> 96012
+  | "strong" -> 96013
+  | "em" -> 96014
+  | "kbd" -> 96015
+  | "code" -> 96016
+  | "pre" -> 96017
+  | "ol" -> 96018
+  | "ul" -> 96019
+  | "li" -> 96020
+  | "dl" -> 96021
+  | "dt" -> 96022
+  | "dd" -> 96023
+  | "table" -> 96024
+  | "thead" -> 96025
+  | "tr" -> 96026
+  | "th" -> 96027
+  | "td" -> 96028
+  | "img" -> 96029
+  | "picture" -> 96030
+  | "video" -> 96031
+  | "hr" -> 96032
+  | "lead" -> 96033
   | _ -> 96000
 
-(* Known prose element variant names (matches Tailwind v4 typography plugin) *)
+(* One name per variant @tailwindcss/typography registers. A name outside this
+   set is not a variant there either, so the class is rejected rather than
+   compiled into a selector Tailwind never produces. *)
 let is_prose_element_name = function
   | "headings" | "p" | "a" | "strong" | "em" | "code" | "pre" | "ol" | "ul"
-  | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "img" | "video" | "figure"
-  | "figcaption" | "hr" | "th" | "td" | "thead" | "kbd" | "lead" ->
+  | "li" | "dl" | "dt" | "dd" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5"
+  | "h6" | "img" | "picture" | "video" | "figure" | "figcaption" | "hr"
+  | "table" | "tr" | "th" | "td" | "thead" | "kbd" | "lead" ->
       true
   | _ -> false
 
@@ -1964,7 +2019,7 @@ and try_scoped_container_query s =
 let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
-      (fun () -> List.assoc_opt s simple_modifiers);
+      (fun () -> lookup_simple theme s);
       (fun () -> try_container_query s);
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
@@ -1979,7 +2034,7 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
       (fun () -> try_container_variant theme s);
-      (fun () -> try_not_modifier s);
+      (fun () -> try_not_modifier theme s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
       (fun () -> try_custom_breakpoint (Scheme.breakpoint_names theme) s);
@@ -2056,228 +2111,469 @@ let apply ?(theme = Scheme.default) modifiers base_utility =
 
 (** {1 Variant Ordering}
 
-    These functions define the canonical Tailwind v4 cascade order for
-    modifiers. Ordering lives here — in the module that owns modifier semantics
-    — rather than in the assembly pipeline. *)
+    The Tailwind v4 cascade order of variants, written once. A {!Slot.t} names
+    one position in that order and {!Slot.rank} is the only place a number
+    appears; the three readings below - a modifier constructor, a class-name
+    token, a media condition a rule is nested in - each land on a slot rather
+    than on a scale of their own. Ordering lives here, in the module that owns
+    modifier semantics, rather than in the assembly pipeline. *)
 
-(** [not_variant_order m] returns the sort key for a [not-*] inner modifier.
-    Used when building [:not()] selectors to preserve cascade ordering. *)
-let not_variant_order = function
-  (* Block 1: structural pseudo-classes *)
-  | First -> 100
-  | Last -> 200
-  | Only -> 300
-  | Odd -> 400
-  | Even -> 500
-  | First_of_type -> 600
-  | Last_of_type -> 700
-  | Only_of_type -> 800
-  (* Block 1: state pseudo-classes *)
-  | Visited -> 900
-  | Target -> 1000
-  | Open -> 1100
-  | Default -> 1200
-  | Checked -> 1300
-  | Indeterminate -> 1400
-  | Placeholder_shown -> 1500
-  | Autofill -> 1600
-  | Optional -> 1700
-  | Required -> 1800
-  | Valid -> 1900
-  | Invalid -> 2000
-  | In_range -> 2100
-  | Out_of_range -> 2200
-  | Read_only -> 2300
-  (* Block 1: misc before hover *)
-  | Empty -> 2400
-  | Focus_within -> 2500
-  | Hover -> 2600
-  (* Block 2: interactive pseudo-classes (after hover media) *)
-  | Focus -> 2700
-  | Focus_visible -> 2800
-  | Active -> 2900
-  | Enabled -> 3000
-  | Disabled -> 3100
-  | Inert -> 3200
-  (* Block 2: complex selectors *)
-  | Has _ | Has_variant _ -> 3300
-  | Aria_selected -> 3340
-  | Aria_checked -> 3350
-  | Aria_expanded -> 3360
-  | Aria_disabled -> 3370
-  | Aria_bracket _ -> 3380
-  | Group_aria _ -> 3385
-  | Peer_aria _ -> 3390
-  | Data_custom _ -> 3400
-  | Data_bracket _ -> 3401
-  | Group_data _ -> 3402
-  | Peer_data _ -> 3403
-  | Data_state _ -> 3410
-  | Data_variant _ -> 3420
-  | Data_active -> 3430
-  | Data_inactive -> 3440
-  | Nth _ -> 3500
-  | Nth_last _ -> 3550
-  | Nth_of_type _ -> 3600
-  | Nth_last_of_type _ -> 3650
-  (* @supports *)
-  | Supports_property _ | Supports_condition _ -> 4000
-  (* Media: accessibility preferences *)
-  | Motion_safe -> 5000
-  | Motion_reduce -> 5100
-  | Contrast_more -> 5200
-  | Contrast_less -> 5300
-  (* Media: responsive — max first (descending), then min (ascending) *)
-  | Max_responsive _ -> 6000
-  | Max_arbitrary _ -> 6100
-  | Max_arbitrary_length _ -> 6150
-  | Min_arbitrary _ -> 6200
-  | Min_arbitrary_length _ -> 6250
-  | Min_responsive _ -> 6300
-  | Responsive _ -> 6400
-  (* Media: other *)
-  | Portrait -> 7000
-  | Landscape -> 7100
-  (* Selector: directionality *)
-  | Ltr -> 8000
-  | Rtl -> 8100
-  (* Media: appearance *)
-  | Dark -> 9000
-  | Print -> 9100
-  | Forced_colors -> 9200
-  | Noscript -> 9300
-  (* Custom: hocus/device-hocus *)
-  | Hocus -> 10000
-  | Device_hocus -> 10100
-  (* Bracket patterns *)
-  | Not_bracket _ -> 11000
-  (* Group/peer-not *)
-  | Group_not _ -> 12000
-  | Peer_not _ -> 12100
-  (* Fallback *)
-  | _ -> 5500
+module Slot = struct
+  (* One position in the variant cascade. Named separately from [Style.modifier]
+     because several modifiers share a position: every [group-*] spelling sorts
+     where [group-] sorts, and a [not-X] sorts where X does. *)
+  type t =
+    | Child  (** [*:]: every direct child. *)
+    | Descendant  (** [**:]: every descendant. *)
+    | Negation  (** [not-X:], ordered inside the slot by the X it negates. *)
+    | Group
+    | Peer
+    | Pseudo_first_letter
+    | Pseudo_first_line
+    | Pseudo_marker
+    | Pseudo_selection
+    | Pseudo_file
+    | Pseudo_placeholder
+    | Pseudo_backdrop
+    | Pseudo_details_content
+    | Pseudo_before
+    | Pseudo_after
+    | First
+    | Last
+    | Only
+    | Odd
+    | Even
+    | First_of_type
+    | Last_of_type
+    | Only_of_type
+    | Visited
+    | Target
+    | Open
+    | Default
+    | Checked
+    | Indeterminate
+    | Placeholder_shown
+    | Autofill
+    | Optional
+    | Required
+    | Valid
+    | Invalid
+    | User_valid
+    | User_invalid
+    | In_range
+    | Out_of_range
+    | Read_only
+    | Read_write
+    | Empty
+    | Focus_within
+    | Hover
+    | Focus
+    | Focus_visible
+    | Active
+    | Enabled
+    | Disabled
+    | Inert
+    | Ancestor  (** [in-*]: a state on an ancestor. *)
+    | Has
+    | Aria_named
+    | Aria_arbitrary
+    | Data_named
+    | Data_arbitrary
+    | Nth
+    | Nth_last
+    | Nth_of_type
+    | Nth_last_of_type
+    | Hocus
+    | Supports
+    | Motion_safe
+    | Motion_reduce
+    | Contrast_more
+    | Contrast_less
+    | Pointer
+    | Any_pointer
+    | Breakpoint  (** Every [sm:]/[max-lg:]/[min-[32rem]:] spelling. *)
+    | Portrait
+    | Landscape
+    | Ltr
+    | Rtl
+    | Dark
+    | Print
+    | Forced_colors
+    | Noscript
+    | Inverted_colors
+    | Starting
+    | Custom  (** A [\@custom-variant] the theme registers. *)
+    | Prose of string  (** [prose-X:], ordered by the element X names. *)
+    | Arbitrary  (** [[&>*]:], [not-[...]:] and the other bracket variants. *)
+    | Container_query
 
-(** [variant_order_of_prefix prefix] returns the position of a modifier prefix
-    string in the Tailwind v4 variant cascade. The prefix is the part before the
-    last ":" in a class name (e.g., "hover" in "hover:bg-blue-500", or
-    "dark:group-hover" in "dark:group-hover:text-white"). Returns 0 for unknown
-    or non-variant prefixes. *)
-let variant_order_of_prefix prefix =
+  (* The cascade order itself. Every other function in this section maps onto a
+     slot; this is the only place a position is a number. The gaps leave room to
+     insert a slot without renumbering its neighbours. *)
+  let rank = function
+    | Child -> 100
+    | Descendant -> 200
+    | Negation -> 300
+    | Group -> 500
+    | Peer -> 600
+    | Pseudo_first_letter -> 1000
+    | Pseudo_first_line -> 1000
+    | Pseudo_marker -> 1100
+    | Pseudo_selection -> 1200
+    | Pseudo_file -> 1300
+    | Pseudo_placeholder -> 1400
+    | Pseudo_backdrop -> 1401
+    | Pseudo_details_content -> 1500
+    | Pseudo_before -> 1600
+    | Pseudo_after -> 1601
+    | First -> 10100
+    | Last -> 10200
+    | Only -> 10300
+    | Odd -> 10400
+    | Even -> 10500
+    | First_of_type -> 10600
+    | Last_of_type -> 10700
+    | Only_of_type -> 10800
+    | Visited -> 10900
+    | Target -> 11000
+    | Open -> 11100
+    | Default -> 11200
+    | Checked -> 11300
+    | Indeterminate -> 11400
+    | Placeholder_shown -> 11500
+    | Autofill -> 11600
+    | Optional -> 11700
+    | Required -> 11800
+    | Valid -> 11900
+    | Invalid -> 12000
+    | User_valid -> 12010
+    | User_invalid -> 12020
+    | In_range -> 12100
+    | Out_of_range -> 12200
+    | Read_only -> 12300
+    | Read_write -> 12310
+    | Empty -> 12400
+    | Focus_within -> 12500
+    | Hover -> 20000
+    | Focus -> 30100
+    | Focus_visible -> 30200
+    | Active -> 30300
+    | Enabled -> 30400
+    | Disabled -> 30500
+    | Inert -> 30550
+    | Ancestor -> 30560
+    | Has -> 30600
+    | Aria_named -> 30700
+    | Aria_arbitrary -> 30790
+    | Data_named -> 30800
+    | Data_arbitrary -> 30810
+    | Nth -> 30900
+    | Nth_last -> 30910
+    | Nth_of_type -> 30920
+    | Nth_last_of_type -> 30930
+    | Hocus -> 35000
+    | Supports -> 40000
+    | Motion_safe -> 50000
+    | Motion_reduce -> 50100
+    | Contrast_more -> 50200
+    | Contrast_less -> 50300
+    | Breakpoint -> 60000
+    | Container_query -> 65000
+    | Portrait -> 70000
+    | Landscape -> 70100
+    | Ltr -> 80000
+    | Rtl -> 80100
+    | Dark -> 90000
+    | Starting -> 90500
+    | Print -> 91000
+    | Forced_colors -> 92000
+    | Inverted_colors -> 93100
+    | Pointer -> 93200
+    | Any_pointer -> 93300
+    | Noscript -> 93400
+    | Custom -> 95500
+    | Prose element -> prose_element_variant_order element
+    | Arbitrary -> 100000
+end
+
+(* The slot a modifier constructor sorts in. Exhaustive on purpose: a new
+   variant has to be given a position here rather than falling into a catch-all
+   that would drop it in the middle of the table. *)
+let rec slot_of_modifier : modifier -> Slot.t = function
+  (* Every group-/peer- spelling sorts where its wrapper does, whatever state it
+     carries. *)
+  | Group_hover | Group_focus | Group_active | Group_visited | Group_disabled
+  | Group_checked | Group_empty | Group_required | Group_valid | Group_invalid
+  | Group_indeterminate | Group_default | Group_open | Group_target
+  | Group_optional | Group_read_only | Group_read_write | Group_inert
+  | Group_user_valid | Group_user_invalid | Group_placeholder_shown
+  | Group_autofill | Group_in_range | Group_out_of_range | Group_focus_within
+  | Group_focus_visible | Group_enabled | Group_first | Group_last | Group_only
+  | Group_odd | Group_even | Group_first_of_type | Group_last_of_type
+  | Group_only_of_type | Group_hocus | Group_has _ | Group_arbitrary _
+  | Group_not _ | Group_data _ | Group_aria _ | Named_group _
+  | Not_named_group _ | Group_peer_named _ ->
+      Slot.Group
+  | Peer_hover | Peer_focus | Peer_checked | Peer_active | Peer_visited
+  | Peer_disabled | Peer_empty | Peer_required | Peer_valid | Peer_invalid
+  | Peer_indeterminate | Peer_default | Peer_open | Peer_target | Peer_optional
+  | Peer_read_only | Peer_read_write | Peer_inert | Peer_user_valid
+  | Peer_user_invalid | Peer_placeholder_shown | Peer_autofill | Peer_in_range
+  | Peer_out_of_range | Peer_focus_within | Peer_focus_visible | Peer_enabled
+  | Peer_first | Peer_last | Peer_only | Peer_odd | Peer_even
+  | Peer_first_of_type | Peer_last_of_type | Peer_only_of_type | Peer_hocus
+  | Peer_has _ | Peer_arbitrary _ | Peer_not _ | Peer_data _ | Peer_aria _
+  | Named_peer _ ->
+      Slot.Peer
+  | Children -> Slot.Child
+  | Descendants -> Slot.Descendant
+  | Pseudo_first_letter -> Slot.Pseudo_first_letter
+  | Pseudo_first_line -> Slot.Pseudo_first_line
+  | Pseudo_marker -> Slot.Pseudo_marker
+  | Pseudo_selection -> Slot.Pseudo_selection
+  | Pseudo_file -> Slot.Pseudo_file
+  | Pseudo_placeholder -> Slot.Pseudo_placeholder
+  | Pseudo_backdrop -> Slot.Pseudo_backdrop
+  | Pseudo_details_content -> Slot.Pseudo_details_content
+  | Pseudo_before -> Slot.Pseudo_before
+  | Pseudo_after -> Slot.Pseudo_after
+  | First -> Slot.First
+  | Last -> Slot.Last
+  | Only -> Slot.Only
+  | Odd -> Slot.Odd
+  | Even -> Slot.Even
+  | First_of_type -> Slot.First_of_type
+  | Last_of_type -> Slot.Last_of_type
+  | Only_of_type -> Slot.Only_of_type
+  | Visited -> Slot.Visited
+  | Target -> Slot.Target
+  | Open -> Slot.Open
+  | Default -> Slot.Default
+  | Checked -> Slot.Checked
+  | Indeterminate -> Slot.Indeterminate
+  | Placeholder_shown -> Slot.Placeholder_shown
+  | Autofill -> Slot.Autofill
+  | Optional -> Slot.Optional
+  | Required -> Slot.Required
+  | Valid -> Slot.Valid
+  | Invalid -> Slot.Invalid
+  | User_valid -> Slot.User_valid
+  | User_invalid -> Slot.User_invalid
+  | In_range -> Slot.In_range
+  | Out_of_range -> Slot.Out_of_range
+  | Read_only -> Slot.Read_only
+  | Read_write -> Slot.Read_write
+  | Empty -> Slot.Empty
+  | Focus_within -> Slot.Focus_within
+  | Hover -> Slot.Hover
+  | Focus -> Slot.Focus
+  | Focus_visible -> Slot.Focus_visible
+  | Active -> Slot.Active
+  | Enabled -> Slot.Enabled
+  | Disabled -> Slot.Disabled
+  | Inert -> Slot.Inert
+  | In_bracket _ | In_data _ | In_state _ | In_named_group _ -> Slot.Ancestor
+  | Has _ | Has_variant _ | Has_named_group _ -> Slot.Has
+  | Aria_checked | Aria_expanded | Aria_selected | Aria_disabled ->
+      Slot.Aria_named
+  | Aria_bracket _ -> Slot.Aria_arbitrary
+  | Data_state _ | Data_variant _ | Data_active | Data_inactive | Data_custom _
+    ->
+      Slot.Data_named
+  | Data_bracket _ -> Slot.Data_arbitrary
+  | Nth _ -> Slot.Nth
+  | Nth_last _ -> Slot.Nth_last
+  | Nth_of_type _ -> Slot.Nth_of_type
+  | Nth_last_of_type _ -> Slot.Nth_last_of_type
+  | Hocus | Device_hocus -> Slot.Hocus
+  | Supports_property _ | Supports_condition _ -> Slot.Supports
+  | Motion_safe -> Slot.Motion_safe
+  | Motion_reduce -> Slot.Motion_reduce
+  | Contrast_more -> Slot.Contrast_more
+  | Contrast_less -> Slot.Contrast_less
+  | Pointer_none | Pointer_coarse | Pointer_fine -> Slot.Pointer
+  | Any_pointer_none | Any_pointer_coarse | Any_pointer_fine -> Slot.Any_pointer
+  | Responsive _ | Min_responsive _ | Max_responsive _ | Min_arbitrary _
+  | Max_arbitrary _ | Min_arbitrary_length _ | Max_arbitrary_length _
+  | Custom_responsive _ | Min_custom _ | Max_custom _ ->
+      Slot.Breakpoint
+  | Portrait -> Slot.Portrait
+  | Landscape -> Slot.Landscape
+  | Ltr -> Slot.Ltr
+  | Rtl -> Slot.Rtl
+  | Dark -> Slot.Dark
+  | Print -> Slot.Print
+  | Forced_colors -> Slot.Forced_colors
+  | Noscript -> Slot.Noscript
+  | Inverted_colors -> Slot.Inverted_colors
+  | Starting -> Slot.Starting
+  | Custom_variant _ -> Slot.Custom
+  | Prose_element element -> Slot.Prose element
+  | Not_bracket _ | Arbitrary_selector _ | At_rule _ -> Slot.Arbitrary
+  | Container _ | Container_style _ -> Slot.Container_query
+  (* A negation sorts where the variant it negates sorts. *)
+  | Not inner -> slot_of_modifier inner
+
+(* The slot a class-name token sorts in, or [None] when the token names no
+   variant this table knows. The token is one modifier of a class name, the part
+   between two ":" (["hover"], ["group-has-checked"], ["@min-[64rem]"]). *)
+let slot_of_prefix prefix : Slot.t option =
+  let starts_with prefix' = String.starts_with ~prefix:prefix' prefix in
   match prefix with
-  (* Pseudo-elements *)
-  | "group-hover" | "peer-hover" -> 500
-  | "first-letter" | "first-line" -> 1000
-  | "marker" -> 1100
-  | "selection" -> 1200
-  | "file" -> 1300
-  | "placeholder" -> 1400
-  | "backdrop" -> 1401
-  | "details-content" -> 1500
-  | "before" -> 1600
-  | "after" -> 1601
-  (* Block 1: structural pseudo-classes *)
-  | "first" -> 10100
-  | "last" -> 10200
-  | "only" -> 10300
-  | "odd" -> 10400
-  | "even" -> 10500
-  | "first-of-type" -> 10600
-  | "last-of-type" -> 10700
-  | "only-of-type" -> 10800
-  | "visited" -> 10900
-  | "target" -> 11000
-  | "open" -> 11100
-  | "default" -> 11200
-  | "checked" -> 11300
-  | "indeterminate" -> 11400
-  | "placeholder-shown" -> 11500
-  | "autofill" -> 11600
-  | "optional" -> 11700
-  | "required" -> 11800
-  | "valid" -> 11900
-  | "invalid" -> 12000
-  | "user-valid" -> 12010
-  | "user-invalid" -> 12020
-  | "in-range" -> 12100
-  | "out-of-range" -> 12200
-  | "read-only" -> 12300
-  | "empty" -> 12400
-  | "focus-within" -> 12500
-  (* Hover — in @media(hover:hover) but between block 1 and block 2 *)
-  | "hover" -> 20000
-  (* Block 2: interactive pseudo-classes *)
-  | "focus" -> 30100
-  | "focus-visible" -> 30200
-  | "active" -> 30300
-  | "enabled" -> 30400
-  | "disabled" -> 30500
-  | "inert" -> 30550
-  | "data-custom" | "data-active" | "data-inactive" -> 30800
-  (* Hocus *)
-  | "hocus" | "device-hocus" -> 35000
-  | "portrait" -> 70000
-  | "landscape" -> 70100
-  (* Directionality *)
-  | "ltr" -> 80000
-  | "rtl" -> 80100
-  (* Appearance media *)
-  | "dark" -> 90000
-  | "print" -> 91000
-  | "forced-colors" -> 92000
-  | "noscript" -> 93000
-  | "inverted-colors" -> 93100
-  (* @starting-style: comes after all media queries including dark:hover *)
-  | "starting" -> 95000
-  | _ ->
-      if String.starts_with ~prefix:"group-" prefix then 500
-      else if String.starts_with ~prefix:"peer-" prefix then 600
-      else if String.starts_with ~prefix:"has-" prefix then 30600
-      else if String.starts_with ~prefix:"aria-" prefix then
-        if String.length prefix > 5 && prefix.[5] <> '[' then 30700 else 30790
-      else if String.starts_with ~prefix:"data-" prefix then
-        if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
-      else if
-        String.starts_with ~prefix:"supports-" prefix
-        || String.starts_with ~prefix:"supports" prefix
-      then 40000
-      else if prefix = "motion-safe" then 50000
-      else if prefix = "motion-reduce" then 50100
-      else if prefix = "contrast-more" then 50200
-      else if prefix = "contrast-less" then 50300
-      else if String.starts_with ~prefix:"pointer-" prefix then 50400
-      else if String.starts_with ~prefix:"any-pointer-" prefix then 50500
-      else if
-        prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
-        || prefix = "2xl"
-        || String.starts_with ~prefix:"min-" prefix
-        || String.starts_with ~prefix:"max-" prefix
-      then 60000
-      else if String.starts_with ~prefix:"prose-" prefix then
-        let name = String.sub prefix 6 (String.length prefix - 6) in
-        prose_element_variant_order name
-      else if String.length prefix > 0 && prefix.[0] = '[' then 100000
-      else if String.length prefix > 0 && prefix.[0] = '@' then 110000
-      else 0
+  (* [peer-hover] shares [group-hover]'s position rather than the one every
+     other [peer-] spelling takes. *)
+  | "*" -> Some Slot.Child
+  | "**" -> Some Slot.Descendant
+  | "group-hover" | "peer-hover" -> Some Slot.Group
+  | "first-letter" -> Some Slot.Pseudo_first_letter
+  | "first-line" -> Some Slot.Pseudo_first_line
+  | "marker" -> Some Slot.Pseudo_marker
+  | "selection" -> Some Slot.Pseudo_selection
+  | "file" -> Some Slot.Pseudo_file
+  | "placeholder" -> Some Slot.Pseudo_placeholder
+  | "backdrop" -> Some Slot.Pseudo_backdrop
+  | "details-content" -> Some Slot.Pseudo_details_content
+  | "before" -> Some Slot.Pseudo_before
+  | "after" -> Some Slot.Pseudo_after
+  | "first" -> Some Slot.First
+  | "last" -> Some Slot.Last
+  | "only" -> Some Slot.Only
+  | "odd" -> Some Slot.Odd
+  | "even" -> Some Slot.Even
+  | "first-of-type" -> Some Slot.First_of_type
+  | "last-of-type" -> Some Slot.Last_of_type
+  | "only-of-type" -> Some Slot.Only_of_type
+  | "visited" -> Some Slot.Visited
+  | "target" -> Some Slot.Target
+  | "open" -> Some Slot.Open
+  | "default" -> Some Slot.Default
+  | "checked" -> Some Slot.Checked
+  | "indeterminate" -> Some Slot.Indeterminate
+  | "placeholder-shown" -> Some Slot.Placeholder_shown
+  | "autofill" -> Some Slot.Autofill
+  | "optional" -> Some Slot.Optional
+  | "required" -> Some Slot.Required
+  | "valid" -> Some Slot.Valid
+  | "invalid" -> Some Slot.Invalid
+  | "user-valid" -> Some Slot.User_valid
+  | "user-invalid" -> Some Slot.User_invalid
+  | "in-range" -> Some Slot.In_range
+  | "out-of-range" -> Some Slot.Out_of_range
+  | "read-only" -> Some Slot.Read_only
+  | "read-write" -> Some Slot.Read_write
+  | "empty" -> Some Slot.Empty
+  | "focus-within" -> Some Slot.Focus_within
+  | "hover" -> Some Slot.Hover
+  | "focus" -> Some Slot.Focus
+  | "focus-visible" -> Some Slot.Focus_visible
+  | "active" -> Some Slot.Active
+  | "enabled" -> Some Slot.Enabled
+  | "disabled" -> Some Slot.Disabled
+  | "inert" -> Some Slot.Inert
+  | "data-custom" | "data-active" | "data-inactive" -> Some Slot.Data_named
+  | "hocus" | "device-hocus" -> Some Slot.Hocus
+  | "motion-safe" -> Some Slot.Motion_safe
+  | "motion-reduce" -> Some Slot.Motion_reduce
+  | "contrast-more" -> Some Slot.Contrast_more
+  | "contrast-less" -> Some Slot.Contrast_less
+  | "portrait" -> Some Slot.Portrait
+  | "landscape" -> Some Slot.Landscape
+  | "ltr" -> Some Slot.Ltr
+  | "rtl" -> Some Slot.Rtl
+  | "dark" -> Some Slot.Dark
+  | "print" -> Some Slot.Print
+  | "forced-colors" -> Some Slot.Forced_colors
+  | "noscript" -> Some Slot.Noscript
+  | "inverted-colors" -> Some Slot.Inverted_colors
+  | "starting" -> Some Slot.Starting
+  | "sm" | "md" | "lg" | "xl" | "2xl" -> Some Slot.Breakpoint
+  | _ when starts_with "group-" -> Some Slot.Group
+  | _ when starts_with "peer-" -> Some Slot.Peer
+  | _ when starts_with "has-" -> Some Slot.Has
+  | _ when starts_with "aria-" ->
+      (* [aria-] with nothing after it, and [aria-[expr]], take the arbitrary
+         position; the shorthand names take the named one. *)
+      if String.length prefix > 5 && prefix.[5] <> '[' then Some Slot.Aria_named
+      else Some Slot.Aria_arbitrary
+  | _ when starts_with "data-" ->
+      if String.length prefix > 5 && prefix.[5] = '[' then
+        Some Slot.Data_arbitrary
+      else Some Slot.Data_named
+  | _ when starts_with "supports" -> Some Slot.Supports
+  | _ when starts_with "pointer-" -> Some Slot.Pointer
+  | _ when starts_with "any-pointer-" -> Some Slot.Any_pointer
+  | _ when starts_with "min-" || starts_with "max-" -> Some Slot.Breakpoint
+  (* [nth-3], [nth-last-of-type-2]: the count is the argument, not part of the
+     variant name. Longest spelling first, so [nth-last-of-type-] is not read as
+     an [nth-last-] with a strange argument. *)
+  | _ when starts_with "nth-last-of-type-" -> Some Slot.Nth_last_of_type
+  | _ when starts_with "nth-of-type-" -> Some Slot.Nth_of_type
+  | _ when starts_with "nth-last-" -> Some Slot.Nth_last
+  | _ when starts_with "nth-" -> Some Slot.Nth
+  (* [in-focus], [in-data-open], [in-[.foo]]: a state on an ancestor. The
+     pseudo-classes that merely start with the same letters ([in-range],
+     [inert], [invalid]) are matched by name above. *)
+  | _ when starts_with "in-" -> Some Slot.Ancestor
+  (* Every [not-X] sorts together, ahead of the variants it can negate;
+     [variant_inner_order] puts the X back inside the slot. *)
+  | _ when starts_with "not-" -> Some Slot.Negation
+  | _ when starts_with "prose-" ->
+      Some (Slot.Prose (String.sub prefix 6 (String.length prefix - 6)))
+  | _ when prefix <> "" && prefix.[0] = '[' -> Some Slot.Arbitrary
+  | _ when prefix <> "" && prefix.[0] = '@' -> Some Slot.Container_query
+  | _ -> None
 
-(* [variant_order_of_media_cond cond] returns the same sort key as
-   [variant_order_of_prefix] for the corresponding CSS media condition. Used to
-   determine the cascade position of rules with nested media queries (e.g.,
-   dark:group-hover has a nested @media(hover:hover), so its effective inner
-   order is 20000, matching standalone hover). *)
-let variant_order_of_media_cond (cond : Css.Media.t) =
+(* The slot a media condition sorts in. A rule can take its position from the
+   query it is nested in rather than from its class name: [dark:group-hover]
+   writes a [(hover: hover)] query, and sorts where a bare [hover] sorts. *)
+let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
   let open Css.Media in
   match cond with
-  | Cond (Feature (Plain (Hover, Ident Hover))) -> 20000
+  | Cond (Feature (Plain (Hover, Ident Hover))) -> Some Slot.Hover
   | Cond (Feature (Plain (Prefers_reduced_motion, Ident No_preference))) ->
-      50000
-  | Cond (Feature (Plain (Prefers_reduced_motion, Ident Reduce))) -> 50100
-  | Cond (Feature (Plain (Prefers_contrast, Ident More))) -> 50200
-  | Cond (Feature (Plain (Prefers_contrast, Ident Less))) -> 50300
-  | Cond (Feature (Plain (Orientation, Ident Portrait))) -> 70000
-  | Cond (Feature (Plain (Orientation, Ident Landscape))) -> 70100
-  | Cond (Feature (Plain (Prefers_color_scheme, Ident Dark))) -> 90000
-  | Cond (Feature (Plain (Prefers_color_scheme, Ident Light))) -> 90000
-  | Type { prefix = None; type_ = Print; trailing = None } -> 91000
-  | Cond (Feature (Plain (Forced_colors, Ident Active))) -> 92000
-  | Cond (Feature (Plain (Inverted_colors, Ident Inverted))) -> 93100
-  | _ -> 0
+      Some Slot.Motion_safe
+  | Cond (Feature (Plain (Prefers_reduced_motion, Ident Reduce))) ->
+      Some Slot.Motion_reduce
+  | Cond (Feature (Plain (Prefers_contrast, Ident More))) ->
+      Some Slot.Contrast_more
+  | Cond (Feature (Plain (Prefers_contrast, Ident Less))) ->
+      Some Slot.Contrast_less
+  | Cond (Feature (Plain (Orientation, Ident Portrait))) -> Some Slot.Portrait
+  | Cond (Feature (Plain (Orientation, Ident Landscape))) -> Some Slot.Landscape
+  | Cond (Feature (Plain (Prefers_color_scheme, (Ident Dark | Ident Light)))) ->
+      Some Slot.Dark
+  | Type { prefix = None; type_ = Print; trailing = None } -> Some Slot.Print
+  | Cond (Feature (Plain (Forced_colors, Ident Active))) ->
+      Some Slot.Forced_colors
+  | Cond (Feature (Plain (Inverted_colors, Ident Inverted))) ->
+      Some Slot.Inverted_colors
+  | _ -> None
+
+(* What separates two tokens that share a slot: a [group-]/[peer-] token sorts
+   by the state it wraps and a [not-] token by the variant it negates, both read
+   off the same table as the slot itself. *)
+let variant_inner_order token =
+  let after n = String.sub token n (String.length token - n) in
+  let inner =
+    if String.starts_with ~prefix:"group-" token then Some (after 6)
+    else if String.starts_with ~prefix:"peer-" token then Some (after 5)
+    else if String.starts_with ~prefix:"not-" token then Some (after 4)
+    else
+      (* [in-focus] names a state on an ancestor; [in-range] names one on the
+         element itself, and the table matches that by name. *)
+      match slot_of_prefix token with
+      | Some Slot.Ancestor -> Some (after 3)
+      | Some _ | None -> None
+  in
+  match inner with
+  | Some inner -> (
+      match slot_of_prefix inner with Some slot -> Slot.rank slot | None -> 0)
+  | None -> 0
+
+let not_variant_order m = Slot.rank (slot_of_modifier m)
+
+let variant_order_of_prefix prefix =
+  match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0
+
+let variant_order_of_media_cond cond =
+  match slot_of_media_cond cond with Some slot -> Slot.rank slot | None -> 0

@@ -19,6 +19,7 @@
   cascade.diff
   fmt
   re
+  test_helpers
   upstream_fixture)
  (deps utilities.txt variants.txt))
 

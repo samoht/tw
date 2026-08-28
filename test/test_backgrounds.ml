@@ -237,6 +237,23 @@ let test_bracket_gradient_negated_angle_units () =
   | Ok _ -> Alcotest.fail "expected -bg-linear-[to_bottom] to be rejected"
   | Error _ -> ()
 
+(* The positive (non-negated) [bg-linear-[<value>]] bracket shares the same "is
+   this a rad value" question as the negated form: a [String.ends_with
+   ~suffix:"rad"] test also matches "grad", since gradians end in "rad" too.
+   bg-linear-[100grad] must keep its gradian unit rather than being read as a
+   radian value with a stray "g" prefix. *)
+let test_bracket_gradient_grad_unit () =
+  let css_of cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  in
+  has "bg-linear-[100grad]" "--tw-gradient-position: 100grad";
+  has "bg-linear-[100grad]" "linear-gradient(var(--tw-gradient-stops, 100grad))"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
@@ -549,6 +566,8 @@ let tests =
       test_bracket_gradient_radians;
     test_case "negated bracket gradient angle units" `Quick
       test_bracket_gradient_negated_angle_units;
+    test_case "bracket gradient grad unit" `Quick
+      test_bracket_gradient_grad_unit;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick

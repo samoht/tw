@@ -48,28 +48,32 @@ let theme_cross_module_vars () =
         ]
         (List.sort String.compare custom_props)
 
-let priority_seven_namespace_order () =
+(* Tailwind's [@theme] writes each token family as one block: the whole radius
+   scale, then drop-shadow, then ease, then animate, with perspective after
+   blur. A token a project [@theme] renames keeps the slot its name already
+   owns, so an override does not move it out of its family's block. *)
+let theme_family_block_order () =
   let expected =
     [
       "--radius-3xl";
-      "--drop-shadow-sm";
-      "--ease-in";
       "--radius-4xl";
+      "--drop-shadow-sm";
       "--drop-shadow-md";
-      "--ease-out";
       "--drop-shadow-lg";
-      "--ease-in-out";
       "--drop-shadow-xl";
+      "--drop-shadow-2xl";
+      "--ease-in";
+      "--ease-out";
+      "--ease-in-out";
       "--ease-linear";
       "--animate-none";
-      "--drop-shadow-2xl";
       "--animate-spin";
-      "--perspective-dramatic";
       "--animate-ping";
-      "--perspective-near";
       "--animate-pulse";
-      "--perspective-normal";
       "--animate-bounce";
+      "--perspective-dramatic";
+      "--perspective-near";
+      "--perspective-normal";
       "--perspective-midrange";
     ]
   in
@@ -115,7 +119,7 @@ let priority_seven_namespace_order () =
         |> Css.custom_props_of_rules
         |> List.filter (fun name -> List.mem name expected)
   in
-  check (list string) "Tailwind namespace order at shared slots" expected actual
+  check (list string) "Tailwind family block order" expected actual
 
 (* Utilities across ten modules bind [--spacing] as they emit, each supplying
    the value the theme layer declares. Each has to bind it to
@@ -172,7 +176,7 @@ let tests =
   [
     test_case "theme layer stable order" `Quick theme_layer_stable_order;
     test_case "theme cross-module vars" `Quick theme_cross_module_vars;
-    test_case "priority-7 namespace order" `Quick priority_seven_namespace_order;
+    test_case "theme family block order" `Quick theme_family_block_order;
     test_case "one spacing declaration" `Quick one_spacing_declaration;
   ]
 

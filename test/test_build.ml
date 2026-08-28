@@ -1,6 +1,7 @@
 module Css = Cascade.Css
 open Alcotest
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Padding
 open Tw.Margin
 open Tw.Modifiers
@@ -466,6 +467,66 @@ let test_resolve_deps_dedup_queue () =
   check bool "has text-xl line-height var" true
     (List.mem "--text-xl-line-height" vars)
 
+(* Where [sheet] declares each of [vars], in the order the sheet declares them.
+   The theme layer is the only place a [--name:] declaration appears; every
+   other mention is a [var()] reference with no colon after the name. *)
+let theme_var_order sheet vars =
+  let position v =
+    let needle = v ^ ":" in
+    let n = String.length needle and len = String.length sheet in
+    let rec scan i =
+      if i + n > len then failf "%s is missing from the sheet" v
+      else if String.sub sheet i n = needle then i
+      else scan (i + 1)
+    in
+    scan 0
+  in
+  List.map (fun v -> (position v, v)) vars |> List.sort compare |> List.map snd
+
+(* Several theme families number their slots from a base of their own, so tokens
+   from different families land on one slot and the tie falls to the variable
+   name, which interleaves them. Nothing rendered changes and the canonical
+   differ reads the two sheets as equal, so the CLI's own emission order is the
+   oracle. *)
+let check_theme_layer_family_order () =
+  let classes =
+    [
+      "rounded-4xl";
+      "drop-shadow-md";
+      "ease-out";
+      "animate-spin";
+      "animate-pulse";
+      "blur-md";
+      "perspective-dramatic";
+      "perspective-near";
+      "aspect-video";
+    ]
+  in
+  let vars =
+    [
+      "--radius-4xl";
+      "--drop-shadow-md";
+      "--ease-out";
+      "--animate-spin";
+      "--animate-pulse";
+      "--blur-md";
+      "--perspective-dramatic";
+      "--perspective-near";
+      "--aspect-video";
+    ]
+  in
+  let utilities =
+    List.map
+      (fun c ->
+        match Tw.of_string c with
+        | Ok u -> u
+        | Error (`Msg m) -> failf "%s: %s" c m)
+      classes
+  in
+  let expected = theme_var_order (tailwind_css classes) vars in
+  check (list string) "theme layer family order" expected
+    (theme_var_order (our_css utilities) vars)
+
 let test_theme_layer_media_refs () =
   (* Vars referenced only under media queries should still end up in theme. *)
   let theme_layer =
@@ -599,6 +660,23 @@ let test_md_media_dedup () =
     (count_selector_in_media_sel ~condition:"(min-width: 48rem)"
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
+
+(* Duplicate rules are dropped on cascade's structural selector equality, so a
+   class repeated in the input reaches the utilities layer once, and two
+   distinct selectors are never taken for one another. *)
+let test_duplicate_selector_dedup () =
+  let count css sel =
+    extract_utilities_layer_rules css
+    |> List.filter_map Css.statement_selector
+    |> List.filter (Css.Selector.equal sel)
+    |> List.length
+  in
+  let repeated = Tw.Build.to_css [ p 4; p 4 ] in
+  check int "repeated p-4 emits one rule" 1
+    (count repeated (Css.Selector.class_ "p-4"));
+  let distinct = Tw.Build.to_css [ p 4; m 4 ] in
+  check int "p-4 kept beside m-4" 1 (count distinct (Css.Selector.class_ "p-4"));
+  check int "m-4 kept beside p-4" 1 (count distinct (Css.Selector.class_ "m-4"))
 
 let test_md_hover_extra_media () =
   (* A responsive prefix wraps the hover rule's own (hover:hover) gate rather
@@ -944,9 +1022,30 @@ let test_theme_named_family_declaration_order () =
   check bool "--font-zeta declared before --font-alpha, as in the @theme block"
     true (zeta < alpha)
 
+(* [--default-font-family] is derived from [--font-sans]: a project that took
+   the family out of its theme leaves the derived token naming nothing, and
+   Tailwind drops it rather than emitting a reference that never resolves. *)
+let test_removed_family_drops_derived_default () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("font-sans", "initial") ]
+  in
+  let default_decls =
+    Tw.Typography.default_font_declarations
+    @ Tw.Typography.default_font_family_declarations
+  in
+  let theme_layer = Tw.Build.theme_layer_of ~theme ~default_decls [] in
+  let vars = vars_in_layer "theme" theme_layer in
+  check bool "--font-sans is gone" false (List.mem "--font-sans" vars);
+  check bool "--default-font-family goes with it" false
+    (List.mem "--default-font-family" vars);
+  check bool "--default-mono-font-family stays" true
+    (List.mem "--default-mono-font-family" vars)
+
 let tests =
   [
     test_case "starting-style blocks merge" `Quick test_starting_style_merges;
+    test_case "removed family drops its derived default" `Quick
+      test_removed_family_drops_derived_default;
     test_case "theme-named family keeps @theme declaration order" `Quick
       test_theme_named_family_declaration_order;
     test_case "referenced theme token emitted" `Quick
@@ -987,6 +1086,7 @@ let tests =
     test_case "inline_vs_variables_diff" `Quick test_inline_vs_variables_diff;
     test_case "resolve_dependencies_dedup_and_queue" `Quick
       test_resolve_deps_dedup_queue;
+    test_case "theme layer family order" `Quick check_theme_layer_family_order;
     test_case "theme_layer_collects_media_refs" `Quick
       test_theme_layer_media_refs;
     test_case "theme_layer_collects_media_refs (md)" `Quick
@@ -996,6 +1096,7 @@ let tests =
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
     test_case "multi-breakpoint grouping+order" `Quick test_media_grouping_order;
     test_case "md media dedup" `Quick test_md_media_dedup;
+    test_case "duplicate selector dedup" `Quick test_duplicate_selector_dedup;
     test_case "md:hover nests the hover gate" `Quick test_md_hover_extra_media;
     test_case "container hover nests the gate" `Quick test_container_hover_nests;
     test_case "container + media together" `Quick test_container_and_media;

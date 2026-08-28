@@ -281,16 +281,6 @@ end
 
 (** {1 Color Application Utilities} *)
 
-val bg : ?opacity:int -> ?shade:int -> color -> t
-(** [bg color] sets the background color. [shade] defaults to 500. [opacity]
-    sets the alpha modifier (0-100), e.g. [bg ~opacity:50 white]. *)
-
-val bg_transparent : t
-(** [bg_transparent] makes the background fully transparent. *)
-
-val bg_current : t
-(** [bg_current] uses [currentColor] for the background. *)
-
 val text : ?opacity:int -> ?shade:int -> color -> t
 (** [text color] sets the text color. [shade] defaults to 500. [opacity] sets
     the alpha modifier (0-100), e.g. [text ~opacity:50 red]. *)
@@ -542,9 +532,31 @@ val rgb_to_oklab : rgb -> float * float * float
 val shorten_hex_str : string -> string
 (** [shorten_hex_str hex] shortens a hex color string if possible. *)
 
-val bracket_color_to_custom : string -> color
-(** [bracket_color_to_custom inner] converts a bracket color string to a custom
-    color for opacity handling. *)
+val bracket_color_opacity_style :
+  ?merge_key:string ->
+  property:(Css.color -> Css.declaration) ->
+  Css.color ->
+  opacity_modifier ->
+  Style.t
+(** [bracket_color_opacity_style ~property c opacity] sets [property] to the
+    bracket colour [c] with [opacity] mixed into it. [c] is the colour the
+    bracket was parsed into, so a CSS keyword or colour function keeps its own
+    value rather than being read back through the palette. *)
+
+type bracket_opacity =
+  | Folded of Css.color
+      (** the single value a colour with a hex spelling and a literal alpha
+          resolves to *)
+  | Guarded of { fallback : Css.color; mixed : Css.color }
+      (** the colour itself, for a browser with no [color-mix()], and the mix
+          that goes behind an [@supports] guard *)
+
+val bracket_color_opacity : Css.color -> opacity_modifier -> bracket_opacity
+(** [bracket_color_opacity c opacity] is what [opacity] makes of the bracket
+    colour [c]. It answers values rather than declarations because the
+    properties they land on differ by family: a decoration colour writes a
+    vendor prefix alongside, and a divide colour hangs both on its child
+    selector. *)
 
 val parse_bracket_color : string -> Css.color option
 (** [parse_bracket_color inner] parses a bracket color value into a typed

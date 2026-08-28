@@ -41,8 +41,9 @@ let theme_src =
 
 let test_theme_overrides () =
   let tokens, inline = theme_overrides_of_css theme_src in
-  check pair_list "tokens, minus the reset cascade cannot read"
+  check pair_list "every token each block declares, in source order"
     [
+      ("color-*", "initial");
       ("color-brand", "red");
       ("animate-flash", "flash 2s");
       ("spacing", "0.3rem");
@@ -50,6 +51,19 @@ let test_theme_overrides () =
     ]
     tokens;
   check string_list "only the inline block's names" [ "font-x" ] inline
+
+(* [--<ns>-*: initial] takes a whole namespace out of the theme. The name is not
+   a <dashed-ident>, so no CSS parser can build a declaration from it and the
+   reset has to be read off the token stream; without it a project's reset never
+   reaches the renderer, which then keeps the built-in scale. *)
+let test_theme_namespace_reset () =
+  let tokens, _ =
+    theme_overrides_of_css
+      "@theme {\n  --breakpoint-*: initial;\n  --breakpoint-tablet: 800px;\n}"
+  in
+  check pair_list "the reset stands among the tokens beside it"
+    [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "800px") ]
+    tokens
 
 let test_imports_static_theme () =
   check bool "declared" true (imports_static_theme theme_src);
@@ -130,11 +144,60 @@ let test_hoist_theme_keyframes () =
        \  @keyframes flash { to { opacity: 0 } }\n\
         }\n")
 
+(* One [@apply] pulls in a rule per utility, each decorating the same [&]. They
+   are merged on selector equality, so the author's rule comes back once holding
+   every declaration rather than once per utility. *)
+let test_apply_merges_one_rule () =
+  let path = "apply-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc "@import \"tailwindcss\";\n.btn { @apply p-4 m-4; }\n");
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v []))
+  in
+  let btn = Cascade.Selector.class_ "btn" in
+  let rules =
+    Cascade.Css.statements out
+    |> List.filter_map Cascade.Css.statement_selector
+    |> List.filter (Cascade.Selector.equal btn)
+  in
+  check int "one .btn rule" 1 (List.length rules);
+  check string "holding both declarations"
+    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
+    (Cascade.Css.to_string ~minify:true out)
+
+(* Tailwind emits a declared utility as one block, its own nesting intact:
+   [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
+   rules, the second sorts by the property it writes and an unrelated utility
+   can land between them. *)
+let test_declared_utility_keeps_its_nesting () =
+  let udefs = [ ("line-y", " padding: 5px; &::before { color: red } ") ] in
+  let count, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      [ "line-y" ]
+  in
+  check int "one candidate generated" 1 count;
+  match entries with
+  | [ (cls, _, statements) ] ->
+      check string "the utility's own class" "line-y" cls;
+      check int "one block, not one rule per selector" 1
+        (List.length statements);
+      check string "the nested rule is still nested"
+        ".line-y{padding:5px;&:before{color:red}}"
+        (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
+  | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
     test_case "declared variants split out" `Quick test_split_declared_variants;
     test_case "theme overrides" `Quick test_theme_overrides;
+    test_case "theme namespace reset" `Quick test_theme_namespace_reset;
     test_case "static theme import" `Quick test_imports_static_theme;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "import options stripped" `Quick
@@ -144,6 +207,9 @@ let tests =
     test_case "custom utilities taken" `Quick test_take_custom_utilities;
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
+    test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
+    test_case "declared utility keeps its nesting" `Quick
+      test_declared_utility_keeps_its_nesting;
   ]
 
 let suite = ("entrypoint", tests)

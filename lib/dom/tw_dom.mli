@@ -53,9 +53,16 @@ val flush : unit -> unit
     style element back within the task that registered the utilities. *)
 
 val use_str : string -> string
-(** [use_str s] parses a space-separated Tailwind class string, registers the
-    utilities, and returns the class name string. Raises [Invalid_argument] if
-    any class is not recognized. *)
+(** [use_str s] parses a space-separated class string, registers the utilities
+    it recognises, and returns [s] unchanged so that every name still reaches
+    the element. It never raises: a name that is no utility may be a framework
+    hook or a JS selector, and taking the page down over one is never the right
+    answer. {!unknown_classes} reports the names it could not parse. *)
+
+val unknown_classes : unit -> string list
+(** [unknown_classes ()] lists, in first-seen order and once each, every name
+    {!use_str} was given that {!Tw.of_classes} did not recognise as a utility.
+    This is how a typo among them is found. *)
 
 val css : unit -> string
 (** [css ()] returns the current accumulated CSS as a string. *)

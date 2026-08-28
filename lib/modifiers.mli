@@ -624,6 +624,30 @@ val prose_h3 : t list -> t
 val prose_h4 : t list -> t
 (** [prose_h4 styles] applies [styles] to h4 elements within prose. *)
 
+val prose_h5 : t list -> t
+(** [prose_h5 styles] applies [styles] to h5 elements within prose. *)
+
+val prose_h6 : t list -> t
+(** [prose_h6 styles] applies [styles] to h6 elements within prose. *)
+
+val prose_dl : t list -> t
+(** [prose_dl styles] applies [styles] to dl elements within prose. *)
+
+val prose_dt : t list -> t
+(** [prose_dt styles] applies [styles] to dt elements within prose. *)
+
+val prose_dd : t list -> t
+(** [prose_dd styles] applies [styles] to dd elements within prose. *)
+
+val prose_table : t list -> t
+(** [prose_table styles] applies [styles] to table elements within prose. *)
+
+val prose_tr : t list -> t
+(** [prose_tr styles] applies [styles] to tr elements within prose. *)
+
+val prose_picture : t list -> t
+(** [prose_picture styles] applies [styles] to picture elements within prose. *)
+
 val prose_img : t list -> t
 (** [prose_img styles] applies [styles] to img elements within prose. *)
 
@@ -702,18 +726,31 @@ val parse_data_expr :
     the selector at render time and, via {!Css.Selector.attribute}'s own
     identifier check, to validate the expression at parse time. *)
 
-(** {1 Variant Ordering} *)
+(** {1 Variant Ordering}
+
+    The three functions below read one table of cascade positions, so they
+    cannot put a variant in one place as a [not-*] inner and another place as a
+    class-name token. All three return a key on the same scale, comparable with
+    each other. *)
 
 val not_variant_order : modifier -> int
-(** [not_variant_order m] returns the cascade sort key for a [not-*] inner
-    modifier. Matches the ordering of {!val-variant_order_of_prefix} for the
-    corresponding pseudo-class/media prefix. *)
+(** [not_variant_order m] returns the cascade sort key of the variant [m]. Used
+    for the inner modifier of a [not-*], which sorts where the variant it
+    negates sorts. Never 0: every modifier has a position. *)
 
 val variant_order_of_prefix : string -> int
 (** [variant_order_of_prefix prefix] returns the position of a modifier prefix
-    string in the Tailwind v4 variant cascade. The prefix is the part before the
-    last ":" in a base class name (e.g. ["hover"], ["dark:group-hover"]).
-    Returns 0 for unknown prefixes. *)
+    string in the Tailwind v4 variant cascade. The prefix is one modifier of a
+    class name, the part between two ":" (e.g. ["hover"], ["group-has-checked"],
+    ["@min-[64rem]"]). Returns 0 for a token that names no variant, which
+    {!Sort.compare_indexed_rules} reads as "this rule carries no variant". *)
+
+val variant_inner_order : string -> int
+(** [variant_inner_order token] returns what separates [token] from another
+    token in the same cascade position: the state a [group-]/[peer-] or [in-]
+    token names on another element, and the variant a [not-] token negates, all
+    on the scale {!val-variant_order_of_prefix} returns. [0] for every other
+    token. *)
 
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as

@@ -178,6 +178,38 @@ let ordering_diff ?(forms = false) utilities =
     (tailwind_css ~forms classnames)
     (our_css utilities)
 
+(* [Css_compare] drops a declaration its reader rejects from that side's AST
+   before the comparison runs, so a real difference can surface as a phantom
+   addition on the side that parsed, or as no difference at all when both sides
+   collapse to the same AST. A rejection is a finding about the comparison, not
+   noise to ignore.
+
+   One rejection is known and is Tailwind's own: it writes the [color-mix]
+   mixing amount as a bare number ([color-mix(in srgb, red .5, transparent)]),
+   where CSS Color 5 sec. 3.1 admits only a [<percentage>], so a browser drops
+   that declaration too. The upstream runner rewrites that spelling before
+   either side is parsed, so the exception is there for the suites that compare
+   against the live Tailwind CLI, which does not go through that rewrite. *)
+let known_reader_rejection (error : Cascade.Error.t) =
+  match error.kind with
+  | Cascade.Error.Bad_value { reason = "expected color-mix percentage"; _ } ->
+      true
+  | _ -> false
+
+let dropped_declarations (diff : Css_compare.t) =
+  diff.Css_compare.expected_warnings @ diff.Css_compare.actual_warnings
+  |> List.filter (fun e -> not (known_reader_rejection e))
+
+let check_no_dropped_declarations ~test_name diff =
+  let dropped = dropped_declarations diff in
+  if dropped <> [] then
+    Alcotest.failf
+      "%s: the comparison could not read %d declaration(s) and dropped them, \
+       so it compared less than it appears to:\n\
+       %s"
+      test_name (List.length dropped)
+      (String.concat "\n" (List.map Cascade.Error.to_string dropped))
+
 let check_ordering_fails ?forms utilities =
   match (ordering_diff ?forms utilities).Css_compare.result with
   | Css_compare.No_diff -> false
@@ -295,6 +327,21 @@ let browser_available root =
   && Sys.file_exists (Filename.concat root browser_script)
   && Sys.command "node --version > /dev/null 2>&1" = 0
 
+(* Skipping is right on a developer machine with no browser, and wrong on CI,
+   where it reports eight suites as finding no rendering difference because they
+   never looked. Set TW_BROWSER_TESTS=1 where the browser is meant to be present
+   and a missing one fails instead. *)
+let browser_required () = Sys.getenv_opt "TW_BROWSER_TESTS" = Some "1"
+
+let unavailable test_name reason =
+  if browser_required () then
+    Alcotest.failf "%s: TW_BROWSER_TESTS=1 but no usable browser: %s" test_name
+      reason
+  else begin
+    Fmt.epr "browser rendering unavailable: %s@." reason;
+    Alcotest.skip ()
+  end
+
 let write_file path content =
   let oc = open_out path in
   output_string oc content;
@@ -350,19 +397,30 @@ let render_elements classnames =
     (classnames
     @ List.map (fun (a, b) -> a ^ " " ^ b) (interacting_pairs classnames))
 
-let check_rendering_matches ?(forms = false) ~test_name utilities =
+(* The element list is line-oriented, so markup that spans lines in the test
+   source is folded onto one. HTML reads the two the same, and nothing the
+   comparison looks at is computed from the markup's own whitespace. *)
+let one_line s = String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c) s
+
+let check_rendering_matches ?(forms = false) ?(inner = "") ~test_name utilities
+    =
   let root =
     match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
   in
-  if not (browser_available root) then Alcotest.skip ();
+  if not (browser_available root) then
+    unavailable test_name "node, Playwright or the compare script is missing";
   let classnames = List.map Tw.pp utilities in
   let elements = render_elements classnames in
   let tailwind = tailwind_css ~forms classnames in
   let dir = render_dir root test_name in
   let path name = Filename.concat dir name in
+  let entry cls =
+    if String.equal inner "" then cls else cls ^ "\t" ^ one_line inner
+  in
   write_file (path "tw.css") (our_css utilities);
   write_file (path "tailwind.css") tailwind;
-  write_file (path "elements.txt") (String.concat "\n" elements);
+  write_file (path "elements.txt")
+    (String.concat "\n" (List.map entry elements));
   let out = path "diff.txt" and err = path "stderr.txt" in
   let cmd =
     Fmt.str "node %s %s %s %s > %s 2> %s"
@@ -383,13 +441,12 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
         (read_file out)
   | _ ->
       (* No usable browser (Chromium not downloaded, sandbox refused to start).
-         Report it and skip: it is a missing tool, not a difference. *)
-      Fmt.epr "browser rendering unavailable: %s@."
-        (String.trim (read_file err));
-      Alcotest.skip ()
+         A missing tool, not a difference. *)
+      unavailable test_name (String.trim (read_file err))
 
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in
+  check_no_dropped_declarations ~test_name diff;
   match diff.Css_compare.result with
   | Css_compare.No_diff -> ()
   | _ ->

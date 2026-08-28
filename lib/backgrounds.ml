@@ -828,17 +828,21 @@ module Handler = struct
 
   (** Convert a bracket gradient value to its CSS string. "125deg" → "125deg",
       "1.3rad" → "74.4845deg", "to_bottom" → "to bottom", "circle_at_center" →
-      "circle at center" *)
+      "circle at center". "100grad" stays "100grad": gradians are a distinct CSS
+      angle unit from radians, even though the word ends in the same three
+      letters. Reading the value as a real [<angle>] tells the two apart instead
+      of matching on the "rad" suffix, which "grad" also has. *)
   let bracket_value_to_css inner =
-    if String.ends_with ~suffix:"rad" inner then
-      let rad_s = String.sub inner 0 (String.length inner - 3) in
-      match float_of_string_opt rad_s with
-      | Some rad ->
-          let deg = rad *. 180.0 /. Float.pi in
-          (* Round to 4 decimal places to match Lightning CSS *)
-          Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
-      | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
-    else String.map (fun c -> if c = '_' then ' ' else c) inner
+    let decoded = String.map (fun c -> if c = '_' then ' ' else c) inner in
+    match
+      Cascade.Cursor.try_parse_full_err Css.Values.read_angle
+        (Cascade.Cursor.of_string decoded)
+    with
+    | Ok (Css.Rad rad) ->
+        let deg = rad *. 180.0 /. Float.pi in
+        (* Round to 4 decimal places to match Lightning CSS *)
+        Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
+    | Ok _ | Error _ -> decoded
 
   (* [interp_decl] for a typed direction [dir_val]: [With_interpolation] typed
      when [ci_opt] covers the modifier, printing [dir_val] back to CSS rather
@@ -1530,9 +1534,9 @@ module Handler = struct
           | None -> css_color
         in
         style [ Css.background_color c ]
-    | Bg_bracket_color_opacity (orig, _, opacity) ->
-        let c = Color.bracket_color_to_custom orig in
-        bg_with_opacity c 500 opacity
+    | Bg_bracket_color_opacity (_, css_color, opacity) ->
+        Color.bracket_color_opacity_style ~property:Css.background_color
+          css_color opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
@@ -1967,6 +1971,8 @@ let bg ?opacity ?(shade = 500) color =
   | None -> utility (Bg (color, shade))
   | Some pct -> utility (Bg_opacity (color, shade, Color.opacity_of_int pct))
 
+let bg_transparent = utility Bg_transparent
+let bg_current = utility Bg_current
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =

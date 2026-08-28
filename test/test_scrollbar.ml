@@ -66,11 +66,30 @@ let test_declares_what_it_references () =
     "the properties read are the properties set" (names ~read:false)
     (names ~read:true)
 
+(* Tailwind writes [transparent] into the custom property, and the optimizer
+   folds a token stream to [#0000]. Spelling the keyword as text therefore
+   produced the fold it was written to avoid, and the roundtrip checks above
+   never looked at the value. *)
+let test_transparent_keeps_its_keyword () =
+  let css =
+    match Tw.of_string "scrollbar-thumb-transparent" with
+    | Ok u ->
+        Tw.to_css ~base:false [ u ]
+        |> Tw.Css.optimize ~prune_unused_custom_props:true
+        |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "scrollbar-thumb-transparent: %s" m
+  in
+  Alcotest.(check bool)
+    "the utility keeps the transparent keyword" true
+    (Astring.String.is_infix ~affix:"--tw-scrollbar-thumb:transparent" css)
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "declares what it references" `Quick
         test_declares_what_it_references;
+      Alcotest.test_case "transparent keeps its keyword" `Quick
+        test_transparent_keeps_its_keyword;
     ]
 
 let suite = ("scrollbar", tests)

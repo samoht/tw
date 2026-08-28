@@ -196,14 +196,19 @@ let in_nested_scale namespace name =
       String.equal name nested || String.starts_with ~prefix:(nested ^ "-") name)
     (Option.value ~default:[] (List.assoc_opt namespace nested_scales))
 
-let clears_namespace name (key, value) =
-  String.equal value removed_value
-  && String.length key > 2
+let clears_one_namespace name key =
+  String.length key > 2
   && String.equal (String.sub key (String.length key - 2) 2) "-*"
   &&
   let namespace = String.sub key 0 (String.length key - 2) in
   String.starts_with ~prefix:namespace name
   && not (in_nested_scale namespace name)
+
+(* [--ns-*: initial] resets one namespace; the bare [--*: initial] names no
+   namespace at all and resets the whole theme. *)
+let clears_namespace name (key, value) =
+  String.equal value removed_value
+  && (String.equal key "*" || clears_one_namespace name key)
 
 (** Whether a [@theme] block removed [name], either outright or by resetting the
     namespace it belongs to. A token the block goes on to declare survives its
@@ -261,6 +266,11 @@ let all_breakpoints scheme =
                 (fun css -> Css.parse_length (String.trim css))
         in
         Option.map (fun length -> (name, length)) length)
+
+(** [has_breakpoint scheme name] is whether [scheme] still defines the
+    breakpoint [name], reading the same set as {!all_breakpoints} so a variant
+    and a container agree on what the theme has. *)
+let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
 
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)

@@ -298,11 +298,13 @@ and the fields it keys on.
        - Block at position 26: .contrast-more\:text-black
        + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
      ```
-     **Fix**: Media query merging is cascade's. Consecutive `@media` blocks with the same
-     condition should be merged; `merge_consecutive_media` in `cascade/lib/block.ml`
-     (re-exported from `cascade/lib/optimize.ml`) handles this. On the tw side,
-     `Build.utilities_layer` runs the same merge over the sorted utilities layer, so a
-     rule sorting between two blocks is the usual cause.
+     **Fix**: Media query merging is cascade's. `merge_consecutive_media` lives in
+     `cascade/lib/block.ml`, but `block` is one of cascade's `private_modules` and
+     `optimize.mli` does not re-export it, so tw cannot call it: `lib/build.ml` runs no
+     merge of its own, and `bin/main.ml` reaches cascade's optimizer only under
+     `--optimize`. A plain `--minify` sheet therefore gets no merging at all. The ask is
+     filed in cascade's TODO; until it lands, a rule sorting between two blocks is still
+     the usual cause worth checking first.
 
   2. **"blocks at different positions"** - Media query appears at wrong location:
      ```

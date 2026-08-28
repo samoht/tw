@@ -23,6 +23,18 @@ type selector_kind =
       has_aria : bool;
     }
 
+type variant_component = {
+  slot : int;  (** The position in the variant cascade the token sorts in. *)
+  breakpoint : Css.Media.key option;
+      (** The width a breakpoint token names, so [sm] and [md] do not collapse
+          onto one key. [None] for every other token. *)
+  wrapped : int;
+      (** The state a [group-]/[peer-] token wraps, so [group-focus] and
+          [group-has] keep their order. [0] for every other token. *)
+}
+(** One component of a rule's variant sort key: the slot a modifier token sorts
+    in, plus what separates two tokens that share that slot. *)
+
 type indexed_rule = {
   index : int;  (** Source position — used as a stable tiebreaker. *)
   rule_type :
@@ -36,18 +48,24 @@ type indexed_rule = {
   selector_kind : selector_kind;
   has_modifier_colon : bool;
   props : Css.declaration list;
+  declared : bool;
+      (** The rule came in as finished CSS from a project's own [@utility]. *)
+  declaration_count : int;
+      (** How many declarations the rule emits, those of its nested rules
+          included. A declared utility shares a slot with the built-ins named
+          for the same property, and the wider rule comes first, so the narrower
+          one wins the cascade. Read only when one side is {!field-declared}. *)
   order : int * int;  (** [(priority, suborder)] from the utility definition. *)
   nested : Css.statement list;
   base_class : string option;
   merge_key : string option;
-  not_order : int;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
   variant_key : string * int;
       (** Precomputed [(variant prefix, effective inner order)], built with
           {!variant_sort_key}, so {!val-compare_indexed_rules} does not
           recompute it per comparison. *)
-  variant_orders : (int * int) list;
+  variant_orders : variant_component list;
       (** The rule's variant order keys sorted descending, built with
           {!variant_order_list}. Compared lexicographically by
           {!val-compare_indexed_rules} so a stacked variant sorts into the group
@@ -78,11 +96,14 @@ val variant_sort_key : string option -> Css.statement list -> string * int
     [(variant prefix, effective inner variant order)] pair stored in
     {!field-variant_key}. *)
 
-val variant_order_list : string option -> int -> (int * int) list
-(** [variant_order_list base_class variant_order] is the descending list of
-    variant order keys stored in {!field-variant_orders}. [variant_order] is the
-    scalar fallback for selector-derived variants with no order-bearing prefix.
-*)
+val variant_order_list :
+  string option -> int -> Css.Media.key option -> variant_component list
+(** [variant_order_list base_class variant_order breakpoint] is the descending
+    list of variant order keys stored in {!field-variant_orders}.
+    [variant_order] is the scalar fallback for selector-derived variants with no
+    order-bearing prefix. [breakpoint] is the rule's {!val-responsive_media_key}
+    and becomes the {!field-variant_component.breakpoint} of whichever token
+    names a breakpoint. *)
 
 val media_sort_keys :
   [ `Regular

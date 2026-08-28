@@ -110,6 +110,33 @@ let test_arbitrary_colour_opacity () =
   has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-text-shadow-alpha:var(--x)";
   has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
 
+(* An arbitrary text-shadow takes a named colour, the same as the box-shadow
+   twin [shadow-[0_1px_2px_red]] does. The reader recognised a [#] hex, a var()
+   and a colour function and nothing else, so a name fell through to the length
+   slot, failed to read as a length, and took the whole utility down with it. *)
+let test_arbitrary_named_colour () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  emits "text-shadow-[0_1px_2px_red]"
+    "text-shadow:0 1px 2px var(--tw-text-shadow-color,red)";
+  emits "text-shadow-[1px_1px_rebeccapurple]"
+    "text-shadow:1px 1px var(--tw-text-shadow-color,rebeccapurple)";
+  emits "text-shadow-[0_1px_2px_currentColor]"
+    "var(--tw-text-shadow-color,currentcolor)";
+  (* a word that names neither a length nor a colour is still not a shadow *)
+  rejected "text-shadow-[0_1px_notacolour]"
+
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
    whole bracket and as the colour of an arbitrary shadow. The reader kept the
    text after the [#] as-is and the raising constructor saw it when the sheet
@@ -149,6 +176,8 @@ let tests =
         test_arbitrary_color_function;
       Alcotest.test_case "arbitrary colour opacity" `Quick
         test_arbitrary_colour_opacity;
+      Alcotest.test_case "arbitrary named colour" `Quick
+        test_arbitrary_named_colour;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
     ]
 

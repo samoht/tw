@@ -38,163 +38,74 @@ open Upstream_fixture
    the same value. That is pure fixture skew, not a tw bug: Tailwind's snapshot
    serialiser truncates oklab axes for cross-OS stability, and the fixtures fold
    a concrete-colour opacity to [oklab] where tw keeps the shorter exact colour.
-   One tolerance remains on top of that -- [is_allowed_canonicalization_diff],
-   for [--font-sans] / [--tw-prose-*] custom-property skew. Set
-   [TW_UPSTREAM_STRICT=1] to disable it and watch for changes that close the
-   gap. (A [--text-*--line-height] allowance, a mask-angle calc allowance, an
-   [@property --spacing] hint, a prose selector-permutation allowance and the
-   hard-coded stale-colour allowlist were all dropped earlier, once tw honoured
-   theme line-height overrides, emitted Tailwind's exact mask degrees, cascade
-   gained typed calc + the custom-property prune, and the colour normalisation
-   above replaced the allowlist.) *)
-let strict = Sys.getenv_opt "TW_UPSTREAM_STRICT" <> None
+   Nothing else is tolerated: the diff a case reports is the diff it fails on.
+   (A [--font-sans] / [--tw-prose-*] custom-property allowance, a
+   [--text-*--line-height] allowance, a mask-angle calc allowance, an [@property
+   --spacing] hint, a prose selector-permutation allowance and the hard-coded
+   stale-colour allowlist were all dropped, once tw honoured theme line-height
+   overrides, emitted Tailwind's exact mask degrees, cascade gained typed calc +
+   the custom-property prune, and the colour normalisation above replaced the
+   allowlist.) *)
 
-(** Extract spacing values from expected CSS. *)
-let extract_spacing_from_css css : (int * Css.length) list =
-  let spacing_pattern = Re.Pcre.regexp {|--spacing-(\d+):\s*([0-9.]+)rem|} in
-  let matches = Re.all spacing_pattern css in
+(** The scheme fields a fixture's own [@theme] declarations set.
+
+    Reading them out of the expected CSS instead would hand tw the very value it
+    is about to be compared against: on such a token the runner is blind, and a
+    built-in default can be wrong without a single case failing. A fixture's
+    [@theme-var] lines are the test's own input, so they are an oracle the run
+    cannot contaminate. Tokens with no typed [Scheme.t] field (the bare
+    [--spacing] multiplier, [--breakpoint-*], a named [--spacing-big]) ride on
+    the token overrides applied further down. *)
+let declared_with_prefix ~prefix theme_vars =
   List.filter_map
-    (fun m ->
-      try
-        let n = int_of_string (Re.Group.get m 1) in
-        let value = float_of_string (Re.Group.get m 2) in
-        Some (n, (Css.Rem value : Css.length))
-      with Not_found | Failure _ -> None)
-    matches
+    (fun (name, value) ->
+      if String.starts_with ~prefix name then
+        let n = String.length prefix in
+        Some (String.sub name n (String.length name - n), String.trim value)
+      else None)
+    theme_vars
 
-(** Extract radius values from expected CSS. *)
-let extract_radius_from_css css : (string * Css.length) list =
-  let radius_pattern =
-    Re.Pcre.regexp {|--radius-([a-zA-Z0-9-]+):\s*([0-9.]+)(px|rem)?|}
+let scheme_of_theme_vars theme_vars : Tw.Scheme.t =
+  let spacing =
+    declared_with_prefix ~prefix:"spacing-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        match (int_of_string_opt key, Css.parse_length value) with
+        | Some n, Some length -> Some (n, length)
+        | _ -> None)
   in
-  let matches = Re.all radius_pattern css in
-  List.filter_map
-    (fun m ->
-      try
-        let name = Re.Group.get m 1 in
-        let value = float_of_string (Re.Group.get m 2) in
-        let unit = try Re.Group.get m 3 with Not_found -> "" in
-        let length : Css.length =
-          match unit with
-          | "px" -> Px value
-          | "rem" -> Rem value
-          | "" when value = 0.0 -> Zero
-          | _ -> Px value
-        in
-        Some (name, length)
-      with Not_found | Failure _ -> None)
-    matches
-
-let extract_ring_width css : int =
-  let pattern =
-    Re.Pcre.regexp
-      {|\.ring\s*\{[^}]*calc\((\d+)px\s*\+\s*var\(--tw-ring-offset-width\)\)|}
+  let radius =
+    declared_with_prefix ~prefix:"radius-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        Option.map (fun length -> (key, length)) (Css.parse_length value))
   in
-  match Re.exec_opt pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> 1
-
-let extract_border_width css : int =
-  let border_pattern =
-    Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|}
+  let colors =
+    declared_with_prefix ~prefix:"color-" theme_vars
+    |> List.filter_map (fun (key, value) ->
+        if String.length value > 0 && value.[0] = '#' then
+          Some (key, Tw.Scheme.Hex value)
+        else None)
   in
-  match Re.exec_opt border_pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> (
-      (* Also check divide-x/divide-y patterns: calc(Npx *
-         var(--tw-divide-...)) *)
-      let divide_pattern =
-        Re.Pcre.regexp
-          {|calc\((\d+)px \* (?:var\(--tw-divide-[xy]-reverse\)|\(1)|}
-      in
-      match Re.exec_opt divide_pattern css with
-      | Some m -> (
-          try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-      | None -> 1)
-
-let extract_outline_width css : int =
-  let pattern =
-    Re.Pcre.regexp {|\.outline\s*\{[^}]*outline-width:\s*(\d+)px|}
+  let px name default =
+    match List.assoc_opt name theme_vars with
+    | Some value -> (
+        match Css.parse_length (String.trim value) with
+        | Some (Css.Px px) -> int_of_float px
+        | Some Css.Zero -> 0
+        | _ -> default)
+    | None -> default
   in
-  match Re.exec_opt pattern css with
-  | Some m -> (
-      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
-  | None -> 1
-
-(** Extract breakpoint values from expected CSS. Looks for patterns like
-    [@media (min-width: 640px)] and maps them to standard breakpoint names using
-    the known Tailwind v4 breakpoint→px mapping. Returns all standard
-    breakpoints when any px-based breakpoint is found. *)
-let extract_breakpoints_from_css expected =
-  let pattern = Re.Pcre.regexp {|@media[^(]*\(min-width:\s*(\d+)px\)|} in
-  let matches = Re.all pattern expected in
-  let px_values =
-    List.filter_map
-      (fun m ->
-        try Some (float_of_string (Re.Group.get m 1))
-        with Not_found | Failure _ -> None)
-      matches
-  in
-  (* Standard Tailwind v4 breakpoints *)
-  let standard =
-    [ ("sm", 640.); ("md", 768.); ("lg", 1024.); ("xl", 1280.); ("2xl", 1536.) ]
-  in
-  (* If any px-based breakpoint is found in expected CSS, return all standard
-     breakpoints that appear in the expected CSS *)
-  if px_values = [] then []
-  else List.filter (fun (_, px) -> List.mem px px_values) standard
-
-let scheme_from_expected_css expected : Tw.Scheme.t =
-  let spacing = extract_spacing_from_css expected in
-  let radius = extract_radius_from_css expected in
-  let default_ring_width = extract_ring_width expected in
-  let default_border_width = extract_border_width expected in
-  let default_outline_width = extract_outline_width expected in
-  let breakpoints = extract_breakpoints_from_css expected in
+  let default = Tw.Scheme.default in
   {
-    Tw.Scheme.default with
-    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
+    default with
+    colors;
     spacing;
     radius;
-    default_ring_width;
-    default_border_width;
-    default_outline_width;
-    breakpoints;
+    default_ring_width = px "default-ring-width" default.default_ring_width;
+    default_border_width =
+      px "default-border-width" default.default_border_width;
+    default_outline_width =
+      px "default-outline-width" default.default_outline_width;
   }
-
-let setup_scheme_for_test expected =
-  (* The scheme is threaded into Tw.of_string and Tw.to_css via ~theme; the
-     custom breakpoints it carries are what the modifier parser reads. *)
-  scheme_from_expected_css expected
-
-(** Extract all CSS variable names referenced in expected CSS text. *)
-let extract_var_names expected =
-  let vars = ref Css.Pp.String_set.empty in
-  let len = String.length expected in
-  let rec scan i =
-    if i < len - 2 && expected.[i] = '-' && expected.[i + 1] = '-' then (
-      let j = ref (i + 2) in
-      while
-        !j < len
-        &&
-        let c = expected.[!j] in
-        (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || (c >= '0' && c <= '9')
-        || c = '-' || c = '_'
-      do
-        incr j
-      done;
-      if !j > i + 2 then
-        vars :=
-          Css.Pp.String_set.add (String.sub expected (i + 2) (!j - i - 2)) !vars;
-      scan !j)
-    else if i < len then scan (i + 1)
-  in
-  scan 0;
-  !vars
 
 (* The expected CSS is Tailwind's own output, so a token read back out of it and
    handed to tw is compared against itself: on that token the runner is blind.
@@ -208,8 +119,25 @@ let declared_root_vars ~declared expected =
     (fun (name, _) -> List.mem name declared)
     (extract_root_vars expected)
 
-(** Build theme configuration for CSS emission. *)
-let theme_config ~declared config expected =
+(* [Css.resolve_theme]'s keep-set decides which of tw's [var()] references
+   survive and which are inlined from [theme_defaults]. Keying it on the names
+   the expected CSS happens to spell makes the comparison one-directional: where
+   tw emits [var(--color-red-500)] and Tailwind emitted [#ef4444], the name is
+   absent from the expected bytes, so tw's reference is inlined to the same
+   literal before the diff and the case passes. That is exactly the
+   variables-versus-inline choice the [Var] system exists to get right.
+
+   Which tokens are inlined is a property of the fixture's own [@config], not of
+   the output being compared: [@theme inline] inlines every token by definition,
+   and the [run()] harness inlines the two [--default-transition-*] tokens it
+   treats as literal fallbacks. Every other reference is tw's to defend, so the
+   keep-set holds it live and the diff sees it. Binding a free reference at
+   [:root] is a separate pass with no keep-set: it adds the declaration tw's
+   [~base:false] render leaves out rather than replacing a value. *)
+let inlined_tokens =
+  [ "default-transition-timing-function"; "default-transition-duration" ]
+
+let theme_resolution ~declared config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
@@ -217,45 +145,78 @@ let theme_config ~declared config expected =
     ]
   in
   let root_vars = declared_root_vars ~declared expected in
-  let combined_defaults name =
-    match List.assoc_opt name root_vars with
-    | Some _ as result -> result
-    | None -> (
-        match Tw.Var.resolve_theme_refs name with
-        | Some _ as result -> result
-        | None ->
-            List.find_map
-              (fun (var_name, _, default) ->
-                if name = var_name then Some default else None)
-              hardcoded)
-  in
-  let hardcoded_only name =
+  let of_hardcoded pick name =
     List.find_map
-      (fun (var_name, _, default) ->
-        if name = var_name then Some default else None)
+      (fun (var_name, inline_val, default) ->
+        if name = var_name then Some (pick (inline_val, default)) else None)
       hardcoded
   in
-  let combined_inline_defaults name =
+  let defaults pick name =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
         match Tw.Var.resolve_theme_refs name with
         | Some _ as result -> result
-        | None ->
-            List.find_map
-              (fun (var_name, inline_val, _) ->
-                if name = var_name then Some inline_val else None)
-              hardcoded)
+        | None -> of_hardcoded pick name)
+  in
+  let combined_defaults = defaults snd in
+  let combined_inline_defaults = defaults fst in
+  (* Inline the named tokens and nothing else: an empty keep-set with a lookup
+     that answers only for them. *)
+  let inline_pass names theme_defaults stylesheet =
+    Css.resolve_theme ~theme:Css.Pp.String_set.empty
+      ~theme_defaults:(fun name ->
+        if List.mem name names then theme_defaults name else None)
+      stylesheet
+  in
+  let bind_pass theme_defaults stylesheet =
+    Css.resolve_theme ~theme_defaults stylesheet
   in
   match config with
-  | Run -> (extract_var_names expected, combined_defaults)
-  | Theme -> (extract_var_names expected, combined_defaults)
-  | Theme_inline -> (Css.Pp.String_set.empty, combined_inline_defaults)
-  | No_theme -> (extract_var_names expected, hardcoded_only)
-  | Theme_reference | Theme_inline_reference ->
-      (extract_var_names expected, fun _ -> None)
+  | Run ->
+      (* The [run()] harness renders the [--default-*] tokens as literal
+         fallbacks whether or not the case redeclares them. *)
+      fun stylesheet ->
+        stylesheet
+        |> inline_pass inlined_tokens combined_defaults
+        |> bind_pass combined_defaults
+  | Theme ->
+      (* Under [@theme] a token the case declares is a real theme token with a
+         [:root] declaration behind it, so its reference stays live; one it does
+         not declare comes from the implicit default theme, which the fixtures
+         render inline. *)
+      let inlined =
+        List.filter (fun name -> not (List.mem name declared)) inlined_tokens
+      in
+      fun stylesheet ->
+        stylesheet
+        |> inline_pass inlined combined_defaults
+        |> bind_pass combined_defaults
+  | Theme_inline ->
+      (* [@theme inline] means every token is inlined at its use site, so the
+         empty keep-set is the config's own semantics rather than a reading of
+         the expected output. *)
+      fun stylesheet ->
+        Css.resolve_theme ~theme:Css.Pp.String_set.empty
+          ~theme_defaults:combined_inline_defaults stylesheet
+  | No_theme ->
+      fun stylesheet -> inline_pass inlined_tokens (of_hardcoded snd) stylesheet
+  | Theme_reference | Theme_inline_reference -> Fun.id
 
 let canonical_stylesheet_css css = String.trim css
+
+(* Tailwind compiled the corpus from each case's own [@theme] block, with no
+   default theme behind it, so the [@keyframes] that theme declares are in no
+   expected sheet: even [animate-spin] comes out without [@keyframes spin]. tw
+   renders against the built-in theme, which carries them, so they are dropped
+   here rather than read as rules Tailwind failed to emit. The same classes
+   compiled against a real entrypoint do get them, and [tw --diff] covers
+   that. *)
+let drop_theme_keyframes stylesheet =
+  Css.v
+    (List.filter
+       (fun stmt -> Option.is_none (Css.as_keyframes stmt))
+       (Css.statements stylesheet))
 
 (* [color-mix(in oklab, C p%, transparent)] denotes the concrete colour C at
    alpha p, which LightningCSS folds to an [oklab(...)] in the fixtures. tw
@@ -342,35 +303,6 @@ let truncate_color_precision =
         let args = Re.replace frac args ~f:(fun d -> "." ^ Re.Group.get d 1) in
         name ^ "(" ^ args ^ ")")
 
-let is_allowed_canonicalization_diff diff =
-  let allowed_custom_property = function
-    | "--font-sans" | "--font-mono" -> true
-    | name when String.starts_with ~prefix:"--tw-prose-" name -> true
-    | _ -> false
-  in
-  let allowed_rule_change = function
-    | Tree_diff.Content_changed
-        { property_changes; added_properties = []; removed_properties = []; _ }
-      ->
-        property_changes <> []
-        && List.for_all
-             (fun (change : Tree_diff.declaration) ->
-               allowed_custom_property change.property_name)
-             property_changes
-    | _ -> false
-  in
-  let allowed_container = function
-    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
-        List.for_all allowed_rule_change rule_changes
-    | _ -> false
-  in
-  match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules; containers; layer_order = None } ->
-      (rules <> [] || containers <> [])
-      && List.for_all allowed_rule_change rules
-      && List.for_all allowed_container containers
-  | _ -> false
-
 (* Guards [declared_root_vars]: only a token the test's own [@theme] block
    declared is read back out of the expected CSS, so the runner never hands tw
    the very value it is about to compare against. *)
@@ -385,15 +317,86 @@ let test_echo_only_declared_tokens () =
     [ "radius" ]
     (List.map fst (declared_root_vars ~declared:[ "radius" ] expected))
 
-let test_layer_order_not_tolerated () =
-  let expected =
-    "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
+(* Guards [scheme_of_theme_vars]: a value that only ever appears in the expected
+   CSS cannot reach tw as a scheme override, so a wrong built-in default still
+   fails the case. Only the fixture's own [@theme] declarations get through. *)
+let test_scheme_from_declared_tokens_only () =
+  let scheme =
+    scheme_of_theme_vars
+      [
+        ("spacing-4", "1rem");
+        ("radius-full", "9999px");
+        ("default-border-width", "2px");
+      ]
   in
-  let actual = "@layer strong, weak;@media (width >= 1px){.x{--font-sans:b}}" in
-  let diff = Css_compare.diff ~mode:`Tree expected actual in
+  Alcotest.(check int)
+    "the declared border width is read" 2 scheme.Tw.Scheme.default_border_width;
+  Alcotest.(check int)
+    "an undeclared ring width keeps the built-in default"
+    Tw.Scheme.default.default_ring_width scheme.Tw.Scheme.default_ring_width;
+  Alcotest.(check int)
+    "an undeclared outline width keeps the built-in default"
+    Tw.Scheme.default.default_outline_width
+    scheme.Tw.Scheme.default_outline_width;
   Alcotest.(check bool)
-    "a tolerated declaration cannot hide a layer-order change" false
-    (is_allowed_canonicalization_diff diff)
+    "the declared radius is read" true
+    (Tw.Scheme.radius scheme "full" = Some (Css.Px 9999.));
+  Alcotest.(check bool)
+    "an undeclared radius stays absent" false
+    (Tw.Scheme.has_explicit_radius scheme "sm");
+  Alcotest.(check bool)
+    "the declared spacing step is read" true
+    (Tw.Scheme.spacing scheme 4 = Some (Css.Rem 1.));
+  Alcotest.(check bool)
+    "an undeclared spacing step stays absent" false
+    (Tw.Scheme.has_explicit_spacing scheme 8)
+
+(* Guards [theme_resolution]: what gets inlined before the diff is decided by
+   the case's [@config] and its own declarations, not by the names the expected
+   CSS happens to spell. The keep-set used to be every [--name] in the expected
+   bytes, so a reference tw emitted where Tailwind emitted a literal was inlined
+   off tw's side first and the case could not fail -- the one behaviour the
+   [Var] system exists to get right, never compared. *)
+let test_reference_survives_theme_resolution () =
+  let stylesheet =
+    match
+      Css.of_string
+        ".x { transition-duration: var(--default-transition-duration) }"
+    with
+    | Ok { stylesheet; _ } -> stylesheet
+    | Error _ -> Alcotest.fail "the fixture stylesheet does not parse"
+  in
+  (* An expected CSS that spells no variable at all: under the old keep-set
+     every reference was inlined away. *)
+  let rendered ~declared =
+    Css.to_string ~minify:true (theme_resolution ~declared Theme "" stylesheet)
+  in
+  let references css =
+    Re.execp (Re.compile (Re.str "var(--default-transition-duration)")) css
+  in
+  Alcotest.(check bool)
+    "a token the case declares keeps tw's reference" true
+    (references (rendered ~declared:[ "default-transition-duration" ]));
+  Alcotest.(check bool)
+    "a token the case does not declare is inlined, as @theme renders it" false
+    (references (rendered ~declared:[]))
+
+(* Guards [Test_helpers.check_no_dropped_declarations], which every comparison
+   in the runner goes through: a declaration the reader rejects is dropped from
+   that side's AST, so the diff compares less than it appears to. Only
+   Tailwind's own bare-number [color-mix] amount is let through. *)
+let test_dropped_declarations_are_reported () =
+  let reported declaration =
+    Css_compare.diff ~mode:`Canonical
+      (Fmt.str ".x{%s}" declaration)
+      ".x{color:red}"
+    |> Test_helpers.dropped_declarations <> []
+  in
+  Alcotest.(check bool)
+    "a declaration the reader drops is reported" true (reported "width:12quux");
+  Alcotest.(check bool)
+    "Tailwind's bare-number color-mix amount is allowed through" false
+    (reported "color:color-mix(in srgb, red .5, transparent)")
 
 (** Set theme value overrides for root vars from expected CSS. This enables
     utilities like z-auto and order-first to produce custom declarations in the
@@ -422,153 +425,6 @@ let theme_overrides_of ~declared config expected =
       else base
   | No_theme -> []
 
-(** Extract custom breakpoints by matching input class modifiers with px values
-    from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
-    within min-/max- prefixes (e.g. "min-xs:max-sm:flex"). *)
-let extract_custom_breakpoints classes expected =
-  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
-  (* Split each class into modifier segments and extract breakpoint names. For
-     "min-xs:max-sm:flex", segments are ["min-xs"; "max-sm"; "flex"]. We extract
-     "xs" from "min-xs" and recognize it as a custom breakpoint. *)
-  let extract_bp_name segment =
-    (* Strip min-/max- prefix to get the breakpoint name *)
-    let name =
-      if String.length segment > 4 && String.sub segment 0 4 = "min-" then
-        Some (String.sub segment 4 (String.length segment - 4))
-      else if String.length segment > 4 && String.sub segment 0 4 = "max-" then
-        Some (String.sub segment 4 (String.length segment - 4))
-      else Some segment
-    in
-    match name with
-    | Some n when String.contains n '[' -> None (* arbitrary value *)
-    | Some n when List.mem n standard_names -> None (* standard *)
-    | Some n -> Some n
-    | None -> None
-  in
-  let is_known_modifier s =
-    let known =
-      [
-        "hover";
-        "focus";
-        "active";
-        "disabled";
-        "dark";
-        "motion-safe";
-        "motion-reduce";
-        "contrast-more";
-        "contrast-less";
-        "print";
-        "portrait";
-        "landscape";
-        "ltr";
-        "rtl";
-        "before";
-        "after";
-        "first";
-        "last";
-        "odd";
-        "even";
-        "open";
-        "checked";
-        "starting";
-        "focus-within";
-        "focus-visible";
-        "forced-colors";
-        "inverted-colors";
-        "noscript";
-        "marker";
-        "selection";
-        "placeholder";
-        "backdrop";
-        "file";
-        "first-letter";
-        "first-line";
-        "details-content";
-        "empty";
-        "default";
-        "required";
-        "valid";
-        "invalid";
-        "in-range";
-        "out-of-range";
-        "placeholder-shown";
-        "autofill";
-        "read-only";
-        "read-write";
-        "optional";
-        "enabled";
-        "target";
-        "visited";
-        "inert";
-        "user-valid";
-        "user-invalid";
-        "first-of-type";
-        "last-of-type";
-        "only-of-type";
-        "only";
-        "indeterminate";
-        "pointer-none";
-        "pointer-coarse";
-        "pointer-fine";
-        "any-pointer-none";
-        "any-pointer-coarse";
-        "any-pointer-fine";
-        "*";
-        "**";
-      ]
-    in
-    List.mem s known
-    || String.starts_with ~prefix:"group-" s
-    || String.starts_with ~prefix:"peer-" s
-    || String.starts_with ~prefix:"aria-" s
-    || String.starts_with ~prefix:"data-" s
-    || String.starts_with ~prefix:"not-" s
-    || String.starts_with ~prefix:"has-" s
-    || String.starts_with ~prefix:"supports-" s
-    || String.starts_with ~prefix:"@" s
-    || String.starts_with ~prefix:"nth-" s
-    || String.starts_with ~prefix:"in-" s
-    || String.contains s '['
-  in
-  let collect_custom_name acc seg =
-    if is_known_modifier seg then acc
-    else
-      match extract_bp_name seg with
-      | Some name when name <> "" && not (List.mem name acc) -> name :: acc
-      | _ -> acc
-  in
-  let modifiers_of_class cls =
-    let parts = String.split_on_char ':' cls in
-    match List.rev parts with _ :: rest -> List.rev rest | [] -> []
-  in
-  let custom_names =
-    List.fold_left
-      (fun acc cls ->
-        List.fold_left collect_custom_name acc (modifiers_of_class cls))
-      [] classes
-    |> List.rev
-  in
-  (* Extract all px values from expected CSS *)
-  let px_pattern = Re.Pcre.regexp {|min-width:\s*(\d+)px|} in
-  let px_matches = Re.all px_pattern expected in
-  let px_values =
-    List.filter_map
-      (fun m ->
-        try Some (float_of_string (Re.Group.get m 1))
-        with Not_found | Failure _ -> None)
-      px_matches
-  in
-  let standard_px = [ 640.; 768.; 1024.; 1280.; 1536. ] in
-  let custom_px =
-    List.filter (fun px -> not (List.mem px standard_px)) px_values
-    |> List.sort_uniq Float.compare
-  in
-  match (custom_names, custom_px) with
-  | [ name ], [ px ] -> [ (name, px) ]
-  | names, pxs when List.length names = List.length pxs ->
-      List.combine names pxs
-  | _ -> []
-
 (* Parity accounting, accumulated across every upstream case and printed as a
    report after the run. The old runner dropped classes [Tw.of_string] rejected
    with [filter_map ... -> None], so a class tw cannot parse left no trace.
@@ -585,7 +441,7 @@ let stat_expected_empty_cases = ref 0
 let run_test_case test () =
   if test.classes = [] then ()
   else
-    let base_scheme = setup_scheme_for_test test.expected in
+    let base_scheme = scheme_of_theme_vars test.theme_vars in
     (* Register any matchVariant custom variants for this test. Directive form:
        "name <template> KEY=value ...", DEFAULT mapped to the default slot. *)
     let parse_variant_directive d =
@@ -628,14 +484,14 @@ let run_test_case test () =
           try Some (name, container_of_header header) with Failure _ -> None)
       | _ -> None
     in
-    (* The case's own [@custom-variant]s and custom breakpoints ride on the
-       scheme threaded to [Tw.of_string] and [Tw.to_css] below, so they are
-       local to this case rather than left in a registry the next one reads. *)
-    let custom_bps = extract_custom_breakpoints test.classes test.expected in
+    (* The case's own [@custom-variant]s ride on the scheme threaded to
+       [Tw.of_string] and [Tw.to_css] below, so they are local to this case
+       rather than left in a registry the next one reads. Its custom breakpoints
+       arrive the same way, through the [@theme] token overrides applied just
+       below. *)
     let scheme =
       {
         base_scheme with
-        breakpoints = base_scheme.breakpoints @ custom_bps;
         custom_variants = List.filter_map parse_variant_directive test.variants;
         container_variants =
           List.filter_map parse_container_directive test.variants;
@@ -657,9 +513,7 @@ let run_test_case test () =
       Tw.Scheme.with_overrides scheme
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
-    let theme, theme_defaults =
-      theme_config ~declared test.config test.expected
-    in
+    let resolve_theme = theme_resolution ~declared test.config test.expected in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
@@ -676,15 +530,17 @@ let run_test_case test () =
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] then None
-      else Some (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities)
+      else
+        Some
+          (drop_theme_keyframes
+             (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities))
     in
     let our_css =
       match our_stylesheet with
       | None -> ""
       | Some stylesheet ->
-          stylesheet
-          |> Css.resolve_theme ~theme ~theme_defaults
-          |> Css.to_string ~minify:true |> String.trim
+          stylesheet |> resolve_theme |> Css.to_string ~minify:true
+          |> String.trim
     in
     let expected = test.expected in
     let expected_css = canonical_stylesheet_css expected in
@@ -698,11 +554,13 @@ let run_test_case test () =
           (normalize_colors expected_css)
           (normalize_colors our_css)
       in
+      Test_helpers.check_no_dropped_declarations
+        ~test_name:(String.concat " " test.classes)
+        result;
       if
-        (match result.Css_compare.result with
-          | Css_compare.No_diff -> true
-          | _ -> false)
-        || ((not strict) && is_allowed_canonicalization_diff result)
+        match result.Css_compare.result with
+        | Css_compare.No_diff -> true
+        | _ -> false
       then ()
       else
         let buf = Buffer.create 1024 in
@@ -711,9 +569,8 @@ let run_test_case test () =
           match our_stylesheet with
           | None -> ""
           | Some stylesheet ->
-              stylesheet
-              |> Css.resolve_theme ~theme ~theme_defaults
-              |> Css.to_string ~indent:2 |> String.trim
+              stylesheet |> resolve_theme |> Css.to_string ~indent:2
+              |> String.trim
         in
         (* When a class tw rejected is a candidate cause of the mismatch, name
            it so the diff is not the only clue (the old runner dropped it
@@ -850,10 +707,14 @@ let () =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
       test_case "color-mix percentage" `Quick test_color_mix_percentage;
-      test_case "canonical tolerance rejects layer order" `Quick
-        test_layer_order_not_tolerated;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
+      test_case "the scheme is built from declared tokens only" `Quick
+        test_scheme_from_declared_tokens_only;
+      test_case "a tw reference survives theme resolution" `Quick
+        test_reference_survives_theme_resolution;
+      test_case "a dropped declaration is reported" `Quick
+        test_dropped_declarations_are_reported;
     ]
   in
   let suites =

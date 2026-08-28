@@ -5,6 +5,7 @@ open Tw.Modifiers
 open Tw.Padding
 open Tw.Margin
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Grid_template
 open Tw.Animations
 open Tw.Transitions
@@ -394,6 +395,154 @@ let test_container_variant_is_theme_local () =
   check bool "a second theme does not see it" true
     (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "has-a:flex"))
 
+(* A [@theme] block that clears [--breakpoint-*] takes the built-in responsive
+   variants with it: [md:] then names a breakpoint the project no longer has,
+   and the candidate stops resolving the way an unknown variant does. The
+   [min-], [max-] and [not-] spellings read the same breakpoint, so they go too,
+   while a breakpoint the block declared for itself still resolves. *)
+let test_removed_breakpoint_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "40rem") ]
+  in
+  List.iter
+    (fun cls ->
+      check bool
+        (cls ^ " names a breakpoint the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
+  check bool "the theme's own breakpoint still resolves" true
+    (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
+
+(* The variant cascade the one table defines, read as a ladder: every token
+   sorts strictly after the one before it. A token the table has no position for
+   returns 0, and the comparator reads 0 as "this rule carries no variant" and
+   puts the rule in another group entirely, so a missing rung is not a small
+   ordering error. *)
+let variant_cascade_ladder =
+  [
+    "*";
+    "**";
+    "not-hover";
+    "group-hover";
+    "peer-focus";
+    "first-letter";
+    "marker";
+    "selection";
+    "file";
+    "placeholder";
+    "backdrop";
+    "details-content";
+    "before";
+    "after";
+    "first";
+    "last";
+    "only";
+    "odd";
+    "even";
+    "first-of-type";
+    "last-of-type";
+    "only-of-type";
+    "visited";
+    "target";
+    "open";
+    "default";
+    "checked";
+    "indeterminate";
+    "placeholder-shown";
+    "autofill";
+    "optional";
+    "required";
+    "valid";
+    "invalid";
+    "user-valid";
+    "user-invalid";
+    "in-range";
+    "out-of-range";
+    "read-only";
+    "read-write";
+    "empty";
+    "focus-within";
+    "hover";
+    "focus";
+    "focus-visible";
+    "active";
+    "enabled";
+    "disabled";
+    "inert";
+    "in-focus";
+    "has-checked";
+    "aria-checked";
+    "aria-[modal]";
+    "data-active";
+    "data-[open]";
+    "nth-3";
+    "nth-last-3";
+    "nth-of-type-3";
+    "nth-last-of-type-3";
+    "hocus";
+    "supports-grid";
+    "motion-safe";
+    "motion-reduce";
+    "contrast-more";
+    "contrast-less";
+    "md";
+    "@md";
+    "portrait";
+    "landscape";
+    "ltr";
+    "rtl";
+    "dark";
+    "starting";
+    "print";
+    "forced-colors";
+    "inverted-colors";
+    "pointer-fine";
+    "any-pointer-fine";
+    "noscript";
+    "prose-h1";
+    "[&>*]";
+  ]
+
+let test_variant_cascade_ladder () =
+  List.iter
+    (fun token ->
+      check bool
+        (token ^ " has a position in the cascade")
+        true
+        (variant_order_of_prefix token > 0))
+    variant_cascade_ladder;
+  List.iteri
+    (fun i token ->
+      match List.nth_opt variant_cascade_ladder (i + 1) with
+      | None -> ()
+      | Some next ->
+          check bool
+            (token ^ " sorts before " ^ next)
+            true
+            (variant_order_of_prefix token < variant_order_of_prefix next))
+    variant_cascade_ladder
+
+(* Two tokens in the same position are separated by what they carry: a [not-]
+   sorts where the variant it negates sorts, a [group-]/[peer-] where the state
+   it wraps sorts. Both read the same table as the position itself. *)
+let test_variant_inner_order () =
+  List.iter
+    (fun (token, inner) ->
+      check int
+        (token ^ " carries " ^ inner)
+        (variant_order_of_prefix inner)
+        (variant_inner_order token))
+    [
+      ("not-hover", "hover");
+      ("not-md", "md");
+      ("not-supports-grid", "supports-grid");
+      ("group-focus", "focus");
+      ("peer-checked", "checked");
+    ];
+  check int "a plain token carries nothing" 0 (variant_inner_order "hover")
+
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
@@ -443,6 +592,72 @@ let test_not_has_shorthand_selector () =
   rejected "not-has-a\\:flex";
   renders "not-has-checked:flex";
   renders "not-has-hover:flex"
+
+(* @tailwindcss/typography registers one variant per element it styles, and the
+   variant is what puts a utility on that element. Eight of them - h5, h6, dl,
+   dt, dd, table, tr, picture - were not recognised at all, so the class was
+   rejected and the utility never reached the element. *)
+let test_prose_element_variants () =
+  let selector name =
+    let cls = "prose-" ^ name ^ ":underline" in
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  in
+  let targets name affix =
+    Alcotest.(check bool)
+      ("prose-" ^ name ^ ": targets " ^ affix)
+      true
+      (Astring.String.is_infix ~affix:(":where(" ^ affix ^ ")") (selector name))
+  in
+  List.iter
+    (fun n -> targets n n)
+    [
+      "p";
+      "a";
+      "blockquote";
+      "figure";
+      "figcaption";
+      "strong";
+      "em";
+      "kbd";
+      "code";
+      "pre";
+      "ol";
+      "ul";
+      "li";
+      "dl";
+      "dt";
+      "dd";
+      "table";
+      "thead";
+      "tr";
+      "th";
+      "td";
+      "img";
+      "picture";
+      "video";
+      "hr";
+      "h1";
+      "h2";
+      "h3";
+      "h4";
+      "h5";
+      "h6";
+    ];
+  targets "headings" "h1,h2,h3,h4,h5,h6,th";
+  targets "lead" "[class~=lead]"
+
+(* The plugin has no variant for an element it does not style, and neither has
+   tw: the class is rejected rather than compiled into a selector nothing in
+   Tailwind produces. *)
+let test_prose_element_variant_invalid () =
+  Alcotest.(check bool)
+    "prose-span: is not a variant" true
+    (Result.is_error (Tw.of_string "prose-span:underline"));
+  Alcotest.(check bool)
+    "prose-h7: is not a variant" true
+    (Result.is_error (Tw.of_string "prose-h7:underline"))
 
 let tests =
   [
@@ -917,6 +1132,37 @@ let test_attribute_brackets_still_parse () =
   emits "[data-dragging]" "peer-data-[dragging]:flex";
   emits "[data-modified]" "group-data-modified:flex"
 
+(* A bare [[...]] variant compounds its selector onto the utility's own class,
+   so what the brackets hold has to be a compound selector. [~] is both the
+   sibling combinator and the [~=] whitespace-list attribute operator, and only
+   reading the bracket as a selector tells them apart: a character scan that
+   rejects every [~] rejects [[data-size~=large]] along with [p_~_span]. *)
+let test_bare_selector_variant_attribute_operators () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  emits "[data-size~=large]" "[[data-size~=large]]:underline";
+  emits "[data-size~=large]" "group-[[data-size~=large]]:underline";
+  emits "[data-size~=large]" "peer-[[data-size~=large]]:underline";
+  (* the attribute operators that never collided with a combinator stay put *)
+  emits "[lang|=en]" "[[lang|=en]]:underline";
+  emits "[href^=https]" "[[href^=https]]:underline";
+  (* a combinator really is one, and none of these is a compound *)
+  rejected "[p_~_span]:underline";
+  rejected "[>img]:underline";
+  rejected "[.a_.b]:underline";
+  rejected "[@media_print]:underline"
+
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
   let css cls =
@@ -1053,6 +1299,8 @@ let tests =
         test_padded_attribute_brackets;
       test_case "attribute brackets still parse" `Quick
         test_attribute_brackets_still_parse;
+      test_case "bare selector variant attribute operators" `Quick
+        test_bare_selector_variant_attribute_operators;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick
@@ -1091,6 +1339,13 @@ let tests =
         test_custom_variant_is_theme_local;
       test_case "container variant is theme-local" `Quick
         test_container_variant_is_theme_local;
+      test_case "removed breakpoint drops its variants" `Quick
+        test_removed_breakpoint_drops_its_variants;
+      test_case "prose element variants" `Quick test_prose_element_variants;
+      test_case "prose element variant invalid" `Quick
+        test_prose_element_variant_invalid;
+      test_case "variant cascade ladder" `Quick test_variant_cascade_ladder;
+      test_case "variant inner order" `Quick test_variant_inner_order;
     ]
 
 let suite = ("modifiers", tests)

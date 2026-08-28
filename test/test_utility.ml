@@ -229,6 +229,32 @@ let test_order_of_property_skips_outline_carrier () =
     (Some (order_of "outline-solid"))
     (order_of_property (Key Outline_style))
 
+(* The carrier is the style channel a width utility reads, not the property name
+   on its own: a declared [@utility] writing [border-style] with any other value
+   is a style utility and keeps the style slot. *)
+let test_ordering_property_carrier () =
+  let open Tw.Utility in
+  let key name = Alcotest.testable (fun ppf _ -> Fmt.string ppf name) ( = ) in
+  let carrier : Tw.Css.declaration =
+    Tw.Css.border_style (Var (Tw.Css.var_ref "tw-border-style"))
+  in
+  check
+    (option (key "border-width"))
+    "the channel carrier does not claim the style slot"
+    (Some (Tw.Css.Declaration.Key Border_width))
+    (ordering_property [ carrier; Tw.Css.border_width (Px 2.) ]);
+  check
+    (option (key "border-style"))
+    "a declared border-style keeps the style slot"
+    (Some (Tw.Css.Declaration.Key Border_style))
+    (ordering_property [ Tw.Css.border_style Dashed ]);
+  check
+    (option (key "border-style"))
+    "border-style reading another variable is not a carrier"
+    (Some (Tw.Css.Declaration.Key Border_style))
+    (ordering_property
+       [ Tw.Css.border_style (Var (Tw.Css.var_ref "my-border-style")) ])
+
 (* Tailwind sorts a declared [@utility] by the property it writes, so every
    property a family is named for needs a slot. A family with no example
    covering its property leaves a declared utility at the layer's tail. *)
@@ -269,10 +295,10 @@ let test_order_of_property_covers_named_families () =
 (* [base_of_class] takes the FIRST handler that accepts a class, and handlers
    are tried in dune link order, so a class two handlers both accept would
    resolve on an unrelated build detail rather than on anything declared - and
-   would change silently when someone edits a dune file. No such class was ever
-   demonstrated; this asserts there is none, over the utilities every handler
-   offers as its own examples plus the families whose prefixes overlap most
-   (border/divide, text/font, shadow/inset-shadow, bg gradients, ring). *)
+   would change silently when someone edits a dune file. This asserts there is
+   no such class, over the utilities every handler offers as its own examples
+   plus the families whose prefixes overlap most (border/divide, text/font,
+   shadow/inset-shadow, bg colours and gradients, ring). *)
 let test_no_class_claimed_twice () =
   let corpus =
     Tw.Utility.examples_classes ()
@@ -293,6 +319,11 @@ let test_no_class_claimed_twice () =
         "ring-offset-2";
         "inset-ring-2";
         "bg-red-500";
+        "bg-current";
+        "bg-transparent";
+        "border-red-500";
+        "border-current";
+        "border-transparent";
         "bg-linear-45";
         "from-red-500";
         "via-red-500";
@@ -339,23 +370,7 @@ let test_no_class_claimed_twice () =
         | names -> Some (cls ^ " -> " ^ String.concat ", " names))
       (List.sort_uniq String.compare corpus)
   in
-  (* These five are claimed twice today: [backgrounds] and [color] both accept
-     [bg-<colour>], and [borders] and [color] both accept [border-current] and
-     [border-transparent]. Which one answers is decided by dune link order. The
-     output is right today, so this pins the set rather than the emptiness: a
-     sixth overlap fails here, and so does resolving one of these, which is the
-     prompt to update the list. *)
-  let known_doubled =
-    [
-      "bg-current -> backgrounds, color";
-      "bg-red-500 -> backgrounds, color";
-      "bg-transparent -> backgrounds, color";
-      "border-current -> borders, color";
-      "border-transparent -> borders, color";
-    ]
-  in
-  Alcotest.(check (list string))
-    "no class is claimed twice beyond the known set" known_doubled doubled
+  Alcotest.(check (list string)) "no class is claimed twice" [] doubled
 
 let tests =
   [
@@ -373,6 +388,8 @@ let tests =
       test_order_of_property_skips_outline_carrier;
     test_case "order_of_property covers the named families" `Quick
       test_order_of_property_covers_named_families;
+    test_case "ordering property skips the style carrier" `Quick
+      test_ordering_property_carrier;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;

@@ -176,13 +176,14 @@ end
 
 type tw = Tw.t
 
-(* The utilities of a node and of everything below it. Concatenating a subtree's
+(* The utilities of a node and of everything below it, alongside the class names
+   its [class] attributes carried that are no utility. Concatenating a subtree's
    utilities into its parent copies that list once per level above it, so a
    document costs O(nodes x depth) to collect. The children are held unflattened
    instead and walked once, when the utilities are asked for. *)
-type tw_tree = { own : tw list; kids : tw_tree list }
+type tw_tree = { own : tw list; unknown : string list; kids : tw_tree list }
 
-let no_tw = { own = []; kids = [] }
+let no_tw = { own = []; unknown = []; kids = [] }
 
 (* Type that combines HTML element with its Tailwind classes *)
 type t = { el : El.html; tw : tw_tree; forms : bool }
@@ -204,12 +205,16 @@ end
 (* Internal helper to convert to El.html *)
 let to_htmlit t = t.el
 
-let to_tw t =
+(* Document order: a node's own names before its children's, children in the
+   order they were given. *)
+let collect_tree field tree =
   let rec collect acc node =
-    List.fold_left collect (List.rev_append node.own acc) node.kids
+    List.fold_left collect (List.rev_append (field node) acc) node.kids
   in
-  List.rev (collect [] t.tw)
+  List.rev (collect [] tree)
 
+let to_tw t = collect_tree (fun node -> node.own) t.tw
+let unknown_classes t = collect_tree (fun node -> node.unknown) t.tw
 let has_forms t = t.forms
 
 (* Text helpers *)
@@ -236,24 +241,15 @@ let class_atts tw_styles raw_classes other_atts =
   | "" -> List.rev other_atts
   | cls -> At.class' cls :: List.rev other_atts
 
-(* Parse a class string, returning (recognized_tw, raw_strings) *)
-let parse_class_value value =
-  let classes = Tw.split_whitespace value in
-  List.fold_left
-    (fun (tw_acc, raw_acc) cls ->
-      match Tw.of_string cls with
-      | Ok t -> (t :: tw_acc, raw_acc)
-      | Error _ -> (tw_acc, cls :: raw_acc))
-    ([], []) classes
-
 (* Extract class attrs from at, parse recognized Tw classes, keep unrecognized
-   as-is. Returns (tw_extras, raw_class_parts, other_atts) *)
+   as-is - a class attribute legitimately carries names this library knows
+   nothing about. Returns (tw_extras, raw_class_parts, other_atts) *)
 let extract_class_attrs atts =
   List.fold_left
     (fun (tw_extra, raw_cls, rest) ((name, value) as att) ->
       if name = "class" then
-        let tw_parsed, raw = parse_class_value value in
-        (List.rev tw_parsed @ tw_extra, List.rev raw @ raw_cls, rest)
+        let tw_parsed, raw = Tw.of_classes value in
+        (tw_parsed @ tw_extra, raw @ raw_cls, rest)
       else (tw_extra, raw_cls, att :: rest))
     ([], [], []) atts
 
@@ -267,7 +263,11 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
   let all_tw =
-    { own = all_tw_styles; kids = List.map (fun c -> c.tw) children }
+    {
+      own = all_tw_styles;
+      unknown = raw_classes;
+      kids = List.map (fun c -> c.tw) children;
+    }
   in
   (* Propagate forms flag from children or this element *)
   let has_forms = forms || List.exists (fun c -> c.forms) children in
@@ -348,7 +348,7 @@ let void_el ?(forms = false) name ?at ?(tw = []) () =
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
   {
     el = El.void_v ~at:atts_with_tw name;
-    tw = { own = all_tw; kids = [] };
+    tw = { own = all_tw; unknown = raw_classes; kids = [] };
     forms;
   }
 
@@ -366,7 +366,7 @@ let style ?at ?(tw = []) css =
   let atts_with_tw = class_atts all_tw raw_classes other_atts in
   {
     el = El.v ~at:atts_with_tw "style" [ El.unsafe_raw css ];
-    tw = { own = all_tw; kids = [] };
+    tw = { own = all_tw; unknown = raw_classes; kids = [] };
     forms = false;
   }
 

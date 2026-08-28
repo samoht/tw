@@ -16,43 +16,6 @@ let generate_tw_css ?(minify = false) styles =
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 let canonical_stylesheet_css css = String.trim css
 
-let is_allowed_canonicalization_diff diff =
-  let allowed_custom_property = function
-    | "--font-sans" | "--font-mono" -> true
-    | name when String.starts_with ~prefix:"--tw-prose-" name -> true
-    | _ -> false
-  in
-  let allowed_rule_change = function
-    | Tree_diff.Content_changed
-        { property_changes; added_properties = []; removed_properties = []; _ }
-      ->
-        property_changes <> []
-        && List.for_all
-             (fun (change : Tree_diff.declaration) ->
-               allowed_custom_property change.property_name)
-             property_changes
-    | _ -> false
-  in
-  let allowed_container = function
-    | Tree_diff.Modified { rule_changes; container_changes = []; _ } ->
-        List.for_all allowed_rule_change rule_changes
-    | _ -> false
-  in
-  match Css_compare.as_tree_diff diff with
-  | Some Tree_diff.{ rules = []; containers; layer_order = None } ->
-      containers <> [] && List.for_all allowed_container containers
-  | _ -> false
-
-let test_layer_order_not_tolerated () =
-  let expected =
-    "@layer weak, strong;@media (width >= 1px){.x{--font-sans:a}}"
-  in
-  let actual = "@layer strong, weak;@media (width >= 1px){.x{--font-sans:b}}" in
-  let diff = Css_compare.diff ~mode:`Tree expected actual in
-  Alcotest.(check bool)
-    "a tolerated declaration cannot hide a layer-order change" false
-    (is_allowed_canonicalization_diff diff)
-
 (* File utilities *)
 let write_file path content =
   let oc = open_out path in
@@ -150,11 +113,11 @@ let check_exact_match tw_styles =
       Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
         tailwind_css tw_css
     in
+    Test_helpers.check_no_dropped_declarations ~test_name diff_result;
     let parity_equal =
-      (match diff_result.Css_compare.result with
-        | Css_compare.No_diff -> true
-        | _ -> false)
-      || is_allowed_canonicalization_diff diff_result
+      match diff_result.Css_compare.result with
+      | Css_compare.No_diff -> true
+      | _ -> false
     in
     if not parity_equal then (
       (* Only a failure is worth an artefact: a passing run has nothing to diff
@@ -453,6 +416,40 @@ let theme_function_reads_the_project_palette () =
     "an unoverridden colour keeps the default" true
     (Astring.String.is_infix ~affix:"oklch"
        (css "[color:theme(colors.blue.500)]"))
+
+(* [theme(colors.<name>.<shade>/<alpha>)] mixes the alpha into whatever value
+   the theme bound the colour to, the way Tailwind does. The alpha was spliced
+   in by chopping the value's closing paren, so a project that bound its palette
+   entry to a hex kept the colour and silently lost the alpha. *)
+let theme_function_alpha_reads_any_palette_value () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#ef4444") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "a hex palette value keeps the alpha" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
+       (css "[color:theme(colors.red.500/25%)]"));
+  Alcotest.(check bool)
+    "a fraction is the same alpha as the percentage" true
+    (Astring.String.is_infix
+       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
+       (css "[color:theme(colors.red.500/0.25)]"));
+  Alcotest.(check bool)
+    "an unoverridden colour mixes its own value" true
+    (Astring.String.is_infix ~affix:"color-mix(in oklab, oklch("
+       (css "[color:theme(colors.blue.500/25%)]"));
+  (* an alpha that names no number leaves the call verbatim, the way an unknown
+     path already does, rather than dropping the alpha *)
+  Alcotest.(check bool)
+    "theme(colors.red.500/abc) stays verbatim" true
+    (Astring.String.is_infix ~affix:"theme(colors.red"
+       (css "[color:theme(colors.red.500/abc)]"))
 
 let custom_breakpoint_theme_is_local () =
   let theme : Tw.Scheme.t =
@@ -1176,13 +1173,40 @@ let property_order_cross_family () =
        (fun c -> Result.get_ok (Tw.of_string c))
        [ "outline"; "font-normal"; "leading-snug"; "tracking-wide" ])
 
+(* A class name that is not a tw utility is not a fatal error anywhere in the
+   library: [str] returns the utilities it did recognise, and [of_classes] hands
+   the names it rejected back so a typo is reportable rather than invisible. *)
+let unknown_class_never_raises () =
+  Alcotest.(check (list string))
+    "unknown name skipped" [ "flex"; "items-center" ]
+    (List.map Tw.pp (Tw.str "flex bg-blu-500 items-center"))
+
+let unknown_class_is_reported () =
+  let styles, unknown = Tw.of_classes "flex bg-blu-500 items-center" in
+  Alcotest.(check (list string))
+    "utilities recognised" [ "flex"; "items-center" ] (List.map Tw.pp styles);
+  Alcotest.(check (list string))
+    "unknown names, in source order" [ "bg-blu-500" ] unknown
+
+(* A deliberate non-tw class - a framework hook or a JS selector - reads exactly
+   like a typo to the parser, so both come back and the caller judges which is
+   which. *)
+let unknown_class_keeps_source_order () =
+  let _, unknown = Tw.of_classes "my-app-header flex js-toggle bg-blu-500" in
+  Alcotest.(check (list string))
+    "every non-utility name, in source order"
+    [ "my-app-header"; "js-toggle"; "bg-blu-500" ]
+    unknown
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
   [
-    test_case "canonical tolerance rejects layer order" `Quick
-      test_layer_order_not_tolerated;
     test_case "debug artefacts" `Quick debug_artefacts;
+    test_case "unknown class never raises" `Quick unknown_class_never_raises;
+    test_case "unknown class is reported" `Quick unknown_class_is_reported;
+    test_case "unknown class keeps source order" `Quick
+      unknown_class_keeps_source_order;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
       (check_upstream_positive_fixture_parse "utilities.txt");
@@ -1199,6 +1223,8 @@ let core_tests =
       custom_breakpoint_theme_is_local;
     test_case "theme() reads the project palette" `Quick
       theme_function_reads_the_project_palette;
+    test_case "theme() alpha reads any palette value" `Quick
+      theme_function_alpha_reads_any_palette_value;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;

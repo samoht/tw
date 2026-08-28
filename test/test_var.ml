@@ -108,16 +108,20 @@ let order_of_shared_slot () =
   check order "first" (Some (990, 0)) (Tw.Var.order "test-shared-first");
   check order "second" (Some (990, 0)) (Tw.Var.order "test-shared-second")
 
-(* The in-tree tokens whose slot another family also claims. *)
-let order_of_shared_slot_tokens () =
+(* Each family in the theme layer's tail owns a band no other family reaches
+   into, so the emission order is the family order Tailwind's [@theme] writes
+   rather than the spelling of the token names. *)
+let order_of_family_bands () =
   let expect name o = check order name (Some o) (Tw.Var.order name) in
-  expect "ease-linear" (7, 12);
-  expect "drop-shadow-xl" (7, 12);
-  expect "animate-spin" (7, 13);
-  expect "drop-shadow-2xl" (7, 13);
-  expect "perspective-dramatic" (7, 13);
-  expect "default-transition-duration" (8, 0);
-  expect "blur-xs" (8, 0)
+  expect "radius-4xl" (7, 10);
+  expect "drop-shadow-xl" (7, 24);
+  expect "drop-shadow-2xl" (7, 25);
+  expect "ease-linear" (7, 33);
+  expect "animate-spin" (7, 41);
+  expect "blur-xs" (8, 0);
+  expect "perspective-dramatic" (8, 10);
+  expect "aspect-video" (8, 20);
+  expect "default-transition-duration" (8, 30)
 
 (* A project [@theme] may name font families of its own; they all sit at (1,
    100). Rendering one must not decide the answer for the others. *)
@@ -227,7 +231,7 @@ let tests =
     test_case "arbitrary var fallbacks" `Quick arbitrary_var_fallbacks;
     test_case "var in theme layer" `Quick var_in_theme_layer;
     test_case "order of shared slot" `Quick order_of_shared_slot;
-    test_case "order of shared slot tokens" `Quick order_of_shared_slot_tokens;
+    test_case "order of family bands" `Quick order_of_family_bands;
     test_case "order of theme-named tokens" `Quick order_of_theme_named_tokens;
     test_case "order of redefined name" `Quick order_of_redefined_name;
     test_case "order of theme-renamed builtin" `Quick

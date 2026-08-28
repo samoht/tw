@@ -350,6 +350,29 @@ let test_arbitrary_shadow_colour_opacity () =
     "--tw-inset-shadow-alpha:var(--x)";
   has "inset-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
 
+(* A bracket colour with no sRGB hex - [oklch()] and the other wide-gamut
+   spellings - has no hex to fold the modifier's alpha into, so the alpha has to
+   stay a mix. Tailwind writes the plain fallback in sRGB and the guarded value
+   in oklab; the colour used to fall through untouched, which painted the shadow
+   fully opaque and dropped the modifier. *)
+let test_bracket_colour_opacity_without_hex () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  let lacks cls affix =
+    Alcotest.(check bool) cls false (Astring.String.is_infix ~affix (css cls))
+  in
+  has "shadow-[oklch(0.7_0.1_200)]/50" "--tw-shadow-color:color-mix(in srgb,";
+  lacks "shadow-[oklch(0.7_0.1_200)]/50" "--tw-shadow-color:oklch(";
+  has "inset-shadow-[oklch(0.7_0.1_200)]/50"
+    "--tw-inset-shadow-color:color-mix(in srgb,";
+  lacks "inset-shadow-[oklch(0.7_0.1_200)]/50" "--tw-inset-shadow-color:oklch("
+
 (* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
    modifier's own written text in --tw-shadow-alpha, the way Tailwind does,
    rather than scaling it into a percentage: the alpha the shadow paints with
@@ -526,6 +549,8 @@ let tests =
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
     test_case "arbitrary shadow colour opacity" `Quick
       test_arbitrary_shadow_colour_opacity;
+    test_case "bracket colour opacity without a hex" `Quick
+      test_bracket_colour_opacity_without_hex;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;

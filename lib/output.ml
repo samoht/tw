@@ -10,16 +10,13 @@ type t =
       has_hover : bool; (* Track if this rule has hover modifier *)
       nested : Css.statement list; (* Nested statements (e.g., @media) *)
       merge_key : string option;
-      not_order : int; (* Variant order for not-* rules, 0 for normal rules *)
     }
   | Media_query of {
       condition : Css.Media.t;
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
-      nested : Css.statement list;
-          (* Nested statements for compound modifiers *)
-      not_order : int;
+      nested : Css.statement list; (* Nested statements for compound modifiers *)
     }
   | Container_query of {
       condition : Css.Container.t;
@@ -40,7 +37,6 @@ type t =
       props : Css.declaration list;
       base_class : string option;
       merge_key : string option;
-      not_order : int;
       nested : Css.statement list;
     }
 
@@ -53,13 +49,11 @@ type by_type = {
 }
 
 let regular ~selector ~props ?base_class ?(has_hover = false) ?(nested = [])
-    ?merge_key ?(not_order = 0) () =
-  Regular
-    { selector; props; base_class; has_hover; nested; merge_key; not_order }
+    ?merge_key () =
+  Regular { selector; props; base_class; has_hover; nested; merge_key }
 
-let media_query ~condition ~selector ~props ?base_class ?(nested = [])
-    ?(not_order = 0) () =
-  Media_query { condition; selector; props; base_class; nested; not_order }
+let media_query ~condition ~selector ~props ?base_class ?(nested = []) () =
+  Media_query { condition; selector; props; base_class; nested }
 
 let container_query ~condition ~selector ~props ?base_class ?(nested = []) () =
   Container_query { condition; selector; props; base_class; nested }
@@ -68,9 +62,8 @@ let starting_style ~selector ~props ?base_class ?(nested = []) () =
   Starting_style { selector; props; base_class; nested }
 
 let supports_query ~condition ~selector ~props ?base_class ?merge_key
-    ?(not_order = 0) ?(nested = []) () =
-  Supports_query
-    { condition; selector; props; base_class; merge_key; not_order; nested }
+    ?(nested = []) () =
+  Supports_query { condition; selector; props; base_class; merge_key; nested }
 
 let base_class = function
   | Regular { base_class; _ }

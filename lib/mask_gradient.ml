@@ -977,7 +977,7 @@ module Handler = struct
     else None
 
   (* Parse directional from/to with support for values and paren refs *)
-  let parse_directional dir pos_end rest =
+  let parse_directional ~theme dir pos_end rest =
     let suffix = String.concat "-" rest in
     match parse_paren_var suffix with
     | Some (`Color, var_name) -> Ok (Mask_color_ref (dir, pos_end, var_name))
@@ -999,7 +999,7 @@ module Handler = struct
               | [ "transparent" ] -> keyword Css.Transparent
               | [ "current" ] -> keyword Css.current_color
               | _ -> (
-                  match Color.shade_of_strings rest with
+                  match Color.shade_of_strings ~theme rest with
                   | Ok (c, shade) ->
                       Some (Mask_stop_color (dir, pos_end, c, shade))
                   | Error _ -> None)
@@ -1012,44 +1012,44 @@ module Handler = struct
                      ("Invalid mask-" ^ direction_short dir ^ "-"
                     ^ position_end_name pos_end ^ " value"))))
 
-  let of_class _theme class_name =
+  let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* mask-t-from-*, mask-t-to-* *)
     | "mask" :: "t" :: "from" :: rest when rest <> [] ->
-        parse_directional Top From rest
+        parse_directional ~theme Top From rest
     | "mask" :: "t" :: "to" :: rest when rest <> [] ->
-        parse_directional Top To rest
+        parse_directional ~theme Top To rest
     (* mask-r-from-*, mask-r-to-* *)
     | "mask" :: "r" :: "from" :: rest when rest <> [] ->
-        parse_directional Right From rest
+        parse_directional ~theme Right From rest
     | "mask" :: "r" :: "to" :: rest when rest <> [] ->
-        parse_directional Right To rest
+        parse_directional ~theme Right To rest
     (* mask-b-from-*, mask-b-to-* *)
     | "mask" :: "b" :: "from" :: rest when rest <> [] ->
-        parse_directional Bottom From rest
+        parse_directional ~theme Bottom From rest
     | "mask" :: "b" :: "to" :: rest when rest <> [] ->
-        parse_directional Bottom To rest
+        parse_directional ~theme Bottom To rest
     (* mask-l-from-*, mask-l-to-* *)
     | "mask" :: "l" :: "from" :: rest when rest <> [] ->
-        parse_directional Left From rest
+        parse_directional ~theme Left From rest
     | "mask" :: "l" :: "to" :: rest when rest <> [] ->
-        parse_directional Left To rest
+        parse_directional ~theme Left To rest
     (* mask-x-from-*, mask-x-to-* *)
     | "mask" :: "x" :: "from" :: rest when rest <> [] ->
-        parse_directional X From rest
+        parse_directional ~theme X From rest
     | "mask" :: "x" :: "to" :: rest when rest <> [] ->
-        parse_directional X To rest
+        parse_directional ~theme X To rest
     (* mask-y-from-*, mask-y-to-* *)
     | "mask" :: "y" :: "from" :: rest when rest <> [] ->
-        parse_directional Y From rest
+        parse_directional ~theme Y From rest
     | "mask" :: "y" :: "to" :: rest when rest <> [] ->
-        parse_directional Y To rest
+        parse_directional ~theme Y To rest
     (* mask-linear-from-*, mask-linear-to-* *)
     | "mask" :: "linear" :: "from" :: rest when rest <> [] ->
-        parse_directional Linear From rest
+        parse_directional ~theme Linear From rest
     | "mask" :: "linear" :: "to" :: rest when rest <> [] ->
-        parse_directional Linear To rest
+        parse_directional ~theme Linear To rest
     (* mask-linear-N (angle), mask-linear-[arb] *)
     | [ "mask"; "linear"; n ] -> (
         if Parse.is_bracket_value n then
@@ -1092,14 +1092,14 @@ module Handler = struct
           else Error (`Msg ("Invalid mask-radial-at position: " ^ position))
     (* mask-radial-from-*, mask-radial-to-* *)
     | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
-        parse_directional Radial From rest
+        parse_directional ~theme Radial From rest
     | "mask" :: "radial" :: "to" :: rest when rest <> [] ->
-        parse_directional Radial To rest
+        parse_directional ~theme Radial To rest
     (* mask-conic-from-*, mask-conic-to-* *)
     | "mask" :: "conic" :: "from" :: rest when rest <> [] ->
-        parse_directional Conic From rest
+        parse_directional ~theme Conic From rest
     | "mask" :: "conic" :: "to" :: rest when rest <> [] ->
-        parse_directional Conic To rest
+        parse_directional ~theme Conic To rest
     (* mask-conic-N (angle), mask-conic-[arb] *)
     | [ "mask"; "conic"; n ] -> (
         if Parse.is_bracket_value n then

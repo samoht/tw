@@ -1,6 +1,7 @@
 module Css = Cascade.Css
 open Alcotest
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Padding
 
 (* OCaml 4.14 compat *)
@@ -971,6 +972,33 @@ let test_container_query_call_order () =
       "@min-[theme(--breakpoint-sm)]:flex";
     ]
 
+(* The suborder a rule sorts on carries more than the utility's own number: a
+   [before:]/[after:] class has 5000 added to it, and a rule built by one of the
+   negation, ancestor, has-, aria- or data- handlers has that handler's offset
+   added. Both offsets are common to every rule the comparator can reach them
+   with - it only reads the suborder for two rules whose whole variant prefix is
+   equal - so they cancel, and this pins the order they were meant to produce
+   across the families that carry them. *)
+let test_variant_family_order () =
+  Test_helpers.check_class_order ~test_name:"variant families sort as Tailwind"
+    [
+      "underline";
+      "before:underline";
+      "after:underline";
+      "has-checked:underline";
+      "has-[>img]:underline";
+      "aria-checked:underline";
+      "aria-[sort=none]:underline";
+      "data-open:underline";
+      "in-data-open:underline";
+      "in-[.foo]:underline";
+      "not-hover:underline";
+      "not-first:underline";
+      "not-in-data-open:underline";
+      "group-not-[:checked]:underline";
+      "peer-not-checked:underline";
+    ]
+
 let test_arbitrary_vs_named_order () =
   (* Within a variant block, arbitrary values sort by their raw class name ('['
      = 0x5b, before lowercase letters), so dark:bg-[#...] precedes
@@ -1143,6 +1171,61 @@ let test_breakpoint_groups_stacked_variants () =
   in
   let positions =
     List.map position [ ".sm\\:bg-top"; ".first\\:sm\\:m-2"; ".md\\:block" ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
+
+(* The cascade order the variant table gives, end to end. Every token here has a
+   position in it; a token with none returns 0, which the comparator reads as
+   "this rule carries no variant" and sorts into another group, which is what
+   put nth-*, in-* and the child variants ahead of the plain utilities. This
+   list is what tailwindcss emits for the same classes. *)
+let test_variant_table_emission_order () =
+  let classes =
+    [
+      "block";
+      "*:m-1";
+      "**:m-2";
+      "not-hover:m-3";
+      "group-hover:m-4";
+      "hover:m-5";
+      "inert:m-6";
+      "in-focus:m-7";
+      "has-checked:m-8";
+      "data-active:m-9";
+      "nth-3:mt-1";
+      "supports-grid:mt-2";
+      "md:mt-3";
+      "dark:mt-4";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [
+        ".block";
+        "m-1";
+        "m-2";
+        "m-3";
+        "m-4";
+        "m-5";
+        "m-6";
+        "m-7";
+        "m-8";
+        "m-9";
+        "mt-1";
+        "mt-2";
+        "mt-3";
+        "mt-4";
+      ]
   in
   Alcotest.(check (list int))
     "emission order"
@@ -1388,6 +1471,75 @@ let test_compound_variant_same_multiset () =
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches
     ~test_name:"compound variant same multiset" utilities
+
+(* A project's [@utility] takes the slot of the property it writes, so it lands
+   among the built-ins of that family and the two orders decide which wins.
+   Tailwind breaks that tie by how many declarations each rule carries, widest
+   first: [.select-none] writes the prefixed spelling as well as [user-select],
+   so it comes before a declared utility writing [user-select] alone whatever
+   that utility is called. *)
+let declared_user_select name =
+  let order =
+    match Tw.Utility.order_of_property (Key User_select) with
+    | Some order -> order
+    | None -> Alcotest.fail "user-select has no utility slot"
+  in
+  ( name,
+    order,
+    [
+      Css.rule ~selector:(Css.Selector.class_ name)
+        [ Css.user_select (Text : Css.user_select) ];
+    ] )
+
+let builtin cls =
+  match Tw.Utility.base_of_class Tw.Scheme.default cls with
+  | Ok base -> Tw.Utility.base base
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let utility_selectors sheet =
+  Test_helpers.extract_utilities_layer_rules sheet
+  |> Test_helpers.extract_rule_selectors
+
+let check_before what sheet first second =
+  let selectors = utility_selectors sheet in
+  let position sel =
+    match index (String.equal sel) selectors with
+    | Some i -> i
+    | None -> Alcotest.failf "%s missing from the utilities layer" sel
+  in
+  check bool what true (position first < position second)
+
+let test_declared_utility_after_wider_builtin () =
+  let sheet =
+    Tw.Build.to_css
+      ~extra:[ declared_user_select "aaa-sel" ]
+      [ builtin "select-none" ]
+  in
+  check_before "select-none before the declared utility" sheet ".select-none"
+    ".aaa-sel"
+
+(* The rule is not an unconditional append: two rules writing the same property
+   with as many declarations each still sort by candidate name, so a declared
+   utility can precede the built-in. *)
+let test_declared_utility_ties_by_name () =
+  let sheet =
+    Tw.Build.to_css
+      ~extra:
+        [
+          ( "aaa-pad",
+            (match Tw.Utility.order_of_property (Key Padding) with
+            | Some order -> order
+            | None -> Alcotest.fail "padding has no utility slot"),
+            [
+              Css.rule
+                ~selector:(Css.Selector.class_ "aaa-pad")
+                [ Css.padding [ Css.Px 5.0 ] ];
+            ] );
+        ]
+      [ builtin "p-4" ]
+  in
+  check_before "the declared utility keeps its alphabetical place" sheet
+    ".aaa-pad" ".p-4"
 
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
@@ -1696,6 +1848,8 @@ let tests =
     test_case "stacked variant outline order" `Slow
       test_stacked_variant_outline_order;
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
+    test_case "variant table emission order" `Slow
+      test_variant_table_emission_order;
     test_case "stacked responsive variant order" `Slow
       test_stacked_responsive_variant_order;
     test_case "breakpoint groups stacked variants" `Slow
@@ -1717,11 +1871,17 @@ let tests =
       test_compound_variant_same_multiset;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
+    test_case "declared utility after a wider built-in" `Quick
+      test_declared_utility_after_wider_builtin;
+    test_case "declared utility ties by candidate name" `Quick
+      test_declared_utility_ties_by_name;
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;
+    test_case "variant families sort as Tailwind" `Quick
+      test_variant_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
     test_case "comparator is transitive" `Quick test_comparator_transitivity;
   ]

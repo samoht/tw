@@ -239,6 +239,20 @@ let hex_to_oklab_alpha hex alpha : Css.color =
       Css.oklaba l a b alpha
   | None -> Css.hex hex
 
+(* A custom colour (a hex or an rgb() the author wrote) with an alpha folded in.
+   Tailwind writes the oklab form, with [none] for a channel that is zero. *)
+let custom_color_with_alpha (c : color) alpha =
+  let ok_l, ok_a, ok_b =
+    match c with
+    | Hex h -> (
+        match hex_to_rgb h with
+        | Some rgb -> rgb_to_oklab rgb
+        | None -> (0.0, 0.0, 0.0))
+    | Rgb { red; green; blue } -> rgb_to_oklab { r = red; g = green; b = blue }
+    | _ -> (0.0, 0.0, 0.0)
+  in
+  Css.oklaba_none_zeros ok_l ok_a ok_b alpha
+
 module Tailwind = struct
   let gray =
     [
@@ -1388,20 +1402,13 @@ let color_var color shade =
   | Some var -> var
   | None ->
       let base = pp color in
-      (* Escape brackets in variable names - CSS variable names can't have
-         unescaped []. Almost no colour name contains brackets, so keep a
-         zero-allocation fast path and only build a buffer when needed. *)
-      let escaped_base =
-        if String.contains base '[' || String.contains base ']' then (
-          let buf = Buffer.create (String.length base + 4) in
-          String.iter
-            (fun c ->
-              (match c with '[' | ']' -> Buffer.add_char buf '\\' | _ -> ());
-              Buffer.add_char buf c)
-            base;
-          Buffer.contents buf)
-        else base
-      in
+      (* The name goes after the [--] this module does not write itself, so it
+         is a CSS name rather than a whole ident: [escape_name] is the exact
+         serialisation for that position. A palette colour is already all name
+         code points and comes back unchanged; an arbitrary one carries
+         brackets, a [#] or parens, and every one of those has to be escaped for
+         the result to lex as a single dashed ident. *)
+      let escaped_base = Cascade.Parser.escape_name base in
       let name =
         if shadeless then "color-" ^ escaped_base
         else Pp.str [ "color-"; escaped_base; "-"; string_of_int shade ]
@@ -1580,6 +1587,25 @@ let parse_opacity_modifier ?theme s =
       | Some opacity -> (base, opacity)
       | None -> (s, No_opacity))
 
+(* The named palette colours read a [--color-<name>] token, shaded or not; the
+   arbitrary spellings carry their own value and read nothing, and a
+   [Theme_named] one is looked up against the theme already. *)
+let palette_token color shade =
+  match color with
+  | Hex _ | Rgb _ | Oklch _ | Css _ | Theme_named _ -> None
+  | _ ->
+      let base = pp color in
+      if is_shadeless color then Some ("color-" ^ base)
+      else Some (Pp.str [ "color-"; base; "-"; string_of_int shade ])
+
+(* A [@theme] block that removed the token a palette colour reads leaves the
+   utility painting a variable nothing declares, so the colour stops resolving
+   the way a project colour the block never declared does. *)
+let palette_is_declared theme color shade =
+  match (theme, palette_token color shade) with
+  | Some scheme, Some token -> not (Scheme.is_removed scheme token)
+  | (Some _ | None), _ -> true
+
 (* Parse color and shade from string list. A name the palette does not know is
    still a colour when the [\@theme] block declared [--color-<name>]; such a
    token carries no shade, and its name may span several segments. *)
@@ -1600,14 +1626,16 @@ let shade_of_strings ?theme parts =
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
-                 && is_valid_shade color shade ->
+                 && is_valid_shade color shade
+                 && palette_is_declared theme color shade ->
               Ok (color, shade)
           | _ -> theme_named ())
       | Error _ -> theme_named ())
   | [ color_str ] -> (
       match of_string color_str with
-      | Ok color -> Ok (color, 500) (* Default shade *)
-      | Error _ -> theme_named ())
+      | Ok color when palette_is_declared theme color 500 ->
+          Ok (color, 500) (* Default shade *)
+      | Ok _ | Error _ -> theme_named ())
   | [] -> Error (`Msg "No color specified")
   | _ -> theme_named ()
 
@@ -1639,7 +1667,8 @@ let shade_and_opacity_of_strings ?theme parts =
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
-                 && is_valid_shade color shade ->
+                 && is_valid_shade color shade
+                 && palette_is_declared theme color shade ->
               Ok (color, shade, opacity)
           | _ -> theme_named ())
       | Error _ -> theme_named ())
@@ -1662,8 +1691,9 @@ let shade_and_opacity_of_strings ?theme parts =
       | Some keyword -> Ok (Css keyword, 500, opacity)
       | None -> (
           match of_string base_str with
-          | Ok color -> Ok (color, 500, opacity)
-          | Error _ -> theme_named ()))
+          | Ok color when palette_is_declared theme color 500 ->
+              Ok (color, 500, opacity)
+          | Ok _ | Error _ -> theme_named ()))
   | [] -> Error (`Msg "No color specified")
   | _ -> theme_named ()
 
@@ -1700,12 +1730,6 @@ module Handler = struct
 
   (** Local color utility type *)
   type t =
-    (* Background colors *)
-    | Bg of color * int
-    | Bg_opacity of color * int * opacity_modifier
-    | Bg_transparent
-    | Bg_current
-    | Bg_current_opacity of opacity_modifier
     (* Text colors *)
     | Text of color * int
     | Text_opacity of color * int * opacity_modifier
@@ -1930,14 +1954,14 @@ module Handler = struct
   let name = "color"
 
   (* Color families sort at their property's canonical rank, not together:
-     border-color (rank ~65) joins border-width/style at priority 19; text-color
-     (the `color` property, rank ~86) interleaves inside the late-typography
-     block, after text-transform and before font-style, at priority 26;
-     outline-color (rank ~92) joins the outline width, offset and style
-     utilities at priority 28. The rest (accent, caret, ...) stay at 25.
-     [_opacity] variants lead each group so the type resolves to the color [t]
-     rather than the shadowed [Css.Border] / [Css.user_select] [Text]
-     constructors. *)
+     border-color (rank ~65) joins border-width/style at priority 19; the
+     [color] property (rank ~86) opens the late-typography block at priority 26,
+     just before text-transform, and the placeholder, caret and accent colours
+     close the same block after the underline offset; outline-color (rank ~92)
+     joins the outline width, offset and style utilities at priority 28. The
+     rest (background, ...) stay at 25. [_opacity] variants lead each group so
+     the type resolves to the color [t] rather than the shadowed [Css.Border] /
+     [Css.user_select] [Text] constructors. *)
   let priority = function
     | Border_opacity _ | Border _ | Border_transparent | Border_current
     | Border_current_opacity _ | Border_bracket_color _ | Border_side_color _
@@ -1947,7 +1971,16 @@ module Handler = struct
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
     | Text_bracket_color_opacity _ | Text_bracket_var _
     | Text_bracket_var_opacity _ | Text_bracket_typed_var _
-    | Text_bracket_typed_var_opacity _ ->
+    | Text_bracket_typed_var_opacity _ | Placeholder_opacity _ | Placeholder _
+    | Placeholder_transparent | Placeholder_current
+    | Placeholder_current_opacity _ | Placeholder_inherit
+    | Placeholder_bracket_color _ | Placeholder_bracket_color_opacity _
+    | Caret_opacity _ | Caret _ | Caret_transparent | Caret_current
+    | Caret_current_opacity _ | Caret_inherit | Caret_bracket_color _
+    | Caret_bracket_color_opacity _ | Accent_opacity _ | Accent _
+    | Accent_transparent | Accent_current | Accent_current_opacity _
+    | Accent_inherit | Accent_bracket_color _ | Accent_bracket_color_opacity _
+      ->
         26
     | Outline_opacity _ | Outline _ | Outline_current
     | Outline_current_opacity _ | Outline_inherit | Outline_transparent
@@ -1955,7 +1988,6 @@ module Handler = struct
     | Outline_bracket_var _ | Outline_bracket_var_opacity _
     | Outline_bracket_typed_var _ | Outline_bracket_typed_var_opacity _ ->
         28
-    | _ -> 25
 
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
@@ -2056,22 +2088,6 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "bg"; "transparent" ] -> Ok Bg_transparent
-    | [ "bg"; current_str ]
-      when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier ~theme current_str in
-        match opacity with
-        | No_opacity when base = "current" -> Ok Bg_current
-        | No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
-        | _ -> Ok (Bg_current_opacity opacity))
-    | "bg" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings ~theme color_parts with
-        | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
-        | Error e -> Error e)
-    | "bg" :: color_parts -> (
-        match shade_of_strings ~theme color_parts with
-        | Ok (color, shade) -> Ok (Bg (color, shade))
-        | Error e -> Error e)
     | [ "text"; "transparent" ] -> Ok Text_transparent
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
@@ -2338,20 +2354,6 @@ module Handler = struct
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
-  let bg' ?theme c shade =
-    if is_custom_color c then
-      let css_color = to_css c shade in
-      style [ Css.background_color css_color ]
-    else
-      (* Use shared color variable to match tailwindcss output exactly. *)
-      let cv = color_var c shade in
-      let color_value = get_color_value ?theme c shade in
-      let decl, color_ref = Var.binding cv color_value in
-      style (decl :: [ Css.background_color (Css.Var color_ref) ])
-
-  let bg_transparent = style [ Css.background_color (Css.hex "#0000") ]
-  let bg_current = style [ Css.background_color Css.Current ]
-
   (** Text color utilities *)
 
   let text' ?theme color shade =
@@ -2519,8 +2521,7 @@ module Handler = struct
            the same value. It leaves a colour whose channels are not all static
            alone, and that one has no hex form. *)
         match
-          Cascade.Values.nonkeyword_color
-            (Cascade.Values.normalize_color ~in_feature_query:false c)
+          Cascade.Values.nonkeyword_color (Cascade.Values.normalize_color c)
         with
         | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
             let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
@@ -2650,19 +2651,8 @@ module Handler = struct
     | None when is_custom_color c ->
         (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
            variables, no @supports, no hex+alpha fallback. *)
-        let ok_l, ok_a, ok_b =
-          match c with
-          | Hex h -> (
-              match hex_to_rgb h with
-              | Some rgb -> rgb_to_oklab rgb
-              | None -> (0.0, 0.0, 0.0))
-          | Rgb { red; green; blue } ->
-              rgb_to_oklab { r = red; g = green; b = blue }
-          | _ -> (0.0, 0.0, 0.0)
-        in
-        let alpha = percent /. 100.0 in
-        let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-        style ?merge_key (property_decls oklab_value)
+        style ?merge_key
+          (property_decls (custom_color_with_alpha c (percent /. 100.0)))
     | None -> (
         let scheme = resolve_scheme theme in
         let color_name = scheme_color_name c shade in
@@ -2743,11 +2733,6 @@ module Handler = struct
     colors_with_opacity_style ?theme ~properties:[ property ] ?property_prefix
       ?merge_key c shade opacity
 
-  (** Background color with opacity *)
-  let bg_with_opacity ?theme c shade opacity =
-    color_with_opacity_style ?theme ~property:Css.background_color
-      ~property_prefix:"background-color" c shade opacity
-
   (** Text color with opacity *)
   let text_with_opacity ?theme c shade opacity =
     let property_prefix =
@@ -2819,24 +2804,65 @@ module Handler = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  (** Convert a bracket color string to a custom Hex color for opacity handling.
-      Named colors like "black" are converted to their hex equivalent so they go
-      through the direct oklab path (is_custom_color = true). *)
-  let bracket_color_to_custom inner =
-    if String.length inner > 0 && inner.[0] = '#' then
-      mk_color_hex (String.sub inner 1 (String.length inner - 1))
-    else
-      match color_of_string inner with
-      | Ok Black -> mk_color_hex "000000"
-      | Ok White -> mk_color_hex "ffffff"
-      | Ok c ->
-          let oklch = to_oklch c 500 in
-          let rgb = oklch_to_rgb oklch in
-          mk_color_hex (rgb_to_hex rgb)
-      | Error _ -> mk_color_hex "000000"
+  (* The bracket colour as a palette-shaped [Hex], so an opacity modifier folds
+     the alpha in the same way it does for a hex bracket. [None] for a colour
+     with no hex form: [currentcolor], a [var()], or a colour whose channels are
+     not all static. *)
+  let bracket_color_to_custom css_color =
+    let c = Cascade.Values.nonkeyword_color css_color in
+    let c = match css_color_to_hex c with Some hex -> hex | None -> c in
+    match c with
+    | Hex { r; g; b; _ } | Authored_hex { r; g; b; _ } ->
+        Some (mk_color_hex (hex_string_of_rgb (r, g, b)))
+    | _ -> None
 
-  let outline_bracket_color_opacity_style inner opacity =
-    let c = bracket_color_to_custom inner in
+  (* What an opacity modifier makes of a bracket colour. [Folded] is the single
+     value a colour with a hex spelling and a literal alpha resolves to.
+     [Guarded] is the pair every other case needs: the colour itself, for a
+     browser with no [color-mix()], and the mix behind an [\@supports] guard.
+     The properties the two land on are the caller's, which is why this answers
+     values rather than declarations - a decoration colour writes a vendor
+     prefix alongside, and a divide colour hangs both on its child selector. *)
+  type bracket_opacity =
+    | Folded of Css.color
+    | Guarded of { fallback : Css.color; mixed : Css.color }
+
+  (* A bracket colour arrives already parsed into a typed [Css.color], and an
+     opacity modifier applies to that value. Reading the bracket text back
+     through the palette parser answered black for every colour the palette does
+     not name. *)
+  let bracket_color_opacity css_color opacity =
+    match bracket_color_to_custom css_color with
+    | Some c when opacity_var_name opacity = None ->
+        Folded (custom_color_with_alpha c (opacity_to_percent opacity /. 100.0))
+    | _ ->
+        let fallback = resolve_bracket_css_color css_color in
+        Guarded { fallback; mixed = mix_alpha opacity fallback }
+
+  let bracket_color_opacity_style ?merge_key ~property css_color opacity =
+    match bracket_color_to_custom css_color with
+    | Some c -> color_with_opacity_style ~property ?merge_key c 500 opacity
+    | None -> (
+        let base = resolve_bracket_css_color css_color in
+        match css_color with
+        | Css.Current | Css.Var _ ->
+            (* The browser resolves these at use time, so the alpha cannot be
+               folded in ahead of it the way a concrete colour's can - an
+               [oklch()] mix folds to a hex with its alpha, [currentcolor] has
+               nothing to fold. Tailwind writes the plain colour and puts the
+               mix behind the [color-mix()] guard; emitting the mix alone leaves
+               a browser without [color-mix()] no colour at all. *)
+            let supports_block =
+              Css.supports ~condition:color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    [ property (apply_alpha opacity base) ];
+                ]
+            in
+            style ?merge_key ~rules:(Some [ supports_block ]) [ property base ]
+        | _ -> style ?merge_key [ property (apply_alpha opacity base) ])
+
+  let outline_bracket_color_opacity_style inner css_color opacity =
     let merge_key =
       if String.length inner > 0 && inner.[0] = '#' then
         (* Hex bracket colors: strip bracket+opacity for merging *)
@@ -2847,7 +2873,7 @@ module Handler = struct
            but Tailwind keeps them separate. *)
         "outline-[" ^ inner ^ "]" ^ opacity_suffix opacity
     in
-    color_with_opacity_style ~property:Css.outline_color ~merge_key c 500
+    bracket_color_opacity_style ~property:Css.outline_color ~merge_key css_color
       opacity
 
   let outline_bracket_var_opacity_style v opacity =
@@ -2882,10 +2908,6 @@ module Handler = struct
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
-  let border_bracket_color_opacity_style inner opacity =
-    let c = bracket_color_to_custom inner in
-    color_with_opacity_style ~property:Css.border_color c 500 opacity
-
   let with_pseudo pseudo = function
     | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
     | other -> other
@@ -2893,15 +2915,11 @@ module Handler = struct
   let to_style theme =
     (* Shadow the scheme-reading colour helpers with theme-applied versions so
        the match arms below read from the explicitly threaded scheme. *)
-    let bg' color shade = bg' ~theme color shade in
     let text' color shade = text' ~theme color shade in
     let border_color' color shade = border_color' ~theme color shade in
     let accent' color shade = accent' ~theme color shade in
     let caret' color shade = caret' ~theme color shade in
     let outline' color shade = outline' ~theme color shade in
-    let bg_with_opacity color shade opacity =
-      bg_with_opacity ~theme color shade opacity
-    in
     let text_with_opacity color shade opacity =
       text_with_opacity ~theme color shade opacity
     in
@@ -2918,19 +2936,11 @@ module Handler = struct
       outline_with_opacity ~theme color shade opacity
     in
     function
-    | Bg (color, shade) -> bg' color shade
-    | Bg_opacity (color, shade, opacity) ->
-        (* 100% opacity: same as base color, no @supports needed *)
-        if is_fully_opaque opacity && not (is_custom_color color) then
-          bg' color shade
-        else bg_with_opacity color shade opacity
-    | Bg_transparent -> bg_transparent
-    | Bg_current -> bg_current
-    | Bg_current_opacity opacity ->
-        current_color_with_opacity ~property:Css.background_color opacity
-    | Text (color, shade) -> text' color shade
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. *)
     | Text_opacity (color, shade, opacity) ->
         text_with_opacity color shade opacity
+    | Text (color, shade) -> text' color shade
     | Text_transparent -> text_transparent
     | Text_current -> text_current
     | Text_current_opacity opacity ->
@@ -2939,9 +2949,8 @@ module Handler = struct
     | Text_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"text-" [ Css.color c ]
-    | Text_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.color c 500 opacity
+    | Text_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.color css_color opacity
     | Text_bracket_var v ->
         let bare_name = Parse.extract_var_name v in
         style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
@@ -2991,8 +3000,8 @@ module Handler = struct
     | Border_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"border-" [ Css.border_color c ]
-    | Border_bracket_color_opacity (inner, _css_color, opacity) ->
-        border_bracket_color_opacity_style inner opacity
+    | Border_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.border_color css_color opacity
     | Accent (color, shade) -> accent' color shade
     | Accent_opacity (color, shade, opacity) ->
         accent_with_opacity color shade opacity
@@ -3004,9 +3013,8 @@ module Handler = struct
     | Accent_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"accent-" [ Css.accent_color c ]
-    | Accent_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.accent_color c 500 opacity
+    | Accent_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.accent_color css_color opacity
     | Caret (color, shade) -> caret' color shade
     | Caret_opacity (color, shade, opacity) ->
         caret_with_opacity color shade opacity
@@ -3018,9 +3026,8 @@ module Handler = struct
     | Caret_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"caret-" [ Css.caret_color c ]
-    | Caret_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
-        color_with_opacity_style ~property:Css.caret_color c 500 opacity
+    | Caret_bracket_color_opacity (_orig, css_color, opacity) ->
+        bracket_color_opacity_style ~property:Css.caret_color css_color opacity
     | Outline (color, shade) -> outline' color shade
     | Outline_opacity (color, shade, opacity) ->
         outline_with_opacity color shade opacity
@@ -3032,8 +3039,8 @@ module Handler = struct
     | Outline_bracket_color (_orig, css_color) ->
         let c = resolve_bracket_css_color css_color in
         style ~merge_key:"outline-" [ Css.outline_color c ]
-    | Outline_bracket_color_opacity (inner, _css_color, opacity) ->
-        outline_bracket_color_opacity_style inner opacity
+    | Outline_bracket_color_opacity (inner, css_color, opacity) ->
+        outline_bracket_color_opacity_style inner css_color opacity
     | Outline_bracket_var v -> outline_bracket_var_style v
     | Outline_bracket_var_opacity (v, opacity) ->
         outline_bracket_var_opacity_style v opacity
@@ -3059,46 +3066,34 @@ module Handler = struct
         let c = resolve_bracket_css_color css_color in
         let s = style [ Css.color c ] in
         with_pseudo Css.Selector.Placeholder s
-    | Placeholder_bracket_color_opacity (inner, _css_color, opacity) ->
-        let c = bracket_color_to_custom inner in
+    | Placeholder_bracket_color_opacity (_orig, css_color, opacity) ->
         with_pseudo Css.Selector.Placeholder
-          (color_with_opacity_style ~property:Css.color c 500 opacity)
+          (bracket_color_opacity_style ~property:Css.color css_color opacity)
 
-  (* Suborder for the non-text color families: border (0-9999) then bg
-     (10000-19999). text-color runs at priority 26 (see [priority]) with a fixed
-     suborder inside the late-typography block. NOTE: Bg must be first pattern
-     to infer local type t vs shadowed Css.Border. *)
+  (* Suborder for the non-text color families: border first (0-9999), then the
+     rest. text-color runs at priority 26 (see [priority]) with a fixed suborder
+     inside the late-typography block. *)
   let suborder = function
-    | Bg (color, shade) ->
-        (* All background colors use the same suborder (10000) to allow
-           alphabetical sorting, matching Tailwind v4 behavior. *)
-        let _ = (color, shade) in
-        10000
-    | Bg_opacity (color, shade, _) ->
-        let _ = (color, shade) in
-        10000
-    | Bg_transparent -> 10000
-    | Bg_current -> 10000
-    | Bg_current_opacity _ -> 10000
-    | Text (color, shade) ->
-        (* All text colors share suborder 8370 (priority 26, after
-           text-transform and before font-style) so they sort alphabetically,
-           matching Tailwind. *)
-        let _ = (color, shade) in
-        8370
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. All text colors
+       share suborder 8350 (priority 26, after white-space and before
+       text-transform) so they sort alphabetically, matching Tailwind. *)
     | Text_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        8370
-    | Text_transparent -> 8370
-    | Text_current -> 8370
-    | Text_current_opacity _ -> 8370
-    | Text_inherit -> 8370
-    | Text_bracket_color _ -> 8370
-    | Text_bracket_color_opacity _ -> 8370
-    | Text_bracket_var _ -> 8370
-    | Text_bracket_var_opacity _ -> 8370
-    | Text_bracket_typed_var _ -> 8370
-    | Text_bracket_typed_var_opacity _ -> 8370
+        8350
+    | Text (color, shade) ->
+        let _ = (color, shade) in
+        8350
+    | Text_transparent -> 8350
+    | Text_current -> 8350
+    | Text_current_opacity _ -> 8350
+    | Text_inherit -> 8350
+    | Text_bracket_color _ -> 8350
+    | Text_bracket_color_opacity _ -> 8350
+    | Text_bracket_var _ -> 8350
+    | Text_bracket_var_opacity _ -> 8350
+    | Text_bracket_typed_var _ -> 8350
+    | Text_bracket_typed_var_opacity _ -> 8350
     | Border (color, shade) ->
         (* Border colors share suborder 1500 with borders.ml's named border
            colors (Border_color), at priority 19, so named and arbitrary tie and
@@ -3115,46 +3110,46 @@ module Handler = struct
     | Border_bracket_color_opacity _ -> 1500
     (* Per-side border colors sort after the all-sides colors. *)
     | Border_side_color _ -> 1600
-    | Accent (color, shade) ->
-        (* All accent colors use the same suborder (50000) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
-        let _ = (color, shade) in
-        50000
-    | Accent_opacity (color, shade, _) ->
-        let _ = (color, shade) in
-        50000
-    | Accent_transparent -> 50000
-    | Accent_current -> 50000
-    | Accent_current_opacity _ -> 50000
-    | Accent_inherit -> 50000
-    | Accent_bracket_color _ -> 50000
-    | Accent_bracket_color_opacity _ -> 50000
-    (* Caret comes after accent. Alphabetical: current, inherit, [colors],
-       transparent We use: - current: 60000 (c comes before colors, except
-       blue=60003) - inherit: 60000 + 9*1000 = 69000 (i comes after h, before
-       l=lime) - colors: 60000 + color_order * 1000 + shade (blue=3*1000,
-       red=15*1000) - transparent: 60000 + 25*1000 = 85000 (t comes after all
-       colors) Actually simpler: just use character-based ordering for special
-       keywords *)
+    (* The three colour families that close the late-typography block, in
+       Tailwind's order: placeholder, then caret, then accent, all after the
+       underline offset (max 69999). Each family shares one suborder so its
+       members tie and sort alphabetically by class name. *)
+    | Placeholder _ -> 80000
+    | Placeholder_opacity _ -> 80000
+    | Placeholder_transparent -> 80000
+    | Placeholder_current -> 80000
+    | Placeholder_current_opacity _ -> 80000
+    | Placeholder_inherit -> 80000
+    | Placeholder_bracket_color _ -> 80000
+    | Placeholder_bracket_color_opacity _ -> 80000
     | Caret (color, shade) ->
-        (* All caret colors use the same suborder (60000) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
         let _ = (color, shade) in
-        60000
+        81000
     | Caret_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        60000
-    | Caret_current -> 60000
-    | Caret_current_opacity _ -> 60000
-    | Caret_inherit -> 60000
-    | Caret_transparent -> 60000
-    | Caret_bracket_color _ -> 60000
-    | Caret_bracket_color_opacity _ -> 60000
-    (* t -> after all colors (max=24) *)
+        81000
+    | Caret_current -> 81000
+    | Caret_current_opacity _ -> 81000
+    | Caret_inherit -> 81000
+    | Caret_transparent -> 81000
+    | Caret_bracket_color _ -> 81000
+    | Caret_bracket_color_opacity _ -> 81000
+    | Accent (color, shade) ->
+        let _ = (color, shade) in
+        82000
+    | Accent_opacity (color, shade, _) ->
+        let _ = (color, shade) in
+        82000
+    | Accent_transparent -> 82000
+    | Accent_current -> 82000
+    | Accent_current_opacity _ -> 82000
+    | Accent_inherit -> 82000
+    | Accent_bracket_color _ -> 82000
+    | Accent_bracket_color_opacity _ -> 82000
     (* Outline colors run at priority 28 with the rest of the outline family
        (see [priority]): the 3000 base puts them after borders.ml's outline
-       width (1999-2010) and offset (2200-2299) and before its outline
-       styles (30000-30004). *)
+       width (1999-2010) and offset (2200-2299) and before its outline styles
+       (30000-30004). *)
     | Outline (color, shade) ->
         let base =
           if is_base_color color then
@@ -3186,38 +3181,19 @@ module Handler = struct
     | Outline_bracket_var_opacity _ -> 3000
     | Outline_bracket_typed_var _ -> 3000
     | Outline_bracket_typed_var_opacity _ -> 3000
-    (* Placeholder colors: 80000 base *)
-    | Placeholder _ -> 80000
-    | Placeholder_opacity _ -> 80000
-    | Placeholder_transparent -> 80000
-    | Placeholder_current -> 80000
-    | Placeholder_current_opacity _ -> 80000
-    | Placeholder_inherit -> 80000
-    | Placeholder_bracket_color _ -> 80000
-    | Placeholder_bracket_color_opacity _ -> 80000
 
   let to_class = function
-    | Bg (c, shade) ->
-        if is_shadeless c then "bg-" ^ color_to_string c
-        else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
-    | Bg_opacity (c, shade, opacity) ->
-        if is_shadeless c then
-          "bg-" ^ color_to_string c ^ opacity_suffix opacity
-        else
-          "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
-          ^ opacity_suffix opacity
-    | Bg_transparent -> "bg-transparent"
-    | Bg_current -> "bg-current"
-    | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
-    | Text (c, shade) ->
-        if is_shadeless c then "text-" ^ color_to_string c
-        else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. *)
     | Text_opacity (c, shade, opacity) ->
         if is_shadeless c then
           "text-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
+    | Text (c, shade) ->
+        if is_shadeless c then "text-" ^ color_to_string c
+        else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Text_transparent -> "text-transparent"
     | Text_current -> "text-current"
     | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
@@ -3351,7 +3327,6 @@ module Handler = struct
 
   let examples =
     [
-      Bg_transparent;
       Text_transparent;
       Border_transparent;
       Outline_transparent;
@@ -3375,7 +3350,13 @@ let opacity_to_percent = Handler.opacity_to_percent
 let opacity_var_bare = Handler.opacity_var_bare
 let opacity_var_bare_of = Handler.opacity_var_name
 let shorten_hex_str = shorten_hex_str
-let bracket_color_to_custom = Handler.bracket_color_to_custom
+let bracket_color_opacity_style = Handler.bracket_color_opacity_style
+
+type bracket_opacity = Handler.bracket_opacity =
+  | Folded of Css.color
+  | Guarded of { fallback : Css.color; mixed : Css.color }
+
+let bracket_color_opacity = Handler.bracket_color_opacity
 let css_color_to_hex = Handler.css_color_to_hex
 let parse_bracket_color = Handler.parse_bracket_color
 
@@ -3729,12 +3710,6 @@ let bg_current_with_opacity ?theme opacity =
 (** Public API *)
 let utility x = Utility.base (Self x)
 
-let bg ?opacity ?(shade = 500) color =
-  check_shade ~utility:"bg" color shade;
-  match opacity with
-  | None -> utility (Bg (color, shade))
-  | Some pct -> utility (Bg_opacity (color, shade, opacity_of_int pct))
-
 let text ?opacity ?(shade = 500) color =
   check_shade ~utility:"text" color shade;
   match opacity with
@@ -3747,8 +3722,6 @@ let border_color ?opacity ?(shade = 500) color =
   | None -> utility (Border (color, shade))
   | Some pct -> utility (Border_opacity (color, shade, opacity_of_int pct))
 
-let bg_transparent = utility Bg_transparent
-let bg_current = utility Bg_current
 let text_transparent = utility Text_transparent
 let text_current = utility Text_current
 let text_inherit = utility Text_inherit

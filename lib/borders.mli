@@ -67,18 +67,6 @@ val border_none : t
 (** [border_none] sets [--tw-border-style] to [none] and applies
     [border-style: none]. *)
 
-(** {1 Border Color Utilities} *)
-
-val border_color : ?opacity:int -> ?shade:int -> Color.color -> t
-(** [border_color color] sets the border color. [shade] defaults to 500.
-    [opacity] sets the alpha modifier (0-100). *)
-
-val border_transparent : t
-(** [border_transparent] sets the border color to transparent. *)
-
-val border_current : t
-(** [border_current] sets the border color to currentColor. *)
-
 val border_xs : t
 (** [border_xs] is a semantic width alias – 1px. *)
 
@@ -636,5 +624,14 @@ val border_style_var : Cascade.Css.border_style Var.property_default
     utility reads its style from. Declared once here and shared, so the divide
     utilities that read the same property cannot register a second, disagreeing
     slot for it. *)
+
+val parse_border_width : string -> Cascade.Css.border_width option
+(** [parse_border_width text] reads the inside of an arbitrary width bracket
+    with cascade's border-width reader: a line-width keyword, a length in a unit
+    [Css.border_width] names, [calc()] or [var()]. A bare number reads as
+    pixels, which is what Tailwind emits for [border-[3]]. [None] for anything
+    else, including the units the length grammar has that a border width does
+    not (the dynamic-viewport and container-query families). Shared with the
+    divide utilities, which set the same property. *)
 
 module Handler : Utility.Handler

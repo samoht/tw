@@ -135,10 +135,28 @@ let split_importance base_class =
     (`Suffix, String.sub base_class 0 (n - 1))
   else (`None, base_class)
 
+(* The alpha a [theme()] path carries, as the percentage to mix at: a percentage
+   as written, a bare number as the fraction Tailwind reads it for. *)
+let theme_alpha_percent a =
+  let n = String.length a in
+  if n > 1 && a.[n - 1] = '%' then float_of_string_opt (String.sub a 0 (n - 1))
+  else Stdlib.Option.map (fun f -> f *. 100.) (float_of_string_opt a)
+
+(* Tailwind applies a [theme()] alpha by mixing the colour with transparent,
+   which reads whatever the [@theme] bound the palette entry to. *)
+let theme_color_with_alpha base a =
+  match (Cascade.Css.parse_color base, theme_alpha_percent a) with
+  | Some color, Some percent1 ->
+      Some
+        (Cascade.Css.Pp.to_string Cascade.Css.pp_color
+           (Cascade.Css.color_mix ~in_space:Oklab ~percent1 color
+              Cascade.Css.Transparent))
+  | _ -> None
+
 (* Resolve a Tailwind theme() dot-path to its static value:
    colors.<name>.<shade> (optionally with a /<alpha> suffix) becomes the
-   colour's oklch value, and spacing.<n> becomes <n * 0.25>rem. Returns None for
-   paths not resolved. *)
+   colour's value mixed with the alpha, and spacing.<n> becomes <n * 0.25>rem.
+   Returns None for paths not resolved. *)
 let theme_resolve_path ~theme inner =
   let path, alpha =
     match String.index_opt inner '/' with
@@ -150,7 +168,7 @@ let theme_resolve_path ~theme inner =
   match String.split_on_char '.' path with
   | [ "colors"; name; shade ] -> (
       match (Color.of_string name, int_of_string_opt shade) with
-      | Ok c, Some sh ->
+      | Ok c, Some sh -> (
           (* A project that renames a palette entry in its [@theme] gets its own
              value back here, the way [bg-<name>-<shade>] already does. *)
           let token = String.concat "-" [ "color"; name; shade ] in
@@ -159,27 +177,18 @@ let theme_resolve_path ~theme inner =
             | Some v -> v
             | None -> Color.to_oklch_css c sh
           in
-          Some
-            (match alpha with
-            | Some a
-              when String.length base > 0 && base.[String.length base - 1] = ')'
-              ->
-                (* oklch(L C H) -> oklch(L C H / a); cascade folds the alpha
-                   form to Tailwind's oklab(...) under canonical comparison. *)
-                String.concat ""
-                  [ String.sub base 0 (String.length base - 1); " / "; a; ")" ]
-            | _ -> base)
+          match alpha with
+          | Some a -> theme_color_with_alpha base a
+          | None -> Some base)
       | _ -> None)
-  | [ "spacing"; n ] -> (
-      match float_of_string_opt n with
-      | Some nf ->
-          let rem = nf *. 0.25 in
-          let s =
-            if Float.is_integer rem then string_of_int (int_of_float rem)
-            else string_of_float rem
-          in
-          Some (String.concat "" [ s; "rem" ])
-      | None -> None)
+  | [ "spacing"; n ] ->
+      (* The step here is Tailwind's own 0.25rem and not whatever [--spacing]
+         the project set: checked against the CLI with [@theme { --spacing:
+         0.5rem }], both sheets still resolve [theme(spacing.4)] to [1rem], so
+         reading the theme would lose parity rather than gain it.
+         [Theme.spacing_times] is that same fixed product, and going through it
+         is what keeps the two spellings of it in step. *)
+      Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
 (* Replace each theme(<path>) in a class string with its resolved value, spaces
@@ -280,12 +289,22 @@ let of_string ?(theme = Scheme.default) class_str =
           | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
       | None -> unknown_class_error ~base_class class_str)
 
-let str s =
-  let classes = split_whitespace s in
-  List.map
-    (fun cls ->
-      match of_string cls with Ok t -> t | Error (`Msg msg) -> invalid_arg msg)
-    classes
+(* A name the parser rejects may be a typo or a deliberate non-tw class - a
+   framework hook, a JS selector - and nothing here can tell the two apart. So
+   parsing a class string never fails: it hands back what it recognised and what
+   it did not, and the caller judges. *)
+let of_classes ?theme s =
+  let styles, unknown =
+    List.fold_left
+      (fun (styles, unknown) cls ->
+        match of_string ?theme cls with
+        | Ok t -> (t :: styles, unknown)
+        | Error _ -> (styles, cls :: unknown))
+      ([], []) (split_whitespace s)
+  in
+  (List.rev styles, List.rev unknown)
+
+let str s = fst (of_classes s)
 
 (** {1 Module Exports} *)
 

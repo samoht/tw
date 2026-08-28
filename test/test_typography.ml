@@ -467,6 +467,13 @@ let test_arbitrary_leading () =
   agree "normal" "normal";
   agree "var(--lh)" "var(--lh)";
   agree "calc(1rem_+_2px)" "calc(1rem + 2px)";
+  (* every unit the length grammar names, not the handful the line-height type
+     happens to have a constructor for *)
+  agree "2vw" "2vw";
+  agree "3ch" "3ch";
+  agree "10dvh" "10dvh";
+  agree "2cqw" "2cqw";
+  agree "4lh" "4lh";
   (* the spellings that already worked keep working *)
   agree "24px" "24px";
   agree "2rem" "2rem";
@@ -589,6 +596,30 @@ let line_clamp_sorts_with_box_sizing () =
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches ~test_name:"line-clamp order" utilities
+
+(* Tailwind's tail runs the [color] property, then text-transform, font-style
+   and text-decoration-line, then the decoration colour, style and thickness,
+   the underline offset, and last the placeholder, caret and accent colours.
+   Every one of those writes a different property, so a reorder among them is
+   cascade-neutral and the canonical differ reads the two sheets as equal;
+   reading each class's position back out of the sheet is what sees it. *)
+let late_typography_colour_block_order () =
+  Test_helpers.check_class_order ~test_name:"late typography colour block"
+    [
+      "tracking-wide";
+      "whitespace-nowrap";
+      "text-red-500";
+      "uppercase";
+      "italic";
+      "underline";
+      "decoration-red-500";
+      "decoration-solid";
+      "decoration-2";
+      "underline-offset-2";
+      "placeholder-red-500";
+      "caret-red-500";
+      "accent-red-500";
+    ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -948,6 +979,43 @@ let test_decoration_opacity_fallback () =
   emits "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
     "decoration-brand/(--a)"
 
+(* A bracket colour CSS names without spelling it as a function - a named
+   colour, a keyword - is a decoration colour too. The reader admitted only a
+   [#] hex and a colour function, so [decoration-[rebeccapurple]] was an unknown
+   class, with or without an opacity modifier. *)
+let test_decoration_bracket_named_color () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the value a class sets for [text-decoration-color], so two spellings of one
+     colour compare without their class names *)
+  let value cls =
+    let sheet = css cls in
+    let key = "text-decoration-color:" in
+    match Astring.String.find_sub ~sub:key sheet with
+    | None -> Alcotest.failf "%s sets no decoration colour: %s" cls sheet
+    | Some i ->
+        let first = i + String.length key in
+        Astring.String.with_range ~first sheet
+        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
+  in
+  emits "text-decoration-color:rebeccapurple" "decoration-[rebeccapurple]";
+  emits "text-decoration-color:currentColor" "decoration-[currentColor]";
+  (* the modifier folds into the colour the bracket named, not into black *)
+  Alcotest.(check string)
+    "decoration-[rebeccapurple]/50 is decoration-[#663399]/50"
+    (value "decoration-[#663399]/50")
+    (value "decoration-[rebeccapurple]/50");
+  (* a bracket naming no colour and no thickness is still not a class *)
+  Alcotest.(check bool)
+    "decoration-[notacolour] is not a class" true
+    (Result.is_error (Tw.of_string "decoration-[notacolour]"))
+
 (* A [#] bracket is only a decoration colour when what follows is a hex
    spelling. The decoration reader handed everything after the [#] to the
    raising constructor from inside [of_class], so a malformed hex escaped the
@@ -1105,12 +1173,16 @@ let tests =
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
+    test_case "late typography colour block order" `Quick
+      late_typography_colour_block_order;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "line-clamp sorts with box-sizing" `Quick
       line_clamp_sorts_with_box_sizing;
     test_case "decoration opacity fallback" `Quick
       test_decoration_opacity_fallback;
+    test_case "decoration bracket named colour" `Quick
+      test_decoration_bracket_named_color;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]
