@@ -224,6 +224,31 @@ let test_declared_utility_keeps_its_nesting () =
         (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
   | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
 
+(* A [@utility] body is author text tw does not validate. An unclosed brace in
+   one must cost that class alone: assembled into a single sheet, the block
+   swallows every utility written after it, and the sheet as a whole no longer
+   parses, which dropped the lot. *)
+let test_malformed_utility_spares_the_others () =
+  let udefs =
+    [
+      ("line-bad", " color: red; &::before { content: \"x\" ");
+      ("line-ok", " padding: 5px ");
+    ]
+  in
+  let _, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      [ "line-bad"; "line-ok" ]
+  in
+  let is_ok (cls, _, _) = String.equal cls "line-ok" in
+  let name (cls, _, _) = cls in
+  match List.find_opt is_ok entries with
+  | None ->
+      Alcotest.failf "line-ok dropped, entries: %s"
+        (String.concat ", " (List.map name entries))
+  | Some (_, _, statements) ->
+      check string "the good utility stands on its own" ".line-ok{padding:5px}"
+        (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -244,6 +269,8 @@ let tests =
       test_apply_hoists_each_property_once;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
+    test_case "malformed utility spares the others" `Quick
+      test_malformed_utility_spares_the_others;
   ]
 
 let suite = ("entrypoint", tests)
