@@ -377,10 +377,11 @@ module Handler = struct
      the CSS functions have no bracket spelling at all. *)
   let bracket_spelling (width : Css.border_width) : string option =
     match width with
-    | Thin | Medium | Thick | Auto | Max_content | Min_content | Fit_content
-    | From_font | Calc _ | Min _ | Max _ | Clamp _ | Inherit | Initial | Unset
-    | Revert | Revert_layer | Var _ ->
-        None
+    (* [None] is exactly what the bracket reader refuses, so the typed
+       constructor can build every class the parser accepts and no other. A
+       sizing keyword is not a width, and a [var()] has no spelling of its
+       own. *)
+    | Auto | Max_content | Min_content | Fit_content | From_font | Var _ -> None
     (* The bracket is re-read as a width, and a bare [0] is not one, so the
        unitless zero takes the unit back. *)
     | Zero -> Some "0px"

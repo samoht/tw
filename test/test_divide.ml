@@ -66,16 +66,20 @@ let test_arbitrary_width_roundtrip () =
     (Astring.String.is_infix ~affix:".divide-x-\\[2rem\\]"
        (selector "divide-x-[2rem]"))
 
-(* The typed constructor spells the width itself, and refuses a width that has
-   no spelling inside a class name. *)
+(* The typed constructor spells the width itself, and builds exactly the classes
+   the bracket reader accepts. Tailwind takes a line-width keyword there -
+   [divide-x-[thin]] emits [calc(thin * var(--tw-divide-x-reverse))] - so
+   refusing [Thin] refused a class the parser already read. A sizing keyword is
+   not a width and stays refused. *)
 let test_typed_arbitrary_width () =
   let open Tw in
   Test_helpers.check_typed_class "divide-x-[4px]" (divide_x_length (Css.Px 4.));
   Test_helpers.check_typed_class "divide-y-[1rem]"
     (divide_y_length (Css.Rem 1.));
-  match divide_x_length Css.Thin with
+  Test_helpers.check_typed_class "divide-x-[thin]" (divide_x_length Css.Thin);
+  match divide_x_length Css.Auto with
   | exception Invalid_argument _ -> ()
-  | _ -> Alcotest.fail "expected divide_x_length Thin to be refused"
+  | _ -> Alcotest.fail "expected divide_x_length Auto to be refused"
 
 (* Every unit a border width names has a bracket spelling, so a typed
    constructor handed one produces a class the parser reads back. *)
