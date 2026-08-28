@@ -85,15 +85,20 @@ let rec style_declarations (s : Style.t) =
 
 (* A width utility writes the style property as a bare reference to the style
    utilities' channel, so the declaration says nothing about which family the
-   utility belongs to. No cascade API tells a bare var() carrier from a real
-   value, so the two carriers are named here. *)
+   utility belongs to. The two carriers are named by the channel they read,
+   matched on the typed value rather than on the printed declaration, so a
+   declared [border-style] naming any other variable stays a style utility. *)
 let is_ordering_carrier decl =
-  match Cascade.Css.Declaration.property_key decl with
-  | Key Border_style ->
-      Cascade.Css.declaration_value ~minify:true decl = "var(--tw-border-style)"
-  | Key Outline_style ->
-      Cascade.Css.declaration_value ~minify:true decl
-      = "var(--tw-outline-style)"
+  match decl with
+  | Cascade.Css.Declaration.Declaration { property = Border_style; value; _ }
+    -> (
+      match value with
+      | Var v -> String.equal (Cascade.Css.var_name v) "tw-border-style"
+      | _ -> false)
+  | Declaration { property = Outline_style; value; _ } -> (
+      match value with
+      | Var v -> String.equal (Cascade.Css.var_name v) "tw-outline-style"
+      | _ -> false)
   | _ -> false
 
 (* The property name a vendor-prefixed one stands in for: [-webkit-user-select]
