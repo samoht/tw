@@ -182,6 +182,57 @@ let test_keyframes_for_theme_and_bracket_names () =
     "bracket naming an unknown animation" []
     (animate_keyframes "animate-[wiggle_1s_ease-in-out_infinite]")
 
+(* Tailwind orders the [animate-*] rules alphabetically by class name and a
+   theme-declared animation is just another name in that order. Measured with
+   the pinned CLI over an [@theme] declaring [--animate-aaa], [--animate-mmm]
+   and [--animate-zzz]: aaa, bounce, mmm, none, ping, pulse, spin, zzz. The
+   ordering helpers drive the CLI without a theme, so the expectation is written
+   out rather than compared against a live run. *)
+let test_theme_animation_sorts_by_name () =
+  let theme =
+    {
+      Tw.Scheme.default with
+      token_overrides =
+        [
+          ("animate-aaa", "aaa 1s linear infinite");
+          ("animate-mmm", "mmm 1s linear infinite");
+          ("animate-zzz", "zzz 1s linear infinite");
+        ];
+    }
+  in
+  let utility cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let utilities =
+    List.map utility
+      [
+        "animate-pulse";
+        "animate-zzz";
+        "animate-spin";
+        "animate-bounce";
+        "animate-aaa";
+        "animate-mmm";
+        "animate-none";
+        "animate-ping";
+      ]
+  in
+  let css = Tw.to_css ~theme ~base:false utilities in
+  Alcotest.(check (list string))
+    "alphabetical by class name"
+    [
+      ".animate-aaa";
+      ".animate-bounce";
+      ".animate-mmm";
+      ".animate-none";
+      ".animate-ping";
+      ".animate-pulse";
+      ".animate-spin";
+      ".animate-zzz";
+    ]
+    (Test_helpers.selectors_in_layer "utilities" css)
+
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
@@ -197,6 +248,8 @@ let tests =
       test_keyframes_follow_the_animation_name;
     test_case "keyframes for theme and bracket names" `Quick
       test_keyframes_for_theme_and_bracket_names;
+    test_case "theme animation sorts by name" `Quick
+      test_theme_animation_sorts_by_name;
   ]
 
 let suite = ("animations", tests)
