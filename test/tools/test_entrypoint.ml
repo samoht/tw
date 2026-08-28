@@ -171,6 +171,38 @@ let test_apply_merges_one_rule () =
     ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
     (Cascade.Css.to_string ~minify:true out)
 
+(* Each utility an [@apply] pulls in hoists an [@property] block for every
+   variable it sets, and the two shadow utilities set the same ones. The hoisted
+   blocks are deduplicated on statement identity, so the sheet declares each
+   property once however many rules applied a utility that sets it. *)
+let test_apply_hoists_each_property_once () =
+  let path = "apply-property-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc
+        "@import \"tailwindcss\";\n\
+         .a { @apply shadow-md; }\n\
+         .b { @apply shadow-lg; }\n");
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v []))
+  in
+  let names =
+    Cascade.Css.statements out
+    |> List.filter_map (fun stmt ->
+        match Cascade.Css.as_property stmt with
+        | Some (Cascade.Css.Property_info { name; _ }) -> Some name
+        | None -> None)
+  in
+  check bool "the shadow properties are hoisted" true (names <> []);
+  check string_list "each declared once"
+    (List.sort_uniq String.compare names)
+    (List.sort String.compare names)
+
 (* Tailwind emits a declared utility as one block, its own nesting intact:
    [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
    rules, the second sorts by the property it writes and an unrelated utility
@@ -192,6 +224,31 @@ let test_declared_utility_keeps_its_nesting () =
         (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
   | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
 
+(* A [@utility] body is author text tw does not validate. An unclosed brace in
+   one must cost that class alone: assembled into a single sheet, the block
+   swallows every utility written after it, and the sheet as a whole no longer
+   parses, which dropped the lot. *)
+let test_malformed_utility_spares_the_others () =
+  let udefs =
+    [
+      ("line-bad", " color: red; &::before { content: \"x\" ");
+      ("line-ok", " padding: 5px ");
+    ]
+  in
+  let _, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      [ "line-bad"; "line-ok" ]
+  in
+  let is_ok (cls, _, _) = String.equal cls "line-ok" in
+  let name (cls, _, _) = cls in
+  match List.find_opt is_ok entries with
+  | None ->
+      Alcotest.failf "line-ok dropped, entries: %s"
+        (String.concat ", " (List.map name entries))
+  | Some (_, _, statements) ->
+      check string "the good utility stands on its own" ".line-ok{padding:5px}"
+        (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -208,8 +265,12 @@ let tests =
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
+    test_case "@apply hoists each property once" `Quick
+      test_apply_hoists_each_property_once;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
+    test_case "malformed utility spares the others" `Quick
+      test_malformed_utility_spares_the_others;
   ]
 
 let suite = ("entrypoint", tests)

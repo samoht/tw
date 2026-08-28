@@ -744,12 +744,30 @@ let split_declared_variants defs name =
       in
       (declared, String.concat ":" (builtin @ [ bare ]))
 
+(* Whether [seen] already holds [stmt], recording it when it does not.
+   [Css.hash_statement] buckets a statement and [Css.equal_statement] settles
+   the bucket, so identity is decided on the statement rather than on the CSS
+   text it renders to. *)
+let seen_statement seen stmt =
+  let bucket = Css.hash_statement stmt in
+  if List.exists (Css.equal_statement stmt) (Hashtbl.find_all seen bucket) then
+    true
+  else begin
+    Hashtbl.add seen bucket stmt;
+    false
+  end
+
+let dedup_statements stmts =
+  let seen = Hashtbl.create 8 in
+  List.filter (fun stmt -> not (seen_statement seen stmt)) stmts
+
+(* A utility's selector names a class, the theme block's [:root, :host] does
+   not. Asked of the selector itself rather than of its text, where a '.' also
+   comes from an attribute value or a decimal inside a pseudo argument. *)
 let is_utility_statement stmt =
   match Css.statement_selector stmt with
   | None -> true
-  | Some sel ->
-      let s = Cascade.Selector.to_string ~minify:true sel in
-      String.contains s '.'
+  | Some sel -> Css.Selector.exists_class (fun _ -> true) sel
 
 let rec merge_same_selector = function
   | a :: b :: rest -> (
@@ -800,22 +818,18 @@ let nested_utilities ~theme names =
          They all decorate the same [&], so they belong in one rule, the way
          Tailwind emits them; left apart, each is a rule of the author's
          selector holding one declaration. *)
-      (* One string per hoisted statement, not one for the whole block: two
+      (* The hoisted statements go back one by one, not as one block: two
          utilities bring overlapping [@property] sets, and deduping the blocks
          whole re-emits every property they do not share. *)
-      ( render_nested_utilities ~classes nestable,
-        List.map (fun st -> Css.to_string ~minify:true (Css.v [ st ])) hoisted
-      )
+      (render_nested_utilities ~classes nestable, hoisted)
 
 (* Append each statement unless it is already there: every utility that sets the
    same variable brings back the same hoisted [@property]. *)
 let add_once buf seen items =
   List.iter
-    (fun s ->
-      if s <> "" && not (List.mem s !seen) then begin
-        seen := s :: !seen;
-        Buffer.add_string buf s
-      end)
+    (fun stmt ->
+      if not (seen_statement seen stmt) then
+        Buffer.add_string buf (Css.to_string ~minify:true (Css.v [ stmt ])))
     items
 
 let apply_names css start stop =
@@ -877,7 +891,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let len = String.length css in
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
-  let seen = ref [] in
+  let seen = Hashtbl.create 64 in
   let rec go i =
     if i >= len then ()
     else
@@ -1017,67 +1031,45 @@ let preload_imports ~transform ~base_url stylesheet =
    author's own rules and shift every one of them. *)
 let equal_layer = Css.Stylesheet.equal_layer_name
 
-(* A named layer appears once in Tailwind's output. The generated sheet and the
-   [@layer properties] blocks each applied utility hoists arrive separately, so
-   fold every repeat of a name into the first, dropping content the first
-   already has. *)
-let named_layer stmt =
-  match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
-
-let layer_statements stmt =
-  match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
-
-let repeated_layer_names stmts =
-  let counts = Hashtbl.create 8 in
-  List.iter
-    (fun stmt ->
-      match named_layer stmt with
-      | Some name ->
-          Hashtbl.replace counts name
-            (1 + Option.value ~default:0 (Hashtbl.find_opt counts name))
-      | None -> ())
-    stmts;
-  Hashtbl.fold
-    (fun name count acc -> if count > 1 then name :: acc else acc)
-    counts []
-
-let merge_named_layers stmts =
-  let repeated = repeated_layer_names stmts in
-  if repeated = [] then stmts
-  else
-    let merged = Hashtbl.create 8 in
-    List.iter
-      (fun n ->
-        let seen = Hashtbl.create 64 in
-        let body =
-          List.concat_map
-            (fun stmt ->
-              match named_layer stmt with
-              | Some m when equal_layer m n -> layer_statements stmt
-              | _ -> [])
-            stmts
-          |> List.filter (fun st ->
-              let key = Css.to_string ~minify:true (Css.v [ st ]) in
-              if Hashtbl.mem seen key then false
-              else begin
-                Hashtbl.add seen key ();
-                true
-              end)
-        in
-        Hashtbl.add merged n body)
-      repeated;
-    let emitted = Hashtbl.create 8 in
-    List.filter_map
-      (fun stmt ->
-        match named_layer stmt with
-        | Some n when List.exists (equal_layer n) repeated ->
-            if Hashtbl.mem emitted n then None
-            else begin
-              Hashtbl.add emitted n ();
-              Some (Css.layer ~name:n (Hashtbl.find merged n))
-            end
-        | _ -> Some stmt)
+(* An empty [@layer name] block says only that the name has a slot, and with
+   nothing in it the fold below reads it as no occurrence at all and leaves it
+   standing. The generated sheet writes an empty utilities layer whenever every
+   utility in the sheet is a declared one, and [hoist_layer_blocks] fills a slot
+   from the first block of its name, so an empty block in front of the real one
+   hides the rules. Write what it means, a slot, and both passes then see the
+   block that has them. Tailwind emits the same [@layer name;] for it. *)
+let declare_empty_layers stmts =
+  let has_content name =
+    List.exists
+      (fun st ->
+        match Css.as_layer st with
+        | Some (Some n, _ :: _) -> equal_layer n name
+        | _ -> false)
       stmts
+  in
+  List.map
+    (fun st ->
+      match Css.as_layer st with
+      | Some (Some n, []) when has_content n -> Css.layer_decl [ n ]
+      | _ -> st)
+    stmts
+
+(* A named layer appears once in Tailwind's output, so fold every repeat of a
+   name into the first. The generated sheet and the [@layer properties] block
+   each applied utility hoists say the same thing, and the fold takes no hook to
+   re-optimize the body it joins the way the [merge_consecutive_*] passes do, so
+   drop what the joined body now holds twice. *)
+let merge_named_layers stmts =
+  let stmts = declare_empty_layers stmts in
+  let merged = Css.Optimize.merge_named_layers_by_name stmts in
+  if List.compare_lengths merged stmts = 0 then stmts
+  else
+    List.map
+      (fun stmt ->
+        match Css.as_layer stmt with
+        | Some (Some name, inner) -> Css.layer ~name (dedup_statements inner)
+        | _ -> stmt)
+      merged
 
 let layer_block_name stmt =
   match Css.layer_block_name stmt with Some [] | None -> None | name -> name
@@ -1381,18 +1373,6 @@ let routed_variant_defs defs derived =
         match template with Some body -> (name, body) :: acc | None -> acc)
       derived []
 
-let dedup_statements stmts =
-  let seen = Hashtbl.create 8 in
-  List.filter
-    (fun stmt ->
-      let key = Css.to_string ~minify:true (Css.v [ stmt ]) in
-      if Hashtbl.mem seen key then false
-      else begin
-        Hashtbl.add seen key ();
-        true
-      end)
-    stmts
-
 let group_routed_rules ~own_order rules =
   let group = Hashtbl.create 8 in
   let order_of = Hashtbl.create 8 in
@@ -1480,17 +1460,27 @@ let flattened_statement stmt =
       [ stmt ]
   | _ -> Css.statements (Css.flatten_nesting (Css.v [ stmt ]))
 
-let parse_routed_blocks ~block_count ~own_order css =
+(* The statements of one generated block, or none when it will not parse at all.
+   A malformed body has to cost its own class and nothing else: read as one
+   assembled sheet, an unclosed brace nests every block written after it inside
+   the broken one, and a parse the recovery cannot save loses the lot. *)
+let parse_routed_block css =
   match Css.of_string css with
-  | Error _ -> (0, [], [])
+  | Error _ -> None
   | Ok parsed ->
-      Css.statements parsed.Css.stylesheet
-      |> List.concat_map flattened_statement
-      |> routed_statements ~block_count ~own_order
+      Some
+        (Css.statements parsed.Css.stylesheet
+        |> List.concat_map flattened_statement)
+
+let parse_routed_blocks ~own_order ~hoisted blocks =
+  let parsed = List.filter_map parse_routed_block blocks in
+  let hoisted = Option.value ~default:[] (parse_routed_block hoisted) in
+  List.concat parsed @ hoisted
+  |> routed_statements ~block_count:(List.length parsed) ~own_order
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
-  let seen = ref [] in
+  let seen = Hashtbl.create 64 in
   let derived = Hashtbl.create 8 in
   let own_order = Hashtbl.create 8 in
   let blocks =
@@ -1504,7 +1494,9 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
       collect_routed_templates ~theme derived udefs;
       let extra_defs = routed_variant_defs defs derived in
       (* A [@utility] body is author CSS: it may hold [@apply], [@variant] and
-         the [--spacing()]/[theme()] shorthands. *)
-      String.concat "" (blocks @ [ Buffer.contents hoisted ])
-      |> apply_variants ~extra_defs ~udefs ~theme
-      |> parse_routed_blocks ~block_count:(List.length blocks) ~own_order
+         the [--spacing()]/[theme()] shorthands. Each block is expanded and read
+         on its own so one unparseable body cannot take the others down. *)
+      let expand = apply_variants ~extra_defs ~udefs ~theme in
+      parse_routed_blocks ~own_order
+        ~hoisted:(expand (Buffer.contents hoisted))
+        (List.map expand blocks)

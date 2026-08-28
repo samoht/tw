@@ -859,14 +859,19 @@ module Handler = struct
        oklab as well made it depend on a colour-space round trip. *)
     let base_value, with_alpha =
       match c with
+      (* A modifier reading a custom property has no percentage for an alpha
+         byte to carry, so the hex stays whole and the property mixes into the
+         guarded value instead. *)
+      | (Hex _ | Authored_hex _)
+        when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
+          (c, Color.mix_alpha ~in_space:Oklab opacity c)
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),
             Color.hex_to_oklab_alpha hex alpha )
       (* A colour with no sRGB hex has nothing to carry the alpha byte, so the
          modifier stays a mix: sRGB for the plain fallback, oklab for the
-         guarded value. A modifier reading a custom property has no percentage a
-         plain fallback can hold, so only the guarded value mixes. *)
+         guarded value. *)
       | _ ->
           let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
           if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
@@ -1487,6 +1492,9 @@ module Handler = struct
        colour with no hex keeps its alpha as a mix in each space. *)
     let base_value, with_alpha =
       match c with
+      | (Hex _ | Authored_hex _)
+        when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
+          (c, Color.mix_alpha ~in_space:Oklab opacity c)
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),

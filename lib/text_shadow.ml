@@ -32,6 +32,9 @@ module Handler = struct
     | Text_shadow_transparent_opacity of Color.opacity_modifier
     | Text_shadow_bracket_hex of string
     | Text_shadow_bracket_hex_opacity of string * Color.opacity_modifier
+    | Text_shadow_bracket_color of string * Css.color
+    | Text_shadow_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
     | Text_shadow_bracket_color_var of string
     | Text_shadow_bracket_cvar_opacity of string * Color.opacity_modifier
     | Text_shadow_bracket_shadow of string
@@ -503,6 +506,40 @@ module Handler = struct
     style ~rules:(Some [ supports_block ])
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
+  (* A bracket colour spelled any way but a [#] hex: a name, a colour function
+     or a relative colour. One with an sRGB hex takes it, so it reads the same
+     as the hex arm above; one without stays as written. *)
+  let set_bracket_color (c : Css.color) =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let base_decl, _ = Var.binding text_shadow_color_var c in
+    let enhanced_color =
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
+        c Css.Transparent
+    in
+    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
+    let supports_block = color_mix_supports [ enhanced_decl ] in
+    style ~rules:(Some [ supports_block ])
+      ~property_rules:text_shadow_property_rules [ base_decl ]
+
+  let set_bracket_color_opacity (c : Css.color) opacity =
+    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+    (* A modifier reading a custom property has no percentage a plain fallback
+       can hold, so the fallback keeps the colour as written. *)
+    let base_value =
+      if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then c
+      else Color.mix_alpha ~in_space:Srgb opacity c
+    in
+    let base_decl, _ = Var.binding text_shadow_color_var base_value in
+    let enhanced_color =
+      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
+        guarded Css.Transparent
+    in
+    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
+    let supports_block = color_mix_supports [ enhanced_decl ] in
+    style ~rules:(Some [ supports_block ])
+      ~property_rules:text_shadow_property_rules [ base_decl ]
+
   let set_bracket_color_var var_expr =
     let var_name = Parse.extract_var_name var_expr in
     let var_color = make_color_var var_name in
@@ -676,6 +713,9 @@ module Handler = struct
     | Text_shadow_bracket_hex hex -> set_bracket_hex hex
     | Text_shadow_bracket_hex_opacity (hex, opacity) ->
         set_bracket_hex_opacity hex opacity
+    | Text_shadow_bracket_color (_orig, c) -> set_bracket_color c
+    | Text_shadow_bracket_color_opacity (_orig, c, opacity) ->
+        set_bracket_color_opacity c opacity
     | Text_shadow_bracket_color_var var_expr -> set_bracket_color_var var_expr
     | Text_shadow_bracket_cvar_opacity (var_expr, opacity) ->
         set_bracket_color_var_opacity var_expr opacity
@@ -783,14 +823,22 @@ module Handler = struct
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_bracket_hex hex)
               | op -> Ok (Text_shadow_bracket_hex_opacity (hex, op))
-            else if parse_arbitrary_shadow inner = Stdlib.Option.None then
-              (* Not a shadow, so not a utility: it used to fall back to
-                 [text-shadow: none]. *)
-              err_not_utility
             else
-              match opacity with
-              | Color.No_opacity -> Ok (Text_shadow_arbitrary inner)
-              | op -> Ok (Text_shadow_arbitrary_opacity (inner, op)))
+              match Color.parse_bracket_color inner with
+              | Some c -> (
+                  match opacity with
+                  | Color.No_opacity ->
+                      Ok (Text_shadow_bracket_color (inner, c))
+                  | op -> Ok (Text_shadow_bracket_color_opacity (inner, c, op)))
+              | Stdlib.Option.None -> (
+                  if parse_arbitrary_shadow inner = Stdlib.Option.None then
+                    (* Not a shadow, so not a utility: it used to fall back to
+                       [text-shadow: none]. *)
+                    err_not_utility
+                  else
+                    match opacity with
+                    | Color.No_opacity -> Ok (Text_shadow_arbitrary inner)
+                    | op -> Ok (Text_shadow_arbitrary_opacity (inner, op))))
         (* Not a size: a shadeless colour, which the multi-segment colour cases
            below never see because it fits in this single segment. *)
         | Stdlib.Option.None, Color.No_opacity -> (
@@ -845,6 +893,9 @@ module Handler = struct
     | Text_shadow_bracket_hex hex -> "text-shadow-[#" ^ hex ^ "]"
     | Text_shadow_bracket_hex_opacity (hex, opacity) ->
         "text-shadow-[#" ^ hex ^ "]/" ^ Color.pp_opacity opacity
+    | Text_shadow_bracket_color (orig, _) -> "text-shadow-[" ^ orig ^ "]"
+    | Text_shadow_bracket_color_opacity (orig, _, opacity) ->
+        "text-shadow-[" ^ orig ^ "]/" ^ Color.pp_opacity opacity
     | Text_shadow_bracket_color_var var_expr ->
         "text-shadow-[color:" ^ var_expr ^ "]"
     | Text_shadow_bracket_cvar_opacity (var_expr, opacity) ->

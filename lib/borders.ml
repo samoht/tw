@@ -74,7 +74,8 @@ module Handler = struct
     | Border_width of int
     | Border_width_bracket of string * Css.border_width
     | Border_side_width_bracket of string * string * Css.border_width
-      (* side ("t"/"r"/"b"/"l"), arbitrary width inner: border-t-[1px] *)
+      (* a side, physical or logical, and an arbitrary width inner:
+         border-t-[1px], border-x-[3px] *)
     | Border_side_width of string * int
       (* side ("t"/"r"/"b"/"l") with a width Tailwind spells in px: border-t-16.
          The 0/2/4/8 constructors below keep their own names, as Border_0/2/4/8
@@ -192,67 +193,43 @@ module Handler = struct
     in
     style ~property_rules:property_rule (side_props_fn border_ref)
 
-  let border_t =
-    make_side_util (fun border_var ->
-        [ border_top_style (Var border_var); border_top_width (Px 1.) ])
+  (* What one side writes for a width: the border-style variable and the width
+     itself, on the longhands that side names. The axes paint the logical inline
+     and block axes through the border-inline and border-block longhands, not
+     the two physical edges; the logical single sides paint one inline or block
+     edge each. *)
+  let side_width_props side border_var (w : Css.border_width) =
+    match side with
+    | "x" ->
+        [
+          border_inline_style (Var border_var);
+          border_inline_width (logical_border_width w);
+        ]
+    | "y" ->
+        [
+          border_block_style (Var border_var);
+          border_block_width (logical_border_width w);
+        ]
+    | "s" ->
+        [
+          border_inline_start_style (Var border_var);
+          border_inline_start_width w;
+        ]
+    | "e" ->
+        [ border_inline_end_style (Var border_var); border_inline_end_width w ]
+    | "bs" ->
+        [
+          border_block_start_style (Var border_var); border_block_start_width w;
+        ]
+    | "be" ->
+        [ border_block_end_style (Var border_var); border_block_end_width w ]
+    | "t" -> [ border_top_style (Var border_var); border_top_width w ]
+    | "r" -> [ border_right_style (Var border_var); border_right_width w ]
+    | "b" -> [ border_bottom_style (Var border_var); border_bottom_width w ]
+    | _ -> [ border_left_style (Var border_var); border_left_width w ]
 
-  let border_r =
-    make_side_util (fun border_var ->
-        [ border_right_style (Var border_var); border_right_width (Px 1.) ])
-
-  let border_b =
-    make_side_util (fun border_var ->
-        [ border_bottom_style (Var border_var); border_bottom_width (Px 1.) ])
-
-  let border_l =
-    make_side_util (fun border_var ->
-        [ border_left_style (Var border_var); border_left_width (Px 1.) ])
-
-  (* v4 axis borders paint the logical inline and block axes via the
-     border-inline and border-block longhands, not the two physical edges. *)
-  let border_inline_axis border_var w =
-    [
-      border_inline_style (Var border_var);
-      border_inline_width (logical_border_width (Px w));
-    ]
-
-  let border_block_axis border_var w =
-    [
-      border_block_style (Var border_var);
-      border_block_width (logical_border_width (Px w));
-    ]
-
-  let border_x = make_side_util (fun v -> border_inline_axis v 1.)
-  let border_y = make_side_util (fun v -> border_block_axis v 1.)
-  let border_x_width n = make_side_util (fun v -> border_inline_axis v n)
-  let border_y_width n = make_side_util (fun v -> border_block_axis v n)
-
-  (* Logical single-side borders paint one inline/block edge, unlike the axis
-     utilities above which paint both edges of an axis. *)
-  let border_s_of w =
-    make_side_util (fun v ->
-        [ border_inline_start_style (Var v); border_inline_start_width (Px w) ])
-
-  let border_e_of w =
-    make_side_util (fun v ->
-        [ border_inline_end_style (Var v); border_inline_end_width (Px w) ])
-
-  let border_bs_of w =
-    make_side_util (fun v ->
-        [ border_block_start_style (Var v); border_block_start_width (Px w) ])
-
-  let border_be_of w =
-    make_side_util (fun v ->
-        [ border_block_end_style (Var v); border_block_end_width (Px w) ])
-
-  let border_s = border_s_of 1.
-  let border_e = border_e_of 1.
-  let border_bs = border_bs_of 1.
-  let border_be = border_be_of 1.
-  let border_s_width n = border_s_of (float_of_int n)
-  let border_e_width n = border_e_of (float_of_int n)
-  let border_bs_width n = border_bs_of (float_of_int n)
-  let border_be_width n = border_be_of (float_of_int n)
+  let side_width side w = make_side_util (fun v -> side_width_props side v w)
+  let side_width_px side n = side_width side (Px (float_of_int n))
 
   (** Border side utilities with specific widths *)
   let border_solid = border_style_util Solid
@@ -577,38 +554,25 @@ module Handler = struct
     | Border_8 -> border_8
     | Border_width n -> border_n n
     | Border_width_bracket (_, w) -> border_width_bracket_style w
-    | Border_side_width_bracket (side, _, w) ->
-        make_side_util (fun bv ->
-            match side with
-            | "t" -> [ border_top_style (Var bv); border_top_width w ]
-            | "r" -> [ border_right_style (Var bv); border_right_width w ]
-            | "b" -> [ border_bottom_style (Var bv); border_bottom_width w ]
-            | _ -> [ border_left_style (Var bv); border_left_width w ])
-    | Border_side_width (side, n) ->
-        let w : Css.border_width = Px (float_of_int n) in
-        make_side_util (fun bv ->
-            match side with
-            | "t" -> [ border_top_style (Var bv); border_top_width w ]
-            | "r" -> [ border_right_style (Var bv); border_right_width w ]
-            | "b" -> [ border_bottom_style (Var bv); border_bottom_width w ]
-            | _ -> [ border_left_style (Var bv); border_left_width w ])
+    | Border_side_width_bracket (side, _, w) -> side_width side w
+    | Border_side_width (side, n) -> side_width_px side n
     (* Border side/axis utilities *)
-    | Border_t -> border_t
-    | Border_r -> border_r
-    | Border_b -> border_b
-    | Border_l -> border_l
-    | Border_x -> border_x
-    | Border_y -> border_y
-    | Border_x_width n -> border_x_width (float_of_int n)
-    | Border_y_width n -> border_y_width (float_of_int n)
-    | Border_s -> border_s
-    | Border_e -> border_e
-    | Border_bs -> border_bs
-    | Border_be -> border_be
-    | Border_s_width n -> border_s_width n
-    | Border_e_width n -> border_e_width n
-    | Border_bs_width n -> border_bs_width n
-    | Border_be_width n -> border_be_width n
+    | Border_t -> side_width_px "t" 1
+    | Border_r -> side_width_px "r" 1
+    | Border_b -> side_width_px "b" 1
+    | Border_l -> side_width_px "l" 1
+    | Border_x -> side_width_px "x" 1
+    | Border_y -> side_width_px "y" 1
+    | Border_x_width n -> side_width_px "x" n
+    | Border_y_width n -> side_width_px "y" n
+    | Border_s -> side_width_px "s" 1
+    | Border_e -> side_width_px "e" 1
+    | Border_bs -> side_width_px "bs" 1
+    | Border_be -> side_width_px "be" 1
+    | Border_s_width n -> side_width_px "s" n
+    | Border_e_width n -> side_width_px "e" n
+    | Border_bs_width n -> side_width_px "bs" n
+    | Border_be_width n -> side_width_px "be" n
     (* Border style utilities *)
     | Border_solid -> border_solid
     | Border_dashed -> border_dashed
@@ -676,7 +640,29 @@ module Handler = struct
     && Scheme.theme_value (Some theme) ("radius-" ^ n) <> None
 
   (* Forty apart, so a side's widths and its bracket never reach the next. *)
-  let side_band = function "t" -> 1160 | "r" -> 1200 | "b" -> 1240 | _ -> 1280
+  (* Every border width writes a property another one writes too, so their
+     order decides which wins. Tailwind groups them side-major: the all-sides
+     width first, then each axis and logical side, then the physical sides.
+     Each side gets a hundred-wide band, since a width the scale does not name
+     still has to sort between its neighbours. *)
+  let width_band = function
+    | "" -> 300
+    | "x" -> 400
+    | "y" -> 500
+    | "s" -> 600
+    | "e" -> 700
+    | "bs" -> 800
+    | "be" -> 900
+    | "t" -> 1000
+    | "r" -> 1100
+    | "b" -> 1200
+    | _ -> 1300
+
+  (* Within a band the bare utility leads, then the widths in numeric order,
+     then the arbitrary width. A width past what the band holds shares the slot
+     below the arbitrary one. *)
+  let width_slot side n = width_band side + 1 + min n 97
+  let width_bracket_slot side = width_band side + 99
 
   let suborder = function
     (* Border radius utilities - flat suborder per position group for natural
@@ -703,42 +689,33 @@ module Handler = struct
         | Corner.Bottom -> 150
         | Corner.Bottom_right -> 160
         | Corner.Bottom_left -> 170)
-    (* Border width utilities (1000-1099) *)
-    | Border -> 1000
-    | Border_0 -> 1001
-    | Border_2 -> 1002
-    | Border_4 -> 1003
-    | Border_8 -> 1004
-    | Border_width n -> 1001 + n
-    | Border_width_bracket _ -> 1005
-    (* Border sides are side-major (Tailwind groups each side's bare width, its
-       numeric widths and its arbitrary width together), and the axes and
-       logical sides come first: x, y, s, e, bs, be, then t, r, b, l. The order
-       decides the width, since border-y and border-b both write the bottom one.
-       Within a side: bare, 0, 2, 4, 8, arbitrary. *)
-    | Border_x -> 1100
-    | Border_x_width n -> 1100 + n
-    | Border_y -> 1110
-    | Border_y_width n -> 1110 + n
-    | Border_s -> 1120
-    | Border_s_width n -> 1120 + n
-    | Border_e -> 1130
-    | Border_e_width n -> 1130 + n
-    | Border_bs -> 1140
-    | Border_bs_width n -> 1140 + n
-    | Border_be -> 1150
-    | Border_be_width n -> 1150 + n
-    (* Each side gets a band of its own: the bare side leads, then the widths in
-       numeric order, then the bracket. They all write one property, so the
-       order decides which one wins, and the band has to be wide enough for a
-       width the scale does not name - [border-t-6] used to sort past the
-       bracket. *)
-    | Border_side_width_bracket (side, _, _) -> side_band side + 30
-    | Border_side_width (side, n) -> side_band side + 1 + n
-    | Border_t -> side_band "t"
-    | Border_r -> side_band "r"
-    | Border_b -> side_band "b"
-    | Border_l -> side_band "l"
+    (* Border width utilities, side-major: the sides run x, y, s, e, bs, be,
+       then t, r, b, l, which is the order Tailwind writes them in. *)
+    | Border -> width_band ""
+    | Border_0 -> width_slot "" 0
+    | Border_2 -> width_slot "" 2
+    | Border_4 -> width_slot "" 4
+    | Border_8 -> width_slot "" 8
+    | Border_width n -> width_slot "" n
+    | Border_width_bracket _ -> width_bracket_slot ""
+    | Border_x -> width_band "x"
+    | Border_x_width n -> width_slot "x" n
+    | Border_y -> width_band "y"
+    | Border_y_width n -> width_slot "y" n
+    | Border_s -> width_band "s"
+    | Border_s_width n -> width_slot "s" n
+    | Border_e -> width_band "e"
+    | Border_e_width n -> width_slot "e" n
+    | Border_bs -> width_band "bs"
+    | Border_bs_width n -> width_slot "bs" n
+    | Border_be -> width_band "be"
+    | Border_be_width n -> width_slot "be" n
+    | Border_side_width_bracket (side, _, _) -> width_bracket_slot side
+    | Border_side_width (side, n) -> width_slot side n
+    | Border_t -> width_band "t"
+    | Border_r -> width_band "r"
+    | Border_b -> width_band "b"
+    | Border_l -> width_band "l"
     (* Border style utilities (1400-1499) - alphabetical *)
     | Border_dashed -> 1400
     | Border_dotted -> 1401
@@ -761,6 +738,12 @@ module Handler = struct
     | Outline_offset n -> 2210 + n
     | Outline_offset_var _ -> 2299
     | Outline_offset_arbitrary _ -> 2215
+
+  (* The ten sides a border width can name: the two axes, the four logical sides
+     and the four physical ones. *)
+  let is_border_side = function
+    | "t" | "r" | "b" | "l" | "x" | "y" | "s" | "e" | "bs" | "be" -> true
+    | _ -> false
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -823,9 +806,8 @@ module Handler = struct
           | Some w -> Ok (Border_width_bracket (inner, w))
           | None -> err_not_utility
         else err_not_utility
-    | [ "border"; side; v ]
-      when (match side with "t" | "r" | "b" | "l" -> true | _ -> false)
-           && Parse.is_bracket_value v ->
+    | [ "border"; side; v ] when is_border_side side && Parse.is_bracket_value v
+      ->
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
         let is_width =

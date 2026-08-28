@@ -299,12 +299,14 @@ and the fields it keys on.
        + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
      ```
      **Fix**: Media query merging is cascade's. `merge_consecutive_media` lives in
-     `cascade/lib/block.ml`, but `block` is one of cascade's `private_modules` and
-     `optimize.mli` does not re-export it, so tw cannot call it: `lib/build.ml` runs no
-     merge of its own, and `bin/main.ml` reaches cascade's optimizer only under
-     `--optimize`. A plain `--minify` sheet therefore gets no merging at all. The ask is
-     filed in cascade's TODO; until it lands, a rule sorting between two blocks is still
-     the usual cause worth checking first.
+     `cascade/lib/block.ml`, and `cascade/lib/optimize.mli` re-exports it, so tw can call
+     it the way `lib/build.ml` already calls
+     `Css.Optimize.merge_consecutive_starting_style` over the sorted utilities.
+     `lib/build.ml` runs no media merge yet, and `bin/main.ml` reaches the rest of
+     cascade's optimizer only under `--optimize`, so a plain `--minify` sheet gets none.
+     Check first whether a rule sorting between the two blocks is what keeps them apart:
+     `merge_consecutive_media` joins adjacent blocks only, and `merge_distant_media` is
+     the pass that reaches past an intervening rule.
 
   2. **"blocks at different positions"** - Media query appears at wrong location:
      ```

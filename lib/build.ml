@@ -277,18 +277,54 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.supports ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
-(* Deduplicate typed triples while preserving first occurrence order. Selectors
-   are compared with cascade's structural equality; the bucket key carries their
-   hash, which cascade keeps consistent with that equality. *)
+(* Two rules of the same kind. A condition is read through the equality its own
+   cascade module states, which answers on the media the query selects rather
+   than on how it is spelled. *)
+let equal_rule_type a b =
+  match (a, b) with
+  | `Regular, `Regular | `Starting, `Starting -> true
+  | `Media a, `Media b -> Css.Media.equal a b
+  | `Container a, `Container b -> Css.Container.equal a b
+  | `Supports a, `Supports b -> Css.Supports.equal a b
+  | _ -> false
+
+(* A rule kind's own identity, all a fingerprint may read of it: [Media] and
+   [Container] answer equality on normalised queries, and no hash agrees with
+   that, so the condition stays unread and two kinds share a bucket. *)
+let rule_type_tag = function
+  | `Regular -> 0
+  | `Media _ -> 1
+  | `Container _ -> 2
+  | `Starting -> 3
+  | `Supports _ -> 4
+
+(* Deduplicate typed triples while preserving first occurrence order. Every part
+   is compared through the equality its own cascade module states, and the
+   bucket key carries the hashes those modules keep consistent with it. *)
+let dedup_key (typ, sel, props, nested) =
+  let combine acc h = (acc * 31) + h in
+  let key = combine (rule_type_tag typ) (Css.Selector.hash sel) in
+  let key =
+    List.fold_left (fun key d -> combine key (Css.Declaration.hash d)) key props
+  in
+  List.fold_left (fun key st -> combine key (Css.hash_statement st)) key nested
+
+let equal_dedup_key (typ, sel, props, nested) (typ', sel', props', nested') =
+  equal_rule_type typ typ'
+  && Css.Selector.equal sel sel'
+  && List.equal Css.Declaration.equal_declaration props props'
+  && List.equal Css.equal_statement nested nested'
+
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
     (fun (typ, sel, props, _order, nested, _base_class, _merge_key) ->
-      let bucket = (typ, Css.Selector.hash sel, props, nested) in
-      if List.exists (Css.Selector.equal sel) (Hashtbl.find_all seen bucket)
-      then false
+      let key = (typ, sel, props, nested) in
+      let bucket = dedup_key key in
+      if List.exists (equal_dedup_key key) (Hashtbl.find_all seen bucket) then
+        false
       else (
-        Hashtbl.add seen bucket sel;
+        Hashtbl.add seen bucket key;
         true))
     triples
 
@@ -449,37 +485,11 @@ let utilities_layer ~layers ~statements =
   else Css.v statements
 
 (* [@starting-style] carries no condition, so a run of [starting:] utilities is
-   one block in Tailwind's output. Each is wrapped on its own here, and the
-   optimizer's merging covers [@media] and [@supports] but not this, so collapse
-   a run before the statements are handed over. *)
+   one block in Tailwind's output. Each rule is wrapped on its own here, and
+   cascade collapses the run. *)
 let statements_of_sorted_rules ?verbatim sorted_rules =
-  let is_starting (r : Sort.indexed_rule) = r.rule_type = `Starting in
-  let rec take_run taken = function
-    | (x : Sort.indexed_rule) :: tl when is_starting x ->
-        take_run (x :: taken) tl
-    | tl -> (List.rev taken, tl)
-  in
-  let rec go acc = function
-    | [] -> List.rev acc
-    | (r : Sort.indexed_rule) :: rest when is_starting r ->
-        let run, rest = take_run [ r ] rest in
-        let inner =
-          List.concat_map
-            (fun (x : Sort.indexed_rule) ->
-              (* A variant stacked under [starting:] carries its query in
-                 [nested] and has no declarations of its own. *)
-              if x.nested <> [] then filter_theme_from_statements x.nested
-              else
-                [
-                  Css.rule ~selector:x.selector
-                    (filter_utility_properties x.props);
-                ])
-            run
-        in
-        go (Css.starting_style inner :: acc) rest
-    | r :: rest -> go (indexed_rule_to_statement ?verbatim r :: acc) rest
-  in
-  go [] sorted_rules
+  List.map (indexed_rule_to_statement ?verbatim) sorted_rules
+  |> Css.Optimize.merge_consecutive_starting_style
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)

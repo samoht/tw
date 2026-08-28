@@ -923,6 +923,46 @@ let test_color_var_name_is_one_ident () =
       Css (Css.hex "#0088cc");
     ]
 
+(* [oklch(0.7 0.35 150)] is outside the sRGB gamut, so it has to be mapped onto
+   a colour a display can show, and there is more than one answer. CSS Color 4
+   sec. 14.2.2 halves the chroma at constant lightness and hue and keeps the
+   largest one whose clipped result is within a just noticeable difference of
+   the colour searched; [oklch_to_rgb] takes the first such chroma instead, and
+   that is the answer Tailwind ships, because lightningcss folds the
+   [color-mix(in srgb, oklch(...) ...)] fallback in Tailwind's own output the
+   same way. Cascade's [Color_space.gamut_mapped_srgb_of_oklch] answers the
+   spec's question, so it is not interchangeable with this one: [bg-blue-500/50]
+   is where the two part company, and Tailwind's byte there is the one pinned
+   below. *)
+let test_out_of_gamut_oklch () =
+  let requested = { l = 70.0; c = 0.35; h = 150.0 } in
+  let rgb = oklch_to_rgb requested in
+  Alcotest.(check string)
+    "out-of-gamut oklch maps onto a colour sRGB can show" "#00c14b"
+    (rgb_to_hex rgb);
+  let mapped = rgb_to_oklch rgb in
+  Alcotest.(check bool) "chroma is what gave way" true (mapped.c < requested.c);
+  (* The search only moves along the constant-lightness, constant-hue ray, so
+     the rendered colour lands within one just noticeable difference (0.02 in
+     OKLab) of a point on that ray. That bounds the lightness drift directly,
+     and bounds the hue drift by the angle a chord that long subtends at the
+     mapped radius. *)
+  let jnd = 0.02 in
+  let hue_cone = Float.asin (jnd /. mapped.c) *. 180.0 /. Float.pi in
+  Alcotest.(check bool)
+    "lightness stays within one JND" true
+    (Float.abs (mapped.l -. requested.l) /. 100.0 <= jnd);
+  Alcotest.(check bool)
+    "hue stays inside the JND cone" true
+    (Float.abs (mapped.h -. requested.h) <= hue_cone);
+  (* blue-500 is a palette colour just outside the gamut, so the choice of
+     mapping shows up in a shipped utility: Tailwind's minified
+     [.bg-blue-500/50] carries [#3080ff80]. *)
+  let blue_500 = { l = 62.3; c = 0.214; h = 259.815 } in
+  Alcotest.(check string)
+    "blue-500 maps to the fallback Tailwind publishes" "#3080ff"
+    (rgb_to_hex (oklch_to_rgb blue_500))
+
 let tests =
   [
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
@@ -981,6 +1021,7 @@ let tests =
       `Quick,
       test_opacity_modifier_rejects_non_numeric );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
+    ("Out-of-gamut OKLCH", `Quick, test_out_of_gamut_oklch);
   ]
 
 let suite = ("color", tests)

@@ -373,6 +373,29 @@ let test_bracket_colour_opacity_without_hex () =
     "--tw-inset-shadow-color:color-mix(in srgb,";
   lacks "inset-shadow-[oklch(0.7_0.1_200)]/50" "--tw-inset-shadow-color:oklch("
 
+(* A hex bracket colour whose modifier reads a custom property keeps that
+   property inside the guarded [color-mix]. The hex arm folded the modifier into
+   an alpha byte, which a var() has no value for, so the modifier was dropped
+   and the shadow painted fully opaque. *)
+let test_bracket_hex_opacity_var () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  (* the plain fallback has no percentage to hold, so it keeps the hex *)
+  has "shadow-[#f00]/[var(--x)]" "--tw-shadow-color:#f00";
+  has "shadow-[#f00]/[var(--x)]"
+    "color-mix(in oklab,color-mix(in oklab,#f00 var(--x),transparent) \
+     var(--tw-shadow-alpha),transparent)";
+  has "inset-shadow-[#f00]/[var(--x)]" "--tw-inset-shadow-color:#f00";
+  has "inset-shadow-[#f00]/[var(--x)]"
+    "color-mix(in oklab,color-mix(in oklab,#f00 var(--x),transparent) \
+     var(--tw-inset-shadow-alpha),transparent)"
+
 (* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
    modifier's own written text in --tw-shadow-alpha, the way Tailwind does,
    rather than scaling it into a percentage: the alpha the shadow paints with
@@ -551,6 +574,8 @@ let tests =
       test_arbitrary_shadow_colour_opacity;
     test_case "bracket colour opacity without a hex" `Quick
       test_bracket_colour_opacity_without_hex;
+    test_case "bracket hex opacity from a var" `Quick
+      test_bracket_hex_opacity_var;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;

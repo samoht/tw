@@ -6,14 +6,19 @@ module Handler = struct
   open Style
   open Css
 
-  type margin_value =
-    | Standard of margin (* auto, spacing values *)
+  type signed =
+    | Spacing of Style.spacing
     | Arbitrary of string * Css.length (* mx-[4px], raw kept for round-trip *)
     | Arbitrary_var of string (* mx-[var(--value)] *)
     | Named of string (* mx-big - custom spacing *)
 
+  (* [Auto] sits outside [signed] because there is no [-m-auto] and negating
+     [auto] means nothing. Carrying the sign in the value rather than beside it
+     is what makes that pair unrepresentable instead of a case [to_style] has to
+     turn away. *)
+  type margin_value = Auto | Positive of signed | Negative of signed
+
   type t = {
-    negative : bool;
     axis : [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ];
     value : margin_value;
   }
@@ -26,20 +31,6 @@ module Handler = struct
   let priority _ = 2
 
   (** {2 Typed Margin Utilities} *)
-
-  let v ?theme (prop : length -> declaration) (m : margin) =
-    match m with
-    | `Auto -> style [ prop Auto ]
-    | #Style.spacing as s ->
-        let decl, len = Spacing.to_decl_len ?theme ~negative:false s in
-        style (Option.to_list decl @ [ prop len ])
-
-  let vs ?theme (prop : length list -> declaration) (m : margin) =
-    match m with
-    | `Auto -> style [ prop [ Auto ] ]
-    | #Style.spacing as s ->
-        let decl, len = Spacing.to_decl_len ?theme ~negative:false s in
-        style (Option.to_list decl @ [ prop [ len ] ])
 
   let named_margin_value ?theme name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
@@ -60,16 +51,6 @@ module Handler = struct
 
   (** {1 Conversion Functions} *)
 
-  let margin_util_neg ?theme (prop : length -> declaration) (s : Style.spacing)
-      =
-    let decl, len = Spacing.to_decl_len ?theme ~negative:true s in
-    style (Option.to_list decl @ [ prop len ])
-
-  let margin_list_util_neg ?theme (prop : length list -> declaration)
-      (s : Style.spacing) =
-    let decl, len = Spacing.to_decl_len ?theme ~negative:true s in
-    style (Option.to_list decl @ [ prop [ len ] ])
-
   (* Spacing keywords sort by their suffix's first character, matching
      Tailwind's raw order after the numeric rem values: auto ('a') < a named
      spacing like big ('b') < full ('f') < px ('p'). *)
@@ -82,10 +63,6 @@ module Handler = struct
     | `Named s -> keyword_order (if String.length s > 0 then s.[0] else '~')
     | `Full -> keyword_order 'f'
     | `Px -> keyword_order 'p'
-
-  let margin_value_order = function
-    | `Auto -> keyword_order 'a'
-    | #spacing as s -> spacing_value_order s
 
   (* Get the CSS property function for an axis *)
   let prop_for_axis axis =
@@ -103,82 +80,56 @@ module Handler = struct
     | `Be -> margin_block_end
 
   (** Convert margin utility to style *)
-  let to_style theme { negative; axis; value } =
-    let m_fn m = vs ~theme margin m in
-    let mx m = v ~theme margin_inline m in
-    let my m = v ~theme margin_block m in
-    let mt m = v ~theme margin_top m in
-    let mr m = v ~theme margin_right m in
-    let mb m = v ~theme margin_bottom m in
-    let ml m = v ~theme margin_left m in
-    let ms m = v ~theme margin_inline_start m in
-    let me m = v ~theme margin_inline_end m in
-    let mbs m = v ~theme margin_block_start m in
-    let mbe m = v ~theme margin_block_end m in
-    let margin_util_neg prop s = margin_util_neg ~theme prop s in
-    let margin_list_util_neg prop s = margin_list_util_neg ~theme prop s in
-    let named_margin_value name = named_margin_value ~theme name in
+  let to_style theme { axis; value } =
     let prop = prop_for_axis axis in
-    match value with
-    | Arbitrary (_, len) ->
-        if negative then
-          (* For simple values, use direct negation: -4px instead of calc(4px *
-             -1) *)
-          let neg_len : Css.length =
-            match len with
-            | Px f -> Px (-.f)
-            | Rem f -> Rem (-.f)
-            | Pct f -> Pct (-.f)
-            | _ -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
-          in
-          style [ prop neg_len ]
-        else style [ prop len ]
-    | Arbitrary_var var_str ->
-        let bare_name = Parse.extract_var_name var_str in
-        let len : Css.length =
+    let named_margin_value name = named_margin_value ~theme name in
+    let spacing_style ~negative s =
+      (* The typed constructors keep the scale they were handed, so [m (-4)]
+         stores a negative rem while [-m-4] parses to a positive one. Both spell
+         the same class, so the sign comes from [Negative] alone. *)
+      let s = match s with `Rem f -> `Rem (Float.abs f) | other -> other in
+      let decl, len = Spacing.to_decl_len ~theme ~negative s in
+      style (Option.to_list decl @ [ prop len ])
+    in
+    let of_signed ~negative = function
+      | Spacing s -> spacing_style ~negative s
+      | Arbitrary (_, len) ->
           if negative then
-            Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
-          else Var (Var.bracket bare_name)
-        in
-        style [ prop len ]
-    | Named name ->
-        let decl_opt, len = named_margin_value name in
-        let decls = Option.to_list decl_opt in
-        if negative then
-          style
-            (decls
-            @ [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ])
-        else style (decls @ [ prop len ])
-    | Standard m -> (
-        let abs_value =
-          match m with `Rem f -> `Rem (Float.abs f) | other -> other
-        in
-        match (negative, axis, abs_value) with
-        | false, `All, _ -> m_fn abs_value
-        | false, `X, _ -> mx abs_value
-        | false, `Y, _ -> my abs_value
-        | false, `T, _ -> mt abs_value
-        | false, `R, _ -> mr abs_value
-        | false, `B, _ -> mb abs_value
-        | false, `L, _ -> ml abs_value
-        | false, `S, _ -> ms abs_value
-        | false, `E, _ -> me abs_value
-        | false, `Bs, _ -> mbs abs_value
-        | false, `Be, _ -> mbe abs_value
-        | true, `All, (#spacing as s) -> margin_list_util_neg margin s
-        | true, `X, (#spacing as s) -> margin_util_neg margin_inline s
-        | true, `Y, (#spacing as s) -> margin_util_neg margin_block s
-        | true, `T, (#spacing as s) -> margin_util_neg margin_top s
-        | true, `R, (#spacing as s) -> margin_util_neg margin_right s
-        | true, `B, (#spacing as s) -> margin_util_neg margin_bottom s
-        | true, `L, (#spacing as s) -> margin_util_neg margin_left s
-        | true, `S, (#spacing as s) -> margin_util_neg margin_inline_start s
-        | true, `E, (#spacing as s) -> margin_util_neg margin_inline_end s
-        | true, `Bs, (#spacing as s) -> margin_util_neg margin_block_start s
-        | true, `Be, (#spacing as s) -> margin_util_neg margin_block_end s
-        | true, _, `Auto -> failwith "Negative auto margin not supported")
+            (* A plain unit negates directly, [-4px] rather than a calc with a
+               factor of -1. *)
+            let neg_len : Css.length =
+              match len with
+              | Px f -> Px (-.f)
+              | Rem f -> Rem (-.f)
+              | Pct f -> Pct (-.f)
+              | _ -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
+            in
+            style [ prop neg_len ]
+          else style [ prop len ]
+      | Arbitrary_var var_str ->
+          let bare_name = Parse.extract_var_name var_str in
+          let len : Css.length =
+            if negative then
+              Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+            else Var (Var.bracket bare_name)
+          in
+          style [ prop len ]
+      | Named name ->
+          let decl_opt, len = named_margin_value name in
+          let decls = Option.to_list decl_opt in
+          if negative then
+            style
+              (decls
+              @ [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
+              )
+          else style (decls @ [ prop len ])
+    in
+    match value with
+    | Auto -> style [ prop Auto ]
+    | Positive v -> of_signed ~negative:false v
+    | Negative v -> of_signed ~negative:true v
 
-  let suborder { negative; axis; value } =
+  let suborder { axis; value } =
     (* Tailwind orders margins by side first, then sign (negatives before
        positives within a side), then value. Side spacing (1_000_000) exceeds
        the sign+value range so the tiers never cross. *)
@@ -196,17 +147,21 @@ module Handler = struct
       | `Bs -> 9
       | `Be -> 10
     in
-    let sign_offset = if negative then 0 else 200000 in
+    let sign_offset =
+      match value with Negative _ -> 0 | Auto | Positive _ -> 200000
+    in
     let value_order =
       match value with
-      | Standard m -> margin_value_order m
-      | Arbitrary _ -> 50000 (* after numbered, before auto *)
-      | Arbitrary_var _ -> 55000
-      | Named _ -> 60000 (* after arbitrary *)
+      | Auto -> keyword_order 'a'
+      | Positive (Spacing s) | Negative (Spacing s) -> spacing_value_order s
+      | Positive (Arbitrary _) | Negative (Arbitrary _) ->
+          50000 (* after numbered, before auto *)
+      | Positive (Arbitrary_var _) | Negative (Arbitrary_var _) -> 55000
+      | Positive (Named _) | Negative (Named _) -> 60000 (* after arbitrary *)
     in
     (side_index * 1000000) + sign_offset + value_order
 
-  let to_class { negative; axis; value } =
+  let to_class { axis; value } =
     let prefix =
       match axis with
       | `All -> "m-"
@@ -221,17 +176,22 @@ module Handler = struct
       | `Bs -> "mbs-"
       | `Be -> "mbe-"
     in
-    let neg_prefix = if negative then "-" else "" in
+    let neg_prefix =
+      match value with Negative _ -> "-" | Auto | Positive _ -> ""
+    in
     let value_suffix =
       match value with
-      | Standard m -> Spacing.pp_margin_suffix m
-      | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
-      | Arbitrary_var s -> "[" ^ s ^ "]"
-      | Named name -> name
+      | Auto -> Spacing.pp_margin_suffix `Auto
+      | Positive (Spacing s) | Negative (Spacing s) ->
+          Spacing.pp_margin_suffix (s :> margin)
+      | Positive (Arbitrary (raw, _)) | Negative (Arbitrary (raw, _)) ->
+          "[" ^ raw ^ "]"
+      | Positive (Arbitrary_var s) | Negative (Arbitrary_var s) -> "[" ^ s ^ "]"
+      | Positive (Named name) | Negative (Named name) -> name
     in
     neg_prefix ^ prefix ^ value_suffix
 
-  let parse_arbitrary s : margin_value option =
+  let parse_arbitrary s : signed option =
     (* Parse [4px], [1rem], [50%], [-5cqw], [calc(...)], or [var(--value)]. The
        raw inner is kept verbatim for the class name; the value goes through the
        full length grammar so any unit or calc() is accepted. *)
@@ -270,25 +230,21 @@ module Handler = struct
   let is_named_spacing theme name =
     Scheme.theme_value theme ("spacing-" ^ name) <> None
 
+  let sign ~is_negative v = if is_negative then Negative v else Positive v
+
   (** Parse value to standard or named margin *)
   let parse_value ?theme ~is_negative value =
     let allow_auto = not is_negative in
     match Spacing.parse_value_string ?theme ~allow_auto value with
     | Some (#spacing as spacing_val) ->
-        Some
-          {
-            negative = is_negative;
-            axis = `All;
-            value = Standard (spacing_val :> margin);
-          }
-    | Some `Auto when not is_negative ->
-        Some { negative = false; axis = `All; value = Standard `Auto }
+        Some { axis = `All; value = sign ~is_negative (Spacing spacing_val) }
+    | Some `Auto when not is_negative -> Some { axis = `All; value = Auto }
     | None
       when (not is_negative)
            && Parse.is_valid_theme_name value
            && is_named_spacing theme value ->
         (* Try as a named spacing: mx-big *)
-        Some { negative = false; axis = `All; value = Named value }
+        Some { axis = `All; value = Positive (Named value) }
     | _ -> None
 
   (** Parse string parts to margin utility using shared logic *)
@@ -298,12 +254,12 @@ module Handler = struct
     (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)
     | [ prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
-        | Some axis, Some value -> Ok { negative = false; axis; value }
+        | Some axis, Some value -> Ok { axis; value = Positive value }
         | _ -> Error (`Msg "Not a margin utility"))
     (* Handle negative arbitrary: -mx-[4px], -mx-[var(--value)] *)
     | [ ""; prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
-        | Some axis, Some value -> Ok { negative = true; axis; value }
+        | Some axis, Some value -> Ok { axis; value = Negative value }
         | _ -> Error (`Msg "Not a margin utility"))
     (* Handle extended axes (ms, me, mbs, mbe) with values *)
     | [ prefix; value ] when is_extended_margin_prefix prefix -> (
@@ -351,52 +307,37 @@ module Handler = struct
                       if
                         Parse.is_valid_theme_name value
                         && is_named_spacing (Some theme) value
-                      then
-                        Ok { negative = is_negative; axis; value = Named value }
+                      then Ok { axis; value = sign ~is_negative (Named value) }
                       else Error (`Msg "Not a margin utility")
                   | Some (#spacing as spacing_val) ->
                       Ok
                         {
-                          negative = is_negative;
                           axis;
-                          value = Standard (spacing_val :> margin);
+                          value = sign ~is_negative (Spacing spacing_val);
                         }
                   | Some `Auto ->
                       if is_negative then Error (`Msg "Not a margin utility")
-                      else Ok { negative = false; axis; value = Standard `Auto }
-                  ))
+                      else Ok { axis; value = Auto }))
         | None -> Error (`Msg "Not a margin utility"))
 
   let examples =
-    [
-      { negative = false; axis = `All; value = Standard `Auto };
-      { negative = false; axis = `X; value = Standard `Auto };
-      { negative = false; axis = `Y; value = Standard `Auto };
-      { negative = false; axis = `T; value = Standard `Auto };
-      { negative = false; axis = `R; value = Standard `Auto };
-      { negative = false; axis = `B; value = Standard `Auto };
-      { negative = false; axis = `L; value = Standard `Auto };
-      { negative = false; axis = `S; value = Standard `Auto };
-      { negative = false; axis = `E; value = Standard `Auto };
-      { negative = false; axis = `Bs; value = Standard `Auto };
-      { negative = false; axis = `Be; value = Standard `Auto };
-    ]
+    List.map
+      (fun axis -> { axis; value = Auto })
+      [ `All; `X; `Y; `T; `R; `B; `L; `S; `E; `Bs; `Be ]
 end
 
 open Handler
 
 let () = Utility.register (module Handler)
-let utility negative axis value = Utility.base (Self { negative; axis; value })
+let utility axis value = Utility.base (Self { axis; value })
 
 let v d n =
-  let s = (Spacing.int n :> Style.margin) in
-  let neg = n < 0 in
-  utility neg d (Handler.Standard s)
+  let s = Handler.Spacing (Spacing.int n :> Style.spacing) in
+  utility d (if n < 0 then Handler.Negative s else Handler.Positive s)
 
 let v' d n =
-  let s = (Spacing.float n :> Style.margin) in
-  let neg = n < 0.0 in
-  utility neg d (Handler.Standard s)
+  let s = Handler.Spacing (Spacing.float n :> Style.spacing) in
+  utility d (if n < 0.0 then Handler.Negative s else Handler.Positive s)
 
 let m n = v `All n
 let mx n = v `X n
@@ -412,10 +353,10 @@ let mt' n = v' `T n
 let mr' n = v' `R n
 let mb' n = v' `B n
 let ml' n = v' `L n
-let m_auto = utility false `All (Handler.Standard `Auto)
-let mx_auto = utility false `X (Handler.Standard `Auto)
-let my_auto = utility false `Y (Handler.Standard `Auto)
-let mt_auto = utility false `T (Handler.Standard `Auto)
-let mr_auto = utility false `R (Handler.Standard `Auto)
-let mb_auto = utility false `B (Handler.Standard `Auto)
-let ml_auto = utility false `L (Handler.Standard `Auto)
+let m_auto = utility `All Handler.Auto
+let mx_auto = utility `X Handler.Auto
+let my_auto = utility `Y Handler.Auto
+let mt_auto = utility `T Handler.Auto
+let mr_auto = utility `R Handler.Auto
+let mb_auto = utility `B Handler.Auto
+let ml_auto = utility `L Handler.Auto
