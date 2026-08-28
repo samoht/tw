@@ -465,6 +465,72 @@ let test_not_has_shorthand_selector () =
   renders "not-has-checked:flex";
   renders "not-has-hover:flex"
 
+(* @tailwindcss/typography registers one variant per element it styles, and the
+   variant is what puts a utility on that element. Eight of them - h5, h6, dl,
+   dt, dd, table, tr, picture - were not recognised at all, so the class was
+   rejected and the utility never reached the element. *)
+let test_prose_element_variants () =
+  let selector name =
+    let cls = "prose-" ^ name ^ ":underline" in
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  in
+  let targets name affix =
+    Alcotest.(check bool)
+      ("prose-" ^ name ^ ": targets " ^ affix)
+      true
+      (Astring.String.is_infix ~affix:(":where(" ^ affix ^ ")") (selector name))
+  in
+  List.iter
+    (fun n -> targets n n)
+    [
+      "p";
+      "a";
+      "blockquote";
+      "figure";
+      "figcaption";
+      "strong";
+      "em";
+      "kbd";
+      "code";
+      "pre";
+      "ol";
+      "ul";
+      "li";
+      "dl";
+      "dt";
+      "dd";
+      "table";
+      "thead";
+      "tr";
+      "th";
+      "td";
+      "img";
+      "picture";
+      "video";
+      "hr";
+      "h1";
+      "h2";
+      "h3";
+      "h4";
+      "h5";
+      "h6";
+    ];
+  targets "headings" "h1,h2,h3,h4,h5,h6,th";
+  targets "lead" "[class~=lead]"
+
+(* The plugin has no variant for an element it does not style, and neither has
+   tw: the class is rejected rather than compiled into a selector nothing in
+   Tailwind produces. *)
+let test_prose_element_variant_invalid () =
+  Alcotest.(check bool)
+    "prose-span: is not a variant" true
+    (Result.is_error (Tw.of_string "prose-span:underline"));
+  Alcotest.(check bool)
+    "prose-h7: is not a variant" true
+    (Result.is_error (Tw.of_string "prose-h7:underline"))
+
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
@@ -1147,6 +1213,9 @@ let tests =
         test_container_variant_is_theme_local;
       test_case "removed breakpoint drops its variants" `Quick
         test_removed_breakpoint_drops_its_variants;
+      test_case "prose element variants" `Quick test_prose_element_variants;
+      test_case "prose element variant invalid" `Quick
+        test_prose_element_variant_invalid;
     ]
 
 let suite = ("modifiers", tests)
