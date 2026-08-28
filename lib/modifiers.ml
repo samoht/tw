@@ -2125,6 +2125,7 @@ module Slot = struct
   type t =
     | Child  (** [*:]: every direct child. *)
     | Descendant  (** [**:]: every descendant. *)
+    | Negation  (** [not-X:], ordered inside the slot by the X it negates. *)
     | Group
     | Peer
     | Pseudo_first_letter
@@ -2212,6 +2213,7 @@ module Slot = struct
   let rank = function
     | Child -> 100
     | Descendant -> 200
+    | Negation -> 300
     | Group -> 500
     | Peer -> 600
     | Pseudo_first_letter -> 1000
@@ -2420,6 +2422,8 @@ let slot_of_prefix prefix : Slot.t option =
   match prefix with
   (* [peer-hover] shares [group-hover]'s position rather than the one every
      other [peer-] spelling takes. *)
+  | "*" -> Some Slot.Child
+  | "**" -> Some Slot.Descendant
   | "group-hover" | "peer-hover" -> Some Slot.Group
   | "first-letter" -> Some Slot.Pseudo_first_letter
   | "first-line" -> Some Slot.Pseudo_first_line
@@ -2510,6 +2514,9 @@ let slot_of_prefix prefix : Slot.t option =
      pseudo-classes that merely start with the same letters ([in-range],
      [inert], [invalid]) are matched by name above. *)
   | _ when starts_with "in-" -> Some Slot.Ancestor
+  (* Every [not-X] sorts together, ahead of the variants it can negate;
+     [variant_inner_order] puts the X back inside the slot. *)
+  | _ when starts_with "not-" -> Some Slot.Negation
   | _ when starts_with "prose-" ->
       Some (Slot.Prose (String.sub prefix 6 (String.length prefix - 6)))
   | _ when prefix <> "" && prefix.[0] = '[' -> Some Slot.Arbitrary
@@ -2541,6 +2548,22 @@ let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
   | Cond (Feature (Plain (Inverted_colors, Ident Inverted))) ->
       Some Slot.Inverted_colors
   | _ -> None
+
+(* What separates two tokens that share a slot: a [group-]/[peer-] token sorts
+   by the state it wraps and a [not-] token by the variant it negates, both read
+   off the same table as the slot itself. *)
+let variant_inner_order token =
+  let after n = String.sub token n (String.length token - n) in
+  let inner =
+    if String.starts_with ~prefix:"group-" token then Some (after 6)
+    else if String.starts_with ~prefix:"peer-" token then Some (after 5)
+    else if String.starts_with ~prefix:"not-" token then Some (after 4)
+    else None
+  in
+  match inner with
+  | Some inner -> (
+      match slot_of_prefix inner with Some slot -> Slot.rank slot | None -> 0)
+  | None -> 0
 
 let not_variant_order m = Slot.rank (slot_of_modifier m)
 

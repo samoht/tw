@@ -745,6 +745,12 @@ val variant_order_of_prefix : string -> int
     ["@min-[64rem]"]). Returns 0 for a token that names no variant, which
     {!Sort.compare_indexed_rules} reads as "this rule carries no variant". *)
 
+val variant_inner_order : string -> int
+(** [variant_inner_order token] returns what separates [token] from another
+    token in the same cascade position: the state a [group-]/[peer-] token
+    wraps, and the variant a [not-] token negates, both on the scale
+    {!val-variant_order_of_prefix} returns. [0] for every other token. *)
+
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as
     {!val-variant_order_of_prefix} for the corresponding CSS media condition.

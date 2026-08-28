@@ -1083,13 +1083,7 @@ let compare_variant_components a b =
    group-focus and group-has keep their focus-before-has order. *)
 let token_order_key ~breakpoint token =
   let slot = Modifiers.variant_order_of_prefix token in
-  let wrapped =
-    if
-      String.starts_with ~prefix:"group-" token
-      || String.starts_with ~prefix:"peer-" token
-    then strip_group_peer_vo token
-    else 0
-  in
+  let wrapped = Modifiers.variant_inner_order token in
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
