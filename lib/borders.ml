@@ -104,10 +104,6 @@ module Handler = struct
     | Border_double
     | Border_hidden
     | Border_none
-    | (* Border color utilities *)
-      Border_color of Color.color * int
-    | Border_transparent
-    | Border_current
     | (* Border radius utilities. One parametric variant over (position, size);
          the bare [rounded] is [Rounded (Corner.All, Rsz_default)] and arbitrary
          brackets are [Rounded (pos, Rsz_arbitrary inner)]. *)
@@ -266,22 +262,6 @@ module Handler = struct
   let border_double = border_style_util Double
   let border_hidden = border_style_util Hidden
   let border_none = border_style_util None
-
-  (* Border color utilities *)
-  let border_color' color shade =
-    if Color.is_custom_color color then
-      let css_color = Color.to_css color shade in
-      style [ Css.border_color css_color ]
-    else
-      let color_var = Color.color_var color shade in
-      let color_value =
-        Color.to_css color (if Color.is_base_color color then 500 else shade)
-      in
-      let decl, color_ref = Var.binding color_var color_value in
-      style (decl :: [ Css.border_color (Var color_ref) ])
-
-  let border_transparent' = style [ Css.border_color (Css.hex "#0000") ]
-  let border_current' = style [ Css.border_color Current ]
 
   (* Arbitrary radii go through the same normalisation as the other arbitrary
      length utilities, so calc() and var() references parse. *)
@@ -687,10 +667,6 @@ module Handler = struct
     | Border_double -> border_double
     | Border_hidden -> border_hidden
     | Border_none -> border_none
-    (* Border color utilities *)
-    | Border_color (color, shade) -> border_color' color shade
-    | Border_transparent -> border_transparent'
-    | Border_current -> border_current'
     (* Border radius utilities (parametric) *)
     | Rounded (pos, size) -> rounded_style ~theme pos size
     (* Outline utilities *)
@@ -821,14 +797,6 @@ module Handler = struct
     | Border_hidden -> 1403
     | Border_none -> 1404
     | Border_solid -> 1405
-    (* Border color utilities (1500-1999) All border colors use the same
-       suborder (1500) to allow alphabetical sorting, matching Tailwind v4
-       behavior. *)
-    | Border_color (color, shade) ->
-        let _ = (color, shade) in
-        1500
-    | Border_transparent -> 1500
-    | Border_current -> 1500
     (* Outline utilities — hidden first, then width, then offset. The colors
        (color.ml, 3000-28000) and the styles (Outline_style_handler,
        30000-30004) close the family. *)
@@ -893,8 +861,6 @@ module Handler = struct
     | [ "border"; "double" ] -> Ok Border_double
     | [ "border"; "hidden" ] -> Ok Border_hidden
     | [ "border"; "none" ] -> Ok Border_none
-    | [ "border"; "transparent" ] -> Ok Border_transparent
-    | [ "border"; "current" ] -> Ok Border_current
     | [ "border"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
@@ -921,10 +887,6 @@ module Handler = struct
           | Some w -> Ok (Border_side_width_bracket (side, inner, w))
           | None -> err_not_utility
         else err_not_utility
-    | "border" :: color_parts -> (
-        match Color.shade_of_strings ~theme color_parts with
-        | Ok (color, shade) -> Ok (Border_color (color, shade))
-        | Error _ -> err_not_utility)
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
@@ -1045,11 +1007,6 @@ module Handler = struct
     | Border_double -> "border-double"
     | Border_hidden -> "border-hidden"
     | Border_none -> "border-none"
-    | Border_color (c, shade) ->
-        if Color.is_shadeless c then "border-" ^ Color.color_to_string c
-        else "border-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
-    | Border_transparent -> "border-transparent"
-    | Border_current -> "border-current"
     | Rounded (pos, size) ->
         let pos_str =
           match pos with
@@ -1104,7 +1061,6 @@ module Handler = struct
       Border_x;
       Border_y;
       Border_solid;
-      Border_current;
       Outline_width 2;
       Outline_offset 2;
       Rounded (Corner.All, Rsz_sm);
@@ -1205,15 +1161,6 @@ let border_hidden = utility Border_hidden
 let border_none = utility Border_none
 
 (** {1 Border Color Utilities} *)
-
-let border_color ?opacity ?(shade = 500) color =
-  Color.check_shade ~utility:"border_color" color shade;
-  match opacity with
-  | None -> utility (Border_color (color, shade))
-  | Some pct -> Color.border_color ~opacity:pct ~shade color
-
-let border_transparent = utility Border_transparent
-let border_current = utility Border_current
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)

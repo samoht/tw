@@ -269,10 +269,10 @@ let test_order_of_property_covers_named_families () =
 (* [base_of_class] takes the FIRST handler that accepts a class, and handlers
    are tried in dune link order, so a class two handlers both accept would
    resolve on an unrelated build detail rather than on anything declared - and
-   would change silently when someone edits a dune file. No such class was ever
-   demonstrated; this asserts there is none, over the utilities every handler
-   offers as its own examples plus the families whose prefixes overlap most
-   (border/divide, text/font, shadow/inset-shadow, bg gradients, ring). *)
+   would change silently when someone edits a dune file. This asserts there is
+   no such class, over the utilities every handler offers as its own examples
+   plus the families whose prefixes overlap most (border/divide, text/font,
+   shadow/inset-shadow, bg colours and gradients, ring). *)
 let test_no_class_claimed_twice () =
   let corpus =
     Tw.Utility.examples_classes ()
@@ -344,20 +344,7 @@ let test_no_class_claimed_twice () =
         | names -> Some (cls ^ " -> " ^ String.concat ", " names))
       (List.sort_uniq String.compare corpus)
   in
-  (* The border colours are still claimed twice: [borders] and [color] both
-     accept them, and which one answers is decided by dune link order. Both
-     spell the same rule at the same (priority, suborder), so the output is
-     right today; this pins the set rather than the emptiness, so that a new
-     overlap fails here and so does resolving one of these. *)
-  let known_doubled =
-    [
-      "border-current -> borders, color";
-      "border-red-500 -> borders, color";
-      "border-transparent -> borders, color";
-    ]
-  in
-  Alcotest.(check (list string))
-    "no class is claimed twice beyond the known set" known_doubled doubled
+  Alcotest.(check (list string)) "no class is claimed twice" [] doubled
 
 let tests =
   [
