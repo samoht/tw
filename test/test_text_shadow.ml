@@ -199,8 +199,34 @@ let test_bracket_plain_colour () =
     "color-mix(in oklab,color-mix(in oklab,red var(--x),transparent) \
      var(--tw-text-shadow-alpha),transparent)"
 
+(* The [color:] hint says the payload is a colour, not that it names a variable.
+   Every payload was read as a variable name, so [text-shadow-[color:red]]
+   emitted [var(--red)] where Tailwind emits [red]. A [var()] payload still
+   reads as one, and the class name keeps the hint. *)
+let test_colour_hint_takes_a_colour () =
+  let value cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (value cls))
+  in
+  has "text-shadow-[color:red]" "--tw-text-shadow-color:red";
+  has "text-shadow-[color:var(--x)]" "--tw-text-shadow-color:var(--x)";
+  (* A var() with an opacity modifier keeps the plain reference as the fallback
+     and mixes only inside the @supports guard, so it must not take the colour
+     path even though var() parses as a colour. *)
+  has "text-shadow-[color:var(--x)]/50" "--tw-text-shadow-color:var(--x)";
+  (* The hint survives into the class name, so the class reads back. *)
+  has "text-shadow-[color:red]" ".text-shadow-\\[color\\:red\\]"
+
 let tests =
-  Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
+  [
+    Alcotest.test_case "colour hint takes a colour" `Quick
+      test_colour_hint_takes_a_colour;
+  ]
+  @ Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "arbitrary lengths" `Quick test_arbitrary_lengths;
       Alcotest.test_case "default scale (v4.3.1)" `Quick test_default_scale;
