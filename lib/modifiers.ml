@@ -1578,8 +1578,7 @@ let simple_modifiers =
    [@theme] block that removed one is only visible through the scheme: [md:]
    then names a breakpoint the project does not have, and stops resolving the
    way an unknown variant does. *)
-let modifier_breakpoint_is_defined theme m =
-  match m with
+let modifier_breakpoint_is_defined theme = function
   | Responsive bp | Min_responsive bp | Max_responsive bp ->
       Scheme.has_breakpoint theme (Style.pp_modifier (Responsive bp))
   | _ -> true

@@ -1580,9 +1580,6 @@ let parse_opacity_modifier ?theme s =
       | Some opacity -> (base, opacity)
       | None -> (s, No_opacity))
 
-(* Parse color and shade from string list. A name the palette does not know is
-   still a colour when the [\@theme] block declared [--color-<name>]; such a
-   token carries no shade, and its name may span several segments. *)
 (* The named palette colours read a [--color-<name>] token, shaded or not; the
    arbitrary spellings carry their own value and read nothing, and a
    [Theme_named] one is looked up against the theme already. *)
@@ -1602,6 +1599,9 @@ let palette_is_declared theme color shade =
   | Some scheme, Some token -> not (Scheme.is_removed scheme token)
   | (Some _ | None), _ -> true
 
+(* Parse color and shade from string list. A name the palette does not know is
+   still a colour when the [\@theme] block declared [--color-<name>]; such a
+   token carries no shade, and its name may span several segments. *)
 let shade_of_strings ?theme parts =
   let theme_named () =
     let name = String.concat "-" parts in
