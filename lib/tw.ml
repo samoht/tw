@@ -181,16 +181,14 @@ let theme_resolve_path ~theme inner =
           | Some a -> theme_color_with_alpha base a
           | None -> Some base)
       | _ -> None)
-  | [ "spacing"; n ] -> (
-      match float_of_string_opt n with
-      | Some nf ->
-          let rem = nf *. 0.25 in
-          let s =
-            if Float.is_integer rem then string_of_int (int_of_float rem)
-            else string_of_float rem
-          in
-          Some (String.concat "" [ s; "rem" ])
-      | None -> None)
+  | [ "spacing"; n ] ->
+      (* The step here is Tailwind's own 0.25rem and not whatever [--spacing]
+         the project set: checked against the CLI with [@theme { --spacing:
+         0.5rem }], both sheets still resolve [theme(spacing.4)] to [1rem], so
+         reading the theme would lose parity rather than gain it.
+         [Theme.spacing_times] is that same fixed product, and going through it
+         is what keeps the two spellings of it in step. *)
+      Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
 (* Replace each theme(<path>) in a class string with its resolved value, spaces
