@@ -77,6 +77,41 @@ let test_typed_arbitrary_width () =
   | exception Invalid_argument _ -> ()
   | _ -> Alcotest.fail "expected divide_x_length Thin to be refused"
 
+(* Every unit a border width names has a bracket spelling, so a typed
+   constructor handed one produces a class the parser reads back. *)
+let test_typed_width_units () =
+  let open Tw in
+  let spelled (expected, width) =
+    Test_helpers.check_typed_class
+      ("divide-x-[" ^ expected ^ "]")
+      (divide_x_length width)
+  in
+  List.iter spelled
+    [
+      ("4px", (Css.Px 4. : Css.border_width));
+      ("1cm", Css.Cm 1.);
+      ("2mm", Css.Mm 2.);
+      ("3q", Css.Q 3.);
+      ("1in", Css.In 1.);
+      ("12pt", Css.Pt 12.);
+      ("1pc", Css.Pc 1.);
+      ("1.5rem", Css.Rem 1.5);
+      ("2em", Css.Em 2.);
+      ("1ex", Css.Ex 1.);
+      ("1cap", Css.Cap 1.);
+      ("1ic", Css.Ic 1.);
+      ("1ric", Css.Ric 1.);
+      ("1rlh", Css.Rlh 1.);
+      ("2ch", Css.Ch 2.);
+      ("1lh", Css.Lh 1.);
+      ("3vh", Css.Vh 3.);
+      ("3vw", Css.Vw 3.);
+      ("3vmin", Css.Vmin 3.);
+      ("3vmax", Css.Vmax 3.);
+      ("50%", Css.Pct 50.);
+      ("0px", Css.Zero);
+    ]
+
 (* Every divide utility the parser accepts also has a typed constructor, and the
    two agree on the class name (issue #5). *)
 let test_typed () =
@@ -237,6 +272,7 @@ let tests =
         test_arbitrary_width_roundtrip;
       Alcotest.test_case "typed arbitrary width" `Quick
         test_typed_arbitrary_width;
+      Alcotest.test_case "typed width units" `Quick test_typed_width_units;
       Alcotest.test_case "arbitrary width units" `Quick
         test_arbitrary_width_units;
       Alcotest.test_case "order matches Tailwind" `Slow order_matches_tailwind;
