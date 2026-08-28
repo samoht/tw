@@ -351,6 +351,13 @@ val to_string : ?doctype:bool -> t -> string
 val to_tw : t -> tw list
 (** [to_tw t] extracts all styling classes from an HTML tree. *)
 
+val unknown_classes : t -> string list
+(** [unknown_classes t] lists, in document order, every name in the tree's
+    [class] attributes that {!Tw.of_classes} did not recognise as a utility.
+
+    Such a name is rendered as given - a framework hook or a JS selector belongs
+    in a [class] attribute - so this is how a typo among them is found. *)
+
 val has_forms : t -> bool
 (** [has_forms t] returns true if the HTML tree contains form elements (input,
     select, textarea) that benefit from the forms plugin base styles. *)

@@ -35,7 +35,8 @@ let card =
 - **Type-safe** — utilities are typed constructors, so invalid combinations are
   compile errors rather than silent no-ops.
 - **String parsing** — `Tw.str "flex p-4 bg-blue-500"` turns class strings into
-  typed utilities for dynamic class lists.
+  typed utilities for dynamic class lists; `Tw.of_classes` also reports the
+  names it did not recognise.
 - **Pure OCaml** — no JavaScript toolchain required; the library also compiles
   to JavaScript with js_of_ocaml.
 
@@ -86,8 +87,13 @@ let css = Css.to_string ~minify:true stylesheet
 ### Parsing class strings
 
 ```ocaml
-(* [Tw.str] parses a class string into utilities (raises on unknown classes). *)
+(* [Tw.str] parses a class string into utilities, skipping names it does not
+   recognise. *)
 let styles = Tw.str "flex items-center gap-4 p-6 bg-white rounded-lg shadow-sm"
+
+(* [Tw.of_classes] also hands back the names it skipped, so a typo can be
+   reported rather than silently dropped. *)
+let utilities, unknown = Tw.of_classes "flex bg-blu-500 my-app-header"
 
 (* [Tw.of_string] parses a single class and returns a result. *)
 let parsed = Tw.of_string "hover:bg-blue-600" (* Ok _ *)

@@ -122,9 +122,24 @@ let use styles =
   if !new_found then schedule_rebuild ();
   Tw.to_classes styles
 
+(* Names [use_str] was given that are no utility, newest-first and each recorded
+   once. Rendering must not stop for one: a class attribute legitimately carries
+   names this library knows nothing about, and a browser cannot tell those from
+   a typo any better than the parser can. The name reaches the element either
+   way; this list is what makes the typo findable. *)
+let unknown_seen : (string, unit) Hashtbl.t = Hashtbl.create 16
+let unknown_rev : string list ref = ref []
+let unknown_classes () = List.rev !unknown_rev
+
 let use_str s =
-  let styles = Tw.str s in
+  let styles, unknown = Tw.of_classes s in
   ignore (use styles);
+  List.iter
+    (fun cls ->
+      if not (Hashtbl.mem unknown_seen cls) then (
+        Hashtbl.add unknown_seen cls ();
+        unknown_rev := cls :: !unknown_rev))
+    unknown;
   s
 
 let css () =

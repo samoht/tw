@@ -291,12 +291,22 @@ let of_string ?(theme = Scheme.default) class_str =
           | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
       | None -> unknown_class_error ~base_class class_str)
 
-let str s =
-  let classes = split_whitespace s in
-  List.map
-    (fun cls ->
-      match of_string cls with Ok t -> t | Error (`Msg msg) -> invalid_arg msg)
-    classes
+(* A name the parser rejects may be a typo or a deliberate non-tw class - a
+   framework hook, a JS selector - and nothing here can tell the two apart. So
+   parsing a class string never fails: it hands back what it recognised and what
+   it did not, and the caller judges. *)
+let of_classes ?theme s =
+  let styles, unknown =
+    List.fold_left
+      (fun (styles, unknown) cls ->
+        match of_string ?theme cls with
+        | Ok t -> (t :: styles, unknown)
+        | Error _ -> (styles, cls :: unknown))
+      ([], []) (split_whitespace s)
+  in
+  (List.rev styles, List.rev unknown)
+
+let str s = fst (of_classes s)
 
 (** {1 Module Exports} *)
 
