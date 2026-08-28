@@ -50,18 +50,20 @@ type color =
   | Theme_named of string
 
 (* The colour-space arithmetic (linearisation, OKLab, the polar OKLCh form) is
-   cascade's: tw used to carry its own copies, and its forward matrix went
-   straight to LMS while its inverse went via XYZ, so the two were not exact
-   inverses and [#0088cc] came back as [#0288cc]. Only [linearize_channel] and
-   [gamma_correct] stay private, because they are byte <-> [0,1] float
-   conversions that cascade's float-only API has no reason to own.
+   cascade's: a second copy drifts, since a forward matrix straight to LMS and
+   an inverse routed via XYZ are not exact inverses, and [#0088cc] then comes
+   back as [#0288cc]. Only [linearize_channel] and [gamma_correct] stay private,
+   because they are byte <-> [0, 1] float conversions that cascade's float-only
+   API has no reason to own.
 
-   The one algorithm cascade genuinely lacks is below: [gamut_map_chroma]'s
-   binary search for the widest in-gamut chroma. Cascade's
-   [srgb_bytes_of_linear] answers a narrower question - "is this exact colour
-   representable" - and returns [None] out of gamut instead of hunting for the
-   nearest one, which is what an out-of-gamut OKLCh colour (e.g.
-   [oklch(0.7_0.35_150)]) needs to render at all. *)
+   [gamut_map_chroma] below stays private for a different reason. Cascade has a
+   chroma search of its own, [Color_space.gamut_mapped_srgb_of_oklch], but it
+   answers CSS Color 4 sec. 14.2.2 and keeps the largest chroma whose clipped
+   result is within a just noticeable difference. Tailwind's published CSS
+   carries the fallback lightningcss folds out of its sRGB [color-mix], and that
+   one stops at the first such chroma: for [--color-blue-500] the spec answers
+   [#2b7fff] and Tailwind ships [#3080ff]. Parity is with what Tailwind ships,
+   so the search below is the one that runs. *)
 let linearize_channel c =
   Cascade.Color_space.linear_of_srgb (float_of_int c /. 255.0)
 
@@ -91,7 +93,9 @@ let clip (r, g, b) = (clip_val r, clip_val g, clip_val b)
 let in_gamut (r, g, b) =
   r >= 0.0 && r <= 1.0 && g >= 0.0 && g <= 1.0 && b >= 0.0 && b <= 1.0
 
-(* Binary search to find maximum chroma that stays in sRGB gamut *)
+(* Halve the chroma at constant lightness and hue until the clipped colour is
+   within one just noticeable difference of the colour searched, and take that
+   first one. *)
 let gamut_map_chroma ~ok_l ~cos_h ~sin_h chroma =
   let jnd = 0.02 in
   let epsilon = 0.00001 in
