@@ -794,11 +794,11 @@ module Handler = struct
         (* Not a size: a shadeless colour, which the multi-segment colour cases
            below never see because it fits in this single segment. *)
         | Stdlib.Option.None, Color.No_opacity -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (color, shade) -> Ok (Text_shadow_color (color, shade))
             | Error e -> Error e)
         | Stdlib.Option.None, op -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (color, shade) ->
                 Ok (Text_shadow_color_opacity (color, shade, op))
             | Error e -> Error e))
@@ -809,7 +809,7 @@ module Handler = struct
             Ok (Text_shadow_color_opacity (color, shade, opacity))
         | Error e -> Error e)
     | "text" :: "shadow" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Text_shadow_color (color, shade))
         | Error e -> Error e)
     | _ -> err_not_utility

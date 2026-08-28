@@ -525,7 +525,7 @@ module Handler = struct
             then Ok (Named_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Named_color (color, shade))
         | Error _ ->
             (* Try as theme-named color - check both generic and property-scoped

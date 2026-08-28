@@ -922,7 +922,7 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | "border" :: color_parts -> (
-        match Color.shade_of_strings color_parts with
+        match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Border_color (color, shade))
         | Error _ -> err_not_utility)
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target

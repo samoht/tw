@@ -2640,7 +2640,7 @@ module Handler = struct
         | "transparent", op -> Ok (Shadow_transparent_opacity op)
         (* Not a size: a shadeless colour with an alpha, e.g. shadow-white/10 *)
         | base, op -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "shadow"; color; shade ] -> (
@@ -2652,7 +2652,7 @@ module Handler = struct
     | [ "shadow"; name ] when is_theme_shadow theme name ->
         Ok (Shadow_theme name)
     | [ "shadow"; color ] -> (
-        match Color.shade_of_strings [ color ] with
+        match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Shadow_color (c, s))
         | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
@@ -2691,7 +2691,7 @@ module Handler = struct
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
         | "transparent", op -> Ok (Inset_shadow_transparent_opacity op)
         | base, op -> (
-            match Color.shade_of_strings [ base ] with
+            match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
             | Error _ -> err_not_utility))
     | [ "inset"; "shadow"; color; shade ] -> (
@@ -2700,7 +2700,7 @@ module Handler = struct
         | Ok (c, s, opacity) -> Ok (Inset_shadow_color_opacity (c, s, opacity))
         | Error _ -> err_not_utility)
     | [ "inset"; "shadow"; color ] -> (
-        match Color.shade_of_strings [ color ] with
+        match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Inset_shadow_color (c, s))
         | Error _ -> err_not_utility)
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->

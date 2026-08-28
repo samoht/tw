@@ -1583,6 +1583,25 @@ let parse_opacity_modifier ?theme s =
 (* Parse color and shade from string list. A name the palette does not know is
    still a colour when the [\@theme] block declared [--color-<name>]; such a
    token carries no shade, and its name may span several segments. *)
+(* The named palette colours read a [--color-<name>] token, shaded or not; the
+   arbitrary spellings carry their own value and read nothing, and a
+   [Theme_named] one is looked up against the theme already. *)
+let palette_token color shade =
+  match color with
+  | Hex _ | Rgb _ | Oklch _ | Css _ | Theme_named _ -> None
+  | _ ->
+      let base = pp color in
+      if is_shadeless color then Some ("color-" ^ base)
+      else Some (Pp.str [ "color-"; base; "-"; string_of_int shade ])
+
+(* A [@theme] block that removed the token a palette colour reads leaves the
+   utility painting a variable nothing declares, so the colour stops resolving
+   the way a project colour the block never declared does. *)
+let palette_is_declared theme color shade =
+  match (theme, palette_token color shade) with
+  | Some scheme, Some token -> not (Scheme.is_removed scheme token)
+  | (Some _ | None), _ -> true
+
 let shade_of_strings ?theme parts =
   let theme_named () =
     let name = String.concat "-" parts in
@@ -1600,14 +1619,16 @@ let shade_of_strings ?theme parts =
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
-                 && is_valid_shade color shade ->
+                 && is_valid_shade color shade
+                 && palette_is_declared theme color shade ->
               Ok (color, shade)
           | _ -> theme_named ())
       | Error _ -> theme_named ())
   | [ color_str ] -> (
       match of_string color_str with
-      | Ok color -> Ok (color, 500) (* Default shade *)
-      | Error _ -> theme_named ())
+      | Ok color when palette_is_declared theme color 500 ->
+          Ok (color, 500) (* Default shade *)
+      | Ok _ | Error _ -> theme_named ())
   | [] -> Error (`Msg "No color specified")
   | _ -> theme_named ()
 
@@ -1639,7 +1660,8 @@ let shade_and_opacity_of_strings ?theme parts =
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
-                 && is_valid_shade color shade ->
+                 && is_valid_shade color shade
+                 && palette_is_declared theme color shade ->
               Ok (color, shade, opacity)
           | _ -> theme_named ())
       | Error _ -> theme_named ())
@@ -1662,8 +1684,9 @@ let shade_and_opacity_of_strings ?theme parts =
       | Some keyword -> Ok (Css keyword, 500, opacity)
       | None -> (
           match of_string base_str with
-          | Ok color -> Ok (color, 500, opacity)
-          | Error _ -> theme_named ()))
+          | Ok color when palette_is_declared theme color 500 ->
+              Ok (color, 500, opacity)
+          | Ok _ | Error _ -> theme_named ()))
   | [] -> Error (`Msg "No color specified")
   | _ -> theme_named ()
 

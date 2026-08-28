@@ -1504,7 +1504,7 @@ module Handler = struct
                   Ok (Drop_shadow_keyword_color_opacity (Css.Current, base, op))
                 else
                   match
-                    Color.shade_and_opacity_of_strings
+                    Color.shade_and_opacity_of_strings ~theme
                       (String.split_on_char '-' base)
                   with
                   | Ok (c, shade, _) ->
