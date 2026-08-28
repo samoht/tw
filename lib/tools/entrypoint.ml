@@ -1031,60 +1031,33 @@ let preload_imports ~transform ~base_url stylesheet =
    author's own rules and shift every one of them. *)
 let equal_layer = Css.Stylesheet.equal_layer_name
 
-(* A named layer appears once in Tailwind's output. The generated sheet and the
-   [@layer properties] blocks each applied utility hoists arrive separately, so
-   fold every repeat of a name into the first, dropping content the first
-   already has. *)
-let named_layer stmt =
-  match Css.as_layer stmt with Some (Some name, _) -> Some name | _ -> None
-
-let layer_statements stmt =
-  match Css.as_layer stmt with Some (_, inner) -> inner | None -> []
-
-let repeated_layer_names stmts =
-  let counts = Hashtbl.create 8 in
-  List.iter
+let dedup_statements stmts =
+  let seen = Hashtbl.create 8 in
+  List.filter
     (fun stmt ->
-      match named_layer stmt with
-      | Some name ->
-          Hashtbl.replace counts name
-            (1 + Option.value ~default:0 (Hashtbl.find_opt counts name))
-      | None -> ())
-    stmts;
-  Hashtbl.fold
-    (fun name count acc -> if count > 1 then name :: acc else acc)
-    counts []
+      let key = Css.to_string ~minify:true (Css.v [ stmt ]) in
+      if Hashtbl.mem seen key then false
+      else begin
+        Hashtbl.add seen key ();
+        true
+      end)
+    stmts
 
+(* A named layer appears once in Tailwind's output, so fold every repeat of a
+   name into the first. The generated sheet and the [@layer properties] block
+   each applied utility hoists say the same thing, and the fold takes no hook to
+   re-optimize the body it joins the way the [merge_consecutive_*] passes do, so
+   drop what the joined body now holds twice. *)
 let merge_named_layers stmts =
-  let repeated = repeated_layer_names stmts in
-  if repeated = [] then stmts
+  let merged = Css.Optimize.merge_named_layers_by_name stmts in
+  if List.compare_lengths merged stmts = 0 then stmts
   else
-    let merged = Hashtbl.create 8 in
-    List.iter
-      (fun n ->
-        let body =
-          List.concat_map
-            (fun stmt ->
-              match named_layer stmt with
-              | Some m when equal_layer m n -> layer_statements stmt
-              | _ -> [])
-            stmts
-          |> dedup_statements
-        in
-        Hashtbl.add merged n body)
-      repeated;
-    let emitted = Hashtbl.create 8 in
-    List.filter_map
+    List.map
       (fun stmt ->
-        match named_layer stmt with
-        | Some n when List.exists (equal_layer n) repeated ->
-            if Hashtbl.mem emitted n then None
-            else begin
-              Hashtbl.add emitted n ();
-              Some (Css.layer ~name:n (Hashtbl.find merged n))
-            end
-        | _ -> Some stmt)
-      stmts
+        match Css.as_layer stmt with
+        | Some (Some name, inner) -> Css.layer ~name (dedup_statements inner)
+        | _ -> stmt)
+      merged
 
 let layer_block_name stmt =
   match Css.layer_block_name stmt with Some [] | None -> None | name -> name
