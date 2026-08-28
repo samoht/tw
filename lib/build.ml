@@ -277,18 +277,54 @@ let indexed_rule_to_statement ?(verbatim = fun _ -> false)
         Css.supports ~condition
           [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
-(* Deduplicate typed triples while preserving first occurrence order. Selectors
-   are compared with cascade's structural equality; the bucket key carries their
-   hash, which cascade keeps consistent with that equality. *)
+(* Two rules of the same kind. A condition is read through the equality its own
+   cascade module states, which answers on the media the query selects rather
+   than on how it is spelled. *)
+let equal_rule_type a b =
+  match (a, b) with
+  | `Regular, `Regular | `Starting, `Starting -> true
+  | `Media a, `Media b -> Css.Media.equal a b
+  | `Container a, `Container b -> Css.Container.equal a b
+  | `Supports a, `Supports b -> Css.Supports.equal a b
+  | _ -> false
+
+(* A rule kind's own identity, all a fingerprint may read of it: [Media] and
+   [Container] answer equality on normalised queries, and no hash agrees with
+   that, so the condition stays unread and two kinds share a bucket. *)
+let rule_type_tag = function
+  | `Regular -> 0
+  | `Media _ -> 1
+  | `Container _ -> 2
+  | `Starting -> 3
+  | `Supports _ -> 4
+
+(* Deduplicate typed triples while preserving first occurrence order. Every part
+   is compared through the equality its own cascade module states, and the
+   bucket key carries the hashes those modules keep consistent with it. *)
+let dedup_key (typ, sel, props, nested) =
+  let combine acc h = (acc * 31) + h in
+  let key = combine (rule_type_tag typ) (Css.Selector.hash sel) in
+  let key =
+    List.fold_left (fun key d -> combine key (Css.Declaration.hash d)) key props
+  in
+  List.fold_left (fun key st -> combine key (Css.hash_statement st)) key nested
+
+let equal_dedup_key (typ, sel, props, nested) (typ', sel', props', nested') =
+  equal_rule_type typ typ'
+  && Css.Selector.equal sel sel'
+  && List.equal Css.Declaration.equal_declaration props props'
+  && List.equal Css.equal_statement nested nested'
+
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
     (fun (typ, sel, props, _order, nested, _base_class, _merge_key) ->
-      let bucket = (typ, Css.Selector.hash sel, props, nested) in
-      if List.exists (Css.Selector.equal sel) (Hashtbl.find_all seen bucket)
-      then false
+      let key = (typ, sel, props, nested) in
+      let bucket = dedup_key key in
+      if List.exists (equal_dedup_key key) (Hashtbl.find_all seen bucket) then
+        false
       else (
-        Hashtbl.add seen bucket sel;
+        Hashtbl.add seen bucket key;
         true))
     triples
 

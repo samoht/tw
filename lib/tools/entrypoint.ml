@@ -744,6 +744,23 @@ let split_declared_variants defs name =
       in
       (declared, String.concat ":" (builtin @ [ bare ]))
 
+(* Whether [seen] already holds [stmt], recording it when it does not.
+   [Css.hash_statement] buckets a statement and [Css.equal_statement] settles
+   the bucket, so identity is decided on the statement rather than on the CSS
+   text it renders to. *)
+let seen_statement seen stmt =
+  let bucket = Css.hash_statement stmt in
+  if List.exists (Css.equal_statement stmt) (Hashtbl.find_all seen bucket) then
+    true
+  else begin
+    Hashtbl.add seen bucket stmt;
+    false
+  end
+
+let dedup_statements stmts =
+  let seen = Hashtbl.create 8 in
+  List.filter (fun stmt -> not (seen_statement seen stmt)) stmts
+
 let is_utility_statement stmt =
   match Css.statement_selector stmt with
   | None -> true
@@ -800,22 +817,18 @@ let nested_utilities ~theme names =
          They all decorate the same [&], so they belong in one rule, the way
          Tailwind emits them; left apart, each is a rule of the author's
          selector holding one declaration. *)
-      (* One string per hoisted statement, not one for the whole block: two
+      (* The hoisted statements go back one by one, not as one block: two
          utilities bring overlapping [@property] sets, and deduping the blocks
          whole re-emits every property they do not share. *)
-      ( render_nested_utilities ~classes nestable,
-        List.map (fun st -> Css.to_string ~minify:true (Css.v [ st ])) hoisted
-      )
+      (render_nested_utilities ~classes nestable, hoisted)
 
 (* Append each statement unless it is already there: every utility that sets the
    same variable brings back the same hoisted [@property]. *)
 let add_once buf seen items =
   List.iter
-    (fun s ->
-      if s <> "" && not (List.mem s !seen) then begin
-        seen := s :: !seen;
-        Buffer.add_string buf s
-      end)
+    (fun stmt ->
+      if not (seen_statement seen stmt) then
+        Buffer.add_string buf (Css.to_string ~minify:true (Css.v [ stmt ])))
     items
 
 let apply_names css start stop =
@@ -877,7 +890,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let len = String.length css in
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
-  let seen = ref [] in
+  let seen = Hashtbl.create 64 in
   let rec go i =
     if i >= len then ()
     else
@@ -1048,7 +1061,6 @@ let merge_named_layers stmts =
     let merged = Hashtbl.create 8 in
     List.iter
       (fun n ->
-        let seen = Hashtbl.create 64 in
         let body =
           List.concat_map
             (fun stmt ->
@@ -1056,13 +1068,7 @@ let merge_named_layers stmts =
               | Some m when equal_layer m n -> layer_statements stmt
               | _ -> [])
             stmts
-          |> List.filter (fun st ->
-              let key = Css.to_string ~minify:true (Css.v [ st ]) in
-              if Hashtbl.mem seen key then false
-              else begin
-                Hashtbl.add seen key ();
-                true
-              end)
+          |> dedup_statements
         in
         Hashtbl.add merged n body)
       repeated;
@@ -1381,18 +1387,6 @@ let routed_variant_defs defs derived =
         match template with Some body -> (name, body) :: acc | None -> acc)
       derived []
 
-let dedup_statements stmts =
-  let seen = Hashtbl.create 8 in
-  List.filter
-    (fun stmt ->
-      let key = Css.to_string ~minify:true (Css.v [ stmt ]) in
-      if Hashtbl.mem seen key then false
-      else begin
-        Hashtbl.add seen key ();
-        true
-      end)
-    stmts
-
 let group_routed_rules ~own_order rules =
   let group = Hashtbl.create 8 in
   let order_of = Hashtbl.create 8 in
@@ -1490,7 +1484,7 @@ let parse_routed_blocks ~block_count ~own_order css =
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
-  let seen = ref [] in
+  let seen = Hashtbl.create 64 in
   let derived = Hashtbl.create 8 in
   let own_order = Hashtbl.create 8 in
   let blocks =

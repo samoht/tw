@@ -171,6 +171,38 @@ let test_apply_merges_one_rule () =
     ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
     (Cascade.Css.to_string ~minify:true out)
 
+(* Each utility an [@apply] pulls in hoists an [@property] block for every
+   variable it sets, and the two shadow utilities set the same ones. The hoisted
+   blocks are deduplicated on statement identity, so the sheet declares each
+   property once however many rules applied a utility that sets it. *)
+let test_apply_hoists_each_property_once () =
+  let path = "apply-property-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc
+        "@import \"tailwindcss\";\n\
+         .a { @apply shadow-md; }\n\
+         .b { @apply shadow-lg; }\n");
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v []))
+  in
+  let names =
+    Cascade.Css.statements out
+    |> List.filter_map (fun stmt ->
+        match Cascade.Css.as_property stmt with
+        | Some (Cascade.Css.Property_info { name; _ }) -> Some name
+        | None -> None)
+  in
+  check bool "the shadow properties are hoisted" true (names <> []);
+  check string_list "each declared once"
+    (List.sort_uniq String.compare names)
+    (List.sort String.compare names)
+
 (* Tailwind emits a declared utility as one block, its own nesting intact:
    [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
    rules, the second sorts by the property it writes and an unrelated utility
@@ -208,6 +240,8 @@ let tests =
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
+    test_case "@apply hoists each property once" `Quick
+      test_apply_hoists_each_property_once;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
   ]
