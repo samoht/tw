@@ -36,6 +36,13 @@ type indexed_rule = {
   selector_kind : selector_kind;
   has_modifier_colon : bool;
   props : Css.declaration list;
+  declared : bool;
+      (** The rule came in as finished CSS from a project's own [@utility]. *)
+  declaration_count : int;
+      (** How many declarations the rule emits, those of its nested rules
+          included. A declared utility shares a slot with the built-ins named
+          for the same property, and the wider rule comes first, so the narrower
+          one wins the cascade. Read only when one side is {!field-declared}. *)
   order : int * int;  (** [(priority, suborder)] from the utility definition. *)
   nested : Css.statement list;
   base_class : string option;

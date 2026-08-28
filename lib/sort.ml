@@ -45,6 +45,16 @@ type indexed_rule = {
   selector_kind : selector_kind;
   has_modifier_colon : bool;
   props : Css.declaration list;
+  declared : bool;
+      (* The rule came in as finished CSS from a project's own [@utility]. *)
+  declaration_count : int;
+      (* How many declarations the rule emits, those of its nested rules
+         included. Tailwind breaks a tie between two rules that write the same
+         property by this, widest first, so the narrower one wins the cascade.
+         Read only when one side is [declared]: the built-ins of a family are
+         already separated by their suborders, and tw writes vendor-prefixed
+         spellings Tailwind leaves to its optimizer, so counting them against
+         each other would move rules the corpus pins. *)
   order : int * int;
   nested : Css.statement list;
   base_class : string option;
@@ -733,6 +743,16 @@ let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
   else if f1 && f2 then Some (compare_by_priority_index r1 r2)
   else None
 
+(* A project's [@utility] borrows the slot of the property it writes, so it
+   lands among the built-ins of that family and the two orders decide which
+   wins. Tailwind puts the rule carrying more declarations first: [select-none]
+   writes the prefixed spelling of [user-select] as well as the plain one, so it
+   comes before a declared utility writing [user-select] alone whatever that
+   utility is called. *)
+let compare_declared_width r1 r2 =
+  if not (r1.declared || r2.declared) then 0
+  else Int.compare r2.declaration_count r1.declaration_count
+
 (** Compare by priority, suborder, late modifiers, then natural selector sort.
     Used as the final comparison when focus-visible/state/focus modifiers don't
     apply. *)
@@ -750,7 +770,15 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
       if late1 && not late2 then 1
       else if late2 && not late1 then -1
       else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
-      else natural_compare r1.selector_str r2.selector_str
+      else
+        (* Two utilities share a slot when they are named for the same property,
+           which is where a project's own [@utility] lands. The wider rule goes
+           first - [select-none] writes the prefixed spelling of [user-select]
+           as well as the plain one - and only rules of equal width fall through
+           to the candidate name. *)
+        let width_cmp = compare_declared_width r1 r2 in
+        if width_cmp <> 0 then width_cmp
+        else natural_compare r1.selector_str r2.selector_str
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in

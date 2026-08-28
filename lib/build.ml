@@ -375,7 +375,30 @@ let rule_to_triple order_map = function
         ~merge_key ~not_order
 
 (* Add index to each triple for stable sorting *)
-let add_index triples =
+(* What [indexed_rule_to_statement] will emit, counted: the theme declarations
+   the utilities layer drops are not part of the rule Tailwind orders. A
+   declared utility's rules arrive as finished CSS and carry none. *)
+let rec declaration_count props nested =
+  List.length (filter_utility_properties props)
+  + List.fold_left
+      (fun acc stmt ->
+        acc
+        +
+        match Css.as_rule stmt with
+        | Some (_, decls, inner) -> declaration_count decls inner
+        | None -> (
+            match Css.as_declarations stmt with
+            | Some decls -> declaration_count decls []
+            | None -> (
+                match Css.as_media stmt with
+                | Some (_, inner) -> declaration_count [] inner
+                | None -> (
+                    match Css.as_supports stmt with
+                    | Some (_, inner) -> declaration_count [] inner
+                    | None -> 0))))
+      0 nested
+
+let add_index ?(declared = fun _ -> false) triples =
   let buf = Buffer.create 256 in
   List.mapi
     (fun i (typ, sel, props, order, nested, base_class, merge_key, not_order) ->
@@ -393,6 +416,9 @@ let add_index triples =
          selector_kind = Sort.classify_selector sel;
          has_modifier_colon = Css.Selector.contains_modifier_colon sel;
          props;
+         declared =
+           (match base_class with Some c -> declared c | None -> false);
+         declaration_count = declaration_count props nested;
          order;
          nested;
          base_class;
@@ -486,10 +512,10 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules order_map all_rules =
+let sorted_indexed_rules ?declared order_map all_rules =
   all_rules
   |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index
+  |> deduplicate_typed_triples |> add_index ?declared
   |> List.sort Sort.compare_indexed_rules
 
 (* Sort var names by property_order. Names include -- prefix. *)
@@ -1668,11 +1694,13 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
-  let sorted_rules = sorted_indexed_rules order_map selector_props in
   let verbatim =
     let names = Hashtbl.create 8 in
     List.iter (fun (cls, _, _) -> Hashtbl.replace names cls ()) extra;
     fun cls -> Hashtbl.mem names cls
+  in
+  let sorted_rules =
+    sorted_indexed_rules ~declared:verbatim order_map selector_props
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
