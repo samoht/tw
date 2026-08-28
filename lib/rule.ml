@@ -959,8 +959,10 @@ let compute_variant_order ~selector_str base_class =
      to avoid matching utility-generated pseudo-elements like prose's
      ::before. *)
   if vo > 0 then vo
-  else if has_substring selector_str "before\\:" then 1600
-  else if has_substring selector_str "after\\:" then 1601
+  else if has_substring selector_str "before\\:" then
+    Modifiers.variant_order_of_prefix "before"
+  else if has_substring selector_str "after\\:" then
+    Modifiers.variant_order_of_prefix "after"
   else 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
