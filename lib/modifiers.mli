@@ -747,9 +747,10 @@ val variant_order_of_prefix : string -> int
 
 val variant_inner_order : string -> int
 (** [variant_inner_order token] returns what separates [token] from another
-    token in the same cascade position: the state a [group-]/[peer-] token
-    wraps, and the variant a [not-] token negates, both on the scale
-    {!val-variant_order_of_prefix} returns. [0] for every other token. *)
+    token in the same cascade position: the state a [group-]/[peer-] or [in-]
+    token names on another element, and the variant a [not-] token negates, all
+    on the scale {!val-variant_order_of_prefix} returns. [0] for every other
+    token. *)
 
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as

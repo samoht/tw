@@ -2558,7 +2558,12 @@ let variant_inner_order token =
     if String.starts_with ~prefix:"group-" token then Some (after 6)
     else if String.starts_with ~prefix:"peer-" token then Some (after 5)
     else if String.starts_with ~prefix:"not-" token then Some (after 4)
-    else None
+    else
+      (* [in-focus] names a state on an ancestor; [in-range] names one on the
+         element itself, and the table matches that by name. *)
+      match slot_of_prefix token with
+      | Some Slot.Ancestor -> Some (after 3)
+      | Some _ | None -> None
   in
   match inner with
   | Some inner -> (
