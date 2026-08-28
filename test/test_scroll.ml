@@ -61,12 +61,57 @@ let test_arbitrary_length () =
   | Ok _ -> Alcotest.fail "expected scroll-m-[bogus] to be rejected"
   | Error _ -> ()
 
+(* Every scroll margin writes a property another one writes too, so their order
+   decides which one wins. Tailwind sorts them by side - all, the two axes, the
+   four logical sides, then the four physical ones - and puts the negative of a
+   side before its positive. The sign was weighed ahead of the side, so
+   [-scroll-ml-6] sorted before [scroll-mt-4]; the logical sides also trailed
+   the physical ones. *)
+let test_margin_order () =
+  Test_helpers.check_class_order ~test_name:"scroll margins"
+    [
+      "-scroll-m-4";
+      "scroll-m-4";
+      "scroll-mx-4";
+      "scroll-my-4";
+      "scroll-ms-4";
+      "scroll-me-4";
+      "scroll-mbs-4";
+      "scroll-mbe-4";
+      "-scroll-mt-4";
+      "-scroll-mt-8";
+      "scroll-mt-4";
+      "scroll-mr-4";
+      "scroll-mb-4";
+      "-scroll-ml-6";
+      "scroll-ml-6";
+    ]
+
+(* Scroll padding takes no negative, and sorts by the same side order. *)
+let test_padding_order () =
+  Test_helpers.check_class_order ~test_name:"scroll paddings"
+    [
+      "scroll-p-4";
+      "scroll-px-4";
+      "scroll-py-4";
+      "scroll-ps-4";
+      "scroll-pe-4";
+      "scroll-pbs-4";
+      "scroll-pbe-4";
+      "scroll-pt-4";
+      "scroll-pr-4";
+      "scroll-pb-4";
+      "scroll-pl-4";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "typed constructors: half-step" `Quick test_typed_prime;
       Alcotest.test_case "arbitrary length" `Quick test_arbitrary_length;
+      Alcotest.test_case "scroll margin order" `Slow test_margin_order;
+      Alcotest.test_case "scroll padding order" `Slow test_padding_order;
     ]
 
 let suite = ("scroll", tests)
