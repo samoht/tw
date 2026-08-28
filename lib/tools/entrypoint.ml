@@ -1031,16 +1031,27 @@ let preload_imports ~transform ~base_url stylesheet =
    author's own rules and shift every one of them. *)
 let equal_layer = Css.Stylesheet.equal_layer_name
 
-let dedup_statements stmts =
-  let seen = Hashtbl.create 8 in
-  List.filter
-    (fun stmt ->
-      let key = Css.to_string ~minify:true (Css.v [ stmt ]) in
-      if Hashtbl.mem seen key then false
-      else begin
-        Hashtbl.add seen key ();
-        true
-      end)
+(* An empty [@layer name] block says only that the name has a slot, and with
+   nothing in it the fold below reads it as no occurrence at all and leaves it
+   standing. The generated sheet writes an empty utilities layer whenever every
+   utility in the sheet is a declared one, and [hoist_layer_blocks] fills a slot
+   from the first block of its name, so an empty block in front of the real one
+   hides the rules. Write what it means, a slot, and both passes then see the
+   block that has them. Tailwind emits the same [@layer name;] for it. *)
+let declare_empty_layers stmts =
+  let has_content name =
+    List.exists
+      (fun st ->
+        match Css.as_layer st with
+        | Some (Some n, _ :: _) -> equal_layer n name
+        | _ -> false)
+      stmts
+  in
+  List.map
+    (fun st ->
+      match Css.as_layer st with
+      | Some (Some n, []) when has_content n -> Css.layer_decl [ n ]
+      | _ -> st)
     stmts
 
 (* A named layer appears once in Tailwind's output, so fold every repeat of a
@@ -1049,6 +1060,7 @@ let dedup_statements stmts =
    re-optimize the body it joins the way the [merge_consecutive_*] passes do, so
    drop what the joined body now holds twice. *)
 let merge_named_layers stmts =
+  let stmts = declare_empty_layers stmts in
   let merged = Css.Optimize.merge_named_layers_by_name stmts in
   if List.compare_lengths merged stmts = 0 then stmts
   else
