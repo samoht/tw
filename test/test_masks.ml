@@ -64,18 +64,23 @@ let test_bracket_image () =
    single-[url(...)] reading used to swallow the comma, and a position list was
    rejected outright. *)
 let test_bracket_layer_list () =
+  (* Read unminified. What is under test is that the list keeps both layers, and
+     minified spelling is not that question: a [%] ends a percentage token, so
+     [30% 50%] compacts to [30%50%] - still two components, still valid, and it
+     round-trips - while a different minifier folds the pair to its [x] alone.
+     Pinning either spelling pins the minifier instead of the reading. *)
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   Alcotest.(check bool)
     "two url layers stay two" true
-    (Astring.String.is_infix ~affix:"mask-image:url(/a.png),url(/b.png)"
+    (Astring.String.is_infix ~affix:"mask-image: url(/a.png), url(/b.png)"
        (css "mask-[url(/a.png),url(/b.png)]"));
   Alcotest.(check bool)
     "two positions stay two" true
-    (Astring.String.is_infix ~affix:"mask-position:30% 50%,70% 50%"
+    (Astring.String.is_infix ~affix:"mask-position: 30% 50%, 70% 50%"
        (css "mask-position-[30%_50%,70%_50%]"))
 
 (* An arbitrary value the property cannot take is not a utility: these used to
@@ -114,20 +119,23 @@ let test_bracket_size_units () =
    background-position: a single edge keyword and the edge/offset form. Both
    used to fall through the hand-rolled parser to a silent [center]. *)
 let test_bracket_position_grammar () =
+  (* Unminified, so the assertions read as the grammar they are about. Compact
+     spelling belongs to the minifier: [10px 20px] keeps its space while [30%
+     50%] loses it, because a [%] already ends the token. *)
   let css cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let has cls affix =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
-  has "mask-[position:top]" "mask-position:top";
-  has "mask-position-[top]" "mask-position:top";
-  has "mask-[top]" "mask-position:top";
+  has "mask-[position:top]" "mask-position: top";
+  has "mask-position-[top]" "mask-position: top";
+  has "mask-[top]" "mask-position: top";
   (* the lengths and layer-list forms are unchanged *)
-  has "mask-[position:10px_20px]" "mask-position:10px 20px";
-  has "mask-position-[30%_50%,70%_50%]" "mask-position:30% 50%,70% 50%"
+  has "mask-[position:10px_20px]" "mask-position: 10px 20px";
+  has "mask-position-[30%_50%,70%_50%]" "mask-position: 30% 50%, 70% 50%"
 
 (* Masks sit between the backgrounds and fill/stroke, and the mask-gradient
    utilities lead them. Sharing padding's slot interleaved the two families with
