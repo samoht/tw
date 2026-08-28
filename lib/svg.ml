@@ -95,30 +95,13 @@ module Handler = struct
     style ~merge_key
       [ property (Css.Color (Css.Var (Var.bracket bare_name)) : Css.svg_paint) ]
 
-  (* Extract a hex string (with leading #) from a Css.color, for oklab
-     conversion *)
-  let extract_hex_string css_color =
-    let hex_byte = Pp.hex_byte in
-    let rgba_hex r g b a =
-      let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
-      if a = 255 then rgb else rgb ^ hex_byte a
-    in
-    match Color.css_color_to_hex css_color with
-    | Some (Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ }) ->
-        "#" ^ rgba_hex r g b a
-    | _ -> (
-        match css_color with
-        | Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ } ->
-            "#" ^ rgba_hex r g b a
-        | _ -> "#000000")
-
-  (* Bracket color with opacity: convert to hex first, then apply oklab alpha *)
+  (* Bracket colour with opacity. The paint the modifier applies to is the
+     colour the bracket was parsed into: reading the bracket text back as a hex
+     answered black for every colour with no hex spelling. *)
   let bracket_color_opacity_style ~property css_color opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    let hex = extract_hex_string css_color in
-    let oklab_value = Color.hex_to_oklab_alpha hex alpha in
-    style [ property (Css.Color oklab_value : Css.svg_paint) ]
+    Color.bracket_color_opacity_style
+      ~property:(fun c -> property (Css.Color c : Css.svg_paint))
+      css_color opacity
 
   (* Bracket var with opacity: var fallback + @supports color-mix *)
   let bracket_var_opacity_style ~property ~merge_key v opacity =
@@ -410,13 +393,14 @@ module Handler = struct
         (* Bracket value: could be color or width *)
         let base_str, _ = Color.parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
-        let normalized =
-          String.map (fun c -> if c = '_' then ' ' else c) base_inner
-        in
+        (* Every colour spelling CSS knows, not only a [#] hex and a colour
+           function: a named colour and a keyword are stroke colours too, and
+           the width reader would refuse them. A [#] that spells no hex stays a
+           colour so it is refused as one rather than read as a width. *)
         if
           starts "color:" base_inner || starts "var(" base_inner
           || starts "#" base_inner
-          || Parse.is_css_color_fn normalized
+          || Stdlib.Option.is_some (Color.parse_bracket_color base_inner)
         then parse_bracket_stroke_color v
         else parse_bracket_stroke_width base_inner
     | [ "stroke"; "0" ] -> Ok Stroke_0

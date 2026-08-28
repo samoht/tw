@@ -553,6 +553,21 @@ val bracket_color_opacity_style :
     bracket was parsed into, so a CSS keyword or colour function keeps its own
     value rather than being read back through the palette. *)
 
+type bracket_opacity =
+  | Folded of Css.color
+      (** the single value a colour with a hex spelling and a literal alpha
+          resolves to *)
+  | Guarded of { fallback : Css.color; mixed : Css.color }
+      (** the colour itself, for a browser with no [color-mix()], and the mix
+          that goes behind an [@supports] guard *)
+
+val bracket_color_opacity : Css.color -> opacity_modifier -> bracket_opacity
+(** [bracket_color_opacity c opacity] is what [opacity] makes of the bracket
+    colour [c]. It answers values rather than declarations because the
+    properties they land on differ by family: a decoration colour writes a
+    vendor prefix alongside, and a divide colour hangs both on its child
+    selector. *)
+
 val parse_bracket_color : string -> Css.color option
 (** [parse_bracket_color inner] parses a bracket color value into a typed
     {!Css.color}. Handles hex, CSS color functions (rgba, hsl, oklch, ...), and

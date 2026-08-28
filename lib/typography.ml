@@ -1876,24 +1876,12 @@ module Typography_late = struct
               else if String.starts_with ~prefix:"percentage:" inner then
                 let var_part = String.sub inner 11 (String.length inner - 11) in
                 Ok (Decoration_bracket_pct_var var_part)
-              else if
-                String.length inner > 0
-                && (inner.[0] = '#'
-                   || Parse.is_css_color_fn
-                        (String.map (fun c -> if c = '_' then ' ' else c) inner)
-                   )
-              then
-                let normalized =
-                  String.map (fun c -> if c = '_' then ' ' else c) inner
-                in
-                let css_color =
-                  (* A [#] prefix only names a colour when what follows is a hex
-                     spelling; [Css.hex] raises on anything else, and this runs
-                     inside [of_class]. *)
-                  if inner.[0] = '#' then Css.hex_opt inner
-                  else Css.parse_color normalized
-                in
-                match css_color with
+              else
+                (* Every colour spelling CSS knows, not only a [#] hex and a
+                   colour function: a named colour and a keyword name a
+                   decoration colour too. The colour reader runs before the
+                   percentage one because [hsl(200_50%_50%)] ends in a [%]. *)
+                match Color.parse_bracket_color inner with
                 | Some c -> (
                     match opacity with
                     | Color.No_opacity ->
@@ -1903,25 +1891,25 @@ module Typography_late = struct
                           (Decoration_bracket_color_opacity (inner, c, opacity))
                     )
                 | None -> (
-                    match parse_decoration_thickness inner with
-                    | Some len -> Ok (Decoration_bracket_thickness (inner, len))
-                    | None -> err_not_utility)
-              else if
-                String.length inner > 0 && inner.[String.length inner - 1] = '%'
-              then
-                match parse_decoration_pct inner with
-                | Some len -> Ok (Decoration_bracket_pct (inner, len))
-                | None -> err_not_utility
-              else if is_bare_number inner then
-                (* Tailwind resolves the ambiguous unitless spelling through the
-                   colour candidate path. Its declaration is invalid CSS and
-                   browsers discard it; accepting an inert candidate is
-                   therefore equivalent, while treating it as px is not. *)
-                Ok (Decoration_bracket_invalid_color inner)
-              else
-                match parse_decoration_thickness inner with
-                | Some len -> Ok (Decoration_bracket_thickness (inner, len))
-                | None -> err_not_utility
+                    if
+                      String.length inner > 0
+                      && inner.[String.length inner - 1] = '%'
+                    then
+                      match parse_decoration_pct inner with
+                      | Some len -> Ok (Decoration_bracket_pct (inner, len))
+                      | None -> err_not_utility
+                    else if is_bare_number inner then
+                      (* Tailwind resolves the ambiguous unitless spelling
+                         through the colour candidate path. Its declaration is
+                         invalid CSS and browsers discard it; accepting an inert
+                         candidate is therefore equivalent, while treating it as
+                         px is not. *)
+                      Ok (Decoration_bracket_invalid_color inner)
+                    else
+                      match parse_decoration_thickness inner with
+                      | Some len ->
+                          Ok (Decoration_bracket_thickness (inner, len))
+                      | None -> err_not_utility)
             else
               (* Try parsing as number (decoration thickness) *)
               match Parse.int_any base_str with
@@ -2652,36 +2640,27 @@ module Typography_late = struct
     in
     style ~merge_key:"decoration-" [ text_decoration_color color ]
 
-  let decoration_bracket_color_with_opacity inner c opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    if String.length inner > 0 && inner.[0] = '#' then
-      match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
-      | Some rgb ->
-          let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-          let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-          style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
-      | None -> style [ text_decoration_color (Css.hex "#000") ]
-    else
-      let hex_color =
-        match Color.css_color_to_hex c with Some h -> h | None -> c
-      in
-      let _ = alpha in
-      let fallback_decl = text_decoration_color hex_color in
-      let oklab_color =
-        Css.color_mix ~in_space:Oklab hex_color Css.Transparent
-          ~percent1:percent
-      in
-      let oklab_decl = text_decoration_color oklab_color in
-      let supports_block =
-        Css.supports ~condition:Color.color_mix_supports_condition
-          [
-            Css.rule ~selector:(Css.Selector.class_ "_")
-              [ webkit_text_decoration_color oklab_color; oklab_decl ];
-          ]
-      in
-      style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
-        [ fallback_decl ]
+  (* An opacity modifier applies to the colour the bracket was parsed into. The
+     modifier read the bracket text back as a hex and answered black whenever
+     that failed, and it wrote the mix in place of the colour for every spelling
+     that is not a [#] hex, where Tailwind folds the alpha in. *)
+  let decoration_bracket_color_with_opacity c opacity =
+    match Color.bracket_color_opacity c opacity with
+    | Color.Folded value ->
+        style ~merge_key:"decoration-" [ text_decoration_color value ]
+    | Color.Guarded { fallback; mixed } ->
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [
+                  webkit_text_decoration_color mixed;
+                  text_decoration_color mixed;
+                ];
+            ]
+        in
+        style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
+          [ text_decoration_color fallback ]
 
   let decoration_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
@@ -3195,8 +3174,8 @@ module Typography_late = struct
     | Decoration_bracket_color (inner, c) ->
         decoration_bracket_color_style inner c
     | Decoration_bracket_invalid_color _ -> style []
-    | Decoration_bracket_color_opacity (inner, c, opacity) ->
-        decoration_bracket_color_with_opacity inner c opacity
+    | Decoration_bracket_color_opacity (_, c, opacity) ->
+        decoration_bracket_color_with_opacity c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
     | Decoration_bracket_var_opacity (v, opacity) ->
         decoration_bracket_var_with_opacity v opacity

@@ -239,6 +239,20 @@ let hex_to_oklab_alpha hex alpha : Css.color =
       Css.oklaba l a b alpha
   | None -> Css.hex hex
 
+(* A custom colour (a hex or an rgb() the author wrote) with an alpha folded in.
+   Tailwind writes the oklab form, with [none] for a channel that is zero. *)
+let custom_color_with_alpha (c : color) alpha =
+  let ok_l, ok_a, ok_b =
+    match c with
+    | Hex h -> (
+        match hex_to_rgb h with
+        | Some rgb -> rgb_to_oklab rgb
+        | None -> (0.0, 0.0, 0.0))
+    | Rgb { red; green; blue } -> rgb_to_oklab { r = red; g = green; b = blue }
+    | _ -> (0.0, 0.0, 0.0)
+  in
+  Css.oklaba_none_zeros ok_l ok_a ok_b alpha
+
 module Tailwind = struct
   let gray =
     [
@@ -2673,19 +2687,8 @@ module Handler = struct
     | None when is_custom_color c ->
         (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
            variables, no @supports, no hex+alpha fallback. *)
-        let ok_l, ok_a, ok_b =
-          match c with
-          | Hex h -> (
-              match hex_to_rgb h with
-              | Some rgb -> rgb_to_oklab rgb
-              | None -> (0.0, 0.0, 0.0))
-          | Rgb { red; green; blue } ->
-              rgb_to_oklab { r = red; g = green; b = blue }
-          | _ -> (0.0, 0.0, 0.0)
-        in
-        let alpha = percent /. 100.0 in
-        let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
-        style ?merge_key (property_decls oklab_value)
+        style ?merge_key
+          (property_decls (custom_color_with_alpha c (percent /. 100.0)))
     | None -> (
         let scheme = resolve_scheme theme in
         let color_name = scheme_color_name c shade in
@@ -2854,16 +2857,51 @@ module Handler = struct
         Some (mk_color_hex (hex_string_of_rgb (r, g, b)))
     | _ -> None
 
+  (* What an opacity modifier makes of a bracket colour. [Folded] is the single
+     value a colour with a hex spelling and a literal alpha resolves to.
+     [Guarded] is the pair every other case needs: the colour itself, for a
+     browser with no [color-mix()], and the mix behind an [\@supports] guard.
+     The properties the two land on are the caller's, which is why this answers
+     values rather than declarations - a decoration colour writes a vendor
+     prefix alongside, and a divide colour hangs both on its child selector. *)
+  type bracket_opacity =
+    | Folded of Css.color
+    | Guarded of { fallback : Css.color; mixed : Css.color }
+
   (* A bracket colour arrives already parsed into a typed [Css.color], and an
      opacity modifier applies to that value. Reading the bracket text back
      through the palette parser answered black for every colour the palette does
      not name. *)
+  let bracket_color_opacity css_color opacity =
+    match bracket_color_to_custom css_color with
+    | Some c when opacity_var_name opacity = None ->
+        Folded (custom_color_with_alpha c (opacity_to_percent opacity /. 100.0))
+    | _ ->
+        let fallback = resolve_bracket_css_color css_color in
+        Guarded { fallback; mixed = mix_alpha opacity fallback }
+
   let bracket_color_opacity_style ?merge_key ~property css_color opacity =
     match bracket_color_to_custom css_color with
     | Some c -> color_with_opacity_style ~property ?merge_key c 500 opacity
-    | None ->
+    | None -> (
         let base = resolve_bracket_css_color css_color in
-        style ?merge_key [ property (apply_alpha opacity base) ]
+        match css_color with
+        | Css.Current | Css.Var _ ->
+            (* The browser resolves these at use time, so the alpha cannot be
+               folded in ahead of it the way a concrete colour's can - an
+               [oklch()] mix folds to a hex with its alpha, [currentcolor] has
+               nothing to fold. Tailwind writes the plain colour and puts the
+               mix behind the [color-mix()] guard; emitting the mix alone leaves
+               a browser without [color-mix()] no colour at all. *)
+            let supports_block =
+              Css.supports ~condition:color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_")
+                    [ property (apply_alpha opacity base) ];
+                ]
+            in
+            style ?merge_key ~rules:(Some [ supports_block ]) [ property base ]
+        | _ -> style ?merge_key [ property (apply_alpha opacity base) ])
 
   let outline_bracket_color_opacity_style inner css_color opacity =
     let merge_key =
@@ -3397,6 +3435,12 @@ let opacity_var_bare = Handler.opacity_var_bare
 let opacity_var_bare_of = Handler.opacity_var_name
 let shorten_hex_str = shorten_hex_str
 let bracket_color_opacity_style = Handler.bracket_color_opacity_style
+
+type bracket_opacity = Handler.bracket_opacity =
+  | Folded of Css.color
+  | Guarded of { fallback : Css.color; mixed : Css.color }
+
+let bracket_color_opacity = Handler.bracket_color_opacity
 let css_color_to_hex = Handler.css_color_to_hex
 let parse_bracket_color = Handler.parse_bracket_color
 
