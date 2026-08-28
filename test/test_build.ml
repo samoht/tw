@@ -961,9 +961,30 @@ let test_theme_named_family_declaration_order () =
   check bool "--font-zeta declared before --font-alpha, as in the @theme block"
     true (zeta < alpha)
 
+(* [--default-font-family] is derived from [--font-sans]: a project that took
+   the family out of its theme leaves the derived token naming nothing, and
+   Tailwind drops it rather than emitting a reference that never resolves. *)
+let test_removed_family_drops_derived_default () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("font-sans", "initial") ]
+  in
+  let default_decls =
+    Tw.Typography.default_font_declarations
+    @ Tw.Typography.default_font_family_declarations
+  in
+  let theme_layer = Tw.Build.theme_layer_of ~theme ~default_decls [] in
+  let vars = vars_in_layer "theme" theme_layer in
+  check bool "--font-sans is gone" false (List.mem "--font-sans" vars);
+  check bool "--default-font-family goes with it" false
+    (List.mem "--default-font-family" vars);
+  check bool "--default-mono-font-family stays" true
+    (List.mem "--default-mono-font-family" vars)
+
 let tests =
   [
     test_case "starting-style blocks merge" `Quick test_starting_style_merges;
+    test_case "removed family drops its derived default" `Quick
+      test_removed_family_drops_derived_default;
     test_case "theme-named family keeps @theme declaration order" `Quick
       test_theme_named_family_declaration_order;
     test_case "referenced theme token emitted" `Quick
