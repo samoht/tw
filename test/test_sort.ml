@@ -1150,6 +1150,61 @@ let test_breakpoint_groups_stacked_variants () =
     (List.sort Int.compare positions)
     positions
 
+(* The cascade order the variant table gives, end to end. Every token here has a
+   position in it; a token with none returns 0, which the comparator reads as
+   "this rule carries no variant" and sorts into another group, which is what
+   put nth-*, in-* and the child variants ahead of the plain utilities. This
+   list is what tailwindcss emits for the same classes. *)
+let test_variant_table_emission_order () =
+  let classes =
+    [
+      "block";
+      "*:m-1";
+      "**:m-2";
+      "not-hover:m-3";
+      "group-hover:m-4";
+      "hover:m-5";
+      "inert:m-6";
+      "in-focus:m-7";
+      "has-checked:m-8";
+      "data-active:m-9";
+      "nth-3:mt-1";
+      "supports-grid:mt-2";
+      "md:mt-3";
+      "dark:mt-4";
+    ]
+  in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
+  let position needle =
+    match Astring.String.find_sub ~sub:needle css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s not found in %s" needle css
+  in
+  let positions =
+    List.map position
+      [
+        ".block";
+        "m-1";
+        "m-2";
+        "m-3";
+        "m-4";
+        "m-5";
+        "m-6";
+        "m-7";
+        "m-8";
+        "m-9";
+        "mt-1";
+        "mt-2";
+        "mt-3";
+        "mt-4";
+      ]
+  in
+  Alcotest.(check (list int))
+    "emission order"
+    (List.sort Int.compare positions)
+    positions
+
 let test_stacked_media_outer_query_order () =
   (* hover:sm: and sm:hover: carry the same variants, so the stack alone cannot
      separate them. The query each writes on the outside does: hover before sm,
@@ -1766,6 +1821,8 @@ let tests =
     test_case "stacked variant outline order" `Slow
       test_stacked_variant_outline_order;
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
+    test_case "variant table emission order" `Slow
+      test_variant_table_emission_order;
     test_case "stacked responsive variant order" `Slow
       test_stacked_responsive_variant_order;
     test_case "breakpoint groups stacked variants" `Slow
