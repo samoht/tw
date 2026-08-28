@@ -229,6 +229,32 @@ let test_order_of_property_skips_outline_carrier () =
     (Some (order_of "outline-solid"))
     (order_of_property (Key Outline_style))
 
+(* The carrier is the style channel a width utility reads, not the property name
+   on its own: a declared [@utility] writing [border-style] with any other value
+   is a style utility and keeps the style slot. *)
+let test_ordering_property_carrier () =
+  let open Tw.Utility in
+  let key name = Alcotest.testable (fun ppf _ -> Fmt.string ppf name) ( = ) in
+  let carrier : Tw.Css.declaration =
+    Tw.Css.border_style (Var (Tw.Css.var_ref "tw-border-style"))
+  in
+  check
+    (option (key "border-width"))
+    "the channel carrier does not claim the style slot"
+    (Some (Tw.Css.Declaration.Key Border_width))
+    (ordering_property [ carrier; Tw.Css.border_width (Px 2.) ]);
+  check
+    (option (key "border-style"))
+    "a declared border-style keeps the style slot"
+    (Some (Tw.Css.Declaration.Key Border_style))
+    (ordering_property [ Tw.Css.border_style Dashed ]);
+  check
+    (option (key "border-style"))
+    "border-style reading another variable is not a carrier"
+    (Some (Tw.Css.Declaration.Key Border_style))
+    (ordering_property
+       [ Tw.Css.border_style (Var (Tw.Css.var_ref "my-border-style")) ])
+
 (* Tailwind sorts a declared [@utility] by the property it writes, so every
    property a family is named for needs a slot. A family with no example
    covering its property leaves a declared utility at the layer's tail. *)
@@ -362,6 +388,8 @@ let tests =
       test_order_of_property_skips_outline_carrier;
     test_case "order_of_property covers the named families" `Quick
       test_order_of_property_covers_named_families;
+    test_case "ordering property skips the style carrier" `Quick
+      test_ordering_property_carrier;
     test_case "order returns correct priorities" `Quick test_order_priorities;
     test_case "order returns correct suborders" `Quick test_order_suborders;
     test_case "order is consistent" `Quick test_order_consistency;
