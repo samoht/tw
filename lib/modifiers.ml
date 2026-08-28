@@ -1574,6 +1574,23 @@ let simple_modifiers =
     ("@7xl", Container Container_7xl);
   ]
 
+(* [simple_modifiers] holds the built-in breakpoints as a fixed set, so a
+   [@theme] block that removed one is only visible through the scheme: [md:]
+   then names a breakpoint the project does not have, and stops resolving the
+   way an unknown variant does. *)
+let modifier_breakpoint_is_defined theme m =
+  match m with
+  | Responsive bp | Min_responsive bp | Max_responsive bp ->
+      Scheme.has_breakpoint theme (Style.pp_modifier (Responsive bp))
+  | _ -> true
+
+(* Look a variant up in [simple_modifiers], honouring the theme's
+   breakpoints. *)
+let lookup_simple theme s =
+  match List.assoc_opt s simple_modifiers with
+  | Some m when modifier_breakpoint_is_defined theme m -> Some m
+  | Some _ | None -> None
+
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
 let try_custom_breakpoint breakpoints s =
   (* Direct name: e.g., "10xl" → Custom_responsive *)
@@ -1779,12 +1796,13 @@ let try_group_peer_not s =
   | None -> try_prefix "peer-not-" (fun i n -> Peer_not (i, n))
 
 (* Try not-* prefix: wrap inner modifier in Not *)
-let try_not_modifier s =
+let try_not_modifier theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
     let inner = String.sub s 4 (String.length s - 4) in
     match List.assoc_opt inner simple_modifiers with
-    | Some m when is_not_compatible m -> Some (Not m)
+    | Some m when is_not_compatible m ->
+        if modifier_breakpoint_is_defined theme m then Some (Not m) else None
     | Some _ -> None
     | None ->
         let fns =
@@ -1973,7 +1991,7 @@ and try_scoped_container_query s =
 let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
-      (fun () -> List.assoc_opt s simple_modifiers);
+      (fun () -> lookup_simple theme s);
       (fun () -> try_container_query s);
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
@@ -1988,7 +2006,7 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
       (* Before [try_not_modifier]: a container variant handles its own [not-]
          (negating the structural condition), not the generic [Not] wrapper. *)
       (fun () -> try_container_variant theme s);
-      (fun () -> try_not_modifier s);
+      (fun () -> try_not_modifier theme s);
       (fun () -> try_bare_data_aria s);
       (fun () -> try_prose_element s);
       (fun () -> try_custom_breakpoint (Scheme.breakpoint_names theme) s);

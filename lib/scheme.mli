@@ -154,6 +154,11 @@ val all_breakpoints : t -> (string * Css.length) list
     [\@theme] block set, and the legacy px-only {!breakpoints} field. A
     breakpoint the block removed is left out. *)
 
+val has_breakpoint : t -> string -> bool
+(** [has_breakpoint t name] is whether [t] still defines the breakpoint [name],
+    reading the same set as {!all_breakpoints}. A breakpoint the [\@theme] block
+    removed is gone for the variants that name it. *)
+
 val breakpoint_names : t -> string list
 (** [breakpoint_names t] returns the custom breakpoint names available while
     parsing variants. *)

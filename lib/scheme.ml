@@ -267,6 +267,11 @@ let all_breakpoints scheme =
         in
         Option.map (fun length -> (name, length)) length)
 
+(** [has_breakpoint scheme name] is whether [scheme] still defines the
+    breakpoint [name], reading the same set as {!all_breakpoints} so a variant
+    and a container agree on what the theme has. *)
+let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
+
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)
 let with_overrides ?(inline = []) scheme overrides =
