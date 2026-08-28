@@ -5,6 +5,7 @@ open Tw.Modifiers
 open Tw.Padding
 open Tw.Margin
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Grid_template
 open Tw.Animations
 open Tw.Transitions

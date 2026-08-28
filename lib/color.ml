@@ -1737,12 +1737,6 @@ module Handler = struct
 
   (** Local color utility type *)
   type t =
-    (* Background colors *)
-    | Bg of color * int
-    | Bg_opacity of color * int * opacity_modifier
-    | Bg_transparent
-    | Bg_current
-    | Bg_current_opacity of opacity_modifier
     (* Text colors *)
     | Text of color * int
     | Text_opacity of color * int * opacity_modifier
@@ -2093,22 +2087,6 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "bg"; "transparent" ] -> Ok Bg_transparent
-    | [ "bg"; current_str ]
-      when String.starts_with ~prefix:"current" current_str -> (
-        let base, opacity = parse_opacity_modifier ~theme current_str in
-        match opacity with
-        | No_opacity when base = "current" -> Ok Bg_current
-        | No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
-        | _ -> Ok (Bg_current_opacity opacity))
-    | "bg" :: color_parts when List.exists has_opacity color_parts -> (
-        match shade_and_opacity_of_strings ~theme color_parts with
-        | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
-        | Error e -> Error e)
-    | "bg" :: color_parts -> (
-        match shade_of_strings ~theme color_parts with
-        | Ok (color, shade) -> Ok (Bg (color, shade))
-        | Error e -> Error e)
     | [ "text"; "transparent" ] -> Ok Text_transparent
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
@@ -2374,20 +2352,6 @@ module Handler = struct
         | Ok (color, shade) -> Ok (Placeholder (color, shade))
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
-
-  let bg' ?theme c shade =
-    if is_custom_color c then
-      let css_color = to_css c shade in
-      style [ Css.background_color css_color ]
-    else
-      (* Use shared color variable to match tailwindcss output exactly. *)
-      let cv = color_var c shade in
-      let color_value = get_color_value ?theme c shade in
-      let decl, color_ref = Var.binding cv color_value in
-      style (decl :: [ Css.background_color (Css.Var color_ref) ])
-
-  let bg_transparent = style [ Css.background_color (Css.hex "#0000") ]
-  let bg_current = style [ Css.background_color Css.Current ]
 
   (** Text color utilities *)
 
@@ -2769,11 +2733,6 @@ module Handler = struct
     colors_with_opacity_style ?theme ~properties:[ property ] ?property_prefix
       ?merge_key c shade opacity
 
-  (** Background color with opacity *)
-  let bg_with_opacity ?theme c shade opacity =
-    color_with_opacity_style ?theme ~property:Css.background_color
-      ~property_prefix:"background-color" c shade opacity
-
   (** Text color with opacity *)
   let text_with_opacity ?theme c shade opacity =
     let property_prefix =
@@ -2956,15 +2915,11 @@ module Handler = struct
   let to_style theme =
     (* Shadow the scheme-reading colour helpers with theme-applied versions so
        the match arms below read from the explicitly threaded scheme. *)
-    let bg' color shade = bg' ~theme color shade in
     let text' color shade = text' ~theme color shade in
     let border_color' color shade = border_color' ~theme color shade in
     let accent' color shade = accent' ~theme color shade in
     let caret' color shade = caret' ~theme color shade in
     let outline' color shade = outline' ~theme color shade in
-    let bg_with_opacity color shade opacity =
-      bg_with_opacity ~theme color shade opacity
-    in
     let text_with_opacity color shade opacity =
       text_with_opacity ~theme color shade opacity
     in
@@ -2981,19 +2936,11 @@ module Handler = struct
       outline_with_opacity ~theme color shade opacity
     in
     function
-    | Bg (color, shade) -> bg' color shade
-    | Bg_opacity (color, shade, opacity) ->
-        (* 100% opacity: same as base color, no @supports needed *)
-        if is_fully_opaque opacity && not (is_custom_color color) then
-          bg' color shade
-        else bg_with_opacity color shade opacity
-    | Bg_transparent -> bg_transparent
-    | Bg_current -> bg_current
-    | Bg_current_opacity opacity ->
-        current_color_with_opacity ~property:Css.background_color opacity
-    | Text (color, shade) -> text' color shade
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. *)
     | Text_opacity (color, shade, opacity) ->
         text_with_opacity color shade opacity
+    | Text (color, shade) -> text' color shade
     | Text_transparent -> text_transparent
     | Text_current -> text_current
     | Text_current_opacity opacity ->
@@ -3123,29 +3070,18 @@ module Handler = struct
         with_pseudo Css.Selector.Placeholder
           (bracket_color_opacity_style ~property:Css.color css_color opacity)
 
-  (* Suborder for the non-text color families: border (0-9999) then bg
-     (10000-19999). text-color runs at priority 26 (see [priority]) with a fixed
-     suborder inside the late-typography block. NOTE: Bg must be first pattern
-     to infer local type t vs shadowed Css.Border. *)
+  (* Suborder for the non-text color families: border first (0-9999), then the
+     rest. text-color runs at priority 26 (see [priority]) with a fixed suborder
+     inside the late-typography block. *)
   let suborder = function
-    | Bg (color, shade) ->
-        (* All background colors use the same suborder (10000) to allow
-           alphabetical sorting, matching Tailwind v4 behavior. *)
-        let _ = (color, shade) in
-        10000
-    | Bg_opacity (color, shade, _) ->
-        let _ = (color, shade) in
-        10000
-    | Bg_transparent -> 10000
-    | Bg_current -> 10000
-    | Bg_current_opacity _ -> 10000
-    | Text (color, shade) ->
-        (* All text colors share suborder 8370 (priority 26, after
-           text-transform and before font-style) so they sort alphabetically,
-           matching Tailwind. *)
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. All text colors
+       share suborder 8370 (priority 26, after text-transform and before
+       font-style) so they sort alphabetically, matching Tailwind. *)
+    | Text_opacity (color, shade, _) ->
         let _ = (color, shade) in
         8370
-    | Text_opacity (color, shade, _) ->
+    | Text (color, shade) ->
         let _ = (color, shade) in
         8370
     | Text_transparent -> 8370
@@ -3256,27 +3192,17 @@ module Handler = struct
     | Placeholder_bracket_color_opacity _ -> 80000
 
   let to_class = function
-    | Bg (c, shade) ->
-        if is_shadeless c then "bg-" ^ color_to_string c
-        else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
-    | Bg_opacity (c, shade, opacity) ->
-        if is_shadeless c then
-          "bg-" ^ color_to_string c ^ opacity_suffix opacity
-        else
-          "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
-          ^ opacity_suffix opacity
-    | Bg_transparent -> "bg-transparent"
-    | Bg_current -> "bg-current"
-    | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
-    | Text (c, shade) ->
-        if is_shadeless c then "text-" ^ color_to_string c
-        else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    (* [Text_opacity] leads so the match resolves to the colour [t] rather than
+       to the [Text] constructor [open Css] brings into scope. *)
     | Text_opacity (c, shade, opacity) ->
         if is_shadeless c then
           "text-" ^ color_to_string c ^ opacity_suffix opacity
         else
           "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
+    | Text (c, shade) ->
+        if is_shadeless c then "text-" ^ color_to_string c
+        else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Text_transparent -> "text-transparent"
     | Text_current -> "text-current"
     | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
@@ -3410,7 +3336,6 @@ module Handler = struct
 
   let examples =
     [
-      Bg_transparent;
       Text_transparent;
       Border_transparent;
       Outline_transparent;
@@ -3794,12 +3719,6 @@ let bg_current_with_opacity ?theme opacity =
 (** Public API *)
 let utility x = Utility.base (Self x)
 
-let bg ?opacity ?(shade = 500) color =
-  check_shade ~utility:"bg" color shade;
-  match opacity with
-  | None -> utility (Bg (color, shade))
-  | Some pct -> utility (Bg_opacity (color, shade, opacity_of_int pct))
-
 let text ?opacity ?(shade = 500) color =
   check_shade ~utility:"text" color shade;
   match opacity with
@@ -3812,8 +3731,6 @@ let border_color ?opacity ?(shade = 500) color =
   | None -> utility (Border (color, shade))
   | Some pct -> utility (Border_opacity (color, shade, opacity_of_int pct))
 
-let bg_transparent = utility Bg_transparent
-let bg_current = utility Bg_current
 let text_transparent = utility Text_transparent
 let text_current = utility Text_current
 let text_inherit = utility Text_inherit

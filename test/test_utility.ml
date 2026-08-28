@@ -293,6 +293,11 @@ let test_no_class_claimed_twice () =
         "ring-offset-2";
         "inset-ring-2";
         "bg-red-500";
+        "bg-current";
+        "bg-transparent";
+        "border-red-500";
+        "border-current";
+        "border-transparent";
         "bg-linear-45";
         "from-red-500";
         "via-red-500";
@@ -339,18 +344,15 @@ let test_no_class_claimed_twice () =
         | names -> Some (cls ^ " -> " ^ String.concat ", " names))
       (List.sort_uniq String.compare corpus)
   in
-  (* These five are claimed twice today: [backgrounds] and [color] both accept
-     [bg-<colour>], and [borders] and [color] both accept [border-current] and
-     [border-transparent]. Which one answers is decided by dune link order. The
-     output is right today, so this pins the set rather than the emptiness: a
-     sixth overlap fails here, and so does resolving one of these, which is the
-     prompt to update the list. *)
+  (* The border colours are still claimed twice: [borders] and [color] both
+     accept them, and which one answers is decided by dune link order. Both
+     spell the same rule at the same (priority, suborder), so the output is
+     right today; this pins the set rather than the emptiness, so that a new
+     overlap fails here and so does resolving one of these. *)
   let known_doubled =
     [
-      "bg-current -> backgrounds, color";
-      "bg-red-500 -> backgrounds, color";
-      "bg-transparent -> backgrounds, color";
       "border-current -> borders, color";
+      "border-red-500 -> borders, color";
       "border-transparent -> borders, color";
     ]
   in

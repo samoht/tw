@@ -281,16 +281,6 @@ end
 
 (** {1 Color Application Utilities} *)
 
-val bg : ?opacity:int -> ?shade:int -> color -> t
-(** [bg color] sets the background color. [shade] defaults to 500. [opacity]
-    sets the alpha modifier (0-100), e.g. [bg ~opacity:50 white]. *)
-
-val bg_transparent : t
-(** [bg_transparent] makes the background fully transparent. *)
-
-val bg_current : t
-(** [bg_current] uses [currentColor] for the background. *)
-
 val text : ?opacity:int -> ?shade:int -> color -> t
 (** [text color] sets the text color. [shade] defaults to 500. [opacity] sets
     the alpha modifier (0-100), e.g. [text ~opacity:50 red]. *)

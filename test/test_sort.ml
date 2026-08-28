@@ -1,6 +1,7 @@
 module Css = Cascade.Css
 open Alcotest
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Padding
 
 (* OCaml 4.14 compat *)

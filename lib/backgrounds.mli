@@ -22,6 +22,12 @@ val bg : ?opacity:int -> ?shade:int -> Color.color -> t
 (** [bg color] sets the background color. [shade] defaults to 500. [opacity]
     sets the alpha modifier (0-100). *)
 
+val bg_transparent : t
+(** [bg_transparent] makes the background fully transparent. *)
+
+val bg_current : t
+(** [bg_current] uses [currentColor] for the background. *)
+
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over
     the fixed functions when composing logic. *)

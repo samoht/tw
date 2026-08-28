@@ -1,6 +1,7 @@
 module Css = Cascade.Css
 open Alcotest
 open Tw.Color
+open Tw.Backgrounds
 open Tw.Padding
 open Tw.Margin
 open Tw.Modifiers

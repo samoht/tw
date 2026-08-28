@@ -1971,6 +1971,8 @@ let bg ?opacity ?(shade = 500) color =
   | None -> utility (Bg (color, shade))
   | Some pct -> utility (Bg_opacity (color, shade, Color.opacity_of_int pct))
 
+let bg_transparent = utility Bg_transparent
+let bg_current = utility Bg_current
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =
