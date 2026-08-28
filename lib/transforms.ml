@@ -207,21 +207,22 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
       Css.Transform "tw-skew-y"
 
-  (* Perspective theme variables, ordered by value to match Tailwind's theme *)
+  (* Perspective theme variables, ordered by value to match Tailwind's theme.
+     The family owns slots (8, 10-16), after blur (8, 0-8). *)
   let perspective_dramatic_var =
-    Var.theme Css.Length "perspective-dramatic" ~order:(7, 13)
+    Var.theme Css.Length "perspective-dramatic" ~order:(8, 10)
 
   let perspective_near_var =
-    Var.theme Css.Length "perspective-near" ~order:(7, 14)
+    Var.theme Css.Length "perspective-near" ~order:(8, 11)
 
   let perspective_normal_var =
-    Var.theme Css.Length "perspective-normal" ~order:(7, 15)
+    Var.theme Css.Length "perspective-normal" ~order:(8, 12)
 
   let perspective_midrange_var =
-    Var.theme Css.Length "perspective-midrange" ~order:(7, 16)
+    Var.theme Css.Length "perspective-midrange" ~order:(8, 13)
 
   let perspective_distant_var =
-    Var.theme Css.Length "perspective-distant" ~order:(7, 17)
+    Var.theme Css.Length "perspective-distant" ~order:(8, 14)
 
   (* A [--perspective-*] token the project declared names a depth the built-in
      scale has no slot for; they share the slot after the scale. *)
@@ -232,12 +233,12 @@ module Handler = struct
     match Hashtbl.find_opt perspective_named_cache name with
     | Some var -> var
     | None ->
-        let var = Var.theme Css.Length ("perspective-" ^ name) ~order:(7, 19) in
+        let var = Var.theme Css.Length ("perspective-" ^ name) ~order:(8, 16) in
         Hashtbl.add perspective_named_cache name var;
         var
 
   let perspective_none_var =
-    Var.theme Css.Length "perspective-none" ~order:(7, 18)
+    Var.theme Css.Length "perspective-none" ~order:(8, 15)
 
   (** {1 Helpers} *)
 

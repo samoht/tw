@@ -53,11 +53,11 @@ module Handler = struct
      (8,0) so it appears before timing-function (8,1) in the theme layer output,
      matching Tailwind's order. *)
   let default_transition_duration_var =
-    Var.theme Css.Duration "default-transition-duration" ~order:(8, 0)
+    Var.theme Css.Duration "default-transition-duration" ~order:(8, 30)
 
   let default_transition_timing_function_var =
     Var.theme Css.Timing_function "default-transition-timing-function"
-      ~order:(8, 1)
+      ~order:(8, 31)
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
@@ -332,10 +332,10 @@ module Handler = struct
     in
     style ~property_rules [ Var.binding_initial tw_ease_var ]
 
-  (* Theme variables for easing functions - order (7, 9-12) places them after
-     radius (7, 0-8) but before animate (7, 13-17) *)
-  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 9)
-  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 10)
+  (* Theme variables for easing functions - slots (7, 30-34) place them after
+     drop-shadow (7, 20-25) and before animate (7, 40-45). *)
+  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 30)
+  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 31)
 
   (* An [--ease-*] token the project declared names a timing function the
      built-in scale has no slot for; they share the slot after the scale. *)
@@ -347,16 +347,16 @@ module Handler = struct
     | Some var -> var
     | None ->
         let var =
-          Var.theme Css.Timing_function ("ease-" ^ name) ~order:(7, 12)
+          Var.theme Css.Timing_function ("ease-" ^ name) ~order:(7, 34)
         in
         Hashtbl.add ease_named_cache name var;
         var
 
   let ease_in_out_var =
-    Var.theme Css.Timing_function "ease-in-out" ~order:(7, 11)
+    Var.theme Css.Timing_function "ease-in-out" ~order:(7, 32)
 
   let ease_linear_var =
-    Var.theme Css.Timing_function "ease-linear" ~order:(7, 12)
+    Var.theme Css.Timing_function "ease-linear" ~order:(7, 33)
 
   let ease_linear ?theme () =
     (* Tailwind uses the raw 'linear' keyword by default, but uses

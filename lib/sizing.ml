@@ -613,7 +613,9 @@ module Handler = struct
   let aspect_auto' = style [ Css.aspect_ratio Auto ]
 
   (* Theme variables for aspect ratios *)
-  let aspect_video_var = Var.theme Css.Aspect_ratio "aspect-video" ~order:(4, 1)
+  (* Tailwind's [@theme] declares [--aspect-video] after the perspective scale
+     (8, 10-16) and before the [--default-*] tokens (8, 30+). *)
+  let aspect_video_var = Var.theme Css.Aspect_ratio "aspect-video" ~order:(8, 20)
 
   (* aspect-square inlines the 1/1 ratio in v4 (no --aspect-square theme token),
      unlike aspect-video which references the --aspect-video token. *)
@@ -635,7 +637,9 @@ module Handler = struct
     match Hashtbl.find_opt aspect_named_cache name with
     | Some var -> var
     | None ->
-        let var = Var.theme Css.Aspect_ratio ("aspect-" ^ name) ~order:(4, 2) in
+        let var =
+          Var.theme Css.Aspect_ratio ("aspect-" ^ name) ~order:(8, 21)
+        in
         Hashtbl.add aspect_named_cache name var;
         var
 

@@ -145,7 +145,7 @@ module Handler = struct
        animation: none directly. *)
     match Scheme.theme_value theme "animate-none" with
     | Some _ ->
-        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
+        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 40) in
         let none_animation : Css.animation =
           Css.Shorthand
             {
@@ -164,9 +164,9 @@ module Handler = struct
         style [ theme_decl; Css.animation (Css.Var none_var) ]
     | None -> style [ Css.animation None ]
 
-  (* Theme variable for animate-spin - order (7, 13) places it after ease (7,
-     9-11) *)
-  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 13)
+  (* Theme variable for animate-spin - slot (7, 41) places it after ease (7,
+     30-34) *)
+  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 41)
 
   let animate_spin ?theme () =
     let spin_animation : Css.animation =
@@ -187,9 +187,9 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-spin" spin_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
 
-  (* Theme variable for animate-ping - order (7, 14) places it after
-     animate-spin (7, 13) *)
-  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 14)
+  (* Theme variable for animate-ping - slot (7, 42) places it after animate-spin
+     (7, 41) *)
+  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 42)
 
   let animate_ping ?theme () =
     let ping_animation : Css.animation =
@@ -210,9 +210,9 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-ping" ping_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
 
-  (* Theme variable for animate-pulse - order (7, 15) places it after
-     animate-ping (7, 14) *)
-  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 15)
+  (* Theme variable for animate-pulse - slot (7, 43) places it after
+     animate-ping (7, 42) *)
+  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 43)
 
   let animate_pulse ?theme () =
     let pulse_animation : Css.animation =
@@ -233,10 +233,10 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-pulse" pulse_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
-  (* Theme variable for animate-bounce - order (7, 16) places it after
-     animate-pulse (7, 15) *)
+  (* Theme variable for animate-bounce - slot (7, 44) places it after
+     animate-pulse (7, 43) *)
   let animate_bounce_var =
-    Var.theme Css.Animation "animate-bounce" ~order:(7, 16)
+    Var.theme Css.Animation "animate-bounce" ~order:(7, 44)
 
   let animate_bounce ?theme () =
     let bounce_animation : Css.animation =
@@ -285,7 +285,7 @@ module Handler = struct
 
   let animate_named ?theme name =
     let var_name = "animate-" ^ name in
-    let tv = Var.theme Css.Animation var_name ~order:(7, 16) in
+    let tv = Var.theme Css.Animation var_name ~order:(7, 45) in
     let animation : Css.animation =
       Shorthand
         {

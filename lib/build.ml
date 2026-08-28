@@ -691,24 +691,6 @@ let compare_orders order_a order_b =
   | None, Some _ -> 1
   | None, None -> 0
 
-(* Tailwind's independently-numbered priority-7 namespaces overlap. Their
-   declaration order at a shared slot follows namespace registration order,
-   rather than the spelling of the complete token name. *)
-let priority_seven_namespace = function
-  | Some name ->
-      let name =
-        if String.starts_with ~prefix:"--" name then
-          String.sub name 2 (String.length name - 2)
-        else name
-      in
-      if String.starts_with ~prefix:"radius-" name then 0
-      else if String.starts_with ~prefix:"drop-shadow-" name then 1
-      else if String.starts_with ~prefix:"ease-" name then 2
-      else if String.starts_with ~prefix:"animate-" name then 3
-      else if String.starts_with ~prefix:"perspective-" name then 4
-      else 5
-  | None -> 5
-
 (* The position of a theme token within the project's [@theme] declaration list,
    keyed by its bare name. [Scheme.token_overrides] preserves the source order
    the CSS entrypoint (or [Scheme.with_overrides] caller) declared them in. *)
@@ -729,12 +711,12 @@ let declared_order declared name =
       in
       List.assoc_opt bare declared
 
-(* Sort declarations by their Var order metadata, namespace at a shared slot,
-   declaration order within that slot, then alphabetical fallback. A project-
-   named family (--font-<name>, --text-<name>, --leading-<name>, ...) funnels
-   every member into one shared (priority, suborder) slot (see [Var.mli]), so
-   two project tokens tie there; Tailwind keeps the order the [@theme] block
-   wrote them in rather than sorting by name. *)
+(* Sort declarations by their Var order metadata, then declaration order within
+   a shared slot, then alphabetical fallback. A project-named family
+   (--font-<name>, --text-<name>, --leading-<name>, ...) funnels every member
+   into one shared (priority, suborder) slot (see [Var.mli]), so two project
+   tokens tie there; Tailwind keeps the order the [@theme] block wrote them in
+   rather than sorting by name. *)
 let sort_by_var_order ~theme decls =
   let declared = declared_index theme in
   decls
@@ -750,19 +732,9 @@ let sort_by_var_order ~theme decls =
       let c = compare_orders a b in
       if c <> 0 then c
       else
-        let namespace_cmp =
-          match (a, b) with
-          | Some (7, _), Some (7, _) ->
-              Int.compare
-                (priority_seven_namespace na)
-                (priority_seven_namespace nb)
-          | _ -> 0
-        in
-        if namespace_cmp <> 0 then namespace_cmp
-        else
-          match (ia, ib) with
-          | Some ia, Some ib -> Int.compare ia ib
-          | _ -> compare na nb)
+        match (ia, ib) with
+        | Some ia, Some ib -> Int.compare ia ib
+        | _ -> compare na nb)
   |> List.map (fun (d, _, _, _) -> d)
 
 (* Build theme layer rule from declarations *)

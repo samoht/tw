@@ -55,23 +55,23 @@ let box_resets () =
       ];
   ]
 
-(* Font feature/variation settings variables Order (8, 10+) to come after
-   default-transition-* (8, 0-1) *)
+(* Font feature/variation settings variables Order (8, 40+) to come after
+   default-transition-* (8, 30-31) *)
 let font_feature =
   Var.theme Css.Font_feature_settings "default-font-feature-settings"
-    ~order:(8, 10)
+    ~order:(8, 40)
 
 let font_variation =
   Var.theme Css.Font_variation_settings "default-font-variation-settings"
-    ~order:(8, 11)
+    ~order:(8, 41)
 
 let mono_font_feature =
   Var.theme Css.Font_feature_settings "default-mono-font-feature-settings"
-    ~order:(8, 12)
+    ~order:(8, 42)
 
 let mono_font_variation =
   Var.theme Css.Font_variation_settings "default-mono-font-variation-settings"
-    ~order:(8, 13)
+    ~order:(8, 43)
 
 (** Helper for creating variable references in preflight context
 
