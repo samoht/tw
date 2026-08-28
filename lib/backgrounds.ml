@@ -62,21 +62,22 @@ module Handler = struct
 
   (* Gradient color source - shared by from/via/to *)
   module Color_source = struct
-    type t =
-      | Named of Color.color * int
-      | Named_opacity of Color.color * int * Color.opacity_modifier
+    (* A colour that spells itself out, with no palette behind it. *)
+    type plain =
       | Current
-      | Current_opacity of Color.opacity_modifier
       | Inherit
       | Transparent
       | Bracket_hex of string
-      | Bracket_hex_opacity of string * Color.opacity_modifier
       | Bracket_color_var of string
-      | Bracket_color_var_opacity of string * Color.opacity_modifier
       | Bracket_var of string
-      | Bracket_var_opacity of string * Color.opacity_modifier
       | Bracket_color of string
-      | Bracket_color_opacity of string * Color.opacity_modifier
+
+    (* A palette colour reads its value out of the scheme, so it has no plain
+       CSS spelling. Keeping the two apart is what lets the conversion to a
+       [Css.color] cover every source it is handed. *)
+    type t =
+      | Palette of Color.color * int * Color.opacity_modifier option
+      | Plain of plain * Color.opacity_modifier option
   end
 
   (* Gradient position source *)
@@ -231,33 +232,28 @@ module Handler = struct
         let prefix =
           match target with From -> "from-" | Via -> "via-" | To -> "to-"
         in
-        let color_class = function
-          | Color_source.Named (color, shade) ->
-              if Color.is_shadeless color then Color.pp color
-              else Color.pp color ^ "-" ^ string_of_int shade
-          | Color_source.Named_opacity (color, shade, opacity) ->
+        let plain_class : Color_source.plain -> string = function
+          | Color_source.Current -> "current"
+          | Color_source.Inherit -> "inherit"
+          | Color_source.Transparent -> "transparent"
+          | Color_source.Bracket_hex h -> "[#" ^ h ^ "]"
+          | Color_source.Bracket_color_var v -> "[color:" ^ v ^ "]"
+          | Color_source.Bracket_var v | Color_source.Bracket_color v ->
+              "[" ^ v ^ "]"
+        in
+        let opacity_class = function
+          | None -> ""
+          | Some opacity -> Color.opacity_suffix opacity
+        in
+        let color_class : Color_source.t -> string = function
+          | Color_source.Palette (color, shade, opacity) ->
               let base =
                 if Color.is_shadeless color then Color.pp color
                 else Color.pp color ^ "-" ^ string_of_int shade
               in
-              base ^ Color.opacity_suffix opacity
-          | Color_source.Current -> "current"
-          | Color_source.Current_opacity opacity ->
-              "current" ^ Color.opacity_suffix opacity
-          | Color_source.Inherit -> "inherit"
-          | Color_source.Transparent -> "transparent"
-          | Color_source.Bracket_hex h -> "[#" ^ h ^ "]"
-          | Color_source.Bracket_hex_opacity (h, opacity) ->
-              "[#" ^ h ^ "]" ^ Color.opacity_suffix opacity
-          | Color_source.Bracket_color_var v -> "[color:" ^ v ^ "]"
-          | Color_source.Bracket_color_var_opacity (v, opacity) ->
-              "[color:" ^ v ^ "]" ^ Color.opacity_suffix opacity
-          | Color_source.Bracket_var v -> "[" ^ v ^ "]"
-          | Color_source.Bracket_var_opacity (v, opacity) ->
-              "[" ^ v ^ "]" ^ Color.opacity_suffix opacity
-          | Color_source.Bracket_color v -> "[" ^ v ^ "]"
-          | Color_source.Bracket_color_opacity (v, opacity) ->
-              "[" ^ v ^ "]" ^ Color.opacity_suffix opacity
+              base ^ opacity_class opacity
+          | Color_source.Plain (source, opacity) ->
+              plain_class source ^ opacity_class opacity
         in
         prefix ^ color_class src
     | Gradient_stop_position (target, src) -> (
@@ -1345,42 +1341,18 @@ module Handler = struct
     let vr : Css.color Css.var = Var.bracket bare in
     Var vr
 
-  (** Convert a non-named Color_source.t to a Css.color *)
-  let css_color_of_source : Color_source.t -> Css.color = function
-    | Color_source.Current | Color_source.Current_opacity _ -> Css.Current
+  (** Convert a plain colour source to a Css.color *)
+  let css_color_of_plain : Color_source.plain -> Css.color = function
+    | Color_source.Current -> Css.Current
     | Color_source.Inherit -> Css.Inherit
     | Color_source.Transparent -> Css.Transparent
-    | Color_source.Bracket_hex h | Color_source.Bracket_hex_opacity (h, _) ->
-        Css.hex h
-    | Color_source.Bracket_color_var v
-    | Color_source.Bracket_color_var_opacity (v, _) ->
+    | Color_source.Bracket_hex h -> Css.hex h
+    | Color_source.Bracket_color_var v | Color_source.Bracket_var v ->
         color_var_ref v
-    | Color_source.Bracket_var v | Color_source.Bracket_var_opacity (v, _) ->
-        color_var_ref v
-    | Color_source.Bracket_color v | Color_source.Bracket_color_opacity (v, _)
-      -> (
+    | Color_source.Bracket_color v -> (
         match Color.parse_bracket_color v with
         | Some c -> c
         | None -> Css.Transparent)
-    | Color_source.Named _ | Color_source.Named_opacity _ ->
-        (* A palette colour resolves through the scheme, not into a plain CSS
-           colour; [to_style] answers those before it reaches here. *)
-        invalid_arg "backgrounds: a palette colour has no plain CSS colour"
-
-  (** Extract opacity from a Color_source.t, if present *)
-  let opacity_of_source : Color_source.t -> Color.opacity_modifier option =
-    function
-    | Color_source.Current_opacity o
-    | Color_source.Bracket_hex_opacity (_, o)
-    | Color_source.Bracket_color_var_opacity (_, o)
-    | Color_source.Bracket_var_opacity (_, o)
-    | Color_source.Bracket_color_opacity (_, o) ->
-        Some o
-    | Color_source.Named _ | Color_source.Named_opacity _ | Color_source.Current
-    | Color_source.Inherit | Color_source.Transparent
-    | Color_source.Bracket_hex _ | Color_source.Bracket_color_var _
-    | Color_source.Bracket_var _ | Color_source.Bracket_color _ ->
-        None
 
   let to_style theme =
     let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
@@ -1395,28 +1367,23 @@ module Handler = struct
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | Gradient_color (target, src) -> (
         let prefix, set_var, _pos_var = gradient_target_info target in
-        (* Named colors use the scheme system with theme variables *)
+        (* A palette colour goes through the scheme, which gives it a theme
+           variable to read. *)
         match src with
-        | Color_source.Named (color, shade) ->
+        | Color_source.Palette (color, shade, None) ->
             gradient_color ~prefix ~set_var ~shade color
-        | Color_source.Named_opacity (color, shade, opacity) ->
+        | Color_source.Palette (color, shade, Some opacity) ->
             gradient_color_opacity ~prefix ~set_var ~shade color opacity
-        | Color_source.Bracket_hex_opacity (h, opacity) ->
+        | Color_source.Plain (Color_source.Bracket_hex h, Some opacity) ->
             (* Hex is known at compile time: compute oklab directly *)
             let alpha = Color.opacity_to_percent opacity /. 100.0 in
             let color = Color.hex_to_oklab_alpha h alpha in
             gradient_simple ~prefix ~set_var color []
-        | Color_source.Current | Color_source.Current_opacity _
-        | Color_source.Inherit | Color_source.Transparent
-        | Color_source.Bracket_hex _ | Color_source.Bracket_color_var _
-        | Color_source.Bracket_color_var_opacity _ | Color_source.Bracket_var _
-        | Color_source.Bracket_var_opacity _ | Color_source.Bracket_color _
-        | Color_source.Bracket_color_opacity _ -> (
+        | Color_source.Plain (source, opacity) -> (
             (* A keyword or a bracket value: the colour is known without the
-               scheme. Spelled out rather than swept up, so a source added to
-               [Color_source.t] is a compile error here. *)
-            let color = css_color_of_source src in
-            match opacity_of_source src with
+               scheme. *)
+            let color = css_color_of_plain source in
+            match opacity with
             | None -> gradient_simple ~prefix ~set_var color []
             | Some opacity ->
                 let percent = Color.opacity_to_percent opacity in
@@ -1573,15 +1540,19 @@ module Handler = struct
 
   let parse_gradient_color ?theme target rest =
     let gc src = Ok (Gradient_color (target, src)) in
+    let plain ?opacity source = gc (Color_source.Plain (source, opacity)) in
+    let palette ?opacity color shade =
+      gc (Color_source.Palette (color, shade, opacity))
+    in
     let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
     (* Keywords *)
-    | [ "current" ] -> gc Color_source.Current
+    | [ "current" ] -> plain Color_source.Current
     | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
         let _, opacity = Color.parse_opacity_modifier ?theme current_str in
-        gc (Color_source.Current_opacity opacity)
-    | [ "inherit" ] -> gc Color_source.Inherit
-    | [ "transparent" ] -> gc Color_source.Transparent
+        plain ~opacity Color_source.Current
+    | [ "inherit" ] -> plain Color_source.Inherit
+    | [ "transparent" ] -> plain Color_source.Transparent
     (* Percentage positions: from-0%, from-100% (integer only) *)
     | [ pct_str ] when String.ends_with ~suffix:"%" pct_str -> (
         let num_s = String.sub pct_str 0 (String.length pct_str - 1) in
@@ -1599,12 +1570,13 @@ module Handler = struct
             let inner = Parse.bracket_inner bracket_opacity in
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
-              gc (Color_source.Bracket_color_var var_str)
+              plain (Color_source.Bracket_color_var var_str)
             else if is_bracket_hex inner then
-              gc
+              plain
                 (Color_source.Bracket_hex
                    (String.sub inner 1 (String.length inner - 1)))
-            else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
+            else if Parse.is_var inner then
+              plain (Color_source.Bracket_var inner)
             else
               match parse_bracket_position_value inner with
               | Some value -> gp (Bracket (inner, value))
@@ -1615,35 +1587,34 @@ module Handler = struct
             let inner = Parse.bracket_inner base in
             if String.length inner > 6 && String.sub inner 0 6 = "color:" then
               let var_str = String.sub inner 6 (String.length inner - 6) in
-              gc (Color_source.Bracket_color_var_opacity (var_str, opacity))
+              plain ~opacity (Color_source.Bracket_color_var var_str)
             else if is_bracket_hex inner then
-              gc
-                (Color_source.Bracket_hex_opacity
-                   (String.sub inner 1 (String.length inner - 1), opacity))
+              plain ~opacity
+                (Color_source.Bracket_hex
+                   (String.sub inner 1 (String.length inner - 1)))
             else if Parse.is_var inner then
-              gc (Color_source.Bracket_var_opacity (inner, opacity))
+              plain ~opacity (Color_source.Bracket_var inner)
             else if Color.parse_bracket_color inner <> None then
-              gc (Color_source.Bracket_color_opacity (inner, opacity))
+              plain ~opacity (Color_source.Bracket_color inner)
             else Error (`Msg "Invalid gradient bracket with opacity")
         | _ -> (
             (* Named color with opacity *)
             match Color.shade_and_opacity_of_strings ?theme rest with
-            | Ok (color, shade, opacity) ->
-                gc (Color_source.Named_opacity (color, shade, opacity))
+            | Ok (color, shade, opacity) -> palette ~opacity color shade
             | Error e -> Error e))
     (* Bracket notation without opacity *)
     | [ bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         if String.length inner > 6 && String.sub inner 0 6 = "color:" then
           let var_str = String.sub inner 6 (String.length inner - 6) in
-          gc (Color_source.Bracket_color_var var_str)
+          plain (Color_source.Bracket_color_var var_str)
         else if is_bracket_hex inner then
-          gc
+          plain
             (Color_source.Bracket_hex
                (String.sub inner 1 (String.length inner - 1)))
-        else if Parse.is_var inner then gc (Color_source.Bracket_var inner)
+        else if Parse.is_var inner then plain (Color_source.Bracket_var inner)
         else if Color.parse_bracket_color inner <> None then
-          gc (Color_source.Bracket_color inner)
+          plain (Color_source.Bracket_color inner)
         else
           match parse_bracket_position_value inner with
           | Some value -> gp (Bracket (inner, value))
@@ -1651,13 +1622,12 @@ module Handler = struct
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with
-        | Ok (color, shade, opacity) ->
-            gc (Color_source.Named_opacity (color, shade, opacity))
+        | Ok (color, shade, opacity) -> palette ~opacity color shade
         | Error e -> Error e)
     (* Named color *)
     | _ -> (
         match Color.shade_of_strings ?theme rest with
-        | Ok (color, shade) -> gc (Color_source.Named (color, shade))
+        | Ok (color, shade) -> palette color shade
         | Error _ -> Error (`Msg "Invalid gradient color"))
 
   let of_class theme class_name =
@@ -1977,12 +1947,12 @@ let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =
   Color.check_shade ~utility:"from_color" color shade;
-  utility (Gradient_color (From, Color_source.Named (color, shade)))
+  utility (Gradient_color (From, Color_source.Palette (color, shade, None)))
 
 let via_color ?(shade = 500) color =
   Color.check_shade ~utility:"via_color" color shade;
-  utility (Gradient_color (Via, Color_source.Named (color, shade)))
+  utility (Gradient_color (Via, Color_source.Palette (color, shade, None)))
 
 let to_color ?(shade = 500) color =
   Color.check_shade ~utility:"to_color" color shade;
-  utility (Gradient_color (To, Color_source.Named (color, shade)))
+  utility (Gradient_color (To, Color_source.Palette (color, shade, None)))
