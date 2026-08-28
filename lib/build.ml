@@ -794,10 +794,16 @@ let referenced_theme_decls ~theme ~exclude selector_props =
             Some decl
         | _ -> Color.Handler.theme_color_decl ~theme bare)
 
-(* [--default-font-family] points at [--font-sans]. When the project declared
-   that token in an [@theme inline] block it has no declaration of its own, so
-   the default carries its value instead of a reference nothing resolves. *)
-let inline_default_family theme decl =
+(* [--default-font-family] points at [--font-sans], [--default-mono-font-family]
+   at [--font-mono]. Tailwind spells the pair [--theme(--font-sans, initial)],
+   which reads two ways. When the project declared the source token in an
+   [@theme inline] block it has no declaration of its own, so the default
+   carries its value instead of a reference nothing resolves. When the project
+   took the source token out of its theme the [initial] fallback applies, and
+   the default goes with it rather than naming a variable nothing declares. A
+   default the project gave a value of its own points elsewhere, so neither
+   reading touches it. *)
+let resolve_default_family theme decl =
   match Css.custom_declaration_name decl with
   | Some name -> (
       let token =
@@ -808,14 +814,15 @@ let inline_default_family theme decl =
       in
       match token with
       | Some t
-        when Scheme.is_inline_token theme t
-             && String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")"
-        -> (
-          match Scheme.theme_value (Some theme) t with
-          | Some v -> Css.custom_property ~layer:"theme" name v
-          | None -> decl)
-      | _ -> decl)
-  | None -> decl
+        when String.trim (Css.declaration_value decl) = "var(--" ^ t ^ ")" ->
+          if Scheme.is_removed theme t then None
+          else if Scheme.is_inline_token theme t then
+            match Scheme.theme_value (Some theme) t with
+            | Some v -> Some (Css.custom_property ~layer:"theme" name v)
+            | None -> Some decl
+          else Some decl
+      | _ -> Some decl)
+  | None -> Some decl
 
 (* Tailwind derives the default font-feature settings from the sans and mono
    tokens the project declared. *)
@@ -879,7 +886,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
      built-in defaults carry the same token names as the extracted ones. *)
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
-  |> List.map (inline_default_family theme)
+  |> List.filter_map (resolve_default_family theme)
   |> sort_by_var_order ~theme |> theme_layer_rule ~layers
 
 let theme_layer_of ?theme ?(default_decls = []) tw_classes =
