@@ -1389,6 +1389,75 @@ let test_compound_variant_same_multiset () =
   Test_helpers.check_ordering_matches
     ~test_name:"compound variant same multiset" utilities
 
+(* A project's [@utility] takes the slot of the property it writes, so it lands
+   among the built-ins of that family and the two orders decide which wins.
+   Tailwind breaks that tie by how many declarations each rule carries, widest
+   first: [.select-none] writes the prefixed spelling as well as [user-select],
+   so it comes before a declared utility writing [user-select] alone whatever
+   that utility is called. *)
+let declared_user_select name =
+  let order =
+    match Tw.Utility.order_of_property (Key User_select) with
+    | Some order -> order
+    | None -> Alcotest.fail "user-select has no utility slot"
+  in
+  ( name,
+    order,
+    [
+      Css.rule ~selector:(Css.Selector.class_ name)
+        [ Css.user_select (Text : Css.user_select) ];
+    ] )
+
+let builtin cls =
+  match Tw.Utility.base_of_class Tw.Scheme.default cls with
+  | Ok base -> Tw.Utility.base base
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let utility_selectors sheet =
+  Test_helpers.extract_utilities_layer_rules sheet
+  |> Test_helpers.extract_rule_selectors
+
+let check_before what sheet first second =
+  let selectors = utility_selectors sheet in
+  let position sel =
+    match index (String.equal sel) selectors with
+    | Some i -> i
+    | None -> Alcotest.failf "%s missing from the utilities layer" sel
+  in
+  check bool what true (position first < position second)
+
+let test_declared_utility_after_wider_builtin () =
+  let sheet =
+    Tw.Build.to_css
+      ~extra:[ declared_user_select "aaa-sel" ]
+      [ builtin "select-none" ]
+  in
+  check_before "select-none before the declared utility" sheet ".select-none"
+    ".aaa-sel"
+
+(* The rule is not an unconditional append: two rules writing the same property
+   with as many declarations each still sort by candidate name, so a declared
+   utility can precede the built-in. *)
+let test_declared_utility_ties_by_name () =
+  let sheet =
+    Tw.Build.to_css
+      ~extra:
+        [
+          ( "aaa-pad",
+            (match Tw.Utility.order_of_property (Key Padding) with
+            | Some order -> order
+            | None -> Alcotest.fail "padding has no utility slot"),
+            [
+              Css.rule
+                ~selector:(Css.Selector.class_ "aaa-pad")
+                [ Css.padding [ Css.Px 5.0 ] ];
+            ] );
+        ]
+      [ builtin "p-4" ]
+  in
+  check_before "the declared utility keeps its alphabetical place" sheet
+    ".aaa-pad" ".p-4"
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -1717,6 +1786,10 @@ let tests =
       test_compound_variant_same_multiset;
     test_case "regular before media same priority" `Quick
       test_regular_before_media;
+    test_case "declared utility after a wider built-in" `Quick
+      test_declared_utility_after_wider_builtin;
+    test_case "declared utility ties by candidate name" `Quick
+      test_declared_utility_ties_by_name;
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
