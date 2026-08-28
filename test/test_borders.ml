@@ -434,6 +434,7 @@ let test_side_width_order () =
       "border-t-4";
       "border-t-6";
       "border-t-8";
+      "border-t-40";
       "border-t-[3px]";
     ]
 
@@ -485,6 +486,24 @@ let test_axis_width_order () =
       "border-l-2";
     ]
 
+(* The all-sides widths sort by the number they name, and the bracket sorts
+   after every one of them. The four the scale names (0, 2, 4, 8) took the first
+   four slots of the band and the rest counted from the same base, so [border-3]
+   landed on [border-8]'s slot and [border-40] sorted past the bracket. *)
+let test_all_sides_width_order () =
+  Test_helpers.check_class_order ~test_name:"border widths"
+    [
+      "border";
+      "border-0";
+      "border-2";
+      "border-3";
+      "border-4";
+      "border-5";
+      "border-8";
+      "border-40";
+      "border-[3px]";
+    ]
+
 (* An axis or logical bracket width sorts inside its own side's band, after the
    numeric widths, the way the physical sides already do. *)
 let test_axis_arbitrary_width_order () =
@@ -532,6 +551,7 @@ let tests =
     test_case "project radius token" `Quick test_project_radius_token;
     test_case "border side width order" `Slow test_side_width_order;
     test_case "border axis arbitrary widths" `Quick test_axis_arbitrary_width;
+    test_case "border all-sides width order" `Slow test_all_sides_width_order;
     test_case "border axis width order" `Slow test_axis_width_order;
     test_case "border axis bracket width order" `Slow
       test_axis_arbitrary_width_order;
