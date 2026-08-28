@@ -2277,23 +2277,23 @@ module Slot = struct
     | Motion_reduce -> 50100
     | Contrast_more -> 50200
     | Contrast_less -> 50300
-    | Pointer -> 50400
-    | Any_pointer -> 50500
     | Breakpoint -> 60000
+    | Container_query -> 65000
     | Portrait -> 70000
     | Landscape -> 70100
     | Ltr -> 80000
     | Rtl -> 80100
     | Dark -> 90000
+    | Starting -> 90500
     | Print -> 91000
     | Forced_colors -> 92000
-    | Noscript -> 93000
     | Inverted_colors -> 93100
-    | Starting -> 95000
+    | Pointer -> 93200
+    | Any_pointer -> 93300
+    | Noscript -> 93400
     | Custom -> 95500
     | Prose element -> prose_element_variant_order element
     | Arbitrary -> 100000
-    | Container_query -> 110000
 end
 
 (* The slot a modifier constructor sorts in. Exhaustive on purpose: a new

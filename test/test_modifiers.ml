@@ -487,22 +487,22 @@ let variant_cascade_ladder =
     "motion-reduce";
     "contrast-more";
     "contrast-less";
-    "pointer-fine";
-    "any-pointer-fine";
     "md";
+    "@md";
     "portrait";
     "landscape";
     "ltr";
     "rtl";
     "dark";
+    "starting";
     "print";
     "forced-colors";
-    "noscript";
     "inverted-colors";
-    "starting";
+    "pointer-fine";
+    "any-pointer-fine";
+    "noscript";
     "prose-h1";
     "[&>*]";
-    "@md";
   ]
 
 let test_variant_cascade_ladder () =
