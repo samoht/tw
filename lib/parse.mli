@@ -92,6 +92,13 @@ val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
     property name written in an arbitrary value has to be. *)
 
+val starts_with_math_function : string -> bool
+(** [starts_with_math_function s] is [true] when [s] opens with a CSS math
+    function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes
+    either a length or a colour reads this to classify one that starts with a
+    function call: a math function stands for the value it computes, so it is on
+    the numeric side. *)
+
 val is_var : string -> bool
 (** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
     bracket content (without surrounding brackets). *)

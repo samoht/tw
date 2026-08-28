@@ -369,7 +369,7 @@ let test_bracket_math_function_width () =
   emits "border-width: calc(1rem + 2px)" "border-[calc(1rem_+_2px)]";
   emits "border-top-width: calc(1rem + 2px)" "border-t-[calc(1rem_+_2px)]";
   emits "border-width: min(2px, 1rem)" "border-[min(2px,1rem)]";
-  emits "border-width: clamp(1px, 2px, 3px)" "border-[clamp(1px,2px,3px)]";
+  emits "border-width: clamp(1px, 2vw, 3rem)" "border-[clamp(1px,2vw,3rem)]";
   emits "outline-width: calc(1rem + 2px)" "outline-[calc(1rem_+_2px)]";
   (* a bare var() is still a colour on both *)
   emits "border-color: var(--w)" "border-[var(--w)]";

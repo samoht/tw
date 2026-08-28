@@ -815,6 +815,7 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
+          || Parse.starts_with_math_function inner
           || is_line_width_keyword inner
         in
         if is_width then
@@ -829,6 +830,7 @@ module Handler = struct
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
         let is_width =
           (String.length inner > 0 && is_numeric_start inner.[0])
+          || Parse.starts_with_math_function inner
           || is_line_width_keyword inner
         in
         if is_width then
@@ -891,7 +893,10 @@ module Handler = struct
           let is_numeric_start c =
             (c >= '0' && c <= '9') || c = '.' || c = '-'
           in
-          if String.length inner > 0 && is_numeric_start inner.[0] then
+          if
+            (String.length inner > 0 && is_numeric_start inner.[0])
+            || Parse.starts_with_math_function inner
+          then
             match parse_outline_width inner with
             | Some len -> Ok (Outline_width_bracket (inner, len))
             | None -> err_not_utility
