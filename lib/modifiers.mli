@@ -624,6 +624,30 @@ val prose_h3 : t list -> t
 val prose_h4 : t list -> t
 (** [prose_h4 styles] applies [styles] to h4 elements within prose. *)
 
+val prose_h5 : t list -> t
+(** [prose_h5 styles] applies [styles] to h5 elements within prose. *)
+
+val prose_h6 : t list -> t
+(** [prose_h6 styles] applies [styles] to h6 elements within prose. *)
+
+val prose_dl : t list -> t
+(** [prose_dl styles] applies [styles] to dl elements within prose. *)
+
+val prose_dt : t list -> t
+(** [prose_dt styles] applies [styles] to dt elements within prose. *)
+
+val prose_dd : t list -> t
+(** [prose_dd styles] applies [styles] to dd elements within prose. *)
+
+val prose_table : t list -> t
+(** [prose_table styles] applies [styles] to table elements within prose. *)
+
+val prose_tr : t list -> t
+(** [prose_tr styles] applies [styles] to tr elements within prose. *)
+
+val prose_picture : t list -> t
+(** [prose_picture styles] applies [styles] to picture elements within prose. *)
+
 val prose_img : t list -> t
 (** [prose_img styles] applies [styles] to img elements within prose. *)
 

@@ -876,6 +876,14 @@ let prose_h1 styles = wrap (Prose_element "h1") styles
 let prose_h2 styles = wrap (Prose_element "h2") styles
 let prose_h3 styles = wrap (Prose_element "h3") styles
 let prose_h4 styles = wrap (Prose_element "h4") styles
+let prose_h5 styles = wrap (Prose_element "h5") styles
+let prose_h6 styles = wrap (Prose_element "h6") styles
+let prose_dl styles = wrap (Prose_element "dl") styles
+let prose_dt styles = wrap (Prose_element "dt") styles
+let prose_dd styles = wrap (Prose_element "dd") styles
+let prose_table styles = wrap (Prose_element "table") styles
+let prose_tr styles = wrap (Prose_element "tr") styles
+let prose_picture styles = wrap (Prose_element "picture") styles
 let prose_img styles = wrap (Prose_element "img") styles
 let prose_video styles = wrap (Prose_element "video") styles
 let prose_figure styles = wrap (Prose_element "figure") styles
@@ -1872,10 +1880,14 @@ let prose_element_variant_order = function
   | _ -> 96000
 
 (* Known prose element variant names (matches Tailwind v4 typography plugin) *)
+(* One name per variant @tailwindcss/typography registers. A name outside this
+   set is not a variant there either, so the class is rejected rather than
+   compiled into a selector Tailwind never produces. *)
 let is_prose_element_name = function
   | "headings" | "p" | "a" | "strong" | "em" | "code" | "pre" | "ol" | "ul"
-  | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "img" | "video" | "figure"
-  | "figcaption" | "hr" | "th" | "td" | "thead" | "kbd" | "lead" ->
+  | "li" | "dl" | "dt" | "dd" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5"
+  | "h6" | "img" | "picture" | "video" | "figure" | "figcaption" | "hr"
+  | "table" | "tr" | "th" | "td" | "thead" | "kbd" | "lead" ->
       true
   | _ -> false
 
