@@ -594,61 +594,6 @@ module Typography_early = struct
     in
     find 0 0
 
-  (* The line-height that says what the length cascade read says. A unit
-     [Css.line_height] has no constructor for, such as [vw] or [ch], has no
-     line-height spelling here, and the caller refuses the utility rather than
-     approximating it. *)
-  let rec line_height_of_length (l : Css.length) : Css.line_height option =
-    match l with
-    | Px f -> Some (Px f)
-    | Rem f -> Some (Rem f)
-    | Em f -> Some (Em f)
-    | Pct f -> Some (Pct f)
-    | Zero -> Some (Num 0.)
-    | Normal -> Some Normal
-    | Inherit -> Some Inherit
-    | Initial -> Some Initial
-    | Unset -> Some Unset
-    | Revert -> Some Revert
-    | Revert_layer -> Some Revert_layer
-    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
-    | Calc c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Calc c)
-        | None -> None)
-    | _ -> None
-
-  and line_height_of_calc (c : Css.length Css.calc) :
-      Css.line_height Css.calc option =
-    let both left right =
-      match (line_height_of_calc left, line_height_of_calc right) with
-      | Some left, Some right -> Some (left, right)
-      | _ -> None
-    in
-    match c with
-    | Val l -> (
-        match line_height_of_length l with
-        | Some lh -> Some (Val lh)
-        | None -> None)
-    | Var v -> Some (Var (Var.bracket (Css.var_name v)))
-    | Num n -> Some (Num n)
-    | Math_const m -> Some (Math_const m)
-    | Sibling_index -> Some Sibling_index
-    | Sibling_count -> Some Sibling_count
-    | Math_fn f -> Some (Math_fn f)
-    | Nested c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Nested c)
-        | None -> None)
-    | Parens c -> (
-        match line_height_of_calc c with
-        | Some c -> Some (Parens c)
-        | None -> None)
-    | Expr (left, op, right) -> (
-        match both left right with
-        | Some (left, right) -> Some (Expr (left, op, right))
-        | None -> None)
-
   (* The one reader for an arbitrary line-height, shared by [leading-[...]] and
      by the [/leading] modifier on a text size. The string parsing is cascade's,
      so every unit, [calc()] and [var()] spelling it reads is accepted; a
@@ -656,12 +601,20 @@ module Typography_early = struct
   let parse_bracket_leading raw : Css.line_height option =
     if Parse.is_var raw then Some (Var (Var.bracket raw))
     else
-      match float_of_string_opt (Parse.decode_arbitrary_value raw) with
-      | Some f -> Some (Num f)
-      | None -> (
-          match Parse.arbitrary_length raw with
-          | Some length -> line_height_of_length length
-          | None -> None)
+      let cursor =
+        Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw)
+      in
+      match
+        Cascade.Cursor.try_parse_full_err Css.Properties.read_line_height cursor
+      with
+      (* The reader keeps a dimension whose unit it does not know as verbatim
+         text, so a stray source word reading as one would become a utility. The
+         length grammar is what says whether the unit is a length; asking it
+         keeps the answer out of a unit table here. *)
+      | Ok (Number { repr; unit = Some unit; _ } as lh) ->
+          if Css.parse_length (repr ^ unit) = None then None else Some lh
+      | Ok lh -> Some lh
+      | Error _ -> None
 
   (* [none] is not here: [parse_lh_modifier] answers it with [No_leading] before
      this list is consulted, because Tailwind writes [line-height: 1] for it
