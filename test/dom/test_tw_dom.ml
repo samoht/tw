@@ -142,6 +142,20 @@ let dom_incremental_consolidation () =
         (Astring.String.is_infix ~affix:selector dom_css))
     all
 
+(* A class the parser does not recognise must not take the page down: the
+   renderer registers what it recognised, hands the whole string back so the
+   unknown name still reaches the element, and records it for inspection. *)
+let dom_use_str_unknown_class () =
+  Tw_dom.init ~base:false ();
+  let cls = Tw_dom.use_str "flex bg-blu-500 my-app-header" in
+  check string "returns input" "flex bg-blu-500 my-app-header" cls;
+  Tw_dom.flush ();
+  check bool "css has the utility it recognised" true
+    (Astring.String.is_infix ~affix:".flex" (Tw_dom.css ()));
+  check (list string) "unknown names reported, in first-seen order"
+    [ "bg-blu-500"; "my-app-header" ]
+    (Tw_dom.unknown_classes ())
+
 let has_dom =
   (* Check if document.createElement exists — absent in Node.js *)
   try
@@ -162,6 +176,7 @@ let dom_cases =
     [
       test_case "use" `Quick dom_use;
       test_case "use_str" `Quick dom_use_str;
+      test_case "use_str with unknown class" `Quick dom_use_str_unknown_class;
       test_case "dedup" `Quick dom_dedup;
       test_case "batching" `Quick dom_batching;
       test_case "incremental consolidation" `Quick dom_incremental_consolidation;

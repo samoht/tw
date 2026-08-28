@@ -1173,11 +1173,40 @@ let property_order_cross_family () =
        (fun c -> Result.get_ok (Tw.of_string c))
        [ "outline"; "font-normal"; "leading-snug"; "tracking-wide" ])
 
+(* A class name that is not a tw utility is not a fatal error anywhere in the
+   library: [str] returns the utilities it did recognise, and [of_classes] hands
+   the names it rejected back so a typo is reportable rather than invisible. *)
+let unknown_class_never_raises () =
+  Alcotest.(check (list string))
+    "unknown name skipped" [ "flex"; "items-center" ]
+    (List.map Tw.pp (Tw.str "flex bg-blu-500 items-center"))
+
+let unknown_class_is_reported () =
+  let styles, unknown = Tw.of_classes "flex bg-blu-500 items-center" in
+  Alcotest.(check (list string))
+    "utilities recognised" [ "flex"; "items-center" ] (List.map Tw.pp styles);
+  Alcotest.(check (list string))
+    "unknown names, in source order" [ "bg-blu-500" ] unknown
+
+(* A deliberate non-tw class - a framework hook or a JS selector - reads exactly
+   like a typo to the parser, so both come back and the caller judges which is
+   which. *)
+let unknown_class_keeps_source_order () =
+  let _, unknown = Tw.of_classes "my-app-header flex js-toggle bg-blu-500" in
+  Alcotest.(check (list string))
+    "every non-utility name, in source order"
+    [ "my-app-header"; "js-toggle"; "bg-blu-500" ]
+    unknown
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
   [
     test_case "debug artefacts" `Quick debug_artefacts;
+    test_case "unknown class never raises" `Quick unknown_class_never_raises;
+    test_case "unknown class is reported" `Quick unknown_class_is_reported;
+    test_case "unknown class keeps source order" `Quick
+      unknown_class_keeps_source_order;
     test_case "empty test" `Quick empty_test;
     test_case "upstream utilities parse parity" `Quick
       (check_upstream_positive_fixture_parse "utilities.txt");
