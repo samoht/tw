@@ -14,7 +14,21 @@ try {
 }
 
 const [, , elementsFile, twCss, tailwindCss] = process.argv;
-const elements = fs.readFileSync(elementsFile, 'utf8').split('\n').filter((l) => l.trim());
+
+// An entry is a class list, optionally followed by a tab and the markup to put
+// inside the element carrying it. A bare element only exercises the rules that
+// match the class itself; a plugin like @tailwindcss/typography spends most of
+// its sheet on descendants, which fire on real children or not at all.
+const entries = fs
+  .readFileSync(elementsFile, 'utf8')
+  .split('\n')
+  .filter((l) => l.trim())
+  .map((l) => {
+    const tab = l.indexOf('\t');
+    return tab < 0
+      ? { classes: l.trim(), inner: '' }
+      : { classes: l.slice(0, tab).trim(), inner: l.slice(tab + 1) };
+  });
 
 // Custom properties are absent from getComputedStyle's enumeration, so collect
 // the names the sheets declare and ask for each by hand.
@@ -30,13 +44,16 @@ const attr = (s) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-const page = (css, classes) =>
-  `<!doctype html><meta charset="utf-8"><style>${css}</style>` +
-  `<body>${classes.map((c, i) => `<div id="e${i}" class="${attr(c)}"></div>`).join('')}</body>`;
+const page = (css) =>
+  `<!doctype html><meta charset="utf-8"><style>${css}</style><body>` +
+  entries
+    .map((e, i) => `<div id="e${i}" class="${attr(e.classes)}">${e.inner}</div>`)
+    .join('') +
+  `</body>`;
 
 // What each element is meant to carry, whitespace normalised the way classList
 // reports it.
-const wanted = elements.map((e) => e.trim().split(/\s+/).join(' '));
+const wanted = entries.map((e) => e.classes.split(/\s+/).join(' '));
 
 // An element that lost part of its class attribute is styled by neither sheet,
 // and the two then agree on the same bare element - a pass that says nothing.
@@ -52,10 +69,22 @@ const unusable = (got) => {
 
 async function computed(browser, css, names) {
   const p = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await p.setContent(page(css, elements));
+  await p.setContent(page(css));
   const out = await p.evaluate((ns) => {
-    const res = { styles: {}, classes: [] };
-    document.querySelectorAll('div[id^=e]').forEach((el) => {
+    // Where a descendant sits inside its element, as tag names with an index
+    // wherever siblings share a tag: enough to find it again in the markup.
+    const path = (el, root) => {
+      const parts = [];
+      for (let n = el; n && n !== root; n = n.parentElement) {
+        const tag = n.tagName.toLowerCase();
+        const sibs = [...n.parentElement.children].filter(
+          (c) => c.tagName === n.tagName
+        );
+        parts.unshift(sibs.length > 1 ? `${tag}(${sibs.indexOf(n) + 1})` : tag);
+      }
+      return parts.join(' > ');
+    };
+    const style = (el) => {
       const cs = getComputedStyle(el);
       const o = {};
       for (const prop of cs) o[prop] = cs.getPropertyValue(prop);
@@ -63,8 +92,15 @@ async function computed(browser, css, names) {
         const v = cs.getPropertyValue(n);
         if (v !== '') o[n] = v;
       }
-      res.styles[el.id] = o;
+      return o;
+    };
+    const res = { nodes: [], classes: [] };
+    document.querySelectorAll('body > div[id^=e]').forEach((el) => {
       res.classes.push([...el.classList].join(' '));
+      res.nodes.push({ id: el.id, path: '', style: style(el) });
+      el.querySelectorAll('*').forEach((d) =>
+        res.nodes.push({ id: el.id, path: path(d, el), style: style(d) })
+      );
     });
     return res;
   }, names);
@@ -92,8 +128,22 @@ async function computed(browser, css, names) {
     console.log(`markup does not carry the intended classes: ${broken}`);
     process.exit(3);
   }
-  const ta = ra.styles;
-  const tb = rb.styles;
+  // Both pages are built from the same entries, so the two node lists are the
+  // same tree walked in the same order. A mismatch means one page parsed the
+  // markup differently, and pairing them up by index would compare unrelated
+  // elements.
+  if (ra.nodes.length !== rb.nodes.length) {
+    console.log(
+      `markup parsed to ${ra.nodes.length} nodes under tw and ` +
+        `${rb.nodes.length} under tailwind`
+    );
+    process.exit(3);
+  }
+
+  const label = (n) => {
+    const cls = entries[Number(n.id.slice(1))].classes;
+    return n.path ? `${cls} :: ${n.path}` : cls;
+  };
 
   // A custom property is a token stream: the browser hands back the author's
   // own whitespace and quoting, so two sheets that minify differently differ on
@@ -103,18 +153,33 @@ async function computed(browser, css, names) {
     k.startsWith('--') && v !== undefined ? v.replace(/["'\s]+/g, '') : v;
 
   const lines = [];
-  for (const [id, pa] of Object.entries(ta)) {
-    const pb = tb[id];
+  for (let i = 0; i < ra.nodes.length; i++) {
+    const na = ra.nodes[i];
+    const nb = rb.nodes[i];
+    if (na.id !== nb.id || na.path !== nb.path) {
+      console.log(
+        `markup walked differently: [${label(na)}] under tw, ` +
+          `[${label(nb)}] under tailwind`
+      );
+      process.exit(3);
+    }
+    const pa = na.style;
+    const pb = nb.style;
     for (const k of new Set([...Object.keys(pa), ...Object.keys(pb)])) {
       // A custom property one sheet declares and the other prunes renders the
       // same unless something reads it, and whatever reads it differs instead.
       if (k.startsWith('--') && (pa[k] === undefined || pb[k] === undefined)) continue;
       if (norm(k, pa[k]) !== norm(k, pb[k]))
-        lines.push(`${elements[Number(id.slice(1))]}: ${k}: ${pa[k]} (tw) vs ${pb[k]} (tailwind)`);
+        lines.push(`${label(na)}: ${k}: ${pa[k]} (tw) vs ${pb[k]} (tailwind)`);
     }
   }
   if (lines.length) {
-    console.log(lines.join('\n'));
+    // Every difference fails the run; a whole descendant tree off by one rule
+    // prints thousands of lines, so the report stops at a readable prefix.
+    const shown = lines.slice(0, 200);
+    console.log(shown.join('\n'));
+    if (lines.length > shown.length)
+      console.log(`... and ${lines.length - shown.length} more differences`);
     process.exit(1);
   }
   process.exit(0);

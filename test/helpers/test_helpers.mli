@@ -101,14 +101,19 @@ val render_elements : string list -> string list
     pair, duplicates dropped and first occurrence kept. *)
 
 val check_rendering_matches :
-  ?forms:bool -> test_name:string -> Tw.t list -> unit
-(** [check_rendering_matches ?forms ~test_name utilities] renders both sheets in
-    headless Chromium and fails on any computed style that differs. Each class
-    gets an element of its own, plus one per {!interacting_pairs} pair, which is
-    where an ordering difference shows. Fails too when an element does not carry
-    the classes it was given, since then the comparison is vacuous. Skips when
-    node or Playwright is absent; [TW_BROWSER_TESTS=0] opts out where they are
-    present. *)
+  ?forms:bool -> ?inner:string -> test_name:string -> Tw.t list -> unit
+(** [check_rendering_matches ?forms ?inner ~test_name utilities] renders both
+    sheets in headless Chromium and fails on any computed style that differs.
+    Each class gets an element of its own, plus one per {!interacting_pairs}
+    pair, which is where an ordering difference shows. Fails too when an element
+    does not carry the classes it was given, since then the comparison is
+    vacuous. Skips when node or Playwright is absent; [TW_BROWSER_TESTS=0] opts
+    out where they are present.
+
+    [inner] is markup put inside every element built, and every descendant of it
+    is compared too. Without it the elements are bare, so a rule that only
+    matches a child - which is most of what [@tailwindcss/typography] emits -
+    has nothing to match and the comparison passes without reading it. *)
 
 (** {1 CSS Test Helpers} *)
 

@@ -98,6 +98,91 @@ let test_color_theme_parity () =
       prose_orange;
     ]
 
+(* The markup the typography plugin actually targets. Nearly every rule it emits
+   is a descendant selector - :where(h1), :where(a code), :where(tbody
+   td:first-child), :where(.prose > ul > li p) - so an empty element matches
+   none of them and comparing one says nothing about the plugin beyond its root
+   declarations and --tw-prose-* bindings. Every element named in a typography
+   selector appears here at least once, in a position where the structural parts
+   of the selector (:first-child, + *, first-of-type, nesting) have something to
+   select. *)
+let prose_document =
+  {html|
+<h1>Heading one with <code>code</code> and <strong>strong</strong></h1>
+<p class="lead">A lead paragraph.</p>
+<p>Body copy with <a href="#">a link holding <code>code</code> and
+  <strong>strong</strong></a>, <em>emphasis</em>, <kbd>Ctrl</kbd> and
+  <code>inline code</code>.</p>
+<h2>Heading two with <code>code</code> and <strong>strong</strong></h2>
+<p>The paragraph directly after the h2.</p>
+<h3>Heading three with <code>code</code> and <strong>strong</strong></h3>
+<p>The paragraph directly after the h3.</p>
+<h4>Heading four with <code>code</code> and <strong>strong</strong></h4>
+<p>The paragraph directly after the h4.</p>
+<blockquote>
+  <p>First quoted paragraph with <code>code</code> and <strong>strong</strong>.</p>
+  <p>Last quoted paragraph.</p>
+</blockquote>
+<pre><code>let x = 1</code></pre>
+<ul>
+  <li>
+    <p>First paragraph of the item.</p>
+    <p>Last paragraph of the item.</p>
+  </li>
+  <li>A bare item<ul><li>nested unordered</li></ul></li>
+  <li>Another bare item<ol><li>nested ordered</li></ol></li>
+</ul>
+<ol>
+  <li><p>Ordered item holding a paragraph.</p></li>
+  <li>A bare ordered item</li>
+</ol>
+<ol type="A"><li>Upper alpha</li></ol>
+<ol type="i"><li>Lower roman</li></ol>
+<dl><dt>A term</dt><dd>Its definition.</dd></dl>
+<hr>
+<p>The paragraph directly after the rule.</p>
+<figure><img alt=""><figcaption>A caption.</figcaption></figure>
+<picture><img alt=""></picture>
+<video></video>
+<div class="not-prose"><p>Opted out of the plugin.</p></div>
+<table>
+  <thead>
+    <tr>
+      <th>Head with <code>code</code></th>
+      <th>Head with <strong>strong</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>First row, first cell</td><td>First row, last cell</td></tr>
+    <tr><td>Last row, first cell</td><td>Last row, last cell</td></tr>
+  </tbody>
+  <tfoot>
+    <tr><td>Foot, first cell</td><td>Foot, last cell</td></tr>
+  </tfoot>
+</table>
+<p>The last child of the container.</p>
+|html}
+
+(* Bare elements exercise the root declarations and the --tw-prose-* bindings
+   and nothing else, which leaves the bulk of the plugin uncompared. Rendering
+   the document above under both sheets and diffing every computed style of
+   every node in it is what covers the descendant rules; the size variants
+   rescale those rules rather than the root, so they need the same document. *)
+let test_descendant_rendering () =
+  Test_helpers.check_rendering_matches ~inner:prose_document
+    ~test_name:"prose descendants render like Tailwind"
+    [ prose; prose_sm; prose_lg; prose_xl; prose_2xl ]
+
+(* The colour themes only write --tw-prose-* bindings; nothing on the container
+   reads them, so a bare element compares the variables and stops there. What
+   consumes them is the descendant rules - body copy, links, headings, code,
+   quote bars, table borders - so the document is what turns a mis-bound
+   variable into an observable colour. *)
+let test_color_rendering () =
+  Test_helpers.check_rendering_matches ~inner:prose_document
+    ~test_name:"prose colours render like Tailwind"
+    [ prose; prose_gray; prose_slate; prose_invert; prose_orange ]
+
 let suite =
   ( "prose",
     [
@@ -109,4 +194,8 @@ let suite =
       Alcotest.test_case "size parity with Tailwind" `Quick test_size_parity;
       Alcotest.test_case "colour theme parity with Tailwind" `Quick
         test_color_theme_parity;
+      Alcotest.test_case "descendants render like Tailwind" `Quick
+        test_descendant_rendering;
+      Alcotest.test_case "colours render like Tailwind" `Quick
+        test_color_rendering;
     ] )

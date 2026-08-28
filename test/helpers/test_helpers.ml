@@ -397,7 +397,13 @@ let render_elements classnames =
     (classnames
     @ List.map (fun (a, b) -> a ^ " " ^ b) (interacting_pairs classnames))
 
-let check_rendering_matches ?(forms = false) ~test_name utilities =
+(* The element list is line-oriented, so markup that spans lines in the test
+   source is folded onto one. HTML reads the two the same, and nothing the
+   comparison looks at is computed from the markup's own whitespace. *)
+let one_line s = String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c) s
+
+let check_rendering_matches ?(forms = false) ?(inner = "") ~test_name utilities
+    =
   let root =
     match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
   in
@@ -408,9 +414,13 @@ let check_rendering_matches ?(forms = false) ~test_name utilities =
   let tailwind = tailwind_css ~forms classnames in
   let dir = render_dir root test_name in
   let path name = Filename.concat dir name in
+  let entry cls =
+    if String.equal inner "" then cls else cls ^ "\t" ^ one_line inner
+  in
   write_file (path "tw.css") (our_css utilities);
   write_file (path "tailwind.css") tailwind;
-  write_file (path "elements.txt") (String.concat "\n" elements);
+  write_file (path "elements.txt")
+    (String.concat "\n" (List.map entry elements));
   let out = path "diff.txt" and err = path "stderr.txt" in
   let cmd =
     Fmt.str "node %s %s %s %s > %s 2> %s"
