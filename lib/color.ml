@@ -1402,20 +1402,13 @@ let color_var color shade =
   | Some var -> var
   | None ->
       let base = pp color in
-      (* Escape brackets in variable names - CSS variable names can't have
-         unescaped []. Almost no colour name contains brackets, so keep a
-         zero-allocation fast path and only build a buffer when needed. *)
-      let escaped_base =
-        if String.contains base '[' || String.contains base ']' then (
-          let buf = Buffer.create (String.length base + 4) in
-          String.iter
-            (fun c ->
-              (match c with '[' | ']' -> Buffer.add_char buf '\\' | _ -> ());
-              Buffer.add_char buf c)
-            base;
-          Buffer.contents buf)
-        else base
-      in
+      (* The name goes after the [--] this module does not write itself, so it
+         is a CSS name rather than a whole ident: [escape_name] is the exact
+         serialisation for that position. A palette colour is already all name
+         code points and comes back unchanged; an arbitrary one carries
+         brackets, a [#] or parens, and every one of those has to be escaped for
+         the result to lex as a single dashed ident. *)
+      let escaped_base = Cascade.Parser.escape_name base in
       let name =
         if shadeless then "color-" ^ escaped_base
         else Pp.str [ "color-"; escaped_base; "-"; string_of_int shade ]
