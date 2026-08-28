@@ -887,9 +887,48 @@ let test_opacity_modifier_rejects_non_numeric () =
       "shadow-lg/[25px]";
     ]
 
+(* A custom property is a dashed ident, so every byte of its name outside the
+   CSS name set has to carry a backslash for the whole thing to lex as one
+   token. Walking the name is the check: a bare [#], [(] or [,] ends the ident
+   and turns the rest into stray tokens. *)
+let check_escaped_name name =
+  let n = String.length name in
+  let is_name_code_point c =
+    match c with
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '-' -> true
+    | c -> Char.code c >= 0x80
+  in
+  let rec walk i =
+    if i >= n then ()
+    else if name.[i] = '\\' then walk (i + 2)
+    else if is_name_code_point name.[i] then walk (i + 1)
+    else Alcotest.failf "--%s: %C at offset %d is unescaped" name name.[i] i
+  in
+  walk 0
+
+(* [color_var] is public, so it has to name a variable that a browser can read
+   whatever colour it is handed - the utility API happens to branch on
+   [is_custom_color] before it gets here, but the signature makes no such
+   promise. *)
+let test_color_var_name_is_one_ident () =
+  List.iter
+    (fun color -> check_escaped_name (Tw.Var.name (color_var color 500)))
+    [
+      Red;
+      Black;
+      Theme_named "brand";
+      Hex "0088cc";
+      Rgb { red = 1; green = 2; blue = 3 };
+      Oklch { l = 50.; c = 0.1; h = 20. };
+      Css (Css.hex "#0088cc");
+    ]
+
 let tests =
   [
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
+    ( "Colour variable name is one ident",
+      `Quick,
+      test_color_var_name_is_one_ident );
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
