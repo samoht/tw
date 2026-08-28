@@ -1850,36 +1850,45 @@ let try_bare_data_aria s =
     if names_attribute expr then Some (Aria_bracket expr) else None
   else None
 
-(* Ordering of prose element variants (matches Tailwind v4 typography plugin) *)
+(* The order @tailwindcss/typography registers its element variants in, which is
+   the order it emits their rules in. A variant missing from here sorts before
+   every other, so its utility loses to one it should win against. *)
 let prose_element_variant_order = function
   | "headings" -> 96001
   | "h1" -> 96002
   | "h2" -> 96003
   | "h3" -> 96004
   | "h4" -> 96005
-  | "p" -> 96006
-  | "a" -> 96007
-  | "blockquote" -> 96008
-  | "figure" -> 96009
-  | "figcaption" -> 96010
-  | "strong" -> 96011
-  | "em" -> 96012
-  | "kbd" -> 96013
-  | "code" -> 96014
-  | "pre" -> 96015
-  | "ol" -> 96016
-  | "ul" -> 96017
-  | "li" -> 96018
-  | "thead" -> 96019
-  | "th" -> 96020
-  | "td" -> 96021
-  | "img" -> 96022
-  | "video" -> 96023
-  | "hr" -> 96024
-  | "lead" -> 96025
+  | "h5" -> 96006
+  | "h6" -> 96007
+  | "p" -> 96008
+  | "a" -> 96009
+  | "blockquote" -> 96010
+  | "figure" -> 96011
+  | "figcaption" -> 96012
+  | "strong" -> 96013
+  | "em" -> 96014
+  | "kbd" -> 96015
+  | "code" -> 96016
+  | "pre" -> 96017
+  | "ol" -> 96018
+  | "ul" -> 96019
+  | "li" -> 96020
+  | "dl" -> 96021
+  | "dt" -> 96022
+  | "dd" -> 96023
+  | "table" -> 96024
+  | "thead" -> 96025
+  | "tr" -> 96026
+  | "th" -> 96027
+  | "td" -> 96028
+  | "img" -> 96029
+  | "picture" -> 96030
+  | "video" -> 96031
+  | "hr" -> 96032
+  | "lead" -> 96033
   | _ -> 96000
 
-(* Known prose element variant names (matches Tailwind v4 typography plugin) *)
 (* One name per variant @tailwindcss/typography registers. A name outside this
    set is not a variant there either, so the class is rejected rather than
    compiled into a selector Tailwind never produces. *)

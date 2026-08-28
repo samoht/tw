@@ -183,6 +183,73 @@ let test_color_rendering () =
     ~test_name:"prose colours render like Tailwind"
     [ prose; prose_gray; prose_slate; prose_invert; prose_orange ]
 
+(* The element variants are the other half of the plugin: they put a utility on
+   a prose descendant, and a variant stacked under one has to reach the same
+   element. Rendered against the document, prose-li:marker: lands on the bullet
+   and prose-code:before: on the generated box, neither of which shows in the
+   element's own computed style. *)
+let element_variant cls =
+  match Tw.of_string cls with
+  | Ok u -> u
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let element_variants =
+  List.map element_variant
+    [
+      "prose-h2:text-red-500";
+      "prose-a:underline";
+      "prose-li:marker:text-green-500";
+      "prose-code:before:content-['x']";
+      "prose-td:text-right";
+    ]
+
+let test_element_variant_rendering () =
+  Test_helpers.check_rendering_matches ~inner:prose_document
+    ~test_name:"prose element variants render like Tailwind" element_variants
+
+(* Every variant the plugin registers, against the real CLI. Eight of them were
+   not recognised at all, and the selector the rest built dropped whatever an
+   inner variant had put on it. *)
+let test_element_variant_parity () =
+  Test_helpers.check_ordering_matches
+    ~test_name:"prose element variants match Tailwind"
+    (List.map element_variant
+       [
+         "prose-headings:text-lg";
+         "prose-h1:text-lg";
+         "prose-h2:text-lg";
+         "prose-h3:text-lg";
+         "prose-h4:text-lg";
+         "prose-h5:text-lg";
+         "prose-h6:text-lg";
+         "prose-p:text-lg";
+         "prose-a:underline";
+         "prose-blockquote:italic";
+         "prose-figure:mt-4";
+         "prose-figcaption:text-xs";
+         "prose-strong:font-black";
+         "prose-em:not-italic";
+         "prose-kbd:text-xs";
+         "prose-code:text-xs";
+         "prose-pre:text-xs";
+         "prose-ol:list-decimal";
+         "prose-ul:list-disc";
+         "prose-li:ml-4";
+         "prose-dl:mt-4";
+         "prose-dt:font-bold";
+         "prose-dd:ml-4";
+         "prose-table:w-full";
+         "prose-thead:text-left";
+         "prose-tr:border-b";
+         "prose-th:text-left";
+         "prose-td:text-right";
+         "prose-img:rounded-lg";
+         "prose-picture:block";
+         "prose-video:w-full";
+         "prose-hr:border-dashed";
+         "prose-lead:tracking-wide";
+       ])
+
 let suite =
   ( "prose",
     [
@@ -198,4 +265,8 @@ let suite =
         test_descendant_rendering;
       Alcotest.test_case "colours render like Tailwind" `Quick
         test_color_rendering;
+      Alcotest.test_case "element variant parity with Tailwind" `Quick
+        test_element_variant_parity;
+      Alcotest.test_case "element variants render like Tailwind" `Quick
+        test_element_variant_rendering;
     ] )
