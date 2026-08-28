@@ -665,6 +665,51 @@ let test_undeclared_theme_colour_rejected () =
       "bg-brand-primary";
     ]
 
+(* A [@theme] block that removes a palette token takes the utilities reading it
+   with it: [text-red-500] would otherwise paint [var(--color-red-500)] with
+   nothing left to declare the variable. A shade the block kept, and a colour it
+   never touched, still resolve. *)
+let test_removed_palette_colour_rejected () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "initial") ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    [
+      "text-red-500";
+      "bg-red-500";
+      "border-red-500";
+      "bg-red-500/50";
+      "divide-red-500";
+      "shadow-red-500";
+    ];
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "%s was rejected: %s" cls m)
+    [ "text-red-600"; "text-blue-500" ]
+
+(* The whole-namespace form takes every palette colour, so nothing keyed on
+   [--color-*] resolves, while a colour the block declared for itself does. *)
+let test_removed_palette_namespace_rejected () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-*", "initial"); ("color-brand", "#123456") ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    [ "text-red-500"; "bg-blue-200" ];
+  match Tw.of_string ~theme "text-brand" with
+  | Ok _ -> ()
+  | Error (`Msg m) -> Alcotest.failf "text-brand was rejected: %s" m
+
 (* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
    the same but folds to a plain hex, which pins the hue that interpolation is
@@ -875,6 +920,12 @@ let tests =
     ( "Undeclared theme colour rejected",
       `Quick,
       test_undeclared_theme_colour_rejected );
+    ( "Removed palette colour rejected",
+      `Quick,
+      test_removed_palette_colour_rejected );
+    ( "Removed palette namespace rejected",
+      `Quick,
+      test_removed_palette_namespace_rejected );
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);
