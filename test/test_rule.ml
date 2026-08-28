@@ -93,6 +93,20 @@ let check_escape_class_name () =
   check string "escapes slash" "w-1\\/2" (Tw.Rule.escape_class_name "w-1/2");
   check string "escapes dot" "text-1\\.5" (Tw.Rule.escape_class_name "text-1.5")
 
+(* [escape_class_name] strips the dot off cascade's selector printer, so what it
+   returns is the spelling that lands in the sheet. Cascade's ident escaper,
+   [Parser.escape_ident], is not interchangeable with it. Both spell a name that
+   decodes back to the source, so markup matches either, but they pick different
+   escapes: above U+007F the printer hex-escapes where the ident escaper keeps
+   the source bytes, which is the spelling Tailwind prints, and on a leading
+   dash-digit, which has to be broken up or the selector re-tokenises as a
+   number, the printer escapes the dash and the ident escaper the digit. *)
+let check_escape_class_name_hex_escapes () =
+  check string "breaks up a leading dash-digit" "\\2d 4xl"
+    (Tw.Rule.escape_class_name "-4xl");
+  check string "hex-escapes above U+007F" "aria-\\[\\e9 tat\\]\\:flex"
+    (Tw.Rule.escape_class_name "aria-[état]:flex")
+
 let test_modifier_to_rule () =
   let rule =
     Tw.Rule.modifier_to_rule Tw.Style.Hover "bg-blue-500"
@@ -524,6 +538,8 @@ let tests =
     test_case "extract selector props - responsive 2xl" `Quick
       check_extract_responsive_2xl;
     test_case "escape class name" `Quick check_escape_class_name;
+    test_case "escape class name hex escapes" `Quick
+      check_escape_class_name_hex_escapes;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
   ]
 
