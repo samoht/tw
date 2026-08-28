@@ -171,6 +171,27 @@ let test_apply_merges_one_rule () =
     ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
     (Cascade.Css.to_string ~minify:true out)
 
+(* Tailwind emits a declared utility as one block, its own nesting intact:
+   [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
+   rules, the second sorts by the property it writes and an unrelated utility
+   can land between them. *)
+let test_declared_utility_keeps_its_nesting () =
+  let udefs = [ ("line-y", " padding: 5px; &::before { color: red } ") ] in
+  let count, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      [ "line-y" ]
+  in
+  check int "one candidate generated" 1 count;
+  match entries with
+  | [ (cls, _, statements) ] ->
+      check string "the utility's own class" "line-y" cls;
+      check int "one block, not one rule per selector" 1
+        (List.length statements);
+      check string "the nested rule is still nested"
+        ".line-y{padding:5px;&:before{color:red}}"
+        (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
+  | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -187,6 +208,8 @@ let tests =
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
+    test_case "declared utility keeps its nesting" `Quick
+      test_declared_utility_keeps_its_nesting;
   ]
 
 let suite = ("entrypoint", tests)
