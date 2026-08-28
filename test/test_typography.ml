@@ -597,6 +597,30 @@ let line_clamp_sorts_with_box_sizing () =
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches ~test_name:"line-clamp order" utilities
 
+(* Tailwind's tail runs the [color] property, then text-transform, font-style
+   and text-decoration-line, then the decoration colour, style and thickness,
+   the underline offset, and last the placeholder, caret and accent colours.
+   Every one of those writes a different property, so a reorder among them is
+   cascade-neutral and the canonical differ reads the two sheets as equal;
+   reading each class's position back out of the sheet is what sees it. *)
+let late_typography_colour_block_order () =
+  Test_helpers.check_class_order ~test_name:"late typography colour block"
+    [
+      "tracking-wide";
+      "whitespace-nowrap";
+      "text-red-500";
+      "uppercase";
+      "italic";
+      "underline";
+      "decoration-red-500";
+      "decoration-solid";
+      "decoration-2";
+      "underline-offset-2";
+      "placeholder-red-500";
+      "caret-red-500";
+      "accent-red-500";
+    ]
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -1149,6 +1173,8 @@ let tests =
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
+    test_case "late typography colour block order" `Quick
+      late_typography_colour_block_order;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "line-clamp sorts with box-sizing" `Quick
