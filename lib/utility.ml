@@ -88,17 +88,21 @@ let rec style_declarations (s : Style.t) =
    utility belongs to. The two carriers are named by the channel they read,
    matched on the typed value rather than on the printed declaration, so a
    declared [border-style] naming any other variable stays a style utility. *)
+(* A carrier reads its channel and nothing else. There is no public accessor for
+   a declaration's typed value - [Properties_intf] is one of cascade's private
+   modules, so destructuring the record only compiles when cascade is built from
+   source in the same workspace - and the printed form is the surface cascade
+   does expose. Comparing it to the one spelling a carrier can have keeps a
+   declared [border-style] naming any other variable a style utility. *)
+let carries_var decl name =
+  String.equal
+    (Cascade.Css.declaration_value ~minify:true decl)
+    ("var(--" ^ name ^ ")")
+
 let is_ordering_carrier decl =
-  match decl with
-  | Cascade.Css.Declaration.Declaration { property = Border_style; value; _ }
-    -> (
-      match value with
-      | Var v -> String.equal (Cascade.Css.var_name v) "tw-border-style"
-      | _ -> false)
-  | Declaration { property = Outline_style; value; _ } -> (
-      match value with
-      | Var v -> String.equal (Cascade.Css.var_name v) "tw-outline-style"
-      | _ -> false)
+  match Cascade.Css.Declaration.property_key decl with
+  | Key Border_style -> carries_var decl "tw-border-style"
+  | Key Outline_style -> carries_var decl "tw-outline-style"
   | _ -> false
 
 (* The property name a vendor-prefixed one stands in for: [-webkit-user-select]
