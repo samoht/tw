@@ -863,7 +863,15 @@ module Handler = struct
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),
             Color.hex_to_oklab_alpha hex alpha )
-      | _ -> (c, c)
+      (* A colour with no sRGB hex has nothing to carry the alpha byte, so the
+         modifier stays a mix: sRGB for the plain fallback, oklab for the
+         guarded value. A modifier reading a custom property has no percentage a
+         plain fallback can hold, so only the guarded value mixes. *)
+      | _ ->
+          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+            (c, guarded)
+          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
     in
     let base_decl, _ = Var.binding shadow_color_var base_value in
     let enhanced_color =
@@ -1475,14 +1483,19 @@ module Handler = struct
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
     (* As for the outer shadow: the plain fallback is a hex carrying the alpha
-       byte, and the oklab spelling is kept for the guarded [color-mix]. *)
+       byte, the oklab spelling is kept for the guarded [color-mix], and a
+       colour with no hex keeps its alpha as a mix in each space. *)
     let base_value, with_alpha =
       match c with
       | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
           let hex = "#" ^ rgba_hex_string r g b a in
           ( Css.hex (Color.hex_with_alpha hex percent),
             Color.hex_to_oklab_alpha hex alpha )
-      | _ -> (c, c)
+      | _ ->
+          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+            (c, guarded)
+          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
     in
     let base_decl, _ = Var.binding inset_shadow_color_var base_value in
     let enhanced_color =
