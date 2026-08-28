@@ -113,7 +113,12 @@ val check_rendering_matches :
     [inner] is markup put inside every element built, and every descendant of it
     is compared too. Without it the elements are bare, so a rule that only
     matches a child - which is most of what [@tailwindcss/typography] emits -
-    has nothing to match and the comparison passes without reading it. *)
+    has nothing to match and the comparison passes without reading it.
+
+    Every node is read four times: itself, then its [::before], [::after] and
+    [::marker]. A rule on a pseudo-element leaves the element's own computed
+    style untouched, so prose's list bullets and everything the [before:] and
+    [after:] variants write are invisible without it. *)
 
 (** {1 CSS Test Helpers} *)
 

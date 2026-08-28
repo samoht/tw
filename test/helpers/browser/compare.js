@@ -84,8 +84,8 @@ async function computed(browser, css, names) {
       }
       return parts.join(' > ');
     };
-    const style = (el) => {
-      const cs = getComputedStyle(el);
+    const style = (el, pseudo) => {
+      const cs = getComputedStyle(el, pseudo || null);
       const o = {};
       for (const prop of cs) o[prop] = cs.getPropertyValue(prop);
       for (const n of ns) {
@@ -94,13 +94,20 @@ async function computed(browser, css, names) {
       }
       return o;
     };
+    // The element itself and the pseudo-elements a sheet can reach without the
+    // page being interacted with. Prose puts its list bullets on ::marker and
+    // the before:/after: variants exist to write ::before and ::after, none of
+    // which the element's own computed style shows.
+    const pseudos = ['', '::before', '::after', '::marker'];
     const res = { nodes: [], classes: [] };
+    const record = (id, el, p) => {
+      for (const ps of pseudos)
+        res.nodes.push({ id, path: p + ps, style: style(el, ps) });
+    };
     document.querySelectorAll('body > div[id^=e]').forEach((el) => {
       res.classes.push([...el.classList].join(' '));
-      res.nodes.push({ id: el.id, path: '', style: style(el) });
-      el.querySelectorAll('*').forEach((d) =>
-        res.nodes.push({ id: el.id, path: path(d, el), style: style(d) })
-      );
+      record(el.id, el, '');
+      el.querySelectorAll('*').forEach((d) => record(el.id, d, path(d, el)));
     });
     return res;
   }, names);
@@ -142,7 +149,8 @@ async function computed(browser, css, names) {
 
   const label = (n) => {
     const cls = entries[Number(n.id.slice(1))].classes;
-    return n.path ? `${cls} :: ${n.path}` : cls;
+    if (!n.path) return cls;
+    return n.path.startsWith('::') ? `${cls} ${n.path}` : `${cls} :: ${n.path}`;
   };
 
   // A custom property is a token stream: the browser hands back the author's
