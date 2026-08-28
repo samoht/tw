@@ -426,7 +426,8 @@ let add_index ?(declared = fun _ -> false) triples =
          not_order;
          variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
-         variant_orders = Sort.variant_order_list base_class variant_order;
+         variant_orders =
+           Sort.variant_order_list base_class variant_order responsive_media_key;
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;
