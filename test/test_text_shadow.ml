@@ -165,6 +165,40 @@ let test_invalid_bracket_hex () =
   emits "text-shadow-[0_1px_2px_#ff0000]"
     "text-shadow:0 1px 2px var(--tw-text-shadow-color,#f00)"
 
+(* A bracket colour is a colour whatever spelling it takes. The bare-colour arm
+   reached only the hex reader, so a name, an [oklch()] or an [rgb()] fell
+   through to the arbitrary-shadow reader and was rejected outright. *)
+let test_bracket_plain_colour () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "text-shadow-[red]" "--tw-text-shadow-color:red";
+  emits "text-shadow-[red]"
+    "color-mix(in oklab,red var(--tw-text-shadow-alpha),transparent)";
+  emits "text-shadow-[oklch(0.7_0.1_200)]"
+    "--tw-text-shadow-color:oklch(.7 .1 200)";
+  (* a colour function with a byte value for every channel folds to its hex
+     spelling, the same as the arbitrary-shadow reader does with one *)
+  emits "text-shadow-[rgb(255_0_0)]" "--tw-text-shadow-color:#f00";
+  (* the modifier folds into the colour: sRGB for the plain fallback, oklab for
+     the value the @supports block guards *)
+  emits "text-shadow-[red]/50"
+    "--tw-text-shadow-color:color-mix(in srgb,red 50%,transparent)";
+  emits "text-shadow-[red]/50"
+    "color-mix(in oklab,color-mix(in oklab,red 50%,transparent) \
+     var(--tw-text-shadow-alpha),transparent)";
+  (* a modifier reading a custom property has no percentage a plain fallback can
+     hold, so only the guarded value mixes *)
+  emits "text-shadow-[red]/[var(--x)]" "--tw-text-shadow-color:red";
+  emits "text-shadow-[red]/[var(--x)]"
+    "color-mix(in oklab,color-mix(in oklab,red var(--x),transparent) \
+     var(--tw-text-shadow-alpha),transparent)"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -179,6 +213,7 @@ let tests =
       Alcotest.test_case "arbitrary named colour" `Quick
         test_arbitrary_named_colour;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+      Alcotest.test_case "bracket plain colour" `Quick test_bracket_plain_colour;
     ]
 
 let suite = ("text_shadow", tests)
