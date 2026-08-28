@@ -972,6 +972,33 @@ let test_container_query_call_order () =
       "@min-[theme(--breakpoint-sm)]:flex";
     ]
 
+(* The suborder a rule sorts on carries more than the utility's own number: a
+   [before:]/[after:] class has 5000 added to it, and a rule built by one of the
+   negation, ancestor, has-, aria- or data- handlers has that handler's offset
+   added. Both offsets are common to every rule the comparator can reach them
+   with - it only reads the suborder for two rules whose whole variant prefix is
+   equal - so they cancel, and this pins the order they were meant to produce
+   across the families that carry them. *)
+let test_variant_family_order () =
+  Test_helpers.check_class_order ~test_name:"variant families sort as Tailwind"
+    [
+      "underline";
+      "before:underline";
+      "after:underline";
+      "has-checked:underline";
+      "has-[>img]:underline";
+      "aria-checked:underline";
+      "aria-[sort=none]:underline";
+      "data-open:underline";
+      "in-data-open:underline";
+      "in-[.foo]:underline";
+      "not-hover:underline";
+      "not-first:underline";
+      "not-in-data-open:underline";
+      "group-not-[:checked]:underline";
+      "peer-not-checked:underline";
+    ]
+
 let test_arbitrary_vs_named_order () =
   (* Within a variant block, arbitrary values sort by their raw class name ('['
      = 0x5b, before lowercase letters), so dark:bg-[#...] precedes
@@ -1853,6 +1880,8 @@ let tests =
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;
+    test_case "variant families sort as Tailwind" `Quick
+      test_variant_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
     test_case "comparator is transitive" `Quick test_comparator_transitivity;
   ]
