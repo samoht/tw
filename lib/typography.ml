@@ -2271,42 +2271,44 @@ module Typography_late = struct
   (** {1 Ordering Support} *)
 
   let suborder = function
-    (* Decoration color - comes first in late typography. All color variants use
-       the same suborder so the optimizer sorts them alphabetically by class
-       name. *)
-    | Decoration_color _ -> 5000
-    | Decoration_color_opacity _ -> 5000
-    | Decoration_transparent -> 5000
-    | Decoration_current -> 5000
-    | Decoration_current_opacity _ -> 5000
-    | Decoration_inherit -> 5000
-    | Decoration_bracket_color _ -> 4000
-    | Decoration_bracket_invalid_color _ -> 4000
-    | Decoration_bracket_color_opacity _ -> 4000
-    | Decoration_bracket_color_var _ -> 4100
-    | Decoration_bracket_color_var_opacity _ -> 4100
-    | Decoration_bracket_var _ -> 4200
-    | Decoration_bracket_var_opacity _ -> 4200
     (* Text decoration lines - suborder >= 8000 (alphabetical) *)
     | Line_through -> 8400
     | No_underline -> 8401
     | Overline -> 8402
     | Underline -> 8403
+    (* The decoration properties follow the line, in Tailwind's own order:
+       colour, then style, then thickness. All the colour variants share a
+       suborder so the tie is broken alphabetically by class name. *)
+    | Decoration_bracket_color _ -> 8410
+    | Decoration_bracket_invalid_color _ -> 8410
+    | Decoration_bracket_color_opacity _ -> 8410
+    | Decoration_bracket_color_var _ -> 8411
+    | Decoration_bracket_color_var_opacity _ -> 8411
+    | Decoration_bracket_var _ -> 8412
+    | Decoration_bracket_var_opacity _ -> 8412
+    | Decoration_color _ -> 8413
+    | Decoration_color_opacity _ -> 8413
+    | Decoration_transparent -> 8413
+    | Decoration_current -> 8413
+    | Decoration_current_opacity _ -> 8413
+    | Decoration_inherit -> 8413
     (* Decoration styles - same suborder, sorted by class name *)
-    | Decoration_solid -> 8100
-    | Decoration_double -> 8100
-    | Decoration_dotted -> 8100
-    | Decoration_dashed -> 8100
-    | Decoration_wavy -> 8100
+    | Decoration_solid -> 8420
+    | Decoration_double -> 8420
+    | Decoration_dotted -> 8420
+    | Decoration_dashed -> 8420
+    | Decoration_wavy -> 8420
     (* Decoration thickness - numeric values by n, then brackets, then
-       auto/from-font *)
-    | Decoration_thickness n -> 8200 + n
-    | Decoration_bracket_thickness _ -> 8400
-    | Decoration_bracket_pct _ -> 8400
-    | Decoration_bracket_length_var _ -> 8400
-    | Decoration_bracket_pct_var _ -> 8400
-    | Decoration_auto -> 8500
-    | Decoration_from_font -> 8500
+       auto/from-font. The numeric band is open-ended (the class carries any
+       integer), so the brackets sit far enough above it that no thickness a
+       stylesheet would ask for reaches them, and below the underline offset. *)
+    | Decoration_thickness n -> 8430 + n
+    | Decoration_bracket_thickness _ -> 30000
+    | Decoration_bracket_pct _ -> 30000
+    | Decoration_bracket_length_var _ -> 30000
+    | Decoration_bracket_pct_var _ -> 30000
+    | Decoration_auto -> 30010
+    | Decoration_from_font -> 30010
     (* Tracking — negative first, then arbitrary, then named *)
     | Neg_tracking_arbitrary _ -> 8245
     | Neg_tracking_var _ -> 8250

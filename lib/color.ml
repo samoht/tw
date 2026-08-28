@@ -1954,14 +1954,14 @@ module Handler = struct
   let name = "color"
 
   (* Color families sort at their property's canonical rank, not together:
-     border-color (rank ~65) joins border-width/style at priority 19; text-color
-     (the `color` property, rank ~86) interleaves inside the late-typography
-     block, after text-transform and before font-style, at priority 26;
-     outline-color (rank ~92) joins the outline width, offset and style
-     utilities at priority 28. The rest (accent, caret, ...) stay at 25.
-     [_opacity] variants lead each group so the type resolves to the color [t]
-     rather than the shadowed [Css.Border] / [Css.user_select] [Text]
-     constructors. *)
+     border-color (rank ~65) joins border-width/style at priority 19; the
+     [color] property (rank ~86) opens the late-typography block at priority 26,
+     just before text-transform, and the placeholder, caret and accent colours
+     close the same block after the underline offset; outline-color (rank ~92)
+     joins the outline width, offset and style utilities at priority 28. The
+     rest (background, ...) stay at 25. [_opacity] variants lead each group so
+     the type resolves to the color [t] rather than the shadowed [Css.Border] /
+     [Css.user_select] [Text] constructors. *)
   let priority = function
     | Border_opacity _ | Border _ | Border_transparent | Border_current
     | Border_current_opacity _ | Border_bracket_color _ | Border_side_color _
@@ -1971,7 +1971,16 @@ module Handler = struct
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
     | Text_bracket_color_opacity _ | Text_bracket_var _
     | Text_bracket_var_opacity _ | Text_bracket_typed_var _
-    | Text_bracket_typed_var_opacity _ ->
+    | Text_bracket_typed_var_opacity _ | Placeholder_opacity _ | Placeholder _
+    | Placeholder_transparent | Placeholder_current
+    | Placeholder_current_opacity _ | Placeholder_inherit
+    | Placeholder_bracket_color _ | Placeholder_bracket_color_opacity _
+    | Caret_opacity _ | Caret _ | Caret_transparent | Caret_current
+    | Caret_current_opacity _ | Caret_inherit | Caret_bracket_color _
+    | Caret_bracket_color_opacity _ | Accent_opacity _ | Accent _
+    | Accent_transparent | Accent_current | Accent_current_opacity _
+    | Accent_inherit | Accent_bracket_color _ | Accent_bracket_color_opacity _
+      ->
         26
     | Outline_opacity _ | Outline _ | Outline_current
     | Outline_current_opacity _ | Outline_inherit | Outline_transparent
@@ -3068,24 +3077,24 @@ module Handler = struct
   let suborder = function
     (* [Text_opacity] leads so the match resolves to the colour [t] rather than
        to the [Text] constructor [open Css] brings into scope. All text colors
-       share suborder 8370 (priority 26, after text-transform and before
-       font-style) so they sort alphabetically, matching Tailwind. *)
+       share suborder 8350 (priority 26, after white-space and before
+       text-transform) so they sort alphabetically, matching Tailwind. *)
     | Text_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        8370
+        8350
     | Text (color, shade) ->
         let _ = (color, shade) in
-        8370
-    | Text_transparent -> 8370
-    | Text_current -> 8370
-    | Text_current_opacity _ -> 8370
-    | Text_inherit -> 8370
-    | Text_bracket_color _ -> 8370
-    | Text_bracket_color_opacity _ -> 8370
-    | Text_bracket_var _ -> 8370
-    | Text_bracket_var_opacity _ -> 8370
-    | Text_bracket_typed_var _ -> 8370
-    | Text_bracket_typed_var_opacity _ -> 8370
+        8350
+    | Text_transparent -> 8350
+    | Text_current -> 8350
+    | Text_current_opacity _ -> 8350
+    | Text_inherit -> 8350
+    | Text_bracket_color _ -> 8350
+    | Text_bracket_color_opacity _ -> 8350
+    | Text_bracket_var _ -> 8350
+    | Text_bracket_var_opacity _ -> 8350
+    | Text_bracket_typed_var _ -> 8350
+    | Text_bracket_typed_var_opacity _ -> 8350
     | Border (color, shade) ->
         (* Border colors share suborder 1500 with borders.ml's named border
            colors (Border_color), at priority 19, so named and arbitrary tie and
@@ -3102,46 +3111,46 @@ module Handler = struct
     | Border_bracket_color_opacity _ -> 1500
     (* Per-side border colors sort after the all-sides colors. *)
     | Border_side_color _ -> 1600
-    | Accent (color, shade) ->
-        (* All accent colors use the same suborder (50000) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
-        let _ = (color, shade) in
-        50000
-    | Accent_opacity (color, shade, _) ->
-        let _ = (color, shade) in
-        50000
-    | Accent_transparent -> 50000
-    | Accent_current -> 50000
-    | Accent_current_opacity _ -> 50000
-    | Accent_inherit -> 50000
-    | Accent_bracket_color _ -> 50000
-    | Accent_bracket_color_opacity _ -> 50000
-    (* Caret comes after accent. Alphabetical: current, inherit, [colors],
-       transparent We use: - current: 60000 (c comes before colors, except
-       blue=60003) - inherit: 60000 + 9*1000 = 69000 (i comes after h, before
-       l=lime) - colors: 60000 + color_order * 1000 + shade (blue=3*1000,
-       red=15*1000) - transparent: 60000 + 25*1000 = 85000 (t comes after all
-       colors) Actually simpler: just use character-based ordering for special
-       keywords *)
+    (* The three colour families that close the late-typography block, in
+       Tailwind's order: placeholder, then caret, then accent, all after the
+       underline offset (max 69999). Each family shares one suborder so its
+       members tie and sort alphabetically by class name. *)
+    | Placeholder _ -> 80000
+    | Placeholder_opacity _ -> 80000
+    | Placeholder_transparent -> 80000
+    | Placeholder_current -> 80000
+    | Placeholder_current_opacity _ -> 80000
+    | Placeholder_inherit -> 80000
+    | Placeholder_bracket_color _ -> 80000
+    | Placeholder_bracket_color_opacity _ -> 80000
     | Caret (color, shade) ->
-        (* All caret colors use the same suborder (60000) to allow alphabetical
-           sorting, matching Tailwind v4 behavior. *)
         let _ = (color, shade) in
-        60000
+        81000
     | Caret_opacity (color, shade, _) ->
         let _ = (color, shade) in
-        60000
-    | Caret_current -> 60000
-    | Caret_current_opacity _ -> 60000
-    | Caret_inherit -> 60000
-    | Caret_transparent -> 60000
-    | Caret_bracket_color _ -> 60000
-    | Caret_bracket_color_opacity _ -> 60000
-    (* t -> after all colors (max=24) *)
+        81000
+    | Caret_current -> 81000
+    | Caret_current_opacity _ -> 81000
+    | Caret_inherit -> 81000
+    | Caret_transparent -> 81000
+    | Caret_bracket_color _ -> 81000
+    | Caret_bracket_color_opacity _ -> 81000
+    | Accent (color, shade) ->
+        let _ = (color, shade) in
+        82000
+    | Accent_opacity (color, shade, _) ->
+        let _ = (color, shade) in
+        82000
+    | Accent_transparent -> 82000
+    | Accent_current -> 82000
+    | Accent_current_opacity _ -> 82000
+    | Accent_inherit -> 82000
+    | Accent_bracket_color _ -> 82000
+    | Accent_bracket_color_opacity _ -> 82000
     (* Outline colors run at priority 28 with the rest of the outline family
        (see [priority]): the 3000 base puts them after borders.ml's outline
-       width (1999-2010) and offset (2200-2299) and before its outline
-       styles (30000-30004). *)
+       width (1999-2010) and offset (2200-2299) and before its outline styles
+       (30000-30004). *)
     | Outline (color, shade) ->
         let base =
           if is_base_color color then
@@ -3173,15 +3182,6 @@ module Handler = struct
     | Outline_bracket_var_opacity _ -> 3000
     | Outline_bracket_typed_var _ -> 3000
     | Outline_bracket_typed_var_opacity _ -> 3000
-    (* Placeholder colors: 80000 base *)
-    | Placeholder _ -> 80000
-    | Placeholder_opacity _ -> 80000
-    | Placeholder_transparent -> 80000
-    | Placeholder_current -> 80000
-    | Placeholder_current_opacity _ -> 80000
-    | Placeholder_inherit -> 80000
-    | Placeholder_bracket_color _ -> 80000
-    | Placeholder_bracket_color_opacity _ -> 80000
 
   let to_class = function
     (* [Text_opacity] leads so the match resolves to the colour [t] rather than
