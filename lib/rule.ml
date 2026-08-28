@@ -1638,6 +1638,22 @@ let route_has_variant inner ~selector base_class props =
   route_regular ~selector ~base_class ~modified_class ~modified ~not_order:10
     props
 
+(* A prose element variant puts the elements it targets under the utility's own
+   class. Substituting for that class rather than rebuilding the selector from
+   it keeps what an inner variant already put there: [prose-a:hover:] wants its
+   [:hover] on the link, [prose-li:marker:] its [::marker] on the item. *)
+let prose_element_rule name ~base_class ~selector props =
+  let replacement =
+    Modifiers.to_selector (Style.Prose_element name) base_class
+  in
+  let combined_sel =
+    Rules_selector.replace_class_with ~old_class:base_class ~replacement
+      selector
+  in
+  regular ~selector:combined_sel ~props
+    ~base_class:("prose-" ^ name ^ ":" ^ base_class)
+    ()
+
 let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
     selector props =
   match modifier with
@@ -1746,13 +1762,7 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
         ~base_class:modified_class ()
   (* Prose element variants — descendant selector with element filter *)
   | Style.Prose_element name ->
-      let modified_class = "prose-" ^ name ^ ":" ^ base_class in
-      let outer_sel = Css.Selector.Class modified_class in
-      let inner_sel = Modifiers.prose_element_inner_selector name in
-      let combined_sel =
-        Css.Selector.combine outer_sel Css.Selector.Descendant inner_sel
-      in
-      regular ~selector:combined_sel ~props ~base_class:modified_class ()
+      prose_element_rule name ~base_class ~selector props
   (* Fallback for other modifiers *)
   | _ ->
       handle_fallback_modifier ~inner_has_hover modifier base_class selector

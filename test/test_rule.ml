@@ -463,6 +463,14 @@ let test_prose_element_keeps_inner () =
   variant_has "prose-p:first-line:uppercase" "[class~=not-prose] *)):first-line";
   variant_has "prose-code:after:content-['y']" "[class~=not-prose] *)):after"
 
+(* The reverse direction: a prose element variant over a rule that is already a
+   media query built its selector from [Modifiers.to_selector], which returned
+   the class alone, so the elements it targets went missing and the utility
+   landed on the container. *)
+let test_prose_element_over_media () =
+  variant_has "prose-p:md:text-lg" ".prose-p\\:md\\:text-lg :where(p)";
+  variant_has "prose-a:dark:text-white" ".prose-a\\:dark\\:text-white :where(a)"
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -500,6 +508,8 @@ let tests =
       test_at_rule_keeps_inner;
     test_case "prose element variant keeps the inner selector" `Quick
       test_prose_element_keeps_inner;
+    test_case "prose element variant over a media query" `Quick
+      test_prose_element_over_media;
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
