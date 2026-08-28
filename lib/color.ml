@@ -3112,8 +3112,24 @@ module Handler = struct
     | Border_current_opacity _ -> 1500
     | Border_bracket_color _ -> 1500
     | Border_bracket_color_opacity _ -> 1500
-    (* Per-side border colors sort after the all-sides colors. *)
-    | Border_side_color _ -> 1600
+    (* Per-side border colours sort after the all-sides ones, and side-major:
+       every colour a side names writes a colour another side writes too, so
+       their order decides which one wins. Tailwind runs the axes and the
+       logical sides first, then the physical ones. Within a side the colours
+       tie and sort by class name, so one slot per side is enough; they stay ten
+       apart to leave room. *)
+    | Border_side_color (side, _) -> (
+        match side with
+        | Side.Inline_axis -> 1600
+        | Side.Block_axis -> 1610
+        | Side.Inline_start -> 1620
+        | Side.Inline_end -> 1630
+        | Side.Block_start -> 1640
+        | Side.Block_end -> 1650
+        | Side.Top -> 1660
+        | Side.Right -> 1670
+        | Side.Bottom -> 1680
+        | Side.Left -> 1690)
     (* The three colour families that close the late-typography block, in
        Tailwind's order: placeholder, then caret, then accent, all after the
        underline offset (max 69999). Each family shares one suborder so its
