@@ -663,11 +663,14 @@ let print_parity_report () =
 (* Both fixtures are checked in and declared as dune deps, so a missing one is a
    broken checkout rather than an optional extra. A floor on the parsed cases
    catches the other way this gate can go quiet: a fixture whose format drifts
-   still parses, just into far fewer cases than it holds. The floors are about
-   half the current counts (615 utilities, 166 variants), low enough to absorb
-   upstream churn. *)
-let utilities_floor = 300
-let variants_floor = 80
+   still parses, just into far fewer cases than it holds.
+
+   Set near the real counts rather than at half. Half (300 and 80) let a fixture
+   lose most of itself and still pass, which is the drift the floor is for; a
+   regenerated corpus that legitimately shrinks past these wants a human to look
+   and move the number. Counts on 2026-08-29: 627 utilities, 168 variants. *)
+let utilities_floor = 560
+let variants_floor = 150
 
 let load basename floor =
   match path basename with
