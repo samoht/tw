@@ -809,10 +809,29 @@ module Handler = struct
         | Stdlib.Option.None, _ when Parse.is_bracket_value base -> (
             let inner = Parse.bracket_inner base in
             if starts_with "color:" inner then
-              let var_part = String.sub inner 6 (String.length inner - 6) in
-              match opacity with
-              | Color.No_opacity -> Ok (Text_shadow_bracket_color_var var_part)
-              | op -> Ok (Text_shadow_bracket_cvar_opacity (var_part, op))
+              (* The hint says the payload is a colour, not that it names a
+                 variable. A [var()] still reads as one; a colour CSS can spell
+                 is that colour, as Tailwind emits it. *)
+              let payload = String.sub inner 6 (String.length inner - 6) in
+              (* A [var()] keeps the variable path even though it parses as a
+                 colour: with an opacity modifier Tailwind writes the plain
+                 reference as the fallback and mixes only inside the [@supports]
+                 guard, which is what that path builds. *)
+              let as_colour =
+                if Parse.is_var payload then Stdlib.Option.None
+                else Color.parse_bracket_color payload
+              in
+              match (as_colour, opacity) with
+              (* [inner], not [payload]: the class name keeps the hint the
+                 author wrote, so it reads back as the class they spelled. *)
+              | Some c, Color.No_opacity ->
+                  Ok (Text_shadow_bracket_color (inner, c))
+              | Some c, op ->
+                  Ok (Text_shadow_bracket_color_opacity (inner, c, op))
+              | Stdlib.Option.None, Color.No_opacity ->
+                  Ok (Text_shadow_bracket_color_var payload)
+              | Stdlib.Option.None, op ->
+                  Ok (Text_shadow_bracket_cvar_opacity (payload, op))
             else if starts_with "shadow:" inner then
               let var_part = String.sub inner 7 (String.length inner - 7) in
               Ok (Text_shadow_bracket_shadow var_part)
