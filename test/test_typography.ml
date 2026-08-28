@@ -467,6 +467,13 @@ let test_arbitrary_leading () =
   agree "normal" "normal";
   agree "var(--lh)" "var(--lh)";
   agree "calc(1rem_+_2px)" "calc(1rem + 2px)";
+  (* every unit the length grammar names, not the handful the line-height type
+     happens to have a constructor for *)
+  agree "2vw" "2vw";
+  agree "3ch" "3ch";
+  agree "10dvh" "10dvh";
+  agree "2cqw" "2cqw";
+  agree "4lh" "4lh";
   (* the spellings that already worked keep working *)
   agree "24px" "24px";
   agree "2rem" "2rem";
