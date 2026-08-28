@@ -319,14 +319,13 @@ module Handler = struct
     | Bracket (_, anim) -> animate_bracket anim
     | Named name -> animate_named ~theme name
 
-  let suborder = function
-    | Bracket _ -> 0
-    | Bounce -> 1
-    | Named _ -> 2
-    | No_animation -> 3
-    | Ping -> 4
-    | Pulse -> 5
-    | Spin -> 6
+  (* Tailwind emits the animate-* rules in class-name order, with no family
+     structure above it: a project animation sits among the built-ins wherever
+     its own name falls, and an arbitrary one leads because the backslash its
+     bracket is escaped with precedes every letter. One shared slot hands the
+     whole family to the alphabetical tie-break, which is that order; numbering
+     the built-ins apart pins every theme-declared name to one gap instead. *)
+  let suborder _ = 0
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
