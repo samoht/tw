@@ -1465,11 +1465,27 @@ let routed_statements ~block_count ~own_order stmts =
   in
   (block_count, ordered, unplaced @ dedup_statements hoisted)
 
+(* Flattening is what turns the wrappers a variant builds around a [@utility]
+   body into selectors: [.focus\:line-y { &:focus { ... } }] has to become
+   [.focus\:line-y:focus]. The body's own nesting is not a wrapper, and Tailwind
+   keeps it - [.line-y { padding: 5px; &::before { color: red } }] is one block
+   in its output. A rule already carrying declarations of its own is the utility
+   rather than a wrapper, so it goes through as written; flattening it would
+   split the utility into a rule per selector, each sorting by the property it
+   writes. *)
+let flattened_statement stmt =
+  match Css.as_rule stmt with
+  | Some (_, _ :: _, nested)
+    when List.for_all (fun st -> Css.as_rule st <> None) nested ->
+      [ stmt ]
+  | _ -> Css.statements (Css.flatten_nesting (Css.v [ stmt ]))
+
 let parse_routed_blocks ~block_count ~own_order css =
   match Css.of_string css with
   | Error _ -> (0, [], [])
   | Ok parsed ->
-      Css.statements (Css.flatten_nesting parsed.Css.stylesheet)
+      Css.statements parsed.Css.stylesheet
+      |> List.concat_map flattened_statement
       |> routed_statements ~block_count ~own_order
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
