@@ -467,6 +467,66 @@ let test_resolve_deps_dedup_queue () =
   check bool "has text-xl line-height var" true
     (List.mem "--text-xl-line-height" vars)
 
+(* Where [sheet] declares each of [vars], in the order the sheet declares them.
+   The theme layer is the only place a [--name:] declaration appears; every
+   other mention is a [var()] reference with no colon after the name. *)
+let theme_var_order sheet vars =
+  let position v =
+    let needle = v ^ ":" in
+    let n = String.length needle and len = String.length sheet in
+    let rec scan i =
+      if i + n > len then failf "%s is missing from the sheet" v
+      else if String.sub sheet i n = needle then i
+      else scan (i + 1)
+    in
+    scan 0
+  in
+  List.map (fun v -> (position v, v)) vars |> List.sort compare |> List.map snd
+
+(* Several theme families number their slots from a base of their own, so tokens
+   from different families land on one slot and the tie falls to the variable
+   name, which interleaves them. Nothing rendered changes and the canonical
+   differ reads the two sheets as equal, so the CLI's own emission order is the
+   oracle. *)
+let check_theme_layer_family_order () =
+  let classes =
+    [
+      "rounded-4xl";
+      "drop-shadow-md";
+      "ease-out";
+      "animate-spin";
+      "animate-pulse";
+      "blur-md";
+      "perspective-dramatic";
+      "perspective-near";
+      "aspect-video";
+    ]
+  in
+  let vars =
+    [
+      "--radius-4xl";
+      "--drop-shadow-md";
+      "--ease-out";
+      "--animate-spin";
+      "--animate-pulse";
+      "--blur-md";
+      "--perspective-dramatic";
+      "--perspective-near";
+      "--aspect-video";
+    ]
+  in
+  let utilities =
+    List.map
+      (fun c ->
+        match Tw.of_string c with
+        | Ok u -> u
+        | Error (`Msg m) -> failf "%s: %s" c m)
+      classes
+  in
+  let expected = theme_var_order (tailwind_css classes) vars in
+  check (list string) "theme layer family order" expected
+    (theme_var_order (our_css utilities) vars)
+
 let test_theme_layer_media_refs () =
   (* Vars referenced only under media queries should still end up in theme. *)
   let theme_layer =
@@ -1026,6 +1086,7 @@ let tests =
     test_case "inline_vs_variables_diff" `Quick test_inline_vs_variables_diff;
     test_case "resolve_dependencies_dedup_and_queue" `Quick
       test_resolve_deps_dedup_queue;
+    test_case "theme layer family order" `Quick check_theme_layer_family_order;
     test_case "theme_layer_collects_media_refs" `Quick
       test_theme_layer_media_refs;
     test_case "theme_layer_collects_media_refs (md)" `Quick
