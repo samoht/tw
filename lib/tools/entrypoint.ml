@@ -761,12 +761,13 @@ let dedup_statements stmts =
   let seen = Hashtbl.create 8 in
   List.filter (fun stmt -> not (seen_statement seen stmt)) stmts
 
+(* A utility's selector names a class, the theme block's [:root, :host] does
+   not. Asked of the selector itself rather than of its text, where a '.' also
+   comes from an attribute value or a decimal inside a pseudo argument. *)
 let is_utility_statement stmt =
   match Css.statement_selector stmt with
   | None -> true
-  | Some sel ->
-      let s = Cascade.Selector.to_string ~minify:true sel in
-      String.contains s '.'
+  | Some sel -> Css.Selector.exists_class (fun _ -> true) sel
 
 let rec merge_same_selector = function
   | a :: b :: rest -> (
