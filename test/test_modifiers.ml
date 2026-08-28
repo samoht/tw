@@ -394,6 +394,26 @@ let test_container_variant_is_theme_local () =
   check bool "a second theme does not see it" true
     (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "has-a:flex"))
 
+(* A [@theme] block that clears [--breakpoint-*] takes the built-in responsive
+   variants with it: [md:] then names a breakpoint the project no longer has,
+   and the candidate stops resolving the way an unknown variant does. The
+   [min-], [max-] and [not-] spellings read the same breakpoint, so they go too,
+   while a breakpoint the block declared for itself still resolves. *)
+let test_removed_breakpoint_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "40rem") ]
+  in
+  List.iter
+    (fun cls ->
+      check bool
+        (cls ^ " names a breakpoint the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
+  check bool "the theme's own breakpoint still resolves" true
+    (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
+
 (* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
@@ -1124,6 +1144,8 @@ let tests =
         test_custom_variant_is_theme_local;
       test_case "container variant is theme-local" `Quick
         test_container_variant_is_theme_local;
+      test_case "removed breakpoint drops its variants" `Quick
+        test_removed_breakpoint_drops_its_variants;
     ]
 
 let suite = ("modifiers", tests)
