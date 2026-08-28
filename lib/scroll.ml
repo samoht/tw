@@ -118,26 +118,32 @@ module Handler = struct
 
   let suborder { kind; negative; axis; value } =
     let kind_offset = match kind with Margin -> 0 | Padding -> 10000000 in
-    let neg_offset = if negative then -5000000 else 0 in
+    (* Side decides first and the sign is a tie-break inside the side, which is
+       the order Tailwind emits: the negative of a side sits with that side, not
+       ahead of every positive. The logical sides come before the physical
+       ones. *)
     let axis_offset =
       match axis with
       | All -> 0
       | X -> 100000
       | Y -> 200000
-      | T -> 300000
-      | R -> 400000
-      | B -> 500000
-      | L -> 600000
-      | S -> 700000
-      | E -> 800000
-      | Bs -> 900000
-      | Be -> 1000000
+      | S -> 300000
+      | E -> 400000
+      | Bs -> 500000
+      | Be -> 600000
+      | T -> 700000
+      | R -> 800000
+      | B -> 900000
+      | L -> 1000000
     in
+    let neg_offset = if negative then 0 else 50000 in
+    (* Half the axis band each, so a value can never carry a rule across the
+       sign boundary: the arbitrary spellings sit at the top of their half. *)
     let value_order =
       match value with
       | Spacing n -> int_of_float (n *. 10.)
-      | Arbitrary _ -> 50000
-      | Arbitrary_var _ -> 50001
+      | Arbitrary _ -> 49000
+      | Arbitrary_var _ -> 49001
     in
     kind_offset + neg_offset + axis_offset + value_order
 
