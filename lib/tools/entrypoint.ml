@@ -1414,24 +1414,20 @@ let compare_routed_entries ~own_order ~order_of (c1, _) (c2, _) =
   let suborder = if priority <> 0 then priority else Int.compare s1 s2 in
   if suborder <> 0 then suborder else String.compare c1 c2
 
-let ordered_routed_entries ~own_order ~order_of group =
-  Hashtbl.fold (fun cls stmts acc -> (cls, stmts) :: acc) group []
-  |> List.sort (compare_routed_entries ~own_order ~order_of)
-
-let place_routed_entries ~own_order ~order_of ~classless entries =
-  let ordered, unordered =
-    List.fold_left
-      (fun (ordered, unordered) (cls, stmts) ->
-        match Hashtbl.find_opt own_order cls with
-        | Some order -> ((cls, order, stmts) :: ordered, unordered)
-        | None -> (
-            match Hashtbl.find_opt order_of cls with
-            | Some (priority, suborder) ->
-                ((cls, (priority, suborder), stmts) :: ordered, unordered)
-            | None -> (ordered, unordered @ stmts)))
-      ([], classless) entries
+(* Within one declared utility, the rules it writes outright come before the
+   ones a variant wrapped in an at-rule, the order the generator gives a
+   built-in utility and its own media queries. *)
+let unwrapped_first stmts =
+  let plain, wrapped =
+    List.partition (fun stmt -> Option.is_some (Css.as_rule stmt)) stmts
   in
-  (List.rev ordered, unordered)
+  plain @ wrapped
+
+let ordered_routed_entries ~own_order ~order_of group =
+  Hashtbl.fold
+    (fun cls stmts acc -> (cls, unwrapped_first stmts) :: acc)
+    group []
+  |> List.sort (compare_routed_entries ~own_order ~order_of)
 
 let routed_statements ~block_count ~own_order stmts =
   (* [@layer properties] and [@property] sit beside the utilities layer, not in
@@ -1442,12 +1438,18 @@ let routed_statements ~block_count ~own_order stmts =
       stmts
   in
   let group, order_of, classless = group_routed_rules ~own_order rules in
-  let entries = ordered_routed_entries ~own_order ~order_of group in
-  let ordered, unordered =
-    place_routed_entries ~own_order ~order_of ~classless entries
+  (* A declared utility whose first property tw has no slot for still belongs
+     among the utilities, at the end, so it goes over with the rest: sorted with
+     them, and read by the theme layer for the tokens it names. A statement
+     naming no class at all has nothing to sort by, and gets a utilities layer
+     of its own after them. *)
+  let ordered =
+    ordered_routed_entries ~own_order ~order_of group
+    |> List.map (fun (cls, stmts) ->
+        (cls, routed_slot ~own_order ~order_of cls, stmts))
   in
   let unplaced =
-    if unordered = [] then [] else [ Css.layer ~name:[ "utilities" ] unordered ]
+    if classless = [] then [] else [ Css.layer ~name:[ "utilities" ] classless ]
   in
   (block_count, ordered, unplaced @ dedup_statements hoisted)
 
