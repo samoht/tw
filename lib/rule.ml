@@ -1161,21 +1161,13 @@ let parse_bracket_media content =
   if String.length rest > 4 && String.sub rest 0 4 = "not " then
     let inner = String.trim (String.sub rest 4 (String.length rest - 4)) in
     (* Double negation: return the positive condition *)
-    match inner with
-    | "(orientation: portrait)" | "(orientation:portrait)" ->
-        media_feature Css.Media.Orientation Css.Media.Portrait
-    | "(orientation: landscape)" | "(orientation:landscape)" ->
-        media_feature Css.Media.Orientation Css.Media.Landscape
-    | _ -> Css.Media.of_string inner
+    (* The reader takes the condition however it is spelled, so there is no
+       table of spellings here to fall out of step with itself. *)
+    Css.Media.of_string inner
   else
     (* Negate the condition *)
     match rest with
     | "print" -> negate_media print_media
-    | "(orientation: portrait)" | "(orientation:portrait)" ->
-        negate_media (media_feature Css.Media.Orientation Css.Media.Portrait)
-    | "(orientation: landscape)" | "(orientation:landscape)" ->
-        negate_media (media_feature Css.Media.Orientation Css.Media.Landscape)
-    | "(hover: hover)" | "(hover:hover)" -> negate_media hover_media
     | _ -> negate_media (Css.Media.of_string rest)
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)
