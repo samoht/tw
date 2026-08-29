@@ -1,3 +1,4 @@
+#! 166 blocks extracted from variants.test.ts by extract_tests.exe -- do not edit
 # *
 @config run
 *:flex
@@ -1110,6 +1111,11 @@ print/foo:flex
 @theme-var breakpoint-lg 1024px
 @theme-var breakpoint-xl 1280px
 @theme-var breakpoint-2xl 1536px
+@theme-mode breakpoint-sm reference
+@theme-mode breakpoint-md reference
+@theme-mode breakpoint-lg reference
+@theme-mode breakpoint-xl reference
+@theme-mode breakpoint-2xl reference
 2xl/foo:flex lg/foo:flex md/foo:flex sm/foo:flex xl/foo:flex
 ---
 
@@ -1159,6 +1165,9 @@ max-lg:flex max-md:flex max-sm:flex
 @theme-var breakpoint-sm 640px
 @theme-var breakpoint-lg 1024px
 @theme-var breakpoint-md 768px
+@theme-mode breakpoint-sm reference
+@theme-mode breakpoint-lg reference
+@theme-mode breakpoint-md reference
 max-lg/foo:flex max-md/foo:flex max-sm/foo:flex
 ---
 
@@ -1195,6 +1204,9 @@ min-lg:flex min-md:flex min-sm:flex
 @theme-var breakpoint-sm 640px
 @theme-var breakpoint-lg 1024px
 @theme-var breakpoint-md 768px
+@theme-mode breakpoint-sm reference
+@theme-mode breakpoint-lg reference
+@theme-mode breakpoint-md reference
 min-lg/foo:flex min-md/foo:flex min-sm/foo:flex
 ---
 
@@ -1505,40 +1517,6 @@ supports-[(display:grid)_and_font-format(opentype)]:grid supports-[--test]:flex 
 
     @supports var(--test) {
       .supports-\[var\(--test\)\]\:flex {
-        display: flex;
-      }
-    }
-    
-<<<>>>
-# supports
-@config run
-supports-[user-select]:flex supports-backdrop-filter:flex supports-hyphens:flex supports-text-size-adjust:flex supports-user-select:flex
----
-
-    @supports (backdrop-filter: var(--tw)) {
-      .supports-backdrop-filter\:flex {
-        display: flex;
-      }
-    }
-
-    @supports (hyphens: var(--tw)) {
-      .supports-hyphens\:flex {
-        display: flex;
-      }
-    }
-
-    @supports (text-size-adjust: var(--tw)) {
-      .supports-text-size-adjust\:flex {
-        display: flex;
-      }
-    }
-
-    @supports (user-select: var(--tw)) {
-      .supports-user-select\:flex {
-        display: flex;
-      }
-
-      .supports-\[user-select\]\:flex {
         display: flex;
       }
     }
@@ -2261,43 +2239,6 @@ group-peer-focus/name:flex has-group-focus/name:flex in-group-focus/name:flex no
 
     .not-group-focus\/name\:flex:not(:is(:where(.group\/name):focus *)), .group-peer-focus\/name\:flex:is(:where(.group\/name):is(:where(.peer):focus ~ *) *), :where(:is(:where(.group\/name):focus *)) .in-group-focus\/name\:flex, .has-group-focus\/name\:flex:has(:is(:where(.group\/name):focus *)) {
       display: flex;
-    }
-    
-<<<>>>
-
-# container queries are sorted by the value the class spells
-@config run
-@min-[100px]:inline @min-[2rem]:table @lg:grid @min-[64rem]:block @min-[theme(--breakpoint-sm)]:flex
----
-
-    @container (min-width: 100px) {
-      .\@min-\[100px\]\:inline {
-        display: inline;
-      }
-    }
-
-    @container (min-width: 2rem) {
-      .\@min-\[2rem\]\:table {
-        display: table;
-      }
-    }
-
-    @container (min-width: 32rem) {
-      .\@lg\:grid {
-        display: grid;
-      }
-    }
-
-    @container (min-width: 64rem) {
-      .\@min-\[64rem\]\:block {
-        display: block;
-      }
-    }
-
-    @container (min-width: 40rem) {
-      .\@min-\[theme\(--breakpoint-sm\)\]\:flex {
-        display: flex;
-      }
     }
     
 <<<>>>

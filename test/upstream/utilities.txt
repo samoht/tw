@@ -1,3 +1,4 @@
+#! 699 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
 # sr-only
 @config run
 sr-only

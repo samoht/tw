@@ -9,11 +9,14 @@ All three run under `dune runtest`.
 
 **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
 Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the
-CSS Tailwind emits for it. `test/upstream/test.exe` replays 801 cases and fails
+CSS Tailwind emits for it. `test/upstream/test.exe` replays 800 cases and fails
 when tw rejects a class Tailwind accepts, or emits different CSS for one it
 accepts. The two fixtures are generated, and `test/upstream/extract_tests.ml`
 carries the command that regenerates them. Editing them by hand removes the
-oracle the check depends on.
+oracle the check depends on, and the runner rejects a file whose block count no
+longer matches the banner the extractor stamped on it. A case Tailwind has no
+test for lives in `handwritten.txt`, read beside the two and written by no
+regeneration.
 
 **Example pages, `examples/*/dune`.** Each of the nine examples builds its CSS
 twice, once through tw and once through `npx tailwindcss`, then diffs the two

@@ -23,6 +23,16 @@
     No filtering, no tree diffing, no special-casing. If a test fails, either
     fix our code or fix the extraction.
 
+    Both fixtures are generated, and nothing else belongs in them. A case
+    upstream does not have is a tw regression test: it goes in the
+    [test_<module>.ml] for the behaviour it pins, where it runs by name and the
+    next reader of that module finds it. Put one here and the next regeneration
+    drops it with the run still green -- which is how a [supports] block and a
+    container-query block sat here duplicating coverage [test_modifiers.ml] and
+    [test_sort.ml] already had. {!check_generated} counts each fixture's blocks
+    against the banner the extractor wrote, so an addition is reported while it
+    is still there.
+
     CSS whitespace normalisation (parse + re-emit) is already a stretch but
     necessary because the expected CSS comes from JS template literals with
     extra indentation. *)
@@ -723,22 +733,22 @@ let print_parity_report () =
      breaks parity fails the CSS diff and names the rejected classes)@.";
   Fmt.epr "==============================@."
 
-(* Both fixtures are checked in and declared as dune deps, so a missing one is a
-   broken checkout rather than an optional extra. A floor on the parsed cases
-   catches the other way this gate can go quiet: a fixture whose format drifts
-   still parses, just into far fewer cases than it holds.
+(* All three fixtures are checked in and declared as dune deps, so a missing one
+   is a broken checkout rather than an optional extra. A floor on the parsed
+   cases catches the other way this gate can go quiet: a fixture whose format
+   drifts still parses, just into far fewer cases than it holds.
 
    Set near the real counts rather than at half. Half (300 and 80) let a fixture
    lose most of itself and still pass, which is the drift the floor is for; a
    regenerated corpus that legitimately shrinks past these wants a human to look
-   and move the number. Counts on 2026-08-29: 696 utilities, 168 variants. *)
+   and move the number. Counts on 2026-08-29: 696 utilities, 166 variants. *)
 let utilities_floor = 620
 let variants_floor = 150
 
 let load basename floor =
   match path basename with
   | None ->
-      Fmt.epr "%s not found. Run extract_tests.exe first.@." basename;
+      Fmt.epr "%s not found. All three fixtures are checked in here.@." basename;
       exit 1
   | Some p ->
       let cases = read p in
@@ -749,8 +759,36 @@ let load basename floor =
         exit 1);
       cases
 
+(* The floors count what a fixture holds, not where it came from: a block added
+   to a generated fixture by hand raises the count and passes them, then
+   disappears at the next regeneration with nothing to say it went. The
+   extractor writes the number of blocks it produced into the file's banner, so
+   counting the blocks back names such a block while it is still there. *)
+let check_generated basename =
+  match path basename with
+  | None -> ()
+  | Some p -> (
+      match declared_blocks p with
+      | None ->
+          Fmt.epr
+            "%s has no provenance banner. Regenerate it with \
+             extract_tests.exe.@."
+            p;
+          exit 1
+      | Some declared ->
+          let found = blocks p in
+          if found <> declared then (
+            Fmt.epr
+              "%s holds %d blocks but was generated with %d, so it has been \
+               edited since. A case upstream does not have is a tw regression \
+               test and belongs in its own test_<module>.ml.@."
+              p found declared;
+            exit 1))
+
 let () =
   Tw_tools.Cascade_provenance.report ();
+  check_generated "utilities.txt";
+  check_generated "variants.txt";
   let utility_tests = load "utilities.txt" utilities_floor in
   let variant_tests = load "variants.txt" variants_floor in
   let total = List.length utility_tests + List.length variant_tests in
@@ -759,15 +797,8 @@ let () =
     (List.length variant_tests);
   at_exit print_parity_report;
 
-  let utility_cases =
-    List.map
-      (fun tc -> test_case tc.name `Quick (run_test_case tc))
-      utility_tests
-  in
-  let variant_cases =
-    List.map
-      (fun tc -> test_case tc.name `Quick (run_test_case tc))
-      variant_tests
+  let alcotest_cases tests =
+    List.map (fun tc -> test_case tc.name `Quick (run_test_case tc)) tests
   in
   let tolerance_cases =
     [
@@ -785,9 +816,9 @@ let () =
   in
   let suites =
     [
-      ("utilities", utility_cases);
+      ("utilities", alcotest_cases utility_tests);
       ("tolerance", tolerance_cases);
-      ("variants", variant_cases);
+      ("variants", alcotest_cases variant_tests);
     ]
   in
   Alcotest.run "upstream" suites

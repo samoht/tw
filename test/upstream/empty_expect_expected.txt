@@ -1,3 +1,4 @@
+#! 5 blocks extracted from empty_expect_input.ts by extract_tests.exe -- do not edit
 # wrapped-empty
 @config run
 wrapped-keep

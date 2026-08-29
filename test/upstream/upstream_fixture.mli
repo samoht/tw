@@ -1,7 +1,7 @@
-(** Reader for the generated upstream fixtures ([utilities.txt],
-    [variants.txt]).
+(** Reader for the upstream fixtures: the generated [utilities.txt] and
+    [variants.txt], both generated.
 
-    The fixtures are one block per upstream test, separated by [<<<>>>]:
+    The fixtures are one block per test, separated by [<<<>>>]:
 
     {v
     # <test name>
@@ -15,6 +15,10 @@
     ---
     <expected CSS>
     v}
+
+    A generated fixture opens with a [#!] provenance banner naming the number of
+    blocks the extractor wrote; {!blocks} and {!declared_blocks} read the two
+    counts so a caller can hold one against the other.
 
     Both the fixture replay in [test/upstream/test.ml] and the parse-parity gate
     in [test/test_tw.ml] read the same corpus, so they read it here: two readers
@@ -67,6 +71,18 @@ val split_classes : string -> string list
 val read : string -> case list
 (** [read path] reads every block of the fixture at [path]. A file that does not
     exist reads as no cases, which the caller's floor turns into a failure. *)
+
+val blocks : string -> int
+(** [blocks path] is the number of blocks in the fixture at [path], counted on
+    the [<<<>>>] separator {!read} splits on. A file that does not exist has
+    none. *)
+
+val declared_blocks : string -> int option
+(** [declared_blocks path] is the block count the fixture's [#!] provenance
+    banner declares, or [None] for a file without one: a hand-maintained
+    fixture, or one that does not exist. A generated fixture whose {!blocks}
+    disagrees with this has been edited since it was generated, and the edit is
+    what the next regeneration would drop. *)
 
 val path : string -> string option
 (** [path basename] is where [basename] sits relative to the running test:

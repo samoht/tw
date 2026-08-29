@@ -20,21 +20,35 @@
 
     {v
     # Clone tailwindcss (or use an existing clone) at the v4.3.3 tag
-    git clone https://github.com/tailwindlabs/tailwindcss.git /tmp/tailwindcss
-    cd /tmp/tailwindcss && git checkout v4.3.3
+    git clone https://github.com/tailwindlabs/tailwindcss.git tmp/tailwindcss
+    cd tmp/tailwindcss && git checkout v4.3.3
+
+    # Confirm the tag before extracting: another version rewrites values
+    # (v4.3.2 spells 22 of the lengths v4.3.3 spells 0px as 0).
+    head -3 packages/tailwindcss/package.json
 
     # Extract both fixtures
     dune exec test/upstream/extract_tests.exe -- \
-      /tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
+      tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
       > test/upstream/utilities.txt
     dune exec test/upstream/extract_tests.exe -- \
-      /tmp/tailwindcss/packages/tailwindcss/src/variants.test.ts \
+      tmp/tailwindcss/packages/tailwindcss/src/variants.test.ts \
       > test/upstream/variants.txt
     v}
 
     {b Do NOT edit the .txt fixtures directly.} If test expectations need
     updating, regenerate from the pinned Tailwind version or fix the extraction
-    script.
+    script. A case upstream does not have is a tw regression test and belongs in
+    its own [test_<module>.ml], never here: the next regeneration would drop it
+    silently.
+
+    {2 The provenance banner}
+
+    Each generated fixture opens with a [#!] line naming this script and the
+    number of blocks it wrote. [test/upstream/test.ml] counts the blocks back
+    and fails when the two disagree, so a block added to a generated fixture by
+    hand is reported at once instead of being dropped, unremarked, by the next
+    regeneration.
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
@@ -1065,6 +1079,15 @@ let () =
   let filename = Sys.argv.(1) in
   Fmt.epr "Parsing %s...@." filename;
   let tests = parse_file filename in
+
+  (* The provenance banner: [#!] keeps it out of the block scan, which reads a
+     [#] and a space as a block header, and the count is what
+     [test/upstream/test.ml] holds the file to. *)
+  let count = List.length tests in
+  Fmt.pr "#! %d %s extracted from %s by extract_tests.exe -- do not edit@."
+    count
+    (if count = 1 then "block" else "blocks")
+    (Filename.basename filename);
 
   (* Output format: # test-name @config <theme-config> class1 class2 --- css
      output here with newlines preserved <<<>>> *)
