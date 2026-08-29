@@ -639,9 +639,10 @@ val order_of_declaration : Css.declaration -> (int * int) option
 (** [order_of_declaration d] returns theme ordering information for a custom
     declaration. *)
 
-val property_initial_string : Css.property_info -> string
-(** [property_initial_string info] converts the typed initial value of a
-    [@property] declaration into a string suitable for [initial-value:]. *)
+val property_initial_declaration : Css.property_info -> Css.declaration
+(** [property_initial_declaration info] is the declaration that sets a parsed
+    [@property] statement's typed initial value in the properties layer's bulk
+    rule (e.g. [--tw-ring-offset-width: 0px]). *)
 
 (** {1 Bracket Variable References}
 

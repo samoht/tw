@@ -1122,9 +1122,7 @@ let property_layer_content first_usage_order initial_values other_statements =
   let sorted_values =
     sort_properties_by_order first_usage_order initial_values
   in
-  let initial_declarations =
-    List.map (fun (name, value) -> Css.custom_property name value) sorted_values
-  in
+  let initial_declarations = List.map snd sorted_values in
   let rule = Css.rule ~selector initial_declarations in
   let supports_stmt = Css.supports ~condition:browser_detection [ rule ] in
   let layer_content = [ supports_stmt ] @ other_statements in

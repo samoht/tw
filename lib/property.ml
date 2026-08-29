@@ -34,8 +34,8 @@ let initial_values property_rules =
     (fun acc stmt ->
       match Css.as_property stmt with
       | Some (Css.Property_info info as prop_info) ->
-          let value = Var.property_initial_string prop_info in
-          (info.name, value) :: acc
+          let decl = Var.property_initial_declaration prop_info in
+          (info.name, decl) :: acc
       | None -> acc)
     [] property_rules
   |> List.rev
