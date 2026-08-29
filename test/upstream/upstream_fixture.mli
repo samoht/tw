@@ -8,6 +8,8 @@
     @config <theme config>
     @variant <matchVariant directive>     (optional, repeatable)
     @theme-var <name> <value>             (optional, repeatable)
+    @utility-def <name> <body>            (optional, repeatable)
+    @layer-wrap <layer>                   (optional)
     <space-separated class list>
     ---
     <expected CSS>
@@ -42,6 +44,14 @@ type case = {
       (** [@theme] token overrides (name, value) captured from the test's CSS
           template by the extractor (e.g. text-shadow sizes Tailwind inlines).
       *)
+  utility_defs : (string * string) list;
+      (** [@utility] declarations (name, body) the test's CSS template makes. A
+          case that has any is compiled through the declared-utility path rather
+          than class by class. *)
+  layer_wrap : string option;
+      (** The layer the test's CSS template compiles [@tailwind utilities] into,
+          when it names one. Tailwind puts the generated utilities in it and
+          everything else beside it. *)
 }
 
 val split_classes : string -> string list

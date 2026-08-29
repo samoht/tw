@@ -42,16 +42,41 @@ describe('outer', () => {
       await run(
         ['custom-thing'],
         css`
+          @layer utilities {
+            @tailwind utilities;
+          }
+
           @utility custom-thing {
             display: grid;
+          }
+        `,
+      ),
+    ).toMatchInlineSnapshot(`
+      "
+      @layer utilities {
+        .custom-thing {
+          display: grid;
+        }
+      }
+      "
+    `)
+  })
+
+  test('defines a functional utility', async () => {
+    expect(
+      await run(
+        ['sized-4'],
+        css`
+          @utility sized-* {
+            width: --value(integer);
           }
           @tailwind utilities;
         `,
       ),
     ).toMatchInlineSnapshot(`
       "
-      .custom-thing {
-        display: grid;
+      .sized-4 {
+        width: 4;
       }
       "
     `)

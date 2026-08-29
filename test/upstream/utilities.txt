@@ -22460,3 +22460,129 @@ basis-sm max-w-sm min-w-sm w-sm
       }
       
 <<<>>>
+# Multiple static utilities are merged
+@config run
+@utility-def really-round --custom-prop: hi; border-radius: 50rem;
+@utility-def really-round border-radius: 30rem;
+@layer-wrap utilities
+really-round
+---
+
+      @layer utilities {
+        .really-round {
+          --custom-prop: hi;
+          border-radius: 30rem;
+        }
+      }
+      
+<<<>>>
+# custom utilities support some special characters
+@config run
+@utility-def push-1/2 right: 50%;
+@utility-def push-50% right: 50%;
+@layer-wrap utilities
+push-1/2 push-50%
+---
+
+      @layer utilities {
+        .push-1\/2, .push-50\% {
+          right: 50%;
+        }
+      }
+      
+<<<>>>
+# custom utilities are sorted by used properties
+@config run
+@utility-def push-left right: 100%;
+@layer-wrap utilities
+bottom-[100px] push-left right-[100px] top-[100px]
+---
+
+      @layer utilities {
+        .top-\[100px\] {
+          top: 100px;
+        }
+
+        .push-left {
+          right: 100%;
+        }
+
+        .right-\[100px\] {
+          right: 100px;
+        }
+
+        .bottom-\[100px\] {
+          bottom: 100px;
+        }
+      }
+      
+<<<>>>
+# custom utilities work with `@apply`
+@config run
+@utility-def foo @apply flex flex-col underline;
+@utility-def bar @apply z-10; .baz { @apply z-20; }
+bar foo hover:foo
+---
+
+      .bar {
+        z-index: 10;
+      }
+
+      .bar .baz {
+        z-index: 20;
+      }
+
+      .foo {
+        flex-direction: column;
+        text-decoration-line: underline;
+        display: flex;
+      }
+
+      @media (hover: hover) {
+        .hover\:foo:hover {
+          flex-direction: column;
+          text-decoration-line: underline;
+          display: flex;
+        }
+      }
+      
+<<<>>>
+# referencing custom utilities in custom utilities via `@apply` should work
+@config run
+@utility-def foo @apply flex flex-col underline;
+@utility-def bar @apply dark:foo flex-wrap;
+bar
+---
+
+      .bar {
+        flex-wrap: wrap;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .bar {
+          flex-direction: column;
+          text-decoration-line: underline;
+          display: flex;
+        }
+      }
+      
+<<<>>>
+# custom utilities with `@apply` causing circular dependencies should error
+@config run
+@utility-def foo @apply flex-wrap hover:bar;
+@utility-def bar @apply flex dark:foo;
+bar foo
+<<<>>>
+# custom utilities with `@apply` causing circular dependencies should error (deeply nesting)
+@config run
+@utility-def foo .bar { .baz { .qux { @apply flex-wrap hover:bar; } } }
+@utility-def bar .baz { .qux { @apply flex dark:foo; } }
+bar foo
+<<<>>>
+# custom utilities with `@apply` causing circular dependencies should error (multiple levels)
+@config run
+@utility-def foo @apply flex-wrap hover:bar;
+@utility-def bar @apply flex dark:baz;
+@utility-def baz @apply flex-wrap hover:foo;
+bar foo
+<<<>>>

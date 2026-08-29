@@ -30,6 +30,20 @@ backtick
 ---
 
 <<<>>>
+# defines its own utility
+@config run
+@utility-def custom-thing display: grid;
+@layer-wrap utilities
+custom-thing
+---
+
+      @layer utilities {
+        .custom-thing {
+          display: grid;
+        }
+      }
+      
+<<<>>>
 # indented twice
 @config run
 indented-twice

@@ -309,6 +309,14 @@ let check_upstream_positive_fixture_parse filename () =
         let selectors = emitted_selectors c.expected in
         c.classes
         |> List.filter (class_is_emitted selectors)
+        (* A class the case's own [@utility] declares is CSS the case brought
+           with it, not a utility [of_string] is meant to know: the fixture
+           carries the declaration and the upstream runner compiles it through
+           [Entrypoint]. *)
+        |> List.filter (fun cls ->
+            not
+              (Tw_tools.Entrypoint.is_custom_routed ~defs:[]
+                 ~udefs:c.utility_defs cls))
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with
             | Ok _ -> None

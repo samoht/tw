@@ -28,6 +28,7 @@
     extra indentation. *)
 
 module Css = Cascade.Css
+module Entrypoint = Tw_tools.Entrypoint
 open Cascade_diff
 open Alcotest
 open Upstream_fixture
@@ -204,6 +205,26 @@ let theme_resolution ~declared config expected =
   | Theme_reference | Theme_inline_reference -> Fun.id
 
 let canonical_stylesheet_css css = String.trim css
+
+(* [@layer <name> { @tailwind utilities; }] in a case's template puts the
+   generated utilities in [<name>] and leaves everything else beside it: the
+   theme block, the [@property] rules, and whatever a declared utility hoists.
+   tw wraps the whole sheet in its own layer scaffolding, so keep the layer the
+   template named and flatten the rest. *)
+let keep_only_layer name stylesheet =
+  let rec go stmts =
+    List.concat_map
+      (fun stmt ->
+        if Option.is_some (Css.layer_statement_name_list stmt) then []
+        else
+          match Css.as_layer stmt with
+          | Some (Some n, _) when Css.Stylesheet.equal_layer_name n [ name ] ->
+              [ stmt ]
+          | Some (_, inner) -> go inner
+          | None -> [ stmt ])
+      stmts
+  in
+  Css.v (go (Css.statements stylesheet))
 
 (* Tailwind compiled the corpus from each case's own [@theme] block, with no
    default theme behind it, so the [@keyframes] that theme declares are in no
@@ -436,6 +457,7 @@ let theme_overrides_of ~declared config expected =
 let stat_total_classes = ref 0
 let stat_parsed = ref 0
 let stat_rejected = ref 0
+let stat_routed = ref 0
 let stat_expected_empty_cases = ref 0
 
 let run_test_case test () =
@@ -514,26 +536,51 @@ let run_test_case test () =
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
     let resolve_theme = theme_resolution ~declared test.config test.expected in
+    (* A class the case's own [@utility] declares means nothing to
+       [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
+       a project entrypoint's does, through [Entrypoint]. The rest of the case
+       still compiles class by class, so the two sets are generated separately
+       and sorted together by [~extra]. With no declarations the partition is
+       empty and this is the plain per-class path. *)
+    let udefs = test.utility_defs in
+    let routed, direct =
+      List.partition (Entrypoint.is_custom_routed ~defs:[] ~udefs) test.classes
+    in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
           match Tw.of_string ~theme:scheme cls with
           | Ok u -> (u :: ok, bad)
           | Error (`Msg m) -> (ok, (cls, m) :: bad))
-        ([], []) test.classes
+        ([], []) direct
     in
     let utilities = List.rev parsed in
     let rejected = List.rev rejected in
+    let routed_count, routed_extra, routed_stmts =
+      if routed = [] then (0, [], [])
+      else
+        Entrypoint.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
+    in
     stat_total_classes := !stat_total_classes + List.length test.classes;
     stat_parsed := !stat_parsed + List.length utilities;
     stat_rejected := !stat_rejected + List.length rejected;
+    stat_routed := !stat_routed + routed_count;
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
-      if utilities = [] then None
+      if utilities = [] && routed_extra = [] && routed_stmts = [] then None
       else
-        Some
-          (drop_theme_keyframes
-             (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities))
+        let layers = Option.is_some test.layer_wrap in
+        let sheet =
+          Entrypoint.place_routed routed_stmts
+            (Tw.to_css ~theme:scheme ~base:false ~layers ~extra:routed_extra
+               utilities)
+        in
+        let sheet =
+          match test.layer_wrap with
+          | None -> sheet
+          | Some name -> keep_only_layer name sheet
+        in
+        Some (drop_theme_keyframes sheet)
     in
     let our_css =
       match our_stylesheet with
@@ -652,9 +699,12 @@ let test_color_tolerance () =
 
 let print_parity_report () =
   Fmt.epr "@.=== upstream parity report ===@.";
-  Fmt.epr "classes: %d total, %d parsed, %d rejected@." !stat_total_classes
-    !stat_parsed !stat_rejected;
+  Fmt.epr "classes: %d total, %d parsed, %d routed, %d rejected@."
+    !stat_total_classes !stat_parsed !stat_routed !stat_rejected;
   Fmt.epr "cases with empty expected CSS: %d@." !stat_expected_empty_cases;
+  Fmt.epr
+    "(a routed class is one the case's own @utility declares, compiled through \
+     Entrypoint rather than of_string)@.";
   Fmt.epr
     "(a rejection is harmless when the case's CSS still matches; one that \
      breaks parity fails the CSS diff and names the rejected classes)@.";
@@ -668,7 +718,7 @@ let print_parity_report () =
    Set near the real counts rather than at half. Half (300 and 80) let a fixture
    lose most of itself and still pass, which is the drift the floor is for; a
    regenerated corpus that legitimately shrinks past these wants a human to look
-   and move the number. Counts on 2026-08-29: 627 utilities, 168 variants. *)
+   and move the number. Counts on 2026-08-29: 632 utilities, 168 variants. *)
 let utilities_floor = 560
 let variants_floor = 150
 

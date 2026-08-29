@@ -8,6 +8,8 @@
     @config <theme config>
     @variant <matchVariant directive>     (optional, repeatable)
     @theme-var <name> <value>             (optional, repeatable)
+    @utility-def <name> <body>            (optional, repeatable)
+    @layer-wrap <layer>                   (optional)
     <space-separated class list>
     ---
     <expected CSS>
@@ -46,6 +48,14 @@ type case = {
       (** [@theme] token overrides (name, value) captured from the test's CSS
           template by the extractor (e.g. text-shadow sizes Tailwind inlines).
       *)
+  utility_defs : (string * string) list;
+      (** [@utility] declarations (name, body) the test's CSS template makes. A
+          case that has any is compiled through the declared-utility path rather
+          than class by class. *)
+  layer_wrap : string option;
+      (** The layer the test's CSS template compiles [@tailwind utilities] into,
+          when it names one. Tailwind puts the generated utilities in it and
+          everything else beside it. *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -81,12 +91,27 @@ let read filename =
     let tests = ref [] in
     let current_variants = ref [] in
     let current_theme_vars = ref [] in
+    let current_utility_defs = ref [] in
+    let current_layer_wrap = ref None in
     let lines = String.split_on_char '\n' content in
     let parse_config_line line =
       let line = String.trim line in
       if String.length line > 8 && String.sub line 0 8 = "@config " then
         Some (config_of_string (String.sub line 8 (String.length line - 8)))
       else None
+    in
+    (* A directive line is "<keyword> <name> <rest>"; the name runs to the first
+       space and the rest is kept as written. *)
+    let named_pair keyword line =
+      let n = String.length keyword in
+      if String.length line < n || String.sub line 0 n <> keyword then None
+      else
+        let tail = String.sub line n (String.length line - n) in
+        Option.map
+          (fun i ->
+            ( String.sub tail 0 i,
+              String.sub tail (i + 1) (String.length tail - i - 1) ))
+          (String.index_opt tail ' ')
     in
     let rec parse lines =
       match lines with
@@ -97,6 +122,8 @@ let read filename =
             let name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
             current_theme_vars := [];
+            current_utility_defs := [];
+            current_layer_wrap := None;
             parse_config name No_theme rest)
           else parse rest
     and parse_config name default_config lines =
@@ -109,26 +136,31 @@ let read filename =
     and parse_variants name config lines =
       match lines with
       | [] -> ()
-      | line :: rest ->
+      | line :: rest -> (
           let tl = String.trim line in
           if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
             current_variants :=
               String.sub tl 9 (String.length tl - 9) :: !current_variants;
             parse_variants name config rest)
-          else if String.length tl >= 11 && String.sub tl 0 11 = "@theme-var "
-          then (
-            (* "@theme-var <name> <value>" -- split on the first space. *)
-            let rest_str = String.sub tl 11 (String.length tl - 11) in
-            (match String.index_opt rest_str ' ' with
-            | Some i ->
-                let n = String.sub rest_str 0 i in
-                let v =
-                  String.sub rest_str (i + 1) (String.length rest_str - i - 1)
-                in
-                current_theme_vars := (n, v) :: !current_theme_vars
-            | None -> ());
-            parse_variants name config rest)
-          else parse_classes name config (line :: rest)
+          else
+            match named_pair "@theme-var " tl with
+            | Some pair ->
+                current_theme_vars := pair :: !current_theme_vars;
+                parse_variants name config rest
+            | None -> (
+                match named_pair "@utility-def " tl with
+                | Some pair ->
+                    current_utility_defs := pair :: !current_utility_defs;
+                    parse_variants name config rest
+                | None ->
+                    if
+                      String.length tl >= 12
+                      && String.sub tl 0 12 = "@layer-wrap "
+                    then (
+                      current_layer_wrap :=
+                        Some (String.sub tl 12 (String.length tl - 12));
+                      parse_variants name config rest)
+                    else parse_classes name config (line :: rest)))
     and parse_classes name config lines =
       match lines with
       | [] -> ()
@@ -144,6 +176,8 @@ let read filename =
             let new_name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
             current_theme_vars := [];
+            current_utility_defs := [];
+            current_layer_wrap := None;
             parse_config new_name No_theme rest)
           else
             let classes = split_classes line in
@@ -173,6 +207,8 @@ let read filename =
                 expected;
                 variants = List.rev !current_variants;
                 theme_vars = List.rev !current_theme_vars;
+                utility_defs = List.rev !current_utility_defs;
+                layer_wrap = !current_layer_wrap;
               }
               :: !tests
       | line :: rest ->
@@ -188,6 +224,8 @@ let read filename =
                   expected;
                   variants = List.rev !current_variants;
                   theme_vars = List.rev !current_theme_vars;
+                  utility_defs = List.rev !current_utility_defs;
+                  layer_wrap = !current_layer_wrap;
                 }
                 :: !tests;
             parse rest)
