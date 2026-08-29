@@ -143,7 +143,7 @@ let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
     precedence over the legacy px-only record field. *)
 let breakpoint_length scheme name =
   match List.assoc_opt ("breakpoint-" ^ name) scheme.token_overrides with
-  | Some value -> Css.parse_length (String.trim value)
+  | Some value -> Css.parse_length value
   | None ->
       Option.map (fun px -> (Css.Px px : Css.length)) (breakpoint scheme name)
 
@@ -154,7 +154,7 @@ let breakpoint_names scheme =
         let prefix = "breakpoint-" in
         if
           String.starts_with ~prefix name
-          && Option.is_some (Css.parse_length (String.trim value))
+          && Option.is_some (Css.parse_length value)
         then
           Some
             (String.sub name (String.length prefix)
@@ -260,10 +260,7 @@ let all_breakpoints scheme =
         let length =
           match breakpoint_length scheme name with
           | Some _ as length -> length
-          | None ->
-              Option.bind
-                (token_default (prefix ^ name))
-                (fun css -> Css.parse_length (String.trim css))
+          | None -> Option.bind (token_default (prefix ^ name)) Css.parse_length
         in
         Option.map (fun length -> (name, length)) length)
 
@@ -284,7 +281,7 @@ let with_overrides ?(inline = []) scheme overrides =
             String.sub name (String.length prefix)
               (String.length name - String.length prefix)
           in
-          match Css.parse_length (String.trim value) with
+          match Css.parse_length value with
           | Some (Css.Px px) -> (name, px) :: List.remove_assoc name breakpoints
           | _ -> breakpoints
         else breakpoints)
