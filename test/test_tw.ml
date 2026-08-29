@@ -271,11 +271,32 @@ let upstream_scheme (config : Upstream_fixture.config) theme_vars variants
   in
   Tw.Scheme.with_overrides base overrides
 
-let class_is_emitted expected cls =
-  String.contains expected '.'
-  && Astring.String.is_infix
-       ~affix:("." ^ Tw.Rule.escape_class_name cls)
-       expected
+(* The selectors a fixture's expected CSS actually carries. An [expected] with
+   no rule at all is the fixture saying tw must emit nothing, so the classes of
+   such a case are not the gate's business. *)
+let emitted_selectors expected =
+  if not (String.contains expected '.') then []
+  else
+    match Css.of_string expected with
+    | Error e ->
+        (* Reading [] back would hand every class of the case a free pass, which
+           is the silent skip this membership test exists to remove. *)
+        Alcotest.failf "upstream expected CSS does not parse: %s"
+          (Cascade.Error.to_string e)
+    | Ok { Css.stylesheet; _ } ->
+        Css.fold
+          (fun acc stmt ->
+            match Css.as_rule stmt with
+            | Some (selector, _, _) -> selector :: acc
+            | None -> acc)
+          [] stylesheet
+
+(* Membership is read off the parsed selectors rather than scanned for in the
+   CSS text. A non-ASCII class name is hex-escaped by [escape_class_name] and
+   left literal by the printer, so a text scan misses it and the gate silently
+   stops checking a class Tailwind did emit. *)
+let class_is_emitted selectors cls =
+  List.exists (Css.Selector.exists_class (String.equal cls)) selectors
 
 let check_upstream_positive_fixture_parse filename () =
   let cases = upstream_positive_cases filename in
@@ -285,8 +306,9 @@ let check_upstream_positive_fixture_parse filename () =
         let theme =
           upstream_scheme c.config c.theme_vars c.variants c.expected
         in
+        let selectors = emitted_selectors c.expected in
         c.classes
-        |> List.filter (class_is_emitted c.expected)
+        |> List.filter (class_is_emitted selectors)
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with
             | Ok _ -> None
@@ -309,6 +331,24 @@ let check_upstream_positive_fixture_parse filename () =
       Alcotest.failf
         "Unparsed upstream classes that Tailwind emitted (%d rejected).\n%s"
         (List.length rejected) sample
+
+(* Which classes the upstream parse gate exercises. Membership comes off the
+   parsed selectors, so a class the fixture spells one way and
+   [Rule.escape_class_name] another still counts. An expected CSS holding no
+   rule exercises nothing: that case is the fixture asking for no output. *)
+let upstream_gate_reads_emitted_classes () =
+  let selectors =
+    emitted_selectors ".aria-\\[état\\]\\:flex[aria-état] { display: flex; }"
+  in
+  Alcotest.(check bool)
+    "a non-ASCII class the sheet carries is exercised" true
+    (class_is_emitted selectors "aria-[état]:flex");
+  Alcotest.(check bool)
+    "a class the sheet does not carry is not" false
+    (class_is_emitted selectors "data-[état]:flex");
+  Alcotest.(check bool)
+    "an expected CSS with no rule exercises nothing" false
+    (class_is_emitted (emitted_selectors "") "flex")
 
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
 
@@ -1212,6 +1252,8 @@ let core_tests =
       (check_upstream_positive_fixture_parse "utilities.txt");
     test_case "upstream variants parse parity" `Quick
       (check_upstream_positive_fixture_parse "variants.txt");
+    test_case "upstream gate reads emitted classes" `Quick
+      upstream_gate_reads_emitted_classes;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "states" `Slow states;
     test_case "negative spacing" `Slow negative_spacing;
