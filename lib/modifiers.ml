@@ -1114,89 +1114,116 @@ let is_valid_has_selector sel =
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
-(* Parse a data bracket expression into attribute name, match operator, and
-   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
-   Underscores in the value part are converted to spaces. *)
-(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
-let parse_value_and_flag value_str =
-  let vlen = String.length value_str in
-  let value_str, flag =
-    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Insensitive )
-    else if
-      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Sensitive )
-    else (value_str, None)
-  in
-  let value =
-    let vlen = String.length value_str in
-    if vlen >= 2 then
-      match (value_str.[0], value_str.[vlen - 1]) with
-      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
-      | _ -> value_str
-    else value_str
-  in
-  (value, flag)
-
-let parse_data_expr raw_expr =
-  (* Find the match operator in raw content (before underscore conversion) *)
+(* Find Tailwind's match operator ($=, ^=, *=, ~=, |= or bare =) in the raw,
+   not-yet-underscore-decoded bracket content, skipping over anything of that
+   shape written inside quotes. Cascade's own selector reader cannot do this
+   step: an unquoted operator can only be told apart from the same character
+   inside a quoted value by scanning for the quotes, and that scan has to run
+   before the value is handed to the reader at all. *)
+let data_match_operator raw_expr =
   let len = String.length raw_expr in
   let in_quotes = ref false in
-  let rec find_op i =
+  let rec go i =
     if i >= len then None
     else
       match raw_expr.[i] with
       | '"' | '\'' ->
           in_quotes := not !in_quotes;
-          find_op (i + 1)
+          go (i + 1)
       | ('$' | '^' | '*' | '~' | '|')
         when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
-          Some (i, 2, raw_expr.[i])
-      | '=' when not !in_quotes -> Some (i, 1, '=')
-      | _ -> find_op (i + 1)
+          Some (i, 2)
+      | '=' when not !in_quotes -> Some (i, 1)
+      | _ -> go (i + 1)
   in
-  let underscore_to_space s =
-    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
-  in
-  match find_op 0 with
-  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
-  | Some (op_pos, op_len, op_char) ->
-      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
-      let value_str =
-        underscore_to_space
-          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
+  go 0
+
+let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
+
+(* Split a trailing case-sensitivity flag off a decoded value remainder:
+   Selectors 4 requires whitespace before [i]/[s], which is what Tailwind's own
+   underscore convention spells too once the underscore before the flag decodes
+   to a space (e.g. [data-[foo=bar_i]] -> "bar i"). A value that is itself
+   quoted never matches this: its last character is the closing quote, and the
+   flag can only follow that, as in [data-[foo='bar'_i]] -> "'bar' i" decoding
+   to a value of "'bar'" and a flag. *)
+let split_trailing_flag value =
+  let n = String.length value in
+  if n >= 2 && value.[n - 1] = 'i' && value.[n - 2] = ' ' then
+    (String.trim (String.sub value 0 (n - 2)), " i")
+  else if n >= 2 && value.[n - 1] = 's' && value.[n - 2] = ' ' then
+    (String.trim (String.sub value 0 (n - 2)), " s")
+  else (value, "")
+
+let is_already_quoted value =
+  let n = String.length value in
+  n >= 2
+  && ((value.[0] = '"' && value.[n - 1] = '"')
+     || (value.[0] = '\'' && value.[n - 1] = '\''))
+
+(* Wrap a decoded, not-already-quoted value in quotes CSS requires but
+   Tailwind's own bracket sugar lets the author skip, e.g. the space in
+   [data-[foo=bar_baz]] -> "bar baz". {!Css.Selector.pp_attribute_match} drops
+   the quotes again when minified and the value does not need them, so adding
+   them here never changes what a plain identifier value renders as. *)
+let quote_value value =
+  let q = if String.contains value '"' then '\'' else '"' in
+  String.make 1 q ^ value ^ String.make 1 q
+
+(* Read the reconstructed [[data-<expr>]] through cascade's own selector reader
+   and pull the pieces [parse_data_expr] hands back out of it. *)
+let data_attribute_of_bracket bracket =
+  match Css.Selector.of_string bracket with
+  | Css.Selector.Attribute (_, Css.Selector.Data name, m, flag) ->
+      ("data-" ^ name, m, flag)
+  | _ -> invalid_arg ("not a data attribute: " ^ bracket)
+
+(* Parse a [data-[...]] bracket body (the interior text, no brackets) into an
+   attribute name, match operator and optional case-sensitivity flag. Tailwind
+   underscore-decodes the whole expression and only then reads it, so the value
+   and flag - and, once a value is quoted, the quotes themselves - are valid CSS
+   only after that decoding; {!Css.Selector.of_string} reads the reconstructed
+   [[data-<expr>]] and does the actual work: choosing the match operator,
+   validating the attribute name, and reading a quoted value's escapes the same
+   way a browser would. Raises on a malformed expression; callers that see
+   arbitrary user input should validate through {!is_valid_data_attr_expr}
+   first. *)
+let parse_data_expr raw_expr =
+  match data_match_operator raw_expr with
+  | None ->
+      let name = String.trim (decode_underscores raw_expr) in
+      data_attribute_of_bracket ("[data-" ^ name ^ "]")
+  | Some (op_pos, op_len) ->
+      let len = String.length raw_expr in
+      let name =
+        String.trim (decode_underscores (String.sub raw_expr 0 op_pos))
       in
-      let value, flag = parse_value_and_flag value_str in
-      let match_op =
-        match op_char with
-        | '$' -> Css.Selector.Suffix value
-        | '^' -> Css.Selector.Prefix value
-        | '*' -> Css.Selector.Substring value
-        | '~' -> Css.Selector.Whitespace_list value
-        | '|' -> Css.Selector.Hyphen_list value
-        | _ -> Css.Selector.Exact value
+      (* Validated here, on its own: folded straight into the reconstructed text
+         below, a name ending in one of [$ ^ * ~ |] would recombine with the
+         operator that follows it into a different, two-character one ([foo^]
+         then [=] reads back as [foo] then [^=]). None of those characters is
+         one {!Css.Selector.attribute} accepts in a name, so this rules the
+         recombination out before it can happen. *)
+      ignore (Css.Selector.attribute ("data-" ^ name) Css.Selector.Presence);
+      let op_text = String.sub raw_expr op_pos op_len in
+      let rest =
+        String.trim
+          (decode_underscores
+             (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)))
       in
-      ("data-" ^ attr, match_op, flag)
+      let value, flag_text = split_trailing_flag rest in
+      let value_text =
+        if is_already_quoted value then value else quote_value value
+      in
+      data_attribute_of_bracket
+        ("[data-" ^ name ^ op_text ^ value_text ^ flag_text ^ "]")
 
 (* Validate a data-[...] bracket expression by running it through the same
-   reading [parse_data_expr] does at render time, then handing the resulting
-   attribute name to {!Css.Selector.attribute}: it validates the name as a CSS
-   identifier and rejects a malformed one, such as the split operator [^_=] (a
-   space inside what must be the adjacent two-character [^=] token) falling
-   through to a bare [=] and dragging the stray [^] and a decoded space into
-   what becomes the attribute name. The value is left unvalidated here since
-   Tailwind's arbitrary values legitimately hold a decoded space (e.g.
-   [data-[foo=bar_baz]]) that the printer quotes on output. *)
+   reading [parse_data_expr] does at render time. *)
 let is_valid_data_attr_expr expr =
-  let attr_name, attr_match, attr_flag = parse_data_expr expr in
-  try
-    ignore (Css.Selector.attribute ?flag:attr_flag attr_name attr_match);
-    true
-  with Invalid_argument _ -> false
+  match parse_data_expr expr with
+  | _ -> true
+  | exception (Invalid_argument _ | Cascade.Cursor.Parse_error _) -> false
 
 (* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
    [[@starting-style]] wrap the utility rather than select it. *)
