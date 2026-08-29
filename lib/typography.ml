@@ -1748,11 +1748,12 @@ module Typography_late = struct
   let name = "typography_late"
 
   (* Most late-typography families (decoration, tracking, whitespace,
-     word-break) sort at priority 26. Three occupy earlier canonical slots:
+     word-break) sort at priority 26. Four occupy earlier canonical slots:
      list-style (rank 48, by cursor/resize at priority 11),
      text-overflow/truncate (rank 62, just before overflow at priority 18),
-     vertical-align (rank 80, right after text-align in the early handler at
-     priority 24), and line-clamp (rank 26, with box-sizing at priority 3). *)
+     text-indent and vertical-align (right after text-align in the early handler
+     at priority 24), and line-clamp (rank 26, with box-sizing at priority
+     3). *)
   let priority = function
     | List_none | List_disc | List_decimal | List_inside | List_outside
     | List_image_none | List_image_url _ | List_bracket_var _
@@ -1762,9 +1763,10 @@ module Typography_late = struct
        it shares box-sizing's priority and sorts after it on suborder. *)
     | Line_clamp _ | Line_clamp_arbitrary _ | Line_clamp_none -> 3
     | Truncate -> 17
-    | Align_baseline | Align_top | Align_middle | Align_bottom | Align_sub
-    | Align_super | Align_text_top | Align_text_bottom | Align_arbitrary_var _
-      ->
+    | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
+    | Indent_neg_arbitrary _ | Align_baseline | Align_top | Align_middle
+    | Align_bottom | Align_sub | Align_super | Align_text_top
+    | Align_text_bottom | Align_arbitrary_var _ ->
         24
     | _ -> 26
 
@@ -2447,30 +2449,23 @@ module Typography_late = struct
     | Stacked_fractions -> 9706
     | Tabular_nums -> 9707
     | Normal_nums -> 9708
-    (* Indent - Tailwind ranks [text-indent] at 282, right after [text-align]
-       (281) and well before letter-spacing (289) opens the rest of the
-       late-typography band, so this family sorts before Tracking's suborders
-       (8245-8306) rather than after font-stretch/numeric-variants where it
-       previously sat. Kept as a bare, rebased offset rather than
-       [Property_order.slot 282] for the same reason as [Text_wrap] above: the
-       neighbours it has to sort against are still on this file's local scale.
-       The base only shifted (9700/9800 -> 7000/7100); the arithmetic inside the
-       family, including the [Indent_arbitrary]/[Indent_neg_arbitrary] tie with
-       [n = 0], is unchanged.
+    (* Indent - Tailwind ranks [text-indent] at 282, between [text-align] (281)
+       and [vertical-align] (283), so the family sits at priority 24 with both:
+       [Text_align] holds 1001-1006 in the early handler, [Align_*] below holds
+       1200-1207, and one slot in between puts every spelling of [indent-*]
+       where Tailwind puts it. Bare rather than [Property_order.slot 282], for
+       the same reason as [Text_wrap] above: the neighbours it sorts against are
+       on this file's local scale.
 
-       This only fixes Indent's order within priority 26. Real Tailwind's
-       [text-indent] (282) actually sits between [text-align] (281) and
-       [vertical-align] (283, [Align_*] below) - both priority 24, one band
-       earlier than Indent's priority here - so Indent still sorts after every
-       priority-24 utility (e.g. [font-bold]) regardless of this suborder.
-       Closing that gap means moving Indent to priority 24, which is a larger
-       change than this fix attempts. *)
-    | Indent_neg n -> 7000 + int_of_float (n *. 10.)
-    | Indent_neg_px -> 7099
-    | Indent n -> 7100 + int_of_float (n *. 10.)
-    | Indent_px -> 7101
-    | Indent_arbitrary _ -> 7100
-    | Indent_neg_arbitrary _ -> 7100
+       The whole family shares that slot and [Sort.natural_compare] on the class
+       name separates it, which is the order Tailwind emits: negatives lead on
+       the [-], digit runs compare numerically so [indent-8] precedes
+       [indent-10], and the bracket and [px] spellings follow the bare steps.
+       One slot also keeps an [indent-<n>] of any size inside it, where an
+       offset derived from [n] would eventually reach [Align_*]. *)
+    | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
+    | Indent_neg_arbitrary _ ->
+        1100
     | Line_clamp n -> 10000 + n
     | Line_clamp_arbitrary _ -> 11000
     | Line_clamp_none -> 12000
