@@ -1478,6 +1478,20 @@ let parse_routed_blocks ~own_order ~hoisted blocks =
   List.concat parsed @ hoisted
   |> routed_statements ~block_count:(List.length parsed) ~own_order
 
+(* A declared utility hoists the same [@layer properties] fallback block the
+   generated sheet emits, and that block belongs where the sheet puts its own:
+   ahead of the theme, not after the utilities it initialises. The rest of what
+   it hoists follows the sheet. *)
+let place_routed stmts sheet =
+  let is_properties_layer stmt =
+    match Css.layer_block_name stmt with
+    | Some name -> Css.Stylesheet.equal_layer_name name [ "properties" ]
+    | None -> false
+  in
+  match List.partition is_properties_layer stmts with
+  | [], [] -> sheet
+  | lead, trail -> Css.v (lead @ Css.statements sheet @ trail)
+
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = Hashtbl.create 64 in

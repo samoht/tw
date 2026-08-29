@@ -85,6 +85,12 @@ val custom_routed_utilities :
     {!Tw.to_css} as [~extra] so they sort among the built-in utilities, and the
     statements that belong beside the utilities layer rather than in it. *)
 
+val place_routed : Cascade.Css.statement list -> Cascade.Css.t -> Cascade.Css.t
+(** [place_routed stmts sheet] puts the statements {!custom_routed_utilities}
+    left beside the utilities layer around [sheet]: the [@layer properties]
+    fallback block a declared utility hoists leads, where the generated sheet
+    puts its own, and the rest follows. *)
+
 (** {1 Text passes} *)
 
 val hoist_theme_keyframes : string -> string
