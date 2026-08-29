@@ -2375,29 +2375,57 @@ module Typography_late = struct
     | Subpixel_antialiased -> 8701
     (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
        text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
-       a suborder above alignment/gap's range. *)
+       a suborder above alignment/gap's range. Tailwind ranks [text-overflow] at
+       293, between the word-wrapping families (291/292) below and hyphens (294)
+       above - it already lands there without adjustment. *)
     | Text_clip -> 8320
     | Text_ellipsis -> 8321
     | Overflow_ellipsis -> 8321
     | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
-    (* Text wrap - alphabetical order *)
-    | Text_balance -> 9100
-    | Text_nowrap -> 9101
-    | Text_pretty -> 9102
-    | Text_wrap -> 9103
-    (* Break utilities *)
-    | Break_normal -> 8310
-    | Break_words -> 8311
-    | Break_all -> 8312
-    | Break_keep -> 9203
-    (* Overflow wrap *)
+    (* Text wrap - Tailwind ranks [text-wrap] at 290, right after letter-spacing
+       (289, Tracking's suborder tops out at 8306) and before overflow-wrap
+       (291, Break_normal below). Every variant here writes only [text-wrap], so
+       they tie and the class name breaks it alphabetically: balance, nowrap,
+       pretty, wrap.
+
+       Not [Property_order.last 290]: that mechanism suits a family whose
+       neighbours already use it (backgrounds, masks), where every rank in the
+       shared priority is on the same 1000-wide scale. Here Tracking,
+       Text_clip/Ellipsis and Whitespace stay on this file's local bare-integer
+       scale (82xx-83xx) and are not being touched by this fix, so a suborder on
+       the real-rank scale (290 * 1000 and up) would sort after all of them
+       regardless of true rank. Every family below that needs to interleave with
+       an unconverted neighbour stays on this same local scale for the same
+       reason. *)
+    | Text_balance -> 8307
+    | Text_nowrap -> 8307
+    | Text_pretty -> 8307
+    | Text_wrap -> 8307
+    (* Break utilities - Tailwind ranks [overflow-wrap] at 291 and [word-break]
+       at 292. [break-normal] writes both, so it leads the 291-292 stretch;
+       lib/overflow_wrap.ml's wrap-anywhere/wrap-break-word/ wrap-normal write
+       only [overflow-wrap], same as [break-words], so all four tie with it at
+       8309 - a bare constant matching this file's local scale (see the
+       [Text_wrap] comment above). [break-all] and [break-keep] write only
+       [word-break] and tie at 8310. *)
+    | Break_normal -> 8308
+    | Break_words -> 8309
+    | Break_all -> 8310
+    | Break_keep -> 8310
+    (* Overflow wrap - not real Tailwind utility names ([overflow-wrap-normal]
+       etc. rather than [wrap-normal]); real tailwindcss generates nothing for
+       them, so there is no oracle order to match. Left where they were. *)
     | Overflow_wrap_normal -> 9300
     | Overflow_wrap_anywhere -> 9301
     | Overflow_wrap_break_word -> 9302
-    (* Hyphens - alphabetical order *)
-    | Hyphens_auto -> 9400
-    | Hyphens_manual -> 9401
-    | Hyphens_none -> 9402
+    (* Hyphens - Tailwind ranks [hyphens] at 294, between text-overflow (293,
+       Text_ellipsis above) and white-space (295, Whitespace_* below); the
+       [-webkit-hyphens] declaration every variant also writes carries no rank
+       of its own, so all three tie on [hyphens] alone and the class name breaks
+       it alphabetically: auto, manual, none. *)
+    | Hyphens_auto -> 8325
+    | Hyphens_manual -> 8325
+    | Hyphens_none -> 8325
     (* Font stretch - percentages first (sorted by value), then keywords *)
     | Font_stretch_percent n -> 9500 + n
     | Font_stretch_condensed -> 9700
@@ -2419,13 +2447,30 @@ module Typography_late = struct
     | Stacked_fractions -> 9706
     | Tabular_nums -> 9707
     | Normal_nums -> 9708
-    (* Indent and line clamp *)
-    | Indent_neg n -> 9700 + int_of_float (n *. 10.)
-    | Indent_neg_px -> 9799
-    | Indent n -> 9800 + int_of_float (n *. 10.)
-    | Indent_px -> 9801
-    | Indent_arbitrary _ -> 9800
-    | Indent_neg_arbitrary _ -> 9800
+    (* Indent - Tailwind ranks [text-indent] at 282, right after [text-align]
+       (281) and well before letter-spacing (289) opens the rest of the
+       late-typography band, so this family sorts before Tracking's suborders
+       (8245-8306) rather than after font-stretch/numeric-variants where it
+       previously sat. Kept as a bare, rebased offset rather than
+       [Property_order.slot 282] for the same reason as [Text_wrap] above: the
+       neighbours it has to sort against are still on this file's local scale.
+       The base only shifted (9700/9800 -> 7000/7100); the arithmetic inside the
+       family, including the [Indent_arbitrary]/[Indent_neg_arbitrary] tie with
+       [n = 0], is unchanged.
+
+       This only fixes Indent's order within priority 26. Real Tailwind's
+       [text-indent] (282) actually sits between [text-align] (281) and
+       [vertical-align] (283, [Align_*] below) - both priority 24, one band
+       earlier than Indent's priority here - so Indent still sorts after every
+       priority-24 utility (e.g. [font-bold]) regardless of this suborder.
+       Closing that gap means moving Indent to priority 24, which is a larger
+       change than this fix attempts. *)
+    | Indent_neg n -> 7000 + int_of_float (n *. 10.)
+    | Indent_neg_px -> 7099
+    | Indent n -> 7100 + int_of_float (n *. 10.)
+    | Indent_px -> 7101
+    | Indent_arbitrary _ -> 7100
+    | Indent_neg_arbitrary _ -> 7100
     | Line_clamp n -> 10000 + n
     | Line_clamp_arbitrary _ -> 11000
     | Line_clamp_none -> 12000

@@ -16,9 +16,21 @@ module Handler = struct
 
   let name = "overflow_wrap"
 
-  (* Typography-adjacent priority *)
-  let priority _ = 13
-  let suborder = function Anywhere -> 0 | Break_word -> 1 | Normal -> 2
+  (* Tailwind's property table ranks [overflow-wrap] at 291, between [text-wrap]
+     (290) and [word-break] (292); that puts these utilities in
+     [Typography_late]'s default late-typography band (priority 26), not a band
+     of their own. All three set only [overflow-wrap], so Tailwind's candidate
+     sort ties them - and [break-words] in lib/typography.ml, which writes the
+     same lone property - and breaks the tie alphabetically by class name. 8309
+     is that shared suborder: it sits right after [Typography_late]'s
+     [break-normal] (8308, which writes [overflow-wrap] then carries on to
+     [word-break] and so sorts first) and before its [break-all]/[break-keep]
+     (8310, tied on [word-break] alone). A bare constant, not [Property_order],
+     because migrating this shared slot to Tailwind's real-rank scale would
+     require moving every other family in the priority-26 band along with it
+     (see lib/typography.ml). *)
+  let priority _ = 26
+  let suborder _ = 8309
 
   let to_class = function
     | Normal -> "wrap-normal"
