@@ -350,6 +350,14 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[.5rem]:flex";
       "max-[48rem]:flex";
       "max-[37.50px]:flex";
+      (* Units with no arm of their own in [compact_length] fell through to
+         cascade's printer, which drops a leading zero, so the selector named a
+         class the author never wrote. *)
+      "min-[0.5ch]:flex";
+      "min-[0.5vmin]:flex";
+      "min-[0.5cqw]:flex";
+      "min-[0.5lh]:flex";
+      "max-[0.5ex]:flex";
     ]
 
 (* The bracket holds a length, so a word is not a breakpoint at all. *)
