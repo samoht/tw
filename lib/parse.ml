@@ -323,18 +323,7 @@ let arbitrary_length_percentage s =
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
    that are not CSS, and passing one through emits an invalid declaration. *)
-let is_ident s =
-  s <> ""
-  && (match s.[0] with
-    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> true
-    | '-' -> String.length s > 1
-    | c -> Char.code c >= 0x80)
-  && String.for_all
-       (fun c ->
-         match c with
-         | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' | '_' -> true
-         | c -> Char.code c >= 0x80)
-       s
+let is_ident = Cascade.Syntax.is_ident
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("

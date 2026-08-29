@@ -90,7 +90,9 @@ val arbitrary_length_percentage : string -> Cascade.Css.length_percentage option
 
 val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
-    property name written in an arbitrary value has to be. *)
+    property name written in an arbitrary value has to be. Delegates to
+    {!Cascade.Syntax.is_ident}, which is the CSS Syntax 3 grammar: a bare [-], a
+    [-] before a digit, and a leading digit all open no ident. *)
 
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
