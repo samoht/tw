@@ -794,8 +794,8 @@ module Handler = struct
     let stop v = set (color_var v pos_end) value in
     style ~property_rules (stop_decls dir stop @ composite_decls)
 
-  (* The keyword goes in as text because this custom property is a token
-     stream: a typed [Current] folds through it to a hex, where Tailwind writes
+  (* The keyword goes in as text because this custom property is a token stream:
+     a typed [Current] folds through it to a hex, where Tailwind writes
      [currentcolor] for a gradient stop to resolve against the element. Not a
      workaround for cascade's printer, which spells the keyword correctly and
      positionally - [currentColor] bare, [currentcolor] inside a function. *)
