@@ -58,8 +58,8 @@ let negate_length (l : Css.length) : Css.length =
   | other -> Calc (Calc.mul (Calc.length other) (Calc.float (-1.)))
 
 (* Parse a negative arbitrary inset value like [-left-[(var(--a)+var(--b))]]. A
-   bare parenthesised expression is not a length on its own, so parse it as a
-   calc body and negate the typed calc. *)
+   bare parenthesised expression is not a length on its own, so read it as a
+   calc body straight off a cursor and negate the typed calc. *)
 let parse_neg_bracket_length s : Css.length option =
   if String.length s > 2 && s.[0] = '[' && s.[String.length s - 1] = ']' then
     let inner =
@@ -68,11 +68,13 @@ let parse_neg_bracket_length s : Css.length option =
     match Css.parse_length inner with
     | Some l -> Some (negate_length l)
     | None -> (
-        match Css.parse_length (String.concat "" [ "calc("; inner; ")" ]) with
-        | Some (Css.Calc c) ->
-            Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.))))
-        | Some l -> Some (negate_length l)
-        | None -> None)
+        match
+          Cascade.Cursor.try_parse_full_err
+            (Css.Values.read_calc_expr Css.Values.read_length)
+            (Cascade.Cursor.of_string inner)
+        with
+        | Ok c -> Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.))))
+        | Error _ -> None)
   else None
 
 (* Memoization cache for inset-named theme variables *)
