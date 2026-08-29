@@ -365,6 +365,7 @@ module Contain = Contain
 module Scroll = Scroll
 module Arbitrary = Arbitrary
 module Touch = Touch
+module Parse = Parse
 module Mask_gradient = Mask_gradient
 module Property = Property
 
