@@ -114,12 +114,24 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" (Var.css_name set_var) k
     in
     match spec with
-    (* [currentcolor] goes in as text: cascade's typed colour prints the
-       [currentColor] a colour property takes, and Tailwind writes the lowercase
-       spelling a token stream folds to. [transparent] does not need the same
-       treatment - a token stream is what the optimizer folds to [#0000], so
-       writing it as text produced the very divergence the text was meant to
-       avoid. *)
+    (* The two keywords need opposite treatment, and neither is a workaround
+       for cascade.
+
+       [currentcolor] as text: this custom property is a token stream, so a
+       typed [Current] folds through it to [#00000000] where Tailwind writes
+       the keyword. The optimizer is right to fold a colour it can resolve;
+       what it cannot know is that this stream is read by a property that
+       resolves [currentcolor] against the element. (cascade's own capital-C
+       spelling is correct too, and positional: a bare [accent-color] takes
+       [currentColor], the same keyword inside a [color-mix()] takes
+       [currentcolor], which is what the upstream fixtures hold.)
+
+       [transparent] typed: a token stream is exactly what folds to [#0000], so
+       spelling it as text produced the divergence the text was meant to avoid.
+
+       Neither shows up under [--diff] on one class - nothing reads the property
+       in a one-class sheet and canonical mode prunes it - so the check is
+       against [--tailwind] on the emitted property, not the diff. *)
     | Transparent ->
         ([ fst (Var.binding set_var (Css.Transparent : Css.color)) ], [])
     | Current -> ([ keyword "currentcolor" ], [])

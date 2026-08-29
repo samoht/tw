@@ -794,10 +794,11 @@ module Handler = struct
     let stop v = set (color_var v pos_end) value in
     style ~property_rules (stop_decls dir stop @ composite_decls)
 
-  (* A custom property spells the keyword [currentcolor], which is what cascade
-     folds a token stream to and what Tailwind writes; the typed colour prints
-     as the [currentColor] a colour property takes, so this one keyword goes in
-     as text. *)
+  (* The keyword goes in as text because this custom property is a token
+     stream: a typed [Current] folds through it to a hex, where Tailwind writes
+     [currentcolor] for a gradient stop to resolve against the element. Not a
+     workaround for cascade's printer, which spells the keyword correctly and
+     positionally - [currentColor] bare, [currentcolor] inside a function. *)
   let build_current_color_style dir pos_end =
     let property_rules = property_rules_for_direction dir in
     let stop v =
