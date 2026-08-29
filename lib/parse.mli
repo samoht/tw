@@ -94,6 +94,16 @@ val is_ident : string -> bool
     {!Cascade.Syntax.is_ident}, which is the CSS Syntax 3 grammar: a bare [-], a
     [-] before a digit, and a leading digit all open no ident. *)
 
+val is_declaration_value : string -> bool
+(** [is_declaration_value s] is [true] when [s] can be the whole value of one
+    declaration: no top-level [;], no unmatched closing bracket, and no
+    unterminated function, block or string (CSS Syntax 3 (ED) sec. 7.2).
+
+    A bracket value that fails this ends the declaration it is written into, or
+    swallows the rest of the rule, so the class carrying it is refused rather
+    than emitted. {!Cascade.Css.custom_property} takes the same values and
+    raises on the rest. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes

@@ -1702,7 +1702,10 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
-    | [ "scale"; "z"; n ] when Parse.is_bracket_value n ->
+    | [ "scale"; "z"; n ]
+      when Parse.is_bracket_value n
+           && Parse.is_declaration_value
+                (Parse.decode_arbitrary_value (Parse.bracket_inner n)) ->
         Ok (Scale_z_arbitrary (Parse.bracket_inner n))
     | [ "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n

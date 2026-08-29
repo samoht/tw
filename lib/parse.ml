@@ -329,6 +329,14 @@ let arbitrary_length_percentage s =
    that are not CSS, and passing one through emits an invalid declaration. *)
 let is_ident = Cascade.Syntax.is_ident
 
+(* An arbitrary value reaching a custom property is author text, so it can carry
+   a top-level [;] or [}] that ends the declaration early, or an unterminated
+   function, block or string that swallows the rest of the rule. cascade refuses
+   such a pair from [custom_property] by raising, which is right for a caller
+   holding CSS it wrote; here the text comes from a class name, so the class is
+   the thing to refuse. Tailwind refuses the same ones. *)
+let is_declaration_value = Cascade.Css.Declaration.is_declaration_value
+
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
 

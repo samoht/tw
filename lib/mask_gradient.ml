@@ -938,10 +938,12 @@ module Handler = struct
   (* Parse a value from the class suffix *)
   let parse_value suffix =
     if String.length suffix > 0 && suffix.[0] = '[' then
-      (* Arbitrary value - reject negative values *)
+      (* Arbitrary value - reject negative values, and any text that would not
+         stay inside the declaration it is written into. *)
       if Parse.is_bracket_value suffix then
         let inner = Parse.bracket_inner suffix in
         if String.length inner > 0 && inner.[0] = '-' then Option.none
+        else if not (Parse.is_declaration_value inner) then Option.none
         else Option.some (Arbitrary inner)
       else Option.none
     else if String.length suffix > 0 && suffix.[String.length suffix - 1] = '%'
@@ -1138,7 +1140,9 @@ module Handler = struct
         let size_value =
           String.map (fun c -> if c = '_' then ' ' else c) size_value
         in
-        Ok (Mask_radial_size (Arbitrary_size size_value))
+        if not (Parse.is_declaration_value size_value) then
+          Error (`Msg ("Invalid mask-radial size: " ^ size_value))
+        else Ok (Mask_radial_size (Arbitrary_size size_value))
     | _ -> Error (`Msg "Not a mask gradient utility")
 
   let format_value = function

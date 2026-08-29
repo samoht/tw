@@ -141,6 +141,35 @@ let test_double_bracket_class_rejected () =
   accepted "text-[10px]/[1.5]";
   accepted "bg-red-500/[0.5]"
 
+(* A bracket value reaching a custom property is author text. One that would not
+   stay inside the declaration it is written into - a top-level [;] or [}], an
+   unmatched [)], an unterminated function or block - ends that declaration
+   early or swallows the rest of the rule, so the class carrying it is refused
+   rather than handed to [Css.custom_property], which raises on it. Tailwind
+   emits nothing for any of these either. *)
+let test_bracket_value_leaving_the_declaration_is_rejected () =
+  List.iter unknown
+    [
+      "scale-z-[a;b]";
+      "scale-z-[0)]";
+      "scale-z-[1px}]";
+      "bg-linear-[a;b]";
+      "bg-linear-[0)/*1]";
+      "bg-radial-[}.x{color:red]";
+      "mask-t-from-[a;b]";
+      "mask-x-to-[var(--x);]";
+      "mask-y-from-[1px}]";
+      "mask-radial-[a{b]";
+    ];
+  (* and every value that does stay inside it is still kept *)
+  List.iter round_trips
+    [
+      "scale-z-[1.5]";
+      "bg-linear-[45deg]";
+      "mask-t-from-[10px]";
+      "mask-x-to-[calc(100%-1px)]";
+    ]
+
 (* [--spacing(N)] is Tailwind's spacing-scale shorthand, expanded outside any
    quoting. The same bytes inside a quoted string are a CSS string literal, not
    the function, so [expand_spacing_fn] must leave them alone. *)
@@ -178,6 +207,8 @@ let tests =
         test_redundant_zero_spellings_are_rejected;
       test_case "parsing is independent of parse history" `Quick
         test_parse_is_independent_of_history;
+      test_case "bracket value leaving the declaration is rejected" `Quick
+        test_bracket_value_leaving_the_declaration_is_rejected;
       test_case "--spacing() shorthand ignored inside quotes" `Quick
         test_spacing_shorthand_ignored_in_quotes;
     ]
