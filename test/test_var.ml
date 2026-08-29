@@ -88,6 +88,28 @@ let var_in_theme_layer () =
         ]
         (List.sort_uniq String.compare custom_props)
 
+(* Tailwind spells one registered zero two ways: [--tw-ring-offset-width: 0px]
+   in the properties layer's bulk declaration, but [initial-value: 0] in its own
+   [@property] rule (checked 2026-08-29 against the real CLI). Every other
+   zero-initialised [Length] variable (border-spacing-x/y) gets "0" in both
+   places, and the canonical [--diff] comparison treats "0" and "0px" as the
+   same length, so a regression here would not show up there - only this pinned
+   literal catches it. *)
+let ring_offset_width_properties_layer_spelling () =
+  let css =
+    match Tw.of_string "ring-2" with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Css.to_string ~minify:true
+    | Error (`Msg m) -> fail m
+  in
+  check bool "properties layer keeps the unit" true
+    (Astring.String.is_infix ~affix:"--tw-ring-offset-width:0px" css);
+  check bool "@property initial-value drops it" true
+    (Astring.String.is_infix
+       ~affix:
+         "@property \
+          --tw-ring-offset-width{syntax:\"<length>\";inherits:false;initial-value:0}"
+       css)
+
 let order = testable Fmt.(option (pair int int)) ( = )
 
 let render ?theme classes =
@@ -230,6 +252,8 @@ let tests =
     test_case "var fallback in CSS" `Quick var_fallback_in_css;
     test_case "arbitrary var fallbacks" `Quick arbitrary_var_fallbacks;
     test_case "var in theme layer" `Quick var_in_theme_layer;
+    test_case "ring-offset-width properties layer spelling" `Quick
+      ring_offset_width_properties_layer_spelling;
     test_case "order of shared slot" `Quick order_of_shared_slot;
     test_case "order of family bands" `Quick order_of_family_bands;
     test_case "order of theme-named tokens" `Quick order_of_theme_named_tokens;
