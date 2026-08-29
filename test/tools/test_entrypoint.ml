@@ -126,6 +126,19 @@ let test_take_custom_utilities () =
     [ ("line-y", " border-block: 1px solid ") ]
     defs
 
+(* [--spacing(N)] is a reference to the spacing scale, except under an [@theme
+   inline] [--spacing]: there the token has no declaration to reference, so the
+   step is multiplied out. *)
+let test_spacing_shorthand () =
+  let scheme inline =
+    Tw.Scheme.with_overrides ~inline Tw.Scheme.default [ ("spacing", "4px") ]
+  in
+  check string "a declared token is referenced"
+    ".a { margin: calc(var(--spacing) * 12) }"
+    (apply_variants ~theme:(scheme []) ".a { margin: --spacing(12) }");
+  check string "an inline token is worked out" ".a { margin: 48px }"
+    (apply_variants ~theme:(scheme [ "spacing" ]) ".a { margin: --spacing(12) }")
+
 let test_drop_directives () =
   check string "directives gone, author CSS kept" "\n\n.a { color: red }\n"
     (drop_directives
@@ -262,6 +275,7 @@ let tests =
     test_case "slots filled" `Quick test_fill_slots;
     test_case "custom variants taken" `Quick test_take_custom_variants;
     test_case "custom utilities taken" `Quick test_take_custom_utilities;
+    test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;

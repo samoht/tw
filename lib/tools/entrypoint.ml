@@ -581,9 +581,30 @@ let rec expand_variants ~depth defs css =
     let out = Buffer.contents buf in
     if !changed then expand_variants ~depth:(depth + 1) defs out else out
 
+(* A project that declared [--spacing] in an [@theme inline] block has no
+   variable to reference, so the step is multiplied out here instead, the way
+   Tailwind's inline theme does. *)
+let inline_spacing ~theme multiple =
+  if not (Tw.Scheme.is_inline_token theme "spacing") then None
+  else
+    let scaled (step : Css.length) times : Css.length option =
+      match step with
+      | Css.Px v -> Some (Css.Px (v *. times))
+      | Css.Rem v -> Some (Css.Rem (v *. times))
+      | Css.Em v -> Some (Css.Em (v *. times))
+      | _ -> None
+    in
+    match
+      ( Option.bind (Tw.Scheme.token theme "spacing") Css.parse_length,
+        float_of_string_opt (String.trim multiple) )
+    with
+    | Some step, Some times ->
+        Option.map (Css.Pp.to_string Css.pp_length) (scaled step times)
+    | _ -> None
+
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
-let expand_spacing_fn css =
+let expand_spacing_fn ~theme css =
   let scan = Scan.v css in
   let len = String.length css in
   let buf = Buffer.create len in
@@ -593,7 +614,9 @@ let expand_spacing_fn css =
       match Scan.call scan ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
-            (String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
+            (match inline_spacing ~theme body with
+            | Some value -> value
+            | None -> String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
           go next
       | None ->
           Buffer.add_char buf css.[i];
@@ -986,7 +1009,7 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   in
   drop_directives
     (resolve_theme_fn ~theme
-       (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css))))
+       (expand_spacing_fn ~theme (expand_variants ~depth:0 defs (expand 0 css))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
