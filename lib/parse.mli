@@ -111,9 +111,10 @@ val is_bracket_var : string -> bool
 
 val is_css_color_fn : string -> bool
 (** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function
-    call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]. Recognizes all
-    standard CSS color functions: rgb, rgba, hsl, hsla, hwb, oklch, oklab, lch,
-    lab, color, and color-mix. *)
+    call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
+    before its first ['('] names a function
+    {!Cascade.Css.Properties.is_color_function} recognises - a colour syntax
+    fixes, case-insensitively. *)
 
 val is_bare_var : string -> bool
 (** [is_bare_var s] returns [true] if [s] is a bare var reference like

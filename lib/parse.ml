@@ -144,12 +144,14 @@ let function_name_before s i =
     String.lowercase_ascii (String.sub s (!j + 1) (stop - !j - 1))
   else ""
 
-let is_css_math_function = function
-  | "abs" | "calc" | "calc-size" | "clamp" | "hypot" | "max" | "min" | "mod"
-  | "rem" | "round" | "sign" ->
-      true
-  | _ -> false
-
+(* A substitution function ([var()], [attr()], [env()]) stands for a token
+   stream, not a value CSS Values 4 sec. 10 math grammar parses, so entering one
+   inside a math function must not inherit the surrounding operator context: a
+   dash inside the name it carries (["--spacing-6"]) is not a minus sign.
+   cascade exports no name table for this - [Properties.is_color_function]
+   answers a different question (which functions are colours) and using it here
+   instead corrupts [p-[calc(var(--spacing-6)-1px)]] into [calc(var(--spacing -
+   6) - 1px)]. Kept hand-written on purpose. *)
 let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
@@ -159,7 +161,9 @@ let is_css_non_math_function = function
    width from a colour by the bracket's first character need to know. *)
 let starts_with_math_function s =
   match String.index_opt s '(' with
-  | Some i -> is_css_math_function (String.lowercase_ascii (String.sub s 0 i))
+  | Some i ->
+      Cascade.Css.Properties.is_math_function
+        (String.lowercase_ascii (String.sub s 0 i))
   | None -> false
 
 let normalize_css_math_operators s =
@@ -192,7 +196,7 @@ let normalize_css_math_operators s =
     | '(' ->
         let fn = function_name_before s i in
         let ctx =
-          if is_css_math_function fn then true
+          if Cascade.Css.Properties.is_math_function fn then true
           else if is_css_non_math_function fn then false
           else current_math ()
         in
@@ -336,14 +340,9 @@ let is_bracket_var s =
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
     followed by '('. *)
 let is_css_color_fn s =
-  let starts prefix =
-    String.length s >= String.length prefix + 1
-    && String.sub s 0 (String.length prefix) = prefix
-    && s.[String.length prefix] = '('
-  in
-  starts "rgb" || starts "rgba" || starts "hsl" || starts "hsla" || starts "hwb"
-  || starts "oklch" || starts "oklab" || starts "lch" || starts "lab"
-  || starts "color" || starts "color-mix" || starts "light-dark"
+  match String.index_opt s '(' with
+  | Some i -> Cascade.Css.Properties.is_color_function (String.sub s 0 i)
+  | None -> false
 
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =
