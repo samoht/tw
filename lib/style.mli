@@ -293,6 +293,12 @@ type t =
   | Modified of modifier * t
   | Group of t list
 
+val compact_length : Css.length -> string
+(** [compact_length l] renders [l] the way a class name spells it: the author's
+    own number, with no spaces around calc operators. It is not
+    {!Css.pp_length}, which canonicalises the number and so would rename the
+    class -- [min-[0.5ch]] must not become [min-[.5ch]]. *)
+
 val pp : t -> string
 (** [pp t] returns a string representation of a style. *)
 

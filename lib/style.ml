@@ -2,6 +2,44 @@
 
 module Css = Cascade.Css
 
+(** Render a CSS length in compact form (no spaces in calc operators) for class
+    names. *)
+let format_float f =
+  if Float.is_integer f then Int.to_string (Float.to_int f)
+  else Float.to_string f
+
+let rec compact_length (l : Css.length) =
+  match l with
+  | Calc c -> "calc(" ^ compact_calc c ^ ")"
+  (* [Dimension] is the arm cascade uses when the authored number is not its own
+     canonical spelling, and it keeps that text in [repr]. A class name has to
+     echo what the author wrote, so cascade's printer is the right one here: it
+     is what carries [min-[0600px]] and [min-[1e3px]] back out intact. *)
+  | Dimension _ -> Css.Pp.to_string (Css.pp_length ~always:true) l
+  | l -> (
+      (* Every other unit-carrying length goes through one formatter.
+         [format_float] keeps a leading zero where [Pp.float] drops it
+         unconditionally, and a dropped zero renames the class: the author's
+         [min-[0.5ch]] became [.min-\[.5ch\]], which matches no markup. *)
+      match Cascade.Values.calc_length_unit l with
+      | Some (unit, f) -> format_float f ^ unit
+      | None -> Css.Pp.to_string (Css.pp_length ~always:true) l)
+
+and compact_calc : Css.length Css.calc -> string = function
+  | Val l -> compact_length l
+  | Num n -> format_float n
+  | Expr (left, Add, right) -> compact_calc left ^ "+" ^ compact_calc right
+  | Expr (left, Sub, right) -> compact_calc left ^ "-" ^ compact_calc right
+  | Expr (left, Mul, right) -> compact_calc left ^ "*" ^ compact_calc right
+  | Expr (left, Div, right) -> compact_calc left ^ "/" ^ compact_calc right
+  | Var v -> "var(--" ^ Css.var_name v ^ ")"
+  | Nested inner -> "calc(" ^ compact_calc inner ^ ")"
+  | Parens inner -> "(" ^ compact_calc inner ^ ")"
+  | Sibling_index -> "sibling-index()"
+  | Sibling_count -> "sibling-count()"
+  | (Math_const _ | Math_fn _) as c ->
+      Css.Pp.to_string (Css.pp_length ~always:true) (Calc c)
+
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
 type container_cmp = Min | Max
 
@@ -460,10 +498,8 @@ let rec pp_modifier = function
   | Max_responsive `Xl_2 -> "max-2xl"
   | Min_arbitrary w -> String.concat "" [ "min-["; w.text; "]" ]
   | Max_arbitrary w -> String.concat "" [ "max-["; w.text; "]" ]
-  | Min_arbitrary_length l ->
-      "min-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
-  | Max_arbitrary_length l ->
-      "max-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
+  | Min_arbitrary_length l -> "min-[" ^ compact_length l ^ "]"
+  | Max_arbitrary_length l -> "max-[" ^ compact_length l ^ "]"
   | Container q -> "@" ^ container_size_name q
   | Group_hover -> "group-hover"
   | Group_focus -> "group-focus"

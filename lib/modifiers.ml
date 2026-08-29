@@ -59,40 +59,9 @@ let breakpoint_name qual bp =
 let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
   Css.Selector.Class (prefix ^ "[" ^ w.text ^ "]:" ^ cls)
 
-(** Render a CSS length in compact form (no spaces in calc operators) for class
-    names. *)
-let format_float f =
-  if Float.is_integer f then Int.to_string (Float.to_int f)
-  else Float.to_string f
-
-let rec compact_length (l : Css.length) =
-  match l with
-  | Px f -> format_float f ^ "px"
-  | Em f -> format_float f ^ "em"
-  | Rem f -> format_float f ^ "rem"
-  | Vh f -> format_float f ^ "vh"
-  | Vw f -> format_float f ^ "vw"
-  | Cm f -> format_float f ^ "cm"
-  | Mm f -> format_float f ^ "mm"
-  | In f -> format_float f ^ "in"
-  | Pt f -> format_float f ^ "pt"
-  | Calc c -> "calc(" ^ compact_calc c ^ ")"
-  | _ -> Css.Pp.to_string (Css.pp_length ~always:true) l
-
-and compact_calc : Css.length Css.calc -> string = function
-  | Val l -> compact_length l
-  | Num n -> format_float n
-  | Expr (left, Add, right) -> compact_calc left ^ "+" ^ compact_calc right
-  | Expr (left, Sub, right) -> compact_calc left ^ "-" ^ compact_calc right
-  | Expr (left, Mul, right) -> compact_calc left ^ "*" ^ compact_calc right
-  | Expr (left, Div, right) -> compact_calc left ^ "/" ^ compact_calc right
-  | Var v -> "var(--" ^ Css.var_name v ^ ")"
-  | Nested inner -> "calc(" ^ compact_calc inner ^ ")"
-  | Parens inner -> "(" ^ compact_calc inner ^ ")"
-  | Sibling_index -> "sibling-index()"
-  | Sibling_count -> "sibling-count()"
-  | (Math_const _ | Math_fn _) as c ->
-      Css.Pp.to_string (Css.pp_length ~always:true) (Calc c)
+(* One spelling for a class name, shared with [Style], which names the same
+   utilities through [Style.to_class]. *)
+let compact_length = Style.compact_length
 
 (** Build class selector for an arbitrary length breakpoint *)
 let arbitrary_length_class prefix (l : Css.length) cls =
