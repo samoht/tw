@@ -1132,6 +1132,33 @@ let test_attribute_brackets_still_parse () =
   emits "[data-dragging]" "peer-data-[dragging]:flex";
   emits "[data-modified]" "group-data-modified:flex"
 
+(* [parse_data_expr] reads the [data-[...]] bracket body into an attribute
+   match: every operator ([$=], [^=], [*=], [~=], [|=], bare [=]), the
+   presence-only bare form, a quoted value holding a decoded space, and a
+   trailing case-sensitivity flag. This pins the selector each spelling produces
+   today so a rewrite of the reader cannot silently change one. *)
+let test_data_bracket_operators () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "[data-size~=large]" "data-[size~=large]:flex";
+  emits "[data-foo=bar]" "data-[foo=bar]:flex";
+  emits "[data-foo^=bar]" "data-[foo^=bar]:flex";
+  emits "[data-foo$=bar]" "data-[foo$=bar]:flex";
+  emits "[data-foo*=bar]" "data-[foo*=bar]:flex";
+  emits "[data-foo|=bar]" "data-[foo|=bar]:flex";
+  emits "[data-open]" "data-[open]:flex";
+  emits {|[data-foo="a b"]|} "data-[foo='a_b']:flex";
+  emits "[data-foo=bar i]" "data-[foo=bar_i]:flex";
+  emits "[data-foo=bar s]" "data-[foo=bar_s]:flex";
+  emits "[data-size~=large]" "group-data-[size~=large]:flex";
+  emits "[data-size~=large]" "peer-data-[size~=large]:flex"
+
 (* A bare [[...]] variant compounds its selector onto the utility's own class,
    so what the brackets hold has to be a compound selector. [~] is both the
    sibling combinator and the [~=] whitespace-list attribute operator, and only
@@ -1299,6 +1326,7 @@ let tests =
         test_padded_attribute_brackets;
       test_case "attribute brackets still parse" `Quick
         test_attribute_brackets_still_parse;
+      test_case "data bracket operators" `Quick test_data_bracket_operators;
       test_case "bare selector variant attribute operators" `Quick
         test_bare_selector_variant_attribute_operators;
       test_case "not-[selector] arbitrary negation" `Quick
