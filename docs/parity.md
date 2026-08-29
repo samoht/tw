@@ -9,7 +9,7 @@ Both run under `dune runtest`.
 
 **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
 Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the
-CSS Tailwind emits for it. `test/upstream/test.exe` replays 783 cases and fails
+CSS Tailwind emits for it. `test/upstream/test.exe` replays 801 cases and fails
 when tw rejects a class Tailwind accepts, or emits different CSS for one it
 accepts. The two fixtures are generated, and `test/upstream/extract_tests.ml`
 carries the command that regenerates them. Editing them by hand removes the
@@ -152,10 +152,20 @@ moved between two blocks with the same condition into a `removed` entry paired
 with an `added` entry carrying those rules back, so look for the twin before
 treating either half as a gap.
 
+The corollary is the trap. A reorder among utilities that share no CSS property
+is cascade-neutral, so the canonical projection collapses it correctly --
+nothing about the rendered page changes. Tailwind still emits those utilities in
+a fixed order, so tw can carry a real sort bug that no `--diff` in any mode will
+report. That is why the sort tests read byte positions out of the sheet
+(`check_class_order` in `test/test_sort.ml`) instead of asking the differ:
+`check_ordering_matches` goes through the differ, and the differ has nothing to
+say. A priority-band bug in `lib/typography.ml` and `lib/overflow_wrap.ml` was
+invisible to every per-class comparison and was found this way.
+
 ### Recurring bug shapes
 
 Four patterns account for most of what the site comparison has found, so a new
-family of utilities is worth checking against all four.
+family of utilities is worth checking against all five.
 
 - **Invented theme token.** A utility references `var(--<family>-<name>)` when
   no `@theme` declares it, leaving a reference that resolves to nothing. Write
@@ -169,6 +179,16 @@ family of utilities is worth checking against all four.
 - **A palette colour looked up only in `Scheme.hex_color`**, which holds
   per-render overrides and is empty by default, so the palette hex is never
   found and the fallback degrades.
+- **A class name re-printed from the AST instead of echoed.** A class name is
+  not CSS: it has to come back out spelled the way the author wrote it, because
+  it is also the selector that must match the markup. Printing it through a CSS
+  printer canonicalises the number and renames the class, so the rule matches
+  nothing. `min-[0.5ch]:flex` emitted `.min-\[\.5ch\]\:flex` because
+  `Pp.float` drops a leading zero unconditionally, and every gate stayed green:
+  no fixture covered a unit outside the handful the compact path enumerated.
+  Check a new family with a value the printer would respell -- a leading zero, a
+  trailing zero, an exponent -- and check the selector, not just the
+  declaration.
 
 ## What parity does not cover
 
