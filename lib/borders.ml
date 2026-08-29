@@ -114,7 +114,7 @@ module Handler = struct
     | Outline_0
     | Outline_width of int (* outline-1, outline-2, outline-4, outline-8 *)
     | Outline_width_bracket of
-        string * Css.length (* outline-[12px], outline-[1.5], etc. *)
+        string * Css.border_width (* outline-[12px], outline-[1.5], etc. *)
     | Outline_width_var of string (* outline-[length:var(...)], etc. *)
     (* Outline style utilities (dashed, dotted, etc.) are in
        Outline_style_handler *)
@@ -280,9 +280,13 @@ module Handler = struct
         | Some f -> Some (Px f)
         | None -> None)
 
-  let parse_outline_width inner : Css.length option =
-    match parse_length inner with
-    | Some _ as len -> len
+  (* cascade types outline-width as a [border_width], the line-width grammar it
+     shares with the border sides, so read it as one rather than reading a
+     length and converting where it is written. A bare number is Tailwind's own
+     sugar and still means pixels. *)
+  let parse_outline_width inner : Css.border_width option =
+    match parse_border_width inner with
+    | Some _ as w -> w
     | None -> (
         match parse_bare_number inner with
         | Some f -> Some (Px f)
@@ -462,7 +466,7 @@ module Handler = struct
       ]
 
   (* Outline bracket width: outline-[12px], outline-[1.5], outline-[50%] *)
-  let outline_width_bracket_style (width : Css.length) =
+  let outline_width_bracket_style (width : Css.border_width) =
     let oref = Var.reference outline_style_var in
     let property_rule =
       match Var.property_rule outline_style_var with
@@ -487,7 +491,7 @@ module Handler = struct
       | None -> v
     in
     let bare_name = Parse.extract_var_name var_part in
-    let var_ref : Css.length Css.var = Var.bracket bare_name in
+    let var_ref : Css.border_width Css.var = Var.bracket bare_name in
     style ~merge_key:"outline-" ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Var var_ref) ]
 
