@@ -1337,8 +1337,11 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
   let last = List.length segments - 1 in
   let name = List.nth segments last in
   let builtin = List.filteri (fun index _ -> index < last) segments in
-  match List.assoc_opt name udefs with
-  | Some decls ->
+  (* Every body declared for the name, in the order they were written: Tailwind
+     registers each [@utility] of a name and applies them all, so a second
+     declaration adds to the first rather than replacing it. *)
+  match List.filter (fun (n, _) -> n = name) udefs with
+  | _ :: _ as declared ->
       (* A declared utility means nothing to [Tw.of_string], so every prefix has
          to become a [@variant], the built-in ones included. *)
       if
@@ -1346,10 +1349,13 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
           (fun variant ->
             Option.is_some (routed_template ~theme derived variant))
           builtin
-      then Some (wrapped_block cls (variants @ builtin) decls)
+      then
+        Some
+          (wrapped_block cls (variants @ builtin)
+             (String.concat "" (List.map snd declared)))
       else None
-  | None when variants = [] -> None
-  | None ->
+  | [] when variants = [] -> None
+  | [] ->
       let body, top = nested_utilities ~theme [ bare ] in
       add_once hoisted seen top;
       if body = "" then None
