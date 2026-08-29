@@ -6,7 +6,7 @@
 (executable
  (name extract_tests)
  (modules extract_tests)
- (libraries re fmt astring cascade))
+ (libraries re fmt astring cascade tw_tools))
 
 (test
  (name test)
@@ -59,8 +59,8 @@
 ; indented inside one or more [describe(...)] blocks, the three quote styles a
 ; name can take, a [test.each([...])(...)] block staying out, a block defining
 ; its own [@utility] carried through with its definition and the layer its
-; template compiles into, and one defining a functional [@utility] dropped
-; whole.
+; template compiles into, and one defining a functional [@utility NAME-*]
+; carried through with the [-*] kept in its name.
 
 (rule
  (action

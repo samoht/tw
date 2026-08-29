@@ -125,6 +125,12 @@ type test_case = {
           template. Captures tokens (e.g. [text-shadow-2xs]) that Tailwind
           inlines into utilities rather than emitting to [:root], so the runner
           can reconstruct the test's theme as token overrides. *)
+  theme_modes : (string * string list) list;
+      (** The modifiers of the [@theme] block each token was declared in, for
+          the tokens whose block had any. [inline] and [reference] change how a
+          token reads rather than what it is, and a test can put two tokens of
+          one namespace in blocks that differ, so the mode belongs to the token
+          rather than to the test. *)
   utility_defs : (string * string) list;
       (** [@utility <name> { <body> }] declarations from the test's CSS
           template, so the runner can compile the case through the same
@@ -408,8 +414,23 @@ let is_empty_string_arg arg =
   in
   arg = "''" || arg = {|""|}
 
-let contains_var body = Astring.String.is_infix ~affix:"var(--" body
 let contains_apply body = Astring.String.is_infix ~affix:"@apply" body
+
+(* The theme tokens a definition body reads with [var(--name)]. *)
+let var_reference_re = Re.Pcre.regexp {|var\(\s*--([A-Za-z0-9_-]+)|}
+
+let var_references body =
+  List.map (fun g -> Re.Group.get g 1) (Re.all var_reference_re body)
+
+(* Tailwind runs its output through a minifier that adds vendor prefixes. A
+   declared utility's body reaches the sheet as written, so a snapshot spelling
+   a prefixed property no definition wrote is one tw cannot produce. *)
+let vendor_prefixes = [ "-webkit-"; "-moz-"; "-ms-" ]
+
+(* [@utility example-*] declares a functional utility: its body is a template
+   whose [--value(...)] and [--modifier(...)] reads stand for the candidate's
+   own value, so no CSS parser reads it as written. *)
+let is_functional (name, _) = String.contains name '*'
 
 (* The property of a declaration cascade rejects the value of, if the body has
    one. *)
@@ -460,13 +481,12 @@ let variant_prefixes cls =
   | None -> []
   | Some i -> String.split_on_char ':' (String.sub cls 0 i)
 
+(* The math functions whose result Tailwind's minifier writes out. *)
+let math_functions = [ "calc("; "min("; "max("; "clamp("; "round(" ]
+
 (* Why the runner cannot reproduce a block that declares its own [@utility], or
    [None] when it can. Each reason is a gap to close, not a property of the
    corpus: the check goes when the gap does.
-
-   A functional [@utility NAME-*] resolves [--value()] and [--modifier()]
-   against the candidate's own suffix, which neither this fixture format nor
-   {!Tw_tools.Entrypoint.take_custom_utilities} carries.
 
    An [@utility] the scanner did not read would leave the case compiled without
    its definitions, so a scanner gap shows up as a missing case.
@@ -480,22 +500,56 @@ let variant_prefixes cls =
    writes its declarations by expansion, so it is counted out of this one.
 
    [@theme reference] declares a token elsewhere: Tailwind inlines its value as
-   a [var()] fallback and emits no [:root] declaration, and tw has no
-   reference-token mode.
+   a [var()] fallback and emits no [:root] declaration. A declared utility
+   spells that fallback itself, so a case whose classes the declarations all
+   govern replays; every other class still goes through the built-in generator,
+   which has no reference-token mode.
 
-   A token the case's [@theme] declares and only a declared utility reads is not
-   emitted to the theme layer: tw emits a referenced-but-unset token only for
-   the catalogued colours and [--spacing].
+   A [var(--name)] a definition reads is rendered against tw's own theme when
+   the fixture carries no value for it, which is either a token Tailwind never
+   emitted or a value it emitted from the case's theme. A case with no class for
+   the declarations to govern never reads it, so it is kept.
+
+   Tailwind's minifier vendor-prefixes what it emits. A declared utility's body
+   reaches tw's sheet as written, so a snapshot holding a prefixed property no
+   definition wrote is out of reach.
+
+   An [@theme inline] token stands for its value at every use site, and
+   Tailwind's minifier folds a math function there to a number of its own
+   spelling ([calc(1 / 0.75)] comes out as [1.33333]). tw inlines the value as
+   written, and cascade prints a math function rather than working it out.
 
    [run()] compiles against an empty theme, so a named breakpoint variant the
    template never declares resolves to nothing upstream; tw's [Scheme.t] has no
    way to say "no breakpoints" (an empty list means the built-in ones). *)
-let unreplayable ~defs ~config ~theme_vars ~classes expected =
-  let functional = List.filter (fun (n, _) -> String.contains n '*') defs in
-  let unreadable =
-    List.filter_map (fun (_, b) -> unreadable_declaration b) defs
+let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
+  let routed =
+    List.filter
+      (Tw_tools.Entrypoint.is_custom_routed ~defs:[] ~udefs:defs)
+      classes
   in
-  let reads_var = List.exists (fun (_, b) -> contains_var b) defs in
+  let unreadable =
+    List.filter_map
+      (fun def ->
+        if is_functional def then None else unreadable_declaration (snd def))
+      defs
+  in
+  let unresolved_reference name = not (List.mem_assoc name theme_vars) in
+  let reads_unknown_token =
+    List.exists
+      (fun (_, body) -> List.exists unresolved_reference (var_references body))
+      defs
+  in
+  let prefixed_snapshot =
+    List.exists
+      (fun prefix ->
+        Astring.String.is_infix ~affix:prefix expected
+        && not
+             (List.exists
+                (fun (_, body) -> Astring.String.is_infix ~affix:prefix body)
+                defs))
+      vendor_prefixes
+  in
   let applies = List.exists (fun (_, b) -> contains_apply b) defs in
   let undeclared_breakpoint =
     List.exists
@@ -506,6 +560,19 @@ let unreplayable ~defs ~config ~theme_vars ~classes expected =
             && not (List.mem_assoc ("breakpoint-" ^ v) theme_vars))
           (variant_prefixes cls))
       classes
+  in
+  let inlined_math =
+    List.exists
+      (fun (name, modes) ->
+        List.mem "inline" modes
+        &&
+        match List.assoc_opt name theme_vars with
+        | None -> false
+        | Some value ->
+            List.exists
+              (fun fn -> Astring.String.is_infix ~affix:fn value)
+              math_functions)
+      theme_modes
   in
   let merged_with_builtin =
     (not applies)
@@ -520,10 +587,10 @@ let unreplayable ~defs ~config ~theme_vars ~classes expected =
          defs
   in
   let some = Fmt.kstr (fun s -> Some s) in
-  if functional <> [] then
-    some "functional @utility %s" (String.concat ", " (List.map fst functional))
-  else if defs = [] then
-    Some "an @utility declaration the extractor could not read"
+  (* [some] is fixed at the first format it is used with, so a reason carrying a
+     count needs its own. *)
+  let counted = Fmt.kstr (fun s -> Some s) in
+  if defs = [] then Some "an @utility declaration the extractor could not read"
   else if unreadable <> [] then
     some "cascade cannot read the declared %s" (String.concat ", " unreadable)
   else if merged_with_builtin then
@@ -531,9 +598,22 @@ let unreplayable ~defs ~config ~theme_vars ~classes expected =
   else if
     (config = Theme_reference || config = Theme_inline_reference)
     && expected <> ""
-  then Some "@theme reference: tw has no reference-token mode"
-  else if reads_var then
-    Some "a declared utility reads a theme token tw's theme layer will not emit"
+    && List.length routed < List.length classes
+  then
+    counted
+      "@theme reference and %d class(es) the declarations do not govern, which \
+       tw has no reference-token mode for"
+      (List.length classes - List.length routed)
+  else if prefixed_snapshot then
+    Some "Tailwind's minifier vendor-prefixed a declared utility's property"
+  else if reads_unknown_token && routed <> [] then
+    Some
+      "a declared utility reads a theme token the fixture does not carry, so \
+       tw cannot render it against the case's own theme"
+  else if inlined_math then
+    Some
+      "an inline theme token whose value is a math function Tailwind's \
+       minifier works out and cascade prints as written"
   else if undeclared_breakpoint then
     Some "a breakpoint variant the case's own theme does not declare"
   else None
@@ -688,8 +768,9 @@ let parse_file filename =
   (* Capture [@theme] token declarations [--name: value;]. [in_theme] holds the
      scanner of the active [@theme {...}] block within a compileCss template. *)
   let current_theme_vars = ref [] in
+  let current_theme_modes = ref [] in
   let in_theme = ref None in
-  let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
+  let theme_open_re = Re.Pcre.regexp {|@theme\b([^{]*)\{|} in
   (* Scanner of the [.toEqual(] call still being read, if any. *)
   let in_expect = ref None in
 
@@ -711,6 +792,7 @@ let parse_file filename =
           expected;
           variants;
           theme_vars = List.rev !current_theme_vars;
+          theme_modes = List.rev !current_theme_modes;
           utility_defs = [];
           layer_wrap = !current_layer_wrap;
         }
@@ -718,6 +800,7 @@ let parse_file filename =
     current_classes := [];
     current_variant_names := [];
     current_theme_vars := [];
+    current_theme_modes := [];
     in_theme := None;
     in_expect := None
   in
@@ -730,7 +813,7 @@ let parse_file filename =
         List.find_map
           (fun t ->
             unreplayable ~defs ~config:t.config ~theme_vars:t.theme_vars
-              ~classes:t.classes
+              ~theme_modes:t.theme_modes ~classes:t.classes
               (Option.value ~default:"" t.expected))
           (List.rev !block_tests)
     in
@@ -805,19 +888,27 @@ let parse_file filename =
              [{] and read on until the block's closing [}]. *)
           let scan_from =
             match !in_theme with
-            | Some s -> Some (s, 0)
+            | Some (modes, s) -> Some (modes, s, 0)
             | None -> (
                 match Re.exec_opt theme_open_re line with
                 | Some g ->
+                    let modes =
+                      String.split_on_char ' ' (String.trim (Re.Group.get g 1))
+                      |> List.filter (fun m -> m <> "")
+                    in
                     let s = theme_scanner () in
-                    in_theme := Some s;
-                    Some (s, snd (Re.Group.offset g 0))
+                    in_theme := Some (modes, s);
+                    Some (modes, s, snd (Re.Group.offset g 0))
                 | None -> None)
           in
           (match scan_from with
           | None -> ()
-          | Some (s, start) ->
-              let emit v = current_theme_vars := v :: !current_theme_vars in
+          | Some (modes, s, start) ->
+              let emit ((name, _) as v) =
+                current_theme_vars := v :: !current_theme_vars;
+                if modes <> [] then
+                  current_theme_modes := (name, modes) :: !current_theme_modes
+              in
               if not (scanner_feed s line ~start emit) then in_theme := None);
 
           (* Capture [@utility <name> { ... }] declarations the same way. *)
@@ -983,6 +1074,10 @@ let () =
       Fmt.pr "@config %s@." (config_to_string test.config);
       List.iter (fun v -> Fmt.pr "@variant %s@." v) test.variants;
       List.iter (fun (n, v) -> Fmt.pr "@theme-var %s %s@." n v) test.theme_vars;
+      List.iter
+        (fun (n, modes) ->
+          Fmt.pr "@theme-mode %s %s@." n (String.concat " " modes))
+        test.theme_modes;
       List.iter
         (fun (n, body) -> Fmt.pr "@utility-def %s %s@." n body)
         test.utility_defs;

@@ -532,7 +532,20 @@ let run_test_case test () =
       let theme_vars =
         List.filter (fun (name, _) -> not (is_runtime_var name)) test.theme_vars
       in
-      Tw.Scheme.with_overrides scheme
+      (* [@theme inline] and [@theme reference] change how a token reads, not
+         what it is: an inline one stands for its value at the use site, a
+         reference one is declared elsewhere and carries its value as the
+         fallback of the reference. A case can put two tokens of one namespace
+         in blocks that differ, so the modes come from the token's own block
+         rather than from the case's [@config]. *)
+      let tokens_in_mode mode =
+        List.filter_map
+          (fun (name, modes) -> if List.mem mode modes then Some name else None)
+          test.theme_modes
+      in
+      let inline = tokens_in_mode "inline" in
+      let reference = tokens_in_mode "reference" in
+      Tw.Scheme.with_overrides ~inline ~reference scheme
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
     let resolve_theme = theme_resolution ~declared test.config test.expected in
@@ -718,8 +731,8 @@ let print_parity_report () =
    Set near the real counts rather than at half. Half (300 and 80) let a fixture
    lose most of itself and still pass, which is the drift the floor is for; a
    regenerated corpus that legitimately shrinks past these wants a human to look
-   and move the number. Counts on 2026-08-29: 632 utilities, 168 variants. *)
-let utilities_floor = 560
+   and move the number. Counts on 2026-08-29: 696 utilities, 168 variants. *)
+let utilities_floor = 620
 let variants_floor = 150
 
 let load basename floor =

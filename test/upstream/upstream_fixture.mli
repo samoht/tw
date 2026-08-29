@@ -8,6 +8,7 @@
     @config <theme config>
     @variant <matchVariant directive>     (optional, repeatable)
     @theme-var <name> <value>             (optional, repeatable)
+    @theme-mode <name> <modifiers>        (optional, repeatable)
     @utility-def <name> <body>            (optional, repeatable)
     @layer-wrap <layer>                   (optional)
     <space-separated class list>
@@ -44,6 +45,11 @@ type case = {
       (** [@theme] token overrides (name, value) captured from the test's CSS
           template by the extractor (e.g. text-shadow sizes Tailwind inlines).
       *)
+  theme_modes : (string * string list) list;
+      (** The modifiers of the [@theme] block each token was declared in, for
+          the tokens whose block had any. [inline] and [reference] change how a
+          token reads, and one test can declare two tokens of a namespace in
+          blocks that differ, so the mode belongs to the token. *)
   utility_defs : (string * string) list;
       (** [@utility] declarations (name, body) the test's CSS template makes. A
           case that has any is compiled through the declared-utility path rather

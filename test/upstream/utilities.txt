@@ -327,6 +327,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px #0000000d
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-x-4/foo -inset-x-full/foo inset-x inset-x--1 inset-x--1/-2 inset-x--1/2 inset-x-1/-2 inset-x-3/4/foo inset-x-4/foo inset-x-[4px]/foo inset-x-auto/foo inset-x-full/foo inset-x-shadow-sm
 ---
 
@@ -380,6 +382,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-y-4/foo -inset-y-full/foo inset-1/-2 inset-y inset-y--1 inset-y--1/-2 inset-y--1/2 inset-y-3/4/foo inset-y-4/foo inset-y-[4px]/foo inset-y-auto/foo inset-y-full/foo inset-y-shadow-sm
 ---
 
@@ -433,6 +437,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-s-4/foo -inset-s-full/foo inset-s inset-s--1 inset-s--1/-2 inset-s--1/2 inset-s-1/-2 inset-s-3/4/foo inset-s-4/foo inset-s-[4px]/foo inset-s-auto/foo inset-s-full/foo inset-s-shadow-sm
 ---
 
@@ -486,6 +492,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-e-4/foo -inset-e-full/foo inset-e inset-e--1 inset-e--1/-2 inset-e--1/2 inset-e-1/-2 inset-e-3/4/foo inset-e-4/foo inset-e-[4px]/foo inset-e-auto/foo inset-e-full/foo inset-e-shadow-sm
 ---
 
@@ -539,6 +547,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-bs-4/foo -inset-bs-full/foo inset-bs inset-bs--1 inset-bs--1/-2 inset-bs--1/2 inset-bs-1/-2 inset-bs-3/4/foo inset-bs-4/foo inset-bs-[4px]/foo inset-bs-auto/foo inset-bs-full/foo inset-bs-shadow-sm
 ---
 
@@ -592,6 +602,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -inset-be-4/foo -inset-be-full/foo inset-be inset-be--1 inset-be--1/-2 inset-be--1/2 inset-be-1/-2 inset-be-3/4/foo inset-be-4/foo inset-be-[4px]/foo inset-be-auto/foo inset-be-full/foo inset-be-shadow-sm
 ---
 
@@ -645,6 +657,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -top-4/foo -top-full/foo top top--1 top--1/-2 top--1/2 top-1/-2 top-3/4/foo top-4/foo top-[4px]/foo top-auto/foo top-full/foo top-shadow-sm
 ---
 
@@ -698,6 +712,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -right-4/foo -right-full/foo right right--1 right--1/-2 right--1/2 right-1/-2 right-3/4/foo right-4/foo right-[4px]/foo right-auto/foo right-full/foo right-shadow-sm
 ---
 
@@ -751,6 +767,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -bottom-4/foo -bottom-full/foo bottom bottom--1 bottom--1/-2 bottom--1/2 bottom-1/-2 bottom-3/4/foo bottom-4/foo bottom-[4px]/foo bottom-auto/foo bottom-full/foo bottom-shadow-sm
 ---
 
@@ -808,6 +826,8 @@ absolute fixed relative static sticky
 @config theme-reference
 @theme-var spacing-4 1rem
 @theme-var inset-shadow-sm inset 0 1px 1px rgb(0 0 0 / 0.05)
+@theme-mode spacing-4 reference
+@theme-mode inset-shadow-sm reference
 -left-4/foo -left-full/foo left left--1 left--1/-2 left--1/2 left-1/-2 left-3/4/foo left-4/foo left-[4px]/foo left-auto/foo left-full/foo left-shadow-sm
 ---
 
@@ -3165,6 +3185,13 @@ container max-w-[var(--breakpoint-sm)] w-1/2
 @theme-var breakpoint-2xl 96rem
 @theme-var breakpoint-xs 30px
 @theme-var breakpoint-md 48em
+@theme-mode breakpoint-lg reference
+@theme-mode breakpoint-xl reference
+@theme-mode breakpoint-3xl reference
+@theme-mode breakpoint-sm reference
+@theme-mode breakpoint-2xl reference
+@theme-mode breakpoint-xs reference
+@theme-mode breakpoint-md reference
 container
 ---
 
@@ -10467,6 +10494,8 @@ border
 @config theme-reference
 @theme-var opacity-half 0.5
 @theme-var opacity-custom var(--custom-opacity)
+@theme-mode opacity-half reference
+@theme-mode opacity-custom reference
 [color:red]/half bg-current/custom bg-current/half
 ---
 
@@ -11733,6 +11762,8 @@ mask-[120px] mask-[120px_120px] mask-[50%] mask-[contain] mask-[cover] mask-[ima
 @config theme-reference
 @theme-var opacity-half 0.5
 @theme-var opacity-custom var(--custom-opacity)
+@theme-mode opacity-half reference
+@theme-mode opacity-custom reference
 [color:red]/half mask-current/custom mask-current/half
 ---
 
@@ -17493,6 +17524,8 @@ font-["arial_rounded"] font-[100] font-[family-name:var(--my-family)] font-[gene
 @config theme-reference
 @theme-var font-sans ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'
 @theme-var font-weight-bold 650
+@theme-mode font-sans reference
+@theme-mode font-weight-bold reference
 -font-bold -font-sans font font-["arial_rounded"]/foo font-[100]/foo font-[family-name:var(--my-family)]/foo font-[generic-name:var(--my-family)]/foo font-[number:var(--my-weight)]/foo font-[ui-sans-serif]/foo font-[var(--my-family)]/foo font-bold/foo font-sans/foo font-weight-bold
 ---
 
@@ -18070,6 +18103,7 @@ animate-none
 @theme-var drop-shadow-xl 0 9px 7px rgb(0 0 0 / 0.1)
 @theme-var drop-shadow-calc 0 0 calc(1 * var(--spacing)) black
 @theme-var drop-shadow-multi 0 1px 1px rgb(0 0 0 / 0.05), 0 9px 7px rgb(0 0 0 / 0.1)
+@theme-mode drop-shadow-multi inline
 -hue-rotate-15 -hue-rotate-[45deg] blur-[4px] blur-none blur-xl brightness-50 brightness-[1.23] contrast-50 contrast-[1.23] drop-shadow drop-shadow-[0_0_red] drop-shadow-calc drop-shadow-inherit drop-shadow-multi drop-shadow-none drop-shadow-red-500 drop-shadow-red-500/50 drop-shadow-xl drop-shadow/12.5 drop-shadow/25 filter filter-[var(--value)] filter-none grayscale grayscale-0 grayscale-[var(--value)] hue-rotate-15 hue-rotate-[45deg] invert invert-0 invert-[var(--value)] saturate-0 saturate-[1.75] saturate-[var(--value)] sepia sepia-0 sepia-[50%] sepia-[var(--value)]
 ---
 
@@ -18908,6 +18942,8 @@ transition transition-[var(--value)] transition-all transition-colors transition
 @config run
 @theme-var default-transition-timing-function ease
 @theme-var default-transition-duration 100ms
+@theme-mode default-transition-timing-function inline
+@theme-mode default-transition-duration inline
 transition transition-all transition-colors
 ---
 
@@ -20249,6 +20285,7 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
 # text
 @config run
 @theme-var text-sm 0.875rem
+@theme-mode text-sm inline reference
 -text-[#0088cc] -text-[#0088cc]/50 -text-[#0088cc]/[0.5] -text-[#0088cc]/[50%] -text-current -text-current/50 -text-current/[0.5] -text-current/[50%] -text-inherit -text-red-500 -text-red-500/50 -text-red-500/[0.5] -text-red-500/[50%] -text-sm -text-sm/6 -text-sm/[4px] -text-transparent text text-[10px]/foo text-sm/foo
 ---
 
@@ -22428,6 +22465,7 @@ px-.75 px-0.25 px-0.375 px-1.5 px-2.50 px-2.75
 # spacing utilities must have a value
 @config theme-reference
 @theme-var spacing 4px
+@theme-mode spacing reference
 px
 ---
 
@@ -22585,4 +22623,976 @@ bar foo
 @utility-def bar @apply flex dark:baz;
 @utility-def baz @apply flex-wrap hover:foo;
 bar foo
+<<<>>>
+# functional utilities require a `--value(…)`
+@config run
+@utility-def example-* --resolved-value: 4;
+example example-foo
+---
+
+<<<>>>
+# functional utilities must resolve at least one `--value(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer);
+example-1 example-2
+---
+
+        .example-1 {
+          --resolved-value: 1;
+        }
+
+        .example-2 {
+          --resolved-value: 2;
+        }
+        
+<<<>>>
+# functional utilities must resolve at least one `--value(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer);
+example example-2.5 example-foo
+---
+
+<<<>>>
+# resolving values from `@theme`
+@config run
+@theme-var example-1 1
+@theme-var example-2 2
+@theme-var example-4 4
+@theme-var example-a 8
+@theme-mode example-1 reference
+@theme-mode example-2 reference
+@theme-mode example-4 reference
+@theme-mode example-a reference
+@utility-def example-* --resolved-value: --value(--example);
+example-1 example-2 example-4 example-a
+---
+
+          .example-1 {
+            --resolved-value: var(--example-1, 1);
+          }
+
+          .example-2 {
+            --resolved-value: var(--example-2, 2);
+          }
+
+          .example-4 {
+            --resolved-value: var(--example-4, 4);
+          }
+
+          .example-a {
+            --resolved-value: var(--example-a, 8);
+          }
+          
+<<<>>>
+# resolving values from `@theme`
+@config run
+@utility-def example-* --resolved-value: --value(--example);
+example-3 example-gitlab
+---
+
+<<<>>>
+# functional utility with double-dash separator
+@config run
+@theme-var color-border-0 #e5e7eb
+@theme-var color-border-1 #d1d5db
+@theme-var color-border-2 #9ca3af
+@theme-mode color-border-0 reference
+@theme-mode color-border-1 reference
+@theme-mode color-border-2 reference
+@utility-def border--* border-color: --value(--color-border-*, [color]);
+border--0 border--1 border--2
+---
+
+        .border--0 {
+          border-color: var(--color-border-0, #e5e7eb);
+        }
+
+        .border--1 {
+          border-color: var(--color-border-1, #d1d5db);
+        }
+
+        .border--2 {
+          border-color: var(--color-border-2, #9ca3af);
+        }
+        
+<<<>>>
+# functional utility with double-dash separator
+@config run
+@utility-def border--* border-color: --value(--color-border-*, [color]);
+border--3
+---
+
+<<<>>>
+# resolving values from `@theme`, with `--example-*` syntax
+@config run
+@theme-var example-1 1
+@theme-var example-2 2
+@theme-var example-4 4
+@theme-var example-a 8
+@theme-mode example-1 reference
+@theme-mode example-2 reference
+@theme-mode example-4 reference
+@theme-mode example-a reference
+@utility-def example-* --resolved-value: --value(--example-*);
+example-1 example-2 example-4 example-a
+---
+
+          .example-1 {
+            --resolved-value: var(--example-1, 1);
+          }
+
+          .example-2 {
+            --resolved-value: var(--example-2, 2);
+          }
+
+          .example-4 {
+            --resolved-value: var(--example-4, 4);
+          }
+
+          .example-a {
+            --resolved-value: var(--example-a, 8);
+          }
+          
+<<<>>>
+# resolving values from `@theme`, with `--example-*` syntax
+@config run
+@utility-def example-* --resolved-value: --value(--example-*);
+example-3 example-gitlab
+---
+
+<<<>>>
+# resolving values from `@theme`, with `--example-\\*` syntax (prettier friendly)
+@config run
+@theme-var example-1 1
+@theme-var example-2 2
+@theme-var example-4 4
+@theme-var example-a 8
+@theme-mode example-1 reference
+@theme-mode example-2 reference
+@theme-mode example-4 reference
+@theme-mode example-a reference
+@utility-def example-* --resolved-value: --value(--example-\*);
+example-1 example-2 example-4 example-a
+---
+
+          .example-1 {
+            --resolved-value: var(--example-1, 1);
+          }
+
+          .example-2 {
+            --resolved-value: var(--example-2, 2);
+          }
+
+          .example-4 {
+            --resolved-value: var(--example-4, 4);
+          }
+
+          .example-a {
+            --resolved-value: var(--example-a, 8);
+          }
+          
+<<<>>>
+# resolving values from `@theme`, with `--example-\\*` syntax (prettier friendly)
+@config run
+@utility-def example-* --resolved-value: --value(--example-\*);
+example-3 example-gitlab
+---
+
+<<<>>>
+# resolving bare values
+@config run
+@utility-def example-* --resolved-value: --value(integer);
+example-1 example-76 example-971
+---
+
+        .example-1 {
+          --resolved-value: 1;
+        }
+
+        .example-76 {
+          --resolved-value: 76;
+        }
+
+        .example-971 {
+          --resolved-value: 971;
+        }
+        
+<<<>>>
+# resolving bare values
+@config run
+@utility-def example-* --resolved-value: --value(integer);
+example-foo
+---
+
+<<<>>>
+# bare values with unsupported data types should result in a warning
+@config run
+@utility-def paint-* paint: --value([color], color);
+paint-#0088cc paint-red
+---
+
+<<<>>>
+# resolve literal values
+@config run
+@utility-def example-* --resolved-value: --value('revert');
+example-revert
+---
+
+        .example-revert {
+          --resolved-value: revert;
+        }
+        
+<<<>>>
+# resolve literal values
+@config run
+@utility-def example-* --resolved-value: --value('revert');
+example-initial
+---
+
+<<<>>>
+# resolving bare values with constraints for integer, percentage, and ratio
+@config run
+@utility-def example-* --value-as-number: --value(number); --value-as-percentage: --value(percentage); --value-as-ratio: --value(ratio);
+example-0.5 example-1 example-2/3 example-20%
+---
+
+          .example-0\.5 {
+            --value-as-number: .5;
+          }
+
+          .example-1 {
+            --value-as-number: 1;
+          }
+
+          .example-2\/3 {
+            --value-as-ratio: 2 / 3;
+          }
+
+          .example-20\% {
+            --value-as-percentage: 20%;
+          }
+          
+<<<>>>
+# resolving bare values with constraints for integer, percentage, and ratio
+@config run
+@utility-def example-* --value-as-number: --value(number); --value-as-percentage: --value(percentage); --value-as-ratio: --value(ratio);
+example-1.2/3 example-1.2/3.4 example-1.23 example-1/2.3 example-12.34%
+---
+
+<<<>>>
+# resolving unsupported bare values
+@config run
+@utility-def example-* --resolved-value: --value(color);
+example-#0088cc example-foo
+---
+
+<<<>>>
+# resolving arbitrary values
+@config run
+@utility-def example-* --resolved-value: --value([integer]);
+example-(integer:my-value) example-[1] example-[76] example-[971] example-[integer:var(--my-value)]
+---
+
+        .example-\[1\] {
+          --resolved-value: 1;
+        }
+
+        .example-\[76\] {
+          --resolved-value: 76;
+        }
+
+        .example-\[971\] {
+          --resolved-value: 971;
+        }
+
+        .example-\[integer\:var\(--my-value\)\] {
+          --resolved-value: var(--my-value);
+        }
+        
+<<<>>>
+# resolving arbitrary values
+@config run
+@utility-def example-* --resolved-value: --value([integer]);
+example-(--my-value) example-(color:--my-value) example-[#0088cc] example-[1px] example-[color:var(--my-value)] example-[var(--my-value)]
+---
+
+<<<>>>
+# resolving any arbitrary values
+@config run
+@utility-def example-* --resolved-value: --value([*]);
+example-(--my-value) example-[1] example-[76] example-[971] example-[var(--my-value)]
+---
+
+        .example-\(--my-value\) {
+          --resolved-value: var(--my-value);
+        }
+
+        .example-\[1\] {
+          --resolved-value: 1;
+        }
+
+        .example-\[76\] {
+          --resolved-value: 76;
+        }
+
+        .example-\[971\] {
+          --resolved-value: 971;
+        }
+
+        .example-\[var\(--my-value\)\] {
+          --resolved-value: var(--my-value);
+        }
+        
+<<<>>>
+# resolving any arbitrary values (without space)
+@config run
+@utility-def example-* --resolved-value: --value([*]);
+example-(--my-value) example-[1] example-[76] example-[971] example-[var(--my-value)]
+---
+
+        .example-\(--my-value\) {
+          --resolved-value: var(--my-value);
+        }
+
+        .example-\[1\] {
+          --resolved-value: 1;
+        }
+
+        .example-\[76\] {
+          --resolved-value: 76;
+        }
+
+        .example-\[971\] {
+          --resolved-value: 971;
+        }
+
+        .example-\[var\(--my-value\)\] {
+          --resolved-value: var(--my-value);
+        }
+        
+<<<>>>
+# resolving any arbitrary values (with escaped `*`)
+@config run
+@utility-def example-* --resolved-value: --value([\*]);
+example-(--my-value) example-[1] example-[76] example-[971] example-[var(--my-value)]
+---
+
+        .example-\(--my-value\) {
+          --resolved-value: var(--my-value);
+        }
+
+        .example-\[1\] {
+          --resolved-value: 1;
+        }
+
+        .example-\[76\] {
+          --resolved-value: 76;
+        }
+
+        .example-\[971\] {
+          --resolved-value: 971;
+        }
+
+        .example-\[var\(--my-value\)\] {
+          --resolved-value: var(--my-value);
+        }
+        
+<<<>>>
+# resolving theme, bare and arbitrary values all at once
+@config run
+@theme-var example-a 8
+@theme-mode example-a reference
+@utility-def example-* --resolved-value: --value([integer]); --resolved-value: --value(integer); --resolved-value: --value(--example);
+example-76 example-[123] example-a
+---
+
+        .example-76 {
+          --resolved-value: 76;
+        }
+
+        .example-\[123\] {
+          --resolved-value: 123;
+        }
+
+        .example-a {
+          --resolved-value: var(--example-a, 8);
+        }
+        
+<<<>>>
+# resolving theme, bare and arbitrary values all at once
+@config run
+@utility-def example-* --resolved-value: --value([integer]); --resolved-value: --value(integer); --resolved-value: --value(--example);
+example-[#0088cc] example-[1px]
+---
+
+<<<>>>
+# in combination with calc to produce different data types of values
+@config run
+@theme-var example-full 100%
+@theme-mode example-full reference
+@utility-def example-* --resolved-value: --value([percentage]); --resolved-value: calc(--value(integer) * 1%); --resolved-value: --value(--example);
+example-12 example-[20%] example-full
+---
+
+          .example-12 {
+            --resolved-value: calc(12 * 1%);
+          }
+
+          .example-\[20\%\] {
+            --resolved-value: 20%;
+          }
+
+          .example-full {
+            --resolved-value: var(--example-full, 100%);
+          }
+          
+<<<>>>
+# in combination with calc to produce different data types of values
+@config run
+@utility-def example-* --resolved-value: --value([percentage]); --resolved-value: calc(--value(integer) * 1%); --resolved-value: --value(--example);
+example-[#0088cc] example-half
+---
+
+<<<>>>
+# shorthand if resulting values are of the same type
+@config run
+@theme-var example-full 100%
+@theme-mode example-full reference
+@utility-def example-* --resolved-value: calc(--value(integer) * 1%); --resolved-value: --value(--example, [percentage]);
+example-37 example-[50%] example-full
+---
+
+          .example-37 {
+            --resolved-value: calc(37 * 1%);
+          }
+
+          .example-\[50\%\] {
+            --resolved-value: 50%;
+          }
+
+          .example-full {
+            --resolved-value: var(--example-full, 100%);
+          }
+          
+<<<>>>
+# shorthand if resulting values are of the same type
+@config run
+@utility-def example-* --resolved-value: calc(--value(integer) * 1%); --resolved-value: --value(--example, [percentage]);
+example-[13px] example-foo
+---
+
+<<<>>>
+# negative values
+@config run
+@theme-var example-full 100%
+@theme-mode example-full reference
+@utility-def example-* --resolved-value: --value(--example, [percentage], [length]);
+@utility-def -example-* --resolved-value: calc(--value(--example, [percentage], [length]) * -1);
+-example-[10px] -example-[20%] -example-full example-[10px] example-[20%] example-full
+---
+
+        .-example-\[10px\] {
+          --resolved-value: calc(10px * -1);
+        }
+
+        .-example-\[20\%\] {
+          --resolved-value: calc(20% * -1);
+        }
+
+        .-example-full {
+          --resolved-value: calc(var(--example-full, 100%) * -1);
+        }
+
+        .example-\[10px\] {
+          --resolved-value: 10px;
+        }
+
+        .example-\[20\%\] {
+          --resolved-value: 20%;
+        }
+
+        .example-full {
+          --resolved-value: var(--example-full, 100%);
+        }
+        
+<<<>>>
+# negative values
+@config run
+@utility-def example-* --resolved-value: --value(--example, [percentage], [length]);
+@utility-def -example-* --resolved-value: calc(--value(--example, [percentage], [length]) * -1);
+example-10
+---
+
+<<<>>>
+# using `--spacing(…)` shorthand
+@config run
+@theme-var spacing 4px
+@utility-def example-* margin: --spacing(--value(number));
+example-12
+---
+
+        :root, :host {
+          --spacing: 4px;
+        }
+
+        .example-12 {
+          margin: calc(var(--spacing) * 12);
+        }
+        
+<<<>>>
+# using `--spacing(…)` shorthand (inline theme)
+@config run
+@theme-var spacing 4px
+@theme-mode spacing inline reference
+@utility-def example-* margin: --spacing(--value(number));
+example-12
+---
+
+        .example-12 {
+          margin: 48px;
+        }
+        
+<<<>>>
+# functional utilities can use `--default(…)` in `--value(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(4));
+example example-123
+---
+
+        .example {
+          --resolved-value: 4;
+        }
+
+        .example-123 {
+          --resolved-value: 123;
+        }
+        
+<<<>>>
+# functional utilities can use `--default(…)` in `--value(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(4));
+example-foo
+---
+
+<<<>>>
+# functional utilities can use `--default(…)` in complex expressions
+@config run
+@utility-def example-* --resolved-value: calc(--value(integer, --default(4)) * 2);
+example example-123
+---
+
+        .example {
+          --resolved-value: calc(4 * 2);
+        }
+
+        .example-123 {
+          --resolved-value: calc(123 * 2);
+        }
+        
+<<<>>>
+# functional utilities can use `--default(…)` in complex expressions
+@config run
+@utility-def example-* --resolved-value: calc(--value(integer, --default(4)) * 2);
+example-foo
+---
+
+<<<>>>
+# functional utilities can use `--default(…)` with `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(4)); --resolved-modifier: --modifier(integer);
+example example/25
+---
+
+        .example\/25 {
+          --resolved-value: 4;
+          --resolved-modifier: 25;
+        }
+
+        .example {
+          --resolved-value: 4;
+        }
+        
+<<<>>>
+# functional utilities can use `--default(…)` with `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(4)); --resolved-modifier: --modifier(integer);
+example/foo
+---
+
+<<<>>>
+# functional utilities can use `--default(…)` in `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer); --resolved-modifier: --modifier(integer, --default(1));
+example-123 example-123/25
+---
+
+        .example-123 {
+          --resolved-value: 123;
+          --resolved-modifier: 1;
+        }
+
+        .example-123\/25 {
+          --resolved-value: 123;
+          --resolved-modifier: 25;
+        }
+        
+<<<>>>
+# functional utilities can use `--default(…)` in `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer); --resolved-modifier: --modifier(integer, --default(1));
+example-123/foo
+---
+
+<<<>>>
+# functional utilities can use `--default(…)` in `--value(…)` and `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(12)); --resolved-modifier: --modifier(integer, --default(34));
+example example-1 example-1/1 example/1
+---
+
+          .example {
+            --resolved-value: 12;
+            --resolved-modifier: 34;
+          }
+
+          .example-1 {
+            --resolved-value: 1;
+            --resolved-modifier: 34;
+          }
+
+          .example-1\/1 {
+            --resolved-value: 1;
+            --resolved-modifier: 1;
+          }
+
+          .example\/1 {
+            --resolved-value: 12;
+            --resolved-modifier: 1;
+          }
+          
+<<<>>>
+# functional utilities can use `--default(…)` in `--value(…)` and `--modifier(…)`
+@config run
+@utility-def example-* --resolved-value: --value(integer, --default(12)); --resolved-modifier: --modifier(integer, --default(34));
+example-123/foo
+---
+
+<<<>>>
+# modifiers
+@config run
+@theme-var value-sm 14px
+@theme-var modifier-7 28px
+@theme-mode value-sm reference
+@theme-mode modifier-7 reference
+@utility-def example-* --resolved-value: --value(--value, [length]); --resolved-modifier: --modifier(--modifier, [length]); --resolved-modifier-with-calc: calc(--modifier(--modifier, [length]) * 2); --resolved-modifier-literals: --modifier('literal', 'literal-2');
+example-[12px] example-[12px]/[16px] example-sm example-sm/7 example-sm/literal example-sm/literal-2
+---
+
+        .example-\[12px\]\/\[16px\] {
+          --resolved-value: 12px;
+          --resolved-modifier: 16px;
+          --resolved-modifier-with-calc: calc(16px * 2);
+        }
+
+        .example-sm\/7 {
+          --resolved-value: var(--value-sm, 14px);
+          --resolved-modifier: var(--modifier-7, 28px);
+          --resolved-modifier-with-calc: calc(var(--modifier-7, 28px) * 2);
+        }
+
+        .example-sm\/literal {
+          --resolved-value: var(--value-sm, 14px);
+          --resolved-modifier-literals: literal;
+        }
+
+        .example-sm\/literal-2 {
+          --resolved-value: var(--value-sm, 14px);
+          --resolved-modifier-literals: literal-2;
+        }
+
+        .example-\[12px\] {
+          --resolved-value: 12px;
+        }
+
+        .example-sm {
+          --resolved-value: var(--value-sm, 14px);
+        }
+        
+<<<>>>
+# modifiers
+@config run
+@utility-def example-* --resolved-value: --value(--value, [length]); --resolved-modifier: --modifier(--modifier, [length]); --resolved-modifier-with-calc: calc(--modifier(--modifier, [length]) * 2); --resolved-modifier-literals: --modifier('literal', 'literal-2');
+example-foo example-foo/12 example-foo/[12px] example-sm/unknown-literal
+---
+
+<<<>>>
+# fractions
+@config run
+@theme-var example-video 16 / 9
+@theme-mode example-video reference
+@utility-def example-* --resolved-value: --value(--example, ratio, [ratio]);
+example-1/1 example-[7/9] example-video
+---
+
+          .example-1\/1 {
+            --resolved-value: 1 / 1;
+          }
+
+          .example-\[7\/9\] {
+            --resolved-value: 7/9;
+          }
+
+          .example-video {
+            --resolved-value: var(--example-video, 16 / 9);
+          }
+          
+<<<>>>
+# fractions
+@config run
+@utility-def example-* --resolved-value: --value(--example, ratio, [ratio]);
+example-foo
+---
+
+<<<>>>
+# resolve theme values with sub-namespace (--text- * --line-height)
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs reference
+@theme-mode text-xs--line-height reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-* --line-height); line-height: --modifier(number);
+example-xs example-xs/6
+---
+
+        .example-xs\/6 {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+          line-height: 6;
+        }
+
+        .example-xs {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+        }
+        
+<<<>>>
+# resolve theme values with sub-namespace (--text- * --line-height)
+@config run
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-* --line-height); line-height: --modifier(number);
+example-foo example-xs/foo
+---
+
+<<<>>>
+# resolve theme values with sub-namespace (--text-\\* --line-height)
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs reference
+@theme-mode text-xs--line-height reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-\* --line-height); line-height: --modifier(number);
+example-xs example-xs/6
+---
+
+        .example-xs\/6 {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+          line-height: 6;
+        }
+
+        .example-xs {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+        }
+        
+<<<>>>
+# resolve theme values with sub-namespace (--text-\\* --line-height)
+@config run
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-\* --line-height); line-height: --modifier(number);
+example-foo example-xs/foo
+---
+
+<<<>>>
+# resolve theme values with sub-namespace (--value(--text --line-height))
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs reference
+@theme-mode text-xs--line-height reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text --line-height); line-height: --modifier(number);
+example-xs example-xs/6
+---
+
+        .example-xs\/6 {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+          line-height: 6;
+        }
+
+        .example-xs {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+        }
+        
+<<<>>>
+# resolve theme values with sub-namespace (--value(--text --line-height))
+@config run
+@utility-def example-* font-size: --value(--text); line-height: --value(--text --line-height); line-height: --modifier(number);
+example-foo example-xs/foo
+---
+
+<<<>>>
+# resolve theme values with sub-namespace (--value(--text-*--line-height))
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs reference
+@theme-mode text-xs--line-height reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-*--line-height); line-height: --modifier(number);
+example-xs example-xs/6
+---
+
+        .example-xs\/6 {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+          line-height: 6;
+        }
+
+        .example-xs {
+          font-size: var(--text-xs, .75rem);
+          line-height: var(--text-xs--line-height, calc(1 / .75));
+        }
+        
+<<<>>>
+# resolve theme values with sub-namespace (--value(--text-*--line-height))
+@config run
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-*--line-height); line-height: --modifier(number);
+example-foo example-xs/foo
+---
+
+<<<>>>
+# variables used in `@utility` will not be emitted if the utility is not used
+@config run
+@theme-var example-foo red
+@theme-var color-red-500 #f00
+@utility-def example-* color: var(--color-red-500); background-color: --value(--example);
+flex
+---
+
+        .flex {
+          display: flex;
+        }
+        
+<<<>>>
+# variables used in `@utility` will be emitted if the utility is used
+@config run
+@theme-var example-foo red
+@theme-var color-red-500 #f00
+@utility-def example-* color: var(--color-red-500); background-color: --value(--example);
+example-foo
+---
+
+        :root, :host {
+          --example-foo: red;
+          --color-red-500: red;
+        }
+
+        .example-foo {
+          color: var(--color-red-500);
+          background-color: var(--example-foo);
+        }
+        
+<<<>>>
+# resolve value based on `@theme`
+@config run
+@theme-var example-a 8
+@utility-def example-* --resolved-value: --value(--example);
+example-a
+---
+
+      :root, :host {
+        --example-a: 8;
+      }
+
+      .example-a {
+        --resolved-value: var(--example-a);
+      }
+      
+<<<>>>
+# resolve value based on `@theme reference`
+@config run
+@theme-var example-a 8
+@theme-mode example-a reference
+@utility-def example-* --resolved-value: --value(--example);
+example-a
+---
+
+      .example-a {
+        --resolved-value: var(--example-a, 8);
+      }
+      
+<<<>>>
+# resolve value based on `@theme inline`
+@config run
+@theme-var example-a 8
+@theme-mode example-a inline
+@utility-def example-* --resolved-value: --value(--example);
+example-a
+---
+
+      .example-a {
+        --resolved-value: 8;
+      }
+      
+<<<>>>
+# resolve value based on `@theme inline reference`
+@config run
+@theme-var example-a 8
+@theme-mode example-a inline reference
+@utility-def example-* --resolved-value: --value(--example);
+example-a
+---
+
+      .example-a {
+        --resolved-value: 8;
+      }
+      
+<<<>>>
+# sub namespaces can live in different @theme blocks (2)
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs inline reference
+@theme-mode text-xs--line-height reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-*--line-height);
+example-xs
+---
+
+      .example-xs {
+        font-size: .75rem;
+        line-height: var(--text-xs--line-height, calc(1 / .75));
+      }
+      
+<<<>>>
+# multiple @utility definitions with the same name but different value types
+@config run
+@theme-var color-red-500 #ef4444
+@theme-var spacing 0.25rem
+@utility-def foo-* color: --value(--color-*);
+@utility-def foo-* font-size: --spacing(--value(number));
+foo-123 foo-red-500
+---
+
+      :root, :host {
+        --color-red-500: #ef4444;
+        --spacing: .25rem;
+      }
+
+      .foo-123 {
+        font-size: calc(var(--spacing) * 123);
+      }
+
+      .foo-red-500 {
+        color: var(--color-red-500);
+      }
+      
 <<<>>>

@@ -44,6 +44,17 @@ custom-thing
       }
       
 <<<>>>
+# defines a functional utility
+@config run
+@utility-def sized-* width: --value(integer);
+sized-4
+---
+
+      .sized-4 {
+        width: 4;
+      }
+      
+<<<>>>
 # indented twice
 @config run
 indented-twice

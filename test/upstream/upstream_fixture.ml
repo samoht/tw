@@ -8,6 +8,7 @@
     @config <theme config>
     @variant <matchVariant directive>     (optional, repeatable)
     @theme-var <name> <value>             (optional, repeatable)
+    @theme-mode <name> <modifiers>        (optional, repeatable)
     @utility-def <name> <body>            (optional, repeatable)
     @layer-wrap <layer>                   (optional)
     <space-separated class list>
@@ -48,6 +49,11 @@ type case = {
       (** [@theme] token overrides (name, value) captured from the test's CSS
           template by the extractor (e.g. text-shadow sizes Tailwind inlines).
       *)
+  theme_modes : (string * string list) list;
+      (** The modifiers of the [@theme] block each token was declared in, for
+          the tokens whose block had any. [inline] and [reference] change how a
+          token reads, and one test can declare two tokens of a namespace in
+          blocks that differ, so the mode belongs to the token. *)
   utility_defs : (string * string) list;
       (** [@utility] declarations (name, body) the test's CSS template makes. A
           case that has any is compiled through the declared-utility path rather
@@ -91,6 +97,7 @@ let read filename =
     let tests = ref [] in
     let current_variants = ref [] in
     let current_theme_vars = ref [] in
+    let current_theme_modes = ref [] in
     let current_utility_defs = ref [] in
     let current_layer_wrap = ref None in
     let lines = String.split_on_char '\n' content in
@@ -122,6 +129,7 @@ let read filename =
             let name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
             current_theme_vars := [];
+            current_theme_modes := [];
             current_utility_defs := [];
             current_layer_wrap := None;
             parse_config name No_theme rest)
@@ -148,19 +156,26 @@ let read filename =
                 current_theme_vars := pair :: !current_theme_vars;
                 parse_variants name config rest
             | None -> (
-                match named_pair "@utility-def " tl with
-                | Some pair ->
-                    current_utility_defs := pair :: !current_utility_defs;
+                match named_pair "@theme-mode " tl with
+                | Some (n, modes) ->
+                    current_theme_modes :=
+                      (n, String.split_on_char ' ' modes)
+                      :: !current_theme_modes;
                     parse_variants name config rest
-                | None ->
-                    if
-                      String.length tl >= 12
-                      && String.sub tl 0 12 = "@layer-wrap "
-                    then (
-                      current_layer_wrap :=
-                        Some (String.sub tl 12 (String.length tl - 12));
-                      parse_variants name config rest)
-                    else parse_classes name config (line :: rest)))
+                | None -> (
+                    match named_pair "@utility-def " tl with
+                    | Some pair ->
+                        current_utility_defs := pair :: !current_utility_defs;
+                        parse_variants name config rest
+                    | None ->
+                        if
+                          String.length tl >= 12
+                          && String.sub tl 0 12 = "@layer-wrap "
+                        then (
+                          current_layer_wrap :=
+                            Some (String.sub tl 12 (String.length tl - 12));
+                          parse_variants name config rest)
+                        else parse_classes name config (line :: rest))))
     and parse_classes name config lines =
       match lines with
       | [] -> ()
@@ -176,6 +191,7 @@ let read filename =
             let new_name = String.sub line 2 (String.length line - 2) in
             current_variants := [];
             current_theme_vars := [];
+            current_theme_modes := [];
             current_utility_defs := [];
             current_layer_wrap := None;
             parse_config new_name No_theme rest)
@@ -207,6 +223,7 @@ let read filename =
                 expected;
                 variants = List.rev !current_variants;
                 theme_vars = List.rev !current_theme_vars;
+                theme_modes = List.rev !current_theme_modes;
                 utility_defs = List.rev !current_utility_defs;
                 layer_wrap = !current_layer_wrap;
               }
@@ -224,6 +241,7 @@ let read filename =
                   expected;
                   variants = List.rev !current_variants;
                   theme_vars = List.rev !current_theme_vars;
+                  theme_modes = List.rev !current_theme_modes;
                   utility_defs = List.rev !current_utility_defs;
                   layer_wrap = !current_layer_wrap;
                 }
