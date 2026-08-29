@@ -370,6 +370,33 @@ let test_indent_before_tracking () =
     ~test_name:"text-indent before tracking and text-wrap"
     [ "tracking-wide"; "indent-4"; "text-wrap" ]
 
+(* text-indent (282) sits between text-align (281) and vertical-align (283), so
+   indent belongs inside the early-typography band and not after it: font-family
+   (284) and font-weight (285) come later. Sorting it before tracking is not
+   enough - a band boundary, not a suborder, is what separates it from
+   [font-bold]. *)
+let test_indent_within_early_typography () =
+  Test_helpers.check_class_order
+    ~test_name:"text-indent between text-align and vertical-align"
+    [ "font-bold"; "align-middle"; "indent-4"; "text-center"; "font-mono" ]
+
+(* Every spelling of the family shares one slot and is separated by the
+   candidate name, read the way Tailwind reads it: negatives first, then bare
+   steps in numeric order, then the bracket value, then [px]. *)
+let test_indent_family_order () =
+  Test_helpers.check_class_order ~test_name:"text-indent spellings"
+    [
+      "indent-px";
+      "indent-[3px]";
+      "-indent-px";
+      "-indent-[3px]";
+      "indent-96";
+      "indent-8";
+      "indent-10";
+      "indent-0.5";
+      "-indent-4";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -1884,6 +1911,9 @@ let tests =
       test_late_typography_before_whitespace;
     test_case "word-wrap family order" `Quick test_word_wrap_family_order;
     test_case "text-indent before tracking" `Quick test_indent_before_tracking;
+    test_case "text-indent inside early typography" `Quick
+      test_indent_within_early_typography;
+    test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
