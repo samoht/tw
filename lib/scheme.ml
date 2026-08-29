@@ -47,6 +47,7 @@ type t = {
           instead of rem-based values. *)
   token_overrides : (string * string) list;
   inline_tokens : string list;
+  reference_tokens : string list;
   static_theme : bool;
       (** Per-render theme token overrides (from a [@theme] block). Key is the
           variable name without the leading [--] (e.g. "text-shadow-2xs"), value
@@ -88,6 +89,7 @@ let default : t =
     breakpoints = [];
     token_overrides = [];
     inline_tokens = [];
+    reference_tokens = [];
     static_theme = false;
     custom_variants = [];
     container_variants = [];
@@ -271,7 +273,7 @@ let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
 
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)
-let with_overrides ?(inline = []) scheme overrides =
+let with_overrides ?(inline = []) ?(reference = []) scheme overrides =
   let breakpoints =
     List.fold_left
       (fun breakpoints (name, value) ->
@@ -292,6 +294,8 @@ let with_overrides ?(inline = []) scheme overrides =
     breakpoints;
     token_overrides = overrides @ scheme.token_overrides;
     inline_tokens = inline @ scheme.inline_tokens;
+    reference_tokens = reference @ scheme.reference_tokens;
   }
 
 let is_inline_token scheme name = List.mem name scheme.inline_tokens
+let is_reference_token scheme name = List.mem name scheme.reference_tokens
