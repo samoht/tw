@@ -1023,7 +1023,7 @@ module Outline_style_handler = struct
   type Utility.base += Self of t
 
   let name = "outline_style"
-  let priority _ = 28
+  let priority _ = 37
 
   let to_style _theme = function
     | Dashed ->
@@ -1042,9 +1042,7 @@ module Outline_style_handler = struct
         let decl, _ = Var.binding Handler.outline_style_var Css.Solid in
         style [ decl; Css.outline_style Css.Solid ]
 
-  (* outline-style closes the outline family at priority 28, after the widths
-     and offsets here and after color.ml's outline colors (3000-28000);
-     alphabetical: dashed, dotted, double, none, solid. *)
+  (* These outline-style utilities form a late property band. *)
   let suborder = function
     | Dashed -> 30000
     | Dotted -> 30001

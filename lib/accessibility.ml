@@ -19,7 +19,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "accessibility"
-  let priority _ = 29
+  let priority _ = 36
 
   let to_class = function
     | Auto -> "forced-color-adjust-auto"
