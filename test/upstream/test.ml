@@ -23,11 +23,22 @@
     No filtering, no tree diffing, no special-casing. If a test fails, either
     fix our code or fix the extraction.
 
+    Both fixtures are generated, and nothing else belongs in them. A case
+    upstream does not have is a tw regression test: it goes in the
+    [test_<module>.ml] for the behaviour it pins, where it runs by name and the
+    next reader of that module finds it. Put one here and the next regeneration
+    drops it with the run still green -- which is how a [supports] block and a
+    container-query block sat here duplicating coverage [test_modifiers.ml] and
+    [test_sort.ml] already had. {!check_generated} counts each fixture's blocks
+    against the banner the extractor wrote, so an addition is reported while it
+    is still there.
+
     CSS whitespace normalisation (parse + re-emit) is already a stretch but
     necessary because the expected CSS comes from JS template literals with
     extra indentation. *)
 
 module Css = Cascade.Css
+module Entrypoint = Tw_tools.Entrypoint
 open Cascade_diff
 open Alcotest
 open Upstream_fixture
@@ -204,6 +215,26 @@ let theme_resolution ~declared config expected =
   | Theme_reference | Theme_inline_reference -> Fun.id
 
 let canonical_stylesheet_css css = String.trim css
+
+(* [@layer <name> { @tailwind utilities; }] in a case's template puts the
+   generated utilities in [<name>] and leaves everything else beside it: the
+   theme block, the [@property] rules, and whatever a declared utility hoists.
+   tw wraps the whole sheet in its own layer scaffolding, so keep the layer the
+   template named and flatten the rest. *)
+let keep_only_layer name stylesheet =
+  let rec go stmts =
+    List.concat_map
+      (fun stmt ->
+        if Option.is_some (Css.layer_statement_name_list stmt) then []
+        else
+          match Css.as_layer stmt with
+          | Some (Some n, _) when Css.Stylesheet.equal_layer_name n [ name ] ->
+              [ stmt ]
+          | Some (_, inner) -> go inner
+          | None -> [ stmt ])
+      stmts
+  in
+  Css.v (go (Css.statements stylesheet))
 
 (* Tailwind compiled the corpus from each case's own [@theme] block, with no
    default theme behind it, so the [@keyframes] that theme declares are in no
@@ -436,6 +467,7 @@ let theme_overrides_of ~declared config expected =
 let stat_total_classes = ref 0
 let stat_parsed = ref 0
 let stat_rejected = ref 0
+let stat_routed = ref 0
 let stat_expected_empty_cases = ref 0
 
 let run_test_case test () =
@@ -510,30 +542,68 @@ let run_test_case test () =
       let theme_vars =
         List.filter (fun (name, _) -> not (is_runtime_var name)) test.theme_vars
       in
-      Tw.Scheme.with_overrides scheme
+      (* [@theme inline] and [@theme reference] change how a token reads, not
+         what it is: an inline one stands for its value at the use site, a
+         reference one is declared elsewhere and carries its value as the
+         fallback of the reference. A case can put two tokens of one namespace
+         in blocks that differ, so the modes come from the token's own block
+         rather than from the case's [@config]. *)
+      let tokens_in_mode mode =
+        List.filter_map
+          (fun (name, modes) -> if List.mem mode modes then Some name else None)
+          test.theme_modes
+      in
+      let inline = tokens_in_mode "inline" in
+      let reference = tokens_in_mode "reference" in
+      Tw.Scheme.with_overrides ~inline ~reference scheme
         (theme_overrides_of ~declared test.config test.expected @ theme_vars)
     in
     let resolve_theme = theme_resolution ~declared test.config test.expected in
+    (* A class the case's own [@utility] declares means nothing to
+       [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
+       a project entrypoint's does, through [Entrypoint]. The rest of the case
+       still compiles class by class, so the two sets are generated separately
+       and sorted together by [~extra]. With no declarations the partition is
+       empty and this is the plain per-class path. *)
+    let udefs = test.utility_defs in
+    let routed, direct =
+      List.partition (Entrypoint.is_custom_routed ~defs:[] ~udefs) test.classes
+    in
     let parsed, rejected =
       List.fold_left
         (fun (ok, bad) cls ->
           match Tw.of_string ~theme:scheme cls with
           | Ok u -> (u :: ok, bad)
           | Error (`Msg m) -> (ok, (cls, m) :: bad))
-        ([], []) test.classes
+        ([], []) direct
     in
     let utilities = List.rev parsed in
     let rejected = List.rev rejected in
+    let routed_count, routed_extra, routed_stmts =
+      if routed = [] then (0, [], [])
+      else
+        Entrypoint.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
+    in
     stat_total_classes := !stat_total_classes + List.length test.classes;
     stat_parsed := !stat_parsed + List.length utilities;
     stat_rejected := !stat_rejected + List.length rejected;
+    stat_routed := !stat_routed + routed_count;
     if test.expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
-      if utilities = [] then None
+      if utilities = [] && routed_extra = [] && routed_stmts = [] then None
       else
-        Some
-          (drop_theme_keyframes
-             (Tw.to_css ~theme:scheme ~base:false ~layers:false utilities))
+        let layers = Option.is_some test.layer_wrap in
+        let sheet =
+          Entrypoint.place_routed routed_stmts
+            (Tw.to_css ~theme:scheme ~base:false ~layers ~extra:routed_extra
+               utilities)
+        in
+        let sheet =
+          match test.layer_wrap with
+          | None -> sheet
+          | Some name -> keep_only_layer name sheet
+        in
+        Some (drop_theme_keyframes sheet)
     in
     let our_css =
       match our_stylesheet with
@@ -652,27 +722,33 @@ let test_color_tolerance () =
 
 let print_parity_report () =
   Fmt.epr "@.=== upstream parity report ===@.";
-  Fmt.epr "classes: %d total, %d parsed, %d rejected@." !stat_total_classes
-    !stat_parsed !stat_rejected;
+  Fmt.epr "classes: %d total, %d parsed, %d routed, %d rejected@."
+    !stat_total_classes !stat_parsed !stat_routed !stat_rejected;
   Fmt.epr "cases with empty expected CSS: %d@." !stat_expected_empty_cases;
+  Fmt.epr
+    "(a routed class is one the case's own @utility declares, compiled through \
+     Entrypoint rather than of_string)@.";
   Fmt.epr
     "(a rejection is harmless when the case's CSS still matches; one that \
      breaks parity fails the CSS diff and names the rejected classes)@.";
   Fmt.epr "==============================@."
 
-(* Both fixtures are checked in and declared as dune deps, so a missing one is a
-   broken checkout rather than an optional extra. A floor on the parsed cases
-   catches the other way this gate can go quiet: a fixture whose format drifts
-   still parses, just into far fewer cases than it holds. The floors are about
-   half the current counts (615 utilities, 166 variants), low enough to absorb
-   upstream churn. *)
-let utilities_floor = 300
-let variants_floor = 80
+(* All three fixtures are checked in and declared as dune deps, so a missing one
+   is a broken checkout rather than an optional extra. A floor on the parsed
+   cases catches the other way this gate can go quiet: a fixture whose format
+   drifts still parses, just into far fewer cases than it holds.
+
+   Set near the real counts rather than at half. Half (300 and 80) let a fixture
+   lose most of itself and still pass, which is the drift the floor is for; a
+   regenerated corpus that legitimately shrinks past these wants a human to look
+   and move the number. Counts on 2026-08-29: 696 utilities, 166 variants. *)
+let utilities_floor = 620
+let variants_floor = 150
 
 let load basename floor =
   match path basename with
   | None ->
-      Fmt.epr "%s not found. Run extract_tests.exe first.@." basename;
+      Fmt.epr "%s not found. All three fixtures are checked in here.@." basename;
       exit 1
   | Some p ->
       let cases = read p in
@@ -683,8 +759,36 @@ let load basename floor =
         exit 1);
       cases
 
+(* The floors count what a fixture holds, not where it came from: a block added
+   to a generated fixture by hand raises the count and passes them, then
+   disappears at the next regeneration with nothing to say it went. The
+   extractor writes the number of blocks it produced into the file's banner, so
+   counting the blocks back names such a block while it is still there. *)
+let check_generated basename =
+  match path basename with
+  | None -> ()
+  | Some p -> (
+      match declared_blocks p with
+      | None ->
+          Fmt.epr
+            "%s has no provenance banner. Regenerate it with \
+             extract_tests.exe.@."
+            p;
+          exit 1
+      | Some declared ->
+          let found = blocks p in
+          if found <> declared then (
+            Fmt.epr
+              "%s holds %d blocks but was generated with %d, so it has been \
+               edited since. A case upstream does not have is a tw regression \
+               test and belongs in its own test_<module>.ml.@."
+              p found declared;
+            exit 1))
+
 let () =
   Tw_tools.Cascade_provenance.report ();
+  check_generated "utilities.txt";
+  check_generated "variants.txt";
   let utility_tests = load "utilities.txt" utilities_floor in
   let variant_tests = load "variants.txt" variants_floor in
   let total = List.length utility_tests + List.length variant_tests in
@@ -693,15 +797,8 @@ let () =
     (List.length variant_tests);
   at_exit print_parity_report;
 
-  let utility_cases =
-    List.map
-      (fun tc -> test_case tc.name `Quick (run_test_case tc))
-      utility_tests
-  in
-  let variant_cases =
-    List.map
-      (fun tc -> test_case tc.name `Quick (run_test_case tc))
-      variant_tests
+  let alcotest_cases tests =
+    List.map (fun tc -> test_case tc.name `Quick (run_test_case tc)) tests
   in
   let tolerance_cases =
     [
@@ -719,9 +816,9 @@ let () =
   in
   let suites =
     [
-      ("utilities", utility_cases);
+      ("utilities", alcotest_cases utility_tests);
       ("tolerance", tolerance_cases);
-      ("variants", variant_cases);
+      ("variants", alcotest_cases variant_tests);
     ]
   in
   Alcotest.run "upstream" suites

@@ -30,10 +30,42 @@ let extract_rule_selectors stmts =
 let our_css utilities =
   Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
 
+(* Parity tests need the pinned tailwindcss CLI. Skipping is right on a
+   developer machine without node, and wrong on CI, where it retires a fifth of
+   the suite into [SKIP] lines that dune swallows on success, so the run reports
+   agreement with a tool it never ran. Set TW_TAILWIND_TESTS=1 where the CLI is
+   meant to be present and a missing or off-version one fails instead. *)
+let tailwind_required () = Sys.getenv_opt "TW_TAILWIND_TESTS" = Some "1"
+
+(* Alcotest files a test's own stderr under [_build/_tests/] and exits the
+   process itself, so a notice written from inside a test, or after
+   [Alcotest.run] returns, is never read. Count the skips and report the total
+   at exit, where it lands next to the summary line that does not mention
+   them. *)
+let skipped_without_cli = ref 0
+
+let note_skip reason =
+  if !skipped_without_cli = 0 then
+    at_exit (fun () ->
+        Fmt.epr "@.%d test(s) skipped: no usable tailwindcss CLI.@.%s@."
+          !skipped_without_cli reason;
+        Fmt.epr "Set TW_TAILWIND_TESTS=1 to fail on this instead of skipping.@.");
+  incr skipped_without_cli
+
+let require_tailwind_cli () =
+  match Tw_tools.Tailwind_gen.availability () with
+  | Ok () -> ()
+  | Error reason ->
+      if tailwind_required () then
+        Alcotest.failf
+          "TW_TAILWIND_TESTS=1 but the tailwindcss CLI is unusable: %s" reason
+      else begin
+        note_skip reason;
+        Alcotest.skip ()
+      end
+
 let tailwind_css ?(forms = false) classnames =
-  (* Parity tests need the pinned tailwindcss CLI; skip where it is absent (e.g.
-     opam-repo-ci has no node). *)
-  if not (Tw_tools.Tailwind_gen.available ()) then Alcotest.skip ();
+  require_tailwind_cli ();
   Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
 
 (* Which CSS properties a class declares. Custom properties count: a drop-shadow
@@ -507,6 +539,212 @@ let check_class_order ?forms ~test_name classes =
     test_name expected
     (order "tw" (our_css utilities))
 
+(* Whole-sheet statement order. [class_position] answers where one named class
+   sits, and [check_class_order] asks that of a handful at a time; the pair
+   below asks it of every statement in a layer at once. Both read the minified
+   text rather than a parsed AST, because the order a browser resolves is the
+   order the bytes carry, and both sheets are read the same way, so a difference
+   is tw's and not the reader's. *)
+
+(* One pass over CSS text has to honour strings and escapes, or a [}] inside
+   [content: "}"] closes the wrong block. [skip_quoted s hi i q] is the index
+   after the string that [q] opened at [i]. *)
+let rec skip_quoted s hi i q =
+  if i >= hi then i
+  else if s.[i] = '\\' then skip_quoted s hi (i + 2) q
+  else if s.[i] = q then i + 1
+  else skip_quoted s hi (i + 1) q
+
+(* Whitespace runs collapse to one space, so a prelude reads the same however
+   the printer broke it. *)
+let normalize_prelude s =
+  let buf = Buffer.create (String.length s) in
+  let space = ref false in
+  String.iter
+    (fun c ->
+      match c with
+      | ' ' | '\t' | '\r' | '\n' -> space := true
+      | c ->
+          if !space && Buffer.length buf > 0 then Buffer.add_char buf ' ';
+          space := false;
+          Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
+
+(* The statements of [sheet] between [lo] and [hi] as (prelude, body) pairs,
+   where a body is the span inside the braces and [None] marks a [;]-terminated
+   statement such as [@layer a, b;]. Bodies are not descended into: what is
+   measured is one layer's top-level sequence. *)
+let statements_between sheet lo hi =
+  let rec skip_ws i =
+    if i < hi then
+      match sheet.[i] with
+      | ' ' | '\t' | '\r' | '\n' -> skip_ws (i + 1)
+      | _ -> i
+    else i
+  in
+  let rec prelude_end i =
+    if i >= hi then `Eof i
+    else
+      match sheet.[i] with
+      | '\\' -> prelude_end (i + 2)
+      | ('"' | '\'') as q -> prelude_end (skip_quoted sheet hi (i + 1) q)
+      | '{' -> `Block i
+      | ';' -> `Semi i
+      | _ -> prelude_end (i + 1)
+  in
+  let rec block_end i depth =
+    if i >= hi then i
+    else
+      match sheet.[i] with
+      | '\\' -> block_end (i + 2) depth
+      | ('"' | '\'') as q -> block_end (skip_quoted sheet hi (i + 1) q) depth
+      | '{' -> block_end (i + 1) (depth + 1)
+      | '}' -> if depth = 1 then i + 1 else block_end (i + 1) (depth - 1)
+      | _ -> block_end (i + 1) depth
+  in
+  let rec loop i acc =
+    let i = skip_ws i in
+    if i >= hi then List.rev acc
+    else
+      match prelude_end i with
+      | `Eof j ->
+          let last = String.sub sheet i (j - i) in
+          List.rev (if String.trim last = "" then acc else (last, None) :: acc)
+      | `Semi j -> loop (j + 1) ((String.sub sheet i (j - i), None) :: acc)
+      | `Block j ->
+          let e = block_end (j + 1) 1 in
+          loop e ((String.sub sheet i (j - i), Some (j + 1, e - 1)) :: acc)
+  in
+  loop lo []
+
+(* A selector list is one statement but several rules as far as order goes, so
+   each branch is keyed on its own. The split takes a [,] outside any string,
+   escape, [(...)] or [[...]]: [:is(a, b)] and [[title="a,b"]] carry their
+   own. *)
+let selector_branches sel =
+  let hi = String.length sel in
+  let out = ref [] and start = ref 0 and depth = ref 0 and i = ref 0 in
+  let emit stop =
+    let s = String.trim (String.sub sel !start (stop - !start)) in
+    if s <> "" then out := s :: !out
+  in
+  while !i < hi do
+    (match sel.[!i] with
+    | '\\' -> incr i
+    | ('"' | '\'') as q -> i := skip_quoted sel hi (!i + 1) q - 1
+    | '(' | '[' -> incr depth
+    | ')' | ']' -> decr depth
+    | ',' when !depth = 0 ->
+        emit !i;
+        start := !i + 1
+    | _ -> ());
+    incr i
+  done;
+  emit hi;
+  List.rev !out
+
+let layer_statement_keys sheet ~layer =
+  let wanted = "@layer " ^ layer in
+  let body =
+    List.find_map
+      (fun (prelude, body) ->
+        match body with
+        | Some span when normalize_prelude prelude = wanted -> Some span
+        | _ -> None)
+      (statements_between sheet 0 (String.length sheet))
+  in
+  match body with
+  | None -> []
+  | Some (lo, hi) ->
+      List.concat_map
+        (fun (prelude, _) ->
+          let p = normalize_prelude prelude in
+          if p = "" then []
+          else if p.[0] = '@' then [ p ]
+          else selector_branches p)
+        (statements_between sheet lo hi)
+
+(* Patience sorting. [tails.(l)] holds the index of the smallest value that can
+   end an increasing run of length [l + 1], so a binary search places each
+   element and the predecessor links rebuild one longest run. Everything outside
+   that run has to move, and nothing smaller does. *)
+let longest_increasing_subsequence seq =
+  let n = Array.length seq in
+  if n = 0 then [||]
+  else begin
+    let tails = Array.make n 0 and prev = Array.make n (-1) and len = ref 0 in
+    for i = 0 to n - 1 do
+      let lo = ref 0 and hi = ref !len in
+      while !lo < !hi do
+        let mid = (!lo + !hi) / 2 in
+        if seq.(tails.(mid)) < seq.(i) then lo := mid + 1 else hi := mid
+      done;
+      let l = !lo in
+      prev.(i) <- (if l > 0 then tails.(l - 1) else -1);
+      tails.(l) <- i;
+      if l = !len then incr len
+    done;
+    let out = Array.make !len 0 and k = ref tails.(!len - 1) in
+    for j = !len - 1 downto 0 do
+      out.(j) <- !k;
+      k := prev.(!k)
+    done;
+    out
+  end
+
+type order_gap = { pairs : int; moves : int; moved : (string * int * int) list }
+
+let sheet_order_gap ~layer ~tailwind ~tw =
+  let ours = layer_statement_keys tw ~layer in
+  let theirs = layer_statement_keys tailwind ~layer in
+  let occurrences keys =
+    let tbl = Hashtbl.create 4096 in
+    List.iter
+      (fun k ->
+        let n = Option.value ~default:0 (Hashtbl.find_opt tbl k) in
+        Hashtbl.replace tbl k (n + 1))
+      keys;
+    tbl
+  in
+  let ours_count = occurrences ours and theirs_count = occurrences theirs in
+  let ours_at = Hashtbl.create 4096 in
+  List.iteri
+    (fun i k -> if not (Hashtbl.mem ours_at k) then Hashtbl.add ours_at k i)
+    ours;
+  (* Only a key occurring exactly once on each side pairs without a choice, so
+     no pairing decision of the gate's can inflate or deflate what follows. *)
+  let common =
+    List.filter
+      (fun k ->
+        Hashtbl.find_opt ours_count k = Some 1
+        && Hashtbl.find_opt theirs_count k = Some 1)
+      theirs
+    |> Array.of_list
+  in
+  let seq = Array.map (fun k -> Hashtbl.find ours_at k) common in
+  let keep = longest_increasing_subsequence seq in
+  let kept = Hashtbl.create (Array.length keep) in
+  Array.iter (fun i -> Hashtbl.replace kept i ()) keep;
+  (* Rank inside the paired set on each side: a byte offset means nothing to a
+     reader, and a full-sheet index counts statements the pairing dropped. *)
+  let rank = Hashtbl.create (Array.length common) in
+  Array.to_list common
+  |> List.mapi (fun i k -> (seq.(i), k))
+  |> List.sort compare
+  |> List.iteri (fun r (_, k) -> Hashtbl.replace rank k r);
+  let moved = ref [] in
+  Array.iteri
+    (fun i k ->
+      if not (Hashtbl.mem kept i) then
+        moved := (k, i, Hashtbl.find rank k) :: !moved)
+    common;
+  {
+    pairs = Array.length common;
+    moves = Array.length common - Array.length keep;
+    moved = List.rev !moved;
+  }
+
 (** CSS Test Helpers *)
 
 (** Check if a layer exists in the stylesheet *)
@@ -736,3 +974,393 @@ let check_typed_class cls value =
   | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
   | Error (`Msg m) ->
       Alcotest.failf "%s: parser rejected its own class: %s" cls m
+
+(* ------------------------------------------------------------------ *)
+(* Adversarial sweep over arbitrary values                             *)
+(* ------------------------------------------------------------------ *)
+
+let rec all_selectors stmts =
+  List.concat_map
+    (fun stmt ->
+      match Css.as_rule stmt with
+      | Some (selector, _, _) -> [ Css.Selector.to_string selector ]
+      | None -> (
+          match Css.as_media stmt with
+          | Some (_, inner) -> all_selectors inner
+          | None -> (
+              match Css.as_supports stmt with
+              | Some (_, inner) -> all_selectors inner
+              | None -> (
+                  match Css.as_container stmt with
+                  | Some (_, _, inner) -> all_selectors inner
+                  | None -> (
+                      match Css.as_layer stmt with
+                      | Some (_, inner) -> all_selectors inner
+                      | None -> [])))))
+    stmts
+
+let selectors_of_utility u =
+  all_selectors (Css.statements (Tw.to_css ~base:false [ u ]))
+
+(* Undo CSS Syntax 3 (ED) sec. 4.3.7 escaping so an emitted selector can be
+   compared against the class the author wrote. A backslash escapes either one
+   to six hex digits naming a code point, with an optional single whitespace
+   closing the run, or the next character literally. Comparing this way rather
+   than re-escaping the class keeps the check independent of which spelling
+   cascade picks: [caf\\e9 ] and [café] are the same selector. *)
+let unescape_selector s =
+  let n = String.length s in
+  let buf = Buffer.create n in
+  let is_hex c =
+    (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+  in
+  let rec go i =
+    if i >= n then ()
+    else if s.[i] <> '\\' || i + 1 >= n then (
+      Buffer.add_char buf s.[i];
+      go (i + 1))
+    else
+      let j = ref (i + 1) in
+      while !j < n && !j - i <= 6 && is_hex s.[!j] do
+        incr j
+      done;
+      if !j = i + 1 then (
+        (* a literal escape: the next character stands for itself *)
+        Buffer.add_char buf s.[i + 1];
+        go (i + 2))
+      else
+        let code = int_of_string ("0x" ^ String.sub s (i + 1) (!j - i - 1)) in
+        let code =
+          if Uchar.is_valid code then code else Uchar.to_int Uchar.rep
+        in
+        Buffer.add_utf_8_uchar buf (Uchar.of_int code);
+        (* one whitespace may close the hex run and is not part of the text *)
+        let k =
+          if !j < n && (s.[!j] = ' ' || s.[!j] = '\n' || s.[!j] = '\t') then
+            !j + 1
+          else !j
+        in
+        go k
+  in
+  go 0;
+  Buffer.contents buf
+
+let adversarial_payloads =
+  [
+    (* a number whose canonical spelling is not the author's *)
+    "0.5ch";
+    "1.50px";
+    "1e2px";
+    "1E2px";
+    "1e-2px";
+    "0.0";
+    ".5px";
+    "+1px";
+    "0600px";
+    (* text that ends the declaration it is written into, or the rule *)
+    "0)/*1";
+    "a;b";
+    "a}b";
+    "a{b";
+    "1px}";
+    "var(--x);";
+    "1px;color:red";
+    "}.x{color:red";
+    "0)";
+    "(";
+    "()";
+    "url(a;b)";
+    (* a comment, quotes, and text no CSS grammar reads *)
+    "1px/*x";
+    "*/";
+    {|"q"|};
+    "'q'";
+    "--custom";
+    "<value>";
+    "a:b";
+    "#";
+    "&";
+    "a\\b";
+    (* a non-ASCII identifier *)
+    "caf\xc3\xa9";
+    "\xc3\xbcnicode";
+    (* a bare word that also names a variant shorthand, so a family which folds
+       the bracket onto the shorthand loses the brackets from the class *)
+    "hover";
+  ]
+
+type sweep_verdict =
+  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
+  | Emitted_nothing  (** parsed, but contributed no rule *)
+  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Mismatched of string
+      (** parsed, and emitted a rule the class cannot match *)
+
+let sweep_one cls =
+  match Tw.of_string cls with
+  | exception e ->
+      Alcotest.failf "%s: of_string raised %s" cls (Printexc.to_string e)
+  | Error (`Msg _) -> Rejected
+  | Ok u -> (
+      match selectors_of_utility u with
+      | exception e ->
+          Alcotest.failf "%s: to_css raised %s" cls (Printexc.to_string e)
+      | [] -> Emitted_nothing
+      | selectors ->
+          let printed = Tw.pp u in
+          let carries sel =
+            Astring.String.is_infix ~affix:cls (unescape_selector sel)
+          in
+          let detail suffix =
+            Mismatched
+              (String.concat ""
+                 [
+                   suffix;
+                   " (pp=";
+                   printed;
+                   ", selectors=";
+                   String.concat "; " selectors;
+                   ")";
+                 ])
+          in
+          if not (List.exists carries selectors) then
+            detail "no emitted selector carries the class"
+          else if printed <> cls then detail "pp respells the class"
+          else Matched)
+
+(* Every class prefix that takes a bracket value, found by feeding a benign one
+   to each [val] exported by [lib/tw.mli] and by the family modules it
+   re-exports, and to each literal match-arm prefix in [lib/*.ml] - the string
+   parser accepts families no OCaml constructor names ([filter-],
+   [drop-shadow-]) so the [.mli] alone does not see them. *)
+let arbitrary_families =
+  [
+    "accent";
+    "align";
+    "animate";
+    "aspect";
+    "auto-cols";
+    "auto-rows";
+    "backdrop-blur";
+    "backdrop-brightness";
+    "backdrop-contrast";
+    "backdrop-filter";
+    "backdrop-grayscale";
+    "backdrop-hue-rotate";
+    "backdrop-invert";
+    "backdrop-opacity";
+    "backdrop-saturate";
+    "backdrop-sepia";
+    "basis";
+    "bg";
+    "bg-linear";
+    "bg-position";
+    "bg-radial";
+    "bg-size";
+    "block";
+    "blur";
+    "border";
+    "border-b";
+    "border-be";
+    "border-bs";
+    "border-e";
+    "border-l";
+    "border-r";
+    "border-s";
+    "border-spacing";
+    "border-spacing-x";
+    "border-spacing-y";
+    "border-t";
+    "border-x";
+    "border-y";
+    "bottom";
+    "brightness";
+    "caret";
+    "col";
+    "col-end";
+    "col-span";
+    "col-start";
+    "columns";
+    "contain";
+    "content";
+    "contrast";
+    "cursor";
+    "decoration";
+    "delay";
+    "divide";
+    "divide-x";
+    "divide-y";
+    "drop-shadow";
+    "duration";
+    "ease";
+    "fill";
+    "filter";
+    "flex";
+    "font";
+    "font-features";
+    "from";
+    "gap";
+    "gap-x";
+    "gap-y";
+    "grayscale";
+    "grid-cols";
+    "grid-rows";
+    "grow";
+    "h";
+    "hue-rotate";
+    "indent";
+    "inline";
+    "inset";
+    "inset-be";
+    "inset-bs";
+    "inset-e";
+    "inset-ring";
+    "inset-s";
+    "inset-shadow";
+    "inset-x";
+    "inset-y";
+    "invert";
+    "leading";
+    "left";
+    "line-clamp";
+    "list";
+    "list-image";
+    "list-image-none";
+    "list-image-url";
+    "m";
+    "mask";
+    "mask-b-from";
+    "mask-b-to";
+    "mask-conic";
+    "mask-conic-from";
+    "mask-conic-to";
+    "mask-l-from";
+    "mask-l-to";
+    "mask-linear";
+    "mask-linear-from";
+    "mask-linear-to";
+    "mask-position";
+    "mask-r-from";
+    "mask-r-to";
+    "mask-radial";
+    "mask-radial-at";
+    "mask-radial-from";
+    "mask-radial-to";
+    "mask-size";
+    "mask-t-from";
+    "mask-t-to";
+    "mask-x-from";
+    "mask-x-to";
+    "mask-y-from";
+    "mask-y-to";
+    "max-block";
+    "max-h";
+    "max-inline";
+    "max-w";
+    "mb";
+    "min-block";
+    "min-h";
+    "min-inline";
+    "min-w";
+    "ml";
+    "mr";
+    "mt";
+    "mx";
+    "my";
+    "object";
+    "opacity";
+    "order";
+    "origin";
+    "outline";
+    "outline-offset";
+    "p";
+    "pb";
+    "perspective";
+    "perspective-origin";
+    "pl";
+    "placeholder";
+    "pr";
+    "pt";
+    "px";
+    "py";
+    "right";
+    "ring";
+    "ring-offset";
+    "rotate";
+    "rotate-x";
+    "rotate-y";
+    "rotate-z";
+    "rounded";
+    "rounded-b";
+    "rounded-bl";
+    "rounded-br";
+    "rounded-e";
+    "rounded-ee";
+    "rounded-es";
+    "rounded-l";
+    "rounded-r";
+    "rounded-s";
+    "rounded-se";
+    "rounded-ss";
+    "rounded-t";
+    "rounded-tl";
+    "rounded-tr";
+    "row";
+    "row-end";
+    "row-span";
+    "row-start";
+    "saturate";
+    "scale";
+    "scale-x";
+    "scale-y";
+    "scale-z";
+    "scroll-m";
+    "scroll-mb";
+    "scroll-mbe";
+    "scroll-mbs";
+    "scroll-me";
+    "scroll-ml";
+    "scroll-mr";
+    "scroll-ms";
+    "scroll-mt";
+    "scroll-mx";
+    "scroll-my";
+    "scroll-p";
+    "scroll-pb";
+    "scroll-pbe";
+    "scroll-pbs";
+    "scroll-pe";
+    "scroll-pl";
+    "scroll-pr";
+    "scroll-ps";
+    "scroll-pt";
+    "scroll-px";
+    "scroll-py";
+    "sepia";
+    "shadow";
+    "shrink";
+    "size";
+    "skew";
+    "skew-x";
+    "skew-y";
+    "space-x";
+    "space-y";
+    "stroke";
+    "tab";
+    "text";
+    "text-shadow";
+    "to";
+    "top";
+    "tracking";
+    "transform";
+    "transition";
+    "translate";
+    "translate-x";
+    "translate-y";
+    "underline-offset";
+    "via";
+    "w";
+    "will-change";
+    "z";
+    "zoom";
+  ]

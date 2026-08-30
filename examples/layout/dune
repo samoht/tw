@@ -17,7 +17,12 @@
 
 (rule
  (targets tailwind.css)
- (enabled_if %{bin-available:npx})
+ ; TW_TAILWIND_TESTS=1 says the CLI is meant to be here, so a missing npx
+ ; fails rather than retiring the comparison from the suite.
+ (enabled_if
+  (or
+   %{bin-available:npx}
+   (= %{env:TW_TAILWIND_TESTS=0} 1)))
  (deps index.html input.css ../../package-lock.json)
  (action
   (run npx tailwindcss -i input.css -o %{targets} --minify))
@@ -26,7 +31,12 @@
 
 (rule
  (alias runtest)
- (enabled_if %{bin-available:npx})
+ ; TW_TAILWIND_TESTS=1 says the CLI is meant to be here, so a missing npx
+ ; fails rather than retiring the comparison from the suite.
+ (enabled_if
+  (or
+   %{bin-available:npx}
+   (= %{env:TW_TAILWIND_TESTS=0} 1)))
  (deps layout.css tailwind.css)
  (action
   (setenv

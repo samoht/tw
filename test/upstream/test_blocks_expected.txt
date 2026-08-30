@@ -1,3 +1,4 @@
+#! 9 blocks extracted from test_blocks_input.ts by extract_tests.exe -- do not edit
 # top level
 @config run
 top-level
@@ -29,6 +30,31 @@ double-quoted
 backtick
 ---
 
+<<<>>>
+# defines its own utility
+@config run
+@utility-def custom-thing display: grid;
+@layer-wrap utilities
+custom-thing
+---
+
+      @layer utilities {
+        .custom-thing {
+          display: grid;
+        }
+      }
+      
+<<<>>>
+# defines a functional utility
+@config run
+@utility-def sized-* width: --value(integer);
+sized-4
+---
+
+      .sized-4 {
+        width: 4;
+      }
+      
 <<<>>>
 # indented twice
 @config run

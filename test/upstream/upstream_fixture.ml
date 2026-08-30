@@ -8,6 +8,9 @@
     @config <theme config>
     @variant <matchVariant directive>     (optional, repeatable)
     @theme-var <name> <value>             (optional, repeatable)
+    @theme-mode <name> <modifiers>        (optional, repeatable)
+    @utility-def <name> <body>            (optional, repeatable)
+    @layer-wrap <layer>                   (optional)
     <space-separated class list>
     ---
     <expected CSS>
@@ -46,6 +49,19 @@ type case = {
       (** [@theme] token overrides (name, value) captured from the test's CSS
           template by the extractor (e.g. text-shadow sizes Tailwind inlines).
       *)
+  theme_modes : (string * string list) list;
+      (** The modifiers of the [@theme] block each token was declared in, for
+          the tokens whose block had any. [inline] and [reference] change how a
+          token reads, and one test can declare two tokens of a namespace in
+          blocks that differ, so the mode belongs to the token. *)
+  utility_defs : (string * string) list;
+      (** [@utility] declarations (name, body) the test's CSS template makes. A
+          case that has any is compiled through the declared-utility path rather
+          than class by class. *)
+  layer_wrap : string option;
+      (** The layer the test's CSS template compiles [@tailwind utilities] into,
+          when it names one. Tailwind puts the generated utilities in it and
+          everything else beside it. *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -72,111 +88,135 @@ let split_classes line =
   if s <> "" then acc := s :: !acc;
   List.rev !acc
 
-let read filename =
+let lines_of filename =
   if not (Sys.file_exists filename) then []
   else
     let ic = open_in filename in
     let content = really_input_string ic (in_channel_length ic) in
     close_in ic;
-    let tests = ref [] in
-    let current_variants = ref [] in
-    let current_theme_vars = ref [] in
-    let lines = String.split_on_char '\n' content in
-    let parse_config_line line =
-      let line = String.trim line in
-      if String.length line > 8 && String.sub line 0 8 = "@config " then
-        Some (config_of_string (String.sub line 8 (String.length line - 8)))
-      else None
-    in
-    let rec parse lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
-            let name = String.sub line 2 (String.length line - 2) in
-            current_variants := [];
-            current_theme_vars := [];
-            parse_config name No_theme rest)
-          else parse rest
-    and parse_config name default_config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest -> (
-          match parse_config_line line with
-          | Some config -> parse_variants name config rest
-          | None -> parse_variants name default_config (line :: rest))
-    and parse_variants name config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let tl = String.trim line in
-          if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
-            current_variants :=
-              String.sub tl 9 (String.length tl - 9) :: !current_variants;
-            parse_variants name config rest)
-          else if String.length tl >= 11 && String.sub tl 0 11 = "@theme-var "
-          then (
-            (* "@theme-var <name> <value>" -- split on the first space. *)
-            let rest_str = String.sub tl 11 (String.length tl - 11) in
-            (match String.index_opt rest_str ' ' with
-            | Some i ->
-                let n = String.sub rest_str 0 i in
-                let v =
-                  String.sub rest_str (i + 1) (String.length rest_str - i - 1)
-                in
-                current_theme_vars := (n, v) :: !current_theme_vars
-            | None -> ());
-            parse_variants name config rest)
-          else parse_classes name config (line :: rest)
-    and parse_classes name config lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if line = "<<<>>>" then parse rest
-          else if line = "---" then
-            (* No classes line before ---, skip *)
-            parse_expected name config [] (Buffer.create 256) rest
-          else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
-          then (
-            (* New test without classes *)
-            let new_name = String.sub line 2 (String.length line - 2) in
-            current_variants := [];
-            current_theme_vars := [];
-            parse_config new_name No_theme rest)
-          else
-            let classes = split_classes line in
-            parse_after_classes name config classes rest
-    and parse_after_classes name config classes lines =
-      match lines with
-      | [] -> ()
-      | line :: rest ->
-          let line = String.trim line in
-          if line = "---" then
-            parse_expected name config classes (Buffer.create 256) rest
-          else if line = "<<<>>>" then
-            (* No expected CSS, skip this test *)
-            parse rest
-          else parse rest
-    and parse_expected name config classes buf lines =
-      match lines with
-      | [] ->
-          let expected = Buffer.contents buf |> String.trim in
-          if classes <> [] then
-            tests :=
-              {
-                source = filename;
-                name;
-                config;
-                classes;
-                expected;
-                variants = List.rev !current_variants;
-                theme_vars = List.rev !current_theme_vars;
-              }
-              :: !tests
-      | line :: rest ->
-          if String.trim line = "<<<>>>" then (
+    String.split_on_char '\n' content
+
+let read filename =
+  match lines_of filename with
+  | [] -> []
+  | lines ->
+      let tests = ref [] in
+      let current_variants = ref [] in
+      let current_theme_vars = ref [] in
+      let current_theme_modes = ref [] in
+      let current_utility_defs = ref [] in
+      let current_layer_wrap = ref None in
+      let parse_config_line line =
+        let line = String.trim line in
+        if String.length line > 8 && String.sub line 0 8 = "@config " then
+          Some (config_of_string (String.sub line 8 (String.length line - 8)))
+        else None
+      in
+      (* A directive line is "<keyword> <name> <rest>"; the name runs to the
+         first space and the rest is kept as written. *)
+      let named_pair keyword line =
+        let n = String.length keyword in
+        if String.length line < n || String.sub line 0 n <> keyword then None
+        else
+          let tail = String.sub line n (String.length line - n) in
+          Option.map
+            (fun i ->
+              ( String.sub tail 0 i,
+                String.sub tail (i + 1) (String.length tail - i - 1) ))
+            (String.index_opt tail ' ')
+      in
+      let rec parse lines =
+        match lines with
+        | [] -> ()
+        | line :: rest ->
+            let line = String.trim line in
+            if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
+              let name = String.sub line 2 (String.length line - 2) in
+              current_variants := [];
+              current_theme_vars := [];
+              current_theme_modes := [];
+              current_utility_defs := [];
+              current_layer_wrap := None;
+              parse_config name No_theme rest)
+            else parse rest
+      and parse_config name default_config lines =
+        match lines with
+        | [] -> ()
+        | line :: rest -> (
+            match parse_config_line line with
+            | Some config -> parse_variants name config rest
+            | None -> parse_variants name default_config (line :: rest))
+      and parse_variants name config lines =
+        match lines with
+        | [] -> ()
+        | line :: rest -> (
+            let tl = String.trim line in
+            if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
+              current_variants :=
+                String.sub tl 9 (String.length tl - 9) :: !current_variants;
+              parse_variants name config rest)
+            else
+              match named_pair "@theme-var " tl with
+              | Some pair ->
+                  current_theme_vars := pair :: !current_theme_vars;
+                  parse_variants name config rest
+              | None -> (
+                  match named_pair "@theme-mode " tl with
+                  | Some (n, modes) ->
+                      current_theme_modes :=
+                        (n, String.split_on_char ' ' modes)
+                        :: !current_theme_modes;
+                      parse_variants name config rest
+                  | None -> (
+                      match named_pair "@utility-def " tl with
+                      | Some pair ->
+                          current_utility_defs := pair :: !current_utility_defs;
+                          parse_variants name config rest
+                      | None ->
+                          if
+                            String.length tl >= 12
+                            && String.sub tl 0 12 = "@layer-wrap "
+                          then (
+                            current_layer_wrap :=
+                              Some (String.sub tl 12 (String.length tl - 12));
+                            parse_variants name config rest)
+                          else parse_classes name config (line :: rest))))
+      and parse_classes name config lines =
+        match lines with
+        | [] -> ()
+        | line :: rest ->
+            let line = String.trim line in
+            if line = "<<<>>>" then parse rest
+            else if line = "---" then
+              (* No classes line before ---, skip *)
+              parse_expected name config [] (Buffer.create 256) rest
+            else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
+            then (
+              (* New test without classes *)
+              let new_name = String.sub line 2 (String.length line - 2) in
+              current_variants := [];
+              current_theme_vars := [];
+              current_theme_modes := [];
+              current_utility_defs := [];
+              current_layer_wrap := None;
+              parse_config new_name No_theme rest)
+            else
+              let classes = split_classes line in
+              parse_after_classes name config classes rest
+      and parse_after_classes name config classes lines =
+        match lines with
+        | [] -> ()
+        | line :: rest ->
+            let line = String.trim line in
+            if line = "---" then
+              parse_expected name config classes (Buffer.create 256) rest
+            else if line = "<<<>>>" then
+              (* No expected CSS, skip this test *)
+              parse rest
+            else parse rest
+      and parse_expected name config classes buf lines =
+        match lines with
+        | [] ->
             let expected = Buffer.contents buf |> String.trim in
             if classes <> [] then
               tests :=
@@ -188,16 +228,65 @@ let read filename =
                   expected;
                   variants = List.rev !current_variants;
                   theme_vars = List.rev !current_theme_vars;
+                  theme_modes = List.rev !current_theme_modes;
+                  utility_defs = List.rev !current_utility_defs;
+                  layer_wrap = !current_layer_wrap;
                 }
-                :: !tests;
-            parse rest)
-          else (
-            if Buffer.length buf > 0 then Buffer.add_char buf '\n';
-            Buffer.add_string buf line;
-            parse_expected name config classes buf rest)
-    in
-    parse lines;
-    List.rev !tests
+                :: !tests
+        | line :: rest ->
+            if String.trim line = "<<<>>>" then (
+              let expected = Buffer.contents buf |> String.trim in
+              if classes <> [] then
+                tests :=
+                  {
+                    source = filename;
+                    name;
+                    config;
+                    classes;
+                    expected;
+                    variants = List.rev !current_variants;
+                    theme_vars = List.rev !current_theme_vars;
+                    theme_modes = List.rev !current_theme_modes;
+                    utility_defs = List.rev !current_utility_defs;
+                    layer_wrap = !current_layer_wrap;
+                  }
+                  :: !tests;
+              parse rest)
+            else (
+              if Buffer.length buf > 0 then Buffer.add_char buf '\n';
+              Buffer.add_string buf line;
+              parse_expected name config classes buf rest)
+      in
+      parse lines;
+      List.rev !tests
+
+(* A fixture is found beside the executable under the dune sandbox, and under
+   [upstream/] or [test/upstream/] when the test runs from a parent
+   directory. *)
+(* Blocks are counted on the separator the reader splits on, so the count is the
+   reader's own notion of a block rather than a second one beside it. *)
+let blocks filename =
+  List.length
+    (List.filter (fun line -> String.trim line = "<<<>>>") (lines_of filename))
+
+(* The banner the extractor writes: "#! <n> blocks extracted from ...". It
+   starts with [#!] rather than [# ] so the block scan walks past it. *)
+let declared_blocks filename =
+  match lines_of filename with
+  | [] -> None
+  | first :: _ ->
+      let first = String.trim first in
+      let prefix = "#! " in
+      let n = String.length prefix in
+      if String.length first <= n || String.sub first 0 n <> prefix then None
+      else
+        let tail = String.sub first n (String.length first - n) in
+        let count =
+          match String.index_opt tail ' ' with
+          | Some i -> String.sub tail 0 i
+          | None -> tail
+        in
+        int_of_string_opt count
 
 (* A fixture is found beside the executable under the dune sandbox, and under
    [upstream/] or [test/upstream/] when the test runs from a parent

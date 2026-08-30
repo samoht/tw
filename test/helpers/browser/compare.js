@@ -67,9 +67,47 @@ const unusable = (got) => {
   return null;
 };
 
-async function computed(browser, css, names) {
+// The states a variant can put a rule behind that a still page never enters.
+// Forced through CDP rather than by moving a mouse: one pass sets the state on
+// every element at once, it reaches :focus without the element being focusable
+// for real, and it is what DevTools' own "force element state" does. A state
+// the protocol will not force is simply absent from this list rather than
+// silently mis-measured.
+// Measured one by one against a rule the state alone selects, because the
+// protocol accepts a name whether or not the browser then honours it:
+// [visited] is accepted and changes nothing (a privacy restriction), so it is
+// left out rather than sitting here reporting agreement it never tested.
+const forcedStates = [
+  'hover',
+  'focus',
+  'focus-visible',
+  'focus-within',
+  'active',
+  'checked',
+  'disabled',
+];
+
+// Force [state] on every recorded element, so a rule behind hover: or focus:
+// is one the browser has actually applied rather than one that merely sits in
+// the sheet. Without this the state half of the variant set is in both sheets
+// and matched by neither, and the two agree for the wrong reason.
+async function force(p, state) {
+  const cdp = await p.context().newCDPSession(p);
+  await cdp.send('DOM.enable');
+  await cdp.send('CSS.enable');
+  const { root } = await cdp.send('DOM.getDocument');
+  const { nodeIds } = await cdp.send('DOM.querySelectorAll', {
+    nodeId: root.nodeId,
+    selector: 'body > div[id^=e], body > div[id^=e] *',
+  });
+  for (const nodeId of nodeIds)
+    await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [state] });
+}
+
+async function computed(browser, css, names, state) {
   const p = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await p.setContent(page(css));
+  if (state) await force(p, state);
   const out = await p.evaluate((ns) => {
     // Where a descendant sits inside its element, as tag names with an index
     // wherever siblings share a tag: enough to find it again in the markup.
@@ -126,10 +164,29 @@ async function computed(browser, css, names) {
     console.error(e.message);
     process.exit(2);
   }
-  const ra = await computed(browser, a, names);
-  const rb = await computed(browser, b, names);
+  // One pass with the page as it loads, then one per forced state. A rule
+  // behind hover: or focus: is in both sheets and matched by neither until the
+  // browser is actually in that state, so the still page agrees for the wrong
+  // reason.
+  const passes = [];
+  for (const state of [null, ...forcedStates])
+    passes.push({
+      state,
+      ra: await computed(browser, a, names, state),
+      rb: await computed(browser, b, names, state),
+    });
   await browser.close();
 
+  const lines = [];
+  for (const { state, ra, rb } of passes) {
+    const where = state ? ` [:${state}]` : '';
+    compare(ra, rb, where, lines);
+  }
+  report(lines);
+})();
+
+// Pair the two node lists and record every property that differs.
+function compare(ra, rb, where, lines) {
   const broken = unusable(ra.classes) || unusable(rb.classes);
   if (broken) {
     console.log(`markup does not carry the intended classes: ${broken}`);
@@ -149,8 +206,12 @@ async function computed(browser, css, names) {
 
   const label = (n) => {
     const cls = entries[Number(n.id.slice(1))].classes;
-    if (!n.path) return cls;
-    return n.path.startsWith('::') ? `${cls} ${n.path}` : `${cls} :: ${n.path}`;
+    const base = !n.path
+      ? cls
+      : n.path.startsWith('::')
+        ? `${cls} ${n.path}`
+        : `${cls} :: ${n.path}`;
+    return base + where;
   };
 
   // A custom property is a token stream: the browser hands back the author's
@@ -160,7 +221,6 @@ async function computed(browser, css, names) {
   const norm = (k, v) =>
     k.startsWith('--') && v !== undefined ? v.replace(/["'\s]+/g, '') : v;
 
-  const lines = [];
   for (let i = 0; i < ra.nodes.length; i++) {
     const na = ra.nodes[i];
     const nb = rb.nodes[i];
@@ -181,6 +241,9 @@ async function computed(browser, css, names) {
         lines.push(`${label(na)}: ${k}: ${pa[k]} (tw) vs ${pb[k]} (tailwind)`);
     }
   }
+}
+
+function report(lines) {
   if (lines.length) {
     // Every difference fails the run; a whole descendant tree off by one rule
     // prints thousands of lines, so the report stops at a readable prefix.
@@ -191,4 +254,4 @@ async function computed(browser, css, names) {
     process.exit(1);
   }
   process.exit(0);
-})();
+}

@@ -1,19 +1,22 @@
 Title: Measuring parity with Tailwind
 
-tw aims to produce the same CSS as Tailwind v4.3.3. Two checks in CI measure how
-close it gets, and a third comparison against tailwindcss.com runs by hand.
+tw aims to produce the same CSS as Tailwind v4.3.3. Three checks in CI measure
+how close it gets, and a fuller comparison against tailwindcss.com runs by hand.
 
 ## Checks that run in CI
 
-Both run under `dune runtest`.
+All three run under `dune runtest`.
 
 **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
 Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the
-CSS Tailwind emits for it. `test/upstream/test.exe` replays 783 cases and fails
+CSS Tailwind emits for it. `test/upstream/test.exe` replays 800 cases and fails
 when tw rejects a class Tailwind accepts, or emits different CSS for one it
 accepts. The two fixtures are generated, and `test/upstream/extract_tests.ml`
 carries the command that regenerates them. Editing them by hand removes the
-oracle the check depends on.
+oracle the check depends on, and the runner rejects a file whose block count no
+longer matches the banner the extractor stamped on it. A case Tailwind has no
+test for lives in `handwritten.txt`, read beside the two and written by no
+regeneration.
 
 **Example pages, `examples/*/dune`.** Each of the nine examples builds its CSS
 twice, once through tw and once through `npx tailwindcss`, then diffs the two
@@ -21,6 +24,18 @@ with `cascade diff --diff=canonical --prune-unused-custom-props`. The rule is
 guarded by `(enabled_if %{bin-available:npx})`, so it is skipped where npx is
 absent, and `%{bin:cascade}` resolves through the dune workspace, so the diff
 runs the freshly built cascade rather than whatever sits on `PATH`.
+
+**Whole-sheet order, `test/parity/dune`.** The site inputs below feed a third
+check, which takes the top-level statement sequence out of `@layer utilities` on
+each side and reports the fewest statements that have to move for tw's order to
+match Tailwind's. Only keys occurring exactly once on both sides are paired, so
+the number owes nothing to a pairing choice. It is pinned at 581 over 3885 pairs
+and ratchets: the gate fails when it rises and prints the new figure when it
+falls, so the ceiling can be tightened. Both other checks run the differ in
+canonical mode, which normalises cascade-neutral rule order on purpose, so this
+is the only one that sees a family emitted in the wrong band. A missing or
+off-version CLI skips it with a line saying so; `TW_TAILWIND_TESTS=1`, which CI
+sets, turns that into a failure.
 
 ## The site comparison
 
@@ -36,8 +51,8 @@ sh test/parity/measure.sh
 That takes about 17 seconds on a warm build: a fifth of a second in Tailwind,
 three seconds in tw, the rest in the differ. It writes `ref_local.css`,
 `tw_all.css` and `diff.txt` under `tmp/parity` and prints the diff followed by
-its top-level entries. It is not wired into `dune runtest`, because the
-reference half needs `npx tailwindcss`.
+its top-level entries. The report is not wired into `dune runtest`; the order
+gate above, which reads the same inputs, is.
 
 The inputs are:
 
@@ -152,10 +167,23 @@ moved between two blocks with the same condition into a `removed` entry paired
 with an `added` entry carrying those rules back, so look for the twin before
 treating either half as a gap.
 
+The corollary is the trap. A reorder among utilities that share no CSS property
+is cascade-neutral, so the canonical projection collapses it correctly --
+nothing about the rendered page changes. Tailwind still emits those utilities in
+a fixed order, so tw can carry a real sort bug that no `--diff` in any mode will
+report. That is why the sort tests read byte positions out of the sheet
+(`check_class_order` in `test/test_sort.ml`) instead of asking the differ:
+`check_ordering_matches` goes through the differ, and the differ has nothing to
+say. A priority-band bug in `lib/typography.ml` and `lib/overflow_wrap.ml` was
+invisible to every per-class comparison and was found this way.
+`check_class_order` names the classes it checks, so it pins order inside one
+family and says nothing about where the family sits; `test/parity/dune` covers
+that half by reading the whole sheet.
+
 ### Recurring bug shapes
 
 Four patterns account for most of what the site comparison has found, so a new
-family of utilities is worth checking against all four.
+family of utilities is worth checking against all five.
 
 - **Invented theme token.** A utility references `var(--<family>-<name>)` when
   no `@theme` declares it, leaving a reference that resolves to nothing. Write
@@ -169,6 +197,16 @@ family of utilities is worth checking against all four.
 - **A palette colour looked up only in `Scheme.hex_color`**, which holds
   per-render overrides and is empty by default, so the palette hex is never
   found and the fallback degrades.
+- **A class name re-printed from the AST instead of echoed.** A class name is
+  not CSS: it has to come back out spelled the way the author wrote it, because
+  it is also the selector that must match the markup. Printing it through a CSS
+  printer canonicalises the number and renames the class, so the rule matches
+  nothing. `min-[0.5ch]:flex` emitted `.min-\[\.5ch\]\:flex` because
+  `Pp.float` drops a leading zero unconditionally, and every gate stayed green:
+  no fixture covered a unit outside the handful the compact path enumerated.
+  Check a new family with a value the printer would respell -- a leading zero, a
+  trailing zero, an exponent -- and check the selector, not just the
+  declaration.
 
 ## What parity does not cover
 

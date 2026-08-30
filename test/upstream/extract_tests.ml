@@ -3,8 +3,13 @@
     This script parses the upstream Tailwind CSS test file and extracts:
     - Test names
     - Theme configuration ({!theme_config})
+    - [@utility] declarations and the layer the template compiles into
     - Utility class names
     - Expected CSS output from toMatchInlineSnapshot
+
+    A block that declares its own [@utility] is carried only when the runner
+    reproduces it; {!unreplayable} says which shapes it does not, and each drop
+    is named on stderr with its reason.
 
     {2 Generating the fixtures}
 
@@ -15,21 +20,35 @@
 
     {v
     # Clone tailwindcss (or use an existing clone) at the v4.3.3 tag
-    git clone https://github.com/tailwindlabs/tailwindcss.git /tmp/tailwindcss
-    cd /tmp/tailwindcss && git checkout v4.3.3
+    git clone https://github.com/tailwindlabs/tailwindcss.git tmp/tailwindcss
+    cd tmp/tailwindcss && git checkout v4.3.3
+
+    # Confirm the tag before extracting: another version rewrites values
+    # (v4.3.2 spells 22 of the lengths v4.3.3 spells 0px as 0).
+    head -3 packages/tailwindcss/package.json
 
     # Extract both fixtures
     dune exec test/upstream/extract_tests.exe -- \
-      /tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
+      tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
       > test/upstream/utilities.txt
     dune exec test/upstream/extract_tests.exe -- \
-      /tmp/tailwindcss/packages/tailwindcss/src/variants.test.ts \
+      tmp/tailwindcss/packages/tailwindcss/src/variants.test.ts \
       > test/upstream/variants.txt
     v}
 
     {b Do NOT edit the .txt fixtures directly.} If test expectations need
     updating, regenerate from the pinned Tailwind version or fix the extraction
-    script.
+    script. A case upstream does not have is a tw regression test and belongs in
+    its own [test_<module>.ml], never here: the next regeneration would drop it
+    silently.
+
+    {2 The provenance banner}
+
+    Each generated fixture opens with a [#!] line naming this script and the
+    number of blocks it wrote. [test/upstream/test.ml] counts the blocks back
+    and fails when the two disagree, so a block added to a generated fixture by
+    hand is reported at once instead of being dropped, unremarked, by the next
+    regeneration.
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
@@ -120,6 +139,20 @@ type test_case = {
           template. Captures tokens (e.g. [text-shadow-2xs]) that Tailwind
           inlines into utilities rather than emitting to [:root], so the runner
           can reconstruct the test's theme as token overrides. *)
+  theme_modes : (string * string list) list;
+      (** The modifiers of the [@theme] block each token was declared in, for
+          the tokens whose block had any. [inline] and [reference] change how a
+          token reads rather than what it is, and a test can put two tokens of
+          one namespace in blocks that differ, so the mode belongs to the token
+          rather than to the test. *)
+  utility_defs : (string * string) list;
+      (** [@utility <name> { <body> }] declarations from the test's CSS
+          template, so the runner can compile the case through the same
+          declared-utility path the CLI uses for a project entrypoint. *)
+  layer_wrap : string option;
+      (** The layer the test's CSS template puts [@tailwind utilities] in, when
+          it puts it in one at all. Tailwind emits the generated utilities
+          inside that layer and everything else beside it. *)
 }
 
 (* Parse [matchVariant('name', (value) => `template`, { values: {...} })] calls
@@ -261,6 +294,79 @@ let scanner_feed s line ~start emit =
   if not !closed then s.pending_space <- true;
   not !closed
 
+(* An [@utility <name> { ... }] body is read the same way, but whole: a nested
+   block, a [;] or a string inside it ends nothing, and only the [}] at the
+   block's own level closes it. Whitespace outside strings folds to a single
+   space so the body fits the one-line [@utility-def] fixture format. *)
+type block_scanner = {
+  text : Buffer.t;  (** the body read so far *)
+  mutable delim : char option;  (** the open string delimiter, if any *)
+  mutable commented : bool;
+  mutable nesting : int;  (** bracket nesting; [0] is the block's own level *)
+  mutable folded_space : bool;
+}
+
+let block_scanner () =
+  {
+    text = Buffer.create 128;
+    delim = None;
+    commented = false;
+    nesting = 0;
+    folded_space = false;
+  }
+
+let block_add s c =
+  if s.folded_space && Buffer.length s.text > 0 then Buffer.add_char s.text ' ';
+  s.folded_space <- false;
+  Buffer.add_char s.text c
+
+(* Read one line of an open [@utility] body from [start]. Returns [true] while
+   the body is still open. *)
+let block_feed s line ~start =
+  let len = String.length line in
+  let closed = ref false in
+  let i = ref start in
+  while (not !closed) && !i < len do
+    let c = line.[!i] in
+    (match s.delim with
+    | Some q ->
+        block_add s c;
+        if c = '\\' && !i + 1 < len then (
+          block_add s line.[!i + 1];
+          incr i)
+        else if c = q then s.delim <- None
+    | None -> (
+        if s.commented then (
+          if c = '*' && !i + 1 < len && line.[!i + 1] = '/' then (
+            s.commented <- false;
+            s.folded_space <- true;
+            incr i))
+        else if c = '/' && !i + 1 < len && line.[!i + 1] = '*' then (
+          s.commented <- true;
+          incr i)
+        else
+          match c with
+          | ' ' | '\t' | '\r' -> s.folded_space <- true
+          | '\'' | '"' ->
+              s.delim <- Some c;
+              block_add s c
+          | '(' | '[' | '{' ->
+              s.nesting <- s.nesting + 1;
+              block_add s c
+          | ')' | ']' ->
+              if s.nesting > 0 then s.nesting <- s.nesting - 1;
+              block_add s c
+          | '}' ->
+              if s.nesting = 0 then closed := true
+              else (
+                s.nesting <- s.nesting - 1;
+                block_add s c)
+          | c -> block_add s c));
+    incr i
+  done;
+  if not !closed then s.folded_space <- true;
+  not !closed
+
 (* [.toEqual('')] asserts that a candidate list compiles to nothing. Like a
    [@theme] declaration, the assertion is read as a character stream: Prettier
    wraps the call when the [expect(...)] head is long, leaving the argument and
@@ -321,6 +427,210 @@ let is_empty_string_arg arg =
     else arg
   in
   arg = "''" || arg = {|""|}
+
+let contains_apply body = Astring.String.is_infix ~affix:"@apply" body
+
+(* The theme tokens a definition body reads with [var(--name)]. *)
+let var_reference_re = Re.Pcre.regexp {|var\(\s*--([A-Za-z0-9_-]+)|}
+
+let var_references body =
+  List.map (fun g -> Re.Group.get g 1) (Re.all var_reference_re body)
+
+(* Tailwind runs its output through a minifier that adds vendor prefixes. A
+   declared utility's body reaches the sheet as written, so a snapshot spelling
+   a prefixed property no definition wrote is one tw cannot produce. *)
+let vendor_prefixes = [ "-webkit-"; "-moz-"; "-ms-" ]
+
+(* [@utility example-*] declares a functional utility: its body is a template
+   whose [--value(...)] and [--modifier(...)] reads stand for the candidate's
+   own value, so no CSS parser reads it as written. *)
+let is_functional (name, _) = String.contains name '*'
+
+(* The property of a declaration cascade rejects the value of, if the body has
+   one. *)
+let unreadable_declaration body =
+  match Cascade.Css.of_string (String.concat "" [ ".x{"; body; "}" ]) with
+  | Error _ -> Some "the definition body"
+  | Ok { warnings; _ } ->
+      List.find_map
+        (fun (w : Cascade.Error.t) ->
+          match w.kind with
+          | Cascade.Error.Bad_value { property; _ } -> Some property
+          | _ -> None)
+        warnings
+
+(* The declarations a snapshot gives one class: the [;] inside every [.name {
+   ... }] block it holds, nested at-rules included. A block whose selector lists
+   several classes is not matched, so it counts as none, which reads as "no more
+   than the definition wrote" and keeps the case. *)
+let snapshot_declarations expected name =
+  let opener = Re.Pcre.regexp (Re.Pcre.quote ("." ^ name) ^ {|\s*\{|}) in
+  let len = String.length expected in
+  let count = ref 0 in
+  List.iter
+    (fun g ->
+      let i = ref (snd (Re.Group.offset g 0)) in
+      let depth = ref 0 in
+      let closed = ref false in
+      while (not !closed) && !i < len do
+        (match expected.[!i] with
+        | '{' -> incr depth
+        | '}' -> if !depth = 0 then closed := true else decr depth
+        | ';' -> incr count
+        | _ -> ());
+        incr i
+      done)
+    (Re.all opener expected);
+  !count
+
+let semicolons s =
+  String.fold_left (fun n c -> if c = ';' then n + 1 else n) 0 s
+
+(* Tailwind's own breakpoint variants. A candidate carrying one needs a
+   [--breakpoint-<name>] the case's template has to declare. *)
+let breakpoint_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ]
+
+let variant_prefixes cls =
+  match String.rindex_opt cls ':' with
+  | None -> []
+  | Some i -> String.split_on_char ':' (String.sub cls 0 i)
+
+(* The math functions whose result Tailwind's minifier writes out. *)
+let math_functions = [ "calc("; "min("; "max("; "clamp("; "round(" ]
+
+(* Why the runner cannot reproduce a block that declares its own [@utility], or
+   [None] when it can. Each reason is a gap to close, not a property of the
+   corpus: the check goes when the gap does.
+
+   An [@utility] the scanner did not read would leave the case compiled without
+   its definitions, so a scanner gap shows up as a missing case.
+
+   A body cascade cannot read loses the same declaration on both sides of the
+   comparison, which then compares less than it appears to.
+
+   A snapshot that gives a declared class more declarations than its definition
+   wrote is one Tailwind merged with a built-in utility of the same name; tw's
+   routing replaces the built-in instead of appending to it. An [@apply] body
+   writes its declarations by expansion, so it is counted out of this one.
+
+   [@theme reference] declares a token elsewhere: Tailwind inlines its value as
+   a [var()] fallback and emits no [:root] declaration. A declared utility
+   spells that fallback itself, so a case whose classes the declarations all
+   govern replays; every other class still goes through the built-in generator,
+   which has no reference-token mode.
+
+   A [var(--name)] a definition reads is rendered against tw's own theme when
+   the fixture carries no value for it, which is either a token Tailwind never
+   emitted or a value it emitted from the case's theme. A case with no class for
+   the declarations to govern never reads it, so it is kept.
+
+   Tailwind's minifier vendor-prefixes what it emits. A declared utility's body
+   reaches tw's sheet as written, so a snapshot holding a prefixed property no
+   definition wrote is out of reach.
+
+   An [@theme inline] token stands for its value at every use site, and
+   Tailwind's minifier folds a math function there to a number of its own
+   spelling ([calc(1 / 0.75)] comes out as [1.33333]). tw inlines the value as
+   written, and cascade prints a math function rather than working it out.
+
+   [run()] compiles against an empty theme, so a named breakpoint variant the
+   template never declares resolves to nothing upstream; tw's [Scheme.t] has no
+   way to say "no breakpoints" (an empty list means the built-in ones). *)
+let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
+  let routed =
+    List.filter
+      (Tw_tools.Entrypoint.is_custom_routed ~defs:[] ~udefs:defs)
+      classes
+  in
+  let unreadable =
+    List.filter_map
+      (fun def ->
+        if is_functional def then None else unreadable_declaration (snd def))
+      defs
+  in
+  let unresolved_reference name = not (List.mem_assoc name theme_vars) in
+  let reads_unknown_token =
+    List.exists
+      (fun (_, body) -> List.exists unresolved_reference (var_references body))
+      defs
+  in
+  let prefixed_snapshot =
+    List.exists
+      (fun prefix ->
+        Astring.String.is_infix ~affix:prefix expected
+        && not
+             (List.exists
+                (fun (_, body) -> Astring.String.is_infix ~affix:prefix body)
+                defs))
+      vendor_prefixes
+  in
+  let applies = List.exists (fun (_, b) -> contains_apply b) defs in
+  let undeclared_breakpoint =
+    List.exists
+      (fun cls ->
+        List.exists
+          (fun v ->
+            List.mem v breakpoint_names
+            && not (List.mem_assoc ("breakpoint-" ^ v) theme_vars))
+          (variant_prefixes cls))
+      classes
+  in
+  let inlined_math =
+    List.exists
+      (fun (name, modes) ->
+        List.mem "inline" modes
+        &&
+        match List.assoc_opt name theme_vars with
+        | None -> false
+        | Some value ->
+            List.exists
+              (fun fn -> Astring.String.is_infix ~affix:fn value)
+              math_functions)
+      theme_modes
+  in
+  let merged_with_builtin =
+    (not applies)
+    && List.exists
+         (fun (name, _) ->
+           let wrote =
+             List.fold_left
+               (fun n (m, body) -> if m = name then n + semicolons body else n)
+               0 defs
+           in
+           snapshot_declarations expected name > wrote)
+         defs
+  in
+  let some = Fmt.kstr (fun s -> Some s) in
+  (* [some] is fixed at the first format it is used with, so a reason carrying a
+     count needs its own. *)
+  let counted = Fmt.kstr (fun s -> Some s) in
+  if defs = [] then Some "an @utility declaration the extractor could not read"
+  else if unreadable <> [] then
+    some "cascade cannot read the declared %s" (String.concat ", " unreadable)
+  else if merged_with_builtin then
+    Some "Tailwind merged the declared utility with a built-in of the same name"
+  else if
+    (config = Theme_reference || config = Theme_inline_reference)
+    && expected <> ""
+    && List.length routed < List.length classes
+  then
+    counted
+      "@theme reference and %d class(es) the declarations do not govern, which \
+       tw has no reference-token mode for"
+      (List.length classes - List.length routed)
+  else if prefixed_snapshot then
+    Some "Tailwind's minifier vendor-prefixed a declared utility's property"
+  else if reads_unknown_token && routed <> [] then
+    Some
+      "a declared utility reads a theme token the fixture does not carry, so \
+       tw cannot render it against the case's own theme"
+  else if inlined_math then
+    Some
+      "an inline theme token whose value is a math function Tailwind's \
+       minifier works out and cascade prints as written"
+  else if undeclared_breakpoint then
+    Some "a breakpoint variant the case's own theme does not declare"
+  else None
 
 (* A [test(...)] block opens with the call's own indentation and closes at the
    [})] sitting at that same indentation: Prettier indents every line of the
@@ -424,16 +734,33 @@ let parse_file filename =
   (* Indentation of the [test(] opening the block being read, so its own [})] is
      told apart from one closing a [describe(...)] around it. *)
   let test_indent = ref "" in
-  (* Cases produced by the block being read, held back until it ends. A block
-     that defines its own [@utility] is dropped whole: the extractor carries a
-     candidate list and the [@theme] tokens, not the CSS around them, so the
-     expected snapshot of such a block holds rules for utilities the runner is
-     never told about and no run can produce. In v4.3.3 that is the
-     [describe('custom utilities')] block and the one [@utility container]
-     case. *)
+  (* Cases produced by the block being read, held back until it ends: a test's
+     [@utility] declarations are stamped on all of them at once, because a test
+     can declare them in a template it reuses across several snapshots (the
+     definition sits above the first [expect], the candidate list below the
+     second).
+
+     A block that declares its own [@utility] is carried only when the runner's
+     declared-utility path reproduces it; {!unreplayable} names the shapes it
+     does not, and every drop is reported on stderr. *)
   let block_tests = ref [] in
   let saw_custom_utility = ref false in
   let utility_def_re = Re.Pcre.regexp {|@utility\s|} in
+  (* Capture [@utility <name> { <body> }] declarations. [in_utility] holds the
+     name and the scanner of the block still being read, if any. The name runs
+     to the [{] and is kept as spelled: an invalid one ([~push], [@push]) is a
+     test's own subject, not something to normalise away. *)
+  let current_utility_defs = ref [] in
+  let in_utility = ref None in
+  let utility_open_re = Re.Pcre.regexp {|@utility\s+([^{\n]+?)\s*\{|} in
+  (* [@layer <name> { @tailwind utilities; }] in a template puts the generated
+     utilities in [<name>]. The block is read whole, then kept only if that is
+     what it holds: an [@layer] wrapping the author's own rules names nothing
+     for the generator. *)
+  let current_layer_wrap = ref None in
+  let in_layer = ref None in
+  let layer_open_re = Re.Pcre.regexp {|@layer\s+([A-Za-z0-9_-]+)\s*\{|} in
+  let tailwind_utilities_re = Re.Pcre.regexp {|@tailwind\s+utilities|} in
   let current_classes = ref [] in
   let current_config = ref No_theme in
   (* A single test can mix a keep [@theme { ... }] block with an inline [@theme
@@ -455,8 +782,9 @@ let parse_file filename =
   (* Capture [@theme] token declarations [--name: value;]. [in_theme] holds the
      scanner of the active [@theme {...}] block within a compileCss template. *)
   let current_theme_vars = ref [] in
+  let current_theme_modes = ref [] in
   let in_theme = ref None in
-  let theme_open_re = Re.Pcre.regexp {|@theme\b[^{]*\{|} in
+  let theme_open_re = Re.Pcre.regexp {|@theme\b([^{]*)\{|} in
   (* Scanner of the [.toEqual(] call still being read, if any. *)
   let in_expect = ref None in
 
@@ -478,18 +806,45 @@ let parse_file filename =
           expected;
           variants;
           theme_vars = List.rev !current_theme_vars;
+          theme_modes = List.rev !current_theme_modes;
+          utility_defs = [];
+          layer_wrap = !current_layer_wrap;
         }
         :: !block_tests;
     current_classes := [];
     current_variant_names := [];
     current_theme_vars := [];
+    current_theme_modes := [];
     in_theme := None;
     in_expect := None
   in
 
   let close_block () =
-    if not !saw_custom_utility then tests := !block_tests @ !tests;
+    let defs = List.rev !current_utility_defs in
+    let drop =
+      if not !saw_custom_utility then None
+      else
+        List.find_map
+          (fun t ->
+            unreplayable ~defs ~config:t.config ~theme_vars:t.theme_vars
+              ~theme_modes:t.theme_modes ~classes:t.classes
+              (Option.value ~default:"" t.expected))
+          (List.rev !block_tests)
+    in
+    (match drop with
+    | Some why ->
+        List.iter
+          (fun t -> Fmt.epr "dropped '%s': %s@." t.name why)
+          (List.rev !block_tests)
+    | None ->
+        tests :=
+          List.map (fun t -> { t with utility_defs = defs }) !block_tests
+          @ !tests);
     block_tests := [];
+    current_utility_defs := [];
+    current_layer_wrap := None;
+    in_utility := None;
+    in_layer := None;
     saw_custom_utility := false
   in
 
@@ -547,20 +902,70 @@ let parse_file filename =
              [{] and read on until the block's closing [}]. *)
           let scan_from =
             match !in_theme with
-            | Some s -> Some (s, 0)
+            | Some (modes, s) -> Some (modes, s, 0)
             | None -> (
                 match Re.exec_opt theme_open_re line with
                 | Some g ->
+                    let modes =
+                      String.split_on_char ' ' (String.trim (Re.Group.get g 1))
+                      |> List.filter (fun m -> m <> "")
+                    in
                     let s = theme_scanner () in
-                    in_theme := Some s;
-                    Some (s, snd (Re.Group.offset g 0))
+                    in_theme := Some (modes, s);
+                    Some (modes, s, snd (Re.Group.offset g 0))
                 | None -> None)
           in
           (match scan_from with
           | None -> ()
-          | Some (s, start) ->
-              let emit v = current_theme_vars := v :: !current_theme_vars in
+          | Some (modes, s, start) ->
+              let emit ((name, _) as v) =
+                current_theme_vars := v :: !current_theme_vars;
+                if modes <> [] then
+                  current_theme_modes := (name, modes) :: !current_theme_modes
+              in
               if not (scanner_feed s line ~start emit) then in_theme := None);
+
+          (* Capture [@utility <name> { ... }] declarations the same way. *)
+          let utility_scan =
+            match !in_utility with
+            | Some (name, s) -> Some (name, s, 0)
+            | None -> (
+                match Re.exec_opt utility_open_re line with
+                | Some g ->
+                    let name = String.trim (Re.Group.get g 1) in
+                    let s = block_scanner () in
+                    in_utility := Some (name, s);
+                    Some (name, s, snd (Re.Group.offset g 0))
+                | None -> None)
+          in
+          (match utility_scan with
+          | None -> ()
+          | Some (name, s, start) ->
+              if not (block_feed s line ~start) then (
+                in_utility := None;
+                current_utility_defs :=
+                  (name, Buffer.contents s.text) :: !current_utility_defs));
+
+          (* Note the layer a template compiles [@tailwind utilities] into. *)
+          let layer_scan =
+            match !in_layer with
+            | Some (name, s) -> Some (name, s, 0)
+            | None -> (
+                match Re.exec_opt layer_open_re line with
+                | Some g ->
+                    let name = Re.Group.get g 1 in
+                    let s = block_scanner () in
+                    in_layer := Some (name, s);
+                    Some (name, s, snd (Re.Group.offset g 0))
+                | None -> None)
+          in
+          (match layer_scan with
+          | None -> ()
+          | Some (name, s, start) ->
+              if not (block_feed s line ~start) then (
+                in_layer := None;
+                if Re.execp tailwind_utilities_re (Buffer.contents s.text) then
+                  current_layer_wrap := Some name));
 
           (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
@@ -675,6 +1080,15 @@ let () =
   Fmt.epr "Parsing %s...@." filename;
   let tests = parse_file filename in
 
+  (* The provenance banner: [#!] keeps it out of the block scan, which reads a
+     [#] and a space as a block header, and the count is what
+     [test/upstream/test.ml] holds the file to. *)
+  let count = List.length tests in
+  Fmt.pr "#! %d %s extracted from %s by extract_tests.exe -- do not edit@."
+    count
+    (if count = 1 then "block" else "blocks")
+    (Filename.basename filename);
+
   (* Output format: # test-name @config <theme-config> class1 class2 --- css
      output here with newlines preserved <<<>>> *)
   List.iter
@@ -683,6 +1097,14 @@ let () =
       Fmt.pr "@config %s@." (config_to_string test.config);
       List.iter (fun v -> Fmt.pr "@variant %s@." v) test.variants;
       List.iter (fun (n, v) -> Fmt.pr "@theme-var %s %s@." n v) test.theme_vars;
+      List.iter
+        (fun (n, modes) ->
+          Fmt.pr "@theme-mode %s %s@." n (String.concat " " modes))
+        test.theme_modes;
+      List.iter
+        (fun (n, body) -> Fmt.pr "@utility-def %s %s@." n body)
+        test.utility_defs;
+      Option.iter (Fmt.pr "@layer-wrap %s@.") test.layer_wrap;
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->

@@ -1701,7 +1701,10 @@ module Handler = struct
             )
         | None, _ -> Error (`Msg ("Unknown direction: " ^ dir_s)))
     (* bg-linear-[value] - bracket linear gradient *)
-    | [ "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
+    | [ "bg"; "linear"; bracket ]
+      when Parse.is_bracket_value bracket
+           && Parse.is_declaration_value
+                (Parse.decode_underscores (Parse.bracket_inner bracket)) ->
         let inner = Parse.bracket_inner bracket in
         Ok (Bg_linear_bracket inner)
     (* bg-linear-{angle} and bg-linear-{angle}/interp *)
@@ -1787,7 +1790,10 @@ module Handler = struct
         | Some css -> Ok (Bg_radial_interp (interp, css))
         | None -> Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
     (* bg-radial-[value] - bracket radial gradient *)
-    | [ "bg"; "radial"; bracket ] when Parse.is_bracket_value bracket ->
+    | [ "bg"; "radial"; bracket ]
+      when Parse.is_bracket_value bracket
+           && Parse.is_declaration_value
+                (Parse.decode_underscores (Parse.bracket_inner bracket)) ->
         let inner = Parse.bracket_inner bracket in
         Ok (Bg_radial_bracket inner)
     (* bg-position-[...] bracket notation *)

@@ -124,6 +124,14 @@ let rendering_matches_tailwind () =
       "-ml-1";
       "ms-2";
       "me-4";
+      (* State variants, so the browser is the oracle for them too. The harness
+         forces :hover and :focus through CDP; without that these rules sit in
+         both sheets, are matched by neither, and the two agree for the wrong
+         reason. *)
+      "hover:mt-8";
+      "focus:mb-8";
+      "active:ml-8";
+      "disabled:mr-8";
     ]
   in
   Test_helpers.check_rendering_matches ~test_name:"margins render like Tailwind"

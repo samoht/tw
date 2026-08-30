@@ -17,9 +17,16 @@ val our_css : Tw.t list -> string
 (** [our_css utilities] is tw's stylesheet for [utilities], base layer included
     and minified. *)
 
+val require_tailwind_cli : unit -> unit
+(** [require_tailwind_cli ()] returns when the pinned Tailwind CLI is usable.
+    Otherwise it skips the calling test, or fails it when [TW_TAILWIND_TESTS=1]
+    says the CLI is meant to be there: a parity test that stops asking the
+    oracle reports an agreement it never checked. *)
+
 val tailwind_css : ?forms:bool -> string list -> string
 (** [tailwind_css classnames] is the pinned Tailwind CLI's stylesheet for the
-    same classes. Skips the test when the CLI is unavailable. *)
+    same classes. Goes through {!require_tailwind_cli}, so it skips the test
+    when the CLI is unavailable and fails it under [TW_TAILWIND_TESTS=1]. *)
 
 val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
@@ -94,6 +101,38 @@ val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
     expected rule in the wrong places still compares equal; reading the
     positions back is what catches a reorder. Skips when the CLI is unavailable.
 *)
+
+val layer_statement_keys : string -> layer:string -> string list
+(** [layer_statement_keys sheet ~layer] is the sequence of top-level statements
+    inside [sheet]'s [@layer layer] block, in the order the bytes carry, each
+    keyed by its selector or its at-rule prelude. A selector list is expanded
+    onto its branches, since a list is one statement but several rules as far as
+    order goes. [sheet] is read as text, not parsed, so both a tw sheet and a
+    Tailwind one go through the same reader; a sheet with no such layer gives
+    the empty list. *)
+
+type order_gap = {
+  pairs : int;  (** keys occurring exactly once on each side *)
+  moves : int;  (** the fewest of those that have to move *)
+  moved : (string * int * int) list;
+      (** each moved key with its rank among {!field-pairs} on Tailwind's side
+          and on tw's *)
+}
+(** What separates two sheets' statement order, in one number. *)
+
+val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
+(** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
+    in [@layer layer] is from Tailwind's. Only keys occurring exactly once on
+    both sides are paired, so no pairing choice of the gate's own can move the
+    number; over those, {!field-moves} is the count outside a longest
+    subsequence, which is the fewest statements that have to move for the orders
+    to agree.
+
+    {!check_class_order} asks the same question of a handful of named classes
+    and {!check_ordering_matches} cannot ask it at all, the canonical differ
+    being blind to a cascade-neutral reorder by design. This is the whole-sheet
+    form: it sees a family placed in the wrong band even when no two utilities
+    it reorders share a property. *)
 
 val render_elements : string list -> string list
 (** [render_elements classnames] is the element list {!check_rendering_matches}
@@ -247,3 +286,40 @@ val check_typed_class : string -> Tw.t -> unit
 (** [check_typed_class cls value] checks that the typed constructor [value]
     pretty-prints to [cls] and that [cls] round-trips back through
     [Tw.of_string]. *)
+
+val adversarial_payloads : string list
+(** [adversarial_payloads] are bracket values chosen to break the two things a
+    utility does with author text: respell it into the class name, and place it
+    into a declaration. Numbers whose canonical spelling differs from the
+    author's, text that ends the declaration or the rule, comments, quotes,
+    placeholders no CSS grammar reads, and non-ASCII identifiers. *)
+
+val arbitrary_families : string list
+(** [arbitrary_families] is every class prefix that accepts [<prefix>-[value]],
+    found by feeding a benign bracket value to each [val] exported by
+    [lib/tw.mli] and the family modules it re-exports, and to each literal
+    match-arm prefix in [lib/*.ml]. *)
+
+type sweep_verdict =
+  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
+  | Emitted_nothing  (** parsed, but contributed no rule *)
+  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Mismatched of string
+      (** parsed, and emitted a rule the class cannot match *)
+
+val sweep_one : string -> sweep_verdict
+(** [sweep_one cls] compiles [cls] and reports what came of it. It fails the
+    test if [of_string] or [to_css] raises: an exception escaping is never a
+    legitimate answer, whereas [Error] is. {!constructor-Mismatched} is the one
+    verdict that is a bug - the class was accepted and named a rule it cannot
+    select - and it covers both halves: no emitted selector carries the class,
+    or {!Tw.pp} spells the class differently from the author. *)
+
+val unescape_selector : string -> string
+(** [unescape_selector s] undoes CSS Syntax 3 (ED) sec. 4.3.7 escaping, so a
+    selector can be compared against the class text it was built from whichever
+    spelling the printer chose. *)
+
+val selectors_of_utility : Tw.t -> string list
+(** [selectors_of_utility u] is every selector [u] emits, nested rules inside
+    [\@media], [\@supports], [\@container] and [\@layer] included. *)

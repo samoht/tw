@@ -476,12 +476,763 @@ let take_custom_variants css =
   go 0;
   (Buffer.contents buf, !defs)
 
-(* [@utility NAME { ... }] declares a project's own utility class. Only the
-   static form is read here; the functional [@utility NAME-* { ... }] one needs
-   [--value()]/[--modifier()] resolution. *)
-let take_custom_utilities css =
-  let css, defs = take_named_defs "@utility" css in
-  (css, List.filter (fun (n, _) -> not (String.contains n '*')) defs)
+(* {2 Functional [@utility NAME-*] declarations}
+
+   A functional declaration is a template rather than a rule: its body reads the
+   candidate's own value back with [--value(...)] and the [/half] after it with
+   [--modifier(...)]. A declaration whose reads do not all resolve is dropped,
+   and a candidate that resolved no [--value(...)] at all is not a utility. This
+   is Tailwind's [createCssUtility], and the arguments a read takes are its
+   documented API: a quoted literal, a bare data type, a [[data-type]] for an
+   arbitrary value, a [--namespace] to look up in the theme, and
+   [--default(...)] for the candidate that spelled no value. *)
+
+(* Tailwind's [segment]: split [s] on [sep] at the top level, so a separator
+   inside a bracket group or a quoted string belongs to the piece around it. *)
+let segment sep s =
+  let len = String.length s in
+  let pieces = ref [] in
+  let buf = Buffer.create len in
+  let depth = ref 0 in
+  let quote = ref None in
+  let i = ref 0 in
+  while !i < len do
+    let c = s.[!i] in
+    (match !quote with
+    | Some q ->
+        Buffer.add_char buf c;
+        if c = '\\' && !i + 1 < len then (
+          Buffer.add_char buf s.[!i + 1];
+          incr i)
+        else if c = q then quote := None
+    | None -> (
+        match c with
+        | '\'' | '"' ->
+            quote := Some c;
+            Buffer.add_char buf c
+        | '(' | '[' | '{' ->
+            incr depth;
+            Buffer.add_char buf c
+        | ')' | ']' | '}' ->
+            if !depth > 0 then decr depth;
+            Buffer.add_char buf c
+        | c when c = sep && !depth = 0 ->
+            pieces := Buffer.contents buf :: !pieces;
+            Buffer.clear buf
+        | c -> Buffer.add_char buf c));
+    incr i
+  done;
+  List.rev (Buffer.contents buf :: !pieces)
+
+(* Index of the first [sub] in [s]. *)
+let sub_index s sub =
+  let n = String.length s and m = String.length sub in
+  let rec go i =
+    if i + m > n then None
+    else if String.sub s i m = sub then Some i
+    else go (i + 1)
+  in
+  go 0
+
+let has_sub s sub = Option.is_some (sub_index s sub)
+let is_digit c = c >= '0' && c <= '9'
+
+(* A [<number>] as a candidate spells one: an optional sign, digits with at most
+   one decimal point, and an optional exponent. *)
+let is_number text =
+  let n = String.length text in
+  let i = ref 0 in
+  if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
+  let digits () =
+    let from = !i in
+    while !i < n && is_digit text.[!i] do
+      incr i
+    done;
+    !i - from
+  in
+  let whole = digits () in
+  let fraction =
+    if !i < n && text.[!i] = '.' then (
+      incr i;
+      digits ())
+    else -1
+  in
+  let mantissa = if fraction < 0 then whole >= 1 else fraction >= 1 in
+  let exponent =
+    if !i < n && (text.[!i] = 'e' || text.[!i] = 'E') then begin
+      incr i;
+      if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
+      digits () >= 1
+    end
+    else true
+  in
+  mantissa && exponent && !i = n
+
+let is_percentage text =
+  let n = String.length text in
+  n > 1 && text.[n - 1] = '%' && is_number (String.sub text 0 (n - 1))
+
+let is_fraction text =
+  match segment '/' text with
+  | [ left; right ] ->
+      is_number (String.trim left) && is_number (String.trim right)
+  | _ -> false
+
+(* The spelling a round trip through a number leaves unchanged, which is what
+   Tailwind's [String(Number(value)) === String(value)] asks for: no sign, no
+   redundant leading zero, no trailing zero in the fraction, no bare [.]. *)
+let is_canonical_number text =
+  let whole, fraction =
+    match String.index_opt text '.' with
+    | None -> (text, None)
+    | Some i ->
+        ( String.sub text 0 i,
+          Some (String.sub text (i + 1) (String.length text - i - 1)) )
+  in
+  let digits s = s <> "" && String.for_all is_digit s in
+  digits whole
+  && (String.length whole = 1 || whole.[0] <> '0')
+  &&
+  match fraction with
+  | None -> true
+  | Some f -> digits f && f.[String.length f - 1] <> '0'
+
+let is_positive_integer text =
+  is_canonical_number text && not (String.contains text '.')
+
+(* Tailwind's spacing multiplier: a canonical non-negative number that is a
+   whole multiple of [0.25]. *)
+let is_spacing_multiplier text =
+  is_canonical_number text
+  &&
+  match float_of_string_opt text with
+  | None -> false
+  | Some value -> Float.rem value 0.25 = 0.
+
+(* MDN's list of CSS length units, the one Tailwind reads a bare length
+   against. *)
+let length_units =
+  [
+    "cm";
+    "mm";
+    "Q";
+    "in";
+    "pc";
+    "pt";
+    "px";
+    "em";
+    "ex";
+    "ch";
+    "rem";
+    "lh";
+    "rlh";
+    "vw";
+    "vh";
+    "vmin";
+    "vmax";
+    "vb";
+    "vi";
+    "svw";
+    "svh";
+    "lvw";
+    "lvh";
+    "dvw";
+    "dvh";
+    "cqw";
+    "cqh";
+    "cqi";
+    "cqb";
+    "cqmin";
+    "cqmax";
+  ]
+
+let math_functions =
+  [
+    "calc";
+    "min";
+    "max";
+    "clamp";
+    "round";
+    "mod";
+    "rem";
+    "sin";
+    "cos";
+    "tan";
+    "asin";
+    "acos";
+    "atan";
+    "atan2";
+    "pow";
+    "sqrt";
+    "hypot";
+    "log";
+    "exp";
+    "abs";
+    "sign";
+  ]
+
+(* A math function stands for the value it computes, so it reads as every
+   numeric type. *)
+let has_math_fn text =
+  List.exists (fun name -> has_sub text (name ^ "(")) math_functions
+
+let is_length text =
+  has_math_fn text
+  || List.exists
+       (fun unit ->
+         let n = String.length text and u = String.length unit in
+         n > u
+         && String.sub text (n - u) u = unit
+         && is_number (String.sub text 0 (n - u)))
+       length_units
+
+(* Whether [text] reads as the CSS data type [kind]. A [var()] is opaque, so it
+   reads as nothing at all. The kinds beyond these are ones no [--value([kind])]
+   here asks for; one that does resolves to nothing rather than to a guess. *)
+let infer_data_type text kind =
+  if String.starts_with ~prefix:"var(" text then false
+  else
+    match kind with
+    | "color" -> Option.is_some (Css.parse_color text)
+    | "length" -> is_length text
+    | "percentage" -> is_percentage text || has_math_fn text
+    | "ratio" -> is_fraction text || has_math_fn text
+    | "number" -> is_number text || has_math_fn text
+    | "integer" -> is_positive_integer text
+    | _ -> false
+
+(* Only these four data types are read from a bare candidate value, so no
+   [--value(color)] can turn [example-red] into a utility. *)
+let bare_value_data_types = [ "number"; "integer"; "ratio"; "percentage" ]
+
+(** The value a candidate carries: a bare word, or an arbitrary value with the
+    data-type hint it was spelled with. The modifier takes the same two shapes.
+*)
+type candidate_value =
+  | Bare of string
+  | Bracketed of { hint : string option; text : string }
+
+type functional_candidate = {
+  root : string;  (** the [@utility] name without its [-*] *)
+  value : candidate_value option;
+  fraction : string option;
+      (** [2/3] when the value and the modifier read as one fraction, which is
+          what a [--value(ratio)] resolves against. *)
+  modifier : candidate_value option;
+}
+
+(* [example-*] declares a functional utility rooted at [example], and
+   [border--*] one rooted at [border-]. *)
+let functional_root name =
+  let n = String.length name in
+  if n > 2 && String.sub name (n - 2) 2 = "-*" then
+    Some (String.sub name 0 (n - 2))
+  else None
+
+let is_named_value s =
+  s <> ""
+  && String.for_all
+       (fun c ->
+         is_digit c
+         || (c >= 'a' && c <= 'z')
+         || (c >= 'A' && c <= 'Z')
+         || c = '_' || c = '.' || c = '%' || c = '-')
+       s
+
+(* [color:var(--x)] carries the hint [color]. A [:] after anything but lower
+   case letters and dashes is part of the value, not the end of a hint. *)
+let split_hint text =
+  let n = String.length text in
+  let rec go i =
+    if i >= n then (None, text)
+    else
+      match text.[i] with
+      | ':' -> (Some (String.sub text 0 i), String.sub text (i + 1) (n - i - 1))
+      | c when (c >= 'a' && c <= 'z') || c = '-' -> go (i + 1)
+      | _ -> (None, text)
+  in
+  go 0
+
+let parse_modifier raw =
+  let n = String.length raw in
+  let inner () = String.sub raw 1 (n - 2) in
+  if n < 1 then None
+  else if n >= 2 && raw.[0] = '[' && raw.[n - 1] = ']' then
+    let text = Tw.Parse.decode_arbitrary_value (inner ()) in
+    if String.trim text = "" then None
+    else Some (Bracketed { hint = None; text })
+  else if n >= 2 && raw.[0] = '(' && raw.[n - 1] = ')' then
+    let name = inner () in
+    if String.length name >= 2 && String.sub name 0 2 = "--" then
+      Some
+        (Bracketed
+           { hint = None; text = String.concat "" [ "var("; name; ")" ] })
+    else None
+  else if is_named_value raw then Some (Bare raw)
+  else None
+
+(* The roots a candidate could have, as Tailwind's [findRoots] yields them: the
+   whole base when it is a root, then every prefix ending before a [-]. A prefix
+   that leaves no value behind ends the search. *)
+let candidate_roots is_root base =
+  let found = ref (if is_root base then [ (base, None) ] else []) in
+  let rec go idx =
+    if idx > 0 then begin
+      let head = String.sub base 0 idx in
+      let rest = String.sub base (idx + 1) (String.length base - idx - 1) in
+      let next () =
+        go (Option.value ~default:0 (String.rindex_from_opt base (idx - 1) '-'))
+      in
+      if not (is_root head) then next ()
+      else if rest <> "" then begin
+        found := (head, Some rest) :: !found;
+        next ()
+      end
+    end
+  in
+  Option.iter go (String.rindex_opt base '-');
+  List.rev !found
+
+(* The [(--x)] and [(color:--x)] shorthands stand for an arbitrary [var()]. *)
+let paren_shorthand base idx =
+  let n = String.length base in
+  let inner = String.sub base (idx + 2) (n - idx - 3) in
+  let hint, name =
+    match segment ':' inner with [ h; v ] -> (Some h, v) | _ -> (None, inner)
+  in
+  if String.length name < 2 || String.sub name 0 2 <> "--" then None
+  else
+    let reference = String.concat "" [ "var("; name; ")" ] in
+    Some (Bracketed { hint; text = reference })
+
+let bracket_value raw =
+  match String.index_opt raw '[' with
+  | None -> None
+  | Some from ->
+      let n = String.length raw in
+      if raw.[n - 1] <> ']' then None
+      else
+        let text =
+          Tw.Parse.decode_arbitrary_value
+            (String.sub raw (from + 1) (n - from - 2))
+        in
+        let hint, text = split_hint text in
+        if String.trim text = "" || hint = Some "" then None
+        else Some (Bracketed { hint; text })
+
+(* The candidates [cls] reads as, given the roots the project declared. *)
+let parse_functional_candidates ~is_root cls =
+  match segment '/' cls with
+  | [] | _ :: _ :: _ :: _ -> []
+  | base :: rest ->
+      let modifier_raw = match rest with [ m ] -> Some m | _ -> None in
+      let modifier = Option.bind modifier_raw parse_modifier in
+      let n = String.length base in
+      (* A candidate carrying a modifier the reader refuses is no candidate at
+         all, and neither is an empty base. *)
+      if n = 0 || (modifier_raw <> None && modifier = None) then []
+      else
+        let candidate root value fraction =
+          { root; value; fraction; modifier }
+        in
+        (* The base spells a value after the root; the whole base is a root of
+           its own only when the utility takes no value. *)
+        let with_value (root, raw) =
+          match raw with
+          | None -> Some (candidate root None None)
+          | Some raw when String.contains raw '[' ->
+              Option.map
+                (fun value -> candidate root (Some value) None)
+                (bracket_value raw)
+          | Some raw when is_named_value raw ->
+              (* A named value and a named modifier also read as the one
+                 fraction a [--value(ratio)] resolves against. *)
+              let fraction =
+                match (modifier_raw, modifier) with
+                | Some m, Some (Bare _) ->
+                    Some (String.concat "" [ raw; "/"; m ])
+                | _ -> None
+              in
+              Some (candidate root (Some (Bare raw)) fraction)
+          | Some _ -> None
+        in
+        (* An arbitrary value ends the base, so what stands before its opener is
+           the root outright rather than one of several the base could name. *)
+        let arbitrary opener read =
+          match sub_index base opener with
+          | Some idx when is_root (String.sub base 0 idx) ->
+              read (String.sub base 0 idx) idx
+          | _ -> []
+        in
+        if base.[n - 1] = ']' then
+          arbitrary "-[" (fun root idx ->
+              Option.to_list
+                (with_value
+                   (root, Some (String.sub base (idx + 1) (n - idx - 1)))))
+        else if base.[n - 1] = ')' then
+          arbitrary "-(" (fun root idx ->
+              Option.to_list
+                (Option.map
+                   (fun value -> candidate root (Some value) None)
+                   (paren_shorthand base idx)))
+        else List.filter_map with_value (candidate_roots is_root base)
+
+(* Normalise one [--value(...)] argument the way Tailwind's preprocessing does,
+   so the spellings a formatter leaves behind all name the same thing:
+   [--text-\* --line-height], [--text- * --line-height] and [--text
+   --line-height] are all [--text-*--line-height], and a bare namespace grows
+   the [-*] it left out. *)
+let normalize_value_arg arg =
+  let unescape s =
+    let len = String.length s in
+    let buf = Buffer.create len in
+    let i = ref 0 in
+    while !i < len do
+      if s.[!i] = '\\' && !i + 1 < len && s.[!i + 1] = '*' then (
+        Buffer.add_char buf '*';
+        i := !i + 2)
+      else (
+        Buffer.add_char buf s.[!i];
+        incr i)
+    done;
+    Buffer.contents buf
+  in
+  (* Whitespace before a [--] separates a namespace from a sub-key: it stands
+     for the wildcard the sub-key hangs off. Every other run of it goes. *)
+  let wildcard_or_drop_space s =
+    let len = String.length s in
+    let space c = c = ' ' || c = '\t' || c = '\n' || c = '\r' in
+    let buf = Buffer.create len in
+    let i = ref 0 in
+    while !i < len do
+      if space s.[!i] then
+        if !i + 2 < len && s.[!i + 1] = '-' && s.[!i + 2] = '-' then
+          Buffer.add_string buf "-*"
+        else ()
+      else Buffer.add_char buf s.[!i];
+      incr i
+    done;
+    Buffer.contents buf
+  in
+  let rec collapse s =
+    match sub_index s "-*-*" with
+    | None -> s
+    | Some i ->
+        collapse
+          (String.concat ""
+             [
+               String.sub s 0 i; String.sub s (i + 2) (String.length s - i - 2);
+             ])
+  in
+  let arg = collapse (wildcard_or_drop_space (unescape arg)) in
+  if
+    String.length arg >= 2
+    && String.sub arg 0 2 = "--"
+    && (not (String.contains arg '('))
+    && not (has_sub arg "-*")
+  then arg ^ "-*"
+  else arg
+
+(* The CSS a declared utility writes for the theme token [name]: an inline token
+   stands for its own value, a reference token carries that value as the
+   fallback of its own reference because nothing declares it in the generated
+   sheet, and any other token is a plain reference the theme layer declares.
+
+   Written as text, like the [--spacing()] expansion above and for the same
+   reason: this pass runs over the dialect before cascade parses any of it, and
+   the token's value is whatever the [@theme] block wrote, with no value type to
+   build a typed reference at. What comes out is read back by cascade. *)
+let theme_token_css ~theme name =
+  Option.map
+    (fun value ->
+      if Tw.Scheme.is_inline_token theme name then value
+      else if Tw.Scheme.is_reference_token theme name then
+        String.concat "" [ "var(--"; name; ", "; value; ")" ]
+      else String.concat "" [ "var(--"; name; ")" ])
+    (Tw.Scheme.token theme name)
+
+(* Split [arg] on the wildcard [-*]: [--text-*--line-height] is the namespace
+   [--text] and the sub-key [--line-height], and [--example-*] is a namespace
+   with nothing behind it. *)
+let split_wildcard arg =
+  let rec go acc s =
+    match sub_index s "-*" with
+    | None -> List.rev (s :: acc)
+    | Some i ->
+        go (String.sub s 0 i :: acc)
+          (String.sub s (i + 2) (String.length s - i - 2))
+  in
+  go [] arg
+
+(* A [--value] argument naming a theme namespace reads the entry the candidate
+   names in it, and one naming a sub-key ([--text-*--line-height]) reads that
+   sub-key of the entry, which is there only when the entry itself is. *)
+let theme_arg_css ~theme arg name =
+  let bare s = String.sub s 2 (String.length s - 2) in
+  if String.length arg < 2 || String.sub arg 0 2 <> "--" then None
+  else
+    match split_wildcard arg with
+    | [ namespace; "" ] ->
+        theme_token_css ~theme (String.concat "-" [ bare namespace; name ])
+    | namespace :: (_ :: _ as subs) ->
+        let entry = String.concat "-" [ bare namespace; name ] in
+        if Option.is_none (Tw.Scheme.token theme entry) then None
+        else
+          theme_token_css ~theme (entry ^ List.nth subs (List.length subs - 1))
+    | _ -> None
+
+type resolution = { css : string; is_ratio : bool }
+(** What one [--value(...)] or [--modifier(...)] resolved to, and whether it
+    read the candidate as a ratio - which rules out its modifier and takes every
+    declaration that read it as something else out of the utility. *)
+
+let plain css = Some { css; is_ratio = false }
+
+(* A bare data type reads the candidate's own word, except [ratio], which reads
+   the value and the modifier back as the one fraction they spell. *)
+let resolve_bare_arg ~fraction text kind =
+  let read = if kind = "ratio" then fraction else Some text in
+  match read with
+  | None -> None
+  | Some read -> (
+      if not (infer_data_type read kind) then None
+      else
+        match kind with
+        | "ratio" -> (
+            match List.map String.trim (segment '/' read) with
+            | [ left; right ]
+              when is_positive_integer left && is_positive_integer right ->
+                Some
+                  {
+                    css = String.concat " " [ left; "/"; right ];
+                    is_ratio = true;
+                  }
+            | _ -> None)
+        | "number" -> if is_spacing_multiplier read then plain read else None
+        | "percentage" ->
+            if is_positive_integer (String.sub read 0 (String.length read - 1))
+            then plain read
+            else None
+        | _ -> plain read)
+
+(* One argument of a read, against the value the candidate spelled. *)
+let resolve_arg ~theme ~fraction value arg =
+  let arg = normalize_value_arg arg in
+  let n = String.length arg in
+  let quoted =
+    n >= 2 && (arg.[0] = '\'' || arg.[0] = '"') && arg.[n - 1] = arg.[0]
+  in
+  let theme_arg = n >= 2 && String.sub arg 0 2 = "--" in
+  let bracketed = n >= 2 && arg.[0] = '[' && arg.[n - 1] = ']' in
+  match value with
+  | Bare text when quoted ->
+      if String.sub arg 1 (n - 2) = text then plain text else None
+  | Bare text when theme_arg ->
+      Option.bind (theme_arg_css ~theme arg text) plain
+  | Bare text when List.mem arg bare_value_data_types ->
+      resolve_bare_arg ~fraction text arg
+  | Bare _ -> None
+  | Bracketed _ when not bracketed -> None
+  | Bracketed { hint; text } -> (
+      let kind = String.sub arg 1 (n - 2) in
+      if kind = "*" then plain text
+      else
+        match hint with
+        | Some spelled -> if spelled = kind then plain text else None
+        | None -> if infer_data_type text kind then plain text else None)
+
+(* [--default(4)] answers for a candidate that spelled no value at all. *)
+let default_arg arg =
+  let arg = String.trim arg in
+  let n = String.length arg in
+  let head = "--default(" in
+  let m = String.length head in
+  if n > m && String.sub arg 0 m = head && arg.[n - 1] = ')' then
+    Some (String.trim (String.sub arg m (n - m - 1)))
+  else None
+
+let resolve_read ~theme ~value ~fraction args =
+  match value with
+  | None -> Option.bind (List.find_map default_arg args) plain
+  | Some value -> List.find_map (resolve_arg ~theme ~fraction value) args
+
+type read_state = {
+  mutable used_value : bool;
+  mutable resolved_value : bool;
+  mutable used_modifier : bool;
+  mutable resolved_modifier : bool;
+  mutable ratio : bool;
+}
+(** What the whole body's reads did, which is what decides whether the candidate
+    is a utility at all. *)
+
+(** A declaration once its reads are resolved: kept, dropped because a read did
+    not resolve, or kept unless a [--value(ratio)] resolved somewhere else. *)
+type declaration_result = Keep of string | Drop | Ratio_drop of string
+
+(* Resolve every read in one declaration. A read that does not resolve takes the
+   declaration with it, and stops the rest of it from being read at all. *)
+let resolve_declaration ~theme ~candidate ~state text =
+  let scan = Scan.v text in
+  let len = String.length text in
+  let buf = Buffer.create len in
+  let dropped = ref false in
+  let non_ratio = ref false in
+  let read ~value ~fraction (block : Scan.block) =
+    match
+      resolve_read ~theme ~value ~fraction
+        (List.map String.trim (segment ',' block.body))
+    with
+    | None ->
+        dropped := true;
+        None
+    | Some resolved ->
+        Buffer.add_string buf resolved.css;
+        Some (resolved, block.next)
+  in
+  let rec go i =
+    if i >= len || !dropped then ()
+    else
+      match Scan.call scan ~name:"--value" i with
+      | Some block -> (
+          state.used_value <- true;
+          match
+            read ~value:candidate.value ~fraction:candidate.fraction block
+          with
+          | None -> ()
+          | Some (resolved, next) ->
+              state.resolved_value <- true;
+              if resolved.is_ratio then state.ratio <- true
+              else non_ratio := true;
+              go next)
+      | None -> (
+          match Scan.call scan ~name:"--modifier" i with
+          | Some block -> (
+              state.used_modifier <- true;
+              match read ~value:candidate.modifier ~fraction:None block with
+              | None -> ()
+              | Some (_, next) ->
+                  state.resolved_modifier <- true;
+                  go next)
+          | None ->
+              Buffer.add_char buf text.[i];
+              go (i + 1))
+  in
+  go 0;
+  if !dropped then Drop
+  else if !non_ratio then Ratio_drop (Buffer.contents buf)
+  else Keep (Buffer.contents buf)
+
+(** A body read as declarations and the punctuation between them, so one whose
+    reads did not resolve can be dropped without disturbing the rest. *)
+type body_piece = Declaration of string | Punctuation of string
+
+(* A [;] inside a bracket group is part of the declaration around it; a [;], [{]
+   or [}] outside one ends it, nested rules included. *)
+let body_pieces body =
+  let toks = tokens body in
+  let pieces = ref [] in
+  let from = ref 0 in
+  let depth = ref 0 in
+  let cut (token : Cascade.Token.t) =
+    let at = start token in
+    pieces :=
+      Punctuation (String.sub body at (stop token - at))
+      :: Declaration (String.sub body !from (at - !from))
+      :: !pieces;
+    from := stop token
+  in
+  Array.iter
+    (fun (token : Cascade.Token.t) ->
+      match token.kind with
+      | Cascade.Token.Open (Cascade.Token.Paren | Cascade.Token.Square)
+      | Cascade.Token.Function _ ->
+          incr depth
+      | Cascade.Token.Close (Cascade.Token.Paren | Cascade.Token.Square) ->
+          if !depth > 0 then decr depth
+      | Cascade.Token.Semicolon
+      | Cascade.Token.Open Cascade.Token.Curly
+      | Cascade.Token.Close Cascade.Token.Curly ->
+          if !depth = 0 then cut token
+      | _ -> ())
+    toks;
+  List.rev
+    (Declaration (String.sub body !from (String.length body - !from)) :: !pieces)
+
+let rec rebuild_body ~ratio = function
+  | [] -> []
+  | (Declaration _, Keep text) :: rest -> text :: rebuild_body ~ratio rest
+  | (Declaration _, Ratio_drop text) :: rest when not ratio ->
+      text :: rebuild_body ~ratio rest
+  | (Declaration _, _) :: (Punctuation ";", _) :: rest ->
+      rebuild_body ~ratio rest
+  | (Declaration _, _) :: rest -> rebuild_body ~ratio rest
+  | (Punctuation text, _) :: rest -> text :: rebuild_body ~ratio rest
+
+(* The body one [@utility NAME-*] declaration gives [candidate], or nothing when
+   the candidate is no utility of that declaration. *)
+let functional_body ~theme ~body candidate =
+  let state =
+    {
+      used_value = false;
+      resolved_value = false;
+      used_modifier = false;
+      resolved_modifier = false;
+      ratio = false;
+    }
+  in
+  let resolved =
+    List.map
+      (fun piece ->
+        match piece with
+        | Punctuation _ -> (piece, Keep "")
+        | Declaration text ->
+            if has_sub text "--value(" || has_sub text "--modifier(" then
+              (piece, resolve_declaration ~theme ~candidate ~state text)
+            else (piece, Keep text))
+      (body_pieces body)
+  in
+  let modifier = candidate.modifier <> None in
+  if not (state.used_value && state.resolved_value) then None
+  else if state.used_modifier && modifier && not state.resolved_modifier then
+    None
+  else if state.ratio && state.resolved_modifier then None
+  else if modifier && (not state.ratio) && not state.resolved_modifier then None
+  else Some (String.concat "" (rebuild_body ~ratio:state.ratio resolved))
+
+let functional_roots udefs =
+  List.filter_map (fun (n, _) -> functional_root n) udefs
+
+(* The candidates [cls] reads as against the functional [@utility] names of
+   [udefs]. *)
+let functional_candidates udefs cls =
+  match functional_roots udefs with
+  | [] -> []
+  | roots ->
+      parse_functional_candidates ~is_root:(fun r -> List.mem r roots) cls
+
+(* The body [cls] gets from the functional [@utility] declarations of [udefs]:
+   every declaration whose root it names, resolved against it, in the order they
+   were written. Tailwind registers each of them and applies them all. *)
+let functional_utility_body ~theme ~udefs cls =
+  List.find_map
+    (fun candidate ->
+      match
+        List.filter_map
+          (fun (name, body) ->
+            if functional_root name = Some candidate.root then
+              functional_body ~theme ~body candidate
+            else None)
+          udefs
+      with
+      | [] -> None
+      | bodies -> Some (String.concat "" bodies))
+    (functional_candidates udefs cls)
+
+(* [@utility NAME { ... }] declares a project's own utility class, and [@utility
+   NAME-* { ... }] one whose candidate carries a value its body reads back with
+   [--value()] and [--modifier()]. Both forms are read. *)
+let take_custom_utilities css = take_named_defs "@utility" css
 
 (* The at-keywords Tailwind's dialect adds to CSS. They are input for the
    generator, which reads each of them above -- for a definition, for an
@@ -581,9 +1332,30 @@ let rec expand_variants ~depth defs css =
     let out = Buffer.contents buf in
     if !changed then expand_variants ~depth:(depth + 1) defs out else out
 
+(* A project that declared [--spacing] in an [@theme inline] block has no
+   variable to reference, so the step is multiplied out here instead, the way
+   Tailwind's inline theme does. *)
+let inline_spacing ~theme multiple =
+  if not (Tw.Scheme.is_inline_token theme "spacing") then None
+  else
+    let scaled (step : Css.length) times : Css.length option =
+      match step with
+      | Css.Px v -> Some (Css.Px (v *. times))
+      | Css.Rem v -> Some (Css.Rem (v *. times))
+      | Css.Em v -> Some (Css.Em (v *. times))
+      | _ -> None
+    in
+    match
+      ( Option.bind (Tw.Scheme.token theme "spacing") Css.parse_length,
+        float_of_string_opt (String.trim multiple) )
+    with
+    | Some step, Some times ->
+        Option.map (Css.Pp.to_string Css.pp_length) (scaled step times)
+    | _ -> None
+
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
-let expand_spacing_fn css =
+let expand_spacing_fn ~theme css =
   let scan = Scan.v css in
   let len = String.length css in
   let buf = Buffer.create len in
@@ -593,7 +1365,9 @@ let expand_spacing_fn css =
       match Scan.call scan ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
-            (String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
+            (match inline_spacing ~theme body with
+            | Some value -> value
+            | None -> String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
           go next
       | None ->
           Buffer.add_char buf css.[i];
@@ -846,7 +1620,10 @@ let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
   let body, top =
     match List.assoc_opt bare udefs with
     | Some decls -> (decls, [])
-    | None -> nested_utilities ~theme [ bare ]
+    | None -> (
+        match functional_utility_body ~theme ~udefs bare with
+        | Some decls -> (decls, [])
+        | None -> nested_utilities ~theme [ bare ])
   in
   add_once hoisted seen top;
   if body <> "" then begin
@@ -860,7 +1637,10 @@ let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
 
 let plain_apply_name ~defs ~udefs name =
   match split_declared_variants defs name with
-  | [], bare when not (List.mem_assoc bare udefs) -> Some bare
+  | [], bare
+    when (not (List.mem_assoc bare udefs))
+         && functional_candidates udefs bare = [] ->
+      Some bare
   | _ -> None
 
 let rec take_plain_apply_run ~defs ~udefs acc = function
@@ -986,7 +1766,7 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   in
   drop_directives
     (resolve_theme_fn ~theme
-       (expand_spacing_fn (expand_variants ~depth:0 defs (expand 0 css))))
+       (expand_spacing_fn ~theme (expand_variants ~depth:0 defs (expand 0 css))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -1275,11 +2055,14 @@ let wrapped_block cls variants body =
   String.concat "" [ class_sel; "{"; wrapped; "}" ]
 
 (* A candidate the project's own declarations govern: it carries a declared
-   variant, or it is a declared utility. *)
+   variant, it is a declared utility, or it reads as one of a declared
+   functional utility's candidates. *)
 let is_custom_routed ~defs ~udefs cls =
   let variants, bare = split_declared_variants defs cls in
   let segs = variant_segments bare in
-  variants <> [] || List.mem_assoc (List.nth segs (List.length segs - 1)) udefs
+  let name = List.nth segs (List.length segs - 1) in
+  variants <> [] || List.mem_assoc name udefs
+  || functional_candidates udefs name <> []
 
 (* Candidates the built-in generator cannot produce: a variant the project
    redefined via [@custom-variant] (e.g. a class-based [dark:]), which
@@ -1337,8 +2120,16 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
   let last = List.length segments - 1 in
   let name = List.nth segments last in
   let builtin = List.filteri (fun index _ -> index < last) segments in
-  match List.assoc_opt name udefs with
-  | Some decls ->
+  (* Every body declared for the name, in the order they were written: Tailwind
+     registers each [@utility] of a name and applies them all, so a second
+     declaration adds to the first rather than replacing it. *)
+  let declared =
+    match List.filter (fun (n, _) -> n = name) udefs with
+    | _ :: _ as declared -> Some (String.concat "" (List.map snd declared))
+    | [] -> functional_utility_body ~theme ~udefs name
+  in
+  match declared with
+  | Some body ->
       (* A declared utility means nothing to [Tw.of_string], so every prefix has
          to become a [@variant], the built-in ones included. *)
       if
@@ -1346,7 +2137,7 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
           (fun variant ->
             Option.is_some (routed_template ~theme derived variant))
           builtin
-      then Some (wrapped_block cls (variants @ builtin) decls)
+      then Some (wrapped_block cls (variants @ builtin) body)
       else None
   | None when variants = [] -> None
   | None ->
@@ -1408,24 +2199,20 @@ let compare_routed_entries ~own_order ~order_of (c1, _) (c2, _) =
   let suborder = if priority <> 0 then priority else Int.compare s1 s2 in
   if suborder <> 0 then suborder else String.compare c1 c2
 
-let ordered_routed_entries ~own_order ~order_of group =
-  Hashtbl.fold (fun cls stmts acc -> (cls, stmts) :: acc) group []
-  |> List.sort (compare_routed_entries ~own_order ~order_of)
-
-let place_routed_entries ~own_order ~order_of ~classless entries =
-  let ordered, unordered =
-    List.fold_left
-      (fun (ordered, unordered) (cls, stmts) ->
-        match Hashtbl.find_opt own_order cls with
-        | Some order -> ((cls, order, stmts) :: ordered, unordered)
-        | None -> (
-            match Hashtbl.find_opt order_of cls with
-            | Some (priority, suborder) ->
-                ((cls, (priority, suborder), stmts) :: ordered, unordered)
-            | None -> (ordered, unordered @ stmts)))
-      ([], classless) entries
+(* Within one declared utility, the rules it writes outright come before the
+   ones a variant wrapped in an at-rule, the order the generator gives a
+   built-in utility and its own media queries. *)
+let unwrapped_first stmts =
+  let plain, wrapped =
+    List.partition (fun stmt -> Option.is_some (Css.as_rule stmt)) stmts
   in
-  (List.rev ordered, unordered)
+  plain @ wrapped
+
+let ordered_routed_entries ~own_order ~order_of group =
+  Hashtbl.fold
+    (fun cls stmts acc -> (cls, unwrapped_first stmts) :: acc)
+    group []
+  |> List.sort (compare_routed_entries ~own_order ~order_of)
 
 let routed_statements ~block_count ~own_order stmts =
   (* [@layer properties] and [@property] sit beside the utilities layer, not in
@@ -1436,12 +2223,18 @@ let routed_statements ~block_count ~own_order stmts =
       stmts
   in
   let group, order_of, classless = group_routed_rules ~own_order rules in
-  let entries = ordered_routed_entries ~own_order ~order_of group in
-  let ordered, unordered =
-    place_routed_entries ~own_order ~order_of ~classless entries
+  (* A declared utility whose first property tw has no slot for still belongs
+     among the utilities, at the end, so it goes over with the rest: sorted with
+     them, and read by the theme layer for the tokens it names. A statement
+     naming no class at all has nothing to sort by, and gets a utilities layer
+     of its own after them. *)
+  let ordered =
+    ordered_routed_entries ~own_order ~order_of group
+    |> List.map (fun (cls, stmts) ->
+        (cls, routed_slot ~own_order ~order_of cls, stmts))
   in
   let unplaced =
-    if unordered = [] then [] else [ Css.layer ~name:[ "utilities" ] unordered ]
+    if classless = [] then [] else [ Css.layer ~name:[ "utilities" ] classless ]
   in
   (block_count, ordered, unplaced @ dedup_statements hoisted)
 
@@ -1477,6 +2270,20 @@ let parse_routed_blocks ~own_order ~hoisted blocks =
   let hoisted = Option.value ~default:[] (parse_routed_block hoisted) in
   List.concat parsed @ hoisted
   |> routed_statements ~block_count:(List.length parsed) ~own_order
+
+(* A declared utility hoists the same [@layer properties] fallback block the
+   generated sheet emits, and that block belongs where the sheet puts its own:
+   ahead of the theme, not after the utilities it initialises. The rest of what
+   it hoists follows the sheet. *)
+let place_routed stmts sheet =
+  let is_properties_layer stmt =
+    match Css.layer_block_name stmt with
+    | Some name -> Css.Stylesheet.equal_layer_name name [ "properties" ]
+    | None -> false
+  in
+  match List.partition is_properties_layer stmts with
+  | [], [] -> sheet
+  | lead, trail -> Css.v (lead @ Css.statements sheet @ trail)
 
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in

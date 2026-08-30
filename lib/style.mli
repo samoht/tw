@@ -43,6 +43,15 @@ type arbitrary_px = {
     in: re-printing [px] drops a trailing zero, a leading zero or an exponent
     and leaves a selector the markup does not carry. *)
 
+type arbitrary_length = {
+  len : Css.length;  (** the length the bracket denotes *)
+  text : string;  (** the bracket as the author wrote it, e.g. ["1px/*x"] *)
+}
+(** A [min-[<len>]] or [max-[<len>]] breakpoint written as a CSS length. Same
+    reason as {!arbitrary_px} for keeping the text: the length reader stops at
+    the first thing it cannot use, so re-printing the length respells the number
+    and drops any remainder, leaving a selector the markup does not carry. *)
+
 type modifier =
   | Hover
   | Focus
@@ -56,8 +65,8 @@ type modifier =
   | Max_responsive of breakpoint
   | Min_arbitrary of arbitrary_px
   | Max_arbitrary of arbitrary_px
-  | Min_arbitrary_length of Css.length
-  | Max_arbitrary_length of Css.length
+  | Min_arbitrary_length of arbitrary_length
+  | Max_arbitrary_length of arbitrary_length
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -292,6 +301,12 @@ type t =
     }
   | Modified of modifier * t
   | Group of t list
+
+val compact_length : Css.length -> string
+(** [compact_length l] renders [l] the way a class name spells it: the author's
+    own number, with no spaces around calc operators. It is not
+    {!Css.pp_length}, which canonicalises the number and so would rename the
+    class -- [min-[0.5ch]] must not become [min-[.5ch]]. *)
 
 val pp : t -> string
 (** [pp t] returns a string representation of a style. *)

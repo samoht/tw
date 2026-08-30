@@ -116,6 +116,29 @@ let test_basis_named_prefers_spacing () =
     "basis-sm declares --spacing-sm" true
     (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css)
 
+(* [basis-[...]] names its rule with the bracket text the author wrote, not with
+   the parsed flex-basis printed back: the CSS printer canonicalises a number
+   ([0.5ch] to [.5ch]) and drops a comment, and a rule spelled that way cannot
+   be matched by the class that generated it. [order-[...]] below carries its
+   text the same way. *)
+let test_basis_arbitrary_keeps_the_authored_spelling () =
+  List.iter
+    (fun (cls, escaped) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " selects itself") true
+            (Astring.String.is_infix ~affix:escaped css))
+    [
+      ("basis-[0.5ch]", {|.basis-\[0\.5ch\]|});
+      ("basis-[0.0]", {|.basis-\[0\.0\]|});
+      ("basis-[1px/*x]", {|.basis-\[1px\/\*x\]|});
+      ("basis-[10px]", {|.basis-\[10px\]|});
+    ]
+
 (* [order-[...]] takes an order value. A bracket the order grammar cannot read
    is accepted and then raises out of [to_css], a pure conversion, so the
    rejection belongs at parse time. *)
@@ -148,6 +171,8 @@ let tests =
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;
+    test_case "basis-[...] keeps the authored spelling" `Quick
+      test_basis_arbitrary_keeps_the_authored_spelling;
   ]
 
 let suite = ("flex_props", tests)

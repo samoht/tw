@@ -44,10 +44,12 @@ let test_clip_inset_shorthand () =
   (* 1 value: all four sides get the same value *)
   check_roundtrip "clip-path:inset(50%)";
   check_roundtrip "clip-path:inset(10px)";
-  (* 2 values: top/bottom, left/right *)
-  check_roundtrip "clip-path:inset(10% 20%)";
+  (* 2 values: top/bottom, left/right. Minified, the space between two
+     percentages goes: a [%] already ends the token, so [10%20%] re-reads as the
+     same two components. The round-trip is on the value, not its spacing. *)
+  check_parse "clip-path:inset(10% 20%)" "clip-path:inset(10%20%)";
   (* 3 values: top, left/right, bottom *)
-  check_roundtrip "clip-path:inset(10% 20% 30%)";
+  check_parse "clip-path:inset(10% 20% 30%)" "clip-path:inset(10%20%30%)";
   (* 4 values: top, right, bottom, left *)
   check_parse "clip-path:inset(0px 10px 20px 30px)"
     "clip-path:inset(0 10px 20px 30px)"

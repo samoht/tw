@@ -42,9 +42,10 @@ val take_custom_variants : string -> string * (string * string) list
 
 val take_custom_utilities : string -> string * (string * string) list
 (** [take_custom_utilities css] is [css] without its [@utility] declarations,
-    and those declarations as [(name, body)] pairs. Only the static form is
-    read; the functional [@utility NAME-* { ... }] one needs [--value()] and
-    [--modifier()] resolution, so it is dropped. *)
+    and those declarations as [(name, body)] pairs. Both forms are read: the
+    static [@utility NAME], and the functional [@utility NAME-*] whose body
+    reads the candidate's own value with [--value()] and its modifier with
+    [--modifier()]. A functional declaration keeps the [-*] in its name. *)
 
 val entry_variant_defs : string option -> (string * string) list
 (** [entry_variant_defs path] is the [@custom-variant] declarations of the
@@ -69,7 +70,8 @@ val split_declared_variants :
 val is_custom_routed :
   defs:(string * string) list -> udefs:(string * string) list -> string -> bool
 (** [is_custom_routed ~defs ~udefs cls] is [true] when [cls] names a variant or
-    a utility the project declared, which {!Tw.of_string} cannot produce and
+    a utility the project declared - a functional one included, whose root [cls]
+    carries a value for - which {!Tw.of_string} cannot produce and
     {!custom_routed_utilities} generates instead. *)
 
 val custom_routed_utilities :
@@ -84,6 +86,12 @@ val custom_routed_utilities :
     classes {!is_custom_routed} claimed: how many it produced, the rules to hand
     {!Tw.to_css} as [~extra] so they sort among the built-in utilities, and the
     statements that belong beside the utilities layer rather than in it. *)
+
+val place_routed : Cascade.Css.statement list -> Cascade.Css.t -> Cascade.Css.t
+(** [place_routed stmts sheet] puts the statements {!custom_routed_utilities}
+    left beside the utilities layer around [sheet]: the [@layer properties]
+    fallback block a declared utility hoists leads, where the generated sheet
+    puts its own, and the rest follows. *)
 
 (** {1 Text passes} *)
 

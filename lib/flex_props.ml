@@ -41,7 +41,7 @@ module Handler = struct
     | Basis_full
     | Basis_fraction of int * int
     | Basis_named of string
-    | Basis_arbitrary of Css.flex_basis (* basis-[123px] *)
+    | Basis_arbitrary of string * Css.flex_basis (* basis-[123px] *)
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
@@ -197,7 +197,7 @@ module Handler = struct
     | Basis_full -> basis_full
     | Basis_fraction (n, m) -> basis_fraction_style n m
     | Basis_named name -> basis_named_style name
-    | Basis_arbitrary len -> style [ flex_basis len ]
+    | Basis_arbitrary (_, len) -> style [ flex_basis len ]
     | Order n -> order_style n
     | Neg_order n -> style [ order (Int (-n)) ]
     | Neg_order_arbitrary (_, o) ->
@@ -332,7 +332,7 @@ module Handler = struct
           | value -> value
           | exception Cascade.Cursor.Parse_error _ -> None)
         |> Option.fold ~none:err_not_utility ~some:(fun value ->
-            Ok (Basis_arbitrary value))
+            Ok (Basis_arbitrary (inner, value)))
     | [ "basis"; value ] -> (
         match Parse.decimal_int value with
         | Some n when n >= 0 -> Ok (Basis_spacing n)
@@ -432,10 +432,7 @@ module Handler = struct
     | Basis_fraction (n, m) ->
         "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Basis_named s -> "basis-" ^ s
-    | Basis_arbitrary len ->
-        "basis-["
-        ^ Css.Pp.to_string ~minify:true Css.Properties.pp_flex_basis len
-        ^ "]"
+    | Basis_arbitrary (raw, _) -> "basis-[" ^ raw ^ "]"
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n

@@ -12,11 +12,13 @@ val dedup : Css.statement list -> Css.statement list
     nothing rides on the difference here because tw's duplicates all come from
     one {!Var} and are identical. *)
 
-val initial_values : Css.statement list -> (string * string) list
-(** [initial_values stmts] extracts (name, initial-value) pairs from
+val initial_values : Css.statement list -> (string * Css.declaration) list
+(** [initial_values stmts] extracts (name, initial-value declaration) pairs from
     {i \@property} rules, in order. *)
 
 val sort_by_order :
-  (string -> int) -> (string * string) list -> (string * string) list
+  (string -> int) ->
+  (string * Css.declaration) list ->
+  (string * Css.declaration) list
 (** [sort_by_order f pairs] sorts (name, initial) pairs using a provided
     name->order function. *)

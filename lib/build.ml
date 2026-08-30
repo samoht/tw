@@ -742,9 +742,12 @@ let var_names_of_output = function
 (* Theme tokens referenced via var() (e.g. an arbitrary [color:var(--color-red-
    500)]) must appear in @layer theme, but the extractor above only collects
    tokens utilities SET. Emit the catalogued colour tokens those references name
-   (typed value + canonical order via [Color.Handler.theme_color_decl]). Other
-   token kinds need a general typed value parser and are left for now. [exclude]
-   holds the already-emitted (set) token names. *)
+   (typed value + canonical order via [Color.Handler.theme_color_decl]), and any
+   other token the project's own [@theme] declared: nothing else in the sheet
+   declares it, so a utility that only reads it would name a variable with no
+   value. An [@theme inline] token has no declaration by definition, and an
+   [@theme reference] one is declared outside the sheet, so neither is emitted.
+   [exclude] holds the already-emitted (set) token names. *)
 let referenced_theme_decls ~theme ~exclude selector_props =
   selector_props
   |> List.concat_map var_names_of_output
@@ -771,7 +774,18 @@ let referenced_theme_decls ~theme ~exclude selector_props =
                    ~default:Theme.spacing_base)
             in
             Some decl
-        | _ -> Color.Handler.theme_color_decl ~theme bare)
+        | _ -> (
+            match Color.Handler.theme_color_decl ~theme bare with
+            | Some _ as decl -> decl
+            | None ->
+                if
+                  Scheme.is_inline_token theme bare
+                  || Scheme.is_reference_token theme bare
+                then None
+                else
+                  Option.map
+                    (Css.custom_property ~layer:"theme" full)
+                    (Scheme.token_override theme bare)))
 
 (* [--default-font-family] points at [--font-sans], [--default-mono-font-family]
    at [--font-mono]. Tailwind spells the pair [--theme(--font-sans, initial)],
@@ -1122,9 +1136,7 @@ let property_layer_content first_usage_order initial_values other_statements =
   let sorted_values =
     sort_properties_by_order first_usage_order initial_values
   in
-  let initial_declarations =
-    List.map (fun (name, value) -> Css.custom_property name value) sorted_values
-  in
+  let initial_declarations = List.map snd sorted_values in
   let rule = Css.rule ~selector initial_declarations in
   let supports_stmt = Css.supports ~condition:browser_detection [ rule ] in
   let layer_content = [ supports_stmt ] @ other_statements in

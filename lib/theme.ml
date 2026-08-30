@@ -49,9 +49,7 @@ let explicit_spacing scheme n =
   match Scheme.spacing scheme n with
   | Some _ as length -> length
   | None ->
-      Option.bind
-        (Scheme.token scheme ("spacing-" ^ Pp.int n))
-        (fun css -> Css.parse_length (String.trim css))
+      Option.bind (Scheme.token scheme ("spacing-" ^ Pp.int n)) Css.parse_length
 
 (* Whether the bare step [n] of the spacing scale still resolves: [@theme {
    --spacing: initial }] removes the multiplier, and every step that relied on

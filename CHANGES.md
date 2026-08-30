@@ -21,6 +21,12 @@
   render, recognize source boundaries correctly, tokenize entrypoint rewrites,
   and make recursive content scans safe
   (#142, #144, #145, #208, #288, #318, #321).
+- A functional `@utility name-*` resolves `--value()` and `--modifier()`, and
+  `@apply` of one produces its declarations instead of nothing. A token a
+  utility only reads through `var()` is now declared in the theme layer whatever
+  its family, `--spacing(N)` is multiplied out where the project inlines
+  `--spacing`, and an `@theme reference` block is represented (#554).
+- Every `@utility` declared for one name applies, not only the first (#550).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
 - Keep Tailwind's own at-rules out of the generated CSS: `@theme`, `@source`,
   `@plugin`, `@config`, `@reference`, and `@tailwind` used to reach the
@@ -57,6 +63,14 @@
 
 ### Arbitrary values and validation
 
+- An arbitrary length in a variant's class name is spelled as the author wrote
+  it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
+  `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
+  unit outside a handful (#543).
+- A class whose arbitrary value has an unbalanced paren is rejected rather than
+  compiled. The value was re-parsed inside a `calc()` the code wrapped around
+  it, so the added `)` silently closed the author's stray one and
+  `-left-[0)/*1]` became `left: calc(0 * -1)` (#548).
 - Parse arbitrary lengths, calculations, theme and spacing functions, grid
   tracks, colours, list styles, and custom properties through the shared CSS
   parsers while preserving their original meaning
@@ -144,6 +158,13 @@
 - One malformed declared `@utility` costs only its own class. The re-parse
   answered an error for the whole buffer, so a single unclosed brace silently
   dropped every routed utility in the sheet (#526).
+- `text-indent` and the late text families emit where Tailwind puts them.
+  `text-indent` sat a whole priority band late, and `text-wrap`,
+  `overflow-wrap`/`word-break` and `hyphens` came after the decoration block
+  instead of before white-space (#541, #552).
+- A declared utility's own rules come before the ones its variants wrap in an
+  at-rule, and one whose first property has no order slot sorts among the
+  built-ins instead of opening a second `@layer utilities` (#550).
 
 ### Public OCaml API
 
@@ -187,6 +208,14 @@
   case; the same breakage now fails it (#512).
 - The typography plugin's descendant rules are exercised against real markup
   rather than bare divs, which is most of the largest plugin (#519).
+- A whole-sheet order gate measures where every utility lands, not only the
+  handful a test names. Every Tailwind oracle here runs the differ in canonical
+  mode, which normalises cascade-neutral rule order, so a family emitted in the
+  wrong band was invisible to all of them. The gate reads the statement sequence
+  out of both sheets over the site class list and pins the fewest statements
+  that have to move, which stands at 581 of 3885 unambiguous pairs and only
+  ratchets down. A missing or off-version Tailwind CLI skips it with a line
+  saying so, and `TW_TAILWIND_TESTS=1`, which CI sets, makes that a failure.
 
 ## 1.0.0
 

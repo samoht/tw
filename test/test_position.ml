@@ -149,6 +149,14 @@ let test_arbitrary_calc () =
        (css "left-[calc(50%+var(--offset))]"));
   check "left-[calc(5%-2px)]"
 
+(* An arbitrary inset whose body is not a whole calc expression is not a
+   utility. In [-left-[0)/*1]] the stray ')' closes nothing and the '/*' opens a
+   comment that never ends, so Tailwind emits no rule for it. *)
+let test_unbalanced_arbitrary_rejected () =
+  Alcotest.(check bool)
+    "-left-[0)/*1] is not a utility" true
+    (Result.is_error (Tw.of_string "-left-[0)/*1]"))
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -228,6 +236,8 @@ let tests =
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
     test_case "spacing steps (fractional + px)" `Quick test_spacing_steps;
     test_case "arbitrary calc insets" `Quick test_arbitrary_calc;
+    test_case "unbalanced arbitrary inset rejected" `Quick
+      test_unbalanced_arbitrary_rejected;
     test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "inset value order matches Tailwind" `Quick

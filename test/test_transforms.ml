@@ -350,6 +350,11 @@ let test_arbitrary_transform_spelling () =
       "skew-[1.50deg]";
       "skew-x-[1.50deg]";
       "skew-y-[1.50deg]";
+      (* [perspective] takes a length rather than a number or an angle, and its
+         printer canonicalises one the same way. *)
+      "perspective-[1.50px]";
+      "perspective-[0.5rem]";
+      "perspective-[100px]";
     ]
 
 (* The bracket holds a number or an angle, so a word is not a transform. *)

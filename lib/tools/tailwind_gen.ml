@@ -149,24 +149,30 @@ let command_is_required cmd =
   | Some v -> parse_version v = Some required_version
   | None -> false
 
+(* What a candidate answered, for the failure message. Naming the native binary
+   alone reports "not installed" on a machine that reaches the CLI through npx,
+   which is every CI runner and the case a lockfile bump breaks. *)
+let describe_candidate cmd present =
+  if not present then cmd ^ ": not installed"
+  else
+    match command_version cmd with
+    | Some v -> cmd ^ ": v" ^ v
+    | None -> cmd ^ ": unknown version"
+
 let tailwindcss_command () =
   let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
   let native = have "tailwindcss" in
+  let npx = have "npx" in
   if native && command_is_required "tailwindcss" then "tailwindcss"
-  else if have "npx" && command_is_required "npx tailwindcss" then
-    "npx tailwindcss"
+  else if npx && command_is_required "npx tailwindcss" then "npx tailwindcss"
   else
-    let found =
-      if native then
-        match command_version "tailwindcss" with
-        | Some v -> "v" ^ v
-        | None -> "unknown version"
-      else "not installed"
-    in
     failwith
-      ("Test setup failed: tailwindcss v"
+      ("tailwindcss v"
       ^ version_string required_version
-      ^ " is required (native: " ^ found
+      ^ " is required ("
+      ^ describe_candidate "tailwindcss" native
+      ^ ", "
+      ^ describe_candidate "npx tailwindcss" npx
       ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
       ^ version_string required_version)
 
@@ -189,11 +195,11 @@ let check_tailwindcss_available () =
    same thing here, that there is nothing to compare against. Generation is
    separate: once the CLI is known good, a [generate] that produces no CSS still
    raises. *)
-let available () =
-  try
-    check_tailwindcss_available ();
-    true
-  with Failure _ | Sys_error _ -> false
+let availability () =
+  match check_tailwindcss_available () with
+  | () -> Ok ()
+  | exception Failure reason -> Error reason
+  | exception Sys_error reason -> Error reason
 
 (* Statistics tracking *)
 module Stats = struct
@@ -308,3 +314,32 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   with e ->
     cleanup ();
     raise e
+
+(* A project entrypoint is generated where it sits. Tailwind resolves its
+   [@import]s, its [@source] and its [@plugin]s relative to the file, and
+   [@import "tailwindcss"] against the nearest node_modules above it, so copying
+   the file elsewhere breaks all three; only the output moves. An entrypoint
+   that pins [source(none)] plus an explicit [@source] therefore scans exactly
+   what it names, which is what keeps a comparison against tw from reading tw's
+   own output back in. *)
+let generate_entrypoint ?(minify = true) entry =
+  check_tailwindcss_available ();
+  let out = tmp_file "tw_entry" ".css" in
+  let remove () = try Sys.remove out with Sys_error _ -> () in
+  Fun.protect ~finally:remove @@ fun () ->
+  let cmd =
+    match !tailwind_command with Some c -> c | None -> "tailwindcss"
+  in
+  let start_time = Stats.start_timer () in
+  let status =
+    Fmt.kstr Sys.command "%s -i %s -o %s%s 2>/dev/null" cmd
+      (Filename.quote entry) (Filename.quote out)
+      (if minify then " --minify" else "")
+  in
+  Stats.record_call (Unix.gettimeofday () -. start_time);
+  if status <> 0 then
+    failwith ("Failed to generate Tailwind CSS from the entrypoint " ^ entry);
+  let ic = open_in out in
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr ic)
+    (fun () -> really_input_string ic (in_channel_length ic))

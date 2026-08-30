@@ -350,6 +350,20 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[.5rem]:flex";
       "max-[48rem]:flex";
       "max-[37.50px]:flex";
+      (* Units with no arm of their own in [compact_length] fell through to
+         cascade's printer, which drops a leading zero, so the selector named a
+         class the author never wrote. *)
+      "min-[0.5ch]:flex";
+      "min-[0.5vmin]:flex";
+      "min-[0.5cqw]:flex";
+      "min-[0.5lh]:flex";
+      "max-[0.5ex]:flex";
+      (* The length reader stops at the first thing it cannot use, so a value
+         with a remainder came back as the prefix alone: [min-[1px/*x]] named
+         [.min-\[1px\]]. *)
+      "min-[1px/*x]:flex";
+      "max-[1px/*x]:flex";
+      "min-[0.5rem]:flex";
     ]
 
 (* The bracket holds a length, so a word is not a breakpoint at all. *)
@@ -1049,6 +1063,40 @@ let test_not_bracket_arbitrary_selector () =
   check bool "not-[.foo]:block negates a plain class" true
     (Astring.String.is_infix ~affix:":not(.foo)" (css "not-[.foo]:block"))
 
+(* The bracket is negated as a selector, so content the selector grammar cannot
+   read is not a negation and the class is refused at parse time. The reader
+   raises rather than answering, and it stops at the first thing it cannot use,
+   so a trailing remainder is refused too rather than silently dropped. *)
+let test_not_bracket_unreadable_selector_rejected () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u ->
+          Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [
+      "not-[a;b]:flex";
+      "not-[0.5ch]:flex";
+      "not-[1px}]:flex";
+      "not-[a{b]:flex";
+      "not-[*/]:flex";
+      "not-[<value>]:flex";
+      "not-[url(a;b)]:flex";
+      "not-[()]:flex";
+    ];
+  (* the readable ones still parse *)
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    [
+      "not-[.foo]:flex";
+      "not-[.os-macos_&]:flex";
+      "not-[:checked]:flex";
+      "not-[@media_print]:flex";
+    ]
+
 (* A group/peer arbitrary variant whose [&] anchor is preceded by a context
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
@@ -1131,6 +1179,33 @@ let test_attribute_brackets_still_parse () =
   emits "[data-dragging]" "group-data-[dragging]:flex";
   emits "[data-dragging]" "peer-data-[dragging]:flex";
   emits "[data-modified]" "group-data-modified:flex"
+
+(* [parse_data_expr] reads the [data-[...]] bracket body into an attribute
+   match: every operator ([$=], [^=], [*=], [~=], [|=], bare [=]), the
+   presence-only bare form, a quoted value holding a decoded space, and a
+   trailing case-sensitivity flag. This pins the selector each spelling produces
+   today so a rewrite of the reader cannot silently change one. *)
+let test_data_bracket_operators () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits affix cls =
+    check bool cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "[data-size~=large]" "data-[size~=large]:flex";
+  emits "[data-foo=bar]" "data-[foo=bar]:flex";
+  emits "[data-foo^=bar]" "data-[foo^=bar]:flex";
+  emits "[data-foo$=bar]" "data-[foo$=bar]:flex";
+  emits "[data-foo*=bar]" "data-[foo*=bar]:flex";
+  emits "[data-foo|=bar]" "data-[foo|=bar]:flex";
+  emits "[data-open]" "data-[open]:flex";
+  emits {|[data-foo="a b"]|} "data-[foo='a_b']:flex";
+  emits "[data-foo=bar i]" "data-[foo=bar_i]:flex";
+  emits "[data-foo=bar s]" "data-[foo=bar_s]:flex";
+  emits "[data-size~=large]" "group-data-[size~=large]:flex";
+  emits "[data-size~=large]" "peer-data-[size~=large]:flex"
 
 (* A bare [[...]] variant compounds its selector onto the utility's own class,
    so what the brackets hold has to be a compound selector. [~] is both the
@@ -1299,6 +1374,7 @@ let tests =
         test_padded_attribute_brackets;
       test_case "attribute brackets still parse" `Quick
         test_attribute_brackets_still_parse;
+      test_case "data bracket operators" `Quick test_data_bracket_operators;
       test_case "bare selector variant attribute operators" `Quick
         test_bare_selector_variant_attribute_operators;
       test_case "not-[selector] arbitrary negation" `Quick
@@ -1346,6 +1422,8 @@ let tests =
         test_prose_element_variant_invalid;
       test_case "variant cascade ladder" `Quick test_variant_cascade_ladder;
       test_case "variant inner order" `Quick test_variant_inner_order;
+      test_case "not-[selector] unreadable content rejected" `Quick
+        test_not_bracket_unreadable_selector_rejected;
     ]
 
 let suite = ("modifiers", tests)

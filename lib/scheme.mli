@@ -53,6 +53,11 @@ type t = {
       (** Names of the tokens a project declared in an [\@theme inline] block.
           Such a token has no declaration of its own: a utility reading it
           inlines the value instead of referencing [var(--name)]. *)
+  reference_tokens : string list;
+      (** Names of the tokens a project declared in an [\@theme reference]
+          block. The block declares the token elsewhere, so the theme layer
+          emits no declaration for it and a reader spells the value as the
+          fallback of its own reference. *)
   static_theme : bool;
       (** Whether the package was imported with [theme(static)], which emits
           every theme variable rather than only the ones a utility used. *)
@@ -109,15 +114,26 @@ val token : t -> string -> string option
 (** [token t name] resolves a theme token: override (if any) else default, or
     nothing at all when the [\@theme] block removed it. *)
 
-val with_overrides : ?inline:string list -> t -> (string * string) list -> t
-(** [with_overrides ?inline t overrides] applies [overrides] on top of [t]'s
-    existing token overrides (new entries win). [inline] names the tokens that
-    came from an [\@theme inline] block. *)
+val with_overrides :
+  ?inline:string list ->
+  ?reference:string list ->
+  t ->
+  (string * string) list ->
+  t
+(** [with_overrides ?inline ?reference t overrides] applies [overrides] on top
+    of [t]'s existing token overrides (new entries win). [inline] names the
+    tokens that came from an [\@theme inline] block, [reference] those from an
+    [\@theme reference] one. *)
 
 val is_inline_token : t -> string -> bool
 (** [is_inline_token t name] is whether [name] was declared in an
     [\@theme inline] block, so a utility reading it inlines the value rather
     than referencing [var(--name)]. *)
+
+val is_reference_token : t -> string -> bool
+(** [is_reference_token t name] is whether [name] was declared in an
+    [\@theme reference] block, so nothing declares it in the generated sheet and
+    a reader carries the value as its own [var()] fallback. *)
 
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)

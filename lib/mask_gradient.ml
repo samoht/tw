@@ -794,10 +794,11 @@ module Handler = struct
     let stop v = set (color_var v pos_end) value in
     style ~property_rules (stop_decls dir stop @ composite_decls)
 
-  (* A custom property spells the keyword [currentcolor], which is what cascade
-     folds a token stream to and what Tailwind writes; the typed colour prints
-     as the [currentColor] a colour property takes, so this one keyword goes in
-     as text. *)
+  (* The keyword goes in as text because this custom property is a token stream:
+     a typed [Current] folds through it to a hex, where Tailwind writes
+     [currentcolor] for a gradient stop to resolve against the element. Not a
+     workaround for cascade's printer, which spells the keyword correctly and
+     positionally - [currentColor] bare, [currentcolor] inside a function. *)
   let build_current_color_style dir pos_end =
     let property_rules = property_rules_for_direction dir in
     let stop v =
@@ -937,10 +938,12 @@ module Handler = struct
   (* Parse a value from the class suffix *)
   let parse_value suffix =
     if String.length suffix > 0 && suffix.[0] = '[' then
-      (* Arbitrary value - reject negative values *)
+      (* Arbitrary value - reject negative values, and any text that would not
+         stay inside the declaration it is written into. *)
       if Parse.is_bracket_value suffix then
         let inner = Parse.bracket_inner suffix in
         if String.length inner > 0 && inner.[0] = '-' then Option.none
+        else if not (Parse.is_declaration_value inner) then Option.none
         else Option.some (Arbitrary inner)
       else Option.none
     else if String.length suffix > 0 && suffix.[String.length suffix - 1] = '%'
@@ -1137,7 +1140,9 @@ module Handler = struct
         let size_value =
           String.map (fun c -> if c = '_' then ' ' else c) size_value
         in
-        Ok (Mask_radial_size (Arbitrary_size size_value))
+        if not (Parse.is_declaration_value size_value) then
+          Error (`Msg ("Invalid mask-radial size: " ^ size_value))
+        else Ok (Mask_radial_size (Arbitrary_size size_value))
     | _ -> Error (`Msg "Not a mask gradient utility")
 
   let format_value = function

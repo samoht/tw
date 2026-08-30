@@ -101,7 +101,7 @@ module Handler = struct
     | Perspective_normal
     | Perspective_midrange
     | Perspective_distant
-    | Perspective_arbitrary of Css.length
+    | Perspective_arbitrary of string * Css.length
     | (* Perspective origin *)
       Perspective_origin_center
     | Perspective_origin_top
@@ -1324,7 +1324,7 @@ module Handler = struct
     | Perspective_normal -> perspective_normal
     | Perspective_midrange -> perspective_midrange
     | Perspective_distant -> perspective_distant
-    | Perspective_arbitrary len -> perspective_arbitrary len
+    | Perspective_arbitrary (_, len) -> perspective_arbitrary len
     | Perspective_origin_center -> perspective_origin_center ()
     | Perspective_origin_top -> perspective_origin_top ()
     | Perspective_origin_bottom -> perspective_origin_bottom ()
@@ -1702,7 +1702,10 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
-    | [ "scale"; "z"; n ] when Parse.is_bracket_value n ->
+    | [ "scale"; "z"; n ]
+      when Parse.is_bracket_value n
+           && Parse.is_declaration_value
+                (Parse.decode_arbitrary_value (Parse.bracket_inner n)) ->
         Ok (Scale_z_arbitrary (Parse.bracket_inner n))
     | [ "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
@@ -1804,7 +1807,7 @@ module Handler = struct
       when match rest with "origin" :: _ | [] -> false | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
-        | Ok len -> Ok (Perspective_arbitrary len)
+        | Ok len -> Ok (Perspective_arbitrary (Parse.bracket_inner value, len))
         | Error _ -> err_not_utility)
     | [ "perspective"; "origin"; "center" ] -> Ok Perspective_origin_center
     | [ "perspective"; "origin"; "top" ] -> Ok Perspective_origin_top
@@ -1983,8 +1986,7 @@ module Handler = struct
     | Perspective_normal -> "perspective-normal"
     | Perspective_midrange -> "perspective-midrange"
     | Perspective_distant -> "perspective-distant"
-    | Perspective_arbitrary len ->
-        "perspective-[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
+    | Perspective_arbitrary (raw, _) -> "perspective-[" ^ raw ^ "]"
     | Perspective_origin_center -> "perspective-origin-center"
     | Perspective_origin_top -> "perspective-origin-top"
     | Perspective_origin_bottom -> "perspective-origin-bottom"

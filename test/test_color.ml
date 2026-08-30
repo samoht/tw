@@ -232,6 +232,47 @@ let test_border_side_color () =
     (Astring.String.is_infix ~affix:"border-block-end-color:"
        (css "border-be-red-500"))
 
+(* Every per-side border colour writes a colour another side writes too, so
+   their relative order decides which one wins. Tailwind groups them side-major:
+   the all-sides colour first, then the axes and the logical sides, then the
+   physical ones. The ten sides shared one suborder, so they tied and fell back
+   to class-name order: [border-t-blue-500] sorted before [border-x-red-500]. *)
+let test_border_side_color_order () =
+  Test_helpers.check_class_order ~test_name:"border side colors"
+    [
+      "border-red-500";
+      "border-x-red-500";
+      "border-y-red-500";
+      "border-s-red-500";
+      "border-e-red-500";
+      "border-bs-red-500";
+      "border-be-red-500";
+      "border-t-blue-500";
+      "border-r-red-500";
+      "border-b-red-500";
+      "border-l-red-500";
+    ]
+
+(* An arbitrary per-side colour sorts in its own side's band, next to the named
+   colours of that side. *)
+let test_border_side_bracket_color_order () =
+  Test_helpers.check_class_order ~test_name:"border side bracket colors"
+    [
+      "border-[#f00]";
+      "border-x-[#f00]";
+      "border-y-[#f00]";
+      "border-s-[#f00]";
+      "border-e-[#f00]";
+      "border-bs-[#f00]";
+      "border-be-[#f00]";
+      "border-t-[#00f]";
+      "border-t-red-500";
+      "border-t-transparent";
+      "border-r-[#f00]";
+      "border-b-[#f00]";
+      "border-l-[#f00]";
+    ]
+
 (* A CSS variable in a border color bracket, and its v4 paren shorthand, resolve
    to var(): border-[var(--x)] and border-(--x) both set border-color. *)
 let test_border_color_var () =
@@ -973,6 +1014,10 @@ let tests =
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
+    ("Per-side border color order", `Slow, test_border_side_color_order);
+    ( "Per-side border bracket color order",
+      `Slow,
+      test_border_side_bracket_color_order );
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
     ("Bracket colour opacity", `Quick, test_bracket_colour_opacity);
     ("hsl hue units", `Quick, test_hsl_hue_units);

@@ -123,6 +123,59 @@ let test_render_elements_are_unique_and_ordered () =
     [ "m-2"; "ml-2"; "m-2 ml-2" ]
     (Test_helpers.render_elements [ "m-2"; "ml-2"; "m-2" ])
 
+(* The whole-sheet reader, on a sheet spelling every shape it has to survive: a
+   [;]-terminated [@layer] list, a layer that is not the wanted one, a selector
+   list, a nested at-rule block, and a [}] inside a string. *)
+let layered =
+  "@layer theme,utilities;" ^ "@layer theme{:root{--spacing:.25rem}}"
+  ^ "@layer utilities{" ^ ".flex{display:flex}" ^ ".a,.b{color:red}"
+  ^ ".q:before{content:\"}\"}"
+  ^ "@media (min-width:40rem){.md\\:flex{display:flex}}" ^ "}"
+
+let test_layer_keys_expand_and_stop_at_the_layer () =
+  Alcotest.(check (list string))
+    "the utilities layer's own statements, selector lists expanded"
+    [ ".flex"; ".a"; ".b"; ".q:before"; "@media (min-width:40rem)" ]
+    (Test_helpers.layer_statement_keys layered ~layer:"utilities")
+
+let test_layer_keys_absent_layer () =
+  Alcotest.(check (list string))
+    "a layer the sheet does not declare has no statements" []
+    (Test_helpers.layer_statement_keys layered ~layer:"components")
+
+let utilities_layer selectors =
+  "@layer utilities{"
+  ^ String.concat "" (List.map (fun s -> s ^ "{color:red}") selectors)
+  ^ "}"
+
+let gap ~tailwind ~tw =
+  Test_helpers.sheet_order_gap ~layer:"utilities"
+    ~tailwind:(utilities_layer tailwind) ~tw:(utilities_layer tw)
+
+(* One swapped pair is one statement out of place, not two: moving either half
+   past the other settles it, and the gate reports the minimum. *)
+let test_order_gap_counts_the_minimum_move () =
+  let g =
+    gap ~tailwind:[ ".a"; ".b"; ".c"; ".d" ] ~tw:[ ".b"; ".a"; ".c"; ".d" ]
+  in
+  Alcotest.(check (pair int int))
+    "four pairs, one has to move" (4, 1)
+    (g.Test_helpers.pairs, g.Test_helpers.moves)
+
+(* A key either side spells twice could be paired with either occurrence, so it
+   is left out rather than counted under a guess. *)
+let test_order_gap_drops_a_repeated_key () =
+  let g = gap ~tailwind:[ ".x"; ".y"; ".z" ] ~tw:[ ".z"; ".y"; ".x"; ".x" ] in
+  Alcotest.(check (pair int int))
+    "the repeated key leaves two pairs, one of them moved" (2, 1)
+    (g.Test_helpers.pairs, g.Test_helpers.moves)
+
+let test_order_gap_agreeing_sheets () =
+  let g = gap ~tailwind:[ ".a"; ".b"; ".c" ] ~tw:[ ".a"; ".b"; ".c" ] in
+  Alcotest.(check (pair int int))
+    "nothing moves when the orders agree" (3, 0)
+    (g.Test_helpers.pairs, g.Test_helpers.moves)
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -147,6 +200,16 @@ let tests =
       test_unrelated_classes_are_not_paired;
     Alcotest.test_case "render elements are unique and ordered" `Quick
       test_render_elements_are_unique_and_ordered;
+    Alcotest.test_case "layer keys: expanded and layer-bounded" `Quick
+      test_layer_keys_expand_and_stop_at_the_layer;
+    Alcotest.test_case "layer keys: absent layer" `Quick
+      test_layer_keys_absent_layer;
+    Alcotest.test_case "order gap: minimum move" `Quick
+      test_order_gap_counts_the_minimum_move;
+    Alcotest.test_case "order gap: repeated key" `Quick
+      test_order_gap_drops_a_repeated_key;
+    Alcotest.test_case "order gap: agreeing sheets" `Quick
+      test_order_gap_agreeing_sheets;
   ]
 
 let suite = ("test_helpers", tests)

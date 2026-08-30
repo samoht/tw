@@ -548,6 +548,40 @@ let test_theme_layer_media_refs () =
   check bool "includes --text-xl--line-height var" true
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
+(* A token the project's own [@theme] declared and a utility only reads has
+   nothing else in the sheet to declare it, so the theme layer has to. Before,
+   only the catalogued colours and [--spacing] were emitted that way, and a
+   reference to any other project token named a variable with no value. *)
+let test_theme_layer_emits_read_project_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("brand-ink", "#123456") ]
+  in
+  let utility =
+    match Tw.of_string ~theme "[color:var(--brand-ink)]" with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "arbitrary property rejected: %s" m
+  in
+  let declared name theme =
+    Tw.to_css ~theme ~base:false [ utility ]
+    |> Css.layer_block [ "theme" ]
+    |> Option.map Css.rules_of_statements
+    |> Option.map Css.custom_props_of_rules
+    |> Option.value ~default:[] |> List.mem name
+  in
+  check bool "the read token reaches the theme layer" true
+    (declared "--brand-ink" theme);
+  (* An [@theme inline] token stands for its value at the use site and an
+     [@theme reference] one is declared outside the sheet, so neither gets a
+     declaration of its own. *)
+  check bool "an inline token gets none" false
+    (declared "--brand-ink"
+       (Tw.Scheme.with_overrides ~inline:[ "brand-ink" ] Tw.Scheme.default
+          [ ("brand-ink", "#123456") ]));
+  check bool "a reference token gets none" false
+    (declared "--brand-ink"
+       (Tw.Scheme.with_overrides ~reference:[ "brand-ink" ] Tw.Scheme.default
+          [ ("brand-ink", "#123456") ]))
+
 let test_theme_media_refs_md () =
   (* Vars referenced only under md media queries should still end up in
      theme. *)
@@ -1091,6 +1125,8 @@ let tests =
       test_theme_layer_media_refs;
     test_case "theme_layer_collects_media_refs (md)" `Quick
       test_theme_media_refs_md;
+    test_case "theme layer emits a read project token" `Quick
+      test_theme_layer_emits_read_project_token;
     test_case "rule_sets_injects_hover_media_query" `Quick
       test_rule_sets_hover_media;
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;

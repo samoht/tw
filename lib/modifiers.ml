@@ -59,45 +59,13 @@ let breakpoint_name qual bp =
 let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
   Css.Selector.Class (prefix ^ "[" ^ w.text ^ "]:" ^ cls)
 
-(** Render a CSS length in compact form (no spaces in calc operators) for class
-    names. *)
-let format_float f =
-  if Float.is_integer f then Int.to_string (Float.to_int f)
-  else Float.to_string f
-
-let rec compact_length (l : Css.length) =
-  match l with
-  | Px f -> format_float f ^ "px"
-  | Em f -> format_float f ^ "em"
-  | Rem f -> format_float f ^ "rem"
-  | Vh f -> format_float f ^ "vh"
-  | Vw f -> format_float f ^ "vw"
-  | Cm f -> format_float f ^ "cm"
-  | Mm f -> format_float f ^ "mm"
-  | In f -> format_float f ^ "in"
-  | Pt f -> format_float f ^ "pt"
-  | Calc c -> "calc(" ^ compact_calc c ^ ")"
-  | _ -> Css.Pp.to_string (Css.pp_length ~always:true) l
-
-and compact_calc : Css.length Css.calc -> string = function
-  | Val l -> compact_length l
-  | Num n -> format_float n
-  | Expr (left, Add, right) -> compact_calc left ^ "+" ^ compact_calc right
-  | Expr (left, Sub, right) -> compact_calc left ^ "-" ^ compact_calc right
-  | Expr (left, Mul, right) -> compact_calc left ^ "*" ^ compact_calc right
-  | Expr (left, Div, right) -> compact_calc left ^ "/" ^ compact_calc right
-  | Var v -> "var(--" ^ Css.var_name v ^ ")"
-  | Nested inner -> "calc(" ^ compact_calc inner ^ ")"
-  | Parens inner -> "(" ^ compact_calc inner ^ ")"
-  | Sibling_index -> "sibling-index()"
-  | Sibling_count -> "sibling-count()"
-  | (Math_const _ | Math_fn _) as c ->
-      Css.Pp.to_string (Css.pp_length ~always:true) (Calc c)
+(* One spelling for a class name, shared with [Style], which names the same
+   utilities through [Style.to_class]. *)
+let compact_length = Style.compact_length
 
 (** Build class selector for an arbitrary length breakpoint *)
-let arbitrary_length_class prefix (l : Css.length) cls =
-  let len_str = compact_length l in
-  Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
+let arbitrary_length_class prefix (l : Style.arbitrary_length) cls =
+  Css.Selector.Class (prefix ^ "[" ^ l.text ^ "]:" ^ cls)
 
 (* Substitute the resolved value into a template's [{}] placeholder. *)
 let custom_variant_apply template value =
@@ -1085,7 +1053,10 @@ let extract_bracket_content_with_name ~prefix s =
 (* Parse a CSS length from a string like "600px", "40rem", "100vh". Arbitrary
    value syntax is decoded first, so [min-[calc(1000px+12em)]] becomes a
    spec-valid [calc(1000px + 12em)] the length reader accepts. *)
-let parse_css_length s : Css.length option = Parse.arbitrary_length s
+let parse_css_length s : Style.arbitrary_length option =
+  Option.map
+    (fun len : Style.arbitrary_length -> { len; text = s })
+    (Parse.arbitrary_length s)
 
 (* Parse a pixel value from a string like "600px" or "600", keeping the
    spelling: it is what the variant's own class is named after. *)
@@ -1114,89 +1085,116 @@ let is_valid_has_selector sel =
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
-(* Parse a data bracket expression into attribute name, match operator, and
-   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
-   Underscores in the value part are converted to spaces. *)
-(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
-let parse_value_and_flag value_str =
-  let vlen = String.length value_str in
-  let value_str, flag =
-    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Insensitive )
-    else if
-      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
-    then
-      ( String.trim (String.sub value_str 0 (vlen - 2)),
-        Some Css.Selector.Sensitive )
-    else (value_str, None)
-  in
-  let value =
-    let vlen = String.length value_str in
-    if vlen >= 2 then
-      match (value_str.[0], value_str.[vlen - 1]) with
-      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
-      | _ -> value_str
-    else value_str
-  in
-  (value, flag)
-
-let parse_data_expr raw_expr =
-  (* Find the match operator in raw content (before underscore conversion) *)
+(* Find Tailwind's match operator ($=, ^=, *=, ~=, |= or bare =) in the raw,
+   not-yet-underscore-decoded bracket content, skipping over anything of that
+   shape written inside quotes. Cascade's own selector reader cannot do this
+   step: an unquoted operator can only be told apart from the same character
+   inside a quoted value by scanning for the quotes, and that scan has to run
+   before the value is handed to the reader at all. *)
+let data_match_operator raw_expr =
   let len = String.length raw_expr in
   let in_quotes = ref false in
-  let rec find_op i =
+  let rec go i =
     if i >= len then None
     else
       match raw_expr.[i] with
       | '"' | '\'' ->
           in_quotes := not !in_quotes;
-          find_op (i + 1)
+          go (i + 1)
       | ('$' | '^' | '*' | '~' | '|')
         when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
-          Some (i, 2, raw_expr.[i])
-      | '=' when not !in_quotes -> Some (i, 1, '=')
-      | _ -> find_op (i + 1)
+          Some (i, 2)
+      | '=' when not !in_quotes -> Some (i, 1)
+      | _ -> go (i + 1)
   in
-  let underscore_to_space s =
-    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
-  in
-  match find_op 0 with
-  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
-  | Some (op_pos, op_len, op_char) ->
-      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
-      let value_str =
-        underscore_to_space
-          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
+  go 0
+
+let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
+
+(* Split a trailing case-sensitivity flag off a decoded value remainder:
+   Selectors 4 requires whitespace before [i]/[s], which is what Tailwind's own
+   underscore convention spells too once the underscore before the flag decodes
+   to a space (e.g. [data-[foo=bar_i]] -> "bar i"). A value that is itself
+   quoted never matches this: its last character is the closing quote, and the
+   flag can only follow that, as in [data-[foo='bar'_i]] -> "'bar' i" decoding
+   to a value of "'bar'" and a flag. *)
+let split_trailing_flag value =
+  let n = String.length value in
+  if n >= 2 && value.[n - 1] = 'i' && value.[n - 2] = ' ' then
+    (String.trim (String.sub value 0 (n - 2)), " i")
+  else if n >= 2 && value.[n - 1] = 's' && value.[n - 2] = ' ' then
+    (String.trim (String.sub value 0 (n - 2)), " s")
+  else (value, "")
+
+let is_already_quoted value =
+  let n = String.length value in
+  n >= 2
+  && ((value.[0] = '"' && value.[n - 1] = '"')
+     || (value.[0] = '\'' && value.[n - 1] = '\''))
+
+(* Wrap a decoded, not-already-quoted value in quotes CSS requires but
+   Tailwind's own bracket sugar lets the author skip, e.g. the space in
+   [data-[foo=bar_baz]] -> "bar baz". {!Css.Selector.pp_attribute_match} drops
+   the quotes again when minified and the value does not need them, so adding
+   them here never changes what a plain identifier value renders as. *)
+let quote_value value =
+  let q = if String.contains value '"' then '\'' else '"' in
+  String.make 1 q ^ value ^ String.make 1 q
+
+(* Read the reconstructed [[data-<expr>]] through cascade's own selector reader
+   and pull the pieces [parse_data_expr] hands back out of it. *)
+let data_attribute_of_bracket bracket =
+  match Css.Selector.of_string bracket with
+  | Css.Selector.Attribute (_, Css.Selector.Data name, m, flag) ->
+      ("data-" ^ name, m, flag)
+  | _ -> invalid_arg ("not a data attribute: " ^ bracket)
+
+(* Parse a [data-[...]] bracket body (the interior text, no brackets) into an
+   attribute name, match operator and optional case-sensitivity flag. Tailwind
+   underscore-decodes the whole expression and only then reads it, so the value
+   and flag - and, once a value is quoted, the quotes themselves - are valid CSS
+   only after that decoding; {!Css.Selector.of_string} reads the reconstructed
+   [[data-<expr>]] and does the actual work: choosing the match operator,
+   validating the attribute name, and reading a quoted value's escapes the same
+   way a browser would. Raises on a malformed expression; callers that see
+   arbitrary user input should validate through {!is_valid_data_attr_expr}
+   first. *)
+let parse_data_expr raw_expr =
+  match data_match_operator raw_expr with
+  | None ->
+      let name = String.trim (decode_underscores raw_expr) in
+      data_attribute_of_bracket ("[data-" ^ name ^ "]")
+  | Some (op_pos, op_len) ->
+      let len = String.length raw_expr in
+      let name =
+        String.trim (decode_underscores (String.sub raw_expr 0 op_pos))
       in
-      let value, flag = parse_value_and_flag value_str in
-      let match_op =
-        match op_char with
-        | '$' -> Css.Selector.Suffix value
-        | '^' -> Css.Selector.Prefix value
-        | '*' -> Css.Selector.Substring value
-        | '~' -> Css.Selector.Whitespace_list value
-        | '|' -> Css.Selector.Hyphen_list value
-        | _ -> Css.Selector.Exact value
+      (* Validated here, on its own: folded straight into the reconstructed text
+         below, a name ending in one of [$ ^ * ~ |] would recombine with the
+         operator that follows it into a different, two-character one ([foo^]
+         then [=] reads back as [foo] then [^=]). None of those characters is
+         one {!Css.Selector.attribute} accepts in a name, so this rules the
+         recombination out before it can happen. *)
+      ignore (Css.Selector.attribute ("data-" ^ name) Css.Selector.Presence);
+      let op_text = String.sub raw_expr op_pos op_len in
+      let rest =
+        String.trim
+          (decode_underscores
+             (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)))
       in
-      ("data-" ^ attr, match_op, flag)
+      let value, flag_text = split_trailing_flag rest in
+      let value_text =
+        if is_already_quoted value then value else quote_value value
+      in
+      data_attribute_of_bracket
+        ("[data-" ^ name ^ op_text ^ value_text ^ flag_text ^ "]")
 
 (* Validate a data-[...] bracket expression by running it through the same
-   reading [parse_data_expr] does at render time, then handing the resulting
-   attribute name to {!Css.Selector.attribute}: it validates the name as a CSS
-   identifier and rejects a malformed one, such as the split operator [^_=] (a
-   space inside what must be the adjacent two-character [^=] token) falling
-   through to a bare [=] and dragging the stray [^] and a decoded space into
-   what becomes the attribute name. The value is left unvalidated here since
-   Tailwind's arbitrary values legitimately hold a decoded space (e.g.
-   [data-[foo=bar_baz]]) that the printer quotes on output. *)
+   reading [parse_data_expr] does at render time. *)
 let is_valid_data_attr_expr expr =
-  let attr_name, attr_match, attr_flag = parse_data_expr expr in
-  try
-    ignore (Css.Selector.attribute ?flag:attr_flag attr_name attr_match);
-    true
-  with Invalid_argument _ -> false
+  match parse_data_expr expr with
+  | _ -> true
+  | exception (Invalid_argument _ | Cascade.Cursor.Parse_error _) -> false
 
 (* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
    [[@starting-style]] wrap the utility rather than select it. *)
@@ -1663,6 +1661,21 @@ let is_not_compatible = function
       false
   | _ -> true
 
+(* [not-[...]] whose content is neither a media condition nor a pseudo-class
+   negates the content read as a selector, so text the selector grammar cannot
+   read - or can read only a prefix of - is not a negation at all. The reader
+   raises rather than answering, and it stops at the first thing it cannot use,
+   so the cursor has to be exhausted too: a trailing remainder would otherwise
+   be dropped and the rule would negate less than the class says. *)
+let reads_as_selector content =
+  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let cursor = Cascade.Cursor.of_string s in
+  match Css.Selector.read cursor with
+  | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
+  | _ ->
+      Cascade.Cursor.ws cursor;
+      Cascade.Cursor.is_done cursor
+
 (** Check if bracket content is valid for not-[...] patterns. Rejects combinator
     selectors (+, >, ~), media conditions with commas, and bare selectors. *)
 let is_valid_not_bracket_content content =
@@ -1676,7 +1689,8 @@ let is_valid_not_bracket_content content =
       (String.length content > 6 && String.sub content 0 6 = "@media")
       || (String.length content > 7 && String.sub content 0 7 = "@media_")
     then not (String.contains content ',')
-    else true
+    else if first = ':' then true
+    else reads_as_selector content
 
 (** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
     for pseudo-class or media bracket content. *)

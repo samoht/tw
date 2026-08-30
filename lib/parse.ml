@@ -144,12 +144,14 @@ let function_name_before s i =
     String.lowercase_ascii (String.sub s (!j + 1) (stop - !j - 1))
   else ""
 
-let is_css_math_function = function
-  | "abs" | "calc" | "calc-size" | "clamp" | "hypot" | "max" | "min" | "mod"
-  | "rem" | "round" | "sign" ->
-      true
-  | _ -> false
-
+(* A substitution function ([var()], [attr()], [env()]) stands for a token
+   stream, not a value CSS Values 4 sec. 10 math grammar parses, so entering one
+   inside a math function must not inherit the surrounding operator context: a
+   dash inside the name it carries (["--spacing-6"]) is not a minus sign.
+   cascade exports no name table for this - [Properties.is_color_function]
+   answers a different question (which functions are colours) and using it here
+   instead corrupts [p-[calc(var(--spacing-6)-1px)]] into [calc(var(--spacing -
+   6) - 1px)]. Kept hand-written on purpose. *)
 let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
@@ -159,7 +161,9 @@ let is_css_non_math_function = function
    width from a colour by the bracket's first character need to know. *)
 let starts_with_math_function s =
   match String.index_opt s '(' with
-  | Some i -> is_css_math_function (String.lowercase_ascii (String.sub s 0 i))
+  | Some i ->
+      Cascade.Css.Properties.is_math_function
+        (String.lowercase_ascii (String.sub s 0 i))
   | None -> false
 
 let normalize_css_math_operators s =
@@ -192,7 +196,7 @@ let normalize_css_math_operators s =
     | '(' ->
         let fn = function_name_before s i in
         let ctx =
-          if is_css_math_function fn then true
+          if Cascade.Css.Properties.is_math_function fn then true
           else if is_css_non_math_function fn then false
           else current_math ()
         in
@@ -323,18 +327,15 @@ let arbitrary_length_percentage s =
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
    that are not CSS, and passing one through emits an invalid declaration. *)
-let is_ident s =
-  s <> ""
-  && (match s.[0] with
-    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> true
-    | '-' -> String.length s > 1
-    | c -> Char.code c >= 0x80)
-  && String.for_all
-       (fun c ->
-         match c with
-         | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' | '_' -> true
-         | c -> Char.code c >= 0x80)
-       s
+let is_ident = Cascade.Syntax.is_ident
+
+(* An arbitrary value reaching a custom property is author text, so it can carry
+   a top-level [;] or [}] that ends the declaration early, or an unterminated
+   function, block or string that swallows the rest of the rule. cascade refuses
+   such a pair from [custom_property] by raising, which is right for a caller
+   holding CSS it wrote; here the text comes from a class name, so the class is
+   the thing to refuse. Tailwind refuses the same ones. *)
+let is_declaration_value = Cascade.Css.Declaration.is_declaration_value
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
@@ -347,14 +348,9 @@ let is_bracket_var s =
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
     followed by '('. *)
 let is_css_color_fn s =
-  let starts prefix =
-    String.length s >= String.length prefix + 1
-    && String.sub s 0 (String.length prefix) = prefix
-    && s.[String.length prefix] = '('
-  in
-  starts "rgb" || starts "rgba" || starts "hsl" || starts "hsla" || starts "hwb"
-  || starts "oklch" || starts "oklab" || starts "lch" || starts "lab"
-  || starts "color" || starts "color-mix" || starts "light-dark"
+  match String.index_opt s '(' with
+  | Some i -> Cascade.Css.Properties.is_color_function (String.sub s 0 i)
+  | None -> false
 
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =

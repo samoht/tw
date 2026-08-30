@@ -7,15 +7,13 @@ module Css = Cascade.Css
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-(* Registry for custom properties-layer initial CSS values. Some variables need
-   a different string in the properties layer than what pp_length produces
-   (e.g., ring-offset-width needs "0px" in properties but "0" in @property). *)
-(* The properties layer and the [@property] rule want different spellings of one
-   registered zero, and Tailwind emits both: [--tw-ring-offset-width: 0px] in
-   the layer, [initial-value: 0] in the rule. The layer's spelling is stated
-   here rather than carried on the variable, because the layer is built from
-   parsed [@property] statements whose only handle is the name. A total
-   function, so nothing depends on definition order. *)
+(* Tailwind spells one registered zero two ways: [--tw-ring-offset-width: 0px]
+   in the properties layer's bulk declaration, but [initial-value: 0] in its own
+   [@property] rule. Other zero-initialised [Length] variables (e.g.
+   border-spacing-x/y) get "0" in both places, so this isn't a general
+   Length-zero rule cascade's printer could apply - it's a one-name quirk of
+   Tailwind's own output that has to be special-cased here. A total function, so
+   nothing depends on definition order. *)
 let properties_layer_override = function
   | "--tw-ring-offset-width" -> Some "0px"
   | _ -> None
@@ -485,36 +483,17 @@ let theme_ref : type a. ?default:a -> ?default_css:string -> string -> a Css.var
 
 let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
 
-(* Convert Property_info to the string value for properties layer This extracts
-   the initial value and converts it to the appropriate CSS string *)
-let property_info_to_declaration_value (Css.Property_info info) =
+(* Turn a parsed [@property] statement's typed initial value into the
+   declaration that sets it in the properties layer. [typed_custom_property]
+   prints the value with cascade's own [pp_value] for [info.syntax], so this
+   never hand-dispatches on the syntax or reprints a value itself. *)
+let declaration_of_property_info (Css.Property_info info) =
   match properties_layer_override info.name with
-  | Some css -> css
+  | Some css -> Css.custom_property info.name css
   | None -> (
       match info.initial_value with
-      | None -> "initial"
-      | Some v -> (
-          let open Css.Variables in
-          match info.syntax with
-          | Universal -> v (* Universal syntax already stores strings *)
-          | _ -> (
-              let (* For non-Universal syntax, we shouldn't be in the properties
-                     layer but handle it gracefully using the existing pp
-                     functions *)
-                open
-                Css.Values
-              in
-              match info.syntax with
-              | Length -> (
-                  match v with
-                  | Zero -> "0"
-                  | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-              (* A [<number>] initial value is a number: appending [%] made it a
-                 percentage, which is a different type. Unreachable today
-                 because [property_typed] emits no Number syntax, so this is the
-                 arm a new one would land on. *)
-              | Number -> Pp.float v
-              | syntax -> Css.Pp.to_string (pp_value syntax) v)))
+      | None -> Css.custom_property info.name "initial"
+      | Some v -> Css.Variables.typed_custom_property info.name info.syntax v)
 
 let name var = var.name
 let css_name var = "--" ^ var.name
@@ -536,7 +515,7 @@ let order_of_declaration decl =
   | Some meta -> (
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
-let property_initial_string = property_info_to_declaration_value
+let property_initial_declaration = declaration_of_property_info
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
 
 let bracket ?fallback name =
@@ -546,7 +525,16 @@ let bracket ?fallback name =
     | None ->
         let expression =
           if String.starts_with ~prefix:"var(" name then Some name
-          else if String.contains name ',' then Some ("var(--" ^ name ^ ")")
+          else if String.contains name ',' then
+            (* [Css.Variables.read_reference_body] reads this same grammar
+               straight off a cursor, without the [var(]/[)] wrapper - but it
+               takes a [Cursor.t -> 'a] reader for the fallback and hands back
+               an ['a var], and [bracket] has no witness for 'a here: it is
+               called at many different value types with nothing to pick a
+               reader from. [read_reference]'s string-returning fallback is what
+               [Css.Values.syntax_fallback] (below) is built to consume, so the
+               wrapper still has to be assembled for it. *)
+            Some ("var(--" ^ name ^ ")")
           else None
         in
         Option.bind expression (fun expression ->

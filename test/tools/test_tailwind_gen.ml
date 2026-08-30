@@ -1,22 +1,17 @@
 open Alcotest
 open Tw_tools.Tailwind_gen
 
+(* Every test here needs the real CLI, so each opens on the gate: a missing tool
+   skips, and TW_TAILWIND_TESTS=1 fails instead. A CLI that is present and fails
+   to produce CSS raises [Failure] past the gate, and that must reach the
+   runner: catching it would report a broken harness as a pass. *)
 let test_check_available () =
-  (* This just tests that the function doesn't crash *)
-  try
-    check_tailwindcss_available ();
-    check bool "tailwindcss available" true true
-  with Failure _ ->
-    (* If Tailwind is not installed, that's ok for the test *)
-    check bool "tailwindcss check completed" true true
-
-(* A missing CLI is a missing tool, so skip on it. A CLI that is present and
-   fails to produce CSS raises [Failure] too, and that must reach the runner:
-   catching it here would report a broken harness as a pass. *)
-let skip_unless_available () = if not (available ()) then Alcotest.skip ()
+  Test_helpers.require_tailwind_cli ();
+  check_tailwindcss_available ();
+  check bool "tailwindcss available" true true
 
 let test_generate_simple () =
-  skip_unless_available ();
+  Test_helpers.require_tailwind_cli ();
   let css = generate ~minify:true [ "p-4"; "bg-blue-500" ] in
   check bool "generated CSS not empty" true (String.length css > 0);
   check bool "contains p-4 class" true
@@ -29,9 +24,9 @@ let test_generate_simple () =
    tw's "true" value, so pin it to the live CLI here: tw and the real
    tailwindcss must agree (canonically) on these classes. If upstream ever
    changes/fixes the rounding, this fails loudly instead of the allowlist
-   silently masking it. Skips when tailwindcss is unavailable. *)
+   silently masking it. *)
 let test_arbitrary_color_opacity_matches_cli () =
-  skip_unless_available ();
+  Test_helpers.require_tailwind_cli ();
   let check_class cls =
     let cli = generate ~minify:true ~optimize:true ~forms:true [ cls ] in
     let tw =
@@ -59,9 +54,9 @@ let test_arbitrary_color_opacity_matches_cli () =
    entity [&#39;], which the extractor read literally into the selector
    ([.bg-\[url\(\&\#39\;...\)\]]), diverging from tw's [.bg-\[url\(\'...\'\)\]].
    Arbitrary url() values with single quotes must round-trip with no entity
-   mangling. Skips when tailwindcss is unavailable. *)
+   mangling. *)
 let test_arbitrary_url_matches_cli () =
-  skip_unless_available ();
+  Test_helpers.require_tailwind_cli ();
   let cls = "bg-[url('/img/x.svg')]" in
   let cli = generate ~minify:true ~optimize:true [ cls ] in
   check bool

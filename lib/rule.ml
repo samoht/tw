@@ -291,11 +291,9 @@ let responsive_modifier_condition ?theme = function
   | Style.Max_arbitrary w ->
       (media_not_min_width_px w.px, "max-[" ^ w.text ^ "]")
   | Style.Min_arbitrary_length l ->
-      let len_str = Modifiers.compact_length l in
-      (Css.media_min_width_length l, "min-[" ^ len_str ^ "]")
+      (Css.media_min_width_length l.len, "min-[" ^ l.text ^ "]")
   | Style.Max_arbitrary_length l ->
-      let len_str = Modifiers.compact_length l in
-      (Css.media_not_min_width_length l, "max-[" ^ len_str ^ "]")
+      (Css.media_not_min_width_length l.len, "max-[" ^ l.text ^ "]")
   | Style.Custom_responsive name ->
       let length =
         match Scheme.breakpoint_length (resolve_scheme theme) name with
@@ -390,21 +388,22 @@ let max_arbitrary_rule ?inner_has_hover (w : Style.arbitrary_px) base_class
     (media_not_min_width_px w.px)
     base_class selector props
 
-let arbitrary_length_rule ?inner_has_hover prefix condition l base_class
-    selector props =
-  let len_str = Modifiers.compact_length l in
+let arbitrary_length_rule ?inner_has_hover prefix condition
+    (l : Style.arbitrary_length) base_class selector props =
   media_rule_with_prefix ?inner_has_hover
-    (prefix ^ "-[" ^ len_str ^ "]")
+    (prefix ^ "-[" ^ l.text ^ "]")
     condition base_class selector props
 
-let min_arbitrary_length_rule ?inner_has_hover l base_class selector props =
+let min_arbitrary_length_rule ?inner_has_hover (l : Style.arbitrary_length)
+    base_class selector props =
   arbitrary_length_rule ?inner_has_hover "min"
-    (Css.media_min_width_length l)
+    (Css.media_min_width_length l.len)
     l base_class selector props
 
-let max_arbitrary_length_rule ?inner_has_hover l base_class selector props =
+let max_arbitrary_length_rule ?inner_has_hover (l : Style.arbitrary_length)
+    base_class selector props =
   arbitrary_length_rule ?inner_has_hover "max"
-    (Css.media_not_min_width_length l)
+    (Css.media_not_min_width_length l.len)
     l base_class selector props
 
 let custom_breakpoint ?theme name =
@@ -1134,11 +1133,11 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
       not_media_rule ~condition:(media_min_width_px w.px) modified_class props
   | Style.Min_arbitrary_length l ->
       not_media_rule
-        ~condition:(Css.media_not_min_width_length l)
+        ~condition:(Css.media_not_min_width_length l.len)
         modified_class props
   | Style.Max_arbitrary_length l ->
       not_media_rule
-        ~condition:(Css.media_min_width_length l)
+        ~condition:(Css.media_min_width_length l.len)
         modified_class props
   | _ -> [ sel_rule () ]
 
@@ -1161,21 +1160,13 @@ let parse_bracket_media content =
   if String.length rest > 4 && String.sub rest 0 4 = "not " then
     let inner = String.trim (String.sub rest 4 (String.length rest - 4)) in
     (* Double negation: return the positive condition *)
-    match inner with
-    | "(orientation: portrait)" | "(orientation:portrait)" ->
-        media_feature Css.Media.Orientation Css.Media.Portrait
-    | "(orientation: landscape)" | "(orientation:landscape)" ->
-        media_feature Css.Media.Orientation Css.Media.Landscape
-    | _ -> Css.Media.of_string inner
+    (* The reader takes the condition however it is spelled, so there is no
+       table of spellings here to fall out of step with itself. *)
+    Css.Media.of_string inner
   else
     (* Negate the condition *)
     match rest with
     | "print" -> negate_media print_media
-    | "(orientation: portrait)" | "(orientation:portrait)" ->
-        negate_media (media_feature Css.Media.Orientation Css.Media.Portrait)
-    | "(orientation: landscape)" | "(orientation:landscape)" ->
-        negate_media (media_feature Css.Media.Orientation Css.Media.Landscape)
-    | "(hover: hover)" | "(hover:hover)" -> negate_media hover_media
     | _ -> negate_media (Css.Media.of_string rest)
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)

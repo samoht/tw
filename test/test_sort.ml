@@ -320,6 +320,83 @@ let test_gap_before_self_alignment () =
   Test_helpers.check_ordering_matches
     ~test_name:"gap utilities before self-alignment" utilities
 
+(* Tailwind's property table sorts letter-spacing, text-wrap, overflow-wrap,
+   hyphens and white-space in that order (289, 290, 291, 294, 295): tracking
+   opens the late-typography band, text-wrap and the word-wrapping families come
+   next, and white-space is last of the five. [wrap-break-word] lives in
+   [Overflow_wrap]'s own handler, a separate priority band from
+   [Typography_late]'s default 26 - both have to land between tracking and
+   whitespace for this to hold. None of these utilities write on a shared
+   property, so [check_ordering_matches]'s canonical diff would call any reorder
+   among them cascade-neutral and miss it; [check_class_order] reads sheet
+   positions directly instead. *)
+let test_late_typography_before_whitespace () =
+  Test_helpers.check_class_order
+    ~test_name:"text-wrap, wrap-break-word, hyphens before white-space"
+    [
+      "whitespace-nowrap";
+      "hyphens-auto";
+      "text-wrap";
+      "wrap-break-word";
+      "tracking-wide";
+      "text-red-500";
+    ]
+
+(* The word-wrapping families overlap on overflow-wrap/word-break: break-normal
+   writes both and so leads its shared prefix, break-words/wrap-anywhere/
+   wrap-break-word/wrap-normal tie on overflow-wrap alone, and break-all/
+   break-keep tie on word-break alone. Two of these seven utilities come from
+   [Typography]'s handler and three from [Overflow_wrap]'s - a separate priority
+   band - so this also pins their cross-handler tie-break. *)
+let test_word_wrap_family_order () =
+  Test_helpers.check_class_order
+    ~test_name:"break-normal leads, then overflow-wrap ties, then word-break"
+    [
+      "break-keep";
+      "wrap-normal";
+      "break-all";
+      "wrap-break-word";
+      "wrap-anywhere";
+      "break-words";
+      "break-normal";
+    ]
+
+(* Tailwind ranks text-indent (282) right after text-align (281), well before
+   letter-spacing (289) opens the rest of the late-typography band. Indent and
+   tracking write disjoint properties, so this too needs [check_class_order]
+   rather than the cascade-neutral-blind [check_ordering_matches]. *)
+let test_indent_before_tracking () =
+  Test_helpers.check_class_order
+    ~test_name:"text-indent before tracking and text-wrap"
+    [ "tracking-wide"; "indent-4"; "text-wrap" ]
+
+(* text-indent (282) sits between text-align (281) and vertical-align (283), so
+   indent belongs inside the early-typography band and not after it: font-family
+   (284) and font-weight (285) come later. Sorting it before tracking is not
+   enough - a band boundary, not a suborder, is what separates it from
+   [font-bold]. *)
+let test_indent_within_early_typography () =
+  Test_helpers.check_class_order
+    ~test_name:"text-indent between text-align and vertical-align"
+    [ "font-bold"; "align-middle"; "indent-4"; "text-center"; "font-mono" ]
+
+(* Every spelling of the family shares one slot and is separated by the
+   candidate name, read the way Tailwind reads it: negatives first, then bare
+   steps in numeric order, then the bracket value, then [px]. *)
+let test_indent_family_order () =
+  Test_helpers.check_class_order ~test_name:"text-indent spellings"
+    [
+      "indent-px";
+      "indent-[3px]";
+      "-indent-px";
+      "-indent-[3px]";
+      "indent-96";
+      "indent-8";
+      "indent-10";
+      "indent-0.5";
+      "-indent-4";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -1830,6 +1907,13 @@ let tests =
     (* Utility group ordering *)
     test_case "typography before color" `Quick test_typography_before_color;
     test_case "gap before self-alignment" `Quick test_gap_before_self_alignment;
+    test_case "late typography before white-space" `Quick
+      test_late_typography_before_whitespace;
+    test_case "word-wrap family order" `Quick test_word_wrap_family_order;
+    test_case "text-indent before tracking" `Quick test_indent_before_tracking;
+    test_case "text-indent inside early typography" `Quick
+      test_indent_within_early_typography;
+    test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick

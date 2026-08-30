@@ -90,7 +90,19 @@ val arbitrary_length_percentage : string -> Cascade.Css.length_percentage option
 
 val is_ident : string -> bool
 (** [is_ident s] is [true] when [s] is a CSS identifier, as a custom-ident or a
-    property name written in an arbitrary value has to be. *)
+    property name written in an arbitrary value has to be. Delegates to
+    {!Cascade.Syntax.is_ident}, which is the CSS Syntax 3 grammar: a bare [-], a
+    [-] before a digit, and a leading digit all open no ident. *)
+
+val is_declaration_value : string -> bool
+(** [is_declaration_value s] is [true] when [s] can be the whole value of one
+    declaration: no top-level [;], no unmatched closing bracket, and no
+    unterminated function, block or string (CSS Syntax 3 (ED) sec. 7.2).
+
+    A bracket value that fails this ends the declaration it is written into, or
+    swallows the rest of the rule, so the class carrying it is refused rather
+    than emitted. {!Cascade.Css.custom_property} takes the same values and
+    raises on the rest. *)
 
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
@@ -109,9 +121,10 @@ val is_bracket_var : string -> bool
 
 val is_css_color_fn : string -> bool
 (** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function
-    call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]. Recognizes all
-    standard CSS color functions: rgb, rgba, hsl, hsla, hwb, oklch, oklab, lch,
-    lab, color, and color-mix. *)
+    call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
+    before its first ['('] names a function
+    {!Cascade.Css.Properties.is_color_function} recognises - a colour syntax
+    fixes, case-insensitively. *)
 
 val is_bare_var : string -> bool
 (** [is_bare_var s] returns [true] if [s] is a bare var reference like

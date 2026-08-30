@@ -1,0 +1,27 @@
+; The whole-sheet order gate. It reads the same inputs measure.sh does, and
+; reduces the comparison to one number per layer rather than a report to read.
+;
+; It is a rule rather than a (test) stanza because the tw half has to come from
+; the built binary: the entrypoint pipeline that compiles globals.css lives in
+; bin/main.ml, and running it is what keeps the gate measuring the sheet the
+; documented command produces.
+
+(executable
+ (name sheet_order)
+ (libraries fmt tw_tools test_helpers))
+
+; package-lock.json pins the tailwindcss the reference comes from, and the CLI
+; is not a dune dependency of its own, so a version bump has to re-run the
+; measurement rather than leave the cached one standing.
+
+(rule
+ (alias runtest)
+ (deps
+  ref-entry.css
+  globals.css
+  search.css
+  typography.css
+  classlist.txt
+  ../../package-lock.json)
+ (action
+  (run %{exe:sheet_order.exe} %{exe:../../bin/main.exe})))
