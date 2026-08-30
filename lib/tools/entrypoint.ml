@@ -6,16 +6,6 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
-   variables a utility used. The option is stripped before parsing, so it is
-   read from the raw text. *)
-let imports_static_theme css =
-  let len = String.length css in
-  let rec go i =
-    i + 13 <= len && (String.sub css i 13 = "theme(static)" || go (i + 1))
-  in
-  go 0
-
 (* Where a token begins and ends in the source it was read from. *)
 let start (t : Cascade.Token.t) = t.loc.Cascade.Loc.start_pos
 let stop (t : Cascade.Token.t) = t.loc.Cascade.Loc.end_pos
@@ -178,14 +168,16 @@ let builtin_variants =
   [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
 
 (* Where the entrypoint's blocks, at-rule headers and function calls start and
-   end, read off cascade's tokenizer.
+   end, keyed by the offset each one starts at.
 
-   The Tailwind at-rules below are not CSS, so they have to be found in the text
-   before a parser sees it -- but counting braces over the raw bytes counts the
-   ones inside a string, a comment or an escape too. The block then ends in the
-   wrong place and everything after it is silently dropped. A tokenizer knows
-   which brace is a delimiter, so the offsets come from there. *)
-module Scan = struct
+   The Tailwind at-rules below are not CSS, so a stylesheet parser drops them
+   and they have to be located in the text first -- but counting braces over the
+   raw bytes counts the ones inside a string, a comment or an escape too. The
+   block then ends in the wrong place and everything after it is silently
+   dropped. cascade's component values come out of CSS Syntax 3 sec. 5.4 already
+   matched, and each carries the range of source it was parsed from, so the
+   offsets are read off those. *)
+module Index = struct
   open Cascade
 
   type block = { body : string; next : int }
@@ -208,74 +200,49 @@ module Scan = struct
         (** at-keyword offset -> its at-name and blockless statement *)
   }
 
-  (* For each token opening a bracket, the index of the token closing it, or
-     [-1] when the source ends first. Per CSS Syntax 3 sec. 5.4.7 a close
-     bracket also ends any group left open inside the one it matches, and a
-     stray one that matches nothing is dropped. *)
-  let close_of (toks : Token.t array) =
-    let close = Array.make (Array.length toks) (-1) in
-    let stack = ref [] in
-    let rec pop bracket i = function
-      | [] -> None
-      | (opener, b) :: rest when b = bracket ->
-          close.(opener) <- i;
-          Some rest
-      | _ :: rest -> pop bracket i rest
+  (* Where the contents of a group end. One the source left open ends with the
+     source, which is where the parser ends it too. *)
+  let inner_end ~closed (loc : Loc.t) =
+    if closed then loc.end_pos - 1 else loc.end_pos
+
+  let group css ~from ~upto ~next =
+    { body = String.sub css from (upto - from); next }
+
+  let block_of css (b : Component.block Component.node) =
+    let upto = inner_end ~closed:b.node.closed b.loc in
+    group css ~from:(b.loc.start_pos + 1) ~upto ~next:b.loc.end_pos
+
+  (* A call's arguments start where its first one does; one that takes none has
+     an empty body against its own closer. *)
+  let call_of css (f : Component.func Component.node) =
+    let upto = inner_end ~closed:f.node.terminated f.loc in
+    let from =
+      match f.node.arguments with
+      | argument :: _ -> (Component.source_loc argument).start_pos
+      | [] -> upto
     in
-    Array.iteri
-      (fun i (token : Token.t) ->
-        match token.kind with
-        | Token.Open bracket -> stack := (i, bracket) :: !stack
-        | Token.Function _ -> stack := (i, Token.Paren) :: !stack
-        | Token.Close bracket -> (
-            match pop bracket i !stack with
-            | Some rest -> stack := rest
-            | None -> ())
-        | _ -> ())
-      toks;
-    close
+    group css ~from ~upto ~next:f.loc.end_pos
 
-  (* What the bracket the token at [i] opens holds. An unclosed one runs to the
-     end of the source, which is where the parser ends it too. *)
-  let block css (toks : Token.t array) close i =
-    let from = stop toks.(i) in
-    let stop_at, next =
-      if close.(i) < 0 then (String.length css, String.length css)
-      else (start toks.(close.(i)), stop toks.(close.(i)))
-    in
-    { body = String.sub css from (stop_at - from); next }
+  (* The [{] an at-rule's prelude leads to. A group in the prelude is a single
+     component, so a [;] inside one does not end the at-rule. *)
+  let rec brace_of = function
+    | [] -> None
+    | Component.Block ({ node = { opening = Token.Curly; _ }; _ } as b) :: _ ->
+        Some b
+    | Component.Preserved { kind = Token.Semicolon | Token.Close _; _ } :: _ ->
+        None
+    | _ :: rest -> brace_of rest
 
-  (* Index of the [{] an at-rule's prelude leads to. A bracket group in the
-     prelude is stepped over whole, so a [;] inside one does not end the
-     at-rule. *)
-  let rec brace_of (toks : Token.t array) close i =
-    if i >= Array.length toks then None
-    else
-      match toks.(i).Token.kind with
-      | Token.Open Token.Curly -> Some i
-      | Token.Semicolon | Token.Close _ -> None
-      | Token.Open _ | Token.Function _ ->
-          if close.(i) < 0 then None else brace_of toks close (close.(i) + 1)
-      | _ -> brace_of toks close (i + 1)
-
-  (* The semicolon or enclosing close brace that terminates a blockless at-rule.
-     Bracket groups in its prelude are stepped over whole. *)
-  let rec statement_end (toks : Token.t array) close i source_end =
-    if i >= Array.length toks then (source_end, source_end)
-    else
-      match toks.(i).Token.kind with
-      | Token.Semicolon -> (start toks.(i), stop toks.(i))
-      | Token.Close Token.Curly ->
-          let at = start toks.(i) in
-          (at, at)
-      | Token.Open _ | Token.Function _ ->
-          if close.(i) < 0 then (source_end, source_end)
-          else statement_end toks close (close.(i) + 1) source_end
-      | _ -> statement_end toks close (i + 1) source_end
+  (* The semicolon or enclosing closer that terminates a blockless at-rule. *)
+  let rec statement_end ~closer = function
+    | [] -> (closer, closer)
+    | Component.Preserved { kind = Token.Semicolon; loc } :: _ ->
+        (loc.start_pos, loc.end_pos)
+    | Component.Preserved { kind = Token.Close Token.Curly; loc } :: _ ->
+        (loc.start_pos, loc.start_pos)
+    | _ :: rest -> statement_end ~closer rest
 
   let v css =
-    let toks = tokens css in
-    let close = close_of toks in
     let t =
       {
         call = Hashtbl.create 16;
@@ -283,32 +250,41 @@ module Scan = struct
         statement = Hashtbl.create 16;
       }
     in
-    let header i (token : Token.t) name =
-      match brace_of toks close (i + 1) with
+    let header name (at : Loc.t) rest =
+      match brace_of rest with
       | None -> ()
-      | Some j ->
-          let from = stop token and upto = start toks.(j) in
-          let prelude = String.trim (String.sub css from (upto - from)) in
-          let block = block css toks close j in
-          Hashtbl.replace t.at (start token)
-            (name, { prelude; brace = upto; block })
+      | Some b ->
+          let brace = b.Component.loc.start_pos in
+          let prelude =
+            String.trim (String.sub css at.end_pos (brace - at.end_pos))
+          in
+          Hashtbl.replace t.at at.start_pos
+            (name, { prelude; brace; block = block_of css b })
     in
-    let statement i (token : Token.t) name =
-      let from = stop token in
-      let upto, next = statement_end toks close (i + 1) (String.length css) in
-      let prelude = String.sub css from (upto - from) in
-      Hashtbl.replace t.statement (start token) (name, { prelude; next })
+    let statement ~closer name (at : Loc.t) rest =
+      let upto, next = statement_end ~closer rest in
+      let prelude = String.sub css at.end_pos (upto - at.end_pos) in
+      Hashtbl.replace t.statement at.start_pos (name, { prelude; next })
     in
-    Array.iteri
-      (fun i (token : Token.t) ->
-        match token.kind with
-        | Token.Function name ->
-            Hashtbl.replace t.call (start token) (name, block css toks close i)
-        | Token.At_keyword name ->
-            header i token name;
-            statement i token name
-        | _ -> ())
-      toks;
+    let rec walk ~closer = function
+      | [] -> ()
+      | item :: rest ->
+          (match item with
+          | Component.Preserved { kind = Token.At_keyword name; loc } ->
+              header name loc rest;
+              statement ~closer name loc rest
+          | Component.Preserved _ -> ()
+          | Component.Block b ->
+              walk ~closer:(inner_end ~closed:b.node.closed b.loc) b.node.value
+          | Component.Func f ->
+              Hashtbl.replace t.call f.loc.start_pos (f.node.name, call_of css f);
+              walk
+                ~closer:(inner_end ~closed:f.node.terminated f.loc)
+                f.node.arguments);
+          walk ~closer rest
+    in
+    let parsed = Parser.list_of_component_values (Reader.of_string css) in
+    walk ~closer:(String.length css) parsed.value;
     t
 
   (* [name( ... )] starting at [i]. *)
@@ -329,21 +305,47 @@ module Scan = struct
     match Hashtbl.find_opt t.statement i with
     | Some (n, statement) when "@" ^ n = name -> Some statement
     | _ -> None
+
+  (* Every [name( ... )] in the source, with the offset each starts at. *)
+  let calls t ~name =
+    Hashtbl.fold
+      (fun i (n, block) acc -> if n = name then (i, block) :: acc else acc)
+      t.call []
+
+  (* Every blockless [@name PRELUDE;], the same way. *)
+  let at_statements t ~name =
+    Hashtbl.fold
+      (fun i (n, s) acc -> if "@" ^ n = name then (i, s) :: acc else acc)
+      t.statement []
 end
+
+(* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
+   variables a utility used. The option is not CSS, so it is read off the
+   import's own [theme()] call rather than from a parsed stylesheet. *)
+let imports_static_theme css =
+  let index = Index.v css in
+  let static =
+    Index.calls index ~name:"theme"
+    |> List.filter (fun (_, (block : Index.block)) ->
+        String.trim block.body = "static")
+  in
+  Index.at_statements index ~name:"@import"
+  |> List.exists (fun (at, (import : Index.statement)) ->
+      List.exists (fun (i, _) -> at < i && i < import.next) static)
 
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
    keyframe at-rules to the top level first, where Tailwind emits them. *)
 let hoist_theme_keyframes css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let lifted = Buffer.create 0 in
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_rule scan ~name:"@theme" i with
+      match Index.at_rule index ~name:"@theme" i with
       | Some { brace; block = { next; _ }; _ } ->
           Buffer.add_string buf (String.sub css i (brace + 1 - i));
           go_theme (brace + 1) next
@@ -353,7 +355,7 @@ let hoist_theme_keyframes css =
   and go_theme i stop =
     if i >= stop then go i
     else
-      match Scan.at_rule scan ~name:"@keyframes" i with
+      match Index.at_rule index ~name:"@keyframes" i with
       | Some { block = { next; _ }; _ } when next <= stop ->
           Buffer.add_string lifted (String.sub css i (next - i));
           go_theme next stop
@@ -370,12 +372,12 @@ let hoist_theme_keyframes css =
    tokens from actual import statements so quoted parentheses and comments do
    not alter their boundaries. *)
 let strip_tailwind_import_options css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let option_at i =
     List.find_map
-      (fun name -> Scan.call scan ~name i)
+      (fun name -> Index.call index ~name i)
       [ "theme"; "source"; "prefix" ]
   in
   let rec copy_import i stop =
@@ -390,7 +392,7 @@ let strip_tailwind_import_options css =
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_statement scan ~name:"@import" i with
+      match Index.at_statement index ~name:"@import" i with
       | Some { next; _ } ->
           copy_import i next;
           go next
@@ -405,14 +407,14 @@ let strip_tailwind_import_options css =
    CSS: they declare something for the generator, and Tailwind does not emit
    them either. *)
 let take_named_defs keyword css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let defs = ref [] in
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_rule scan ~name:keyword i with
+      match Index.at_rule index ~name:keyword i with
       | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
           defs := (prelude, body) :: !defs;
           go next
@@ -448,19 +450,19 @@ let shorthand_variant prelude =
     Some (name, selector ^ " { @slot; }")
 
 let take_custom_variants css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let defs = ref [] in
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_rule scan ~name:"@custom-variant" i with
+      match Index.at_rule index ~name:"@custom-variant" i with
       | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
           defs := (prelude, body) :: !defs;
           go next
       | _ -> (
-          match Scan.at_statement scan ~name:"@custom-variant" i with
+          match Index.at_statement index ~name:"@custom-variant" i with
           | Some { prelude; next } -> (
               match shorthand_variant prelude with
               | Some def ->
@@ -1073,12 +1075,12 @@ type declaration_result = Keep of string | Drop | Ratio_drop of string
 (* Resolve every read in one declaration. A read that does not resolve takes the
    declaration with it, and stops the rest of it from being read at all. *)
 let resolve_declaration ~theme ~candidate ~state text =
-  let scan = Scan.v text in
+  let index = Index.v text in
   let len = String.length text in
   let buf = Buffer.create len in
   let dropped = ref false in
   let non_ratio = ref false in
-  let read ~value ~fraction (block : Scan.block) =
+  let read ~value ~fraction (block : Index.block) =
     match
       resolve_read ~theme ~value ~fraction
         (List.map String.trim (segment ',' block.body))
@@ -1093,7 +1095,7 @@ let resolve_declaration ~theme ~candidate ~state text =
   let rec go i =
     if i >= len || !dropped then ()
     else
-      match Scan.call scan ~name:"--value" i with
+      match Index.call index ~name:"--value" i with
       | Some block -> (
           state.used_value <- true;
           match
@@ -1106,7 +1108,7 @@ let resolve_declaration ~theme ~candidate ~state text =
               else non_ratio := true;
               go next)
       | None -> (
-          match Scan.call scan ~name:"--modifier" i with
+          match Index.call index ~name:"--modifier" i with
           | Some block -> (
               state.used_modifier <- true;
               match read ~value:candidate.modifier ~fraction:None block with
@@ -1260,18 +1262,18 @@ let tailwind_directives =
    tw cannot expand -- or names something outside the stylesheet, so there is
    nothing to salvage from the text either. *)
 let drop_directives css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let directive_at i =
     List.find_map
       (fun name ->
-        match Scan.at_rule scan ~name i with
+        match Index.at_rule index ~name i with
         | Some { block = { next; _ }; _ } -> Some next
         | None ->
             Option.map
-              (fun ({ next; _ } : Scan.statement) -> next)
-              (Scan.at_statement scan ~name i))
+              (fun ({ next; _ } : Index.statement) -> next)
+              (Index.at_statement index ~name i))
       tailwind_directives
   in
   let rec go i =
@@ -1287,13 +1289,13 @@ let drop_directives css =
   Buffer.contents buf
 
 let fill_slots template body =
-  let scan = Scan.v template in
+  let index = Index.v template in
   let len = String.length template in
   let buf = Buffer.create len in
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_statement scan ~name:"@slot" i with
+      match Index.at_statement index ~name:"@slot" i with
       | Some { next; _ } ->
           Buffer.add_string buf body;
           go next
@@ -1310,14 +1312,14 @@ let fill_slots template body =
 let rec expand_variants ~depth defs css =
   if depth > 8 then css
   else
-    let scan = Scan.v css in
+    let index = Index.v css in
     let len = String.length css in
     let buf = Buffer.create len in
     let changed = ref false in
     let rec go i =
       if i >= len then ()
       else
-        match Scan.at_rule scan ~name:"@variant" i with
+        match Index.at_rule index ~name:"@variant" i with
         | Some { prelude; block = { body; next }; _ }
           when List.mem_assoc prelude defs ->
             let template = List.assoc prelude defs in
@@ -1356,13 +1358,13 @@ let inline_spacing ~theme multiple =
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
 let expand_spacing_fn ~theme css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let rec go i =
     if i >= len then ()
     else
-      match Scan.call scan ~name:"--spacing" i with
+      match Index.call index ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
             (match inline_spacing ~theme body with
@@ -1421,7 +1423,7 @@ let v3_theme_token theme path =
    appears in places a [var()] could not stand anyway, such as a media query
    condition. An unknown token is left alone rather than guessed at. *)
 let resolve_theme_fn ~theme css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let skip i =
@@ -1431,7 +1433,7 @@ let resolve_theme_fn ~theme css =
   let rec go i =
     if i >= len then ()
     else
-      match Scan.call scan ~name:"theme" i with
+      match Index.call index ~name:"theme" i with
       | None -> go (skip i)
       | Some { body; next } -> (
           let name = String.trim body in
@@ -1667,7 +1669,7 @@ let rec emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen = function
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
 let expand_apply ~theme ~defs ?(udefs = []) css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
@@ -1675,7 +1677,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let rec go i =
     if i >= len then ()
     else
-      match Scan.at_statement scan ~name:"@apply" i with
+      match Index.at_statement index ~name:"@apply" i with
       | Some { prelude; next } ->
           (* A utility with no declared variant and no body of its own decorates
              the applying rule's [&] directly. A run of those renders in one
@@ -1697,12 +1699,12 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
 
 (* The names an [@variant NAME {] header uses inside a body. *)
 let variant_names_in css =
-  let scan = Scan.v css in
+  let index = Index.v css in
   let len = String.length css in
   let rec go i acc =
     if i >= len then List.rev acc
     else
-      match Scan.at_rule scan ~name:"@variant" i with
+      match Index.at_rule index ~name:"@variant" i with
       | Some { prelude; brace; _ } when prelude <> "" ->
           go (brace + 1) (prelude :: acc)
       | _ -> go (i + 1) acc
