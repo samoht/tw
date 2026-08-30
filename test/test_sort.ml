@@ -442,6 +442,35 @@ let test_scrolling_property_bands () =
       "cursor-pointer";
     ]
 
+(* Columns and break controls open the flow block; grid/flex/alignment/gap and
+   divide follow before self-alignment, overflow and scroll behavior. *)
+let test_flow_property_bands () =
+  Test_helpers.check_class_order ~test_name:"flow controls keep their bands"
+    [
+      "rounded-lg";
+      "scroll-smooth";
+      "overscroll-contain";
+      "overflow-hidden";
+      "place-self-center";
+      "divide-red-500";
+      "divide-dashed";
+      "divide-y-reverse";
+      "divide-x-2";
+      "gap-4";
+      "justify-center";
+      "items-center";
+      "place-content-center";
+      "flex-wrap";
+      "flex-row";
+      "grid-cols-3";
+      "grid-flow-col";
+      "auto-cols-fr";
+      "break-after-page";
+      "break-inside-avoid";
+      "break-before-page";
+      "columns-2";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2706,6 +2735,7 @@ let tests =
     test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "transform control bands" `Slow test_transform_control_bands;
     test_case "scrolling property bands" `Slow test_scrolling_property_bands;
+    test_case "flow property bands" `Slow test_flow_property_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
