@@ -208,6 +208,14 @@
   case; the same breakage now fails it (#512).
 - The typography plugin's descendant rules are exercised against real markup
   rather than bare divs, which is most of the largest plugin (#519).
+- A whole-sheet order gate measures where every utility lands, not only the
+  handful a test names. Every Tailwind oracle here runs the differ in canonical
+  mode, which normalises cascade-neutral rule order, so a family emitted in the
+  wrong band was invisible to all of them. The gate reads the statement sequence
+  out of both sheets over the site class list and pins the fewest statements
+  that have to move, which stands at 581 of 3885 unambiguous pairs and only
+  ratchets down. A missing or off-version Tailwind CLI skips it with a line
+  saying so, and `TW_TAILWIND_TESTS=1`, which CI sets, makes that a failure.
 
 ## 1.0.0
 
