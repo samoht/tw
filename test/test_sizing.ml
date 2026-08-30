@@ -144,8 +144,6 @@ let of_string_invalid () =
   (* Invalid value *)
   test_invalid [ "w"; "1/0" ];
   (* A zero denominator is not a percentage *)
-  test_invalid [ "h"; "9/9" ];
-  (* A fraction of one or more is not a width *)
   test_invalid [ "min" ];
   (* Missing dimension *)
   test_invalid [ "min"; "z"; "4" ];
@@ -343,7 +341,22 @@ let fraction_interleave_matches_tailwind () =
   in
   let utilities =
     List.map mk
-      [ "w-0.5"; "w-1"; "w-1.5"; "w-2"; "w-1/2"; "w-1/3"; "w-2/3"; "w-3/4" ]
+      [
+        "w-0";
+        "w-0.5";
+        "w-0/3";
+        "w-1";
+        "w-1.5";
+        "w-1/1";
+        "w-1/2";
+        "w-1/3";
+        "w-2";
+        "w-5/4";
+        "w-9/9";
+        "w-100/3";
+        "w-full";
+        "w-px";
+      ]
   in
   Test_helpers.check_ordering_matches
     ~test_name:"sizing fraction interleave matches Tailwind"
@@ -380,14 +393,30 @@ let test_general_fractions () =
   has "w-4/12" "width: 33.3333%";
   has "w-8/12" "width: 66.6667%";
   has "w-1/12" "width: 8.33333%";
-  has "h-2/6" "height: 33.3333%";
-  let rejected cls =
-    match Tw.of_string cls with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.fail ("expected rejection of " ^ cls)
+  has "h-2/6" "height: 33.3333%"
+
+(* Tailwind treats every integer numerator over a positive denominator as a
+   sizing fraction. Zero, equal and improper fractions share the same parser and
+   percentage rendering across all thirteen sizing families. *)
+let test_zero_equal_and_improper_fractions () =
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " contains " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css_of cls))
   in
-  rejected "w-9/9";
-  rejected "w-13/12"
+  has "w-0/3" "width: 0%";
+  has "w-1/1" "width: 100%";
+  has "h-9/9" "height: 100%";
+  has "w-5/4" "width: 125%";
+  has "w-100/3" "width: 3333.33%";
+  has "size-5/4" "height: 125%";
+  has "min-w-0/3" "min-width: 0%";
+  has "max-h-100/3" "max-height: 3333.33%";
+  has "min-inline-1/1" "min-inline-size: 100%";
+  Alcotest.(check bool)
+    "a zero denominator is still rejected" true
+    (Result.is_error (Tw.of_string "w-1/0"))
 
 (* max-w-screen-* references the breakpoint theme var (like the v4 CLI), not an
    inlined px. *)
@@ -416,10 +445,7 @@ let test_any_fraction_denominator () =
     (Astring.String.is_infix ~affix:"width: 37.5%" (css_of "w-3/8"));
   Alcotest.(check bool)
     "w-7/9 rounds like Tailwind" true
-    (Astring.String.is_infix ~affix:"width: 77.7778%" (css_of "w-7/9"));
-  Alcotest.(check bool)
-    "a fraction of one or more is still rejected" true
-    (Result.is_error (Tw.of_string "w-9/9"))
+    (Astring.String.is_infix ~affix:"width: 77.7778%" (css_of "w-7/9"))
 
 (* A [/] inside a bracket belongs to the value, not to a fraction: the fraction
    branch used to claim w-[calc(2px/2)] and reject it. *)
@@ -537,6 +563,8 @@ let tests =
     test_case "bracket keeps its slash" `Quick test_bracket_keeps_its_slash;
     test_case "any fraction denominator" `Quick test_any_fraction_denominator;
     test_case "general fractions" `Quick test_general_fractions;
+    test_case "zero, equal and improper fractions" `Quick
+      test_zero_equal_and_improper_fractions;
     test_case "max-w-screen breakpoint var" `Quick test_max_w_screen;
     test_case "widths" `Quick test_widths;
     test_case "heights" `Quick test_heights;
