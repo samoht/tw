@@ -114,22 +114,20 @@ let () =
     if Array.length Sys.argv > 1 then Sys.argv.(1)
     else failwith "usage: sheet_order.exe <path to the tw binary>"
   in
-  if not (Tailwind_gen.available ()) then begin
-    let reason =
-      "the pinned tailwindcss CLI is missing or answers with another version"
-    in
-    if required () then begin
-      Fmt.epr "whole-sheet order gate: TW_TAILWIND_TESTS=1 but %s@." reason;
-      exit 1
-    end
-    else begin
-      Fmt.pr
-        "whole-sheet order gate SKIPPED: %s. Set TW_TAILWIND_TESTS=1 to make \
-         that a failure.@."
-        reason;
-      exit 0
-    end
-  end;
+  (match Tailwind_gen.availability () with
+  | Ok () -> ()
+  | Error reason ->
+      if required () then begin
+        Fmt.epr "whole-sheet order gate: TW_TAILWIND_TESTS=1 but %s@." reason;
+        exit 1
+      end
+      else begin
+        Fmt.pr
+          "whole-sheet order gate SKIPPED: %s. Set TW_TAILWIND_TESTS=1 to make \
+           that a failure.@."
+          reason;
+        exit 0
+      end);
   let tailwind = Tailwind_gen.generate_entrypoint "ref-entry.css" in
   let tw = tw_sheet tw_bin in
   let ok = List.for_all Fun.id (List.map (check ~tailwind ~tw) pinned) in
