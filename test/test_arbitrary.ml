@@ -113,20 +113,114 @@ let test_custom_prop_opacity () =
     (Astring.String.is_infix
        ~affix:"--x: color-mix(in oklab, #ff0000 50%, transparent)" out)
 
-(* The previously-crashing inputs must never raise: they either render or are
-   rejected, but [to_css] must complete. *)
+(* A class either compiles or is refused; an exception escaping [of_string] or
+   [to_css] is neither. Swallowing [Error] here is the point - Tailwind refuses
+   many of these too - but a raise is a failure, which is what
+   {!Test_helpers.sweep_one} enforces. *)
 let test_no_crash () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
-      | Error _ -> ())
+    (fun cls -> ignore (Test_helpers.sweep_one cls))
     [
       "[--gradient-bg:var(--color-black)]/15";
       "[color:var(--color-red-500)]/40";
       "[--foo:bar]";
       "[mask-type:luminance]";
     ]
+
+(* A class tw accepts must name a rule the class itself selects. Getting that
+   wrong is silent: the sheet grows a rule no markup can ever match, and every
+   oracle that compares declarations reads the two sheets as equal.
+
+   Two shipped bugs had exactly this shape - a class name re-printed through a
+   CSS printer that drops a leading zero, and one rebuilt from a parsed length
+   that had stopped at a comment - so the sweep runs the payloads that produce
+   it across every family taking a bracket value, every arbitrary property, and
+   every variant that brackets a breakpoint or a selector.
+
+   Refusal is a legitimate answer and is not counted. The one thing asserted is
+   that nothing is accepted under a name it cannot be selected by. *)
+let known_selector_gaps =
+  (* [has-[<name>]] where <name> is one of the has- shorthands collapses onto
+     the shorthand variant: [Style.Has], [Style.Group_has] and [Style.Peer_has]
+     each carry the selector text with no record of whether the author bracketed
+     it, so [has-[hover]] and [has-hover] are one value and the bracket is gone
+     when the class is spelled back. Tailwind reads the bracket as a type
+     selector instead ([:has(:is(hover))]), so closing this splits the
+     constructor rather than fixing a printer. *)
+  [ "has-[hover]:flex"; "group-has-[hover]:flex"; "peer-has-[hover]:flex" ]
+
+let sweep_classes =
+  List.concat
+    [
+      (* <family>-[<payload>] *)
+      List.concat_map
+        (fun f ->
+          List.map
+            (fun p -> String.concat "" [ f; "-["; p; "]" ])
+            Test_helpers.adversarial_payloads)
+        Test_helpers.arbitrary_families;
+      (* the arbitrary-property form, on both sides of the colon *)
+      List.concat_map
+        (fun p ->
+          [
+            String.concat "" [ "[color:"; p; "]" ];
+            String.concat "" [ "[--x:"; p; "]" ];
+            String.concat "" [ "["; p; ":red]" ];
+          ])
+        Test_helpers.adversarial_payloads;
+      (* variants that bracket a breakpoint, a condition or a selector *)
+      List.concat_map
+        (fun v ->
+          List.map
+            (fun p -> String.concat "" [ v; "-["; p; "]:flex" ])
+            Test_helpers.adversarial_payloads)
+        [
+          "min";
+          "max";
+          "supports";
+          "data";
+          "aria";
+          "has";
+          "group-has";
+          "peer-has";
+          "not";
+          "in";
+          "nth";
+          "nth-last";
+          "group";
+          "peer";
+          "group-data";
+          "peer-data";
+        ];
+    ]
+
+let test_adversarial_value_sweep () =
+  let classes = sweep_classes in
+  let mismatches =
+    List.filter_map
+      (fun cls ->
+        match Test_helpers.sweep_one cls with
+        | Test_helpers.Mismatched why -> Some (cls, why)
+        | Rejected | Emitted_nothing | Matched -> None)
+      classes
+  in
+  let names = List.map fst mismatches in
+  let unexpected =
+    List.filter
+      (fun (cls, _) -> not (List.mem cls known_selector_gaps))
+      mismatches
+  in
+  (match unexpected with
+  | [] -> ()
+  | l ->
+      Alcotest.failf "%d classes emit a rule they cannot select:\n%s"
+        (List.length l)
+        (String.concat "\n"
+           (List.map (fun (c, w) -> String.concat "" [ "  "; c; ": "; w ]) l)));
+  (* The gap list is exact, so it fails when it grows and again when it is
+     closed, rather than quietly covering more each release. *)
+  Alcotest.(check (slist string String.compare))
+    "the known gaps are exactly the ones still open" known_selector_gaps names
 
 (* Tailwind's [--spacing(N)] shorthand reads the spacing scale, so it has to be
    expanded here too: the value used to reach the sheet verbatim. *)
@@ -227,6 +321,8 @@ let tests =
       test_encoded_space_color_opacity;
     test_case "custom property with opacity" `Quick test_custom_prop_opacity;
     test_case "deferred and var inputs never crash" `Quick test_no_crash;
+    test_case "adversarial arbitrary values name their own rules" `Quick
+      test_adversarial_value_sweep;
   ]
 
 let suite = ("arbitrary", tests)

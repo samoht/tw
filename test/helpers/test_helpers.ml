@@ -974,3 +974,393 @@ let check_typed_class cls value =
   | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
   | Error (`Msg m) ->
       Alcotest.failf "%s: parser rejected its own class: %s" cls m
+
+(* ------------------------------------------------------------------ *)
+(* Adversarial sweep over arbitrary values                             *)
+(* ------------------------------------------------------------------ *)
+
+let rec all_selectors stmts =
+  List.concat_map
+    (fun stmt ->
+      match Css.as_rule stmt with
+      | Some (selector, _, _) -> [ Css.Selector.to_string selector ]
+      | None -> (
+          match Css.as_media stmt with
+          | Some (_, inner) -> all_selectors inner
+          | None -> (
+              match Css.as_supports stmt with
+              | Some (_, inner) -> all_selectors inner
+              | None -> (
+                  match Css.as_container stmt with
+                  | Some (_, _, inner) -> all_selectors inner
+                  | None -> (
+                      match Css.as_layer stmt with
+                      | Some (_, inner) -> all_selectors inner
+                      | None -> [])))))
+    stmts
+
+let selectors_of_utility u =
+  all_selectors (Css.statements (Tw.to_css ~base:false [ u ]))
+
+(* Undo CSS Syntax 3 (ED) sec. 4.3.7 escaping so an emitted selector can be
+   compared against the class the author wrote. A backslash escapes either one
+   to six hex digits naming a code point, with an optional single whitespace
+   closing the run, or the next character literally. Comparing this way rather
+   than re-escaping the class keeps the check independent of which spelling
+   cascade picks: [caf\\e9 ] and [café] are the same selector. *)
+let unescape_selector s =
+  let n = String.length s in
+  let buf = Buffer.create n in
+  let is_hex c =
+    (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+  in
+  let rec go i =
+    if i >= n then ()
+    else if s.[i] <> '\\' || i + 1 >= n then (
+      Buffer.add_char buf s.[i];
+      go (i + 1))
+    else
+      let j = ref (i + 1) in
+      while !j < n && !j - i <= 6 && is_hex s.[!j] do
+        incr j
+      done;
+      if !j = i + 1 then (
+        (* a literal escape: the next character stands for itself *)
+        Buffer.add_char buf s.[i + 1];
+        go (i + 2))
+      else
+        let code = int_of_string ("0x" ^ String.sub s (i + 1) (!j - i - 1)) in
+        let code =
+          if Uchar.is_valid code then code else Uchar.to_int Uchar.rep
+        in
+        Buffer.add_utf_8_uchar buf (Uchar.of_int code);
+        (* one whitespace may close the hex run and is not part of the text *)
+        let k =
+          if !j < n && (s.[!j] = ' ' || s.[!j] = '\n' || s.[!j] = '\t') then
+            !j + 1
+          else !j
+        in
+        go k
+  in
+  go 0;
+  Buffer.contents buf
+
+let adversarial_payloads =
+  [
+    (* a number whose canonical spelling is not the author's *)
+    "0.5ch";
+    "1.50px";
+    "1e2px";
+    "1E2px";
+    "1e-2px";
+    "0.0";
+    ".5px";
+    "+1px";
+    "0600px";
+    (* text that ends the declaration it is written into, or the rule *)
+    "0)/*1";
+    "a;b";
+    "a}b";
+    "a{b";
+    "1px}";
+    "var(--x);";
+    "1px;color:red";
+    "}.x{color:red";
+    "0)";
+    "(";
+    "()";
+    "url(a;b)";
+    (* a comment, quotes, and text no CSS grammar reads *)
+    "1px/*x";
+    "*/";
+    {|"q"|};
+    "'q'";
+    "--custom";
+    "<value>";
+    "a:b";
+    "#";
+    "&";
+    "a\\b";
+    (* a non-ASCII identifier *)
+    "caf\xc3\xa9";
+    "\xc3\xbcnicode";
+    (* a bare word that also names a variant shorthand, so a family which folds
+       the bracket onto the shorthand loses the brackets from the class *)
+    "hover";
+  ]
+
+type sweep_verdict =
+  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
+  | Emitted_nothing  (** parsed, but contributed no rule *)
+  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Mismatched of string
+      (** parsed, and emitted a rule the class cannot match *)
+
+let sweep_one cls =
+  match Tw.of_string cls with
+  | exception e ->
+      Alcotest.failf "%s: of_string raised %s" cls (Printexc.to_string e)
+  | Error (`Msg _) -> Rejected
+  | Ok u -> (
+      match selectors_of_utility u with
+      | exception e ->
+          Alcotest.failf "%s: to_css raised %s" cls (Printexc.to_string e)
+      | [] -> Emitted_nothing
+      | selectors ->
+          let printed = Tw.pp u in
+          let carries sel =
+            Astring.String.is_infix ~affix:cls (unescape_selector sel)
+          in
+          let detail suffix =
+            Mismatched
+              (String.concat ""
+                 [
+                   suffix;
+                   " (pp=";
+                   printed;
+                   ", selectors=";
+                   String.concat "; " selectors;
+                   ")";
+                 ])
+          in
+          if not (List.exists carries selectors) then
+            detail "no emitted selector carries the class"
+          else if printed <> cls then detail "pp respells the class"
+          else Matched)
+
+(* Every class prefix that takes a bracket value, found by feeding a benign one
+   to each [val] exported by [lib/tw.mli] and by the family modules it
+   re-exports, and to each literal match-arm prefix in [lib/*.ml] - the string
+   parser accepts families no OCaml constructor names ([filter-],
+   [drop-shadow-]) so the [.mli] alone does not see them. *)
+let arbitrary_families =
+  [
+    "accent";
+    "align";
+    "animate";
+    "aspect";
+    "auto-cols";
+    "auto-rows";
+    "backdrop-blur";
+    "backdrop-brightness";
+    "backdrop-contrast";
+    "backdrop-filter";
+    "backdrop-grayscale";
+    "backdrop-hue-rotate";
+    "backdrop-invert";
+    "backdrop-opacity";
+    "backdrop-saturate";
+    "backdrop-sepia";
+    "basis";
+    "bg";
+    "bg-linear";
+    "bg-position";
+    "bg-radial";
+    "bg-size";
+    "block";
+    "blur";
+    "border";
+    "border-b";
+    "border-be";
+    "border-bs";
+    "border-e";
+    "border-l";
+    "border-r";
+    "border-s";
+    "border-spacing";
+    "border-spacing-x";
+    "border-spacing-y";
+    "border-t";
+    "border-x";
+    "border-y";
+    "bottom";
+    "brightness";
+    "caret";
+    "col";
+    "col-end";
+    "col-span";
+    "col-start";
+    "columns";
+    "contain";
+    "content";
+    "contrast";
+    "cursor";
+    "decoration";
+    "delay";
+    "divide";
+    "divide-x";
+    "divide-y";
+    "drop-shadow";
+    "duration";
+    "ease";
+    "fill";
+    "filter";
+    "flex";
+    "font";
+    "font-features";
+    "from";
+    "gap";
+    "gap-x";
+    "gap-y";
+    "grayscale";
+    "grid-cols";
+    "grid-rows";
+    "grow";
+    "h";
+    "hue-rotate";
+    "indent";
+    "inline";
+    "inset";
+    "inset-be";
+    "inset-bs";
+    "inset-e";
+    "inset-ring";
+    "inset-s";
+    "inset-shadow";
+    "inset-x";
+    "inset-y";
+    "invert";
+    "leading";
+    "left";
+    "line-clamp";
+    "list";
+    "list-image";
+    "list-image-none";
+    "list-image-url";
+    "m";
+    "mask";
+    "mask-b-from";
+    "mask-b-to";
+    "mask-conic";
+    "mask-conic-from";
+    "mask-conic-to";
+    "mask-l-from";
+    "mask-l-to";
+    "mask-linear";
+    "mask-linear-from";
+    "mask-linear-to";
+    "mask-position";
+    "mask-r-from";
+    "mask-r-to";
+    "mask-radial";
+    "mask-radial-at";
+    "mask-radial-from";
+    "mask-radial-to";
+    "mask-size";
+    "mask-t-from";
+    "mask-t-to";
+    "mask-x-from";
+    "mask-x-to";
+    "mask-y-from";
+    "mask-y-to";
+    "max-block";
+    "max-h";
+    "max-inline";
+    "max-w";
+    "mb";
+    "min-block";
+    "min-h";
+    "min-inline";
+    "min-w";
+    "ml";
+    "mr";
+    "mt";
+    "mx";
+    "my";
+    "object";
+    "opacity";
+    "order";
+    "origin";
+    "outline";
+    "outline-offset";
+    "p";
+    "pb";
+    "perspective";
+    "perspective-origin";
+    "pl";
+    "placeholder";
+    "pr";
+    "pt";
+    "px";
+    "py";
+    "right";
+    "ring";
+    "ring-offset";
+    "rotate";
+    "rotate-x";
+    "rotate-y";
+    "rotate-z";
+    "rounded";
+    "rounded-b";
+    "rounded-bl";
+    "rounded-br";
+    "rounded-e";
+    "rounded-ee";
+    "rounded-es";
+    "rounded-l";
+    "rounded-r";
+    "rounded-s";
+    "rounded-se";
+    "rounded-ss";
+    "rounded-t";
+    "rounded-tl";
+    "rounded-tr";
+    "row";
+    "row-end";
+    "row-span";
+    "row-start";
+    "saturate";
+    "scale";
+    "scale-x";
+    "scale-y";
+    "scale-z";
+    "scroll-m";
+    "scroll-mb";
+    "scroll-mbe";
+    "scroll-mbs";
+    "scroll-me";
+    "scroll-ml";
+    "scroll-mr";
+    "scroll-ms";
+    "scroll-mt";
+    "scroll-mx";
+    "scroll-my";
+    "scroll-p";
+    "scroll-pb";
+    "scroll-pbe";
+    "scroll-pbs";
+    "scroll-pe";
+    "scroll-pl";
+    "scroll-pr";
+    "scroll-ps";
+    "scroll-pt";
+    "scroll-px";
+    "scroll-py";
+    "sepia";
+    "shadow";
+    "shrink";
+    "size";
+    "skew";
+    "skew-x";
+    "skew-y";
+    "space-x";
+    "space-y";
+    "stroke";
+    "tab";
+    "text";
+    "text-shadow";
+    "to";
+    "top";
+    "tracking";
+    "transform";
+    "transition";
+    "translate";
+    "translate-x";
+    "translate-y";
+    "underline-offset";
+    "via";
+    "w";
+    "will-change";
+    "z";
+    "zoom";
+  ]

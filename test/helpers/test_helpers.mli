@@ -286,3 +286,40 @@ val check_typed_class : string -> Tw.t -> unit
 (** [check_typed_class cls value] checks that the typed constructor [value]
     pretty-prints to [cls] and that [cls] round-trips back through
     [Tw.of_string]. *)
+
+val adversarial_payloads : string list
+(** [adversarial_payloads] are bracket values chosen to break the two things a
+    utility does with author text: respell it into the class name, and place it
+    into a declaration. Numbers whose canonical spelling differs from the
+    author's, text that ends the declaration or the rule, comments, quotes,
+    placeholders no CSS grammar reads, and non-ASCII identifiers. *)
+
+val arbitrary_families : string list
+(** [arbitrary_families] is every class prefix that accepts [<prefix>-[value]],
+    found by feeding a benign bracket value to each [val] exported by
+    [lib/tw.mli] and the family modules it re-exports, and to each literal
+    match-arm prefix in [lib/*.ml]. *)
+
+type sweep_verdict =
+  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
+  | Emitted_nothing  (** parsed, but contributed no rule *)
+  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Mismatched of string
+      (** parsed, and emitted a rule the class cannot match *)
+
+val sweep_one : string -> sweep_verdict
+(** [sweep_one cls] compiles [cls] and reports what came of it. It fails the
+    test if [of_string] or [to_css] raises: an exception escaping is never a
+    legitimate answer, whereas [Error] is. {!constructor-Mismatched} is the one
+    verdict that is a bug - the class was accepted and named a rule it cannot
+    select - and it covers both halves: no emitted selector carries the class,
+    or {!Tw.pp} spells the class differently from the author. *)
+
+val unescape_selector : string -> string
+(** [unescape_selector s] undoes CSS Syntax 3 (ED) sec. 4.3.7 escaping, so a
+    selector can be compared against the class text it was built from whichever
+    spelling the printer chose. *)
+
+val selectors_of_utility : Tw.t -> string list
+(** [selectors_of_utility u] is every selector [u] emits, nested rules inside
+    [\@media], [\@supports], [\@container] and [\@layer] included. *)
