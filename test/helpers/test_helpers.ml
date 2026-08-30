@@ -2,6 +2,7 @@
 
 module Css = Cascade.Css
 module Css_compare = Cascade_diff.Css_compare
+module Tree_diff = Cascade_diff.Tree_diff
 
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =
@@ -485,6 +486,74 @@ let check_ordering_matches ?forms ~test_name utilities =
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
+
+(* Cascade's printer and Tailwind's minifier spell the same value differently
+   wherever CSS makes the difference insignificant: a custom property holds
+   [oklch(63.7% .237 25.331)] on one side and [oklch(63.7%.237 25.331)] on the
+   other, a font stack keeps its quotes on one and drops them on the other.
+   Neither sheet is wrong, so a comparison sensitive to the bytes reads both
+   through the same printer first. Parsing and re-printing respells a sheet
+   without changing what it declares: the printer merges no rules, moves none,
+   and drops no binding, so a rule written twice stays written twice and a
+   binding nothing reads stays bound. A sheet the reader rejects is passed
+   through untouched, leaving {!Css_compare} to report the parse error. *)
+let respelled css =
+  match Css.of_string css with
+  | Ok { Css.stylesheet; _ } -> Css.to_string ~minify:true stylesheet
+  | Error _ -> css
+
+let tree_diff_css ~expected ~actual =
+  Css_compare.diff ~mode:`Tree (respelled expected) (respelled actual)
+
+let tree_diff ?(forms = false) utilities =
+  let classnames = List.map Tw.pp utilities in
+  tree_diff_css
+    ~expected:(tailwind_css ~forms classnames)
+    ~actual:(our_css utilities)
+
+(* What tw's sheet carries that Tailwind's does not: a whole rule, or a
+   declaration inside a rule both sheets write. A rule emitted twice reads as
+   the second copy being added, and a custom-property binding nothing references
+   as the binding being added, so the two are one question. Mode [`Canonical]
+   answers neither: its optimizer folds the second copy away, and every caller
+   prunes unreferenced bindings off both sides before comparing.
+
+   A container only one sheet has contributes nothing: the two sheets spell an
+   [@container] query differently and the block comes and goes as a pair, so
+   reading its rules here would report the spelling. *)
+let rule_surplus where acc (rule : Tree_diff.rule_diff) =
+  match rule with
+  | Tree_diff.Added { selector; _ } ->
+      Fmt.str "%s%s (the whole rule)" where selector :: acc
+  | Tree_diff.Content_changed { selector; added_properties; _ } ->
+      List.fold_left
+        (fun acc prop -> Fmt.str "%s%s { %s }" where selector prop :: acc)
+        acc added_properties
+  | _ -> acc
+
+let rec container_surplus where acc (container : Tree_diff.container_diff) =
+  match container with
+  | Tree_diff.Modified { info; rule_changes; container_changes; _ } ->
+      let where = where ^ info.condition ^ " " in
+      let acc = List.fold_left (rule_surplus where) acc rule_changes in
+      List.fold_left (container_surplus where) acc container_changes
+  | _ -> acc
+
+let surplus (diff : Css_compare.t) =
+  match diff.Css_compare.result with
+  | Css_compare.Tree_diff t ->
+      let acc = List.fold_left (rule_surplus "") [] t.Tree_diff.rules in
+      List.rev
+        (List.fold_left (container_surplus "") acc t.Tree_diff.containers)
+  | _ -> []
+
+let check_no_surplus ~test_name diff =
+  match surplus diff with
+  | [] -> ()
+  | extra ->
+      Alcotest.failf
+        "%s: tw writes %d rule(s) or declaration(s) Tailwind does not:\n%s"
+        test_name (List.length extra) (String.concat "\n" extra)
 
 (* Where a class's rule starts in a sheet. The match has to end where the class
    name ends, so [.bg-top] does not report [.bg-top-left]; what follows it is

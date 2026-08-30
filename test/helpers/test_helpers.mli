@@ -86,6 +86,48 @@ val check_ordering_matches :
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
 
+val tree_diff_css :
+  expected:string -> actual:string -> Cascade_diff.Css_compare.t
+(** [tree_diff_css ~expected ~actual] compares two sheets structurally, in mode
+    [`Tree] and with nothing pruned, after respelling both through cascade's
+    printer.
+
+    The respelling is what makes the mode usable against the real CLI. Cascade
+    and Tailwind's minifier write the same value differently wherever CSS makes
+    the difference insignificant - [oklch(63.7% .237 25.331)] against
+    [oklch(63.7%.237 25.331)], a quoted font stack against an unquoted one - and
+    a structural comparison reads a custom property's value as bytes, so those
+    spellings read as differences. Parsing and re-printing puts both sheets in
+    one spelling and changes nothing else: the printer merges no rules, moves
+    none and drops no binding.
+
+    Mode [`Canonical], which every other Tailwind oracle here uses, cannot
+    report a rule written twice (its optimizer folds the copy away) nor a
+    custom-property binding nothing reads (every caller prunes those off both
+    sides). This is the mode that can. *)
+
+val tree_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
+(** [tree_diff ?forms utilities] is {!tree_diff_css} between the pinned Tailwind
+    CLI's sheet for [utilities] and tw's, base layer included on both sides.
+    Goes through {!require_tailwind_cli}. *)
+
+val surplus : Cascade_diff.Css_compare.t -> string list
+(** [surplus diff] is what tw's sheet carries that Tailwind's does not: a rule
+    Tailwind has no counterpart for, and a declaration added to a rule both
+    sheets write, each described by where it sits. A rule emitted twice appears
+    as the second copy being added and a binding nothing references as the
+    binding being added, so one list answers for both. Empty for any [diff] that
+    is not a tree diff.
+
+    A rule inside a container only one sheet has is not counted: an [@media] or
+    [@container] block the two sheets spell differently comes and goes as a
+    pair, and reading its rules as surplus would report the spelling rather than
+    anything tw wrote twice. *)
+
+val check_no_surplus : test_name:string -> Cascade_diff.Css_compare.t -> unit
+(** [check_no_surplus ~test_name diff] fails when {!surplus} is non-empty,
+    naming every rule and declaration tw writes and Tailwind does not. *)
+
 val class_position : string -> string -> int option
 (** [class_position sheet cls] is the byte offset in [sheet] where the rule for
     class [cls] starts, or [None] when the sheet declares no such class. The
