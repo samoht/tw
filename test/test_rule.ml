@@ -485,6 +485,36 @@ let test_prose_element_over_media () =
   variant_has "prose-p:md:text-lg" ".prose-p\\:md\\:text-lg :where(p)";
   variant_has "prose-a:dark:text-white" ".prose-a\\:dark\\:text-white :where(a)"
 
+(* [apply_modifier_to_rule] had no arm for a [@starting-style] rule, so an outer
+   variant fell through the catch-all and went with it: [hover:starting:p-4]
+   named its rule [.starting\\:p-4], a class the source never carries, and the
+   rule matched nothing. Every other at-rule wrapper had an arm already. *)
+let test_variant_outside_starting_style () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " keeps its own class")
+            true
+            (Astring.String.is_infix
+               ~affix:(Tw.Css.Selector.to_string (Tw.Css.Selector.class_ cls))
+               css);
+          Alcotest.(check bool)
+            (cls ^ " stays inside @starting-style")
+            true
+            (Astring.String.is_infix ~affix:"@starting-style" css))
+    [
+      "starting:p-4";
+      "hover:starting:p-4";
+      "md:starting:p-4";
+      "first:starting:p-4";
+      "nth-3:starting:p-4";
+      "dark:starting:opacity-50";
+    ]
+
 let tests =
   [
     test_case "arbitrary selector combinator variants" `Quick
@@ -541,6 +571,8 @@ let tests =
     test_case "escape class name hex escapes" `Quick
       check_escape_class_name_hex_escapes;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
+    test_case "a variant outside starting-style survives" `Quick
+      test_variant_outside_starting_style;
   ]
 
 let suite = ("rule", tests)

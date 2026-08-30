@@ -1992,7 +1992,9 @@ let rec apply_modifier_to_rule ?theme modifier = function
   | Container_query { condition; selector; props; base_class; nested } ->
       apply_modifier_to_container_query ?theme modifier ~condition ~selector
         ~props ~base_class ~nested
-  | other -> [ other ]
+  | Starting_style { selector; props; base_class; nested } ->
+      apply_modifier_to_starting_style ?theme modifier ~selector ~props
+        ~base_class ~nested
 
 (* Apply a modifier to a [@container] rule, the way the [@supports] case does:
    run it on the inner rule so all the selector and media machinery applies,
@@ -2053,6 +2055,33 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
     | Media_query { condition = outer; selector; props; base_class; nested; _ }
       ->
         wrap_supports_in_media outer selector props base_class nested
+    | other -> other)
+
+(* An outer variant on a [@starting-style] rule, the way the [@supports] case
+   does it: run the modifier on the inner rule so all the selector and media
+   machinery applies, then put each result back inside the at-rule. With no arm
+   of its own the rule fell through the catch-all and the variant went with it,
+   so [hover:starting:p-4] named its rule [.starting\:p-4] and matched nothing
+   in the markup. *)
+and apply_modifier_to_starting_style ?theme modifier ~selector ~props
+    ~base_class ~nested =
+  let inner = regular ~selector ~props ?base_class ~nested () in
+  let started sel p = Css.starting_style [ Css.rule ~selector:sel p ] in
+  apply_modifier_to_rule ?theme modifier inner
+  |> List.map (function
+    | Regular { selector; props; base_class; has_hover; nested; _ } ->
+        (* A bare hover: rule carries [has_hover] rather than an outer media, so
+           the at-rule goes inside [@media (hover:hover)] to match. *)
+        if has_hover then
+          media_query ~condition:hover_media ~selector ~props:[] ?base_class
+            ~nested:(started selector props :: nested)
+            ()
+        else starting_style ~selector ~props ?base_class ~nested ()
+    | Media_query { condition = outer; selector; props; base_class; nested; _ }
+      ->
+        media_query ~condition:outer ~selector ~props:[] ?base_class
+          ~nested:(started selector props :: nested)
+          ()
     | other -> other)
 
 (* Handle Modified style by recursively extracting and applying modifier *)
