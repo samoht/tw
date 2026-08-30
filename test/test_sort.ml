@@ -1501,7 +1501,6 @@ let known_inversions =
     ("typography_late", "scrollbar");
     ("typography_late", "tab");
     ("typography_late", "transforms");
-    ("typography_late", "typography_early");
     ("typography_late", "typography_late");
     ("zoom", "divide");
     ("zoom", "layout");
