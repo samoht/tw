@@ -17,22 +17,26 @@ do not exist.
    than skips. Without it the eight suites calling `check_rendering_matches`
    report no difference because they never looked - which is what CI did until
    #513.
-3. **Doc examples and cram.** `dune build @runtest`. It compiles the MDX
+3. **Tailwind oracle.** `TW_TAILWIND_TESTS=1` set, so a missing CLI, or one
+   whose version differs from `Tailwind_gen.required_version`, fails rather
+   than skips. Without it 159 parity tests skip and the run still says
+   "Test Successful"; the skip lines never reach a `dune runtest` log.
+4. **Doc examples and cram.** `dune build @runtest`. It compiles the MDX
    examples in the `.mli` files and the README, and runs `test/cli/*.t`, which
    covers entrypoint behaviour no Alcotest suite reaches. Read the HEAD of its
    output: a cram diff prints first and `| tail` hides it.
-4. **Sort fuzzer.** Clean across several seeds
+5. **Sort fuzzer.** Clean across several seeds
    (`TEST_SEED=<n> dune exec test/test.exe -- test sort`). It is authoritative;
    a case it reports is a real ordering bug, never something to skip.
-5. **Gates.** `dune build`, `dune build @fmt`, and `merlint` clean.
+6. **Gates.** `dune build`, `dune build @fmt`, and `merlint` clean.
 
 ## Parity (the contract)
 
-6. **Upstream corpus.** `test/upstream/` replays Tailwind's own fixtures and
+7. **Upstream corpus.** `test/upstream/` replays Tailwind's own fixtures and
    must pass without an allowlist. The suite may not take an expected value
    from Tailwind's output and hand it back to tw - breaking a built-in default
    has to fail it (see #512).
-7. **Whole-site measurement.** `sh test/parity/measure.sh` runs tw against
+8. **Whole-site measurement.** `sh test/parity/measure.sh` runs tw against
    Tailwind over the class list of tailwindcss.com. Quote the differ's summary
    line together with the top-level entries under it; the summary counts
    containers rather than their contents, so one `@layer` entry can hide a
@@ -41,19 +45,19 @@ do not exist.
 
 ## Quality (target, non-blocking)
 
-8. **No partial function reachable from a class.** `lib/` still holds
+9. **No partial function reachable from a class.** `lib/` still holds
    `failwith`/`invalid_arg` sites; none is reachable from ordinary input
    (the corpus runs `of_string` then `to_css` over 6491 classes and raises on
    none). Track the count down rather than gate on it.
-9. **No private cascade module.** tw must compile against cascade as an
+10. **No private cascade module.** tw must compile against cascade as an
    *installed* library, not only against the source tree beside it. A name from
    a module in `cascade/lib/dune`'s `private_modules` resolves locally and fails
    CI; check the public `.mli` before using one.
 
 ## Hygiene
 
-10. **Changelog + version.** A `CHANGES.md` entry for the version, every `#N`
+11. **Changelog + version.** A `CHANGES.md` entry for the version, every `#N`
     resolving to a merged PR, and the tag on the current `main` lineage.
-11. **Cascade bound.** `dune-project` and `tw.opam` name a cascade version CI
+12. **Cascade bound.** `dune-project` and `tw.opam` name a cascade version CI
     can resolve. CI pins cascade to its `main`; a local build compiles it from
     source, so green locally is not green on CI.

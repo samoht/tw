@@ -55,8 +55,13 @@ jobs:
       - name: Test
         # TW_BROWSER_TESTS=1 turns a missing browser into a failure, so the
         # rendering comparison cannot go back to passing by not running.
+        # TW_TAILWIND_TESTS=1 does the same for the Tailwind CLI: without it a
+        # missing CLI, or one whose version no longer matches the pin, retires
+        # the parity half of the suite into skips that dune swallows on
+        # success, so a lockfile bump would disable it unnoticed.
         env:
           TW_BROWSER_TESTS: 1
+          TW_TAILWIND_TESTS: 1
         run: opam exec -- dune runtest
 
   lint:

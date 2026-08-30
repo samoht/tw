@@ -30,10 +30,42 @@ let extract_rule_selectors stmts =
 let our_css utilities =
   Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
 
+(* Parity tests need the pinned tailwindcss CLI. Skipping is right on a
+   developer machine without node, and wrong on CI, where it retires a fifth of
+   the suite into [SKIP] lines that dune swallows on success, so the run reports
+   agreement with a tool it never ran. Set TW_TAILWIND_TESTS=1 where the CLI is
+   meant to be present and a missing or off-version one fails instead. *)
+let tailwind_required () = Sys.getenv_opt "TW_TAILWIND_TESTS" = Some "1"
+
+(* Alcotest files a test's own stderr under [_build/_tests/] and exits the
+   process itself, so a notice written from inside a test, or after
+   [Alcotest.run] returns, is never read. Count the skips and report the total
+   at exit, where it lands next to the summary line that does not mention
+   them. *)
+let skipped_without_cli = ref 0
+
+let note_skip reason =
+  if !skipped_without_cli = 0 then
+    at_exit (fun () ->
+        Fmt.epr "@.%d test(s) skipped: no usable tailwindcss CLI.@.%s@."
+          !skipped_without_cli reason;
+        Fmt.epr "Set TW_TAILWIND_TESTS=1 to fail on this instead of skipping.@.");
+  incr skipped_without_cli
+
+let require_tailwind_cli () =
+  match Tw_tools.Tailwind_gen.availability () with
+  | Ok () -> ()
+  | Error reason ->
+      if tailwind_required () then
+        Alcotest.failf
+          "TW_TAILWIND_TESTS=1 but the tailwindcss CLI is unusable: %s" reason
+      else begin
+        note_skip reason;
+        Alcotest.skip ()
+      end
+
 let tailwind_css ?(forms = false) classnames =
-  (* Parity tests need the pinned tailwindcss CLI; skip where it is absent (e.g.
-     opam-repo-ci has no node). *)
-  if not (Tw_tools.Tailwind_gen.available ()) then Alcotest.skip ();
+  require_tailwind_cli ();
   Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
 
 (* Which CSS properties a class declares. Custom properties count: a drop-shadow

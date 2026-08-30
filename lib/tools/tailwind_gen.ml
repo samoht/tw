@@ -149,24 +149,30 @@ let command_is_required cmd =
   | Some v -> parse_version v = Some required_version
   | None -> false
 
+(* What a candidate answered, for the failure message. Naming the native binary
+   alone reports "not installed" on a machine that reaches the CLI through npx,
+   which is every CI runner and the case a lockfile bump breaks. *)
+let describe_candidate cmd present =
+  if not present then cmd ^ ": not installed"
+  else
+    match command_version cmd with
+    | Some v -> cmd ^ ": v" ^ v
+    | None -> cmd ^ ": unknown version"
+
 let tailwindcss_command () =
   let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
   let native = have "tailwindcss" in
+  let npx = have "npx" in
   if native && command_is_required "tailwindcss" then "tailwindcss"
-  else if have "npx" && command_is_required "npx tailwindcss" then
-    "npx tailwindcss"
+  else if npx && command_is_required "npx tailwindcss" then "npx tailwindcss"
   else
-    let found =
-      if native then
-        match command_version "tailwindcss" with
-        | Some v -> "v" ^ v
-        | None -> "unknown version"
-      else "not installed"
-    in
     failwith
-      ("Test setup failed: tailwindcss v"
+      ("tailwindcss v"
       ^ version_string required_version
-      ^ " is required (native: " ^ found
+      ^ " is required ("
+      ^ describe_candidate "tailwindcss" native
+      ^ ", "
+      ^ describe_candidate "npx tailwindcss" npx
       ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
       ^ version_string required_version)
 
@@ -189,11 +195,11 @@ let check_tailwindcss_available () =
    same thing here, that there is nothing to compare against. Generation is
    separate: once the CLI is known good, a [generate] that produces no CSS still
    raises. *)
-let available () =
-  try
-    check_tailwindcss_available ();
-    true
-  with Failure _ | Sys_error _ -> false
+let availability () =
+  match check_tailwindcss_available () with
+  | () -> Ok ()
+  | exception Failure reason -> Error reason
+  | exception Sys_error reason -> Error reason
 
 (* Statistics tracking *)
 module Stats = struct

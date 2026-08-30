@@ -17,9 +17,16 @@ val our_css : Tw.t list -> string
 (** [our_css utilities] is tw's stylesheet for [utilities], base layer included
     and minified. *)
 
+val require_tailwind_cli : unit -> unit
+(** [require_tailwind_cli ()] returns when the pinned Tailwind CLI is usable.
+    Otherwise it skips the calling test, or fails it when [TW_TAILWIND_TESTS=1]
+    says the CLI is meant to be there: a parity test that stops asking the
+    oracle reports an agreement it never checked. *)
+
 val tailwind_css : ?forms:bool -> string list -> string
 (** [tailwind_css classnames] is the pinned Tailwind CLI's stylesheet for the
-    same classes. Skips the test when the CLI is unavailable. *)
+    same classes. Goes through {!require_tailwind_cli}, so it skips the test
+    when the CLI is unavailable and fails it under [TW_TAILWIND_TESTS=1]. *)
 
 val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
