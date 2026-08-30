@@ -55,6 +55,32 @@ let cascade_pin root =
       in
       loop ()
 
+(* The sha alone does not say how far a live checkout has moved. A sibling
+   checkout parked on someone else's branch fails tw tests that pass against
+   cascade's main, and reading that as a tw regression costs an afternoon; the
+   branch name and the distance are what turn the failure into a question about
+   cascade. *)
+let checkout_position dir =
+  let branch =
+    match Fmt.kstr run_line "git -C %s rev-parse --abbrev-ref HEAD" dir with
+    | Some b -> "branch " ^ b
+    | None -> "detached HEAD"
+  in
+  let distance =
+    match
+      Fmt.kstr run_line "git -C %s rev-list --count origin/main..HEAD" dir
+    with
+    | Some "0" -> "level with origin/main"
+    | Some n -> n ^ " commit(s) not in origin/main"
+    | None -> "distance from origin/main unknown"
+  in
+  let dirty =
+    match Fmt.kstr run_line "git -C %s status --porcelain" dir with
+    | Some _ -> ", uncommitted changes"
+    | None -> ""
+  in
+  branch ^ ", " ^ distance ^ dirty
+
 let report () =
   match repo_root () with
   | None -> ()
@@ -72,16 +98,19 @@ let report () =
           let pin =
             match cascade_pin root with Some p -> p | None -> "(unreadable)"
           in
+          let position = checkout_position cascade_dir in
           match exact_tag with
           | Some tag ->
               Fmt.pr
-                "cascade: local checkout %s (tag %s); dune-project pins %s@."
-                sha tag pin
+                "cascade: local checkout %s (tag %s, %s); dune-project pins \
+                 %s@."
+                sha tag position pin
           | None ->
               Fmt.pr
-                "@.WARNING: cascade checkout %s is not sitting on a release \
-                 tag; dune-project pins %s, and CI resolves that constraint \
-                 through its own opam pin, not this checkout. The cascade/ \
-                 symlink is a live sibling checkout other sessions move, so \
-                 this run may not match what CI compiles.@.@."
-                sha pin))
+                "@.WARNING: cascade checkout %s (%s) is not sitting on a \
+                 release tag; dune-project pins %s, and CI resolves that \
+                 constraint through its own opam pin, not this checkout. The \
+                 cascade/ symlink is a live sibling checkout other sessions \
+                 move, so a test failing here may be failing against cascade \
+                 code that is not on cascade's main.@.@."
+                sha position pin))
