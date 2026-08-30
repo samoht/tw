@@ -314,3 +314,33 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   with e ->
     cleanup ();
     raise e
+
+(* A project entrypoint is generated where it sits. Tailwind resolves its
+   [@import]s, its [@source] and its [@plugin]s relative to the file, and
+   [@import "tailwindcss"] against the nearest node_modules above it, so copying
+   the file elsewhere breaks all three; only the output moves. An entrypoint
+   that pins [source(none)] plus an explicit [@source] therefore scans exactly
+   what it names, which is what keeps a comparison against tw from reading tw's
+   own output back in. *)
+let generate_entrypoint ?(minify = true) entry =
+  check_tailwindcss_available ();
+  let out = tmp_file "tw_entry" ".css" in
+  let remove () = try Sys.remove out with Sys_error _ -> () in
+  Fun.protect ~finally:remove @@ fun () ->
+  let cmd =
+    match !tailwind_command with Some c -> c | None -> "tailwindcss"
+  in
+  let start_time = Stats.start_timer () in
+  let status =
+    Sys.command
+      (Fmt.str "%s -i %s -o %s%s 2>/dev/null" cmd (Filename.quote entry)
+         (Filename.quote out)
+         (if minify then " --minify" else ""))
+  in
+  Stats.record_call (Unix.gettimeofday () -. start_time);
+  if status <> 0 then
+    failwith ("Failed to generate Tailwind CSS from the entrypoint " ^ entry);
+  let ic = open_in out in
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr ic)
+    (fun () -> really_input_string ic (in_channel_length ic))
