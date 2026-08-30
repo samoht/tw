@@ -9,8 +9,13 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "zoom"
-  let priority _ = 2
-  let suborder = function Percent _ -> 0 | Arbitrary _ -> 1
+
+  (* Tailwind emits [zoom-*] between the transforms and the animations. It
+     shares the transforms' priority rather than taking one of its own, there
+     being no integer left between the two, and starts past every suborder
+     transforms.ml assigns (2004 at the time of writing). *)
+  let priority _ = 9
+  let suborder = function Percent _ -> 3000 | Arbitrary _ -> 3001
 
   let num_to_string n =
     if Float.is_integer n then string_of_int (int_of_float n) else Pp.float n
