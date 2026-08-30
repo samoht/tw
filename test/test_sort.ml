@@ -705,311 +705,649 @@ let test_suborder_within_group () =
       Test_helpers.check_ordering_matches ~forms ~test_name shuffled)
     test_groups
 
-(* Test 3: Random utilities with minimization *)
+(* Test 3: Random utilities with minimization.
+
+   The pool is keyed by the lib/ module that exports its entries, and
+   [test_pool_covers_every_family] reads tw.ml's include list back and fails on
+   a module with nothing under it. A hand-written list nothing checks drifts:
+   the one this replaces reached 103 constructors of tw.mli's 1030, and no seed
+   could compile a [hover:] or an [md:] rule at all, modifiers exporting 210
+   constructors the pool never touched. *)
+
+(* An entry is written as the class a user types, which is what the reader takes
+   back, so a typo fails inside a test rather than at module initialisation. The
+   families with no reader are built from their constructor instead. *)
+let cls name =
+  match Tw.of_string name with
+  | Ok u -> u
+  | Error (`Msg m) -> Alcotest.failf "pool entry %S does not parse: %s" name m
+
+let pool_families () =
+  let c names = List.map cls names in
+  [
+    ( "accessibility",
+      c [ "forced-color-adjust-none"; "forced-color-adjust-auto" ] );
+    ( "alignment",
+      c
+        [
+          "items-center";
+          "items-start";
+          "justify-between";
+          "justify-center";
+          "self-end";
+          "content-around";
+          "place-items-center";
+          "place-content-between";
+          "justify-items-start";
+          "justify-self-end";
+          "place-self-center";
+        ] );
+    ("animations", c [ "animate-spin"; "animate-pulse"; "animate-none" ]);
+    (* [[property:value]] takes any property, so it sorts into whichever band
+       the property it declares belongs to. *)
+    ("arbitrary", c [ "[color:red]"; "[mask-type:luminance]"; "[order:3]" ]);
+    ( "backgrounds",
+      c
+        [
+          "bg-red-500";
+          "bg-white";
+          "bg-cover";
+          "bg-center";
+          "bg-no-repeat";
+          "bg-fixed";
+          "bg-clip-text";
+          "bg-origin-content";
+          "bg-linear-to-r";
+          "from-blue-500";
+          "via-purple-500";
+          "to-pink-500";
+        ] );
+    ( "borders",
+      c
+        [
+          "border";
+          "border-2";
+          "border-t-4";
+          "border-x-2";
+          "border-dashed";
+          "rounded-lg";
+          "rounded-t-md";
+          "rounded-full";
+          "outline-2";
+          "outline-dashed";
+          "outline-offset-2";
+        ] );
+    ("box_sizing", c [ "box-border"; "box-content" ]);
+    ( "color",
+      c
+        [
+          "text-red-500";
+          "text-white";
+          "accent-pink-500";
+          "caret-blue-500";
+          "placeholder-gray-400";
+        ] );
+    ("columns", c [ "columns-3"; "columns-md"; "columns-auto" ]);
+    ("contain", c [ "contain-layout"; "contain-strict"; "contain-content" ]);
+    ("containers", c [ "container"; "@container" ]);
+    ("cursor", c [ "cursor-pointer"; "cursor-not-allowed"; "cursor-grab" ]);
+    ( "divide",
+      c
+        [
+          "divide-x";
+          "divide-y-2";
+          "divide-gray-300";
+          "divide-dashed";
+          "divide-x-reverse";
+        ] );
+    ( "effects",
+      c
+        [
+          "shadow-md";
+          "shadow-none";
+          "opacity-50";
+          "mix-blend-multiply";
+          "bg-blend-multiply";
+          "inset-shadow-sm";
+          "ring-2";
+          "ring-offset-4";
+          "inset-ring-2";
+        ] );
+    ("field_sizing", c [ "field-sizing-content"; "field-sizing-fixed" ]);
+    ( "filters",
+      c
+        [
+          "filter-none";
+          "blur-sm";
+          "brightness-125";
+          "grayscale";
+          "hue-rotate-90";
+          "invert";
+          "backdrop-blur-md";
+          "backdrop-saturate-150";
+          "drop-shadow-lg";
+        ] );
+    ("flex", c [ "flex"; "inline-flex" ]);
+    ( "flex_layout",
+      c
+        [
+          "flex-row";
+          "flex-col";
+          "flex-row-reverse";
+          "flex-col-reverse";
+          "flex-wrap";
+          "flex-nowrap";
+        ] );
+    ( "flex_props",
+      c
+        [
+          "flex-1";
+          "flex-auto";
+          "grow";
+          "shrink-0";
+          "basis-1/2";
+          "order-2";
+          "order-first";
+        ] );
+    (* The plugin's own utilities. A draw holding one is compared with the
+       plugin loaded, which is what [~forms] switches on. *)
+    ("forms", c [ "form-input"; "form-select"; "form-checkbox" ]);
+    ("gap", c [ "gap-4"; "gap-x-2"; "gap-y-8" ]);
+    ("grid", c [ "grid"; "inline-grid" ]);
+    ( "grid_item",
+      c [ "col-span-2"; "row-span-3"; "col-start-2"; "row-end-4"; "col-auto" ]
+    );
+    ( "grid_template",
+      c
+        [
+          "grid-cols-3";
+          "grid-cols-none";
+          "grid-rows-2";
+          "grid-rows-subgrid";
+          "grid-flow-col";
+          "auto-cols-fr";
+          "auto-rows-min";
+        ] );
+    ( "interactivity",
+      c
+        [
+          "select-none";
+          "resize-y";
+          "pointer-events-none";
+          "appearance-none";
+          "will-change-transform";
+          "snap-center";
+          "snap-x";
+          "scroll-smooth";
+          "scheme-dark";
+          "group";
+          "peer";
+        ] );
+    ( "layout",
+      c
+        [
+          "block";
+          "inline-block";
+          "hidden";
+          "table";
+          "contents";
+          "float-left";
+          "clear-both";
+          "isolate";
+          "object-cover";
+          "object-center";
+          "z-10";
+          "break-after-page";
+          "box-decoration-clone";
+          "sr-only";
+          "not-sr-only";
+        ] );
+    ( "margin",
+      c [ "m-4"; "mx-2"; "my-8"; "mt-1"; "mb-6"; "ml-auto"; "-mt-4"; "ms-2" ] );
+    ( "mask_gradient",
+      c
+        [
+          "mask-t-from-50%";
+          "mask-r-to-90%";
+          "mask-radial-from-20%";
+          "mask-conic-from-30%";
+          "mask-linear-from-40%";
+          "mask-x-from-10%";
+        ] );
+    ( "masks",
+      c
+        [
+          "mask-none";
+          "mask-alpha";
+          "mask-cover";
+          "mask-center";
+          "mask-repeat-x";
+          "mask-clip-content";
+          "mask-origin-padding";
+          "mask-add";
+          "mask-type-luminance";
+        ] );
+    ("overflow", c [ "overflow-hidden"; "overflow-x-auto"; "overflow-y-scroll" ]);
+    ("overflow_wrap", c [ "wrap-break-word"; "wrap-anywhere"; "wrap-normal" ]);
+    ( "overscroll",
+      c [ "overscroll-contain"; "overscroll-x-none"; "overscroll-y-auto" ] );
+    ( "padding",
+      c [ "p-4"; "px-2"; "py-8"; "pt-1"; "pb-6"; "pl-3"; "pr-5"; "ps-2" ] );
+    ( "position",
+      c
+        [
+          "relative";
+          "absolute";
+          "sticky";
+          "static";
+          "top-0";
+          "inset-x-4";
+          "left-1/2";
+          "start-0";
+          "inset-0";
+        ] );
+    ("prose", c [ "prose"; "prose-lg"; "prose-invert"; "prose-slate" ]);
+    ("scroll", c [ "scroll-m-4"; "scroll-px-2"; "scroll-mt-8"; "scroll-pb-6" ]);
+    ( "scrollbar",
+      c
+        [
+          "scrollbar-thin";
+          "scrollbar-gutter-stable";
+          "scrollbar-thumb-gray-400";
+          "scrollbar-track-gray-100";
+        ] );
+    ( "sizing",
+      c
+        [
+          "w-4";
+          "w-full";
+          "h-8";
+          "h-screen";
+          "min-w-0";
+          "max-w-4xl";
+          "max-h-96";
+          "size-10";
+          "aspect-video";
+          "aspect-square";
+          "aspect-auto";
+          "aspect-[4/3]";
+        ] );
+    ("svg", c [ "fill-none"; "fill-red-500"; "stroke-current"; "stroke-2" ]);
+    ("tab", c [ "tab-4"; "tab-2" ]);
+    ( "tables",
+      c
+        [
+          "border-collapse"; "border-spacing-2"; "table-fixed"; "caption-bottom";
+        ] );
+    ("text_shadow", c [ "text-shadow-sm"; "text-shadow-lg"; "text-shadow-none" ]);
+    ("touch", c [ "touch-pan-x"; "touch-manipulation"; "touch-none" ]);
+    ( "transforms",
+      c
+        [
+          "rotate-45";
+          "scale-95";
+          "translate-x-4";
+          "skew-y-3";
+          "origin-top-left";
+          "transform-gpu";
+          "transform-none";
+          "transform-3d";
+          "perspective-dramatic";
+          "backface-hidden";
+          "rotate-x-30";
+          "translate-z-4";
+        ] );
+    ( "transitions",
+      c
+        [
+          "transition";
+          "transition-colors";
+          "duration-300";
+          "ease-in-out";
+          "delay-150";
+        ] );
+    ( "typography",
+      c
+        [
+          "text-xs";
+          "text-2xl";
+          "font-bold";
+          "font-sans";
+          "leading-relaxed";
+          "tracking-wide";
+          "italic";
+          "uppercase";
+          "underline";
+          "line-through";
+          "text-ellipsis";
+          "indent-4";
+          "align-middle";
+          "whitespace-nowrap";
+          "list-disc";
+          "line-clamp-3";
+          "antialiased";
+          "tabular-nums";
+          "hyphens-auto";
+          "decoration-2";
+          "decoration-sky-400";
+          "underline-offset-4";
+        ] );
+    ("zoom", c [ "zoom-50"; "zoom-100" ]);
+  ]
+
+(* [Responsive] nests a media query, and two of those on one class is a spelling
+   Tailwind refuses, so a stack takes at most one. [Element] ends the compound
+   selector with a pseudo-element, which nothing may follow: Tailwind writes
+   [marker:last:x] as [::marker:last-child] and its own minifier then drops what
+   it cannot parse, so only the innermost of a stack may be one. *)
+type variant_kind = Plain | Responsive | Element
+
+(* modifiers exports 210 constructors and no utility of its own, so a seed
+   reaches the family only by dressing one: this list is what puts a [hover:]
+   rule or an [@media] block in front of the comparator at all. Written as the
+   prefix rather than as the constructor, since tw.mli re-exports only about a
+   fifth of them and the reader takes every spelling. *)
+let pool_variants =
+  [
+    ("hover", Plain);
+    ("focus", Plain);
+    ("active", Plain);
+    ("disabled", Plain);
+    ("focus-within", Plain);
+    ("focus-visible", Plain);
+    ("first", Plain);
+    ("last", Plain);
+    ("only", Plain);
+    ("odd", Plain);
+    ("even", Plain);
+    ("first-of-type", Plain);
+    ("last-of-type", Plain);
+    ("empty", Plain);
+    ("checked", Plain);
+    ("indeterminate", Plain);
+    ("default", Plain);
+    ("required", Plain);
+    ("valid", Plain);
+    ("invalid", Plain);
+    ("in-range", Plain);
+    ("placeholder-shown", Plain);
+    ("autofill", Plain);
+    ("read-only", Plain);
+    ("optional", Plain);
+    ("open", Plain);
+    ("enabled", Plain);
+    ("target", Plain);
+    ("visited", Plain);
+    ("inert", Plain);
+    ("user-valid", Plain);
+    ("before", Element);
+    ("after", Element);
+    ("marker", Element);
+    ("selection", Element);
+    ("placeholder", Element);
+    ("backdrop", Element);
+    ("file", Element);
+    ("first-letter", Element);
+    ("first-line", Element);
+    ("details-content", Element);
+    ("*", Plain);
+    ("**", Plain);
+    ("group-hover", Plain);
+    ("group-focus", Plain);
+    ("group-first", Plain);
+    ("group-last", Plain);
+    ("group-odd", Plain);
+    ("group-open", Plain);
+    ("group-checked", Plain);
+    ("group-disabled", Plain);
+    ("group-focus-within", Plain);
+    ("peer-hover", Plain);
+    ("peer-focus", Plain);
+    ("peer-checked", Plain);
+    ("peer-disabled", Plain);
+    ("peer-first", Plain);
+    ("peer-last", Plain);
+    ("peer-invalid", Plain);
+    ("aria-checked", Plain);
+    ("aria-expanded", Plain);
+    ("aria-selected", Plain);
+    ("aria-disabled", Plain);
+    ("data-[state=open]", Plain);
+    ("data-active", Plain);
+    ("data-inactive", Plain);
+    ("nth-3", Plain);
+    ("nth-last-2", Plain);
+    (* A class rather than a type selector: Tailwind wraps a [has-[...]] bracket
+       in [:is()] and tw does not, which is a difference of spelling alone and
+       one the canonical differ folds away for every argument but a bare type
+       selector. Kept out of the pool so the fuzzer reports order rather than
+       that. *)
+    ("has-[.x]", Plain);
+    ("group-has-[.x]", Plain);
+    ("peer-has-[.x]", Plain);
+    ("not-[:hover]", Plain);
+    ("in-[.x]", Plain);
+    ("ltr", Plain);
+    ("rtl", Plain);
+    ("starting", Plain);
+    ("sm", Responsive);
+    ("md", Responsive);
+    ("lg", Responsive);
+    ("xl", Responsive);
+    ("2xl", Responsive);
+    ("max-sm", Responsive);
+    ("max-md", Responsive);
+    ("max-lg", Responsive);
+    ("min-[600px]", Responsive);
+    ("max-[900px]", Responsive);
+    ("dark", Responsive);
+    ("motion-safe", Responsive);
+    ("motion-reduce", Responsive);
+    ("contrast-more", Responsive);
+    ("contrast-less", Responsive);
+    ("print", Responsive);
+    ("portrait", Responsive);
+    ("landscape", Responsive);
+    ("forced-colors", Responsive);
+    ("supports-[display:grid]", Responsive);
+  ]
+
+let pick_variant rng kinds =
+  let candidates = List.filter (fun (_, k) -> List.mem k kinds) pool_variants in
+  List.nth candidates (Random.State.int rng (List.length candidates))
+
+(* A variant is applied by spelling it onto the class, which is the one form
+   every one of them has; [clip-*] has no reader and stays bare, and any other
+   refusal is a finding rather than a case to skip. *)
+let prefix name u =
+  let bare = Tw.pp u in
+  let dressed = name ^ ":" ^ bare in
+  match Tw.of_string dressed with
+  | Ok v -> v
+  | Error (`Msg m) ->
+      if Result.is_error (Tw.of_string bare) then u
+      else Alcotest.failf "%S does not read back: %s" dressed m
+
+(* How much of a draw wears a variant. All of it would compare one media block
+   against another and never a plain rule against one, and none of it is where
+   the pool was. *)
+let dress rng u =
+  match Random.State.int rng 6 with
+  | 0 | 1 | 2 -> u
+  | 3 | 4 ->
+      let name, _ = pick_variant rng [ Plain; Responsive; Element ] in
+      prefix name u
+  | _ ->
+      (* Stacked: the pseudo-element innermost, since it ends the selector, and
+         the media query outermost, which is how [md:hover:] is written. *)
+      let inner, _ = pick_variant rng [ Plain; Element ] in
+      let outer, _ = pick_variant rng [ Plain; Responsive ] in
+      prefix outer (prefix inner u)
+
+(* Without replacement. Drawing 30 from 252 with replacement left about 28
+   distinct, and each duplicate cost a comparison and covered nothing. *)
+let draw rng n entries =
+  let arr = Array.of_list entries in
+  let len = Array.length arr in
+  for i = len - 1 downto 1 do
+    let j = Random.State.int rng (i + 1) in
+    let t = arr.(i) in
+    arr.(i) <- arr.(j);
+    arr.(j) <- t
+  done;
+  Array.to_list (Array.sub arr 0 (min n len))
+
+let sample_size = 30
+let samples = 6
+
 let test_random_utilities_with_minimization () =
-  let open Tw in
-  (* Large pool of utilities from all groups *)
-  let all_utilities =
-    [
-      (* Margin: priority 2 *)
-      m 0;
-      m 1;
-      m 2;
-      m 3;
-      m 4;
-      m 5;
-      m 6;
-      m 8;
-      m 10;
-      m 12;
-      m 16;
-      m 20;
-      mx 0;
-      mx 1;
-      mx 2;
-      mx 4;
-      mx 8;
-      my 0;
-      my 1;
-      my 2;
-      my 4;
-      my 8;
-      mt 0;
-      mt 1;
-      mt 2;
-      mt 4;
-      mt 6;
-      mt 8;
-      mb 0;
-      mb 1;
-      mb 2;
-      mb 3;
-      mb 4;
-      mb 6;
-      ml 0;
-      ml 1;
-      ml 2;
-      ml 4;
-      mr 0;
-      mr 1;
-      mr 2;
-      mr 4;
-      mr 5;
-      mr 8;
-      (* Display: priority 10 *)
-      block;
-      inline;
-      inline_block;
-      flex;
-      inline_flex;
-      grid;
-      inline_grid;
-      hidden;
-      (* Position: priority 11 *)
-      static;
-      fixed;
-      absolute;
-      relative;
-      sticky;
-      (* Sizing: priority 12 *)
-      w 0;
-      w 1;
-      w 2;
-      w 4;
-      w 6;
-      w 8;
-      w 10;
-      w 12;
-      w 16;
-      w 20;
-      w 24;
-      h 0;
-      h 1;
-      h 2;
-      h 4;
-      h 6;
-      h 8;
-      h 10;
-      h 12;
-      h 16;
-      h 20;
-      min_w 0;
-      min_h 0;
-      max_w_2xl;
-      max_w_3xl;
-      max_w_4xl;
-      max_w_5xl;
-      (* Grid layout: priority 13 *)
-      grid_cols 1;
-      grid_cols 2;
-      grid_cols 3;
-      grid_cols 4;
-      grid_cols 6;
-      grid_cols 12;
-      grid_rows 1;
-      grid_rows 2;
-      grid_rows 3;
-      grid_rows 4;
-      col_span 1;
-      col_span 2;
-      col_span 3;
-      col_span 4;
-      row_span 1;
-      row_span 2;
-      row_span 3;
-      (* Flex layout: priority 14 *)
-      flex_row;
-      flex_col;
-      (* Container alignment: priority 15, suborder 0-999 *)
-      items_start;
-      items_center;
-      items_end;
-      items_baseline;
-      items_stretch;
-      justify_start;
-      justify_center;
-      justify_end;
-      justify_between;
-      justify_around;
-      content_start;
-      content_center;
-      content_end;
-      (* Gap: priority 15, suborder 25000+ *)
-      gap 0;
-      gap 1;
-      gap 2;
-      gap 3;
-      gap 4;
-      gap 6;
-      gap 8;
-      gap 10;
-      gap 12;
-      gap_x 0;
-      gap_x 2;
-      gap_x 4;
-      gap_y 0;
-      gap_y 2;
-      gap_y 4;
-      (* Self alignment: priority 15, suborder 50000+ *)
-      self_auto;
-      self_start;
-      self_center;
-      (* Border: priority 17 *)
-      rounded;
-      rounded_md;
-      rounded_lg;
-      rounded_full;
-      border;
-      (* Background: priority 18 *)
-      bg white;
-      bg black;
-      bg ~shade:50 gray;
-      bg ~shade:100 gray;
-      bg ~shade:200 gray;
-      bg ~shade:300 gray;
-      bg gray;
-      bg ~shade:900 gray;
-      bg ~shade:50 red;
-      bg ~shade:100 red;
-      bg red;
-      bg ~shade:600 red;
-      bg ~shade:900 red;
-      bg ~shade:50 blue;
-      bg ~shade:100 blue;
-      bg blue;
-      bg ~shade:600 blue;
-      bg ~shade:900 blue;
-      bg ~shade:50 green;
-      bg green;
-      bg ~shade:600 green;
-      bg ~shade:50 yellow;
-      bg yellow;
-      bg purple;
-      bg pink;
-      (* Padding: priority 19 *)
-      p 0;
-      p 1;
-      p 2;
-      p 3;
-      p 4;
-      p 5;
-      p 6;
-      p 8;
-      p 10;
-      p 12;
-      p 16;
-      px 0;
-      px 1;
-      px 2;
-      px 4;
-      px 6;
-      px 8;
-      py 0;
-      py 1;
-      py 2;
-      py 4;
-      py 6;
-      py 8;
-      pt 0;
-      pt 1;
-      pt 2;
-      pt 3;
-      pt 4;
-      pt 6;
-      pt 8;
-      pb 0;
-      pb 1;
-      pb 2;
-      pb 4;
-      pb 6;
-      pb 8;
-      pl 0;
-      pl 1;
-      pl 2;
-      pl 4;
-      pl 6;
-      pl 8;
-      pr 0;
-      pr 1;
-      pr 2;
-      pr 4;
-      pr 6;
-      pr 8;
-      (* Text align: priority 20 *)
-      text_left;
-      text_center;
-      text_right;
-      text_justify;
-      (* Typography: priority 100 *)
-      text_xs;
-      text_sm;
-      text_base;
-      text_lg;
-      text_xl;
-      text_2xl;
-      text_3xl;
-      font_thin;
-      font_normal;
-      font_medium;
-      font_semibold;
-      font_bold;
-      leading_tight;
-      leading_snug;
-      leading_normal;
-      leading_relaxed;
-      (* Effects: priority 700 *)
-      shadow;
-      shadow_sm;
-      shadow_md;
-      shadow_lg;
-      shadow_xl;
-      shadow_none;
-      opacity 0;
-      opacity 50;
-      opacity 75;
-      opacity 100;
-      (* Interactivity: priority 800 *)
-      cursor_pointer;
-      cursor_default;
-      cursor_wait;
-      cursor_not_allowed;
-      select_none;
-      select_text;
-      select_all;
-      (* Container/Prose: priority 1000 *)
-      prose;
-      prose_sm;
-      prose_lg;
-    ]
+  let entries =
+    List.concat_map
+      (fun (family, us) -> List.map (fun u -> (family, u)) us)
+      (pool_families ())
   in
-
-  let pick_random n lst =
-    let arr = Array.of_list lst in
-    let len = Array.length arr in
-    let picked = ref [] in
-    for _ = 1 to min n len do
-      let idx = Random.State.int Test_helpers.test_rng len in
-      picked := arr.(idx) :: !picked
-    done;
-    !picked
+  let rng = Test_helpers.test_rng in
+  (* The forms plugin is loaded on both sides only when the case holds one of
+     its utilities, and minimisation can take the last one out, so each element
+     carries whether it is one rather than the draw deciding once. *)
+  let utilities cases = List.map snd cases in
+  let forms cases = List.exists fst cases in
+  let sample i =
+    let initial =
+      List.map
+        (fun (family, u) -> (String.equal family "forms", dress rng u))
+        (draw rng sample_size entries)
+    in
+    Fmt.epr "Sample %d/%d: %d utilities@." i samples (List.length initial);
+    let fails cases =
+      Test_helpers.check_sheet_order_fails ~forms:(forms cases)
+        (utilities cases)
+    in
+    match Test_helpers.minimize_failing_case fails initial with
+    | None -> ()
+    | Some final ->
+        Fmt.epr "@.Minimal failing case (%d utilities): %a@."
+          (List.length final)
+          Fmt.(list ~sep:(const string " ") string)
+          (List.map Tw.pp (utilities final));
+        Test_helpers.check_sheet_order_matches ~forms:(forms final)
+          ~test_name:"random utilities ordering matches Tailwind"
+          (utilities final)
   in
+  for i = 1 to samples do
+    sample i
+  done
 
-  let initial = pick_random 30 all_utilities in
-  Fmt.epr "Testing with %d utilities@." (List.length initial);
+(* Every module tw.ml includes exports utilities, and one with no pool entry is
+   a family no seed can reach. Reading the include list back is what makes a new
+   family a failure rather than a hole nobody thinks to look for. *)
+let rec dir_containing name dir =
+  if Sys.file_exists (Filename.concat dir name) then Some dir
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_containing name parent
 
-  match
-    Test_helpers.minimize_failing_case Test_helpers.check_ordering_fails initial
-  with
-  | None -> () (* Test passes *)
-  | Some final ->
-      let final_classes = List.map Tw.pp final in
-      Fmt.epr "@.Minimal failing case (%d utilities): %a@." (List.length final)
-        Fmt.(list ~sep:(const string " ") string)
-        final_classes;
+let included_modules () =
+  let path = "lib/tw.ml" in
+  let root =
+    match dir_containing path (Sys.getcwd ()) with
+    | Some r -> r
+    | None -> Alcotest.failf "cannot find %s from %s" path (Sys.getcwd ())
+  in
+  let ic = open_in_bin (Filename.concat root path) in
+  let text =
+    Fun.protect
+      ~finally:(fun () -> close_in_noerr ic)
+      (fun () -> really_input_string ic (in_channel_length ic))
+  in
+  String.split_on_char '\n' text
+  |> List.filter_map (fun line ->
+      match Astring.String.cut ~sep:"include " (String.trim line) with
+      | Some ("", m) when m <> "" && m.[0] >= 'A' && m.[0] <= 'Z' ->
+          Some (String.uncapitalize_ascii m)
+      | _ -> None)
+  |> List.sort_uniq String.compare
 
-      (* Now run the actual test with minimal case *)
-      Test_helpers.check_ordering_matches
-        ~test_name:"random utilities ordering matches Tailwind" final
+(* A family whose utilities cannot go through the comparator, and why. Never a
+   silent omission: the coverage check subtracts this list and nothing else. *)
+let unfuzzable =
+  [
+    ( "modifiers",
+      "exports variants rather than utilities; [pool_variants] carries it, and \
+       [test_variants_all_compile] checks that list" );
+    ( "clipping",
+      "[clip_polygon] names its class [clip-[polygon(...)]], which Tailwind \
+       does not read and emits nothing for, and which tw's own reader rejects \
+       too: there is no comparison to make" );
+  ]
+
+let test_pool_covers_every_family () =
+  let covered = List.map fst (pool_families ()) in
+  let expected = included_modules () in
+  (* A read that returned nothing would report every family as covered. *)
+  if List.length expected < 40 then
+    Alcotest.failf "read only %d includes out of lib/tw.ml, expected the lot"
+      (List.length expected);
+  let missing =
+    List.filter
+      (fun m -> (not (List.mem m covered)) && not (List.mem_assoc m unfuzzable))
+      expected
+  in
+  if missing <> [] then
+    Alcotest.failf
+      "the fuzzer pool has no entry for %d of tw.ml's families: %s.\n\
+       Add utilities under that key in [pool_families], or list the family in \
+       [unfuzzable] with why it cannot go through the comparator."
+      (List.length missing)
+      (String.concat ", " missing);
+  let stale = List.filter (fun m -> not (List.mem m expected)) covered in
+  if stale <> [] then
+    Alcotest.failf "the pool is keyed by %s, which tw.ml no longer includes"
+      (String.concat ", " stale)
+
+(* The module list above is what tw.ml says exists; this is what the registry
+   says. A family can be keyed correctly and still hold nothing of its own -
+   [flex] carried six [flex-row]-style classes, every one of them
+   [flex_layout]'s - and only the handler each class actually resolves to sees
+   that. Each registered handler offers a few of its own utilities as
+   {!Tw.Utility.examples_classes}, so the expected set comes out of the registry
+   rather than out of a second hand-written list. *)
+let handler_of cls =
+  match Tw.Utility.base_of_class Tw.Scheme.default cls with
+  | Ok base -> Some (Tw.Utility.name_of_base base)
+  | Error (`Msg _) -> None
+
+let test_pool_covers_every_handler () =
+  let names classes = List.filter_map handler_of classes in
+  let covered =
+    names
+      (List.concat_map (fun (_, us) -> List.map Tw.pp us) (pool_families ()))
+  in
+  let expected =
+    List.sort_uniq String.compare (names (Tw.Utility.examples_classes ()))
+  in
+  if List.length expected < 40 then
+    Alcotest.failf "the registry offered only %d handlers to compare against"
+      (List.length expected);
+  let missing = List.filter (fun h -> not (List.mem h covered)) expected in
+  if missing <> [] then
+    Alcotest.failf
+      "no pool entry resolves to %d registered handler(s): %s.\n\
+       A class keyed under one family but claimed by another leaves the family \
+       it is keyed under with nothing of its own."
+      (List.length missing)
+      (String.concat ", " missing)
+
+(* Every variant has to read back onto a class and to change it, or a draw that
+   reaches one fails on the spelling rather than on the order. *)
+let test_variants_all_compile () =
+  List.iter
+    (fun (name, _) ->
+      let u = prefix name (cls "p-4") in
+      if Tw.pp u = "p-4" then
+        Alcotest.failf "variant %s left the class it wraps unchanged" name;
+      ignore (Tw.to_css ~base:false [ u ]))
+    pool_variants
 
 let test_border_width_color_ordering () =
   (* Test that border width utilities (borders.ml, priority 16) come before
@@ -1962,6 +2300,9 @@ let tests =
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
+    test_case "pool covers every family" `Quick test_pool_covers_every_family;
+    test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
+    test_case "pool variants all compile" `Quick test_variants_all_compile;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;
     test_case "variant families sort as Tailwind" `Quick

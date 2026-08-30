@@ -176,6 +176,31 @@ val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
     form: it sees a family placed in the wrong band even when no two utilities
     it reorders share a property. *)
 
+val ordering_faults : ?forms:bool -> Tw.t list -> string list
+(** [ordering_faults ?forms utilities] is everything separating tw's sheet for
+    [utilities] from the pinned Tailwind CLI's: a declaration either reader
+    dropped, what the canonical differ reports, and every statement the two put
+    in a different place in [@layer utilities] or [@layer components], read off
+    the bytes by {!sheet_order_gap}. Empty when the two agree.
+
+    The differ alone cannot see a reorder among utilities writing disjoint
+    properties, canonical mode folding one away by design, so a fuzzer
+    minimising on {!check_ordering_fails} can never fail on a family emitted in
+    the wrong band - the one bug class a sort fuzzer exists to find. The byte
+    positions are what see it. *)
+
+val check_sheet_order_fails : ?forms:bool -> Tw.t list -> bool
+(** [check_sheet_order_fails ?forms utilities] is [true] when {!ordering_faults}
+    reports anything. The fuzzer's minimisation predicate. *)
+
+val check_sheet_order_matches :
+  ?forms:bool -> test_name:string -> Tw.t list -> unit
+(** [check_sheet_order_matches ?forms ~test_name utilities] fails with whatever
+    {!ordering_faults} reports. The same function drives it and
+    {!check_sheet_order_fails}, so a minimal case the fuzzer prints is one this
+    assertion also rejects; two predicates that disagree let a fuzzer report a
+    failing case and pass anyway. *)
+
 val render_elements : string list -> string list
 (** [render_elements classnames] is the element list {!check_rendering_matches}
     renders: each class on its own, then one element per {!interacting_pairs}

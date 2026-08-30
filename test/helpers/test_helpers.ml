@@ -205,11 +205,15 @@ let interacting_pairs classes =
    only output is an unreferenced binding - check_rendering_matches covers that
    class now, and agreeing on one predicate is worth more than the extra
    sensitivity here. *)
-let ordering_diff ?(forms = false) utilities =
-  let classnames = List.map Tw.pp utilities in
-  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-    (tailwind_css ~forms classnames)
-    (our_css utilities)
+(* Both sheets for one case. [ordering_faults] needs the text as well as the
+   diff, and generating them here keeps one description of what is compared. *)
+let sheets ?(forms = false) utilities =
+  (tailwind_css ~forms (List.map Tw.pp utilities), our_css utilities)
+
+let canonical_diff (tailwind, tw) =
+  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true tailwind tw
+
+let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 
 (* [Css_compare] drops a declaration its reader rejects from that side's AST
    before the comparison runs, so a real difference can surface as a phantom
@@ -813,6 +817,66 @@ let sheet_order_gap ~layer ~tailwind ~tw =
     moves = Array.length common - Array.length keep;
     moved = List.rev !moved;
   }
+
+(* The order oracle the fuzzer minimises and asserts on. [ordering_diff] runs
+   canonically, which folds away a reorder among utilities writing disjoint
+   properties, so a family emitted in the wrong band is invisible to it: the
+   fuzzer could not fail on the one bug class a sort fuzzer exists to find.
+   Reading the statement order out of the bytes is what sees that. *)
+let order_faults ~tailwind ~tw layer =
+  let gap = sheet_order_gap ~layer ~tailwind ~tw in
+  if gap.moves = 0 then []
+  else
+    let shown = List.filteri (fun i _ -> i < 20) gap.moved in
+    let line (key, tailwind_rank, tw_rank) =
+      Fmt.str "    %-50s Tailwind #%d, tw #%d" key tailwind_rank tw_rank
+    in
+    let hidden = List.length gap.moved - List.length shown in
+    let tail =
+      if hidden = 0 then [] else [ Fmt.str "    ... and %d more" hidden ]
+    in
+    [
+      String.concat "\n"
+        (Fmt.str "@layer %s: %d of %d statements are out of Tailwind's order"
+           layer gap.moves gap.pairs
+         :: List.map line shown
+        @ tail);
+    ]
+
+let ordering_faults ?forms utilities =
+  let tailwind, tw = sheets ?forms utilities in
+  let diff = canonical_diff (tailwind, tw) in
+  let dropped = dropped_declarations diff in
+  let unread =
+    if dropped = [] then []
+    else
+      [
+        Fmt.str
+          "the comparison could not read %d declaration(s) and dropped them, \
+           so it compared less than it appears to:\n\
+           %s"
+          (List.length dropped)
+          (String.concat "\n" (List.map Cascade.Error.to_string dropped));
+      ]
+  in
+  let differs =
+    match diff.Css_compare.result with
+    | Css_compare.No_diff -> []
+    | _ ->
+        let buf = Buffer.create 1024 in
+        Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
+        [ Buffer.contents buf ]
+  in
+  unread @ differs
+  @ List.concat_map (order_faults ~tailwind ~tw) [ "utilities"; "components" ]
+
+let check_sheet_order_fails ?forms utilities =
+  ordering_faults ?forms utilities <> []
+
+let check_sheet_order_matches ?forms ~test_name utilities =
+  match ordering_faults ?forms utilities with
+  | [] -> ()
+  | faults -> Alcotest.failf "%s\n%s" test_name (String.concat "\n" faults)
 
 (** CSS Test Helpers *)
 
