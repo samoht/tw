@@ -418,6 +418,30 @@ let test_transform_control_bands () =
       "table-fixed";
     ]
 
+(* Cursor opens the interaction block, followed by touch, resize, snap,
+   scrolling, scrollbar, list, appearance and columns property bands. *)
+let test_scrolling_property_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"scrolling controls keep their property bands"
+    [
+      "columns-2";
+      "appearance-none";
+      "list-disc";
+      "scrollbar-gutter-stable";
+      "scrollbar-thumb-red-500";
+      "scrollbar-auto";
+      "scroll-p-4";
+      "scroll-m-4";
+      "snap-always";
+      "snap-start";
+      "snap-mandatory";
+      "snap-x";
+      "resize";
+      "touch-auto";
+      "touch-pan-x";
+      "cursor-pointer";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2681,6 +2705,7 @@ let tests =
       test_indent_within_early_typography;
     test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "transform control bands" `Slow test_transform_control_bands;
+    test_case "scrolling property bands" `Slow test_scrolling_property_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
