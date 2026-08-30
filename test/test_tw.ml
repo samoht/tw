@@ -225,8 +225,11 @@ let upstream_positive_cases basename =
   | None -> Alcotest.failf "%s not found. Run extract_tests.exe first." basename
   | Some p ->
       Upstream_fixture.read p
-      |> List.filter (fun (c : Upstream_fixture.case) ->
-          c.expected <> "" && c.classes <> [])
+      |> List.filter_map (fun (c : Upstream_fixture.case) ->
+          match c.expected with
+          | Some expected when expected <> "" && c.classes <> [] ->
+              Some (c, expected)
+          | Some _ | None -> None)
 
 (* Build the per-test scheme from the @theme tokens in the expected CSS, so
    of_string validates custom tokens against the threaded theme. *)
@@ -300,11 +303,9 @@ let check_upstream_positive_fixture_parse filename () =
   let cases = upstream_positive_cases filename in
   let rejected =
     cases
-    |> List.concat_map (fun (c : Upstream_fixture.case) ->
-        let theme =
-          upstream_scheme c.config c.theme_vars c.variants c.expected
-        in
-        let selectors = emitted_selectors c.expected in
+    |> List.concat_map (fun ((c : Upstream_fixture.case), expected) ->
+        let theme = upstream_scheme c.config c.theme_vars c.variants expected in
+        let selectors = emitted_selectors expected in
         c.classes
         |> List.filter (class_is_emitted selectors)
         (* A class the case's own [@utility] declares is CSS the case brought

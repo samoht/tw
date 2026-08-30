@@ -470,7 +470,7 @@ let stat_rejected = ref 0
 let stat_routed = ref 0
 let stat_expected_empty_cases = ref 0
 
-let run_test_case test () =
+let run_test_case test expected () =
   if test.classes = [] then ()
   else
     let base_scheme = scheme_of_theme_vars test.theme_vars in
@@ -556,9 +556,9 @@ let run_test_case test () =
       let inline = tokens_in_mode "inline" in
       let reference = tokens_in_mode "reference" in
       Tw.Scheme.with_overrides ~inline ~reference scheme
-        (theme_overrides_of ~declared test.config test.expected @ theme_vars)
+        (theme_overrides_of ~declared test.config expected @ theme_vars)
     in
-    let resolve_theme = theme_resolution ~declared test.config test.expected in
+    let resolve_theme = theme_resolution ~declared test.config expected in
     (* A class the case's own [@utility] declares means nothing to
        [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
        a project entrypoint's does, through [Entrypoint]. The rest of the case
@@ -588,7 +588,7 @@ let run_test_case test () =
     stat_parsed := !stat_parsed + List.length utilities;
     stat_rejected := !stat_rejected + List.length rejected;
     stat_routed := !stat_routed + routed_count;
-    if test.expected = "" then incr stat_expected_empty_cases;
+    if expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] && routed_extra = [] && routed_stmts = [] then None
       else
@@ -612,7 +612,6 @@ let run_test_case test () =
           stylesheet |> resolve_theme |> Css.to_string ~minify:true
           |> String.trim
     in
-    let expected = test.expected in
     let expected_css = canonical_stylesheet_css expected in
     if our_css = "" && expected = "" then ()
     else
@@ -720,6 +719,11 @@ let test_color_tolerance () =
     "color-mix(in oklab, var(--x) 50%, transparent)"
     (color_mix_to_oklab "color-mix(in oklab, var(--x) 50%, transparent)")
 
+(* The reader's own grammar. Both fixtures are machine-written, so a line the
+   grammar has no place for means [extract_tests.ml] and [upstream_fixture.ml]
+   have drifted apart, or the fixture was edited by hand. The reader raises on
+   one instead of resuming its scan, which would drop the block the line sits in
+   and leave the case count as the only trace. *)
 let write_reader_regression_fixture name contents =
   let dir = "tmp" in
   if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
@@ -759,6 +763,89 @@ let test_reader_rejects_a_stray_line () =
       Alcotest.failf "read %d cases instead of rejecting the stray line"
         (List.length cases)
 
+let banner =
+  "#! 1 block extracted from variants.test.ts by extract_tests.exe -- do not \
+   edit\n"
+
+let read_result path =
+  match read path with
+  | cases -> Ok cases
+  | exception Malformed msg -> Error msg
+
+let check_rejected name contents =
+  let path =
+    write_reader_regression_fixture (name ^ ".txt") (banner ^ contents)
+  in
+  match read_result path with
+  | Error _ -> ()
+  | Ok cases ->
+      Alcotest.failf "%s: read %d cases instead of raising" name
+        (List.length cases)
+
+let test_reader_reads_a_block () =
+  let path =
+    write_reader_regression_fixture "reader_good.txt"
+      (banner
+     ^ "# a case\n@config run\nflex\n---\n.flex { display: flex }\n<<<>>>\n")
+  in
+  match read_result path with
+  | Error msg -> Alcotest.failf "a well-formed block was rejected: %s" msg
+  | Ok [ case ] ->
+      Alcotest.(check (list string)) "classes" [ "flex" ] case.classes;
+      Alcotest.(check (option string))
+        "expected CSS" (Some ".flex { display: flex }") case.expected
+  | Ok cases -> Alcotest.failf "one block read as %d cases" (List.length cases)
+
+(* Upstream tests that assert the compile throws are written without a [---]
+   section. They are a shape the extractor produces, so the reader keeps them
+   and says so rather than dropping them the way it drops nothing else. *)
+let test_reader_keeps_a_block_asserting_an_error () =
+  let path =
+    write_reader_regression_fixture "reader_throws.txt"
+      (banner ^ "# a case that throws\n@config run\nfoo bar\n<<<>>>\n")
+  in
+  match read_result path with
+  | Error msg -> Alcotest.failf "a block with no --- was rejected: %s" msg
+  | Ok [ case ] ->
+      Alcotest.(check (option string)) "no expected CSS" None case.expected
+  | Ok cases -> Alcotest.failf "one block read as %d cases" (List.length cases)
+
+let test_reader_rejects_a_stray_line_with_message () =
+  check_rejected "reader_stray"
+    "# a case\n@config run\nflex\nstray\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_an_unknown_config () =
+  check_rejected "reader_config"
+    "# a case\n@config bogus\nflex\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_a_headerless_block () =
+  check_rejected "reader_headerless"
+    "@config run\nflex\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_an_unclosed_block () =
+  check_rejected "reader_unclosed"
+    "# a case\n\
+     @config run\n\
+     flex\n\
+     ---\n\
+     .flex { display: flex }\n\
+     <<<>>>\n\
+     # added by hand\n\
+     @config run\n\
+     block\n\
+     ---\n\
+     .block { display: block }\n"
+
+let test_reader_rejects_a_directive_with_no_value () =
+  check_rejected "reader_directive"
+    "# a case\n\
+     @config run\n\
+     @theme-var spacing\n\
+     flex\n\
+     ---\n\
+     .flex { display: flex }\n\
+     <<<>>>\n"
+
 let print_parity_report () =
   Fmt.epr "@.=== upstream parity report ===@.";
   Fmt.epr "classes: %d total, %d parsed, %d routed, %d rejected@."
@@ -784,6 +871,10 @@ let print_parity_report () =
 let utilities_floor = 620
 let variants_floor = 150
 
+(* A block the extractor writes without a [---] section is an upstream test that
+   asserts the compile throws: it carries no CSS to replay. Those are the only
+   blocks that do not become a test, and the count is printed so every block of
+   the fixture is accounted for either way. *)
 let load basename floor =
   match path basename with
   | None ->
@@ -791,12 +882,26 @@ let load basename floor =
       exit 1
   | Some p ->
       let cases = read p in
-      let n = List.length cases in
+      (* [read] returns one case per block or raises, so a mismatch here is the
+         reader having grown a skip that says nothing. *)
+      let found = blocks p in
+      if List.length cases <> found then (
+        Fmt.epr "%s holds %d blocks but read as %d cases.@." p found
+          (List.length cases);
+        exit 1);
+      let replayable =
+        List.filter_map
+          (fun c -> Option.map (fun expected -> (c, expected)) c.expected)
+          cases
+      in
+      let n = List.length replayable in
+      Fmt.epr "%s: %d blocks, %d replayed, %d asserting a compile error@." p
+        found n (found - n);
       if n < floor then (
         Fmt.epr "%s yielded %d test cases, fewer than the floor of %d.@." p n
           floor;
         exit 1);
-      cases
+      replayable
 
 (* The floors count what a fixture holds, not where it came from: a block added
    to a generated fixture by hand raises the count and passes them, then
@@ -837,7 +942,10 @@ let () =
   at_exit print_parity_report;
 
   let alcotest_cases tests =
-    List.map (fun tc -> test_case tc.name `Quick (run_test_case tc)) tests
+    List.map
+      (fun (tc, expected) ->
+        test_case tc.name `Quick (run_test_case tc expected))
+      tests
   in
   let tolerance_cases =
     [
@@ -861,11 +969,29 @@ let () =
         test_reader_rejects_a_stray_line;
     ]
   in
+  let reader_cases =
+    [
+      test_case "a well-formed block reads" `Quick test_reader_reads_a_block;
+      test_case "a block with no --- keeps its place" `Quick
+        test_reader_keeps_a_block_asserting_an_error;
+      test_case "a stray line raises" `Quick
+        test_reader_rejects_a_stray_line_with_message;
+      test_case "an unknown @config raises" `Quick
+        test_reader_rejects_an_unknown_config;
+      test_case "a block with no header raises" `Quick
+        test_reader_rejects_a_headerless_block;
+      test_case "a block with no <<<>>> raises" `Quick
+        test_reader_rejects_an_unclosed_block;
+      test_case "a directive with no value raises" `Quick
+        test_reader_rejects_a_directive_with_no_value;
+    ]
+  in
   let suites =
     [
       ("utilities", alcotest_cases utility_tests);
       ("tolerance", tolerance_cases);
       ("reader regression", reader_regression_cases);
+      ("reader", reader_cases);
       ("variants", alcotest_cases variant_tests);
     ]
   in
