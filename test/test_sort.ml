@@ -1371,7 +1371,7 @@ let pool_entries () =
    Both directions can hold between one pair of handlers, since a family may
    straddle two of Tailwind's bands, so each is its own entry.
 
-   This is the ordering debt the whole-sheet gate counts - 561 of 3885
+   This is the ordering debt the whole-sheet gate counts - 421 of 3885
    statements in test/parity/sheet_order.ml - named rather than counted. Without
    it the fuzzer fails on nearly every seed for misorderings that predate it;
    with it a pair outside the list fails a draw.
@@ -1392,165 +1392,74 @@ let pool_entries () =
    What a listed pair does not catch is a further inversion between those same
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
-   than a count of statements, which tolerates any 561 of them. *)
+   than a count of statements, which tolerates any 421 of them. *)
 let known_inversions =
   [
     ("accessibility", "outline_style");
-    ("alignment", "divide");
-    ("alignment", "layout");
     ("alignment", "tab");
-    ("animations", "divide");
-    ("animations", "layout");
-    ("animations", "scroll");
-    ("animations", "scrollbar");
     ("animations", "tab");
     ("arbitrary", "tab");
-    ("backgrounds", "layout");
     ("backgrounds", "tab");
-    ("borders", "layout");
     ("borders", "tab");
     ("box_sizing", "field_sizing");
-    ("box_sizing", "scroll");
-    ("box_sizing", "scrollbar");
     ("box_sizing", "tab");
-    ("columns", "divide");
-    ("columns", "layout");
     ("columns", "tab");
     ("contain", "accessibility");
     ("contain", "interactivity");
     ("contain", "outline_style");
     ("contain", "transforms");
-    ("cursor", "divide");
-    ("cursor", "layout");
-    ("cursor", "scroll");
-    ("cursor", "scrollbar");
     ("cursor", "tab");
-    ("divide", "layout");
     ("divide", "tab");
     ("divide", "text_shadow");
     ("divide", "transforms");
     ("effects", "effects");
     ("filters", "accessibility");
     ("filters", "outline_style");
-    ("flex_layout", "divide");
-    ("flex_layout", "layout");
     ("flex_layout", "tab");
-    ("flex_props", "divide");
-    ("flex_props", "layout");
-    ("flex_props", "scroll");
-    ("flex_props", "scrollbar");
     ("flex_props", "tab");
     ("flex", "field_sizing");
-    ("flex", "scroll");
-    ("flex", "scrollbar");
     ("flex", "tab");
-    ("gap", "divide");
-    ("gap", "layout");
     ("gap", "tab");
-    ("grid_template", "divide");
-    ("grid_template", "layout");
     ("grid_template", "tab");
     ("grid", "field_sizing");
-    ("grid", "scroll");
-    ("grid", "scrollbar");
     ("grid", "tab");
     ("interactivity", "accessibility");
-    ("interactivity", "alignment");
-    ("interactivity", "arbitrary");
-    ("interactivity", "backgrounds");
     ("interactivity", "borders");
-    ("interactivity", "color");
-    ("interactivity", "columns");
-    ("interactivity", "divide");
     ("interactivity", "effects");
     ("interactivity", "filters");
-    ("interactivity", "flex_layout");
-    ("interactivity", "gap");
-    ("interactivity", "grid_template");
     ("interactivity", "interactivity");
-    ("interactivity", "layout");
-    ("interactivity", "mask_gradient");
-    ("interactivity", "masks");
     ("interactivity", "outline_style");
-    ("interactivity", "overflow_wrap");
-    ("interactivity", "overflow");
-    ("interactivity", "overscroll");
-    ("interactivity", "padding");
-    ("interactivity", "scroll");
-    ("interactivity", "scrollbar");
-    ("interactivity", "svg");
     ("interactivity", "tab");
-    ("interactivity", "typography_early");
-    ("interactivity", "typography_late");
     ("layout", "field_sizing");
-    ("layout", "layout");
-    ("layout", "scroll");
-    ("layout", "scrollbar");
     ("layout", "tab");
     ("margin", "field_sizing");
-    ("margin", "scroll");
-    ("margin", "scrollbar");
     ("margin", "tab");
-    ("mask_gradient", "layout");
     ("mask_gradient", "tab");
     ("masks", "arbitrary");
-    ("masks", "layout");
     ("masks", "tab");
     ("overflow_wrap", "tab");
-    ("overflow", "layout");
     ("overflow", "tab");
-    ("overscroll", "layout");
     ("overscroll", "tab");
     ("padding", "padding");
     ("padding", "tab");
     ("position", "position");
-    ("scroll", "scrollbar");
     ("scroll", "tab");
-    ("scrollbar", "scrollbar");
     ("scrollbar", "tab");
-    ("sizing", "divide");
-    ("sizing", "layout");
-    ("sizing", "scroll");
-    ("sizing", "scrollbar");
     ("sizing", "sizing");
     ("sizing", "tab");
     ("svg", "tab");
-    ("tables", "divide");
-    ("tables", "layout");
-    ("tables", "scroll");
-    ("tables", "scrollbar");
     ("tables", "tab");
     ("tables", "tables");
-    ("touch", "columns");
-    ("touch", "divide");
-    ("touch", "interactivity");
-    ("touch", "layout");
-    ("touch", "scroll");
-    ("touch", "scrollbar");
     ("touch", "tab");
-    ("touch", "touch");
-    ("touch", "typography_late");
-    ("transforms", "divide");
-    ("transforms", "layout");
-    ("transforms", "scroll");
-    ("transforms", "scrollbar");
     ("transforms", "tab");
     ("transitions", "accessibility");
     ("transitions", "interactivity");
     ("transitions", "outline_style");
     ("transitions", "transforms");
     ("typography_early", "tab");
-    ("typography_late", "divide");
     ("typography_late", "field_sizing");
-    ("typography_late", "layout");
-    ("typography_late", "scroll");
-    ("typography_late", "scrollbar");
     ("typography_late", "tab");
     ("typography_late", "typography_late");
-    ("zoom", "divide");
-    ("zoom", "layout");
-    ("zoom", "scroll");
-    ("zoom", "scrollbar");
     ("zoom", "tab");
   ]
 
