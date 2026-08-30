@@ -24,6 +24,10 @@ val check_tailwindcss_available : unit -> unit
 (** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
     @raise Failure if Tailwind CSS is not available or not v4. *)
 
+val tailwindcss_command : unit -> string
+(** [tailwindcss_command ()] is the shell command for the pinned Tailwind CLI.
+    @raise Failure if Tailwind CSS is unavailable or has the wrong version. *)
+
 val availability : unit -> (unit, string) result
 (** [availability ()] is [Ok ()] iff the required tailwindcss CLI is installed
     and could be identified. It is [Error reason] when the CLI is missing,
