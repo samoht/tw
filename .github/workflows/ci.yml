@@ -41,10 +41,10 @@ jobs:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
       # dune-project asks for cascade 1.2.0 and that release does not exist
-      # yet. Its development branch carries the version, so the pin is what
-      # the solver has to satisfy the bound with.
-      - name: Pin cascade to its development branch
-        run: opam pin add --no-action -y cascade.1.2.0 git+https://github.com/samoht/cascade.git#main
+      # yet. Pin the tested development revision: following main made an
+      # unchanged PR start compiling against breaking API changes.
+      - name: Pin the tested cascade revision
+        run: opam pin add --no-action -y cascade.1.2.0 git+https://github.com/samoht/cascade.git#e829b2d629fe210a23415a218f1814d2abc0c1ad
 
       - name: Install dependencies
         run: opam install . --deps-only --with-test -y
