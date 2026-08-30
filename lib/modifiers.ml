@@ -64,9 +64,8 @@ let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
 let compact_length = Style.compact_length
 
 (** Build class selector for an arbitrary length breakpoint *)
-let arbitrary_length_class prefix (l : Css.length) cls =
-  let len_str = compact_length l in
-  Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
+let arbitrary_length_class prefix (l : Style.arbitrary_length) cls =
+  Css.Selector.Class (prefix ^ "[" ^ l.text ^ "]:" ^ cls)
 
 (* Substitute the resolved value into a template's [{}] placeholder. *)
 let custom_variant_apply template value =
@@ -1054,7 +1053,10 @@ let extract_bracket_content_with_name ~prefix s =
 (* Parse a CSS length from a string like "600px", "40rem", "100vh". Arbitrary
    value syntax is decoded first, so [min-[calc(1000px+12em)]] becomes a
    spec-valid [calc(1000px + 12em)] the length reader accepts. *)
-let parse_css_length s : Css.length option = Parse.arbitrary_length s
+let parse_css_length s : Style.arbitrary_length option =
+  Option.map
+    (fun len : Style.arbitrary_length -> { len; text = s })
+    (Parse.arbitrary_length s)
 
 (* Parse a pixel value from a string like "600px" or "600", keeping the
    spelling: it is what the variant's own class is named after. *)

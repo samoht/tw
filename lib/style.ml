@@ -69,6 +69,11 @@ type container_query =
    exponent. *)
 type arbitrary_px = { px : float; text : string }
 
+(* Same for a breakpoint written as a CSS length: the length reader stops at the
+   first thing it cannot use, so re-printing it drops any remainder as well as
+   respelling the number. The class is named after [text]. *)
+type arbitrary_length = { len : Css.length; text : string }
+
 type modifier =
   | Hover
   | Focus
@@ -82,8 +87,8 @@ type modifier =
   | Max_responsive of breakpoint
   | Min_arbitrary of arbitrary_px
   | Max_arbitrary of arbitrary_px
-  | Min_arbitrary_length of Css.length
-  | Max_arbitrary_length of Css.length
+  | Min_arbitrary_length of arbitrary_length
+  | Max_arbitrary_length of arbitrary_length
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -498,8 +503,8 @@ let rec pp_modifier = function
   | Max_responsive `Xl_2 -> "max-2xl"
   | Min_arbitrary w -> String.concat "" [ "min-["; w.text; "]" ]
   | Max_arbitrary w -> String.concat "" [ "max-["; w.text; "]" ]
-  | Min_arbitrary_length l -> "min-[" ^ compact_length l ^ "]"
-  | Max_arbitrary_length l -> "max-[" ^ compact_length l ^ "]"
+  | Min_arbitrary_length l -> String.concat "" [ "min-["; l.text; "]" ]
+  | Max_arbitrary_length l -> String.concat "" [ "max-["; l.text; "]" ]
   | Container q -> "@" ^ container_size_name q
   | Group_hover -> "group-hover"
   | Group_focus -> "group-focus"

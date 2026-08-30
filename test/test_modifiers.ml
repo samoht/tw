@@ -358,6 +358,12 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[0.5cqw]:flex";
       "min-[0.5lh]:flex";
       "max-[0.5ex]:flex";
+      (* The length reader stops at the first thing it cannot use, so a value
+         with a remainder came back as the prefix alone: [min-[1px/*x]] named
+         [.min-\[1px\]]. *)
+      "min-[1px/*x]:flex";
+      "max-[1px/*x]:flex";
+      "min-[0.5rem]:flex";
     ]
 
 (* The bracket holds a length, so a word is not a breakpoint at all. *)
