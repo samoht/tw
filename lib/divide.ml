@@ -32,11 +32,10 @@ module Handler = struct
 
   let name = "divide"
 
-  (* [divide-x-reverse] is the one member of the family Tailwind sorts after
-     everything else, borders included, while [divide-y-reverse] stays with the
-     rest. It sets only [--tw-divide-x-reverse], so the position is
-     cascade-neutral and the canonical differ cannot see it. *)
-  let priority = function X_reverse -> 39 | _ -> 5
+  (* The divide properties follow gap and precede self-alignment at priority 17.
+     [divide-x-reverse] alone sorts after everything else: it sets only an
+     unranked custom property, so the move is cascade-neutral. *)
+  let priority = function X_reverse -> 39 | _ -> 17
 
   (* CSS Variables for divide reverse. Property order 4/5 places these BEFORE
      --tw-border-style (order 6) in within-utility sorting, which determines
@@ -348,28 +347,27 @@ module Handler = struct
 
   (* Tailwind's order across the family, read off its own output: divide-x,
      divide-x-2, divide-y, divide-y-4, divide-y-reverse, the styles, the
-     colours, and divide-x-reverse last. The widths lead; the styles used to,
-     which put divide-dashed ahead of divide-y-4. Bands of 100000 keep the
-     arbitrary values inside their own width band. *)
+     colours, and divide-x-reverse last. The 60k-66k range fits after gap and
+     before self-alignment in the shared priority-17 band. *)
   let suborder = function
     (* The bare divide-x / divide-y (DEFAULT, n=1) sorts before the numbered
        variants: divide-x, divide-x-0, divide-x-4, ... The "-1" offset keeps the
        default ahead of divide-x-0 (n=0). *)
-    | X 1 -> -1
-    | X n -> n
-    | X_arb _ -> 50000
-    | Y 1 -> 100000 - 1
-    | Y n -> 100000 + n
-    | Y_arb _ -> 100000 + 50000
-    | Y_reverse -> 200000
-    | Line_style _ -> 300000
+    | X 1 -> 59_999
+    | X n -> 60_000 + min n 1_997
+    | X_arb _ -> 61_998
+    | Y 1 -> 61_999
+    | Y n -> 62_000 + min n 1_997
+    | Y_arb _ -> 63_998
+    | Y_reverse -> 64_000
+    | Line_style _ -> 65_000
     (* All divide color utilities use flat suborder for natural sort *)
-    | Named_color _ | Named_color_opacity _ -> 400000
-    | Bracket_color _ | Bracket_color_opacity _ -> 400000
-    | Current | Current_opacity _ -> 400000
-    | Inherit -> 400000
-    | Transparent -> 400000
-    | X_reverse -> 500000
+    | Named_color _ | Named_color_opacity _ -> 66_000
+    | Bracket_color _ | Bracket_color_opacity _ -> 66_000
+    | Current | Current_opacity _ -> 66_000
+    | Inherit -> 66_000
+    | Transparent -> 66_000
+    | X_reverse -> 0
 
   (* The bracket spelling of an arbitrary width, for the typed constructors,
      which are handed a width rather than the text an author wrote. cascade

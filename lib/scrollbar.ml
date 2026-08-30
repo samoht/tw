@@ -35,41 +35,14 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "scrollbar"
-  let priority _ = 2
 
-  let alpha_order s =
-    let v = ref 0 in
-    for i = 0 to min 3 (String.length s - 1) do
-      v := (!v * 256) + Char.code s.[i]
-    done;
-    !v
+  (* Scrollbar properties follow scroll padding and precede list style. *)
+  let priority _ = 11
 
-  let color_suffix color shade =
-    if Color.is_shadeless color then Color.color_to_string color
-    else Color.color_to_string color ^ "-" ^ string_of_int shade
-
-  (* Bracket values sort first, then keywords/theme colours alphabetically (ties
-     broken by the framework on the full class name), matching Tailwind. *)
-  let spec_detail = function
-    | Bracket _ -> 0
-    | Theme (color, shade, _) -> alpha_order (color_suffix color shade)
-    | Current -> alpha_order "current"
-    | Inherit -> alpha_order "inherit"
-    | Transparent -> alpha_order "transparent"
-
-  let suborder t =
-    let group, detail =
-      match t with
-      | Width_auto -> (0, 0)
-      | Width_none -> (0, 1)
-      | Width_thin -> (0, 2)
-      | Gutter_auto -> (1, 0)
-      | Gutter_both -> (1, 1)
-      | Gutter_stable -> (1, 2)
-      | Thumb s -> (2, spec_detail s)
-      | Track s -> (3, spec_detail s)
-    in
-    (group lsl 32) + detail
+  let suborder = function
+    | Width_auto | Width_none | Width_thin -> 1_450_000
+    | Thumb _ | Track _ -> 1_460_000
+    | Gutter_auto | Gutter_both | Gutter_stable -> 1_470_000
 
   let spec_class = function
     | Theme (color, shade, op) ->

@@ -65,15 +65,16 @@ module Handler = struct
 
   let name = "interactivity"
 
-  (* Most interactivity utilities (user-select, will-change, scroll-snap, ...)
-     sort late (priority 31). resize (canonical rank 47) and appearance (rank
-     49) belong right after cursor (priority 11), around list-style (rank 48);
-     they return priority 11 with a suborder above cursor's range (<1000),
-     leaving a gap for list-style at ~2M. *)
+  (* Interaction controls from resize through appearance share priority 11 so
+     they can sit between cursor and columns. Scroll behavior follows overflow
+     and overscroll at priority 18; user-select and will-change sort late. *)
   let priority = function
     | Resize | Resize_none | Resize_x | Resize_y | Appearance_auto
-    | Appearance_none ->
+    | Appearance_none | Snap_start | Snap_end | Snap_center | Snap_none | Snap_x
+    | Snap_y | Snap_both | Snap_mandatory | Snap_proximity | Snap_align_none
+    | Snap_normal | Snap_always ->
         11
+    | Scroll_auto | Scroll_smooth -> 18
     (* Tailwind's utility order opens with the container utilities and then
        pointer-events, before the layout group. *)
     | Pointer_events_none | Pointer_events_auto -> -1
@@ -221,25 +222,18 @@ module Handler = struct
     | Scheme_only_light -> scheme_only_light_s
 
   let suborder = function
-    (* Alphabetical order: scroll before select *)
-    | Scroll_auto -> 0
-    | Scroll_smooth -> 1
+    | Scroll_auto -> 700
+    | Scroll_smooth -> 701
     | Select_all -> 2
     | Select_auto -> 3
     | Select_none -> 4
     | Select_text -> 5
-    | Snap_align_none -> 10
-    | Snap_always -> 11
-    | Snap_both -> 12
-    | Snap_center -> 13
-    | Snap_end -> 14
-    | Snap_mandatory -> 15
-    | Snap_none -> 16
-    | Snap_normal -> 17
-    | Snap_proximity -> 18
-    | Snap_start -> 19
-    | Snap_x -> 20
-    | Snap_y -> 21
+    (* Snap utilities are grouped by their property-order key. Candidate names
+       settle ties inside each property band. *)
+    | Snap_both | Snap_none | Snap_x | Snap_y -> 1_100_000
+    | Snap_mandatory | Snap_proximity -> 1_110_000
+    | Snap_align_none | Snap_center | Snap_end | Snap_start -> 1_120_000
+    | Snap_always | Snap_normal -> 1_130_000
     (* resize (priority 11) - after cursor (<1000), before list-style (~2M) *)
     | Resize -> 1_000_000 + 22
     | Resize_none -> 1_000_000 + 23

@@ -29,7 +29,9 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "touch"
-  let priority _ = 14
+
+  (* Touch-action follows cursor and opens the shared interaction band. *)
+  let priority _ = 11
 
   (* CSS Variables for composable touch-action values *)
   let tw_pan_x_var =
@@ -60,23 +62,20 @@ module Handler = struct
     let decl, _ = Var.binding var value in
     style ~property_rules:touch_props [ decl; composable_touch_action () ]
 
-  (* Class suffix, style and cascade suborder of one utility, alphabetical
-     except that the x-axis pans come before the y-axis ones. One match covers
-     all three, so a constructor added to [t] without an entry here is a compile
-     error. *)
-  let data : t -> string * Style.t * int = function
-    | Auto -> ("auto", style [ touch_action Css.Auto ], 0)
-    | Manipulation ->
-        ("manipulation", style [ touch_action Css.Manipulation ], 1)
-    | No_action -> ("none", style [ touch_action Css.None ], 2)
-    | Pan_left -> ("pan-left", composable_style tw_pan_x_var Css.Pan_left, 3)
-    | Pan_right -> ("pan-right", composable_style tw_pan_x_var Css.Pan_right, 4)
-    | Pan_x -> ("pan-x", composable_style tw_pan_x_var Css.Pan_x, 5)
-    | Pan_down -> ("pan-down", composable_style tw_pan_y_var Css.Pan_down, 6)
-    | Pan_up -> ("pan-up", composable_style tw_pan_y_var Css.Pan_up, 7)
-    | Pan_y -> ("pan-y", composable_style tw_pan_y_var Css.Pan_y, 8)
+  (* Class suffix and style of one utility. One match covers both, so a
+     constructor added to [t] without an entry here is a compile error. *)
+  let data : t -> string * Style.t = function
+    | Auto -> ("auto", style [ touch_action Css.Auto ])
+    | Manipulation -> ("manipulation", style [ touch_action Css.Manipulation ])
+    | No_action -> ("none", style [ touch_action Css.None ])
+    | Pan_left -> ("pan-left", composable_style tw_pan_x_var Css.Pan_left)
+    | Pan_right -> ("pan-right", composable_style tw_pan_x_var Css.Pan_right)
+    | Pan_x -> ("pan-x", composable_style tw_pan_x_var Css.Pan_x)
+    | Pan_down -> ("pan-down", composable_style tw_pan_y_var Css.Pan_down)
+    | Pan_up -> ("pan-up", composable_style tw_pan_y_var Css.Pan_up)
+    | Pan_y -> ("pan-y", composable_style tw_pan_y_var Css.Pan_y)
     | Pinch_zoom ->
-        ("pinch-zoom", composable_style tw_pinch_zoom_var Css.Pinch_zoom, 9)
+        ("pinch-zoom", composable_style tw_pinch_zoom_var Css.Pinch_zoom)
 
   (* Every value a class names, for the class-name lookup. *)
   let all =
@@ -94,16 +93,20 @@ module Handler = struct
     ]
 
   let to_class v =
-    let suffix, _, _ = data v in
+    let suffix, _ = data v in
     "touch-" ^ suffix
 
   let to_style _theme v =
-    let _, s, _ = data v in
+    let _, s = data v in
     s
 
-  let suborder v =
-    let _, _, o = data v in
-    o
+  let suborder = function
+    (* Composed values carry a second property-order key, so they precede the
+       direct touch-action values. Candidate names settle ties within a key. *)
+    | Pan_left | Pan_right | Pan_x -> 500_000
+    | Pan_down | Pan_up | Pan_y -> 500_001
+    | Pinch_zoom -> 500_002
+    | Auto | Manipulation | No_action -> 500_003
 
   let of_class_map = List.map (fun v -> (to_class v, v)) all
 

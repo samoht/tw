@@ -38,7 +38,10 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "scroll"
-  let priority _ = 2
+
+  (* Scroll margin and padding follow the snap controls in the shared
+     interaction band and precede scrollbar/list/appearance. *)
+  let priority _ = 11
 
   (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
   *)
@@ -117,7 +120,8 @@ module Handler = struct
         style [ scroll_prop kind axis len ]
 
   let suborder { kind; negative; axis; value } =
-    let kind_offset = match kind with Margin -> 0 | Padding -> 10000000 in
+    let interaction_offset = 1_200_000 in
+    let kind_offset = match kind with Margin -> 0 | Padding -> 110_000 in
     (* Side decides first and the sign is a tie-break inside the side, which is
        the order Tailwind emits: the negative of a side sits with that side, not
        ahead of every positive. The logical sides come before the physical
@@ -125,27 +129,27 @@ module Handler = struct
     let axis_offset =
       match axis with
       | All -> 0
-      | X -> 100000
-      | Y -> 200000
-      | S -> 300000
-      | E -> 400000
-      | Bs -> 500000
-      | Be -> 600000
-      | T -> 700000
-      | R -> 800000
-      | B -> 900000
-      | L -> 1000000
+      | X -> 10_000
+      | Y -> 20_000
+      | S -> 30_000
+      | E -> 40_000
+      | Bs -> 50_000
+      | Be -> 60_000
+      | T -> 70_000
+      | R -> 80_000
+      | B -> 90_000
+      | L -> 100_000
     in
-    let neg_offset = if negative then 0 else 50000 in
+    let neg_offset = if negative then 0 else 5_000 in
     (* Half the axis band each, so a value can never carry a rule across the
        sign boundary: the arbitrary spellings sit at the top of their half. *)
     let value_order =
       match value with
-      | Spacing n -> int_of_float (n *. 10.)
-      | Arbitrary _ -> 49000
-      | Arbitrary_var _ -> 49001
+      | Spacing n -> min 4_997 (int_of_float (n *. 10.))
+      | Arbitrary _ -> 4_998
+      | Arbitrary_var _ -> 4_999
     in
-    kind_offset + neg_offset + axis_offset + value_order
+    interaction_offset + kind_offset + neg_offset + axis_offset + value_order
 
   let axis_suffix = function
     | All -> ""
