@@ -159,22 +159,53 @@ let describe_candidate cmd present =
     | Some v -> cmd ^ ": v" ^ v
     | None -> cmd ^ ": unknown version"
 
+let rec dir_containing name dir =
+  if Sys.file_exists (Filename.concat dir name) then Some dir
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_containing name parent
+
+(* Worktrees can safely share an installed node_modules tree: the packages are
+   read-only while tests run. Do not put npx between the harness and the pinned
+   binary, because concurrent npx processes coordinate through npm's shared
+   cache and can starve one another for minutes. *)
+let project_tailwindcss_command () =
+  let relative = "node_modules/.bin/tailwindcss" in
+  match dir_containing relative (Sys.getcwd ()) with
+  | None -> None
+  | Some root ->
+      let path = Filename.concat root relative in
+      let executable =
+        try
+          Unix.access path [ Unix.X_OK ];
+          true
+        with Unix.Unix_error _ -> false
+      in
+      if executable then Some (Filename.quote path) else None
+
 let tailwindcss_command () =
   let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
+  let project = project_tailwindcss_command () in
   let native = have "tailwindcss" in
   let npx = have "npx" in
-  if native && command_is_required "tailwindcss" then "tailwindcss"
-  else if npx && command_is_required "npx tailwindcss" then "npx tailwindcss"
-  else
-    failwith
-      ("tailwindcss v"
-      ^ version_string required_version
-      ^ " is required ("
-      ^ describe_candidate "tailwindcss" native
-      ^ ", "
-      ^ describe_candidate "npx tailwindcss" npx
-      ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
-      ^ version_string required_version)
+  match project with
+  | Some cmd when command_is_required cmd -> cmd
+  | _ when native && command_is_required "tailwindcss" -> "tailwindcss"
+  | _ when npx && command_is_required "npx tailwindcss" -> "npx tailwindcss"
+  | _ ->
+      failwith
+        ("tailwindcss v"
+        ^ version_string required_version
+        ^ " is required ("
+        ^ describe_candidate
+            (Option.value ~default:"node_modules/.bin/tailwindcss" project)
+            (Option.is_some project)
+        ^ ", "
+        ^ describe_candidate "tailwindcss" native
+        ^ ", "
+        ^ describe_candidate "npx tailwindcss" npx
+        ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
+        ^ version_string required_version)
 
 let check_tailwindcss_available () =
   match !availability_result with
