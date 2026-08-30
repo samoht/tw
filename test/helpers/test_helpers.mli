@@ -102,6 +102,38 @@ val check_class_order : ?forms:bool -> test_name:string -> string list -> unit
     positions back is what catches a reorder. Skips when the CLI is unavailable.
 *)
 
+val layer_statement_keys : string -> layer:string -> string list
+(** [layer_statement_keys sheet ~layer] is the sequence of top-level statements
+    inside [sheet]'s [@layer layer] block, in the order the bytes carry, each
+    keyed by its selector or its at-rule prelude. A selector list is expanded
+    onto its branches, since a list is one statement but several rules as far as
+    order goes. [sheet] is read as text, not parsed, so both a tw sheet and a
+    Tailwind one go through the same reader; a sheet with no such layer gives
+    the empty list. *)
+
+type order_gap = {
+  pairs : int;  (** keys occurring exactly once on each side *)
+  moves : int;  (** the fewest of those that have to move *)
+  moved : (string * int * int) list;
+      (** each moved key with its rank among [pairs] on Tailwind's side and on
+          tw's *)
+}
+(** What separates two sheets' statement order, in one number. *)
+
+val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
+(** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
+    in [@layer layer] is from Tailwind's. Only keys occurring exactly once on
+    both sides are paired, so no pairing choice of the gate's own can move the
+    number; over those, [moves] is the count outside a longest increasing
+    subsequence, which is the fewest statements that have to move for the orders
+    to agree.
+
+    {!check_class_order} asks the same question of a handful of named classes
+    and {!check_ordering_matches} cannot ask it at all, the canonical differ
+    being blind to a cascade-neutral reorder by design. This is the whole-sheet
+    form: it sees a family placed in the wrong band even when no two utilities
+    it reorders share a property. *)
+
 val render_elements : string list -> string list
 (** [render_elements classnames] is the element list {!check_rendering_matches}
     renders: each class on its own, then one element per {!interacting_pairs}

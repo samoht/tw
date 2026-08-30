@@ -539,6 +539,212 @@ let check_class_order ?forms ~test_name classes =
     test_name expected
     (order "tw" (our_css utilities))
 
+(* Whole-sheet statement order. [class_position] answers where one named class
+   sits, and [check_class_order] asks that of a handful at a time; the pair
+   below asks it of every statement in a layer at once. Both read the minified
+   text rather than a parsed AST, because the order a browser resolves is the
+   order the bytes carry, and both sheets are read the same way, so a difference
+   is tw's and not the reader's. *)
+
+(* One pass over CSS text has to honour strings and escapes, or a [}] inside
+   [content: "}"] closes the wrong block. [skip_quoted s hi i q] is the index
+   after the string that [q] opened at [i]. *)
+let rec skip_quoted s hi i q =
+  if i >= hi then i
+  else if s.[i] = '\\' then skip_quoted s hi (i + 2) q
+  else if s.[i] = q then i + 1
+  else skip_quoted s hi (i + 1) q
+
+(* Whitespace runs collapse to one space, so a prelude reads the same however
+   the printer broke it. *)
+let normalize_prelude s =
+  let buf = Buffer.create (String.length s) in
+  let space = ref false in
+  String.iter
+    (fun c ->
+      match c with
+      | ' ' | '\t' | '\r' | '\n' -> space := true
+      | c ->
+          if !space && Buffer.length buf > 0 then Buffer.add_char buf ' ';
+          space := false;
+          Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
+
+(* The statements of [sheet] between [lo] and [hi] as (prelude, body) pairs,
+   where a body is the span inside the braces and [None] marks a [;]-terminated
+   statement such as [@layer a, b;]. Bodies are not descended into: what is
+   measured is one layer's top-level sequence. *)
+let statements_between sheet lo hi =
+  let rec skip_ws i =
+    if i < hi then
+      match sheet.[i] with
+      | ' ' | '\t' | '\r' | '\n' -> skip_ws (i + 1)
+      | _ -> i
+    else i
+  in
+  let rec prelude_end i =
+    if i >= hi then `Eof i
+    else
+      match sheet.[i] with
+      | '\\' -> prelude_end (i + 2)
+      | ('"' | '\'') as q -> prelude_end (skip_quoted sheet hi (i + 1) q)
+      | '{' -> `Block i
+      | ';' -> `Semi i
+      | _ -> prelude_end (i + 1)
+  in
+  let rec block_end i depth =
+    if i >= hi then i
+    else
+      match sheet.[i] with
+      | '\\' -> block_end (i + 2) depth
+      | ('"' | '\'') as q -> block_end (skip_quoted sheet hi (i + 1) q) depth
+      | '{' -> block_end (i + 1) (depth + 1)
+      | '}' -> if depth = 1 then i + 1 else block_end (i + 1) (depth - 1)
+      | _ -> block_end (i + 1) depth
+  in
+  let rec loop i acc =
+    let i = skip_ws i in
+    if i >= hi then List.rev acc
+    else
+      match prelude_end i with
+      | `Eof j ->
+          let last = String.sub sheet i (j - i) in
+          List.rev (if String.trim last = "" then acc else (last, None) :: acc)
+      | `Semi j -> loop (j + 1) ((String.sub sheet i (j - i), None) :: acc)
+      | `Block j ->
+          let e = block_end (j + 1) 1 in
+          loop e ((String.sub sheet i (j - i), Some (j + 1, e - 1)) :: acc)
+  in
+  loop lo []
+
+(* A selector list is one statement but several rules as far as order goes, so
+   each branch is keyed on its own. The split takes a [,] outside any string,
+   escape, [(...)] or [[...]]: [:is(a, b)] and [[title="a,b"]] carry their
+   own. *)
+let selector_branches sel =
+  let hi = String.length sel in
+  let out = ref [] and start = ref 0 and depth = ref 0 and i = ref 0 in
+  let emit stop =
+    let s = String.trim (String.sub sel !start (stop - !start)) in
+    if s <> "" then out := s :: !out
+  in
+  while !i < hi do
+    (match sel.[!i] with
+    | '\\' -> incr i
+    | ('"' | '\'') as q -> i := skip_quoted sel hi (!i + 1) q - 1
+    | '(' | '[' -> incr depth
+    | ')' | ']' -> decr depth
+    | ',' when !depth = 0 ->
+        emit !i;
+        start := !i + 1
+    | _ -> ());
+    incr i
+  done;
+  emit hi;
+  List.rev !out
+
+let layer_statement_keys sheet ~layer =
+  let wanted = "@layer " ^ layer in
+  let body =
+    List.find_map
+      (fun (prelude, body) ->
+        match body with
+        | Some span when normalize_prelude prelude = wanted -> Some span
+        | _ -> None)
+      (statements_between sheet 0 (String.length sheet))
+  in
+  match body with
+  | None -> []
+  | Some (lo, hi) ->
+      List.concat_map
+        (fun (prelude, _) ->
+          let p = normalize_prelude prelude in
+          if p = "" then []
+          else if p.[0] = '@' then [ p ]
+          else selector_branches p)
+        (statements_between sheet lo hi)
+
+(* Patience sorting. [tails.(l)] holds the index of the smallest value that can
+   end an increasing run of length [l + 1], so a binary search places each
+   element and the predecessor links rebuild one longest run. Everything outside
+   that run has to move, and nothing smaller does. *)
+let longest_increasing_subsequence seq =
+  let n = Array.length seq in
+  if n = 0 then [||]
+  else begin
+    let tails = Array.make n 0 and prev = Array.make n (-1) and len = ref 0 in
+    for i = 0 to n - 1 do
+      let lo = ref 0 and hi = ref !len in
+      while !lo < !hi do
+        let mid = (!lo + !hi) / 2 in
+        if seq.(tails.(mid)) < seq.(i) then lo := mid + 1 else hi := mid
+      done;
+      let l = !lo in
+      prev.(i) <- (if l > 0 then tails.(l - 1) else -1);
+      tails.(l) <- i;
+      if l = !len then incr len
+    done;
+    let out = Array.make !len 0 and k = ref tails.(!len - 1) in
+    for j = !len - 1 downto 0 do
+      out.(j) <- !k;
+      k := prev.(!k)
+    done;
+    out
+  end
+
+type order_gap = { pairs : int; moves : int; moved : (string * int * int) list }
+
+let sheet_order_gap ~layer ~tailwind ~tw =
+  let ours = layer_statement_keys tw ~layer in
+  let theirs = layer_statement_keys tailwind ~layer in
+  let occurrences keys =
+    let tbl = Hashtbl.create 4096 in
+    List.iter
+      (fun k ->
+        let n = Option.value ~default:0 (Hashtbl.find_opt tbl k) in
+        Hashtbl.replace tbl k (n + 1))
+      keys;
+    tbl
+  in
+  let ours_count = occurrences ours and theirs_count = occurrences theirs in
+  let ours_at = Hashtbl.create 4096 in
+  List.iteri
+    (fun i k -> if not (Hashtbl.mem ours_at k) then Hashtbl.add ours_at k i)
+    ours;
+  (* Only a key occurring exactly once on each side pairs without a choice, so
+     no pairing decision of the gate's can inflate or deflate what follows. *)
+  let common =
+    List.filter
+      (fun k ->
+        Hashtbl.find_opt ours_count k = Some 1
+        && Hashtbl.find_opt theirs_count k = Some 1)
+      theirs
+    |> Array.of_list
+  in
+  let seq = Array.map (fun k -> Hashtbl.find ours_at k) common in
+  let keep = longest_increasing_subsequence seq in
+  let kept = Hashtbl.create (Array.length keep) in
+  Array.iter (fun i -> Hashtbl.replace kept i ()) keep;
+  (* Rank inside the paired set on each side: a byte offset means nothing to a
+     reader, and a full-sheet index counts statements the pairing dropped. *)
+  let rank = Hashtbl.create (Array.length common) in
+  Array.to_list common
+  |> List.mapi (fun i k -> (seq.(i), k))
+  |> List.sort compare
+  |> List.iteri (fun r (_, k) -> Hashtbl.replace rank k r);
+  let moved = ref [] in
+  Array.iteri
+    (fun i k ->
+      if not (Hashtbl.mem kept i) then
+        moved := (k, i, Hashtbl.find rank k) :: !moved)
+    common;
+  {
+    pairs = Array.length common;
+    moves = Array.length common - Array.length keep;
+    moved = List.rev !moved;
+  }
+
 (** CSS Test Helpers *)
 
 (** Check if a layer exists in the stylesheet *)
