@@ -551,6 +551,30 @@ let test_logical_side_property_bands () =
       "inset-0";
     ]
 
+let test_shadow_and_transform_boundaries () =
+  Test_helpers.check_class_order
+    ~test_name:"shadow and transform boundaries keep their property bands"
+    [
+      "transform-3d";
+      "text-shadow-sm";
+      "perspective-normal";
+      "divide-x-reverse";
+      "backface-hidden";
+      "select-none";
+      "outline-hidden";
+      "ring-inset";
+      "ring-offset-red-500";
+      "ring-offset-2";
+      "inset-ring-red-500";
+      "inset-shadow-red-500";
+      "ring-red-500";
+      "shadow-red-500";
+      "inset-ring-2";
+      "inset-shadow-sm";
+      "ring-2";
+      "shadow-sm";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2670,6 +2694,8 @@ let tests =
       test_late_control_property_bands;
     test_case "logical side property bands" `Slow
       test_logical_side_property_bands;
+    test_case "shadow and transform boundaries" `Slow
+      test_shadow_and_transform_boundaries;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
