@@ -18,12 +18,21 @@
 
     A generated fixture opens with a [#!] provenance banner naming the number of
     blocks the extractor wrote; {!blocks} and {!declared_blocks} read the two
-    counts so a caller can hold one against the other.
+    counts so a caller can hold one against the other. {!read} returns exactly
+    one case per block or raises {!Malformed}: it never skips a block it cannot
+    read.
 
     Both the fixture replay in [test/upstream/test.ml] and the parse-parity gate
     in [test/test_tw.ml] read the same corpus, so they read it here: two readers
     drifting apart is two different corpora behind one set of fixtures. See
     [extract_tests.ml] for how the fixtures are generated. *)
+
+exception Malformed of string
+(** Raised by {!read} on a line the fixture grammar has no place for, and by
+    {!config_of_string} on an unknown [@config] name. Both fixtures are
+    machine-written, so such a line means [extract_tests.ml] and this reader
+    have drifted apart, or the fixture was edited by hand. The message names the
+    file, the line and what was expected there. *)
 
 type config =
   | Theme  (** [@theme { ... }] *)
@@ -34,16 +43,19 @@ type config =
   | Run  (** the [run()] helper rather than [compileCss()] *)
 
 val config_of_string : string -> config
-(** [config_of_string s] reads an [@config] line's argument. An unknown name
-    reads as {!constructor-No_theme}, the shape a fixture without a theme has.
-*)
+(** [config_of_string s] reads an [@config] line's argument.
+
+    @raise Malformed on a name the extractor cannot have written. *)
 
 type case = {
   source : string;  (** Fixture the case was read from. *)
   name : string;
   config : config;
   classes : string list;
-  expected : string;
+  expected : string option;
+      (** The [---] section, or [None] for a block the extractor wrote without
+          one: an upstream test that asserts the compile throws has no CSS to
+          replay. *)
   variants : string list;  (** [matchVariant] directive lines for this test. *)
   theme_vars : (string * string) list;
       (** [@theme] token overrides (name, value) captured from the test's CSS
@@ -69,8 +81,13 @@ val split_classes : string -> string list
     such as [data-[foo_=_bar]:flex] whole. *)
 
 val read : string -> case list
-(** [read path] reads every block of the fixture at [path]. A file that does not
-    exist reads as no cases, which the caller's floor turns into a failure. *)
+(** [read path] reads every block of the fixture at [path], one case per block,
+    so [List.length (read path)] is {!blocks}. A file that does not exist reads
+    as no cases, which the caller's floor turns into a failure.
+
+    @raise Malformed
+      on any line the grammar above has no place for, rather than skipping the
+      block it sits in. *)
 
 val blocks : string -> int
 (** [blocks path] is the number of blocks in the fixture at [path], counted on
