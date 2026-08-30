@@ -188,13 +188,8 @@ module Handler = struct
     | Caption_bottom -> style [ Css.caption_side Bottom ]
 
   let suborder = function
-    (* Alphabetical among display utilities (shared priority 4). table=13,
-       table-auto=14, table-caption=15, ..., table-fixed=19,
-       table-footer-group=20, ... *)
-    | Caption_bottom -> 1
-    | Caption_top -> 2
-    | Table_auto -> 14
-    | Table_fixed -> 19
+    | Table_auto | Table_fixed -> 0
+    | Caption_bottom | Caption_top -> 1
     | Border_collapse -> 30
     | Border_separate -> 31
     | Border_spacing n -> 32 + int_of_float (n *. 10.)
