@@ -33,7 +33,7 @@ module Tailwind_gen = Tw_tools.Tailwind_gen
    that as a pass. *)
 let pinned =
   [
-    ("utilities", `Moves 581, `Pairs 3800); ("components", `Moves 0, `Pairs 45);
+    ("utilities", `Moves 575, `Pairs 3800); ("components", `Moves 0, `Pairs 45);
   ]
 
 (* Skipping is right on a machine with no Tailwind CLI and wrong in CI, where it
