@@ -174,7 +174,16 @@ let order_of_family_bands () =
   expect "blur-xs" (8, 0);
   expect "perspective-dramatic" (8, 10);
   expect "aspect-video" (8, 20);
-  expect "default-transition-duration" (8, 30)
+  expect "default-transition-duration" (8, 30);
+  expect "default-transition-timing-function" (8, 31);
+  expect "transition-property-opacity" (8, 32);
+  expect "transition-property-colors" (8, 33);
+  expect "default-font-family" (8, 39);
+  expect "default-font-feature-settings" (8, 40);
+  expect "default-font-variation-settings" (8, 41);
+  expect "default-mono-font-family" (8, 42);
+  expect "default-mono-font-feature-settings" (8, 43);
+  expect "default-mono-font-variation-settings" (8, 44)
 
 (* A project [@theme] may name font families of its own; they all sit at (1,
    100). Rendering one must not decide the answer for the others. *)
