@@ -538,8 +538,8 @@ module Handler = struct
     let right = 9_000_000 in
     let bottom = 10_000_000 in
     let left = 11_000_000 in
-    let start = 12_000_000 in
-    let e = 13_000_000 in
+    let start = inset_s in
+    let e = inset_e in
     function
     | Pos_spacing (side, sp) ->
         let base =
