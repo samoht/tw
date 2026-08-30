@@ -1401,7 +1401,7 @@ let pool_entries () =
    Both directions can hold between one pair of handlers, since a family may
    straddle two of Tailwind's bands, so each is its own entry.
 
-   This is the ordering debt the whole-sheet gate counts - 413 of 3885
+   This is the ordering debt the whole-sheet gate counts - 411 of 3885
    statements in test/parity/sheet_order.ml - named rather than counted. Without
    it the fuzzer fails on nearly every seed for misorderings that predate it;
    with it a pair outside the list fails a draw.
@@ -1422,11 +1422,10 @@ let pool_entries () =
    What a listed pair does not catch is a further inversion between those same
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
-   than a count of statements, which tolerates any 413 of them. *)
+   than a count of statements, which tolerates any 411 of them. *)
 let known_inversions =
   [
     ("accessibility", "outline_style");
-    ("box_sizing", "field_sizing");
     ("contain", "accessibility");
     ("contain", "interactivity");
     ("contain", "outline_style");
@@ -1436,16 +1435,12 @@ let known_inversions =
     ("effects", "effects");
     ("filters", "accessibility");
     ("filters", "outline_style");
-    ("flex", "field_sizing");
-    ("grid", "field_sizing");
     ("interactivity", "accessibility");
     ("interactivity", "borders");
     ("interactivity", "effects");
     ("interactivity", "filters");
     ("interactivity", "interactivity");
     ("interactivity", "outline_style");
-    ("layout", "field_sizing");
-    ("margin", "field_sizing");
     ("masks", "arbitrary");
     ("padding", "padding");
     ("position", "position");
@@ -1455,7 +1450,6 @@ let known_inversions =
     ("transitions", "interactivity");
     ("transitions", "outline_style");
     ("transitions", "transforms");
-    ("typography_late", "field_sizing");
     ("typography_late", "typography_late");
   ]
 

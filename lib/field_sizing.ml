@@ -10,7 +10,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "field_sizing"
-  let priority _ = 2
+  let priority _ = 5
   let suborder = function Content -> 0 | Fixed -> 1
 
   let to_class = function
