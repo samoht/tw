@@ -521,6 +521,36 @@ let test_late_control_property_bands () =
       "scheme-dark";
     ]
 
+let test_logical_side_property_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"logical sides keep their property bands"
+    [
+      "pl-3";
+      "pb-6";
+      "pr-5";
+      "pt-1";
+      "pbe-2";
+      "pbs-2";
+      "pe-2";
+      "ps-2";
+      "py-4";
+      "px-4";
+      "p-4";
+      "border-spacing-2";
+      "border-collapse";
+      "caption-bottom";
+      "table-fixed";
+      "left-1/2";
+      "bottom-0";
+      "right-0";
+      "top-0";
+      "end-0";
+      "start-0";
+      "inset-y-0";
+      "inset-x-0";
+      "inset-0";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2641,6 +2671,8 @@ let tests =
     test_case "field sizing property band" `Slow test_field_sizing_property_band;
     test_case "late control property bands" `Slow
       test_late_control_property_bands;
+    test_case "logical side property bands" `Slow
+      test_logical_side_property_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
