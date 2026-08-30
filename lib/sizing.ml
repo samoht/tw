@@ -83,14 +83,15 @@ module Handler = struct
   (* A spacing value is stored as rem (class number * 0.25). A fraction n/m has
      numerator [n], whose class number is [n], so [spacing_suborder (n *. 0.25)]
      puts it on the spacing scale. [+ 4] steps to the next class boundary
-     (spacing_suborder for an integer class k is 4k); [- 50 + m] pulls it just
-     before that boundary, after every floor-n spacing value, by denominator. *)
+     (spacing_suborder for an integer class k is 4k); [- 1] pulls every n/m into
+     the last slot before that boundary, after every floor-n spacing value. The
+     natural candidate tiebreak then orders the unbounded denominators. *)
   let fraction_value_order f =
     match String.split_on_char '/' f with
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
-        | Some n, Some m ->
-            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 50 + m
+        | Some n, Some _ ->
+            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 1
         | _ -> 490000)
     | _ -> 490000
 
@@ -130,13 +131,15 @@ module Handler = struct
     match String.split_on_char '/' frac with
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
-        (* Any denominator: Tailwind reads [w-<number>/<number>] as a
-           percentage, not from a fixed scale. *)
-        | Some n, Some m when m > 0 && n > 0 && n < m ->
+        (* Any nonnegative numerator over a positive denominator: Tailwind reads
+           [w-<number>/<number>] as a percentage, not from a fixed scale. *)
+        | Some n, Some m when m > 0 && n >= 0 ->
             let pct = float_of_int n /. float_of_int m *. 100. in
-            let digits = 6. -. Float.ceil (Float.log10 pct) in
-            let factor = 10. ** digits in
-            Some (Float.round (pct *. factor) /. factor)
+            if n = 0 then Some 0.
+            else
+              let digits = 6. -. Float.ceil (Float.log10 pct) in
+              let factor = 10. ** digits in
+              Some (Float.round (pct *. factor) /. factor)
         | _ -> None)
     | _ -> None
 
