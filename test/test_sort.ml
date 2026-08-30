@@ -849,9 +849,6 @@ let pool_families () =
           "order-2";
           "order-first";
         ] );
-    (* The plugin's own utilities. A draw holding one is compared with the
-       plugin loaded, which is what [~forms] switches on. *)
-    ("forms", c [ "form-input"; "form-select"; "form-checkbox" ]);
     ("gap", c [ "gap-4"; "gap-x-2"; "gap-y-8" ]);
     ("grid", c [ "grid"; "inline-grid" ]);
     ( "grid_item",
@@ -946,7 +943,6 @@ let pool_families () =
           "start-0";
           "inset-0";
         ] );
-    ("prose", c [ "prose"; "prose-lg"; "prose-invert"; "prose-slate" ]);
     ("scroll", c [ "scroll-m-4"; "scroll-px-2"; "scroll-mt-8"; "scroll-pb-6" ]);
     ( "scrollbar",
       c
@@ -1035,12 +1031,25 @@ let pool_families () =
     ("zoom", c [ "zoom-50"; "zoom-100" ]);
   ]
 
-(* [Responsive] nests a media query, and two of those on one class is a spelling
-   Tailwind refuses, so a stack takes at most one. [Element] ends the compound
-   selector with a pseudo-element, which nothing may follow: Tailwind writes
-   [marker:last:x] as [::marker:last-child] and its own minifier then drops what
-   it cannot parse, so only the innermost of a stack may be one. *)
-type variant_kind = Plain | Responsive | Element
+(* What a variant may sit next to in a stack.
+
+   [Responsive] nests a media query, and two of those on one class is a spelling
+   Tailwind refuses, so a stack takes at most one and it goes outermost.
+
+   [Innermost] may not wrap another variant. [starting] is here because
+   [starting:hover:x] loses the [@media (hover:hover)] the inner variant asked
+   for, a bug of its own rather than an ordering question. [in-[...]] is out of
+   the list altogether: composed with anything - an inner variant, or a utility
+   carrying its own pseudo-element - it wraps the ancestor selector in [:is()]
+   where Tailwind appends to that selector's last compound, which is the same
+   CSS spelled differently and reads as a difference every time.
+
+   [Element] is [Innermost] and ends the compound with a pseudo-element, which
+   nothing may follow: Tailwind writes [marker:last:x] as [::marker:last-child],
+   which no reader accepts, and its own minifier then empties what it cannot
+   parse. It also needs a utility whose rules stop at the element; see
+   {!reaches_past_the_element}. *)
+type variant_kind = Plain | Responsive | Innermost | Element
 
 (* modifiers exports 210 constructors and no utility of its own, so a seed
    reaches the family only by dressing one: this list is what puts a [hover:]
@@ -1126,10 +1135,9 @@ let pool_variants =
     ("group-has-[.x]", Plain);
     ("peer-has-[.x]", Plain);
     ("not-[:hover]", Plain);
-    ("in-[.x]", Plain);
     ("ltr", Plain);
     ("rtl", Plain);
-    ("starting", Plain);
+    ("starting", Innermost);
     ("sm", Responsive);
     ("md", Responsive);
     ("lg", Responsive);
@@ -1168,21 +1176,64 @@ let prefix name u =
       if Result.is_error (Tw.of_string bare) then u
       else Alcotest.failf "%S does not read back: %s" dressed m
 
+(* How much of a variant a utility can wear. Every restriction here is a bug or
+   a gap of its own rather than an ordering question, which is what this fuzzer
+   is for, and each is named with why. *)
+type dressing =
+  | Any
+  | No_pseudo_element
+      (** Its rules reach past the element they are named for - a descendant, a
+          child, or a pseudo-element of its own - so a pseudo-element variant
+          cannot dress it. [before:divide-x] would have to mean
+          [::before > :not(:last-child)] and tw writes [::before] alone,
+          dropping the child part; [details-content:placeholder-gray-400] puts
+          two pseudo-elements in one compound, which no reader accepts. *)
+  | Bare
+      (** It emits a companion block - an [@supports] beside the rule, or a
+          nested [@media] - and a variant puts each in a [@media] of its own.
+          Tailwind merges consecutive blocks and cascade does not (CLAUDE.md
+          section 8), so the split reads as a missing declaration rather than as
+          the merge gap it is. *)
+
+let dressing_of cls =
+  let has prefixes =
+    List.exists (fun p -> Astring.String.is_prefix ~affix:p cls) prefixes
+  in
+  if has [ "bg-linear-to-"; "container"; "@container" ] then Bare
+  else if has [ "divide-"; "space-"; "placeholder-"; "group"; "peer" ] then
+    No_pseudo_element
+  else Any
+
 (* How much of a draw wears a variant. All of it would compare one media block
    against another and never a plain rule against one, and none of it is where
    the pool was. *)
-let dress rng u =
-  match Random.State.int rng 6 with
-  | 0 | 1 | 2 -> u
-  | 3 | 4 ->
-      let name, _ = pick_variant rng [ Plain; Responsive; Element ] in
-      prefix name u
-  | _ ->
-      (* Stacked: the pseudo-element innermost, since it ends the selector, and
-         the media query outermost, which is how [md:hover:] is written. *)
-      let inner, _ = pick_variant rng [ Plain; Element ] in
-      let outer, _ = pick_variant rng [ Plain; Responsive ] in
-      prefix outer (prefix inner u)
+let dress rng ~dressing u =
+  let alone =
+    match dressing with
+    | Any -> [ Plain; Responsive; Innermost; Element ]
+    | No_pseudo_element -> [ Plain; Responsive; Innermost ]
+    | Bare -> []
+  in
+  let innermost =
+    match dressing with
+    | Any -> [ Plain; Element ]
+    | No_pseudo_element -> [ Plain ]
+    | Bare -> []
+  in
+  if alone = [] then ("", u)
+  else
+    match Random.State.int rng 6 with
+    | 0 | 1 | 2 -> ("", u)
+    | 3 | 4 ->
+        let name, _ = pick_variant rng alone in
+        (name, prefix name u)
+    | _ ->
+        (* Stacked: the pseudo-element innermost, since it ends the selector,
+           and the media query outermost, which is how [md:hover:] is
+           written. *)
+        let inner, _ = pick_variant rng innermost in
+        let outer, _ = pick_variant rng [ Plain; Responsive ] in
+        (outer ^ ":" ^ inner, prefix outer (prefix inner u))
 
 (* Without replacement. Drawing 30 from 252 with replacement left about 28
    distinct, and each duplicate cost a comparison and covered nothing. *)
@@ -1200,43 +1251,417 @@ let draw rng n entries =
 let sample_size = 30
 let samples = 6
 
-let test_random_utilities_with_minimization () =
-  let entries =
-    List.concat_map
-      (fun (family, us) -> List.map (fun u -> (family, u)) us)
-      (pool_families ())
+(* An entry the fuzzer draws. [handler] is the registered handler that claims
+   the undressed class, which is the key {!known_inversions} is written in;
+   dressing the utility in a variant does not change it. *)
+type entry = {
+  utility : Tw.t;
+  handler : string;
+  forms : bool;
+  dressing : dressing;
+  variant : string;  (** the prefixes it was dressed in, [""] undressed *)
+}
+
+(* Which handler a class resolves to. Finer than the lib/ module a family is
+   keyed by: typography answers early or late, borders answers outline_style for
+   its outline utilities. *)
+let handler_of cls =
+  match Tw.Utility.base_of_class Tw.Scheme.default cls with
+  | Ok base -> Some (Tw.Utility.name_of_base base)
+  | Error (`Msg _) -> None
+
+let pool_entries () =
+  List.concat_map
+    (fun (family, us) ->
+      List.map
+        (fun u ->
+          {
+            utility = u;
+            handler =
+              (match handler_of (Tw.pp u) with Some h -> h | None -> family);
+            forms = String.equal family "forms";
+            dressing = dressing_of (Tw.pp u);
+            variant = "";
+          })
+        us)
+    (pool_families ())
+
+(* Handler pairs tw orders the other way round from Tailwind. [(a, b)] reads:
+   Tailwind emits some a-utility before some b-utility, and tw emits it after.
+   Both directions can hold between one pair of handlers, since a family may
+   straddle two of Tailwind's bands, so each is its own entry.
+
+   This is the ordering debt the whole-sheet gate counts - 561 of 3885
+   statements in test/parity/sheet_order.ml - named rather than counted. Without
+   it the fuzzer fails on nearly every seed for misorderings that predate it;
+   with it a pair outside the list fails a draw.
+   [test_known_inversions_are_exact] measures the set over the whole pool and
+   fails when it grows and when one of these is fixed, so the list can only
+   shrink, and closing a bug is what forces an entry out of it. Both oracles
+   consult it: the byte positions {!Test_helpers.inverted_pairs} reads, and the
+   canonical differ, which reports a reorder of its own whenever the two rules
+   are cascade-significant.
+
+   A pair rather than a family: 18 families explain all 188 entries, and naming
+   the families instead would tolerate every disagreement either of them has,
+   including one against a family that is itself correctly placed. A pair is
+   also a property of the two classes and nothing else - both sheets order their
+   utilities by a key of their own - so it is measurable once and means the same
+   in every draw.
+
+   What a listed pair does not catch is a further inversion between those same
+   two handlers. The handler is as fine as the key gets, and a family spanning
+   two of Tailwind's bands answers one name for both. That is still far finer
+   than a count of statements, which tolerates any 561 of them. *)
+let known_inversions =
+  [
+    ("accessibility", "outline_style");
+    ("accessibility", "transforms");
+    ("alignment", "divide");
+    ("alignment", "layout");
+    ("alignment", "tab");
+    ("alignment", "transforms");
+    ("animations", "divide");
+    ("animations", "layout");
+    ("animations", "scroll");
+    ("animations", "scrollbar");
+    ("animations", "tab");
+    ("animations", "transforms");
+    ("arbitrary", "tab");
+    ("arbitrary", "transforms");
+    ("backgrounds", "layout");
+    ("backgrounds", "tab");
+    ("backgrounds", "transforms");
+    ("borders", "layout");
+    ("borders", "tab");
+    ("borders", "transforms");
+    ("box_sizing", "field_sizing");
+    ("box_sizing", "scroll");
+    ("box_sizing", "scrollbar");
+    ("box_sizing", "tab");
+    ("color", "transforms");
+    ("columns", "divide");
+    ("columns", "layout");
+    ("columns", "tab");
+    ("columns", "transforms");
+    ("contain", "accessibility");
+    ("contain", "interactivity");
+    ("contain", "outline_style");
+    ("contain", "transforms");
+    ("cursor", "divide");
+    ("cursor", "layout");
+    ("cursor", "scroll");
+    ("cursor", "scrollbar");
+    ("cursor", "tab");
+    ("cursor", "transforms");
+    ("divide", "layout");
+    ("divide", "tab");
+    ("divide", "text_shadow");
+    ("divide", "transforms");
+    ("effects", "effects");
+    ("effects", "transforms");
+    ("filters", "accessibility");
+    ("filters", "outline_style");
+    ("filters", "transforms");
+    ("flex_layout", "divide");
+    ("flex_layout", "layout");
+    ("flex_layout", "tab");
+    ("flex_layout", "transforms");
+    ("flex_props", "divide");
+    ("flex_props", "layout");
+    ("flex_props", "scroll");
+    ("flex_props", "scrollbar");
+    ("flex_props", "tab");
+    ("flex", "field_sizing");
+    ("flex", "scroll");
+    ("flex", "scrollbar");
+    ("flex", "tab");
+    ("gap", "divide");
+    ("gap", "layout");
+    ("gap", "tab");
+    ("gap", "transforms");
+    ("grid_template", "divide");
+    ("grid_template", "layout");
+    ("grid_template", "tab");
+    ("grid_template", "transforms");
+    ("grid", "field_sizing");
+    ("grid", "scroll");
+    ("grid", "scrollbar");
+    ("grid", "tab");
+    ("interactivity", "accessibility");
+    ("interactivity", "alignment");
+    ("interactivity", "arbitrary");
+    ("interactivity", "backgrounds");
+    ("interactivity", "borders");
+    ("interactivity", "color");
+    ("interactivity", "columns");
+    ("interactivity", "divide");
+    ("interactivity", "effects");
+    ("interactivity", "filters");
+    ("interactivity", "flex_layout");
+    ("interactivity", "gap");
+    ("interactivity", "grid_template");
+    ("interactivity", "interactivity");
+    ("interactivity", "layout");
+    ("interactivity", "mask_gradient");
+    ("interactivity", "masks");
+    ("interactivity", "outline_style");
+    ("interactivity", "overflow_wrap");
+    ("interactivity", "overflow");
+    ("interactivity", "overscroll");
+    ("interactivity", "padding");
+    ("interactivity", "scroll");
+    ("interactivity", "scrollbar");
+    ("interactivity", "svg");
+    ("interactivity", "tab");
+    ("interactivity", "transforms");
+    ("interactivity", "typography_early");
+    ("interactivity", "typography_late");
+    ("layout", "field_sizing");
+    ("layout", "layout");
+    ("layout", "scroll");
+    ("layout", "scrollbar");
+    ("layout", "tab");
+    ("layout", "transforms");
+    ("margin", "field_sizing");
+    ("margin", "scroll");
+    ("margin", "scrollbar");
+    ("margin", "tab");
+    ("mask_gradient", "layout");
+    ("mask_gradient", "tab");
+    ("mask_gradient", "transforms");
+    ("masks", "arbitrary");
+    ("masks", "layout");
+    ("masks", "tab");
+    ("masks", "transforms");
+    ("outline_style", "transforms");
+    ("overflow_wrap", "tab");
+    ("overflow_wrap", "transforms");
+    ("overflow", "layout");
+    ("overflow", "tab");
+    ("overflow", "transforms");
+    ("overscroll", "layout");
+    ("overscroll", "tab");
+    ("overscroll", "transforms");
+    ("padding", "padding");
+    ("padding", "tab");
+    ("padding", "transforms");
+    ("position", "position");
+    ("scroll", "scrollbar");
+    ("scroll", "tab");
+    ("scrollbar", "scrollbar");
+    ("scrollbar", "tab");
+    ("sizing", "divide");
+    ("sizing", "layout");
+    ("sizing", "scroll");
+    ("sizing", "scrollbar");
+    ("sizing", "sizing");
+    ("sizing", "tab");
+    ("svg", "tab");
+    ("svg", "transforms");
+    ("tables", "divide");
+    ("tables", "layout");
+    ("tables", "scroll");
+    ("tables", "scrollbar");
+    ("tables", "tab");
+    ("tables", "tables");
+    ("text_shadow", "transforms");
+    ("touch", "columns");
+    ("touch", "divide");
+    ("touch", "interactivity");
+    ("touch", "layout");
+    ("touch", "scroll");
+    ("touch", "scrollbar");
+    ("touch", "tab");
+    ("touch", "touch");
+    ("touch", "transforms");
+    ("touch", "typography_late");
+    ("transforms", "divide");
+    ("transforms", "layout");
+    ("transforms", "scroll");
+    ("transforms", "scrollbar");
+    ("transforms", "tab");
+    ("transforms", "transforms");
+    ("transitions", "accessibility");
+    ("transitions", "interactivity");
+    ("transitions", "outline_style");
+    ("transitions", "transforms");
+    ("typography_early", "tab");
+    ("typography_early", "transforms");
+    ("typography_late", "divide");
+    ("typography_late", "field_sizing");
+    ("typography_late", "layout");
+    ("typography_late", "scroll");
+    ("typography_late", "scrollbar");
+    ("typography_late", "tab");
+    ("typography_late", "transforms");
+    ("typography_late", "typography_early");
+    ("typography_late", "typography_late");
+    ("zoom", "divide");
+    ("zoom", "layout");
+    ("zoom", "scroll");
+    ("zoom", "scrollbar");
+    ("zoom", "tab");
+    ("zoom", "transforms");
+  ]
+
+(* Which handler each class in a case belongs to, and which variant it wears.
+   The variant matters because two classes wearing different ones are not
+   comparable here: a variant changes the sort key by design, and where Tailwind
+   puts [hover:a] relative to [md:b] is its variant order rather than the
+   utility order this measures. The differ still reads that pair. *)
+let case_index cases =
+  let tbl = Hashtbl.create (List.length cases) in
+  List.iter
+    (fun e ->
+      let cls = Tw.pp e.utility in
+      if not (Hashtbl.mem tbl cls) then
+        Hashtbl.add tbl cls (e.handler, e.variant))
+    cases;
+  tbl
+
+(* Is every change in the differ's tree a reorder of whole rules? The differ
+   answers what kind of difference there is; which pairs disagree is
+   {!Test_helpers.inverted_pairs}'s question, and it is the one that can be
+   recorded. Splitting them that way is deliberate: the differ picks which of
+   several rotated rules to call moved from the context it is given, so a pair
+   it names in a three-class draw is not the pair it names over the pool, while
+   two byte positions read the same wherever they are read.
+
+   A [Reordered] node with no [swapped_with] is a reorder inside one rule rather
+   than of the rules, and is not this. *)
+let rec only_reorders (d : Cascade_diff.Tree_diff.t) =
+  d.layer_order = None
+  && List.for_all rule_is_reorder d.rules
+  && List.for_all container_is_reorder d.containers
+
+and rule_is_reorder (r : Cascade_diff.Tree_diff.rule_diff) =
+  match r with
+  | Cascade_diff.Tree_diff.Reordered { swapped_with = Some _; _ } -> true
+  | _ -> false
+
+and container_is_reorder (c : Cascade_diff.Tree_diff.container_diff) =
+  match c with
+  | Cascade_diff.Tree_diff.Modified { rule_changes; container_changes; _ } ->
+      List.for_all rule_is_reorder rule_changes
+      && List.for_all container_is_reorder container_changes
+  | _ -> false
+
+(* One reading of a case, for both minimisation and the assertion: two
+   predicates that disagree let a fuzzer print a failing case and pass anyway.
+   The canonical differ answers what the two sheets declare differently, and the
+   pairwise order answers what they emit in a different order, which the differ
+   folds away whenever the two utilities write disjoint properties. Both consult
+   [known_inversions]. *)
+let case_faults cases =
+  let utilities = List.map (fun e -> e.utility) cases in
+  let forms = List.exists (fun e -> e.forms) cases in
+  let tailwind, tw = Test_helpers.sheets ~forms utilities in
+  let index = case_index cases in
+  let entry cls = Hashtbl.find_opt index cls in
+  let diff = Test_helpers.sheet_diff ~tailwind ~tw in
+  let dropped = Test_helpers.dropped_declarations diff in
+  let unread =
+    if dropped = [] then [] else [ Test_helpers.describe_dropped dropped ]
   in
+  let unrecorded =
+    Test_helpers.inverted_pairs ~tailwind ~tw (List.map Tw.pp utilities)
+    |> List.filter_map (fun (a, b) ->
+        match (entry a, entry b) with
+        | Some (ha, va), Some (hb, vb)
+          when String.equal va vb && not (List.mem (ha, hb) known_inversions) ->
+            Some
+              (Fmt.str
+                 "%s comes before %s in Tailwind and after it in tw. Fix the \
+                  order, or record (%S, %S) in [known_inversions] if it is \
+                  debt this branch does not close."
+                 a b ha hb)
+        | _ -> None)
+  in
+  let structural =
+    match diff.Cascade_diff.Css_compare.result with
+    | Cascade_diff.Css_compare.No_diff -> []
+    (* Only order differs, and every pair that disagrees is recorded. *)
+    | Cascade_diff.Css_compare.Tree_diff d
+      when only_reorders d && unrecorded = [] ->
+        []
+    | _ -> [ Test_helpers.describe_diff diff ]
+  in
+  unread @ structural @ unrecorded
+
+let test_random_utilities_with_minimization () =
+  let entries = pool_entries () in
   let rng = Test_helpers.test_rng in
-  (* The forms plugin is loaded on both sides only when the case holds one of
-     its utilities, and minimisation can take the last one out, so each element
-     carries whether it is one rather than the draw deciding once. *)
-  let utilities cases = List.map snd cases in
-  let forms cases = List.exists fst cases in
   let sample i =
     let initial =
       List.map
-        (fun (family, u) -> (String.equal family "forms", dress rng u))
+        (fun e ->
+          let variant, utility = dress rng ~dressing:e.dressing e.utility in
+          { e with utility; variant })
         (draw rng sample_size entries)
     in
     Fmt.epr "Sample %d/%d: %d utilities@." i samples (List.length initial);
-    let fails cases =
-      Test_helpers.check_sheet_order_fails ~forms:(forms cases)
-        (utilities cases)
-    in
-    match Test_helpers.minimize_failing_case fails initial with
+    match
+      Test_helpers.minimize_failing_case
+        (fun cases -> case_faults cases <> [])
+        initial
+    with
     | None -> ()
-    | Some final ->
+    | Some final -> (
         Fmt.epr "@.Minimal failing case (%d utilities): %a@."
           (List.length final)
           Fmt.(list ~sep:(const string " ") string)
-          (List.map Tw.pp (utilities final));
-        Test_helpers.check_sheet_order_matches ~forms:(forms final)
-          ~test_name:"random utilities ordering matches Tailwind"
-          (utilities final)
+          (List.map (fun e -> Tw.pp e.utility) final);
+        match case_faults final with
+        | [] -> ()
+        | faults ->
+            Alcotest.failf "random utilities ordering matches Tailwind\n%s"
+              (String.concat "\n" faults))
   in
   for i = 1 to samples do
     sample i
   done
+
+(* The set {!known_inversions} records, measured over the whole pool at once.
+   Measured rather than collected from failing seeds: every pair the fuzzer can
+   draw is in this one comparison, so the list describes the debt instead of
+   whichever part of it a seed happened to hit. *)
+let measured_inversions () =
+  let entries = pool_entries () in
+  let utilities = List.map (fun e -> e.utility) entries in
+  let tailwind, tw = Test_helpers.sheets ~forms:true utilities in
+  let index = case_index entries in
+  let handler cls =
+    match Hashtbl.find_opt index cls with Some (h, _) -> h | None -> cls
+  in
+  let from_positions =
+    Test_helpers.inverted_pairs ~tailwind ~tw (List.map Tw.pp utilities)
+    |> List.map (fun (a, b) -> (handler a, handler b))
+  in
+  List.sort_uniq compare from_positions
+
+let test_known_inversions_are_exact () =
+  let measured = measured_inversions () in
+  let recorded = List.sort_uniq compare known_inversions in
+  let show pairs =
+    String.concat "\n"
+      (List.map (fun (a, b) -> Fmt.str "    (%S, %S);" a b) pairs)
+  in
+  let unrecorded = List.filter (fun p -> not (List.mem p recorded)) measured in
+  if unrecorded <> [] then
+    Alcotest.failf
+      "%d handler pair(s) are out of Tailwind's order and not recorded:\n\
+       %s\n\
+       Fix the order, or add them to [known_inversions] in test/test_sort.ml."
+      (List.length unrecorded) (show unrecorded);
+  let closed = List.filter (fun p -> not (List.mem p measured)) recorded in
+  if closed <> [] then
+    Alcotest.failf
+      "%d recorded pair(s) are in Tailwind's order now:\n\
+       %s\n\
+       Delete them from [known_inversions] in test/test_sort.ml. The list is a \
+       ratchet: it only shrinks."
+      (List.length closed) (show closed)
 
 (* Every module tw.ml includes exports utilities, and one with no pool entry is
    a family no seed can reach. Reading the include list back is what makes a new
@@ -1275,6 +1700,18 @@ let unfuzzable =
     ( "modifiers",
       "exports variants rather than utilities; [pool_variants] carries it, and \
        [test_variants_all_compile] checks that list" );
+    ( "forms",
+      "drawn beside [ring-offset-*] it emits a property rule for \
+       [--tw-ring-offset-shadow] and a properties layer Tailwind does not, \
+       neither utility doing so on its own: the plugin's own writes register \
+       as setting the variable where Tailwind's do not. A bug about which \
+       variables need a property rule, not about order" );
+    ( "prose",
+      "emits a block of about ninety descendant rules, and where another \
+       utility falls inside that block is not a question about a pair of \
+       classes: the two sheets order prose's own rules differently, so pairing \
+       them by position says nothing and only the differ sees it. Covered by \
+       test_prose.ml" );
     ( "clipping",
       "[clip_polygon] names its class [clip-[polygon(...)]], which Tailwind \
        does not read and emits nothing for, and which tw's own reader rejects \
@@ -1312,11 +1749,6 @@ let test_pool_covers_every_family () =
    that. Each registered handler offers a few of its own utilities as
    {!Tw.Utility.examples_classes}, so the expected set comes out of the registry
    rather than out of a second hand-written list. *)
-let handler_of cls =
-  match Tw.Utility.base_of_class Tw.Scheme.default cls with
-  | Ok base -> Some (Tw.Utility.name_of_base base)
-  | Error (`Msg _) -> None
-
 let test_pool_covers_every_handler () =
   let names classes = List.filter_map handler_of classes in
   let covered =
@@ -2301,6 +2733,7 @@ let tests =
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "pool covers every family" `Quick test_pool_covers_every_family;
+    test_case "known inversions are exact" `Slow test_known_inversions_are_exact;
     test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
     test_case "pool variants all compile" `Quick test_variants_all_compile;
     test_case "random utilities with minimization" `Slow

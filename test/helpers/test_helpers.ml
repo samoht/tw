@@ -717,17 +717,17 @@ let selector_branches sel =
   emit hi;
   List.rev !out
 
-let layer_statement_keys sheet ~layer =
+let layer_body sheet ~layer =
   let wanted = "@layer " ^ layer in
-  let body =
-    List.find_map
-      (fun (prelude, body) ->
-        match body with
-        | Some span when normalize_prelude prelude = wanted -> Some span
-        | _ -> None)
-      (statements_between sheet 0 (String.length sheet))
-  in
-  match body with
+  List.find_map
+    (fun (prelude, body) ->
+      match body with
+      | Some span when normalize_prelude prelude = wanted -> Some span
+      | _ -> None)
+    (statements_between sheet 0 (String.length sheet))
+
+let layer_statement_keys sheet ~layer =
+  match layer_body sheet ~layer with
   | None -> []
   | Some (lo, hi) ->
       List.concat_map
@@ -818,65 +818,113 @@ let sheet_order_gap ~layer ~tailwind ~tw =
     moved = List.rev !moved;
   }
 
+(* Where one class's rule sits: the layer, the at-rule it is nested in - empty
+   at the layer's own top level - and its rank there. Two rules under different
+   at-rules are not comparable, and neither are two in different layers: the
+   position of a [@media] block says where the block sits, not where a utility
+   inside it sorts, and tw emits one block per rule where Tailwind merges. *)
+type slot = { container : string; rank : int * int }
+
+(* Does [selector] name class [cls]? The same match [class_position] makes. *)
+let names_class selector cls = class_position selector cls <> None
+
+let class_slots sheet ~layer classes =
+  match layer_body sheet ~layer with
+  | None -> []
+  | Some (lo, hi) ->
+      let found container rank selector =
+        List.filter_map
+          (fun cls ->
+            if names_class selector cls then Some (cls, { container; rank })
+            else None)
+          classes
+      in
+      statements_between sheet lo hi
+      |> List.mapi (fun i (prelude, body) ->
+          let p = normalize_prelude prelude in
+          if p = "" then []
+          else if p.[0] <> '@' then found "" (i, 0) p
+          else
+            match body with
+            | None -> []
+            (* One level down is enough: Tailwind nests a rule inside a media or
+               supports block and no deeper. *)
+            | Some (blo, bhi) ->
+                statements_between sheet blo bhi
+                |> List.mapi (fun j (inner, _) ->
+                    let sel = normalize_prelude inner in
+                    if sel = "" || sel.[0] = '@' then [] else found p (i, j) sel)
+                |> List.concat)
+      |> List.concat
+
 (* The order oracle the fuzzer minimises and asserts on. [ordering_diff] runs
    canonically, which folds away a reorder among utilities writing disjoint
    properties, so a family emitted in the wrong band is invisible to it: the
    fuzzer could not fail on the one bug class a sort fuzzer exists to find.
-   Reading the statement order out of the bytes is what sees that. *)
-let order_faults ~tailwind ~tw layer =
-  let gap = sheet_order_gap ~layer ~tailwind ~tw in
-  if gap.moves = 0 then []
-  else
-    let shown = List.filteri (fun i _ -> i < 20) gap.moved in
-    let line (key, tailwind_rank, tw_rank) =
-      Fmt.str "    %-50s Tailwind #%d, tw #%d" key tailwind_rank tw_rank
-    in
-    let hidden = List.length gap.moved - List.length shown in
-    let tail =
-      if hidden = 0 then [] else [ Fmt.str "    ... and %d more" hidden ]
-    in
-    [
-      String.concat "\n"
-        (Fmt.str "@layer %s: %d of %d statements are out of Tailwind's order"
-           layer gap.moves gap.pairs
-         :: List.map line shown
-        @ tail);
-    ]
+   Reading the order off the bytes is what sees it.
 
-let ordering_faults ?forms utilities =
-  let tailwind, tw = sheets ?forms utilities in
-  let diff = canonical_diff (tailwind, tw) in
-  let dropped = dropped_declarations diff in
-  let unread =
-    if dropped = [] then []
-    else
-      [
-        Fmt.str
-          "the comparison could not read %d declaration(s) and dropped them, \
-           so it compared less than it appears to:\n\
-           %s"
-          (List.length dropped)
-          (String.concat "\n" (List.map Cascade.Error.to_string dropped));
-      ]
+   A pair rather than a count, because a pair is a property of the two classes
+   and nothing else: both sheets order their utilities by a key of their own, so
+   two classes that disagree here disagree in every sheet holding both, whatever
+   else is drawn. That is what a recorded set of known disagreements can be
+   written against; the count {!sheet_order_gap} reports moves with the draw. *)
+let inverted_pairs ~tailwind ~tw classes =
+  let first_slot sheet layer =
+    let tbl = Hashtbl.create 64 in
+    List.iter
+      (fun (cls, slot) ->
+        if not (Hashtbl.mem tbl cls) then Hashtbl.add tbl cls slot)
+      (class_slots sheet ~layer classes);
+    tbl
   in
-  let differs =
-    match diff.Css_compare.result with
-    | Css_compare.No_diff -> []
-    | _ ->
-        let buf = Buffer.create 1024 in
-        Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
-        [ Buffer.contents buf ]
+  let per_layer layer =
+    let theirs = first_slot tailwind layer and ours = first_slot tw layer in
+    let placed =
+      List.filter (fun c -> Hashtbl.mem theirs c && Hashtbl.mem ours c) classes
+    in
+    let rec pairs acc = function
+      | [] | [ _ ] -> acc
+      | a :: rest ->
+          let acc =
+            List.fold_left
+              (fun acc b ->
+                let ta = Hashtbl.find theirs a and tb = Hashtbl.find theirs b in
+                let oa = Hashtbl.find ours a and ob = Hashtbl.find ours b in
+                (* Only a pair sitting under the same at-rule on both sides is
+                   one whose order the two sheets actually disagree about. *)
+                if
+                  String.equal ta.container tb.container
+                  && String.equal oa.container ob.container
+                  && String.equal ta.container oa.container
+                then
+                  let theirs_first = compare ta.rank tb.rank < 0 in
+                  let ours_first = compare oa.rank ob.rank < 0 in
+                  if theirs_first = ours_first then acc
+                  else if theirs_first then (a, b) :: acc
+                  else (b, a) :: acc
+                else acc)
+              acc rest
+          in
+          pairs acc rest
+    in
+    pairs [] placed
   in
-  unread @ differs
-  @ List.concat_map (order_faults ~tailwind ~tw) [ "utilities"; "components" ]
+  List.concat_map per_layer [ "utilities"; "components" ]
 
-let check_sheet_order_fails ?forms utilities =
-  ordering_faults ?forms utilities <> []
+let sheet_diff ~tailwind ~tw = canonical_diff (tailwind, tw)
 
-let check_sheet_order_matches ?forms ~test_name utilities =
-  match ordering_faults ?forms utilities with
-  | [] -> ()
-  | faults -> Alcotest.failf "%s\n%s" test_name (String.concat "\n" faults)
+let describe_diff diff =
+  let buf = Buffer.create 1024 in
+  Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
+  Buffer.contents buf
+
+let describe_dropped dropped =
+  Fmt.str
+    "the comparison could not read %d declaration(s) and dropped them, so it \
+     compared less than it appears to:\n\
+     %s"
+    (List.length dropped)
+    (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
 (** CSS Test Helpers *)
 

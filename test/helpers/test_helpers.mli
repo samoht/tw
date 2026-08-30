@@ -176,30 +176,42 @@ val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
     form: it sees a family placed in the wrong band even when no two utilities
     it reorders share a property. *)
 
-val ordering_faults : ?forms:bool -> Tw.t list -> string list
-(** [ordering_faults ?forms utilities] is everything separating tw's sheet for
-    [utilities] from the pinned Tailwind CLI's: a declaration either reader
-    dropped, what the canonical differ reports, and every statement the two put
-    in a different place in [@layer utilities] or [@layer components], read off
-    the bytes by {!sheet_order_gap}. Empty when the two agree.
+val sheets : ?forms:bool -> Tw.t list -> string * string
+(** [sheets ?forms utilities] is the pinned Tailwind CLI's sheet for [utilities]
+    and tw's, both minified. Generating the pair once is what lets {!sheet_diff}
+    and {!inverted_pairs} read the same two sheets. *)
 
-    The differ alone cannot see a reorder among utilities writing disjoint
-    properties, canonical mode folding one away by design, so a fuzzer
-    minimising on {!check_ordering_fails} can never fail on a family emitted in
-    the wrong band - the one bug class a sort fuzzer exists to find. The byte
-    positions are what see it. *)
+val sheet_diff : tailwind:string -> tw:string -> Cascade_diff.Css_compare.t
+(** [sheet_diff ~tailwind ~tw] compares the two sheets canonically, with dead
+    custom properties pruned, the way {!ordering_diff} does. Returning the
+    comparison rather than a verdict is what lets a caller read its structure:
+    the differ reports a reorder as a {!Cascade_diff.Tree_diff.Reordered} node
+    whenever the two rules are cascade-significant, which a caller carrying a
+    set of known misorderings has to be able to recognise. *)
 
-val check_sheet_order_fails : ?forms:bool -> Tw.t list -> bool
-(** [check_sheet_order_fails ?forms utilities] is [true] when {!ordering_faults}
-    reports anything. The fuzzer's minimisation predicate. *)
+val describe_diff : Cascade_diff.Css_compare.t -> string
+(** [describe_diff diff] is [diff] rendered for a failure message. *)
 
-val check_sheet_order_matches :
-  ?forms:bool -> test_name:string -> Tw.t list -> unit
-(** [check_sheet_order_matches ?forms ~test_name utilities] fails with whatever
-    {!ordering_faults} reports. The same function drives it and
-    {!check_sheet_order_fails}, so a minimal case the fuzzer prints is one this
-    assertion also rejects; two predicates that disagree let a fuzzer report a
-    failing case and pass anyway. *)
+val describe_dropped : Error.t list -> string
+(** [describe_dropped dropped] says that the comparison read less than it
+    appears to, and which declarations it could not read. *)
+
+val inverted_pairs :
+  tailwind:string -> tw:string -> string list -> (string * string) list
+(** [inverted_pairs ~tailwind ~tw classes] is every pair of [classes] the two
+    sheets put in opposite orders, each written [(a, b)] with [a] the one
+    Tailwind emits first. Only a pair whose two rules sit under the same at-rule
+    in the same layer on both sides is compared: the position of a [@media]
+    block says where the block sits rather than where a utility inside it sorts,
+    and tw emits one block per rule where Tailwind merges. A class naming
+    several rules is taken at the first.
+
+    A pair, not a count. Both sheets order their utilities by a key of their
+    own, so two classes that disagree here disagree in every sheet holding both,
+    whatever else was drawn - which is what lets a set of known disagreements be
+    recorded and a new one still fail. {!sheet_order_gap} answers the
+    whole-sheet question instead, and its count moves with what is in the sheet.
+*)
 
 val render_elements : string list -> string list
 (** [render_elements classnames] is the element list {!check_rendering_matches}
