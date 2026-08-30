@@ -1312,6 +1312,8 @@ let bracket_named_patterns s =
       if is_valid_has_selector sel then Some (Has sel) else None);
   ]
 
+(* Every [nth-*-[...]] arm goes through [try_nth], so the bracket flag is set in
+   one place. *)
 let bracket_value_patterns s =
   let ( let* ) = Option.bind in
   let try_with prefix parse make =
@@ -1321,7 +1323,7 @@ let bracket_value_patterns s =
   in
   let try_nth prefix make =
     let* expr = extract_bracket_content ~prefix s in
-    if is_valid_nth_expr expr then Some (make expr) else None
+    if is_valid_nth_expr expr then Some (make (bracketed expr)) else None
   in
   [
     (fun () -> try_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
@@ -1330,11 +1332,10 @@ let bracket_value_patterns s =
       try_with "min-[" parse_css_length (fun l -> Min_arbitrary_length l));
     (fun () ->
       try_with "max-[" parse_css_length (fun l -> Max_arbitrary_length l));
-    (fun () ->
-      try_nth "nth-last-of-type-[" (fun e -> Nth_last_of_type (bracketed e)));
-    (fun () -> try_nth "nth-of-type-[" (fun e -> Nth_of_type (bracketed e)));
-    (fun () -> try_nth "nth-last-[" (fun e -> Nth_last (bracketed e)));
-    (fun () -> try_nth "nth-[" (fun e -> Nth (bracketed e)));
+    (fun () -> try_nth "nth-last-of-type-[" (fun e -> Nth_last_of_type e));
+    (fun () -> try_nth "nth-of-type-[" (fun e -> Nth_of_type e));
+    (fun () -> try_nth "nth-last-[" (fun e -> Nth_last e));
+    (fun () -> try_nth "nth-[" (fun e -> Nth e));
     (fun () ->
       let* cond = extract_bracket_content ~prefix:"supports-[" s in
       if is_valid_supports_condition cond then Some (Supports_condition cond)
