@@ -9,8 +9,8 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "tab"
-  let priority _ = 2
-  let suborder = function Tab n -> n | Tab_arbitrary _ -> 1000
+  let priority _ = 26
+  let suborder _ = 8340
 
   let to_class = function
     | Tab n -> "tab-" ^ string_of_int n
