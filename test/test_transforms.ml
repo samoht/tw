@@ -387,8 +387,37 @@ let test_project_perspective_token () =
     "an undeclared perspective name is rejected" true
     (Result.is_error (Tw.of_string ~theme "perspective-nope"))
 
+(* The [@property] block for the five rotate/skew channels belongs to
+   [transform]. [transform-cpu] and [transform-gpu] only read them, and asking
+   for the rules there put a whole [@layer properties] and five [@property]
+   rules in a sheet whose one transform utility was either of those two. *)
+let test_property_rules_belong_to_transform () =
+  let property_rules cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+        List.length
+          (List.filter
+             (fun l -> Astring.String.is_prefix ~affix:"@property" l)
+             (String.split_on_char '\n' css))
+  in
+  Alcotest.(check int) "transform declares them" 5 (property_rules "transform");
+  Alcotest.(check int)
+    "transform-cpu does not" 0
+    (property_rules "transform-cpu");
+  Alcotest.(check int)
+    "transform-gpu does not" 0
+    (property_rules "transform-gpu");
+  (* A utility that sets one of the channels still brings its rule along. *)
+  Alcotest.(check bool)
+    "rotate-x-30 declares its own" true
+    (property_rules "rotate-x-30" > 0)
+
 let tests =
   [
+    test_case "property rules belong to transform" `Quick
+      test_property_rules_belong_to_transform;
     test_case "invalid arbitrary transform" `Quick
       test_invalid_arbitrary_transform;
     test_case "perspective-none theme override" `Quick

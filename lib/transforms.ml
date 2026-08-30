@@ -1141,24 +1141,18 @@ module Handler = struct
 
   let transform_none = style [ Css.transform None ]
 
-  (* transform-cpu is an alias for transform *)
+  (* [transform-cpu] writes what [transform] writes. The [@property] block for
+     the five channels belongs to [transform] alone, though: Tailwind declares
+     them there and neither of the two below carries them, so asking for the
+     rules here put a whole [@layer properties] in a sheet whose only transform
+     utility was this one. *)
   let transform_cpu =
     let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
     let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
     let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
     let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
     let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
-    let property_rules =
-      collect_property_rules
-        [
-          tw_rotate_x_var;
-          tw_rotate_y_var;
-          tw_rotate_z_var;
-          tw_skew_x_var;
-          tw_skew_y_var;
-        ]
-    in
-    style ~property_rules
+    style
       [
         transforms
           [
@@ -1170,24 +1164,15 @@ module Handler = struct
           ];
       ]
 
-  (* transform-gpu adds translateZ(0) for GPU acceleration plus all var refs *)
+  (* transform-gpu adds translateZ(0) for GPU acceleration plus all var refs. No
+     [@property] block here either; see [transform_cpu]. *)
   let transform_gpu =
     let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
     let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
     let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
     let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
     let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
-    let property_rules =
-      collect_property_rules
-        [
-          tw_rotate_x_var;
-          tw_rotate_y_var;
-          tw_rotate_z_var;
-          tw_skew_x_var;
-          tw_skew_y_var;
-        ]
-    in
-    style ~property_rules
+    style
       [
         transforms
           [
