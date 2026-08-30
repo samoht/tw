@@ -312,6 +312,12 @@ let test_no_surplus_over_a_broad_class_set () =
   Test_helpers.check_no_dropped_declarations ~test_name diff;
   Test_helpers.check_no_surplus ~test_name diff
 
+(* Every negative test asserts tw refuses a class and nothing in the assertion
+   says Tailwind refuses it too, so a premise that is simply wrong passes on
+   every run. This is the one case that asks. It reads the corpus the negative
+   tests fill as they run, which is why [test/test.ml] lists this suite last. *)
+let test_negative_premises () = Test_helpers.check_negative_premises ()
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -358,6 +364,8 @@ let tests =
       test_respelling_settles_a_minifier_disagreement;
     Alcotest.test_case "no surplus over a broad class set" `Slow
       test_no_surplus_over_a_broad_class_set;
+    Alcotest.test_case "negative tests agree with Tailwind" `Quick
+      test_negative_premises;
   ]
 
 let suite = ("test_helpers", tests)

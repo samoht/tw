@@ -20,8 +20,14 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo";
   (* A bracket with no number is not a length, so it is refused rather than read
-     as a bare identifier. *)
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-x-[rem]"
+     as a bare identifier. Tailwind passes the bracket through unread and emits
+     border-inline-start-width: calc(rem * ...), which no browser accepts. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes the bracket through unread and emits calc(rem * ...)")
+    (module Tw.Divide.Handler)
+    "divide-x-[rem]"
 
 (* divide-x-[2em] and divide-y-[3vw] used to be refused: the width reader only
    knew px and rem, so an em or a vw stop fell through to "not a divide utility"

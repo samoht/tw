@@ -343,9 +343,35 @@ val check_handler_roundtrip : (module Handler) -> string -> unit
     {!val-of_class} and converting back with {!val-to_class} round-trip
     correctly. *)
 
-val check_invalid_input : (module Handler) -> string -> unit
-(** [check_invalid_input h input] tests that parsing fails for invalid input as
-    expected. *)
+(** Why a class must not parse. Each constructor is a claim about Tailwind as
+    well as about tw, so that {!check_negative_premises} can hold it to the
+    pinned CLI. *)
+type rejection =
+  | Not_a_utility
+      (** Tailwind emits nothing for the class either, so refusing it is the
+          whole answer. *)
+  | Another_handler
+      (** A real utility a different tw handler owns: Tailwind emits for it and
+          so does {!Tw.of_string}, and only the handler under test says no. *)
+  | Diverges of string
+      (** Tailwind emits for the class and {!Tw.of_string} does not, with the
+          string saying why. Every one of these is a measured parity gap held
+          open here rather than a rejection that reads as intended. *)
+
+val check_invalid_input : ?why:rejection -> (module Handler) -> string -> unit
+(** [check_invalid_input ?why h input] tests that parsing fails for invalid
+    input as expected, and records [input] for {!check_negative_premises}. [why]
+    defaults to {!constructor-Not_a_utility}; the half of it that needs no CLI,
+    whether {!Tw.of_string} knows the class, is checked here. *)
+
+val check_negative_premises : unit -> unit
+(** [check_negative_premises ()] asks the pinned tailwindcss CLI whether every
+    negative test that has run so far had its premise right, in one generation
+    over the whole corpus. It skips without the CLI, and fails instead under
+    [TW_TAILWIND_TESTS=1], the way every other parity check here does.
+
+    It reads what the negative tests registered as they ran, so it belongs after
+    them: see [test/test.ml]. *)
 
 val standard :
   roundtrip:(unit -> unit) ->
@@ -357,9 +383,10 @@ val standard :
 val check_parts : (module Handler) -> string list -> unit
 (** [check_parts h parts] concatenates parts with "-" and tests roundtrip. *)
 
-val check_invalid_parts : (module Handler) -> string list -> unit
-(** [check_invalid_parts h parts] concatenates parts with "-" and tests that
-    parsing fails. *)
+val check_invalid_parts :
+  ?why:rejection -> (module Handler) -> string list -> unit
+(** [check_invalid_parts ?why h parts] concatenates parts with "-" and tests
+    that parsing fails, as {!check_invalid_input}. *)
 
 val check_typed_class : string -> Tw.t -> unit
 (** [check_typed_class cls value] checks that the typed constructor [value]

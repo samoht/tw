@@ -29,7 +29,6 @@ let () =
     (* Return test suites *)
     [
       Test_tw.suite;
-      Test_test_helpers.suite;
       Test_source_scan.suite;
       Test_svg.suite;
       Test_tables.suite;
@@ -94,4 +93,7 @@ let () =
       Test_text_shadow.suite;
       Test_touch.suite;
       Test_transitions.suite;
+      (* Last: its negative-premise case reads the corpus every suite above
+         fills as its negative tests run. *)
+      Test_test_helpers.suite;
     ]

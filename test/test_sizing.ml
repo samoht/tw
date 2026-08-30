@@ -133,17 +133,22 @@ let test_square_sizes () =
 
 let of_string_invalid () =
   (* Invalid sizing values *)
-  let test_invalid input =
+  let test_invalid ?why input =
     let class_name = String.concat "-" input in
-    check_invalid_input (module Tw.Sizing.Handler) class_name
+    check_invalid_input ?why (module Tw.Sizing.Handler) class_name
   in
 
   test_invalid [ "w" ];
   (* Missing value *)
   test_invalid [ "w"; "invalid" ];
-  (* Invalid value *)
-  test_invalid [ "w"; "1/0" ];
-  (* A zero denominator is not a percentage *)
+  (* A zero denominator is not a percentage, although Tailwind still emits the
+     uncomputable calculation. *)
+  test_invalid
+    ~why:
+      (Diverges
+         "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+          which no browser can compute; tw refuses the class instead")
+    [ "w"; "1/0" ];
   test_invalid [ "min" ];
   (* Missing dimension *)
   test_invalid [ "min"; "z"; "4" ];
