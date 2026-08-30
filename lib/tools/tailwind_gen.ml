@@ -332,10 +332,9 @@ let generate_entrypoint ?(minify = true) entry =
   in
   let start_time = Stats.start_timer () in
   let status =
-    Sys.command
-      (Fmt.str "%s -i %s -o %s%s 2>/dev/null" cmd (Filename.quote entry)
-         (Filename.quote out)
-         (if minify then " --minify" else ""))
+    Fmt.kstr Sys.command "%s -i %s -o %s%s 2>/dev/null" cmd
+      (Filename.quote entry) (Filename.quote out)
+      (if minify then " --minify" else "")
   in
   Stats.record_call (Unix.gettimeofday () -. start_time);
   if status <> 0 then

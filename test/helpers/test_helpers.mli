@@ -115,8 +115,8 @@ type order_gap = {
   pairs : int;  (** keys occurring exactly once on each side *)
   moves : int;  (** the fewest of those that have to move *)
   moved : (string * int * int) list;
-      (** each moved key with its rank among [pairs] on Tailwind's side and on
-          tw's *)
+      (** each moved key with its rank among {!field-pairs} on Tailwind's side
+          and on tw's *)
 }
 (** What separates two sheets' statement order, in one number. *)
 
@@ -124,7 +124,7 @@ val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
 (** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
     in [@layer layer] is from Tailwind's. Only keys occurring exactly once on
     both sides are paired, so no pairing choice of the gate's own can move the
-    number; over those, [moves] is the count outside a longest increasing
+    number; over those, {!field-moves} is the count outside a longest
     subsequence, which is the fewest statements that have to move for the orders
     to agree.
 

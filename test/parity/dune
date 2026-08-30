@@ -8,7 +8,6 @@
 
 (executable
  (name sheet_order)
- (modules sheet_order)
  (libraries fmt tw_tools test_helpers))
 
 ; package-lock.json pins the tailwindcss the reference comes from, and the CLI
