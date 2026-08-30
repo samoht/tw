@@ -408,24 +408,24 @@ let structural_selector cls modifier =
   | First_of_type -> cp "first-of-type" cls Css.Selector.First_of_type
   | Last_of_type -> cp "last-of-type" cls Css.Selector.Last_of_type
   | Only_of_type -> cp "only-of-type" cls Css.Selector.Only_of_type
-  | Nth expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth" expr in
+  | Nth n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_child (nth, of_) ]
-  | Nth_last expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-last" expr in
+  | Nth_last n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-last" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_last_child (nth, of_) ]
-  | Nth_of_type expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-of-type" expr in
+  | Nth_of_type n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-of-type" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_of_type (nth, of_) ]
-  | Nth_last_of_type expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-last-of-type" expr in
+  | Nth_last_of_type n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-last-of-type" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_last_of_type (nth, of_) ]
   | Empty -> cp "empty" cls Css.Selector.Empty
@@ -710,8 +710,8 @@ let even styles = wrap Even styles
 let first_of_type styles = wrap First_of_type styles
 let last_of_type styles = wrap Last_of_type styles
 let only_of_type styles = wrap Only_of_type styles
-let nth expr styles = wrap (Nth expr) styles
-let nth_last expr styles = wrap (Nth_last expr) styles
+let nth expr styles = wrap (Nth (Style.nth_expr expr)) styles
+let nth_last expr styles = wrap (Nth_last (Style.nth_expr expr)) styles
 let empty styles = wrap Empty styles
 
 (* Form state variants *)
@@ -1255,6 +1255,12 @@ let is_valid_supports_condition cond =
       true
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
+(* Which spelling an [nth-*] argument was written in. A bare number reads both
+   ways and they are different classes, so the reader records the one it saw
+   rather than deciding again when it prints. *)
+let bracketed expr : Style.nth_expr = { expr; bracketed = true }
+let bare expr : Style.nth_expr = { expr; bracketed = false }
+
 (* Validate that an nth-*-[...] bracket holds an An+B expression (Selectors 4
    sec. 9.3). The reader raises on anything else, so the expression is checked
    where the modifier is parsed, like the has- selector above. *)
@@ -1324,10 +1330,11 @@ let bracket_value_patterns s =
       try_with "min-[" parse_css_length (fun l -> Min_arbitrary_length l));
     (fun () ->
       try_with "max-[" parse_css_length (fun l -> Max_arbitrary_length l));
-    (fun () -> try_nth "nth-last-of-type-[" (fun e -> Nth_last_of_type e));
-    (fun () -> try_nth "nth-of-type-[" (fun e -> Nth_of_type e));
-    (fun () -> try_nth "nth-last-[" (fun e -> Nth_last e));
-    (fun () -> try_nth "nth-[" (fun e -> Nth e));
+    (fun () ->
+      try_nth "nth-last-of-type-[" (fun e -> Nth_last_of_type (bracketed e)));
+    (fun () -> try_nth "nth-of-type-[" (fun e -> Nth_of_type (bracketed e)));
+    (fun () -> try_nth "nth-last-[" (fun e -> Nth_last (bracketed e)));
+    (fun () -> try_nth "nth-[" (fun e -> Nth (bracketed e)));
     (fun () ->
       let* cond = extract_bracket_content ~prefix:"supports-[" s in
       if is_valid_supports_condition cond then Some (Supports_condition cond)
@@ -1387,15 +1394,15 @@ let try_numeric_nth s =
       if Style.is_numeric rest then Some (make rest) else None
     else None
   in
-  match try_prefix "nth-last-of-type-" (fun n -> Nth_last_of_type n) with
+  match try_prefix "nth-last-of-type-" (fun n -> Nth_last_of_type (bare n)) with
   | Some _ as r -> r
   | None -> (
-      match try_prefix "nth-of-type-" (fun n -> Nth_of_type n) with
+      match try_prefix "nth-of-type-" (fun n -> Nth_of_type (bare n)) with
       | Some _ as r -> r
       | None -> (
-          match try_prefix "nth-last-" (fun n -> Nth_last n) with
+          match try_prefix "nth-last-" (fun n -> Nth_last (bare n)) with
           | Some _ as r -> r
-          | None -> try_prefix "nth-" (fun n -> Nth n)))
+          | None -> try_prefix "nth-" (fun n -> Nth (bare n))))
 
 (* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =
@@ -1645,7 +1652,7 @@ let try_not_shorthand inner =
     (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Nth expr))
+    Some (Not (Nth (Style.nth_expr expr)))
   else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,

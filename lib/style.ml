@@ -74,6 +74,12 @@ type arbitrary_px = { px : float; text : string }
    respelling the number. The class is named after [text]. *)
 type arbitrary_length = { len : Css.length; text : string }
 
+(* An [nth-*] argument with the bracket flag: [nth-3] and [nth-[3]] both read
+   and are different classes, so re-printing from the expression alone renamed
+   the second to the first and the rule named a class the source never
+   carried. *)
+type nth_expr = { expr : string; bracketed : bool }
+
 type modifier =
   | Hover
   | Focus
@@ -124,10 +130,10 @@ type modifier =
   | First_of_type
   | Last_of_type
   | Only_of_type
-  | Nth of string
-  | Nth_last of string
-  | Nth_of_type of string
-  | Nth_last_of_type of string
+  | Nth of nth_expr
+  | Nth_last of nth_expr
+  | Nth_of_type of nth_expr
+  | Nth_last_of_type of nth_expr
   | Empty
   | Checked
   | Indeterminate
@@ -383,8 +389,12 @@ let rec map_important = function
 
 let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
 
-let pp_nth prefix expr =
-  if is_numeric expr then prefix ^ "-" ^ expr else prefix ^ "-[" ^ expr ^ "]"
+(* A bare number is the only expression that can go unbracketed, so that is what
+   the DSL constructor writes; the reader records what it saw instead. *)
+let nth_expr expr = { expr; bracketed = not (is_numeric expr) }
+
+let pp_nth prefix n =
+  if n.bracketed then prefix ^ "-[" ^ n.expr ^ "]" else prefix ^ "-" ^ n.expr
 
 let container_cmp_prefix = function Min -> "min-" | Max -> "max-"
 
