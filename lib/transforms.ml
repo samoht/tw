@@ -152,14 +152,14 @@ module Handler = struct
 
   (* The transform chain sits before animations. Controls that Tailwind sorts
      through a later property band must not travel with it: origin precedes the
-     chain, backface follows selection, perspective follows containment, and
+     chain, backface follows selection, perspective follows backface, and
      transform box/style follow text-shadow. *)
   let priority = function
     | Origin_center | Origin_top | Origin_bottom | Origin_left | Origin_right
     | Origin_top_left | Origin_top_right | Origin_bottom_left
     | Origin_bottom_right | Origin_arbitrary _ ->
         8
-    | Backface_visible | Backface_hidden -> 31
+    | Backface_visible | Backface_hidden -> 39
     | Perspective_none | Perspective_theme _ | Perspective_dramatic
     | Perspective_near | Perspective_normal | Perspective_midrange
     | Perspective_distant | Perspective_arbitrary _ | Perspective_origin_center
@@ -168,11 +168,11 @@ module Handler = struct
     | Perspective_origin_top_left | Perspective_origin_top_right
     | Perspective_origin_bottom_left | Perspective_origin_bottom_right
     | Perspective_origin_arbitrary _ ->
-        35
+        40
     | Transform_style_3d | Transform_style_flat | Transform_box_border
     | Transform_box_content | Transform_box_fill | Transform_box_stroke
     | Transform_box_view ->
-        37
+        42
     | _ -> 9
 
   (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
