@@ -157,43 +157,21 @@ let rec filter_utility_properties props =
     props
 
 (* Recursively filter theme declarations from nested statements *)
-let rec filter_theme_from_statements statements =
+(* Theme tokens belong in the theme layer, so a utility rule that declares one
+   to make its own value available has it stripped here. [Css.map] reaches every
+   rule at any depth, [@starting-style] included, which the walk this replaces
+   did not descend into: [md:starting:p-4] declared [--spacing] inside the rule
+   as well as in the theme layer. A bare declarations block carries no selector,
+   so [Css.map] does not see one and the top level is filtered before it. *)
+let filter_theme_from_statements statements =
   List.map
     (fun stmt ->
       match Css.as_declarations stmt with
-      | Some decls ->
-          (* Bare declarations block - filter theme properties *)
-          let filtered_decls = filter_utility_properties decls in
-          Css.declarations filtered_decls
-      | None -> (
-          match Css.as_rule stmt with
-          | Some (selector, decls, nested) ->
-              let filtered_decls = filter_utility_properties decls in
-              let filtered_nested = filter_theme_from_statements nested in
-              Css.rule ~selector ~nested:filtered_nested filtered_decls
-          | None -> (
-              match Css.as_media stmt with
-              | Some (condition, content) ->
-                  Css.media ~condition (filter_theme_from_statements content)
-              | None -> (
-                  match Css.as_layer stmt with
-                  | Some (name, content) ->
-                      Css.layer ?name (filter_theme_from_statements content)
-                  | None -> (
-                      match Css.as_container stmt with
-                      | Some (name, condition, content) ->
-                          Css.container ?name ?condition
-                            (filter_theme_from_statements content)
-                      | None -> (
-                          (* An opacity colour's progressive-enhancement block
-                             carries the same theme declaration as the rule it
-                             sits beside; without this it is declared twice. *)
-                          match Css.as_supports stmt with
-                          | Some (condition, content) ->
-                              Css.supports ~condition
-                                (filter_theme_from_statements content)
-                          | None -> stmt))))))
+      | Some decls -> Css.declarations (filter_utility_properties decls)
+      | None -> stmt)
     statements
+  |> Css.map (fun selector decls ->
+      Css.rule ~selector (filter_utility_properties decls))
 
 (* Compute merge key from a base class name as a fallback when the utility
    handler does not provide a typed merge_key via Style.t. For bracket
