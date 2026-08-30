@@ -397,6 +397,27 @@ let test_indent_family_order () =
       "-indent-4";
     ]
 
+(* Tailwind's property order puts transform-origin before translate. The
+   controls that do not participate in that transform chain occupy later bands:
+   backface visibility follows selection, perspective follows contain, and
+   transform-style follows text-shadow. *)
+let test_transform_control_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"transform controls keep their bands"
+    [
+      "transform-3d";
+      "text-shadow-sm";
+      "perspective-normal";
+      "backface-hidden";
+      "select-none";
+      "cursor-pointer";
+      "animate-spin";
+      "zoom-75";
+      "translate-x-4";
+      "origin-center";
+      "table-fixed";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2689,6 +2710,7 @@ let tests =
     test_case "text-indent inside early typography" `Quick
       test_indent_within_early_typography;
     test_case "text-indent family order" `Quick test_indent_family_order;
+    test_case "transform control bands" `Slow test_transform_control_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
