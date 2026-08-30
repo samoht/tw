@@ -73,7 +73,7 @@ module Handler = struct
   (* Theme variable for transition-property-opacity *)
   let transition_property_opacity_var =
     Var.theme Css.Transition_property_value "transition-property-opacity"
-      ~order:(8, 2)
+      ~order:(8, 32)
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
@@ -170,7 +170,7 @@ module Handler = struct
   (* Theme variable for transition-property-colors *)
   let transition_property_colors_var =
     Var.theme Css.Transition_property_value "transition-property-colors"
-      ~order:(8, 3)
+      ~order:(8, 33)
 
   let transition_colors ?theme () =
     let gradient_from_name =

@@ -279,10 +279,10 @@ let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.theme Css.Font_family "default-font-family" ~order:(9, 0)
+  Var.theme Css.Font_family "default-font-family" ~order:(8, 39)
 
 let default_mono_font_family_var =
-  Var.theme Css.Font_family "default-mono-font-family" ~order:(9, 1)
+  Var.theme Css.Font_family "default-mono-font-family" ~order:(8, 42)
 
 (* Tailwind v4.3.2 replaced the [ui-sans-serif, system-ui, ...] default with the
    platform system-font stack. *)
