@@ -216,11 +216,9 @@ module Handler = struct
 
   let name = "layout"
 
-  (* Most layout utilities are the display family (priority 4). Visibility and
-     z-index occupy distinct canonical positions in Tailwind's order, so they
-     return their own priority: visibility comes first (rank 0), z-index right
-     after inset (rank 12) via priority 0 with a suborder above inset's range
-     (position.ml uses up to ~13M) and below container (priority 1). *)
+  (* Most layout utilities are the display family (priority 4). Visibility,
+     z-index, break controls, box decoration, and object controls occupy their
+     own property bands. *)
   let priority = function
     | Collapse | Invisible | Visible -> 0
     | Neg_z _ | Z_0 | Z _ | Z_10 | Z_20 | Z_30 | Z_40 | Z_50 | Neg_z_arbitrary _
@@ -243,6 +241,17 @@ module Handler = struct
     | Object_right_top | Object_top_left | Object_top_right | Object_arbitrary _
       ->
         22
+    | Break_before_all | Break_before_auto | Break_before_avoid
+    | Break_before_avoid_page | Break_before_column | Break_before_left
+    | Break_before_page | Break_before_right | Break_inside_auto
+    | Break_inside_avoid | Break_inside_avoid_column | Break_inside_avoid_page
+    | Break_after_all | Break_after_auto | Break_after_avoid
+    | Break_after_avoid_page | Break_after_column | Break_after_left
+    | Break_after_page | Break_after_right ->
+        14
+    | Box_decoration_clone | Box_decoration_slice | Decoration_clone
+    | Decoration_slice ->
+        21
     | _ -> 4
 
   let suborder = function
@@ -331,11 +340,12 @@ module Handler = struct
     | Clear_none -> 3_000_103
     | Clear_right -> 3_000_104
     | Clear_start -> 3_000_105
-    (* Box decoration break - alphabetical: clone, slice *)
-    | Box_decoration_clone -> 1000
-    | Box_decoration_slice -> 1001
-    | Decoration_clone -> 1000
-    | Decoration_slice -> 1001
+    (* Box decoration break (priority 21) sits after mask-image and its gradient
+       variables, before background-size. *)
+    | Box_decoration_clone -> Utility.Property_order.last 250
+    | Box_decoration_slice -> Utility.Property_order.last 250
+    | Decoration_clone -> Utility.Property_order.last 250
+    | Decoration_slice -> Utility.Property_order.last 250
     (* Break before - alphabetical order (Tailwind: break-before < break-inside
        < break-after) *)
     | Break_before_all -> 1100
