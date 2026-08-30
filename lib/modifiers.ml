@@ -1659,6 +1659,21 @@ let is_not_compatible = function
       false
   | _ -> true
 
+(* [not-[...]] whose content is neither a media condition nor a pseudo-class
+   negates the content read as a selector, so text the selector grammar cannot
+   read - or can read only a prefix of - is not a negation at all. The reader
+   raises rather than answering, and it stops at the first thing it cannot use,
+   so the cursor has to be exhausted too: a trailing remainder would otherwise
+   be dropped and the rule would negate less than the class says. *)
+let reads_as_selector content =
+  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let cursor = Cascade.Cursor.of_string s in
+  match Css.Selector.read cursor with
+  | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
+  | _ ->
+      Cascade.Cursor.ws cursor;
+      Cascade.Cursor.is_done cursor
+
 (** Check if bracket content is valid for not-[...] patterns. Rejects combinator
     selectors (+, >, ~), media conditions with commas, and bare selectors. *)
 let is_valid_not_bracket_content content =
@@ -1672,7 +1687,8 @@ let is_valid_not_bracket_content content =
       (String.length content > 6 && String.sub content 0 6 = "@media")
       || (String.length content > 7 && String.sub content 0 7 = "@media_")
     then not (String.contains content ',')
-    else true
+    else if first = ':' then true
+    else reads_as_selector content
 
 (** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
     for pseudo-class or media bracket content. *)

@@ -1057,6 +1057,40 @@ let test_not_bracket_arbitrary_selector () =
   check bool "not-[.foo]:block negates a plain class" true
     (Astring.String.is_infix ~affix:":not(.foo)" (css "not-[.foo]:block"))
 
+(* The bracket is negated as a selector, so content the selector grammar cannot
+   read is not a negation and the class is refused at parse time. The reader
+   raises rather than answering, and it stops at the first thing it cannot use,
+   so a trailing remainder is refused too rather than silently dropped. *)
+let test_not_bracket_unreadable_selector_rejected () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u ->
+          Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+      | Error (`Msg _) -> ())
+    [
+      "not-[a;b]:flex";
+      "not-[0.5ch]:flex";
+      "not-[1px}]:flex";
+      "not-[a{b]:flex";
+      "not-[*/]:flex";
+      "not-[<value>]:flex";
+      "not-[url(a;b)]:flex";
+      "not-[()]:flex";
+    ];
+  (* the readable ones still parse *)
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    [
+      "not-[.foo]:flex";
+      "not-[.os-macos_&]:flex";
+      "not-[:checked]:flex";
+      "not-[@media_print]:flex";
+    ]
+
 (* A group/peer arbitrary variant whose [&] anchor is preceded by a context
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
@@ -1382,6 +1416,8 @@ let tests =
         test_prose_element_variant_invalid;
       test_case "variant cascade ladder" `Quick test_variant_cascade_ladder;
       test_case "variant inner order" `Quick test_variant_inner_order;
+      test_case "not-[selector] unreadable content rejected" `Quick
+        test_not_bracket_unreadable_selector_rejected;
     ]
 
 let suite = ("modifiers", tests)
