@@ -1386,7 +1386,7 @@ let pool_entries () =
    Both directions can hold between one pair of handlers, since a family may
    straddle two of Tailwind's bands, so each is its own entry.
 
-   This is the ordering debt the whole-sheet gate counts - 421 of 3885
+   This is the ordering debt the whole-sheet gate counts - 413 of 3885
    statements in test/parity/sheet_order.ml - named rather than counted. Without
    it the fuzzer fails on nearly every seed for misorderings that predate it;
    with it a pair outside the list fails a draw.
@@ -1407,75 +1407,41 @@ let pool_entries () =
    What a listed pair does not catch is a further inversion between those same
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
-   than a count of statements, which tolerates any 421 of them. *)
+   than a count of statements, which tolerates any 413 of them. *)
 let known_inversions =
   [
     ("accessibility", "outline_style");
-    ("alignment", "tab");
-    ("animations", "tab");
-    ("arbitrary", "tab");
-    ("backgrounds", "tab");
-    ("borders", "tab");
     ("box_sizing", "field_sizing");
-    ("box_sizing", "tab");
-    ("columns", "tab");
     ("contain", "accessibility");
     ("contain", "interactivity");
     ("contain", "outline_style");
     ("contain", "transforms");
-    ("cursor", "tab");
-    ("divide", "tab");
     ("divide", "text_shadow");
     ("divide", "transforms");
     ("effects", "effects");
     ("filters", "accessibility");
     ("filters", "outline_style");
-    ("flex_layout", "tab");
-    ("flex_props", "tab");
     ("flex", "field_sizing");
-    ("flex", "tab");
-    ("gap", "tab");
-    ("grid_template", "tab");
     ("grid", "field_sizing");
-    ("grid", "tab");
     ("interactivity", "accessibility");
     ("interactivity", "borders");
     ("interactivity", "effects");
     ("interactivity", "filters");
     ("interactivity", "interactivity");
     ("interactivity", "outline_style");
-    ("interactivity", "tab");
     ("layout", "field_sizing");
-    ("layout", "tab");
     ("margin", "field_sizing");
-    ("margin", "tab");
-    ("mask_gradient", "tab");
     ("masks", "arbitrary");
-    ("masks", "tab");
-    ("overflow_wrap", "tab");
-    ("overflow", "tab");
-    ("overscroll", "tab");
     ("padding", "padding");
-    ("padding", "tab");
     ("position", "position");
-    ("scroll", "tab");
-    ("scrollbar", "tab");
     ("sizing", "sizing");
-    ("sizing", "tab");
-    ("svg", "tab");
-    ("tables", "tab");
     ("tables", "tables");
-    ("touch", "tab");
-    ("transforms", "tab");
     ("transitions", "accessibility");
     ("transitions", "interactivity");
     ("transitions", "outline_style");
     ("transitions", "transforms");
-    ("typography_early", "tab");
     ("typography_late", "field_sizing");
-    ("typography_late", "tab");
     ("typography_late", "typography_late");
-    ("zoom", "tab");
   ]
 
 (* Which handler each class in a case belongs to, and which variant it wears.
