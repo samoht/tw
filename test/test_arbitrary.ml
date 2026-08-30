@@ -300,8 +300,19 @@ let test_invalid_hex_value () =
     "[color:#ff0000] still emits the colour" true
     (Astring.String.is_infix ~affix:"color: #ff0000" (css "[color:#ff0000]"))
 
+(* An arbitrary property sorts where the property it declares sorts, which is
+   the same rule a project's own [@utility] follows. They all shared one slot
+   near the end of the layer instead, so [[order:3]] came after the margins it
+   belongs in front of. No two of these write a common property, so no canonical
+   comparison could see it; the positions in the sheet can. *)
+let test_sorts_by_declared_property () =
+  Test_helpers.check_class_order ~test_name:"arbitrary property slots"
+    [ "[order:3]"; "m-4"; "[display:grid]"; "p-4"; "[color:red]" ]
+
 let tests =
   [
+    test_case "sorts by the property it declares" `Quick
+      test_sorts_by_declared_property;
     test_case "invalid hex value" `Quick test_invalid_hex_value;
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;

@@ -62,7 +62,29 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "arbitrary"
-  let priority _ = 37
+
+  (* Tailwind sorts an arbitrary property by the property it declares, not by
+     its name, so [[order:3]] lands with the [order-*] utilities and
+     [[mask-type:luminance]] with the masks. Every one of them sorted at the far
+     end of the layer instead. A property no family claims has no slot to take
+     and keeps that place. *)
+  let unclaimed = 37
+
+  let slot t =
+    let property, value =
+      match t with
+      | Color_opacity { property; value; _ } -> (property, value)
+      | Parsed_decl { property; value } -> (property, value)
+    in
+    match
+      Css.parse_declaration ~layer:"utilities" property
+        (Parse.decode_arbitrary_value value)
+    with
+    | None -> None
+    | Some decl -> Utility.order_of_property (Css.Declaration.property_key decl)
+
+  let priority t =
+    match slot t with Some (priority, _) -> priority | None -> unclaimed
 
   (* Render a known colour-property declaration ([color], [background-color],
      ...) with a parsed colour value and an /opacity modifier. *)
@@ -264,7 +286,7 @@ module Handler = struct
               | Some color -> color_opacity_render theme emit color inner
               | None -> style []))
 
-  let suborder _ = 0
+  let suborder t = match slot t with Some (_, sub) -> sub | None -> 0
 
   let to_class = function
     | Color_opacity { property; value; alpha_fn; opacity } ->
