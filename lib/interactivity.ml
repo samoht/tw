@@ -75,6 +75,13 @@ module Handler = struct
     | Snap_normal | Snap_always ->
         11
     | Scroll_auto | Scroll_smooth -> 18
+    | Scheme_dark | Scheme_light | Scheme_light_dark | Scheme_normal
+    | Scheme_only_dark | Scheme_only_light ->
+        27
+    | Will_change_auto | Will_change_scroll | Will_change_contents
+    | Will_change_transform | Will_change_arbitrary _ ->
+        33
+    | Select_none | Select_text | Select_all | Select_auto -> 38
     (* Tailwind's utility order opens with the container utilities and then
        pointer-events, before the layout group. *)
     | Pointer_events_none | Pointer_events_auto -> -1
@@ -251,12 +258,12 @@ module Handler = struct
     | Will_change_arbitrary _ -> 30
     | Group -> 35
     | Peer -> 36
-    | Scheme_dark -> 40
-    | Scheme_light -> 41
-    | Scheme_light_dark -> 42
-    | Scheme_normal -> 43
-    | Scheme_only_dark -> 44
-    | Scheme_only_light -> 45
+    | Scheme_dark -> -100
+    | Scheme_light -> -99
+    | Scheme_light_dark -> -98
+    | Scheme_normal -> -97
+    | Scheme_only_dark -> -96
+    | Scheme_only_light -> -95
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in

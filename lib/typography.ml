@@ -1770,6 +1770,9 @@ module Typography_late = struct
     | Align_bottom | Align_sub | Align_super | Align_text_top
     | Align_text_bottom | Align_arbitrary_var _ ->
         24
+    | Content_none | Content _ | Content_squote _ | Content_raw _
+    | Content_named _ ->
+        35
     | _ -> 26
 
   let ( >|= ) = Parse.( >|= )
