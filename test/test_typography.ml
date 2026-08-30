@@ -621,6 +621,38 @@ let late_typography_colour_block_order () =
       "accent-red-500";
     ]
 
+(* [underline-offset-[N]] is a bracket value, not a spelling of the bare
+   [underline-offset-N] step: it names its own rule and its value carries the
+   unit the author wrote rather than the [px] the scale supplies. Folding the
+   two together emitted [.underline-offset-0] for [underline-offset-[0.0]], a
+   rule nothing selects. *)
+let test_underline_offset_bracket_keeps_its_class () =
+  List.iter
+    (fun (cls, escaped) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " selects itself") true
+            (Astring.String.is_infix ~affix:escaped css))
+    [
+      ("underline-offset-[0.0]", {|.underline-offset-\[0\.0\]|});
+      ("underline-offset-[3px]", {|.underline-offset-\[3px\]|});
+      ("underline-offset-[1.50px]", {|.underline-offset-\[1\.50px\]|});
+      ("underline-offset-[calc(1px+2px)]", {|.underline-offset-\[calc\(|});
+      ("-underline-offset-[3px]", {|.-underline-offset-\[3px\]|});
+    ];
+  (* the bare step keeps its own class and the [px] the scale gives it *)
+  match Tw.of_string "underline-offset-3" with
+  | Error (`Msg m) -> Alcotest.failf "underline-offset-3: %s" m
+  | Ok u ->
+      Alcotest.(check bool)
+        "bare step stays on the spacing scale" true
+        (Astring.String.is_infix ~affix:"text-underline-offset: 3px"
+           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -1183,6 +1215,8 @@ let tests =
       test_decoration_opacity_fallback;
     test_case "decoration bracket named colour" `Quick
       test_decoration_bracket_named_color;
+    test_case "underline-offset-[...] keeps its bracket" `Quick
+      test_underline_offset_bracket_keeps_its_class;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]

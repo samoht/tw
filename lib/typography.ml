@@ -1675,8 +1675,10 @@ module Typography_late = struct
     | Underline_offset_4
     | Underline_offset_8
     | Underline_offset_px of float
+    | Underline_offset_arbitrary of string * Css.length
     | Underline_offset_var of string
     | Underline_offset_neg_px of float
+    | Underline_offset_neg_arbitrary of string * Css.length
     | Underline_offset_neg_var of string
     | (* Antialiased *)
       Antialiased
@@ -1975,8 +1977,8 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_var inner)
         else
-          match float_of_string_opt inner with
-          | Some px -> Ok (Underline_offset_px px)
+          match Parse.arbitrary_length inner with
+          | Some len -> Ok (Underline_offset_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ "underline"; "offset"; n ] -> (
         match float_of_string_opt n with
@@ -1986,8 +1988,8 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_neg_var inner)
         else
-          match float_of_string_opt inner with
-          | Some px -> Ok (Underline_offset_neg_px px)
+          match Parse.arbitrary_length inner with
+          | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
         match float_of_string_opt n with
@@ -2206,6 +2208,7 @@ module Typography_late = struct
           else s
         in
         "underline-offset-" ^ s
+    | Underline_offset_arbitrary (raw, _) -> "underline-offset-[" ^ raw ^ "]"
     | Underline_offset_var v -> "underline-offset-[" ^ v ^ "]"
     | Underline_offset_neg_px px ->
         let s = string_of_float px in
@@ -2215,6 +2218,8 @@ module Typography_late = struct
           else s
         in
         "-underline-offset-" ^ s
+    | Underline_offset_neg_arbitrary (raw, _) ->
+        "-underline-offset-[" ^ raw ^ "]"
     | Underline_offset_neg_var v -> "-underline-offset-[" ^ v ^ "]"
     | Antialiased -> "antialiased"
     | Subpixel_antialiased -> "subpixel-antialiased"
@@ -2363,6 +2368,7 @@ module Typography_late = struct
     | List_image_url _ -> 2_000_000 + 8706
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
+    | Underline_offset_neg_arbitrary _ -> 59989
     | Underline_offset_neg_var _ -> 59990
     | Underline_offset_0 -> 60000
     | Underline_offset_1 -> 60001
@@ -2370,6 +2376,7 @@ module Typography_late = struct
     | Underline_offset_4 -> 60003
     | Underline_offset_8 -> 60004
     | Underline_offset_px px -> 60005 + int_of_float px
+    | Underline_offset_arbitrary _ -> 69989
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
     (* Antialiased *)
@@ -3259,6 +3266,7 @@ module Typography_late = struct
     | Underline_offset_4 -> underline_offset_4
     | Underline_offset_8 -> underline_offset_8
     | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
+    | Underline_offset_arbitrary (_, len) -> style [ text_underline_offset len ]
     | Underline_offset_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
@@ -3268,6 +3276,12 @@ module Typography_late = struct
           [
             text_underline_offset
               (Calc (Calc.mul (Calc.length (Px px)) (Calc.float (-1.))));
+          ]
+    | Underline_offset_neg_arbitrary (_, len) ->
+        style
+          [
+            text_underline_offset
+              (Calc (Calc.mul (Calc.length len) (Calc.float (-1.))));
           ]
     | Underline_offset_neg_var v ->
         let bare_name = Parse.extract_var_name v in
