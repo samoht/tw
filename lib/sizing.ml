@@ -102,7 +102,9 @@ module Handler = struct
 
   (* Family bases are 10M apart so the interleaved spacing/fraction range (< 5M)
      and the arbitrary/keyword offsets never overflow into the next family. *)
-  (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
+  let aspect_base = -10_000_000
+
+  (* Within the dimension families, size-* sorts before h/w/max/min. *)
   let size_base = 0
   let h_base = 10_000_000
   let max_h_base = 20_000_000
@@ -110,7 +112,6 @@ module Handler = struct
   let w_base = 40_000_000
   let max_w_base = 50_000_000
   let min_w_base = 60_000_000
-  let aspect_base = 70_000_000
 
   (* Tailwind registers the logical sizing utilities after every other one, so
      they sort last rather than beside w-* and h-*; [logical_priority] carries
