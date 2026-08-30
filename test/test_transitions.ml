@@ -125,6 +125,38 @@ let test_project_ease_token () =
     "an undeclared ease name is rejected" true
     (Result.is_error (Tw.of_string ~theme "ease-nope"))
 
+(* Every transition rule reads [--default-transition-duration] and
+   [--default-transition-timing-function] through a fallback, so the theme has
+   to declare them whenever one is emitted. Which classes need them was read off
+   the name of the emitted class, and a variant renames that class, so
+   [hover:transition] left both undeclared: the rule then fell back to a
+   variable nothing set and the element did not animate at all. *)
+let test_default_transition_theme_survives_a_variant () =
+  let declares cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        let css = Tw.to_css ~base:true [ u ] |> Tw.Css.to_string in
+        Astring.String.is_infix ~affix:"--default-transition-duration:" css
+        && Astring.String.is_infix
+             ~affix:"--default-transition-timing-function:" css
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool) (cls ^ " declares the defaults") true (declares cls))
+    [
+      "transition";
+      "hover:transition";
+      "md:transition";
+      "before:transition";
+      "hover:transition-colors";
+    ];
+  (* [transition-none] animates nothing, so it needs neither, dressed or not. *)
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool) (cls ^ " needs no defaults") false (declares cls))
+    [ "transition-none"; "hover:transition-none"; "p-4" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -136,6 +168,8 @@ let tests =
       Alcotest.test_case "arbitrary ease steps default position" `Quick
         test_arbitrary_ease_steps_default_position;
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;
+      Alcotest.test_case "default transition theme survives a variant" `Quick
+        test_default_transition_theme_survives_a_variant;
     ]
 
 let suite = ("transitions", tests)

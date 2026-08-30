@@ -1350,25 +1350,25 @@ let has_pseudo_elements tw_classes =
   in
   List.exists check_utility tw_classes
 
-let has_transition_utility selector_props =
-  List.exists
-    (fun r ->
-      let bc =
-        match r with
-        | Regular { base_class; _ }
-        | Media_query { base_class; _ }
-        | Container_query { base_class; _ }
-        | Starting_style { base_class; _ }
-        | Supports_query { base_class; _ } ->
-            base_class
-      in
-      match bc with
-      | Some c ->
-          String.length c >= 10
-          && String.sub c 0 10 = "transition"
-          && c <> "transition-none"
-      | None -> false)
-    selector_props
+(* The default duration and timing function are theme declarations every
+   [transition-*] rule reads, so a sheet carrying one of those utilities needs
+   them however the utility is dressed. Reading the name off the emitted class
+   missed [hover:transition] and every other variant, whose class is
+   [hover:transition], and the rule then referenced a variable nothing
+   declared. *)
+let has_transition_utility tw_classes =
+  let rec check = function
+    | Utility.Base b ->
+        let c = Utility.class_of_base b in
+        String.length c >= 10
+        && String.sub c 0 10 = "transition"
+        && not (String.equal c "transition-none")
+    | Utility.Modified (_, u) | Utility.Important (_, u) | Utility.Aliased (_, u)
+      ->
+        check u
+    | Utility.Group us -> List.exists check us
+  in
+  List.exists check tw_classes
 
 (* Result of building individual layers *)
 type layers_result = {
@@ -1379,14 +1379,14 @@ type layers_result = {
   property_rules : Css.statement list;
 }
 
-let individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
-    selector_props all_property_statements statements =
+let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
+    first_usage_order selector_props all_property_statements statements =
   let theme_defaults =
     let font_defaults =
       if include_base then Typography.default_font_family_declarations else []
     in
     let transition_defaults =
-      if include_base && has_transition_utility selector_props then
+      if include_base && has_transition then
         Transitions.default_transition_declarations
       else []
     in
@@ -1476,8 +1476,9 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
      flag, so utility presence must not auto-enable the global base. *)
   let forms_base = match forms with Some f -> f | None -> false in
   let individual =
-    individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
-      selector_props all_property_statements statements
+    individual_layers ~theme ~layers ~include_base ~forms_base
+      ~has_transition:(has_transition_utility tw_classes)
+      first_usage_order selector_props all_property_statements statements
   in
   let keyframes =
     List.fold_left collect_keyframes [] styles
