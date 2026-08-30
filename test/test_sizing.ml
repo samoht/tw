@@ -330,6 +330,19 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"sizing suborder matches Tailwind" shuffled
 
+let aspect_precedes_dimensions () =
+  Test_helpers.check_class_order ~test_name:"aspect ratio precedes dimensions"
+    [
+      "min-w-0";
+      "max-w-4xl";
+      "w-4";
+      "min-h-0";
+      "max-h-96";
+      "h-8";
+      "size-10";
+      "aspect-square";
+    ]
+
 (* Tailwind interleaves spacing and fractions by magnitude: w-0.5, w-1, w-1.5,
    w-1/2, w-1/3, w-2, w-2/3, w-3/4. tw used to sort all fractions ahead of all
    spacing (a flat offset), reversing conflicting rules (both set width). *)
@@ -588,6 +601,7 @@ let tests =
       test_arbitrary_aspect_rejects_non_ratio;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
+    test_case "aspect precedes dimensions" `Quick aspect_precedes_dimensions;
   ]
 
 let suite = ("sizing", tests)
