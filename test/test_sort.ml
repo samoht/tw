@@ -1034,7 +1034,10 @@ let pool_families () =
 (* What a variant may sit next to in a stack.
 
    [Responsive] nests a media query, and two of those on one class is a spelling
-   Tailwind refuses, so a stack takes at most one and it goes outermost.
+   Tailwind refuses, so a stack takes at most one and it goes outermost. [Hover]
+   nests [\@media (hover: hover)], and a stack takes at most one of those too:
+   Tailwind nests the query once per hover-gated variant and tw emits it once,
+   so [group-hover:hover:x] differs by a redundant wrapper.
 
    [Innermost] may not wrap another variant. [starting] is here because
    [starting:hover:x] loses the [@media (hover:hover)] the inner variant asked
@@ -1049,7 +1052,7 @@ let pool_families () =
    which no reader accepts, and its own minifier then empties what it cannot
    parse. It also needs a utility whose rules stop at the element; see
    {!reaches_past_the_element}. *)
-type variant_kind = Plain | Responsive | Innermost | Element
+type variant_kind = Plain | Responsive | Hover | Innermost | Element
 
 (* modifiers exports 210 constructors and no utility of its own, so a seed
    reaches the family only by dressing one: this list is what puts a [hover:]
@@ -1058,7 +1061,7 @@ type variant_kind = Plain | Responsive | Innermost | Element
    fifth of them and the reader takes every spelling. *)
 let pool_variants =
   [
-    ("hover", Plain);
+    ("hover", Hover);
     ("focus", Plain);
     ("active", Plain);
     ("disabled", Plain);
@@ -1101,7 +1104,7 @@ let pool_variants =
     ("details-content", Element);
     ("*", Plain);
     ("**", Plain);
-    ("group-hover", Plain);
+    ("group-hover", Hover);
     ("group-focus", Plain);
     ("group-first", Plain);
     ("group-last", Plain);
@@ -1110,7 +1113,7 @@ let pool_variants =
     ("group-checked", Plain);
     ("group-disabled", Plain);
     ("group-focus-within", Plain);
-    ("peer-hover", Plain);
+    ("peer-hover", Hover);
     ("peer-focus", Plain);
     ("peer-checked", Plain);
     ("peer-disabled", Plain);
@@ -1210,8 +1213,8 @@ let dressing_of cls =
 let dress rng ~dressing u =
   let alone =
     match dressing with
-    | Any -> [ Plain; Responsive; Innermost; Element ]
-    | No_pseudo_element -> [ Plain; Responsive; Innermost ]
+    | Any -> [ Plain; Responsive; Hover; Innermost; Element ]
+    | No_pseudo_element -> [ Plain; Responsive; Hover; Innermost ]
     | Bare -> []
   in
   let innermost =
@@ -1229,10 +1232,13 @@ let dress rng ~dressing u =
         (name, prefix name u)
     | _ ->
         (* Stacked: the pseudo-element innermost, since it ends the selector,
-           and the media query outermost, which is how [md:hover:] is
-           written. *)
-        let inner, _ = pick_variant rng innermost in
-        let outer, _ = pick_variant rng [ Plain; Responsive ] in
+           and the media query outermost, which is how [md:hover:] is written.
+           At most one hover-gated variant, wherever it lands. *)
+        let outer, outer_kind = pick_variant rng [ Plain; Responsive; Hover ] in
+        let inner_kinds =
+          if outer_kind = Hover then innermost else Hover :: innermost
+        in
+        let inner, _ = pick_variant rng inner_kinds in
         (outer ^ ":" ^ inner, prefix outer (prefix inner u))
 
 (* Without replacement. Drawing 30 from 252 with replacement left about 28
@@ -1530,22 +1536,22 @@ let case_index cases =
 
    A [Reordered] node with no [swapped_with] is a reorder inside one rule rather
    than of the rules, and is not this. *)
-let rec only_reorders (d : Cascade_diff.Tree_diff.t) =
-  d.layer_order = None
-  && List.for_all rule_is_reorder d.rules
-  && List.for_all container_is_reorder d.containers
-
-and rule_is_reorder (r : Cascade_diff.Tree_diff.rule_diff) =
+let rule_is_reorder (r : Cascade_diff.Tree_diff.rule_diff) =
   match r with
   | Cascade_diff.Tree_diff.Reordered { swapped_with = Some _; _ } -> true
   | _ -> false
 
-and container_is_reorder (c : Cascade_diff.Tree_diff.container_diff) =
+let rec container_is_reorder (c : Cascade_diff.Tree_diff.container_diff) =
   match c with
   | Cascade_diff.Tree_diff.Modified { rule_changes; container_changes; _ } ->
       List.for_all rule_is_reorder rule_changes
       && List.for_all container_is_reorder container_changes
   | _ -> false
+
+let only_reorders (d : Cascade_diff.Tree_diff.t) =
+  d.layer_order = None
+  && List.for_all rule_is_reorder d.rules
+  && List.for_all container_is_reorder d.containers
 
 (* One reading of a case, for both minimisation and the assertion: two
    predicates that disagree let a fuzzer print a failing case and pass anyway.
@@ -1570,12 +1576,12 @@ let case_faults cases =
         match (entry a, entry b) with
         | Some (ha, va), Some (hb, vb)
           when String.equal va vb && not (List.mem (ha, hb) known_inversions) ->
-            Some
-              (Fmt.str
-                 "%s comes before %s in Tailwind and after it in tw. Fix the \
-                  order, or record (%S, %S) in [known_inversions] if it is \
-                  debt this branch does not close."
-                 a b ha hb)
+            Fmt.kstr
+              (fun m -> Some m)
+              "%s comes before %s in Tailwind and after it in tw. Fix the \
+               order, or record (%S, %S) in [known_inversions] if it is debt \
+               this branch does not close."
+              a b ha hb
         | _ -> None)
   in
   let structural =
