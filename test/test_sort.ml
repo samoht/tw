@@ -501,6 +501,26 @@ let test_field_sizing_property_band () =
       "m-4";
     ]
 
+let test_late_control_property_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"late controls keep their property bands"
+    [
+      "transform-3d";
+      "text-shadow-sm";
+      "perspective-normal";
+      "backface-hidden";
+      "select-none";
+      "outline-solid";
+      "forced-color-adjust-auto";
+      "content-none";
+      "contain-layout";
+      "will-change-auto";
+      "transition";
+      "blur-sm";
+      "outline-hidden";
+      "scheme-dark";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2637,6 +2657,8 @@ let tests =
     test_case "flow property bands" `Slow test_flow_property_bands;
     test_case "tab property band" `Slow test_tab_property_band;
     test_case "field sizing property band" `Slow test_field_sizing_property_band;
+    test_case "late control property bands" `Slow
+      test_late_control_property_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
