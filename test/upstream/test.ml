@@ -371,13 +371,17 @@ let test_scheme_from_declared_tokens_only () =
     scheme.Tw.Scheme.default_outline_width;
   Alcotest.(check bool)
     "the declared radius is read" true
-    (Tw.Scheme.radius scheme "full" = Some (Css.Px 9999.));
+    (Option.equal Css.Values.equal_length
+       (Tw.Scheme.radius scheme "full")
+       (Some (Css.Px 9999.)));
   Alcotest.(check bool)
     "an undeclared radius stays absent" false
     (Tw.Scheme.has_explicit_radius scheme "sm");
   Alcotest.(check bool)
     "the declared spacing step is read" true
-    (Tw.Scheme.spacing scheme 4 = Some (Css.Rem 1.));
+    (Option.equal Css.Values.equal_length
+       (Tw.Scheme.spacing scheme 4)
+       (Some (Css.Rem 1.)));
   Alcotest.(check bool)
     "an undeclared spacing step stays absent" false
     (Tw.Scheme.has_explicit_spacing scheme 8)
