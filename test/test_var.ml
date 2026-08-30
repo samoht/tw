@@ -64,6 +64,37 @@ let arbitrary_var_fallbacks () =
     (Astring.String.is_infix ~affix:"top:var(--top,"
        (inline_css "top-(--top,0)"))
 
+(* CSS Syntax 3 (ED): a [<declaration-value>] carries no unmatched [)], so
+   bracket text holding one names no reference and no fallback. Splitting it at
+   the comma anyway would take [--a] with [b)c] behind it and write the loose
+   [)] into the sheet, where it closes the [var()] early and leaves a stray one
+   after it. The whole text stays the escaped name it is. *)
+let bracket_reference_with_loose_closer () =
+  let css class_name =
+    match Tw.of_string class_name with
+    | Ok utility ->
+        Css.to_string ~minify:true (Tw.to_css ~base:false [ utility ])
+    | Error (`Msg msg) -> failf "%s: %s" class_name msg
+  in
+  let declaration class_name =
+    let sheet = css class_name in
+    match Astring.String.cut ~sep:"top:" sheet with
+    | Some (_, rest) -> (
+        match Astring.String.cut ~sep:"}" rest with
+        | Some (decl, _) -> decl
+        | None -> rest)
+    | None -> failf "%s: no top declaration in %s" class_name sheet
+  in
+  check string "bracket keeps the loose closer inside the name"
+    {|var(--a\,b\)c)|}
+    (declaration "top-[var(--a,b)c)]");
+  check string "paren shorthand keeps the loose closer inside the name"
+    {|var(--a\,b\)c)|}
+    (declaration "top-(--a,b)c)");
+  (* The same text without the loose closer is the reference it looks like. *)
+  check string "a closed body is read as name and fallback" "var(--a,b)"
+    (declaration "top-[var(--a,b)]")
+
 (* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
@@ -251,6 +282,8 @@ let tests =
     test_case "var CSS output" `Quick var_css_output;
     test_case "var fallback in CSS" `Quick var_fallback_in_css;
     test_case "arbitrary var fallbacks" `Quick arbitrary_var_fallbacks;
+    test_case "bracket reference with loose closer" `Quick
+      bracket_reference_with_loose_closer;
     test_case "var in theme layer" `Quick var_in_theme_layer;
     test_case "ring-offset-width properties layer spelling" `Quick
       ring_offset_width_properties_layer_spelling;
