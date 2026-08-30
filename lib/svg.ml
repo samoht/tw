@@ -5,6 +5,12 @@ module Css = Cascade.Css
 (** Error helper *)
 let err_not_utility = Error (`Msg "Not an SVG utility")
 
+(* How wide one of the three suborder groups below is. A suborder is a plain
+   [int], 32 bits under js_of_ocaml, so a name packs seven bits per character
+   rather than eight: a byte each left no room for the group above it. *)
+let alpha_span = 1 lsl 28
+let suborder_ceiling = 3 * alpha_span
+
 module Handler = struct
   open Style
 
@@ -180,11 +186,13 @@ module Handler = struct
         style ~merge_key:"stroke-width-"
           [ Css.stroke_width (Var (Var.bracket bare_name)) ]
 
-  (* Alphabetical suborder from first 4 chars of a string *)
+  (* Alphabetical suborder from the first four characters of a name. [-] is the
+     lowest byte one of these carries, so seven bits hold a character and four
+     of them stay inside {!alpha_span}. *)
   let alpha_order s =
     let v = ref 0 in
     for i = 0 to min 3 (String.length s - 1) do
-      v := (!v * 256) + Char.code s.[i]
+      v := (!v * 128) + max 0 (Char.code s.[i] - Char.code '-')
     done;
     !v
 
@@ -225,9 +233,7 @@ module Handler = struct
       | Stroke_width_bracket _ -> (2, 100)
       | Stroke_width_typed_var _ -> (2, 100)
     in
-    (* alpha_order returns at most 4 bytes = 0x7F7F7F7F on ASCII, so multiply
-       group by 0x100000000 to ensure no overlap. *)
-    (group lsl 32) + detail
+    (group * alpha_span) + detail
 
   let to_class = function
     | Fill_none -> "fill-none"

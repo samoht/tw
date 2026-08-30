@@ -234,8 +234,8 @@ module Handler = struct
     | Clear_both | Clear_end | Clear_left | Clear_none | Clear_right
     | Clear_start ->
         1
-    (* object-fit / object-position (rank ~72): after svg fill/stroke (21),
-       before padding (23). *)
+    (* object-fit / object-position (rank ~72): after svg fill/stroke, which
+       shares this priority, and before padding (23). *)
     | Object_contain | Object_cover | Object_fill | Object_none
     | Object_scale_down | Object_center | Object_top | Object_bottom
     | Object_left | Object_right | Object_bottom_left | Object_bottom_right
@@ -292,27 +292,29 @@ module Handler = struct
     | Neg_z_arbitrary _ -> 20_000_000 + 560
     | Z_arbitrary _ -> 20_000_000 + 700
     | Z_auto -> 20_000_000 + 750
-    (* Object fit *)
-    | Object_contain -> 600
-    | Object_cover -> 601
-    | Object_fill -> 602
-    | Object_none -> 603
-    | Object_scale_down -> 604
+    (* Object fit, after every fill and stroke: svg.ml shares this priority and
+       Tailwind emits it first of the two, so the whole family starts past what
+       that handler assigns. *)
+    | Object_contain -> Svg.suborder_ceiling + 600
+    | Object_cover -> Svg.suborder_ceiling + 601
+    | Object_fill -> Svg.suborder_ceiling + 602
+    | Object_none -> Svg.suborder_ceiling + 603
+    | Object_scale_down -> Svg.suborder_ceiling + 604
     (* Object position - alphabetical: bottom, bottom-left, ..., top-right *)
-    | Object_bottom -> 700
-    | Object_bottom_left -> 701
-    | Object_bottom_right -> 702
-    | Object_center -> 703
-    | Object_left -> 704
-    | Object_left_bottom -> 705
-    | Object_left_top -> 706
-    | Object_right -> 707
-    | Object_right_bottom -> 708
-    | Object_right_top -> 709
-    | Object_top -> 710
-    | Object_top_left -> 711
-    | Object_top_right -> 712
-    | Object_arbitrary _ -> 650
+    | Object_bottom -> Svg.suborder_ceiling + 700
+    | Object_bottom_left -> Svg.suborder_ceiling + 701
+    | Object_bottom_right -> Svg.suborder_ceiling + 702
+    | Object_center -> Svg.suborder_ceiling + 703
+    | Object_left -> Svg.suborder_ceiling + 704
+    | Object_left_bottom -> Svg.suborder_ceiling + 705
+    | Object_left_top -> Svg.suborder_ceiling + 706
+    | Object_right -> Svg.suborder_ceiling + 707
+    | Object_right_bottom -> Svg.suborder_ceiling + 708
+    | Object_right_top -> Svg.suborder_ceiling + 709
+    | Object_top -> Svg.suborder_ceiling + 710
+    | Object_top_left -> Svg.suborder_ceiling + 711
+    | Object_top_right -> Svg.suborder_ceiling + 712
+    | Object_arbitrary _ -> Svg.suborder_ceiling + 650
     (* Float (priority 1) - after the grid-column/grid-row group (up to ~2.6K in
        grid_item.ml), before .container (9M). Alphabetical: end, left, none,
        right, start *)
