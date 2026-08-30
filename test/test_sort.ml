@@ -471,6 +471,21 @@ let test_flow_property_bands () =
       "columns-2";
     ]
 
+(* Tab size follows white-space and precedes text color and transforms. *)
+let test_tab_property_band () =
+  Test_helpers.check_class_order ~test_name:"tab size keeps its property band"
+    [
+      "uppercase";
+      "text-red-500";
+      "tab-4";
+      "whitespace-nowrap";
+      "hyphens-auto";
+      "text-ellipsis";
+      "break-all";
+      "break-words";
+      "text-wrap";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -2645,6 +2660,7 @@ let tests =
     test_case "transform control bands" `Slow test_transform_control_bands;
     test_case "scrolling property bands" `Slow test_scrolling_property_bands;
     test_case "flow property bands" `Slow test_flow_property_bands;
+    test_case "tab property band" `Slow test_tab_property_band;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
