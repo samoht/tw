@@ -31,13 +31,13 @@ type selector_kind =
    what separates two tokens that share it. A breakpoint token carries the width
    it names, so [sm] and [md] no longer collapse onto one key; a group-/ peer-
    token carries the state it wraps, so [group-focus] and [group-has] keep their
-   order; a data token carries its predicate, so compounds stay with the named
-   or arbitrary data group they belong to. *)
+   order; data and arbitrary tokens carry the value that distinguishes groups
+   inside their slot. *)
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
   wrapped : int;
-  data_key : string option;
+  value_key : string option;
 }
 
 (** Relationship between two rules being compared *)
@@ -1108,7 +1108,26 @@ let compare_variant_components a b =
     else
       let wrapped_cmp = Int.compare a.wrapped b.wrapped in
       if wrapped_cmp <> 0 then wrapped_cmp
-      else Option.compare String.compare a.data_key b.data_key
+      else Option.compare String.compare a.value_key b.value_key
+
+(* Tailwind compares arbitrary variants by the selector they denote, after
+   decoding bracket-space underscores. A bare compound is implicitly anchored on
+   the candidate, while a selector with [&], a relative selector, or an at-rule
+   already carries its own context. *)
+let arbitrary_variant_selector_key token =
+  if not (Parse.is_bracket_value token) then None
+  else
+    let selector =
+      token |> Parse.bracket_inner |> Parse.decode_underscores |> String.trim
+    in
+    if selector = "" then None
+    else
+      let first = selector.[0] in
+      if
+        first <> '>' && first <> '+' && first <> '~' && first <> '@'
+        && not (String.contains selector '&')
+      then Some ("&:is(" ^ selector ^ ")")
+      else Some selector
 
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one
    key and every group-/peer- spelling on another, so the component carries what
@@ -1123,10 +1142,13 @@ let token_order_key ~breakpoint token =
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
-  let data_key =
-    if String.starts_with ~prefix:"data-" token then Some token else None
+  let value_key =
+    match arbitrary_variant_selector_key token with
+    | Some _ as key -> key
+    | None when String.starts_with ~prefix:"data-" token -> Some token
+    | None -> None
   in
-  { slot; breakpoint; wrapped; data_key }
+  { slot; breakpoint; wrapped; value_key }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1156,7 +1178,7 @@ let variant_order_list base_class variant_order breakpoint =
           slot = variant_order;
           breakpoint = None;
           wrapped = 0;
-          data_key = None;
+          value_key = None;
         };
       ]
   | l -> l
