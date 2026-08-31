@@ -2576,9 +2576,15 @@ let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
    off the same table as the slot itself. *)
 let variant_inner_order token =
   let after n = String.sub token n (String.length token - n) in
+  let anchor_inner n =
+    let inner = after n in
+    (* A slash inside an arbitrary selector belongs to the selector. Named
+       simple states have no brackets, so their suffix can be removed here. *)
+    if String.contains inner '[' then inner else fst (split_name inner)
+  in
   let inner =
-    if String.starts_with ~prefix:"group-" token then Some (after 6)
-    else if String.starts_with ~prefix:"peer-" token then Some (after 5)
+    if String.starts_with ~prefix:"group-" token then Some (anchor_inner 6)
+    else if String.starts_with ~prefix:"peer-" token then Some (anchor_inner 5)
     else if String.starts_with ~prefix:"not-" token then Some (after 4)
     else
       (* [in-focus] names a state on an ancestor; [in-range] names one on the
