@@ -862,17 +862,12 @@ module Handler = struct
     | Sized (prop, v) ->
         let f = family prop in
         f.base + value_order f v
-    (* Aspect: ratios -> brackets -> keywords *)
-    | Aspect_ratio (rw, rh) ->
-        aspect_base + int_of_float (rw *. 10.) + int_of_float rh
-    | Aspect_bracket (_, rw, rh) ->
-        aspect_base + 1000 + int_of_float (rw *. 10.) + int_of_float rh
-    | Aspect_bracket_num s ->
-        aspect_base + 1000 + int_of_float (float_of_string s *. 10.) + 1
-    | Aspect_auto -> aspect_base + 2000
-    | Aspect_square -> aspect_base + 2001
-    | Aspect_video -> aspect_base + 2002
-    | Aspect_theme _ -> aspect_base + 1500
+    (* Every aspect candidate writes the same property. One slot lets the
+       natural class-name tie-break order numeric ratios, then brackets and
+       keywords without large numerators spilling past the tail. *)
+    | Aspect_ratio _ | Aspect_bracket _ | Aspect_bracket_num _ | Aspect_auto
+    | Aspect_square | Aspect_video | Aspect_theme _ ->
+        aspect_base
 
   (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
       flex-1/flex-col in Tailwind's order. The logical ones are registered after
