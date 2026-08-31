@@ -592,6 +592,20 @@ let test_outline_select_shadow_property_bands () =
       "outline-inherit";
     ]
 
+(* Backface visibility and divide-x-reverse precede the logical sizing block;
+   perspective follows it. *)
+let test_backface_logical_sizing_boundary () =
+  Test_helpers.check_class_order ~test_name:"backface/logical sizing boundary"
+    [
+      "perspective-normal";
+      "max-block-full";
+      "inline-full";
+      "divide-x-reverse";
+      "backface-visible";
+      "[animation-name:move-x]";
+      "text-shadow-lg/20";
+    ]
+
 let test_logical_side_property_bands () =
   Test_helpers.check_class_order
     ~test_name:"logical sides keep their property bands"
@@ -2808,6 +2822,8 @@ let tests =
       test_late_control_property_bands;
     test_case "outline, select and alpha shadow bands" `Slow
       test_outline_select_shadow_property_bands;
+    test_case "backface/logical sizing boundary" `Slow
+      test_backface_logical_sizing_boundary;
     test_case "logical side property bands" `Slow
       test_logical_side_property_bands;
     test_case "shadow and transform boundaries" `Slow
