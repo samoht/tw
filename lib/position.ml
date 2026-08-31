@@ -494,38 +494,6 @@ module Handler = struct
 
   let int_of_string_with_sign = Parse.int_any
 
-  (* Suborder follows Tailwind's ordering: 1. Negative numeric values (-inset-4)
-     - small suborder 2. Negative percentage (-inset-full) 3. Fractions
-     (inset-3/4) 4. Positive numeric (inset-4) 5. Arbitrary (inset-[4px]) 6.
-     auto (inset-auto) 7. full (inset-full) 8. named (inset-shadowned) *)
-  (* Within an inset family Tailwind orders: negative numeric (ascending by
-     magnitude), then negative full, then positives with fractions interleaved
-     by numerator (inset-1, inset-1/2, inset-2, inset-3/4, inset-4), then
-     arbitrary, then keywords (auto, full) then named. The offsets below are
-     spaced far enough apart that a numeric value (up to ~96) never overflows
-     into the next tier or family: family bands are 1_000_000 apart. *)
-  let neg_num n = abs n * 10 (* 0 .. ~960 *)
-  let neg_arb_off = 490_000 (* negative arbitrary before negative full *)
-  let neg_full_off = 500_000
-  let pos_off = 600_000
-  let pos_int n = pos_off + (n * 10)
-  let pos_frac num den = pos_off + (num * 10) + 1 + den
-
-  let pos_frac_str f =
-    match frac_num_den f with Some (n, m) -> pos_frac n m | None -> pos_off
-
-  (* A negative fraction sits in the negative tier, interleaved with negative
-     numerics by numerator (-inset-1, -inset-1/2, -inset-2). *)
-  let neg_frac num den = (num * 10) + 1 + den
-
-  let neg_frac_str f =
-    match frac_num_den f with Some (n, m) -> neg_frac n m | None -> 0
-
-  let arb_off = 800_000
-  let auto_off = 900_000
-  let full_off = 900_001
-  let named_off = 900_002
-
   let suborder =
     let inset = 1_000_000 in
     let inset_x = 2_000_000 in
@@ -541,158 +509,64 @@ module Handler = struct
     let start = inset_s in
     let e = inset_e in
     function
-    | Pos_spacing (side, sp) ->
-        let base =
-          match side with
-          | Side.Top -> top
-          | Side.Right -> right
-          | Side.Bottom -> bottom
-          | Side.Left -> left
-          | Side.Inset -> inset
-          | Side.Inset_x -> inset_x
-          | Side.Inset_y -> inset_y
-        in
-        let scale =
-          match sp with `Rem f -> f /. 0.25 | `Px -> 0.05 | _ -> 0.
-        in
-        base + pos_off + int_of_float (scale *. 10.)
-    | Neg_pos_spacing (side, sp) ->
-        let base =
-          match side with
-          | Side.Top -> top
-          | Side.Right -> right
-          | Side.Bottom -> bottom
-          | Side.Left -> left
-          | Side.Inset -> inset
-          | Side.Inset_x -> inset_x
-          | Side.Inset_y -> inset_y
-        in
-        let scale =
-          match sp with `Rem f -> f /. 0.25 | `Px -> 0.05 | _ -> 0.
-        in
-        base + int_of_float (scale *. 10.)
     | Position_absolute -> 0
     | Position_fixed -> 1
     | Position_relative -> 2
     | Position_static -> 3
     | Position_sticky -> 4
-    (* inset *)
-    | Inset n when n < 0 -> inset + neg_num n
-    | Neg_inset_full -> inset + neg_full_off
-    | Inset_0 -> inset + pos_int 0
-    | Inset_fraction f -> inset + pos_frac_str f
-    | Neg_inset_fraction f -> inset + neg_frac_str f
-    | Inset n -> inset + pos_int n
-    | Inset_arbitrary _ -> inset + arb_off
-    | Inset_auto -> inset + auto_off
-    | Inset_full -> inset + full_off
-    | Inset_named _ -> inset + named_off
-    (* inset-x *)
-    | Neg_inset_x_full -> inset_x + neg_full_off
-    | Inset_x_0 -> inset_x + pos_int 0
-    | Inset_x_fraction f -> inset_x + pos_frac_str f
-    | Neg_inset_x_fraction f -> inset_x + neg_frac_str f
-    | Inset_x n when n < 0 -> inset_x + neg_num n
-    | Inset_x n -> inset_x + pos_int n
-    | Inset_x_arbitrary _ -> inset_x + arb_off
-    | Inset_x_auto -> inset_x + auto_off
-    | Inset_x_full -> inset_x + full_off
-    | Inset_x_named _ -> inset_x + named_off
-    (* inset-y *)
-    | Neg_inset_y_full -> inset_y + neg_full_off
-    | Inset_y_0 -> inset_y + pos_int 0
-    | Inset_y_3_4 -> inset_y + pos_frac 3 4
-    | Inset_y n when n < 0 -> inset_y + neg_num n
-    | Inset_y n -> inset_y + pos_int n
-    | Inset_y_arbitrary _ -> inset_y + arb_off
-    | Inset_y_auto -> inset_y + auto_off
-    | Inset_y_full -> inset_y + full_off
-    | Inset_y_named _ -> inset_y + named_off
-    (* inset-s *)
-    | Inset_s n when n < 0 -> inset_s + neg_num n
-    | Neg_inset_s_full -> inset_s + neg_full_off
-    | Inset_s_3_4 -> inset_s + pos_frac 3 4
-    | Inset_s n -> inset_s + pos_int n
-    | Inset_s_arbitrary _ -> inset_s + arb_off
-    | Inset_s_auto -> inset_s + auto_off
-    | Inset_s_full -> inset_s + full_off
-    | Inset_s_named _ -> inset_s + named_off
-    (* inset-e *)
-    | Inset_e n when n < 0 -> inset_e + neg_num n
-    | Neg_inset_e_full -> inset_e + neg_full_off
-    | Inset_e_3_4 -> inset_e + pos_frac 3 4
-    | Inset_e n -> inset_e + pos_int n
-    | Inset_e_arbitrary _ -> inset_e + arb_off
-    | Inset_e_auto -> inset_e + auto_off
-    | Inset_e_full -> inset_e + full_off
-    | Inset_e_named _ -> inset_e + named_off
-    (* inset-bs *)
-    | Inset_bs n when n < 0 -> inset_bs + neg_num n
-    | Neg_inset_bs_full -> inset_bs + neg_full_off
-    | Inset_bs_3_4 -> inset_bs + pos_frac 3 4
-    | Inset_bs n -> inset_bs + pos_int n
-    | Inset_bs_arbitrary _ -> inset_bs + arb_off
-    | Inset_bs_auto -> inset_bs + auto_off
-    | Inset_bs_full -> inset_bs + full_off
-    | Inset_bs_named _ -> inset_bs + named_off
-    (* inset-be *)
-    | Inset_be n when n < 0 -> inset_be + neg_num n
-    | Neg_inset_be_full -> inset_be + neg_full_off
-    | Inset_be_3_4 -> inset_be + pos_frac 3 4
-    | Inset_be n -> inset_be + pos_int n
-    | Inset_be_arbitrary _ -> inset_be + arb_off
-    | Inset_be_auto -> inset_be + auto_off
-    | Inset_be_full -> inset_be + full_off
-    | Inset_be_named _ -> inset_be + named_off
-    (* top *)
-    | Top n when n < 0 -> top + neg_num n
-    | Neg_top_full -> top + neg_full_off
-    | Top_fraction f -> top + pos_frac_str f
-    | Neg_top_fraction f -> top + neg_frac_str f
-    | Top n -> top + pos_int n
-    | Top_arbitrary _ -> top + arb_off
-    | Top_auto -> top + auto_off
-    | Top_full -> top + full_off
-    | Top_named _ -> top + named_off
-    (* right *)
-    | Right n when n < 0 -> right + neg_num n
-    | Neg_right_full -> right + neg_full_off
-    | Right_fraction f -> right + pos_frac_str f
-    | Neg_right_fraction f -> right + neg_frac_str f
-    | Right n -> right + pos_int n
-    | Right_arbitrary _ -> right + arb_off
-    | Right_auto -> right + auto_off
-    | Right_full -> right + full_off
-    | Right_named _ -> right + named_off
-    (* bottom *)
-    | Bottom n when n < 0 -> bottom + neg_num n
-    | Neg_bottom_full -> bottom + neg_full_off
-    | Bottom_3_4 -> bottom + pos_frac 3 4
-    | Bottom n -> bottom + pos_int n
-    | Bottom_arbitrary _ -> bottom + arb_off
-    | Bottom_auto -> bottom + auto_off
-    | Bottom_full -> bottom + full_off
-    | Bottom_named _ -> bottom + named_off
-    (* left *)
-    | Left n when n < 0 -> left + neg_num n
-    | Neg_left_arbitrary _ -> left + neg_arb_off
-    | Neg_left_full -> left + neg_full_off
-    | Left_fraction f -> left + pos_frac_str f
-    | Neg_left_fraction f -> left + neg_frac_str f
-    | Left n -> left + pos_int n
-    | Left_arbitrary _ -> left + arb_off
-    | Left_auto -> left + auto_off
-    | Left_full -> left + full_off
-    | Left_named _ -> left + named_off
-    (* start / end *)
-    | Start_3_4 -> start + pos_frac 3 4
-    | Start_auto -> start + auto_off
-    | Start_full -> start + full_off
-    | Start n -> start + pos_int n
-    | End_3_4 -> e + pos_frac 3 4
-    | End_auto -> e + auto_off
-    | End_full -> e + full_off
-    | End n -> e + pos_int n
+    (* Tailwind assigns one order slot to every candidate that writes the same
+       position property. The shared candidate-name tiebreak then handles
+       negatives, arbitrary values, fractions, keywords and scale values. *)
+    | Pos_spacing (Side.Inset, _)
+    | Neg_pos_spacing (Side.Inset, _)
+    | Inset_0 | Inset_auto | Inset_full | Neg_inset_full | Inset_fraction _
+    | Neg_inset_fraction _ | Inset _ | Inset_arbitrary _ | Inset_named _ ->
+        inset
+    | Pos_spacing (Side.Inset_x, _)
+    | Neg_pos_spacing (Side.Inset_x, _)
+    | Inset_x_0 | Inset_x_auto | Inset_x_full | Neg_inset_x_full
+    | Inset_x_fraction _ | Neg_inset_x_fraction _ | Inset_x _
+    | Inset_x_arbitrary _ | Inset_x_named _ ->
+        inset_x
+    | Pos_spacing (Side.Inset_y, _)
+    | Neg_pos_spacing (Side.Inset_y, _)
+    | Inset_y_0 | Inset_y_auto | Inset_y_full | Neg_inset_y_full | Inset_y_3_4
+    | Inset_y _ | Inset_y_arbitrary _ | Inset_y_named _ ->
+        inset_y
+    | Inset_s _ | Inset_s_arbitrary _ | Inset_s_named _ | Inset_s_auto
+    | Inset_s_full | Neg_inset_s_full | Inset_s_3_4 | Start _ | Start_auto
+    | Start_full | Start_3_4 ->
+        start
+    | Inset_e _ | Inset_e_arbitrary _ | Inset_e_named _ | Inset_e_auto
+    | Inset_e_full | Neg_inset_e_full | Inset_e_3_4 | End _ | End_auto
+    | End_full | End_3_4 ->
+        e
+    | Inset_bs _ | Inset_bs_arbitrary _ | Inset_bs_named _ | Inset_bs_auto
+    | Inset_bs_full | Neg_inset_bs_full | Inset_bs_3_4 ->
+        inset_bs
+    | Inset_be _ | Inset_be_arbitrary _ | Inset_be_named _ | Inset_be_auto
+    | Inset_be_full | Neg_inset_be_full | Inset_be_3_4 ->
+        inset_be
+    | Pos_spacing (Side.Top, _)
+    | Neg_pos_spacing (Side.Top, _)
+    | Top _ | Top_fraction _ | Neg_top_fraction _ | Top_auto | Top_full
+    | Neg_top_full | Top_arbitrary _ | Top_named _ ->
+        top
+    | Pos_spacing (Side.Right, _)
+    | Neg_pos_spacing (Side.Right, _)
+    | Right _ | Right_auto | Right_full | Neg_right_full | Right_fraction _
+    | Neg_right_fraction _ | Right_arbitrary _ | Right_named _ ->
+        right
+    | Pos_spacing (Side.Bottom, _)
+    | Neg_pos_spacing (Side.Bottom, _)
+    | Bottom _ | Bottom_auto | Bottom_full | Neg_bottom_full | Bottom_3_4
+    | Bottom_arbitrary _ | Bottom_named _ ->
+        bottom
+    | Pos_spacing (Side.Left, _)
+    | Neg_pos_spacing (Side.Left, _)
+    | Left _ | Left_fraction _ | Neg_left_fraction _ | Left_auto | Left_full
+    | Neg_left_full | Left_arbitrary _ | Neg_left_arbitrary _ | Left_named _ ->
+        left
 
   (* A named inset (top-header) is valid only when the theme defines the token.
      Tailwind resolves the name against the [--inset-*] namespace, then falls
