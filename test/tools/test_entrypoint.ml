@@ -63,6 +63,12 @@ let test_theme_namespace_reset () =
   in
   check pair_list "the reset stands among the tokens beside it"
     [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "800px") ]
+    tokens;
+  let tokens, _ =
+    theme_overrides_of_css "@theme { --example-*: [x); y]; --example-one: ok; }"
+  in
+  check pair_list "a mismatched closer does not end the open square block"
+    [ ("example-*", "[x); y]"); ("example-one", "ok") ]
     tokens
 
 let test_imports_static_theme () =
