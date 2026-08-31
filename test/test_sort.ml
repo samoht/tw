@@ -2499,6 +2499,31 @@ let test_arbitrary_variant_selector_order () =
       "[html:has(&)]:bg-blue-500";
     ]
 
+let test_recursive_compound_variant_order () =
+  (* Compound variants compare their wrapped variant recursively. The outer
+     group/not slot alone cannot distinguish group-has-indeterminate from
+     group-has-focus, or not-group-open from not-group-has-data-lg. *)
+  Test_helpers.check_class_order
+    ~test_name:"recursive group compound variant order"
+    [
+      "group-focus:opacity-100";
+      "group-has-checked:opacity-100";
+      "group-has-indeterminate:opacity-100";
+      "group-has-focus:opacity-100";
+      "group-has-disabled:stroke-gray-950/25";
+      "group-has-[&:focus]:opacity-100";
+      "group-has-[a]:block";
+      "group-aria-selected:block";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"recursive negation compound variant order"
+    [
+      "not-group-open:hidden";
+      "not-group-has-data-lg:opacity-40";
+      "not-peer-has-checked:opacity-0";
+      "not-last:border-b";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -3013,6 +3038,8 @@ let tests =
       test_compound_data_variant_group;
     test_case "arbitrary variant selector order" `Slow
       test_arbitrary_variant_selector_order;
+    test_case "recursive compound variant order" `Slow
+      test_recursive_compound_variant_order;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
