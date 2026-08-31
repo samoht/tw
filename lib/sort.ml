@@ -71,9 +71,9 @@ type indexed_rule = {
   base_class : string option;
   merge_key : string option;
   variant_order : int;
-  variant_key : string * int;
-      (* Precomputed (variant prefix, effective inner order) - see
-         [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  variant_key : string * int * int;
+      (* Precomputed (variant prefix, effective inner order, collapsed data
+         depth) - see [variant_sort_key]. Read by [compare_variant_ordered]. *)
   variant_orders : variant_component list;
       (* The rule's variant order keys sorted descending - see
          [variant_order_list]. Compared lexicographically by
@@ -941,29 +941,38 @@ let compare_nested_media r1 r2 =
       | _ -> 0)
   | _ -> 0
 
-(* Repeating an element variant changes the selector depth, but Tailwind still
-   sorts the candidate in the one element-variant slot. Keep the selector's
-   tokens intact and collapse only adjacent repetitions in the sort key. *)
-let collapse_repeated_element_variants modifiers =
-  let rec loop previous acc = function
-    | modifier :: rest
-      when (String.equal modifier "*" || String.equal modifier "**")
-           && Option.equal String.equal previous (Some modifier) ->
-        loop previous acc rest
-    | modifier :: rest -> loop (Some modifier) (modifier :: acc) rest
-    | [] -> List.rev acc
+(* Repeating an element variant, or stacking predicates from the same data slot,
+   changes the selector without adding another sort slot. Keep the selector's
+   tokens intact; in the sort key retain only the innermost token of each
+   adjacent run. Named and arbitrary data variants occupy separate slots. *)
+let collapse_repeated_variant_slots modifiers =
+  let is_element = function "*" | "**" -> true | _ -> false in
+  let is_data modifier = String.starts_with ~prefix:"data-" modifier in
+  let same_collapsible_slot outer inner =
+    (is_element outer && String.equal outer inner)
+    || is_data outer && is_data inner
+       && Modifiers.variant_order_of_prefix outer
+          = Modifiers.variant_order_of_prefix inner
   in
-  loop None [] modifiers
+  let rec loop data_depth acc = function
+    | outer :: (inner :: _ as rest) when same_collapsible_slot outer inner ->
+        let data_depth = if is_data outer then data_depth + 1 else data_depth in
+        loop data_depth acc rest
+    | modifier :: rest -> loop data_depth (modifier :: acc) rest
+    | [] -> (List.rev acc, data_depth)
+  in
+  loop 0 [] modifiers
 
 (* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover".
    Split with the modifier parser, not on the last ':': an arbitrary value can
    hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
    [hover:bg-[color]. *)
-let variant_prefix = function
+let variant_prefix_and_data_depth = function
   | Some s ->
-      fst (Modifiers.of_string s)
-      |> collapse_repeated_element_variants |> String.concat ":"
-  | None -> ""
+      let modifiers, _ = Modifiers.of_string s in
+      let modifiers, data_depth = collapse_repeated_variant_slots modifiers in
+      (String.concat ":" modifiers, data_depth)
+  | None -> ("", 0)
 
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
@@ -1076,8 +1085,8 @@ let effective_ivo_of nested prefix =
    every comparison. Precompute them once per rule (see [add_index]) so the hot
    sort comparator only reads the result. *)
 let variant_sort_key base_class nested =
-  let prefix = variant_prefix base_class in
-  (prefix, effective_ivo_of nested prefix)
+  let prefix, data_depth = variant_prefix_and_data_depth base_class in
+  (prefix, effective_ivo_of nested prefix, data_depth)
 
 (* Two components in the same slot are separated by the breakpoint first: a rule
    whose highest-order variant is a breakpoint groups under that breakpoint, so
@@ -1121,7 +1130,7 @@ let variant_order_list base_class variant_order breakpoint =
     | None -> []
     | Some bc ->
         let modifiers, _ = Modifiers.of_string bc in
-        let modifiers = collapse_repeated_element_variants modifiers in
+        let modifiers, _ = collapse_repeated_variant_slots modifiers in
         List.filter_map
           (fun m ->
             let key = token_order_key ~breakpoint m in
@@ -1234,8 +1243,8 @@ let compare_variant_ordered r1 r2 =
       in
       if list_cmp <> 0 then list_cmp
       else
-        let p1_prefix, _ = r1.variant_key in
-        let p2_prefix, _ = r2.variant_key in
+        let p1_prefix, _, data_depth1 = r1.variant_key in
+        let p2_prefix, _, data_depth2 = r2.variant_key in
         (* The descending variant-order lists tie (same variant multiset), so
            hover:sm: and sm:hover: arrive here indistinguishable. The query a
            rule writes on the outside decides between them, hover before sm and
@@ -1269,7 +1278,11 @@ let compare_variant_ordered r1 r2 =
                 | `Container _, `Container _ -> 0
                 | _ -> compare_bracket_prefixes p1_prefix p2_prefix
               in
-              if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
+              if prefix_cmp <> 0 then prefix_cmp
+              else
+                let data_depth_cmp = Int.compare data_depth1 data_depth2 in
+                if data_depth_cmp <> 0 then data_depth_cmp
+                else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =

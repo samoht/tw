@@ -61,9 +61,10 @@ type indexed_rule = {
   merge_key : string option;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
-  variant_key : string * int;
-      (** Precomputed [(variant prefix, effective inner order)], built with
-          {!variant_sort_key}, so {!val-compare_indexed_rules} does not
+  variant_key : string * int * int;
+      (** Precomputed
+          [(variant prefix, effective inner order, collapsed data depth)], built
+          with {!variant_sort_key}, so {!val-compare_indexed_rules} does not
           recompute it per comparison. *)
   variant_orders : variant_component list;
       (** The rule's variant order keys sorted descending, built with
@@ -91,10 +92,10 @@ type indexed_rule = {
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
 
-val variant_sort_key : string option -> Css.statement list -> string * int
+val variant_sort_key : string option -> Css.statement list -> string * int * int
 (** [variant_sort_key base_class nested] is the
-    [(variant prefix, effective inner variant order)] pair stored in
-    {!field-variant_key}. *)
+    [(variant prefix, effective inner variant order, collapsed data depth)]
+    triple stored in {!field-variant_key}. *)
 
 val variant_order_list :
   string option -> int -> Css.Media.key option -> variant_component list
