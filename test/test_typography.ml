@@ -847,6 +847,22 @@ let test_font_features_value () =
     (Astring.String.is_infix ~affix:"font-feature-settings:\"liga\" 0"
        (css "font-features-[\"liga\"_0]"))
 
+(* font-feature-settings follows font-family and precedes font-size in
+   Tailwind's property table. Keeping it after the weight band displaces both
+   the feature rules and every larger text size in a full sheet. *)
+let test_font_feature_property_band () =
+  Test_helpers.check_class_order ~test_name:"font feature property band"
+    [
+      "font-bold";
+      "leading-tight";
+      "text-9xl";
+      "text-2xl";
+      "font-features-[\"tnum\"]";
+      "font-features-(--my-features)";
+      "font-serif";
+      "font-sans";
+    ]
+
 (* A font family is idents or quoted strings; the docs' [<value>] placeholder
    used to be quoted into font-family: "<value>". *)
 let test_invalid_font_family () =
@@ -1156,6 +1172,7 @@ let tests =
     test_case "font bracket family comma list" `Quick
       test_font_bracket_family_comma_list;
     test_case "font-features value" `Quick test_font_features_value;
+    test_case "font-feature property band" `Slow test_font_feature_property_band;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading half-step" `Quick test_leading_prime;
