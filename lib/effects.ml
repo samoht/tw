@@ -201,8 +201,6 @@ module Handler = struct
     | Bg_blend_color
     | Bg_blend_luminosity
 
-  type Utility.base += Self of t
-
   let name = "effects"
   let priority = function Ring_inset -> 40 | _ -> 27
 
@@ -3262,9 +3260,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let order u = Some (Utility.order u)
 let mix_blend_luminosity = utility Mix_blend_luminosity
 let shadow_none = utility Shadow_none

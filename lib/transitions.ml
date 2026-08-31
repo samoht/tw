@@ -42,8 +42,6 @@ module Handler = struct
     | Ease_arbitrary of string * Css.timing_function
     | Ease_theme of string (* timing function from an --ease-* token *)
 
-  type Utility.base += Self of t
-
   let name = "transitions"
 
   let priority = function
@@ -679,9 +677,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let transition_none = utility Transition_none
 let transition = utility Transition
 let transition_all = utility Transition_all

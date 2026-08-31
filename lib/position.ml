@@ -319,7 +319,6 @@ module Handler = struct
     | End_3_4
 
   (** Extensible variant for position utilities *)
-  type Utility.base += Self of t
 
   let name = "position"
 
@@ -1016,11 +1015,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Public API combinators *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let static = utility Position_static
 let relative = utility Position_relative

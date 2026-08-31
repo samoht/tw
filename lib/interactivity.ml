@@ -61,8 +61,6 @@ module Handler = struct
     | Scheme_only_dark
     | Scheme_only_light
 
-  type Utility.base += Self of t
-
   let name = "interactivity"
 
   (* Interaction controls from resize through appearance share priority 11 so
@@ -381,9 +379,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let select_none = utility Select_none
 let select_text = utility Select_text
 let select_all = utility Select_all

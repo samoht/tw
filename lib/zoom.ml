@@ -10,8 +10,6 @@ module Handler = struct
     | Bare_var of string
     | Arbitrary of string * Css.zoom
 
-  type Utility.base += Self of t
-
   let name = "zoom"
 
   (* Tailwind emits [zoom-*] between the transforms and the animations. It
@@ -74,4 +72,4 @@ module Handler = struct
   let examples = [ Percent 100. ]
 end
 
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)

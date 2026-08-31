@@ -114,8 +114,6 @@ module Handler = struct
     | Place_self_center_safe
     | Place_self_end_safe
 
-  type Utility.base += Self of t
-
   let name = "alignment"
 
   (* Same priority as gap (15), differentiated by suborder: - Container
@@ -454,11 +452,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register alignment handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Public API *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (** {1 Justify Content Utilities} *)
 let justify_start = utility Justify_start

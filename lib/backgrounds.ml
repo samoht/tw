@@ -210,8 +210,6 @@ module Handler = struct
     (* bg-size-[...] bracket notation *)
     | Bg_size_bracket of string
 
-  type Utility.base += Self of t
-
   let to_class (t : t) =
     match t with
     | Bg (color, shade) ->
@@ -1938,9 +1936,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let bg ?opacity ?(shade = 500) color =
   Color.check_shade ~utility:"bg" color shade;

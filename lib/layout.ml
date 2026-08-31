@@ -8,7 +8,6 @@ module Screen_reader_handler = struct
   open Css
 
   type t = Sr_only | Not_sr_only
-  type Utility.base += Self of t
 
   let name = "screen_reader"
   let priority _ = 0
@@ -211,8 +210,6 @@ module Handler = struct
     | Break_inside_avoid
     | Break_inside_avoid_column
     | Break_inside_avoid_page
-
-  type Utility.base += Self of t
 
   let name = "layout"
 
@@ -763,16 +760,13 @@ module Handler = struct
 end
 
 open Handler
-
-(** Register both handlers with Utility system *)
-let () = Utility.register (module Screen_reader_handler)
-
-let () = Utility.register (module Handler)
+module Screen_reader_utility = Utility.Make (Screen_reader_handler)
+module Utility_factory = Utility.Make (Handler)
 
 (** {1 Public API - Utility Values} *)
 
 (* Layout utilities *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let block = utility Block
 let contents = utility Contents
 let flow_root = utility Flow_root
@@ -828,7 +822,7 @@ let float_start = utility Float_start
 let float_end = utility Float_end
 
 (* Screen reader utilities *)
-let sr_utility x = Utility.base (Screen_reader_handler.Self x)
+let sr_utility = Screen_reader_utility.v
 let sr_only = sr_utility Screen_reader_handler.Sr_only
 let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
 

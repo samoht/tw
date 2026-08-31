@@ -21,8 +21,6 @@ module Handler = struct
     | Space_x_reverse
     | Space_y_reverse
 
-  type Utility.base += Self of t
-
   let name = "gap"
   let priority _ = 17
 
@@ -509,11 +507,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Public API *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (** Helpers to create Utility.t from Gap/Space *)
 let gap_util axis value = utility (Gap { axis; value })

@@ -94,8 +94,6 @@ module Handler = struct
     | Backdrop_hue_rotate_arbitrary of string * Css.angle
     | Neg_backdrop_hue_rotate_arbitrary of string * Css.angle
 
-  type Utility.base += Self of t
-
   let name = "filters"
   let priority _ = 30
 
@@ -1660,12 +1658,11 @@ module Handler = struct
 end
 
 open Handler
-
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)
 
 (** {1 Public API - Utility Values} *)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let blur_none = utility Blur_none
 let blur_xs = utility Blur_xs
 let blur_sm = utility Blur_sm

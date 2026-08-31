@@ -6,7 +6,6 @@ module Handler = struct
   open Style
 
   type t = Tab of int | Tab_arbitrary of string * Css.tab_size
-  type Utility.base += Self of t
 
   let name = "tab"
   let priority _ = 26
@@ -51,7 +50,7 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let tab n = utility (Tab n)

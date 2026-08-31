@@ -16,8 +16,6 @@ module Handler = struct
     value : padding_value;
   }
 
-  type Utility.base += Self of t
-
   let name = "padding"
   let priority _ = 23
 
@@ -189,9 +187,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility axis value = Utility.base (Self { axis; value })
+let utility axis value = Utility_factory.v { axis; value }
 let p n = utility `All (Handler.Standard (Spacing.int n))
 let px n = utility `X (Handler.Standard (Spacing.int n))
 let py n = utility `Y (Handler.Standard (Spacing.int n))

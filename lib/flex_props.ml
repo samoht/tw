@@ -53,8 +53,6 @@ module Handler = struct
     | Order_last
     | Order_none
 
-  type Utility.base += Self of t
-
   let name = "flex_props"
 
   (* flex/grow/shrink/basis are the flexbox family (priority 7 - after sizing,
@@ -447,10 +445,10 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let flex_1 = utility Flex_1
 let flex_auto = utility Flex_auto
 let flex_initial = utility Flex_initial
