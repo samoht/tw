@@ -32,10 +32,10 @@ module Handler = struct
 
   let name = "divide"
 
-  (* The divide properties follow gap and precede self-alignment at priority 17.
-     [divide-x-reverse] alone sorts after everything else: it sets only an
-     unranked custom property, so the move is cascade-neutral. *)
-  let priority = function X_reverse -> 43 | _ -> 17
+  (* The divide properties follow gap and precede self-alignment. The unranked
+     [divide-x-reverse] custom property sits between backface and
+     perspective. *)
+  let priority = function X_reverse -> 39 | _ -> 17
 
   (* CSS Variables for divide reverse. Property order 4/5 places these BEFORE
      --tw-border-style (order 6) in within-utility sorting, which determines
@@ -367,7 +367,7 @@ module Handler = struct
     | Current | Current_opacity _ -> 66_000
     | Inherit -> 66_000
     | Transparent -> 66_000
-    | X_reverse -> 0
+    | X_reverse -> 1_700
 
   (* The bracket spelling of an arbitrary width, for the typed constructors,
      which are handed a width rather than the text an author wrote. cascade
