@@ -742,11 +742,13 @@ val not_variant_order : modifier -> int
     for the inner modifier of a [not-*], which sorts where the variant it
     negates sorts. Never 0: every modifier has a position. *)
 
-val variant_order_of_prefix : string -> int
-(** [variant_order_of_prefix prefix] returns the position of a modifier prefix
-    string in the Tailwind v4 variant cascade. The prefix is one modifier of a
-    class name, the part between two ":" (e.g. ["hover"], ["group-has-checked"],
-    ["@min-[64rem]"]). Returns 0 for a token that names no variant, which
+val variant_order_of_prefix : ?theme:Scheme.t -> string -> int
+(** [variant_order_of_prefix ?theme prefix] returns the position of a modifier
+    prefix string in the Tailwind v4 variant cascade. The prefix is one modifier
+    of a class name, the part between two ":" (e.g. ["hover"],
+    ["group-has-checked"], ["@min-[64rem]"]). When [theme] is supplied, its
+    exact custom-variant names take precedence over the built-in prefix grammar.
+    Returns 0 for a token that names no variant, which
     {!Sort.compare_indexed_rules} reads as "this rule carries no variant". *)
 
 val variant_inner_order : string -> int
@@ -760,10 +762,10 @@ val variant_inner_token : string -> string option
 (** [variant_inner_token token] is the variant immediately wrapped by a
     [group-], [peer-], [not-], [in-], or [has-] compound token. *)
 
-val variant_inner_order_path : string -> int list
-(** [variant_inner_order_path token] recursively returns every wrapped variant
-    position, outermost first. For example, [group-has-focus] yields the [has]
-    and [focus] positions. *)
+val variant_inner_order_path : ?theme:Scheme.t -> string -> int list
+(** [variant_inner_order_path ?theme token] recursively returns every wrapped
+    variant position, outermost first. For example, [group-has-focus] yields the
+    [has] and [focus] positions. [theme] resolves wrapped custom variants. *)
 
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as

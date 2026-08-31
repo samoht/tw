@@ -2594,13 +2594,19 @@ let variant_inner_token token =
     | Some Slot.Ancestor -> Some (after 3)
     | Some _ | None -> None
 
-let rec variant_inner_order_path token =
+let variant_order_of_prefix ?theme prefix =
+  match theme with
+  | Some theme when Option.is_some (try_custom_variant theme prefix) ->
+      Slot.rank Slot.Custom
+  | Some _ | None -> (
+      match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
+
+let rec variant_inner_order_path ?theme token =
   match variant_inner_token token with
   | None -> []
-  | Some inner -> (
-      match slot_of_prefix inner with
-      | Some slot -> Slot.rank slot :: variant_inner_order_path inner
-      | None -> [])
+  | Some inner ->
+      let order = variant_order_of_prefix ?theme inner in
+      if order = 0 then [] else order :: variant_inner_order_path ?theme inner
 
 (* The first wrapped slot retained for callers that only need the immediate
    compound variant. *)
@@ -2608,9 +2614,6 @@ let variant_inner_order token =
   match variant_inner_order_path token with order :: _ -> order | [] -> 0
 
 let not_variant_order m = Slot.rank (slot_of_modifier m)
-
-let variant_order_of_prefix prefix =
-  match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0
 
 let variant_order_of_media_cond cond =
   match slot_of_media_cond cond with Some slot -> Slot.rank slot | None -> 0
