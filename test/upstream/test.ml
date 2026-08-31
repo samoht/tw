@@ -43,12 +43,10 @@ open Cascade_diff
 open Alcotest
 open Upstream_fixture
 
-(* Colour comparison is normalised the way Tailwind normalises its own
-   snapshots: [color_mix_to_oklab] then [truncate_color_precision] run on both
-   sides before the diff, so an [oklab] fixture and tw's exact colour describe
-   the same value. That is pure fixture skew, not a tw bug: Tailwind's snapshot
-   serialiser truncates oklab axes for cross-OS stability, and the fixtures fold
-   a concrete-colour opacity to [oklab] where tw keeps the shorter exact colour.
+(* Fixture comparison normalises semantic artifacts of Tailwind's serializer and
+   compatibility minifier on both sides before the diff: colour precision,
+   concrete colour-mix folds, redundant vendor prefixes, and a static math
+   function that reduces to one number. None of those is a generator choice.
    Nothing else is tolerated: the diff a case reports is the diff it fails on.
    (A [--font-sans] / [--tw-prose-*] custom-property allowance, a
    [--text-*--line-height] allowance, a mask-angle calc allowance, an [@property
@@ -313,6 +311,69 @@ let drop_redundant_vendor_prefixes css =
           stylesheet
       in
       Css.to_string ~minify:true stylesheet |> String.trim
+  | Ok _ | Error _ -> css
+
+(* LightningCSS evaluates a static dimensionless math function before writing a
+   snapshot. Cascade deliberately preserves authored math in several property
+   grammars, so canonical comparison evaluates only a function that parses in
+   full as a [<number>] and reduces to a concrete numeric leaf. A dimension, a
+   [var()] or an unknown function remains byte-for-byte visible. Concrete
+   results use the snapshot serializer's six-significant-figure budget. *)
+
+let rec concrete_number : Css.number -> float option = function
+  | Css.Num value -> Some value
+  | Css.Calc calc -> concrete_number_calc calc
+  | Css.Var _ | Css.Round _ | Css.Mod _ | Css.Rem _ | Css.Hypot _ | Css.Pow _
+  | Css.Sqrt _ | Css.Abs _ | Css.Sign _ | Css.Sin _ ->
+      None
+
+and concrete_number_calc : Css.number Css.calc -> float option = function
+  | Css.Num value -> Some value
+  | Css.Val number -> concrete_number number
+  | Css.Nested calc | Css.Parens calc -> concrete_number_calc calc
+  | Css.Expr (left, op, right) -> (
+      match (concrete_number_calc left, concrete_number_calc right) with
+      | Some left, Some right -> (
+          match op with
+          | Css.Add -> Some (left +. right)
+          | Css.Sub -> Some (left -. right)
+          | Css.Mul -> Some (left *. right)
+          | Css.Div when right <> 0. -> Some (left /. right)
+          | Css.Div -> None)
+      | None, _ | _, None -> None)
+  | Css.Var _ | Css.Math_const _ | Css.Sibling_index | Css.Sibling_count
+  | Css.Math_fn _ ->
+      None
+
+let fold_declaration_static_number_math declaration =
+  let authored = Css.Declaration.string_of_value ~minify:true declaration in
+  let cursor = Cascade.Cursor.of_string authored in
+  match
+    try Some (Css.Values.read_number cursor)
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None
+  with
+  | Some (Css.Num _) -> declaration
+  | Some _ when not (Cascade.Cursor.is_done cursor) -> declaration
+  | Some number -> (
+      match concrete_number (Css.Values.normalize_number number) with
+      | Some value when Float.is_finite value -> (
+          let value = Css.Pp.round_sig 6 value in
+          let value =
+            Css.Pp.to_string ~minify:true Css.Values.pp_number (Css.Num value)
+          in
+          try Css.Declaration.with_value declaration value
+          with Cascade.Cursor.Parse_error _ | Invalid_argument _ ->
+            declaration)
+      | Some _ | None -> declaration)
+  | None -> declaration
+
+let fold_static_number_math css =
+  match Css.of_string css with
+  | Ok { stylesheet; warnings = []; _ } ->
+      Css.Stylesheet.map_declarations
+        (List.map fold_declaration_static_number_math)
+        stylesheet
+      |> Css.to_string ~minify:true |> String.trim
   | Ok _ | Error _ -> css
 
 (* [color-mix(in oklab, C p%, transparent)] denotes the concrete colour C at
@@ -689,7 +750,8 @@ let run_test_case test expected () =
     if our_css = "" && expected = "" then ()
     else
       let normalize_colors s =
-        truncate_color_precision (color_mix_to_oklab (color_mix_percentage s))
+        s |> fold_static_number_math |> color_mix_percentage
+        |> color_mix_to_oklab |> truncate_color_precision
       in
       let result =
         Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -763,6 +825,24 @@ let test_redundant_vendor_prefixes () =
     ".x{-webkit-mask-composite:source-in;mask-composite:intersect}";
   check "a prefix with no unprefixed declaration remains observable"
     ".x{-webkit-mask-image:var(--x)}" ".x{-webkit-mask-image:var(--x)}"
+
+let test_static_number_math () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (fold_static_number_math input)
+  in
+  check "static division is evaluated" ".x{line-height:1.33333}"
+    ".x{line-height:calc(1 / 0.75)}";
+  check "the serializer's six significant figures are used"
+    ".x{opacity:.333333}" ".x{opacity:calc(1 / 3)}";
+  check "static addition is evaluated" ".x{opacity:3}" ".x{opacity:calc(1 + 2)}";
+  check "dimensional math is not a number" ".x{width:calc(1px + 2px)}"
+    ".x{width:calc(1px + 2px)}";
+  check "a variable remains observable" ".x{opacity:calc(var(--x)/2)}"
+    ".x{opacity:calc(var(--x) / 2)}";
+  check "another CSS function remains observable" ".x{color:rgb(1 2 3)}"
+    ".x{color:rgb(1 2 3)}";
+  check "a function in a string remains observable"
+    ".x{content:\"calc(1 / 3)\"}" ".x{content:\"calc(1 / 3)\"}"
 
 (* Guards [truncate_color_precision]: it truncates (never rounds) the
    oklab-family axes to three decimals like Tailwind's snapshot serialiser, so
@@ -1039,6 +1119,7 @@ let () =
       test_case "color-mix percentage" `Quick test_color_mix_percentage;
       test_case "redundant vendor prefixes" `Quick
         test_redundant_vendor_prefixes;
+      test_case "static number math" `Quick test_static_number_math;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
       test_case "the scheme is built from declared tokens only" `Quick
