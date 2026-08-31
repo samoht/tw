@@ -8,6 +8,7 @@ module Handler = struct
 
   type gap_value =
     | Standard of spacing
+    | Bare_var of string (* gap-(--value), raw kept for round-trip/order *)
     | Arbitrary of string * Css.length (* gap-[4px], raw kept for round-trip *)
     | Arbitrary_var of string (* gap-[var(--value)] *)
 
@@ -71,6 +72,12 @@ module Handler = struct
         | `All -> gap_standard ?theme s
         | `X -> gap_x_standard ?theme s
         | `Y -> gap_y_standard ?theme s)
+    | Bare_var raw -> (
+        let len = gap_var_ref ("var(" ^ Parse.bare_var_inner raw ^ ")") in
+        match axis with
+        | `All -> gap_arb len
+        | `X -> gap_x_arb len
+        | `Y -> gap_y_arb len)
     | Arbitrary (_, len) -> (
         match axis with
         | `All -> gap_arb len
@@ -330,9 +337,11 @@ module Handler = struct
     | Space_y_reverse -> space_y_reverse_style ()
 
   let gap_value_order = function
+    | Bare_var _ -> 0
+    | Standard `Px -> 2100
     | Standard s -> spacing_value_order s
     | Arbitrary _ -> 2000
-    | Arbitrary_var _ -> 2100
+    | Arbitrary_var _ -> 2000
 
   (* gap and space share priority 17 with the alignment utilities. Tailwind
      emits them in CSS-property registration order, which interleaves the two
@@ -361,6 +370,7 @@ module Handler = struct
 
   let pp_gap_value_suffix = function
     | Standard s -> Spacing.pp_spacing_suffix s
+    | Bare_var raw -> raw
     | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
     | Arbitrary_var s -> "[" ^ s ^ "]"
 
@@ -400,7 +410,9 @@ module Handler = struct
      [gap-form] is a class Tailwind emits whenever the theme defines
      [--spacing-form]. *)
   let parse_gap_value ?theme value =
-    if String.length value > 0 && value.[0] = '[' then parse_gap_arbitrary value
+    if Parse.is_bare_var value then Some (Bare_var value)
+    else if String.length value > 0 && value.[0] = '[' then
+      parse_gap_arbitrary value
     else
       match Spacing.parse_value_string ?theme ~allow_auto:false value with
       | Some (#Style.spacing as s) -> Some (Standard s)
