@@ -555,10 +555,27 @@ let bracket ?fallback name =
           read_whole ("--" ^ name) Css.Variables.read_reference_body_as_string
         else None
   in
+  (* [Parse.extract_var_name] leaves malformed references alone. Arbitrary
+     values historically also use [var(--...)] as a wrapper around a raw
+     custom-property name, where a loose closer belongs to that name. Retain
+     that interpretation only after the CSS reference reader has rejected the
+     whole string. *)
+  let raw_name =
+    let prefix = "var(--" in
+    let len = String.length name in
+    let prefix_len = String.length prefix in
+    if
+      parsed_reference = None
+      && String.starts_with ~prefix name
+      && len > prefix_len
+      && name.[len - 1] = ')'
+    then String.trim (String.sub name prefix_len (len - prefix_len - 1))
+    else name
+  in
   match parsed_reference with
   | Some (name, Some fallback) ->
       Css.var_ref ~runtime:true
         ~fallback:(Css.Values.syntax_fallback fallback)
         name
   | Some (name, None) -> Css.var_ref ~runtime:true name
-  | None -> Css.var_ref ?fallback name
+  | None -> Css.var_ref ?fallback raw_name
