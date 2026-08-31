@@ -1214,13 +1214,16 @@ let compare_both_bracket_prefixes p1 p2 =
 
 (** Compare variant prefixes for bracket ordering. Named variants (has-checked)
     sort before bracket variants (has-[:checked]) within the same variant group.
-*)
+    Element-variant permutations with identical component keys tie here so their
+    utilities can interleave in [compare_variant_tail]. *)
 let compare_bracket_prefixes p1_prefix p2_prefix =
   let has_bracket p = String.length p > 0 && String.contains p '[' in
+  let has_element_variant p = String.contains p '*' in
   let b1 = has_bracket p1_prefix and b2 = has_bracket p2_prefix in
   if b1 && not b2 then 1
   else if b2 && not b1 then -1
   else if b1 && b2 then compare_both_bracket_prefixes p1_prefix p2_prefix
+  else if has_element_variant p1_prefix && has_element_variant p2_prefix then 0
   else String.compare p1_prefix p2_prefix
 
 (* Compare rules when both have variant_order > 0 *)
