@@ -66,9 +66,10 @@ module Handler = struct
   (* Tailwind sorts an arbitrary property by the property it declares, not by
      its name, so [[order:3]] lands with the [order-*] utilities and
      [[mask-type:luminance]] with the masks. Every one of them sorted at the far
-     end of the layer instead. A property no family claims has no slot to take
-     and keeps that place. *)
-  let unclaimed = 37
+     end of the layer instead. A property no family claims shares Tailwind's
+     late arbitrary-property band, after alpha text shadows and before backface
+     visibility. *)
+  let unclaimed = 38
 
   let slot t =
     let property, value =
@@ -292,7 +293,7 @@ module Handler = struct
       | Parsed_decl { property = "mask-type"; _ } -> 1
       | Color_opacity _ | Parsed_decl _ -> 0
     in
-    match slot t with Some (_, sub) -> sub + offset | None -> 0
+    match slot t with Some (_, sub) -> sub + offset | None -> 10
 
   let to_class = function
     | Color_opacity { property; value; alpha_fn; opacity } ->
