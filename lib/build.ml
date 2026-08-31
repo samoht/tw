@@ -420,6 +420,40 @@ let add_index ?(declared = fun _ -> false) triples =
         : Sort.indexed_rule))
     triples
 
+(* The entrypoint expands one routed candidate into finished CSS before it hands
+   the result to the regular build. That candidate can contain several top-level
+   rules -- for example a selector branch, its [@supports] companion and a media
+   branch. Tailwind keeps those rules together. Preserve their source order as
+   one sortable block instead of letting the rule comparator interleave a later
+   candidate between the branches. *)
+let sort_indexed_blocks indexed =
+  let groups = Hashtbl.create 8 in
+  List.iter
+    (fun (r : Sort.indexed_rule) ->
+      match (r.declared, r.base_class) with
+      | true, Some cls ->
+          let previous =
+            Option.value ~default:[] (Hashtbl.find_opt groups cls)
+          in
+          Hashtbl.replace groups cls (r :: previous)
+      | _ -> ())
+    indexed;
+  let emitted = Hashtbl.create 8 in
+  let blocks =
+    List.filter_map
+      (fun (r : Sort.indexed_rule) ->
+        match (r.declared, r.base_class) with
+        | true, Some cls when Hashtbl.mem emitted cls -> None
+        | true, Some cls ->
+            Hashtbl.add emitted cls ();
+            Some (r, List.rev (Hashtbl.find groups cls))
+        | _ -> Some (r, [ r ]))
+      indexed
+  in
+  blocks
+  |> List.sort (fun (r1, _) (r2, _) -> Sort.compare_indexed_rules r1 r2)
+  |> List.concat_map snd
+
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props order_map all_rules =
@@ -431,7 +465,7 @@ let rule_sets_from_selector_props order_map all_rules =
     |> List.filter_map (rule_to_triple order_map)
     |> deduplicate_typed_triples |> add_index
   in
-  let sorted = List.sort Sort.compare_indexed_rules indexed in
+  let sorted = sort_indexed_blocks indexed in
   if Sort.debug_compare_enabled () then
     List.iter
       (fun (r : Sort.indexed_rule) ->
@@ -474,8 +508,7 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 let sorted_indexed_rules ?declared order_map all_rules =
   all_rules
   |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index ?declared
-  |> List.sort Sort.compare_indexed_rules
+  |> deduplicate_typed_triples |> add_index ?declared |> sort_indexed_blocks
 
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order vars =
