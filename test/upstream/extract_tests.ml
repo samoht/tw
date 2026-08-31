@@ -500,9 +500,6 @@ let variant_prefixes cls =
   | None -> []
   | Some i -> String.split_on_char ':' (String.sub cls 0 i)
 
-(* The math functions whose result Tailwind's minifier writes out. *)
-let math_functions = [ "calc("; "min("; "max("; "clamp("; "round(" ]
-
 (* Why the runner cannot reproduce a block that declares its own [@utility], or
    [None] when it can. Each reason is a gap to close, not a property of the
    corpus: the check goes when the gap does.
@@ -530,15 +527,10 @@ let math_functions = [ "calc("; "min("; "max("; "clamp("; "round(" ]
    theme. A dead declaration, or an arbitrary runtime custom property, is not a
    missing theme dependency.
 
-   An [@theme inline] token stands for its value at every use site, and
-   Tailwind's minifier folds a math function there to a number of its own
-   spelling ([calc(1 / 0.75)] comes out as [1.33333]). tw inlines the value as
-   written, and cascade prints a math function rather than working it out.
-
    [run()] compiles against an empty theme, so a named breakpoint variant the
    template never declares resolves to nothing upstream; tw's [Scheme.t] has no
    way to say "no breakpoints" (an empty list means the built-in ones). *)
-let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
+let unreplayable ~defs ~config ~theme_vars ~classes expected =
   let routed =
     List.filter
       (Tw_tools.Entrypoint.is_custom_routed ~defs:[] ~udefs:defs)
@@ -577,19 +569,6 @@ let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
           (variant_prefixes cls))
       classes
   in
-  let inlined_math =
-    List.exists
-      (fun (name, modes) ->
-        List.mem "inline" modes
-        &&
-        match List.assoc_opt name theme_vars with
-        | None -> false
-        | Some value ->
-            List.exists
-              (fun fn -> Astring.String.is_infix ~affix:fn value)
-              math_functions)
-      theme_modes
-  in
   let merged_with_builtin =
     (not applies)
     && List.exists
@@ -624,10 +603,6 @@ let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
     Some
       "a declared utility reads a theme token the fixture does not carry, so \
        tw cannot render it against the case's own theme"
-  else if inlined_math then
-    Some
-      "an inline theme token whose value is a math function Tailwind's \
-       minifier works out and cascade prints as written"
   else if undeclared_breakpoint then
     Some "a breakpoint variant the case's own theme does not declare"
   else None
@@ -836,7 +811,7 @@ let parse_file filename =
         List.find_map
           (fun t ->
             unreplayable ~defs ~config:t.config ~theme_vars:t.theme_vars
-              ~theme_modes:t.theme_modes ~classes:t.classes
+              ~classes:t.classes
               (Option.value ~default:"" t.expected))
           (List.rev !block_tests)
     in
