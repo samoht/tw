@@ -676,10 +676,10 @@ let natural_compare s1 s2 =
   in
   compare_at 0 0
 
-(* Tailwind orders the values of sizing and flex-basis candidates by the raw
-   candidate spelling. This naturally interleaves digit-led theme names with
-   numeric values (2, 2xl, 10), and puts the [(--var)] shorthand before both.
-   The handler suborders still separate the property families themselves. *)
+(* Tailwind orders the values of dynamic candidates by the raw candidate
+   spelling. This naturally interleaves digit-led theme names with numeric
+   values (2, 2xl, 10), and puts the [(--var)] shorthand before both. The
+   handler suborders still separate the property families themselves. *)
 let candidate_value_family base_class =
   let _, base = Modifiers.of_string base_class in
   List.find_opt
@@ -687,6 +687,17 @@ let candidate_value_family base_class =
       let n = String.length prefix in
       String.length base > n && String.starts_with ~prefix:(prefix ^ "-") base)
     [
+      "pbs";
+      "pbe";
+      "px";
+      "py";
+      "ps";
+      "pe";
+      "pt";
+      "pr";
+      "pb";
+      "pl";
+      "p";
       "min-inline";
       "max-inline";
       "min-block";
