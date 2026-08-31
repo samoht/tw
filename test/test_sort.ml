@@ -2467,6 +2467,19 @@ let test_repeated_child_variant_utility_order () =
   Test_helpers.check_class_order
     ~test_name:"repeated child variant follows utility order" classes
 
+let test_element_variant_permutations_interleave () =
+  (* Permuting [first] and the direct-child variant changes the selector, but
+     not the variant multiset. Tailwind keeps both padding candidates together
+     before moving on to the later inset-ring utility. *)
+  Test_helpers.check_class_order
+    ~test_name:"element variant permutations follow utility order"
+    [
+      "*:first:pt-0";
+      "first:*:pt-0";
+      "*:*:first:inset-ring";
+      "*:*:first:inset-ring-black/5";
+    ]
+
 let test_named_anchor_inner_order () =
   (* Naming a group or peer changes the marker class, not the state the variant
      wraps. The name must not make focus or checked fall into the zero/unknown
@@ -3139,6 +3152,8 @@ let tests =
       test_variant_arbitrary_numeric_order;
     test_case "repeated child variant follows utility order" `Slow
       test_repeated_child_variant_utility_order;
+    test_case "element variant permutations follow utility order" `Slow
+      test_element_variant_permutations_interleave;
     test_case "named anchor keeps inner state" `Slow
       test_named_anchor_inner_order;
     test_case "stacked data variant slot" `Slow test_stacked_data_variant_slot;
