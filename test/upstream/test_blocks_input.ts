@@ -82,6 +82,42 @@ describe('outer', () => {
     `)
   })
 
+  test('reuses a let-bound utility template', async () => {
+    let input = css`
+      @layer utilities {
+        @tailwind utilities;
+      }
+
+      @theme {
+        --example-foo: 123px;
+      }
+
+      @utility foo {
+        value: var(--example-foo);
+      }
+    `
+
+    expect(await compileCss(input)).toMatchInlineSnapshot(`
+      "
+      @layer utilities;
+      "
+    `)
+
+    expect(await run(['foo'], input)).toMatchInlineSnapshot(`
+      "
+      @layer utilities {
+        .foo {
+          value: var(--example-foo);
+        }
+      }
+
+      :root, :host {
+        --example-foo: 123px;
+      }
+"
+    `)
+  })
+
   describe('inner', () => {
     test('indented twice', async () => {
       expect(await run(['indented-twice'])).toMatchInlineSnapshot(`
