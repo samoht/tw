@@ -45,7 +45,14 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "text_shadow"
-  let priority _ = 41
+
+  (* An opacity-bearing shadow writes the alpha channel before text-shadow, so
+     Tailwind places it after user-select and before backface visibility. The
+     ordinary shape and colour utilities remain in the later text-shadow
+     band. *)
+  let priority = function
+    | Text_shadow_shape_opacity _ | Text_shadow_arbitrary_opacity _ -> 38
+    | _ -> 41
 
   let text_shadow_color_var =
     Var.channel ~needs_property:true ~property_order:35 ~family:`Text_shadow
@@ -934,11 +941,11 @@ module Handler = struct
   let suborder = function
     | Text_shadow_arbitrary_opacity (arb, _) -> (
         match parse_arbitrary_shadow arb with
-        | Some (_, _, _, Var_ref _) -> -3 (* @supports lab *)
-        | Some (_, _, _, No_color) -> -2 (* @supports color-mix *)
-        | Some (_, _, _, (Hex _ | Css_color _)) -> -1 (* no @supports *)
-        | Stdlib.Option.None -> 0)
-    | Text_shadow_shape_opacity _ -> -1 (* no @supports *)
+        | Some (_, _, _, Var_ref _) -> 6 (* @supports lab *)
+        | Some (_, _, _, No_color) -> 7 (* @supports color-mix *)
+        | Some (_, _, _, (Hex _ | Css_color _)) -> 8 (* no @supports *)
+        | Stdlib.Option.None -> 9)
+    | Text_shadow_shape_opacity _ -> 8 (* no @supports *)
     | _ -> 0
 
   let examples = [ Text_shadow_shape S_sm; Text_shadow_current ]
