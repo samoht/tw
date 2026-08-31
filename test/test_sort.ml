@@ -2427,6 +2427,18 @@ let test_repeated_child_variant_utility_order () =
   Test_helpers.check_class_order
     ~test_name:"repeated child variant follows utility order" classes
 
+let test_named_anchor_inner_order () =
+  (* Naming a group or peer changes the marker class, not the state the variant
+     wraps. The name must not make focus or checked fall into the zero/unknown
+     inner slot ahead of their unnamed forms. *)
+  Test_helpers.check_class_order ~test_name:"named anchor keeps inner state"
+    [
+      "group-open:hidden";
+      "group-focus/option:text-white";
+      "peer-checked:visible";
+      "peer-checked/draft:block";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2934,6 +2946,8 @@ let tests =
       test_variant_arbitrary_numeric_order;
     test_case "repeated child variant follows utility order" `Slow
       test_repeated_child_variant_utility_order;
+    test_case "named anchor keeps inner state" `Slow
+      test_named_anchor_inner_order;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
