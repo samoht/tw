@@ -2478,6 +2478,27 @@ let test_compound_data_variant_group () =
       "data-[state=open]:overflow-hidden";
     ]
 
+let test_arbitrary_variant_selector_order () =
+  (* Tailwind orders arbitrary variants by the selector they denote: underscores
+     decode to spaces and a bare selector is anchored as [&:is(...)]. Compound
+     lower slots then order inside that selector's group. *)
+  Test_helpers.check_class_order ~test_name:"arbitrary variant selector order"
+    [
+      "[&_p]:mt-4";
+      "[&.is-dragging]:active:cursor-grabbing";
+      "**:[.line]:not-last:min-h-lh";
+      "[&:is([open],:popover-open)]:opacity-100";
+      "**:[svg]:first:size-5";
+      "[&:nth-child(3)]:py-0";
+      "[&>*]:rounded-lg";
+      "[&>*]:bg-white";
+      "[&>*]:p-4";
+      "[&>*]:shadow";
+      "[&>[data-active]+span]:text-blue-600";
+      "[:where(&_.line)]:pl-4";
+      "[html:has(&)]:bg-blue-500";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2990,6 +3011,8 @@ let tests =
     test_case "stacked data variant slot" `Slow test_stacked_data_variant_slot;
     test_case "compound data variant group" `Slow
       test_compound_data_variant_group;
+    test_case "arbitrary variant selector order" `Slow
+      test_arbitrary_variant_selector_order;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
