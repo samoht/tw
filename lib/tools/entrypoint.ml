@@ -6,42 +6,58 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* Where a token begins and ends in the source it was read from. *)
-let start (t : Cascade.Token.t) = t.loc.Cascade.Loc.start_pos
-let stop (t : Cascade.Token.t) = t.loc.Cascade.Loc.end_pos
+module Components = struct
+  open Cascade
 
-(* Every token of [css], in order, without the terminating [Eof]. *)
-let tokens css =
-  let lexer = Cascade.Lexer.of_string css in
-  let rec go acc =
-    let token = Cascade.Lexer.next lexer in
-    match token.Cascade.Token.kind with
-    | Cascade.Token.Eof -> Array.of_list (List.rev acc)
-    | _ -> go (token :: acc)
-  in
-  go []
+  let array css =
+    Parser.list_of_component_values (Reader.of_string css)
+    |> (fun out -> out.Parser.value)
+    |> Array.of_list
 
-(* The first token from [i] on that is not whitespace, or the end of [toks]. *)
-let rec after_whitespace (toks : Cascade.Token.t array) i =
-  if
-    i < Array.length toks
-    && Cascade.Token.equal_kind toks.(i).kind Cascade.Token.Whitespace
-  then after_whitespace toks (i + 1)
-  else i
+  let start component = (Component.source_loc component).Loc.start_pos
+  let stop component = (Component.source_loc component).Loc.end_pos
 
-(* Index of the [;] closing the declaration whose value starts at [i], or of the
-   [}] that ends the block first. A bracket group inside the value is stepped
-   over whole, so a [;] within one does not end the declaration. *)
-let rec declaration_end (toks : Cascade.Token.t array) i depth =
-  if i >= Array.length toks then i
-  else
-    match toks.(i).kind with
-    | Cascade.Token.Semicolon when depth = 0 -> i
-    | Cascade.Token.Open _ | Cascade.Token.Function _ ->
-        declaration_end toks (i + 1) (depth + 1)
-    | Cascade.Token.Close _ when depth = 0 -> i
-    | Cascade.Token.Close _ -> declaration_end toks (i + 1) (depth - 1)
-    | _ -> declaration_end toks (i + 1) depth
+  let rec after_whitespace components i =
+    if i >= Array.length components then i
+    else
+      match components.(i) with
+      | Component.Preserved { kind = Token.Whitespace; _ } ->
+          after_whitespace components (i + 1)
+      | _ -> i
+
+  (* Component values already group every function and bracket block, so only a
+     top-level semicolon can close this declaration. Mismatched closers stay
+     inside the group whose matching closer is still outstanding. *)
+  let rec semicolon_from components i =
+    if i >= Array.length components then i
+    else
+      match components.(i) with
+      | Component.Preserved { kind = Token.Semicolon; _ } -> i
+      | _ -> semicolon_from components (i + 1)
+
+  (* Source ranges of punctuation that separates declarations. Curly blocks are
+     walked because a nested rule may itself contain functional utility
+     declarations; parentheses, square blocks and functions remain atomic. *)
+  let punctuation components =
+    let rec add acc = function
+      | [] -> acc
+      | Component.Preserved
+          { kind = Token.Semicolon | Token.Close Token.Curly; loc }
+        :: rest ->
+          add ((loc.Loc.start_pos, loc.Loc.end_pos) :: acc) rest
+      | Component.Block { node = { opening = Token.Curly; value; closed }; loc }
+        :: rest ->
+          let acc = (loc.Loc.start_pos, loc.Loc.start_pos + 1) :: acc in
+          let acc = add acc value in
+          let acc =
+            if closed then (loc.Loc.end_pos - 1, loc.Loc.end_pos) :: acc
+            else acc
+          in
+          add acc rest
+      | _ :: rest -> add acc rest
+    in
+    List.rev (add [] components)
+end
 
 (* [--<ns>-*: initial] takes a whole [@theme] namespace out of the theme, and
    [--<ns>-*] is not a custom-property name: the [*] ends the ident, so "consume
@@ -50,45 +66,50 @@ let rec declaration_end (toks : Cascade.Token.t array) i depth =
    there, keyed by where it starts so it can go back among the declarations in
    the order the block wrote them. *)
 let namespace_resets body =
-  let toks = tokens body in
+  let components = Components.array body in
   let text from upto = String.trim (String.sub body from (upto - from)) in
   (* The reset an ident at [i] opens, and the index to carry on from. *)
   let reset i name acc =
-    let star = after_whitespace toks (i + 1) in
-    let colon = after_whitespace toks (star + 1) in
+    let star = Components.after_whitespace components (i + 1) in
+    let colon = Components.after_whitespace components (star + 1) in
     if
-      colon < Array.length toks
-      && Cascade.Token.equal_kind toks.(star).kind (Cascade.Token.Delim "*")
-      && Cascade.Token.equal_kind toks.(colon).kind Cascade.Token.Colon
+      colon < Array.length components
+      && (match components.(star) with
+        | Cascade.Component.Preserved { kind = Cascade.Token.Delim "*"; _ } ->
+            true
+        | _ -> false)
+      &&
+      match components.(colon) with
+      | Cascade.Component.Preserved { kind = Cascade.Token.Colon; _ } -> true
+      | _ -> false
     then
-      let last = declaration_end toks (colon + 1) 0 in
+      let last = Components.semicolon_from components (colon + 1) in
       let upto =
-        if last < Array.length toks then start toks.(last)
+        if last < Array.length components then
+          Components.start components.(last)
         else String.length body
       in
       let namespace = String.sub name 2 (String.length name - 2) ^ "*" in
       ( last + 1,
-        (start toks.(i), (namespace, text (stop toks.(colon)) upto)) :: acc )
+        ( Components.start components.(i),
+          (namespace, text (Components.stop components.(colon)) upto) )
+        :: acc )
     else (i + 1, acc)
   in
-  (* Only a declaration of the block itself is a reset, so a [*] under a nested
-     rule or inside a bracket group is stepped past. *)
-  let rec go i depth acc =
-    if i >= Array.length toks then List.rev acc
+  (* Only the component values of the block itself are visited. Nested rules and
+     bracket groups are each one component and therefore stepped past. *)
+  let rec go i acc =
+    if i >= Array.length components then List.rev acc
     else
-      match toks.(i).kind with
-      | Cascade.Token.Open _ | Cascade.Token.Function _ ->
-          go (i + 1) (depth + 1) acc
-      | Cascade.Token.Close _ -> go (i + 1) (max 0 (depth - 1)) acc
-      | Cascade.Token.Ident name
-        when depth = 0
-             && String.length name >= 2
-             && String.equal (String.sub name 0 2) "--" ->
+      match components.(i) with
+      | Cascade.Component.Preserved { kind = Cascade.Token.Ident name; _ }
+        when String.length name >= 2 && String.equal (String.sub name 0 2) "--"
+        ->
           let i, acc = reset i name acc in
-          go i depth acc
-      | _ -> go (i + 1) depth acc
+          go i acc
+      | _ -> go (i + 1) acc
   in
-  go 0 0 []
+  go 0 []
 
 (* Tailwind's [@theme] is not a CSS at-rule, so cascade keeps it whole rather
    than interpreting it (CSS Syntax 3 sec. 5.5.2, "consume an at-rule"): the
@@ -1130,34 +1151,20 @@ let resolve_declaration ~theme ~candidate ~state text =
 type body_piece = Declaration of string | Punctuation of string
 
 (* A [;] inside a bracket group is part of the declaration around it; a [;], [{]
-   or [}] outside one ends it, nested rules included. *)
+   or [}] outside one ends it, nested rules included. Component values supply
+   those already-matched boundaries. *)
 let body_pieces body =
-  let toks = tokens body in
   let pieces = ref [] in
   let from = ref 0 in
-  let depth = ref 0 in
-  let cut (token : Cascade.Token.t) =
-    let at = start token in
+  let cut (at, next) =
     pieces :=
-      Punctuation (String.sub body at (stop token - at))
+      Punctuation (String.sub body at (next - at))
       :: Declaration (String.sub body !from (at - !from))
       :: !pieces;
-    from := stop token
+    from := next
   in
-  Array.iter
-    (fun (token : Cascade.Token.t) ->
-      match token.kind with
-      | Cascade.Token.Open (Cascade.Token.Paren | Cascade.Token.Square)
-      | Cascade.Token.Function _ ->
-          incr depth
-      | Cascade.Token.Close (Cascade.Token.Paren | Cascade.Token.Square) ->
-          if !depth > 0 then decr depth
-      | Cascade.Token.Semicolon
-      | Cascade.Token.Open Cascade.Token.Curly
-      | Cascade.Token.Close Cascade.Token.Curly ->
-          if !depth = 0 then cut token
-      | _ -> ())
-    toks;
+  Components.array body |> Array.to_list |> Components.punctuation
+  |> List.iter cut;
   List.rev
     (Declaration (String.sub body !from (String.length body - !from)) :: !pieces)
 
