@@ -891,16 +891,19 @@ let inverted_pairs ~tailwind ~tw classes =
                 let ta = Hashtbl.find theirs a and tb = Hashtbl.find theirs b in
                 let oa = Hashtbl.find ours a and ob = Hashtbl.find ours b in
                 (* Only a pair sitting under the same at-rule on both sides is
-                   one whose order the two sheets actually disagree about. *)
+                   one whose order the two sheets can disagree about. Two
+                   branches in one selector list have the same statement rank
+                   and therefore no order relative to each other. *)
                 if
                   String.equal ta.container tb.container
                   && String.equal oa.container ob.container
                   && String.equal ta.container oa.container
                 then
-                  let theirs_first = compare ta.rank tb.rank < 0 in
-                  let ours_first = compare oa.rank ob.rank < 0 in
-                  if theirs_first = ours_first then acc
-                  else if theirs_first then (a, b) :: acc
+                  let theirs_order = compare ta.rank tb.rank in
+                  let ours_order = compare oa.rank ob.rank in
+                  if theirs_order = 0 || ours_order = 0 then acc
+                  else if theirs_order < 0 = (ours_order < 0) then acc
+                  else if theirs_order < 0 then (a, b) :: acc
                   else (b, a) :: acc
                 else acc)
               acc rest
