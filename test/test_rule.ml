@@ -200,6 +200,34 @@ let test_hover_dark_media_wrapper () =
     (Astring.String.is_infix ~affix:"prefers-color-scheme:dark" s
     || Astring.String.is_infix ~affix:"prefers-color-scheme: dark" s)
 
+(* An at-rule variant outside [group-hover:] must keep the inner variant's
+   pointer-capability gate inside its own block. These wrappers used to consume
+   the selector and declarations but not [has_hover], so the style matched on
+   touch devices. Both named and bracketed spellings take the same route. *)
+let test_at_rule_keeps_inner_hover_gate () =
+  let cases =
+    [
+      ( "supports-grid:group-hover:flex-row",
+        "@supports(grid:var(--tw)){@media(hover:hover){" );
+      ( "supports-[display:grid]:group-hover:flex-row",
+        "@supports(display:grid){@media(hover:hover){" );
+      ( "[@supports(display:grid)]:group-hover:flex-row",
+        "@supports(display:grid){@media(hover:hover){" );
+      ("starting:group-hover:flex-row", "@starting-style{@media(hover:hover){");
+      ( "[@starting-style]:group-hover:flex-row",
+        "@starting-style{@media(hover:hover){" );
+    ]
+  in
+  List.iter
+    (fun (cls, nesting) ->
+      let css =
+        match Tw.of_string cls with
+        | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      in
+      check bool cls true (Astring.String.is_infix ~affix:nesting css))
+    cases
+
 (* An outer variant has to find the class the inner one produced. The child
    variant buries it inside an [:is] with a child combinator and the
    pseudo-element variants report the class they prefixed, so both used to be
@@ -537,6 +565,8 @@ let tests =
       test_opacity_color_variant_no_leak;
     test_case "hover:dark keeps hover media wrapper" `Quick
       test_hover_dark_media_wrapper;
+    test_case "at-rule keeps inner hover media wrapper" `Quick
+      test_at_rule_keeps_inner_hover_gate;
     test_case "attribute variant keeps the inner selector" `Quick
       test_attribute_variant_keeps_inner;
     test_case "not- variant keeps the inner selector" `Quick
