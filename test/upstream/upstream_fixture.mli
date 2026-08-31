@@ -74,6 +74,9 @@ type case = {
       (** The layer the test's CSS template compiles [@tailwind utilities] into,
           when it names one. Tailwind puts the generated utilities in it and
           everything else beside it. *)
+  layer_before_theme : bool;
+      (** Whether the wrapped utilities precede a later [@theme] block in the
+          source template. *)
 }
 
 val split_classes : string -> string list

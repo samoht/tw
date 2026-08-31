@@ -221,7 +221,7 @@ let canonical_stylesheet_css css = String.trim css
    theme block, the [@property] rules, and whatever a declared utility hoists.
    tw wraps the whole sheet in its own layer scaffolding, so keep the layer the
    template named and flatten the rest. *)
-let keep_only_layer name stylesheet =
+let keep_only_layer ~before_theme name stylesheet =
   let rec go stmts =
     List.concat_map
       (fun stmt ->
@@ -234,7 +234,21 @@ let keep_only_layer name stylesheet =
           | None -> [ stmt ])
       stmts
   in
-  Css.v (go (Css.statements stylesheet))
+  let statements = go (Css.statements stylesheet) in
+  let statements =
+    if not before_theme then statements
+    else
+      let wrapped, rest =
+        List.partition
+          (fun stmt ->
+            match Css.as_layer stmt with
+            | Some (Some n, _) -> Css.Stylesheet.equal_layer_name n [ name ]
+            | Some (None, _) | None -> false)
+          statements
+      in
+      wrapped @ rest
+  in
+  Css.v statements
 
 (* Tailwind compiled the corpus from each case's own [@theme] block, with no
    default theme behind it, so the [@keyframes] that theme declares are in no
@@ -605,7 +619,8 @@ let run_test_case test expected () =
         let sheet =
           match test.layer_wrap with
           | None -> sheet
-          | Some name -> keep_only_layer name sheet
+          | Some name ->
+              keep_only_layer ~before_theme:test.layer_before_theme name sheet
         in
         Some (drop_theme_keyframes sheet)
     in
