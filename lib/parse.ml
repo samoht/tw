@@ -80,13 +80,15 @@ let int_bounded ~name ~min ~max s =
 let is_valid_theme_name s = s <> "" && not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
 
-(** Extract the bare variable name from a "var(--name)" string. Returns "name"
-    for "var(--name)", or the original string if not a var() reference. *)
 let extract_var_name s =
-  let len = String.length s in
-  if len > 6 && String.sub s 0 6 = "var(--" && s.[len - 1] = ')' then
-    String.trim (String.sub s 6 (len - 7))
-  else s
+  if not (String.starts_with ~prefix:"var(" s) then s
+  else
+    try
+      let cursor = Cascade.Cursor.of_string s in
+      match Cascade.Css.Variables.read_reference cursor with
+      | name, None -> name
+      | name, Some fallback -> name ^ ", " ^ fallback
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> s
 
 (* One bracket, not two: the closing bracket has to be the last character. A
    suffix carrying a second bracket - one bracket with a bracket modifier, or

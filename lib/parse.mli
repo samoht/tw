@@ -46,9 +46,9 @@ val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result
     [Error e] unchanged. *)
 
 val extract_var_name : string -> string
-(** [extract_var_name s] extracts the bare variable name from ["var(--name)"],
-    returning ["name"]. If [s] is not a var() reference, returns [s] unchanged.
-*)
+(** [extract_var_name s] parses one complete [var()] reference and returns its
+    name without the [--] prefix, retaining an optional fallback after a comma.
+    If [s] is not exactly one valid reference, it returns [s] unchanged. *)
 
 val is_bracket_value : string -> bool
 (** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
