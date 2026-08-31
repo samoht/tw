@@ -2524,6 +2524,25 @@ let test_recursive_compound_variant_order () =
       "not-last:border-b";
     ]
 
+let test_compound_variant_inner_value_order () =
+  (* Recursive slot paths still tie for two arbitrary variants. Tailwind then
+     compares the decoded selector at the inner variant, so [&:is(.foo)] sorts
+     before a selector beginning with [:nth-*]. *)
+  Test_helpers.check_class_order
+    ~test_name:"group arbitrary inner selector order"
+    [
+      "group-data-[tooltip-hover=true]:opacity-100";
+      "group-[.is-published]:block";
+      "group-[:nth-of-type(3)_&]:block";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"peer arbitrary inner selector order"
+    [
+      "peer-has-checked:block";
+      "peer-[.is-dirty]:peer-required:block";
+      "peer-[:nth-of-type(3)_&]:block";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -3040,6 +3059,8 @@ let tests =
       test_arbitrary_variant_selector_order;
     test_case "recursive compound variant order" `Slow
       test_recursive_compound_variant_order;
+    test_case "compound variant inner value order" `Slow
+      test_compound_variant_inner_value_order;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
