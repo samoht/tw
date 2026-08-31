@@ -863,6 +863,12 @@ let test_font_feature_property_band () =
       "font-sans";
     ]
 
+(* A bracket font-size carrying a line-height modifier follows the large named
+   sizes and precedes the base size in Tailwind's candidate order. *)
+let test_bracket_font_size_candidate_band () =
+  Test_helpers.check_class_order ~test_name:"bracket font-size candidate band"
+    [ "text-base"; "text-[13px]/6"; "text-9xl"; "text-2xl" ]
+
 (* A font family is idents or quoted strings; the docs' [<value>] placeholder
    used to be quoted into font-family: "<value>". *)
 let test_invalid_font_family () =
@@ -1173,6 +1179,8 @@ let tests =
       test_font_bracket_family_comma_list;
     test_case "font-features value" `Quick test_font_features_value;
     test_case "font-feature property band" `Slow test_font_feature_property_band;
+    test_case "bracket font-size candidate band" `Slow
+      test_bracket_font_size_candidate_band;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading half-step" `Quick test_leading_prime;
