@@ -327,6 +327,12 @@ let selector_with_data_key selector key value =
 let nested_hover ~selector ~props =
   [ Css.media ~condition:hover_media [ Css.rule ~selector props ] ]
 
+(* At-rule variants carry their rule in [nested] when an inner hover-gated
+   variant is present. Keeping the declarations on the wrapper would discard
+   [has_hover], because only [Regular] outputs retain that flag. *)
+let at_rule_body ~inner_has_hover ~selector ~props =
+  if inner_has_hover then ([], nested_hover ~selector ~props) else (props, [])
+
 let media_rule_with_prefix ?(inner_has_hover = false) prefix condition
     base_class selector props =
   let modified_class = prefix ^ ":" ^ base_class in
@@ -853,26 +859,34 @@ let normalize_supports_condition = Modifiers.normalize_supports_condition
 
 (** Handle [supports-<property>] modifier: builds the shorthand class name and
     emits [\@supports (prop: var(--tw))] directly, typed. *)
-let handle_supports_property_modifier prop base_class selector props =
+let handle_supports_property_modifier ?(inner_has_hover = false) prop base_class
+    selector props =
   let modified_class = "supports-" ^ prop ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
   let condition = Css.Supports.property prop "var(--tw)" in
-  supports_query ~condition ~selector:new_selector ~props
+  let props, nested =
+    at_rule_body ~inner_has_hover ~selector:new_selector ~props
+  in
+  supports_query ~condition ~selector:new_selector ~props ~nested
     ~base_class:modified_class ()
 
 (** Handle [supports-[condition]] modifier: builds the bracket class name,
     normalizes the author's condition text, and emits a supports query rule. *)
-let handle_supports_condition_modifier condition_str base_class selector props =
+let handle_supports_condition_modifier ?(inner_has_hover = false) condition_str
+    base_class selector props =
   let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
   let condition = normalize_supports_condition condition_str in
-  supports_query ~condition ~selector:new_selector ~props
+  let props, nested =
+    at_rule_body ~inner_has_hover ~selector:new_selector ~props
+  in
+  supports_query ~condition ~selector:new_selector ~props ~nested
     ~base_class:modified_class ()
 
 (** Map a media-like modifier to its corresponding Css.Media.t condition.
@@ -1538,18 +1552,21 @@ let arbitrary_selector_rule content base_class selector props =
 (* An at-rule written in brackets: [[@supports(display:grid)]] wraps the utility
    in that query, [[@starting-style]] in [@starting-style]. The class name keeps
    the brackets, so it cannot go through the [supports-] spelling. *)
-let at_rule_variant content ~selector base_class props =
+let at_rule_variant ?(inner_has_hover = false) content ~selector base_class
+    props =
   let modified_class = "[" ^ content ^ "]:" ^ base_class in
   let selector =
     Rules_selector.transform_selector_with_modifier
       (Css.Selector.Class modified_class) base_class modified_class selector
   in
+  let props, nested = at_rule_body ~inner_has_hover ~selector ~props in
   if content = "@starting-style" then
-    starting_style ~selector ~props ~base_class:modified_class ()
+    starting_style ~selector ~props ~nested ~base_class:modified_class ()
   else
     let cond = String.trim (String.sub content 9 (String.length content - 9)) in
     let condition = normalize_supports_condition cond in
-    supports_query ~condition ~selector ~props ~base_class:modified_class ()
+    supports_query ~condition ~selector ~props ~nested
+      ~base_class:modified_class ()
 
 (* A [matchVariant]-registered custom variant. The class name is the token
    ([is-data-foo]); the selector is the template with [&] replaced by the
@@ -1610,6 +1627,30 @@ let prose_element_rule name ~base_class ~selector props =
     ~base_class:("prose-" ^ name ^ ":" ^ base_class)
     ()
 
+let starting_rule ~inner_has_hover base_class selector props =
+  let modified_class = "starting:" ^ base_class in
+  (* Rebuilding the selector from the bare class would drop what an inner
+     variant put on it, as [open:]'s [:is([open], :popover-open, :open)]. *)
+  let selector =
+    Rules_selector.transform_selector_with_modifier
+      (Css.Selector.Class modified_class) base_class modified_class selector
+  in
+  let props, nested = at_rule_body ~inner_has_hover ~selector ~props in
+  starting_style ~selector ~props ~nested ~base_class:modified_class ()
+
+let container_style_rule ~inner_has_hover token condition base_class selector
+    props =
+  (* A [@custom-variant] whose body is a container query wraps the utility in
+     its structural condition. *)
+  let modified_class = token ^ ":" ^ base_class in
+  let selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  let props, nested = at_rule_body ~inner_has_hover ~selector ~props in
+  container_query ~condition ~selector ~props ~nested ~base_class:modified_class
+    ()
+
 let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
     selector props =
   match modifier with
@@ -1626,9 +1667,11 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
         selector props
   (* Supports feature query *)
   | Style.Supports_property prop ->
-      handle_supports_property_modifier prop base_class selector props
+      handle_supports_property_modifier ~inner_has_hover prop base_class
+        selector props
   | Style.Supports_condition condition_str ->
-      handle_supports_condition_modifier condition_str base_class selector props
+      handle_supports_condition_modifier ~inner_has_hover condition_str
+        base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule ?theme ~inner_has_hover breakpoint base_class selector
@@ -1683,15 +1726,7 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   | Style.Data_bracket _ | Style.Group_data _ | Style.Peer_data _ ->
       route_data_bracket_modifier modifier ~selector base_class props
   (* Starting style - selector includes starting: prefix *)
-  | Style.Starting ->
-      let modified_class = "starting:" ^ base_class in
-      (* Rebuilding the selector from the bare class would drop what an inner
-         variant put on it, as [open:]'s [:is([open], :popover-open, :open)]. *)
-      let new_selector =
-        Rules_selector.transform_selector_with_modifier
-          (Css.Selector.Class modified_class) base_class modified_class selector
-      in
-      starting_style ~selector:new_selector ~props ~base_class:modified_class ()
+  | Style.Starting -> starting_rule ~inner_has_hover base_class selector props
   (* Interactive pseudo-classes *)
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
@@ -1702,20 +1737,13 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       handle_pseudo_element_modifier modifier base_class props
   | Style.Arbitrary_selector content ->
       arbitrary_selector_rule content base_class selector props
-  | Style.At_rule content -> at_rule_variant content ~selector base_class props
+  | Style.At_rule content ->
+      at_rule_variant ~inner_has_hover content ~selector base_class props
   | Style.Custom_variant (token, template) ->
       custom_variant_rule token template base_class props
   | Style.Container_style (token, condition) ->
-      (* A [@custom-variant] whose body is a container query: wrap the utility
-         in [@container <condition>], like [container_rule] but with a
-         structural condition supplied by the variant. *)
-      let modified_class = token ^ ":" ^ base_class in
-      let new_selector =
-        Rules_selector.replace_class_in_selector ~old_class:base_class
-          ~new_class:modified_class selector
-      in
-      container_query ~condition ~selector:new_selector ~props
-        ~base_class:modified_class ()
+      container_style_rule ~inner_has_hover token condition base_class selector
+        props
   (* Prose element variants — descendant selector with element filter *)
   | Style.Prose_element name ->
       prose_element_rule name ~base_class ~selector props
@@ -1775,23 +1803,23 @@ let arbitrary_selector_in_media content bc selector props ~inner_condition
 (** Apply a modifier to a Media_query rule by wrapping it in an outer media
     query. Handles media-like modifiers, responsive modifiers, and falls back to
     returning the rule unchanged. *)
-let rec rename_class_in_stmt ~old_class ~new_class stmt =
-  let recurse = rename_class_in_stmt ~old_class ~new_class in
-  match Css.as_rule stmt with
-  | Some (selector, decls, nested) ->
-      Css.rule
-        ~selector:
-          (Rules_selector.replace_class_in_selector ~old_class ~new_class
-             selector)
-        ~nested:(List.map recurse nested) decls
-  | None -> (
-      match Css.as_media stmt with
-      | Some (condition, stmts) -> Css.media ~condition (List.map recurse stmts)
-      | None -> (
-          match Css.as_supports stmt with
-          | Some (condition, stmts) ->
-              Css.supports ~condition (List.map recurse stmts)
-          | None -> stmt))
+let rec map_selectors_in_stmt f (stmt : Css.statement) =
+  let recurse = map_selectors_in_stmt f in
+  let open Cascade.Stylesheet in
+  match stmt with
+  | Rule r ->
+      Rule
+        { r with selector = f r.selector; nested = List.map recurse r.nested }
+  | Media (condition, stmts) -> Media (condition, List.map recurse stmts)
+  | Container (name, condition, stmts) ->
+      Container (name, condition, List.map recurse stmts)
+  | Supports (condition, stmts) -> Supports (condition, List.map recurse stmts)
+  | Starting_style stmts -> Starting_style (List.map recurse stmts)
+  | other -> other
+
+let rename_class_in_stmt ~old_class ~new_class =
+  map_selectors_in_stmt
+    (Rules_selector.replace_class_in_selector ~old_class ~new_class)
 
 let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
     ~props ~base_class ~nested =
@@ -1903,6 +1931,32 @@ let nest_inside_at_rule inner = function
       Output.Media_query { r with nested = inner :: nested }
   | other -> other
 
+(* Rewrite every rule in an at-rule's finished body with the same selector
+   transformation its outer variant applied to the wrapper's selector. The
+   exact-selector case also covers arbitrary selector variants, whose spelling
+   cannot be reconstructed through [Modifiers.to_selector]. *)
+let rewrite_at_rule_body modifier ~base_class ~selector ~modified_class
+    ~modified_selector nested =
+  let modified_base_selector =
+    if wraps_in_at_rule modifier then None
+    else
+      match Modifiers.to_selector modifier base_class with
+      | selector -> Some selector
+      | exception Invalid_argument _ -> None
+  in
+  let rewrite inner_selector =
+    if Css.Selector.equal inner_selector selector then modified_selector
+    else
+      match modified_base_selector with
+      | Some modified_base_selector ->
+          Rules_selector.transform_selector_with_modifier modified_base_selector
+            base_class modified_class inner_selector
+      | None ->
+          Rules_selector.replace_class_in_selector ~old_class:base_class
+            ~new_class:modified_class inner_selector
+  in
+  List.map (map_selectors_in_stmt rewrite) nested
+
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
 let rec apply_modifier_to_rule ?theme modifier = function
@@ -1986,6 +2040,11 @@ let rec apply_modifier_to_rule ?theme modifier = function
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
         ~props ~base_class ~nested
+  | ( Supports_query { nested; _ }
+    | Container_query { nested; _ }
+    | Starting_style { nested; _ } ) as output
+    when nested <> [] ->
+      apply_modifier_to_nested_output ?theme modifier output
   | Supports_query { condition; selector; props; base_class; merge_key; _ } ->
       apply_modifier_to_supports_query ?theme modifier ~condition ~selector
         ~props ~base_class ~merge_key
@@ -1995,6 +2054,68 @@ let rec apply_modifier_to_rule ?theme modifier = function
   | Starting_style { selector; props; base_class; nested } ->
       apply_modifier_to_starting_style ?theme modifier ~selector ~props
         ~base_class ~nested
+
+and apply_modifier_to_nested_output ?theme modifier = function
+  | Supports_query { condition; selector; props; base_class; merge_key; nested }
+    ->
+      apply_nested_at_rule ?theme modifier ~selector ~props ~base_class ~nested
+        ~wrap_statement:(fun body -> Css.supports ~condition body)
+        ~wrap_output:(fun ~selector ~base_class ~nested ->
+          supports_query ~condition ~selector ~props:[] ?base_class ?merge_key
+            ~nested ())
+  | Container_query { condition; selector; props; base_class; nested } ->
+      apply_nested_at_rule ?theme modifier ~selector ~props ~base_class ~nested
+        ~wrap_statement:(fun body -> Css.container ~condition body)
+        ~wrap_output:(fun ~selector ~base_class ~nested ->
+          container_query ~condition ~selector ~props:[] ?base_class ~nested ())
+  | Starting_style { selector; props; base_class; nested } ->
+      apply_nested_at_rule ?theme modifier ~selector ~props ~base_class ~nested
+        ~wrap_statement:Css.starting_style
+        ~wrap_output:(fun ~selector ~base_class ~nested ->
+          starting_style ~selector ~props:[] ?base_class ~nested ())
+  | _ -> invalid_arg "nested at-rule output"
+
+(* A hover-gated at-rule has a finished body in [nested] and no declarations on
+   the wrapper itself. Apply the outer variant to a plain rule to obtain its
+   selector/query, rewrite the finished body with that same selector change,
+   then put the original at-rule at the correct depth. *)
+and apply_nested_at_rule ?theme modifier ~selector ~props ~base_class ~nested
+    ~wrap_statement ~wrap_output =
+  let bc = Option.value base_class ~default:"" in
+  apply_modifier_to_rule ?theme modifier
+    (regular ~selector ~props ?base_class ())
+  |> List.map (fun outer ->
+      let modified_selector, modified_props, modified_base_class =
+        match outer with
+        | Regular { selector; props; base_class; _ }
+        | Media_query { selector; props; base_class; _ }
+        | Container_query { selector; props; base_class; _ }
+        | Starting_style { selector; props; base_class; _ }
+        | Supports_query { selector; props; base_class; _ } ->
+            (selector, props, base_class)
+      in
+      let modified_class = Option.value modified_base_class ~default:bc in
+      let nested =
+        rewrite_at_rule_body modifier ~base_class:bc ~selector ~modified_class
+          ~modified_selector nested
+      in
+      let body =
+        (if modified_props = [] then []
+         else [ Css.rule ~selector:modified_selector modified_props ])
+        @ nested
+      in
+      let inner = wrap_statement body in
+      match outer with
+      | Regular { has_hover = true; _ } ->
+          media_query ~condition:hover_media ~selector:modified_selector
+            ~props:[] ?base_class:modified_base_class ~nested:[ inner ] ()
+      | Regular _ ->
+          wrap_output ~selector:modified_selector
+            ~base_class:modified_base_class ~nested:body
+      | Media_query ({ nested; _ } as r) ->
+          Media_query { r with props = []; nested = inner :: nested }
+      | (Container_query _ | Starting_style _ | Supports_query _) as wrapper ->
+          nest_inside_at_rule inner wrapper)
 
 (* Apply a modifier to a [@container] rule, the way the [@supports] case does:
    run it on the inner rule so all the selector and media machinery applies,
