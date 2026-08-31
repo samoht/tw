@@ -2615,6 +2615,53 @@ let check_before what sheet first second =
   in
   check bool what true (position first < position second)
 
+(* A project's exact [@custom-variant] name wins over the built-in prefix
+   grammar. In particular, [not-dark] is one custom slot; it is not the built-in
+   [not-] compound wrapped around [dark]. *)
+let test_theme_custom_variant_shadows_prefix_slot () =
+  let selector =
+    "&:not(:where(.dark, .dark *)):not(:where(.system, .system *))"
+  in
+  let theme : Tw.Scheme.t =
+    {
+      Tw.Scheme.default with
+      custom_variants =
+        [
+          ( "not-dark",
+            Tw.Scheme.{ values = [ ("", selector) ]; template = "{}" } );
+        ];
+    }
+  in
+  let hidden =
+    match Tw.Utility.base_of_class theme "hidden" with
+    | Ok base -> Tw.Utility.base base
+    | Error (`Msg m) -> Alcotest.failf "hidden: %s" m
+  in
+  let custom =
+    Tw.Utility.Modified (Tw.Style.Custom_variant ("not-dark", selector), hidden)
+  in
+  let classes = [ "dark:hidden"; "not-dark:hidden"; "[&:empty]:hidden" ] in
+  let utilities =
+    [
+      Tw.Utility.Modified (Tw.Style.Dark, hidden);
+      custom;
+      Tw.Utility.Modified (Tw.Style.Arbitrary_selector "&:empty", hidden);
+    ]
+  in
+  let sheet =
+    let config = { Tw.Build.base = false; forms = None; layers = true } in
+    Css.to_string ~minify:true (Tw.Build.to_css ~theme ~config utilities)
+  in
+  let position cls =
+    let needle = Css.Selector.to_string (Css.Selector.class_ cls) in
+    match Astring.String.find_sub ~sub:needle sheet with
+    | Some i -> (i, cls)
+    | None -> Alcotest.failf "%s missing from %s" needle sheet
+  in
+  Alcotest.(check (list string))
+    "custom variant remains after dark and before arbitrary" classes
+    (List.map position classes |> List.sort compare |> List.map snd)
+
 (* A custom-variant expansion arrives through [extra], but it is not a declared
    utility joining the property family. Treating it as one flattens every
    built-in mask-image suborder onto the first slot. *)
@@ -3061,6 +3108,8 @@ let tests =
       test_recursive_compound_variant_order;
     test_case "compound variant inner value order" `Slow
       test_compound_variant_inner_value_order;
+    test_case "theme custom variant shadows prefix slot" `Quick
+      test_theme_custom_variant_shadows_prefix_slot;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
