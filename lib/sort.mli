@@ -31,9 +31,10 @@ type variant_component = {
   wrapped : int;
       (** The state a [group-]/[peer-] token wraps, so [group-focus] and
           [group-has] keep their order. [0] for every other token. *)
-  data_key : string option;
-      (** The data predicate spelling, so a compound stays with its named or
-          arbitrary data group. [None] for every other token. *)
+  value_key : string option;
+      (** A data predicate spelling or the decoded selector denoted by an
+          arbitrary variant, including its implicit [&:is(...)] anchor. [None]
+          for slots whose variants compare only by rank. *)
 }
 (** One component of a rule's variant sort key: the slot a modifier token sorts
     in, plus what separates two tokens that share that slot. *)
