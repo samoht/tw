@@ -1492,7 +1492,7 @@ let pool_entries () =
    Both directions can hold between one pair of handlers, since a family may
    straddle two of Tailwind's bands, so each is its own entry.
 
-   This is the ordering debt the whole-sheet gate counts - 322 of 3885
+   This is the ordering debt the whole-sheet gate counts - 299 of 3885
    statements in test/parity/sheet_order.ml - named rather than counted. Without
    it the fuzzer fails on nearly every seed for misorderings that predate it;
    with it a pair outside the list fails a draw.
@@ -1513,8 +1513,8 @@ let pool_entries () =
    What a listed pair does not catch is a further inversion between those same
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
-   than a count of statements, which tolerates any 322 of them. *)
-let known_inversions = [ ("typography_late", "typography_late") ]
+   than a count of statements, which tolerates any 299 of them. *)
+let known_inversions = []
 
 (* Which handler each class in a case belongs to, and which variant it wears.
    The variant matters because two classes wearing different ones are not

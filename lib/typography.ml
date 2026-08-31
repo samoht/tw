@@ -2383,8 +2383,8 @@ module Typography_late = struct
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
     (* Antialiased *)
-    | Antialiased -> 8700
-    | Subpixel_antialiased -> 8701
+    | Antialiased -> 80000
+    | Subpixel_antialiased -> 80001
     (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
        text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
        a suborder above alignment/gap's range. Tailwind ranks [text-overflow] at
@@ -2438,27 +2438,23 @@ module Typography_late = struct
     | Hyphens_auto -> 8325
     | Hyphens_manual -> 8325
     | Hyphens_none -> 8325
-    (* Font stretch - percentages first (sorted by value), then keywords *)
-    | Font_stretch_percent n -> 9500 + n
-    | Font_stretch_condensed -> 9700
-    | Font_stretch_expanded -> 9701
-    | Font_stretch_extra_condensed -> 9702
-    | Font_stretch_extra_expanded -> 9703
-    | Font_stretch_normal -> 9704
-    | Font_stretch_semi_condensed -> 9705
-    | Font_stretch_semi_expanded -> 9706
-    | Font_stretch_ultra_condensed -> 9707
-    | Font_stretch_ultra_expanded -> 9708
+    (* Font stretch shares one property slot after font style. *)
+    | Font_stretch_percent _ | Font_stretch_condensed | Font_stretch_expanded
+    | Font_stretch_extra_condensed | Font_stretch_extra_expanded
+    | Font_stretch_normal | Font_stretch_semi_condensed
+    | Font_stretch_semi_expanded | Font_stretch_ultra_condensed
+    | Font_stretch_ultra_expanded ->
+        8382
     (* Numeric variants - alphabetical order with normal-nums last *)
-    | Diagonal_fractions -> 9700
-    | Lining_nums -> 9701
-    | Oldstyle_nums -> 9702
-    | Ordinal -> 9703
-    | Proportional_nums -> 9704
-    | Slashed_zero -> 9705
-    | Stacked_fractions -> 9706
-    | Tabular_nums -> 9707
-    | Normal_nums -> 9708
+    | Diagonal_fractions -> 8390
+    | Lining_nums -> 8391
+    | Oldstyle_nums -> 8392
+    | Ordinal -> 8393
+    | Proportional_nums -> 8394
+    | Slashed_zero -> 8395
+    | Stacked_fractions -> 8396
+    | Tabular_nums -> 8397
+    | Normal_nums -> 8398
     (* Indent - Tailwind ranks [text-indent] at 282, between [text-align] (281)
        and [vertical-align] (283), so the family sits at priority 24 with both:
        [Text_align] holds 1001-1006 in the early handler, [Align_*] below holds
