@@ -68,6 +68,17 @@ let test_perspective_keywords () =
     (Astring.String.is_infix ~affix:"--perspective-distant:1200px"
        (css "perspective-distant"))
 
+let test_perspective_candidate_order () =
+  Test_helpers.check_class_order ~test_name:"perspective candidate order"
+    [
+      "perspective-none";
+      "perspective-near";
+      "perspective-dramatic";
+      "perspective-normal";
+      "perspective-distant";
+      "perspective-midrange";
+    ]
+
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
@@ -432,6 +443,8 @@ let tests =
     test_case "translate spacing (both axes)" `Quick test_translate_spacing;
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "perspective keywords" `Quick test_perspective_keywords;
+    test_case "perspective candidate order" `Quick
+      test_perspective_candidate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
