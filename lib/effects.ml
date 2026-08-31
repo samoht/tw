@@ -3218,9 +3218,9 @@ module Handler = struct
     | Ring_none -> 31001
     | Ring_xs -> 31002
     | Ring_sm -> 31003
-    | Ring_lg -> 31004
-    | Ring_xl -> 31005
-    | Ring_width _ -> 31005
+    | Ring_width n -> 31001 + n
+    | Ring_lg -> 31005
+    | Ring_xl -> 31009
     | Ring_bracket_length _ -> 31010
     | Ring_color _ | Ring_color_opacity _ | Ring_keyword_opacity _
     | Ring_transparent | Ring_current | Ring_current_opacity _ | Ring_inherit
