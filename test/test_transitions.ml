@@ -157,6 +157,20 @@ let test_default_transition_theme_survives_a_variant () =
       Alcotest.(check bool) (cls ^ " needs no defaults") false (declares cls))
     [ "transition-none"; "hover:transition-none"; "p-4" ]
 
+(* Values of one candidate are one registration slot in Tailwind. A numeric
+   suborder per delay value used to let duration rules leak between them. *)
+let test_delay_candidate_band () =
+  Test_helpers.check_class_order ~test_name:"delay candidate band"
+    [
+      "duration-150";
+      "delay-700";
+      "ease-in";
+      "delay-150";
+      "transition";
+      "duration-300";
+      "delay-300";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -170,6 +184,7 @@ let tests =
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;
       Alcotest.test_case "default transition theme survives a variant" `Quick
         test_default_transition_theme_survives_a_variant;
+      Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
     ]
 
 let suite = ("transitions", tests)
