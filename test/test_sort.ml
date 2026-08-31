@@ -1639,7 +1639,7 @@ let pool_entries () =
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
    than a count of statements, which tolerates any 299 of them. *)
-let known_inversions = [ ("masks", "arbitrary") ]
+let known_inversions = []
 
 (* Which handler each class in a case belongs to, and which variant it wears.
    The variant matters because two classes wearing different ones are not
