@@ -797,7 +797,8 @@ let parse_file filename =
       !current_variant_names |> List.rev
       |> List.filter_map (fun n -> Hashtbl.find_opt variant_defs n)
     in
-    if classes <> [] then
+    let emitted = classes <> [] in
+    if emitted then
       block_tests :=
         {
           name;
@@ -813,8 +814,14 @@ let parse_file filename =
         :: !block_tests;
     current_classes := [];
     current_variant_names := [];
-    current_theme_vars := [];
-    current_theme_modes := [];
+    (* A call with no candidates produces no fixture case, so it has not
+       consumed metadata read from a let-bound CSS template. Tailwind tests
+       commonly compile that template once to show it emits nothing, then pass
+       the same binding to [run] with candidates. Keep its theme input for that
+       later call; a real emitted case consumes it as before. *)
+    if emitted then (
+      current_theme_vars := [];
+      current_theme_modes := []);
     in_theme := None;
     in_expect := None
   in
@@ -841,8 +848,14 @@ let parse_file filename =
           List.map (fun t -> { t with utility_defs = defs }) !block_tests
           @ !tests);
     block_tests := [];
+    (* Metadata an empty call left available for another use of the same CSS
+       binding belongs only to this [test(...)] block. Do not let the final
+       empty assertion in one test seed the first case in the next. *)
+    current_theme_vars := [];
+    current_theme_modes := [];
     current_utility_defs := [];
     current_layer_wrap := None;
+    in_theme := None;
     in_utility := None;
     in_layer := None;
     saw_custom_utility := false
