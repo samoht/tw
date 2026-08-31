@@ -788,7 +788,7 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
            to the candidate name. *)
         let width_cmp = compare_declared_width r1 r2 in
         if width_cmp <> 0 then width_cmp
-        else natural_compare r1.selector_str r2.selector_str
+        else natural_compare r1.base_class_key r2.base_class_key
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
