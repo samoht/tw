@@ -171,6 +171,21 @@ let test_delay_candidate_band () =
       "delay-300";
     ]
 
+(* Tailwind registers the channel resets near the end of its utility list, after
+   logical block sizing and divide-x-reverse, but before logical inline sizing
+   and perspective. *)
+let test_initial_reset_boundary () =
+  Test_helpers.check_class_order ~test_name:"initial reset boundary"
+    [
+      "perspective-normal";
+      "duration-initial";
+      "inline-full";
+      "block-full";
+      "divide-x-reverse";
+      "backface-hidden";
+      "ease-initial";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -185,6 +200,8 @@ let tests =
       Alcotest.test_case "default transition theme survives a variant" `Quick
         test_default_transition_theme_survives_a_variant;
       Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
+      Alcotest.test_case "initial reset boundary" `Quick
+        test_initial_reset_boundary;
     ]
 
 let suite = ("transitions", tests)
