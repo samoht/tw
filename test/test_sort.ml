@@ -677,6 +677,46 @@ let test_late_typography_property_bands () =
       "italic";
     ]
 
+let test_arbitrary_font_family_boundary () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("font-sans", "Inter, system-ui");
+        ("font-source", "Source Sans Pro, system-ui");
+        ("font-sans--font-feature-settings", "\"cv02\", \"cv03\"");
+        ("font-mono", "Plex Mono, monospace");
+        ("font-mono--font-feature-settings", "\"ss02\", \"zero\"");
+        ("font-ubuntu-mono", "Ubuntu Mono, monospace");
+      ]
+  in
+  let classes =
+    [
+      "font-mono";
+      "font-sans";
+      "font-[system-ui]";
+      "font-serif";
+      "font-source";
+      "font-ubuntu-mono";
+    ]
+  in
+  let utilities =
+    List.map (fun c -> Result.get_ok (Tw.of_string ~theme c)) classes
+  in
+  let css =
+    Tw.to_css ~theme ~base:false utilities
+    |> Cascade.Css.to_string ~minify:true ~lossless:true
+  in
+  let position cls =
+    match Test_helpers.class_position css cls with
+    | Some i -> (i, cls)
+    | None -> Alcotest.failf "%s missing from %s" cls css
+  in
+  let actual =
+    classes |> List.map position |> List.sort compare |> List.map snd
+  in
+  Alcotest.(check (list string))
+    "arbitrary font family follows sans and precedes serif" classes actual
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -3058,6 +3098,8 @@ let tests =
       test_shadow_and_transform_boundaries;
     test_case "late typography property bands" `Slow
       test_late_typography_property_bands;
+    test_case "arbitrary font family boundary" `Slow
+      test_arbitrary_font_family_boundary;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
