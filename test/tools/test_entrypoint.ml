@@ -312,6 +312,16 @@ let test_functional_value () =
     ]
     [ "example-1"; "example-76"; "example-foo"; "example"; "example-2.5" ]
 
+(* Curly blocks are declaration boundaries rather than opaque values: a nested
+   rule may itself contain a functional declaration that needs resolving. *)
+let test_functional_nested_rule () =
+  let udefs =
+    [ ("example-*", " &::before { --resolved-value: --value(integer); } ") ]
+  in
+  check_routed ~udefs "the declaration under the nested rule is resolved"
+    [ ("example-7", ".example-7:before{--resolved-value:7}") ]
+    [ "example-7" ]
+
 (* A [--value(--namespace)] reads the theme entry the candidate names. How it is
    spelled follows the block the token was declared in: a plain one is a
    reference the theme layer declares, an [@theme reference] one carries its
@@ -435,6 +445,7 @@ let tests =
     test_case "complex custom variant keeps its candidate" `Quick
       test_complex_custom_variant_keeps_candidate;
     test_case "functional value" `Quick test_functional_value;
+    test_case "functional nested rule" `Quick test_functional_nested_rule;
     test_case "functional theme value" `Quick test_functional_theme_value;
     test_case "functional arbitrary value" `Quick
       test_functional_arbitrary_value;
