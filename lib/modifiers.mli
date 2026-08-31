@@ -756,6 +756,10 @@ val variant_inner_order : string -> int
     on the scale {!val-variant_order_of_prefix} returns. [0] for every other
     token. *)
 
+val variant_inner_token : string -> string option
+(** [variant_inner_token token] is the variant immediately wrapped by a
+    [group-], [peer-], [not-], [in-], or [has-] compound token. *)
+
 val variant_inner_order_path : string -> int list
 (** [variant_inner_order_path token] recursively returns every wrapped variant
     position, outermost first. For example, [group-has-focus] yields the [has]
