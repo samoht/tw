@@ -568,6 +568,27 @@ let test_late_control_property_bands () =
       "scheme-dark";
     ]
 
+(* The outline-style, user-select and alpha-bearing text-shadow candidates form
+   three consecutive bands after backdrop-filter. The ordinary text-shadow
+   shapes still live in their later text-shadow band. *)
+let test_outline_select_shadow_property_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"outline, select and alpha text-shadow property bands"
+    [
+      "text-shadow-sm";
+      "transform-3d";
+      "perspective-normal";
+      "backface-hidden";
+      "text-shadow-lg/20";
+      "select-none";
+      "select-all";
+      "outline-solid";
+      "outline-dashed";
+      "backdrop-filter-none";
+      "filter-none";
+      "outline-inherit";
+    ]
+
 let test_logical_side_property_bands () =
   Test_helpers.check_class_order
     ~test_name:"logical sides keep their property bands"
@@ -2782,6 +2803,8 @@ let tests =
     test_case "field sizing property band" `Slow test_field_sizing_property_band;
     test_case "late control property bands" `Slow
       test_late_control_property_bands;
+    test_case "outline, select and alpha shadow bands" `Slow
+      test_outline_select_shadow_property_bands;
     test_case "logical side property bands" `Slow
       test_logical_side_property_bands;
     test_case "shadow and transform boundaries" `Slow
