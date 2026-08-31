@@ -343,6 +343,26 @@ let aspect_precedes_dimensions () =
       "aspect-square";
     ]
 
+(* Every aspect ratio writes the same property. Tailwind keeps the family in
+   natural candidate order, including large site-derived ratios, before the
+   bracket and keyword tails. *)
+let aspect_candidate_order_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"aspect candidate order"
+    [
+      "aspect-video";
+      "aspect-square";
+      "aspect-auto";
+      "aspect-[7/9]";
+      "aspect-[1.333]";
+      "aspect-971/879";
+      "aspect-971/349";
+      "aspect-970/975";
+      "aspect-970/922";
+      "aspect-3/4";
+      "aspect-3/2";
+      "aspect-2/1";
+    ]
+
 (* Tailwind interleaves spacing and fractions by magnitude: w-0.5, w-1, w-1.5,
    w-1/2, w-1/3, w-2, w-2/3, w-3/4. tw used to sort all fractions ahead of all
    spacing (a flat offset), reversing conflicting rules (both set width). *)
@@ -602,6 +622,8 @@ let tests =
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
     test_case "aspect precedes dimensions" `Quick aspect_precedes_dimensions;
+    test_case "aspect candidate order" `Slow
+      aspect_candidate_order_matches_tailwind;
   ]
 
 let suite = ("sizing", tests)
