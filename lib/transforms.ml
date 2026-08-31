@@ -1434,16 +1434,12 @@ module Handler = struct
     | Skew_x _ | Skew_x_arbitrary _ -> 1211
     | Skew_y n when n < 0 -> 1300
     | Skew_y _ | Skew_y_arbitrary _ -> 1301
-    (* Other transform utilities - arbitrary before named (alphabetical by
-       class) *)
-    | Perspective_arbitrary _ -> 1400
-    | Perspective_dramatic -> 1400
-    | Perspective_none -> 1401
-    | Perspective_theme _ -> 1402
-    | Perspective_normal -> 1402
-    | Perspective_near -> 1403
-    | Perspective_midrange -> 1404
-    | Perspective_distant -> 1405
+    (* Perspective depths are one candidate band; Tailwind orders their class
+       spellings rather than their semantic distance. *)
+    | Perspective_arbitrary _ | Perspective_dramatic | Perspective_none
+    | Perspective_theme _ | Perspective_normal | Perspective_near
+    | Perspective_midrange | Perspective_distant ->
+        1400
     | Perspective_origin_arbitrary _ -> 1499
     | Perspective_origin_bottom -> 1500
     | Perspective_origin_bottom_left -> 1501
