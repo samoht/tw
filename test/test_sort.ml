@@ -1635,6 +1635,15 @@ let measured_inversions () =
   in
   List.sort_uniq compare from_positions
 
+let test_mask_type_arbitrary_order () =
+  let utilities = List.map (fun e -> e.utility) (pool_entries ()) in
+  let classes = List.map Tw.pp utilities in
+  let tailwind, tw = Test_helpers.sheets ~forms:true utilities in
+  let inverted = Test_helpers.inverted_pairs ~tailwind ~tw classes in
+  Alcotest.(check bool)
+    "named mask type and its arbitrary property agree" false
+    (List.mem ("mask-type-luminance", "[mask-type:luminance]") inverted)
+
 let test_known_inversions_are_exact () =
   let measured = measured_inversions () in
   let recorded = List.sort_uniq compare known_inversions in
@@ -2740,6 +2749,7 @@ let tests =
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "pool covers every family" `Quick test_pool_covers_every_family;
     test_case "known inversions are exact" `Slow test_known_inversions_are_exact;
+    test_case "mask type arbitrary order" `Slow test_mask_type_arbitrary_order;
     test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
     test_case "pool variants all compile" `Quick test_variants_all_compile;
     test_case "random utilities with minimization" `Slow
