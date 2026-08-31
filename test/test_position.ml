@@ -202,6 +202,29 @@ let inset_value_order_matches_tailwind () =
     ~test_name:"inset value order matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+let position_candidate_bands_match_tailwind () =
+  Test_helpers.check_class_order ~test_name:"position candidate bands"
+    [
+      "left-full";
+      "right-px";
+      "inset-auto";
+      "top-(--top,0)";
+      "-inset-1";
+      "right-(--right,54%)";
+      "inset-px";
+      "left-0";
+      "top-full";
+      "right-1.5";
+      "inset-3/4";
+      "-left-(--gutter-width)";
+      "right-0";
+      "inset-full";
+      "top-0";
+      "left-px";
+      "-top-1";
+      "inset-0";
+    ]
+
 (* top'/right'/bottom'/left'/inset'/inset_x'/inset_y' take a half-step float
    (negative allowed, same as the int base); the int base keeps emitting what it
    always did. *)
@@ -242,6 +265,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "inset value order matches Tailwind" `Quick
       inset_value_order_matches_tailwind;
+    test_case "position candidate bands match Tailwind" `Quick
+      position_candidate_bands_match_tailwind;
   ]
 
 let suite = ("position", tests)
