@@ -121,6 +121,35 @@ let drop_shadow_slot_order () =
     (List.sort Int.compare positions)
     positions
 
+(* A project-defined drop-shadow size and the built-in multi-shadow size share
+   the same candidate slot. Tailwind orders both by class name, so calc comes
+   before multi even though the latter has a dedicated constructor. *)
+let project_drop_shadow_size_order () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("drop-shadow-calc", "0 0 calc(1 * var(--spacing)) black") ]
+  in
+  let classes = [ "drop-shadow-calc"; "drop-shadow-multi" ] in
+  let utilities =
+    List.rev classes
+    |> List.map (fun cls ->
+        match Tw.of_string ~theme cls with
+        | Ok utility -> utility
+        | Error (`Msg message) -> Alcotest.failf "%s: %s" cls message)
+  in
+  let css =
+    Tw.to_css ~theme ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  let position cls =
+    let needle = "." ^ cls ^ "{" in
+    match Astring.String.find_sub ~sub:needle css with
+    | Some position -> position
+    | None -> Alcotest.failf "%s missing from the tw sheet" cls
+  in
+  Alcotest.(check bool)
+    "project size precedes multi" true
+    (position "drop-shadow-calc" < position "drop-shadow-multi")
+
 let drop_shadow_candidate_order () =
   Test_helpers.check_class_order ~test_name:"drop-shadow candidate order"
     [
@@ -438,6 +467,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "filter candidate order" `Slow candidate_order_matches_tailwind;
     test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
+    test_case "project drop-shadow size order" `Quick
+      project_drop_shadow_size_order;
     test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
   ]
