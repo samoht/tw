@@ -178,6 +178,15 @@ let test_text_overflow_order () =
   Test_helpers.check_class_order ~test_name:"text-overflow order"
     [ "text-ellipsis"; "overflow-ellipsis"; "text-clip" ]
 
+let test_antialiasing_order () =
+  Test_helpers.check_class_order ~test_name:"antialiasing order"
+    [
+      "caret-red-500";
+      "placeholder-gray-400";
+      "subpixel-antialiased";
+      "antialiased";
+    ]
+
 let test_word_overflow_wrap () =
   check "break-normal";
   check "break-words";
@@ -1220,6 +1229,7 @@ let tests =
       test_line_clamp_none_theme_override;
     test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
     test_case "text overflow order" `Slow test_text_overflow_order;
+    test_case "antialiasing order" `Slow test_antialiasing_order;
     test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
     test_case "hyphens" `Quick test_hyphens;
     test_case "list style" `Quick test_list_style;
