@@ -286,7 +286,13 @@ module Handler = struct
               | Some color -> color_opacity_render theme emit color inner
               | None -> style []))
 
-  let suborder t = match slot t with Some (_, sub) -> sub | None -> 0
+  let suborder t =
+    let offset =
+      match t with
+      | Parsed_decl { property = "mask-type"; _ } -> 1
+      | Color_opacity _ | Parsed_decl _ -> 0
+    in
+    match slot t with Some (_, sub) -> sub + offset | None -> 0
 
   let to_class = function
     | Color_opacity { property; value; alpha_fn; opacity } ->
