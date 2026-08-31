@@ -1,4 +1,4 @@
-#! 700 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
+#! 701 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
 # sr-only
 @config run
 sr-only
@@ -877,7 +877,7 @@ isolate isolation-auto
       .z-auto {
         z-index: auto;
       }
-      
+
 <<<>>>
 # z-index
 @config run
@@ -22665,7 +22665,7 @@ example-1 example-2
         .example-2 {
           --resolved-value: 2;
         }
-        
+
 <<<>>>
 # functional utilities must resolve at least one `--value(…)`
 @config run
@@ -23522,6 +23522,20 @@ example-foo
           background-color: var(--example-foo);
         }
         
+<<<>>>
+# declaration nodes are only replaced/removed once
+@config run
+@utility-def mask-r-* --mask-right: linear-gradient(to left, transparent, black --value(percentage)); --mask-right: linear-gradient( to left, transparent calc(var(--spacing) * --modifier(integer)), black calc(var(--spacing) * --value(integer)) ); mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+mask-r-20%
+---
+
+        .mask-r-20\% {
+          --mask-right: linear-gradient(to left, transparent, black 20%);
+          -webkit-mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+          -webkit-mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+          mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+        }
+
 <<<>>>
 # resolve value based on `@theme`
 @config run
