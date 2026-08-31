@@ -104,6 +104,23 @@ let negative_suborder_matches_tailwind () =
     ~test_name:"negative margin suborder matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+let margin_side_bands_match_tailwind () =
+  Test_helpers.check_class_order ~test_name:"margin side property bands"
+    [
+      "ml-2";
+      "mbs-8";
+      "mbe-2";
+      "mt-2";
+      "me-2";
+      "ms-2";
+      "my-2";
+      "mx-2";
+      "m-2";
+      "mr-2";
+      "mb-2";
+      "mbs-6";
+    ]
+
 (* m, mx and ml all write margin-left, so which one an element ends up with is
    decided by the order the two sheets emit them in. *)
 let rendering_matches_tailwind () =
@@ -208,6 +225,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "negative margin suborder matches Tailwind" `Quick
       negative_suborder_matches_tailwind;
+    test_case "margin side bands match Tailwind" `Quick
+      margin_side_bands_match_tailwind;
     test_case "margin CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
     test_case "margins render like Tailwind" `Slow rendering_matches_tailwind;
