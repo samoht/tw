@@ -31,11 +31,13 @@ type selector_kind =
    what separates two tokens that share it. A breakpoint token carries the width
    it names, so [sm] and [md] no longer collapse onto one key; a group-/ peer-
    token carries the state it wraps, so [group-focus] and [group-has] keep their
-   order. *)
+   order; a data token carries its predicate, so compounds stay with the named
+   or arbitrary data group they belong to. *)
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
   wrapped : int;
+  data_key : string option;
 }
 
 (** Relationship between two rules being compared *)
@@ -1102,20 +1104,29 @@ let compare_variant_components a b =
       | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
       | Some _, None | None, Some _ | None, None -> 0
     in
-    if bp_cmp <> 0 then bp_cmp else Int.compare a.wrapped b.wrapped
+    if bp_cmp <> 0 then bp_cmp
+    else
+      let wrapped_cmp = Int.compare a.wrapped b.wrapped in
+      if wrapped_cmp <> 0 then wrapped_cmp
+      else Option.compare String.compare a.data_key b.data_key
 
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one
    key and every group-/peer- spelling on another, so the component carries what
    separates two tokens inside a slot: the width for a breakpoint, read off the
    media query the rule renders as, and the wrapped state for group-/peer-, so
-   group-focus and group-has keep their focus-before-has order. *)
+   group-focus and group-has keep their focus-before-has order, and the
+   predicate spelling for data variants, so a lower-order compound component
+   does not push [data-focus:has-checked] past every other data predicate. *)
 let token_order_key ~breakpoint token =
   let slot = Modifiers.variant_order_of_prefix token in
   let wrapped = Modifiers.variant_inner_order token in
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
-  { slot; breakpoint; wrapped }
+  let data_key =
+    if String.starts_with ~prefix:"data-" token then Some token else None
+  in
+  { slot; breakpoint; wrapped; data_key }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1140,7 +1151,14 @@ let variant_order_list base_class variant_order breakpoint =
   in
   match from_bc with
   | [] when variant_order > 0 ->
-      [ { slot = variant_order; breakpoint = None; wrapped = 0 } ]
+      [
+        {
+          slot = variant_order;
+          breakpoint = None;
+          wrapped = 0;
+          data_key = None;
+        };
+      ]
   | l -> l
 
 (* Compare two descending variant-order-key lists lexicographically, ascending
