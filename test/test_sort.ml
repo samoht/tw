@@ -418,6 +418,53 @@ let test_transform_control_bands () =
       "table-fixed";
     ]
 
+(* Tailwind orders transform candidates by sign, axis, then the natural class
+   spelling inside each band. Numeric suborders invert negative magnitudes and
+   eventually spill a large value into the following axis. *)
+let test_transform_candidate_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"transform candidates keep their sign and axis bands"
+    [
+      "translate-none";
+      "translate-z-12";
+      "-translate-z-8";
+      "translate-y-20";
+      "translate-y-1/2";
+      "-translate-y-12";
+      "-translate-y-1";
+      "translate-x-12";
+      "translate-x-1/2";
+      "-translate-x-12";
+      "-translate-x-1";
+      "translate-45";
+      "-translate-6";
+      "scale-none";
+      "scale-y-150";
+      "-scale-y-125";
+      "scale-x-125";
+      "-scale-x-75";
+      "scale-150";
+      "-scale-125";
+      "-scale-100";
+      "rotate-z-45";
+      "-rotate-z-45";
+      "rotate-y-180";
+      "-rotate-y-90";
+      "rotate-x-90";
+      "-rotate-x-90";
+      "rotate-none";
+      "rotate-225";
+      "-rotate-210";
+      "-rotate-12";
+      "skew-y-12";
+      "-skew-y-3";
+      "skew-x-12";
+      "-skew-x-10";
+      "skew-12";
+      "-skew-12";
+      "-skew-3";
+    ]
+
 (* Cursor opens the interaction block, followed by touch, resize, snap,
    scrolling, scrollbar, list, appearance and columns property bands. *)
 let test_scrolling_property_bands () =
@@ -2705,6 +2752,7 @@ let tests =
       test_indent_within_early_typography;
     test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "transform control bands" `Slow test_transform_control_bands;
+    test_case "transform candidate bands" `Slow test_transform_candidate_bands;
     test_case "scrolling property bands" `Slow test_scrolling_property_bands;
     test_case "flow property bands" `Slow test_flow_property_bands;
     test_case "tab property band" `Slow test_tab_property_band;
