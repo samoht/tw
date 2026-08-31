@@ -976,9 +976,9 @@ module Typography_early = struct
     | Font_semibold -> 4800
     | Font_thin -> 4900
     (* Font feature settings *)
-    | Font_features_quoted _ -> 5000
-    | Font_features_var _ -> 5000
-    | Font_features_bare_var _ -> 5000
+    | Font_features_quoted _ -> 1600
+    | Font_features_var _ -> 1600
+    | Font_features_bare_var _ -> 1600
     (* Italic *)
     | Italic -> 8380
     | Not_italic -> 8381
