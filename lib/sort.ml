@@ -1129,6 +1129,12 @@ let arbitrary_variant_selector_key token =
       then Some ("&:is(" ^ selector ^ ")")
       else Some selector
 
+let rec variant_value_key token =
+  match arbitrary_variant_selector_key token with
+  | Some _ as key -> key
+  | None when String.starts_with ~prefix:"data-" token -> Some token
+  | None -> Option.bind (Modifiers.variant_inner_token token) variant_value_key
+
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one
    key and every group-/peer- spelling on another, so the component carries what
    separates two tokens inside a slot: the width for a breakpoint, read off the
@@ -1142,12 +1148,7 @@ let token_order_key ~breakpoint token =
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
-  let value_key =
-    match arbitrary_variant_selector_key token with
-    | Some _ as key -> key
-    | None when String.starts_with ~prefix:"data-" token -> Some token
-    | None -> None
-  in
+  let value_key = variant_value_key token in
   { slot; breakpoint; wrapped; value_key }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
