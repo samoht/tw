@@ -2419,6 +2419,14 @@ let test_variant_arbitrary_numeric_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"variant arbitrary values sort numerically" utilities
 
+let test_repeated_child_variant_utility_order () =
+  (* Repeating the direct-child variant changes which descendants match, but not
+     the variant slot. Tailwind still interleaves [*:*:] candidates with [*:],
+     according to the utility order inside the child-variant group. *)
+  let classes = [ "*:mb-4"; "*:*:max-w-full"; "*:rotate-180" ] in
+  Test_helpers.check_class_order
+    ~test_name:"repeated child variant follows utility order" classes
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2924,6 +2932,8 @@ let tests =
       test_variant_same_suborder_tiebreak;
     test_case "variant arbitrary values sort numerically" `Slow
       test_variant_arbitrary_numeric_order;
+    test_case "repeated child variant follows utility order" `Slow
+      test_repeated_child_variant_utility_order;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
