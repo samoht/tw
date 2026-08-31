@@ -49,6 +49,10 @@ let test_ring_of_string_valid () =
   check "inset-ring-black";
   check "inset-ring-white/10"
 
+let test_ring_width_order () =
+  Test_helpers.check_class_order ~test_name:"ring width order"
+    [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
+
 (* ring-black / ring-white (shadeless theme colours) parse with an optional
    /opacity; a shaded colour without a shade (ring-red) stays rejected. *)
 let test_ring_shadeless_color () =
@@ -591,6 +595,7 @@ let tests =
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
+    test_case "ring width order" `Slow test_ring_width_order;
     test_case "ring-inset @property family" `Quick
       test_ring_inset_property_rules;
     test_case "ring shadeless color opacity" `Quick test_ring_shadeless_color;
