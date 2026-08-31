@@ -2380,10 +2380,11 @@ module Typography_late = struct
     | Underline_offset_arbitrary _ -> 69989
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
-    (* Both simple smoothing rules lead the placeholder pseudo-element band;
-       their class names keep antialiased first inside the shared slot. *)
-    | Antialiased -> 80000
-    | Subpixel_antialiased -> 80000
+    (* Both simple smoothing rules lead the placeholder pseudo-element band.
+       Keep them in their own slot: variant rules use their selector to settle
+       ties, while base rules retain handler order. *)
+    | Antialiased -> 79999
+    | Subpixel_antialiased -> 79999
     (* The legacy overflow-ellipsis alias leads the canonical text-overflow
        candidates. Truncate sorts before overflow (priority 18) via a suborder
        above alignment/gap's range. Tailwind ranks [text-overflow] at 293,
