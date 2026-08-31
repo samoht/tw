@@ -278,8 +278,24 @@ let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
   let routed_count, routed_extra, routed_stmts =
     Entrypoint.custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
   in
+  (* Routed custom variants no longer pass through the typed modifier parser,
+     but the sorter still needs their exact names so a declaration such as
+     [not-dark] is not mistaken for the built-in [not-] compound slot. Dummy
+     selector values are sufficient here: routed candidates already carry the
+     expanded author CSS in [extra], and only the registered names are read. *)
+  let sort_theme =
+    let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
+    let custom_variants =
+      List.fold_left
+        (fun variants (name, _) ->
+          if List.mem_assoc name variants then variants
+          else (name, custom) :: variants)
+        opts.theme.custom_variants defs
+    in
+    { opts.theme with custom_variants }
+  in
   let stylesheet =
-    Tw.to_css ~theme:opts.theme ~base:include_base ~extra:routed_extra
+    Tw.to_css ~theme:sort_theme ~base:include_base ~extra:routed_extra
       (List.map snd known)
   in
   let stylesheet = Entrypoint.place_routed routed_stmts stylesheet in

@@ -383,7 +383,7 @@ let rec declaration_count props nested =
                     | None -> 0))))
       0 nested
 
-let add_index ?(declared = fun _ -> false) triples =
+let add_index ?theme ?(declared = fun _ -> false) triples =
   let buf = Buffer.create 256 in
   List.mapi
     (fun i (typ, sel, props, order, nested, base_class, merge_key) ->
@@ -411,7 +411,8 @@ let add_index ?(declared = fun _ -> false) triples =
          variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
          variant_orders =
-           Sort.variant_order_list base_class variant_order responsive_media_key;
+           Sort.variant_order_list ?theme base_class variant_order
+             responsive_media_key;
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;
@@ -505,10 +506,11 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules ?declared order_map all_rules =
+let sorted_indexed_rules ?theme ?declared order_map all_rules =
   all_rules
   |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index ?declared |> sort_indexed_blocks
+  |> deduplicate_typed_triples |> add_index ?theme ?declared
+  |> sort_indexed_blocks
 
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order vars =
@@ -1690,7 +1692,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     fun cls -> Hashtbl.mem names cls
   in
   let sorted_rules =
-    sorted_indexed_rules ~declared:verbatim order_map selector_props
+    sorted_indexed_rules ~theme ~declared:verbatim order_map selector_props
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
