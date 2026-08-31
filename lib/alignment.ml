@@ -242,7 +242,7 @@ module Handler = struct
     | Content_between -> ("content-between", content_between, 22)
     | Content_around -> ("content-around", content_around, 20)
     | Content_evenly -> ("content-evenly", content_evenly, 27)
-    | Content_stretch -> ("content-stretch", content_stretch, 31)
+    | Content_stretch -> ("content-stretch", content_stretch, 30)
     | Content_baseline -> ("content-baseline", content_baseline, 21)
     | Content_normal -> ("content-normal", content_normal, 28)
     | Content_center_safe -> ("content-center-safe", content_center_safe, 24)
