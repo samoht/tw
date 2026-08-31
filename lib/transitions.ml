@@ -540,8 +540,9 @@ module Handler = struct
     | Transition_none -> 6
     | Transition_behavior_allow_discrete -> 7 (* transition-discrete *)
     | Transition_behavior_normal -> 8 (* transition-normal *)
-    | Delay n -> 100 + n
-    | Delay_arbitrary _ -> 100000
+    (* Candidate values share Tailwind's one registration slot; the raw class
+       key supplies their natural order without mixing duration values in. *)
+    | Delay _ | Delay_arbitrary _ -> 100
     | Duration n -> 200 + n
     | Duration_initial -> 200001
     | Duration_arbitrary _ -> 200000
