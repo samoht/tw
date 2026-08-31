@@ -911,8 +911,9 @@ module Typography_early = struct
     | Font_named _ -> 1504
     | Font_weight_theme _ -> 4201
     | Leading_theme _ -> 3206
-    (* Bracket font-size with line-height modifier — before named sizes *)
-    | Text_bracket_fs_lh _ -> 2000
+    (* Bracket font-size/line-height candidates follow 9xl in the shared slot;
+       the candidate-name tiebreak keeps 9xl first. *)
+    | Text_bracket_fs_lh _ -> 2008
     (* Font sizes come second - alphabetical order *)
     | Text_2xl -> 2001
     | Text_3xl -> 2002
