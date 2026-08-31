@@ -440,10 +440,11 @@ let var_reference_re = Re.Pcre.regexp {|var\(\s*--([A-Za-z0-9_-]+)|}
 let var_references body =
   List.map (fun g -> Re.Group.get g 1) (Re.all var_reference_re body)
 
-(* Tailwind runs its output through a minifier that adds vendor prefixes. A
-   declared utility's body reaches the sheet as written, so a snapshot spelling
-   a prefixed property no definition wrote is one tw cannot produce. *)
-let vendor_prefixes = [ "-webkit-"; "-moz-"; "-ms-" ]
+(* Theme-token registries are populated by the families that own them. Building
+   the base sheet once loads the same complete registry the replay runner uses;
+   the extractor can then distinguish a missing theme token from an arbitrary
+   runtime custom property. *)
+let init_theme_tokens = lazy (ignore (Tw.to_css ~base:true []))
 
 (* [@utility example-*] declares a functional utility: its body is a template
    whose [--value(...)] and [--modifier(...)] reads stand for the candidate's
@@ -523,14 +524,11 @@ let math_functions = [ "calc("; "min("; "max("; "clamp("; "round(" ]
    govern replays; every other class still goes through the built-in generator,
    which has no reference-token mode.
 
-   A [var(--name)] a definition reads is rendered against tw's own theme when
-   the fixture carries no value for it, which is either a token Tailwind never
-   emitted or a value it emitted from the case's theme. A case with no class for
-   the declarations to govern never reads it, so it is kept.
-
-   Tailwind's minifier vendor-prefixes what it emits. A declared utility's body
-   reaches tw's sheet as written, so a snapshot holding a prefixed property no
-   definition wrote is out of reach.
+   A [var(--name)] a definition reads and the snapshot retains is rendered
+   against tw's own theme when the fixture carries no value for it, which is
+   either a token Tailwind never emitted or a value it emitted from the case's
+   theme. A dead declaration, or an arbitrary runtime custom property, is not a
+   missing theme dependency.
 
    An [@theme inline] token stands for its value at every use site, and
    Tailwind's minifier folds a math function there to a number of its own
@@ -552,21 +550,21 @@ let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
         if is_functional def then None else unreadable_declaration (snd def))
       defs
   in
-  let unresolved_reference name = not (List.mem_assoc name theme_vars) in
+  let () = Lazy.force init_theme_tokens in
+  let unresolved_reference name =
+    (not (List.mem_assoc name theme_vars))
+    && (Option.is_some (Tw.Scheme.token_default name)
+       || Option.is_some (Tw.Var.resolve_theme_refs name))
+  in
   let reads_unknown_token =
     List.exists
-      (fun (_, body) -> List.exists unresolved_reference (var_references body))
+      (fun (_, body) ->
+        List.exists
+          (fun name ->
+            unresolved_reference name
+            && Astring.String.is_infix ~affix:("var(--" ^ name) expected)
+          (var_references body))
       defs
-  in
-  let prefixed_snapshot =
-    List.exists
-      (fun prefix ->
-        Astring.String.is_infix ~affix:prefix expected
-        && not
-             (List.exists
-                (fun (_, body) -> Astring.String.is_infix ~affix:prefix body)
-                defs))
-      vendor_prefixes
   in
   let applies = List.exists (fun (_, b) -> contains_apply b) defs in
   let undeclared_breakpoint =
@@ -622,8 +620,6 @@ let unreplayable ~defs ~config ~theme_vars ~theme_modes ~classes expected =
       "@theme reference and %d class(es) the declarations do not govern, which \
        tw has no reference-token mode for"
       (List.length classes - List.length routed)
-  else if prefixed_snapshot then
-    Some "Tailwind's minifier vendor-prefixed a declared utility's property"
   else if reads_unknown_token && routed <> [] then
     Some
       "a declared utility reads a theme token the fixture does not carry, so \
