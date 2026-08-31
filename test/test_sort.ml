@@ -2439,6 +2439,21 @@ let test_named_anchor_inner_order () =
       "peer-checked/draft:block";
     ]
 
+let test_stacked_data_variant_slot () =
+  (* Two data predicates still occupy one data-variant slot. Tailwind keys the
+     stack by its inner data predicate, then keeps utility order inside it,
+     instead of placing every two-predicate candidate after all single data
+     candidates. Named and arbitrary data variants have separate slots. *)
+  Test_helpers.check_class_order ~test_name:"stacked data variant slot"
+    [
+      "data-hover:bg-indigo-500";
+      "data-active:data-hover:bg-indigo-700";
+      "data-leave:duration-75";
+      "data-[enter]:duration-200";
+      "data-[closed]:data-[enter]:-translate-x-8";
+      "data-[focus]:border-sky-500";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2948,6 +2963,7 @@ let tests =
       test_repeated_child_variant_utility_order;
     test_case "named anchor keeps inner state" `Slow
       test_named_anchor_inner_order;
+    test_case "stacked data variant slot" `Slow test_stacked_data_variant_slot;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
