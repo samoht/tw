@@ -247,6 +247,30 @@ let test_at_rule_keeps_inner_hover_gate () =
       check bool cls true (Astring.String.is_infix ~affix:nesting css))
     cases
 
+(* A selector-building outer variant must retain the capability gate carried by
+   an inner peer-hover rule. [not-[:hover]] takes a dedicated multi-rule route,
+   which used to keep the transformed selector but drop [has_hover]. *)
+let test_selector_variant_keeps_inner_hover_gate () =
+  List.iter
+    (fun cls ->
+      let css =
+        match Tw.of_string cls with
+        | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      in
+      check bool cls true
+        (Astring.String.is_infix ~affix:"@media(hover:hover){" css))
+    [
+      "not-[:hover]:peer-hover:touch-pan-x";
+      "not-focus:peer-hover:touch-pan-x";
+      "in-[.parent]:peer-hover:touch-pan-x";
+      "in-data-open:peer-hover:touch-pan-x";
+      "group-not-focus:peer-hover:touch-pan-x";
+      "peer-not-focus:peer-hover:touch-pan-x";
+      "group-focus/foo:peer-hover:touch-pan-x";
+      "peer-focus/foo:peer-hover:touch-pan-x";
+    ]
+
 (* An outer variant has to find the class the inner one produced. The child
    variant buries it inside an [:is] with a child combinator and the
    pseudo-element variants report the class they prefixed, so both used to be
@@ -586,6 +610,8 @@ let tests =
       test_hover_dark_media_wrapper;
     test_case "at-rule keeps inner hover media wrapper" `Quick
       test_at_rule_keeps_inner_hover_gate;
+    test_case "selector variant keeps inner hover media wrapper" `Quick
+      test_selector_variant_keeps_inner_hover_gate;
     test_case "attribute variant keeps the inner selector" `Quick
       test_attribute_variant_keeps_inner;
     test_case "not- variant keeps the inner selector" `Quick
