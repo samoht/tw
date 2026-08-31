@@ -1587,6 +1587,23 @@ let output_base_class_and_props = function
   | Supports_query { base_class; props; _ } ->
       (base_class, props)
 
+let output_ordering_property output =
+  let _, props = output_base_class_and_props output in
+  Utility.ordering_property props
+
+let builtins_in_property_family order_map property builtins =
+  List.filter_map
+    (fun output ->
+      let base_class, props = output_base_class_and_props output in
+      match (base_class, Utility.ordering_property props) with
+      | Some cls, Some key when Css.Declaration.equal_prop_key key property ->
+          let base = extract_base_utility cls in
+          Option.map
+            (fun order -> (base, order))
+            (Hashtbl.find_opt order_map base)
+      | _ -> None)
+    builtins
+
 (* Tailwind orders utilities that write the same property by candidate name.
    Built-in values carry distinct numeric suborders in TW, so when a declared
    utility joins one of those property families, normalize that family's
@@ -1603,28 +1620,11 @@ let normalize_declared_property_families order_map builtins extra_outputs =
          joining that property family, so flattening the family around it
          destroys the built-ins' property walk. *)
       if modifiers = [] then
-        match
-          List.find_map
-            (fun output ->
-              let _, props = output_base_class_and_props output in
-              Utility.ordering_property props)
-            outputs
-        with
+        match List.find_map output_ordering_property outputs with
         | None -> ()
         | Some property ->
             let family =
-              List.filter_map
-                (fun output ->
-                  let base_class, props = output_base_class_and_props output in
-                  match (base_class, Utility.ordering_property props) with
-                  | Some cls, Some key
-                    when Css.Declaration.equal_prop_key key property ->
-                      let base = extract_base_utility cls in
-                      Option.map
-                        (fun order -> (base, order))
-                        (Hashtbl.find_opt order_map base)
-                  | _ -> None)
-                builtins
+              builtins_in_property_family order_map property builtins
             in
             let suborder =
               List.fold_left
