@@ -2514,6 +2514,33 @@ let test_declared_utility_ties_by_name () =
   check_before "the declared utility keeps its alphabetical place" sheet
     ".aaa-pad" ".p-4"
 
+(* Position starts with two multi-property screen-reader utilities. A declared
+   utility writing [position] occupies the preceding property slot without
+   collapsing that built-in prelude onto the ordinary position candidates. *)
+let test_declared_position_before_screen_reader_prelude () =
+  let order =
+    match Tw.Utility.order_of_property (Key Position) with
+    | Some order -> order
+    | None -> Alcotest.fail "position has no utility slot"
+  in
+  let sheet =
+    Tw.Build.to_css
+      ~extra:
+        [
+          ( "line-y",
+            order,
+            [
+              Css.rule
+                ~selector:(Css.Selector.class_ "line-y")
+                [ Css.position Relative ];
+            ] );
+        ]
+      [ builtin "sr-only"; builtin "not-sr-only"; builtin "absolute" ]
+  in
+  check (list string) "declared position and built-in prelude"
+    [ ".line-y"; ".sr-only"; ".not-sr-only"; ".absolute" ]
+    (utility_selectors sheet)
+
 let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
@@ -2875,6 +2902,8 @@ let tests =
       test_declared_utility_after_wider_builtin;
     test_case "declared utility ties by candidate name" `Quick
       test_declared_utility_ties_by_name;
+    test_case "declared position precedes the screen-reader prelude" `Quick
+      test_declared_position_before_screen_reader_prelude;
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
