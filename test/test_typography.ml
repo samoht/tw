@@ -827,6 +827,21 @@ let test_bracket_list_style () =
     "an unknown counter style is rejected" true
     (Result.is_error (Tw.of_string "list-[nonsense-style]"))
 
+(* List position, type, and image are three property bands; candidates inside
+   each band use their natural class-name order. *)
+let test_list_style_property_bands () =
+  Test_helpers.check_class_order ~test_name:"list-style property bands"
+    [
+      "list-image-none";
+      "list-image-[url(/carrot.png)]";
+      "list-none";
+      "list-disc";
+      "list-decimal";
+      "list-[square]";
+      "list-outside";
+      "list-inside";
+    ]
+
 (* CSS Fonts 4 sec. 6.4: a feature setting is a quoted four-character tag with
    an optional integer / on / off, so the docs' [<value>] placeholder is not
    one; the underscore in [font-features-["liga"_0]] is a space. *)
@@ -1172,6 +1187,7 @@ let tests =
     test_case "decoration shadeless opacity" `Quick
       test_decoration_shadeless_opacity;
     test_case "bracket list-style" `Quick test_bracket_list_style;
+    test_case "list-style property bands" `Slow test_list_style_property_bands;
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font bracket family quoted" `Quick
       test_font_bracket_family_quoted;
