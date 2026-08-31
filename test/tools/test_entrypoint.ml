@@ -242,6 +242,40 @@ let test_declared_utility_keeps_its_nesting () =
         (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
   | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
 
+(* A compound ancestor variant puts [:where(...)] before the candidate class in
+   the expanded selector. The routed block still belongs to the candidate that
+   produced it; recovering ownership from the selector must not send all of its
+   custom-variant branches to an unplaced utilities layer at the end. *)
+let test_complex_custom_variant_keeps_candidate () =
+  let defs =
+    [
+      ( "dark",
+        "&:where(.dark,.dark \
+         *){@slot;}@media(prefers-color-scheme:dark){&:where(.system,.system \
+         *){@slot;}}" );
+    ]
+  in
+  let candidate = "dark:in-[figure]:outline-1" in
+  let count, entries, unplaced =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs ~udefs:[]
+      [ candidate ]
+  in
+  check int "one candidate generated" 1 count;
+  check bool "no trailing unplaced utilities layer" false
+    (List.exists
+       (fun stmt ->
+         match Cascade.Css.layer_block_name stmt with
+         | Some name ->
+             Cascade.Css.Stylesheet.equal_layer_name name [ "utilities" ]
+         | None -> false)
+       unplaced);
+  match entries with
+  | [ (cls, _, statements) ] ->
+      check string "the originating candidate is retained" candidate cls;
+      check int "both custom branches stay in its block" 2
+        (List.length statements)
+  | _ -> Alcotest.failf "expected one entry, got %d" (List.length entries)
+
 (* {2 Functional utilities} *)
 
 (* The CSS each candidate gets from the declarations, as [class -> minified
@@ -392,6 +426,8 @@ let tests =
       test_apply_hoists_each_property_once;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
+    test_case "complex custom variant keeps its candidate" `Quick
+      test_complex_custom_variant_keeps_candidate;
     test_case "functional value" `Quick test_functional_value;
     test_case "functional theme value" `Quick test_functional_theme_value;
     test_case "functional arbitrary value" `Quick
