@@ -2268,6 +2268,24 @@ let test_rounded_position_order () =
   check_before ".rounded-r-full" ".rounded-b-full";
   check_before ".rounded-b-full" ".rounded-bl-full"
 
+let substring_occurrences ~needle haystack =
+  let n = String.length needle and h = String.length haystack in
+  let rec go i acc =
+    if i + n > h then List.rev acc
+    else if String.sub haystack i n = needle then go (i + 1) (i :: acc)
+    else go (i + 1) acc
+  in
+  go 0 []
+
+let emitted_classes css classes =
+  classes
+  |> List.concat_map (fun cls ->
+      let selector = Css.Selector.to_string (Css.Selector.class_ cls) in
+      substring_occurrences ~needle:selector css
+      |> List.map (fun position -> (position, cls)))
+  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.map snd
+
 let test_color_mix_supports_companion_order () =
   (* A colour with an opacity modifier emits a hex fallback plus an @supports
      block carrying the color-mix version, and the fallback has to come first or
@@ -2285,34 +2303,12 @@ let test_color_mix_supports_companion_order () =
   in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   let css = Css.to_string ~minify:true (Tw.to_css ~base:false utilities) in
-  let occurrences needle =
-    let n = String.length needle and h = String.length css in
-    let rec go i acc =
-      if i + n > h then List.rev acc
-      else if String.sub css i n = needle then go (i + 1) (i :: acc)
-      else go (i + 1) acc
-    in
-    go 0 []
-  in
-  let escape c =
-    String.concat ""
-      (List.map
-         (fun ch ->
-           match ch with
-           | ':' | '/' -> "\\" ^ String.make 1 ch
-           | ch -> String.make 1 ch)
-         (List.init (String.length c) (String.get c)))
-  in
   (* Every occurrence of every selector, in emitted order. Each utility writes
      exactly two -- the fallback and its @supports companion -- so the sequence
      has to read as adjacent identical pairs. *)
   let emitted =
-    classes
-    |> List.concat_map (fun c ->
-        occurrences ("." ^ escape c ^ "[data-checked]")
-        |> List.map (fun pos -> (pos, c)))
-    |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
-    |> List.map snd
+    emitted_classes css classes
+    |> List.filter (fun cls -> String.starts_with ~prefix:"data-checked:" cls)
   in
   let rec paired = function
     | [] -> true
@@ -2322,6 +2318,40 @@ let test_color_mix_supports_companion_order () =
   Alcotest.check Alcotest.bool
     "each fallback is immediately followed by its own @supports companion" true
     (List.length emitted = 2 * List.length classes && paired emitted)
+
+(* A custom variant may put the same utility into a selector branch and a media
+   branch. Tailwind keeps all branches of one candidate together, including a
+   colour's progressive-enhancement [@supports] rules, before starting the next
+   candidate. Sorting the nested media branch on its wrapper instead split one
+   candidate around the following colour. *)
+let test_custom_variant_supports_companion_order () =
+  let defs =
+    [
+      ( "dark",
+        "&:where(.dark,.dark \
+         *){@slot;}@media(prefers-color-scheme:dark){&:where(.system,.system \
+         *){@slot;}}" );
+    ]
+  in
+  let classes = [ "dark:border-black/10"; "dark:border-fuchsia-500" ] in
+  let _, extra, _ =
+    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+      ~udefs:[] classes
+  in
+  let css =
+    Tw.Build.to_css ~extra [] |> Css.to_string ~minify:true ~lossless:true
+  in
+  Alcotest.(check (list string))
+    "every branch stays with its candidate"
+    [
+      "dark:border-black/10";
+      "dark:border-black/10";
+      "dark:border-black/10";
+      "dark:border-black/10";
+      "dark:border-fuchsia-500";
+      "dark:border-fuchsia-500";
+    ]
+    (emitted_classes css classes)
 
 let test_margin_value_order () =
   (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
@@ -2886,6 +2916,8 @@ let tests =
     test_case "rounded position order" `Slow test_rounded_position_order;
     test_case "color-mix @supports companion order" `Slow
       test_color_mix_supports_companion_order;
+    test_case "custom variant branches stay with their candidate" `Quick
+      test_custom_variant_supports_companion_order;
     test_case "margin value order" `Slow test_margin_value_order;
     test_case "prose margin order" `Slow test_prose_margin_order;
     test_case "variant same-suborder tiebreak" `Slow
