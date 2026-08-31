@@ -2423,6 +2423,27 @@ let check_before what sheet first second =
   in
   check bool what true (position first < position second)
 
+(* A custom-variant expansion arrives through [extra], but it is not a declared
+   utility joining the property family. Treating it as one flattens every
+   built-in mask-image suborder onto the first slot. *)
+let test_mask_gradient_property_walk () =
+  let variant = "dark:mask-[linear-gradient(black,transparent)]" in
+  let extra =
+    ( variant,
+      (21, 0),
+      [
+        Css.rule
+          ~selector:(Css.Selector.class_ variant)
+          [ Css.mask_image Css.None ];
+      ] )
+  in
+  let sheet =
+    Tw.Build.to_css ~extra:[ extra ]
+      [ builtin "mask-t-from-50%"; builtin "mask-y-from-70%" ]
+  in
+  check_before "variant extras preserve mask-image property order" sheet
+    ".mask-y-from-70\\%" ".mask-t-from-50\\%"
+
 let test_declared_utility_after_wider_builtin () =
   let sheet =
     Tw.Build.to_css
@@ -2753,6 +2774,8 @@ let tests =
     test_case "text-indent family order" `Quick test_indent_family_order;
     test_case "transform control bands" `Slow test_transform_control_bands;
     test_case "transform candidate bands" `Slow test_transform_candidate_bands;
+    test_case "mask-gradient property walk" `Slow
+      test_mask_gradient_property_walk;
     test_case "scrolling property bands" `Slow test_scrolling_property_bands;
     test_case "flow property bands" `Slow test_flow_property_bands;
     test_case "tab property band" `Slow test_tab_property_band;
