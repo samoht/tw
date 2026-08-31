@@ -3191,8 +3191,8 @@ module Handler = struct
     | Outline_current ->
         3000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
     | Outline_current_opacity _ -> 3000 + (4 * 1000)
-    | Outline_inherit -> 3000 + (9 * 1000)
-    (* i -> between indigo(9) and lime(10) *)
+    | Outline_inherit -> 3000 + (9 * 1000) + 999
+    (* i -> after every indigo shade and before lime(10) *)
     | Outline_transparent -> 3000 + (22 * 1000)
     (* t -> between teal and violet *)
     | Outline_bracket_color _ -> 3000
