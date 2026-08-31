@@ -2383,14 +2383,14 @@ module Typography_late = struct
     (* Antialiased *)
     | Antialiased -> 80000
     | Subpixel_antialiased -> 80001
-    (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
-       text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
-       a suborder above alignment/gap's range. Tailwind ranks [text-overflow] at
-       293, between the word-wrapping families (291/292) below and hyphens (294)
+    (* The legacy overflow-ellipsis alias leads the canonical text-overflow
+       candidates. Truncate sorts before overflow (priority 18) via a suborder
+       above alignment/gap's range. Tailwind ranks [text-overflow] at 293,
+       between the word-wrapping families (291/292) below and hyphens (294)
        above - it already lands there without adjustment. *)
+    | Overflow_ellipsis -> 8319
     | Text_clip -> 8320
     | Text_ellipsis -> 8321
-    | Overflow_ellipsis -> 8321
     | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
     (* Text wrap - Tailwind ranks [text-wrap] at 290, right after letter-spacing
        (289, Tracking's suborder tops out at 8306) and before overflow-wrap
