@@ -415,11 +415,12 @@ module Typography_early = struct
       Font_features_quoted of string (* font-features-["smcp"] *)
     | Font_features_var of string (* font-features-[var(--x)] *)
     | Font_features_bare_var of string (* font-features-(--my-var) *)
-    | (* Font families *)
-      Font_sans
-    | Font_serif
-    | Font_mono
-    | Font_named of string (* font-source, from a --font-* theme token *)
+    | (* Font families. The flag records whether the theme adds feature
+         settings, which gives the candidate a wider property set. *)
+      Font_sans of bool
+    | Font_serif of bool
+    | Font_mono of bool
+    | Font_named of string * bool (* font-source, from a --font-* theme token *)
     | Font_weight_theme of string (* weight from a --font-weight-* token *)
     | Leading_theme of string (* line height from a --leading-* token *)
     | (* Font styles *)
@@ -657,6 +658,10 @@ module Typography_early = struct
   let is_named_font theme n =
     Scheme.theme_value (Some theme) ("font-" ^ n) <> None
 
+  let has_font_features theme n =
+    Scheme.theme_value (Some theme) ("font-" ^ n ^ "--font-feature-settings")
+    <> None
+
   (* A font size the project named in its [@theme]. The built-in scale is
      published through the same registry, so exclude it: those names have their
      own constructors. [text-<name>] also spells a colour, and a project that
@@ -740,12 +745,13 @@ module Typography_early = struct
     | [ "font"; "bold" ] -> Ok Font_bold
     | [ "font"; "extrabold" ] -> Ok Font_extrabold
     | [ "font"; "black" ] -> Ok Font_black
-    | [ "font"; "sans" ] -> Ok Font_sans
-    | [ "font"; "serif" ] -> Ok Font_serif
-    | [ "font"; "mono" ] -> Ok Font_mono
+    | [ "font"; "sans" ] -> Ok (Font_sans (has_font_features theme "sans"))
+    | [ "font"; "serif" ] -> Ok (Font_serif (has_font_features theme "serif"))
+    | [ "font"; "mono" ] -> Ok (Font_mono (has_font_features theme "mono"))
     | "font" :: (_ :: _ as rest)
       when is_named_font theme (String.concat "-" rest) ->
-        Ok (Font_named (String.concat "-" rest))
+        let name = String.concat "-" rest in
+        Ok (Font_named (name, has_font_features theme name))
     | "font" :: (_ :: _ as rest)
       when is_theme_font_weight theme (String.concat "-" rest) ->
         Ok (Font_weight_theme (String.concat "-" rest))
@@ -857,12 +863,12 @@ module Typography_early = struct
     | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
-    | Font_named name -> "font-" ^ name
+    | Font_named (name, _) -> "font-" ^ name
     | Font_weight_theme name -> "font-" ^ name
     | Leading_theme name -> "leading-" ^ name
-    | Font_sans -> "font-sans"
-    | Font_serif -> "font-serif"
-    | Font_mono -> "font-mono"
+    | Font_sans _ -> "font-sans"
+    | Font_serif _ -> "font-serif"
+    | Font_mono _ -> "font-mono"
     | Italic -> "italic"
     | Not_italic -> "not-italic"
     | Text_left -> "text-left"
@@ -898,17 +904,22 @@ module Typography_early = struct
     | Text_left -> 1004
     | Text_right -> 1005
     | Text_start -> 1006
-    (* Bracket font families come before named font families *)
-    | Font_bracket_family_quoted _ -> 1500
-    | Font_bracket_family_var _ -> 1500
-    | Font_bracket_family_name _ -> 1500
+    (* Font-family candidates share a slot and sort by class name. A theme
+       family that also writes feature settings has a wider property set, so
+       Tailwind places it in the preceding slot. *)
+    | Font_bracket_family_quoted _ -> 1503
+    | Font_bracket_family_var _ -> 1503
+    | Font_bracket_family_name _ -> 1503
     (* Bracket font weights come before named font weights *)
-    (* Font family - comes between text-align and text-size *)
-    (* Alphabetical by class name: mono, sans, serif *)
-    | Font_mono -> 1501
-    | Font_sans -> 1502
-    | Font_serif -> 1503
-    | Font_named _ -> 1504
+    (* Font family - comes between text-align and text-size. *)
+    | Font_mono true | Font_sans true | Font_serif true | Font_named (_, true)
+      ->
+        1502
+    | Font_mono false
+    | Font_sans false
+    | Font_serif false
+    | Font_named (_, false) ->
+        1503
     | Font_weight_theme _ -> 4201
     | Leading_theme _ -> 3206
     (* Bracket font-size/line-height candidates follow 9xl in the shared slot;
@@ -1508,12 +1519,12 @@ module Typography_early = struct
           Var.bracket bare_name
         in
         style [ font_feature_settings (Var var_ref) ]
-    | Font_named name -> font_named theme name
+    | Font_named (name, _) -> font_named theme name
     | Font_weight_theme name -> font_weight_theme theme name
     | Leading_theme name -> leading_theme theme name
-    | Font_sans -> font_named ~fallback:font_sans theme "sans"
-    | Font_serif -> font_named ~fallback:font_serif theme "serif"
-    | Font_mono -> font_named ~fallback:font_mono theme "mono"
+    | Font_sans _ -> font_named ~fallback:font_sans theme "sans"
+    | Font_serif _ -> font_named ~fallback:font_serif theme "serif"
+    | Font_mono _ -> font_named ~fallback:font_mono theme "mono"
     | Italic -> italic
     | Not_italic -> not_italic
     | Text_left -> text_left
@@ -1558,7 +1569,9 @@ module Typography_early = struct
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
 
   let examples =
-    [ Text_base; Font_normal; Font_sans; Italic; Text_center; Leading_none ]
+    [
+      Text_base; Font_normal; Font_sans false; Italic; Text_center; Leading_none;
+    ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)
@@ -3402,9 +3415,9 @@ let font_semibold = utility_early Typography_early.Font_semibold
 let font_bold = utility_early Typography_early.Font_bold
 let font_extrabold = utility_early Typography_early.Font_extrabold
 let font_black = utility_early Typography_early.Font_black
-let font_mono = utility_early Typography_early.Font_mono
-let font_sans = utility_early Typography_early.Font_sans
-let font_serif = utility_early Typography_early.Font_serif
+let font_mono = utility_early (Typography_early.Font_mono false)
+let font_sans = utility_early (Typography_early.Font_sans false)
+let font_serif = utility_early (Typography_early.Font_serif false)
 let italic = utility_early Typography_early.Italic
 let not_italic = utility_early Typography_early.Not_italic
 let text_left = utility_early Typography_early.Text_left
