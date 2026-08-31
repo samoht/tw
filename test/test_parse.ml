@@ -107,6 +107,19 @@ let test_parse_is_independent_of_history () =
   round_trips built;
   unknown "grid-cols-"
 
+(* A [var()] is one CSS component, not a prefix and suffix to slice away. A
+   loose closer after the function is outside the reference and must keep the
+   input untouched; a balanced nested fallback belongs to the reference body. *)
+let test_extract_var_name_reads_one_reference () =
+  let check expected input =
+    Alcotest.(check string) input expected (Tw.Parse.extract_var_name input)
+  in
+  check "x" "var(--x)";
+  check "x, calc(var(--y) + 1px)" "var(--x, calc(var(--y) + 1px))";
+  check "var(--x))" "var(--x))";
+  check "var(--x)garbage" "var(--x)garbage";
+  check "not-a-reference" "not-a-reference"
+
 (* The utilities that swallowed a second bracket refuse the class instead of
    raising out of [to_css]. Tailwind emits nothing for any of them. *)
 let test_double_bracket_class_rejected () =
@@ -207,6 +220,8 @@ let tests =
         test_redundant_zero_spellings_are_rejected;
       test_case "parsing is independent of parse history" `Quick
         test_parse_is_independent_of_history;
+      test_case "var name reads one complete reference" `Quick
+        test_extract_var_name_reads_one_reference;
       test_case "bracket value leaving the declaration is rejected" `Quick
         test_bracket_value_leaving_the_declaration_is_rejected;
       test_case "--spacing() shorthand ignored inside quotes" `Quick
