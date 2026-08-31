@@ -2166,13 +2166,20 @@ let routed_variant_defs defs derived =
         match template with Some body -> (name, body) :: acc | None -> acc)
       derived []
 
+(* A parsed routed statement keeps the candidate that produced its block.
+   Selector recovery remains the fallback for independently hoisted statements,
+   but cannot own a compound selector whose leading [:where(...)] hides the
+   candidate class from [first_class_of_statement]. *)
+let routed_owner owner stmt =
+  match owner with Some _ -> owner | None -> first_class_of_statement stmt
+
 let group_routed_rules ~own_order rules =
   let group = Hashtbl.create 8 in
   let order_of = Hashtbl.create 8 in
   let classless = ref [] in
   List.iter
-    (fun stmt ->
-      match first_class_of_statement stmt with
+    (fun (owner, stmt) ->
+      match routed_owner owner stmt with
       | None -> classless := stmt :: !classless
       | Some cls -> (
           let prev =
@@ -2221,7 +2228,8 @@ let routed_statements ~block_count ~own_order stmts =
      it: nested, the first would become [utilities.properties]. *)
   let hoisted, rules =
     List.partition
-      (fun stmt -> Css.as_layer stmt <> None || Css.as_property stmt <> None)
+      (fun (_, stmt) ->
+        Css.as_layer stmt <> None || Css.as_property stmt <> None)
       stmts
   in
   let group, order_of, classless = group_routed_rules ~own_order rules in
@@ -2238,7 +2246,7 @@ let routed_statements ~block_count ~own_order stmts =
   let unplaced =
     if classless = [] then [] else [ Css.layer ~name:[ "utilities" ] classless ]
   in
-  (block_count, ordered, unplaced @ dedup_statements hoisted)
+  (block_count, ordered, unplaced @ dedup_statements (List.map snd hoisted))
 
 (* Flattening is what turns the wrappers a variant builds around a [@utility]
    body into selectors: [.focus\:line-y { &:focus { ... } }] has to become
@@ -2268,8 +2276,18 @@ let parse_routed_block css =
         |> List.concat_map flattened_statement)
 
 let parse_routed_blocks ~own_order ~hoisted blocks =
-  let parsed = List.filter_map parse_routed_block blocks in
-  let hoisted = Option.value ~default:[] (parse_routed_block hoisted) in
+  let parsed =
+    List.filter_map
+      (fun (cls, block) ->
+        Option.map
+          (List.map (fun stmt -> (Some cls, stmt)))
+          (parse_routed_block block))
+      blocks
+  in
+  let hoisted =
+    Option.value ~default:[] (parse_routed_block hoisted)
+    |> List.map (fun stmt -> (None, stmt))
+  in
   List.concat parsed @ hoisted
   |> routed_statements ~block_count:(List.length parsed) ~own_order
 
@@ -2294,7 +2312,11 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let own_order = Hashtbl.create 8 in
   let blocks =
     List.filter_map
-      (routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order)
+      (fun cls ->
+        Option.map
+          (fun block -> (cls, block))
+          (routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order
+             cls))
       candidates
   in
   match blocks with
@@ -2308,4 +2330,4 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
       let expand = apply_variants ~extra_defs ~udefs ~theme in
       parse_routed_blocks ~own_order
         ~hoisted:(expand (Buffer.contents hoisted))
-        (List.map expand blocks)
+        (List.map (fun (cls, block) -> (cls, expand block)) blocks)
