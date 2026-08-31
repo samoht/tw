@@ -118,12 +118,20 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"alignment suborder matches Tailwind" shuffled
 
+(* The last align-content candidate still precedes the first align-items
+   candidate at the shared property boundary. *)
+let content_stretch_boundary_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"content stretch boundary"
+    [ "items-baseline"; "content-stretch" ]
+
 let tests =
   [
     test_case "alignment of_string - valid values" `Quick of_string_valid;
     test_case "alignment of_string - invalid values" `Quick of_string_invalid;
     test_case "alignment suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "content stretch boundary matches Tailwind" `Quick
+      content_stretch_boundary_matches_tailwind;
   ]
 
 let suite = ("alignment", tests)
