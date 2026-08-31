@@ -1959,57 +1959,69 @@ let rewrite_at_rule_body modifier ~base_class ~selector ~modified_class
 
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
+let preserve_hover_gate has_hover rules =
+  if has_hover then
+    List.map
+      (function
+        | Output.Regular r -> Output.Regular { r with has_hover = true }
+        | rule -> rule)
+      rules
+  else rules
+
 let rec apply_modifier_to_rule ?theme modifier = function
-  | Regular { selector; props; base_class; has_hover; _ } -> (
+  | Regular { selector; props; base_class; has_hover; _ } ->
       let bc = Option.value base_class ~default:"" in
       let rebase ~selector rules =
         rebase_on_selector ~base_class:bc ~selector rules
       in
-      match modifier with
-      | Style.Pseudo_marker ->
-          let open Css.Selector in
-          pseudo_element_rules
-            ~pseudo_selectors:[ Marker; Webkit_details_marker ]
-            bc props "marker"
-      | Style.Pseudo_selection ->
-          let open Css.Selector in
-          pseudo_element_rules ~pseudo_selectors:[ Selection ] bc props
-            "selection"
-      | Style.Not inner_modifier -> (
-          match inner_modifier with
-          | Style.In_bracket content -> handle_not_in_bracket content bc props
-          | Style.In_data attr -> handle_not_in_data attr bc props
-          | _ -> handle_not_modifier ?theme inner_modifier bc selector props)
-      | Style.Not_bracket content ->
-          rebase ~selector (handle_not_bracket content bc props)
-      | Style.In_bracket content ->
-          rebase ~selector (handle_in_bracket content bc props)
-      | Style.In_data attr -> rebase ~selector (handle_in_data attr bc props)
-      | Style.In_state (inner, name) ->
-          rebase ~selector (handle_in_state inner name bc props)
-      | Style.Group_not (inner, name_opt) ->
-          rebase ~selector (handle_group_not_modifier inner name_opt bc props)
-      | Style.Peer_not (inner, name_opt) ->
-          rebase ~selector (handle_peer_not_modifier inner name_opt bc props)
-      | Style.Named_group (inner, name) ->
-          rebase ~selector (handle_named_group inner name bc props)
-      | Style.Named_peer (inner, name) ->
-          rebase ~selector (handle_named_peer inner name bc props)
-      | Style.Not_named_group (inner, name) ->
-          rebase ~selector (handle_not_named_group inner name bc props)
-      | Style.Has_named_group (inner, name) ->
-          rebase ~selector (handle_has_named_group inner name bc props)
-      | Style.In_named_group (inner, name) ->
-          rebase ~selector (handle_in_named_group inner name bc props)
-      | Style.Group_peer_named (inner, name) ->
-          rebase ~selector (handle_group_peer_named inner name bc props)
-      | _ -> (
-          try
-            [
-              modifier_to_rule_themed ?theme ~inner_has_hover:has_hover modifier
-                bc selector props;
-            ]
-          with Invalid_argument _ -> []))
+      let rules =
+        match modifier with
+        | Style.Pseudo_marker ->
+            let open Css.Selector in
+            pseudo_element_rules
+              ~pseudo_selectors:[ Marker; Webkit_details_marker ]
+              bc props "marker"
+        | Style.Pseudo_selection ->
+            let open Css.Selector in
+            pseudo_element_rules ~pseudo_selectors:[ Selection ] bc props
+              "selection"
+        | Style.Not inner_modifier -> (
+            match inner_modifier with
+            | Style.In_bracket content -> handle_not_in_bracket content bc props
+            | Style.In_data attr -> handle_not_in_data attr bc props
+            | _ -> handle_not_modifier ?theme inner_modifier bc selector props)
+        | Style.Not_bracket content ->
+            rebase ~selector (handle_not_bracket content bc props)
+        | Style.In_bracket content ->
+            rebase ~selector (handle_in_bracket content bc props)
+        | Style.In_data attr -> rebase ~selector (handle_in_data attr bc props)
+        | Style.In_state (inner, name) ->
+            rebase ~selector (handle_in_state inner name bc props)
+        | Style.Group_not (inner, name_opt) ->
+            rebase ~selector (handle_group_not_modifier inner name_opt bc props)
+        | Style.Peer_not (inner, name_opt) ->
+            rebase ~selector (handle_peer_not_modifier inner name_opt bc props)
+        | Style.Named_group (inner, name) ->
+            rebase ~selector (handle_named_group inner name bc props)
+        | Style.Named_peer (inner, name) ->
+            rebase ~selector (handle_named_peer inner name bc props)
+        | Style.Not_named_group (inner, name) ->
+            rebase ~selector (handle_not_named_group inner name bc props)
+        | Style.Has_named_group (inner, name) ->
+            rebase ~selector (handle_has_named_group inner name bc props)
+        | Style.In_named_group (inner, name) ->
+            rebase ~selector (handle_in_named_group inner name bc props)
+        | Style.Group_peer_named (inner, name) ->
+            rebase ~selector (handle_group_peer_named inner name bc props)
+        | _ -> (
+            try
+              [
+                modifier_to_rule_themed ?theme ~inner_has_hover:has_hover
+                  modifier bc selector props;
+              ]
+            with Invalid_argument _ -> [])
+      in
+      preserve_hover_gate has_hover rules
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ }
     when wraps_in_at_rule modifier ->
