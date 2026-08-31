@@ -1291,12 +1291,11 @@ module Handler = struct
     | Drop_shadow_opacity _ -> 2690
     | Drop_shadow_size_opacity _ -> 2692
     | Drop_shadow -> 2700
-    | Drop_shadow_multi -> 2702
     (* All size candidates share one slot: Tailwind orders them by class name,
        including arbitrary and project-defined values. *)
     | Drop_shadow_2xl | Drop_shadow_arbitrary _ | Drop_shadow_lg
-    | Drop_shadow_md | Drop_shadow_named _ | Drop_shadow_sm | Drop_shadow_xs
-    | Drop_shadow_xl ->
+    | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _ | Drop_shadow_sm
+    | Drop_shadow_xs | Drop_shadow_xl ->
         2703
     | Drop_shadow_none -> 2708
     (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
