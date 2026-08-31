@@ -216,6 +216,25 @@ let test_at_rule_keeps_inner_hover_gate () =
       ("starting:group-hover:flex-row", "@starting-style{@media(hover:hover){");
       ( "[@starting-style]:group-hover:flex-row",
         "@starting-style{@media(hover:hover){" );
+      ( "sm:supports-[display:grid]:group-hover:flex-row",
+        "@supports(display:grid){@media(hover:hover){" );
+      ( "first:supports-[display:grid]:group-hover:flex-row",
+        "@supports(display:grid){@media(hover:hover){" );
+      ( "sm:starting:group-hover:flex-row",
+        "@starting-style{@media(hover:hover){" );
+      ( "first:[@starting-style]:group-hover:flex-row",
+        "@starting-style{@media(hover:hover){" );
+      ( "first:@sm:group-hover:flex-row",
+        "@container(width>=24rem){@media(hover:hover){" );
+      ( "sm:@sm:group-hover:flex-row",
+        "@container(width>=24rem){@media(hover:hover){" );
+      ( "supports-[display:grid]:starting:group-hover:flex-row",
+        "@supports(display:grid){@starting-style{@media(hover:hover){" );
+      ( "starting:supports-[display:grid]:group-hover:flex-row",
+        "@starting-style{@supports(display:grid){@media(hover:hover){" );
+      ( "supports-[display:grid]:@sm:group-hover:flex-row",
+        "@supports(display:grid){@container(width>=24rem){@media(hover:hover){"
+      );
     ]
   in
   List.iter
