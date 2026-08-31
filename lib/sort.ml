@@ -941,12 +941,28 @@ let compare_nested_media r1 r2 =
       | _ -> 0)
   | _ -> 0
 
+(* Repeating an element variant changes the selector depth, but Tailwind still
+   sorts the candidate in the one element-variant slot. Keep the selector's
+   tokens intact and collapse only adjacent repetitions in the sort key. *)
+let collapse_repeated_element_variants modifiers =
+  let rec loop previous acc = function
+    | modifier :: rest
+      when (String.equal modifier "*" || String.equal modifier "**")
+           && Option.equal String.equal previous (Some modifier) ->
+        loop previous acc rest
+    | modifier :: rest -> loop (Some modifier) (modifier :: acc) rest
+    | [] -> List.rev acc
+  in
+  loop None [] modifiers
+
 (* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover".
    Split with the modifier parser, not on the last ':': an arbitrary value can
    hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
    [hover:bg-[color]. *)
 let variant_prefix = function
-  | Some s -> String.concat ":" (fst (Modifiers.of_string s))
+  | Some s ->
+      fst (Modifiers.of_string s)
+      |> collapse_repeated_element_variants |> String.concat ":"
   | None -> ""
 
 (* Compute variant order for a modifier prefix, stripping group-/peer-
@@ -1105,6 +1121,7 @@ let variant_order_list base_class variant_order breakpoint =
     | None -> []
     | Some bc ->
         let modifiers, _ = Modifiers.of_string bc in
+        let modifiers = collapse_repeated_element_variants modifiers in
         List.filter_map
           (fun m ->
             let key = token_order_key ~breakpoint m in
