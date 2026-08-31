@@ -29,8 +29,6 @@ module Handler = struct
     | Columns_arbitrary_len of string (* columns-[16rem] *)
     | Columns_bracket_var of string
 
-  type Utility.base += Self of t
-
   let name = "columns"
   let priority _ = 12
 
@@ -167,9 +165,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let columns_auto = utility Columns_auto
 let columns n = utility (Columns_count n)
 let columns_3xs = utility Columns_3xs

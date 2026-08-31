@@ -39,7 +39,6 @@ module Handler = struct
     | Caption_bottom
 
   (** Extensible variant for table utilities *)
-  type Utility.base += Self of t
 
   (** Priority for table utilities - comes before layout utilities *)
   let name = "tables"
@@ -188,13 +187,8 @@ module Handler = struct
     | Caption_bottom -> style [ Css.caption_side Bottom ]
 
   let suborder = function
-    (* Alphabetical among display utilities (shared priority 4). table=13,
-       table-auto=14, table-caption=15, ..., table-fixed=19,
-       table-footer-group=20, ... *)
-    | Caption_bottom -> 1
-    | Caption_top -> 2
-    | Table_auto -> 14
-    | Table_fixed -> 19
+    | Table_auto | Table_fixed -> 0
+    | Caption_bottom | Caption_top -> 1
     | Border_collapse -> 30
     | Border_separate -> 31
     | Border_spacing n -> 32 + int_of_float (n *. 10.)
@@ -274,11 +268,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Public API *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let border_collapse = utility Border_collapse
 let border_separate = utility Border_separate

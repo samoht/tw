@@ -14,7 +14,6 @@
 
       module Handler = struct
         type t = Block
-        type Utility.base += Self of t
 
         let name = "example"
         let priority _ = 4
@@ -35,8 +34,9 @@
         let examples = [ Block ]
       end
 
-      let () = Utility.register (module Handler)
-      let utility x = Utility.base (Handler.Self x)
+      module Utility_factory = Utility.Make (Handler)
+
+      let utility = Utility_factory.v
       let example_block = utility Handler.Block
     end
     ]}
@@ -60,8 +60,9 @@
     - 100+: Modifiers and special utilities
     - 800+: Component-level utilities (forms, etc.) *)
 
-type base = ..
-(** Base utility type without modifiers - extensible variant *)
+type base
+(** Base utility type without modifiers. Values are created only by a
+    {!Make}-registered handler, so dispatch over one is total. *)
 
 (** Unified utility type with modifiers support *)
 type t =
@@ -112,8 +113,6 @@ module type Handler = sig
   type t
   (** The utility type *)
 
-  type base += Self of t  (** Extension of the base utility type *)
-
   val name : string
   (** Name of this utility handler. *)
 
@@ -144,8 +143,11 @@ module type Handler = sig
       lets a project's [@utility] declaring it sort in the right place. *)
 end
 
-val register : (module Handler with type t = 'a) -> unit
-(** [register h] registers a utility handler module. *)
+module Make (H : Handler) : sig
+  val v : H.t -> t
+  (** Applying [Make] registers [H] at module initialization. [v value] packages
+      [value] as a utility handled by [H]. *)
+end
 
 val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
 (** [order_of_property k] is the [(priority, suborder)] of the utility family

@@ -44,38 +44,35 @@ module Handler = struct
     | Arbitrary_size of string
 
   type radial_at_position =
-    | At_keyword of string (* keywords like "bottom", "top left" *)
-    | At_arbitrary of
+    | Keyword of string (* keywords like "bottom", "top left" *)
+    | Bracket of
         string (* arbitrary values like "25%" - stored without brackets *)
 
   type mask_angle =
-    | Angle_int of
-        int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
-    | Angle_arb of string
+    | Int of int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
+    | Arb of string
       (* mask-linear-[3rad] → 171.887deg, read and converted at style time *)
-    | Angle_arb_neg of string
+    | Arb_neg of string
   (* -mask-linear-[3rad] → calc(171.887deg * -1) *)
 
   type var_ref_kind = Plain_var | Length_var
 
   type t =
-    | Mask_position of direction * position_end * value
-    | Mask_var_ref of direction * position_end * var_ref_kind * string
+    | Position of direction * position_end * value
+    | Var_ref of direction * position_end * var_ref_kind * string
       (* (--var) or (length:--var) → sets position to var(--var) *)
-    | Mask_color_ref of direction * position_end * string
+    | Color_ref of direction * position_end * string
       (* (color:--var) → sets color to var(--var) *)
-    | Mask_stop_color of direction * position_end * Color.color * int
+    | Stop_color of direction * position_end * Color.color * int
       (* a palette entry as the stop colour *)
-    | Mask_stop_keyword of direction * position_end * Css.color * string
+    | Stop_keyword of direction * position_end * Css.color * string
       (* transparent / current as the stop colour *)
-    | Mask_linear_angle of mask_angle
-    | Mask_conic_angle of mask_angle
-    | Mask_radial (* just mask-radial with no position *)
-    | Mask_radial_at of radial_at_position (* mask-radial-at-* *)
-    | Mask_radial_shape of radial_shape (* mask-circle, mask-ellipse *)
-    | Mask_radial_size of radial_size (* mask-radial-closest-corner etc. *)
-
-  type Utility.base += Self of t
+    | Linear_angle of mask_angle
+    | Conic_angle of mask_angle
+    | Radial (* just mask-radial with no position *)
+    | Radial_at of radial_at_position (* mask-radial-at-* *)
+    | Radial_shape of radial_shape (* mask-circle, mask-ellipse *)
+    | Radial_size of radial_size (* mask-radial-closest-corner etc. *)
 
   let name = "mask_gradient"
 
@@ -578,7 +575,7 @@ module Handler = struct
      sheet as the author spelled it. *)
   let build_radial_at_style pos =
     match pos with
-    | At_arbitrary s -> (
+    | Bracket s -> (
         match radial_at_position s with
         | Some p -> style [ set radial_position_var p ]
         | None ->
@@ -588,7 +585,7 @@ module Handler = struct
                   (Var.css_name radial_position_var)
                   s;
               ])
-    | At_keyword s ->
+    | Keyword s ->
         style
           [
             custom_property ~layer:"utilities"
@@ -694,17 +691,16 @@ module Handler = struct
   let angle_position_decl var angle =
     let negated a : angle = Calc (Expr (Val a, Mul, Num (-1.0))) in
     match angle with
-    | Angle_int n when n >= -1 && n <= 1 -> set var (Deg (float_of_int n))
-    | Angle_int n ->
-        set var (Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n))))
+    | Int n when n >= -1 && n <= 1 -> set var (Deg (float_of_int n))
+    | Int n -> set var (Calc (Expr (Val (Deg 1.0), Mul, Num (float_of_int n))))
     (* A bracket value that is not an angle still reaches the sheet, negation
        and all, because the variable takes any token stream and Tailwind writes
        the text through. On its own it is carried as the spec-invalid angle it
        is; negated it is spelled out, because a typed [calc] over an invalid
        operand loses the spaces around the operator that both tools write. *)
-    | Angle_arb s ->
+    | Arb s ->
         set var (Option.value (arbitrary_angle s) ~default:(invalid_angle s))
-    | Angle_arb_neg s -> (
+    | Arb_neg s -> (
         match arbitrary_angle s with
         | Some a -> set var (negated a)
         | None ->
@@ -836,34 +832,34 @@ module Handler = struct
       build_conic_style ~theme pos_end value
     in
     function
-    | Mask_position (Top, pos_end, value) ->
+    | Position (Top, pos_end, value) ->
         build_directional_style Top pos_end value
-    | Mask_position (Right, pos_end, value) ->
+    | Position (Right, pos_end, value) ->
         build_directional_style Right pos_end value
-    | Mask_position (Bottom, pos_end, value) ->
+    | Position (Bottom, pos_end, value) ->
         build_directional_style Bottom pos_end value
-    | Mask_position (Left, pos_end, value) ->
+    | Position (Left, pos_end, value) ->
         build_directional_style Left pos_end value
-    | Mask_position (X, pos_end, value) -> build_x_style pos_end value
-    | Mask_position (Y, pos_end, value) -> build_y_style pos_end value
-    | Mask_position (Linear, pos_end, value) -> build_linear_style pos_end value
-    | Mask_position (Radial, pos_end, value) -> build_radial_style pos_end value
-    | Mask_position (Conic, pos_end, value) -> build_conic_style pos_end value
-    | Mask_linear_angle angle -> build_linear_angle_style angle
-    | Mask_conic_angle angle -> build_conic_angle_style angle
-    | Mask_radial -> build_radial_base_style
-    | Mask_radial_at pos -> build_radial_at_style pos
-    | Mask_radial_shape shape -> build_radial_shape_style shape
-    | Mask_radial_size size -> build_radial_size_style size
-    | Mask_var_ref (dir, pos_end, _, var_name) ->
+    | Position (X, pos_end, value) -> build_x_style pos_end value
+    | Position (Y, pos_end, value) -> build_y_style pos_end value
+    | Position (Linear, pos_end, value) -> build_linear_style pos_end value
+    | Position (Radial, pos_end, value) -> build_radial_style pos_end value
+    | Position (Conic, pos_end, value) -> build_conic_style pos_end value
+    | Linear_angle angle -> build_linear_angle_style angle
+    | Conic_angle angle -> build_conic_angle_style angle
+    | Radial -> build_radial_base_style
+    | Radial_at pos -> build_radial_at_style pos
+    | Radial_shape shape -> build_radial_shape_style shape
+    | Radial_size size -> build_radial_size_style size
+    | Var_ref (dir, pos_end, _, var_name) ->
         build_var_ref_style dir pos_end var_name
-    | Mask_color_ref (dir, pos_end, var_name) ->
+    | Color_ref (dir, pos_end, var_name) ->
         build_color_ref_style dir pos_end var_name
-    | Mask_stop_color (dir, pos_end, c, shade) ->
+    | Stop_color (dir, pos_end, c, shade) ->
         build_stop_color_style ~theme dir pos_end c shade
-    | Mask_stop_keyword (dir, pos_end, Current, _) ->
+    | Stop_keyword (dir, pos_end, Current, _) ->
         build_current_color_style dir pos_end
-    | Mask_stop_keyword (dir, pos_end, value, _) ->
+    | Stop_keyword (dir, pos_end, value, _) ->
         build_color_value_style dir pos_end value
 
   (* Tailwind sorts a layer's rules by the properties they set, walking the
@@ -908,27 +904,26 @@ module Handler = struct
     property_suborder (block + stop) + sides + if var then 0 else 1
 
   let suborder = function
-    | Mask_stop_keyword (dir, pos_end, _, _)
-    | Mask_stop_color (dir, pos_end, _, _) ->
+    | Stop_keyword (dir, pos_end, _, _) | Stop_color (dir, pos_end, _, _) ->
         stop_suborder dir pos_end ~color:true ~var:false
-    | Mask_color_ref (dir, pos_end, _) ->
+    | Color_ref (dir, pos_end, _) ->
         stop_suborder dir pos_end ~color:true ~var:true
-    | Mask_var_ref (dir, pos_end, _, _) ->
+    | Var_ref (dir, pos_end, _, _) ->
         stop_suborder dir pos_end ~color:false ~var:true
-    | Mask_position (dir, pos_end, _) ->
+    | Position (dir, pos_end, _) ->
         stop_suborder dir pos_end ~color:false ~var:false
-    | Mask_linear_angle _ -> property_suborder 231
-    | Mask_radial -> property_suborder 236
-    | Mask_radial_size (Arbitrary_size _) -> property_suborder 238
-    | Mask_conic_angle _ -> property_suborder 245
+    | Linear_angle _ -> property_suborder 231
+    | Radial -> property_suborder 236
+    | Radial_size (Arbitrary_size _) -> property_suborder 238
+    | Conic_angle _ -> property_suborder 245
     (* mask-circle, the radial size keywords and mask-radial-at-* write a
        --tw-mask-radial-* variable and no mask-image, so each closes the slot of
        the variable it names: --tw-mask-radial-shape (237),
        --tw-mask-radial-size (238) and --tw-mask-radial-position (239). The
        class name orders the ones sharing a slot. *)
-    | Mask_radial_shape _ -> Utility.Property_order.last 237
-    | Mask_radial_size _ -> Utility.Property_order.last 238
-    | Mask_radial_at _ -> Utility.Property_order.last 239
+    | Radial_shape _ -> Utility.Property_order.last 237
+    | Radial_size _ -> Utility.Property_order.last 238
+    | Radial_at _ -> Utility.Property_order.last 239
 
   (* Check if a float is a valid Tailwind spacing multiplier: non-negative,
      either an integer or ending in .5 *)
@@ -983,19 +978,19 @@ module Handler = struct
   let parse_directional ~theme dir pos_end rest =
     let suffix = String.concat "-" rest in
     match parse_paren_var suffix with
-    | Some (`Color, var_name) -> Ok (Mask_color_ref (dir, pos_end, var_name))
+    | Some (`Color, var_name) -> Ok (Color_ref (dir, pos_end, var_name))
     | Some (`Length, var_name) ->
-        Ok (Mask_var_ref (dir, pos_end, Length_var, var_name))
+        Ok (Var_ref (dir, pos_end, Length_var, var_name))
     | Some (`Position, var_name) ->
-        Ok (Mask_var_ref (dir, pos_end, Plain_var, var_name))
+        Ok (Var_ref (dir, pos_end, Plain_var, var_name))
     | None -> (
         match parse_value suffix with
-        | Some value -> Ok (Mask_position (dir, pos_end, value))
+        | Some value -> Ok (Position (dir, pos_end, value))
         | None -> (
             (* A stop is either a position or a colour, and the two share the
                syntax slot, so a colour name is the last thing tried. *)
             let keyword k =
-              Some (Mask_stop_keyword (dir, pos_end, k, String.concat "-" rest))
+              Some (Stop_keyword (dir, pos_end, k, String.concat "-" rest))
             in
             let stop =
               match rest with
@@ -1003,8 +998,7 @@ module Handler = struct
               | [ "current" ] -> keyword Css.current_color
               | _ -> (
                   match Color.shade_of_strings ~theme rest with
-                  | Ok (c, shade) ->
-                      Some (Mask_stop_color (dir, pos_end, c, shade))
+                  | Ok (c, shade) -> Some (Stop_color (dir, pos_end, c, shade))
                   | Error _ -> None)
             in
             match stop with
@@ -1057,22 +1051,22 @@ module Handler = struct
     | [ "mask"; "linear"; n ] -> (
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
-          Ok (Mask_linear_angle (Angle_arb inner))
+          Ok (Linear_angle (Arb inner))
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Mask_linear_angle (Angle_int i))
+          | Some i -> Ok (Linear_angle (Int i))
           | None -> Error (`Msg "Invalid mask-linear angle value"))
     (* -mask-linear-N (negative angle), -mask-linear-[arb] *)
     | [ ""; "mask"; "linear"; n ] -> (
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
-          Ok (Mask_linear_angle (Angle_arb_neg inner))
+          Ok (Linear_angle (Arb_neg inner))
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Mask_linear_angle (Angle_int (-i)))
+          | Some i -> Ok (Linear_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-linear angle value"))
     (* mask-radial *)
-    | [ "mask"; "radial" ] -> Ok Mask_radial
+    | [ "mask"; "radial" ] -> Ok Radial
     (* mask-radial-at-* *)
     | "mask" :: "radial" :: "at" :: rest when rest <> [] ->
         let position = String.concat " " rest in
@@ -1081,7 +1075,7 @@ module Handler = struct
           let inner = Parse.bracket_inner position in
           if radial_at_position inner = None then
             Error (`Msg ("Invalid mask-radial-at position: " ^ position))
-          else Ok (Mask_radial_at (At_arbitrary inner))
+          else Ok (Radial_at (Bracket inner))
         else
           (* Validate keyword positions: top, bottom, left, right, center and
              combinations *)
@@ -1091,7 +1085,7 @@ module Handler = struct
                 List.mem w [ "top"; "bottom"; "left"; "right"; "center" ])
               rest
           in
-          if is_valid_keyword then Ok (Mask_radial_at (At_keyword position))
+          if is_valid_keyword then Ok (Radial_at (Keyword position))
           else Error (`Msg ("Invalid mask-radial-at position: " ^ position))
     (* mask-radial-from-*, mask-radial-to-* *)
     | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
@@ -1107,32 +1101,30 @@ module Handler = struct
     | [ "mask"; "conic"; n ] -> (
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
-          Ok (Mask_conic_angle (Angle_arb inner))
+          Ok (Conic_angle (Arb inner))
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Mask_conic_angle (Angle_int i))
+          | Some i -> Ok (Conic_angle (Int i))
           | None -> Error (`Msg "Invalid mask-conic angle value"))
     (* -mask-conic-N (negative angle), -mask-conic-[arb] *)
     | [ ""; "mask"; "conic"; n ] -> (
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
-          Ok (Mask_conic_angle (Angle_arb_neg inner))
+          Ok (Conic_angle (Arb_neg inner))
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Mask_conic_angle (Angle_int (-i)))
+          | Some i -> Ok (Conic_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-conic angle value"))
     (* mask-circle, mask-ellipse *)
-    | [ "mask"; "circle" ] -> Ok (Mask_radial_shape Circle)
-    | [ "mask"; "ellipse" ] -> Ok (Mask_radial_shape Ellipse)
+    | [ "mask"; "circle" ] -> Ok (Radial_shape Circle)
+    | [ "mask"; "ellipse" ] -> Ok (Radial_shape Ellipse)
     (* mask-radial size keywords *)
     | [ "mask"; "radial"; "closest"; "corner" ] ->
-        Ok (Mask_radial_size Closest_corner)
-    | [ "mask"; "radial"; "closest"; "side" ] ->
-        Ok (Mask_radial_size Closest_side)
+        Ok (Radial_size Closest_corner)
+    | [ "mask"; "radial"; "closest"; "side" ] -> Ok (Radial_size Closest_side)
     | [ "mask"; "radial"; "farthest"; "corner" ] ->
-        Ok (Mask_radial_size Farthest_corner)
-    | [ "mask"; "radial"; "farthest"; "side" ] ->
-        Ok (Mask_radial_size Farthest_side)
+        Ok (Radial_size Farthest_corner)
+    | [ "mask"; "radial"; "farthest"; "side" ] -> Ok (Radial_size Farthest_side)
     (* mask-radial-[size] - arbitrary size *)
     | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
         let size_value = Parse.bracket_inner arb in
@@ -1142,7 +1134,7 @@ module Handler = struct
         in
         if not (Parse.is_declaration_value size_value) then
           Error (`Msg ("Invalid mask-radial size: " ^ size_value))
-        else Ok (Mask_radial_size (Arbitrary_size size_value))
+        else Ok (Radial_size (Arbitrary_size size_value))
     | _ -> Error (`Msg "Not a mask gradient utility")
 
   let format_value = function
@@ -1155,75 +1147,75 @@ module Handler = struct
     | Arbitrary v -> "[" ^ v ^ "]"
 
   let to_class = function
-    | Mask_position (dir, pos_end, value) ->
+    | Position (dir, pos_end, value) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ format_value value
-    | Mask_var_ref (dir, pos_end, Plain_var, var_name) ->
+    | Var_ref (dir, pos_end, Plain_var, var_name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-("
         ^ var_name ^ ")"
-    | Mask_var_ref (dir, pos_end, Length_var, var_name) ->
+    | Var_ref (dir, pos_end, Length_var, var_name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
         ^ "-(length:" ^ var_name ^ ")"
-    | Mask_stop_keyword (dir, pos_end, _, name) ->
+    | Stop_keyword (dir, pos_end, _, name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ name
-    | Mask_stop_color (dir, pos_end, c, shade) ->
+    | Stop_color (dir, pos_end, c, shade) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ Color.color_to_string c
         ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
-    | Mask_color_ref (dir, pos_end, var_name) ->
+    | Color_ref (dir, pos_end, var_name) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
         ^ "-(color:" ^ var_name ^ ")"
-    | Mask_linear_angle (Angle_int n) ->
+    | Linear_angle (Int n) ->
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
-    | Mask_linear_angle (Angle_arb s) -> "mask-linear-[" ^ s ^ "]"
-    | Mask_linear_angle (Angle_arb_neg s) -> "-mask-linear-[" ^ s ^ "]"
-    | Mask_conic_angle (Angle_int n) ->
+    | Linear_angle (Arb s) -> "mask-linear-[" ^ s ^ "]"
+    | Linear_angle (Arb_neg s) -> "-mask-linear-[" ^ s ^ "]"
+    | Conic_angle (Int n) ->
         if n < 0 then "-mask-conic-" ^ string_of_int (-n)
         else "mask-conic-" ^ string_of_int n
-    | Mask_conic_angle (Angle_arb s) -> "mask-conic-[" ^ s ^ "]"
-    | Mask_conic_angle (Angle_arb_neg s) -> "-mask-conic-[" ^ s ^ "]"
-    | Mask_radial -> "mask-radial"
-    | Mask_radial_at (At_keyword pos) ->
+    | Conic_angle (Arb s) -> "mask-conic-[" ^ s ^ "]"
+    | Conic_angle (Arb_neg s) -> "-mask-conic-[" ^ s ^ "]"
+    | Radial -> "mask-radial"
+    | Radial_at (Keyword pos) ->
         "mask-radial-at-" ^ String.concat "-" (String.split_on_char ' ' pos)
-    | Mask_radial_at (At_arbitrary pos) -> "mask-radial-at-[" ^ pos ^ "]"
-    | Mask_radial_shape Circle -> "mask-circle"
-    | Mask_radial_shape Ellipse -> "mask-ellipse"
-    | Mask_radial_size Closest_corner -> "mask-radial-closest-corner"
-    | Mask_radial_size Closest_side -> "mask-radial-closest-side"
-    | Mask_radial_size Farthest_corner -> "mask-radial-farthest-corner"
-    | Mask_radial_size Farthest_side -> "mask-radial-farthest-side"
-    | Mask_radial_size (Arbitrary_size s) ->
+    | Radial_at (Bracket pos) -> "mask-radial-at-[" ^ pos ^ "]"
+    | Radial_shape Circle -> "mask-circle"
+    | Radial_shape Ellipse -> "mask-ellipse"
+    | Radial_size Closest_corner -> "mask-radial-closest-corner"
+    | Radial_size Closest_side -> "mask-radial-closest-side"
+    | Radial_size Farthest_corner -> "mask-radial-farthest-corner"
+    | Radial_size Farthest_side -> "mask-radial-farthest-side"
+    | Radial_size (Arbitrary_size s) ->
         let escaped = String.map (fun c -> if c = ' ' then '_' else c) s in
         "mask-radial-[" ^ escaped ^ "]"
 
-  let examples = [ Mask_linear_angle (Angle_int 0) ]
+  let examples = [ Linear_angle (Int 0) ]
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (* Convenience functions for creating mask gradient utilities *)
-let mask_t_from value = utility (Mask_position (Top, From, value))
-let mask_t_to value = utility (Mask_position (Top, To, value))
-let mask_r_from value = utility (Mask_position (Right, From, value))
-let mask_r_to value = utility (Mask_position (Right, To, value))
-let mask_b_from value = utility (Mask_position (Bottom, From, value))
-let mask_b_to value = utility (Mask_position (Bottom, To, value))
-let mask_l_from value = utility (Mask_position (Left, From, value))
-let mask_l_to value = utility (Mask_position (Left, To, value))
-let mask_x_from value = utility (Mask_position (X, From, value))
-let mask_x_to value = utility (Mask_position (X, To, value))
-let mask_y_from value = utility (Mask_position (Y, From, value))
-let mask_y_to value = utility (Mask_position (Y, To, value))
-let mask_linear_from value = utility (Mask_position (Linear, From, value))
-let mask_linear_to value = utility (Mask_position (Linear, To, value))
-let mask_radial = utility Mask_radial
-let mask_radial_at pos = utility (Mask_radial_at pos)
-let mask_radial_from value = utility (Mask_position (Radial, From, value))
-let mask_radial_to value = utility (Mask_position (Radial, To, value))
-let mask_conic_from value = utility (Mask_position (Conic, From, value))
-let mask_conic_to value = utility (Mask_position (Conic, To, value))
+let mask_t_from value = utility (Position (Top, From, value))
+let mask_t_to value = utility (Position (Top, To, value))
+let mask_r_from value = utility (Position (Right, From, value))
+let mask_r_to value = utility (Position (Right, To, value))
+let mask_b_from value = utility (Position (Bottom, From, value))
+let mask_b_to value = utility (Position (Bottom, To, value))
+let mask_l_from value = utility (Position (Left, From, value))
+let mask_l_to value = utility (Position (Left, To, value))
+let mask_x_from value = utility (Position (X, From, value))
+let mask_x_to value = utility (Position (X, To, value))
+let mask_y_from value = utility (Position (Y, From, value))
+let mask_y_to value = utility (Position (Y, To, value))
+let mask_linear_from value = utility (Position (Linear, From, value))
+let mask_linear_to value = utility (Position (Linear, To, value))
+let mask_radial = utility Radial
+let mask_radial_at pos = utility (Radial_at pos)
+let mask_radial_from value = utility (Position (Radial, From, value))
+let mask_radial_to value = utility (Position (Radial, To, value))
+let mask_conic_from value = utility (Position (Conic, From, value))
+let mask_conic_to value = utility (Position (Conic, To, value))

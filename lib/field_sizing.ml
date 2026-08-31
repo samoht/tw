@@ -7,10 +7,9 @@ module Handler = struct
   open Css
 
   type t = Content | Fixed
-  type Utility.base += Self of t
 
   let name = "field_sizing"
-  let priority _ = 2
+  let priority _ = 5
   let suborder = function Content -> 0 | Fixed -> 1
 
   let to_class = function
@@ -32,8 +31,8 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let field_sizing_content = utility Content
 let field_sizing_fixed = utility Fixed

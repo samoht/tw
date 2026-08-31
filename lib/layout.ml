@@ -8,7 +8,6 @@ module Screen_reader_handler = struct
   open Css
 
   type t = Sr_only | Not_sr_only
-  type Utility.base += Self of t
 
   let name = "screen_reader"
   let priority _ = 0
@@ -212,15 +211,11 @@ module Handler = struct
     | Break_inside_avoid_column
     | Break_inside_avoid_page
 
-  type Utility.base += Self of t
-
   let name = "layout"
 
-  (* Most layout utilities are the display family (priority 4). Visibility and
-     z-index occupy distinct canonical positions in Tailwind's order, so they
-     return their own priority: visibility comes first (rank 0), z-index right
-     after inset (rank 12) via priority 0 with a suborder above inset's range
-     (position.ml uses up to ~13M) and below container (priority 1). *)
+  (* Most layout utilities are the display family (priority 4). Visibility,
+     z-index, break controls, box decoration, and object controls occupy their
+     own property bands. *)
   let priority = function
     | Collapse | Invisible | Visible -> 0
     | Neg_z _ | Z_0 | Z _ | Z_10 | Z_20 | Z_30 | Z_40 | Z_50 | Neg_z_arbitrary _
@@ -234,8 +229,8 @@ module Handler = struct
     | Clear_both | Clear_end | Clear_left | Clear_none | Clear_right
     | Clear_start ->
         1
-    (* object-fit / object-position (rank ~72): after svg fill/stroke (21),
-       before padding (23). *)
+    (* object-fit / object-position (rank ~72): after svg fill/stroke, which
+       shares this priority, and before padding (23). *)
     | Object_contain | Object_cover | Object_fill | Object_none
     | Object_scale_down | Object_center | Object_top | Object_bottom
     | Object_left | Object_right | Object_bottom_left | Object_bottom_right
@@ -243,6 +238,17 @@ module Handler = struct
     | Object_right_top | Object_top_left | Object_top_right | Object_arbitrary _
       ->
         22
+    | Break_before_all | Break_before_auto | Break_before_avoid
+    | Break_before_avoid_page | Break_before_column | Break_before_left
+    | Break_before_page | Break_before_right | Break_inside_auto
+    | Break_inside_avoid | Break_inside_avoid_column | Break_inside_avoid_page
+    | Break_after_all | Break_after_auto | Break_after_avoid
+    | Break_after_avoid_page | Break_after_column | Break_after_left
+    | Break_after_page | Break_after_right ->
+        14
+    | Box_decoration_clone | Box_decoration_slice | Decoration_clone
+    | Decoration_slice ->
+        21
     | _ -> 4
 
   let suborder = function
@@ -292,27 +298,29 @@ module Handler = struct
     | Neg_z_arbitrary _ -> 20_000_000 + 560
     | Z_arbitrary _ -> 20_000_000 + 700
     | Z_auto -> 20_000_000 + 750
-    (* Object fit *)
-    | Object_contain -> 600
-    | Object_cover -> 601
-    | Object_fill -> 602
-    | Object_none -> 603
-    | Object_scale_down -> 604
+    (* Object fit, after every fill and stroke: svg.ml shares this priority and
+       Tailwind emits it first of the two, so the whole family starts past what
+       that handler assigns. *)
+    | Object_contain -> Svg.suborder_ceiling + 600
+    | Object_cover -> Svg.suborder_ceiling + 601
+    | Object_fill -> Svg.suborder_ceiling + 602
+    | Object_none -> Svg.suborder_ceiling + 603
+    | Object_scale_down -> Svg.suborder_ceiling + 604
     (* Object position - alphabetical: bottom, bottom-left, ..., top-right *)
-    | Object_bottom -> 700
-    | Object_bottom_left -> 701
-    | Object_bottom_right -> 702
-    | Object_center -> 703
-    | Object_left -> 704
-    | Object_left_bottom -> 705
-    | Object_left_top -> 706
-    | Object_right -> 707
-    | Object_right_bottom -> 708
-    | Object_right_top -> 709
-    | Object_top -> 710
-    | Object_top_left -> 711
-    | Object_top_right -> 712
-    | Object_arbitrary _ -> 650
+    | Object_bottom -> Svg.suborder_ceiling + 700
+    | Object_bottom_left -> Svg.suborder_ceiling + 701
+    | Object_bottom_right -> Svg.suborder_ceiling + 702
+    | Object_center -> Svg.suborder_ceiling + 703
+    | Object_left -> Svg.suborder_ceiling + 704
+    | Object_left_bottom -> Svg.suborder_ceiling + 705
+    | Object_left_top -> Svg.suborder_ceiling + 706
+    | Object_right -> Svg.suborder_ceiling + 707
+    | Object_right_bottom -> Svg.suborder_ceiling + 708
+    | Object_right_top -> Svg.suborder_ceiling + 709
+    | Object_top -> Svg.suborder_ceiling + 710
+    | Object_top_left -> Svg.suborder_ceiling + 711
+    | Object_top_right -> Svg.suborder_ceiling + 712
+    | Object_arbitrary _ -> Svg.suborder_ceiling + 650
     (* Float (priority 1) - after the grid-column/grid-row group (up to ~2.6K in
        grid_item.ml), before .container (9M). Alphabetical: end, left, none,
        right, start *)
@@ -329,11 +337,12 @@ module Handler = struct
     | Clear_none -> 3_000_103
     | Clear_right -> 3_000_104
     | Clear_start -> 3_000_105
-    (* Box decoration break - alphabetical: clone, slice *)
-    | Box_decoration_clone -> 1000
-    | Box_decoration_slice -> 1001
-    | Decoration_clone -> 1000
-    | Decoration_slice -> 1001
+    (* Box decoration break (priority 21) sits after mask-image and its gradient
+       variables, before background-size. *)
+    | Box_decoration_clone -> Utility.Property_order.last 250
+    | Box_decoration_slice -> Utility.Property_order.last 250
+    | Decoration_clone -> Utility.Property_order.last 250
+    | Decoration_slice -> Utility.Property_order.last 250
     (* Break before - alphabetical order (Tailwind: break-before < break-inside
        < break-after) *)
     | Break_before_all -> 1100
@@ -751,16 +760,13 @@ module Handler = struct
 end
 
 open Handler
-
-(** Register both handlers with Utility system *)
-let () = Utility.register (module Screen_reader_handler)
-
-let () = Utility.register (module Handler)
+module Screen_reader_utility = Utility.Make (Screen_reader_handler)
+module Utility_factory = Utility.Make (Handler)
 
 (** {1 Public API - Utility Values} *)
 
 (* Layout utilities *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let block = utility Block
 let contents = utility Contents
 let flow_root = utility Flow_root
@@ -816,7 +822,7 @@ let float_start = utility Float_start
 let float_end = utility Float_end
 
 (* Screen reader utilities *)
-let sr_utility x = Utility.base (Screen_reader_handler.Self x)
+let sr_utility = Screen_reader_utility.v
 let sr_only = sr_utility Screen_reader_handler.Sr_only
 let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
 

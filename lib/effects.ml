@@ -201,10 +201,8 @@ module Handler = struct
     | Bg_blend_color
     | Bg_blend_luminosity
 
-  type Utility.base += Self of t
-
   let name = "effects"
-  let priority _ = 27
+  let priority = function Ring_inset -> 40 | _ -> 27
 
   (* Shadow variables with property registration. Order: translate (0-2), scale
      (3-5), border-style (6), gradients (7-15), font-weight (16), shadows
@@ -3147,7 +3145,7 @@ module Handler = struct
     | Shadow_transparent_opacity _ | Shadow_bracket_color _
     | Shadow_bracket_color_opacity _ | Shadow_bracket_color_var _
     | Shadow_bracket_color_var_opacity _ ->
-        35000
+        40000
     (* Inset shadow opacity utilities — same relative scheme as shadow *)
     | Inset_shadow_arbitrary_opacity (arb, _) ->
         let len = String.length arb in
@@ -3161,23 +3159,23 @@ module Handler = struct
           then true
           else has_var (i + 1)
         in
-        if has_var 0 then 30988
-        else if String.contains arb '#' then 30990
-        else 30989
-    | Inset_shadow_shape_opacity _ -> 30991
+        if has_var 0 then 31988
+        else if String.contains arb '#' then 31990
+        else 31989
+    | Inset_shadow_shape_opacity _ -> 31991
     (* Inset shadow shape utilities — all same suborder, natural_compare
        decides *)
     | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
     | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_bracket_shadow _
     | Inset_shadow_bracket_var _ | Inset_shadow_theme _ ->
-        31000
+        32000
     (* Inset shadow color utilities *)
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
     | Inset_shadow_current_opacity _ | Inset_shadow_inherit
     | Inset_shadow_transparent | Inset_shadow_bracket_color _
     | Inset_shadow_transparent_opacity _ | Inset_shadow_bracket_color_opacity _
     | Inset_shadow_bracket_color_var _ | Inset_shadow_bracket_cvar_opacity _ ->
-        36000
+        42000
     (* Background blend modes come after opacity, before mix-blend *)
     | Bg_blend_color -> 22000
     | Bg_blend_color_burn -> 22001
@@ -3214,43 +3212,40 @@ module Handler = struct
     | Mix_blend_saturation -> 24015
     | Mix_blend_screen -> 24016
     | Mix_blend_soft_light -> 24017
-    (* Ring utilities come after shadows. Ordered to match Tailwind: 1. ring
-       widths, 2. ring-color, 3. inset-ring-color, 4. ring-offset-width, 5.
-       ring-offset-color, 6. ring-inset *)
-    | Ring_md -> 40000
-    | Ring_none -> 40001
-    | Ring_xs -> 40002
-    | Ring_sm -> 40003
-    | Ring_lg -> 40004
-    | Ring_xl -> 40005
-    | Ring_width _ -> 40005
-    | Ring_bracket_length _ -> 40010
+    | Ring_md -> 31000
+    | Ring_none -> 31001
+    | Ring_xs -> 31002
+    | Ring_sm -> 31003
+    | Ring_width n -> 31001 + n
+    | Ring_lg -> 31005
+    | Ring_xl -> 31009
+    | Ring_bracket_length _ -> 31010
     | Ring_color _ | Ring_color_opacity _ | Ring_keyword_opacity _
     | Ring_transparent | Ring_current | Ring_current_opacity _ | Ring_inherit
     | Ring_bracket_color _ | Ring_bracket_color_opacity _
     | Ring_bracket_color_var _ | Ring_bracket_color_var_opacity _
     | Ring_bracket_var _ | Ring_bracket_var_opacity _ ->
-        50000
-    | Ring_inset -> 51000
-    | Inset_ring_default -> 55000
-    | Inset_ring_width n -> 55001 + n
-    | Inset_ring_bracket_length _ -> 55100
+        41000
+    | Ring_inset -> 2000
+    | Inset_ring_default -> 33000
+    | Inset_ring_width n -> 33001 + n
+    | Inset_ring_bracket_length _ -> 33100
     | Inset_ring_color _ | Inset_ring_color_opacity _
     | Inset_ring_keyword_opacity _ | Inset_ring_transparent | Inset_ring_current
     | Inset_ring_current_opacity _ | Inset_ring_inherit
     | Inset_ring_bracket_color _ | Inset_ring_bracket_color_opacity _
     | Inset_ring_bracket_color_var _ | Inset_ring_bracket_cvar_opacity _
     | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
-        60000
-    | Ring_offset_width n -> 80000 + n
-    | Ring_offset_bracket_length _ -> 80100
+        43000
+    | Ring_offset_width n -> 50000 + n
+    | Ring_offset_bracket_length _ -> 50100
     | Ring_offset_color _ | Ring_offset_color_opacity _
     | Ring_offset_keyword_opacity _ | Ring_offset_transparent
     | Ring_offset_current | Ring_offset_current_opacity _ | Ring_offset_inherit
     | Ring_offset_bracket_color _ | Ring_offset_bracket_color_opacity _
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_cvar_opacity _
     | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
-        100000
+        51000
 
   let examples =
     [
@@ -3265,9 +3260,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let order u = Some (Utility.order u)
 let mix_blend_luminosity = utility Mix_blend_luminosity
 let shadow_none = utility Shadow_none

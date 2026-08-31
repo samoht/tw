@@ -52,6 +52,15 @@ type arbitrary_length = {
     the first thing it cannot use, so re-printing the length respells the number
     and drops any remainder, leaving a selector the markup does not carry. *)
 
+type nth_expr = {
+  expr : string;  (** the An+B expression, e.g. ["3"] or ["2n+1"] *)
+  bracketed : bool;  (** whether the author wrote it inside [[...]] *)
+}
+(** An [nth-*] argument. Both [nth-3] and [nth-[3]] read, and they name two
+    different classes, so which one was written has to survive: deciding the
+    bracket again when printing, on whether the expression is a bare number,
+    gave [nth-[3]:p-4] a rule named after [nth-3:p-4] and it matched nothing. *)
+
 type modifier =
   | Hover
   | Focus
@@ -104,10 +113,10 @@ type modifier =
   | First_of_type
   | Last_of_type
   | Only_of_type
-  | Nth of string
-  | Nth_last of string
-  | Nth_of_type of string
-  | Nth_last_of_type of string
+  | Nth of nth_expr
+  | Nth_last of nth_expr
+  | Nth_of_type of nth_expr
+  | Nth_last_of_type of nth_expr
   | Empty
   | Checked
   | Indeterminate
@@ -323,9 +332,13 @@ type shadow = [ size | `Inner ]
 val is_numeric : string -> bool
 (** [is_numeric s] returns true if [s] is a non-empty string of digits. *)
 
-val pp_nth : string -> string -> string
-(** [pp_nth prefix expr] formats an nth modifier, using numeric or bracket form.
-*)
+val nth_expr : string -> nth_expr
+(** [nth_expr expr] is [expr] with the bracket flag the DSL constructor implies:
+    a bare number is the only expression that can be written unbracketed. *)
+
+val pp_nth : string -> nth_expr -> string
+(** [pp_nth prefix n] is the class-name prefix of an [nth-*] modifier, bracketed
+    or not as {!nth_expr.bracketed} says the author wrote it. *)
 
 val group_state_modifiers : (string * modifier) list
 (** [group_state_modifiers] maps a state name (["focus"], ["first"]) to the

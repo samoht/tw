@@ -279,10 +279,10 @@ let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.theme Css.Font_family "default-font-family" ~order:(9, 0)
+  Var.theme Css.Font_family "default-font-family" ~order:(8, 39)
 
 let default_mono_font_family_var =
-  Var.theme Css.Font_family "default-mono-font-family" ~order:(9, 1)
+  Var.theme Css.Font_family "default-mono-font-family" ~order:(8, 42)
 
 (* Tailwind v4.3.2 replaced the [ui-sans-serif, system-ui, ...] default with the
    platform system-font stack. *)
@@ -415,11 +415,12 @@ module Typography_early = struct
       Font_features_quoted of string (* font-features-["smcp"] *)
     | Font_features_var of string (* font-features-[var(--x)] *)
     | Font_features_bare_var of string (* font-features-(--my-var) *)
-    | (* Font families *)
-      Font_sans
-    | Font_serif
-    | Font_mono
-    | Font_named of string (* font-source, from a --font-* theme token *)
+    | (* Font families. The flag records whether the theme adds feature
+         settings, which gives the candidate a wider property set. *)
+      Font_sans of bool
+    | Font_serif of bool
+    | Font_mono of bool
+    | Font_named of string * bool (* font-source, from a --font-* theme token *)
     | Font_weight_theme of string (* weight from a --font-weight-* token *)
     | Leading_theme of string (* line height from a --leading-* token *)
     | (* Font styles *)
@@ -461,8 +462,6 @@ module Typography_early = struct
     | No_leading (* /none → line-height: 1 *)
     | Named of string (* /snug → var(--leading-snug) *)
     | Bracket of string * Css.line_height (* /[4px] → 4px *)
-
-  type Utility.base += Self of t
 
   let name = "typography_early"
 
@@ -657,6 +656,10 @@ module Typography_early = struct
   let is_named_font theme n =
     Scheme.theme_value (Some theme) ("font-" ^ n) <> None
 
+  let has_font_features theme n =
+    Scheme.theme_value (Some theme) ("font-" ^ n ^ "--font-feature-settings")
+    <> None
+
   (* A font size the project named in its [@theme]. The built-in scale is
      published through the same registry, so exclude it: those names have their
      own constructors. [text-<name>] also spells a colour, and a project that
@@ -740,12 +743,13 @@ module Typography_early = struct
     | [ "font"; "bold" ] -> Ok Font_bold
     | [ "font"; "extrabold" ] -> Ok Font_extrabold
     | [ "font"; "black" ] -> Ok Font_black
-    | [ "font"; "sans" ] -> Ok Font_sans
-    | [ "font"; "serif" ] -> Ok Font_serif
-    | [ "font"; "mono" ] -> Ok Font_mono
+    | [ "font"; "sans" ] -> Ok (Font_sans (has_font_features theme "sans"))
+    | [ "font"; "serif" ] -> Ok (Font_serif (has_font_features theme "serif"))
+    | [ "font"; "mono" ] -> Ok (Font_mono (has_font_features theme "mono"))
     | "font" :: (_ :: _ as rest)
       when is_named_font theme (String.concat "-" rest) ->
-        Ok (Font_named (String.concat "-" rest))
+        let name = String.concat "-" rest in
+        Ok (Font_named (name, has_font_features theme name))
     | "font" :: (_ :: _ as rest)
       when is_theme_font_weight theme (String.concat "-" rest) ->
         Ok (Font_weight_theme (String.concat "-" rest))
@@ -857,12 +861,12 @@ module Typography_early = struct
     | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
-    | Font_named name -> "font-" ^ name
+    | Font_named (name, _) -> "font-" ^ name
     | Font_weight_theme name -> "font-" ^ name
     | Leading_theme name -> "leading-" ^ name
-    | Font_sans -> "font-sans"
-    | Font_serif -> "font-serif"
-    | Font_mono -> "font-mono"
+    | Font_sans _ -> "font-sans"
+    | Font_serif _ -> "font-serif"
+    | Font_mono _ -> "font-mono"
     | Italic -> "italic"
     | Not_italic -> "not-italic"
     | Text_left -> "text-left"
@@ -898,21 +902,27 @@ module Typography_early = struct
     | Text_left -> 1004
     | Text_right -> 1005
     | Text_start -> 1006
-    (* Bracket font families come before named font families *)
-    | Font_bracket_family_quoted _ -> 1500
-    | Font_bracket_family_var _ -> 1500
-    | Font_bracket_family_name _ -> 1500
+    (* Font-family candidates share a slot and sort by class name. A theme
+       family that also writes feature settings has a wider property set, so
+       Tailwind places it in the preceding slot. *)
+    | Font_bracket_family_quoted _ -> 1503
+    | Font_bracket_family_var _ -> 1503
+    | Font_bracket_family_name _ -> 1503
     (* Bracket font weights come before named font weights *)
-    (* Font family - comes between text-align and text-size *)
-    (* Alphabetical by class name: mono, sans, serif *)
-    | Font_mono -> 1501
-    | Font_sans -> 1502
-    | Font_serif -> 1503
-    | Font_named _ -> 1504
+    (* Font family - comes between text-align and text-size. *)
+    | Font_mono true | Font_sans true | Font_serif true | Font_named (_, true)
+      ->
+        1502
+    | Font_mono false
+    | Font_sans false
+    | Font_serif false
+    | Font_named (_, false) ->
+        1503
     | Font_weight_theme _ -> 4201
     | Leading_theme _ -> 3206
-    (* Bracket font-size with line-height modifier — before named sizes *)
-    | Text_bracket_fs_lh _ -> 2000
+    (* Bracket font-size/line-height candidates follow 9xl in the shared slot;
+       the candidate-name tiebreak keeps 9xl first. *)
+    | Text_bracket_fs_lh _ -> 2008
     (* Font sizes come second - alphabetical order *)
     | Text_2xl -> 2001
     | Text_3xl -> 2002
@@ -976,9 +986,9 @@ module Typography_early = struct
     | Font_semibold -> 4800
     | Font_thin -> 4900
     (* Font feature settings *)
-    | Font_features_quoted _ -> 5000
-    | Font_features_var _ -> 5000
-    | Font_features_bare_var _ -> 5000
+    | Font_features_quoted _ -> 1600
+    | Font_features_var _ -> 1600
+    | Font_features_bare_var _ -> 1600
     (* Italic *)
     | Italic -> 8380
     | Not_italic -> 8381
@@ -1507,12 +1517,12 @@ module Typography_early = struct
           Var.bracket bare_name
         in
         style [ font_feature_settings (Var var_ref) ]
-    | Font_named name -> font_named theme name
+    | Font_named (name, _) -> font_named theme name
     | Font_weight_theme name -> font_weight_theme theme name
     | Leading_theme name -> leading_theme theme name
-    | Font_sans -> font_named ~fallback:font_sans theme "sans"
-    | Font_serif -> font_named ~fallback:font_serif theme "serif"
-    | Font_mono -> font_named ~fallback:font_mono theme "mono"
+    | Font_sans _ -> font_named ~fallback:font_sans theme "sans"
+    | Font_serif _ -> font_named ~fallback:font_serif theme "serif"
+    | Font_mono _ -> font_named ~fallback:font_mono theme "mono"
     | Italic -> italic
     | Not_italic -> not_italic
     | Text_left -> text_left
@@ -1557,7 +1567,9 @@ module Typography_early = struct
         style (fs_decls @ lh_extra @ [ line_height lh_value ])
 
   let examples =
-    [ Text_base; Font_normal; Font_sans; Italic; Text_center; Leading_none ]
+    [
+      Text_base; Font_normal; Font_sans false; Italic; Text_center; Leading_none;
+    ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)
@@ -1745,8 +1757,6 @@ module Typography_late = struct
       (* unquoted arbitrary: content-[attr(before)]; raw class text + value *)
     | Content_named of string (* content-<token> defined in the @theme *)
 
-  type Utility.base += Self of t
-
   let name = "typography_late"
 
   (* Most late-typography families (decoration, tracking, whitespace,
@@ -1770,6 +1780,9 @@ module Typography_late = struct
     | Align_bottom | Align_sub | Align_super | Align_text_top
     | Align_text_bottom | Align_arbitrary_var _ ->
         24
+    | Content_none | Content _ | Content_squote _ | Content_raw _
+    | Content_named _ ->
+        35
     | _ -> 26
 
   let ( >|= ) = Parse.( >|= )
@@ -2354,18 +2367,15 @@ module Typography_late = struct
     | Align_text_top -> 1206
     | Align_top -> 1207
     (* List utilities (priority 11) - after resize (~1M), before appearance
-       (~3M). Alphabetical. *)
-    | List_bracket_var _ -> 2_000_000 + 8699
-    | List_bracket _ -> 2_000_000 + 8699
-    | List_decimal -> 2_000_000 + 8700
-    | List_disc -> 2_000_000 + 8701
-    | List_image_bracket_var _ -> 2_000_000 + 8698
-    | List_image_bracket _ -> 2_000_000 + 8698
-    | List_image_none -> 2_000_000 + 8702
-    | List_inside -> 2_000_000 + 8703
-    | List_none -> 2_000_000 + 8704
-    | List_outside -> 2_000_000 + 8705
-    | List_image_url _ -> 2_000_000 + 8706
+       (~3M). Position, type, and image form separate property bands; candidate
+       names settle ties inside each band. *)
+    | List_inside | List_outside -> 2_000_000
+    | List_bracket_var _ | List_bracket _ | List_decimal | List_disc | List_none
+      ->
+        2_010_000
+    | List_image_bracket_var _ | List_image_bracket _ | List_image_none
+    | List_image_url _ ->
+        2_020_000
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
     | Underline_offset_neg_arbitrary _ -> 59989
@@ -2379,17 +2389,19 @@ module Typography_late = struct
     | Underline_offset_arbitrary _ -> 69989
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
-    (* Antialiased *)
-    | Antialiased -> 8700
-    | Subpixel_antialiased -> 8701
-    (* Text overflow (priority 17 for Truncate) - alphabetical: text-clip,
-       text-ellipsis, truncate. Truncate sorts before overflow (priority 18) via
-       a suborder above alignment/gap's range. Tailwind ranks [text-overflow] at
-       293, between the word-wrapping families (291/292) below and hyphens (294)
+    (* Both simple smoothing rules lead the placeholder pseudo-element band.
+       Keep them in their own slot: variant rules use their selector to settle
+       ties, while base rules retain handler order. *)
+    | Antialiased -> 79999
+    | Subpixel_antialiased -> 79999
+    (* The legacy overflow-ellipsis alias leads the canonical text-overflow
+       candidates. Truncate sorts before overflow (priority 18) via a suborder
+       above alignment/gap's range. Tailwind ranks [text-overflow] at 293,
+       between the word-wrapping families (291/292) below and hyphens (294)
        above - it already lands there without adjustment. *)
+    | Overflow_ellipsis -> 8319
     | Text_clip -> 8320
     | Text_ellipsis -> 8321
-    | Overflow_ellipsis -> 8321
     | Truncate -> 9_000_000 (* priority 17, after alignment/gap (max ~2100) *)
     (* Text wrap - Tailwind ranks [text-wrap] at 290, right after letter-spacing
        (289, Tracking's suborder tops out at 8306) and before overflow-wrap
@@ -2435,27 +2447,23 @@ module Typography_late = struct
     | Hyphens_auto -> 8325
     | Hyphens_manual -> 8325
     | Hyphens_none -> 8325
-    (* Font stretch - percentages first (sorted by value), then keywords *)
-    | Font_stretch_percent n -> 9500 + n
-    | Font_stretch_condensed -> 9700
-    | Font_stretch_expanded -> 9701
-    | Font_stretch_extra_condensed -> 9702
-    | Font_stretch_extra_expanded -> 9703
-    | Font_stretch_normal -> 9704
-    | Font_stretch_semi_condensed -> 9705
-    | Font_stretch_semi_expanded -> 9706
-    | Font_stretch_ultra_condensed -> 9707
-    | Font_stretch_ultra_expanded -> 9708
+    (* Font stretch shares one property slot after font style. *)
+    | Font_stretch_percent _ | Font_stretch_condensed | Font_stretch_expanded
+    | Font_stretch_extra_condensed | Font_stretch_extra_expanded
+    | Font_stretch_normal | Font_stretch_semi_condensed
+    | Font_stretch_semi_expanded | Font_stretch_ultra_condensed
+    | Font_stretch_ultra_expanded ->
+        8382
     (* Numeric variants - alphabetical order with normal-nums last *)
-    | Diagonal_fractions -> 9700
-    | Lining_nums -> 9701
-    | Oldstyle_nums -> 9702
-    | Ordinal -> 9703
-    | Proportional_nums -> 9704
-    | Slashed_zero -> 9705
-    | Stacked_fractions -> 9706
-    | Tabular_nums -> 9707
-    | Normal_nums -> 9708
+    | Diagonal_fractions -> 8390
+    | Lining_nums -> 8391
+    | Oldstyle_nums -> 8392
+    | Ordinal -> 8393
+    | Proportional_nums -> 8394
+    | Slashed_zero -> 8395
+    | Stacked_fractions -> 8396
+    | Tabular_nums -> 8397
+    | Normal_nums -> 8398
     (* Indent - Tailwind ranks [text-indent] at 282, between [text-align] (281)
        and [vertical-align] (283), so the family sits at priority 24 with both:
        [Text_align] holds 1001-1006 in the early handler, [Align_*] below holds
@@ -3373,14 +3381,13 @@ module Typography_late = struct
     ]
 end
 
-(* Register both handlers *)
-let () = Utility.register (module Typography_early)
-let () = Utility.register (module Typography_late)
+module Early_utility = Utility.Make (Typography_early)
+module Late_utility = Utility.Make (Typography_late)
 
 (* Public API - using appropriate handler for each utility *)
 
 (* Early typography utilities - priority 22 *)
-let utility_early x = Utility.base (Typography_early.Self x)
+let utility_early = Early_utility.v
 let text_xs = utility_early Typography_early.Text_xs
 let text_sm = utility_early Typography_early.Text_sm
 let text_base = utility_early Typography_early.Text_base
@@ -3403,9 +3410,9 @@ let font_semibold = utility_early Typography_early.Font_semibold
 let font_bold = utility_early Typography_early.Font_bold
 let font_extrabold = utility_early Typography_early.Font_extrabold
 let font_black = utility_early Typography_early.Font_black
-let font_mono = utility_early Typography_early.Font_mono
-let font_sans = utility_early Typography_early.Font_sans
-let font_serif = utility_early Typography_early.Font_serif
+let font_mono = utility_early (Typography_early.Font_mono false)
+let font_sans = utility_early (Typography_early.Font_sans false)
+let font_serif = utility_early (Typography_early.Font_serif false)
 let italic = utility_early Typography_early.Italic
 let not_italic = utility_early Typography_early.Not_italic
 let text_left = utility_early Typography_early.Text_left
@@ -3424,7 +3431,7 @@ let leading n = utility_early (Typography_early.Leading n)
 let leading' n = utility_early (Typography_early.Leading_step n)
 
 (* Late typography utilities - priority 24 *)
-let utility_late x = Utility.base (Typography_late.Self x)
+let utility_late = Late_utility.v
 
 let decoration_color ?(shade = 500) color =
   Color.check_shade ~utility:"decoration_color" color shade;

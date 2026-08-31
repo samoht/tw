@@ -67,11 +67,11 @@ let font_variation =
 
 let mono_font_feature =
   Var.theme Css.Font_feature_settings "default-mono-font-feature-settings"
-    ~order:(8, 42)
+    ~order:(8, 43)
 
 let mono_font_variation =
   Var.theme Css.Font_variation_settings "default-mono-font-variation-settings"
-    ~order:(8, 43)
+    ~order:(8, 44)
 
 (** Helper for creating variable references in preflight context
 

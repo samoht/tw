@@ -10,7 +10,6 @@ module Handler = struct
   open Css
 
   type t = Grid | Inline_grid
-  type Utility.base += Self of t
 
   (** Priority for grid display utilities. Display utilities all share priority
       4 and are ordered alphabetically by suborder. *)
@@ -43,9 +42,9 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let grid = utility Grid
 let inline_grid = utility Inline_grid

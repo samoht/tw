@@ -52,6 +52,10 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"padding suborder matches Tailwind" shuffled
 
+let candidate_order () =
+  Test_helpers.check_class_order ~test_name:"padding candidate order"
+    [ "py-2"; "py-1.25"; "py-1.5"; "py-1" ]
+
 (** Test that CSS values use the correct spacing multiplier. p-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
@@ -134,6 +138,7 @@ let tests =
     test_case "padding of_string - invalid values" `Quick of_string_invalid;
     test_case "padding suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "padding candidate order" `Quick candidate_order;
     test_case "padding CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
     test_case "typed constructors: half-step" `Quick typed_prime;

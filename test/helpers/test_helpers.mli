@@ -86,6 +86,48 @@ val check_ordering_matches :
     of utilities between our implementation and Tailwind CSS, failing the test
     if they differ. *)
 
+val tree_diff_css :
+  expected:string -> actual:string -> Cascade_diff.Css_compare.t
+(** [tree_diff_css ~expected ~actual] compares two sheets structurally, in mode
+    [`Tree] and with nothing pruned, after respelling both through cascade's
+    printer.
+
+    The respelling is what makes the mode usable against the real CLI. Cascade
+    and Tailwind's minifier write the same value differently wherever CSS makes
+    the difference insignificant - [oklch(63.7% .237 25.331)] against
+    [oklch(63.7%.237 25.331)], a quoted font stack against an unquoted one - and
+    a structural comparison reads a custom property's value as bytes, so those
+    spellings read as differences. Parsing and re-printing puts both sheets in
+    one spelling and changes nothing else: the printer merges no rules, moves
+    none and drops no binding.
+
+    Mode [`Canonical], which every other Tailwind oracle here uses, cannot
+    report a rule written twice (its optimizer folds the copy away) nor a
+    custom-property binding nothing reads (every caller prunes those off both
+    sides). This is the mode that can. *)
+
+val tree_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
+(** [tree_diff ?forms utilities] is {!tree_diff_css} between the pinned Tailwind
+    CLI's sheet for [utilities] and tw's, base layer included on both sides.
+    Goes through {!require_tailwind_cli}. *)
+
+val surplus : Cascade_diff.Css_compare.t -> string list
+(** [surplus diff] is what tw's sheet carries that Tailwind's does not: a rule
+    Tailwind has no counterpart for, and a declaration added to a rule both
+    sheets write, each described by where it sits. A rule emitted twice appears
+    as the second copy being added and a binding nothing references as the
+    binding being added, so one list answers for both. Empty for any [diff] that
+    is not a tree diff.
+
+    A rule inside a container only one sheet has is not counted: an [@media] or
+    [@container] block the two sheets spell differently comes and goes as a
+    pair, and reading its rules as surplus would report the spelling rather than
+    anything tw wrote twice. *)
+
+val check_no_surplus : test_name:string -> Cascade_diff.Css_compare.t -> unit
+(** [check_no_surplus ~test_name diff] fails when {!surplus} is non-empty,
+    naming every rule and declaration tw writes and Tailwind does not. *)
+
 val class_position : string -> string -> int option
 (** [class_position sheet cls] is the byte offset in [sheet] where the rule for
     class [cls] starts, or [None] when the sheet declares no such class. The
@@ -133,6 +175,43 @@ val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
     being blind to a cascade-neutral reorder by design. This is the whole-sheet
     form: it sees a family placed in the wrong band even when no two utilities
     it reorders share a property. *)
+
+val sheets : ?forms:bool -> Tw.t list -> string * string
+(** [sheets ?forms utilities] is the pinned Tailwind CLI's sheet for [utilities]
+    and tw's, both minified. Generating the pair once is what lets {!sheet_diff}
+    and {!inverted_pairs} read the same two sheets. *)
+
+val sheet_diff : tailwind:string -> tw:string -> Cascade_diff.Css_compare.t
+(** [sheet_diff ~tailwind ~tw] compares the two sheets canonically, with dead
+    custom properties pruned, the way {!ordering_diff} does. Returning the
+    comparison rather than a verdict is what lets a caller read its structure:
+    the differ reports a reorder as a {!Cascade_diff.Tree_diff.Reordered} node
+    whenever the two rules are cascade-significant, which a caller carrying a
+    set of known misorderings has to be able to recognise. *)
+
+val describe_diff : Cascade_diff.Css_compare.t -> string
+(** [describe_diff diff] is [diff] rendered for a failure message. *)
+
+val describe_dropped : Error.t list -> string
+(** [describe_dropped dropped] says that the comparison read less than it
+    appears to, and which declarations it could not read. *)
+
+val inverted_pairs :
+  tailwind:string -> tw:string -> string list -> (string * string) list
+(** [inverted_pairs ~tailwind ~tw classes] is every pair of [classes] the two
+    sheets put in opposite orders, each written [(a, b)] with [a] the one
+    Tailwind emits first. Only a pair whose two rules sit under the same at-rule
+    in the same layer on both sides is compared: the position of a [@media]
+    block says where the block sits rather than where a utility inside it sorts,
+    and tw emits one block per rule where Tailwind merges. A class naming
+    several rules is taken at the first.
+
+    A pair, not a count. Both sheets order their utilities by a key of their
+    own, so two classes that disagree here disagree in every sheet holding both,
+    whatever else was drawn - which is what lets a set of known disagreements be
+    recorded and a new one still fail. {!sheet_order_gap} answers the
+    whole-sheet question instead, and its count moves with what is in the sheet.
+*)
 
 val render_elements : string list -> string list
 (** [render_elements classnames] is the element list {!check_rendering_matches}
@@ -264,9 +343,35 @@ val check_handler_roundtrip : (module Handler) -> string -> unit
     {!val-of_class} and converting back with {!val-to_class} round-trip
     correctly. *)
 
-val check_invalid_input : (module Handler) -> string -> unit
-(** [check_invalid_input h input] tests that parsing fails for invalid input as
-    expected. *)
+(** Why a class must not parse. Each constructor is a claim about Tailwind as
+    well as about tw, so that {!check_negative_premises} can hold it to the
+    pinned CLI. *)
+type rejection =
+  | Not_a_utility
+      (** Tailwind emits nothing for the class either, so refusing it is the
+          whole answer. *)
+  | Another_handler
+      (** A real utility a different tw handler owns: Tailwind emits for it and
+          so does {!Tw.of_string}, and only the handler under test says no. *)
+  | Diverges of string
+      (** Tailwind emits for the class and {!Tw.of_string} does not, with the
+          string saying why. Every one of these is a measured parity gap held
+          open here rather than a rejection that reads as intended. *)
+
+val check_invalid_input : ?why:rejection -> (module Handler) -> string -> unit
+(** [check_invalid_input ?why h input] tests that parsing fails for invalid
+    input as expected, and records [input] for {!check_negative_premises}. [why]
+    defaults to {!constructor-Not_a_utility}; the half of it that needs no CLI,
+    whether {!Tw.of_string} knows the class, is checked here. *)
+
+val check_negative_premises : unit -> unit
+(** [check_negative_premises ()] asks the pinned tailwindcss CLI whether every
+    negative test that has run so far had its premise right, in one generation
+    over the whole corpus. It skips without the CLI, and fails instead under
+    [TW_TAILWIND_TESTS=1], the way every other parity check here does.
+
+    It reads what the negative tests registered as they ran, so it belongs after
+    them: see [test/test.ml]. *)
 
 val standard :
   roundtrip:(unit -> unit) ->
@@ -278,9 +383,10 @@ val standard :
 val check_parts : (module Handler) -> string list -> unit
 (** [check_parts h parts] concatenates parts with "-" and tests roundtrip. *)
 
-val check_invalid_parts : (module Handler) -> string list -> unit
-(** [check_invalid_parts h parts] concatenates parts with "-" and tests that
-    parsing fails. *)
+val check_invalid_parts :
+  ?why:rejection -> (module Handler) -> string list -> unit
+(** [check_invalid_parts ?why h parts] concatenates parts with "-" and tests
+    that parsing fails, as {!check_invalid_input}. *)
 
 val check_typed_class : string -> Tw.t -> unit
 (** [check_typed_class cls value] checks that the typed constructor [value]

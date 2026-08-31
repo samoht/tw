@@ -11,6 +11,7 @@
     @theme-mode <name> <modifiers>        (optional, repeatable)
     @utility-def <name> <body>            (optional, repeatable)
     @layer-wrap <layer>                   (optional)
+    @layer-before-theme true              (optional)
     <space-separated class list>
     ---
     <expected CSS>
@@ -29,6 +30,10 @@ type config =
   | No_theme
   | Run
 
+exception Malformed of string
+
+let fail_malformed fmt = Fmt.kstr (fun msg -> raise (Malformed msg)) fmt
+
 let config_of_string = function
   | "theme" -> Theme
   | "theme-inline" -> Theme_inline
@@ -36,14 +41,17 @@ let config_of_string = function
   | "theme-inline-reference" -> Theme_inline_reference
   | "none" -> No_theme
   | "run" -> Run
-  | _ -> No_theme
+  | name -> fail_malformed "unknown @config name %S" name
 
 type case = {
   source : string;  (** Fixture the case was read from. *)
   name : string;
   config : config;
   classes : string list;
-  expected : string;
+  expected : string option;
+      (** The [---] section, or [None] for a block the extractor wrote without
+          one: an upstream test that asserts the compile throws has no CSS to
+          replay. *)
   variants : string list;  (** [matchVariant] directive lines for this test. *)
   theme_vars : (string * string) list;
       (** [@theme] token overrides (name, value) captured from the test's CSS
@@ -62,6 +70,9 @@ type case = {
       (** The layer the test's CSS template compiles [@tailwind utilities] into,
           when it names one. Tailwind puts the generated utilities in it and
           everything else beside it. *)
+  layer_before_theme : bool;
+      (** Whether the wrapped utilities precede a later [@theme] block in the
+          source template. *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -96,173 +107,173 @@ let lines_of filename =
     close_in ic;
     String.split_on_char '\n' content
 
-let read filename =
-  match lines_of filename with
-  | [] -> []
-  | lines ->
-      let tests = ref [] in
-      let current_variants = ref [] in
-      let current_theme_vars = ref [] in
-      let current_theme_modes = ref [] in
-      let current_utility_defs = ref [] in
-      let current_layer_wrap = ref None in
-      let parse_config_line line =
-        let line = String.trim line in
-        if String.length line > 8 && String.sub line 0 8 = "@config " then
-          Some (config_of_string (String.sub line 8 (String.length line - 8)))
-        else None
-      in
-      (* A directive line is "<keyword> <name> <rest>"; the name runs to the
-         first space and the rest is kept as written. *)
-      let named_pair keyword line =
-        let n = String.length keyword in
-        if String.length line < n || String.sub line 0 n <> keyword then None
-        else
-          let tail = String.sub line n (String.length line - n) in
-          Option.map
-            (fun i ->
-              ( String.sub tail 0 i,
-                String.sub tail (i + 1) (String.length tail - i - 1) ))
-            (String.index_opt tail ' ')
-      in
-      let rec parse lines =
-        match lines with
-        | [] -> ()
-        | line :: rest ->
-            let line = String.trim line in
-            if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then (
-              let name = String.sub line 2 (String.length line - 2) in
-              current_variants := [];
-              current_theme_vars := [];
-              current_theme_modes := [];
-              current_utility_defs := [];
-              current_layer_wrap := None;
-              parse_config name No_theme rest)
-            else parse rest
-      and parse_config name default_config lines =
-        match lines with
-        | [] -> ()
-        | line :: rest -> (
-            match parse_config_line line with
-            | Some config -> parse_variants name config rest
-            | None -> parse_variants name default_config (line :: rest))
-      and parse_variants name config lines =
-        match lines with
-        | [] -> ()
-        | line :: rest -> (
-            let tl = String.trim line in
-            if String.length tl >= 9 && String.sub tl 0 9 = "@variant " then (
-              current_variants :=
-                String.sub tl 9 (String.length tl - 9) :: !current_variants;
-              parse_variants name config rest)
-            else
-              match named_pair "@theme-var " tl with
-              | Some pair ->
-                  current_theme_vars := pair :: !current_theme_vars;
-                  parse_variants name config rest
-              | None -> (
-                  match named_pair "@theme-mode " tl with
-                  | Some (n, modes) ->
-                      current_theme_modes :=
-                        (n, String.split_on_char ' ' modes)
-                        :: !current_theme_modes;
-                      parse_variants name config rest
-                  | None -> (
-                      match named_pair "@utility-def " tl with
-                      | Some pair ->
-                          current_utility_defs := pair :: !current_utility_defs;
-                          parse_variants name config rest
-                      | None ->
-                          if
-                            String.length tl >= 12
-                            && String.sub tl 0 12 = "@layer-wrap "
-                          then (
-                            current_layer_wrap :=
-                              Some (String.sub tl 12 (String.length tl - 12));
-                            parse_variants name config rest)
-                          else parse_classes name config (line :: rest))))
-      and parse_classes name config lines =
-        match lines with
-        | [] -> ()
-        | line :: rest ->
-            let line = String.trim line in
-            if line = "<<<>>>" then parse rest
-            else if line = "---" then
-              (* No classes line before ---, skip *)
-              parse_expected name config [] (Buffer.create 256) rest
-            else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
-            then (
-              (* New test without classes *)
-              let new_name = String.sub line 2 (String.length line - 2) in
-              current_variants := [];
-              current_theme_vars := [];
-              current_theme_modes := [];
-              current_utility_defs := [];
-              current_layer_wrap := None;
-              parse_config new_name No_theme rest)
-            else
-              let classes = split_classes line in
-              parse_after_classes name config classes rest
-      and parse_after_classes name config classes lines =
-        match lines with
-        | [] -> ()
-        | line :: rest ->
-            let line = String.trim line in
-            if line = "---" then
-              parse_expected name config classes (Buffer.create 256) rest
-            else if line = "<<<>>>" then
-              (* No expected CSS, skip this test *)
-              parse rest
-            else parse rest
-      and parse_expected name config classes buf lines =
-        match lines with
-        | [] ->
-            let expected = Buffer.contents buf |> String.trim in
-            if classes <> [] then
-              tests :=
-                {
-                  source = filename;
-                  name;
-                  config;
-                  classes;
-                  expected;
-                  variants = List.rev !current_variants;
-                  theme_vars = List.rev !current_theme_vars;
-                  theme_modes = List.rev !current_theme_modes;
-                  utility_defs = List.rev !current_utility_defs;
-                  layer_wrap = !current_layer_wrap;
-                }
-                :: !tests
-        | line :: rest ->
-            if String.trim line = "<<<>>>" then (
-              let expected = Buffer.contents buf |> String.trim in
-              if classes <> [] then
-                tests :=
-                  {
-                    source = filename;
-                    name;
-                    config;
-                    classes;
-                    expected;
-                    variants = List.rev !current_variants;
-                    theme_vars = List.rev !current_theme_vars;
-                    theme_modes = List.rev !current_theme_modes;
-                    utility_defs = List.rev !current_utility_defs;
-                    layer_wrap = !current_layer_wrap;
-                  }
-                  :: !tests;
-              parse rest)
-            else (
-              if Buffer.length buf > 0 then Buffer.add_char buf '\n';
-              Buffer.add_string buf line;
-              parse_expected name config classes buf rest)
-      in
-      parse lines;
-      List.rev !tests
+(* A line the reader cannot place: the fixtures are machine-written, so a line
+   outside the grammar means the extractor and the reader have drifted apart, or
+   the fixture was edited by hand. Either way it is a bug in this repository and
+   not an input to tolerate -- a reader that resumes its scan on such a line
+   drops the surrounding block with the case count as its only trace. *)
+let malformed filename line text expectation =
+  fail_malformed
+    "%s:%d: expected %s, read %S. The upstream fixtures are generated: \
+     regenerate with extract_tests.exe rather than editing them."
+    filename line expectation text
 
-(* A fixture is found beside the executable under the dune sandbox, and under
-   [upstream/] or [test/upstream/] when the test runs from a parent
-   directory. *)
+let after_prefix prefix s =
+  if String.starts_with ~prefix s then
+    let n = String.length prefix in
+    Some (String.sub s n (String.length s - n))
+  else None
+
+let split_first_space s =
+  Option.map
+    (fun i ->
+      (String.sub s 0 i, String.sub s (i + 1) (String.length s - i - 1)))
+    (String.index_opt s ' ')
+
+(* A directive line is "<keyword> <name> <rest>"; the name runs to the first
+   space and the rest is kept as written. A keyword carrying neither is
+   malformed rather than a class list that happens to start with an [@]. *)
+let named_pair filename line keyword arg =
+  match split_first_space arg with
+  | Some pair -> pair
+  | None -> malformed filename line arg (keyword ^ "<name> <value>")
+
+(* One block, in the shape [extract_tests.ml] writes it: a [# <name>] header, an
+   [@config] line, the repeatable directives, the class list, then [---] and the
+   expected CSS. An upstream test that asserts the compile throws is written
+   with no [---] and nothing after the class list.
+
+   The expected CSS is free-form and runs to the block's end, so it is the one
+   region a stray line can hide in; everything above it is checked. *)
+let parse_block filename block =
+  let header_line, name, body =
+    match block with
+    | [] -> fail_malformed "%s: an empty block (two <<<>>> in a row)" filename
+    | (n, header) :: rest -> (
+        let header = String.trim header in
+        match after_prefix "# " header with
+        | Some name -> (n, name, rest)
+        | None -> malformed filename n header "a block header (# <name>)")
+  in
+  let config = ref No_theme in
+  let variants = ref [] in
+  let theme_vars = ref [] in
+  let theme_modes = ref [] in
+  let utility_defs = ref [] in
+  let layer_wrap = ref None in
+  let layer_before_theme = ref false in
+  let read_config n arg =
+    match config_of_string arg with
+    | c -> config := c
+    | exception Malformed _ ->
+        malformed filename n arg
+          "one of @config theme, theme-inline, theme-reference, \
+           theme-inline-reference, none, run"
+  in
+  let handlers =
+    [
+      ("@config ", read_config);
+      ("@variant ", fun _ arg -> variants := arg :: !variants);
+      ( "@theme-var ",
+        fun n arg ->
+          theme_vars := named_pair filename n "@theme-var " arg :: !theme_vars
+      );
+      ( "@theme-mode ",
+        fun n arg ->
+          let token, modes = named_pair filename n "@theme-mode " arg in
+          theme_modes := (token, String.split_on_char ' ' modes) :: !theme_modes
+      );
+      ( "@utility-def ",
+        fun n arg ->
+          utility_defs :=
+            named_pair filename n "@utility-def " arg :: !utility_defs );
+      ("@layer-wrap ", fun _ arg -> layer_wrap := Some arg);
+      ( "@layer-before-theme ",
+        fun n arg ->
+          match arg with
+          | "true" -> layer_before_theme := true
+          | "false" -> layer_before_theme := false
+          | _ -> malformed filename n arg "true or false" );
+    ]
+  in
+  let rec directives lines =
+    match lines with
+    | [] -> []
+    | (n, line) :: rest -> (
+        let line = String.trim line in
+        let hit =
+          List.find_map
+            (fun (prefix, handle) ->
+              Option.map (fun arg -> (handle, arg)) (after_prefix prefix line))
+            handlers
+        in
+        match hit with
+        | Some (handle, arg) ->
+            handle n arg;
+            directives rest
+        | None -> lines)
+  in
+  match directives body with
+  | [] ->
+      malformed filename header_line ("# " ^ name)
+        "a class list after the block header"
+  | (n, classes_line) :: after ->
+      let classes_line = String.trim classes_line in
+      if classes_line = "---" then
+        malformed filename n classes_line "a class list before ---";
+      let expected =
+        match after with
+        | [] -> None
+        | (n, separator) :: css ->
+            let separator = String.trim separator in
+            if separator <> "---" then
+              malformed filename n separator "--- or the end of the block";
+            Some (String.trim (String.concat "\n" (List.map snd css)))
+      in
+      {
+        source = filename;
+        name;
+        config = !config;
+        classes = split_classes classes_line;
+        expected;
+        variants = List.rev !variants;
+        theme_vars = List.rev !theme_vars;
+        theme_modes = List.rev !theme_modes;
+        utility_defs = List.rev !utility_defs;
+        layer_wrap = !layer_wrap;
+        layer_before_theme = !layer_before_theme;
+      }
+
+let read filename =
+  let numbered = List.mapi (fun i line -> (i + 1, line)) (lines_of filename) in
+  (* The [#!] banner is provenance rather than a block, and the extractor writes
+     it first or not at all. *)
+  let numbered =
+    match numbered with
+    | (_, first) :: rest
+      when String.starts_with ~prefix:"#!" (String.trim first) ->
+        rest
+    | lines -> lines
+  in
+  let rec split current blocks lines =
+    match lines with
+    | [] ->
+        (* The extractor closes every block, so what follows the last separator
+           is the file's trailing newline and nothing else. *)
+        List.iter
+          (fun (n, line) ->
+            if String.trim line <> "" then
+              malformed filename n line "a block closed by <<<>>>")
+          (List.rev current);
+        List.rev blocks
+    | (n, line) :: rest when String.trim line = "<<<>>>" -> (
+        match List.rev current with
+        | [] -> malformed filename n line "a block before <<<>>>"
+        | block -> split [] (block :: blocks) rest)
+    | entry :: rest -> split (entry :: current) blocks rest
+  in
+  List.map (parse_block filename) (split [] [] numbered)
+
 (* Blocks are counted on the separator the reader splits on, so the count is the
    reader's own notion of a block rather than a second one beside it. *)
 let blocks filename =

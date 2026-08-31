@@ -10,6 +10,26 @@ let test_check_available () =
   check_tailwindcss_available ();
   check bool "tailwindcss available" true true
 
+let rec dir_containing name dir =
+  if Sys.file_exists (Filename.concat dir name) then Some dir
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_containing name parent
+
+(* Every worktree points node_modules at the same installed tree. Going through
+   npx makes concurrent gates coordinate through npm's shared cache even though
+   the exact executable is already present and immutable. *)
+let test_prefers_project_tailwindcss () =
+  let relative = "node_modules/.bin/tailwindcss" in
+  let root =
+    match dir_containing relative (Sys.getcwd ()) with
+    | Some root -> root
+    | None -> Alcotest.skip ()
+  in
+  let expected = Filename.quote (Filename.concat root relative) in
+  check string "uses the pinned executable directly" expected
+    (tailwindcss_command ())
+
 let test_generate_simple () =
   Test_helpers.require_tailwind_cli ();
   let css = generate ~minify:true [ "p-4"; "bg-blue-500" ] in
@@ -83,6 +103,8 @@ let test_arbitrary_url_matches_cli () =
 let tests =
   [
     test_case "check tailwindcss available" `Quick test_check_available;
+    test_case "prefer the project Tailwind executable" `Quick
+      test_prefers_project_tailwindcss;
     test_case "generate simple CSS" `Quick test_generate_simple;
     test_case "arbitrary colour opacity matches live CLI" `Quick
       test_arbitrary_color_opacity_matches_cli;

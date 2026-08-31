@@ -16,8 +16,6 @@ module Handler = struct
     value : padding_value;
   }
 
-  type Utility.base += Self of t
-
   let name = "padding"
   let priority _ = 23
 
@@ -102,16 +100,16 @@ module Handler = struct
     let side_offset =
       match axis with
       | `All -> 0
-      | `X -> 10000
-      | `Y -> 20000
-      | `T -> 30000
-      | `R -> 40000
-      | `B -> 50000
-      | `L -> 60000
-      | `S -> 70000
-      | `E -> 80000
-      | `Bs -> 90000
-      | `Be -> 100000
+      | `X -> 100_000
+      | `Y -> 200_000
+      | `S -> 300_000
+      | `E -> 400_000
+      | `Bs -> 500_000
+      | `Be -> 600_000
+      | `T -> 700_000
+      | `R -> 800_000
+      | `B -> 900_000
+      | `L -> 1_000_000
     in
     side_offset + value_order value
 
@@ -189,9 +187,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility axis value = Utility.base (Self { axis; value })
+let utility axis value = Utility_factory.v { axis; value }
 let p n = utility `All (Handler.Standard (Spacing.int n))
 let px n = utility `X (Handler.Standard (Spacing.int n))
 let py n = utility `Y (Handler.Standard (Spacing.int n))

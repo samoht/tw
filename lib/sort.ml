@@ -31,11 +31,13 @@ type selector_kind =
    what separates two tokens that share it. A breakpoint token carries the width
    it names, so [sm] and [md] no longer collapse onto one key; a group-/ peer-
    token carries the state it wraps, so [group-focus] and [group-has] keep their
-   order. *)
+   order; data and arbitrary tokens carry the value that distinguishes groups
+   inside their slot. *)
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
-  wrapped : int;
+  wrapped : int list;
+  value_key : string option;
 }
 
 (** Relationship between two rules being compared *)
@@ -71,9 +73,9 @@ type indexed_rule = {
   base_class : string option;
   merge_key : string option;
   variant_order : int;
-  variant_key : string * int;
-      (* Precomputed (variant prefix, effective inner order) - see
-         [variant_sort_key]. Read by [compare_variant_ordered]. *)
+  variant_key : string * int * int;
+      (* Precomputed (variant prefix, effective inner order, collapsed data
+         depth) - see [variant_sort_key]. Read by [compare_variant_ordered]. *)
   variant_orders : variant_component list;
       (* The rule's variant order keys sorted descending - see
          [variant_order_list]. Compared lexicographically by
@@ -676,10 +678,10 @@ let natural_compare s1 s2 =
   in
   compare_at 0 0
 
-(* Tailwind orders the values of sizing and flex-basis candidates by the raw
-   candidate spelling. This naturally interleaves digit-led theme names with
-   numeric values (2, 2xl, 10), and puts the [(--var)] shorthand before both.
-   The handler suborders still separate the property families themselves. *)
+(* Tailwind orders the values of dynamic candidates by the raw candidate
+   spelling. This naturally interleaves digit-led theme names with numeric
+   values (2, 2xl, 10), and puts the [(--var)] shorthand before both. The
+   handler suborders still separate the property families themselves. *)
 let candidate_value_family base_class =
   let _, base = Modifiers.of_string base_class in
   List.find_opt
@@ -687,6 +689,17 @@ let candidate_value_family base_class =
       let n = String.length prefix in
       String.length base > n && String.starts_with ~prefix:(prefix ^ "-") base)
     [
+      "pbs";
+      "pbe";
+      "px";
+      "py";
+      "ps";
+      "pe";
+      "pt";
+      "pr";
+      "pb";
+      "pl";
+      "p";
       "min-inline";
       "max-inline";
       "min-block";
@@ -788,7 +801,7 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
            to the candidate name. *)
         let width_cmp = compare_declared_width r1 r2 in
         if width_cmp <> 0 then width_cmp
-        else natural_compare r1.selector_str r2.selector_str
+        else natural_compare r1.base_class_key r2.base_class_key
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
@@ -930,13 +943,38 @@ let compare_nested_media r1 r2 =
       | _ -> 0)
   | _ -> 0
 
+(* Repeating an element variant, or stacking predicates from the same data slot,
+   changes the selector without adding another sort slot. Keep the selector's
+   tokens intact; in the sort key retain only the innermost token of each
+   adjacent run. Named and arbitrary data variants occupy separate slots. *)
+let collapse_repeated_variant_slots modifiers =
+  let is_element = function "*" | "**" -> true | _ -> false in
+  let is_data modifier = String.starts_with ~prefix:"data-" modifier in
+  let same_collapsible_slot outer inner =
+    (is_element outer && String.equal outer inner)
+    || is_data outer && is_data inner
+       && Modifiers.variant_order_of_prefix outer
+          = Modifiers.variant_order_of_prefix inner
+  in
+  let rec loop data_depth acc = function
+    | outer :: (inner :: _ as rest) when same_collapsible_slot outer inner ->
+        let data_depth = if is_data outer then data_depth + 1 else data_depth in
+        loop data_depth acc rest
+    | modifier :: rest -> loop data_depth (modifier :: acc) rest
+    | [] -> (List.rev acc, data_depth)
+  in
+  loop 0 [] modifiers
+
 (* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover".
    Split with the modifier parser, not on the last ':': an arbitrary value can
    hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
    [hover:bg-[color]. *)
-let variant_prefix = function
-  | Some s -> String.concat ":" (fst (Modifiers.of_string s))
-  | None -> ""
+let variant_prefix_and_data_depth = function
+  | Some s ->
+      let modifiers, _ = Modifiers.of_string s in
+      let modifiers, data_depth = collapse_repeated_variant_slots modifiers in
+      (String.concat ":" modifiers, data_depth)
+  | None -> ("", 0)
 
 (* Compute variant order for a modifier prefix, stripping group-/peer-
    wrappers *)
@@ -1049,8 +1087,8 @@ let effective_ivo_of nested prefix =
    every comparison. Precompute them once per rule (see [add_index]) so the hot
    sort comparator only reads the result. *)
 let variant_sort_key base_class nested =
-  let prefix = variant_prefix base_class in
-  (prefix, effective_ivo_of nested prefix)
+  let prefix, data_depth = variant_prefix_and_data_depth base_class in
+  (prefix, effective_ivo_of nested prefix, data_depth)
 
 (* Two components in the same slot are separated by the breakpoint first: a rule
    whose highest-order variant is a breakpoint groups under that breakpoint, so
@@ -1066,20 +1104,52 @@ let compare_variant_components a b =
       | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
       | Some _, None | None, Some _ | None, None -> 0
     in
-    if bp_cmp <> 0 then bp_cmp else Int.compare a.wrapped b.wrapped
+    if bp_cmp <> 0 then bp_cmp
+    else
+      let wrapped_cmp = List.compare Int.compare a.wrapped b.wrapped in
+      if wrapped_cmp <> 0 then wrapped_cmp
+      else Option.compare String.compare a.value_key b.value_key
+
+(* Tailwind compares arbitrary variants by the selector they denote, after
+   decoding bracket-space underscores. A bare compound is implicitly anchored on
+   the candidate, while a selector with [&], a relative selector, or an at-rule
+   already carries its own context. *)
+let arbitrary_variant_selector_key token =
+  if not (Parse.is_bracket_value token) then None
+  else
+    let selector =
+      token |> Parse.bracket_inner |> Parse.decode_underscores |> String.trim
+    in
+    if selector = "" then None
+    else
+      let first = selector.[0] in
+      if
+        first <> '>' && first <> '+' && first <> '~' && first <> '@'
+        && not (String.contains selector '&')
+      then Some ("&:is(" ^ selector ^ ")")
+      else Some selector
+
+let rec variant_value_key token =
+  match arbitrary_variant_selector_key token with
+  | Some _ as key -> key
+  | None when String.starts_with ~prefix:"data-" token -> Some token
+  | None -> Option.bind (Modifiers.variant_inner_token token) variant_value_key
 
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one
    key and every group-/peer- spelling on another, so the component carries what
    separates two tokens inside a slot: the width for a breakpoint, read off the
    media query the rule renders as, and the wrapped state for group-/peer-, so
-   group-focus and group-has keep their focus-before-has order. *)
-let token_order_key ~breakpoint token =
-  let slot = Modifiers.variant_order_of_prefix token in
-  let wrapped = Modifiers.variant_inner_order token in
+   group-focus and group-has keep their focus-before-has order, and the
+   predicate spelling for data variants, so a lower-order compound component
+   does not push [data-focus:has-checked] past every other data predicate. *)
+let token_order_key ?theme ~breakpoint token =
+  let slot = Modifiers.variant_order_of_prefix ?theme token in
+  let wrapped = Modifiers.variant_inner_order_path ?theme token in
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
-  { slot; breakpoint; wrapped }
+  let value_key = variant_value_key token in
+  { slot; breakpoint; wrapped; value_key }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1088,22 +1158,30 @@ let token_order_key ~breakpoint token =
    (group:hover vs hover:group) get identical keys. Falls back to the scalar
    [variant_order] for selector-derived variants (before:/after:) that carry no
    order-bearing prefix in the base class. *)
-let variant_order_list base_class variant_order breakpoint =
+let variant_order_list ?theme base_class variant_order breakpoint =
   let from_bc =
     match base_class with
     | None -> []
     | Some bc ->
         let modifiers, _ = Modifiers.of_string bc in
+        let modifiers, _ = collapse_repeated_variant_slots modifiers in
         List.filter_map
           (fun m ->
-            let key = token_order_key ~breakpoint m in
+            let key = token_order_key ?theme ~breakpoint m in
             if key.slot > 0 then Some key else None)
           modifiers
         |> List.sort (fun a b -> compare_variant_components b a)
   in
   match from_bc with
   | [] when variant_order > 0 ->
-      [ { slot = variant_order; breakpoint = None; wrapped = 0 } ]
+      [
+        {
+          slot = variant_order;
+          breakpoint = None;
+          wrapped = [];
+          value_key = None;
+        };
+      ]
   | l -> l
 
 (* Compare two descending variant-order-key lists lexicographically, ascending
@@ -1136,13 +1214,16 @@ let compare_both_bracket_prefixes p1 p2 =
 
 (** Compare variant prefixes for bracket ordering. Named variants (has-checked)
     sort before bracket variants (has-[:checked]) within the same variant group.
-*)
+    Element-variant permutations with identical component keys tie here so their
+    utilities can interleave in [compare_variant_tail]. *)
 let compare_bracket_prefixes p1_prefix p2_prefix =
   let has_bracket p = String.length p > 0 && String.contains p '[' in
+  let has_element_variant p = String.contains p '*' in
   let b1 = has_bracket p1_prefix and b2 = has_bracket p2_prefix in
   if b1 && not b2 then 1
   else if b2 && not b1 then -1
   else if b1 && b2 then compare_both_bracket_prefixes p1_prefix p2_prefix
+  else if has_element_variant p1_prefix && has_element_variant p2_prefix then 0
   else String.compare p1_prefix p2_prefix
 
 (* Compare rules when both have variant_order > 0 *)
@@ -1206,8 +1287,8 @@ let compare_variant_ordered r1 r2 =
       in
       if list_cmp <> 0 then list_cmp
       else
-        let p1_prefix, _ = r1.variant_key in
-        let p2_prefix, _ = r2.variant_key in
+        let p1_prefix, _, data_depth1 = r1.variant_key in
+        let p2_prefix, _, data_depth2 = r2.variant_key in
         (* The descending variant-order lists tie (same variant multiset), so
            hover:sm: and sm:hover: arrive here indistinguishable. The query a
            rule writes on the outside decides between them, hover before sm and
@@ -1241,7 +1322,11 @@ let compare_variant_ordered r1 r2 =
                 | `Container _, `Container _ -> 0
                 | _ -> compare_bracket_prefixes p1_prefix p2_prefix
               in
-              if prefix_cmp <> 0 then prefix_cmp else compare_variant_tail r1 r2
+              if prefix_cmp <> 0 then prefix_cmp
+              else
+                let data_depth_cmp = Int.compare data_depth1 data_depth2 in
+                if data_depth_cmp <> 0 then data_depth_cmp
+                else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =

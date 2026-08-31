@@ -25,7 +25,6 @@ module Handler = struct
   (** Local margin utility type *)
 
   (** Extensible variant for margin utilities *)
-  type Utility.base += Self of t
 
   let name = "margin"
   let priority _ = 2
@@ -140,12 +139,12 @@ module Handler = struct
       | `Y -> 2
       | `S -> 3
       | `E -> 4
-      | `T -> 5
-      | `R -> 6
-      | `B -> 7
-      | `L -> 8
-      | `Bs -> 9
-      | `Be -> 10
+      | `Bs -> 5
+      | `Be -> 6
+      | `T -> 7
+      | `R -> 8
+      | `B -> 9
+      | `L -> 10
     in
     let sign_offset =
       match value with Negative _ -> 0 | Auto | Positive _ -> 200000
@@ -327,9 +326,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility axis value = Utility.base (Self { axis; value })
+let utility axis value = Utility_factory.v { axis; value }
 
 let v d n =
   let s = Handler.Spacing (Spacing.int n :> Style.spacing) in

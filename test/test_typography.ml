@@ -174,6 +174,27 @@ let test_text_overflow_wrap () =
   check "text-balance";
   check "text-pretty"
 
+let test_text_overflow_order () =
+  Test_helpers.check_class_order ~test_name:"text-overflow order"
+    [ "text-ellipsis"; "overflow-ellipsis"; "text-clip" ]
+
+let test_antialiasing_order () =
+  Test_helpers.check_class_order ~test_name:"antialiasing order"
+    [
+      "caret-red-500";
+      "placeholder-gray-400";
+      "subpixel-antialiased";
+      "antialiased";
+    ]
+
+let test_variant_antialiasing_order () =
+  Test_helpers.check_class_order ~test_name:"variant antialiasing order"
+    [
+      "hover:placeholder-gray-400";
+      "hover:subpixel-antialiased";
+      "hover:antialiased";
+    ]
+
 let test_word_overflow_wrap () =
   check "break-normal";
   check "break-words";
@@ -827,6 +848,21 @@ let test_bracket_list_style () =
     "an unknown counter style is rejected" true
     (Result.is_error (Tw.of_string "list-[nonsense-style]"))
 
+(* List position, type, and image are three property bands; candidates inside
+   each band use their natural class-name order. *)
+let test_list_style_property_bands () =
+  Test_helpers.check_class_order ~test_name:"list-style property bands"
+    [
+      "list-image-none";
+      "list-image-[url(/carrot.png)]";
+      "list-none";
+      "list-disc";
+      "list-decimal";
+      "list-[square]";
+      "list-outside";
+      "list-inside";
+    ]
+
 (* CSS Fonts 4 sec. 6.4: a feature setting is a quoted four-character tag with
    an optional integer / on / off, so the docs' [<value>] placeholder is not
    one; the underscore in [font-features-["liga"_0]] is a space. *)
@@ -846,6 +882,28 @@ let test_font_features_value () =
     "the underscore is a space" true
     (Astring.String.is_infix ~affix:"font-feature-settings:\"liga\" 0"
        (css "font-features-[\"liga\"_0]"))
+
+(* font-feature-settings follows font-family and precedes font-size in
+   Tailwind's property table. Keeping it after the weight band displaces both
+   the feature rules and every larger text size in a full sheet. *)
+let test_font_feature_property_band () =
+  Test_helpers.check_class_order ~test_name:"font feature property band"
+    [
+      "font-bold";
+      "leading-tight";
+      "text-9xl";
+      "text-2xl";
+      "font-features-[\"tnum\"]";
+      "font-features-(--my-features)";
+      "font-serif";
+      "font-sans";
+    ]
+
+(* A bracket font-size carrying a line-height modifier follows the large named
+   sizes and precedes the base size in Tailwind's candidate order. *)
+let test_bracket_font_size_candidate_band () =
+  Test_helpers.check_class_order ~test_name:"bracket font-size candidate band"
+    [ "text-base"; "text-[13px]/6"; "text-9xl"; "text-2xl" ]
 
 (* A font family is idents or quoted strings; the docs' [<value>] placeholder
    used to be quoted into font-family: "<value>". *)
@@ -1150,12 +1208,16 @@ let tests =
     test_case "decoration shadeless opacity" `Quick
       test_decoration_shadeless_opacity;
     test_case "bracket list-style" `Quick test_bracket_list_style;
+    test_case "list-style property bands" `Slow test_list_style_property_bands;
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font bracket family quoted" `Quick
       test_font_bracket_family_quoted;
     test_case "font bracket family comma list" `Quick
       test_font_bracket_family_comma_list;
     test_case "font-features value" `Quick test_font_features_value;
+    test_case "font-feature property band" `Slow test_font_feature_property_band;
+    test_case "bracket font-size candidate band" `Slow
+      test_bracket_font_size_candidate_band;
     test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading half-step" `Quick test_leading_prime;
@@ -1174,6 +1236,9 @@ let tests =
     test_case "line-clamp-none theme override" `Quick
       test_line_clamp_none_theme_override;
     test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
+    test_case "text overflow order" `Slow test_text_overflow_order;
+    test_case "antialiasing order" `Slow test_antialiasing_order;
+    test_case "variant antialiasing order" `Slow test_variant_antialiasing_order;
     test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
     test_case "hyphens" `Quick test_hyphens;
     test_case "list style" `Quick test_list_style;

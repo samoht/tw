@@ -1,4 +1,4 @@
-#! 699 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
+#! 702 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
 # sr-only
 @config run
 sr-only
@@ -877,7 +877,7 @@ isolate isolation-auto
       .z-auto {
         z-index: auto;
       }
-      
+
 <<<>>>
 # z-index
 @config run
@@ -22499,6 +22499,26 @@ basis-sm max-w-sm min-w-sm w-sm
       }
       
 <<<>>>
+# custom static utility emit CSS variables if the utility is used
+@config run
+@theme-var example-foo 123px
+@utility-def foo value: var(--example-foo);
+@layer-wrap utilities
+@layer-before-theme true
+foo
+---
+
+      @layer utilities {
+        .foo {
+          value: var(--example-foo);
+        }
+      }
+
+      :root, :host {
+        --example-foo: 123px;
+      }
+
+<<<>>>
 # Multiple static utilities are merged
 @config run
 @utility-def really-round --custom-prop: hi; border-radius: 50rem;
@@ -22645,7 +22665,7 @@ example-1 example-2
         .example-2 {
           --resolved-value: 2;
         }
-        
+
 <<<>>>
 # functional utilities must resolve at least one `--value(…)`
 @config run
@@ -23503,6 +23523,20 @@ example-foo
         }
         
 <<<>>>
+# declaration nodes are only replaced/removed once
+@config run
+@utility-def mask-r-* --mask-right: linear-gradient(to left, transparent, black --value(percentage)); --mask-right: linear-gradient( to left, transparent calc(var(--spacing) * --modifier(integer)), black calc(var(--spacing) * --value(integer)) ); mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+mask-r-20%
+---
+
+        .mask-r-20\% {
+          --mask-right: linear-gradient(to left, transparent, black 20%);
+          -webkit-mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+          -webkit-mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+          mask-image: var(--mask-linear), var(--mask-radial), var(--mask-conic);
+        }
+
+<<<>>>
 # resolve value based on `@theme`
 @config run
 @theme-var example-a 8
@@ -23557,6 +23591,22 @@ example-a
         --resolved-value: 8;
       }
       
+<<<>>>
+# sub namespaces can live in different @theme blocks (1)
+@config run
+@theme-var text-xs 0.75rem
+@theme-var text-xs--line-height calc(1 / 0.75)
+@theme-mode text-xs reference
+@theme-mode text-xs--line-height inline reference
+@utility-def example-* font-size: --value(--text); line-height: --value(--text-*--line-height);
+example-xs
+---
+
+      .example-xs {
+        font-size: var(--text-xs, .75rem);
+        line-height: 1.33333;
+      }
+
 <<<>>>
 # sub namespaces can live in different @theme blocks (2)
 @config run

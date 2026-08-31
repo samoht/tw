@@ -1,4 +1,4 @@
-#! 9 blocks extracted from test_blocks_input.ts by extract_tests.exe -- do not edit
+#! 10 blocks extracted from test_blocks_input.ts by extract_tests.exe -- do not edit
 # top level
 @config run
 top-level
@@ -55,6 +55,26 @@ sized-4
         width: 4;
       }
       
+<<<>>>
+# reuses a let-bound utility template
+@config run
+@theme-var example-foo 123px
+@utility-def foo value: var(--example-foo);
+@layer-wrap utilities
+@layer-before-theme true
+foo
+---
+
+      @layer utilities {
+        .foo {
+          value: var(--example-foo);
+        }
+      }
+
+      :root, :host {
+        --example-foo: 123px;
+      }
+
 <<<>>>
 # indented twice
 @config run

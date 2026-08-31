@@ -28,9 +28,14 @@ type variant_component = {
   breakpoint : Css.Media.key option;
       (** The width a breakpoint token names, so [sm] and [md] do not collapse
           onto one key. [None] for every other token. *)
-  wrapped : int;
-      (** The state a [group-]/[peer-] token wraps, so [group-focus] and
-          [group-has] keep their order. [0] for every other token. *)
+  wrapped : int list;
+      (** The recursive path of variants a compound token wraps, so
+          [group-has-indeterminate] and [group-has-focus] keep their inner state
+          order. [[]] for a non-compound token. *)
+  value_key : string option;
+      (** A data predicate spelling or the decoded selector denoted by an
+          arbitrary variant, including its implicit [&:is(...)] anchor. [None]
+          for slots whose variants compare only by rank. *)
 }
 (** One component of a rule's variant sort key: the slot a modifier token sorts
     in, plus what separates two tokens that share that slot. *)
@@ -61,9 +66,10 @@ type indexed_rule = {
   merge_key : string option;
   variant_order : int;
       (** Non-zero for modifier-prefixed rules; they sort after base rules. *)
-  variant_key : string * int;
-      (** Precomputed [(variant prefix, effective inner order)], built with
-          {!variant_sort_key}, so {!val-compare_indexed_rules} does not
+  variant_key : string * int * int;
+      (** Precomputed
+          [(variant prefix, effective inner order, collapsed data depth)], built
+          with {!variant_sort_key}, so {!val-compare_indexed_rules} does not
           recompute it per comparison. *)
   variant_orders : variant_component list;
       (** The rule's variant order keys sorted descending, built with
@@ -91,19 +97,25 @@ type indexed_rule = {
 val classify_selector : Css.Selector.t -> selector_kind
 (** [classify_selector sel] classifies a selector for ordering purposes. *)
 
-val variant_sort_key : string option -> Css.statement list -> string * int
+val variant_sort_key : string option -> Css.statement list -> string * int * int
 (** [variant_sort_key base_class nested] is the
-    [(variant prefix, effective inner variant order)] pair stored in
-    {!field-variant_key}. *)
+    [(variant prefix, effective inner variant order, collapsed data depth)]
+    triple stored in {!field-variant_key}. *)
 
 val variant_order_list :
-  string option -> int -> Css.Media.key option -> variant_component list
-(** [variant_order_list base_class variant_order breakpoint] is the descending
-    list of variant order keys stored in {!field-variant_orders}.
-    [variant_order] is the scalar fallback for selector-derived variants with no
-    order-bearing prefix. [breakpoint] is the rule's {!val-responsive_media_key}
-    and becomes the {!field-variant_component.breakpoint} of whichever token
-    names a breakpoint. *)
+  ?theme:Scheme.t ->
+  string option ->
+  int ->
+  Css.Media.key option ->
+  variant_component list
+(** [variant_order_list ?theme base_class variant_order breakpoint] is the
+    descending list of variant order keys stored in {!field-variant_orders}.
+    [theme] resolves exact custom-variant names before the built-in prefix
+    grammar. [variant_order] is the scalar fallback for selector-derived
+    variants with no order-bearing prefix. [breakpoint] is the rule's
+    {!val-responsive_media_key} and becomes the
+    {!field-variant_component.breakpoint} of whichever token names a breakpoint.
+*)
 
 val media_sort_keys :
   [ `Regular

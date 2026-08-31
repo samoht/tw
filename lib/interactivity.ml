@@ -61,19 +61,25 @@ module Handler = struct
     | Scheme_only_dark
     | Scheme_only_light
 
-  type Utility.base += Self of t
-
   let name = "interactivity"
 
-  (* Most interactivity utilities (user-select, will-change, scroll-snap, ...)
-     sort late (priority 31). resize (canonical rank 47) and appearance (rank
-     49) belong right after cursor (priority 11), around list-style (rank 48);
-     they return priority 11 with a suborder above cursor's range (<1000),
-     leaving a gap for list-style at ~2M. *)
+  (* Interaction controls from resize through appearance share priority 11 so
+     they can sit between cursor and columns. Scroll behavior follows overflow
+     and overscroll at priority 18; user-select and will-change sort late. *)
   let priority = function
     | Resize | Resize_none | Resize_x | Resize_y | Appearance_auto
-    | Appearance_none ->
+    | Appearance_none | Snap_start | Snap_end | Snap_center | Snap_none | Snap_x
+    | Snap_y | Snap_both | Snap_mandatory | Snap_proximity | Snap_align_none
+    | Snap_normal | Snap_always ->
         11
+    | Scroll_auto | Scroll_smooth -> 18
+    | Scheme_dark | Scheme_light | Scheme_light_dark | Scheme_normal
+    | Scheme_only_dark | Scheme_only_light ->
+        27
+    | Will_change_auto | Will_change_scroll | Will_change_contents
+    | Will_change_transform | Will_change_arbitrary _ ->
+        33
+    | Select_none | Select_text | Select_all | Select_auto -> 38
     (* Tailwind's utility order opens with the container utilities and then
        pointer-events, before the layout group. *)
     | Pointer_events_none | Pointer_events_auto -> -1
@@ -221,25 +227,18 @@ module Handler = struct
     | Scheme_only_light -> scheme_only_light_s
 
   let suborder = function
-    (* Alphabetical order: scroll before select *)
-    | Scroll_auto -> 0
-    | Scroll_smooth -> 1
+    | Scroll_auto -> 700
+    | Scroll_smooth -> 701
     | Select_all -> 2
     | Select_auto -> 3
     | Select_none -> 4
     | Select_text -> 5
-    | Snap_align_none -> 10
-    | Snap_always -> 11
-    | Snap_both -> 12
-    | Snap_center -> 13
-    | Snap_end -> 14
-    | Snap_mandatory -> 15
-    | Snap_none -> 16
-    | Snap_normal -> 17
-    | Snap_proximity -> 18
-    | Snap_start -> 19
-    | Snap_x -> 20
-    | Snap_y -> 21
+    (* Snap utilities are grouped by their property-order key. Candidate names
+       settle ties inside each property band. *)
+    | Snap_both | Snap_none | Snap_x | Snap_y -> 1_100_000
+    | Snap_mandatory | Snap_proximity -> 1_110_000
+    | Snap_align_none | Snap_center | Snap_end | Snap_start -> 1_120_000
+    | Snap_always | Snap_normal -> 1_130_000
     (* resize (priority 11) - after cursor (<1000), before list-style (~2M) *)
     | Resize -> 1_000_000 + 22
     | Resize_none -> 1_000_000 + 23
@@ -257,12 +256,12 @@ module Handler = struct
     | Will_change_arbitrary _ -> 30
     | Group -> 35
     | Peer -> 36
-    | Scheme_dark -> 40
-    | Scheme_light -> 41
-    | Scheme_light_dark -> 42
-    | Scheme_normal -> 43
-    | Scheme_only_dark -> 44
-    | Scheme_only_light -> 45
+    | Scheme_dark -> -100
+    | Scheme_light -> -99
+    | Scheme_light_dark -> -98
+    | Scheme_normal -> -97
+    | Scheme_only_dark -> -96
+    | Scheme_only_light -> -95
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -380,9 +379,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let select_none = utility Select_none
 let select_text = utility Select_text
 let select_all = utility Select_all

@@ -121,6 +121,44 @@ let drop_shadow_slot_order () =
     (List.sort Int.compare positions)
     positions
 
+(* A project-defined drop-shadow size and the built-in multi-shadow size share
+   the same candidate slot. Tailwind orders both by class name, so calc comes
+   before multi even though the latter has a dedicated constructor. *)
+let project_drop_shadow_size_order () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("drop-shadow-calc", "0 0 calc(1 * var(--spacing)) black") ]
+  in
+  let classes = [ "drop-shadow-calc"; "drop-shadow-multi" ] in
+  let utilities =
+    List.rev classes
+    |> List.map (fun cls ->
+        match Tw.of_string ~theme cls with
+        | Ok utility -> utility
+        | Error (`Msg message) -> Alcotest.failf "%s: %s" cls message)
+  in
+  let css =
+    Tw.to_css ~theme ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  let position cls =
+    let needle = "." ^ cls ^ "{" in
+    match Astring.String.find_sub ~sub:needle css with
+    | Some position -> position
+    | None -> Alcotest.failf "%s missing from the tw sheet" cls
+  in
+  Alcotest.(check bool)
+    "project size precedes multi" true
+    (position "drop-shadow-calc" < position "drop-shadow-multi")
+
+let drop_shadow_candidate_order () =
+  Test_helpers.check_class_order ~test_name:"drop-shadow candidate order"
+    [
+      "drop-shadow-lg";
+      "drop-shadow-[0_3px_1px_rgba(0,0,0,.15)]";
+      "drop-shadow-2xl";
+      "drop-shadow";
+    ]
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -130,6 +168,64 @@ let suborder_matches_tailwind () =
 
   Test_helpers.check_ordering_matches
     ~test_name:"filters suborder matches Tailwind" shuffled
+
+(* A filter kind is one property slot; Tailwind orders its candidate spellings
+   naturally. Per-value arithmetic reverses negative angles and the
+   grayscale/invert/sepia tails, while hand-numbered blur sizes disagree with
+   candidate order. *)
+let candidate_order_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"filter candidate order"
+    [
+      "sepia-0";
+      "sepia";
+      "invert-65";
+      "invert-0";
+      "invert";
+      "hue-rotate-270";
+      "hue-rotate-0";
+      "-hue-rotate-180";
+      "-hue-rotate-90";
+      "-hue-rotate-15";
+      "grayscale-200";
+      "grayscale-50";
+      "grayscale-0";
+      "grayscale";
+      "blur-xs";
+      "blur-xl";
+      "blur-sm";
+      "blur-none";
+      "blur-md";
+      "blur-lg";
+      "blur-3xl";
+      "blur-2xl";
+      "blur";
+      "backdrop-filter-none";
+      "backdrop-filter";
+      "backdrop-sepia-50";
+      "backdrop-sepia-0";
+      "backdrop-sepia";
+      "backdrop-invert-65";
+      "backdrop-invert-0";
+      "backdrop-invert";
+      "backdrop-hue-rotate-270";
+      "backdrop-hue-rotate-0";
+      "-backdrop-hue-rotate-180";
+      "-backdrop-hue-rotate-90";
+      "-backdrop-hue-rotate-15";
+      "backdrop-grayscale-200";
+      "backdrop-grayscale-50";
+      "backdrop-grayscale-0";
+      "backdrop-grayscale";
+      "backdrop-blur-xs";
+      "backdrop-blur-xl";
+      "backdrop-blur-sm";
+      "backdrop-blur-none";
+      "backdrop-blur-md";
+      "backdrop-blur-lg";
+      "backdrop-blur-3xl";
+      "backdrop-blur-2xl";
+      "backdrop-blur";
+    ]
 
 (* backdrop-blur-N must reference the unified v4 --blur-N token (not the dropped
    --backdrop-blur-N) and emit the shipped --blur-N decl. *)
@@ -369,7 +465,11 @@ let tests =
     test_case "backdrop-blur token" `Quick test_backdrop_blur_token;
     test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "filter candidate order" `Slow candidate_order_matches_tailwind;
     test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
+    test_case "project drop-shadow size order" `Quick
+      project_drop_shadow_size_order;
+    test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
   ]
 

@@ -124,9 +124,30 @@ let bracket_named_color () =
     "stroke-[notacolour] is not a class" true
     (Result.is_error (Tw.of_string "stroke-[notacolour]"))
 
+(* fill and stroke share a priority with object-fit and object-position, and
+   Tailwind emits them first of the two. They sorted last instead, the whole svg
+   family landing after the object utilities, and no canonical comparison could
+   see it: the two write disjoint properties, so nothing about the pair is
+   cascade-significant and the differ folds the reorder away. Reading the
+   positions back out of the sheet is what catches it. *)
+let svg_sorts_before_object () =
+  Test_helpers.check_class_order ~test_name:"fill and stroke before object"
+    [
+      "bg-cover";
+      "mask-cover";
+      "fill-blue-200";
+      "fill-none";
+      "stroke-current";
+      "stroke-2";
+      "object-cover";
+      "object-center";
+      "p-4";
+    ]
+
 let tests =
   [
     test_case "basic svg" `Quick basic_svg;
+    test_case "svg sorts before object" `Quick svg_sorts_before_object;
     test_case "bracket named colour" `Quick bracket_named_color;
     test_case "stroke shadeless colors" `Quick stroke_shadeless_colors;
     test_case "stroke light-dark color" `Quick stroke_light_dark_color;

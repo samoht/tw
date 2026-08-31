@@ -17,8 +17,6 @@ module Handler = struct
     | Inline_size
     | Arbitrary of string
 
-  type Utility.base += Self of t
-
   let name = "contain"
   let priority _ = 34
 
@@ -153,19 +151,20 @@ module Handler = struct
           else Error (`Msg "Invalid contain arbitrary value")
         else Error (`Msg "Not a contain utility")
 
-  let utility t = Utility.base (Self t)
   let examples = [ Strict ]
 end
 
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)
+
+let utility = Utility_factory.v
 
 (* Convenience functions *)
-let contain_none = Handler.utility None
-let contain_strict = Handler.utility Strict
-let contain_content = Handler.utility Content
-let contain_size = Handler.utility Size
-let contain_layout = Handler.utility Layout
-let contain_paint = Handler.utility Paint
-let contain_style = Handler.utility Contain_style
-let contain_inline_size = Handler.utility Inline_size
-let contain_arbitrary s = Handler.utility (Arbitrary s)
+let contain_none = utility Handler.None
+let contain_strict = utility Handler.Strict
+let contain_content = utility Handler.Content
+let contain_size = utility Handler.Size
+let contain_layout = utility Handler.Layout
+let contain_paint = utility Handler.Paint
+let contain_style = utility Handler.Contain_style
+let contain_inline_size = utility Handler.Inline_size
+let contain_arbitrary s = utility (Handler.Arbitrary s)

@@ -157,43 +157,21 @@ let rec filter_utility_properties props =
     props
 
 (* Recursively filter theme declarations from nested statements *)
-let rec filter_theme_from_statements statements =
+(* Theme tokens belong in the theme layer, so a utility rule that declares one
+   to make its own value available has it stripped here. [Css.map] reaches every
+   rule at any depth, [@starting-style] included, which the walk this replaces
+   did not descend into: [md:starting:p-4] declared [--spacing] inside the rule
+   as well as in the theme layer. A bare declarations block carries no selector,
+   so [Css.map] does not see one and the top level is filtered before it. *)
+let filter_theme_from_statements statements =
   List.map
     (fun stmt ->
       match Css.as_declarations stmt with
-      | Some decls ->
-          (* Bare declarations block - filter theme properties *)
-          let filtered_decls = filter_utility_properties decls in
-          Css.declarations filtered_decls
-      | None -> (
-          match Css.as_rule stmt with
-          | Some (selector, decls, nested) ->
-              let filtered_decls = filter_utility_properties decls in
-              let filtered_nested = filter_theme_from_statements nested in
-              Css.rule ~selector ~nested:filtered_nested filtered_decls
-          | None -> (
-              match Css.as_media stmt with
-              | Some (condition, content) ->
-                  Css.media ~condition (filter_theme_from_statements content)
-              | None -> (
-                  match Css.as_layer stmt with
-                  | Some (name, content) ->
-                      Css.layer ?name (filter_theme_from_statements content)
-                  | None -> (
-                      match Css.as_container stmt with
-                      | Some (name, condition, content) ->
-                          Css.container ?name ?condition
-                            (filter_theme_from_statements content)
-                      | None -> (
-                          (* An opacity colour's progressive-enhancement block
-                             carries the same theme declaration as the rule it
-                             sits beside; without this it is declared twice. *)
-                          match Css.as_supports stmt with
-                          | Some (condition, content) ->
-                              Css.supports ~condition
-                                (filter_theme_from_statements content)
-                          | None -> stmt))))))
+      | Some decls -> Css.declarations (filter_utility_properties decls)
+      | None -> stmt)
     statements
+  |> Css.map (fun selector decls ->
+      Css.rule ~selector (filter_utility_properties decls))
 
 (* Compute merge key from a base class name as a fallback when the utility
    handler does not provide a typed merge_key via Style.t. For bracket
@@ -405,7 +383,7 @@ let rec declaration_count props nested =
                     | None -> 0))))
       0 nested
 
-let add_index ?(declared = fun _ -> false) triples =
+let add_index ?theme ?(declared = fun _ -> false) triples =
   let buf = Buffer.create 256 in
   List.mapi
     (fun i (typ, sel, props, order, nested, base_class, merge_key) ->
@@ -433,7 +411,8 @@ let add_index ?(declared = fun _ -> false) triples =
          variant_order;
          variant_key = Sort.variant_sort_key base_class nested;
          variant_orders =
-           Sort.variant_order_list base_class variant_order responsive_media_key;
+           Sort.variant_order_list ?theme base_class variant_order
+             responsive_media_key;
          base_class_key = Option.value ~default:"" base_class;
          media_key;
          nested_media_key;
@@ -441,6 +420,40 @@ let add_index ?(declared = fun _ -> false) triples =
        }
         : Sort.indexed_rule))
     triples
+
+(* The entrypoint expands one routed candidate into finished CSS before it hands
+   the result to the regular build. That candidate can contain several top-level
+   rules -- for example a selector branch, its [@supports] companion and a media
+   branch. Tailwind keeps those rules together. Preserve their source order as
+   one sortable block instead of letting the rule comparator interleave a later
+   candidate between the branches. *)
+let sort_indexed_blocks indexed =
+  let groups = Hashtbl.create 8 in
+  List.iter
+    (fun (r : Sort.indexed_rule) ->
+      match (r.declared, r.base_class) with
+      | true, Some cls ->
+          let previous =
+            Option.value ~default:[] (Hashtbl.find_opt groups cls)
+          in
+          Hashtbl.replace groups cls (r :: previous)
+      | _ -> ())
+    indexed;
+  let emitted = Hashtbl.create 8 in
+  let blocks =
+    List.filter_map
+      (fun (r : Sort.indexed_rule) ->
+        match (r.declared, r.base_class) with
+        | true, Some cls when Hashtbl.mem emitted cls -> None
+        | true, Some cls ->
+            Hashtbl.add emitted cls ();
+            Some (r, List.rev (Hashtbl.find groups cls))
+        | _ -> Some (r, [ r ]))
+      indexed
+  in
+  blocks
+  |> List.sort (fun (r1, _) (r2, _) -> Sort.compare_indexed_rules r1 r2)
+  |> List.concat_map snd
 
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
@@ -453,7 +466,7 @@ let rule_sets_from_selector_props order_map all_rules =
     |> List.filter_map (rule_to_triple order_map)
     |> deduplicate_typed_triples |> add_index
   in
-  let sorted = List.sort Sort.compare_indexed_rules indexed in
+  let sorted = sort_indexed_blocks indexed in
   if Sort.debug_compare_enabled () then
     List.iter
       (fun (r : Sort.indexed_rule) ->
@@ -493,11 +506,11 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules ?declared order_map all_rules =
+let sorted_indexed_rules ?theme ?declared order_map all_rules =
   all_rules
   |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index ?declared
-  |> List.sort Sort.compare_indexed_rules
+  |> deduplicate_typed_triples |> add_index ?theme ?declared
+  |> sort_indexed_blocks
 
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order vars =
@@ -1350,25 +1363,25 @@ let has_pseudo_elements tw_classes =
   in
   List.exists check_utility tw_classes
 
-let has_transition_utility selector_props =
-  List.exists
-    (fun r ->
-      let bc =
-        match r with
-        | Regular { base_class; _ }
-        | Media_query { base_class; _ }
-        | Container_query { base_class; _ }
-        | Starting_style { base_class; _ }
-        | Supports_query { base_class; _ } ->
-            base_class
-      in
-      match bc with
-      | Some c ->
-          String.length c >= 10
-          && String.sub c 0 10 = "transition"
-          && c <> "transition-none"
-      | None -> false)
-    selector_props
+(* The default duration and timing function are theme declarations every
+   [transition-*] rule reads, so a sheet carrying one of those utilities needs
+   them however the utility is dressed. Reading the name off the emitted class
+   missed [hover:transition] and every other variant, whose class is
+   [hover:transition], and the rule then referenced a variable nothing
+   declared. *)
+let has_transition_utility tw_classes =
+  let rec check = function
+    | Utility.Base b ->
+        let c = Utility.class_of_base b in
+        String.length c >= 10
+        && String.sub c 0 10 = "transition"
+        && not (String.equal c "transition-none")
+    | Utility.Modified (_, u) | Utility.Important (_, u) | Utility.Aliased (_, u)
+      ->
+        check u
+    | Utility.Group us -> List.exists check us
+  in
+  List.exists check tw_classes
 
 (* Result of building individual layers *)
 type layers_result = {
@@ -1379,14 +1392,14 @@ type layers_result = {
   property_rules : Css.statement list;
 }
 
-let individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
-    selector_props all_property_statements statements =
+let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
+    first_usage_order selector_props all_property_statements statements =
   let theme_defaults =
     let font_defaults =
       if include_base then Typography.default_font_family_declarations else []
     in
     let transition_defaults =
-      if include_base && has_transition_utility selector_props then
+      if include_base && has_transition then
         Transitions.default_transition_declarations
       else []
     in
@@ -1476,8 +1489,9 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
      flag, so utility presence must not auto-enable the global base. *)
   let forms_base = match forms with Some f -> f | None -> false in
   let individual =
-    individual_layers ~theme ~layers ~include_base ~forms_base first_usage_order
-      selector_props all_property_statements statements
+    individual_layers ~theme ~layers ~include_base ~forms_base
+      ~has_transition:(has_transition_utility tw_classes)
+      first_usage_order selector_props all_property_statements statements
   in
   let keyframes =
     List.fold_left collect_keyframes [] styles
@@ -1577,51 +1591,64 @@ let output_base_class_and_props = function
    Built-in values carry distinct numeric suborders in TW, so when a declared
    utility joins one of those property families, normalize that family's
    suborder for this render and let the existing candidate-name tiebreaker
-   interleave both kinds of utility. *)
+   interleave both kinds of utility. A negative minimum is a built-in prelude,
+   such as [sr-only]/[not-sr-only] before ordinary position utilities. Preserve
+   that walk and put the declared utility in the preceding property slot. *)
 let normalize_declared_property_families order_map builtins extra_outputs =
   List.iter
     (fun (class_name, (priority, _), outputs) ->
-      match
-        List.find_map
-          (fun output ->
-            let _, props = output_base_class_and_props output in
-            Utility.ordering_property props)
-          outputs
-      with
-      | None -> ()
-      | Some property ->
-          let family =
-            List.filter_map
-              (fun output ->
-                let base_class, props = output_base_class_and_props output in
-                match (base_class, Utility.ordering_property props) with
-                | Some cls, Some key
-                  when Css.Declaration.equal_prop_key key property ->
-                    let base = extract_base_utility cls in
-                    Option.map
-                      (fun order -> (base, order))
-                      (Hashtbl.find_opt order_map base)
-                | _ -> None)
-              builtins
-          in
-          let suborder =
-            List.fold_left
-              (fun acc (_, (p, s)) ->
-                if p <> priority then acc
-                else Some (Option.fold ~none:s ~some:(Int.min s) acc))
-              None family
-          in
-          Option.iter
-            (fun suborder ->
-              List.iter
-                (fun (base, (p, _)) ->
-                  if p = priority then
-                    Hashtbl.replace order_map base (priority, suborder))
-                family;
-              Hashtbl.replace order_map
-                (extract_base_utility class_name)
-                (priority, suborder))
-            suborder)
+      let modifiers, _ = Modifiers.of_string class_name in
+      (* A custom-variant expansion also arrives through [extra], already
+         carrying the order of the built-in it wraps. It is not a new utility
+         joining that property family, so flattening the family around it
+         destroys the built-ins' property walk. *)
+      if modifiers = [] then
+        match
+          List.find_map
+            (fun output ->
+              let _, props = output_base_class_and_props output in
+              Utility.ordering_property props)
+            outputs
+        with
+        | None -> ()
+        | Some property ->
+            let family =
+              List.filter_map
+                (fun output ->
+                  let base_class, props = output_base_class_and_props output in
+                  match (base_class, Utility.ordering_property props) with
+                  | Some cls, Some key
+                    when Css.Declaration.equal_prop_key key property ->
+                      let base = extract_base_utility cls in
+                      Option.map
+                        (fun order -> (base, order))
+                        (Hashtbl.find_opt order_map base)
+                  | _ -> None)
+                builtins
+            in
+            let suborder =
+              List.fold_left
+                (fun acc (_, (p, s)) ->
+                  if p <> priority then acc
+                  else Some (Option.fold ~none:s ~some:(Int.min s) acc))
+                None family
+            in
+            Option.iter
+              (fun suborder ->
+                if suborder < 0 then
+                  Hashtbl.replace order_map
+                    (extract_base_utility class_name)
+                    (priority, suborder - 1)
+                else (
+                  List.iter
+                    (fun (base, (p, _)) ->
+                      if p = priority then
+                        Hashtbl.replace order_map base (priority, suborder))
+                    family;
+                  Hashtbl.replace order_map
+                    (extract_base_utility class_name)
+                    (priority, suborder)))
+              suborder)
     extra_outputs
 
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
@@ -1665,7 +1692,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     fun cls -> Hashtbl.mem names cls
   in
   let sorted_rules =
-    sorted_indexed_rules ~declared:verbatim order_map selector_props
+    sorted_indexed_rules ~theme ~declared:verbatim order_map selector_props
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =

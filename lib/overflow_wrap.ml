@@ -12,7 +12,6 @@ module Handler = struct
   open Css
 
   type t = Normal | Break_word | Anywhere
-  type Utility.base += Self of t
 
   let name = "overflow_wrap"
 
@@ -54,9 +53,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let wrap_normal = utility Normal
 let wrap_break_word = utility Break_word
 let wrap_anywhere = utility Anywhere

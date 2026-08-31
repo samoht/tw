@@ -43,12 +43,10 @@ open Cascade_diff
 open Alcotest
 open Upstream_fixture
 
-(* Colour comparison is normalised the way Tailwind normalises its own
-   snapshots: [color_mix_to_oklab] then [truncate_color_precision] run on both
-   sides before the diff, so an [oklab] fixture and tw's exact colour describe
-   the same value. That is pure fixture skew, not a tw bug: Tailwind's snapshot
-   serialiser truncates oklab axes for cross-OS stability, and the fixtures fold
-   a concrete-colour opacity to [oklab] where tw keeps the shorter exact colour.
+(* Fixture comparison normalises semantic artifacts of Tailwind's serializer and
+   compatibility minifier on both sides before the diff: colour precision,
+   concrete colour-mix folds, redundant vendor prefixes, and a static math
+   function that reduces to one number. None of those is a generator choice.
    Nothing else is tolerated: the diff a case reports is the diff it fails on.
    (A [--font-sans] / [--tw-prose-*] custom-property allowance, a
    [--text-*--line-height] allowance, a mask-angle calc allowance, an [@property
@@ -221,7 +219,7 @@ let canonical_stylesheet_css css = String.trim css
    theme block, the [@property] rules, and whatever a declared utility hoists.
    tw wraps the whole sheet in its own layer scaffolding, so keep the layer the
    template named and flatten the rest. *)
-let keep_only_layer name stylesheet =
+let keep_only_layer ~before_theme name stylesheet =
   let rec go stmts =
     List.concat_map
       (fun stmt ->
@@ -234,7 +232,21 @@ let keep_only_layer name stylesheet =
           | None -> [ stmt ])
       stmts
   in
-  Css.v (go (Css.statements stylesheet))
+  let statements = go (Css.statements stylesheet) in
+  let statements =
+    if not before_theme then statements
+    else
+      let wrapped, rest =
+        List.partition
+          (fun stmt ->
+            match Css.as_layer stmt with
+            | Some (Some n, _) -> Css.Stylesheet.equal_layer_name n [ name ]
+            | Some (None, _) | None -> false)
+          statements
+      in
+      wrapped @ rest
+  in
+  Css.v statements
 
 (* Tailwind compiled the corpus from each case's own [@theme] block, with no
    default theme behind it, so the [@keyframes] that theme declares are in no
@@ -248,6 +260,121 @@ let drop_theme_keyframes stylesheet =
     (List.filter
        (fun stmt -> Option.is_none (Css.as_keyframes stmt))
        (Css.statements stylesheet))
+
+(* Compatibility minifiers add prefixed declarations beside the declaration a
+   utility authored. For parity, that duplicate is semantically inert only when
+   the same declaration block holds an identical unprefixed property and value.
+   A lone prefix, or a prefix whose value maps to another keyword, stays in the
+   comparison. Parse warnings leave the input alone so this normalisation cannot
+   hide a declaration the CSS reader dropped. *)
+let vendor_prefixes = [ "-webkit-"; "-moz-"; "-ms-" ]
+
+let declaration_parts declaration =
+  let text = Css.Declaration.to_string ~minify:true declaration in
+  match String.index_opt text ':' with
+  | None -> None
+  | Some i ->
+      Some
+        ( String.sub text 0 i,
+          String.sub text (i + 1) (String.length text - i - 1) )
+
+let unprefixed_name name =
+  List.find_map
+    (fun prefix ->
+      if String.starts_with ~prefix name then
+        Some
+          (String.sub name (String.length prefix)
+             (String.length name - String.length prefix))
+      else None)
+    vendor_prefixes
+
+let drop_redundant_vendor_prefixes css =
+  match Css.of_string css with
+  | Ok { stylesheet; warnings = []; _ } ->
+      let stylesheet =
+        Css.Stylesheet.map_declarations
+          (fun declarations ->
+            List.filter
+              (fun declaration ->
+                match declaration_parts declaration with
+                | Some (name, value) -> (
+                    match unprefixed_name name with
+                    | None -> true
+                    | Some name ->
+                        not
+                          (List.exists
+                             (fun candidate ->
+                               declaration_parts candidate = Some (name, value))
+                             declarations))
+                | None -> true)
+              declarations)
+          stylesheet
+      in
+      Css.to_string ~minify:true stylesheet |> String.trim
+  | Ok _ | Error _ -> css
+
+(* LightningCSS evaluates a static dimensionless math function before writing a
+   snapshot. Cascade deliberately preserves authored math in several property
+   grammars, so canonical comparison evaluates only a function that parses in
+   full as a [<number>] and reduces to a concrete numeric leaf. A dimension, a
+   [var()] or an unknown function remains byte-for-byte visible. Concrete
+   results use the snapshot serializer's six-significant-figure budget. *)
+
+let rec concrete_number : Css.number -> float option = function
+  | Css.Num value -> Some value
+  | Css.Calc calc -> concrete_number_calc calc
+  | Css.Var _ | Css.Round _ | Css.Mod _ | Css.Rem _ | Css.Hypot _ | Css.Pow _
+  | Css.Sqrt _ | Css.Abs _ | Css.Sign _ | Css.Sin _ ->
+      None
+
+and concrete_number_calc : Css.number Css.calc -> float option = function
+  | Css.Num value -> Some value
+  | Css.Val number -> concrete_number number
+  | Css.Nested calc | Css.Parens calc -> concrete_number_calc calc
+  | Css.Expr (left, op, right) -> (
+      match (concrete_number_calc left, concrete_number_calc right) with
+      | Some left, Some right -> (
+          match op with
+          | Css.Add -> Some (left +. right)
+          | Css.Sub -> Some (left -. right)
+          | Css.Mul -> Some (left *. right)
+          | Css.Div when right <> 0. -> Some (left /. right)
+          | Css.Div -> None)
+      | None, _ | _, None -> None)
+  | Css.Var _ | Css.Math_const _ | Css.Sibling_index | Css.Sibling_count
+  | Css.Math_fn _ ->
+      None
+
+let fold_declaration_static_number_math declaration =
+  let authored = Css.Declaration.string_of_value ~minify:true declaration in
+  let cursor = Cascade.Cursor.of_string authored in
+  match
+    try Some (Css.Values.read_number cursor)
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None
+  with
+  | Some (Css.Num _) -> declaration
+  | Some _ when not (Cascade.Cursor.is_done cursor) -> declaration
+  | Some number -> (
+      match concrete_number (Css.Values.normalize_number number) with
+      | Some value when Float.is_finite value -> (
+          let value = Css.Pp.round_sig 6 value in
+          let value =
+            Css.Pp.to_string ~minify:true Css.Values.pp_number (Css.Num value)
+          in
+          try Css.Declaration.with_value declaration value
+          with Cascade.Cursor.Parse_error _ | Invalid_argument _ ->
+            declaration)
+      | Some _ | None -> declaration)
+  | None -> declaration
+
+let fold_static_number_math css =
+  match Css.of_string css with
+  | Ok { stylesheet; warnings = []; _ } ->
+      Css.Stylesheet.map_declarations
+        (List.map fold_declaration_static_number_math)
+        stylesheet
+      |> Css.to_string ~minify:true |> String.trim
+  | Ok _ | Error _ -> css
 
 (* [color-mix(in oklab, C p%, transparent)] denotes the concrete colour C at
    alpha p, which LightningCSS folds to an [oklab(...)] in the fixtures. tw
@@ -371,13 +498,17 @@ let test_scheme_from_declared_tokens_only () =
     scheme.Tw.Scheme.default_outline_width;
   Alcotest.(check bool)
     "the declared radius is read" true
-    (Tw.Scheme.radius scheme "full" = Some (Css.Px 9999.));
+    (Option.equal Css.Values.equal_length
+       (Tw.Scheme.radius scheme "full")
+       (Some (Css.Px 9999.)));
   Alcotest.(check bool)
     "an undeclared radius stays absent" false
     (Tw.Scheme.has_explicit_radius scheme "sm");
   Alcotest.(check bool)
     "the declared spacing step is read" true
-    (Tw.Scheme.spacing scheme 4 = Some (Css.Rem 1.));
+    (Option.equal Css.Values.equal_length
+       (Tw.Scheme.spacing scheme 4)
+       (Some (Css.Rem 1.)));
   Alcotest.(check bool)
     "an undeclared spacing step stays absent" false
     (Tw.Scheme.has_explicit_spacing scheme 8)
@@ -470,7 +601,7 @@ let stat_rejected = ref 0
 let stat_routed = ref 0
 let stat_expected_empty_cases = ref 0
 
-let run_test_case test () =
+let run_test_case test expected () =
   if test.classes = [] then ()
   else
     let base_scheme = scheme_of_theme_vars test.theme_vars in
@@ -556,9 +687,9 @@ let run_test_case test () =
       let inline = tokens_in_mode "inline" in
       let reference = tokens_in_mode "reference" in
       Tw.Scheme.with_overrides ~inline ~reference scheme
-        (theme_overrides_of ~declared test.config test.expected @ theme_vars)
+        (theme_overrides_of ~declared test.config expected @ theme_vars)
     in
-    let resolve_theme = theme_resolution ~declared test.config test.expected in
+    let resolve_theme = theme_resolution ~declared test.config expected in
     (* A class the case's own [@utility] declares means nothing to
        [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
        a project entrypoint's does, through [Entrypoint]. The rest of the case
@@ -588,7 +719,7 @@ let run_test_case test () =
     stat_parsed := !stat_parsed + List.length utilities;
     stat_rejected := !stat_rejected + List.length rejected;
     stat_routed := !stat_routed + routed_count;
-    if test.expected = "" then incr stat_expected_empty_cases;
+    if expected = "" then incr stat_expected_empty_cases;
     let our_stylesheet =
       if utilities = [] && routed_extra = [] && routed_stmts = [] then None
       else
@@ -601,7 +732,8 @@ let run_test_case test () =
         let sheet =
           match test.layer_wrap with
           | None -> sheet
-          | Some name -> keep_only_layer name sheet
+          | Some name ->
+              keep_only_layer ~before_theme:test.layer_before_theme name sheet
         in
         Some (drop_theme_keyframes sheet)
     in
@@ -610,14 +742,16 @@ let run_test_case test () =
       | None -> ""
       | Some stylesheet ->
           stylesheet |> resolve_theme |> Css.to_string ~minify:true
-          |> String.trim
+          |> String.trim |> drop_redundant_vendor_prefixes
     in
-    let expected = test.expected in
-    let expected_css = canonical_stylesheet_css expected in
+    let expected_css =
+      canonical_stylesheet_css expected |> drop_redundant_vendor_prefixes
+    in
     if our_css = "" && expected = "" then ()
     else
       let normalize_colors s =
-        truncate_color_precision (color_mix_to_oklab (color_mix_percentage s))
+        s |> fold_static_number_math |> color_mix_percentage
+        |> color_mix_to_oklab |> truncate_color_precision
       in
       let result =
         Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
@@ -679,6 +813,37 @@ let test_color_mix_percentage () =
     "color-mix(in oklab, red var(--opacity-half, .5), transparent)";
   check "text outside color-mix untouched" "opacity: .5" "opacity: .5"
 
+let test_redundant_vendor_prefixes () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (drop_redundant_vendor_prefixes input)
+  in
+  check "identical prefixed declarations are redundant"
+    ".x{mask-image:var(--x)}"
+    ".x{-webkit-mask-image:var(--x);-webkit-mask-image:var(--x);mask-image:var(--x)}";
+  check "a mapped prefix remains observable"
+    ".x{-webkit-mask-composite:source-in;mask-composite:intersect}"
+    ".x{-webkit-mask-composite:source-in;mask-composite:intersect}";
+  check "a prefix with no unprefixed declaration remains observable"
+    ".x{-webkit-mask-image:var(--x)}" ".x{-webkit-mask-image:var(--x)}"
+
+let test_static_number_math () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (fold_static_number_math input)
+  in
+  check "static division is evaluated" ".x{line-height:1.33333}"
+    ".x{line-height:calc(1 / 0.75)}";
+  check "the serializer's six significant figures are used"
+    ".x{opacity:.333333}" ".x{opacity:calc(1 / 3)}";
+  check "static addition is evaluated" ".x{opacity:3}" ".x{opacity:calc(1 + 2)}";
+  check "dimensional math is not a number" ".x{width:calc(1px + 2px)}"
+    ".x{width:calc(1px + 2px)}";
+  check "a variable remains observable" ".x{opacity:calc(var(--x)/2)}"
+    ".x{opacity:calc(var(--x) / 2)}";
+  check "another CSS function remains observable" ".x{color:rgb(1 2 3)}"
+    ".x{color:rgb(1 2 3)}";
+  check "a function in a string remains observable"
+    ".x{content:\"calc(1 / 3)\"}" ".x{content:\"calc(1 / 3)\"}"
+
 (* Guards [truncate_color_precision]: it truncates (never rounds) the
    oklab-family axes to three decimals like Tailwind's snapshot serialiser, so
    tw's full-precision colour and the fixture's reduced spelling collapse to the
@@ -720,6 +885,133 @@ let test_color_tolerance () =
     "color-mix(in oklab, var(--x) 50%, transparent)"
     (color_mix_to_oklab "color-mix(in oklab, var(--x) 50%, transparent)")
 
+(* The reader's own grammar. Both fixtures are machine-written, so a line the
+   grammar has no place for means [extract_tests.ml] and [upstream_fixture.ml]
+   have drifted apart, or the fixture was edited by hand. The reader raises on
+   one instead of resuming its scan, which would drop the block the line sits in
+   and leave the case count as the only trace. *)
+let write_reader_regression_fixture name contents =
+  let dir = "tmp" in
+  if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
+  let path = Filename.concat dir name in
+  let oc = open_out path in
+  output_string oc contents;
+  close_out oc;
+  path
+
+let reader_regression_banner =
+  "#! 1 block extracted from variants.test.ts by extract_tests.exe -- do not \
+   edit\n"
+
+let test_reader_keeps_a_compile_error_block () =
+  let path =
+    write_reader_regression_fixture "reader_compile_error.txt"
+      (reader_regression_banner
+     ^ "# a case that throws\n@config run\nfoo bar\n<<<>>>\n")
+  in
+  Alcotest.(check int) "one case" 1 (List.length (read path))
+
+let test_reader_rejects_a_stray_line () =
+  let path =
+    write_reader_regression_fixture "reader_stray.txt"
+      (reader_regression_banner
+     ^ "# a case\n\
+        @config run\n\
+        flex\n\
+        stray\n\
+        ---\n\
+        .flex { display: flex }\n\
+        <<<>>>\n")
+  in
+  match read path with
+  | exception _ -> ()
+  | cases ->
+      Alcotest.failf "read %d cases instead of rejecting the stray line"
+        (List.length cases)
+
+let banner =
+  "#! 1 block extracted from variants.test.ts by extract_tests.exe -- do not \
+   edit\n"
+
+let read_result path =
+  match read path with
+  | cases -> Ok cases
+  | exception Malformed msg -> Error msg
+
+let check_rejected name contents =
+  let path =
+    write_reader_regression_fixture (name ^ ".txt") (banner ^ contents)
+  in
+  match read_result path with
+  | Error _ -> ()
+  | Ok cases ->
+      Alcotest.failf "%s: read %d cases instead of raising" name
+        (List.length cases)
+
+let test_reader_reads_a_block () =
+  let path =
+    write_reader_regression_fixture "reader_good.txt"
+      (banner
+     ^ "# a case\n@config run\nflex\n---\n.flex { display: flex }\n<<<>>>\n")
+  in
+  match read_result path with
+  | Error msg -> Alcotest.failf "a well-formed block was rejected: %s" msg
+  | Ok [ case ] ->
+      Alcotest.(check (list string)) "classes" [ "flex" ] case.classes;
+      Alcotest.(check (option string))
+        "expected CSS" (Some ".flex { display: flex }") case.expected
+  | Ok cases -> Alcotest.failf "one block read as %d cases" (List.length cases)
+
+(* Upstream tests that assert the compile throws are written without a [---]
+   section. They are a shape the extractor produces, so the reader keeps them
+   and says so rather than dropping them the way it drops nothing else. *)
+let test_reader_keeps_a_block_asserting_an_error () =
+  let path =
+    write_reader_regression_fixture "reader_throws.txt"
+      (banner ^ "# a case that throws\n@config run\nfoo bar\n<<<>>>\n")
+  in
+  match read_result path with
+  | Error msg -> Alcotest.failf "a block with no --- was rejected: %s" msg
+  | Ok [ case ] ->
+      Alcotest.(check (option string)) "no expected CSS" None case.expected
+  | Ok cases -> Alcotest.failf "one block read as %d cases" (List.length cases)
+
+let test_reader_rejects_a_stray_line_with_message () =
+  check_rejected "reader_stray"
+    "# a case\n@config run\nflex\nstray\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_an_unknown_config () =
+  check_rejected "reader_config"
+    "# a case\n@config bogus\nflex\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_a_headerless_block () =
+  check_rejected "reader_headerless"
+    "@config run\nflex\n---\n.flex { display: flex }\n<<<>>>\n"
+
+let test_reader_rejects_an_unclosed_block () =
+  check_rejected "reader_unclosed"
+    "# a case\n\
+     @config run\n\
+     flex\n\
+     ---\n\
+     .flex { display: flex }\n\
+     <<<>>>\n\
+     # added by hand\n\
+     @config run\n\
+     block\n\
+     ---\n\
+     .block { display: block }\n"
+
+let test_reader_rejects_a_directive_with_no_value () =
+  check_rejected "reader_directive"
+    "# a case\n\
+     @config run\n\
+     @theme-var spacing\n\
+     flex\n\
+     ---\n\
+     .flex { display: flex }\n\
+     <<<>>>\n"
+
 let print_parity_report () =
   Fmt.epr "@.=== upstream parity report ===@.";
   Fmt.epr "classes: %d total, %d parsed, %d routed, %d rejected@."
@@ -745,6 +1037,10 @@ let print_parity_report () =
 let utilities_floor = 620
 let variants_floor = 150
 
+(* A block the extractor writes without a [---] section is an upstream test that
+   asserts the compile throws: it carries no CSS to replay. Those are the only
+   blocks that do not become a test, and the count is printed so every block of
+   the fixture is accounted for either way. *)
 let load basename floor =
   match path basename with
   | None ->
@@ -752,12 +1048,26 @@ let load basename floor =
       exit 1
   | Some p ->
       let cases = read p in
-      let n = List.length cases in
+      (* [read] returns one case per block or raises, so a mismatch here is the
+         reader having grown a skip that says nothing. *)
+      let found = blocks p in
+      if List.length cases <> found then (
+        Fmt.epr "%s holds %d blocks but read as %d cases.@." p found
+          (List.length cases);
+        exit 1);
+      let replayable =
+        List.filter_map
+          (fun c -> Option.map (fun expected -> (c, expected)) c.expected)
+          cases
+      in
+      let n = List.length replayable in
+      Fmt.epr "%s: %d blocks, %d replayed, %d asserting a compile error@." p
+        found n (found - n);
       if n < floor then (
         Fmt.epr "%s yielded %d test cases, fewer than the floor of %d.@." p n
           floor;
         exit 1);
-      cases
+      replayable
 
 (* The floors count what a fixture holds, not where it came from: a block added
    to a generated fixture by hand raises the count and passes them, then
@@ -798,12 +1108,18 @@ let () =
   at_exit print_parity_report;
 
   let alcotest_cases tests =
-    List.map (fun tc -> test_case tc.name `Quick (run_test_case tc)) tests
+    List.map
+      (fun (tc, expected) ->
+        test_case tc.name `Quick (run_test_case tc expected))
+      tests
   in
   let tolerance_cases =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
       test_case "color-mix percentage" `Quick test_color_mix_percentage;
+      test_case "redundant vendor prefixes" `Quick
+        test_redundant_vendor_prefixes;
+      test_case "static number math" `Quick test_static_number_math;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
       test_case "the scheme is built from declared tokens only" `Quick
@@ -814,10 +1130,37 @@ let () =
         test_dropped_declarations_are_reported;
     ]
   in
+  let reader_regression_cases =
+    [
+      test_case "a compile-error block keeps its place" `Quick
+        test_reader_keeps_a_compile_error_block;
+      test_case "a stray fixture line is rejected" `Quick
+        test_reader_rejects_a_stray_line;
+    ]
+  in
+  let reader_cases =
+    [
+      test_case "a well-formed block reads" `Quick test_reader_reads_a_block;
+      test_case "a block with no --- keeps its place" `Quick
+        test_reader_keeps_a_block_asserting_an_error;
+      test_case "a stray line raises" `Quick
+        test_reader_rejects_a_stray_line_with_message;
+      test_case "an unknown @config raises" `Quick
+        test_reader_rejects_an_unknown_config;
+      test_case "a block with no header raises" `Quick
+        test_reader_rejects_a_headerless_block;
+      test_case "a block with no <<<>>> raises" `Quick
+        test_reader_rejects_an_unclosed_block;
+      test_case "a directive with no value raises" `Quick
+        test_reader_rejects_a_directive_with_no_value;
+    ]
+  in
   let suites =
     [
       ("utilities", alcotest_cases utility_tests);
       ("tolerance", tolerance_cases);
+      ("reader regression", reader_regression_cases);
+      ("reader", reader_cases);
       ("variants", alcotest_cases variant_tests);
     ]
   in

@@ -904,7 +904,6 @@ let test_style_rules_props () =
   (* Create a test utility that wraps the style and provides the class name *)
   let module TestHandler = struct
     type t = Test
-    type Tw.Utility.base += Self of t
 
     let name = "test"
     let priority _ = 0
@@ -914,8 +913,8 @@ let test_style_rules_props () =
     let of_class _ _ = Error (`Msg "test utility")
     let examples = []
   end in
-  let () = Tw.Utility.register (module TestHandler) in
-  let test_utility = Tw.Utility.base (TestHandler.Self TestHandler.Test) in
+  let module TestUtility = Tw.Utility.Make (TestHandler) in
+  let test_utility = TestUtility.v TestHandler.Test in
   let extracted = Tw.Rule.outputs test_utility in
 
   (* Should generate rules in order: custom rules first, then base props *)
@@ -1075,6 +1074,26 @@ let test_removed_family_drops_derived_default () =
   check bool "--default-mono-font-family stays" true
     (List.mem "--default-mono-font-family" vars)
 
+(* A theme token a utility declares to make its own value available belongs in
+   the theme layer and nowhere else. The walk that strips it descended into
+   [@media], [@supports], [@container] and [@layer] by name and knew nothing of
+   [@starting-style], so [md:starting:p-4] declared [--spacing] inside the rule
+   as well, where Tailwind declares it once. *)
+let test_theme_tokens_stripped_at_every_depth () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css =
+            Tw.to_css ~base:true [ u ] |> Tw.Css.to_string ~minify:true
+          in
+          let occurrences =
+            List.length (Astring.String.cuts ~sep:"--spacing:" css) - 1
+          in
+          Alcotest.(check int) (cls ^ " declares --spacing once") 1 occurrences)
+    [ "p-4"; "starting:p-4"; "md:starting:p-4"; "hover:starting:p-4" ]
+
 let tests =
   [
     test_case "starting-style blocks merge" `Quick test_starting_style_merges;
@@ -1145,6 +1164,8 @@ let tests =
       test_extra_keeps_plain_order;
     test_case "style with rules and props ordering" `Quick
       test_style_rules_props;
+    test_case "theme tokens stripped at every depth" `Quick
+      test_theme_tokens_stripped_at_every_depth;
   ]
 
 let suite = ("build", tests)

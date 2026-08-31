@@ -1800,7 +1800,6 @@ module Handler = struct
     | Placeholder_bracket_color_opacity of string * Css.color * opacity_modifier
 
   (** Extensible variant for color utilities *)
-  type Utility.base += Self of t
 
   (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
   let resolve_scheme = function Some s -> s | None -> Scheme.default
@@ -3191,8 +3190,8 @@ module Handler = struct
     | Outline_current ->
         3000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
     | Outline_current_opacity _ -> 3000 + (4 * 1000)
-    | Outline_inherit -> 3000 + (9 * 1000)
-    (* i -> between indigo(9) and lime(10) *)
+    | Outline_inherit -> 3000 + (9 * 1000) + 999
+    (* i -> after every indigo shade and before lime(10) *)
     | Outline_transparent -> 3000 + (22 * 1000)
     (* t -> between teal and violet *)
     | Outline_bracket_color _ -> 3000
@@ -3358,8 +3357,8 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register color handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Re-export helper functions from Handler for use by other modules *)
 let scheme_color_name = Handler.scheme_color_name
@@ -3728,7 +3727,7 @@ let bg_current_with_opacity ?theme opacity =
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (** Public API *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let text ?opacity ?(shade = 500) color =
   check_shade ~utility:"text" color shade;

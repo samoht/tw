@@ -408,24 +408,24 @@ let structural_selector cls modifier =
   | First_of_type -> cp "first-of-type" cls Css.Selector.First_of_type
   | Last_of_type -> cp "last-of-type" cls Css.Selector.Last_of_type
   | Only_of_type -> cp "only-of-type" cls Css.Selector.Only_of_type
-  | Nth expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth" expr in
+  | Nth n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_child (nth, of_) ]
-  | Nth_last expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-last" expr in
+  | Nth_last n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-last" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_last_child (nth, of_) ]
-  | Nth_of_type expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-of-type" expr in
+  | Nth_of_type n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-of-type" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_of_type (nth, of_) ]
-  | Nth_last_of_type expr ->
-      let nth, of_ = parse_nth_selector expr in
-      let prefix = Style.pp_nth "nth-last-of-type" expr in
+  | Nth_last_of_type n ->
+      let nth, of_ = parse_nth_selector n.Style.expr in
+      let prefix = Style.pp_nth "nth-last-of-type" n in
       Css.Selector.compound
         [ Css.Selector.Class (prefix ^ ":" ^ cls); Nth_last_of_type (nth, of_) ]
   | Empty -> cp "empty" cls Css.Selector.Empty
@@ -710,8 +710,8 @@ let even styles = wrap Even styles
 let first_of_type styles = wrap First_of_type styles
 let last_of_type styles = wrap Last_of_type styles
 let only_of_type styles = wrap Only_of_type styles
-let nth expr styles = wrap (Nth expr) styles
-let nth_last expr styles = wrap (Nth_last expr) styles
+let nth expr styles = wrap (Nth (Style.nth_expr expr)) styles
+let nth_last expr styles = wrap (Nth_last (Style.nth_expr expr)) styles
 let empty styles = wrap Empty styles
 
 (* Form state variants *)
@@ -1255,6 +1255,12 @@ let is_valid_supports_condition cond =
       true
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
+(* Which spelling an [nth-*] argument was written in. A bare number reads both
+   ways and they are different classes, so the reader records the one it saw
+   rather than deciding again when it prints. *)
+let bracketed expr : Style.nth_expr = { expr; bracketed = true }
+let bare expr : Style.nth_expr = { expr; bracketed = false }
+
 (* Validate that an nth-*-[...] bracket holds an An+B expression (Selectors 4
    sec. 9.3). The reader raises on anything else, so the expression is checked
    where the modifier is parsed, like the has- selector above. *)
@@ -1306,6 +1312,8 @@ let bracket_named_patterns s =
       if is_valid_has_selector sel then Some (Has sel) else None);
   ]
 
+(* Every [nth-*-[...]] arm goes through [try_nth], so the bracket flag is set in
+   one place. *)
 let bracket_value_patterns s =
   let ( let* ) = Option.bind in
   let try_with prefix parse make =
@@ -1315,7 +1323,7 @@ let bracket_value_patterns s =
   in
   let try_nth prefix make =
     let* expr = extract_bracket_content ~prefix s in
-    if is_valid_nth_expr expr then Some (make expr) else None
+    if is_valid_nth_expr expr then Some (make (bracketed expr)) else None
   in
   [
     (fun () -> try_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
@@ -1387,15 +1395,15 @@ let try_numeric_nth s =
       if Style.is_numeric rest then Some (make rest) else None
     else None
   in
-  match try_prefix "nth-last-of-type-" (fun n -> Nth_last_of_type n) with
+  match try_prefix "nth-last-of-type-" (fun n -> Nth_last_of_type (bare n)) with
   | Some _ as r -> r
   | None -> (
-      match try_prefix "nth-of-type-" (fun n -> Nth_of_type n) with
+      match try_prefix "nth-of-type-" (fun n -> Nth_of_type (bare n)) with
       | Some _ as r -> r
       | None -> (
-          match try_prefix "nth-last-" (fun n -> Nth_last n) with
+          match try_prefix "nth-last-" (fun n -> Nth_last (bare n)) with
           | Some _ as r -> r
-          | None -> try_prefix "nth-" (fun n -> Nth n)))
+          | None -> try_prefix "nth-" (fun n -> Nth (bare n))))
 
 (* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =
@@ -1645,7 +1653,7 @@ let try_not_shorthand inner =
     (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Nth expr))
+    Some (Not (Nth (Style.nth_expr expr)))
   else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
@@ -2563,31 +2571,49 @@ let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
       Some Slot.Inverted_colors
   | _ -> None
 
-(* What separates two tokens that share a slot: a [group-]/[peer-] token sorts
-   by the state it wraps and a [not-] token by the variant it negates, both read
-   off the same table as the slot itself. *)
-let variant_inner_order token =
+(* The variant wrapped by one compound token, if any. Keeping this extraction in
+   one place lets ordering follow group-not-has-peer-not-data-active all the way
+   to its data predicate instead of stopping at the first [not] or [has]
+   slot. *)
+let variant_inner_token token =
   let after n = String.sub token n (String.length token - n) in
-  let inner =
-    if String.starts_with ~prefix:"group-" token then Some (after 6)
-    else if String.starts_with ~prefix:"peer-" token then Some (after 5)
-    else if String.starts_with ~prefix:"not-" token then Some (after 4)
-    else
-      (* [in-focus] names a state on an ancestor; [in-range] names one on the
-         element itself, and the table matches that by name. *)
-      match slot_of_prefix token with
-      | Some Slot.Ancestor -> Some (after 3)
-      | Some _ | None -> None
+  let anchor_inner n =
+    let inner = after n in
+    (* A slash inside an arbitrary selector belongs to the selector. Named
+       simple states have no brackets, so their suffix can be removed here. *)
+    if String.contains inner '[' then inner else fst (split_name inner)
   in
-  match inner with
-  | Some inner -> (
-      match slot_of_prefix inner with Some slot -> Slot.rank slot | None -> 0)
-  | None -> 0
+  if String.starts_with ~prefix:"group-" token then Some (anchor_inner 6)
+  else if String.starts_with ~prefix:"peer-" token then Some (anchor_inner 5)
+  else if String.starts_with ~prefix:"not-" token then Some (after 4)
+  else if String.starts_with ~prefix:"has-" token then Some (after 4)
+  else
+    (* [in-focus] names a state on an ancestor; [in-range] names one on the
+       element itself, and the table matches that by name. *)
+    match slot_of_prefix token with
+    | Some Slot.Ancestor -> Some (after 3)
+    | Some _ | None -> None
+
+let variant_order_of_prefix ?theme prefix =
+  match theme with
+  | Some theme when Option.is_some (try_custom_variant theme prefix) ->
+      Slot.rank Slot.Custom
+  | Some _ | None -> (
+      match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
+
+let rec variant_inner_order_path ?theme token =
+  match variant_inner_token token with
+  | None -> []
+  | Some inner ->
+      let order = variant_order_of_prefix ?theme inner in
+      if order = 0 then [] else order :: variant_inner_order_path ?theme inner
+
+(* The first wrapped slot retained for callers that only need the immediate
+   compound variant. *)
+let variant_inner_order token =
+  match variant_inner_order_path token with order :: _ -> order | [] -> 0
 
 let not_variant_order m = Slot.rank (slot_of_modifier m)
-
-let variant_order_of_prefix prefix =
-  match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0
 
 let variant_order_of_media_cond cond =
   match slot_of_media_cond cond with Some slot -> Slot.rank slot | None -> 0

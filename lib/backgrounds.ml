@@ -210,8 +210,6 @@ module Handler = struct
     (* bg-size-[...] bracket notation *)
     | Bg_size_bracket of string
 
-  type Utility.base += Self of t
-
   let to_class (t : t) =
     match t with
     | Bg (color, shade) ->
@@ -454,20 +452,21 @@ module Handler = struct
   let priority t = if property_rank t > mask_image_rank then 21 else 20
 
   (* Rules sharing a slot sort by declaration count, most first, then by class
-     name. In background-image's slot the linear directions and angles carry an
-     @supports fallback the other gradient functions do not, and the plain
-     images write nothing past background-image, so they close it. *)
+     name. In background-image's slot the native linear directions and angles
+     carry an @supports fallback. The legacy [bg-gradient-to-*] aliases join the
+     next group with conic, radial and bracket-linear gradients, while plain
+     images write nothing past background-image and close the property. *)
   let suborder t =
     let rank = property_rank t in
     if rank <> background_image_rank then Utility.Property_order.last rank
     else
       match t with
-      | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
-      | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
+      | Bg_linear_to _ | Bg_linear_to_interp _ | Bg_linear_angle _
+      | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
       | Bg_linear_angle_neg_interp _ ->
           Utility.Property_order.slot rank
-      | Bg_linear_bracket _ | Bg_linear_bracket_neg _ | Bg_conic
-      | Bg_conic_angle _ | Bg_conic_angle_neg _ | Bg_conic_interp _
+      | Bg_gradient_to _ | Bg_linear_bracket _ | Bg_linear_bracket_neg _
+      | Bg_conic | Bg_conic_angle _ | Bg_conic_angle_neg _ | Bg_conic_interp _
       | Bg_conic_angle_interp _ | Bg_conic_angle_neg_interp _ | Bg_radial
       | Bg_radial_interp _ | Bg_radial_bracket _ ->
           Utility.Property_order.slot rank + 1
@@ -1937,9 +1936,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let bg ?opacity ?(shade = 500) color =
   Color.check_shade ~utility:"bg" color shade;

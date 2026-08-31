@@ -22,8 +22,6 @@ module Handler = struct
     | Wrap
     | Wrap_reverse
 
-  type Utility.base += Self of t
-
   let name = "flex_layout"
   let priority _ = 16
 
@@ -66,10 +64,10 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let flex_row = utility Row
 let flex_row_reverse = utility Row_reverse
 let flex_col = utility Col

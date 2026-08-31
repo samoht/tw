@@ -61,8 +61,10 @@ let of_string_invalid () =
   in
 
   fail_display [ "flex"; "invalid" ];
-  fail_display [ "flex"; "col" ];
-  (* Now in flex_props *)
+  (* A real utility, read by Flex_layout rather than by this handler. *)
+  Test_helpers.check_invalid_parts ~why:Test_helpers.Another_handler
+    (module Tw.Flex.Handler)
+    [ "flex"; "col" ];
   fail_props [ "flex"; "invalid" ];
   fail_props [ "basis" ];
   fail_props [ "order" ];

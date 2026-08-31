@@ -61,8 +61,6 @@ module Handler = struct
     | Auto_rows_spacing of float  (** [auto-rows-<n>]: spacing-scaled track. *)
     | Auto_rows_arbitrary of string * Css.grid_template
 
-  type Utility.base += Self of t
-
   let name = "grid_template"
 
   (* Before flex_props (16) and alignment/gap (17) *)
@@ -375,39 +373,44 @@ module Handler = struct
     | Auto_rows_spacing n -> auto_rows_spacing n
     | Auto_rows_arbitrary (_, template) -> auto_rows_arbitrary template
 
+  (* Tailwind emits these five families in the alphabetical order of the CSS
+     property each declares: grid-auto-columns, grid-auto-flow, grid-auto-rows,
+     grid-template-columns, grid-template-rows. The bands below follow that, not
+     the template-before-auto reading they used to have, which put
+     [auto-rows-min] after [grid-cols-3] where Tailwind puts it before. *)
   let suborder = function
-    (* Grid template columns (10000-10999) *)
-    (* Order: numeric → arbitrary → keywords alphabetical *)
-    | Grid_cols n -> 10000 + n
-    | Grid_cols_arbitrary _ -> 10800
-    | Grid_cols_none -> 10900
-    | Grid_cols_subgrid -> 10901
-    (* Grid template rows (11000-11999) *)
-    | Grid_rows n -> 11000 + n
-    | Grid_rows_arbitrary _ -> 11800
-    | Grid_rows_none -> 11900
-    | Grid_rows_subgrid -> 11901
-    (* Grid auto flow (14000-14099) - alphabetical order *)
-    | Grid_flow_col -> 14000
-    | Grid_flow_col_dense -> 14001
-    | Grid_flow_dense -> 14002
-    | Grid_flow_row -> 14003
-    | Grid_flow_row_dense -> 14004
-    (* Grid auto columns (15000-15099) *)
+    (* Grid auto columns (10000-10099) *)
     (* Order: spacing (numeric) → arbitrary → keywords alphabetical *)
-    | Auto_cols_spacing _ -> 15000
-    | Auto_cols_arbitrary _ -> 15001
-    | Auto_cols_auto -> 15002
-    | Auto_cols_fr -> 15003
-    | Auto_cols_max -> 15004
-    | Auto_cols_min -> 15005
-    (* Grid auto rows (15100-15199) *)
-    | Auto_rows_spacing _ -> 15100
-    | Auto_rows_arbitrary _ -> 15101
-    | Auto_rows_auto -> 15102
-    | Auto_rows_fr -> 15103
-    | Auto_rows_max -> 15104
-    | Auto_rows_min -> 15105
+    | Auto_cols_spacing _ -> 10000
+    | Auto_cols_arbitrary _ -> 10001
+    | Auto_cols_auto -> 10002
+    | Auto_cols_fr -> 10003
+    | Auto_cols_max -> 10004
+    | Auto_cols_min -> 10005
+    (* Grid auto flow (10100-10199) - alphabetical order *)
+    | Grid_flow_col -> 10100
+    | Grid_flow_col_dense -> 10101
+    | Grid_flow_dense -> 10102
+    | Grid_flow_row -> 10103
+    | Grid_flow_row_dense -> 10104
+    (* Grid auto rows (10200-10299) *)
+    | Auto_rows_spacing _ -> 10200
+    | Auto_rows_arbitrary _ -> 10201
+    | Auto_rows_auto -> 10202
+    | Auto_rows_fr -> 10203
+    | Auto_rows_max -> 10204
+    | Auto_rows_min -> 10205
+    (* Grid template columns (11000-11999) *)
+    (* Order: numeric → arbitrary → keywords alphabetical *)
+    | Grid_cols n -> 11000 + n
+    | Grid_cols_arbitrary _ -> 11800
+    | Grid_cols_none -> 11900
+    | Grid_cols_subgrid -> 11901
+    (* Grid template rows (12000-12999) *)
+    | Grid_rows n -> 12000 + n
+    | Grid_rows_arbitrary _ -> 12800
+    | Grid_rows_none -> 12900
+    | Grid_rows_subgrid -> 12901
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -513,9 +516,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let grid_cols n = utility (Grid_cols n)
 let grid_cols_none = utility Grid_cols_none
 let grid_cols_subgrid = utility Grid_cols_subgrid

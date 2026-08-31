@@ -16,10 +16,9 @@ open Style
 
 module Handler = struct
   type t = Auto | No_adjust
-  type Utility.base += Self of t
 
   let name = "accessibility"
-  let priority _ = 29
+  let priority _ = 36
 
   let to_class = function
     | Auto -> "forced-color-adjust-auto"
@@ -42,8 +41,8 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let forced_color_adjust_auto = utility Auto
 let forced_color_adjust_none = utility No_adjust

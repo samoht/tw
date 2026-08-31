@@ -273,6 +273,15 @@ let test_border_side_bracket_color_order () =
       "border-l-[#f00]";
     ]
 
+let test_outline_inherit_order () =
+  Test_helpers.check_class_order ~test_name:"outline inherit order"
+    [
+      "outline-lime-100";
+      "outline-inherit";
+      "outline-indigo-600";
+      "outline-indigo-500";
+    ]
+
 (* A CSS variable in a border color bracket, and its v4 paren shorthand, resolve
    to var(): border-[var(--x)] and border-(--x) both set border-color. *)
 let test_border_color_var () =
@@ -1018,6 +1027,7 @@ let tests =
     ( "Per-side border bracket color order",
       `Slow,
       test_border_side_bracket_color_order );
+    ("Outline inherit order", `Slow, test_outline_inherit_order);
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
     ("Bracket colour opacity", `Quick, test_bracket_colour_opacity);
     ("hsl hue units", `Quick, test_hsl_hue_units);

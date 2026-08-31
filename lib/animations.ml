@@ -30,8 +30,6 @@ module Handler = struct
     | Bracket of string * Css.animation
     | Named of string
 
-  type Utility.base += Self of t
-
   let name = "animations"
 
   (* Match Tailwind ordering: animations after transforms, before cursor *)
@@ -363,9 +361,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let animate_none = utility No_animation
 let animate_spin = utility Spin
 let animate_ping = utility Ping

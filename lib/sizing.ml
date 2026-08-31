@@ -52,8 +52,6 @@ module Handler = struct
     | Aspect_bracket_num of string (* aspect-[1.333] single number *)
     | Aspect_theme of string (* ratio named by a project [--aspect-*] token *)
 
-  type Utility.base += Self of t
-
   let name = "sizing"
 
   (* Tailwind spacing order helper: matches canonical spacing scale order. n is
@@ -83,14 +81,15 @@ module Handler = struct
   (* A spacing value is stored as rem (class number * 0.25). A fraction n/m has
      numerator [n], whose class number is [n], so [spacing_suborder (n *. 0.25)]
      puts it on the spacing scale. [+ 4] steps to the next class boundary
-     (spacing_suborder for an integer class k is 4k); [- 50 + m] pulls it just
-     before that boundary, after every floor-n spacing value, by denominator. *)
+     (spacing_suborder for an integer class k is 4k); [- 1] pulls every n/m into
+     the last slot before that boundary, after every floor-n spacing value. The
+     natural candidate tiebreak then orders the unbounded denominators. *)
   let fraction_value_order f =
     match String.split_on_char '/' f with
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
-        | Some n, Some m ->
-            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 50 + m
+        | Some n, Some _ ->
+            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 1
         | _ -> 490000)
     | _ -> 490000
 
@@ -101,7 +100,9 @@ module Handler = struct
 
   (* Family bases are 10M apart so the interleaved spacing/fraction range (< 5M)
      and the arbitrary/keyword offsets never overflow into the next family. *)
-  (* size-* (width+height) sorts first in Tailwind, before h/w/max/min. *)
+  let aspect_base = -10_000_000
+
+  (* Within the dimension families, size-* sorts before h/w/max/min. *)
   let size_base = 0
   let h_base = 10_000_000
   let max_h_base = 20_000_000
@@ -109,7 +110,6 @@ module Handler = struct
   let w_base = 40_000_000
   let max_w_base = 50_000_000
   let min_w_base = 60_000_000
-  let aspect_base = 70_000_000
 
   (* Tailwind registers the logical sizing utilities after every other one, so
      they sort last rather than beside w-* and h-*; [logical_priority] carries
@@ -130,13 +130,15 @@ module Handler = struct
     match String.split_on_char '/' frac with
     | [ n; m ] -> (
         match (int_of_string_opt n, int_of_string_opt m) with
-        (* Any denominator: Tailwind reads [w-<number>/<number>] as a
-           percentage, not from a fixed scale. *)
-        | Some n, Some m when m > 0 && n > 0 && n < m ->
+        (* Any nonnegative numerator over a positive denominator: Tailwind reads
+           [w-<number>/<number>] as a percentage, not from a fixed scale. *)
+        | Some n, Some m when m > 0 && n >= 0 ->
             let pct = float_of_int n /. float_of_int m *. 100. in
-            let digits = 6. -. Float.ceil (Float.log10 pct) in
-            let factor = 10. ** digits in
-            Some (Float.round (pct *. factor) /. factor)
+            if n = 0 then Some 0.
+            else
+              let digits = 6. -. Float.ceil (Float.log10 pct) in
+              let factor = 10. ** digits in
+              Some (Float.round (pct *. factor) /. factor)
         | _ -> None)
     | _ -> None
 
@@ -858,17 +860,12 @@ module Handler = struct
     | Sized (prop, v) ->
         let f = family prop in
         f.base + value_order f v
-    (* Aspect: ratios -> brackets -> keywords *)
-    | Aspect_ratio (rw, rh) ->
-        aspect_base + int_of_float (rw *. 10.) + int_of_float rh
-    | Aspect_bracket (_, rw, rh) ->
-        aspect_base + 1000 + int_of_float (rw *. 10.) + int_of_float rh
-    | Aspect_bracket_num s ->
-        aspect_base + 1000 + int_of_float (float_of_string s *. 10.) + 1
-    | Aspect_auto -> aspect_base + 2000
-    | Aspect_square -> aspect_base + 2001
-    | Aspect_video -> aspect_base + 2002
-    | Aspect_theme _ -> aspect_base + 1500
+    (* Every aspect candidate writes the same property. One slot lets the
+       natural class-name tie-break order numeric ratios, then brackets and
+       keywords without large numerators spilling past the tail. *)
+    | Aspect_ratio _ | Aspect_bracket _ | Aspect_bracket_num _ | Aspect_auto
+    | Aspect_square | Aspect_video | Aspect_theme _ ->
+        aspect_base
 
   (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
       flex-1/flex-col in Tailwind's order. The logical ones are registered after
@@ -910,11 +907,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register the sizing utility handlers *)
-let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let () = () (* Ensure utility is defined before usage below *)
 
@@ -1040,7 +1037,9 @@ let aspect_ratio w h = utility (Aspect_ratio (float_of_int w, float_of_int h))
 
 (* Order exposure for this module *)
 let order (u : Utility.base) =
-  match u with Self x -> Some (priority x, suborder x) | _ -> None
+  if String.equal (Utility.name_of_base u) Handler.name then
+    Some (Utility.order u)
+  else None
 
 (* Export container theme variables for use by other modules (e.g., Columns) *)
 let container_binding = Handler.container_binding

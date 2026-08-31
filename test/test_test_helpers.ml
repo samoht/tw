@@ -176,6 +176,148 @@ let test_order_gap_agreeing_sheets () =
     "nothing moves when the orders agree" (3, 0)
     (g.Test_helpers.pairs, g.Test_helpers.moves)
 
+(* Two branches in one selector list occupy one statement and therefore have no
+   order relative to each other. If either sheet merges them, the pairwise
+   oracle must not turn their equal ranks into an inversion. *)
+let test_inversions_ignore_a_grouped_selector () =
+  let separate = utilities_layer [ ".a"; ".b" ] in
+  let grouped = utilities_layer [ ".a,.b" ] in
+  let inverted tailwind tw =
+    Test_helpers.inverted_pairs ~tailwind ~tw [ "a"; "b" ]
+  in
+  Alcotest.(check (list (pair string string)))
+    "tw groups the pair" []
+    (inverted separate grouped);
+  Alcotest.(check (list (pair string string)))
+    "Tailwind groups the pair" []
+    (inverted grouped separate)
+
+(* Mode [`Tree] is the only mode that reports a rule written twice or a
+   custom-property binding nothing reads: mode [`Canonical] folds the second
+   copy away in its optimizer, and every caller of it prunes unreferenced
+   bindings off both sides first. The cases below feed {!Test_helpers.surplus}
+   sheets that carry one of those by construction, and sheets that carry only
+   the differences the check is not asking about. *)
+let surplus_of ~expected ~actual =
+  Test_helpers.surplus (Test_helpers.tree_diff_css ~expected ~actual)
+
+let test_surplus_reports_a_rule_written_twice () =
+  Alcotest.(check int)
+    "the second copy is surplus" 1
+    (List.length
+       (surplus_of ~expected:"@layer utilities{.a{color:red}.b{color:blue}}"
+          ~actual:"@layer utilities{.a{color:red}.b{color:blue}.a{color:red}}"))
+
+let test_surplus_reports_a_binding_nothing_reads () =
+  Alcotest.(check int)
+    "the dead binding is surplus" 1
+    (List.length
+       (surplus_of
+          ~expected:
+            "@layer theme{:root{--a:1px}}@layer utilities{.x{width:var(--a)}}"
+          ~actual:
+            "@layer theme{:root{--a:1px;--dead:2px}}@layer \
+             utilities{.x{width:var(--a)}}"))
+
+(* Two rules writing different properties can be emitted in either order without
+   changing what any element computes. That is a difference tree mode reports
+   and this check deliberately does not: ordering has its own oracles in
+   {!Test_helpers.check_class_order} and {!Test_helpers.sheet_order_gap}. *)
+let test_surplus_ignores_a_cascade_neutral_reorder () =
+  Alcotest.(check int)
+    "a reorder adds nothing" 0
+    (List.length
+       (surplus_of ~expected:"@layer utilities{.a{color:red}.b{width:1px}}"
+          ~actual:"@layer utilities{.b{width:1px}.a{color:red}}"))
+
+(* What respelling both sheets through one printer buys: the two minifiers write
+   this value differently and CSS reads the two spellings as the same tokens, so
+   the comparison must not see a difference here. Without the respelling it
+   does, and mode [`Tree] cannot gate anything against the real CLI. *)
+let test_respelling_settles_a_minifier_disagreement () =
+  let diff =
+    Test_helpers.tree_diff_css ~expected:":root{--c:oklch(63.7% .237 25.331)}"
+      ~actual:":root{--c:oklch(63.7%.237 25.331)}"
+  in
+  match diff.Cascade_diff.Css_compare.result with
+  | Cascade_diff.Css_compare.No_diff -> ()
+  | _ ->
+      let buf = Buffer.create 256 in
+      Cascade_diff.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" buf diff;
+      Alcotest.failf "one value, two spellings, reported as a difference:\n%s"
+        (Buffer.contents buf)
+
+(* One class from every family tw implements, plus one of every variant shape,
+   so the sheet the check reads spans the generator rather than a corner of it.
+   Kept as class names because that is what both sides are asked for. *)
+let broad_class_set =
+  List.concat_map Tw_tools.Source_scan.split_whitespace
+    [
+      (* Layout, box model, sizing. *)
+      "p-4 px-2 m-4 -m-2 mt-8 gap-4 gap-x-2 block flex grid hidden w-4 h-8 \
+       max-w-4xl z-10 top-0 absolute relative container aspect-video columns-3 \
+       box-border isolate overflow-hidden overscroll-contain contain-layout";
+      (* Flex and grid. *)
+      "flex-col basis-1/2 grow shrink-0 order-2 items-center justify-between \
+       place-items-center content-center self-end justify-self-start \
+       grid-cols-2 col-span-2 row-start-2 auto-cols-fr grid-flow-col";
+      (* Borders, backgrounds, effects. *)
+      "border border-2 border-b border-gray-200 border-solid divide-x-2 \
+       divide-gray-200 rounded-sm rounded-t-lg bg-white bg-blue-600 shadow-md \
+       inset-shadow-sm ring-2 inset-ring-2 opacity-50 outline-none outline-2 \
+       mix-blend-multiply bg-blend-overlay mask-none";
+      (* Typography. *)
+      "text-lg text-gray-900 font-bold leading-relaxed tracking-wide indent-4 \
+       align-middle whitespace-nowrap break-words hyphens-auto antialiased \
+       list-disc underline uppercase truncate line-clamp-3 text-shadow-lg \
+       tab-4";
+      (* Filters and transforms. *)
+      "blur-sm brightness-125 contrast-50 grayscale invert saturate-150 sepia \
+       hue-rotate-90 drop-shadow-md backdrop-blur-sm translate-x-4 rotate-90 \
+       scale-50 skew-x-6 origin-top-left perspective-normal transform-3d \
+       backface-hidden";
+      (* Transitions, interactivity, tables, SVG, scrolling. *)
+      "transition-all duration-150 animate-spin will-change-transform \
+       cursor-pointer select-none appearance-none resize-none caret-red-500 \
+       accent-blue-500 field-sizing-content touch-pan-x scroll-mt-4 \
+       scroll-smooth table-fixed fill-current stroke-2 sr-only";
+      (* One of every variant shape. *)
+      "hover:bg-blue-500 focus:outline-none active:bg-blue-700 \
+       disabled:opacity-50 first:pt-0 last:pb-0 odd:bg-gray-50 before:block \
+       after:block marker:text-gray-500 placeholder:text-gray-400 \
+       dark:bg-gray-900 sm:p-2 md:grid-cols-2 lg:flex xl:hidden max-md:block \
+       min-lg:flex motion-safe:animate-pulse motion-reduce:transition-none \
+       contrast-more:border-4 group-hover:text-white peer-checked:bg-blue-500 \
+       peer-focus:ring-2 aria-checked:bg-blue-500 data-[state=open]:block \
+       not-hover:opacity-50 has-[:focus]:border-2 supports-grid:flex \
+       starting:opacity-0 @container @sm:flex dark:hover:bg-gray-800 \
+       dark:focus:outline-none md:hover:bg-blue-500 sm:dark:p-4 \
+       lg:group-hover:text-white";
+      (* Arbitrary values, including one holding a colon. *)
+      "bg-[color:var(--brand)] hover:bg-[color:var(--brand)] \
+       w-[calc(100%-1rem)] text-[14px] rotate-[10deg]";
+    ]
+
+let test_no_surplus_over_a_broad_class_set () =
+  let utilities =
+    List.map
+      (fun cls ->
+        match Tw.of_string cls with
+        | Ok u -> u
+        | Error (`Msg m) -> Alcotest.failf "%s does not parse: %s" cls m)
+      broad_class_set
+  in
+  let diff = Test_helpers.tree_diff utilities in
+  let test_name = "broad class set" in
+  Test_helpers.check_no_dropped_declarations ~test_name diff;
+  Test_helpers.check_no_surplus ~test_name diff
+
+(* Every negative test asserts tw refuses a class and nothing in the assertion
+   says Tailwind refuses it too, so a premise that is simply wrong passes on
+   every run. This is the one case that asks. It reads the corpus the negative
+   tests fill as they run, which is why [test/test.ml] lists this suite last. *)
+let test_negative_premises () = Test_helpers.check_negative_premises ()
+
 let tests =
   [
     Alcotest.test_case "class position: continuing selector" `Quick
@@ -210,6 +352,20 @@ let tests =
       test_order_gap_drops_a_repeated_key;
     Alcotest.test_case "order gap: agreeing sheets" `Quick
       test_order_gap_agreeing_sheets;
+    Alcotest.test_case "inversions: grouped selector is unordered" `Quick
+      test_inversions_ignore_a_grouped_selector;
+    Alcotest.test_case "surplus: a rule written twice" `Quick
+      test_surplus_reports_a_rule_written_twice;
+    Alcotest.test_case "surplus: a binding nothing reads" `Quick
+      test_surplus_reports_a_binding_nothing_reads;
+    Alcotest.test_case "surplus: a cascade-neutral reorder" `Quick
+      test_surplus_ignores_a_cascade_neutral_reorder;
+    Alcotest.test_case "respelling settles a minifier disagreement" `Quick
+      test_respelling_settles_a_minifier_disagreement;
+    Alcotest.test_case "no surplus over a broad class set" `Slow
+      test_no_surplus_over_a_broad_class_set;
+    Alcotest.test_case "negative tests agree with Tailwind" `Quick
+      test_negative_premises;
   ]
 
 let suite = ("test_helpers", tests)

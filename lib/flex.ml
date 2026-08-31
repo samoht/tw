@@ -10,7 +10,6 @@ module Handler = struct
   open Css
 
   type t = Flex | Inline_flex
-  type Utility.base += Self of t
 
   (** Priority for flex display utilities. Display utilities all share priority
       4 and are ordered alphabetically by suborder. *)
@@ -43,10 +42,10 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let flex = utility Flex
 let inline_flex = utility Inline_flex
 

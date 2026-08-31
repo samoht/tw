@@ -2,6 +2,7 @@
 
 module Css = Cascade.Css
 module Css_compare = Cascade_diff.Css_compare
+module Tree_diff = Cascade_diff.Tree_diff
 
 (** Check that a utility value produces the expected class name *)
 let check_class expected t =
@@ -204,11 +205,15 @@ let interacting_pairs classes =
    only output is an unreferenced binding - check_rendering_matches covers that
    class now, and agreeing on one predicate is worth more than the extra
    sensitivity here. *)
-let ordering_diff ?(forms = false) utilities =
-  let classnames = List.map Tw.pp utilities in
-  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-    (tailwind_css ~forms classnames)
-    (our_css utilities)
+(* Both sheets for one case. [ordering_faults] needs the text as well as the
+   diff, and generating them here keeps one description of what is compared. *)
+let sheets ?(forms = false) utilities =
+  (tailwind_css ~forms (List.map Tw.pp utilities), our_css utilities)
+
+let canonical_diff (tailwind, tw) =
+  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true tailwind tw
+
+let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 
 (* [Css_compare] drops a declaration its reader rejects from that side's AST
    before the comparison runs, so a real difference can surface as a phantom
@@ -486,6 +491,74 @@ let check_ordering_matches ?forms ~test_name utilities =
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
+(* Cascade's printer and Tailwind's minifier spell the same value differently
+   wherever CSS makes the difference insignificant: a custom property holds
+   [oklch(63.7% .237 25.331)] on one side and [oklch(63.7%.237 25.331)] on the
+   other, a font stack keeps its quotes on one and drops them on the other.
+   Neither sheet is wrong, so a comparison sensitive to the bytes reads both
+   through the same printer first. Parsing and re-printing respells a sheet
+   without changing what it declares: the printer merges no rules, moves none,
+   and drops no binding, so a rule written twice stays written twice and a
+   binding nothing reads stays bound. A sheet the reader rejects is passed
+   through untouched, leaving {!Css_compare} to report the parse error. *)
+let respelled css =
+  match Css.of_string css with
+  | Ok { Css.stylesheet; _ } -> Css.to_string ~minify:true stylesheet
+  | Error _ -> css
+
+let tree_diff_css ~expected ~actual =
+  Css_compare.diff ~mode:`Tree (respelled expected) (respelled actual)
+
+let tree_diff ?(forms = false) utilities =
+  let classnames = List.map Tw.pp utilities in
+  tree_diff_css
+    ~expected:(tailwind_css ~forms classnames)
+    ~actual:(our_css utilities)
+
+(* What tw's sheet carries that Tailwind's does not: a whole rule, or a
+   declaration inside a rule both sheets write. A rule emitted twice reads as
+   the second copy being added, and a custom-property binding nothing references
+   as the binding being added, so the two are one question. Mode [`Canonical]
+   answers neither: its optimizer folds the second copy away, and every caller
+   prunes unreferenced bindings off both sides before comparing.
+
+   A container only one sheet has contributes nothing: the two sheets spell an
+   [@container] query differently and the block comes and goes as a pair, so
+   reading its rules here would report the spelling. *)
+let rule_surplus where acc (rule : Tree_diff.rule_diff) =
+  match rule with
+  | Tree_diff.Added { selector; _ } ->
+      Fmt.str "%s%s (the whole rule)" where selector :: acc
+  | Tree_diff.Content_changed { selector; added_properties; _ } ->
+      List.fold_left
+        (fun acc prop -> Fmt.str "%s%s { %s }" where selector prop :: acc)
+        acc added_properties
+  | _ -> acc
+
+let rec container_surplus where acc (container : Tree_diff.container_diff) =
+  match container with
+  | Tree_diff.Modified { info; rule_changes; container_changes; _ } ->
+      let where = where ^ info.condition ^ " " in
+      let acc = List.fold_left (rule_surplus where) acc rule_changes in
+      List.fold_left (container_surplus where) acc container_changes
+  | _ -> acc
+
+let surplus (diff : Css_compare.t) =
+  match diff.Css_compare.result with
+  | Css_compare.Tree_diff t ->
+      let acc = List.fold_left (rule_surplus "") [] t.Tree_diff.rules in
+      List.rev
+        (List.fold_left (container_surplus "") acc t.Tree_diff.containers)
+  | _ -> []
+
+let check_no_surplus ~test_name diff =
+  match surplus diff with
+  | [] -> ()
+  | extra ->
+      Alcotest.failf
+        "%s: tw writes %d rule(s) or declaration(s) Tailwind does not:\n%s"
+        test_name (List.length extra) (String.concat "\n" extra)
+
 (* Where a class's rule starts in a sheet. The match has to end where the class
    name ends, so [.bg-top] does not report [.bg-top-left]; what follows it is
    not constrained beyond that, so a selector that carries on past the class
@@ -644,17 +717,17 @@ let selector_branches sel =
   emit hi;
   List.rev !out
 
-let layer_statement_keys sheet ~layer =
+let layer_body sheet ~layer =
   let wanted = "@layer " ^ layer in
-  let body =
-    List.find_map
-      (fun (prelude, body) ->
-        match body with
-        | Some span when normalize_prelude prelude = wanted -> Some span
-        | _ -> None)
-      (statements_between sheet 0 (String.length sheet))
-  in
-  match body with
+  List.find_map
+    (fun (prelude, body) ->
+      match body with
+      | Some span when normalize_prelude prelude = wanted -> Some span
+      | _ -> None)
+    (statements_between sheet 0 (String.length sheet))
+
+let layer_statement_keys sheet ~layer =
+  match layer_body sheet ~layer with
   | None -> []
   | Some (lo, hi) ->
       List.concat_map
@@ -744,6 +817,117 @@ let sheet_order_gap ~layer ~tailwind ~tw =
     moves = Array.length common - Array.length keep;
     moved = List.rev !moved;
   }
+
+(* Where one class's rule sits: the layer, the at-rule it is nested in - empty
+   at the layer's own top level - and its rank there. Two rules under different
+   at-rules are not comparable, and neither are two in different layers: the
+   position of a [@media] block says where the block sits, not where a utility
+   inside it sorts, and tw emits one block per rule where Tailwind merges. *)
+type slot = { container : string; rank : int * int }
+
+(* Does [selector] name class [cls]? The same match [class_position] makes. *)
+let names_class selector cls = class_position selector cls <> None
+
+let class_slots sheet ~layer classes =
+  match layer_body sheet ~layer with
+  | None -> []
+  | Some (lo, hi) ->
+      let found container rank selector =
+        List.filter_map
+          (fun cls ->
+            if names_class selector cls then Some (cls, { container; rank })
+            else None)
+          classes
+      in
+      statements_between sheet lo hi
+      |> List.mapi (fun i (prelude, body) ->
+          let p = normalize_prelude prelude in
+          if p = "" then []
+          else if p.[0] <> '@' then found "" (i, 0) p
+          else
+            match body with
+            | None -> []
+            (* One level down is enough: Tailwind nests a rule inside a media or
+               supports block and no deeper. *)
+            | Some (blo, bhi) ->
+                statements_between sheet blo bhi
+                |> List.mapi (fun j (inner, _) ->
+                    let sel = normalize_prelude inner in
+                    if sel = "" || sel.[0] = '@' then [] else found p (i, j) sel)
+                |> List.concat)
+      |> List.concat
+
+(* The order oracle the fuzzer minimises and asserts on. [ordering_diff] runs
+   canonically, which folds away a reorder among utilities writing disjoint
+   properties, so a family emitted in the wrong band is invisible to it: the
+   fuzzer could not fail on the one bug class a sort fuzzer exists to find.
+   Reading the order off the bytes is what sees it.
+
+   A pair rather than a count, because a pair is a property of the two classes
+   and nothing else: both sheets order their utilities by a key of their own, so
+   two classes that disagree here disagree in every sheet holding both, whatever
+   else is drawn. That is what a recorded set of known disagreements can be
+   written against; the count {!sheet_order_gap} reports moves with the draw. *)
+let inverted_pairs ~tailwind ~tw classes =
+  let first_slot sheet layer =
+    let tbl = Hashtbl.create 64 in
+    List.iter
+      (fun (cls, slot) ->
+        if not (Hashtbl.mem tbl cls) then Hashtbl.add tbl cls slot)
+      (class_slots sheet ~layer classes);
+    tbl
+  in
+  let per_layer layer =
+    let theirs = first_slot tailwind layer and ours = first_slot tw layer in
+    let placed =
+      List.filter (fun c -> Hashtbl.mem theirs c && Hashtbl.mem ours c) classes
+    in
+    let rec pairs acc = function
+      | [] | [ _ ] -> acc
+      | a :: rest ->
+          let acc =
+            List.fold_left
+              (fun acc b ->
+                let ta = Hashtbl.find theirs a and tb = Hashtbl.find theirs b in
+                let oa = Hashtbl.find ours a and ob = Hashtbl.find ours b in
+                (* Only a pair sitting under the same at-rule on both sides is
+                   one whose order the two sheets can disagree about. Two
+                   branches in one selector list have the same statement rank
+                   and therefore no order relative to each other. *)
+                if
+                  String.equal ta.container tb.container
+                  && String.equal oa.container ob.container
+                  && String.equal ta.container oa.container
+                then
+                  let theirs_order = compare ta.rank tb.rank in
+                  let ours_order = compare oa.rank ob.rank in
+                  if theirs_order = 0 || ours_order = 0 then acc
+                  else if theirs_order < 0 = (ours_order < 0) then acc
+                  else if theirs_order < 0 then (a, b) :: acc
+                  else (b, a) :: acc
+                else acc)
+              acc rest
+          in
+          pairs acc rest
+    in
+    pairs [] placed
+  in
+  List.concat_map per_layer [ "utilities"; "components" ]
+
+let sheet_diff ~tailwind ~tw = canonical_diff (tailwind, tw)
+
+let describe_diff diff =
+  let buf = Buffer.create 1024 in
+  Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
+  Buffer.contents buf
+
+let describe_dropped dropped =
+  Fmt.str
+    "the comparison could not read %d declaration(s) and dropped them, so it \
+     compared less than it appears to:\n\
+     %s"
+    (List.length dropped)
+    (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
 (** CSS Test Helpers *)
 
@@ -940,11 +1124,107 @@ let check_handler_roundtrip (module H : Handler) class_name =
   | Error (`Msg msg) ->
       Alcotest.fail ("of_class failed for '" ^ class_name ^ "': " ^ msg)
 
-(** Generic test for invalid inputs - expects parsing to fail *)
-let check_invalid_input (module H : Handler) input =
-  match H.of_class Tw.Scheme.default input with
+(* Why a class must not parse. Each constructor is a claim about Tailwind as
+   well as about tw, and [check_negative_premises] holds every one of them to
+   the pinned CLI: a negative test whose premise is wrong -- Tailwind does emit
+   for the class -- passes forever otherwise. *)
+type rejection = Not_a_utility | Another_handler | Diverges of string
+
+let rejection_claim = function
+  | Not_a_utility -> "Tailwind emits nothing for it either"
+  | Another_handler -> "another tw handler owns it"
+  | Diverges why -> "Tailwind emits for it and tw does not: " ^ why
+
+(* The corpus [check_negative_premises] asks the CLI about, filled as the
+   negative tests run. One entry per class however many handlers refuse it. *)
+let negatives : (string, rejection) Hashtbl.t = Hashtbl.create 128
+
+let negative_corpus () =
+  Hashtbl.fold (fun cls why acc -> (cls, why) :: acc) negatives []
+  |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+
+(** Generic test for invalid inputs - expects parsing to fail. [why] says what
+    the rejection means, and is checked rather than taken on trust: the half
+    that needs no CLI here, the Tailwind half in [check_negative_premises]. *)
+let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
+  (match H.of_class Tw.Scheme.default input with
   | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
-  | Error _ -> ()
+  | Error _ -> ());
+  (* Whether tw as a whole knows the class. Only [Another_handler] says it does,
+     and it is the one reason that does not make the class a tw gap. *)
+  let parses = Result.is_ok (Tw.of_string input) in
+  (match (why, parses) with
+  | Another_handler, false ->
+      Alcotest.failf
+        "%s: filed as owned by another handler, but Tw.of_string refuses it too"
+        input
+  | (Not_a_utility | Diverges _), true ->
+      Alcotest.failf "%s: Tw.of_string parses it, so \"%s\" is the wrong reason"
+        input (rejection_claim why)
+  | _ -> ());
+  Hashtbl.replace negatives input why
+
+(* The class names a sheet's rules select on. Read off the parsed selectors
+   rather than scanned for in the text: a non-ASCII or bracketed class is
+   escaped in the selector and spelled plainly in the class list, so a text scan
+   answers no for a class Tailwind did emit. *)
+let sheet_selectors css =
+  match Css.of_string css with
+  | Error e ->
+      Alcotest.failf "the tailwindcss CLI's own output does not parse: %s"
+        (Cascade.Error.to_string e)
+  | Ok { Css.stylesheet; _ } ->
+      Css.fold
+        (fun acc stmt ->
+          match Css.as_rule stmt with
+          | Some (selector, _, _) -> selector :: acc
+          | None -> acc)
+        [] stylesheet
+
+(** Ask the pinned CLI whether Tailwind agrees with every negative test that has
+    run. Nothing in [check_invalid_input] itself says Tailwind refuses the class
+    too, so a premise that is simply wrong passes on every run. One generation
+    covers the whole corpus: Tailwind's output for a set of classes is the union
+    of what it emits for each. *)
+let check_negative_premises () =
+  require_tailwind_cli ();
+  match negative_corpus () with
+  | [] ->
+      (* A filtered run that reached this before the tests that fill it. *)
+      Alcotest.skip ()
+  | corpus ->
+      (* Alcotest files a test's own stderr under [_build/_tests/], so the count
+         is reported at exit, where the summary line can be read beside it: a
+         corpus this test says nothing about is a corpus nobody sizes. *)
+      let size = List.length corpus in
+      at_exit (fun () ->
+          Fmt.epr "@.%d negative test classes held to Tailwind's answer.@." size);
+      let selectors =
+        sheet_selectors
+          (Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
+             (List.map fst corpus))
+      in
+      let emits cls =
+        List.exists (Css.Selector.exists_class (String.equal cls)) selectors
+      in
+      let wrong =
+        List.filter_map
+          (fun (cls, why) ->
+            match (why, emits cls) with
+            | Not_a_utility, true ->
+                Fmt.kstr Option.some
+                  "%s: filed as not a utility, but Tailwind emits a rule for it"
+                  cls
+            | (Another_handler | Diverges _), false ->
+                Fmt.kstr Option.some
+                  "%s: filed as \"%s\", but Tailwind emits nothing" cls
+                  (rejection_claim why)
+            | _ -> None)
+          corpus
+      in
+      if wrong <> [] then
+        Alcotest.failf "%d of %d negative tests disagree with Tailwind:\n%s"
+          (List.length wrong) (List.length corpus) (String.concat "\n" wrong)
 
 let standard ~roundtrip ~invalid =
   Alcotest.
@@ -960,9 +1240,9 @@ let check_parts (module H : Handler) parts =
 
 (** Helper that takes a list of parts, concatenates with "-", and checks that
     parsing fails *)
-let check_invalid_parts (module H : Handler) parts =
+let check_invalid_parts ?why (module H : Handler) parts =
   let class_name = String.concat "-" parts in
-  check_invalid_input (module H) class_name
+  check_invalid_input ?why (module H) class_name
 
 (** [check_typed_class cls value] checks that the typed constructor [value]
     pretty-prints to class name [cls] and that [cls] round-trips back through

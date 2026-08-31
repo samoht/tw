@@ -518,31 +518,59 @@ let order_of_declaration decl =
 let property_initial_declaration = declaration_of_property_info
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
 
+(* CSS Syntax 3 (ED), the [<declaration-value>] production: any token sequence
+   with no unmatched [)], []] or [}] in it. A [var()] read whole gets that for
+   free - its function token ends at the first unmatched closer, and text after
+   it is text the reference does not cover - but a cursor over the arguments
+   alone has no closer to end at, so the loose one is looked for here. *)
+let closes_nothing = function
+  | Cascade.Component.Preserved { kind = Cascade.Token.Close _; _ } -> true
+  | _ -> false
+
 let bracket ?fallback name =
+  (* Both readers hand back the name without its [--] and the fallback as
+     [<declaration-value>] text, which is what [Css.Values.syntax_fallback]
+     (below) consumes. *)
+  let read_whole source read =
+    try
+      let cursor = Cascade.Cursor.of_string source in
+      if List.exists closes_nothing (Cascade.Cursor.remaining cursor) then None
+      else
+        let name, fallback = read cursor in
+        (* Text neither reader consumed is text the reference does not cover. *)
+        if Cascade.Cursor.is_done cursor then Some (name, fallback) else None
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None
+  in
   let parsed_reference =
     match fallback with
     | Some _ -> None
     | None ->
-        let expression =
-          if String.starts_with ~prefix:"var(" name then Some name
-          else if String.contains name ',' then
-            (* [Css.Variables.read_reference_body] reads this same grammar
-               straight off a cursor, without the [var(]/[)] wrapper - but it
-               takes a [Cursor.t -> 'a] reader for the fallback and hands back
-               an ['a var], and [bracket] has no witness for 'a here: it is
-               called at many different value types with nothing to pick a
-               reader from. [read_reference]'s string-returning fallback is what
-               [Css.Values.syntax_fallback] (below) is built to consume, so the
-               wrapper still has to be assembled for it. *)
-            Some ("var(--" ^ name ^ ")")
-          else None
-        in
-        Option.bind expression (fun expression ->
-            try
-              Some
-                (Css.Variables.read_reference
-                   (Cascade.Cursor.of_string expression))
-            with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None)
+        if String.starts_with ~prefix:"var(" name then
+          read_whole name Css.Variables.read_reference
+        else if String.contains name ',' then
+          (* [name] is a [var()] body: the custom property and the fallback
+             written after the comma, the spelling {!Parse.extract_var_name}
+             retains. [--] is the property's own prefix, the one [css_name]
+             writes back. *)
+          read_whole ("--" ^ name) Css.Variables.read_reference_body_as_string
+        else None
+  in
+  (* [Parse.extract_var_name] leaves malformed references alone. Arbitrary
+     values historically also use [var(--...)] as a wrapper around a raw
+     custom-property name, where a loose closer belongs to that name. Retain
+     that interpretation only after the CSS reference reader has rejected the
+     whole string. *)
+  let raw_name =
+    let prefix = "var(--" in
+    let len = String.length name in
+    let prefix_len = String.length prefix in
+    if
+      parsed_reference = None
+      && String.starts_with ~prefix name
+      && len > prefix_len
+      && name.[len - 1] = ')'
+    then String.trim (String.sub name prefix_len (len - prefix_len - 1))
+    else name
   in
   match parsed_reference with
   | Some (name, Some fallback) ->
@@ -550,4 +578,4 @@ let bracket ?fallback name =
         ~fallback:(Css.Values.syntax_fallback fallback)
         name
   | Some (name, None) -> Css.var_ref ~runtime:true name
-  | None -> Css.var_ref ?fallback name
+  | None -> Css.var_ref ?fallback raw_name

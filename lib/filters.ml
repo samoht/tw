@@ -94,8 +94,6 @@ module Handler = struct
     | Backdrop_hue_rotate_arbitrary of string * Css.angle
     | Neg_backdrop_hue_rotate_arbitrary of string * Css.angle
 
-  type Utility.base += Self of t
-
   let name = "filters"
   let priority _ = 30
 
@@ -1280,90 +1278,53 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a filter utility")
 
   let suborder = function
-    (* Non-backdrop filters come first, then backdrop filters. Order matches
-       Tailwind v4: alphabetical by class name within each filter type. *)
-    | Blur -> 0
-    | Blur_2xl -> 1
-    | Blur_3xl -> 2
-    | Blur_arbitrary _ -> 3
-    | Blur_lg -> 4
-    | Blur_md -> 5
-    | Blur_none -> 6
-    | Blur_sm -> 7
-    | Blur_theme _ -> 14
-    | Blur_xl -> 8
-    | Blur_xs -> 9
-    | Brightness n -> 1000 + n
-    | Brightness_arbitrary _ -> 1500
-    | Contrast n -> 2000 + n
-    | Contrast_arbitrary _ -> 2500
+    (* Each filter kind is one property slot. Tailwind uses the natural
+       candidate spelling inside it, which handles bare defaults, numeric
+       values, arbitrary values and negative angles without per-value keys. *)
+    | Blur | Blur_2xl | Blur_3xl | Blur_arbitrary _ | Blur_lg | Blur_md
+    | Blur_none | Blur_sm | Blur_theme _ | Blur_xl | Blur_xs ->
+        0
+    | Brightness _ | Brightness_arbitrary _ -> 1000
+    | Contrast _ | Contrast_arbitrary _ -> 2000
     | Drop_shadow_opacity _ -> 2690
     | Drop_shadow_size_opacity _ -> 2692
     | Drop_shadow -> 2700
-    | Drop_shadow_arbitrary _ -> 2701
-    | Drop_shadow_multi -> 2702
-    (* The named sizes share one slot: Tailwind orders them by class name, and
-       the alphabetical tie-break puts xl before xs where a per-size number had
-       them the other way round. *)
-    | Drop_shadow_2xl | Drop_shadow_lg | Drop_shadow_md | Drop_shadow_sm
+    (* All size candidates share one slot: Tailwind orders them by class name,
+       including arbitrary and project-defined values. *)
+    | Drop_shadow_2xl | Drop_shadow_arbitrary _ | Drop_shadow_lg
+    | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _ | Drop_shadow_sm
     | Drop_shadow_xs | Drop_shadow_xl ->
         2703
     | Drop_shadow_none -> 2708
-    | Drop_shadow_named _ -> 2701
     (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
        orders them among themselves by class name, which the alphabetical
        tie-break already does. *)
     | Drop_shadow_keyword_color _ | Drop_shadow_keyword_color_opacity _
     | Drop_shadow_inherit | Drop_shadow_color _ | Drop_shadow_color_opacity _ ->
         2710
-    | Filter -> 9000
-    | Filter_arbitrary _ -> 9001
-    | Filter_none -> 9002
-    | Grayscale n -> 4000 + (100 - n)
-    | Grayscale_arbitrary _ -> 4500
-    | Hue_rotate n -> 5000 + n
-    | Hue_rotate_arbitrary _ -> 5500
-    | Neg_hue_rotate_arbitrary _ -> 4990
-    | Invert n -> 6000 + (100 - n)
-    | Invert_arbitrary _ -> 6500
-    | Saturate n -> 7000 + n
-    | Saturate_arbitrary _ -> 7500
-    | Sepia n -> 8000 + (100 - n)
-    | Sepia_arbitrary _ -> 8500
-    (* Backdrop filters come after regular filters. Order: backdrop-blur,
-       brightness, contrast, filter, grayscale, hue-rotate (neg then pos),
-       invert, opacity, saturate, sepia. Within each: arbitrary first, then
-       none, then named values. *)
-    | Backdrop_blur_arbitrary _ -> 10000
-    | Backdrop_blur_none -> 10001
-    | Backdrop_blur_xs -> 10002
-    | Backdrop_blur_sm -> 10003
-    | Backdrop_blur -> 10004
-    | Backdrop_blur_md -> 10005
-    | Backdrop_blur_lg -> 10006
-    | Backdrop_blur_xl -> 10007
-    | Backdrop_blur_2xl -> 10008
-    | Backdrop_blur_3xl -> 10009
-    | Backdrop_brightness n -> 11000 + n
-    | Backdrop_brightness_arbitrary _ -> 11500
-    | Backdrop_contrast n -> 12000 + n
-    | Backdrop_contrast_arbitrary _ -> 12500
-    | Backdrop_filter -> 21000
-    | Backdrop_filter_arbitrary _ -> 21001
-    | Backdrop_filter_none -> 21002
-    | Backdrop_grayscale n -> 14000 + (100 - n)
-    | Backdrop_grayscale_arbitrary _ -> 14500
-    | Neg_backdrop_hue_rotate_arbitrary _ -> 14990
-    | Backdrop_hue_rotate n -> 15000 + n
-    | Backdrop_hue_rotate_arbitrary _ -> 15500
-    | Backdrop_invert n -> 16000 + (100 - n)
-    | Backdrop_invert_arbitrary _ -> 16500
-    | Backdrop_opacity n -> 17000 + Float.to_int (n *. 10.)
-    | Backdrop_opacity_arbitrary _ -> 18100
-    | Backdrop_saturate n -> 19000 + n
-    | Backdrop_saturate_arbitrary _ -> 19500
-    | Backdrop_sepia n -> 20000 + (100 - n)
-    | Backdrop_sepia_arbitrary _ -> 20500
+    | Grayscale _ | Grayscale_arbitrary _ -> 4000
+    | Hue_rotate _ | Hue_rotate_arbitrary _ | Neg_hue_rotate_arbitrary _ -> 5000
+    | Invert _ | Invert_arbitrary _ -> 6000
+    | Saturate _ | Saturate_arbitrary _ -> 7000
+    | Sepia _ | Sepia_arbitrary _ -> 8000
+    | Filter | Filter_arbitrary _ | Filter_none -> 9000
+    (* Backdrop filters follow the same one-slot-per-kind rule. *)
+    | Backdrop_blur_arbitrary _ | Backdrop_blur_none | Backdrop_blur_xs
+    | Backdrop_blur_sm | Backdrop_blur | Backdrop_blur_md | Backdrop_blur_lg
+    | Backdrop_blur_xl | Backdrop_blur_2xl | Backdrop_blur_3xl ->
+        10000
+    | Backdrop_brightness _ | Backdrop_brightness_arbitrary _ -> 11000
+    | Backdrop_contrast _ | Backdrop_contrast_arbitrary _ -> 12000
+    | Backdrop_grayscale _ | Backdrop_grayscale_arbitrary _ -> 14000
+    | Neg_backdrop_hue_rotate_arbitrary _ | Backdrop_hue_rotate _
+    | Backdrop_hue_rotate_arbitrary _ ->
+        15000
+    | Backdrop_invert _ | Backdrop_invert_arbitrary _ -> 16000
+    | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ -> 17000
+    | Backdrop_saturate _ | Backdrop_saturate_arbitrary _ -> 19000
+    | Backdrop_sepia _ | Backdrop_sepia_arbitrary _ -> 20000
+    | Backdrop_filter | Backdrop_filter_arbitrary _ | Backdrop_filter_none ->
+        21000
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -1697,12 +1658,11 @@ module Handler = struct
 end
 
 open Handler
-
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)
 
 (** {1 Public API - Utility Values} *)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let blur_none = utility Blur_none
 let blur_xs = utility Blur_xs
 let blur_sm = utility Blur_sm

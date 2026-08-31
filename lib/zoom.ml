@@ -5,22 +5,39 @@ module Css = Cascade.Css
 module Handler = struct
   open Style
 
-  type t = Percent of float | Arbitrary of string * Css.zoom
-  type Utility.base += Self of t
+  type t =
+    | Percent of float
+    | Bare_var of string
+    | Arbitrary of string * Css.zoom
 
   let name = "zoom"
-  let priority _ = 2
-  let suborder = function Percent _ -> 0 | Arbitrary _ -> 1
+
+  (* Tailwind emits [zoom-*] between the transforms and the animations. It
+     shares the transforms' priority rather than taking one of its own, there
+     being no integer left between the two, and starts past every suborder
+     transforms.ml assigns (2004 at the time of writing). *)
+  let priority _ = 9
+
+  let suborder = function
+    | Bare_var _ -> 2999
+    | Percent _ -> 3000
+    | Arbitrary _ -> 3001
 
   let num_to_string n =
     if Float.is_integer n then string_of_int (int_of_float n) else Pp.float n
 
   let to_class = function
     | Percent n -> "zoom-" ^ num_to_string n
+    | Bare_var raw -> "zoom-" ^ raw
     | Arbitrary (raw, _) -> "zoom-" ^ raw
 
   let to_style _theme = function
     | Percent n -> style [ Css.zoom (Pct n) ]
+    | Bare_var raw ->
+        let name =
+          Parse.extract_var_name ("var(" ^ Parse.bare_var_inner raw ^ ")")
+        in
+        style [ Css.zoom (Var (Var.bracket name)) ]
     | Arbitrary (_, v) -> style [ Css.zoom v ]
 
   (* [zoom-[var(--zoom)]] references a var; other bracket values parse as a
@@ -42,6 +59,7 @@ module Handler = struct
 
   let of_class _theme class_name =
     match Parse.split_class class_name with
+    | [ "zoom"; value ] when Parse.is_bare_var value -> Ok (Bare_var value)
     | [ "zoom"; n ] -> (
         match int_of_string_opt n with
         | Some i -> Ok (Percent (float_of_int i))
@@ -54,4 +72,4 @@ module Handler = struct
   let examples = [ Percent 100. ]
 end
 
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)

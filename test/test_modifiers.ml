@@ -366,6 +366,30 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[0.5rem]:flex";
     ]
 
+(* [nth-3] and [nth-[3]] are two spellings of one selector and two different
+   classes, so the one the author wrote has to come back out. Deciding the
+   bracket again when printing, on whether the expression is a bare number,
+   named [nth-[3]:p-4] as [.nth-3\\:p-4] and the rule matched nothing. *)
+let test_nth_spelling () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
+    [
+      "nth-3:flex";
+      "nth-[3]:flex";
+      "nth-[2n+1]:flex";
+      "nth-last-2:flex";
+      "nth-last-[2]:flex";
+      "nth-of-type-3:flex";
+      "nth-of-type-[3]:flex";
+      "nth-last-of-type-4:flex";
+      "nth-last-of-type-[4]:flex";
+      "not-nth-3:flex";
+      "not-nth-[3]:flex";
+    ]
+
 (* The bracket holds a length, so a word is not a breakpoint at all. *)
 let test_arbitrary_breakpoint_rejects_non_length () =
   List.iter
@@ -1409,6 +1433,7 @@ let tests =
         test_not_has_shorthand_selector;
       test_case "arbitrary breakpoint spelling" `Quick
         test_arbitrary_breakpoint_spelling;
+      test_case "nth spelling" `Quick test_nth_spelling;
       test_case "arbitrary breakpoint rejects non-length" `Quick
         test_arbitrary_breakpoint_rejects_non_length;
       test_case "custom variant is theme-local" `Quick

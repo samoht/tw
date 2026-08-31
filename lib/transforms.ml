@@ -145,13 +145,33 @@ module Handler = struct
     | Origin_bottom_right
     | Origin_arbitrary of string * Css.transform_origin
 
-  type Utility.base += Self of t
-
   (** Priority for transform utilities *)
   let name = "transforms"
 
-  (* Match Tailwind ordering: transforms before animations and cursor *)
-  let priority _ = 9
+  (* The transform chain sits before animations. Controls that Tailwind sorts
+     through a later property band must not travel with it: origin precedes the
+     chain, backface follows selection, perspective follows backface, and
+     transform box/style follow text-shadow. *)
+  let priority = function
+    | Origin_center | Origin_top | Origin_bottom | Origin_left | Origin_right
+    | Origin_top_left | Origin_top_right | Origin_bottom_left
+    | Origin_bottom_right | Origin_arbitrary _ ->
+        8
+    | Backface_visible | Backface_hidden -> 38
+    | Perspective_none | Perspective_theme _ | Perspective_dramatic
+    | Perspective_near | Perspective_normal | Perspective_midrange
+    | Perspective_distant | Perspective_arbitrary _ | Perspective_origin_center
+    | Perspective_origin_top | Perspective_origin_bottom
+    | Perspective_origin_left | Perspective_origin_right
+    | Perspective_origin_top_left | Perspective_origin_top_right
+    | Perspective_origin_bottom_left | Perspective_origin_bottom_right
+    | Perspective_origin_arbitrary _ ->
+        40
+    | Transform_style_3d | Transform_style_flat | Transform_box_border
+    | Transform_box_content | Transform_box_fill | Transform_box_stroke
+    | Transform_box_view ->
+        42
+    | _ -> 9
 
   (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
      utility. These variables contain the full transform function values, e.g.:
@@ -1141,24 +1161,18 @@ module Handler = struct
 
   let transform_none = style [ Css.transform None ]
 
-  (* transform-cpu is an alias for transform *)
+  (* [transform-cpu] writes what [transform] writes. The [@property] block for
+     the five channels belongs to [transform] alone, though: Tailwind declares
+     them there and neither of the two below carries them, so asking for the
+     rules here put a whole [@layer properties] in a sheet whose only transform
+     utility was this one. *)
   let transform_cpu =
     let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
     let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
     let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
     let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
     let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
-    let property_rules =
-      collect_property_rules
-        [
-          tw_rotate_x_var;
-          tw_rotate_y_var;
-          tw_rotate_z_var;
-          tw_skew_x_var;
-          tw_skew_y_var;
-        ]
-    in
-    style ~property_rules
+    style
       [
         transforms
           [
@@ -1170,24 +1184,15 @@ module Handler = struct
           ];
       ]
 
-  (* transform-gpu adds translateZ(0) for GPU acceleration plus all var refs *)
+  (* transform-gpu adds translateZ(0) for GPU acceleration plus all var refs. No
+     [@property] block here either; see [transform_cpu]. *)
   let transform_gpu =
     let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
     let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
     let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
     let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
     let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
-    let property_rules =
-      collect_property_rules
-        [
-          tw_rotate_x_var;
-          tw_rotate_y_var;
-          tw_rotate_z_var;
-          tw_skew_x_var;
-          tw_skew_y_var;
-        ]
-    in
-    style ~property_rules
+    style
       [
         transforms
           [
@@ -1366,108 +1371,73 @@ module Handler = struct
     | Transform_cpu -> 2002
     | Transform_gpu -> 2003
     | Transform_none -> 2004
-    (* Combined translate (CSS `translate`): negatives first, positives second.
-       Within a sign Tailwind orders by class name, so one shared suborder plus
-       the string tiebreak already sorts fractions before small integers before
-       full/px. Positive integers need an explicit magnitude key (32 + n)
-       because lexical order puts translate-8 after translate-45; the spacing
-       scale on real sites keeps 32 + n below the translate-x band at 100. *)
-    | Neg_translate _ -> 20
-    | Neg_translate_arbitrary _ -> 20
-    | Neg_translate_full -> 20
-    | Neg_translate_px -> 20
-    | Neg_translate_x_px -> 20
-    | Neg_translate_y_px -> 20
-    | Neg_translate_fraction _ -> 20
-    | Translate_1_2 -> 31
-    | Translate_fraction _ -> 31
-    | Translate n -> 32 + n
-    | Translate_arbitrary _ -> 95
-    | Translate_full -> 96
-    | Translate_px -> 97
-    | Translate_none -> 98
-    (* Translate utilities come first *)
-    | Neg_translate_x_arbitrary _ -> 100
-    | Neg_translate_x_full -> 101
-    | Neg_translate_x_1_2 -> 102
-    | Neg_translate_x_fraction _ -> 102
-    | Translate_x n -> 110 + n
-    | Translate_x_fraction _ -> 125
-    | Translate_x_full -> 130
-    | Translate_x_px -> 131
-    | Translate_x_step f -> 100 + int_of_float (f *. 10.)
-    | Translate_x_arbitrary _ -> 199
-    | Neg_translate_y_arbitrary _ -> 200
-    | Neg_translate_y_full -> 201
-    | Neg_translate_y_1_2 -> 202
-    | Neg_translate_y_fraction _ -> 202
-    | Translate_y n -> 210 + n
-    | Translate_y_fraction _ -> 225
-    | Translate_y_full -> 230
-    | Translate_y_px -> 231
-    | Translate_y_step f -> 200 + int_of_float (f *. 10.)
-    | Translate_y_arbitrary _ -> 299
-    | Neg_translate_z_arbitrary _ -> 299
-    | Neg_translate_z_px -> 300
-    | Translate_z n -> 301 + n
-    | Translate_z_step f -> 300 + int_of_float (f *. 10.)
-    | Translate_z_px -> 320
-    | Translate_3d -> 320
-    (* Scale utilities *)
-    | Scale n -> 400 + n
-    | Scale_x n -> 500 + n
-    | Scale_x_arbitrary _ -> 599
-    | Scale_y n -> 600 + n
-    | Scale_y_arbitrary _ -> 699
-    | Scale_raw_1 _ -> 498
-    | Scale_raw_3 _ -> 499
-    | Scale_z n -> 700 + n
-    | Scale_z_arbitrary _ -> 799
-    | Scale_3d -> 750
-    | Scale_none -> 750
-    (* Rotate utilities - negative before positive, bare var before int/arb *)
-    | Neg_rotate_bare_var _ -> 750
-    | Neg_rotate_arbitrary _ -> 799
+    (* Candidate values share a slot within each sign/axis band. Tailwind uses
+       the natural candidate spelling inside that slot; baking the magnitude
+       into the suborder reverses negatives and lets a large value spill into
+       the next axis. *)
+    | Neg_translate _ | Neg_translate_arbitrary _ | Neg_translate_full
+    | Neg_translate_px | Neg_translate_fraction _ ->
+        20
+    | Translate _ | Translate_arbitrary _ | Translate_full | Translate_px
+    | Translate_1_2 | Translate_fraction _ ->
+        21
+    | Translate_x n when n < 0 -> 100
+    | Neg_translate_x_arbitrary _ | Neg_translate_x_full | Neg_translate_x_px
+    | Neg_translate_x_1_2 | Neg_translate_x_fraction _ ->
+        100
+    | Translate_x _ | Translate_x_fraction _ | Translate_x_full | Translate_x_px
+    | Translate_x_step _ | Translate_x_arbitrary _ ->
+        101
+    | Translate_y n when n < 0 -> 200
+    | Neg_translate_y_arbitrary _ | Neg_translate_y_full | Neg_translate_y_px
+    | Neg_translate_y_1_2 | Neg_translate_y_fraction _ ->
+        200
+    | Translate_y _ | Translate_y_fraction _ | Translate_y_full | Translate_y_px
+    | Translate_y_step _ | Translate_y_arbitrary _ ->
+        201
+    | Translate_z n when n < 0 -> 300
+    | Neg_translate_z_arbitrary _ | Neg_translate_z_px -> 300
+    | Translate_z _ | Translate_z_step _ | Translate_z_px -> 301
+    | Translate_3d | Translate_none -> 302
+    (* Scale utilities use the same sign/axis bands. *)
+    | Scale n when n < 0 -> 400
+    | Scale _ | Scale_raw_1 _ | Scale_raw_3 _ -> 401
+    | Scale_x n when n < 0 -> 500
+    | Scale_x _ | Scale_x_arbitrary _ -> 501
+    | Scale_y n when n < 0 -> 600
+    | Scale_y _ | Scale_y_arbitrary _ -> 601
+    | Scale_z n when n < 0 -> 700
+    | Scale_z _ | Scale_z_arbitrary _ -> 701
+    | Scale_3d | Scale_none -> 702
+    (* Rotate utilities: sign first, then a bare variable, named values and the
+       arbitrary/none tail. Axes each get their own sign pair. *)
+    | Rotate n when n < 0 -> 799
+    | Neg_rotate_bare_var _ | Neg_rotate_arbitrary _ -> 799
     | Rotate_bare_var _ -> 800
-    | Rotate n -> 801 + n
-    (* An arbitrary rotate sorts after every named rotate ('[' > any digit), so
-       it must sit past the largest [Rotate n] (rotate-180 -> 801 + 180 = 981),
-       not mid-range. *)
-    | Rotate_3d_arbitrary _ -> 982
-    | Rotate_arbitrary _ -> 983
-    | Rotate_none -> 983
-    | Neg_rotate_x_bare_var _ -> 900
-    | Neg_rotate_x_arbitrary _ -> 949
-    | Rotate_x_bare_var _ -> 950
-    | Rotate_x n -> 951 + n
-    | Rotate_x_arbitrary _ -> 999
-    | Neg_rotate_y_bare_var _ -> 1000
-    | Neg_rotate_y_arbitrary _ -> 1049
-    | Rotate_y_bare_var _ -> 1050
-    | Rotate_y n -> 1051 + n
-    | Rotate_y_arbitrary _ -> 1099
-    | Neg_rotate_z_bare_var _ -> 1100
-    | Neg_rotate_z_arbitrary _ -> 1149
-    | Rotate_z_bare_var _ -> 1150
-    | Rotate_z n -> 1151 + n
-    | Rotate_z_arbitrary _ -> 1199
-    (* Skew utilities *)
-    | Skew_x n -> 1200 + n
-    | Skew_x_arbitrary _ -> 1299
-    | Skew_y n -> 1300 + n
-    | Skew_y_arbitrary _ -> 1398
-    | Skew n -> 1200 + n (* Combined skew, same order as skew-x *)
-    | Skew_arbitrary _ -> 1250
-    (* Other transform utilities - arbitrary before named (alphabetical by
-       class) *)
-    | Perspective_arbitrary _ -> 1400
-    | Perspective_dramatic -> 1400
-    | Perspective_none -> 1401
-    | Perspective_theme _ -> 1402
-    | Perspective_normal -> 1402
-    | Perspective_near -> 1403
-    | Perspective_midrange -> 1404
-    | Perspective_distant -> 1405
+    | Rotate _ -> 801
+    | Rotate_3d_arbitrary _ | Rotate_arbitrary _ | Rotate_none -> 802
+    | Rotate_x n when n < 0 -> 900
+    | Neg_rotate_x_bare_var _ | Neg_rotate_x_arbitrary _ -> 900
+    | Rotate_x _ | Rotate_x_bare_var _ | Rotate_x_arbitrary _ -> 901
+    | Rotate_y n when n < 0 -> 1000
+    | Neg_rotate_y_bare_var _ | Neg_rotate_y_arbitrary _ -> 1000
+    | Rotate_y _ | Rotate_y_bare_var _ | Rotate_y_arbitrary _ -> 1001
+    | Rotate_z n when n < 0 -> 1100
+    | Neg_rotate_z_bare_var _ | Neg_rotate_z_arbitrary _ -> 1100
+    | Rotate_z _ | Rotate_z_bare_var _ | Rotate_z_arbitrary _ -> 1101
+    (* Combined skew precedes skew-x, then skew-y. *)
+    | Skew n when n < 0 -> 1200
+    | Skew _ | Skew_arbitrary _ -> 1201
+    | Skew_x n when n < 0 -> 1210
+    | Skew_x _ | Skew_x_arbitrary _ -> 1211
+    | Skew_y n when n < 0 -> 1300
+    | Skew_y _ | Skew_y_arbitrary _ -> 1301
+    (* Perspective depths are one candidate band; Tailwind orders their class
+       spellings rather than their semantic distance. *)
+    | Perspective_arbitrary _ | Perspective_dramatic | Perspective_none
+    | Perspective_theme _ | Perspective_normal | Perspective_near
+    | Perspective_midrange | Perspective_distant ->
+        1400
     | Perspective_origin_arbitrary _ -> 1499
     | Perspective_origin_bottom -> 1500
     | Perspective_origin_bottom_left -> 1501
@@ -2038,11 +2008,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register the transform utility handlers *)
-let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let rotate n = utility (Rotate n)
 let translate_x n = utility (Translate_x n)

@@ -5,6 +5,11 @@
 
 open Utility
 
+val suborder_ceiling : int
+(** One past every suborder this handler assigns. [object-fit] and
+    [object-position] share its priority and Tailwind emits them after every
+    fill and stroke, so {!Layout} starts their suborders here. *)
+
 (** {1 Fill Utilities} *)
 
 val fill_none : t

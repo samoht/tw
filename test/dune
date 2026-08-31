@@ -12,4 +12,6 @@
   cascade.diff
   test_helpers
   upstream_fixture)
- (deps upstream/utilities.txt upstream/variants.txt))
+ ; test_sort reads tw.ml's include list back to check that the fuzzer pool has
+ ; an entry for every family it lists.
+ (deps upstream/utilities.txt upstream/variants.txt ../lib/tw.ml))

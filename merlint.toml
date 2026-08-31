@@ -69,12 +69,3 @@ files = [
   "lib/touch.ml*",
 ]
 exclude = ["E330"]
-
-# Both files are being rewritten elsewhere: mask_gradient is mid typed port and
-# text_shadow is mid rename, so their prefixes come off with those changes.
-[[rules]]
-files = [
-  "lib/mask_gradient.ml*",
-  "lib/text_shadow.ml*",
-]
-exclude = ["E334"]

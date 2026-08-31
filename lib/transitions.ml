@@ -42,12 +42,13 @@ module Handler = struct
     | Ease_arbitrary of string * Css.timing_function
     | Ease_theme of string (* timing function from an --ease-* token *)
 
-  type Utility.base += Self of t
-
   let name = "transitions"
 
-  let priority _ =
-    32 (* Transition utilities come after all other styling utilities *)
+  let priority = function
+    (* Tailwind registers these late channel resets after divide-x-reverse and
+       before the logical inline sizing candidates. *)
+    | Duration_initial | Ease_initial -> 38
+    | _ -> 32 (* Transition utilities come after all other styling utilities *)
 
   (* Theme variables for default transition settings. Duration has lower order
      (8,0) so it appears before timing-function (8,1) in the theme layer output,
@@ -73,7 +74,7 @@ module Handler = struct
   (* Theme variable for transition-property-opacity *)
   let transition_property_opacity_var =
     Var.theme Css.Transition_property_value "transition-property-opacity"
-      ~order:(8, 2)
+      ~order:(8, 32)
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
@@ -170,7 +171,7 @@ module Handler = struct
   (* Theme variable for transition-property-colors *)
   let transition_property_colors_var =
     Var.theme Css.Transition_property_value "transition-property-colors"
-      ~order:(8, 3)
+      ~order:(8, 33)
 
   let transition_colors ?theme () =
     let gradient_from_name =
@@ -540,10 +541,11 @@ module Handler = struct
     | Transition_none -> 6
     | Transition_behavior_allow_discrete -> 7 (* transition-discrete *)
     | Transition_behavior_normal -> 8 (* transition-normal *)
-    | Delay n -> 100 + n
-    | Delay_arbitrary _ -> 100000
+    (* Candidate values share Tailwind's one registration slot; the raw class
+       key supplies their natural order without mixing duration values in. *)
+    | Delay _ | Delay_arbitrary _ -> 100
     | Duration n -> 200 + n
-    | Duration_initial -> 200001
+    | Duration_initial -> 89_000_001
     | Duration_arbitrary _ -> 200000
     (* Ease utilities come after Duration. Tailwind orders: duration then ease.
        Use a high base to ensure even duration-5000 (suborder 5200) < ease.
@@ -552,7 +554,7 @@ module Handler = struct
     | Ease_in_out -> 100001
     | Ease_linear -> 100002
     | Ease_out -> 100003
-    | Ease_initial -> 100004
+    | Ease_initial -> 89_000_002
     | Ease_arbitrary _ -> 99999
     | Ease_theme _ -> 100005
 
@@ -675,9 +677,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let transition_none = utility Transition_none
 let transition = utility Transition
 let transition_all = utility Transition_all
