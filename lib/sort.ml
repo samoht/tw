@@ -1142,9 +1142,9 @@ let rec variant_value_key token =
    group-focus and group-has keep their focus-before-has order, and the
    predicate spelling for data variants, so a lower-order compound component
    does not push [data-focus:has-checked] past every other data predicate. *)
-let token_order_key ~breakpoint token =
-  let slot = Modifiers.variant_order_of_prefix token in
-  let wrapped = Modifiers.variant_inner_order_path token in
+let token_order_key ?theme ~breakpoint token =
+  let slot = Modifiers.variant_order_of_prefix ?theme token in
+  let wrapped = Modifiers.variant_inner_order_path ?theme token in
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
@@ -1158,7 +1158,7 @@ let token_order_key ~breakpoint token =
    (group:hover vs hover:group) get identical keys. Falls back to the scalar
    [variant_order] for selector-derived variants (before:/after:) that carry no
    order-bearing prefix in the base class. *)
-let variant_order_list base_class variant_order breakpoint =
+let variant_order_list ?theme base_class variant_order breakpoint =
   let from_bc =
     match base_class with
     | None -> []
@@ -1167,7 +1167,7 @@ let variant_order_list base_class variant_order breakpoint =
         let modifiers, _ = collapse_repeated_variant_slots modifiers in
         List.filter_map
           (fun m ->
-            let key = token_order_key ~breakpoint m in
+            let key = token_order_key ?theme ~breakpoint m in
             if key.slot > 0 then Some key else None)
           modifiers
         |> List.sort (fun a b -> compare_variant_components b a)

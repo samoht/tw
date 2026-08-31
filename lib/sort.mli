@@ -103,13 +103,19 @@ val variant_sort_key : string option -> Css.statement list -> string * int * int
     triple stored in {!field-variant_key}. *)
 
 val variant_order_list :
-  string option -> int -> Css.Media.key option -> variant_component list
-(** [variant_order_list base_class variant_order breakpoint] is the descending
-    list of variant order keys stored in {!field-variant_orders}.
-    [variant_order] is the scalar fallback for selector-derived variants with no
-    order-bearing prefix. [breakpoint] is the rule's {!val-responsive_media_key}
-    and becomes the {!field-variant_component.breakpoint} of whichever token
-    names a breakpoint. *)
+  ?theme:Scheme.t ->
+  string option ->
+  int ->
+  Css.Media.key option ->
+  variant_component list
+(** [variant_order_list ?theme base_class variant_order breakpoint] is the
+    descending list of variant order keys stored in {!field-variant_orders}.
+    [theme] resolves exact custom-variant names before the built-in prefix
+    grammar. [variant_order] is the scalar fallback for selector-derived
+    variants with no order-bearing prefix. [breakpoint] is the rule's
+    {!val-responsive_media_key} and becomes the
+    {!field-variant_component.breakpoint} of whichever token names a breakpoint.
+*)
 
 val media_sort_keys :
   [ `Regular
