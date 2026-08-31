@@ -1556,7 +1556,9 @@ let output_base_class_and_props = function
    Built-in values carry distinct numeric suborders in TW, so when a declared
    utility joins one of those property families, normalize that family's
    suborder for this render and let the existing candidate-name tiebreaker
-   interleave both kinds of utility. *)
+   interleave both kinds of utility. A negative minimum is a built-in prelude,
+   such as [sr-only]/[not-sr-only] before ordinary position utilities. Preserve
+   that walk and put the declared utility in the preceding property slot. *)
 let normalize_declared_property_families order_map builtins extra_outputs =
   List.iter
     (fun (class_name, (priority, _), outputs) ->
@@ -1598,14 +1600,19 @@ let normalize_declared_property_families order_map builtins extra_outputs =
             in
             Option.iter
               (fun suborder ->
-                List.iter
-                  (fun (base, (p, _)) ->
-                    if p = priority then
-                      Hashtbl.replace order_map base (priority, suborder))
-                  family;
-                Hashtbl.replace order_map
-                  (extract_base_utility class_name)
-                  (priority, suborder))
+                if suborder < 0 then
+                  Hashtbl.replace order_map
+                    (extract_base_utility class_name)
+                    (priority, suborder - 1)
+                else (
+                  List.iter
+                    (fun (base, (p, _)) ->
+                      if p = priority then
+                        Hashtbl.replace order_map base (priority, suborder))
+                    family;
+                  Hashtbl.replace order_map
+                    (extract_base_utility class_name)
+                    (priority, suborder)))
               suborder)
     extra_outputs
 
