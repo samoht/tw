@@ -720,6 +720,45 @@ let test_color_tolerance () =
     "color-mix(in oklab, var(--x) 50%, transparent)"
     (color_mix_to_oklab "color-mix(in oklab, var(--x) 50%, transparent)")
 
+let write_reader_regression_fixture name contents =
+  let dir = "tmp" in
+  if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
+  let path = Filename.concat dir name in
+  let oc = open_out path in
+  output_string oc contents;
+  close_out oc;
+  path
+
+let reader_regression_banner =
+  "#! 1 block extracted from variants.test.ts by extract_tests.exe -- do not \
+   edit\n"
+
+let test_reader_keeps_a_compile_error_block () =
+  let path =
+    write_reader_regression_fixture "reader_compile_error.txt"
+      (reader_regression_banner
+     ^ "# a case that throws\n@config run\nfoo bar\n<<<>>>\n")
+  in
+  Alcotest.(check int) "one case" 1 (List.length (read path))
+
+let test_reader_rejects_a_stray_line () =
+  let path =
+    write_reader_regression_fixture "reader_stray.txt"
+      (reader_regression_banner
+     ^ "# a case\n\
+        @config run\n\
+        flex\n\
+        stray\n\
+        ---\n\
+        .flex { display: flex }\n\
+        <<<>>>\n")
+  in
+  match read path with
+  | exception _ -> ()
+  | cases ->
+      Alcotest.failf "read %d cases instead of rejecting the stray line"
+        (List.length cases)
+
 let print_parity_report () =
   Fmt.epr "@.=== upstream parity report ===@.";
   Fmt.epr "classes: %d total, %d parsed, %d routed, %d rejected@."
@@ -814,10 +853,19 @@ let () =
         test_dropped_declarations_are_reported;
     ]
   in
+  let reader_regression_cases =
+    [
+      test_case "a compile-error block keeps its place" `Quick
+        test_reader_keeps_a_compile_error_block;
+      test_case "a stray fixture line is rejected" `Quick
+        test_reader_rejects_a_stray_line;
+    ]
+  in
   let suites =
     [
       ("utilities", alcotest_cases utility_tests);
       ("tolerance", tolerance_cases);
+      ("reader regression", reader_regression_cases);
       ("variants", alcotest_cases variant_tests);
     ]
   in
