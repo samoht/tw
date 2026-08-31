@@ -27,11 +27,19 @@ let test_zoom_sorts_after_the_transforms () =
       "p-4";
     ]
 
+(* The paren shorthand is Tailwind's first zoom candidate, before the numeric
+   scale and bracket-arbitrary values. *)
+let test_zoom_candidate_boundary () =
+  Test_helpers.check_class_order ~test_name:"zoom candidate boundary"
+    [ "zoom-125"; "zoom-(--preview-zoom)"; "zoom-[1.1]"; "zoom-75"; "zoom-100" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "sorts after the transforms" `Quick
         test_zoom_sorts_after_the_transforms;
+      Alcotest.test_case "candidate boundary" `Quick
+        test_zoom_candidate_boundary;
     ]
 
 let suite = ("zoom", tests)
