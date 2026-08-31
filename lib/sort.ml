@@ -36,7 +36,7 @@ type selector_kind =
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
-  wrapped : int;
+  wrapped : int list;
   value_key : string option;
 }
 
@@ -1106,7 +1106,7 @@ let compare_variant_components a b =
     in
     if bp_cmp <> 0 then bp_cmp
     else
-      let wrapped_cmp = Int.compare a.wrapped b.wrapped in
+      let wrapped_cmp = List.compare Int.compare a.wrapped b.wrapped in
       if wrapped_cmp <> 0 then wrapped_cmp
       else Option.compare String.compare a.value_key b.value_key
 
@@ -1138,7 +1138,7 @@ let arbitrary_variant_selector_key token =
    does not push [data-focus:has-checked] past every other data predicate. *)
 let token_order_key ~breakpoint token =
   let slot = Modifiers.variant_order_of_prefix token in
-  let wrapped = Modifiers.variant_inner_order token in
+  let wrapped = Modifiers.variant_inner_order_path token in
   let breakpoint =
     if slot = responsive_variant_order then breakpoint else None
   in
@@ -1177,7 +1177,7 @@ let variant_order_list base_class variant_order breakpoint =
         {
           slot = variant_order;
           breakpoint = None;
-          wrapped = 0;
+          wrapped = [];
           value_key = None;
         };
       ]
