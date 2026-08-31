@@ -176,6 +176,22 @@ let test_order_gap_agreeing_sheets () =
     "nothing moves when the orders agree" (3, 0)
     (g.Test_helpers.pairs, g.Test_helpers.moves)
 
+(* Two branches in one selector list occupy one statement and therefore have no
+   order relative to each other. If either sheet merges them, the pairwise
+   oracle must not turn their equal ranks into an inversion. *)
+let test_inversions_ignore_a_grouped_selector () =
+  let separate = utilities_layer [ ".a"; ".b" ] in
+  let grouped = utilities_layer [ ".a,.b" ] in
+  let inverted tailwind tw =
+    Test_helpers.inverted_pairs ~tailwind ~tw [ "a"; "b" ]
+  in
+  Alcotest.(check (list (pair string string)))
+    "tw groups the pair" []
+    (inverted separate grouped);
+  Alcotest.(check (list (pair string string)))
+    "Tailwind groups the pair" []
+    (inverted grouped separate)
+
 (* Mode [`Tree] is the only mode that reports a rule written twice or a
    custom-property binding nothing reads: mode [`Canonical] folds the second
    copy away in its optimizer, and every caller of it prunes unreferenced
@@ -330,6 +346,8 @@ let tests =
       test_order_gap_drops_a_repeated_key;
     Alcotest.test_case "order gap: agreeing sheets" `Quick
       test_order_gap_agreeing_sheets;
+    Alcotest.test_case "inversions: grouped selector is unordered" `Quick
+      test_inversions_ignore_a_grouped_selector;
     Alcotest.test_case "surplus: a rule written twice" `Quick
       test_surplus_reports_a_rule_written_twice;
     Alcotest.test_case "surplus: a binding nothing reads" `Quick
