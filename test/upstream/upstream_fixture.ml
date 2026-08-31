@@ -11,6 +11,7 @@
     @theme-mode <name> <modifiers>        (optional, repeatable)
     @utility-def <name> <body>            (optional, repeatable)
     @layer-wrap <layer>                   (optional)
+    @layer-before-theme true              (optional)
     <space-separated class list>
     ---
     <expected CSS>
@@ -69,6 +70,9 @@ type case = {
       (** The layer the test's CSS template compiles [@tailwind utilities] into,
           when it names one. Tailwind puts the generated utilities in it and
           everything else beside it. *)
+  layer_before_theme : bool;
+      (** Whether the wrapped utilities precede a later [@theme] block in the
+          source template. *)
 }
 
 (** Split a class line by spaces, but don't split inside brackets. *)
@@ -157,6 +161,7 @@ let parse_block filename block =
   let theme_modes = ref [] in
   let utility_defs = ref [] in
   let layer_wrap = ref None in
+  let layer_before_theme = ref false in
   let read_config n arg =
     match config_of_string arg with
     | c -> config := c
@@ -183,6 +188,12 @@ let parse_block filename block =
           utility_defs :=
             named_pair filename n "@utility-def " arg :: !utility_defs );
       ("@layer-wrap ", fun _ arg -> layer_wrap := Some arg);
+      ( "@layer-before-theme ",
+        fun n arg ->
+          match arg with
+          | "true" -> layer_before_theme := true
+          | "false" -> layer_before_theme := false
+          | _ -> malformed filename n arg "true or false" );
     ]
   in
   let rec directives lines =
@@ -230,6 +241,7 @@ let parse_block filename block =
         theme_modes = List.rev !theme_modes;
         utility_defs = List.rev !utility_defs;
         layer_wrap = !layer_wrap;
+        layer_before_theme = !layer_before_theme;
       }
 
 let read filename =

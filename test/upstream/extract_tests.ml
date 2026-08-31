@@ -153,6 +153,10 @@ type test_case = {
       (** The layer the test's CSS template puts [@tailwind utilities] in, when
           it puts it in one at all. Tailwind emits the generated utilities
           inside that layer and everything else beside it. *)
+  layer_before_theme : bool;
+      (** Whether that layer appeared before a later [@theme] block. Source
+          order decides whether Tailwind writes the generated layer before or
+          after the theme declarations beside it. *)
 }
 
 (* Parse [matchVariant('name', (value) => `template`, { values: {...} })] calls
@@ -758,6 +762,7 @@ let parse_file filename =
      what it holds: an [@layer] wrapping the author's own rules names nothing
      for the generator. *)
   let current_layer_wrap = ref None in
+  let current_layer_before_theme = ref false in
   let in_layer = ref None in
   let layer_open_re = Re.Pcre.regexp {|@layer\s+([A-Za-z0-9_-]+)\s*\{|} in
   let tailwind_utilities_re = Re.Pcre.regexp {|@tailwind\s+utilities|} in
@@ -810,6 +815,7 @@ let parse_file filename =
           theme_modes = List.rev !current_theme_modes;
           utility_defs = [];
           layer_wrap = !current_layer_wrap;
+          layer_before_theme = !current_layer_before_theme;
         }
         :: !block_tests;
     current_classes := [];
@@ -855,6 +861,7 @@ let parse_file filename =
     current_theme_modes := [];
     current_utility_defs := [];
     current_layer_wrap := None;
+    current_layer_before_theme := false;
     in_theme := None;
     in_utility := None;
     in_layer := None;
@@ -910,6 +917,18 @@ let parse_file filename =
           else if Re.execp theme_re line then (
             saw_keep_theme := true;
             current_config := Theme);
+
+          (* The generated utilities and the theme declarations remain beside
+             one another in source order. [current_layer_wrap] is set only after
+             its block closes, so seeing a later [@theme] records the one
+             ordering the replay cannot recover from the two statements
+             alone. *)
+          if
+            Option.is_some !current_layer_wrap
+            && (Re.execp theme_inline_ref_re line
+               || Re.execp theme_inline_re line
+               || Re.execp theme_ref_re line || Re.execp theme_re line)
+          then current_layer_before_theme := true;
 
           (* Capture [@theme] token declarations. Enter just after the opener's
              [{] and read on until the block's closing [}]. *)
@@ -1118,6 +1137,7 @@ let () =
         (fun (n, body) -> Fmt.pr "@utility-def %s %s@." n body)
         test.utility_defs;
       Option.iter (Fmt.pr "@layer-wrap %s@.") test.layer_wrap;
+      if test.layer_before_theme then Fmt.pr "@layer-before-theme true@.";
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->
