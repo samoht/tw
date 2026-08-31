@@ -1,4 +1,4 @@
-#! 699 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
+#! 700 blocks extracted from utilities.test.ts by extract_tests.exe -- do not edit
 # sr-only
 @config run
 sr-only
@@ -22498,6 +22498,26 @@ basis-sm max-w-sm min-w-sm w-sm
         flex-basis: var(--spacing-sm);
       }
       
+<<<>>>
+# custom static utility emit CSS variables if the utility is used
+@config run
+@theme-var example-foo 123px
+@utility-def foo value: var(--example-foo);
+@layer-wrap utilities
+@layer-before-theme true
+foo
+---
+
+      @layer utilities {
+        .foo {
+          value: var(--example-foo);
+        }
+      }
+
+      :root, :host {
+        --example-foo: 123px;
+      }
+
 <<<>>>
 # Multiple static utilities are merged
 @config run

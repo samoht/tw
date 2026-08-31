@@ -61,6 +61,7 @@ sized-4
 @theme-var example-foo 123px
 @utility-def foo value: var(--example-foo);
 @layer-wrap utilities
+@layer-before-theme true
 foo
 ---
 
