@@ -6,7 +6,7 @@
 (executable
  (name extract_tests)
  (modules extract_tests)
- (libraries re fmt astring cascade tw_tools))
+ (libraries re fmt astring cascade tw tw_tools))
 
 (test
  (name test)

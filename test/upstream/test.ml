@@ -263,6 +263,58 @@ let drop_theme_keyframes stylesheet =
        (fun stmt -> Option.is_none (Css.as_keyframes stmt))
        (Css.statements stylesheet))
 
+(* Compatibility minifiers add prefixed declarations beside the declaration a
+   utility authored. For parity, that duplicate is semantically inert only when
+   the same declaration block holds an identical unprefixed property and value.
+   A lone prefix, or a prefix whose value maps to another keyword, stays in the
+   comparison. Parse warnings leave the input alone so this normalisation cannot
+   hide a declaration the CSS reader dropped. *)
+let vendor_prefixes = [ "-webkit-"; "-moz-"; "-ms-" ]
+
+let declaration_parts declaration =
+  let text = Css.Declaration.to_string ~minify:true declaration in
+  match String.index_opt text ':' with
+  | None -> None
+  | Some i ->
+      Some
+        ( String.sub text 0 i,
+          String.sub text (i + 1) (String.length text - i - 1) )
+
+let unprefixed_name name =
+  List.find_map
+    (fun prefix ->
+      if String.starts_with ~prefix name then
+        Some
+          (String.sub name (String.length prefix)
+             (String.length name - String.length prefix))
+      else None)
+    vendor_prefixes
+
+let drop_redundant_vendor_prefixes css =
+  match Css.of_string css with
+  | Ok { stylesheet; warnings = []; _ } ->
+      let stylesheet =
+        Css.Stylesheet.map_declarations
+          (fun declarations ->
+            List.filter
+              (fun declaration ->
+                match declaration_parts declaration with
+                | Some (name, value) -> (
+                    match unprefixed_name name with
+                    | None -> true
+                    | Some name ->
+                        not
+                          (List.exists
+                             (fun candidate ->
+                               declaration_parts candidate = Some (name, value))
+                             declarations))
+                | None -> true)
+              declarations)
+          stylesheet
+      in
+      Css.to_string ~minify:true stylesheet |> String.trim
+  | Ok _ | Error _ -> css
+
 (* [color-mix(in oklab, C p%, transparent)] denotes the concrete colour C at
    alpha p, which LightningCSS folds to an [oklab(...)] in the fixtures. tw
    keeps the colour itself (exact and shorter once cascade folds it to a hex),
@@ -629,9 +681,11 @@ let run_test_case test expected () =
       | None -> ""
       | Some stylesheet ->
           stylesheet |> resolve_theme |> Css.to_string ~minify:true
-          |> String.trim
+          |> String.trim |> drop_redundant_vendor_prefixes
     in
-    let expected_css = canonical_stylesheet_css expected in
+    let expected_css =
+      canonical_stylesheet_css expected |> drop_redundant_vendor_prefixes
+    in
     if our_css = "" && expected = "" then ()
     else
       let normalize_colors s =
@@ -696,6 +750,19 @@ let test_color_mix_percentage () =
     "color-mix(in oklab, red var(--opacity-half, .5), transparent)"
     "color-mix(in oklab, red var(--opacity-half, .5), transparent)";
   check "text outside color-mix untouched" "opacity: .5" "opacity: .5"
+
+let test_redundant_vendor_prefixes () =
+  let check msg expected input =
+    Alcotest.(check string) msg expected (drop_redundant_vendor_prefixes input)
+  in
+  check "identical prefixed declarations are redundant"
+    ".x{mask-image:var(--x)}"
+    ".x{-webkit-mask-image:var(--x);-webkit-mask-image:var(--x);mask-image:var(--x)}";
+  check "a mapped prefix remains observable"
+    ".x{-webkit-mask-composite:source-in;mask-composite:intersect}"
+    ".x{-webkit-mask-composite:source-in;mask-composite:intersect}";
+  check "a prefix with no unprefixed declaration remains observable"
+    ".x{-webkit-mask-image:var(--x)}" ".x{-webkit-mask-image:var(--x)}"
 
 (* Guards [truncate_color_precision]: it truncates (never rounds) the
    oklab-family axes to three decimals like Tailwind's snapshot serialiser, so
@@ -970,6 +1037,8 @@ let () =
     [
       test_case "oklab precision truncation" `Quick test_color_tolerance;
       test_case "color-mix percentage" `Quick test_color_mix_percentage;
+      test_case "redundant vendor prefixes" `Quick
+        test_redundant_vendor_prefixes;
       test_case "the theme echo is limited to declared tokens" `Quick
         test_echo_only_declared_tokens;
       test_case "the scheme is built from declared tokens only" `Quick
