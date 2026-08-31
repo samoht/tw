@@ -575,6 +575,23 @@ let test_shadow_and_transform_boundaries () =
       "shadow-sm";
     ]
 
+let test_late_typography_property_bands () =
+  Test_helpers.check_class_order
+    ~test_name:"late typography keeps its property bands"
+    [
+      "antialiased";
+      "underline-offset-4";
+      "decoration-2";
+      "decoration-dashed";
+      "decoration-red-500";
+      "underline";
+      "line-through";
+      "tabular-nums";
+      "ordinal";
+      "font-stretch-expanded";
+      "italic";
+    ]
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -1497,8 +1514,7 @@ let pool_entries () =
    two handlers. The handler is as fine as the key gets, and a family spanning
    two of Tailwind's bands answers one name for both. That is still far finer
    than a count of statements, which tolerates any 322 of them. *)
-let known_inversions =
-  [ ("masks", "arbitrary"); ("typography_late", "typography_late") ]
+let known_inversions = [ ("typography_late", "typography_late") ]
 
 (* Which handler each class in a case belongs to, and which variant it wears.
    The variant matters because two classes wearing different ones are not
@@ -2699,6 +2715,8 @@ let tests =
       test_logical_side_property_bands;
     test_case "shadow and transform boundaries" `Slow
       test_shadow_and_transform_boundaries;
+    test_case "late typography property bands" `Slow
+      test_late_typography_property_bands;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
