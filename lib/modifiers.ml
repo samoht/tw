@@ -2571,10 +2571,11 @@ let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
       Some Slot.Inverted_colors
   | _ -> None
 
-(* What separates two tokens that share a slot: a [group-]/[peer-] token sorts
-   by the state it wraps and a [not-] token by the variant it negates, both read
-   off the same table as the slot itself. *)
-let variant_inner_order token =
+(* The variant wrapped by one compound token, if any. Keeping this extraction in
+   one place lets ordering follow group-not-has-peer-not-data-active all the way
+   to its data predicate instead of stopping at the first [not] or [has]
+   slot. *)
+let variant_inner_token token =
   let after n = String.sub token n (String.length token - n) in
   let anchor_inner n =
     let inner = after n in
@@ -2582,21 +2583,29 @@ let variant_inner_order token =
        simple states have no brackets, so their suffix can be removed here. *)
     if String.contains inner '[' then inner else fst (split_name inner)
   in
-  let inner =
-    if String.starts_with ~prefix:"group-" token then Some (anchor_inner 6)
-    else if String.starts_with ~prefix:"peer-" token then Some (anchor_inner 5)
-    else if String.starts_with ~prefix:"not-" token then Some (after 4)
-    else
-      (* [in-focus] names a state on an ancestor; [in-range] names one on the
-         element itself, and the table matches that by name. *)
-      match slot_of_prefix token with
-      | Some Slot.Ancestor -> Some (after 3)
-      | Some _ | None -> None
-  in
-  match inner with
+  if String.starts_with ~prefix:"group-" token then Some (anchor_inner 6)
+  else if String.starts_with ~prefix:"peer-" token then Some (anchor_inner 5)
+  else if String.starts_with ~prefix:"not-" token then Some (after 4)
+  else if String.starts_with ~prefix:"has-" token then Some (after 4)
+  else
+    (* [in-focus] names a state on an ancestor; [in-range] names one on the
+       element itself, and the table matches that by name. *)
+    match slot_of_prefix token with
+    | Some Slot.Ancestor -> Some (after 3)
+    | Some _ | None -> None
+
+let rec variant_inner_order_path token =
+  match variant_inner_token token with
+  | None -> []
   | Some inner -> (
-      match slot_of_prefix inner with Some slot -> Slot.rank slot | None -> 0)
-  | None -> 0
+      match slot_of_prefix inner with
+      | Some slot -> Slot.rank slot :: variant_inner_order_path inner
+      | None -> [])
+
+(* The first wrapped slot retained for callers that only need the immediate
+   compound variant. *)
+let variant_inner_order token =
+  match variant_inner_order_path token with order :: _ -> order | [] -> 0
 
 let not_variant_order m = Slot.rank (slot_of_modifier m)
 

@@ -756,6 +756,11 @@ val variant_inner_order : string -> int
     on the scale {!val-variant_order_of_prefix} returns. [0] for every other
     token. *)
 
+val variant_inner_order_path : string -> int list
+(** [variant_inner_order_path token] recursively returns every wrapped variant
+    position, outermost first. For example, [group-has-focus] yields the [has]
+    and [focus] positions. *)
+
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as
     {!val-variant_order_of_prefix} for the corresponding CSS media condition.
