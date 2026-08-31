@@ -133,6 +133,12 @@ let test_arbitrary_length_grammar () =
   check "gap-[inherit]";
   check "gap-[4px]"
 
+(* The paren shorthand is Tailwind's first candidate value and literal px its
+   last; numeric and bracket values stay between those boundaries. *)
+let test_gap_candidate_boundaries () =
+  Test_helpers.check_class_order ~test_name:"gap candidate boundaries"
+    [ "space-y-2"; "gap-px"; "gap-[5cqw]"; "gap-10"; "gap-(--gap)"; "gap-1.5" ]
+
 (* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y flipped from float
    to int with a [']-suffixed float sibling, same convention as [p]/[p']. *)
 let typed_prime () =
@@ -159,6 +165,7 @@ let tests =
     test_case "space-px CSS values" `Quick test_space_px_values;
     test_case "gap CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
+    test_case "gap candidate boundaries" `Quick test_gap_candidate_boundaries;
   ]
 
 let suite = ("gap", tests)
