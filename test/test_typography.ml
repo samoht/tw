@@ -187,6 +187,14 @@ let test_antialiasing_order () =
       "antialiased";
     ]
 
+let test_variant_antialiasing_order () =
+  Test_helpers.check_class_order ~test_name:"variant antialiasing order"
+    [
+      "hover:placeholder-gray-400";
+      "hover:subpixel-antialiased";
+      "hover:antialiased";
+    ]
+
 let test_word_overflow_wrap () =
   check "break-normal";
   check "break-words";
@@ -1230,6 +1238,7 @@ let tests =
     test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
     test_case "text overflow order" `Slow test_text_overflow_order;
     test_case "antialiasing order" `Slow test_antialiasing_order;
+    test_case "variant antialiasing order" `Slow test_variant_antialiasing_order;
     test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
     test_case "hyphens" `Quick test_hyphens;
     test_case "list style" `Quick test_list_style;
