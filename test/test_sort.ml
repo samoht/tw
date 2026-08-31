@@ -578,6 +578,9 @@ let test_outline_select_shadow_property_bands () =
       "text-shadow-sm";
       "transform-3d";
       "perspective-normal";
+      "divide-x-reverse";
+      "[hanging-punctuation:first_last]";
+      "[animation-name:move-x]";
       "backface-hidden";
       "text-shadow-lg/20";
       "select-none";
