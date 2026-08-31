@@ -303,6 +303,22 @@ let order_matches_tailwind () =
   Test_helpers.check_class_order
     ~test_name:"background and mask order matches Tailwind" classes
 
+(* The v3 bg-gradient-to-* spellings are compatibility aliases in the modern
+   linear-gradient band, after the native direction candidates. *)
+let legacy_gradient_alias_order_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"legacy gradient alias order"
+    [
+      "bg-gradient-to-r";
+      "bg-linear-to-b";
+      "bg-linear-45";
+      "bg-gradient-to-t";
+      "bg-linear-to-r";
+      "bg-linear-to-t";
+      "bg-conic";
+      "bg-radial";
+      "bg-linear-[45deg]";
+    ]
+
 (* A gradient and a background colour both end up in background-image and
    background-color, and the gradient stops share the --tw-gradient-* slots.
    Palette colours are left out: tw declares the theme token as a hex where
@@ -582,6 +598,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "background and mask order matches Tailwind" `Slow
       order_matches_tailwind;
+    test_case "legacy gradient alias order matches Tailwind" `Quick
+      legacy_gradient_alias_order_matches_tailwind;
     test_case "backgrounds render like Tailwind" `Slow
       rendering_matches_tailwind;
   ]
