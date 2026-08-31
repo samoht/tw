@@ -7,7 +7,6 @@ module Handler = struct
   open Css
 
   type t = Border | Content
-  type Utility.base += Self of t
 
   let name = "box_sizing"
 
@@ -32,8 +31,8 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let box_border = utility Border
 let box_content = utility Content

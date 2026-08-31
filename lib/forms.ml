@@ -116,7 +116,6 @@ module Handler = struct
   open Style
 
   type t = Input | Checkbox | Radio
-  type Utility.base += Self of t
 
   let name = "forms"
   let priority _ = 3
@@ -373,7 +372,6 @@ module Select = struct
   open Style
 
   type t = Select | Textarea | Multiselect
-  type Utility.base += Self of t
 
   let name = "forms_select"
   let priority _ = 8 (* After sizing (6), flex_props (7) *)
@@ -532,16 +530,16 @@ module Select = struct
 end
 
 (* Register both handlers *)
-let () = Utility.register (module Handler)
-let () = Utility.register (module Select)
+module Utility_factory = Utility.Make (Handler)
+module Select_utility = Utility.Make (Select)
 
 (* Public API *)
-let form_input = Utility.base (Handler.Self Handler.Input)
-let form_checkbox = Utility.base (Handler.Self Handler.Checkbox)
-let form_radio = Utility.base (Handler.Self Handler.Radio)
-let form_select = Utility.base (Select.Self Select.Select)
-let form_textarea = Utility.base (Select.Self Select.Textarea)
-let form_multiselect = Utility.base (Select.Self Select.Multiselect)
+let form_input = Utility_factory.v Handler.Input
+let form_checkbox = Utility_factory.v Handler.Checkbox
+let form_radio = Utility_factory.v Handler.Radio
+let form_select = Select_utility.v Select.Select
+let form_textarea = Select_utility.v Select.Textarea
+let form_multiselect = Select_utility.v Select.Multiselect
 
 (* ======================================================================== Base
    layer stylesheet - rules that apply to native HTML form elements when the

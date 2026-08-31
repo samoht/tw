@@ -28,8 +28,6 @@ module Handler = struct
     | Bracket_color_opacity of string * Css.color * Color.opacity_modifier
     | Line_style of Css.border_style
 
-  type Utility.base += Self of t
-
   let name = "divide"
 
   (* The divide properties follow gap and precede self-alignment. The unranked
@@ -476,9 +474,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let divide_x_reverse = utility X_reverse
 let divide_y_reverse = utility Y_reverse
 

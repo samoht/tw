@@ -50,8 +50,6 @@ module Handler = struct
     | Stroke_width_typed_var of
         string (* full inner: "length:var(--my-width)" *)
 
-  type Utility.base += Self of t
-
   let name = "svg"
   let priority _ = 22
 
@@ -428,8 +426,7 @@ module Handler = struct
   let examples = [ Fill_none; Stroke_none; Stroke_0 ]
 end
 
-let () = Utility.register (module Handler)
-
+module Utility_factory = Utility.Make (Handler)
 open Handler
 
 let color_util name property color ?(shade = 500) () =
@@ -444,7 +441,7 @@ let color_util name property color ?(shade = 500) () =
   let def, css_var = Css.var var_name Css.Color typed_color in
   Style.style [ def; property (Css.Color (Css.Var css_var) : Css.svg_paint) ]
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let fill = color_util "fill" Css.fill
 let stroke = color_util "stroke" Css.stroke
 let fill_none = utility Fill_none

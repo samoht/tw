@@ -27,8 +27,6 @@ module Handler = struct
     | Y_contain
     | Y_none
 
-  type Utility.base += Self of t
-
   let name = "overscroll"
 
   (* Same priority as overflow (18) - these are related utilities *)
@@ -79,9 +77,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let overscroll_auto = utility Auto
 let overscroll_contain = utility Contain
 let overscroll_none = utility None_

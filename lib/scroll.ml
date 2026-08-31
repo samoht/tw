@@ -35,8 +35,6 @@ module Handler = struct
     value : scroll_value;
   }
 
-  type Utility.base += Self of t
-
   let name = "scroll"
 
   (* Scroll margin and padding follow the snap controls in the shared
@@ -288,11 +286,10 @@ module Handler = struct
 end
 
 open Handler
-
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)
 
 let utility kind negative axis value =
-  Utility.base (Self { kind; negative; axis; value })
+  Utility_factory.v { kind; negative; axis; value }
 
 (* Scroll margin utilities *)
 let scroll_m' n = utility Margin (n < 0.0) All (Spacing (Float.abs n))

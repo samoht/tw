@@ -61,8 +61,6 @@ module Handler = struct
     | Auto_rows_spacing of float  (** [auto-rows-<n>]: spacing-scaled track. *)
     | Auto_rows_arbitrary of string * Css.grid_template
 
-  type Utility.base += Self of t
-
   let name = "grid_template"
 
   (* Before flex_props (16) and alignment/gap (17) *)
@@ -518,9 +516,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let grid_cols n = utility (Grid_cols n)
 let grid_cols_none = utility Grid_cols_none
 let grid_cols_subgrid = utility Grid_cols_subgrid

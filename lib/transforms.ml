@@ -145,8 +145,6 @@ module Handler = struct
     | Origin_bottom_right
     | Origin_arbitrary of string * Css.transform_origin
 
-  type Utility.base += Self of t
-
   (** Priority for transform utilities *)
   let name = "transforms"
 
@@ -2010,11 +2008,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register the transform utility handlers *)
-let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let rotate n = utility (Rotate n)
 let translate_x n = utility (Translate_x n)

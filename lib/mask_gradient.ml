@@ -74,8 +74,6 @@ module Handler = struct
     | Radial_shape of radial_shape (* mask-circle, mask-ellipse *)
     | Radial_size of radial_size (* mask-radial-closest-corner etc. *)
 
-  type Utility.base += Self of t
-
   let name = "mask_gradient"
 
   (* Tailwind emits the mask-gradient utilities after the backgrounds and before
@@ -1196,9 +1194,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (* Convenience functions for creating mask gradient utilities *)
 let mask_t_from value = utility (Position (Top, From, value))

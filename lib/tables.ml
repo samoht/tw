@@ -39,7 +39,6 @@ module Handler = struct
     | Caption_bottom
 
   (** Extensible variant for table utilities *)
-  type Utility.base += Self of t
 
   (** Priority for table utilities - comes before layout utilities *)
   let name = "tables"
@@ -269,11 +268,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
 (** Public API *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let border_collapse = utility Border_collapse
 let border_separate = utility Border_separate

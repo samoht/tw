@@ -59,8 +59,6 @@ module Handler = struct
   (* Plain [property:value] (no /opacity), parsed by cascade into a typed,
      var-tracking declaration. *)
 
-  type Utility.base += Self of t
-
   let name = "arbitrary"
 
   (* Tailwind sorts an arbitrary property by the property it declares, not by
@@ -391,4 +389,4 @@ module Handler = struct
   let examples = []
 end
 
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)

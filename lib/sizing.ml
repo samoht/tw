@@ -52,8 +52,6 @@ module Handler = struct
     | Aspect_bracket_num of string (* aspect-[1.333] single number *)
     | Aspect_theme of string (* ratio named by a project [--aspect-*] token *)
 
-  type Utility.base += Self of t
-
   let name = "sizing"
 
   (* Tailwind spacing order helper: matches canonical spacing scale order. n is
@@ -909,11 +907,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register the sizing utility handlers *)
-let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let () = () (* Ensure utility is defined before usage below *)
 
@@ -1039,7 +1037,9 @@ let aspect_ratio w h = utility (Aspect_ratio (float_of_int w, float_of_int h))
 
 (* Order exposure for this module *)
 let order (u : Utility.base) =
-  match u with Self x -> Some (priority x, suborder x) | _ -> None
+  if String.equal (Utility.name_of_base u) Handler.name then
+    Some (Utility.order u)
+  else None
 
 (* Export container theme variables for use by other modules (e.g., Columns) *)
 let container_binding = Handler.container_binding

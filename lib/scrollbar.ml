@@ -32,8 +32,6 @@ module Handler = struct
     | Thumb of color_spec
     | Track of color_spec
 
-  type Utility.base += Self of t
-
   let name = "scrollbar"
 
   (* Scrollbar properties follow scroll padding and precede list style. *)
@@ -236,4 +234,4 @@ module Handler = struct
   let examples = [ Width_auto; Gutter_auto; Thumb Current; Track Current ]
 end
 
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)

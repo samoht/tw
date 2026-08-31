@@ -125,8 +125,6 @@ module Handler = struct
     | Neg_outline_offset of int
     | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
 
-  type Utility.base += Self of t
-
   let name = "borders"
 
   (* border-width/color/radius sort at priority 19. outline-* (canonical rank
@@ -1008,9 +1006,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (** Separate handler for outline style utilities that need to come after outline
     colors (priority 23) AND after ring/shadow effects (priority 25). These are:
@@ -1020,7 +1018,6 @@ module Outline_style_handler = struct
   open Style
 
   type t = Dashed | Dotted | Double | None_ | Solid
-  type Utility.base += Self of t
 
   let name = "outline_style"
   let priority _ = 37
@@ -1072,8 +1069,9 @@ module Outline_style_handler = struct
   let examples = [ Solid ]
 end
 
-let () = Utility.register (module Outline_style_handler)
-let outline_style_utility x = Utility.base (Outline_style_handler.Self x)
+module Outline_style_utility = Utility.Make (Outline_style_handler)
+
+let outline_style_utility = Outline_style_utility.v
 
 (** {1 Border Width Utilities} *)
 

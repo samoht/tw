@@ -26,8 +26,6 @@ module Handler = struct
     | Pan_y
     | Pinch_zoom
 
-  type Utility.base += Self of t
-
   let name = "touch"
 
   (* Touch-action follows cursor and opens the shared interaction band. *)
@@ -119,9 +117,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let touch_auto = utility Auto
 let touch_none = utility No_action
 let touch_manipulation = utility Manipulation

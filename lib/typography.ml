@@ -463,8 +463,6 @@ module Typography_early = struct
     | Named of string (* /snug → var(--leading-snug) *)
     | Bracket of string * Css.line_height (* /[4px] → 4px *)
 
-  type Utility.base += Self of t
-
   let name = "typography_early"
 
   (* Most early-typography families (text-align, font, leading) sort at priority
@@ -1758,8 +1756,6 @@ module Typography_late = struct
     | Content_raw of string * Css.content
       (* unquoted arbitrary: content-[attr(before)]; raw class text + value *)
     | Content_named of string (* content-<token> defined in the @theme *)
-
-  type Utility.base += Self of t
 
   let name = "typography_late"
 
@@ -3385,14 +3381,13 @@ module Typography_late = struct
     ]
 end
 
-(* Register both handlers *)
-let () = Utility.register (module Typography_early)
-let () = Utility.register (module Typography_late)
+module Early_utility = Utility.Make (Typography_early)
+module Late_utility = Utility.Make (Typography_late)
 
 (* Public API - using appropriate handler for each utility *)
 
 (* Early typography utilities - priority 22 *)
-let utility_early x = Utility.base (Typography_early.Self x)
+let utility_early = Early_utility.v
 let text_xs = utility_early Typography_early.Text_xs
 let text_sm = utility_early Typography_early.Text_sm
 let text_base = utility_early Typography_early.Text_base
@@ -3436,7 +3431,7 @@ let leading n = utility_early (Typography_early.Leading n)
 let leading' n = utility_early (Typography_early.Leading_step n)
 
 (* Late typography utilities - priority 24 *)
-let utility_late x = Utility.base (Typography_late.Self x)
+let utility_late = Late_utility.v
 
 let decoration_color ?(shade = 500) color =
   Color.check_shade ~utility:"decoration_color" color shade;

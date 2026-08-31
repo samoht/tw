@@ -7,7 +7,6 @@ module Handler = struct
   open Css
 
   type t = Clip_polygon of (float * float) list
-  type Utility.base += Self of t
 
   let name = "clipping"
   let priority _ = 28
@@ -59,7 +58,7 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let clip_polygon points = utility (Clip_polygon points)

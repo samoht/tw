@@ -52,7 +52,6 @@ module Handler = struct
     | Zoom_out
 
   type t = Keyword of keyword | Bracket_var of string | Theme of string
-  type Utility.base += Self of t
 
   let name = "cursor"
   let priority _ = 11
@@ -221,11 +220,11 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register the cursor utility handlers *)
-let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 let cursor_alias = utility (Keyword Alias)
 let cursor_all_scroll = utility (Keyword All_scroll)

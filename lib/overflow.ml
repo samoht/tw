@@ -27,8 +27,6 @@ module Handler = struct
     | Y_visible
     | Y_scroll
 
-  type Utility.base += Self of t
-
   let name = "overflow"
 
   (* Overflow comes after alignment (17) in Tailwind's utility ordering. *)
@@ -99,12 +97,11 @@ module Handler = struct
 end
 
 open Handler
-
-let () = Utility.register (module Handler)
+module Utility_factory = Utility.Make (Handler)
 
 (** {1 Public API} *)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let overflow_auto = utility Auto
 let overflow_hidden = utility Hidden
 let overflow_clip = utility Clip

@@ -14,8 +14,6 @@ module Handler = struct
     | Container_size (* @container-size - sets container-type: size *)
     | Container_named of string (* @container/name *)
 
-  type Utility.base += Self of t
-
   let name = "containers"
 
   (* Tailwind's utility order opens with the container utilities; the layout
@@ -132,9 +130,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 
 (** Container Query Modifiers *)
 let container_sm styles =

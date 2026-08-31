@@ -92,8 +92,6 @@ module Handler = struct
     | Row_end_arbitrary of string * Css.grid_line
     | Row_end_named of string (* row-end-custom *)
 
-  type Utility.base += Self of t
-
   let name = "grid_item"
 
   (** Priority 1 - before margin (priority 2) *)
@@ -524,10 +522,10 @@ end
 
 open Handler
 
+module Utility_factory = Utility.Make (Handler)
 (** Register handler with Utility system *)
-let () = Utility.register (module Handler)
 
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let col n = utility (Col n)
 let col_auto = utility Col_auto
 let col_span n = utility (Col_span n)

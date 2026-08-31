@@ -75,8 +75,6 @@ module Handler = struct
     | Size_bracket of string
     | Size_bracket_var of string
 
-  type Utility.base += Self of t
-
   let name = "masks"
 
   (* After the backgrounds and the mask-gradient utilities, before fill and
@@ -612,9 +610,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let mask_none = utility No_mask
 let mask_add = utility Add
 let mask_exclude = utility Exclude

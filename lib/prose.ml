@@ -2034,7 +2034,6 @@ module Handler = struct
     | Not_prose
 
   (** Extensible variant for prose utilities *)
-  type Utility.base += Self of t
 
   (** Priority for prose size utilities *)
   let name = "prose"
@@ -2094,7 +2093,6 @@ module Color_Handler = struct
   (** The prose colour variants, as {!prose_style} names them. *)
 
   (** Extensible variant for prose color utilities *)
-  type Utility.base += Self of t
 
   (** Priority for prose color utilities *)
   let name = "prose-color"
@@ -2141,15 +2139,15 @@ module Color_Handler = struct
   let examples = []
 end
 
+module Utility_factory = Utility.Make (Handler)
 (** Register both handlers with Utility system *)
-let () = Utility.register (module Handler)
 
-let () = Utility.register (module Color_Handler)
+module Color_utility = Utility.Make (Color_Handler)
 
 (** Public API *)
-let utility x = Utility.base (Handler.Self x)
+let utility = Utility_factory.v
 
-let color_utility x = Utility.base (Color_Handler.Self x)
+let color_utility = Color_utility.v
 let prose = utility Handler.Prose
 let prose_sm = utility Handler.Prose_sm
 let prose_lg = utility Handler.Prose_lg

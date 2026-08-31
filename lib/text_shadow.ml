@@ -41,8 +41,6 @@ module Handler = struct
     | Arbitrary of string
     | Arbitrary_opacity of string * Color.opacity_modifier
 
-  type Utility.base += Self of t
-
   let name = "text_shadow"
 
   (* An opacity-bearing shadow writes the alpha channel before text-shadow, so
@@ -943,9 +941,9 @@ module Handler = struct
 end
 
 open Handler
+module Utility_factory = Utility.Make (Handler)
 
-let () = Utility.register (module Handler)
-let utility x = Utility.base (Self x)
+let utility = Utility_factory.v
 let text_shadow_none = utility None
 let text_shadow_2xs = utility (Shape S_2xs)
 let text_shadow_xs = utility (Shape S_xs)

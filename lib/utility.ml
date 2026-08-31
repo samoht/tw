@@ -26,7 +26,6 @@ end
 
 module type Handler = sig
   type t
-  type base += Self of t
 
   val name : string
   val to_style : Scheme.t -> t -> Style.t
@@ -37,7 +36,14 @@ module type Handler = sig
   val examples : t list
 end
 
-type handler = H : (module Handler with type t = 'a) -> handler
+module type Registered = sig
+  include Handler
+
+  val inject : t -> base
+  val project : base -> t option
+end
+
+type handler = H : (module Registered with type t = 'a) -> handler
 
 let handlers : handler list ref = ref []
 
@@ -54,10 +60,24 @@ let property_slots :
     =
   ref None
 
-let register (type a) (module M : Handler with type t = a) =
-  let internal_h = H (module M : Handler with type t = a) in
+let register (type a) (module M : Registered with type t = a) =
+  let internal_h = H (module M : Registered with type t = a) in
   property_slots := None;
   handlers := internal_h :: !handlers
+
+module Make (M : Handler) = struct
+  type base += Self of M.t
+
+  module Registered = struct
+    include M
+
+    let inject value = Self value
+    let project = function Self value -> Some value | _ -> None
+  end
+
+  let () = register (module Registered)
+  let v value = Base (Self value)
+end
 
 (* The declarations a style writes on the element itself: a pseudo-element
    suffix or a rule of its own moves them off it. *)
@@ -187,14 +207,12 @@ let name_of_base u =
   let rec try_handlers = function
     | [] -> failwith "name_of_base"
     | H (module M) :: rest -> (
-        match u with M.Self _ -> M.name | _ -> try_handlers rest)
+        match M.project u with Some _ -> M.name | None -> try_handlers rest)
   in
   try_handlers !handlers
 
 let class_of_base u =
-  let visit (H (module M)) =
-    match u with M.Self x -> Some (M.to_class x) | _ -> None
-  in
+  let visit (H (module M)) = Option.map M.to_class (M.project u) in
   match List.find_map visit !handlers with
   | Some class_name -> class_name
   | None -> failwith "class_of_base"
@@ -204,7 +222,7 @@ let base_of_class theme class_name =
     | [] -> Error (`Msg "Unknown utility")
     | H (module M) :: rest -> (
         match M.of_class theme class_name with
-        | Ok x -> Ok (M.Self x)
+        | Ok x -> Ok (M.inject x)
         | Error _ -> try_handlers rest)
   in
   try_handlers !handlers
@@ -241,7 +259,9 @@ let base_to_style theme u =
           "Unknown utility type - handler not registered. This is a bug in the \
            utility system."
     | H (module M) :: rest -> (
-        match u with M.Self x -> M.to_style theme x | _ -> try_handlers rest)
+        match M.project u with
+        | Some x -> M.to_style theme x
+        | None -> try_handlers rest)
   in
   try_handlers !handlers
 
@@ -281,9 +301,9 @@ let order (u : base) : int * int =
           "Unknown utility type - handler not registered. This is a bug in the \
            utility system."
     | H (module M) :: rest -> (
-        match u with
-        | M.Self x -> (M.priority x, M.suborder x)
-        | _ -> try_handlers rest)
+        match M.project u with
+        | Some x -> (M.priority x, M.suborder x)
+        | None -> try_handlers rest)
   in
   try_handlers !handlers
 
