@@ -2358,18 +2358,15 @@ module Typography_late = struct
     | Align_text_top -> 1206
     | Align_top -> 1207
     (* List utilities (priority 11) - after resize (~1M), before appearance
-       (~3M). Alphabetical. *)
-    | List_bracket_var _ -> 2_000_000 + 8699
-    | List_bracket _ -> 2_000_000 + 8699
-    | List_decimal -> 2_000_000 + 8700
-    | List_disc -> 2_000_000 + 8701
-    | List_image_bracket_var _ -> 2_000_000 + 8698
-    | List_image_bracket _ -> 2_000_000 + 8698
-    | List_image_none -> 2_000_000 + 8702
-    | List_inside -> 2_000_000 + 8703
-    | List_none -> 2_000_000 + 8704
-    | List_outside -> 2_000_000 + 8705
-    | List_image_url _ -> 2_000_000 + 8706
+       (~3M). Position, type, and image form separate property bands; candidate
+       names settle ties inside each band. *)
+    | List_inside | List_outside -> 2_000_000
+    | List_bracket_var _ | List_bracket _ | List_decimal | List_disc | List_none
+      ->
+        2_010_000
+    | List_image_bracket_var _ | List_image_bracket _ | List_image_none
+    | List_image_url _ ->
+        2_020_000
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
     | Underline_offset_neg_arbitrary _ -> 59989
