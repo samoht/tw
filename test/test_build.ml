@@ -904,7 +904,6 @@ let test_style_rules_props () =
   (* Create a test utility that wraps the style and provides the class name *)
   let module TestHandler = struct
     type t = Test
-    type Tw.Utility.base += Self of t
 
     let name = "test"
     let priority _ = 0
@@ -914,8 +913,8 @@ let test_style_rules_props () =
     let of_class _ _ = Error (`Msg "test utility")
     let examples = []
   end in
-  let () = Tw.Utility.register (module TestHandler) in
-  let test_utility = Tw.Utility.base (TestHandler.Self TestHandler.Test) in
+  let module TestUtility = Tw.Utility.Make (TestHandler) in
+  let test_utility = TestUtility.v TestHandler.Test in
   let extracted = Tw.Rule.outputs test_utility in
 
   (* Should generate rules in order: custom rules first, then base props *)
