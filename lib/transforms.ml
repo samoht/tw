@@ -159,7 +159,7 @@ module Handler = struct
     | Origin_top_left | Origin_top_right | Origin_bottom_left
     | Origin_bottom_right | Origin_arbitrary _ ->
         8
-    | Backface_visible | Backface_hidden -> 39
+    | Backface_visible | Backface_hidden -> 38
     | Perspective_none | Perspective_theme _ | Perspective_dramatic
     | Perspective_near | Perspective_normal | Perspective_midrange
     | Perspective_distant | Perspective_arbitrary _ | Perspective_origin_center
