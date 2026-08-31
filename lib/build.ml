@@ -1560,47 +1560,53 @@ let output_base_class_and_props = function
 let normalize_declared_property_families order_map builtins extra_outputs =
   List.iter
     (fun (class_name, (priority, _), outputs) ->
-      match
-        List.find_map
-          (fun output ->
-            let _, props = output_base_class_and_props output in
-            Utility.ordering_property props)
-          outputs
-      with
-      | None -> ()
-      | Some property ->
-          let family =
-            List.filter_map
-              (fun output ->
-                let base_class, props = output_base_class_and_props output in
-                match (base_class, Utility.ordering_property props) with
-                | Some cls, Some key
-                  when Css.Declaration.equal_prop_key key property ->
-                    let base = extract_base_utility cls in
-                    Option.map
-                      (fun order -> (base, order))
-                      (Hashtbl.find_opt order_map base)
-                | _ -> None)
-              builtins
-          in
-          let suborder =
-            List.fold_left
-              (fun acc (_, (p, s)) ->
-                if p <> priority then acc
-                else Some (Option.fold ~none:s ~some:(Int.min s) acc))
-              None family
-          in
-          Option.iter
-            (fun suborder ->
-              List.iter
-                (fun (base, (p, _)) ->
-                  if p = priority then
-                    Hashtbl.replace order_map base (priority, suborder))
-                family;
-              Hashtbl.replace order_map
-                (extract_base_utility class_name)
-                (priority, suborder))
-            suborder)
+      let modifiers, _ = Modifiers.of_string class_name in
+      (* A custom-variant expansion also arrives through [extra], already
+         carrying the order of the built-in it wraps. It is not a new utility
+         joining that property family, so flattening the family around it
+         destroys the built-ins' property walk. *)
+      if modifiers = [] then
+        match
+          List.find_map
+            (fun output ->
+              let _, props = output_base_class_and_props output in
+              Utility.ordering_property props)
+            outputs
+        with
+        | None -> ()
+        | Some property ->
+            let family =
+              List.filter_map
+                (fun output ->
+                  let base_class, props = output_base_class_and_props output in
+                  match (base_class, Utility.ordering_property props) with
+                  | Some cls, Some key
+                    when Css.Declaration.equal_prop_key key property ->
+                      let base = extract_base_utility cls in
+                      Option.map
+                        (fun order -> (base, order))
+                        (Hashtbl.find_opt order_map base)
+                  | _ -> None)
+                builtins
+            in
+            let suborder =
+              List.fold_left
+                (fun acc (_, (p, s)) ->
+                  if p <> priority then acc
+                  else Some (Option.fold ~none:s ~some:(Int.min s) acc))
+                None family
+            in
+            Option.iter
+              (fun suborder ->
+                List.iter
+                  (fun (base, (p, _)) ->
+                    if p = priority then
+                      Hashtbl.replace order_map base (priority, suborder))
+                  family;
+                Hashtbl.replace order_map
+                  (extract_base_utility class_name)
+                  (priority, suborder))
+              suborder)
     extra_outputs
 
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
