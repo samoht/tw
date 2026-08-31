@@ -28,9 +28,10 @@ type variant_component = {
   breakpoint : Css.Media.key option;
       (** The width a breakpoint token names, so [sm] and [md] do not collapse
           onto one key. [None] for every other token. *)
-  wrapped : int;
-      (** The state a [group-]/[peer-] token wraps, so [group-focus] and
-          [group-has] keep their order. [0] for every other token. *)
+  wrapped : int list;
+      (** The recursive path of variants a compound token wraps, so
+          [group-has-indeterminate] and [group-has-focus] keep their inner state
+          order. [[]] for a non-compound token. *)
   value_key : string option;
       (** A data predicate spelling or the decoded selector denoted by an
           arbitrary variant, including its implicit [&:is(...)] anchor. [None]
