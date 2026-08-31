@@ -44,6 +44,18 @@ allowed_words = [
 files = ["cascade/**", "./cascade/**", "mono/**", "./mono/**"]
 exclude = ["*"]
 
+# MDX loads preludes into its toplevel runner at runtime; dune deliberately
+# compiles no unit or typedtree for them. They therefore have no merlint rule
+# surface. Excluding them wholesale also keeps them out of merlint's unchecked
+# count once samoht/merlint#6 is available.
+[[rules]]
+files = [
+  "docs/mdx/prelude.ml",
+  "lib/mdx/prelude.ml",
+  "lib/dom/mdx/prelude.ml",
+]
+exclude = ["*"]
+
 # tw.ml includes each utility module, so a module's public names are the
 # top-level Tw names: Cursor.cursor_pointer is Tw.cursor_pointer, which is
 # the Tailwind class it emits. Only these modules name values after
