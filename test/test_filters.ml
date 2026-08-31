@@ -121,6 +121,15 @@ let drop_shadow_slot_order () =
     (List.sort Int.compare positions)
     positions
 
+let drop_shadow_candidate_order () =
+  Test_helpers.check_class_order ~test_name:"drop-shadow candidate order"
+    [
+      "drop-shadow-lg";
+      "drop-shadow-[0_3px_1px_rgba(0,0,0,.15)]";
+      "drop-shadow-2xl";
+      "drop-shadow";
+    ]
+
 let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
@@ -429,6 +438,7 @@ let tests =
       suborder_matches_tailwind;
     test_case "filter candidate order" `Slow candidate_order_matches_tailwind;
     test_case "drop-shadow slot order" `Quick drop_shadow_slot_order;
+    test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
   ]
 
