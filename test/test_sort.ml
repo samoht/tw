@@ -2454,6 +2454,30 @@ let test_stacked_data_variant_slot () =
       "data-[focus]:border-sky-500";
     ]
 
+let test_compound_data_variant_group () =
+  (* A compound whose highest slot is data stays beside the data predicate it
+     names. The lower descendant, has, aria, or child slots order candidates
+     inside that predicate instead of pushing every compound after all data
+     variants. *)
+  Test_helpers.check_class_order ~test_name:"compound named data variant group"
+    [
+      "**:data-avatar:size-12";
+      "data-focus:ring-2";
+      "data-focus:has-checked:ring-2";
+      "aria-[current]:**:data-highlight:fill-gray-300";
+      "data-hover:bg-indigo-500";
+      "data-leave:duration-75";
+      "**:data-outline:stroke-gray-400";
+      "aria-[current]:**:data-outline:stroke-gray-950";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"compound arbitrary data variant group"
+    [
+      "data-[size=large]:p-8";
+      "data-[slot=description]:*:mt-4";
+      "data-[state=open]:overflow-hidden";
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2964,6 +2988,8 @@ let tests =
     test_case "named anchor keeps inner state" `Slow
       test_named_anchor_inner_order;
     test_case "stacked data variant slot" `Slow test_stacked_data_variant_slot;
+    test_case "compound data variant group" `Slow
+      test_compound_data_variant_group;
     test_case "compound variant highest component" `Slow
       test_compound_variant_highest_component;
     test_case "compound variant same multiset" `Slow
