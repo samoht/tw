@@ -765,7 +765,8 @@ val variant_inner_token : string -> string option
 val variant_inner_order_path : ?theme:Scheme.t -> string -> int list
 (** [variant_inner_order_path ?theme token] recursively returns every wrapped
     variant position, outermost first. For example, [group-has-focus] yields the
-    [has] and [focus] positions. [theme] resolves wrapped custom variants. *)
+    {!val-has} and {!val-focus} positions. [theme] resolves wrapped custom
+    variants. *)
 
 val variant_order_of_media_cond : Css.Media.t -> int
 (** [variant_order_of_media_cond cond] returns the same sort key as
