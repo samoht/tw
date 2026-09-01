@@ -1033,47 +1033,46 @@ let theme_named_color ?theme name =
 (* The palette ([Red], [Blue], ...) is a fixed set of (colour, shade) pairs and
    its oklch nodes are immutable, so materialise each node once and share it
    across every utility and variant that uses the colour, instead of
-   reconstructing an identical node per use. Built once on first use; only the
-   constant palette constructors are keyed here, [Rgb]/[Theme_named] carry
-   open-ended payloads and build fresh. *)
+   reconstructing an identical node per use. Built during module initialisation
+   and then read-only; only the constant palette constructors are keyed here,
+   [Rgb]/[Theme_named] carry open-ended payloads and build fresh. *)
 let palette_nodes =
-  lazy
-    (let table = Hashtbl.create 256 in
-     List.iter
-       (fun (color, palette) ->
-         List.iter
-           (fun (shade, o) ->
-             Hashtbl.replace table (color, shade) (css_color_of_oklch o))
-           palette)
-       [
-         (Gray, Tailwind.gray);
-         (Slate, Tailwind.slate);
-         (Zinc, Tailwind.zinc);
-         (Neutral, Tailwind.neutral);
-         (Stone, Tailwind.stone);
-         (Mauve, Tailwind.mauve);
-         (Olive, Tailwind.olive);
-         (Mist, Tailwind.mist);
-         (Taupe, Tailwind.taupe);
-         (Red, Tailwind.red);
-         (Orange, Tailwind.orange);
-         (Amber, Tailwind.amber);
-         (Yellow, Tailwind.yellow);
-         (Lime, Tailwind.lime);
-         (Green, Tailwind.green);
-         (Emerald, Tailwind.emerald);
-         (Teal, Tailwind.teal);
-         (Cyan, Tailwind.cyan);
-         (Sky, Tailwind.sky);
-         (Blue, Tailwind.blue);
-         (Indigo, Tailwind.indigo);
-         (Violet, Tailwind.violet);
-         (Purple, Tailwind.purple);
-         (Fuchsia, Tailwind.fuchsia);
-         (Pink, Tailwind.pink);
-         (Rose, Tailwind.rose);
-       ];
-     table)
+  let table = Hashtbl.create 256 in
+  List.iter
+    (fun (color, palette) ->
+      List.iter
+        (fun (shade, o) ->
+          Hashtbl.replace table (color, shade) (css_color_of_oklch o))
+        palette)
+    [
+      (Gray, Tailwind.gray);
+      (Slate, Tailwind.slate);
+      (Zinc, Tailwind.zinc);
+      (Neutral, Tailwind.neutral);
+      (Stone, Tailwind.stone);
+      (Mauve, Tailwind.mauve);
+      (Olive, Tailwind.olive);
+      (Mist, Tailwind.mist);
+      (Taupe, Tailwind.taupe);
+      (Red, Tailwind.red);
+      (Orange, Tailwind.orange);
+      (Amber, Tailwind.amber);
+      (Yellow, Tailwind.yellow);
+      (Lime, Tailwind.lime);
+      (Green, Tailwind.green);
+      (Emerald, Tailwind.emerald);
+      (Teal, Tailwind.teal);
+      (Cyan, Tailwind.cyan);
+      (Sky, Tailwind.sky);
+      (Blue, Tailwind.blue);
+      (Indigo, Tailwind.indigo);
+      (Violet, Tailwind.violet);
+      (Purple, Tailwind.purple);
+      (Fuchsia, Tailwind.fuchsia);
+      (Pink, Tailwind.pink);
+      (Rose, Tailwind.rose);
+    ];
+  table
 
 (* Convert color to CSS color value *)
 let to_css ?theme color shade =
@@ -1100,7 +1099,7 @@ let to_css ?theme color shade =
       | None -> Css.Transparent)
   | Rgb _ -> oklch_node_of color shade
   | _ -> (
-      match Hashtbl.find_opt (Lazy.force palette_nodes) (color, shade) with
+      match Hashtbl.find_opt palette_nodes (color, shade) with
       | Some node -> node
       | None -> oklch_node_of color shade)
 
@@ -1389,22 +1388,18 @@ let theme_order_with_shade color_name shade =
    ignore it) rather than the materialized name, so a cache hit skips building
    the name string entirely - and within one generation bg/text/border share the
    same colour, so hits happen even on a single cold run. *)
-let color_var_cache : (color * int, Css.color Var.theme) Hashtbl.t =
-  Hashtbl.create 128
+let color_var_cache = Domain_cache.v 128
 
 (* Property-scoped colour variables (text-color-*, accent-color-*, ...) keyed by
    their full name, kept separate from the [(color, shade)] cache above. *)
-let property_color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
-  Hashtbl.create 64
+let property_color_var_cache = Domain_cache.v 64
 
 (* Helper to create a color variable with memoization. Creates theme layer
    variables with deterministic ordering based on color and shade. *)
 let color_var color shade =
   let shadeless = is_shadeless color in
   let key = (color, if shadeless then 0 else shade) in
-  match Hashtbl.find_opt color_var_cache key with
-  | Some var -> var
-  | None ->
+  Domain_cache.or_add color_var_cache key (fun () ->
       let base = pp color in
       (* The name goes after the [--] this module does not write itself, so it
          is a CSS name rather than a whole ident: [escape_name] is the exact
@@ -1428,9 +1423,7 @@ let color_var color shade =
         if shadeless then theme_order_with_shade base 0
         else theme_order_with_shade base shade
       in
-      let var = Var.theme Css.Color name ~order:var_order in
-      Hashtbl.add color_var_cache key var;
-      var
+      Var.theme Css.Color name ~order:var_order)
 
 let color_to_string (c : color) : string =
   match c with
@@ -1905,20 +1898,16 @@ module Handler = struct
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
     match Scheme.theme_value theme prop_name with
-    | Some _ -> (
+    | Some _ ->
         (* Property-scoped theme value exists, create scoped variable *)
         let name = prop_name in
-        match Hashtbl.find_opt property_color_var_cache name with
-        | Some var -> var
-        | None ->
+        Domain_cache.or_add property_color_var_cache name (fun () ->
             let base = pp c in
             let var_order =
               if is_shadeless c then theme_order_with_shade base 0
               else theme_order_with_shade base shade
             in
-            let var = Var.theme Css.Color name ~order:var_order in
-            Hashtbl.add property_color_var_cache name var;
-            var)
+            Var.theme Css.Color name ~order:var_order)
     | None ->
         (* Fall back to generic --color-{name} *)
         color_var c shade

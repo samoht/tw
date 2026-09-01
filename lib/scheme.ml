@@ -63,18 +63,21 @@ type t = {
 }
 (** Theme scheme configuration *)
 
-(** Process-global registry of theme token DEFAULTS (the v4.3.1 baseline).
-    Populated once at module-init by the utilities that own theme tokens
-    (replaces the [Var.theme_ref_registry] defaults). Defaults are static, so
-    they live here rather than in the per-render {!t}; overrides are threaded
-    via {!t.token_overrides}. *)
-let default_tokens : (string, string) Hashtbl.t = Hashtbl.create 64
+module Tokens = Map.Make (String)
+(** Lock-free snapshot of the static v4.3.1 theme-token catalog. Utilities
+    publish their baseline entries once at module initialisation; per-render
+    values remain in {!t.token_overrides}. *)
 
-let register_default_token name css = Hashtbl.replace default_tokens name css
-let token_default name = Hashtbl.find_opt default_tokens name
+let default_tokens = Atomic.make Tokens.empty
 
-let all_default_tokens () =
-  Hashtbl.fold (fun k v acc -> (k, v) :: acc) default_tokens []
+let rec register_default_token name css =
+  let current = Atomic.get default_tokens in
+  let next = Tokens.add name css current in
+  if not (Atomic.compare_and_set default_tokens current next) then
+    register_default_token name css
+
+let token_default name = Tokens.find_opt name (Atomic.get default_tokens)
+let all_default_tokens () = Tokens.bindings (Atomic.get default_tokens)
 
 (** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
     v4 default) *)

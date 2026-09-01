@@ -71,6 +71,9 @@ module Handler = struct
     ]
     |> List.filter_map Fun.id |> Css.concat
 
+  let text_shadow_property_metadata =
+    [ Var.metadata text_shadow_color_var; Var.metadata text_shadow_alpha_var ]
+
   let shorten_hex = Color.shorten_hex_str
 
   (* A [#] value only names a colour when what follows is a hex spelling;
@@ -401,6 +404,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_color_opacity ?theme c shade opacity =
@@ -425,6 +429,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_current () =
@@ -436,6 +441,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_current_opacity opacity =
@@ -452,6 +458,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_transparent () =
@@ -463,6 +470,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_transparent_opacity opacity =
@@ -475,11 +483,13 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_inherit () =
     let base_decl, _ = Var.binding text_shadow_color_var Css.Inherit in
-    style ~property_rules:text_shadow_property_rules [ base_decl ]
+    style ~metadata:text_shadow_property_metadata
+      ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_hex hex =
     let short = shorten_hex ("#" ^ hex) in
@@ -491,6 +501,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_hex_opacity hex opacity =
@@ -508,6 +519,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   (* A bracket colour spelled any way but a [#] hex: a name, a colour function
@@ -523,6 +535,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_color_opacity (c : Css.color) opacity =
@@ -542,6 +555,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_color_var var_expr =
@@ -555,6 +569,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_color_var_opacity var_expr opacity =
@@ -572,6 +587,7 @@ module Handler = struct
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
+      ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   (* ============ Arbitrary shadow styles ============ *)
@@ -593,7 +609,8 @@ module Handler = struct
         let color_ref =
           Var.reference_with_fallback text_shadow_color_var fallback_color
         in
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [
             Css.text_shadow
               (Css.Text_shadow
@@ -680,8 +697,8 @@ module Handler = struct
               let supports_block = color_mix_supports [ enhanced_shadow ] in
               Some [ supports_block ]
         in
-        style ~rules ~property_rules:text_shadow_property_rules
-          [ alpha_d; base_shadow ]
+        style ~rules ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules [ alpha_d; base_shadow ]
     | Stdlib.Option.None -> style [ Css.text_shadow Css.None ]
 
   (* ============ Style dispatch ============ *)
@@ -697,14 +714,17 @@ module Handler = struct
     in
     function
     | None ->
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [ Css.text_shadow Css.None ]
     | Shape shape ->
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [ shape_text_shadow shape ]
     | Shape_opacity (shape, opacity) ->
         let percent = Color.opacity_to_percent opacity in
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [ alpha_decl percent; shape_text_shadow_opacity shape opacity ]
     | Color (c, shade) -> set_color c shade
     | Color_opacity (c, shade, opacity) -> set_color_opacity c shade opacity
@@ -722,10 +742,12 @@ module Handler = struct
     | Bracket_cvar_opacity (var_expr, opacity) ->
         set_bracket_color_var_opacity var_expr opacity
     | Bracket_shadow var_expr ->
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
     | Bracket_var var_expr ->
-        style ~property_rules:text_shadow_property_rules
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
     | Arbitrary arb -> arbitrary_shadow_style arb
     | Arbitrary_opacity (arb, opacity) ->

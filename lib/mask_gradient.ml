@@ -324,9 +324,9 @@ module Handler = struct
       mask_image mask_image_list;
     ]
 
-  (* @property rule helpers - creates rule AND registers property_order *)
+  (* @property rule helpers. *)
   let prop ?(order = 100) name initial =
-    Var.register_property_order ~name:("tw-mask-" ^ name) ~order;
+    let _ = order in
     property ~name:("--tw-mask-" ^ name) Universal ~initial_value:initial
       ~inherits:false ()
 

@@ -323,6 +323,7 @@ type t =
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
+      metadata : Var.metadata list;
       merge_key : string option;
       pseudo_suffix : Css.Selector.t option;
     }
@@ -339,9 +340,25 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(rules = None) ?(property_rules = Css.empty) ?merge_key
-    ?pseudo_suffix props =
-  Style { props; rules; property_rules; merge_key; pseudo_suffix }
+let style ?(rules = None) ?(property_rules = Css.empty) ?(metadata = [])
+    ?merge_key ?pseudo_suffix props =
+  let declaration_metadata =
+    List.filter_map Var.metadata_of_declaration props
+  in
+  let var_metadata =
+    Css.vars_of_declarations props
+    @ Option.fold ~none:[] ~some:Css.vars_of_rules rules
+    |> List.filter_map (fun (Css.V var) -> Var.metadata_of_var var)
+  in
+  Style
+    {
+      props;
+      rules;
+      property_rules;
+      metadata = metadata @ declaration_metadata @ var_metadata;
+      merge_key;
+      pseudo_suffix;
+    }
 
 (* Mark the property declarations a style emits as !important (the [!] utility
    prefix), recursing through modifiers, groups and nested rules. Custom

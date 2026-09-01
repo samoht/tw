@@ -457,13 +457,13 @@ let split_on_colon s =
    one accepts it, and most handlers open by splitting that same name, so a
    single class is split once per handler tried. The split is a pure function of
    its argument, so remembering the last one collapses that run to one. *)
-let last_split : (string * string list) option ref = ref None
+let last_split = Domain.DLS.new_key (fun () -> None)
 
 let split_class class_name =
-  match !last_split with
+  match Domain.DLS.get last_split with
   | Some (key, parts) when key == class_name || String.equal key class_name ->
       parts
   | _ ->
       let parts = split_class_uncached class_name in
-      last_split := Some (class_name, parts);
+      Domain.DLS.set last_split (Some (class_name, parts));
       parts

@@ -90,22 +90,17 @@ let parse_neg_bracket_length s : Css.length option =
   else None
 
 (* Memoization cache for inset-named theme variables *)
-let inset_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-  Hashtbl.create 16
+let inset_named_cache = Domain_cache.v 16
 
 (* Get or create a theme variable for a named inset value like
    --inset-shadowned. Uses order (3, 200) to place in theme layer after numbered
    spacing variables (which are at 3, 100+n). *)
 let inset_named_var name =
-  match Hashtbl.find_opt inset_named_cache name with
-  | Some var -> var
-  | None ->
+  Domain_cache.or_add inset_named_cache name (fun () ->
       let var_name = "inset-" ^ name in
       (* Order (3, 200) places named inset vars after numbered spacing (3,
          100+n) *)
-      let var = Var.theme Css.Length var_name ~order:(3, 200) in
-      Hashtbl.add inset_named_cache name var;
-      var
+      Var.theme Css.Length var_name ~order:(3, 200))
 
 (* Create a named inset value using a theme variable like --inset-shadowned.
    Returns the theme declaration and a length that references the variable. *)

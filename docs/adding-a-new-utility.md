@@ -195,15 +195,16 @@ How Build turns this into layers
 
 - `theme_layer_of` scans used styles, extracts custom declarations (from `Var.theme`), adds a small set of default vars (font families), and emits them under `@layer theme` in `:root,:host` with a stable order.
 
-  **Variable Ordering**: `Var.order` reads back the `~order:(group, index)` pair a
-  theme variable was declared with. The group buckets the family in the order
-  Tailwind emits its `@theme` block (1 font families, 3 spacing, 5 container
-  widths, 6 font sizes, 7 animations, 8 blurs, 9 defaults) and the index places
-  the token inside its group. `lib/var.ml` keeps a registry of taken slots and
-  ignores a second registration for one, so two tokens cannot share a slot. Read
-  the neighbours of the token you are adding rather than guessing a group.
+  **Variable Ordering**: the `~order:(group, index)` pair travels with a theme
+  variable and every declaration made from it. The group buckets the family in
+  the order Tailwind emits its `@theme` block (1 font families, 3 spacing, 5
+  container widths, 6 font sizes, 7 animations, 8 blurs, 9 defaults) and the
+  index places the token inside its group. A build collects this metadata into a
+  local immutable index; constructing a variable does not mutate process-global
+  state. Read the neighbours of the token you are adding rather than guessing a
+  group.
 
-- `properties_layer` collects all `property_rules` attached to used utilities (from `Var.property_rule ...`) and emits an `@layer properties` that contains a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop` (not the `@property` rules themselves).
+- `properties_layer` generates exact typed `@property` rules from variables used by a style and emits an `@layer properties` containing a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop`. Use explicit `property_rules` only when one utility deliberately publishes a wider group than its declarations reference; pass the matching `Var.metadata` values to `Style.style` with them.
 - `base_layer` wraps Preflight rules under `@layer base` and applies the placeholder support shim.
 - Components is left empty by default; utilities render to `@layer utilities`.
 - When minifying, consecutive empty layers are merged into a single declaration, e.g., `@layer components,utilities;` to match Tailwind output.
@@ -496,8 +497,8 @@ strings.
 
 4. **Variable ordering in theme layer**
    - **Problem**: Variables appearing in wrong order in `@layer theme`, causing test failures
-   - **Solution**: Fix the `~order:(group, index)` pair the variable was declared with; `Var.order` is what the theme layer reads
-   - **Note**: `lib/var.ml` drops a registration whose slot is already taken, so a duplicated pair shows up as a missing variable rather than a reordering
+   - **Solution**: Fix the `~order:(group, index)` pair on the variable definition; the build reads it from the declaration's metadata
+   - **Note**: Equal pairs are allowed. The build resolves a tie from the active theme's declaration order, so one request cannot affect another
 
 5. **Font-variant-numeric empty fallback handling**
    - **Problem**: Font-variant-numeric variables need trailing commas in CSS but a normal fallback generates the wrong syntax

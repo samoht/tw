@@ -70,15 +70,7 @@ module Handler = struct
        value *)
     let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
     let decl_y, y_ref = Var.binding border_spacing_y_var spacing_len in
-    let property_rules =
-      [
-        Var.property_rule border_spacing_x_var;
-        Var.property_rule border_spacing_y_var;
-      ]
-      |> List.filter_map Fun.id
-    in
     style
-      ~property_rules:(Css.concat property_rules)
       [
         spacing_decl;
         decl_x;

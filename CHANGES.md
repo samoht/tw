@@ -2,6 +2,14 @@
 
 ### Breaking changes
 
+- Variable ordering and `@property` metadata now travels with `Var` values and
+  `Style.t`, rather than through process-global registries. The registry lookup
+  functions (`Var.order`, `Var.family`, `Var.property_order`,
+  `Var.needs_property`, `Var.register_property_order`, and
+  `Var.resolve_theme_refs`) are removed, and the public `Style.Style` record
+  gains a `metadata` field. Construction, parsing, and rendering are safe to run
+  from multiple OCaml Domains without a mutex; typed `property_default` rules
+  are generated automatically.
 - `bg_transparent`, `bg_current` and the background colour constructors move to
   `Backgrounds`; `border_color`, `border_transparent` and `border_current` move
   to `Color`. Building one from OCaml and parsing the same class name used to

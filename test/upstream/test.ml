@@ -154,22 +154,30 @@ let theme_resolution ~declared config expected =
     ]
   in
   let root_vars = declared_root_vars ~declared expected in
+  let reference_defaults stylesheet =
+    Css.vars_of_stylesheet stylesheet
+    |> List.filter_map (fun (Css.V var) ->
+        match Tw.Var.metadata_of_var var with
+        | Some metadata ->
+            Option.map
+              (fun css -> (Tw.Var.metadata_name metadata, css))
+              (Tw.Var.metadata_default_css metadata)
+        | None -> None)
+  in
   let of_hardcoded pick name =
     List.find_map
       (fun (var_name, inline_val, default) ->
         if name = var_name then Some (pick (inline_val, default)) else None)
       hardcoded
   in
-  let defaults pick name =
+  let defaults stylesheet pick name =
     match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
-        match Tw.Var.resolve_theme_refs name with
+        match List.assoc_opt name (reference_defaults stylesheet) with
         | Some _ as result -> result
         | None -> of_hardcoded pick name)
   in
-  let combined_defaults = defaults snd in
-  let combined_inline_defaults = defaults fst in
   (* Inline the named tokens and nothing else: an empty keep-set with a lookup
      that answers only for them. *)
   let inline_pass names theme_defaults stylesheet =
@@ -186,6 +194,7 @@ let theme_resolution ~declared config expected =
       (* The [run()] harness renders the [--default-*] tokens as literal
          fallbacks whether or not the case redeclares them. *)
       fun stylesheet ->
+        let combined_defaults = defaults stylesheet snd in
         stylesheet
         |> inline_pass inlined_tokens combined_defaults
         |> bind_pass combined_defaults
@@ -198,6 +207,7 @@ let theme_resolution ~declared config expected =
         List.filter (fun name -> not (List.mem name declared)) inlined_tokens
       in
       fun stylesheet ->
+        let combined_defaults = defaults stylesheet snd in
         stylesheet
         |> inline_pass inlined combined_defaults
         |> bind_pass combined_defaults
@@ -206,6 +216,7 @@ let theme_resolution ~declared config expected =
          empty keep-set is the config's own semantics rather than a reading of
          the expected output. *)
       fun stylesheet ->
+        let combined_inline_defaults = defaults stylesheet fst in
         Css.resolve_theme ~theme:Css.Pp.String_set.empty
           ~theme_defaults:combined_inline_defaults stylesheet
   | No_theme ->

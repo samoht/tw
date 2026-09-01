@@ -307,6 +307,24 @@ module Handler = struct
     |> List.filter_map (fun x -> x)
     |> Css.concat
 
+  let shadow_property_metadata =
+    [
+      Var.metadata shadow_var;
+      Var.metadata shadow_color_var;
+      Var.metadata shadow_alpha_var;
+      Var.metadata inset_shadow_var;
+      Var.metadata inset_shadow_color_var;
+      Var.metadata inset_shadow_alpha_var;
+      Var.metadata ring_color_var;
+      Var.metadata ring_shadow_var;
+      Var.metadata inset_ring_color_var;
+      Var.metadata inset_ring_shadow_var;
+      Var.metadata ring_inset_var;
+      Var.metadata ring_offset_width_var;
+      Var.metadata ring_offset_color_var;
+      Var.metadata ring_offset_shadow_var;
+    ]
+
   let shorten_hex = Color.shorten_hex_str
 
   (* A bracket alpha with no [%] records the author's own number, unscaled and
@@ -466,21 +484,24 @@ module Handler = struct
       Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
     in
     let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_shape_style shape =
     let d_shadow, v_shadow =
       Var.binding shadow_var (shape_shadow_value shape)
     in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_shape_opacity_style shape opacity =
     let d_shadow, v_shadow =
       Var.binding shadow_var (shape_shadow_opacity_value shape opacity)
     in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ shadow_opacity_decl opacity; d_shadow; box_shadow_composition v_shadow ]
 
   let shadow_2xs = shadow_shape_style Two_xs
@@ -591,7 +612,8 @@ module Handler = struct
           Css.shadow ~h_offset ~v_offset ?blur ?spread ~color:(Var color_ref) ()
         in
         let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-        style ~property_rules:shadow_property_rules
+        style ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
           [ d_shadow; box_shadow_composition v_shadow ]
     | _ -> (
         match Css.parse_shadow normalized with
@@ -600,7 +622,8 @@ module Handler = struct
               wrap_shadow_colors ~color_var:shadow_color_var shadow
             in
             let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-            style ~property_rules:shadow_property_rules
+            style ~metadata:shadow_property_metadata
+              ~property_rules:shadow_property_rules
               [ d_shadow; box_shadow_composition v_shadow ]
         | None -> shadow_none)
 
@@ -624,7 +647,8 @@ module Handler = struct
               wrap_shadow_colors ~color_var:shadow_color_var shadow
             in
             let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-            style ~property_rules:shadow_property_rules
+            style ~metadata:shadow_property_metadata
+              ~property_rules:shadow_property_rules
               [ d_shadow; box_shadow_composition v_shadow ])
 
   let shadow_arbitrary_opacity (arb : string) opacity =
@@ -696,7 +720,8 @@ module Handler = struct
         match supports_rules with
         | [] ->
             (* No @supports — keep all declarations in one block *)
-            style ~property_rules:shadow_property_rules
+            style ~metadata:shadow_property_metadata
+              ~property_rules:shadow_property_rules
               [ alpha_d; d_shadow; box_shadow_composition v_shadow ]
         | _ ->
             (* Has @supports — split: alpha+shadow first (as regular rule), then
@@ -709,6 +734,7 @@ module Handler = struct
             in
             style
               ~rules:(Stdlib.Option.Some (alpha_shadow_rule :: supports_rules))
+              ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ box_shadow_composition v_shadow ])
     | Stdlib.Option.None -> shadow_none
@@ -751,8 +777,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -778,8 +804,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_current () =
     let base_decl, _ = Var.binding shadow_color_var Css.Current in
@@ -789,8 +815,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_current_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -805,8 +831,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_transparent () =
     let base_decl, _ = Var.binding shadow_color_var Css.Transparent in
@@ -816,8 +842,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_transparent_opacity opacity =
     let base_decl, _ = Var.binding shadow_color_var Css.Transparent in
@@ -828,12 +854,13 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_inherit () =
     let base_decl, _ = Var.binding shadow_color_var Css.Inherit in
-    style ~property_rules:shadow_property_rules [ base_decl ]
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_bracket_color (c : Css.color) =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
@@ -844,8 +871,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_bracket_color_opacity (c : Css.color) opacity =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
@@ -883,8 +910,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_bracket_color_var var_expr =
     let var_name = Parse.extract_var_name var_expr in
@@ -896,8 +923,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_bracket_cvar_opacity var_expr opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -913,14 +940,15 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let shadow_raw_var v =
     let var_name = Parse.extract_var_name v in
     let shadow_value : Css.shadow = Css.Var (Var.bracket var_name) in
     let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ d_shadow; box_shadow_composition v_shadow ]
 
   (* Inset shadow utilities - sets --tw-inset-shadow and composites
@@ -946,7 +974,8 @@ module Handler = struct
         Css.Var v_shadow;
       ]
     in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ d_inset_shadow; Css.box_shadows box_shadow_vars ]
 
   let inset_shadow_theme theme name =
@@ -1167,7 +1196,8 @@ module Handler = struct
         let d_inset_shadow, v_inset_shadow =
           Var.binding inset_shadow_var inset_value
         in
-        style ~property_rules:shadow_property_rules
+        style ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
     | Stdlib.Option.None -> inset_shadow_none
 
@@ -1191,7 +1221,8 @@ module Handler = struct
     let d_inset_shadow, v_inset_shadow =
       Var.binding inset_shadow_var inset_value
     in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [
         inset_shadow_opacity_decl opacity;
         d_inset_shadow;
@@ -1327,7 +1358,8 @@ module Handler = struct
         in
         match supports_rules with
         | [] ->
-            style ~property_rules:shadow_property_rules
+            style ~metadata:shadow_property_metadata
+              ~property_rules:shadow_property_rules
               [
                 alpha_d;
                 d_inset_shadow;
@@ -1340,6 +1372,7 @@ module Handler = struct
             in
             style
               ~rules:(Stdlib.Option.Some (alpha_shadow_rule :: supports_rules))
+              ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ inset_box_shadow_composition v_inset_shadow ])
     | Stdlib.Option.None -> inset_shadow_none
@@ -1382,8 +1415,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -1412,8 +1445,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_current () =
     let base_decl, _ = Var.binding inset_shadow_color_var Css.Current in
@@ -1423,8 +1456,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_current_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -1439,8 +1472,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_transparent () =
     let base_decl, _ = Var.binding inset_shadow_color_var Css.Transparent in
@@ -1450,8 +1483,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_transparent_opacity opacity =
     let base_decl, _ = Var.binding inset_shadow_color_var Css.Transparent in
@@ -1462,12 +1495,13 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_inherit () =
     let base_decl, _ = Var.binding inset_shadow_color_var Css.Inherit in
-    style ~property_rules:shadow_property_rules [ base_decl ]
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_bracket_color (c : Css.color) =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
@@ -1478,8 +1512,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_ishadow_bracket_color_opacity (c : Css.color) opacity =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
@@ -1510,8 +1544,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_ishadow_bracket_cvar var_expr =
     let var_name = Parse.extract_var_name var_expr in
@@ -1523,8 +1557,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_ishadow_bracket_cvar_opacity var_expr opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -1540,8 +1574,8 @@ module Handler = struct
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
     let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~property_rules:shadow_property_rules
-      [ base_decl ]
+    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ base_decl ]
 
   let inset_shadow_raw_var v =
     let var_name = Parse.extract_var_name v in
@@ -1550,7 +1584,8 @@ module Handler = struct
       Css.Inset (Css.Var (Var.bracket var_name))
     in
     let decl, v_inset_shadow = Var.binding inset_shadow_var shadow_value in
-    style ~property_rules:shadow_property_rules
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
       [ decl; inset_box_shadow_composition v_inset_shadow ]
 
   let ring_internal width_px =
@@ -1687,7 +1722,8 @@ module Handler = struct
     in
     (* Register the ring/shadow @property family, like the other ring utilities;
        Tailwind emits it for ring-inset too. *)
-    style ~property_rules:shadow_property_rules [ decl ]
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules [ decl ]
 
   let ring_color ?theme color shade =
     let cvar =

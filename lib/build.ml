@@ -5,6 +5,70 @@
 
 module Css = Cascade.Css
 open Output
+module Metadata = Map.Make (String)
+
+let metadata_name name =
+  if String.starts_with ~prefix:"--" name then
+    String.sub name 2 (String.length name - 2)
+  else name
+
+let metadata_score metadata =
+  Option.fold ~none:0 ~some:(fun _ -> 1) (Var.metadata_order metadata)
+  + Option.fold ~none:0
+      ~some:(fun _ -> 1)
+      (Var.metadata_property_order metadata)
+  + Option.fold ~none:0 ~some:(fun _ -> 1) (Var.metadata_family metadata)
+  + (if Var.metadata_needs_property metadata then 1 else 0)
+  + Option.fold ~none:0 ~some:(fun _ -> 1) (Var.metadata_default_css metadata)
+
+let add_metadata index metadata =
+  let name = Var.metadata_name metadata in
+  match Metadata.find_opt name index with
+  | Some existing when metadata_score existing >= metadata_score metadata ->
+      index
+  | _ -> Metadata.add name metadata index
+
+let add_var_metadata index (Css.V var) =
+  match Var.metadata_of_var var with
+  | Some metadata -> add_metadata index metadata
+  | None -> index
+
+let add_declaration_metadata index declaration =
+  let index =
+    match Var.metadata_of_declaration declaration with
+    | Some metadata -> add_metadata index metadata
+    | None -> index
+  in
+  List.fold_left add_var_metadata index
+    (Css.vars_of_declarations [ declaration ])
+
+let add_declarations_metadata index declarations =
+  List.fold_left add_declaration_metadata index declarations
+
+let add_vars_metadata index vars = List.fold_left add_var_metadata index vars
+
+let metadata_of_sorted_rules rules =
+  List.fold_left
+    (fun index (rule : Sort.indexed_rule) ->
+      let index = add_declarations_metadata index rule.props in
+      add_vars_metadata index (Css.vars_of_rules rule.nested))
+    Metadata.empty rules
+
+let metadata_for_name index name = Metadata.find_opt (metadata_name name) index
+
+let metadata_order index name =
+  Option.bind (metadata_for_name index name) Var.metadata_order
+
+let metadata_property_order index name =
+  Option.bind (metadata_for_name index name) Var.metadata_property_order
+
+let metadata_family index name =
+  Option.bind (metadata_for_name index name) Var.metadata_family
+
+let metadata_index sorted_rules style_metadata =
+  List.fold_left add_metadata
+    (metadata_of_sorted_rules sorted_rules)
+    style_metadata
 
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
@@ -517,15 +581,9 @@ let sorted_indexed_rules ?theme ?declared order_map all_rules =
   |> sort_indexed_blocks
 
 (* Sort var names by property_order. Names include -- prefix. *)
-let sort_vars_by_property_order vars =
+let sort_vars_by_property_order metadata vars =
   let get_order name =
-    (* Strip -- prefix for lookup *)
-    let name_without_prefix =
-      if String.starts_with ~prefix:"--" name then
-        String.sub name 2 (String.length name - 2)
-      else name
-    in
-    match Var.property_order name_without_prefix with
+    match metadata_property_order metadata name with
     | Some o -> o
     | None -> 1000 (* Default for vars without property_order *)
   in
@@ -541,7 +599,7 @@ let sort_vars_by_property_order vars =
    are REFERENCED and need @property (e.g., transform refs rotate/skew) Within
    each utility, vars are sorted by property_order to ensure consistent family
    ordering (e.g., ring before inset-ring regardless of CSS value order). *)
-let var_names_of_sorted_rules sorted_rules =
+let var_names_of_sorted_rules metadata sorted_rules =
   sorted_rules
   |> List.concat_map (fun (r : Sort.indexed_rule) ->
       (* Vars that this utility SETS *)
@@ -552,12 +610,13 @@ let var_names_of_sorted_rules sorted_rules =
       let ref_vars =
         all_vars
         |> List.filter (fun (Css.V v) ->
-            let name = Css.var_name v in
-            Var.needs_property name)
+            match Var.metadata_of_var v with
+            | Some metadata -> Var.metadata_needs_property metadata
+            | None -> false)
         |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
       in
       (* Sort all vars from this utility by property_order *)
-      sort_vars_by_property_order (set_vars @ ref_vars))
+      sort_vars_by_property_order metadata (set_vars @ ref_vars))
 
 let rule_sets tw_classes =
   let order_tbl = Hashtbl.create 256 in
@@ -714,7 +773,7 @@ let declared_order declared name =
    into one shared (priority, suborder) slot (see [Var.mli]), so two project
    tokens tie there; Tailwind keeps the order the [@theme] block wrote them in
    rather than sorting by name. *)
-let sort_by_var_order ~theme decls =
+let sort_by_var_order ~metadata ~theme decls =
   let declared = declared_index theme in
   decls
   |> List.map (fun d ->
@@ -722,7 +781,7 @@ let sort_by_var_order ~theme decls =
       let order =
         match Var.order_of_declaration d with
         | Some _ as order -> order
-        | None -> Option.bind name Var.order
+        | None -> Option.bind name (metadata_order metadata)
       in
       (d, order, name, declared_order declared name))
   |> List.sort (fun (_, a, na, ia) (_, b, nb, ib) ->
@@ -782,6 +841,15 @@ let add_output_var_names names = function
 
 let referenced_var_names selector_props =
   List.fold_left add_output_var_names Strings.empty selector_props
+
+let add_output_metadata index = function
+  | Regular { props; nested; _ }
+  | Media_query { props; nested; _ }
+  | Container_query { props; nested; _ }
+  | Starting_style { props; nested; _ }
+  | Supports_query { props; nested; _ } ->
+      let index = add_declarations_metadata index props in
+      add_vars_metadata index (Css.vars_of_rules nested)
 
 (* Theme tokens referenced via var() (e.g. an arbitrary [color:var(--color-red-
    500)]) must appear in @layer theme, but the extractor above only collects
@@ -908,7 +976,12 @@ let add_static_theme_decls ~theme extracted =
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
-    ?(default_decls = []) selector_props =
+    ?(default_decls = []) ?metadata selector_props =
+  let metadata =
+    match metadata with
+    | Some metadata -> metadata
+    | None -> List.fold_left add_output_metadata Metadata.empty selector_props
+  in
   let referenced = referenced_var_names selector_props in
   let extracted =
     extract_non_tw_custom_declarations selector_props
@@ -940,7 +1013,8 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
   |> List.filter_map (resolve_default_family theme)
-  |> sort_by_var_order ~theme |> theme_layer_rule ~layers
+  |> sort_by_var_order ~metadata ~theme
+  |> theme_layer_rule ~layers
 
 let theme_layer_of ?theme ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
@@ -1023,23 +1097,31 @@ let first_usage_order set_var_names =
     set_var_names;
   seen
 
-(* Get property order from static registry. *)
-let property_order_from name =
-  match Var.property_order name with
+let property_order_from metadata fallback_order ~fallback name =
+  match metadata_property_order metadata name with
   | Some o -> o
   | None ->
-      failwith
-        ("Missing property_order for variable '" ^ name
-       ^ "'. Register ~property_order when defining the variable \
-          (Var.channel/property_default).")
+      Option.value ~default:fallback (Hashtbl.find_opt fallback_order name)
+
+let property_statement_order statements =
+  let order = Hashtbl.create 32 in
+  List.iteri
+    (fun index statement ->
+      match Css.as_property statement with
+      | Some (Css.Property_info info) ->
+          if not (Hashtbl.mem order info.name) then
+            Hashtbl.add order info.name index
+      | None -> ())
+    statements;
+  order
 
 (* Build family first-usage order from the first_usage_order hashtbl. Returns a
    hashtbl mapping family to its first occurrence index. *)
-let family_order first_usage_order =
+let family_order metadata first_usage_order =
   let family_order = Hashtbl.create 16 in
   Hashtbl.iter
     (fun name idx ->
-      match Var.family name with
+      match metadata_family metadata name with
       | Some fam -> (
           match Hashtbl.find_opt family_order fam with
           | None -> Hashtbl.add family_order fam idx
@@ -1078,8 +1160,8 @@ let uses_direct_property_order = function
 (* Canonical CSS-property rank for a [--tw-*] variable, following Tailwind's
    @property emission order. The [`Border] family spans several slots, so split
    it by name. *)
-let canonical_property_rank name =
-  match Var.family name with
+let canonical_property_rank metadata name =
+  match metadata_family metadata name with
   | Some (`Translate | `Scale | `Rotate | `Skew) -> 16 (* transform *)
   | Some `Gradient -> 28 (* background-image *)
   | Some `Leading -> 39 (* line-height *)
@@ -1130,8 +1212,8 @@ let compare_property_vars_same_rank ~get_family_order ~get_first_usage n1 n2 po1
       let fo2 = get_family_order n2 in
       if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
 
-let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
-    fam2 =
+let compare_property_vars ~metadata ~get_family_order ~get_first_usage n1 n2 po1
+    po2 fam1 fam2 =
   (* Variables with negative property_order and no family come FIRST *)
   match (fam1, po1 < 0, fam2, po2 < 0) with
   | None, true, None, true -> compare po1 po2
@@ -1148,7 +1230,9 @@ let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
         if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
   | _ ->
       let cr =
-        compare (canonical_property_rank n1) (canonical_property_rank n2)
+        compare
+          (canonical_property_rank metadata n1)
+          (canonical_property_rank metadata n2)
       in
       if cr <> 0 then cr
       else
@@ -1160,10 +1244,10 @@ let compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
    variable names in lockstep, since one produces the initial-value order and
    the other the @property emission order for the same variables, and a mismatch
    would emit a properties layer that contradicts its own @property rules. *)
-let property_var_comparator first_usage_order =
-  let family_order = family_order first_usage_order in
+let property_var_comparator metadata fallback_order first_usage_order =
+  let family_order = family_order metadata first_usage_order in
   let get_family_order name =
-    match Var.family name with
+    match metadata_family metadata name with
     | Some fam -> (
         match Hashtbl.find_opt family_order fam with
         | Some o -> o
@@ -1176,25 +1260,36 @@ let property_var_comparator first_usage_order =
     | None -> 10000
   in
   fun n1 n2 ->
-    let fam1 = Var.family n1 in
-    let fam2 = Var.family n2 in
-    let po1 = property_order_from n1 in
-    let po2 = property_order_from n2 in
-    compare_property_vars ~get_family_order ~get_first_usage n1 n2 po1 po2 fam1
-      fam2
+    let fam1 = metadata_family metadata n1 in
+    let fam2 = metadata_family metadata n2 in
+    let po1 =
+      property_order_from metadata fallback_order ~fallback:(get_first_usage n1)
+        n1
+    in
+    let po2 =
+      property_order_from metadata fallback_order ~fallback:(get_first_usage n2)
+        n2
+    in
+    compare_property_vars ~metadata ~get_family_order ~get_first_usage n1 n2 po1
+      po2 fam1 fam2
 
-let sort_properties_by_order first_usage_order initial_values =
-  let cmp_name = property_var_comparator first_usage_order in
+let sort_properties_by_order metadata fallback_order first_usage_order
+    initial_values =
+  let cmp_name =
+    property_var_comparator metadata fallback_order first_usage_order
+  in
   let cmp (n1, _) (n2, _) = cmp_name n1 n2 in
   List.sort cmp initial_values
 
 (* Build property layer content with browser detection *)
-let property_layer_content first_usage_order initial_values other_statements =
+let property_layer_content metadata fallback_order first_usage_order
+    initial_values other_statements =
   let selector =
     Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
   in
   let sorted_values =
-    sort_properties_by_order first_usage_order initial_values
+    sort_properties_by_order metadata fallback_order first_usage_order
+      initial_values
   in
   let initial_declarations = List.map snd sorted_values in
   let rule = Css.rule ~selector initial_declarations in
@@ -1204,7 +1299,8 @@ let property_layer_content first_usage_order initial_values other_statements =
 
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
-let properties_layer first_usage_order explicit_property_rules_statements =
+let properties_layer metadata fallback_order first_usage_order
+    explicit_property_rules_statements =
   let property_rules, other_statements =
     partition_properties explicit_property_rules_statements
   in
@@ -1214,7 +1310,8 @@ let properties_layer first_usage_order explicit_property_rules_statements =
   if deduplicated = [] && initial_values = [] then (Css.empty, [])
   else
     let layer =
-      property_layer_content first_usage_order initial_values other_statements
+      property_layer_content metadata fallback_order first_usage_order
+        initial_values other_statements
     in
     (layer, deduplicated)
 
@@ -1227,24 +1324,29 @@ let set_var_names_from_props props = Css.custom_prop_names props
     - set_var_names: names of variables that are SET via Custom_declaration
     - property_rules: explicit property rules from utilities *)
 let rec extract_style_vars_and_rules = function
-  | Style.Style { props; rules; property_rules; _ } ->
+  | Style.Style { props; rules; property_rules; metadata; _ } ->
       let vars_from_props = Css.vars_of_declarations props in
       let vars_from_rules =
         match rules with Some r -> Css.vars_of_rules r | None -> []
       in
       let set_names = set_var_names_from_props props in
-      (vars_from_props @ vars_from_rules, set_names, [ property_rules ])
+      ( vars_from_props @ vars_from_rules,
+        set_names,
+        [ property_rules ],
+        metadata )
   | Style.Modified (_, t) -> extract_style_vars_and_rules t
   | Style.Group ts ->
       let results = List.map extract_style_vars_and_rules ts in
-      let vars_list, set_names_list, prop_rules_list =
+      let vars_list, set_names_list, prop_rules_list, metadata_list =
         List.fold_right
-          (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
-          results ([], [], [])
+          (fun (v, s, p, m) (vs, ss, ps, ms) ->
+            (v :: vs, s :: ss, p :: ps, m :: ms))
+          results ([], [], [], [])
       in
       ( List.concat vars_list,
         List.concat set_names_list,
-        List.concat prop_rules_list )
+        List.concat prop_rules_list,
+        List.concat metadata_list )
 
 (* Filter variables that need @property rules *)
 let vars_needing_property vars =
@@ -1265,9 +1367,7 @@ let property_rules_for vars excluded_names =
   |> List.filter (fun (Css.V v) ->
       let var_name = "--" ^ Css.var_name v in
       not (Strings.mem var_name excluded_names))
-  |> List.map (fun (Css.V v) ->
-      let var_name = "--" ^ Css.var_name v in
-      Css.property ~name:var_name Css.Universal ~inherits:false ())
+  |> List.filter_map (fun (Css.V v) -> Var.property_rule_of_var v)
 
 (** Collect all property rules: explicit ones and auto-generated ones. Only
     auto-generates [\@property] for variables that are: 1. Actually SET (via
@@ -1313,8 +1413,11 @@ let layer_declaration ~has_properties ~include_base =
    sort key (this matches Tailwind's behavior where per-utility declaration
    order determines @property order). Falls back to family order then
    property_order for cross-family sorting. *)
-let sort_property_rules_by_usage first_usage_order property_rules_for_end =
-  let cmp_name = property_var_comparator first_usage_order in
+let sort_property_rules_by_usage metadata fallback_order first_usage_order
+    property_rules_for_end =
+  let cmp_name =
+    property_var_comparator metadata fallback_order first_usage_order
+  in
   property_rules_for_end
   |> List.sort (fun s1 s2 ->
       match (Css.as_property s1, Css.as_property s2) with
@@ -1343,8 +1446,8 @@ let dedup_keyframes_to_css keyframes =
 
 (** Assemble all CSS layers in the correct order *)
 let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
-    ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes
-    ~first_usage_order =
+    ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes ~metadata
+    ~fallback_order ~first_usage_order =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
   in
@@ -1366,7 +1469,8 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
     else initial_layers @ base_layers @ [ utilities_layer ]
   in
   let sorted_property_rules =
-    sort_property_rules_by_usage first_usage_order property_rules_for_end
+    sort_property_rules_by_usage metadata fallback_order first_usage_order
+      property_rules_for_end
   in
   let property_rules_css =
     if sorted_property_rules = [] then [] else [ Css.v sorted_property_rules ]
@@ -1380,14 +1484,16 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
    registered handler and allocates the whole declaration tree per class. *)
 let extract_vars_and_rules styles =
   let results = List.map extract_style_vars_and_rules styles in
-  let vars_list, set_names_list, prop_rules_list =
+  let vars_list, set_names_list, prop_rules_list, metadata_list =
     List.fold_right
-      (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
-      results ([], [], [])
+      (fun (v, s, p, m) (vs, ss, ps, ms) ->
+        (v :: vs, s :: ss, p :: ps, m :: ms))
+      results ([], [], [], [])
   in
   ( List.concat vars_list,
     List.concat set_names_list,
-    List.concat prop_rules_list )
+    List.concat prop_rules_list,
+    List.concat metadata_list )
 
 (* Flatten property rules into CSS statements *)
 let flatten_property_rules property_rules_lists =
@@ -1440,7 +1546,8 @@ type layers_result = {
 }
 
 let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
-    first_usage_order selector_props all_property_statements statements =
+    ~metadata ~fallback_order first_usage_order selector_props
+    all_property_statements statements =
   let theme_defaults =
     let font_defaults =
       if include_base then Typography.default_font_family_declarations else []
@@ -1453,7 +1560,7 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     font_defaults @ transition_defaults
   in
   let theme_layer =
-    theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults
+    theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults ~metadata
       selector_props
   in
   let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
@@ -1461,7 +1568,8 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     if all_property_statements = [] then (None, [])
     else
       let layer, prop_rules =
-        properties_layer first_usage_order all_property_statements
+        properties_layer metadata fallback_order first_usage_order
+          all_property_statements
       in
       match Css.statements layer with
       | [] -> (None, prop_rules)
@@ -1487,11 +1595,11 @@ let rec collect_keyframes acc = function
     "spin"/"pulse"/"bounce" are associated with theme variables
     "animate-spin"/"animate-pulse"/"animate-bounce" that have explicit
     (priority, suborder) tuples registered. *)
-let sort_keyframes_by_var_order keyframes =
+let sort_keyframes_by_var_order metadata keyframes =
   keyframes
   |> List.sort (fun (name1, _) (name2, _) ->
       let keyframe_var_order name =
-        match Var.order ("animate-" ^ name) with
+        match metadata_order metadata ("animate-" ^ name) with
         | Some (p, s) -> (p * 1000) + s
         | None -> 1000000 (* Unknown keyframes sort last *)
       in
@@ -1505,15 +1613,16 @@ let sort_keyframes_by_var_order keyframes =
 let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
   let styles = List.map (Utility.to_style theme) tw_classes in
-  let vars_from_utilities, set_var_names, property_rules_lists =
+  let vars_from_utilities, set_var_names, property_rules_lists, style_metadata =
     extract_vars_and_rules styles
   in
+  let metadata = metadata_index sorted_rules style_metadata in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
      Within each utility, vars are sorted by property_order (done in
      var_names_of_sorted_rules). Across utilities, we preserve first-usage order
      to match Tailwind's behavior. *)
-  let all_vars = var_names_of_sorted_rules sorted_rules in
+  let all_vars = var_names_of_sorted_rules metadata sorted_rules in
   let first_usage_order = first_usage_order all_vars in
   let base_property_rules = flatten_property_rules property_rules_lists in
   (* Add content_var's property_rule if before/after pseudo-elements are used *)
@@ -1529,6 +1638,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
   in
+  let fallback_order = property_statement_order all_property_statements in
   (* The forms base layer is the plugin's [base] strategy: a global reset of
      native form controls. It is opt-in only ([~forms:true]), mirroring
      Tailwind's [\@plugin '@tailwindcss/forms']. The [.form-*] class-strategy
@@ -1538,18 +1648,20 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
   let individual =
     individual_layers ~theme ~layers ~include_base ~forms_base
       ~has_transition:(has_transition_utility tw_classes)
-      first_usage_order selector_props all_property_statements statements
+      ~metadata ~fallback_order first_usage_order selector_props
+      all_property_statements statements
   in
   let keyframes =
     List.fold_left collect_keyframes [] styles
-    |> List.rev |> sort_keyframes_by_var_order
+    |> List.rev
+    |> sort_keyframes_by_var_order metadata
   in
   assemble_all_layers ~layers ~include_base
     ~properties_layer:individual.properties_layer
     ~theme_layer:individual.theme_layer ~base_layer:individual.base_layer
     ~utilities_layer:individual.utilities_layer
-    ~property_rules_for_end:individual.property_rules ~keyframes
-    ~first_usage_order
+    ~property_rules_for_end:individual.property_rules ~keyframes ~metadata
+    ~fallback_order ~first_usage_order
 
 (* ======================================================================== *)
 (* CSS Generation API *)
