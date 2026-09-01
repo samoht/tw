@@ -215,6 +215,7 @@ type info =
       kind : 'a Css.kind;
       need_property : bool;
       order : (int * int) option;
+      runtime : bool;
     }
       -> info
 
@@ -266,7 +267,16 @@ let v : type a r.
   let need_property = property <> None in
   if need_property then Registry.register_needs_property ~name ~needs:true;
 
-  let info = Info { kind; name; need_property; order } in
+  let info =
+    Info
+      {
+        kind;
+        name;
+        need_property;
+        order;
+        runtime = Option.value runtime ~default:false;
+      }
+  in
   let binding ?fallback:fb value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
@@ -514,6 +524,12 @@ let order_of_declaration decl =
   | None -> None
   | Some meta -> (
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
+
+let is_runtime_declaration decl =
+  match Css.meta_of_declaration decl with
+  | None -> false
+  | Some meta -> (
+      match info_of_meta meta with Some (Info t) -> t.runtime | None -> false)
 
 let property_initial_declaration = declaration_of_property_info
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]

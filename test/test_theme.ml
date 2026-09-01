@@ -122,7 +122,8 @@ let theme_family_block_order () =
   check (list string) "Tailwind family block order" expected actual
 
 (* Utilities across ten modules bind [--spacing] as they emit, each supplying
-   the value the theme layer declares. Each has to bind it to
+   the value the theme layer declares. A binding must survive exactly when the
+   finished utility still reads it, and every surviving binding must use
    [Theme.spacing_base]: a hand-written copy of the step leaves whichever
    utilities kept it declaring a stale [--spacing], and a sheet that mixes the
    two keeps only one of the declarations. *)
@@ -152,24 +153,31 @@ let one_spacing_declaration () =
       | Ok u -> u
       | Error (`Msg m) -> failf "%s: %s" cls m
     in
-    match Css.layer_block [ "theme" ] (Tw.to_css ~base:false [ style ]) with
+    let sheet = Tw.to_css ~base:false [ style ] in
+    let reads_spacing =
+      Astring.String.is_infix ~affix:"var(--spacing)"
+        (Css.to_string ~minify:true sheet)
+    in
+    match Css.layer_block [ "theme" ] sheet with
     | None -> failf "%s: expected @layer theme" cls
     | Some statements ->
-        Css.rules_of_statements statements
-        |> List.concat_map snd
-        |> List.filter_map (fun d ->
-            match Css.custom_declaration_name d with
-            | Some "--spacing" -> Some (cls, Css.declaration_value d)
-            | _ -> None)
+        let bindings =
+          Css.rules_of_statements statements
+          |> List.concat_map snd
+          |> List.filter_map (fun d ->
+              match Css.custom_declaration_name d with
+              | Some "--spacing" -> Some (cls, Css.declaration_value d)
+              | _ -> None)
+        in
+        check int (cls ^ " carrier count")
+          (if reads_spacing then 1 else 0)
+          (List.length bindings);
+        bindings
   in
   let base = Css.Pp.to_string Css.pp_length Tw.Theme.spacing_base in
   let found = List.concat_map declared classes in
-  check int "every class declares --spacing" (List.length classes)
-    (List.length found);
-  check
-    (list (pair string string))
-    "every binding declares the same step"
-    (List.map (fun cls -> (cls, base)) classes)
+  List.iter
+    (fun (cls, value) -> check string (cls ^ " carrier value") base value)
     found
 
 let tests =

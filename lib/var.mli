@@ -639,6 +639,10 @@ val order_of_declaration : Css.declaration -> (int * int) option
 (** [order_of_declaration d] returns theme ordering information for a custom
     declaration. *)
 
+val is_runtime_declaration : Css.declaration -> bool
+(** [is_runtime_declaration d] is [true] when [d] belongs to a theme variable
+    created with [~runtime:true]. *)
+
 val property_initial_declaration : Css.property_info -> Css.declaration
 (** [property_initial_declaration info] is the declaration that sets a parsed
     [@property] statement's typed initial value in the properties layer's bulk

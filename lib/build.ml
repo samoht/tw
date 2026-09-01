@@ -743,18 +743,45 @@ let theme_layer_rule ~layers = function
       if layers then Css.v [ Css.layer ~name:[ "theme" ] [ rule ] ]
       else Css.v [ rule ]
 
+(* Read every [var()] from a declaration's serialized value. The normal typed
+   walk is faster, but a nested calculation can hold another typed [calc()]
+   inside a [Val] node (space-x's reverse multiplier is one example), and that
+   node is intentionally opaque to the generic calc walker. Tokenising the value
+   directly supplies the exhaustive dependency view this build decision needs
+   without imposing custom-property declaration grammar on an arbitrary
+   property's otherwise-valid value. *)
+let add_declaration_var_names names declarations =
+  List.fold_left
+    (fun names declaration ->
+      let value = Css.declaration_value declaration in
+      Css.Variables.var_refs_in_value_string value
+      |> List.fold_left (fun names name -> Strings.add name names) names)
+    names declarations
+
+let rec add_statement_var_names names statements =
+  List.fold_left
+    (fun names statement ->
+      let names =
+        add_declaration_var_names names
+          (Css.Stylesheet.statement_declarations statement)
+      in
+      add_statement_var_names names
+        (Css.Stylesheet.statement_children statement))
+    names statements
+
 (* Every var() referenced anywhere in a utility's output (top-level props and
    nested @media/@supports). *)
-let var_names_of_output = function
-  | Regular { props; nested; _ } | Media_query { props; nested; _ } ->
-      (* [nested] can hold @media statements (compound variants like
-         hover:dark:) whose rules reference theme vars; recurse fully so those
-         references are collected and their theme tokens declared. *)
-      Css.vars_of_declarations props @ Css.vars_of_stylesheet (Css.v nested)
-  | Container_query { props; nested; _ } ->
-      Css.vars_of_declarations props @ Css.vars_of_stylesheet (Css.v nested)
-  | Starting_style { props; _ } | Supports_query { props; _ } ->
-      Css.vars_of_declarations props
+let add_output_var_names names = function
+  | Regular { props; nested; _ }
+  | Media_query { props; nested; _ }
+  | Container_query { props; nested; _ }
+  | Starting_style { props; nested; _ }
+  | Supports_query { props; nested; _ } ->
+      let names = add_declaration_var_names names props in
+      add_statement_var_names names nested
+
+let referenced_var_names selector_props =
+  List.fold_left add_output_var_names Strings.empty selector_props
 
 (* Theme tokens referenced via var() (e.g. an arbitrary [color:var(--color-red-
    500)]) must appear in @layer theme, but the extractor above only collects
@@ -766,10 +793,8 @@ let var_names_of_output = function
    [@theme reference] one is declared outside the sheet, so neither is emitted.
    [exclude] holds the already-emitted (set) token names. *)
 let referenced_theme_decls ~theme ~exclude selector_props =
-  selector_props
-  |> List.concat_map var_names_of_output
-  |> List.map Css.any_var_name
-  |> List.sort_uniq String.compare
+  referenced_var_names selector_props
+  |> Strings.to_list
   |> List.filter_map (fun full ->
       if
         String.length full <= 2
@@ -847,12 +872,48 @@ let derived_font_feature_decls ~theme ~have =
           Some (Css.custom_property ~layer:"theme" ("--" ^ name) v)
       | _ -> None)
 
+(* A runtime theme declaration attached to a utility is a dependency carrier,
+   not independent output. A zero-valued spacing utility, for example, has
+   already folded its value to [0px] and no longer reads [--spacing]. Non-
+   runtime theme declarations retain Tailwind's emission semantics even when the
+   utility folded their value. [theme(static)] is the explicit runtime
+   exception: it asks for the whole theme whether a utility reads each token or
+   not. *)
+let keep_extracted_theme_decl ~theme ~referenced decl =
+  theme.Scheme.static_theme
+  || (not (Var.is_runtime_declaration decl))
+  ||
+  match Css.custom_declaration_name decl with
+  | Some name -> Strings.mem name referenced
+  | None -> false
+
+(* [theme(static)] on the package import emits every theme variable, not only
+   the ones a utility used. The palette is by far the biggest part of it. *)
+let add_static_theme_decls ~theme extracted =
+  if not theme.Scheme.static_theme then extracted
+  else
+    let have = names_set_of extracted in
+    let registered =
+      Scheme.all_default_tokens ()
+      |> List.map (fun (name, css) ->
+          Css.custom_property ~layer:"theme" ("--" ^ name) css)
+    in
+    extracted
+    @ List.filter
+        (fun d ->
+          match Css.custom_declaration_name d with
+          | Some n -> not (Strings.mem n have)
+          | None -> true)
+        (Color.Handler.all_palette_declarations ~theme () @ registered)
+
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
     ?(default_decls = []) selector_props =
+  let referenced = referenced_var_names selector_props in
   let extracted =
     extract_non_tw_custom_declarations selector_props
     |> List.filter_map (apply_token_override theme)
+    |> List.filter (keep_extracted_theme_decl ~theme ~referenced)
   in
   let extracted =
     extracted
@@ -862,25 +923,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   let extracted =
     extracted @ derived_font_feature_decls ~theme ~have:(names_set_of extracted)
   in
-  (* [theme(static)] on the package import emits every theme variable, not only
-     the ones a utility used. The palette is by far the biggest part of it. *)
-  let extracted =
-    if not theme.Scheme.static_theme then extracted
-    else
-      let have = names_set_of extracted in
-      let registered =
-        Scheme.all_default_tokens ()
-        |> List.map (fun (name, css) ->
-            Css.custom_property ~layer:"theme" ("--" ^ name) css)
-      in
-      extracted
-      @ List.filter
-          (fun d ->
-            match Css.custom_declaration_name d with
-            | Some n -> not (Strings.mem n have)
-            | None -> true)
-          (Color.Handler.all_palette_declarations ~theme () @ registered)
-  in
+  let extracted = add_static_theme_decls ~theme extracted in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
   (* Filter defaults to remove duplicates of extracted vars *)
