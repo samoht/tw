@@ -3747,6 +3747,16 @@ let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 
+let outline_color ?opacity ?(shade = 500) color =
+  check_shade ~utility:"outline_color" color shade;
+  match opacity with
+  | None -> utility (Outline (color, shade))
+  | Some pct -> utility (Outline_opacity (color, shade, opacity_of_int pct))
+
+let outline_transparent = utility Outline_transparent
+let outline_current = utility Outline_current
+let outline_inherit = utility Outline_inherit
+
 let accent ?opacity ?(shade = 500) color =
   check_shade ~utility:"accent" color shade;
   match opacity with

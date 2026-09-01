@@ -305,6 +305,19 @@ val border_transparent : t
 val border_current : t
 (** [border_current] uses [currentColor] for border color. *)
 
+val outline_color : ?opacity:int -> ?shade:int -> color -> t
+(** [outline_color color] sets the outline color. [shade] defaults to 500 and
+    [opacity] sets the alpha modifier (0-100). *)
+
+val outline_transparent : t
+(** [outline_transparent] makes the outline fully transparent. *)
+
+val outline_current : t
+(** [outline_current] uses [currentColor] for the outline. *)
+
+val outline_inherit : t
+(** [outline_inherit] inherits the outline color. *)
+
 val accent : ?opacity:int -> ?shade:int -> color -> t
 (** [accent color] sets the accent color for form controls. [shade] defaults to
     500. [opacity] sets the alpha modifier (0-100). *)

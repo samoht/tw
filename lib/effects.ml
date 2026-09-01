@@ -3296,6 +3296,21 @@ let ring_color ?opacity ?(shade = 500) color =
   | Some pct ->
       utility (Ring_color_opacity (color, shade, Color.opacity_of_int pct))
 
+let ring_offset_width n =
+  if n < 0 then invalid_arg "ring_offset_width: width must be non-negative"
+  else utility (Ring_offset_width n)
+
+let ring_offset_color ?opacity ?(shade = 500) color =
+  Color.check_shade ~utility:"ring_offset_color" color shade;
+  match opacity with
+  | None -> utility (Ring_offset_color (color, shade))
+  | Some pct ->
+      utility
+        (Ring_offset_color_opacity (color, shade, Color.opacity_of_int pct))
+
+let ring_offset_transparent = utility Ring_offset_transparent
+let ring_offset_current = utility Ring_offset_current
+let ring_offset_inherit = utility Ring_offset_inherit
 let inset_ring = utility Inset_ring_default
 let opacity n = utility (Opacity n)
 let mix_blend_normal = utility Mix_blend_normal
@@ -3315,6 +3330,22 @@ let mix_blend_saturation = utility Mix_blend_saturation
 let mix_blend_color = utility Mix_blend_color
 let mix_blend_plus_darker = utility Mix_blend_plus_darker
 let mix_blend_plus_lighter = utility Mix_blend_plus_lighter
+let bg_blend_normal = utility Bg_blend_normal
+let bg_blend_multiply = utility Bg_blend_multiply
+let bg_blend_screen = utility Bg_blend_screen
+let bg_blend_overlay = utility Bg_blend_overlay
+let bg_blend_darken = utility Bg_blend_darken
+let bg_blend_lighten = utility Bg_blend_lighten
+let bg_blend_color_dodge = utility Bg_blend_color_dodge
+let bg_blend_color_burn = utility Bg_blend_color_burn
+let bg_blend_hard_light = utility Bg_blend_hard_light
+let bg_blend_soft_light = utility Bg_blend_soft_light
+let bg_blend_difference = utility Bg_blend_difference
+let bg_blend_exclusion = utility Bg_blend_exclusion
+let bg_blend_hue = utility Bg_blend_hue
+let bg_blend_saturation = utility Bg_blend_saturation
+let bg_blend_color = utility Bg_blend_color
+let bg_blend_luminosity = utility Bg_blend_luminosity
 
 (* Export ring/shadow variables for use by Forms *)
 let shadow_var = Handler.shadow_var

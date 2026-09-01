@@ -601,6 +601,12 @@ val rounded_es_full : t
 val outline : t
 (** [outline] sets outline-style from var and outline-width to 1px. *)
 
+val outline_width : int -> t
+(** [outline_width n] sets outline width to [n] pixels. The zero value emits
+    [outline-0].
+
+    @raise Invalid_argument if [n] is negative. *)
+
 val outline_none : t
 (** [outline_none] removes the outline. *)
 

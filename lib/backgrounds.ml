@@ -9,7 +9,6 @@
     What's not:
     - Radial or conic gradients.
     - Multiple gradient stops beyond from/via/to.
-    - Background size, position, repeat utilities.
 
     Parsing contract (`of_string`):
     - Accepts ["bg"; "gradient"; "to"; direction], ["from"; color; shade],
@@ -1948,6 +1947,38 @@ let bg ?opacity ?(shade = 500) color =
 
 let bg_transparent = utility Bg_transparent
 let bg_current = utility Bg_current
+let bg_fixed = utility Bg_fixed
+let bg_local = utility Bg_local
+let bg_scroll = utility Bg_scroll
+let bg_clip_border = utility Bg_clip_border
+let bg_clip_padding = utility Bg_clip_padding
+let bg_clip_content = utility Bg_clip_content
+let bg_clip_text = utility Bg_clip_text
+let bg_origin_border = utility Bg_origin_border
+let bg_origin_padding = utility Bg_origin_padding
+let bg_origin_content = utility Bg_origin_content
+let bg_bottom = utility (Bg_position Position.Bottom)
+let bg_bottom_left = utility (Bg_position Position.Bottom_left)
+let bg_bottom_right = utility (Bg_position Position.Bottom_right)
+let bg_center = utility (Bg_position Position.Center)
+let bg_left = utility (Bg_position Position.Left)
+let bg_left_bottom = utility (Bg_position Position.Left_bottom)
+let bg_left_top = utility (Bg_position Position.Left_top)
+let bg_right = utility (Bg_position Position.Right)
+let bg_right_bottom = utility (Bg_position Position.Right_bottom)
+let bg_right_top = utility (Bg_position Position.Right_top)
+let bg_top = utility (Bg_position Position.Top)
+let bg_top_left = utility (Bg_position Position.Top_left)
+let bg_top_right = utility (Bg_position Position.Top_right)
+let bg_repeat = utility Bg_repeat
+let bg_no_repeat = utility Bg_no_repeat
+let bg_repeat_x = utility Bg_repeat_x
+let bg_repeat_y = utility Bg_repeat_y
+let bg_repeat_round = utility Bg_repeat_round
+let bg_repeat_space = utility Bg_repeat_space
+let bg_auto = utility Bg_auto
+let bg_cover = utility Bg_cover
+let bg_contain = utility Bg_contain
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 
 let from_color ?(shade = 500) color =

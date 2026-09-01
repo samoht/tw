@@ -59,6 +59,9 @@
 
 ### Utility coverage
 
+- Typed construction covers clear, background attachment/clip/origin/position,
+  repeat and size, outline width/colour, ring offsets, and background blend
+  modes (#649).
 - Sizing accepts the whole scale. The container scale reaches the logical
   families and `basis-*`, both viewport axes and the `px` step work on the width
   and height families, and a fraction takes any denominator, including zero and
