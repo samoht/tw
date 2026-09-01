@@ -531,7 +531,8 @@ let rule_surplus where acc (rule : Tree_diff.rule_diff) =
       Fmt.str "%s%s (the whole rule)" where selector :: acc
   | Tree_diff.Content_changed { selector; added_properties; _ } ->
       List.fold_left
-        (fun acc prop -> Fmt.str "%s%s { %s }" where selector prop :: acc)
+        (fun acc (prop, value) ->
+          Fmt.str "%s%s { %s: %s }" where selector prop value :: acc)
         acc added_properties
   | _ -> acc
 
