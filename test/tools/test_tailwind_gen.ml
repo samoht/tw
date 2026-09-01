@@ -68,10 +68,7 @@ let test_arbitrary_color_opacity_matches_cli () =
           |> Tw.Css.to_string ~minify:true
       | Error _ -> Alcotest.failf "tw could not parse %s" cls
     in
-    let diff =
-      Cascade_diff.Css_compare.diff ~mode:`Canonical
-        ~prune_unused_custom_props:true cli tw
-    in
+    let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
     match diff.Cascade_diff.Css_compare.result with
     | Cascade_diff.Css_compare.No_diff ->
         check bool (cls ^ ": tw matches live Tailwind CLI") true true
@@ -102,10 +99,7 @@ let test_arbitrary_url_matches_cli () =
         |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.failf "tw could not parse %s" cls
   in
-  let diff =
-    Cascade_diff.Css_compare.diff ~mode:`Canonical
-      ~prune_unused_custom_props:true cli tw
-  in
+  let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
   match diff.Cascade_diff.Css_compare.result with
   | Cascade_diff.Css_compare.No_diff ->
       check bool (cls ^ ": tw matches live Tailwind CLI") true true

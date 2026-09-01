@@ -108,8 +108,7 @@ let check_exact_match tw_styles =
 
     let test_name = test_name_of classnames in
     let diff_result =
-      Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-        tailwind_css tw_css
+      Tw_tools.Parity_compare.diff ~mode:`Canonical tailwind_css tw_css
     in
     Test_helpers.check_no_dropped_declarations ~test_name diff_result;
     let parity_equal =
@@ -189,8 +188,7 @@ let check_module utility =
     |> canonical_stylesheet_css
   in
   let diff =
-    Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
-      tailwind_css tw_css
+    Tw_tools.Parity_compare.diff ~mode:`Canonical tailwind_css tw_css
   in
   Test_helpers.check_no_dropped_declarations ~test_name:class_name diff;
   match diff.Css_compare.result with

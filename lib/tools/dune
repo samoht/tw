@@ -1,3 +1,3 @@
 (library
  (name tw_tools)
- (libraries cascade tw fmt unix uutf))
+ (libraries cascade cascade.diff tw fmt unix uutf))

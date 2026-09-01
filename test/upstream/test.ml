@@ -754,7 +754,7 @@ let run_test_case test expected () =
         |> color_mix_to_oklab |> truncate_color_precision
       in
       let result =
-        Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+        Tw_tools.Parity_compare.diff ~mode:`Canonical
           (normalize_colors expected_css)
           (normalize_colors our_css)
       in

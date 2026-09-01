@@ -20,7 +20,7 @@ regeneration.
 
 **Example pages, `examples/*/dune`.** Each of the nine examples builds its CSS
 twice, once through tw and once through `npx tailwindcss`, then diffs the two
-with `cascade diff --diff=canonical --prune-unused-custom-props`. The rule is
+with `cascade diff --diff=canonical`. The rule is
 guarded by `(enabled_if %{bin-available:npx})`, so it is skipped where npx is
 absent, and `%{bin:cascade}` resolves through the dune workspace, so the diff
 runs the freshly built cascade rather than whatever sits on `PATH`.
@@ -152,8 +152,8 @@ hundred rule entries.
 **`--diff` compares two minified sheets.** The CSS it attributes to Tailwind has
 already been through lightningcss, so cross-check against
 `tw -s "<class>" --tailwind`, which is unminified, before calling something a tw
-bug. `--diff` also passes `--prune-unused-custom-props`, which makes it blind to
-a utility whose whole effect is a custom property nothing reads.
+bug. Author custom properties are kept even when neither generated sheet reads
+them: CSS outside the generated sheet can still observe them.
 
 **Order is compared, but only since cascade 105eea05.** `--diff=canonical`
 matches rules by key rather than position, and before that commit it said

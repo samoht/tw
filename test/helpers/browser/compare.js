@@ -214,13 +214,6 @@ function compare(ra, rb, where, lines) {
     return base + where;
   };
 
-  // A custom property is a token stream: the browser hands back the author's
-  // own whitespace and quoting, so two sheets that minify differently differ on
-  // spelling alone. Compare them with both dropped - whatever reads the
-  // variable shows a real difference in its own property.
-  const norm = (k, v) =>
-    k.startsWith('--') && v !== undefined ? v.replace(/["'\s]+/g, '') : v;
-
   for (let i = 0; i < ra.nodes.length; i++) {
     const na = ra.nodes[i];
     const nb = rb.nodes[i];
@@ -234,10 +227,16 @@ function compare(ra, rb, where, lines) {
     const pa = na.style;
     const pb = nb.style;
     for (const k of new Set([...Object.keys(pa), ...Object.keys(pb)])) {
-      // A custom property one sheet declares and the other prunes renders the
-      // same unless something reads it, and whatever reads it differs instead.
-      if (k.startsWith('--') && (pa[k] === undefined || pb[k] === undefined)) continue;
-      if (norm(k, pa[k]) !== norm(k, pb[k]))
+      // Canonical CSS parity compares custom-property declarations and their
+      // values. The rendering gate checks that each binding reaches the same
+      // elements, then observes any value that is consumed through the normal
+      // computed property it affects. Comparing the raw token text here would
+      // instead make equivalent minifier choices (spaces around calc operators
+      // or optional font-family quotes) fail every rendering suite.
+      if (k.startsWith('--')) {
+        if ((pa[k] === undefined) !== (pb[k] === undefined))
+          lines.push(`${label(na)}: ${k}: ${pa[k]} (tw) vs ${pb[k]} (tailwind)`);
+      } else if (pa[k] !== pb[k])
         lines.push(`${label(na)}: ${k}: ${pa[k]} (tw) vs ${pb[k]} (tailwind)`);
     }
   }

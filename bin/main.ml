@@ -128,8 +128,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
     let stylesheet = Tw.to_css ~theme:opts.theme ~base:true styles in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
-        legacy_css our_css
+      Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
     in
     match tw_styles with
     | [] when class_str = "" ->
@@ -319,8 +318,7 @@ let diff_files paths ~(opts : gen_opts) =
     in
     let our_css = render_css ~opts stylesheet in
     let diff =
-      Css_compare.diff ~mode:opts.diff_mode ~prune_unused_custom_props:true
-        legacy_css our_css
+      Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
     in
     print_diff_result "" diff;
     `Ok ()
