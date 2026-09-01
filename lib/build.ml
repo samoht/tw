@@ -360,26 +360,27 @@ let rule_to_triple order_map = function
         ~nested ~base_class ~merge_key
 
 (* Add index to each triple for stable sorting *)
-(* What [indexed_rule_to_statement] will emit, counted: the theme declarations
-   the utilities layer drops are not part of the rule Tailwind orders. A
-   declared utility's rules arrive as finished CSS and carry none. *)
-let rec declaration_count props nested =
-  List.length (filter_utility_properties props)
+(* What [indexed_rule_to_statement] will emit, counted. For a built-in, theme
+   declarations the utilities layer drops are not part of the rule Tailwind
+   orders. A declared utility is finished author CSS, so all its declarations
+   count, including custom properties without tw's internal layer annotation. *)
+let rec declaration_count ~filter props nested =
+  List.length (if filter then filter_utility_properties props else props)
   + List.fold_left
       (fun acc stmt ->
         acc
         +
         match Css.as_rule stmt with
-        | Some (_, decls, inner) -> declaration_count decls inner
+        | Some (_, decls, inner) -> declaration_count ~filter decls inner
         | None -> (
             match Css.as_declarations stmt with
-            | Some decls -> declaration_count decls []
+            | Some decls -> declaration_count ~filter decls []
             | None -> (
                 match Css.as_media stmt with
-                | Some (_, inner) -> declaration_count [] inner
+                | Some (_, inner) -> declaration_count ~filter [] inner
                 | None -> (
                     match Css.as_supports stmt with
-                    | Some (_, inner) -> declaration_count [] inner
+                    | Some (_, inner) -> declaration_count ~filter [] inner
                     | None -> 0))))
       0 nested
 
@@ -390,6 +391,9 @@ let add_index ?theme ?(declared = fun _ -> false) triples =
       Buffer.clear buf;
       Css.Selector.to_buffer buf sel;
       let selector_str = Buffer.contents buf in
+      let is_declared =
+        match base_class with Some c -> declared c | None -> false
+      in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
       let responsive_media_key = Sort.responsive_media_key typ nested in
       let variant_order = Rule.compute_variant_order ~selector_str base_class in
@@ -401,9 +405,9 @@ let add_index ?theme ?(declared = fun _ -> false) triples =
          selector_kind = Sort.classify_selector sel;
          has_modifier_colon = Css.Selector.contains_modifier_colon sel;
          props;
-         declared =
-           (match base_class with Some c -> declared c | None -> false);
-         declaration_count = declaration_count props nested;
+         declared = is_declared;
+         declaration_count =
+           declaration_count ~filter:(not is_declared) props nested;
          order;
          nested;
          base_class;
