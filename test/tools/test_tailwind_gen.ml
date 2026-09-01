@@ -30,6 +30,17 @@ let test_prefers_project_tailwindcss () =
   check string "uses the pinned executable directly" expected
     (tailwindcss_command ())
 
+let test_parity_preserves_author_custom_properties () =
+  let diff =
+    Tw_tools.Parity_compare.diff ~mode:`Canonical ".x { --author-token: yes }"
+      ".x {}"
+  in
+  match diff.Cascade_diff.Css_compare.result with
+  | Cascade_diff.Css_compare.No_diff ->
+      Alcotest.fail
+        "parity comparison erased an author custom property missing from tw"
+  | _ -> ()
+
 let test_generate_simple () =
   Test_helpers.require_tailwind_cli ();
   let css = generate ~minify:true [ "p-4"; "bg-blue-500" ] in
@@ -105,6 +116,8 @@ let tests =
     test_case "check tailwindcss available" `Quick test_check_available;
     test_case "prefer the project Tailwind executable" `Quick
       test_prefers_project_tailwindcss;
+    test_case "parity preserves author custom properties" `Quick
+      test_parity_preserves_author_custom_properties;
     test_case "generate simple CSS" `Quick test_generate_simple;
     test_case "arbitrary colour opacity matches live CLI" `Quick
       test_arbitrary_color_opacity_matches_cli;
