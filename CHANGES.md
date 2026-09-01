@@ -254,8 +254,9 @@
 
 ### Parity and packaging
 
-- Require cascade 1.2.0, replacing the temporary pin to cascade's main branch,
-  so opam can resolve a supported pairing (#297, #302, #305).
+- Require cascade 1.2.0 for the released package pairing. While it remains
+  unreleased, CI pins cascade's main branch so builds and tests follow upstream
+  rather than an exact development revision (#297, #302, #305, #646).
 - Parity is measured over whole sheets and in a real browser. The ordering gate
   compares every statement in both sheets rather than the handful a test names,
   the upstream suite takes its expected values from committed fixtures rather

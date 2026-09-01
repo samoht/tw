@@ -23,10 +23,9 @@ module Tailwind_gen = Tw_tools.Tailwind_gen
 (* Measured 2026-08-30 over [classlist.txt], 4825 classes of tailwindcss.com,
    against cascade main at e829b2d6. Both keys and grouping come out of
    cascade's printer, so the number is only comparable against the cascade a run
-   was built with, and every run prints which one that was. CI resolves cascade
-   through opam from the range [dune-project] pins; a local [cascade/] symlink
-   sitting on someone's branch is the first thing to check when the count moves
-   for no reason in the sort code.
+   was built with, and every run prints which one that was. CI pins cascade main
+   through opam; a local [cascade/] symlink sitting on someone's branch is the
+   first thing to check when the count moves for no reason in the sort code.
 
    [pairs] is pinned as a floor as well: a sheet that lost most of its rules
    would otherwise have nothing left to be out of order, and the gate would read
