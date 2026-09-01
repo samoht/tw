@@ -387,47 +387,47 @@ let heading_rules base =
         Css.margin_top Zero;
         Css.margin_bottom (Em 0.888889);
         Css.font_size (Em 2.25);
-        Css.font_weight (Weight 800);
+        Css.font_weight (Weight 800.);
         Css.line_height (Num 1.11111);
       ];
     Css.rule
       ~selector:(where base (h1 ++ strong))
-      [ Css.color Css.Inherit; Css.font_weight (Css.Weight 900) ];
+      [ Css.color Css.Inherit; Css.font_weight (Css.Weight 900.) ];
     Css.rule ~selector:(where base h2)
       [
         Css.color (Css.Var prose_headings_v);
         Css.margin_top (Em 2.0);
         Css.margin_bottom (Em 1.0);
         Css.font_size (Em 1.5);
-        Css.font_weight (Weight 700);
+        Css.font_weight (Weight 700.);
         Css.line_height (Num 1.33333);
       ];
     Css.rule
       ~selector:(where base (h2 ++ strong))
-      [ Css.color Css.Inherit; Css.font_weight (Css.Weight 800) ];
+      [ Css.color Css.Inherit; Css.font_weight (Css.Weight 800.) ];
     Css.rule ~selector:(where base h3)
       [
         Css.color (Css.Var prose_headings_v);
         Css.margin_top (Em 1.6);
         Css.margin_bottom (Em 0.6);
         Css.font_size (Em 1.25);
-        Css.font_weight (Weight 600);
+        Css.font_weight (Weight 600.);
         Css.line_height (Num 1.6);
       ];
     Css.rule
       ~selector:(where base (h3 ++ strong))
-      [ Css.color Inherit; Css.font_weight (Weight 700) ];
+      [ Css.color Inherit; Css.font_weight (Weight 700.) ];
     Css.rule ~selector:(where base h4)
       [
         Css.color (Css.Var prose_headings_v);
         Css.margin_top (Em 1.5);
         Css.margin_bottom (Em 0.5);
-        Css.font_weight (Weight 600);
+        Css.font_weight (Weight 600.);
         Css.line_height (Num 1.5);
       ];
     Css.rule
       ~selector:(where base (h4 ++ strong))
-      [ Css.color Inherit; Css.font_weight (Weight 700) ];
+      [ Css.color Inherit; Css.font_weight (Weight 700.) ];
   ]
 
 (* Horizontal rule styles are defined inline in base_prose_rules *)
@@ -478,7 +478,7 @@ let kbd_rules base =
         Css.padding_inline_start (Em 0.375);
         font_family Inherit;
         Css.font_size (Em 0.875);
-        Css.font_weight (Weight 500);
+        Css.font_weight (Weight 500.);
       ];
   ]
 
@@ -497,7 +497,7 @@ let pre_code_rules base =
         Css.margin_bottom (Em 1.71429);
         Css.padding_inline_start (Em 1.14286);
         Css.font_size (Em 0.875);
-        Css.font_weight (Weight 400);
+        Css.font_weight (Weight 400.);
         Css.line_height (Num 1.71429);
         overflow_x Auto;
       ];
@@ -530,7 +530,7 @@ let code_rules base =
       [
         Css.color (Css.Var prose_code_v);
         Css.font_size (Em 0.875);
-        Css.font_weight (Weight 600);
+        Css.font_weight (Weight 600.);
       ];
     (* Code pseudo-elements come AFTER code rule to match Tailwind *)
     Css.rule
@@ -586,7 +586,7 @@ let table_rules base =
         Css.padding_inline_end (Em 0.571429);
         Css.padding_bottom (Em 0.571429);
         Css.padding_inline_start (Em 0.571429);
-        Css.font_weight (Weight 600);
+        Css.font_weight (Weight 600.);
       ];
     Css.rule ~selector:(where base tbody_tr)
       [
@@ -794,7 +794,7 @@ let link_and_strong_rules base =
     Css.rule ~selector:(where base a)
       [
         color (Css.Var prose_links_v);
-        Css.font_weight (Weight 500);
+        Css.font_weight (Weight 500.);
         text_decoration
           (Shorthand
              {
@@ -806,7 +806,7 @@ let link_and_strong_rules base =
       ];
     (* Strong *)
     Css.rule ~selector:(where base strong)
-      [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600) ];
+      [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600.) ];
     (* Strong inherit rules - group multiple selectors *)
     Css.rule
       ~selector:
@@ -860,7 +860,7 @@ let list_marker_rules base =
              where base (Css.Selector.combine ol Css.Selector.Child li);
              Css.Selector.Marker;
            ])
-      [ Css.color (Css.Var prose_counters_v); Css.font_weight (Weight 400) ];
+      [ Css.color (Css.Var prose_counters_v); Css.font_weight (Weight 400.) ];
     Css.rule
       ~selector:
         (Css.Selector.compound
@@ -916,7 +916,7 @@ let blockquote_rules base =
         margin_bottom (Em 1.6);
         padding_inline_start (Em 1.0);
         font_style Italic;
-        Css.font_weight (Weight 500);
+        Css.font_weight (Weight 500.);
       ];
     (* Blockquote pseudo-elements come AFTER blockquote rule *)
     Css.rule
@@ -949,7 +949,7 @@ let structural_element_rules base =
       [
         color (Css.Var prose_headings_v);
         margin_top (Em 1.25);
-        Css.font_weight (Weight 600);
+        Css.font_weight (Weight 600.);
       ];
     (* Horizontal rules *)
     Css.rule ~selector:(where base hr)
