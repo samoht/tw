@@ -66,8 +66,9 @@
   `@container-size` all resolve (#146, #151, #152, #154, #155, #156, #159, #180,
   #207, #216, #564).
 - Position and translate read a spacing step in either sign and a fraction of
-  any shape, so `-left-6/5`, `-top-2.5` and `translate-2` work alongside the
-  numeric steps (#160, #166, #172, #186, #210).
+  any shape, and a negated arbitrary inset accepts a parenthesised calc body,
+  so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
+  work alongside the numeric steps (#160, #166, #172, #186, #210, #646).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
