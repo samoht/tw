@@ -936,6 +936,17 @@ let test_style_rules_props () =
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
 
+let test_property_default_rule_is_automatic () =
+  let css =
+    Tw.to_css ~base:false [ Tw.border_spacing 2 ] |> Css.to_string ~minify:true
+  in
+  check bool "typed rule with its initial value" true
+    (Astring.String.is_infix
+       ~affix:
+         "@property \
+          --tw-border-spacing-x{syntax:\"<length>\";inherits:false;initial-value:0}"
+       css)
+
 let test_media_query_deduplication () =
   (* Test that media queries preserve cascade order.
    *
@@ -1208,6 +1219,8 @@ let tests =
       test_extra_keeps_plain_order;
     test_case "style with rules and props ordering" `Quick
       test_style_rules_props;
+    test_case "property-default rule is automatic" `Quick
+      test_property_default_rule_is_automatic;
     test_case "theme tokens stripped at every depth" `Quick
       test_theme_tokens_stripped_at_every_depth;
   ]
