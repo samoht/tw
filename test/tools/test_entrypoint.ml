@@ -312,6 +312,30 @@ let test_functional_value () =
     ]
     [ "example-1"; "example-76"; "example-foo"; "example"; "example-2.5" ]
 
+(* For utilities in the same property slot, Tailwind sorts the one with more
+   declarations first. The modifier contributes the second declaration here, so
+   lexical candidate order is deliberately the wrong answer. *)
+let test_functional_property_count_order () =
+  let udefs =
+    [
+      ( "example-*",
+        " --resolved-value: --value([length]); --resolved-modifier: \
+         --modifier([length]) " );
+    ]
+  in
+  let _, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      [ "example-[12px]"; "example-[12px]/[16px]" ]
+  in
+  let css =
+    Tw.to_css ~theme:Tw.Scheme.default ~base:false ~layers:false ~extra:entries
+      []
+    |> Cascade.Css.to_string ~minify:true
+  in
+  check string "more declarations sort first"
+    ".example-\\[12px\\]\\/\\[16px\\]{--resolved-value:12px;--resolved-modifier:16px}.example-\\[12px\\]{--resolved-value:12px}"
+    css
+
 (* Curly blocks are declaration boundaries rather than opaque values: a nested
    rule may itself contain a functional declaration that needs resolving. *)
 let test_functional_nested_rule () =
@@ -445,6 +469,8 @@ let tests =
     test_case "complex custom variant keeps its candidate" `Quick
       test_complex_custom_variant_keeps_candidate;
     test_case "functional value" `Quick test_functional_value;
+    test_case "functional property count order" `Quick
+      test_functional_property_count_order;
     test_case "functional nested rule" `Quick test_functional_nested_rule;
     test_case "functional theme value" `Quick test_functional_theme_value;
     test_case "functional arbitrary value" `Quick
