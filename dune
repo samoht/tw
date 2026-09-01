@@ -1,3 +1,8 @@
+; CLAUDE.md tells contributors to keep debug artefacts in tmp/, and dune builds
+; every directory it finds, so a stale scratch file there fails the whole build.
+
+(dirs :standard \ tmp)
+
 (env
  (dev
   ; -58 (no-cmx-file): a flambda missed-inlining hint that fires on
