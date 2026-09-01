@@ -102,6 +102,24 @@ val ring_color : ?opacity:int -> ?shade:int -> color -> t
 val ring_inset : t
 (** [ring_inset] applies an inset ring. *)
 
+val ring_offset_width : int -> t
+(** [ring_offset_width n] sets the ring offset width to [n] pixels.
+
+    @raise Invalid_argument if [n] is negative. *)
+
+val ring_offset_color : ?opacity:int -> ?shade:int -> color -> t
+(** [ring_offset_color color] sets the ring offset color. [shade] defaults to
+    500 and [opacity] sets the alpha modifier (0-100). *)
+
+val ring_offset_transparent : t
+(** [ring_offset_transparent] makes the ring offset transparent. *)
+
+val ring_offset_current : t
+(** [ring_offset_current] uses [currentColor] for the ring offset. *)
+
+val ring_offset_inherit : t
+(** [ring_offset_inherit] inherits the ring offset color. *)
+
 (** {1 Ring/Shadow Variables}
 
     These variables are used internally by ring and shadow utilities, and are
@@ -183,3 +201,53 @@ val mix_blend_plus_darker : t
 
 val mix_blend_plus_lighter : t
 (** [mix_blend_plus_lighter] sets mix-blend-mode to plus-lighter (Safari). *)
+
+(** {1 Background Blend Mode Utilities} *)
+
+val bg_blend_normal : t
+(** [bg_blend_normal] uses normal background blending. *)
+
+val bg_blend_multiply : t
+(** [bg_blend_multiply] uses multiply background blending. *)
+
+val bg_blend_screen : t
+(** [bg_blend_screen] uses screen background blending. *)
+
+val bg_blend_overlay : t
+(** [bg_blend_overlay] uses overlay background blending. *)
+
+val bg_blend_darken : t
+(** [bg_blend_darken] uses darken background blending. *)
+
+val bg_blend_lighten : t
+(** [bg_blend_lighten] uses lighten background blending. *)
+
+val bg_blend_color_dodge : t
+(** [bg_blend_color_dodge] uses color-dodge background blending. *)
+
+val bg_blend_color_burn : t
+(** [bg_blend_color_burn] uses color-burn background blending. *)
+
+val bg_blend_hard_light : t
+(** [bg_blend_hard_light] uses hard-light background blending. *)
+
+val bg_blend_soft_light : t
+(** [bg_blend_soft_light] uses soft-light background blending. *)
+
+val bg_blend_difference : t
+(** [bg_blend_difference] uses difference background blending. *)
+
+val bg_blend_exclusion : t
+(** [bg_blend_exclusion] uses exclusion background blending. *)
+
+val bg_blend_hue : t
+(** [bg_blend_hue] uses hue background blending. *)
+
+val bg_blend_saturation : t
+(** [bg_blend_saturation] uses saturation background blending. *)
+
+val bg_blend_color : t
+(** [bg_blend_color] uses color background blending. *)
+
+val bg_blend_luminosity : t
+(** [bg_blend_luminosity] uses luminosity background blending. *)

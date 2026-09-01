@@ -177,14 +177,14 @@ let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
 
 (* Every utility sets and uses it *)
 let font_bold =
-  let decl, var_ref = Var.binding font_weight_var (Weight 700) in
+  let decl, var_ref = Var.binding font_weight_var (Weight 700.) in
   Style.style [
     decl;
     font_weight (Var var_ref)
   ]
 
 let font_thin =
-  let decl, var_ref = Var.binding font_weight_var (Weight 100) in
+  let decl, var_ref = Var.binding font_weight_var (Weight 100.) in
   Style.style [
     decl;
     font_weight (Var var_ref)

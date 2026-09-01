@@ -1321,6 +1321,12 @@ let rounded_es_full = utility (Rounded (Corner.End_start, Rsz_full))
 (** {1 Outline Utilities} *)
 
 let outline = utility Outline
+
+let outline_width n =
+  if n < 0 then invalid_arg "outline_width: width must be non-negative"
+  else if n = 0 then utility Outline_0
+  else utility (Outline_width n)
+
 let outline_none = outline_style_utility Outline_style_handler.None_
 let outline_offset_0 = utility (Outline_offset 0)
 let outline_offset_1 = utility (Outline_offset 1)

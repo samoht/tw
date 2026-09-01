@@ -404,9 +404,9 @@ and the fields it keys on.
 1. **STOP** all other work immediately
 2. **FIX** the differ in `cascade/lib/diff/css_compare.ml` (with `tree_diff.ml` and
    `string_diff.ml` alongside it), add a case to `cascade/test/test_css_compare.ml`,
-   and land it in cascade. CI here pins cascade to its `main`, so the fix arrives
-   with the next run; bump the version bound in `dune-project` and `tw.opam` if it
-   needs a release
+   and land it in cascade. CI pins cascade to its `main` branch, so the fix
+   arrives with the next run; bump the version bound in `dune-project` and
+   `tw.opam` if it needs a release
 3. **VERIFY** it correctly detects the differences it was missing
 4. **THEN** resume your original task
 

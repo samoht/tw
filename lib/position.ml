@@ -68,13 +68,25 @@ let parse_neg_bracket_length s : Css.length option =
     match Css.parse_length inner with
     | Some l -> Some (negate_length l)
     | None -> (
-        match
-          Cascade.Cursor.try_parse_full_err
-            (Css.Values.read_calc_expr Css.Values.read_length)
-            (Cascade.Cursor.of_string inner)
-        with
-        | Ok c -> Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.))))
-        | Error _ -> None)
+        if
+          String.length inner < 2
+          || inner.[0] <> '('
+          || inner.[String.length inner - 1] <> ')'
+        then None
+        else
+          (* The bracket form is a calc body without the [calc] function. Wrap
+             it before normalising so [+] and [-] are recognised as math
+             operators inside the parenthesised group. *)
+          let calc =
+            Parse.normalize_css_math_operators ("calc(" ^ inner ^ ")")
+          in
+          match
+            Cascade.Cursor.try_parse_full_err
+              (Css.Values.read_calc Css.Values.read_length)
+              (Cascade.Cursor.of_string calc)
+          with
+          | Ok c -> Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.))))
+          | Error _ -> None)
   else None
 
 (* Memoization cache for inset-named theme variables *)

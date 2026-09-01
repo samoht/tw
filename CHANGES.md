@@ -59,6 +59,9 @@
 
 ### Utility coverage
 
+- Typed construction covers clear, background attachment/clip/origin/position,
+  repeat and size, outline width/colour, ring offsets, and background blend
+  modes (#649).
 - Sizing accepts the whole scale. The container scale reaches the logical
   families and `basis-*`, both viewport axes and the `px` step work on the width
   and height families, and a fraction takes any denominator, including zero and
@@ -66,8 +69,9 @@
   `@container-size` all resolve (#146, #151, #152, #154, #155, #156, #159, #180,
   #207, #216, #564).
 - Position and translate read a spacing step in either sign and a fraction of
-  any shape, so `-left-6/5`, `-top-2.5` and `translate-2` work alongside the
-  numeric steps (#160, #166, #172, #186, #210).
+  any shape, and a negated arbitrary inset accepts a parenthesised calc body,
+  so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
+  work alongside the numeric steps (#160, #166, #172, #186, #210, #646).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
@@ -253,8 +257,9 @@
 
 ### Parity and packaging
 
-- Require cascade 1.2.0, replacing the temporary pin to cascade's main branch,
-  so opam can resolve a supported pairing (#297, #302, #305).
+- Require cascade 1.2.0 for the released package pairing. While it remains
+  unreleased, CI pins cascade's main branch so builds and tests follow upstream
+  rather than an exact development revision (#297, #302, #305, #646).
 - Parity is measured over whole sheets and in a real browser. The ordering gate
   compares every statement in both sheets rather than the handful a test names,
   the upstream suite takes its expected values from committed fixtures rather

@@ -38,7 +38,7 @@ let contains haystack word =
 (* The [dune-project] depends line is [(cascade (and (>= X) (< Y)))]; grabbed
    verbatim rather than sexp-parsed since it is only ever displayed, never
    compared against. *)
-let cascade_pin root =
+let cascade_constraint root =
   let path = Filename.concat root "dune-project" in
   match open_in path with
   | exception Sys_error _ -> None
@@ -95,22 +95,24 @@ let report () =
             Fmt.kstr run_line "git -C %s describe --tags --exact-match"
               cascade_dir
           in
-          let pin =
-            match cascade_pin root with Some p -> p | None -> "(unreadable)"
+          let constraint_ =
+            match cascade_constraint root with
+            | Some p -> p
+            | None -> "(unreadable)"
           in
           let position = checkout_position cascade_dir in
           match exact_tag with
           | Some tag ->
               Fmt.pr
-                "cascade: local checkout %s (tag %s, %s); dune-project pins \
-                 %s@."
-                sha tag position pin
+                "cascade: local checkout %s (tag %s, %s); dune-project \
+                 requires %s@."
+                sha tag position constraint_
           | None ->
               Fmt.pr
                 "@.WARNING: cascade checkout %s (%s) is not sitting on a \
-                 release tag; dune-project pins %s, and CI resolves that \
-                 constraint through its own opam pin, not this checkout. The \
-                 cascade/ symlink is a live sibling checkout other sessions \
-                 move, so a test failing here may be failing against cascade \
-                 code that is not on cascade's main.@.@."
-                sha position pin))
+                 release tag; dune-project requires %s, and CI resolves that \
+                 constraint through an opam pin to cascade main, not this \
+                 checkout. The cascade/ symlink is a live sibling checkout \
+                 other sessions move, so a test failing here may be failing \
+                 against cascade code that is not on cascade's main.@.@."
+                sha position constraint_))

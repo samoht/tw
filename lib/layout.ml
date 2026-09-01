@@ -820,6 +820,12 @@ let float_right = utility Float_right
 let float_none = utility Float_none
 let float_start = utility Float_start
 let float_end = utility Float_end
+let clear_left = utility Clear_left
+let clear_right = utility Clear_right
+let clear_none = utility Clear_none
+let clear_both = utility Clear_both
+let clear_start = utility Clear_start
+let clear_end = utility Clear_end
 
 (* Screen reader utilities *)
 let sr_utility = Screen_reader_utility.v

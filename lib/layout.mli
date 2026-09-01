@@ -176,6 +176,26 @@ val float_start : t
 val float_end : t
 (** [float_end] sets float to inline-end. *)
 
+(** {1 Clear Utilities} *)
+
+val clear_left : t
+(** [clear_left] clears left floats. *)
+
+val clear_right : t
+(** [clear_right] clears right floats. *)
+
+val clear_none : t
+(** [clear_none] does not clear floats. *)
+
+val clear_both : t
+(** [clear_both] clears floats on both sides. *)
+
+val clear_start : t
+(** [clear_start] clears inline-start floats. *)
+
+val clear_end : t
+(** [clear_end] clears inline-end floats. *)
+
 val box_decoration_clone : t
 (** [box_decoration_clone] sets box-decoration-break to clone. *)
 

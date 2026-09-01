@@ -1068,21 +1068,21 @@ module Typography_early = struct
         font_weight (Css.Var weight_theme_ref);
       ]
 
-  let font_thin = font_weight_utility font_weight_thin_var (Weight 100)
+  let font_thin = font_weight_utility font_weight_thin_var (Weight 100.)
 
   let font_extralight =
-    font_weight_utility font_weight_extralight_var (Weight 200)
+    font_weight_utility font_weight_extralight_var (Weight 200.)
 
-  let font_light = font_weight_utility font_weight_light_var (Weight 300)
-  let font_normal = font_weight_utility font_weight_normal_var (Weight 400)
-  let font_medium = font_weight_utility font_weight_medium_var (Weight 500)
-  let font_semibold = font_weight_utility font_weight_semibold_var (Weight 600)
-  let font_bold () = font_weight_utility font_weight_bold_var (Weight 700)
+  let font_light = font_weight_utility font_weight_light_var (Weight 300.)
+  let font_normal = font_weight_utility font_weight_normal_var (Weight 400.)
+  let font_medium = font_weight_utility font_weight_medium_var (Weight 500.)
+  let font_semibold = font_weight_utility font_weight_semibold_var (Weight 600.)
+  let font_bold () = font_weight_utility font_weight_bold_var (Weight 700.)
 
   let font_extrabold =
-    font_weight_utility font_weight_extrabold_var (Weight 800)
+    font_weight_utility font_weight_extrabold_var (Weight 800.)
 
-  let font_black = font_weight_utility font_weight_black_var (Weight 900)
+  let font_black = font_weight_utility font_weight_black_var (Weight 900.)
 
   let font_serif =
     let serif_decl, serif_ref =
@@ -1114,7 +1114,12 @@ module Typography_early = struct
       Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
     with
     | None -> []
-    | Some v -> [ font_feature_settings (Css.Feature_list v) ]
+    | Some v -> (
+        (* The token holds the declaration's text, so cascade's own parser turns
+           it into the tag/value list the property carries. *)
+        match Css.parse_declaration "font-feature-settings" v with
+        | Some decl -> [ decl ]
+        | None -> [])
 
   let font_weight_theme theme name =
     match Scheme.theme_value (Some theme) ("font-weight-" ^ name) with
@@ -1123,7 +1128,9 @@ module Typography_early = struct
         match Parse.decimal_int raw with
         | None -> style []
         | Some n ->
-            font_weight_utility (font_weight_named_var name) (Css.Weight n))
+            font_weight_utility
+              (font_weight_named_var name)
+              (Css.Weight (float_of_int n)))
 
   let font_named ?fallback theme name =
     let token = "font-" ^ name in
@@ -1416,13 +1423,16 @@ module Typography_early = struct
     | Font_extrabold -> font_extrabold
     | Font_black -> font_black
     | Font_bracket_weight (_, n) ->
-        let weight_util_decl, _ = Var.binding font_weight_var (Weight n) in
+        let weight_util_decl, _ =
+          Var.binding font_weight_var (Weight (float_of_int n))
+        in
         let property_rules =
           match Var.property_rule font_weight_var with
           | None -> Css.empty
           | Some rule -> rule
         in
-        style ~property_rules [ weight_util_decl; font_weight (Weight n) ]
+        style ~property_rules
+          [ weight_util_decl; font_weight (Weight (float_of_int n)) ]
     | Font_bracket_weight_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_weight Css.var = Var.bracket bare_name in
@@ -1491,13 +1501,13 @@ module Typography_early = struct
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_family Css.var = Var.bracket bare_name in
         style [ font_family (Var var_ref) ]
-    | Font_features_quoted s ->
-        (* Normalize comma spacing: "c2sc","smcp" → "c2sc", "smcp" *)
-        let normalized =
-          String.split_on_char ',' (Parse.decode_underscores s)
-          |> List.map String.trim |> String.concat ", "
-        in
-        style [ font_feature_settings (Feature_list normalized) ]
+    | Font_features_quoted s -> (
+        match
+          Css.parse_declaration "font-feature-settings"
+            (Parse.decode_underscores s)
+        with
+        | Some decl -> style [ decl ]
+        | None -> style [])
     | Font_features_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_feature_settings Css.var =

@@ -176,6 +176,29 @@ let check_exact_match tw_styles =
 let check tw_style = check_exact_match [ tw_style ]
 let check_list tw_styles = check_exact_match tw_styles
 
+let check_module utility =
+  Test_helpers.require_tailwind_cli ();
+  let class_name = Utility.to_class utility in
+  let tw_css =
+    Build.to_css [ utility ]
+    |> Css.to_string ~minify:true ~lossless:true
+    |> canonical_stylesheet_css
+  in
+  let tailwind_css =
+    generate_tailwind_css ~minify:true ~optimize:true [ class_name ]
+    |> canonical_stylesheet_css
+  in
+  let diff =
+    Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true
+      tailwind_css tw_css
+  in
+  Test_helpers.check_no_dropped_declarations ~test_name:class_name diff;
+  match diff.Css_compare.result with
+  | Css_compare.No_diff -> ()
+  | _ ->
+      Alcotest.failf "%s differs from Tailwind:\n%s" class_name
+        (Test_helpers.describe_diff diff)
+
 (* ===== UPSTREAM PARSE PARITY ============================================= *)
 
 (* The case's own [@custom-variant]s, as the two scheme fields that carry them.
@@ -584,7 +607,6 @@ let content_variants () =
 
 let prose_basic () =
   check prose;
-  (* TODO: Implement prose size variants *)
   check prose_sm;
   check prose_lg;
   check prose_xl;
@@ -644,6 +666,83 @@ let ordering_complex_card () =
 (* These tests exercise features that may have incomplete typed API or known
    diffs against real Tailwind. They serve as regression targets: once the
    underlying implementation is fixed, the test should pass. *)
+
+let typed_utility_surface () =
+  check_module Layout.clear_left;
+  check_list
+    [ clear_left; clear_right; clear_none; clear_both; clear_start; clear_end ];
+  check_module Backgrounds.bg_fixed;
+  check_list [ bg_fixed; bg_local; bg_scroll ];
+  check_list [ bg_clip_border; bg_clip_padding; bg_clip_content; bg_clip_text ];
+  check_list [ bg_origin_border; bg_origin_padding; bg_origin_content ];
+  check_list
+    [
+      bg_bottom;
+      bg_bottom_left;
+      bg_bottom_right;
+      bg_center;
+      bg_left;
+      bg_left_bottom;
+      bg_left_top;
+      bg_right;
+      bg_right_bottom;
+      bg_right_top;
+      bg_top;
+      bg_top_left;
+      bg_top_right;
+    ];
+  check_list
+    [
+      bg_repeat;
+      bg_no_repeat;
+      bg_repeat_x;
+      bg_repeat_y;
+      bg_repeat_round;
+      bg_repeat_space;
+    ];
+  check_list [ bg_auto; bg_cover; bg_contain ];
+  check_module (Borders.outline_width 0);
+  check_list [ outline_width 0; outline_width 2 ];
+  check_module (Color.outline_color blue);
+  check_list
+    [
+      outline_color blue;
+      outline_color ~opacity:50 ~shade:600 red;
+      outline_transparent;
+      outline_current;
+      outline_inherit;
+    ];
+  check_module (Effects.ring_offset_width 0);
+  check_list [ ring_offset_width 0; ring_offset_width 2 ];
+  check_module (Effects.ring_offset_color blue);
+  check_list
+    [
+      ring_offset_color blue;
+      ring_offset_color ~opacity:50 ~shade:600 red;
+      ring_offset_transparent;
+      ring_offset_current;
+      ring_offset_inherit;
+    ];
+  check_module Effects.bg_blend_normal;
+  check_list
+    [
+      bg_blend_normal;
+      bg_blend_multiply;
+      bg_blend_screen;
+      bg_blend_overlay;
+      bg_blend_darken;
+      bg_blend_lighten;
+      bg_blend_color_dodge;
+      bg_blend_color_burn;
+      bg_blend_hard_light;
+      bg_blend_soft_light;
+      bg_blend_difference;
+      bg_blend_exclusion;
+      bg_blend_hue;
+      bg_blend_saturation;
+      bg_blend_color;
+      bg_blend_luminosity;
+    ]
 
 (* Helper: parse a Tailwind class string via of_string; fail the test if the
    class is not recognised by our parser (i.e. the feature is completely
@@ -869,45 +968,38 @@ let word_break_utilities () =
   check break_keep
 
 (* -- 6. Scroll margin and scroll padding ---------------------------------- *)
-(* scroll-margin and scroll-padding utilities exist in the parser (CLI works)
-   but have no typed API in tw.mli (marked as TODO).
-   Test via of_string. *)
 
 let scroll_margin () =
-  check (require_parse "scroll-m-4");
-  check (require_parse "scroll-mt-4");
-  check (require_parse "scroll-mr-2");
-  check (require_parse "scroll-mb-8");
-  check (require_parse "scroll-ml-4");
-  check (require_parse "scroll-mx-4");
-  check (require_parse "scroll-my-2")
+  check_module (Scroll.scroll_mt 4);
+  check (scroll_m 4);
+  check (scroll_mt 4);
+  check (scroll_mr 2);
+  check (scroll_mb 8);
+  check (scroll_ml 4);
+  check (scroll_mx 4);
+  check (scroll_my 2)
 
 let scroll_padding () =
-  check (require_parse "scroll-p-4");
-  check (require_parse "scroll-pt-4");
-  check (require_parse "scroll-pr-2");
-  check (require_parse "scroll-pb-8");
-  check (require_parse "scroll-pl-4");
-  check (require_parse "scroll-px-4");
-  check (require_parse "scroll-py-2")
+  check_module (Scroll.scroll_pt 4);
+  check (scroll_p 4);
+  check (scroll_pt 4);
+  check (scroll_pr 2);
+  check (scroll_pb 8);
+  check (scroll_pl 4);
+  check (scroll_px 4);
+  check (scroll_py 2)
 
-let scroll_margin_padding_combined () =
-  check_list [ require_parse "scroll-mt-4"; require_parse "scroll-px-2" ]
+let scroll_margin_padding_combined () = check_list [ scroll_mt 4; scroll_px 2 ]
 
 (* -- 7. Border spacing axis variants -------------------------------------- *)
-(* border-spacing-x and border-spacing-y have no typed API but the parser
-   supports them. The combined border-spacing has a typed API. *)
 
 let border_spacing_axis () =
-  check (require_parse "border-spacing-x-4");
-  check (require_parse "border-spacing-y-2");
-  check_list
-    [ require_parse "border-spacing-x-4"; require_parse "border-spacing-y-2" ]
+  check_module (Tables.border_spacing_x 4.);
+  check_module (Tables.border_spacing_y 2.)
 
 let border_spacing_combined () =
-  (* Typed API border_spacing combined with axis-specific *)
   check (border_spacing 4);
-  check_list [ border_spacing 4; require_parse "border-spacing-x-8" ]
+  check_module (Tables.border_spacing_x 8.)
 
 (* -- 8. Opacity modifiers (Tailwind v3 compat / v4 approach) -------------- *)
 (* In Tailwind v4, bg-opacity-* and text-opacity-* are removed in favor of
@@ -1296,6 +1388,7 @@ let core_tests =
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;
     test_case "prose ordering" `Quick prose_ordering;
+    test_case "typed utility surface" `Slow typed_utility_surface;
     (* Cross-handler ordering *)
     test_case "order: padding/margin" `Quick ordering_padding_margin;
     test_case "order: layout/sizing" `Quick ordering_layout_sizing;
