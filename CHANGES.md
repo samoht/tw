@@ -9,7 +9,7 @@
   `Var.resolve_theme_refs`) are removed, and the public `Style.Style` record
   gains a `metadata` field. Construction, parsing, and rendering are safe to run
   from multiple OCaml Domains without a mutex; typed `property_default` rules
-  are generated automatically.
+  are generated automatically (#653).
 - `bg_transparent`, `bg_current` and the background colour constructors move to
   `Backgrounds`; `border_color`, `border_transparent` and `border_current` move
   to `Color`. Building one from OCaml and parsing the same class name used to
@@ -59,7 +59,7 @@
   `--spacing`, and an `@theme reference` block is represented (#554).
 - Functional utilities follow Tailwind's declaration-count ordering, parity
   comparisons keep author custom properties, and a folded zero-spacing utility
-  omits the internal `--spacing` carrier it no longer reads (#650, #651, #652).
+  omits the internal `--spacing` carrier it no longer reads (#650, #651, #655).
 - Every `@utility` declared for one name applies, not only the first (#550).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).

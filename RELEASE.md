@@ -40,7 +40,7 @@ do not exist.
    Tailwind over the class list of tailwindcss.com. Quote the differ's summary
    line together with the top-level entries under it; the summary counts
    containers rather than their contents, so one `@layer` entry can hide a
-   thousand rules. Last measured 2026-08-28: 0.5% diff, 1 removed rule,
+   thousand rules. Last measured 2026-09-02: 0.3% diff, 1 removed rule,
    8 modified, 20 reordered, 5 changed containers.
 
 ## Quality (target, non-blocking)
