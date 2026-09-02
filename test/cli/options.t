@@ -4,6 +4,15 @@ not an implicit preference for one of them:
   $ tw -s flex --tailwind --diff 2>&1 | grep -c 'mutually exclusive'
   1
 
+Optimization must preserve public custom-property declarations. They are a
+runtime API even when no declaration in the generated sheet reads them:
+
+  $ cat > custom-property.html <<EOF
+  > <div class="[--anchor-gap:8px]"></div>
+  > EOF
+  $ tw --no-base --minify --optimize custom-property.html | grep -o -- '--anchor-gap:8px'
+  --anchor-gap:8px
+
 The Tailwind backend generates against the project's own entrypoint, so a
 [--tailwind] run over files reads the same [@theme] the native run does.
 A stub CLI stands in for the real one and echoes the entrypoint it was given:
