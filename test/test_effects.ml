@@ -267,6 +267,22 @@ let test_shadeless_shadow_colors () =
   has "inset-shadow-white/20"
     ".inset-shadow-white\\/20{--tw-inset-shadow-color:#fff3}"
 
+(* A default palette token is already an OKLCH colour. Tailwind keeps that value
+   as the unguarded shadow-colour fallback; converting it to sRGB hex changes
+   wide-gamut colours before the [color-mix()] enhancement applies. *)
+let test_palette_shadow_colors_keep_oklch () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "shadow-indigo-500" "--tw-shadow-color:oklch(58.5%.233 277.117)";
+  has "inset-shadow-indigo-500"
+    "--tw-inset-shadow-color:oklch(58.5%.233 277.117)"
+
 (* shadow-inner is a shadow shape like the others: it sets --tw-shadow and
    composes, rather than writing box-shadow directly. *)
 let test_shadow_inner () =
@@ -571,6 +587,8 @@ let tests =
       test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;
     test_case "shadeless shadow colors" `Quick test_shadeless_shadow_colors;
+    test_case "palette shadow colors keep OKLCH" `Quick
+      test_palette_shadow_colors_keep_oklch;
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
