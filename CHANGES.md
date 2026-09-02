@@ -114,6 +114,8 @@
 
 ### Arbitrary values and validation
 
+- Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
+  `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote
   it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
   `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
