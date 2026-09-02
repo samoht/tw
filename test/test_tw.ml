@@ -1328,6 +1328,77 @@ let grid_flex_math_tracks () =
       "grid-cols-[repeat(2,calc(1fr*2))]";
     ]
 
+(* Tailwind keeps an sRGB-compatible declaration before every oklab
+   [color-mix()] that depends on a palette token. Keep these on the real CLI
+   oracle: the fallback requires resolving palette [var()] tokens through the
+   active theme, and Lightning CSS then folds the transparent marker mixes to
+   hex. *)
+let pre_color_mix_fallbacks () =
+  let check_class class_name =
+    match of_string class_name with
+    | Ok utility -> check utility
+    | Error (`Msg message) -> Alcotest.failf "%s: %s" class_name message
+  in
+  List.iter check_class
+    [
+      "marker:text-[color-mix(in_oklab,var(--color-gray-700)_25%,transparent)]";
+      "dark:marker:text-[color-mix(in_oklab,var(--color-gray-300)_35%,transparent)]";
+      "border-[color-mix(in_oklab,var(--color-gray-950),white_90%)]";
+      "bg-cyan-400/(--my-alpha-value)";
+      "dark:fill-sky-300/50";
+      "bg-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "fill-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "stroke-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "decoration-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "divide-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "ring-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "inset-ring-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "ring-offset-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "from-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "via-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "to-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "scrollbar-thumb-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "scrollbar-track-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "inset-shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "text-shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]";
+      "bg-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "fill-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "stroke-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "decoration-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "divide-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "ring-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "inset-ring-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "ring-offset-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "from-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "via-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "to-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "scrollbar-thumb-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "scrollbar-track-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "inset-shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "text-shadow-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]/50";
+      "bg-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "fill-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "stroke-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "decoration-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "divide-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "ring-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "inset-ring-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "ring-offset-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "from-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "via-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "to-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "scrollbar-thumb-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "scrollbar-track-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "shadow-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "inset-shadow-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "text-shadow-[color-mix(in_oklab,red_25%,transparent)]/50";
+      "bg-[color-mix(in_oklab,var(--runtime-color)_25%,transparent)]";
+      "bg-[color-mix(in_oklab,var(--runtime-color),white_20%)]";
+      "dark:border-[color-mix(in_oklab,var(--color-gray-950),white_20%)]";
+    ]
+
 (* A class name that is not a tw utility is not a fatal error anywhere in the
    library: [str] returns the utilities it did recognise, and [of_classes] hands
    the names it rejected back so a typo is reportable rather than invisible. *)
@@ -1391,6 +1462,7 @@ let core_tests =
     test_case "3d transforms" `Slow transforms_3d;
     test_case "grid columns reordering" `Slow grid_cols_reordering;
     test_case "grid flex math tracks" `Slow grid_flex_math_tracks;
+    test_case "pre-color-mix fallbacks" `Slow pre_color_mix_fallbacks;
     (* Stable ordering tests *)
     test_case "stable: base utils order" `Quick stable_order_basic;
     test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;

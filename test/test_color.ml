@@ -349,8 +349,9 @@ let test_alpha_from_a_var () =
   has "fill-red-500/(--a)"
     "color-mix(in oklab,var(--color-red-500) var(--a),transparent)";
   has "bg-[#0088cc]/(--a)" "color-mix(in oklab,#08c var(--a),transparent)";
-  (* the fallback is the colour at full opacity, with no alpha folded in *)
-  has "bg-cyan-400/(--a)" "background-color:var(--color-cyan-400)";
+  (* Tailwind resolves the token into the full-opacity fallback and keeps the
+     variable reference for the guarded mix. *)
+  has "bg-cyan-400/(--a)" "background-color:oklch(78.9%.154 211.53)";
   (* both spellings round-trip *)
   Alcotest.(check string)
     "the shorthand round-trips" "bg-cyan-400/(--a)"
@@ -1013,6 +1014,27 @@ let test_out_of_gamut_oklch () =
     "blue-500 maps to the fallback Tailwind publishes" "#3080ff"
     (rgb_to_hex (oklch_to_rgb blue_500))
 
+let test_removed_mix_token_stays_runtime () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "initial") ]
+  in
+  let class_name =
+    "bg-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]"
+  in
+  let css =
+    match Tw.of_string ~theme class_name with
+    | Ok utility ->
+        Tw.to_css ~theme ~base:false [ utility ]
+        |> Tw.Css.to_string ~minify:true
+    | Error (`Msg message) -> Alcotest.failf "%s: %s" class_name message
+  in
+  Alcotest.(check bool)
+    "removed theme token is the runtime fallback" true
+    (Astring.String.is_infix ~affix:"background-color:var(--color-red-500)" css);
+  Alcotest.(check bool)
+    "removed theme token is not resolved through the default palette" false
+    (Astring.String.is_infix ~affix:"oklch(63.7% .237 25.331)" css)
+
 let tests =
   [
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
@@ -1075,6 +1097,9 @@ let tests =
     ( "Opacity modifier rejects non-numeric",
       `Quick,
       test_opacity_modifier_rejects_non_numeric );
+    ( "Removed color-mix token stays runtime",
+      `Quick,
+      test_removed_mix_token_stays_runtime );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
     ("Out-of-gamut OKLCH", `Quick, test_out_of_gamut_oklch);
   ]
