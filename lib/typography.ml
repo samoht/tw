@@ -2624,21 +2624,30 @@ module Typography_late = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  let decoration_bracket_color_style inner c =
-    let color =
-      if String.length inner > 0 && inner.[0] = '#' then
-        let shortened = Color.shorten_hex_str inner in
-        Css.hex ("#" ^ shortened)
-      else match Color.css_color_to_hex c with Some h -> h | None -> c
-    in
-    style ~merge_key:"decoration-" [ text_decoration_color color ]
+  let decoration_bracket_color_style ~theme c =
+    let enhanced = Color.resolve_bracket_css_color c in
+    match Color.pre_color_mix_fallback theme enhanced with
+    | None -> style ~merge_key:"decoration-" [ text_decoration_color enhanced ]
+    | Some fallback ->
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [
+                  webkit_text_decoration_color enhanced;
+                  text_decoration_color enhanced;
+                ];
+            ]
+        in
+        style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
+          [ text_decoration_color fallback ]
 
   (* An opacity modifier applies to the colour the bracket was parsed into. The
      modifier read the bracket text back as a hex and answered black whenever
      that failed, and it wrote the mix in place of the colour for every spelling
      that is not a [#] hex, where Tailwind folds the alpha in. *)
-  let decoration_bracket_color_with_opacity c opacity =
-    match Color.bracket_color_opacity c opacity with
+  let decoration_bracket_color_with_opacity ~theme c opacity =
+    match Color.bracket_color_opacity ~theme c opacity with
     | Color.Folded value ->
         style ~merge_key:"decoration-" [ text_decoration_color value ]
     | Color.Guarded { fallback; mixed } ->
@@ -3164,11 +3173,10 @@ module Typography_late = struct
     | Decoration_current_opacity opacity ->
         decoration_current_with_opacity opacity
     | Decoration_inherit -> decoration_inherit
-    | Decoration_bracket_color (inner, c) ->
-        decoration_bracket_color_style inner c
+    | Decoration_bracket_color (_, c) -> decoration_bracket_color_style ~theme c
     | Decoration_bracket_invalid_color _ -> style []
     | Decoration_bracket_color_opacity (_, c, opacity) ->
-        decoration_bracket_color_with_opacity c opacity
+        decoration_bracket_color_with_opacity ~theme c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
     | Decoration_bracket_var_opacity (v, opacity) ->
         decoration_bracket_var_with_opacity v opacity

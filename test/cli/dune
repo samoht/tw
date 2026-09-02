@@ -1,2 +1,2 @@
 (cram
- (deps %{bin:tw}))
+ (deps %{bin:tw} prefixes.css prefixes.html))

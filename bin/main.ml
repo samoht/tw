@@ -102,11 +102,15 @@ let render_css ~(opts : gen_opts) stylesheet =
   in
   let stylesheet =
     if opts.optimize then
-      (* The generated sheet is a closed author stylesheet, so prune theme
-         tokens nothing references -- e.g. --spacing once p-0 folds to 0, which
-         Tailwind also drops. *)
-      Tw.Css.optimize ~prune_unused_custom_props:true stylesheet
-    else stylesheet
+      (* Custom properties are an open runtime API: JavaScript, inline styles,
+         and separately loaded sheets can read declarations that have no local
+         var() reference. *)
+      Tw.Css.optimize stylesheet
+    else
+      (* Prefixing is an output compatibility contract, independent of the
+         structural optimizations controlled by [--optimize]. *)
+      Tw.Css.Optimize.add_compatibility_prefixes
+        ~targets:Tw.Css.Optimize.evergreen_targets stylesheet
   in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
@@ -432,9 +436,8 @@ let minify_flag =
 
 let optimize_flag =
   let doc =
-    "Optimize the generated CSS: merge and deduplicate rules, and drop theme \
-     tokens nothing references. Also passed to the Tailwind backend under \
-     --tailwind and --diff."
+    "Optimize the generated CSS by merging and deduplicating rules. Also \
+     passed to the Tailwind backend under --tailwind and --diff."
   in
   Arg.(value & flag & info [ "optimize" ] ~doc)
 

@@ -85,13 +85,10 @@ module Handler = struct
 
   (* Bracket color: fill/stroke with a typed Css.color, converting to hex when
      possible for minified output *)
-  let bracket_color_style ~property css_color =
-    let color =
-      match Color.css_color_to_hex css_color with
-      | Some hex_c -> hex_c
-      | None -> css_color
-    in
-    style [ property (Css.Color color : Css.svg_paint) ]
+  let bracket_color_style ~theme ~property css_color =
+    Color.bracket_color_style ~theme
+      ~property:(fun color -> property (Css.Color color : Css.svg_paint))
+      css_color
 
   (* Bracket var: fill/stroke "var(--my-color)" *)
   let bracket_var_style ~property ~merge_key v =
@@ -102,8 +99,8 @@ module Handler = struct
   (* Bracket colour with opacity. The paint the modifier applies to is the
      colour the bracket was parsed into: reading the bracket text back as a hex
      answered black for every colour with no hex spelling. *)
-  let bracket_color_opacity_style ~property css_color opacity =
-    Color.bracket_color_opacity_style
+  let bracket_color_opacity_style ~theme ~property css_color opacity =
+    Color.bracket_color_opacity_style ~theme
       ~property:(fun c -> property (Css.Color c : Css.svg_paint))
       css_color opacity
 
@@ -138,9 +135,9 @@ module Handler = struct
     | Fill_color_opacity (color, shade, opacity) ->
         Color.fill_with_opacity ~theme color shade opacity
     | Fill_bracket_color (_, css_color) ->
-        bracket_color_style ~property:Css.fill css_color
+        bracket_color_style ~theme ~property:Css.fill css_color
     | Fill_bracket_color_opacity (_, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.fill css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.fill css_color opacity
     | Fill_bracket_var v | Fill_bracket_typed_var v ->
         bracket_var_style ~property:Css.fill ~merge_key:"fill-" v
     | Fill_bracket_var_opacity (v, opacity)
@@ -158,9 +155,10 @@ module Handler = struct
     | Stroke_color_opacity (color, shade, opacity) ->
         Color.stroke_with_opacity ~theme color shade opacity
     | Stroke_bracket_color (_, css_color) ->
-        bracket_color_style ~property:Css.stroke css_color
+        bracket_color_style ~theme ~property:Css.stroke css_color
     | Stroke_bracket_color_opacity (_, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.stroke css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.stroke css_color
+          opacity
     | Stroke_bracket_var v | Stroke_bracket_typed_var v ->
         bracket_var_style ~property:Css.stroke ~merge_key:"stroke-" v
     | Stroke_bracket_var_opacity (v, opacity)

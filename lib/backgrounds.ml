@@ -1237,42 +1237,48 @@ module Handler = struct
     | None -> [ d_stops ]
 
   (** Gradient with a simple color value + stops (no opacity) *)
-  let gradient_simple ~prefix ~set_var color_value extra_decls =
-    let d_var, _ = Var.binding set_var (Css.minify_color color_value) in
+  let gradient_simple ~theme ~prefix ~set_var color_value extra_decls =
+    let color_value = Color.resolve_bracket_css_color color_value in
     let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
     let property_rules = gradient_all_property_rules () in
-    let declarations =
-      extra_decls @ [ d_var ] @ stops_as_decls d_stops d_via_stops_opt
-    in
-    style ~property_rules declarations
+    let stops = stops_as_decls d_stops d_via_stops_opt in
+    match Color.pre_color_mix_fallback theme color_value with
+    | None ->
+        let d_var, _ = Var.binding set_var (Css.minify_color color_value) in
+        style ~property_rules (extra_decls @ [ d_var ] @ stops)
+    | Some fallback ->
+        let fallback_decl, _ = Var.binding set_var fallback in
+        let enhanced_decl, _ = Var.binding set_var color_value in
+        let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
+        let supports =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ self [ enhanced_decl ] ]
+        in
+        style ~property_rules
+          ~rules:
+            (Some
+               [ self (extra_decls @ [ fallback_decl ]); supports; self stops ])
+          []
 
-  (* Gradient with opacity: fallback + @supports color-mix + stops *)
-  let gradient_with_opacity ~prefix ~set_var (fallback_color : Css.color)
-      (mix_color : Css.color) ?(extra_supports_decls = []) percent =
-    let d_fallback, _ = Var.binding set_var fallback_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab mix_color Css.Transparent ~percent1:percent
-    in
-    let d_oklab, _ = Var.binding set_var oklab_color in
-    let fallback_rule =
-      Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
-    in
-    let supports_rule =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            (extra_supports_decls @ [ d_oklab ]);
-        ]
-    in
-    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
-    let property_rules = gradient_all_property_rules () in
-    let stops_rule =
-      Css.rule ~selector:(Css.Selector.class_ "_")
-        (stops_as_decls d_stops d_via_stops_opt)
-    in
-    style ~property_rules
-      ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
-      []
+  (* Gradient with opacity: either a static value, or a fallback followed by the
+     authored mix under [@supports], then the stop composition. *)
+  let gradient_with_opacity ~theme ~prefix ~set_var color opacity =
+    match Color.bracket_color_opacity ~theme color opacity with
+    | Color.Folded value -> gradient_simple ~theme ~prefix ~set_var value []
+    | Color.Guarded { fallback; mixed } ->
+        let d_fallback, _ = Var.binding set_var fallback in
+        let d_oklab, _ = Var.binding set_var mixed in
+        let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
+        let supports_rule =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ self [ d_oklab ] ]
+        in
+        let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
+        let stops = stops_as_decls d_stops d_via_stops_opt in
+        let property_rules = gradient_all_property_rules () in
+        style ~property_rules
+          ~rules:(Some [ self [ d_fallback ]; supports_rule; self stops ])
+          []
 
   (** Convert gradient target to set_var and prefix *)
   let gradient_target_info = function
@@ -1376,16 +1382,15 @@ module Handler = struct
             (* Hex is known at compile time: compute oklab directly *)
             let alpha = Color.opacity_to_percent opacity /. 100.0 in
             let color = Color.hex_to_oklab_alpha h alpha in
-            gradient_simple ~prefix ~set_var color []
+            gradient_simple ~theme ~prefix ~set_var color []
         | Color_source.Plain (source, opacity) -> (
             (* A keyword or a bracket value: the colour is known without the
                scheme. *)
             let color = css_color_of_plain source in
             match opacity with
-            | None -> gradient_simple ~prefix ~set_var color []
+            | None -> gradient_simple ~theme ~prefix ~set_var color []
             | Some opacity ->
-                let percent = Color.opacity_to_percent opacity in
-                gradient_with_opacity ~prefix ~set_var color color percent))
+                gradient_with_opacity ~theme ~prefix ~set_var color opacity))
     | Gradient_stop_position (target, src) -> (
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
@@ -1493,14 +1498,10 @@ module Handler = struct
     | Bg_bracket_var_opacity (v, opacity) ->
         bg_bracket_color_var_opacity' v opacity
     | Bg_bracket_color (_, css_color) ->
-        let c =
-          match Color.css_color_to_hex css_color with
-          | Some h -> h
-          | None -> css_color
-        in
-        style [ Css.background_color c ]
+        Color.bracket_color_style ~theme ~property:Css.background_color
+          css_color
     | Bg_bracket_color_opacity (_, css_color, opacity) ->
-        Color.bracket_color_opacity_style ~property:Css.background_color
+        Color.bracket_color_opacity_style ~theme ~property:Css.background_color
           css_color opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity

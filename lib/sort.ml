@@ -452,22 +452,34 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
           r1.selector_str r2.selector_str r1.order r2.order r1.index r2.index
 
 let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
-  let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
-  if nested_cmp <> 0 then nested_cmp
+  let same_utility =
+    match (r1.base_class, r2.base_class) with
+    | Some b1, Some b2 -> String.equal b1 b2
+    | _ -> false
+  in
+  if same_utility then
+    (* A progressive-enhancement pair under a media variant is emitted as two
+       media outputs for the same class: the fallback has declarations and the
+       enhancement carries a nested [@supports]. Preserve their source order,
+       just as the regular-vs-media comparator below does for one utility. *)
+    Int.compare r1.index r2.index
   else
-    let group1, sub1 = extract_media_sort_key r1.rule_type in
-    let group2, sub2 = extract_media_sort_key r2.rule_type in
-    let key_cmp = Int.compare group1 group2 in
-    if key_cmp <> 0 then key_cmp
+    let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
+    if nested_cmp <> 0 then nested_cmp
     else
-      let cond1 = match r1.rule_type with `Media c -> Some c | _ -> None in
-      let cond2 = match r2.rule_type with `Media c -> Some c | _ -> None in
-      let cond_cmp =
-        compare_media_conditions group1 sub1 sub2 cond1 cond2 r1.media_key
-          r2.media_key
-      in
-      if cond_cmp <> 0 then cond_cmp
-      else compare_same_media_group r1 r2 cond1 cond2
+      let group1, sub1 = extract_media_sort_key r1.rule_type in
+      let group2, sub2 = extract_media_sort_key r2.rule_type in
+      let key_cmp = Int.compare group1 group2 in
+      if key_cmp <> 0 then key_cmp
+      else
+        let cond1 = match r1.rule_type with `Media c -> Some c | _ -> None in
+        let cond2 = match r2.rule_type with `Media c -> Some c | _ -> None in
+        let cond_cmp =
+          compare_media_conditions group1 sub1 sub2 cond1 cond2 r1.media_key
+            r2.media_key
+        in
+        if cond_cmp <> 0 then cond_cmp
+        else compare_same_media_group r1 r2 cond1 cond2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison *)
@@ -1275,58 +1287,65 @@ let compare_variant_tail r1 r2 =
               else Int.compare r1.index r2.index)
 
 let compare_variant_ordered r1 r2 =
-  match (r1.rule_type, r2.rule_type) with
-  | `Supports _, `Supports _
-    when r1.variant_order = r2.variant_order
-         && is_modifier_supports r1.base_class
-         && is_modifier_supports r2.base_class ->
-      compare_supports_by_key r1 r2
-  | _ ->
-      let list_cmp =
-        compare_variant_order_lists r1.variant_orders r2.variant_orders
-      in
-      if list_cmp <> 0 then list_cmp
-      else
-        let p1_prefix, _, data_depth1 = r1.variant_key in
-        let p2_prefix, _, data_depth2 = r2.variant_key in
-        (* The descending variant-order lists tie (same variant multiset), so
-           hover:sm: and sm:hover: arrive here indistinguishable. The query a
-           rule writes on the outside decides between them, hover before sm and
-           sm before md; a nested breakpoint or hover, the prefix and the
-           utility's own priority order what is left. *)
-        let media_cmp =
-          match compare_container_values r1 r2 p1_prefix p2_prefix with
-          | Some c -> c
-          | None -> (
-              match (r1.media_key, r2.media_key) with
-              | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
-              | _ -> 0)
+  let same_utility =
+    match (r1.base_class, r2.base_class) with
+    | Some b1, Some b2 -> String.equal b1 b2
+    | _ -> false
+  in
+  if same_utility then Int.compare r1.index r2.index
+  else
+    match (r1.rule_type, r2.rule_type) with
+    | `Supports _, `Supports _
+      when r1.variant_order = r2.variant_order
+           && is_modifier_supports r1.base_class
+           && is_modifier_supports r2.base_class ->
+        compare_supports_by_key r1 r2
+    | _ ->
+        let list_cmp =
+          compare_variant_order_lists r1.variant_orders r2.variant_orders
         in
-        if media_cmp <> 0 then media_cmp
+        if list_cmp <> 0 then list_cmp
         else
-          let nested_cmp =
-            Int.compare
-              (nested_order r1.rule_type r1.nested)
-              (nested_order r2.rule_type r2.nested)
+          let p1_prefix, _, data_depth1 = r1.variant_key in
+          let p2_prefix, _, data_depth2 = r2.variant_key in
+          (* The descending variant-order lists tie (same variant multiset), so
+             hover:sm: and sm:hover: arrive here indistinguishable. The query a
+             rule writes on the outside decides between them, hover before sm
+             and sm before md; a nested breakpoint or hover, the prefix and the
+             utility's own priority order what is left. *)
+          let media_cmp =
+            match compare_container_values r1 r2 p1_prefix p2_prefix with
+            | Some c -> c
+            | None -> (
+                match (r1.media_key, r2.media_key) with
+                | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+                | _ -> 0)
           in
-          if nested_cmp <> 0 then nested_cmp
+          if media_cmp <> 0 then media_cmp
           else
-            let nested_media_cmp = compare_nested_media r1 r2 in
-            if nested_media_cmp <> 0 then nested_media_cmp
+            let nested_cmp =
+              Int.compare
+                (nested_order r1.rule_type r1.nested)
+                (nested_order r2.rule_type r2.nested)
+            in
+            if nested_cmp <> 0 then nested_cmp
             else
-              (* Two container variants at the same width are already fully
-                 ordered: what remains is the utility's own priority, so the
-                 prefix must not step in and group @sm/main away from @sm. *)
-              let prefix_cmp =
-                match (r1.rule_type, r2.rule_type) with
-                | `Container _, `Container _ -> 0
-                | _ -> compare_bracket_prefixes p1_prefix p2_prefix
-              in
-              if prefix_cmp <> 0 then prefix_cmp
+              let nested_media_cmp = compare_nested_media r1 r2 in
+              if nested_media_cmp <> 0 then nested_media_cmp
               else
-                let data_depth_cmp = Int.compare data_depth1 data_depth2 in
-                if data_depth_cmp <> 0 then data_depth_cmp
-                else compare_variant_tail r1 r2
+                (* Two container variants at the same width are already fully
+                   ordered: what remains is the utility's own priority, so the
+                   prefix must not step in and group @sm/main away from @sm. *)
+                let prefix_cmp =
+                  match (r1.rule_type, r2.rule_type) with
+                  | `Container _, `Container _ -> 0
+                  | _ -> compare_bracket_prefixes p1_prefix p2_prefix
+                in
+                if prefix_cmp <> 0 then prefix_cmp
+                else
+                  let data_depth_cmp = Int.compare data_depth1 data_depth2 in
+                  if data_depth_cmp <> 0 then data_depth_cmp
+                  else compare_variant_tail r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =

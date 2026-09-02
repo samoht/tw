@@ -383,8 +383,9 @@ val apply_alpha :
 (** [apply_alpha ?in_space opacity color] applies the modifier while preserving
     the identity that every alpha of [transparent] is still [transparent]. *)
 
-val opacity_fallback : percent:float -> color -> int -> Css.color -> Css.color
-(** [opacity_fallback ~percent c shade value] is what a browser without
+val opacity_fallback :
+  ?theme:Scheme.t -> percent:float -> color -> int -> Css.color -> Css.color
+(** [opacity_fallback ?theme ~percent c shade value] is what a browser without
     [color-mix()] reads for [c] at [percent] opacity. A palette colour folds the
     alpha into a plain hex; a project token, whose [value] the theme supplies
     and which may name a colour space no hex can spell, takes an sRGB mix
@@ -546,6 +547,7 @@ val shorten_hex_str : string -> string
 (** [shorten_hex_str hex] shortens a hex color string if possible. *)
 
 val bracket_color_opacity_style :
+  ?theme:Scheme.t ->
   ?merge_key:string ->
   property:(Css.color -> Css.declaration) ->
   Css.color ->
@@ -564,7 +566,8 @@ type bracket_opacity =
       (** the colour itself, for a browser with no [color-mix()], and the mix
           that goes behind an [@supports] guard *)
 
-val bracket_color_opacity : Css.color -> opacity_modifier -> bracket_opacity
+val bracket_color_opacity :
+  ?theme:Scheme.t -> Css.color -> opacity_modifier -> bracket_opacity
 (** [bracket_color_opacity c opacity] is what [opacity] makes of the bracket
     colour [c]. It answers values rather than declarations because the
     properties they land on differ by family: a decoration colour writes a
@@ -594,6 +597,26 @@ val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex
     color for Tailwind parity. Returns [None] for color types that cannot be
     easily converted (oklch, oklab, etc.). *)
+
+val resolve_bracket_css_color : Css.color -> Css.color
+(** [resolve_bracket_css_color c] returns the compact emission form of an
+    arbitrary colour, folding static RGB/HSL spellings to hex when possible. *)
+
+val pre_color_mix_fallback : Scheme.t -> Css.color -> Css.color option
+(** [pre_color_mix_fallback theme c] is Tailwind's legacy value for an arbitrary
+    [color-mix()] containing dynamic colour operands. Theme variables are
+    resolved into an sRGB mix. If an operand cannot be resolved at compile time,
+    the first colour operand is used. [None] means no guard is needed. *)
+
+val bracket_color_style :
+  ?merge_key:string ->
+  theme:Scheme.t ->
+  property:(Css.color -> Css.declaration) ->
+  Css.color ->
+  Style.t
+(** [bracket_color_style ~theme ~property c] emits [c], preceded by its
+    pre-[color-mix()] fallback and followed by a guarded enhancement when the
+    arbitrary colour needs progressive enhancement. *)
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
