@@ -1310,6 +1310,24 @@ let property_order_cross_family () =
        (fun c -> Result.get_ok (Tw.of_string c))
        [ "outline"; "font-normal"; "leading-snug"; "tracking-wide" ])
 
+(* CSS Grid 2 sec. 7.2 permits a <flex> track breadth to be produced by a math
+   function. Keep this on the real Tailwind oracle: accepting the class but
+   serialising the function through the length grammar would still be wrong. *)
+let grid_flex_math_tracks () =
+  let check_class class_name =
+    match of_string class_name with
+    | Ok utility -> check utility
+    | Error (`Msg message) -> Alcotest.failf "%s: %s" class_name message
+  in
+  List.iter check_class
+    [
+      "grid-cols-[calc(1fr*2)]";
+      "grid-rows-[min(1fr,2fr)]";
+      "auto-cols-[max(1fr,2fr)]";
+      "auto-rows-[clamp(100px,1fr,300px)]";
+      "grid-cols-[repeat(2,calc(1fr*2))]";
+    ]
+
 (* A class name that is not a tw utility is not a fatal error anywhere in the
    library: [str] returns the utilities it did recognise, and [of_classes] hands
    the names it rejected back so a typo is reportable rather than invisible. *)
@@ -1372,6 +1390,7 @@ let core_tests =
     test_case "data selectors" `Slow data_selectors;
     test_case "3d transforms" `Slow transforms_3d;
     test_case "grid columns reordering" `Slow grid_cols_reordering;
+    test_case "grid flex math tracks" `Slow grid_flex_math_tracks;
     (* Stable ordering tests *)
     test_case "stable: base utils order" `Quick stable_order_basic;
     test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;
