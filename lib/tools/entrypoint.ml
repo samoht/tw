@@ -1997,6 +1997,72 @@ let collect_properties_at_end stmts =
   in
   List.filter_map Fun.id keep @ at_end @ keyframes
 
+(* Tailwind runs authored CSS through Lightning CSS, which writes a legacy value
+   before a dynamic [color-mix()] and keeps the authored value behind a feature
+   query. Utility output already carries that pair; this pass is only applied to
+   the parsed entrypoint before the generated sheet is spliced in.
+
+   [flatten_nesting] has made every element rule flat by the time this runs, so
+   splitting one declaration into a rule/query pair preserves its exact place
+   among the author's declarations. *)
+let authored_color_mix_fallbacks ~theme stmts =
+  let fallback_declaration declaration =
+    let value = Css.declaration_value ~minify:true declaration in
+    match Css.parse_color value with
+    | None -> None
+    | Some color -> (
+        match Tw.Color.pre_color_mix_fallback theme color with
+        | None -> None
+        | Some fallback ->
+            let fallback_value =
+              Css.color fallback |> Css.Declaration.normalize
+              |> Css.declaration_value ~minify:true
+            in
+            let layer = Css.Declaration.custom_declaration_layer declaration in
+            Css.Declaration.parse_declaration ?layer
+              (Css.declaration_name declaration)
+              fallback_value
+            |> Option.map (fun fallback ->
+                if Css.declaration_is_important declaration then
+                  Css.important fallback
+                else fallback))
+  in
+  let lower_rule selector declarations =
+    let rec loop pending emitted = function
+      | [] ->
+          let emitted =
+            match pending with
+            | [] -> emitted
+            | _ -> Css.rule ~selector (List.rev pending) :: emitted
+          in
+          List.rev emitted
+      | declaration :: rest -> (
+          match fallback_declaration declaration with
+          | None -> loop (declaration :: pending) emitted rest
+          | Some fallback ->
+              let base = Css.rule ~selector (List.rev (fallback :: pending)) in
+              let enhanced = Css.rule ~selector [ declaration ] in
+              let supports =
+                Css.supports ~condition:Tw.Color.color_mix_supports_condition
+                  [ enhanced ]
+              in
+              loop [] (supports :: base :: emitted) rest)
+    in
+    loop [] [] declarations
+  in
+  let rec lower_block stmts =
+    List.concat_map
+      (fun statement ->
+        let statement =
+          Css.Stylesheet.map_statement_children lower_block statement
+        in
+        match Css.as_rule statement with
+        | Some (selector, declarations, []) -> lower_rule selector declarations
+        | _ -> [ statement ])
+      stmts
+  in
+  lower_block stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -2028,6 +2094,7 @@ let splice_into_entrypoint ~theme ~path generated =
             Css.flatten_nesting (Css.inline_imports loader p.Css.stylesheet)
           in
           Css.statements inlined
+          |> authored_color_mix_fallbacks ~theme
           |> List.concat_map (fun stmt ->
               match stmt with
               | Cascade.Stylesheet.Import { url; _ } when is_tailwind_import url
