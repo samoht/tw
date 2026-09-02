@@ -195,6 +195,49 @@ let test_apply_merges_one_rule () =
     ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
     (Cascade.Css.to_string ~minify:true out)
 
+(* Lightning CSS lowers a dynamic [color-mix()] in author CSS as progressive
+   enhancement. A palette token can be resolved to a legacy colour; a custom
+   property declared by the rule cannot, so its first colour operand is the
+   fallback. Custom-property values and ordinary colour properties follow the
+   same rule. *)
+let test_authored_color_mix_fallbacks () =
+  let path = "color-mix-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc
+        "@import \"tailwindcss\";\n\
+         @theme { --color-brand: oklch(63.7% 0.237 25.331); }\n\
+         .article {\n\
+        \  --prose-color: var(--color-brand);\n\
+        \  --marker-color: color-mix(in oklab, var(--color-brand) 25%, \
+         transparent);\n\
+        \  color: color-mix(in oklab, var(--color-brand) 25%, transparent);\n\
+        \  em { color: color-mix(in oklab, var(--prose-color) 75%, \
+         transparent); }\n\
+         }\n");
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-brand", "oklch(63.7% 0.237 25.331)") ]
+  in
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () -> splice_into_entrypoint ~theme ~path (Cascade.Css.v []))
+  in
+  check string "fallback immediately precedes each guarded authored value"
+    ".article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
+     lab,red,red)){.article{--marker-color:color-mix(in \
+     oklab,var(--color-brand) \
+     25%,transparent)}}.article{color:#fb2c3640}@supports(color:color-mix(in \
+     lab,red,red)){.article{color:color-mix(in oklab,var(--color-brand) \
+     25%,transparent)}}.article \
+     em{color:var(--prose-color)}@supports(color:color-mix(in \
+     lab,red,red)){.article em{color:color-mix(in oklab,var(--prose-color) \
+     75%,transparent)}}"
+    (Cascade.Css.to_string ~minify:true out)
+
 (* Each utility an [@apply] pulls in hoists an [@property] block for every
    variable it sets, and the two shadow utilities set the same ones. The hoisted
    blocks are deduplicated on statement identity, so the sheet declares each
@@ -462,6 +505,8 @@ let tests =
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
+    test_case "authored color-mix fallbacks" `Quick
+      test_authored_color_mix_fallbacks;
     test_case "@apply hoists each property once" `Quick
       test_apply_hoists_each_property_once;
     test_case "declared utility keeps its nesting" `Quick
