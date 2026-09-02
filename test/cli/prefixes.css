@@ -1,0 +1,9 @@
+.a {
+  user-select: none;
+}
+
+@supports (backdrop-filter: blur(0)) {
+  .b {
+    backdrop-filter: blur(1px);
+  }
+}
