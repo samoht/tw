@@ -156,10 +156,8 @@ let rendering_matches_tailwind () =
       "shadow-md";
       "shadow-lg";
       "shadow-none";
-      (* A palette colour would only re-report the known theme-token gap
-         (--color-indigo-500 as a hex where Tailwind keeps oklch), which [tw
-         --diff] already reports; the keyword colours conflict with the sizes
-         just as well. *)
+      (* The keyword colours conflict with the sizes just as well as palette
+         colours; palette fallback syntax has a focused regression below. *)
       "shadow-current";
       "shadow-transparent";
       "inset-shadow-sm";

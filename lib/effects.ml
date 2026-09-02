@@ -760,17 +760,16 @@ module Handler = struct
                 Color.rgb_to_hex rgb))
 
   let set_shadow_color ?theme c shade =
-    let hex_value =
-      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
+    let color_value =
+      Color.property_color_value ?theme ~property_prefix:"box-shadow-color" c
+        shade
     in
-    let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_value) in
+    let base_decl, _ = Var.binding shadow_color_var color_value in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c
         shade
     in
-    let theme_decl, color_ref =
-      Var.binding theme_color_var (Css.hex hex_value)
-    in
+    let theme_decl, color_ref = Var.binding theme_color_var color_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         (Css.Var color_ref) Css.Transparent
@@ -1397,18 +1396,16 @@ module Handler = struct
                 Color.rgb_to_hex rgb))
 
   let set_inset_shadow_color ?theme c shade =
-    let hex_value =
-      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
-        shade
+    let color_value =
+      Color.property_color_value ?theme
+        ~property_prefix:"inset-box-shadow-color" c shade
     in
-    let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex hex_value) in
+    let base_decl, _ = Var.binding inset_shadow_color_var color_value in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color"
         c shade
     in
-    let theme_decl, color_ref =
-      Var.binding theme_color_var (Css.hex hex_value)
-    in
+    let theme_decl, color_ref = Var.binding theme_color_var color_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" (Css.Var color_ref) Css.Transparent

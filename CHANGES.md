@@ -162,6 +162,8 @@
 
 ### Colours and effects
 
+- Palette box, inset-box and text shadows keep Tailwind's authored OKLCH value
+  as their unguarded fallback instead of converting it to sRGB hex.
 - An opacity modifier reaches every colour family. A ring, a per-side border, a
   shadow, a drop shadow, a decoration and a stroke all take one, the alpha can
   itself be a variable (`bg-cyan-400/(--my-alpha-value)`), and `transparent` and

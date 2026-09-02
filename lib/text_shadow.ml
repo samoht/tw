@@ -391,12 +391,16 @@ module Handler = struct
             Color.rgb_to_hex rgb)
 
   let set_color ?theme c shade =
-    let hex_value = color_hex ?theme c shade in
-    let base_decl, _ = Var.binding text_shadow_color_var (Css.hex hex_value) in
-    let theme_color_var = Color.color_var c shade in
-    let theme_decl, color_ref =
-      Var.binding theme_color_var (Css.hex hex_value)
+    let color_value =
+      Color.property_color_value ?theme ~property_prefix:"text-shadow-color" c
+        shade
     in
+    let base_decl, _ = Var.binding text_shadow_color_var color_value in
+    let theme_color_var =
+      Color.property_color_var ?theme ~property_prefix:"text-shadow-color" c
+        shade
+    in
+    let theme_decl, color_ref = Var.binding theme_color_var color_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         (Css.Var color_ref) Css.Transparent
