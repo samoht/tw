@@ -119,13 +119,13 @@ let var_in_theme_layer () =
         ]
         (List.sort_uniq String.compare custom_props)
 
-(* Tailwind spells one registered zero two ways: [--tw-ring-offset-width: 0px]
-   in the properties layer's bulk declaration, but [initial-value: 0] in its own
-   [@property] rule (checked 2026-08-29 against the real CLI). Every other
-   zero-initialised [Length] variable (border-spacing-x/y) gets "0" in both
-   places, and the canonical [--diff] comparison treats "0" and "0px" as the
-   same length, so a regression here would not show up there - only this pinned
-   literal catches it. *)
+(* Tailwind spells one custom-property zero two ways: [--tw-ring-offset-width:
+   0px] in the properties layer's bulk declaration, but [initial-value: 0] in
+   its own [@property] rule (checked 2026-08-29 against the real CLI). Every
+   other zero-initialised [Length] variable (border-spacing-x/y) gets "0" in
+   both places, and the canonical [--diff] comparison treats "0" and "0px" as
+   the same length, so a regression here would not show up there - only this
+   pinned literal catches it. *)
 let ring_offset_width_properties_layer_spelling () =
   let css =
     match Tw.of_string "ring-2" with
@@ -143,148 +143,72 @@ let ring_offset_width_properties_layer_spelling () =
 
 let order = testable Fmt.(option (pair int int)) ( = )
 
-let render ?theme classes =
-  match Tw.of_string ?theme classes with
-  | Ok t -> ignore (Tw.to_css ?theme ~base:false [ t ])
-  | Error (`Msg m) -> fail m
-
 (* A (priority, suborder) slot is not unique to one variable: token families are
    numbered independently, so several tokens legitimately share a slot. Both
    sides of a shared slot must keep their order. *)
 let order_of_shared_slot () =
-  let (_ : Css.length Tw.Var.theme) =
+  let first : Css.length Tw.Var.theme =
     Tw.Var.theme Css.Length "test-shared-first" ~order:(990, 0)
   in
-  let (_ : Css.length Tw.Var.theme) =
+  let second : Css.length Tw.Var.theme =
     Tw.Var.theme Css.Length "test-shared-second" ~order:(990, 0)
   in
-  check order "first" (Some (990, 0)) (Tw.Var.order "test-shared-first");
-  check order "second" (Some (990, 0)) (Tw.Var.order "test-shared-second")
+  let first_decl, _ = Tw.Var.binding first (Css.Px 1.) in
+  let second_decl, _ = Tw.Var.binding second (Css.Px 1.) in
+  check order "first" (Some (990, 0)) (Tw.Var.order_of_declaration first_decl);
+  check order "second" (Some (990, 0)) (Tw.Var.order_of_declaration second_decl)
 
-(* Each family in the theme layer's tail owns a band no other family reaches
-   into, so the emission order is the family order Tailwind's [@theme] writes
-   rather than the spelling of the token names. *)
-let order_of_family_bands () =
-  let expect name o = check order name (Some o) (Tw.Var.order name) in
-  expect "radius-4xl" (7, 10);
-  expect "drop-shadow-xl" (7, 24);
-  expect "drop-shadow-2xl" (7, 25);
-  expect "ease-linear" (7, 33);
-  expect "animate-spin" (7, 41);
-  expect "blur-xs" (8, 0);
-  expect "perspective-dramatic" (8, 10);
-  expect "aspect-video" (8, 20);
-  expect "default-transition-duration" (8, 30);
-  expect "default-transition-timing-function" (8, 31);
-  expect "transition-property-opacity" (8, 32);
-  expect "transition-property-colors" (8, 33);
-  expect "default-font-family" (8, 39);
-  expect "default-font-feature-settings" (8, 40);
-  expect "default-font-variation-settings" (8, 41);
-  expect "default-mono-font-family" (8, 42);
-  expect "default-mono-font-feature-settings" (8, 43);
-  expect "default-mono-font-variation-settings" (8, 44)
-
-(* A project [@theme] may name font families of its own; they all sit at (1,
-   100). Rendering one must not decide the answer for the others. *)
-let order_of_theme_named_tokens () =
-  let theme =
-    {
-      Tw.Scheme.default with
-      token_overrides =
-        [ ("font-alpha", "Alpha, sans-serif"); ("font-beta", "Beta, serif") ];
-    }
-  in
-  render ~theme "font-alpha";
-  render ~theme "font-beta";
-  check order "alpha" (Some (1, 100)) (Tw.Var.order "font-alpha");
-  check order "beta" (Some (1, 100)) (Tw.Var.order "font-beta")
-
-(* A name owns its slot: the first definition places it, and a later definition
-   of the same name is placed there too, the declarations it binds included. *)
+(* Metadata belongs to the value that carries it: defining the same spelling in
+   another request cannot alter either declaration. *)
 let order_of_redefined_name () =
-  let (_ : Css.length Tw.Var.theme) =
+  let first : Css.length Tw.Var.theme =
     Tw.Var.theme Css.Length "test-established" ~order:(991, 0)
   in
   let again = Tw.Var.theme Css.Length "test-established" ~order:(991, 1) in
+  let first_decl, _ = Tw.Var.binding first (Css.Px 1.) in
   let decl, _ = Tw.Var.binding again (Css.Px 1.) in
-  check order "registry" (Some (991, 0)) (Tw.Var.order "test-established");
-  check order "declaration" (Some (991, 0)) (Tw.Var.order_of_declaration decl)
+  check order "first" (Some (991, 0)) (Tw.Var.order_of_declaration first_decl);
+  check order "second" (Some (991, 1)) (Tw.Var.order_of_declaration decl)
 
-(* A project [@theme] naming a built-in token reaches the [--font-<name>]
-   family's shared slot, and must leave the token in its own. *)
-let order_of_theme_renamed_builtin () =
-  let theme =
-    {
-      Tw.Scheme.default with
-      token_overrides =
-        [ ("font-sans", "Alpha, sans-serif"); ("font-mono", "Beta, monospace") ];
-    }
-  in
-  render ~theme "font-sans";
-  render ~theme "font-mono";
-  check order "font-sans" (Some (1, 0)) (Tw.Var.order "font-sans");
-  check order "font-mono" (Some (1, 2)) (Tw.Var.order "font-mono")
-
-(* [font-weight-bold] reads --font-weight-bold as a family name, so a project
-   naming that token routes a font-weight token through the font family's slot.
-   It keeps its own, and the render goes through. *)
-let order_of_theme_renamed_weight () =
-  let theme =
-    {
-      Tw.Scheme.default with
-      token_overrides = [ ("font-weight-bold", "Alpha, sans-serif") ];
-    }
-  in
-  render ~theme "font-weight-bold";
-  check order "font-weight-bold"
-    (Some (6, 36))
-    (Tw.Var.order "font-weight-bold")
-
-let order_of_unknown_name () =
-  check order "unknown" None (Tw.Var.order "test-never-defined");
-  check order "leading -- stripped" (Some (6, 8)) (Tw.Var.order "--text-xl")
-
-(* A name owns its family and its [@property] need: each is a fact about one
-   custom property, not a slot several families share. A second registration
-   that agrees restates the fact; one that disagrees is a constant copied by
-   hand that has drifted, and it is refused rather than letting module
-   initialisation order decide the properties layer. *)
-let family_registered_once () =
-  let (_ : Css.length Tw.Var.channel) =
+(* Family metadata belongs to the variable value. Two callers can use the same
+   custom-property name without one definition rewriting the other. *)
+let family_is_value_local () =
+  let ring : Css.length Tw.Var.channel =
     Tw.Var.channel ~family:`Ring Css.Length "test-family-owner"
   in
-  let (_ : Css.length Tw.Var.channel) =
-    Tw.Var.channel ~family:`Ring Css.Length "test-family-owner"
+  let shadow : Css.length Tw.Var.channel =
+    Tw.Var.channel ~family:`Shadow Css.Length "test-family-owner"
+  in
+  let ring_decl, _ = Tw.Var.binding ring (Css.Px 1.) in
+  let shadow_decl, _ = Tw.Var.binding shadow (Css.Px 1.) in
+  let family declaration =
+    Option.bind
+      (Tw.Var.metadata_of_declaration declaration)
+      Tw.Var.metadata_family
   in
   check
     (Alcotest.option Alcotest.string)
-    "established" (Some "Ring")
-    (Option.map
-       (function `Ring -> "Ring" | _ -> "other")
-       (Tw.Var.family "test-family-owner"));
-  Alcotest.check_raises "a disagreeing family is refused"
-    (Invalid_argument
-       "--test-family-owner: family is Ring, registered again as Shadow")
-    (fun () ->
-      ignore (Tw.Var.channel ~family:`Shadow Css.Length "test-family-owner"))
-
-(* A variable's slot in the properties layer is one fact about one custom
-   property, the same way its family is. A second registration that agrees
-   restates it; one that disagrees is a hand-copied constant that has drifted,
-   and it is refused rather than letting module initialisation order settle
-   it. *)
-let property_order_registered_once () =
-  Tw.Var.register_property_order ~name:"test-order-owner" ~order:6;
-  Tw.Var.register_property_order ~name:"test-order-owner" ~order:6;
+    "ring" (Some "Ring")
+    (Option.map (function `Ring -> "Ring" | _ -> "other") (family ring_decl));
   check
-    (Alcotest.option Alcotest.int)
-    "established" (Some 6)
-    (Tw.Var.property_order "test-order-owner");
-  Alcotest.check_raises "a disagreeing property order is refused"
-    (Invalid_argument
-       "--test-order-owner: property order is 6, registered again as 7")
-    (fun () -> Tw.Var.register_property_order ~name:"test-order-owner" ~order:7)
+    (Alcotest.option Alcotest.string)
+    "shadow" (Some "Shadow")
+    (Option.map
+       (function `Shadow -> "Shadow" | _ -> "other")
+       (family shadow_decl))
+
+(* The properties-layer slot is value-local for the same reason. *)
+let property_order_is_value_local () =
+  let first = Tw.Var.channel ~property_order:6 Css.Length "test-order-owner" in
+  let second = Tw.Var.channel ~property_order:7 Css.Length "test-order-owner" in
+  let property_order (var : Css.length Tw.Var.channel) =
+    let declaration, _ = Tw.Var.binding var (Css.Px 1.) in
+    Option.bind
+      (Tw.Var.metadata_of_declaration declaration)
+      Tw.Var.metadata_property_order
+  in
+  check (Alcotest.option Alcotest.int) "first" (Some 6) (property_order first);
+  check (Alcotest.option Alcotest.int) "second" (Some 7) (property_order second)
 
 let tests =
   [
@@ -297,17 +221,10 @@ let tests =
     test_case "ring-offset-width properties layer spelling" `Quick
       ring_offset_width_properties_layer_spelling;
     test_case "order of shared slot" `Quick order_of_shared_slot;
-    test_case "order of family bands" `Quick order_of_family_bands;
-    test_case "order of theme-named tokens" `Quick order_of_theme_named_tokens;
     test_case "order of redefined name" `Quick order_of_redefined_name;
-    test_case "order of theme-renamed builtin" `Quick
-      order_of_theme_renamed_builtin;
-    test_case "order of theme-renamed weight" `Quick
-      order_of_theme_renamed_weight;
-    test_case "order of unknown name" `Quick order_of_unknown_name;
-    test_case "family registered once" `Quick family_registered_once;
-    test_case "property order registered once" `Quick
-      property_order_registered_once;
+    test_case "family is value-local" `Quick family_is_value_local;
+    test_case "property order is value-local" `Quick
+      property_order_is_value_local;
   ]
 
 let suite = ("var", tests)

@@ -82,8 +82,9 @@ val default : t
 
 val register_default_token : string -> string -> unit
 (** [register_default_token name css] registers the v4.3.1 baseline default CSS
-    for theme token [name] (without [--]) in the process-global registry. Called
-    once at module-init by the utility that owns the token. *)
+    for theme token [name] (without [--]). It updates a lock-free immutable
+    snapshot and is called once at module initialisation by the utility that
+    owns the token. *)
 
 val all_default_tokens : unit -> (string * string) list
 (** [all_default_tokens ()] is every token a family has published through

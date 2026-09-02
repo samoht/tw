@@ -7,9 +7,9 @@ module Css = Cascade.Css
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-(* Tailwind spells one registered zero two ways: [--tw-ring-offset-width: 0px]
-   in the properties layer's bulk declaration, but [initial-value: 0] in its own
-   [@property] rule. Other zero-initialised [Length] variables (e.g.
+(* Tailwind spells one custom-property zero two ways: [--tw-ring-offset-width:
+   0px] in the properties layer's bulk declaration, but [initial-value: 0] in
+   its own [@property] rule. Other zero-initialised [Length] variables (e.g.
    border-spacing-x/y) get "0" in both places, so this isn't a general
    Length-zero rule cascade's printer could apply - it's a one-name quirk of
    Tailwind's own output that has to be special-cased here. A total function, so
@@ -42,6 +42,7 @@ type ('a, 'r) t = {
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   fallback : 'a option; (* Built-in fallback for ref_only variables *)
+  meta : Css.meta;
 }
 
 (* Type shortcuts for common patterns *)
@@ -50,177 +51,62 @@ type 'a property_default = ('a, [ `Property_default ]) t
 type 'a channel = ('a, [ `Channel ]) t
 type 'a ref_only = ('a, [ `Ref_only ]) t
 
-(* Global registry of the metadata the layer builders look up by variable name,
-   filled by [v] as each variable definition is evaluated. *)
-module Registry = struct
-  (* Table mapping variable_name -> (priority, suborder) *)
-  let name_registry : (string, int * int) Hashtbl.t = Hashtbl.create 128
-
-  (* Table mapping variable_name -> property_order for @supports block
-     ordering *)
-  let property_order_registry : (string, int) Hashtbl.t = Hashtbl.create 128
-
-  (* Families for ordering/grouping without string prefixes *)
-  type family =
-    [ `Border
-    | `Rotate
-    | `Skew
-    | `Scale
-    | `Translate
-    | `Gradient
-    | `Shadow
-    | `Inset_shadow
-    | `Ring
-    | `Inset_ring
-    | `Leading
-    | `Font_weight
-    | `Duration
-    | `Tracking
-    | `Content
-    | `Text_shadow
-    | `Filter
-    | `Drop_shadow
-    | `Backdrop_filter ]
-
-  let family_registry : (string, family) Hashtbl.t = Hashtbl.create 128
-  let needs_property_registry : (string, bool) Hashtbl.t = Hashtbl.create 128
-
-  (* A slot is shared, not owned: each token family numbers its members from its
-     own base, so several families sit at the same (priority, suborder) — e.g.
-     --radius-4xl, --drop-shadow-md and --ease-out are all (7, 10). The families
-     a project [@theme] names (--font-<name>, --animate-<name>, --inset-<name>)
-     funnel every member into one slot by design. The theme layer breaks a tie
-     on the variable name, so a shared slot is still a total order.
-
-     A name, on the other hand, owns its slot: it is one custom property and one
-     position in the theme layer. The definition that first claims a name fixes
-     that position, and a definition reaching a name that is already placed is
-     answered with the established slot. That is how a project naming one of the
-     built-in tokens lands: [--font-sans] from a project [@theme] arrives
-     through the [--font-<name>] family's shared slot, and keeps (1, 0). *)
-  let register_variable ~name ~order =
-    match Hashtbl.find_opt name_registry name with
-    | Some established -> established
-    | None ->
-        Hashtbl.replace name_registry name order;
-        order
-
-  (* A name owns its family and its [@property] need: each is a fact about one
-     custom property, not a slot several families share. A second registration
-     that agrees restates the fact; one that disagrees is a constant copied by
-     hand that has drifted, so it is refused rather than letting module
-     initialisation order decide the properties layer. *)
-  let register_once tbl ~what ~pp ~name ~value =
-    match Hashtbl.find_opt tbl name with
-    | Some established when established <> value ->
-        invalid_arg
-          (Pp.str
-             [
-               "--";
-               name;
-               ": ";
-               what;
-               " is ";
-               pp established;
-               ", registered again as ";
-               pp value;
-             ])
-    | Some _ -> ()
-    | None -> Hashtbl.replace tbl name value
-
-  let register_property_order ~name ~order =
-    register_once property_order_registry ~what:"property order" ~pp:Pp.int
-      ~name ~value:order
-
-  let property_order name =
-    (* Strip leading -- if present *)
-    let name =
-      if String.starts_with ~prefix:"--" name then
-        String.sub name 2 (String.length name - 2)
-      else name
-    in
-    Hashtbl.find_opt property_order_registry name
-
-  let order name =
-    (* Strip leading -- if present *)
-    let name =
-      if String.starts_with ~prefix:"--" name then
-        String.sub name 2 (String.length name - 2)
-      else name
-    in
-    Hashtbl.find_opt name_registry name
-
-  let family_name : family -> string = function
-    | `Border -> "Border"
-    | `Rotate -> "Rotate"
-    | `Skew -> "Skew"
-    | `Scale -> "Scale"
-    | `Translate -> "Translate"
-    | `Gradient -> "Gradient"
-    | `Shadow -> "Shadow"
-    | `Inset_shadow -> "Inset_shadow"
-    | `Ring -> "Ring"
-    | `Inset_ring -> "Inset_ring"
-    | `Leading -> "Leading"
-    | `Font_weight -> "Font_weight"
-    | `Duration -> "Duration"
-    | `Tracking -> "Tracking"
-    | `Content -> "Content"
-    | `Text_shadow -> "Text_shadow"
-    | `Filter -> "Filter"
-    | `Drop_shadow -> "Drop_shadow"
-    | `Backdrop_filter -> "Backdrop_filter"
-
-  let register_family ~name ~family =
-    register_once family_registry ~what:"family" ~pp:family_name ~name
-      ~value:family
-
-  let family name =
-    (* Strip leading -- if present *)
-    let name =
-      if String.starts_with ~prefix:"--" name then
-        String.sub name 2 (String.length name - 2)
-      else name
-    in
-    Hashtbl.find_opt family_registry name
-
-  let register_needs_property ~name ~needs =
-    register_once needs_property_registry ~what:"@property need" ~pp:Pp.bool
-      ~name ~value:needs
-
-  let needs_property name =
-    (* Strip leading -- if present *)
-    let name =
-      if String.starts_with ~prefix:"--" name then
-        String.sub name 2 (String.length name - 2)
-      else name
-    in
-    match Hashtbl.find_opt needs_property_registry name with
-    | Some b -> b
-    | None -> false
-end
-
-(* Get property order for a variable name (for external use in build.ml) *)
-let property_order = Registry.property_order
-let register_property_order = Registry.register_property_order
-let order = Registry.order
-let family = Registry.family
-let needs_property = Registry.needs_property
-
-type family = Registry.family
+(* Families for ordering/grouping without string prefixes. *)
+type family =
+  [ `Border
+  | `Rotate
+  | `Skew
+  | `Scale
+  | `Translate
+  | `Gradient
+  | `Shadow
+  | `Inset_shadow
+  | `Ring
+  | `Inset_ring
+  | `Leading
+  | `Font_weight
+  | `Duration
+  | `Tracking
+  | `Content
+  | `Text_shadow
+  | `Filter
+  | `Drop_shadow
+  | `Backdrop_filter ]
 
 type info =
   | Info : {
       name : string;
-      kind : 'a Css.kind;
-      need_property : bool;
+      kind : 'a Css.kind option;
+      property : 'a property_info option;
       order : (int * int) option;
+      property_order : int option;
+      family : family option;
+      runtime : bool;
+      default_css : string option;
     }
       -> info
 
 let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
     =
   Css.meta ()
+
+type metadata = info
+
+let metadata_name (Info info) = info.name
+let metadata_order (Info info) = info.order
+let metadata_property_order (Info info) = info.property_order
+let metadata_family (Info info) = info.family
+let metadata_needs_property (Info info) = info.property <> None
+let metadata_default_css (Info info) = info.default_css
+let metadata_of_var v = Option.bind (Css.var_meta v) info_of_meta
+
+let metadata_of_declaration declaration =
+  Option.bind (Css.meta_of_declaration declaration) info_of_meta
+
+let metadata var =
+  match info_of_meta var.meta with
+  | Some metadata -> metadata
+  | None -> assert false
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
@@ -245,28 +131,19 @@ let v : type a r.
       failwith ("Variable '" ^ name ^ "' in theme layer must have an order")
   | _ -> ());
 
-  (* Claim the name's theme slot, and carry the slot the name settled on: a
-     declaration this variable binds sorts where the name sorts. *)
-  let order =
-    match order with
-    | Some ord -> Some (Registry.register_variable ~name ~order:ord)
-    | None -> None
+  let info =
+    Info
+      {
+        kind = Some kind;
+        name;
+        property;
+        order;
+        property_order;
+        family;
+        runtime = Option.value runtime ~default:false;
+        default_css = None;
+      }
   in
-
-  (* Register property order if provided *)
-  (match property_order with
-  | Some ord -> Registry.register_property_order ~name ~order:ord
-  | None -> ());
-
-  (match family with
-  | Some fam -> Registry.register_family ~name ~family:fam
-  | None -> ());
-
-  (* Register needs_property so we can look it up by name *)
-  let need_property = property <> None in
-  if need_property then Registry.register_needs_property ~name ~needs:true;
-
-  let info = Info { kind; name; need_property; order } in
   let binding ?fallback:fb value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
@@ -281,7 +158,7 @@ let v : type a r.
     Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
       ?runtime name kind value
   in
-  { kind; name; role; binding; property; fallback }
+  { kind; name; role; binding; property; fallback; meta = meta_of_info info }
 
 (* Convenience constructors to encode patterns safely *)
 
@@ -372,6 +249,15 @@ let property_typed : type a.
 let property ~name kind initial ~inherits ~universal =
   if universal then property_universal ~name kind initial ~inherits
   else property_typed ~name kind initial ~inherits
+
+let property_rule_of_metadata (Info info) =
+  match (info.kind, info.property) with
+  | Some kind, Some { initial; inherits; universal } ->
+      Some (property ~name:("--" ^ info.name) kind initial ~inherits ~universal)
+  | _ -> None
+
+let property_rule_of_var var =
+  Option.bind (metadata_of_var var) property_rule_of_metadata
 
 (* Get @property rule if metadata present *)
 let property_rule : type a r. (a, r) t -> Css.t option =
@@ -470,18 +356,23 @@ let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)
   v kind ~fallback ~role:Ref_only name ~layer:Utility
 
-(* Registry for theme_ref variables: maps var name -> default CSS string *)
-let theme_ref_registry : (string, string) Hashtbl.t = Hashtbl.create 64
-
 let theme_ref : type a. ?default:a -> ?default_css:string -> string -> a Css.var
     =
  fun ?default ?default_css name ->
-  (match default_css with
-  | Some css -> Hashtbl.replace theme_ref_registry name css
-  | None -> ());
-  Css.var_ref ~layer:"theme" ?default name
-
-let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
+  let info =
+    Info
+      {
+        kind = None;
+        name;
+        property = None;
+        order = None;
+        property_order = None;
+        family = None;
+        runtime = false;
+        default_css;
+      }
+  in
+  Css.var_ref ~layer:"theme" ~meta:(meta_of_info info) ?default name
 
 (* Turn a parsed [@property] statement's typed initial value into the
    declaration that sets it in the properties layer. [typed_custom_property]
@@ -506,7 +397,7 @@ let needs_property_rule v =
       false
   | Some meta -> (
       match info_of_meta meta with
-      | Some (Info i) -> i.need_property
+      | Some (Info i) -> i.property <> None
       | None -> assert false)
 
 let order_of_declaration decl =
@@ -514,6 +405,12 @@ let order_of_declaration decl =
   | None -> None
   | Some meta -> (
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
+
+let is_runtime_declaration decl =
+  match Css.meta_of_declaration decl with
+  | None -> false
+  | Some meta -> (
+      match info_of_meta meta with Some (Info t) -> t.runtime | None -> false)
 
 let property_initial_declaration = declaration_of_property_info
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]

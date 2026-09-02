@@ -45,8 +45,6 @@ end
 
 type handler = H : (module Registered with type t = 'a) -> handler
 
-let handlers : handler list ref = ref []
-
 (* A project's [@utility] sorts at the slot of the property it declares, so that
    slot has to be readable from a property. Each handler offers a few of its own
    utilities as {!Handler.examples}; running them through [to_style] says which
@@ -55,15 +53,25 @@ let handlers : handler list ref = ref []
    utilities - nothing here restates it. *)
 (* [true] on an entry means it came from a property the utility writes on the
    element itself, which outranks one it writes only inside a nested rule. *)
-let property_slots :
-    (Cascade.Css.Declaration.prop_key, bool * (int * int)) Hashtbl.t option ref
-    =
-  ref None
+type registry = {
+  handlers : handler list;
+  property_slots :
+    (Cascade.Css.Declaration.prop_key, bool * (int * int)) Hashtbl.t option;
+}
+
+let registry = Atomic.make { handlers = []; property_slots = None }
+let handlers_snapshot () = (Atomic.get registry).handlers
 
 let register (type a) (module M : Registered with type t = a) =
   let internal_h = H (module M : Registered with type t = a) in
-  property_slots := None;
-  handlers := internal_h :: !handlers
+  let rec add () =
+    let current = Atomic.get registry in
+    let next =
+      { handlers = internal_h :: current.handlers; property_slots = None }
+    in
+    if not (Atomic.compare_and_set registry current next) then add ()
+  in
+  add ()
 
 module Make (M : Handler) = struct
   type base += Self of M.t
@@ -158,7 +166,7 @@ let ordering_property declarations =
   in
   scan declarations
 
-let build_property_slots () =
+let build_property_slots handlers =
   let tbl = Hashtbl.create 512 in
   (* A property a utility writes on the element itself decides that utility's
      family; one it writes only inside a rule it carries does not, unless
@@ -189,19 +197,20 @@ let build_property_slots () =
               ordering_property (style_declarations style)
               |> Option.iter (fun key -> record ~own:false key order))
         M.examples)
-    !handlers;
+    handlers;
   tbl
 
 let order_of_property key =
-  let tbl =
-    match !property_slots with
-    | Some tbl -> tbl
+  let rec slots () =
+    let current = Atomic.get registry in
+    match current.property_slots with
+    | Some table -> table
     | None ->
-        let tbl = build_property_slots () in
-        property_slots := Some tbl;
-        tbl
+        let table = build_property_slots current.handlers in
+        let next = { current with property_slots = Some table } in
+        if Atomic.compare_and_set registry current next then table else slots ()
   in
-  Option.map snd (Hashtbl.find_opt tbl key)
+  Option.map snd (Hashtbl.find_opt (slots ()) key)
 
 let name_of_base u =
   let rec try_handlers = function
@@ -209,11 +218,11 @@ let name_of_base u =
     | H (module M) :: rest -> (
         match M.project u with Some _ -> M.name | None -> try_handlers rest)
   in
-  try_handlers !handlers
+  try_handlers (handlers_snapshot ())
 
 let class_of_base u =
   let visit (H (module M)) = Option.map M.to_class (M.project u) in
-  match List.find_map visit !handlers with
+  match List.find_map visit (handlers_snapshot ()) with
   | Some class_name -> class_name
   | None -> failwith "class_of_base"
 
@@ -225,13 +234,13 @@ let base_of_class theme class_name =
         | Ok x -> Ok (M.inject x)
         | Error _ -> try_handlers rest)
   in
-  try_handlers !handlers
+  try_handlers (handlers_snapshot ())
 
 (* Every utility each handler offers as its own example, as class names. *)
 let examples_classes () =
   List.concat_map
     (fun (H (module M)) -> List.map M.to_class M.examples)
-    !handlers
+    (handlers_snapshot ())
 
 (* Every handler that would claim [class_name], by name. [base_of_class] takes
    the first, and the order is the dune link order, so a class two handlers both
@@ -243,7 +252,7 @@ let claiming_handlers theme class_name =
       match M.of_class theme class_name with
       | Ok _ -> Some M.name
       | Error _ -> None)
-    !handlers
+    (handlers_snapshot ())
 
 (* Keep for backward compatibility with tests *)
 let base_of_strings theme parts =
@@ -251,10 +260,11 @@ let base_of_strings theme parts =
   base_of_class theme class_name
 
 let base_to_style theme u =
+  let handlers = handlers_snapshot () in
   let rec try_handlers = function
     | [] ->
         prerr_endline
-          ("Total handlers registered: " ^ string_of_int (List.length !handlers));
+          ("Total handlers registered: " ^ string_of_int (List.length handlers));
         failwith
           "Unknown utility type - handler not registered. This is a bug in the \
            utility system."
@@ -263,7 +273,7 @@ let base_to_style theme u =
         | Some x -> M.to_style theme x
         | None -> try_handlers rest)
   in
-  try_handlers !handlers
+  try_handlers handlers
 
 let rec to_style theme = function
   | Base u -> base_to_style theme u
@@ -305,7 +315,7 @@ let order (u : base) : int * int =
         | Some x -> (M.priority x, M.suborder x)
         | None -> try_handlers rest)
   in
-  try_handlers !handlers
+  try_handlers (handlers_snapshot ())
 
 let deduplicate utilities =
   let rec go seen acc = function

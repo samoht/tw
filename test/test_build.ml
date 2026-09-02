@@ -4,6 +4,7 @@ open Tw.Color
 open Tw.Backgrounds
 open Tw.Padding
 open Tw.Margin
+open Tw.Position
 open Tw.Modifiers
 open Test_helpers
 
@@ -935,6 +936,17 @@ let test_style_rules_props () =
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
 
+let test_property_default_rule_is_automatic () =
+  let css =
+    Tw.to_css ~base:false [ Tw.border_spacing 2 ] |> Css.to_string ~minify:true
+  in
+  check bool "typed rule with its initial value" true
+    (Astring.String.is_infix
+       ~affix:
+         "@property \
+          --tw-border-spacing-x{syntax:\"<length>\";inherits:false;initial-value:0}"
+       css)
+
 let test_media_query_deduplication () =
   (* Test that media queries preserve cascade order.
    *
@@ -974,21 +986,60 @@ let test_media_query_deduplication () =
   Alcotest.(check int)
     "preserves cascade with nested and top-level media" 2 count_768px
 
-(* p-0 folds to 0, so the unused --spacing token is pruned, matching
-   Tailwind. *)
+(* A zero spacing utility contains no [var(--spacing)] reference, so the build
+   must not put its internal carrier declaration in the theme layer. This is a
+   build invariant: the parity gate must not need a later generic custom-
+   property pruning pass to hide the unused token. *)
 let check_spacing_zero_prune () =
   let config = { Tw.Build.base = false; forms = None; layers = true } in
-  let css =
-    Tw.Build.to_css ~config [ p 0 ]
-    |> Css.optimize ~prune_unused_custom_props:true
-    |> Css.to_string ~minify:true
+  let css utility =
+    Tw.Build.to_css ~config [ utility ] |> Css.to_string ~minify:true
   in
+  let check_zero name property utility =
+    let css = css utility in
+    Alcotest.(check bool)
+      (name ^ " emits zero") true
+      (Astring.String.is_infix ~affix:(property ^ ":0") css);
+    Alcotest.(check bool)
+      (name ^ " omits unused --spacing")
+      false
+      (Astring.String.is_infix ~affix:"--spacing" css)
+  in
+  check_zero "p-0" "padding" (p 0);
+  check_zero "mb-0" "margin-bottom" (mb 0);
+  check_zero "top-0" "top" (top 0);
+  check_zero "inset-0" "inset" (inset 0)
+
+(* A runtime carrier is optional only after every use of it has folded away.
+   [space-x-2.5] nests the spacing calculation inside a second [calc()] for the
+   reverse-axis multiplier, so it exercises the full declaration-value walk
+   rather than the direct [padding:calc(var(--spacing)*n)] shape. *)
+let check_nested_spacing_keeps_runtime_carrier () =
+  let utility =
+    match Tw.of_string "space-x-2.5" with
+    | Ok utility -> utility
+    | Error (`Msg msg) -> Alcotest.fail msg
+  in
+  let css = Tw.to_css ~base:false [ utility ] |> Css.to_string ~minify:true in
   Alcotest.(check bool)
-    "p-0 is padding:0" true
-    (Astring.String.is_infix ~affix:"padding:0" css);
+    "utility still reads --spacing" true
+    (Astring.String.is_infix ~affix:"var(--spacing)" css);
   Alcotest.(check bool)
-    "p-0 drops unused --spacing" false
-    (Astring.String.is_infix ~affix:"--spacing" css)
+    "theme keeps referenced --spacing" true
+    (Astring.String.is_infix ~affix:"--spacing:" css)
+
+(* Dependency discovery inspects the value of every emitted declaration. An
+   arbitrary value can be valid for its real property while not being a valid
+   custom-property declaration value (a top-level unmatched closing delimiter is
+   one example), so that inspection must never reparse it through a synthetic
+   declaration. *)
+let check_dependency_scan_accepts_adversarial_value () =
+  let utility =
+    match Tw.of_string "mask-conic-[0)/*1]" with
+    | Ok utility -> utility
+    | Error (`Msg msg) -> Alcotest.fail msg
+  in
+  ignore (Tw.to_css ~base:false [ utility ])
 
 (* A utility that only REFERENCES a theme colour token via var() (here an
    arbitrary bg-[color:var(--color-red-500)]) must still emit that token in
@@ -1104,6 +1155,10 @@ let tests =
     test_case "referenced theme token emitted" `Quick
       test_referenced_theme_token;
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;
+    test_case "nested spacing keeps --spacing" `Quick
+      check_nested_spacing_keeps_runtime_carrier;
+    test_case "dependency scan accepts adversarial value" `Quick
+      check_dependency_scan_accepts_adversarial_value;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
     test_case "Tw.Build.conflict_order delegates to Utility.order" `Quick
@@ -1164,6 +1219,8 @@ let tests =
       test_extra_keeps_plain_order;
     test_case "style with rules and props ordering" `Quick
       test_style_rules_props;
+    test_case "property-default rule is automatic" `Quick
+      test_property_default_rule_is_automatic;
     test_case "theme tokens stripped at every depth" `Quick
       test_theme_tokens_stripped_at_every_depth;
   ]

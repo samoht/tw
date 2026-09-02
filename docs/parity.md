@@ -20,7 +20,7 @@ regeneration.
 
 **Example pages, `examples/*/dune`.** Each of the nine examples builds its CSS
 twice, once through tw and once through `npx tailwindcss`, then diffs the two
-with `cascade diff --diff=canonical --prune-unused-custom-props`. The rule is
+with `cascade diff --diff=canonical`. The rule is
 guarded by `(enabled_if %{bin-available:npx})`, so it is skipped where npx is
 absent, and `%{bin:cascade}` resolves through the dune workspace, so the diff
 runs the freshly built cascade rather than whatever sits on `PATH`.
@@ -77,39 +77,51 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Attempted 2026-08-27 at 5dac2223. **The documented command does not complete.**
-cascade's differ raises `Assertion failed` in `pp_position_reorder`
-(`lib/diff/tree_diff.ml:445`, `assert (expected_pos <> actual_pos)`) and the
-whole report is buffered, so not even the summary line survives. Seven rules
-reach that renderer with the two positions equal, six `mask-[...]` classes and
-`md:text-[2.5rem]/14`, all of them selectors the site's CSS carries more than
-once. `selector_position` answers with the first rule matching the key while the
-`moved` set that decided a move refers to a later one.
-
-The reorder reporting the crash comes from is new: cascade 105eea05
-(2026-08-25) made the canonical comparison read positions back, where before it
-claimed an exact match wherever it sat. Any earlier site number was taken
-without it and is not comparable.
-
-With that assertion disabled locally, the run reports:
+Measured 2026-09-02 at 36b47e32 against cascade a6557326. The documented command
+completed without a patched differ and reported:
 
 ```text
-CSS: 661576 chars vs 664632 chars (0.5% diff)
-Changes: 1 removed rule, 1 modified rule, 1 reordered rule, 3 changed containers
-├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
+CSS: 662557 chars vs 664632 chars (0.3% diff)
+Changes: 1 removed rule, 8 modified rules, 20 reordered rules, 5 changed containers
+├─ .DocSearch-Container
 ├─ .with-line-numbers .line:before
-├─ .DocSearch-Hit[ari...favorites"]:before (position 114) ↔ .DocSearch-Hit[ari...DocSearch-Hit-icon (position 112)
-├─ @media (prefers-color-scheme: dark) (11 blocks merged into 10)
-├─ @layer utilities (45 added, 1453 reordered, 16 rearranged, 1 selector changed)
-└─ @layer components (2 modified)
+├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
+├─ .dark .DocSearch-Container
+├─ .dark .DocSearch-Hit--Result.DocSearch-Hit--Child:before
+├─ .dark .DocSearch-SearchBar
+├─ .dark :is(.DocSearch-Hit:first-child > a)
+├─ .dark :is(.DocSearch-Hit-action [title="Remove this search from favorites"]):before
+├─ .dark .DocSearch-Hit--Result
+├─ .DocSearch-Hits mark (position 132) ↔  .DocSearch-NoResults .DocSearch-Title (position 76)
+├─ .DocSearch-Hit-path mark (position 133) ↔  .DocSearch-StartScreen .DocSearch-Help (position 77)
+├─ .DocSearch-Hits ma...re(.dark, .dark *) (position 134) ↔  .dark .DocSearch-Hit-path (position 78)
+├─ .DocSearch-NoResults-Prefill-List ul (position 135) ↔  .DocSearch-NoResul...st .DocSearch-Help (position 79)
+├─ .DocSearch-NoResul...re(.dark, .dark *) (position 136) ↔  .DocSearch-NoResul...re(.dark, .dark *) (position 80)
+├─ .dark .DocSearch-Modal (position 137) ↔  .DocSearch-NoResul... + .DocSearch-Help (position 81)
+├─ .dark .DocSearch-MagnifierLabel (position 141) ↔  .DocSearch-Container (position 92)
+├─ .dark .DocSearch-Cancel (position 144) ↔  @media (width >= 40rem) (position 93)
+├─ .DocSearch-Hit--Re...DocSearch-Hit-icon (position 145) ↔  @media (width >= 64rem) (position 95)
+├─ .DocSearch-Hit--Pa...DocSearch-Hit-icon (position 146) ↔  .DocSearch-Visuall...enForAccessibility (position 96)
+├─ .DocSearch-Hit--Re...cSearch-Hit-action (position 147) ↔  .DocSearch-Hit (position 97)
+├─ .DocSearch-Hit-act...h from favorites"] (position 148) ↔  .DocSearch-LoadingIndicator (position 98)
+├─ .DocSearch-Hit-act...rch from history"] (position 149) ↔  .DocSearch-Modal (position 99)
+├─ .DocSearch-Hit-act...Save this search"] (position 150) ↔  .DocSearch-Hit--Result (position 100)
+├─ .DocSearch-Hit--Ta...DocSearch-Hit-icon (position 151) ↔  .DocSearch-SearchBar (position 101)
+├─ .DocSearch-Hit--Ta...cSearch-Hit-action (position 152) ↔  .DocSearch-Dropdown-Container (position 102)
+├─ .DocSearch-Hit-act...cSearch-Hit-action (position 153) ↔  .DocSearch-Dropdown (position 103)
+├─ .DocSearch-NoResul...Search-Screen-Icon (position 154) ↔  .DocSearch-Form (position 104)
+├─ .with-line-numbers .line (position 156) ↔  .DocSearch-Hit-Container (position 109)
+├─ .DocSearch-Hit[ari...favorites"]:before (position 160) ↔  .DocSearch-Hit-source (position 114)
+├─ @media (width <= 40rem) (position 116 → 161)
+├─ @media (prefers-color-scheme: dark) (10 block split into 11)
+├─ @layer utilities (45 added, 16 modified, 164 reordered, 4 rearranged, 1 selector changed)
+├─ @layer components (6 modified)
+└─ @supports (color: color-mix(in lab,red,red)) (1 block split into 4)
 ```
 
-Those figures come from a patched differ and are not a measurement. The 45
-added and the 2 modified match what the sections below describe. The 1453
-reordered is new information nobody has validated: it arrives from the same
-commit that produces the crash, so how much of it is tw's ordering debt and how
-much is the differ pairing duplicate selectors badly is unknown until the
-assertion is fixed properly in cascade.
+The top-level entries are quoted with the summary because its five changed
+containers include the utilities layer, which contains hundreds of nested
+changes. The summary alone is not a useful estimate of the remaining work.
 
 **Both sides are minified because every other configuration is noisier.** The
 reference passes through lightningcss, so part of what the diff reports is
@@ -120,12 +132,13 @@ flattens it. Measured on the site corpus:
 
 | harness | utilities layer | components layer |
 |---|---|---|
-| minify both sides | 47 added | 2 modified |
+| minify both sides (current) | 45 added, 16 modified, 164 reordered, 4 rearranged, 1 selector changed | 6 modified |
 | neither side minified | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
 | neither minified, both flattened | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
 
-Those rows were taken before cascade started reading rule positions back, so
-none of them carries a reordered count.
+The two unminified rows predate cascade reading rule positions back, so neither
+of them carries a reordered count and they are not directly comparable to the
+current row.
 
 Flattening afterwards changes nothing, because the canonical comparator already
 folds nesting.
@@ -152,8 +165,8 @@ hundred rule entries.
 **`--diff` compares two minified sheets.** The CSS it attributes to Tailwind has
 already been through lightningcss, so cross-check against
 `tw -s "<class>" --tailwind`, which is unminified, before calling something a tw
-bug. `--diff` also passes `--prune-unused-custom-props`, which makes it blind to
-a utility whose whole effect is a custom property nothing reads.
+bug. Author custom properties are kept even when neither generated sheet reads
+them: CSS outside the generated sheet can still observe them.
 
 **Order is compared, but only since cascade 105eea05.** `--diff=canonical`
 matches rules by key rather than position, and before that commit it said

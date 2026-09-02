@@ -246,16 +246,11 @@ module Handler = struct
 
   (* A [--perspective-*] token the project declared names a depth the built-in
      scale has no slot for; they share the slot after the scale. *)
-  let perspective_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-    Hashtbl.create 8
+  let perspective_named_cache = Domain_cache.v 8
 
   let perspective_named_var name =
-    match Hashtbl.find_opt perspective_named_cache name with
-    | Some var -> var
-    | None ->
-        let var = Var.theme Css.Length ("perspective-" ^ name) ~order:(8, 16) in
-        Hashtbl.add perspective_named_cache name var;
-        var
+    Domain_cache.or_add perspective_named_cache name (fun () ->
+        Var.theme Css.Length ("perspective-" ^ name) ~order:(8, 16))
 
   let perspective_none_var =
     Var.theme Css.Length "perspective-none" ~order:(8, 15)

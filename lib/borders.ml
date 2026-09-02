@@ -293,16 +293,11 @@ module Handler = struct
   (* A [--radius-*] token the project declared names a radius the built-in scale
      has no slot for; they share the slot after the scale, the way the project's
      font families and text sizes share theirs. *)
-  let radius_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-    Hashtbl.create 8
+  let radius_named_cache = Domain_cache.v 8
 
   let radius_named_var name =
-    match Hashtbl.find_opt radius_named_cache name with
-    | Some var -> var
-    | None ->
-        let var = Var.theme Css.Length ("radius-" ^ name) ~order:(7, 11) in
-        Hashtbl.add radius_named_cache name var;
-        var
+    Domain_cache.or_add radius_named_cache name (fun () ->
+        Var.theme Css.Length ("radius-" ^ name) ~order:(7, 11))
 
   let radius_none_var = Var.theme Css.Length "radius-none" ~order:(7, 0)
   let radius_full_var = Var.theme Css.Length "radius-full" ~order:(7, 1)
@@ -635,7 +630,7 @@ module Handler = struct
     | _ -> None
 
   (* A radius the project named in its [@theme]. The built-in scale is published
-     through the same registry, so a built-in name is answered by
+     through the static token catalog, so a built-in name is answered by
      [rounded_size_of_string] before this is consulted. *)
   let is_theme_radius theme n =
     rounded_size_of_string n = None

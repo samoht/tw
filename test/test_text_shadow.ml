@@ -45,6 +45,18 @@ let test_theme_override () =
     "text-shadow-2xs @theme override flows to #0000001a" true
     (Astring.String.is_infix ~affix:"#0000001a" css)
 
+(* Default palette colours stay in their authored OKLCH space, matching the
+   fallback Tailwind emits before its guarded [color-mix()] declaration. *)
+let test_palette_color_keeps_oklch () =
+  let css =
+    Tw.to_css ~base:false [ parse "text-shadow-sky-300" ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check bool)
+    "text-shadow-sky-300 keeps its palette OKLCH value" true
+    (Astring.String.is_infix
+       ~affix:"--tw-text-shadow-color:oklch(82.8%.111 230.318)" css)
+
 (* An arbitrary text-shadow reads every CSS length, not the px/rem/em subset. A
    token that is not a length used to drop out of the list and shift its
    neighbours along, so [0 1ch 2px] became a two-length [0 2px]. *)
@@ -232,6 +244,8 @@ let tests =
       Alcotest.test_case "default scale (v4.3.1)" `Quick test_default_scale;
       Alcotest.test_case "@theme override threads through" `Quick
         test_theme_override;
+      Alcotest.test_case "palette color keeps OKLCH" `Quick
+        test_palette_color_keeps_oklch;
       Alcotest.test_case "arbitrary colour function" `Quick
         test_arbitrary_color_function;
       Alcotest.test_case "arbitrary colour opacity" `Quick

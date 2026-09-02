@@ -1074,7 +1074,10 @@ let parse_px_value s =
    universal selector via {!Cascade.Nest.substitute}, the same substitution
    {!nest_selector} performs for anchored templates. *)
 let has_relative_selector s =
-  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
+  let sel =
+    Css.Selector.read_relative
+      (Cascade.Cursor.of_string (Parse.decode_underscores s))
+  in
   Cascade.Nest.substitute ~parent:Css.Selector.universal sel
 
 (* Validate that a has-selector string can be parsed as a CSS selector. Rejects

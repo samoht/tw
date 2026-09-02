@@ -209,6 +209,23 @@ module Handler = struct
         property_rule_or_empty drop_shadow_size_var;
       ]
 
+  let filter_property_metadata =
+    [
+      Var.metadata blur_var;
+      Var.metadata brightness_var;
+      Var.metadata contrast_var;
+      Var.metadata grayscale_var;
+      Var.metadata hue_rotate_var;
+      Var.metadata invert_var;
+      Var.metadata opacity_var;
+      Var.metadata saturate_var;
+      Var.metadata sepia_var;
+      Var.metadata drop_shadow_var;
+      Var.metadata drop_shadow_color_var;
+      Var.metadata drop_shadow_alpha_var;
+      Var.metadata drop_shadow_size_var;
+    ]
+
   (* Property rules for all backdrop-filter variables *)
   let backdrop_filter_property_rules =
     Css.concat
@@ -223,6 +240,19 @@ module Handler = struct
         property_rule_or_empty backdrop_saturate_var;
         property_rule_or_empty backdrop_sepia_var;
       ]
+
+  let backdrop_filter_property_metadata =
+    [
+      Var.metadata backdrop_blur_var;
+      Var.metadata backdrop_brightness_var;
+      Var.metadata backdrop_contrast_var;
+      Var.metadata backdrop_grayscale_var;
+      Var.metadata backdrop_hue_rotate_var;
+      Var.metadata backdrop_invert_var;
+      Var.metadata backdrop_opacity_var;
+      Var.metadata backdrop_saturate_var;
+      Var.metadata backdrop_sepia_var;
+    ]
 
   (* Composable filter chain: filter: var(--tw-blur, ) var(--tw-brightness, )
      ... *)
@@ -250,7 +280,8 @@ module Handler = struct
     fst (Css.var ~layer:"utilities" name Css.Filter value)
 
   let set_filter_var var_name (value : Css.filter) =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [ filter_var_decl var_name value; filter composable_filter_chain ]
 
   (* Generate a theme-layer declaration for a theme variable if its value is
@@ -268,7 +299,8 @@ module Handler = struct
   let set_filter_var_theme ?theme var_name theme_name
       (make_filter : Css.length -> Css.filter) () =
     let ref_ : Css.length Css.var = Var.theme_ref theme_name in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       (theme_decl_if_set ?theme theme_name
       @ [
           filter_var_decl var_name (make_filter (Var ref_));
@@ -295,16 +327,11 @@ module Handler = struct
 
   (* A [--blur-*] token the project declared names a radius the built-in scale
      has no slot for; they share the slot after the scale. *)
-  let blur_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-    Hashtbl.create 8
+  let blur_named_cache = Domain_cache.v 8
 
   let blur_named_var name =
-    match Hashtbl.find_opt blur_named_cache name with
-    | Some var -> var
-    | None ->
-        let var = Var.theme Css.Length ("blur-" ^ name) ~order:(8, 8) in
-        Hashtbl.add blur_named_cache name var;
-        var
+    Domain_cache.or_add blur_named_cache name (fun () ->
+        Var.theme Css.Length ("blur-" ^ name) ~order:(8, 8))
 
   let blur_md_var = Var.theme Css.Length "blur-md" ~order:(8, 2)
   let blur_lg_var = Var.theme Css.Length "blur-lg" ~order:(8, 3)
@@ -314,7 +341,8 @@ module Handler = struct
 
   let blur_size_utility (theme_var : Css.length Var.theme) default_px () =
     let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         decl;
         filter_var_decl "--tw-blur" (Blur (Var ref_));
@@ -332,7 +360,8 @@ module Handler = struct
         | None -> style []
         | Some len ->
             let decl, ref_ = Var.binding (blur_named_var name) len in
-            style ~property_rules:filter_property_rules
+            style ~metadata:filter_property_metadata
+              ~property_rules:filter_property_rules
               [
                 decl;
                 filter_var_decl "--tw-blur" (Blur (Var ref_));
@@ -349,7 +378,8 @@ module Handler = struct
 
   (* [.blur] (no suffix) is the keyword utility - inline literal blur(8px). *)
   let blur () =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         filter_var_decl "--tw-blur" (Blur (Px 8.));
         filter composable_filter_chain;
@@ -519,7 +549,8 @@ module Handler = struct
          ())
 
   let drop_shadow_none =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         Css.custom_property ~layer:"utilities" "--tw-drop-shadow" " ";
         filter composable_filter_chain;
@@ -530,7 +561,8 @@ module Handler = struct
      a custom theme overrides [--drop-shadow] with a single shadow value, it is
      referenced via [drop-shadow(var(--drop-shadow))] instead. *)
   let drop_shadow_override ?theme () =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       (theme_decl_if_set ?theme "drop-shadow"
       @ [
           bind_drop_shadow_size
@@ -570,7 +602,8 @@ module Handler = struct
       ]
 
   let drop_shadow_default () =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         bind_drop_shadow_size (drop_shadow_default_size None);
         bind_drop_shadow drop_shadow_default_literal;
@@ -594,7 +627,8 @@ module Handler = struct
     let theme_decl, _ref =
       Var.binding theme_var (Css.shadow ~h_offset:h ~v_offset:v ~blur ~color ())
     in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         theme_decl;
         bind_drop_shadow_size (drop_shadow_filter h v (Some blur) color);
@@ -681,7 +715,8 @@ module Handler = struct
           | [ single ] -> single
           | many -> Css.List many
         in
-        style ~property_rules:filter_property_rules
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
           [
             Css.custom_property ~layer:"theme" ("--" ^ theme_name) value;
             bind_drop_shadow_size size;
@@ -710,7 +745,8 @@ module Handler = struct
                ~color:fallback_b ());
         ]
     in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         bind_drop_shadow_size size;
         bind_drop_shadow literal;
@@ -749,7 +785,8 @@ module Handler = struct
         None
 
   let drop_shadow_arbitrary_impl size =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         bind_drop_shadow_size size;
         bind_drop_shadow drop_shadow_size_ref;
@@ -757,7 +794,8 @@ module Handler = struct
       ]
 
   let drop_shadow_inherit_ =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         bind_drop_shadow_color Css.Inherit;
         bind_drop_shadow drop_shadow_size_ref;
@@ -790,7 +828,8 @@ module Handler = struct
         style ~rules:(Option.Some [ supports_block ])
           (theme_decl_if_set ?theme ("color-" ^ color_name)
           @ [ bind_drop_shadow_color fallback_color ]);
-        style ~property_rules:filter_property_rules
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
@@ -812,7 +851,8 @@ module Handler = struct
       [
         style ~rules:(Option.Some [ supports_block ])
           [ bind_drop_shadow_color color ];
-        style ~property_rules:filter_property_rules
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
@@ -833,7 +873,8 @@ module Handler = struct
       [
         style ~rules:(Option.Some [ supports_block ])
           [ bind_drop_shadow_color color ];
-        style ~property_rules:filter_property_rules
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
@@ -872,7 +913,8 @@ module Handler = struct
         style ~rules:(Option.Some [ supports_block ])
           (theme_decl_if_set ?theme ("color-" ^ color_name)
           @ [ bind_drop_shadow_color fallback_color ]);
-        style ~property_rules:filter_property_rules
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
@@ -908,7 +950,8 @@ module Handler = struct
             bind_drop_shadow drop_shadow_default_literal;
           ]
     in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       (theme_decl_if_set ?theme "drop-shadow"
       @ Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
           alpha_str
@@ -937,7 +980,8 @@ module Handler = struct
       else Css.Pp.string_of_float percent ^ "%"
     in
     let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [
         Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
           alpha_str;
@@ -986,7 +1030,8 @@ module Handler = struct
   (* Helper: set a --tw-backdrop-<name> var and output composable backdrop
      chain *)
   let set_backdrop_var var_name (value : Css.filter) =
-    style ~property_rules:backdrop_filter_property_rules
+    style ~metadata:backdrop_filter_property_metadata
+      ~property_rules:backdrop_filter_property_rules
       [
         filter_var_decl var_name value;
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
@@ -1017,7 +1062,8 @@ module Handler = struct
           | None -> theme_name)
     in
     let ref_ : Css.length Css.var = Var.theme_ref actual_theme_name in
-    style ~property_rules:backdrop_filter_property_rules
+    style ~metadata:backdrop_filter_property_metadata
+      ~property_rules:backdrop_filter_property_rules
       (theme_decl_if_set ?theme actual_theme_name
       @ [
           filter_var_decl var_name (make_filter (Var ref_));
@@ -1039,7 +1085,8 @@ module Handler = struct
               (fun l -> Blur l)
               ()
         | None ->
-            style ~property_rules:backdrop_filter_property_rules
+            style ~metadata:backdrop_filter_property_metadata
+              ~property_rules:backdrop_filter_property_rules
               [
                 Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" " ";
                 Css.webkit_backdrop_filter composable_backdrop_filter_chain;
@@ -1051,7 +1098,8 @@ module Handler = struct
      the default theme ships only --blur-*. *)
   let backdrop_blur_size (theme_var : Css.length Var.theme) default_px () =
     let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
-    style ~property_rules:backdrop_filter_property_rules
+    style ~metadata:backdrop_filter_property_metadata
+      ~property_rules:backdrop_filter_property_rules
       [
         decl;
         filter_var_decl "--tw-backdrop-blur" (Blur (Var ref_));
@@ -1064,7 +1112,8 @@ module Handler = struct
 
   (* [.backdrop-blur] (no suffix) emits literal [blur(8px)] in v4. *)
   let backdrop_blur () =
-    style ~property_rules:backdrop_filter_property_rules
+    style ~metadata:backdrop_filter_property_metadata
+      ~property_rules:backdrop_filter_property_rules
       [
         filter_var_decl "--tw-backdrop-blur" (Blur (Px 8.));
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
@@ -1159,14 +1208,16 @@ module Handler = struct
 
   (* Composable filter using all the filter variables *)
   let filter_ =
-    style ~property_rules:filter_property_rules
+    style ~metadata:filter_property_metadata
+      ~property_rules:filter_property_rules
       [ filter composable_filter_chain ]
 
   let filter_none = style [ filter None ]
 
   (* Composable backdrop-filter using all the backdrop-filter variables *)
   let backdrop_filter_ =
-    style ~property_rules:backdrop_filter_property_rules
+    style ~metadata:backdrop_filter_property_metadata
+      ~property_rules:backdrop_filter_property_rules
       [
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
         backdrop_filter composable_backdrop_filter_chain;

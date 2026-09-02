@@ -2,6 +2,14 @@
 
 ### Breaking changes
 
+- Variable ordering and `@property` metadata now travels with `Var` values and
+  `Style.t`, rather than through process-global registries. The registry lookup
+  functions (`Var.order`, `Var.family`, `Var.property_order`,
+  `Var.needs_property`, `Var.register_property_order`, and
+  `Var.resolve_theme_refs`) are removed, and the public `Style.Style` record
+  gains a `metadata` field. Construction, parsing, and rendering are safe to run
+  from multiple OCaml Domains without a mutex; typed `property_default` rules
+  are generated automatically (#653).
 - `bg_transparent`, `bg_current` and the background colour constructors move to
   `Backgrounds`; `border_color`, `border_transparent` and `border_current` move
   to `Color`. Building one from OCaml and parsing the same class name used to
@@ -49,6 +57,9 @@
   utility only reads through `var()` is now declared in the theme layer whatever
   its family, `--spacing(N)` is multiplied out where the project inlines
   `--spacing`, and an `@theme reference` block is represented (#554).
+- Functional utilities follow Tailwind's declaration-count ordering, parity
+  comparisons keep author custom properties, and a folded zero-spacing utility
+  omits the internal `--spacing` carrier it no longer reads (#650, #651, #655).
 - Every `@utility` declared for one name applies, not only the first (#550).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
@@ -103,6 +114,8 @@
 
 ### Arbitrary values and validation
 
+- Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
+  `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote
   it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
   `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
@@ -151,6 +164,8 @@
 
 ### Colours and effects
 
+- Palette box, inset-box and text shadows keep Tailwind's authored OKLCH value
+  as their unguarded fallback instead of converting it to sRGB hex.
 - An opacity modifier reaches every colour family. A ring, a per-side border, a
   shadow, a drop shadow, a decoration and a stroke all take one, the alpha can
   itself be a variable (`bg-cyan-400/(--my-alpha-value)`), and `transparent` and

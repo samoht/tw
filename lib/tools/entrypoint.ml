@@ -2208,12 +2208,33 @@ let routed_slot ~own_order ~order_of cls =
       Stdlib.Option.value ~default:(max_int, max_int)
         (Hashtbl.find_opt order_of cls)
 
-let compare_routed_entries ~own_order ~order_of (c1, _) (c2, _) =
+(* Tailwind counts every declaration in a utility's AST, including ones in
+   nested rules and at-rules. [Css.fold] follows every kind of nested block, so
+   this does not need a brittle list of the block at-rules cascade knows. *)
+let routed_declaration_count stmts =
+  Css.fold
+    (fun count stmt ->
+      match Css.as_rule stmt with
+      | Some (_, declarations, _) -> count + List.length declarations
+      | None -> (
+          match Css.as_declarations stmt with
+          | Some declarations -> count + List.length declarations
+          | None -> count))
+    0 (Css.v stmts)
+
+let compare_routed_entries ~own_order ~order_of (c1, stmts1) (c2, stmts2) =
   let p1, s1 = routed_slot ~own_order ~order_of c1 in
   let p2, s2 = routed_slot ~own_order ~order_of c2 in
   let priority = Int.compare p1 p2 in
   let suborder = if priority <> 0 then priority else Int.compare s1 s2 in
-  if suborder <> 0 then suborder else String.compare c1 c2
+  if suborder <> 0 then suborder
+  else
+    let count =
+      Int.compare
+        (routed_declaration_count stmts2)
+        (routed_declaration_count stmts1)
+    in
+    if count <> 0 then count else String.compare c1 c2
 
 (* Within one declared utility, the rules it writes outright come before the
    ones a variant wrapped in an at-rule, the order the generator gives a

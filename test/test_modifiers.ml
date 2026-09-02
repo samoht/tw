@@ -902,10 +902,10 @@ let test_has_data_and_not_composition () =
   has "not-peer-has-checked:opacity-0"
     ".not-peer-has-checked\\:opacity-0:not(:is(:where(.peer):has(:checked)~*))"
 
-(* A bracket [has-] argument is one relative selector, so a list inside it goes
-   in an [:is()]; a bare type selector keeps its brackets in the class name
-   rather than being read as a state name. And [group-not-] takes any variant as
-   its inner, not just the simple states. *)
+(* A bracket [has-] argument is one arbitrary relative selector, so Tailwind
+   wraps it in [:is()], including a bare type selector. The brackets stay in the
+   class name rather than being read as a state name. And [group-not-] takes any
+   variant as its inner, not just the simple states. *)
 let test_has_bracket_arguments () =
   let css cls =
     match Tw.of_string cls with
@@ -916,9 +916,15 @@ let test_has_bracket_arguments () =
     check bool cls true (Astring.String.is_infix ~affix (css cls))
   in
   has "has-[[data-a],[data-b]]:block" ":has(:is([data-a], [data-b]))";
-  has "has-[a]:block" ".has-\\[a\\]\\:block:has(a)";
+  has "has-[a]:block" ".has-\\[a\\]\\:block:has(:is(a))";
+  has "has-[:focus]:block" ".has-\\[\\:focus\\]\\:block:has(:focus)";
+  has "has-[.item]:block" ".has-\\[\\.item\\]\\:block:has(.item)";
+  has "has-[a_.item]:block" ".has-\\[a_\\.item\\]\\:block:has(:is(a .item))";
+  has "has-[&>img]:block" ".has-\\[\\&\\>img\\]\\:block:has(*>img)";
   has "group-has-[a]:block"
-    ".group-has-\\[a\\]\\:block:is(:where(.group):has(a) *)";
+    ".group-has-\\[a\\]\\:block:is(:where(.group):has(:is(a)) *)";
+  has "peer-has-[a]:block"
+    ".peer-has-\\[a\\]\\:block:is(:where(.peer):has(:is(a))~*)";
   has "group-not-has-[[data-hover],[data-focus]]:block"
     ":not(:has(:is([data-hover], [data-focus])))";
   (* the hocus shorthand really is two selectors and stays a list *)

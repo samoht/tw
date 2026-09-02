@@ -405,13 +405,8 @@ val theme :
     Several variables may share an [order]: token families are numbered from
     their own base, and the families a project [\@theme] names funnel every
     member into one slot. The theme layer breaks such a tie on the variable
-    name.
-
-    A name, though, owns its slot. [order] places [name] the first time [name]
-    is defined; a later definition of the same name is placed where the name
-    already sits, and the variable it returns carries that slot. So a project
-    [\@theme] naming a built-in token reaches this function through its family's
-    shared slot and still leaves the token where it belongs. *)
+    name. Ordering metadata travels with the variable and its declarations;
+    construction does not mutate a process-global registry. *)
 
 val property_default :
   'a Css.kind ->
@@ -431,29 +426,10 @@ val property_default :
     [property_order] specifies the ordering of this variable in the
     {i \@layer properties \@supports} block. Lower values appear first.
 
-    {b IMPORTANT}: Due to current architecture limitations, any style that uses
-    a [property_default] variable MUST include its {!val-property_rule}
-    explicitly:
-    {[
-    let my_var =
-      Var.property_default Css.Content ~initial:(Css.String "")
-        "tw-example-content"
-
-    let my_style =
-      let decl, ref_ = Var.binding my_var (Css.String "") in
-      let property_rules =
-        match Var.property_rule my_var with None -> Css.empty | Some r -> r
-      in
-      Style.style ~property_rules [ decl; Css.content (Css.Var ref_) ]
-    ]}
-
-    This ensures the [\@property] rule with the correct initial value flows
-    through the system. Without this, a generic [\@property] rule without
-    initial value may be generated, breaking the CSS output.
-
-    TODO: Fix this architecture limitation to automatically include property
-    rules for property_default variables in build.ml without requiring explicit
-    inclusion. *)
+    The build reads the typed registration metadata from declarations and
+    references, so a style using {!val-binding} automatically carries the
+    matching [\@property] rule. Passing [~property_rules] explicitly remains
+    supported for hand-written rules. *)
 
 val channel :
   ?needs_property:bool ->
@@ -468,39 +444,6 @@ val channel :
     block. Ideal for composition patterns where contributing utilities set
     declarations and aggregators reference values. *)
 
-val property_order : string -> int option
-(** [property_order name] returns the property order for a variable name, used
-    for sorting properties in the {i \@layer properties \@supports} block.
-    Returns [None] if no order was registered. *)
-
-val register_property_order : name:string -> order:int -> unit
-(** [register_property_order ~name ~order] registers a property order for a
-    variable name. Used by modules that create [\@property] rules directly
-    (without using [Var.property_default]) and need to participate in the
-    properties layer ordering. The [name] should be without the ["--"] prefix.
-
-    A name owns its slot: a second registration that agrees restates it, and one
-    that disagrees raises [Invalid_argument] rather than letting module
-    initialisation order decide the properties layer. *)
-
-val order : string -> (int * int) option
-(** [order name] returns the theme layer order for a variable name, with or
-    without the leading ["--"]. [None] if no variable of that name has been
-    defined, which for the tokens a project [\@theme] names means before the
-    utility reading them has been rendered.
-
-    The answer is where [name] itself sits, never the slot of a variable that
-    shares it. *)
-
-val family : string -> family option
-(** [family name] returns the family for a variable name. None if the variable
-    is not registered. *)
-
-val needs_property : string -> bool
-(** [needs_property name] returns whether a variable needs an [\@property] rule.
-    Returns [false] if the variable is not registered or doesn't need
-    [\@property]. *)
-
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
     variable with a concrete fallback for inline mode. No declaration is
@@ -511,20 +454,14 @@ val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
 (** [theme_ref ?default ?default_css name] creates a bare var reference to a
     theme variable. In variables mode, emits [var(--name)].
 
-    When [default] and [default_css] are provided, the variable is registered in
-    the resolution registry: when the theme doesn't define it, the concrete
-    [default_css] string is emitted instead. [default] is the typed value used
-    for inline mode.
+    When [default] and [default_css] are provided, both defaults are carried by
+    the returned reference. [default] is the typed value used for inline mode;
+    [default_css] is available from its metadata to theme-resolution passes.
 
     When [default] and [default_css] are omitted, the var reference is created
     without resolution registration. Use this for dynamically-constructed theme
-    variable names (e.g., [blur-xl], [spacing-4]) where the theme value is
-    already registered elsewhere. *)
-
-val resolve_theme_refs : string -> string option
-(** [resolve_theme_refs name] returns the default CSS string value for a
-    {!val-theme_ref} variable. Used as [theme_defaults] in [Pp.ctx] when theme
-    variables don't exist and should be replaced by their concrete defaults. *)
+    variable names (e.g., [blur-xl], [spacing-4]) whose values come from the
+    active theme. *)
 
 val binding :
   ('a, [< `Theme | `Property_default | `Channel ]) t ->
@@ -621,6 +558,50 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
 
 (** {1 Helper Types and Functions} *)
 
+type metadata
+(** Build metadata carried by variable references and declarations. *)
+
+val metadata : ('a, _) t -> metadata
+(** [metadata var] returns the build metadata attached to [var]. *)
+
+val metadata_of_var : 'a Css.var -> metadata option
+(** [metadata_of_var var] returns metadata carried by a CSS variable reference,
+    if the reference originated from this module. *)
+
+val metadata_of_declaration : Css.declaration -> metadata option
+(** [metadata_of_declaration declaration] returns metadata carried by a custom
+    property declaration, if the declaration originated from this module. *)
+
+val metadata_name : metadata -> string
+(** [metadata_name metadata] is the custom-property name without its leading
+    ["--"]. *)
+
+val metadata_order : metadata -> (int * int) option
+(** [metadata_order metadata] is its Theme-layer ordering slot, if any. *)
+
+val metadata_property_order : metadata -> int option
+(** [metadata_property_order metadata] is its ordering slot in the properties
+    layer, if any. *)
+
+val metadata_family : metadata -> family option
+(** [metadata_family metadata] is its related-property family, if any. *)
+
+val metadata_needs_property : metadata -> bool
+(** [metadata_needs_property metadata] reports whether the variable needs an
+    [@property] registration. *)
+
+val metadata_default_css : metadata -> string option
+(** [metadata_default_css metadata] is the serialized typed initial value used
+    for an automatic [@property] registration, if any. *)
+
+val property_rule_of_metadata : metadata -> Css.t option
+(** [property_rule_of_metadata metadata] reconstructs the exact typed
+    [@property] rule carried by a variable definition, if any. *)
+
+val property_rule_of_var : 'a Css.var -> Css.t option
+(** [property_rule_of_var var] is the exact typed [@property] rule carried by
+    [var], if any. *)
+
 val name : ('a, _) t -> string
 (** [name var] is the custom property's name without the leading ["--"], the
     spelling {!theme_ref} and {!bracket} take. Read it off the handle rather
@@ -638,6 +619,10 @@ val needs_property_rule : 'a Css.var -> bool
 val order_of_declaration : Css.declaration -> (int * int) option
 (** [order_of_declaration d] returns theme ordering information for a custom
     declaration. *)
+
+val is_runtime_declaration : Css.declaration -> bool
+(** [is_runtime_declaration d] is [true] when [d] belongs to a theme variable
+    created with [~runtime:true]. *)
 
 val property_initial_declaration : Css.property_info -> Css.declaration
 (** [property_initial_declaration info] is the declaration that sets a parsed

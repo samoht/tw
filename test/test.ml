@@ -59,6 +59,7 @@ let () =
       Test_forms.suite;
       Test_interactivity.suite;
       Test_parse.suite;
+      Test_domain_cache.suite;
       Test_position.suite;
       Test_output.suite;
       Test_rule.suite;

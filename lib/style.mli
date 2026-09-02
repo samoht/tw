@@ -305,6 +305,7 @@ type t =
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
+      metadata : Var.metadata list;
       merge_key : string option;
       pseudo_suffix : Css.Selector.t option;
     }
@@ -366,6 +367,7 @@ val container_size_name : container_query -> string
 val style :
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
+  ?metadata:Var.metadata list ->
   ?merge_key:string ->
   ?pseudo_suffix:Css.Selector.t ->
   Css.declaration list ->
@@ -374,6 +376,8 @@ val style :
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors).
     - [property_rules]: Optional CSS property rules needed by this utility.
+    - [metadata]: Metadata for variables represented by raw declarations or
+      explicit property rules; typed declarations are collected automatically.
     - [props]: CSS properties to apply. *)
 
 val map_important : t -> t

@@ -5,10 +5,10 @@
     - `grid-rows-*` - Grid template rows (1-6, none, subgrid).
     - `grid-flow-*` - Grid auto flow direction and density.
     - `auto-cols-*`, `auto-rows-*` - Auto sizing for implicit tracks.
+    - Arbitrary track lists accepted by the corresponding CSS property grammar.
 
     What's not:
-    - Arbitrary grid templates beyond the provided scale.
-    - Named grid lines or areas.
+    - Named grid areas.
 
     Parsing contract (`of_string`):
     - Accepts ["grid"; "cols" | "rows"; n], ["grid"; "flow"; ...],
@@ -95,167 +95,20 @@ module Handler = struct
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
-  let parse_arbitrary_length s : Css.length option =
-    let value = String.trim s in
-    let len = String.length value in
-    if len = 0 then None
-    else if len >= 2 && String.sub value (len - 2) 2 = "px" then
-      match float_of_string_opt (String.sub value 0 (len - 2)) with
-      | Some n -> Some (Px n)
-      | None -> None
-    else if len >= 3 && String.sub value (len - 3) 3 = "rem" then
-      match float_of_string_opt (String.sub value 0 (len - 3)) with
-      | Some n -> Some (Rem n)
-      | None -> None
-    else if len >= 2 && String.sub value (len - 2) 2 = "em" then
-      match float_of_string_opt (String.sub value 0 (len - 2)) with
-      | Some n -> Some (Em n)
-      | None -> None
-    else if len >= 1 && value.[len - 1] = '%' then
-      match float_of_string_opt (String.sub value 0 (len - 1)) with
-      | Some n -> Some (Pct n)
-      | None -> None
-    else if len >= 2 && String.sub value (len - 2) 2 = "fr" then
-      (* Handle fr values *)
-      None (* fr needs special handling as grid_template type *)
-    else
-      match int_of_string_opt value with
-      | Some n -> Some (Px (float_of_int n))
-      | None -> None
-
-  let rec all_some = function
-    | [] -> Some []
-    | x :: xs -> (
-        match (x, all_some xs) with
-        | Some v, Some vs -> Some (v :: vs)
-        | _ -> None)
-
-  (* Split [s] on [sep] only at the top nesting level, so separators inside
-     repeat()/minmax()/fit-content() are preserved. *)
-  let split_top_level sep s =
-    let len = String.length s in
-    let buf = Buffer.create len in
-    let rec loop i depth acc =
-      if i >= len then List.rev (Buffer.contents buf :: acc)
-      else
-        let c = s.[i] in
-        if c = '(' then (
-          Buffer.add_char buf c;
-          loop (i + 1) (depth + 1) acc)
-        else if c = ')' then (
-          Buffer.add_char buf c;
-          loop (i + 1) (max 0 (depth - 1)) acc)
-        else if c = sep && depth = 0 then (
-          let part = Buffer.contents buf in
-          Buffer.clear buf;
-          loop (i + 1) depth (part :: acc))
-        else (
-          Buffer.add_char buf c;
-          loop (i + 1) depth acc)
-    in
-    loop 0 0 []
-
-  (* If [value] is [name(...)], return the inner argument string. *)
-  let fn_args name value =
-    let nl = String.length name and vl = String.length value in
-    if
-      vl > nl + 1
-      && String.sub value 0 nl = name
-      && value.[nl] = '('
-      && value.[vl - 1] = ')'
-    then Some (String.sub value (nl + 1) (vl - nl - 2))
-    else None
-
-  let parse_track_keyword value : Css.grid_template option =
-    (* Unitless zero stays bare (minmax(0,1fr)), not 0px. *)
-    if value = "0" then Some Css.Zero
-    else
-      match parse_arbitrary_length value with
-      | Some (Px n) -> Some (Px n)
-      | Some (Rem n) -> Some (Rem n)
-      | Some (Em n) -> Some (Em n)
-      | Some (Pct n) -> Some (Pct n)
-      | Some (Vw n) -> Some (Vw n)
-      | Some (Vh n) -> Some (Vh n)
-      | Some l -> Some (Length l)
-      | None -> (
-          let len = String.length value in
-          if len >= 2 && String.sub value (len - 2) 2 = "fr" then
-            match float_of_string_opt (String.sub value 0 (len - 2)) with
-            | Some n -> Some (Fr n)
-            | None -> None
-          else if value = "auto" then Some Auto
-          else if value = "min-content" then Some Min_content
-          else if value = "max-content" then Some Max_content
-          else
-            (* A math-function track (min()/max()/clamp()/calc()), a var() or
-               the [--spacing()] shorthand: all lengths the suffix-based parse
-               above does not recognise. *)
-            match Parse.arbitrary_length value with
-            | Some l -> Some (Length l)
-            | None -> None)
-
-  (* A single grid track: a length/keyword, or one of the grid functions
-     minmax()/fit-content()/repeat() (which may nest). *)
-  let rec parse_single_track value : Css.grid_template option =
-    match fn_args "minmax" value with
-    | Some inner -> (
-        match List.map String.trim (split_top_level ',' inner) with
-        | [ a; b ] -> (
-            match (parse_single_track a, parse_single_track b) with
-            | Some ta, Some tb -> Some (Css.Min_max (ta, tb))
-            | _ -> None)
-        | _ -> None)
-    | None -> (
-        match fn_args "fit-content" value with
-        | Some inner -> (
-            match parse_arbitrary_length (String.trim inner) with
-            | Some l -> Some (Css.Fit_content l)
-            | None -> None)
-        | None -> (
-            match fn_args "repeat" value with
-            | Some inner -> parse_repeat inner
-            | None -> parse_track_keyword value))
-
-  and parse_repeat inner =
-    match split_top_level ',' inner with
-    | count_s :: rest when rest <> [] -> (
-        let count =
-          match String.trim count_s with
-          | "auto-fill" -> Some Css.Auto_fill
-          | "auto-fit" -> Some Css.Auto_fit
-          | n -> (
-              match int_of_string_opt n with
-              | Some i -> Some (Css.Count i)
-              | None ->
-                  (* [repeat(var(--columns), ...)]: the count can be a var. *)
-                  if Parse.is_var n then
-                    Some (Css.Var (Var.bracket (Parse.extract_var_name n)))
-                  else None)
-        in
-        (* The track list after the count is space-separated (underscores in the
-           bracket); commas only separated count from the list. *)
-        let tracks =
-          String.concat "," rest |> split_top_level '_'
-          |> List.filter (fun s -> s <> "")
-          |> List.map String.trim
-        in
-        match (count, all_some (List.map parse_single_track tracks)) with
-        | Some c, Some ts -> Some (Css.Repeat (c, ts))
-        | _ -> None)
-    | _ -> None
-
-  let parse_arbitrary_grid_template s : Css.grid_template option =
-    let value = String.trim s in
-    (* Underscores are spaces in bracket values; split tracks at the top level
-       so functions like repeat(2,1fr_2fr) keep their inner underscores. *)
-    let parts = split_top_level '_' value |> List.filter (fun s -> s <> "") in
-    match parts with
-    | [] -> None
-    | [ single ] -> parse_single_track single
-    | tracks -> (
-        match all_some (List.map parse_single_track tracks) with
-        | Some ts -> Some (Tracks ts)
+  (* Parse the complete property grammar in Cascade. Keeping a second grid
+     parser here made tw reject valid CSS as soon as Grid gained flex-valued
+     math functions, and also made template and auto-track validation drift. *)
+  let parse_arbitrary_grid_template read s : Css.grid_template option =
+    let decoded = Parse.decode_arbitrary_value (String.trim s) in
+    let cursor = Cascade.Cursor.of_string decoded in
+    match Cascade.Cursor.try_parse_full_err read cursor with
+    | Ok template -> Some template
+    | Error _ -> (
+        (* Tailwind's upstream fixture includes the invalid CSS value [[123]].
+           Preserve tw's established interpretation as [123px] without weakening
+           Cascade's property grammar for every other value. *)
+        match int_of_string_opt decoded with
+        | Some n -> Some (Css.Px (float_of_int n))
         | None -> None)
 
   (* A track written with the [--spacing()] shorthand reads the scale, so the
@@ -421,7 +274,10 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          match parse_arbitrary_grid_template inner with
+          match
+            parse_arbitrary_grid_template
+              Css.Properties.read_grid_template_tracks inner
+          with
           | Some template -> Ok (Grid_cols_arbitrary (inner, template))
           | None -> err_invalid_cols
         else
@@ -434,7 +290,10 @@ module Handler = struct
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          match parse_arbitrary_grid_template inner with
+          match
+            parse_arbitrary_grid_template
+              Css.Properties.read_grid_template_tracks inner
+          with
           | Some template -> Ok (Grid_rows_arbitrary (inner, template))
           | None -> err_invalid_rows
         else
@@ -457,7 +316,10 @@ module Handler = struct
             let len = String.length n in
             if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
               let inner = String.sub n 1 (len - 2) in
-              match parse_arbitrary_grid_template inner with
+              match
+                parse_arbitrary_grid_template
+                  Css.Properties.read_grid_auto_tracks inner
+              with
               | Some template -> Ok (Auto_cols_arbitrary (inner, template))
               | None -> err_not_utility
             else err_not_utility)
@@ -472,7 +334,10 @@ module Handler = struct
             let len = String.length n in
             if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
               let inner = String.sub n 1 (len - 2) in
-              match parse_arbitrary_grid_template inner with
+              match
+                parse_arbitrary_grid_template
+                  Css.Properties.read_grid_auto_tracks inner
+              with
               | Some template -> Ok (Auto_rows_arbitrary (inner, template))
               | None -> err_not_utility
             else err_not_utility)

@@ -37,10 +37,4 @@
   (setenv
    CASCADE_COLOR
    always
-   (run
-    %{bin:cascade}
-    diff
-    --diff=canonical
-    --prune-unused-custom-props
-    colors.css
-    tailwind.css))))
+   (run %{bin:cascade} diff --diff=canonical colors.css tailwind.css))))

@@ -97,18 +97,11 @@ let font_weight_black_var =
 
 (* A [--font-weight-*] token the project declared names a weight the built-in
    scale has no slot for; they share the slot after the scale. *)
-let font_weight_named_cache : (string, Css.font_weight Var.theme) Hashtbl.t =
-  Hashtbl.create 8
+let font_weight_named_cache = Domain_cache.v 8
 
 let font_weight_named_var name =
-  match Hashtbl.find_opt font_weight_named_cache name with
-  | Some var -> var
-  | None ->
-      let var =
-        Var.theme Css.Font_weight ("font-weight-" ^ name) ~order:(6, 38)
-      in
-      Hashtbl.add font_weight_named_cache name var;
-      var
+  Domain_cache.or_add font_weight_named_cache name (fun () ->
+      Var.theme Css.Font_weight ("font-weight-" ^ name) ~order:(6, 38))
 
 (* Theme variables for named tracking values *)
 let tracking_tighter_var = Var.theme Css.Length "tracking-tighter" ~order:(6, 39)
@@ -121,16 +114,11 @@ let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
 (* A [--tracking-*] token the project declared names a letter spacing the
    built-in scale has no slot for; they share the slot after the scale, the way
    the project's font families and text sizes share theirs. *)
-let tracking_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-  Hashtbl.create 8
+let tracking_named_cache = Domain_cache.v 8
 
 let tracking_named_var name =
-  match Hashtbl.find_opt tracking_named_cache name with
-  | Some var -> var
-  | None ->
-      let var = Var.theme Css.Length ("tracking-" ^ name) ~order:(6, 45) in
-      Hashtbl.add tracking_named_cache name var;
-      var
+  Domain_cache.or_add tracking_named_cache name (fun () ->
+      Var.theme Css.Length ("tracking-" ^ name) ~order:(6, 45))
 
 (* Theme variables for named leading values *)
 let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
@@ -236,42 +224,27 @@ let default_font_variant_theme : font_variant_theme =
 (* Font family theme variables. A project [@theme] can name families of its own
    ([--font-source]); order (1, 100) puts those after the three built-in
    stacks. *)
-let font_named_cache : (string, Css.font_family Var.theme) Hashtbl.t =
-  Hashtbl.create 8
+let font_named_cache = Domain_cache.v 8
 
 let font_named_var name =
-  match Hashtbl.find_opt font_named_cache name with
-  | Some var -> var
-  | None ->
-      let var = Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100) in
-      Hashtbl.add font_named_cache name var;
-      var
+  Domain_cache.or_add font_named_cache name (fun () ->
+      Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100))
 
 (* A [--text-*] token the project declared names a font size the built-in scale
    has no slot for; they share the slot after the scale, the way the project's
    font families share theirs. *)
-let text_named_cache : (string, Css.length Var.theme) Hashtbl.t =
-  Hashtbl.create 8
+let text_named_cache = Domain_cache.v 8
 
 let text_named_var name =
-  match Hashtbl.find_opt text_named_cache name with
-  | Some var -> var
-  | None ->
-      let var = Var.theme Css.Length ("text-" ^ name) ~order:(6, 26) in
-      Hashtbl.add text_named_cache name var;
-      var
+  Domain_cache.or_add text_named_cache name (fun () ->
+      Var.theme Css.Length ("text-" ^ name) ~order:(6, 26))
 
 (* The same for a [--leading-*] token the project declared. *)
-let leading_named_cache : (string, Css.line_height Var.theme) Hashtbl.t =
-  Hashtbl.create 8
+let leading_named_cache = Domain_cache.v 8
 
 let leading_named_var name =
-  match Hashtbl.find_opt leading_named_cache name with
-  | Some var -> var
-  | None ->
-      let var = Var.theme Css.Line_height ("leading-" ^ name) ~order:(6, 53) in
-      Hashtbl.add leading_named_cache name var;
-      var
+  Domain_cache.or_add leading_named_cache name (fun () ->
+      Var.theme Css.Line_height ("leading-" ^ name) ~order:(6, 53))
 
 let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
 let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
@@ -661,9 +634,9 @@ module Typography_early = struct
     <> None
 
   (* A font size the project named in its [@theme]. The built-in scale is
-     published through the same registry, so exclude it: those names have their
-     own constructors. [text-<name>] also spells a colour, and a project that
-     declares both under one name gets the colour, as Tailwind does.
+     published through the static token catalog, so exclude it: those names have
+     their own constructors. [text-<name>] also spells a colour, and a project
+     that declares both under one name gets the colour, as Tailwind does.
      [--text-shadow-*] is a namespace of its own, and a doubled hyphen marks a
      modifier on another token ([--text-lg--line-height]), so neither names a
      size; nor does a token whose value is not a length. *)

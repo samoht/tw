@@ -31,6 +31,18 @@ let extract_rule_selectors stmts =
 let our_css utilities =
   Tw.to_css ~base:true utilities |> Css.to_string ~minify:true ~lossless:true
 
+(* Cascade's printer and Tailwind's minifier can spell the same token stream
+   differently inside a custom property: optional whitespace around calc
+   operators, quotes around a multi-word font family, or spaces between OKLCH
+   channels. Parse and print both sheets once before a parity comparison so
+   those serializer choices share one spelling. No declaration is removed, so
+   missing, extra, or genuinely different custom-property values stay visible. A
+   sheet the reader rejects is passed through unchanged and still fails. *)
+let respelled css =
+  match Css.of_string css with
+  | Ok { Css.stylesheet; _ } -> Css.to_string ~minify:true stylesheet
+  | Error _ -> css
+
 (* Parity tests need the pinned tailwindcss CLI. Skipping is right on a
    developer machine without node, and wrong on CI, where it retires a fifth of
    the suite into [SKIP] lines that dune swallows on success, so the run reports
@@ -201,17 +213,14 @@ let interacting_pairs classes =
 (* The single ordering predicate. The fuzzer minimises with it and every suite
    asserts on it, so a minimal case it reports is a case the assertion also
    rejects; two predicates that disagree let the fuzzer print a failing case and
-   pass anyway. Pruning dead custom properties makes it blind to utilities whose
-   only output is an unreferenced binding - check_rendering_matches covers that
-   class now, and agreeing on one predicate is worth more than the extra
-   sensitivity here. *)
+   pass anyway. *)
 (* Both sheets for one case. [ordering_faults] needs the text as well as the
    diff, and generating them here keeps one description of what is compared. *)
 let sheets ?(forms = false) utilities =
   (tailwind_css ~forms (List.map Tw.pp utilities), our_css utilities)
 
 let canonical_diff (tailwind, tw) =
-  Css_compare.diff ~mode:`Canonical ~prune_unused_custom_props:true tailwind tw
+  Tw_tools.Parity_compare.diff ~mode:`Canonical tailwind tw
 
 let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 
@@ -454,8 +463,8 @@ let check_rendering_matches ?(forms = false) ?(inner = "") ~test_name utilities
   let entry cls =
     if String.equal inner "" then cls else cls ^ "\t" ^ one_line inner
   in
-  write_file (path "tw.css") (our_css utilities);
-  write_file (path "tailwind.css") tailwind;
+  write_file (path "tw.css") (respelled (our_css utilities));
+  write_file (path "tailwind.css") (respelled tailwind);
   write_file (path "elements.txt")
     (String.concat "\n" (List.map entry elements));
   let out = path "diff.txt" and err = path "stderr.txt" in
@@ -490,21 +499,6 @@ let check_ordering_matches ?forms ~test_name utilities =
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
-
-(* Cascade's printer and Tailwind's minifier spell the same value differently
-   wherever CSS makes the difference insignificant: a custom property holds
-   [oklch(63.7% .237 25.331)] on one side and [oklch(63.7%.237 25.331)] on the
-   other, a font stack keeps its quotes on one and drops them on the other.
-   Neither sheet is wrong, so a comparison sensitive to the bytes reads both
-   through the same printer first. Parsing and re-printing respells a sheet
-   without changing what it declares: the printer merges no rules, moves none,
-   and drops no binding, so a rule written twice stays written twice and a
-   binding nothing reads stays bound. A sheet the reader rejects is passed
-   through untouched, leaving {!Css_compare} to report the parse error. *)
-let respelled css =
-  match Css.of_string css with
-  | Ok { Css.stylesheet; _ } -> Css.to_string ~minify:true stylesheet
-  | Error _ -> css
 
 let tree_diff_css ~expected ~actual =
   Css_compare.diff ~mode:`Tree (respelled expected) (respelled actual)

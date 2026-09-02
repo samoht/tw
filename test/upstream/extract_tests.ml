@@ -440,10 +440,10 @@ let var_reference_re = Re.Pcre.regexp {|var\(\s*--([A-Za-z0-9_-]+)|}
 let var_references body =
   List.map (fun g -> Re.Group.get g 1) (Re.all var_reference_re body)
 
-(* Theme-token registries are populated by the families that own them. Building
-   the base sheet once loads the same complete registry the replay runner uses;
-   the extractor can then distinguish a missing theme token from an arbitrary
-   runtime custom property. *)
+(* The static theme-token catalog is populated by the families that own it.
+   Building the base sheet once loads the same complete snapshot the replay
+   runner uses; the extractor can then distinguish a missing theme token from an
+   arbitrary runtime custom property. *)
 let init_theme_tokens = lazy (ignore (Tw.to_css ~base:true []))
 
 (* [@utility example-*] declares a functional utility: its body is a template
@@ -545,8 +545,7 @@ let unreplayable ~defs ~config ~theme_vars ~classes expected =
   let () = Lazy.force init_theme_tokens in
   let unresolved_reference name =
     (not (List.mem_assoc name theme_vars))
-    && (Option.is_some (Tw.Scheme.token_default name)
-       || Option.is_some (Tw.Var.resolve_theme_refs name))
+    && Option.is_some (Tw.Scheme.token_default name)
   in
   let reads_unknown_token =
     List.exists

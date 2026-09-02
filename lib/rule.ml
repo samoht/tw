@@ -460,10 +460,21 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
     accepts a bare leading combinator, e.g. [>div] or [~img]), with [&] (the
     utility's own element) resolved to the universal selector - the same
     substitution {!Modifiers.nest_selector} performs for [group-[...]] /
-    [peer-[...]] templates, via {!Cascade.Nest.substitute}. *)
+    [peer-[...]] templates, via {!Cascade.Nest.substitute}. The boolean records
+    whether that substitution happened, because Tailwind leaves the resulting
+    complex selector outside [:is()]. *)
 let has_relative_selector s =
-  let sel = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
-  Cascade.Nest.substitute ~parent:Css.Selector.universal sel
+  let unresolved =
+    Css.Selector.read_relative
+      (Cascade.Cursor.of_string (Parse.decode_underscores s))
+  in
+  let has_nesting =
+    Css.Selector.any
+      (function Css.Selector.Nesting -> true | _ -> false)
+      unresolved
+  in
+  ( Cascade.Nest.substitute ~parent:Css.Selector.universal unresolved,
+    has_nesting )
 
 (* The selector a has-shorthand name stands for. [has-<state>] takes the same
    state names as the group/peer variants and matches what that state matches,
@@ -480,6 +491,19 @@ let resolve_has_shorthand = function
   | s when Style.is_data_attr_name s -> "[" ^ s ^ "]"
   | s -> ":" ^ s
 
+(* Tailwind puts a bracketed type, universal, selector-list, or complex selector
+   through [:is()] before it enters [:has()]. A class, ID, attribute or
+   pseudo-class stays simple, and a leading combinator stays relative. *)
+let wrap_has_bracket_selector ~has_nesting =
+  let open Css.Selector in
+  function
+  | sel when has_nesting -> sel
+  | List sels -> is_ sels
+  | ( Element _ | Universal _ | Combined _
+    | Compound ((Element _ | Universal _) :: _) ) as sel ->
+      is_ [ sel ]
+  | sel -> sel
+
 (* The [:has()] argument a has-variant matches, from the spelling the modifier
    stored: a state name resolves to its pseudo-class, anything else is already a
    selector. *)
@@ -487,10 +511,9 @@ let has_inner_selector raw =
   let str =
     if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
   in
-  match has_relative_selector str with
-  | Css.Selector.List sels when not (Style.is_has_shorthand raw) ->
-      Css.Selector.is_ sels
-  | sel -> sel
+  let sel, has_nesting = has_relative_selector str in
+  if Style.is_has_shorthand raw then sel
+  else wrap_has_bracket_selector ~has_nesting sel
 
 (* The relative selector a group/peer has-variant scopes to:
    [:where(.group):has(<inner>) *]. *)
@@ -518,12 +541,14 @@ let route_regular ~selector ~base_class ~modified_class ~modified ?has_hover
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~selector
     selector_str base_class props =
   let open Css.Selector in
+  let parsed_selector, has_nesting = has_relative_selector selector_str in
+  (* A bracket value is one arbitrary selector and is wrapped when it is not
+     already relative. The [hocus] shorthand is genuinely two selectors and
+     stays a list. *)
   let parsed_selector =
-    match has_relative_selector selector_str with
-    (* A bracket list is one relative selector, so it goes in an [:is()]. The
-       [hocus] shorthand is genuinely two, and stays a list. *)
-    | List sels when shorthand = None -> is_ sels
-    | sel -> sel
+    match shorthand with
+    | None -> wrap_has_bracket_selector ~has_nesting parsed_selector
+    | Some _ -> parsed_selector
   in
   let has_part s =
     match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"

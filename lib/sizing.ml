@@ -632,18 +632,11 @@ module Handler = struct
   (* A [--aspect-*] token the project declared names a ratio the built-in scale
      has no slot for; the utility references it and the theme layer carries the
      project's own spelling. *)
-  let aspect_named_cache : (string, Css.aspect_ratio Var.theme) Hashtbl.t =
-    Hashtbl.create 8
+  let aspect_named_cache = Domain_cache.v 8
 
   let aspect_named_var name =
-    match Hashtbl.find_opt aspect_named_cache name with
-    | Some var -> var
-    | None ->
-        let var =
-          Var.theme Css.Aspect_ratio ("aspect-" ^ name) ~order:(8, 21)
-        in
-        Hashtbl.add aspect_named_cache name var;
-        var
+    Domain_cache.or_add aspect_named_cache name (fun () ->
+        Var.theme Css.Aspect_ratio ("aspect-" ^ name) ~order:(8, 21))
 
   let is_theme_aspect theme n =
     Scheme.theme_value (Some theme) ("aspect-" ^ n) <> None
