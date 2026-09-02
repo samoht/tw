@@ -216,6 +216,14 @@ let test_authored_color_mix_fallbacks () =
         \  color: color-mix(in oklab, var(--color-brand) 25%, transparent);\n\
         \  em { color: color-mix(in oklab, var(--prose-color) 75%, \
          transparent); }\n\
+         }\n\
+         .existing {\n\
+        \  background-color: #fb2c3640;\n\
+        \  background-color: color-mix(in oklab, var(--color-brand) 25%, \
+         transparent);\n\
+         }\n\
+         .applied {\n\
+        \  @apply bg-gray-700/40;\n\
          }\n");
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -235,7 +243,12 @@ let test_authored_color_mix_fallbacks () =
      25%,transparent)}}.article \
      em{color:var(--prose-color)}@supports(color:color-mix(in \
      lab,red,red)){.article em{color:color-mix(in oklab,var(--prose-color) \
-     75%,transparent)}}"
+     75%,transparent)}}.existing{background-color:#fb2c3640}@supports(color:color-mix(in \
+     lab,red,red)){.existing{background-color:color-mix(in \
+     oklab,var(--color-brand) \
+     25%,transparent)}}.applied{background-color:#36415366}@supports(color:color-mix(in \
+     lab,red,red)){.applied{background-color:color-mix(in \
+     oklab,var(--color-gray-700) 40%,transparent)}}"
     (Cascade.Css.to_string ~minify:true out)
 
 (* Each utility an [@apply] pulls in hoists an [@property] block for every
