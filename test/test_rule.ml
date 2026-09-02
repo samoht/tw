@@ -362,6 +362,35 @@ let test_opacity_supports_under_variant () =
   check bool "the @supports block follows the fallback" true
     (idx "#fb2c3680" < idx "@supports")
 
+(* A variant whose own effect is an at-rule wraps both halves of an opacity
+   colour. The modern half still needs its inner color-mix feature query; losing
+   it makes the nested output differ from Tailwind and leaves the enhancement at
+   the wrong structural depth. *)
+let test_opacity_supports_inside_at_rule_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let nested cls wrapper =
+    check bool cls true
+      (Astring.String.is_infix
+         ~affix:(wrapper ^ "{@supports(color:color-mix(in lab,red,red)){")
+         (css cls))
+  in
+  nested "supports-backdrop-filter:bg-black/25"
+    "@supports(backdrop-filter:var(--tw))";
+  nested "@sm:bg-black/25" "@container(width>=24rem)";
+  let starting = css "starting:bg-black/25" in
+  let position affix = Astring.String.find_sub ~sub:affix starting in
+  check bool "starting:bg-black/25" true
+    (match
+       ( position "@starting-style{",
+         position "@supports(color:color-mix(in lab,red,red)){" )
+     with
+    | Some outer, Some inner -> outer < inner
+    | _ -> false)
+
 (* An at-rule written in brackets wraps the utility rather than selecting it,
    and keeps its own spelling in the class name: reading it as the [supports-]
    variant gave a class the HTML would not match. Its condition is emitted as
@@ -600,6 +629,8 @@ let tests =
     test_case "bracketed at-rule variant" `Quick test_bracketed_at_rule_variant;
     test_case "opacity @supports under a variant" `Quick
       test_opacity_supports_under_variant;
+    test_case "opacity @supports inside an at-rule variant" `Quick
+      test_opacity_supports_inside_at_rule_variant;
     test_case "bare arbitrary selector variant" `Quick
       test_bare_arbitrary_selector_variant;
     test_case "outer variant over child and pseudo-element" `Quick
