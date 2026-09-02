@@ -529,12 +529,17 @@ module Handler = struct
   (* A bracket colour spelled any way but a [#] hex: a name, a colour function
      or a relative colour. One with an sRGB hex takes it, so it reads the same
      as the hex arm above; one without stays as written. *)
-  let set_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let base_decl, _ = Var.binding text_shadow_color_var c in
+  let set_bracket_color ~theme (c : Css.color) =
+    let enhanced = Color.resolve_bracket_css_color c in
+    let fallback =
+      match Color.pre_color_mix_fallback theme enhanced with
+      | Some fallback -> fallback
+      | None -> enhanced
+    in
+    let base_decl, _ = Var.binding text_shadow_color_var fallback in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        c Css.Transparent
+        enhanced Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
@@ -542,14 +547,17 @@ module Handler = struct
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
-  let set_bracket_color_opacity (c : Css.color) opacity =
+  let set_bracket_color_opacity ~theme (c : Css.color) opacity =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
     (* A modifier reading a custom property has no percentage a plain fallback
        can hold, so the fallback keeps the colour as written. *)
     let base_value =
-      if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then c
-      else Color.mix_alpha ~in_space:Srgb opacity c
+      match Color.pre_color_mix_fallback theme guarded with
+      | Some fallback -> fallback
+      | None ->
+          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then c
+          else Color.mix_alpha ~in_space:Srgb opacity c
     in
     let base_decl, _ = Var.binding text_shadow_color_var base_value in
     let enhanced_color =
@@ -708,6 +716,8 @@ module Handler = struct
   (* ============ Style dispatch ============ *)
 
   let to_style theme =
+    let set_bracket_color = set_bracket_color ~theme in
+    let set_bracket_color_opacity = set_bracket_color_opacity ~theme in
     let set_color c shade = set_color ~theme c shade in
     let set_color_opacity c shade opacity =
       set_color_opacity ~theme c shade opacity

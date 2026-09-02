@@ -347,6 +347,40 @@ module Handler = struct
     Css.supports ~condition:Color.color_mix_supports_condition
       [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
 
+  (* A bracket colour may need two assignments: the value a browser without
+     [color-mix()] can use, and the authored value under [@supports]. *)
+  let bracket_color_pair theme c =
+    let enhanced = Color.resolve_bracket_css_color c in
+    match Color.pre_color_mix_fallback theme enhanced with
+    | Stdlib.Option.None -> (enhanced, Stdlib.Option.None)
+    | Stdlib.Option.Some fallback -> (fallback, Stdlib.Option.Some enhanced)
+
+  let bracket_color_var_style ~theme var c =
+    let fallback, enhanced = bracket_color_pair theme c in
+    let fallback_decl, _ = Var.binding var fallback in
+    match enhanced with
+    | Stdlib.Option.None -> style [ fallback_decl ]
+    | Stdlib.Option.Some color ->
+        let enhanced_decl, _ = Var.binding var color in
+        let supports_block = color_mix_supports [ enhanced_decl ] in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+  let bracket_color_var_opacity_style ~theme var c opacity =
+    match Color.bracket_color_opacity ~theme c opacity with
+    | Color.Folded value -> style [ fst (Var.binding var value) ]
+    | Color.Guarded { fallback; mixed } ->
+        let fallback_decl, _ = Var.binding var fallback in
+        let enhanced_decl, _ = Var.binding var mixed in
+        let supports_block = color_mix_supports [ enhanced_decl ] in
+        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+  let bracket_opacity_pair theme c opacity =
+    let color = Color.resolve_bracket_css_color c in
+    let enhanced = Color.mix_alpha ~in_space:Oklab opacity color in
+    Option.map
+      (fun fallback -> (fallback, enhanced))
+      (Color.pre_color_mix_fallback theme enhanced)
+
   let relative_color_supports =
     Css.Supports.property "color" "lab(from red l a b)"
 
@@ -861,9 +895,10 @@ module Handler = struct
     style ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_shadow_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let base_decl, _ = Var.binding shadow_color_var c in
+  let set_shadow_bracket_color ~theme (c : Css.color) =
+    let fallback, enhanced = bracket_color_pair theme c in
+    let base_decl, _ = Var.binding shadow_color_var fallback in
+    let c = Option.value ~default:fallback enhanced in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha" c
         Css.Transparent
@@ -873,7 +908,7 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_shadow_bracket_color_opacity (c : Css.color) opacity =
+  let set_shadow_bracket_color_opacity ~theme (c : Css.color) opacity =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
@@ -882,25 +917,28 @@ module Handler = struct
        guards, so the two are built separately. Folding the fallback through
        oklab as well made it depend on a colour-space round trip. *)
     let base_value, with_alpha =
-      match c with
-      (* A modifier reading a custom property has no percentage for an alpha
-         byte to carry, so the hex stays whole and the property mixes into the
-         guarded value instead. *)
-      | (Hex _ | Authored_hex _)
-        when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
-          (c, Color.mix_alpha ~in_space:Oklab opacity c)
-      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-          let hex = "#" ^ rgba_hex_string r g b a in
-          ( Css.hex (Color.hex_with_alpha hex percent),
-            Color.hex_to_oklab_alpha hex alpha )
-      (* A colour with no sRGB hex has nothing to carry the alpha byte, so the
-         modifier stays a mix: sRGB for the plain fallback, oklab for the
-         guarded value. *)
-      | _ ->
-          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
-            (c, guarded)
-          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
+      match bracket_opacity_pair theme c opacity with
+      | Some pair -> pair
+      | None -> (
+          match c with
+          (* A modifier reading a custom property has no percentage for an alpha
+             byte to carry, so the hex stays whole and the property mixes into
+             the guarded value instead. *)
+          | (Hex _ | Authored_hex _)
+            when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
+              (c, Color.mix_alpha ~in_space:Oklab opacity c)
+          | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+              let hex = "#" ^ rgba_hex_string r g b a in
+              ( Css.hex (Color.hex_with_alpha hex percent),
+                Color.hex_to_oklab_alpha hex alpha )
+          (* A colour with no sRGB hex has nothing to carry the alpha byte, so
+             the modifier stays a mix: sRGB for the plain fallback, oklab for
+             the guarded value. *)
+          | _ ->
+              let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+              if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+                (c, guarded)
+              else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
     in
     let base_decl, _ = Var.binding shadow_color_var base_value in
     let enhanced_color =
@@ -1500,9 +1538,10 @@ module Handler = struct
     style ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_inset_shadow_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let base_decl, _ = Var.binding inset_shadow_color_var c in
+  let set_inset_shadow_bracket_color ~theme (c : Css.color) =
+    let fallback, enhanced = bracket_color_pair theme c in
+    let base_decl, _ = Var.binding inset_shadow_color_var fallback in
+    let c = Option.value ~default:fallback enhanced in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" c Css.Transparent
@@ -1512,7 +1551,7 @@ module Handler = struct
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
-  let set_ishadow_bracket_color_opacity (c : Css.color) opacity =
+  let set_ishadow_bracket_color_opacity ~theme (c : Css.color) opacity =
     let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
@@ -1520,19 +1559,22 @@ module Handler = struct
        byte, the oklab spelling is kept for the guarded [color-mix], and a
        colour with no hex keeps its alpha as a mix in each space. *)
     let base_value, with_alpha =
-      match c with
-      | (Hex _ | Authored_hex _)
-        when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
-          (c, Color.mix_alpha ~in_space:Oklab opacity c)
-      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-          let hex = "#" ^ rgba_hex_string r g b a in
-          ( Css.hex (Color.hex_with_alpha hex percent),
-            Color.hex_to_oklab_alpha hex alpha )
-      | _ ->
-          let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
-            (c, guarded)
-          else (Color.mix_alpha ~in_space:Srgb opacity c, guarded)
+      match bracket_opacity_pair theme c opacity with
+      | Some pair -> pair
+      | None -> (
+          match c with
+          | (Hex _ | Authored_hex _)
+            when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
+              (c, Color.mix_alpha ~in_space:Oklab opacity c)
+          | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+              let hex = "#" ^ rgba_hex_string r g b a in
+              ( Css.hex (Color.hex_with_alpha hex percent),
+                Color.hex_to_oklab_alpha hex alpha )
+          | _ ->
+              let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
+              if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
+                (c, guarded)
+              else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
     in
     let base_decl, _ = Var.binding inset_shadow_color_var base_value in
     let enhanced_color =
@@ -1893,24 +1935,11 @@ module Handler = struct
     let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
-  let ring_offset_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let d, _ = Var.binding ring_offset_color_var c in
-    style [ d ]
+  let ring_offset_bracket_color ~theme (c : Css.color) =
+    bracket_color_var_style ~theme ring_offset_color_var c
 
-  let ring_offset_bracket_color_opacity (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    let with_alpha =
-      match c with
-      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-          let hex = "#" ^ rgba_hex_string r g b a in
-          Color.hex_to_oklab_alpha hex alpha
-      | _ -> c
-    in
-    let d, _ = Var.binding ring_offset_color_var with_alpha in
-    style [ d ]
+  let ring_offset_bracket_color_opacity ~theme (c : Css.color) opacity =
+    bracket_color_var_opacity_style ~theme ring_offset_color_var c opacity
 
   let ring_offset_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
@@ -2028,24 +2057,11 @@ module Handler = struct
     let d, _ = Var.binding inset_ring_color_var Css.Inherit in
     style [ d ]
 
-  let inset_ring_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let d, _ = Var.binding inset_ring_color_var c in
-    style [ d ]
+  let inset_ring_bracket_color ~theme (c : Css.color) =
+    bracket_color_var_style ~theme inset_ring_color_var c
 
-  let inset_ring_bracket_color_opacity (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    let with_alpha =
-      match c with
-      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-          let hex = "#" ^ rgba_hex_string r g b a in
-          Color.hex_to_oklab_alpha hex alpha
-      | _ -> c
-    in
-    let d, _ = Var.binding inset_ring_color_var with_alpha in
-    style [ d ]
+  let inset_ring_bracket_color_opacity ~theme (c : Css.color) opacity =
+    bracket_color_var_opacity_style ~theme inset_ring_color_var c opacity
 
   let inset_ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
@@ -2130,24 +2146,11 @@ module Handler = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback ]
 
-  let ring_bracket_color (c : Css.color) =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let d, _ = Var.binding ring_color_var c in
-    style [ d ]
+  let ring_bracket_color ~theme (c : Css.color) =
+    bracket_color_var_style ~theme ring_color_var c
 
-  let ring_bracket_color_with_opacity (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    let with_alpha =
-      match c with
-      | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-          let hex = "#" ^ rgba_hex_string r g b a in
-          Color.hex_to_oklab_alpha hex alpha
-      | _ -> c
-    in
-    let d, _ = Var.binding ring_color_var with_alpha in
-    style [ d ]
+  let ring_bracket_color_with_opacity ~theme (c : Css.color) opacity =
+    bracket_color_var_opacity_style ~theme ring_color_var c opacity
 
   let ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
@@ -2233,6 +2236,16 @@ module Handler = struct
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
 
   let to_style theme =
+    let set_shadow_bracket_color = set_shadow_bracket_color ~theme in
+    let set_inset_shadow_bracket_color =
+      set_inset_shadow_bracket_color ~theme
+    in
+    let set_shadow_bracket_color_opacity =
+      set_shadow_bracket_color_opacity ~theme
+    in
+    let set_ishadow_bracket_color_opacity =
+      set_ishadow_bracket_color_opacity ~theme
+    in
     let set_shadow_color c shade = set_shadow_color ~theme c shade in
     let set_shadow_color_opacity c shade opacity =
       set_shadow_color_opacity ~theme c shade opacity
@@ -2256,6 +2269,18 @@ module Handler = struct
     let ring_color color shade = ring_color ~theme color shade in
     let ring_offset_color color shade = ring_offset_color ~theme color shade in
     let inset_ring_color color shade = inset_ring_color ~theme color shade in
+    let ring_bracket_color = ring_bracket_color ~theme in
+    let ring_bracket_color_with_opacity =
+      ring_bracket_color_with_opacity ~theme
+    in
+    let ring_offset_bracket_color = ring_offset_bracket_color ~theme in
+    let ring_offset_bracket_color_opacity =
+      ring_offset_bracket_color_opacity ~theme
+    in
+    let inset_ring_bracket_color = inset_ring_bracket_color ~theme in
+    let inset_ring_bracket_color_opacity =
+      inset_ring_bracket_color_opacity ~theme
+    in
     function
     | Shadow_none -> shadow_none
     | Shadow_2xs -> shadow_2xs

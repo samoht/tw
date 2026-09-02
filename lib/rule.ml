@@ -2260,7 +2260,27 @@ let handle_modified ?theme util_inner modifier base_style extract_fn =
   in
   let base_class_name = Utility.to_class inner_util in
   let base_rules = extract_fn base_class_name inner_util style in
-  List.concat_map (apply_modifier_to_rule ?theme modifier) base_rules
+  let expanded = List.map (apply_modifier_to_rule ?theme modifier) base_rules in
+  match modifier with
+  | Style.Pseudo_marker | Style.Pseudo_selection ->
+      (* These variants expand one source rule into several browser-safe
+         selectors. Keep each selector's declarations and nested fallback query
+         together: Tailwind writes [fallback; @supports] for one marker before
+         moving to the next, rather than all fallbacks followed by all
+         enhancements. *)
+      let rec interleave rows =
+        let heads, tails =
+          List.fold_right
+            (fun row (heads, tails) ->
+              match row with
+              | [] -> (heads, tails)
+              | head :: tail -> (head :: heads, tail :: tails))
+            rows ([], [])
+        in
+        match heads with [] -> [] | _ -> heads @ interleave tails
+      in
+      interleave expanded
+  | _ -> List.concat expanded
 
 (* Handle Group style by extracting each item *)
 let handle_group class_name util_inner styles extract_fn =

@@ -64,19 +64,6 @@ module Handler = struct
     | Thumb s -> "scrollbar-thumb-" ^ spec_class s
     | Track s -> "scrollbar-track-" ^ spec_class s
 
-  let hex_string_of (c : Css.color) : string =
-    let fmt r g b a =
-      let h2 = Pp.hex_byte in
-      "#" ^ h2 r ^ h2 g ^ h2 b ^ if a = 255 then "" else h2 a
-    in
-    match c with
-    | Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ } -> fmt r g b a
-    | _ -> (
-        match Color.css_color_to_hex c with
-        | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }) ->
-            fmt r g b a
-        | _ -> "#000000")
-
   (* Return (declarations placed on the rule, optional @supports rules) that set
      [set_var] to the resolved colour. *)
   let value_decls ?theme ~set_var spec :
@@ -137,19 +124,35 @@ module Handler = struct
             ]
         in
         ([ fallback ], [ supports ])
-    | Bracket (_, css_color, Color.No_opacity) ->
-        let folded =
-          match Color.css_color_to_hex css_color with
-          | Some h -> h
-          | None -> css_color
-        in
-        ([ fst (Var.binding set_var folded) ], [])
-    | Bracket (_, css_color, op) ->
-        let percent = Color.opacity_to_percent op in
-        let oklab =
-          Color.hex_to_oklab_alpha (hex_string_of css_color) (percent /. 100.)
-        in
-        ([ fst (Var.binding set_var oklab) ], [])
+    | Bracket (_, css_color, Color.No_opacity) -> (
+        let enhanced = Color.resolve_bracket_css_color css_color in
+        let scheme = Option.value ~default:Scheme.default theme in
+        match Color.pre_color_mix_fallback scheme enhanced with
+        | None -> ([ fst (Var.binding set_var enhanced) ], [])
+        | Some fallback ->
+            let fallback_decl, _ = Var.binding set_var fallback in
+            let enhanced_decl, _ = Var.binding set_var enhanced in
+            let supports =
+              Css.supports ~condition:Color.color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced_decl ];
+                ]
+            in
+            ([ fallback_decl ], [ supports ]))
+    | Bracket (_, css_color, op) -> (
+        let scheme = Option.value ~default:Scheme.default theme in
+        match Color.bracket_color_opacity ~theme:scheme css_color op with
+        | Color.Guarded { fallback; mixed } ->
+            let fallback_decl, _ = Var.binding set_var fallback in
+            let enhanced_decl, _ = Var.binding set_var mixed in
+            let supports =
+              Css.supports ~condition:Color.color_mix_supports_condition
+                [
+                  Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced_decl ];
+                ]
+            in
+            ([ fallback_decl ], [ supports ])
+        | Color.Folded value -> ([ fst (Var.binding set_var value) ], []))
 
   let compose ?theme ~set_var spec =
     let main_decls, supports_rules = value_decls ?theme ~set_var spec in

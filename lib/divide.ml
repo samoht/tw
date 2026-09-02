@@ -198,24 +198,26 @@ module Handler = struct
     let rule = Css.rule ~selector [ Css.border_color Css.Inherit ] in
     style ~rules:(Some [ rule ]) []
 
-  let divide_bracket_color_style class_name inner c =
-    let color =
-      if String.length inner > 0 && inner.[0] = '#' then
-        let shortened = Color.shorten_hex_str inner in
-        Css.hex ("#" ^ shortened)
-      else match Color.css_color_to_hex c with Some h -> h | None -> c
-    in
+  let divide_bracket_color_style ~theme class_name c =
+    let color = Color.resolve_bracket_css_color c in
     let selector = divide_children_selector class_name in
-    let rule = Css.rule ~selector [ Css.border_color color ] in
-    style ~rules:(Some [ rule ]) []
+    let rule color = Css.rule ~selector [ Css.border_color color ] in
+    match Color.pre_color_mix_fallback theme color with
+    | None -> style ~rules:(Some [ rule color ]) []
+    | Some fallback ->
+        let supports =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ rule color ]
+        in
+        style ~rules:(Some [ rule fallback; supports ]) []
 
   (* An opacity modifier applies to the colour the bracket was parsed into. The
      modifier read the bracket text back through the CSS colour parser and
      answered black whenever that failed, and it hung the [@supports] rule on
      the bare class rather than on the children the utility borders. *)
-  let divide_bracket_color_opacity_style class_name c opacity =
+  let divide_bracket_color_opacity_style ~theme class_name c opacity =
     let selector = divide_children_selector class_name in
-    match Color.bracket_color_opacity c opacity with
+    match Color.bracket_color_opacity ~theme c opacity with
     | Color.Folded value ->
         let rule = Css.rule ~selector [ Css.border_color value ] in
         style ~rules:(Some [ rule ]) []
@@ -337,10 +339,10 @@ module Handler = struct
     | Inherit -> divide_inherit_style ()
     | Bracket_color (inner, c) ->
         let class_name = to_class (Bracket_color (inner, c)) in
-        divide_bracket_color_style class_name inner c
+        divide_bracket_color_style ~theme class_name c
     | Bracket_color_opacity (inner, c, opacity) ->
         let class_name = to_class (Bracket_color_opacity (inner, c, opacity)) in
-        divide_bracket_color_opacity_style class_name c opacity
+        divide_bracket_color_opacity_style ~theme class_name c opacity
     | Line_style bs -> divide_style_style bs
 
   (* Tailwind's order across the family, read off its own output: divide-x,

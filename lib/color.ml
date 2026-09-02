@@ -2608,12 +2608,113 @@ module Handler = struct
      value is whatever the [\@theme] block bound it to, and that may be a colour
      space no hex can spell - so it takes the sRGB mix Tailwind writes instead.
      [value] is the colour already resolved against the theme. *)
-  let opacity_fallback ~percent c shade value =
-    match to_oklch_opt c shade with
-    | Some oklch ->
+  let opacity_fallback ?theme ~percent c shade value =
+    let overridden =
+      match palette_token c shade with
+      | Some token -> Scheme.theme_value theme token <> None
+      | None -> false
+    in
+    match (overridden, to_oklch_opt c shade) with
+    | false, Some oklch ->
         Css.hex (hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent)
-    | None ->
+    | true, _ | false, None ->
         Css.color_mix ~in_space:Srgb value Css.Transparent ~percent1:percent
+
+  (* Resolve the colour tokens inside an arbitrary [color-mix()] through the
+     render's scheme. Tailwind emits that resolved mix in sRGB as the fallback,
+     then keeps the authored mix behind a [color-mix()] support query. When a
+     token is unavailable at compile time (including a token removed by the
+     project), the first operand is the legacy fallback instead. *)
+  let theme_var_color theme name =
+    match Option.bind (Scheme.token theme name) Css.parse_color with
+    | Some _ as color -> color
+    | None when Scheme.is_removed theme name -> None
+    | None ->
+        Option.map
+          (fun (c, shade) -> get_color_value ~theme c shade)
+          (theme_color_of_name name)
+
+  type mix_resolution = {
+    color : Css.color;
+    has_dynamic_color : bool;
+    unresolved : bool;
+  }
+
+  let static color = { color; has_dynamic_color = false; unresolved = false }
+
+  let fallback_space (space : Css.color_space option) =
+    match space with
+    | Some (Css.Lab | Css.Oklab | Css.Lch | Css.Oklch) -> Some Css.Srgb
+    | space -> space
+
+  let rec resolve_color_theme_vars theme seen (color : Css.color) =
+    match color with
+    | Css.Var v -> (
+        if List.mem v.name seen then
+          { color; has_dynamic_color = true; unresolved = true }
+        else
+          match theme_var_color theme v.name with
+          | None -> { color; has_dynamic_color = true; unresolved = true }
+          | Some value ->
+              let resolved =
+                resolve_color_theme_vars theme (v.name :: seen) value
+              in
+              { resolved with has_dynamic_color = true })
+    | Css.Current -> { color; has_dynamic_color = true; unresolved = true }
+    | Css.Mix { in_space; hue; color1; percent1; color2; percent2 } ->
+        let first = resolve_color_theme_vars theme seen color1 in
+        let second = resolve_color_theme_vars theme seen color2 in
+        let has_dynamic_color =
+          first.has_dynamic_color || second.has_dynamic_color
+        in
+        if not has_dynamic_color then static color
+        else if first.unresolved || second.unresolved then
+          (* A browser without [color-mix()] can still use the first operand.
+             Keep [unresolved] set so an enclosing mix follows the same rule. *)
+          { first with has_dynamic_color = true; unresolved = true }
+        else
+          {
+            color =
+              Css.Mix
+                {
+                  in_space = fallback_space in_space;
+                  hue;
+                  color1 = first.color;
+                  percent1;
+                  color2 = second.color;
+                  percent2;
+                };
+            has_dynamic_color = true;
+            unresolved = false;
+          }
+    | color -> static color
+
+  let pre_color_mix_fallback theme (color : Css.color) =
+    match color with
+    | Css.Mix _ ->
+        let resolved = resolve_color_theme_vars theme [] color in
+        if resolved.has_dynamic_color then Some resolved.color else None
+    | _ -> None
+
+  let bracket_colors_style ?merge_key ~theme ~properties css_color =
+    let declarations color =
+      List.map (fun property -> property color) properties
+    in
+    let color = resolve_bracket_css_color css_color in
+    match pre_color_mix_fallback theme color with
+    | None -> style ?merge_key (declarations color)
+    | Some fallback ->
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_") (declarations color);
+            ]
+        in
+        style ?merge_key ~rules:(Some [ supports_block ])
+          (declarations fallback)
+
+  let bracket_color_style ?merge_key ~theme ~property css_color =
+    bracket_colors_style ?merge_key ~theme ~properties:[ property ] css_color
 
   (* The same colour set on several properties at once: a per-side border colour
      on the [x]/[y] axes needs two. *)
@@ -2697,9 +2798,10 @@ module Handler = struct
                fallback, so the fallback is the colour at full opacity. *)
             let fallback_decls =
               match opacity_var_name opacity with
-              | Some _ -> property_decls (Css.Var color_ref)
+              | Some _ -> property_decls color_value
               | None ->
-                  property_decls (opacity_fallback ~percent c shade color_value)
+                  property_decls
+                    (opacity_fallback ?theme ~percent c shade color_value)
             in
             let oklab_color =
               match opacity_var_name opacity with
@@ -2742,7 +2844,7 @@ module Handler = struct
   let border_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
 
-  let border_side_color_style side value =
+  let border_side_color_style theme side value =
     let sides = setters_of_side side in
     let apply c = style (List.map (fun set -> set c) sides) in
     match value with
@@ -2756,7 +2858,8 @@ module Handler = struct
             (decl :: List.map (fun set -> set (Var color_ref : Css.color)) sides)
     | Side_color.Named_opacity (color, shade, opacity) ->
         colors_with_opacity_style ~properties:sides color shade opacity
-    | Side_color.Bracket (_, css_color) -> apply css_color
+    | Side_color.Bracket (_, css_color) ->
+        bracket_colors_style ~theme ~properties:sides css_color
     | Side_color.Transparent -> apply (Css.hex "#0000")
     | Side_color.Current -> apply Css.Current
 
@@ -2823,38 +2926,48 @@ module Handler = struct
      opacity modifier applies to that value. Reading the bracket text back
      through the palette parser answered black for every colour the palette does
      not name. *)
-  let bracket_color_opacity css_color opacity =
+  let bracket_color_opacity ?(theme = Scheme.default) css_color opacity =
     match bracket_color_to_custom css_color with
     | Some c when opacity_var_name opacity = None ->
         Folded (custom_color_with_alpha c (opacity_to_percent opacity /. 100.0))
-    | _ ->
-        let fallback = resolve_bracket_css_color css_color in
-        Guarded { fallback; mixed = mix_alpha opacity fallback }
+    | _ -> (
+        let base = resolve_bracket_css_color css_color in
+        let mixed = mix_alpha opacity base in
+        match pre_color_mix_fallback theme mixed with
+        | Some fallback -> Guarded { fallback; mixed }
+        | None -> (
+            (* A fully static mix needs no progressive-enhancement pair: Cascade
+               can evaluate its inner mix and then the composed opacity. This is
+               especially important when [base] is itself a mix; using [base] as
+               the fallback would silently discard the slash opacity. *)
+            let normalized_base = Cascade.Values.normalize_color base in
+            let normalized =
+              mix_alpha opacity normalized_base
+              |> Cascade.Values.normalize_color
+            in
+            match normalized with
+            | Css.Mix _ -> Guarded { fallback = base; mixed }
+            | color -> Folded (Cascade.Values.nonkeyword_color color)))
 
-  let bracket_color_opacity_style ?merge_key ~property css_color opacity =
+  let bracket_color_opacity_style ?(theme = Scheme.default) ?merge_key ~property
+      css_color opacity =
     match bracket_color_to_custom css_color with
     | Some c -> color_with_opacity_style ~property ?merge_key c 500 opacity
     | None -> (
-        let base = resolve_bracket_css_color css_color in
-        match css_color with
-        | Css.Current | Css.Var _ ->
-            (* The browser resolves these at use time, so the alpha cannot be
-               folded in ahead of it the way a concrete colour's can - an
-               [oklch()] mix folds to a hex with its alpha, [currentcolor] has
-               nothing to fold. Tailwind writes the plain colour and puts the
-               mix behind the [color-mix()] guard; emitting the mix alone leaves
-               a browser without [color-mix()] no colour at all. *)
+        match bracket_color_opacity ~theme css_color opacity with
+        | Folded value -> style ?merge_key [ property value ]
+        | Guarded { fallback; mixed } ->
             let supports_block =
               Css.supports ~condition:color_mix_supports_condition
                 [
                   Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ property (apply_alpha opacity base) ];
+                    [ property mixed ];
                 ]
             in
-            style ?merge_key ~rules:(Some [ supports_block ]) [ property base ]
-        | _ -> style ?merge_key [ property (apply_alpha opacity base) ])
+            style ?merge_key ~rules:(Some [ supports_block ])
+              [ property fallback ])
 
-  let outline_bracket_color_opacity_style inner css_color opacity =
+  let outline_bracket_color_opacity_style ~theme inner css_color opacity =
     let merge_key =
       if String.length inner > 0 && inner.[0] = '#' then
         (* Hex bracket colors: strip bracket+opacity for merging *)
@@ -2865,8 +2978,8 @@ module Handler = struct
            but Tailwind keeps them separate. *)
         "outline-[" ^ inner ^ "]" ^ opacity_suffix opacity
     in
-    bracket_color_opacity_style ~property:Css.outline_color ~merge_key css_color
-      opacity
+    bracket_color_opacity_style ~theme ~property:Css.outline_color ~merge_key
+      css_color opacity
 
   let outline_bracket_var_opacity_style v opacity =
     let bare_name = Parse.extract_var_name v in
@@ -2939,10 +3052,10 @@ module Handler = struct
         current_color_with_opacity ~property:Css.color opacity
     | Text_inherit -> text_inherit
     | Text_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        style ~merge_key:"text-" [ Css.color c ]
+        bracket_color_style ~theme ~merge_key:"text-" ~property:Css.color
+          css_color
     | Text_bracket_color_opacity (_orig, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.color css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.color css_color opacity
     | Text_bracket_var v ->
         let bare_name = Parse.extract_var_name v in
         style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
@@ -2981,7 +3094,8 @@ module Handler = struct
         in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
-    | Border_side_color (side, value) -> border_side_color_style side value
+    | Border_side_color (side, value) ->
+        border_side_color_style theme side value
     | Border (color, shade) -> border_color' color shade
     | Border_opacity (color, shade, opacity) ->
         border_with_opacity color shade opacity
@@ -2990,10 +3104,11 @@ module Handler = struct
     | Border_current_opacity opacity ->
         current_color_with_opacity ~property:Css.border_color opacity
     | Border_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        style ~merge_key:"border-" [ Css.border_color c ]
+        bracket_color_style ~theme ~merge_key:"border-"
+          ~property:Css.border_color css_color
     | Border_bracket_color_opacity (_orig, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.border_color css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.border_color css_color
+          opacity
     | Accent (color, shade) -> accent' color shade
     | Accent_opacity (color, shade, opacity) ->
         accent_with_opacity color shade opacity
@@ -3003,10 +3118,11 @@ module Handler = struct
         current_color_with_opacity ~property:Css.accent_color opacity
     | Accent_inherit -> accent_inherit
     | Accent_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        style ~merge_key:"accent-" [ Css.accent_color c ]
+        bracket_color_style ~theme ~merge_key:"accent-"
+          ~property:Css.accent_color css_color
     | Accent_bracket_color_opacity (_orig, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.accent_color css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.accent_color css_color
+          opacity
     | Caret (color, shade) -> caret' color shade
     | Caret_opacity (color, shade, opacity) ->
         caret_with_opacity color shade opacity
@@ -3016,10 +3132,11 @@ module Handler = struct
     | Caret_inherit -> caret_inherit
     | Caret_transparent -> caret_transparent
     | Caret_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        style ~merge_key:"caret-" [ Css.caret_color c ]
+        bracket_color_style ~theme ~merge_key:"caret-" ~property:Css.caret_color
+          css_color
     | Caret_bracket_color_opacity (_orig, css_color, opacity) ->
-        bracket_color_opacity_style ~property:Css.caret_color css_color opacity
+        bracket_color_opacity_style ~theme ~property:Css.caret_color css_color
+          opacity
     | Outline (color, shade) -> outline' color shade
     | Outline_opacity (color, shade, opacity) ->
         outline_with_opacity color shade opacity
@@ -3029,10 +3146,10 @@ module Handler = struct
     | Outline_inherit -> outline_inherit
     | Outline_transparent -> outline_transparent
     | Outline_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        style ~merge_key:"outline-" [ Css.outline_color c ]
+        bracket_color_style ~theme ~merge_key:"outline-"
+          ~property:Css.outline_color css_color
     | Outline_bracket_color_opacity (inner, css_color, opacity) ->
-        outline_bracket_color_opacity_style inner css_color opacity
+        outline_bracket_color_opacity_style ~theme inner css_color opacity
     | Outline_bracket_var v -> outline_bracket_var_style v
     | Outline_bracket_var_opacity (v, opacity) ->
         outline_bracket_var_opacity_style v opacity
@@ -3055,12 +3172,12 @@ module Handler = struct
           (current_color_with_opacity ~property:Css.color opacity)
     | Placeholder_inherit -> with_pseudo Css.Selector.Placeholder text_inherit
     | Placeholder_bracket_color (_orig, css_color) ->
-        let c = resolve_bracket_css_color css_color in
-        let s = style [ Css.color c ] in
-        with_pseudo Css.Selector.Placeholder s
+        with_pseudo Css.Selector.Placeholder
+          (bracket_color_style ~theme ~property:Css.color css_color)
     | Placeholder_bracket_color_opacity (_orig, css_color, opacity) ->
         with_pseudo Css.Selector.Placeholder
-          (bracket_color_opacity_style ~property:Css.color css_color opacity)
+          (bracket_color_opacity_style ~theme ~property:Css.color css_color
+             opacity)
 
   (* Suborder for the non-text color families: border first (0-9999), then the
      rest. text-color runs at priority 26 (see [priority]) with a fixed suborder
@@ -3366,6 +3483,9 @@ type bracket_opacity = Handler.bracket_opacity =
 
 let bracket_color_opacity = Handler.bracket_color_opacity
 let css_color_to_hex = Handler.css_color_to_hex
+let resolve_bracket_css_color = Handler.resolve_bracket_css_color
+let pre_color_mix_fallback = Handler.pre_color_mix_fallback
+let bracket_color_style = Handler.bracket_color_style
 let parse_bracket_color = Handler.parse_bracket_color
 
 type bracket_hint = Handler.bracket_hint =
@@ -3466,9 +3586,7 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
           let base = to_css ?theme c shade in
           let fallback_color =
             if alpha_var then base
-            else
-              Css.color_mix ~in_space:Srgb base Css.Transparent
-                ~percent1:percent
+            else opacity_fallback ?theme ~percent c shade base
           in
           oklab_with_supports ?theme ~property
             ~fallback_decl:(property fallback_color) c shade opacity)
@@ -3515,7 +3633,7 @@ let divide_opacity_via_property ?theme ~selector c shade opacity =
   let fallback_color =
     if Handler.opacity_var_name opacity <> None then color_value
     else
-      Handler.opacity_fallback
+      Handler.opacity_fallback ?theme
         ~percent:(Handler.opacity_to_percent opacity)
         c shade color_value
   in
@@ -3536,10 +3654,10 @@ let bg_opacity_via_property ?theme c shade opacity =
      that is the colour at full opacity, as Tailwind emits. *)
   let fallback_decl =
     match Handler.opacity_var_name opacity with
-    | Some _ -> Css.background_color (Css.Var color_ref)
+    | Some _ -> Css.background_color color_value
     | None ->
         Css.background_color
-          (Handler.opacity_fallback
+          (Handler.opacity_fallback ?theme
              ~percent:(Handler.opacity_to_percent opacity)
              c shade color_value)
   in
