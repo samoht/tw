@@ -2040,7 +2040,14 @@ let authored_color_mix_fallbacks ~theme stmts =
           match fallback_declaration declaration with
           | None -> loop (declaration :: pending) emitted rest
           | Some fallback ->
-              let base = Css.rule ~selector (List.rev (fallback :: pending)) in
+              let base_declarations =
+                match pending with
+                | previous :: _
+                  when Css.Declaration.equal_declaration previous fallback ->
+                    List.rev pending
+                | _ -> List.rev (fallback :: pending)
+              in
+              let base = Css.rule ~selector base_declarations in
               let enhanced = Css.rule ~selector [ declaration ] in
               let supports =
                 Css.supports ~condition:Tw.Color.color_mix_supports_condition
@@ -2053,12 +2060,19 @@ let authored_color_mix_fallbacks ~theme stmts =
   let rec lower_block stmts =
     List.concat_map
       (fun statement ->
-        let statement =
-          Css.Stylesheet.map_statement_children lower_block statement
-        in
-        match Css.as_rule statement with
-        | Some (selector, declarations, []) -> lower_rule selector declarations
-        | _ -> [ statement ])
+        match Css.as_supports statement with
+        | Some (condition, _)
+          when Css.Supports.equal condition
+                 Tw.Color.color_mix_supports_condition ->
+            [ statement ]
+        | _ -> (
+            let statement =
+              Css.Stylesheet.map_statement_children lower_block statement
+            in
+            match Css.as_rule statement with
+            | Some (selector, declarations, []) ->
+                lower_rule selector declarations
+            | _ -> [ statement ]))
       stmts
   in
   lower_block stmts
