@@ -39,6 +39,8 @@
   `@import`, `@apply`, `@utility`, `@variant`, `@custom-variant`, `--spacing()`
   and `theme()` all expand in author CSS, down to a declared utility's own
   `@apply` and `@variant` (#136, #138, #139, #140, #141, #143, #195, #206).
+- Authored input receives browser-compatibility prefixes even when full CSS
+  optimization is disabled, preserving the CLI's target coverage (#665).
 - A project's own theme reaches class generation, so its variants, keyframes,
   layers, static scales, custom breakpoints and v3 dotted `theme()` paths apply
   to the utilities tw generates from the markup, and a routed utility survives a

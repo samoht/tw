@@ -106,7 +106,11 @@ let render_css ~(opts : gen_opts) stylesheet =
          and separately loaded sheets can read declarations that have no local
          var() reference. *)
       Tw.Css.optimize stylesheet
-    else stylesheet
+    else
+      (* Prefixing is an output compatibility contract, independent of the
+         structural optimizations controlled by [--optimize]. *)
+      Tw.Css.Optimize.add_compatibility_prefixes
+        ~targets:Tw.Css.Optimize.evergreen_targets stylesheet
   in
   Tw.Css.to_string ~minify:opts.minify stylesheet
 
