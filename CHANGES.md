@@ -207,6 +207,10 @@
   at-rule variant, a peer hover gate survives a selector variant, a variant
   stays wrapped around a `@starting-style` rule, and a class a variant renames
   keeps the default transition theme (#564).
+- An opacity colour keeps its progressive-enhancement `@supports` guard when
+  wrapped in a supports, container or starting-style variant. The modern
+  `color-mix()` declaration was previously left unguarded inside that wrapper
+  (#666).
 - `[attr~=value]` attribute selectors work in arbitrary variants. The gate
   rejected any bracket containing `~`, reading the whitespace-list operator as
   a sibling combinator (#509).

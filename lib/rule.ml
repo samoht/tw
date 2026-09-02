@@ -2199,6 +2199,24 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
     media_query ~condition:outer ~selector:sel ~props:[] ?base_class:bc
       ~nested:(supports_stmt :: nested) ()
   in
+  let wrap_supports_in_at_rule = function
+    | Container_query ({ selector; props; nested; _ } as r) ->
+        let supports_stmt =
+          Css.supports ~condition [ Css.rule ~selector props ]
+        in
+        Container_query { r with props = []; nested = supports_stmt :: nested }
+    | Supports_query ({ selector; props; nested; _ } as r) ->
+        let supports_stmt =
+          Css.supports ~condition [ Css.rule ~selector props ]
+        in
+        Supports_query { r with props = []; nested = supports_stmt :: nested }
+    | Starting_style ({ selector; props; nested; _ } as r) ->
+        let supports_stmt =
+          Css.supports ~condition [ Css.rule ~selector props ]
+        in
+        Starting_style { r with props = []; nested = supports_stmt :: nested }
+    | other -> other
+  in
   apply_modifier_to_rule ?theme modifier inner
   |> List.map (function
     | Regular { selector; props; base_class; has_hover; _ } ->
@@ -2213,7 +2231,8 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
     | Media_query { condition = outer; selector; props; base_class; nested; _ }
       ->
         wrap_supports_in_media outer selector props base_class nested
-    | other -> other)
+    | (Container_query _ | Supports_query _ | Starting_style _) as outer ->
+        wrap_supports_in_at_rule outer)
 
 (* An outer variant on a [@starting-style] rule, the way the [@supports] case
    does it: run the modifier on the inner rule so all the selector and media
