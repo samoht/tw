@@ -138,13 +138,18 @@ module Side = struct
   let folds_spacing_scale = function Start | End -> false | _ -> true
 end
 
+(* A spacing step is a non-negative multiple of 0.25 ([isValidSpacingMultiplier]
+   upstream), so [top-1.25] is a utility and [top-1.7] is not. *)
+let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
+
 (* [top-2.5] / [right-0.5] / [left-px]: a spacing token that is not a plain
    integer (those keep their existing [Top of int] path). *)
 let parse_pos_spacing s : Style.spacing option =
   if s = "px" then Some `Px
   else
     match Parse.decimal_float s with
-    | Some f when f >= 0. && not (Float.is_integer f) -> Some (`Rem (f *. 0.25))
+    | Some f when is_quarter_multiple f && not (Float.is_integer f) ->
+        Some (`Rem (f *. 0.25))
     | _ -> None
 
 (* Resolve a spacing token to (optional --spacing binding, length), mirroring

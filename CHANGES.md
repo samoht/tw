@@ -162,6 +162,9 @@
   it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
   `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
   unit outside a handful (#543).
+- A spacing step is a non-negative multiple of 0.25 on the inset and sizing
+  families, as it already was on padding, margin and gap, so `top-1.7` and
+  `w-1.7` stop being utilities Tailwind never emits (#PR).
 - A class whose arbitrary value has an unbalanced paren is rejected rather than
   compiled. The value was re-parsed inside a `calc()` the code wrapped around
   it, so the added `)` silently closed the author's stray one and

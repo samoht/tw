@@ -749,6 +749,11 @@ module Handler = struct
       | None -> None
     else None
 
+  (* A spacing step, and a ratio part, is a non-negative multiple of 0.25
+     ([isValidSpacingMultiplier]), so [w-1.75] and [8.5/11] are utilities while
+     [w-1.7] and [1.23/4.56] are not. *)
+  let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
+
   (* One parser for all thirteen sizing families: the family's own keyword
      table, then the fraction, bracket and spacing tails they share. *)
   let parse_sized ~theme prop v =
@@ -765,7 +770,8 @@ module Handler = struct
           | None -> err_invalid_value f.css_name v
         else
           match Parse.decimal_float v with
-          | Some n when n >= 0. && Theme.has_spacing_step ~theme n ->
+          | Some n when is_quarter_multiple n && Theme.has_spacing_step ~theme n
+            ->
               Ok (Sized (prop, Spacing (n *. 0.25)))
           | _ ->
               (* A size the project named in its own [@theme], under one of the
@@ -778,11 +784,6 @@ module Handler = struct
     match lookup max_width_family ("screen-" ^ s) with
     | Some value -> Ok (Sized (Max_width, value))
     | None -> err_invalid_value "max-width screen size" s
-
-  (* Tailwind accepts a ratio part only when it is a non-negative multiple of
-     0.25 ([isValidSpacingMultiplier]), so [8.5/11] is valid but [1.23/4.56] is
-     not. *)
-  let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
 
   (* [read] is how the two spellings of a ratio differ. A bare [aspect-4/3] is a
      class suffix, so each part is a plain decimal; inside a bracket the author
