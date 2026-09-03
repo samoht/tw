@@ -98,6 +98,10 @@
   keep the `calc(var(--spacing) * n)` Tailwind writes for every step, so
   `start-px`, `start-0.5` and `start-1/2` resolve and `start-0` no longer drops
   `--spacing` from the theme layer (#677).
+- Every inset side reads an arbitrary length under either sign, and `start-*`
+  and `end-*` read one at all. `start-[4px]`, `end-[4px]`, `-top-[4px]` and
+  `-inset-bs-[4px]` reach the sheet, as does a name the theme binds on the
+  logical inline sides (#PR).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
