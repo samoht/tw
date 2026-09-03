@@ -129,7 +129,8 @@ let declarations_of_class cls =
       Css.fold
         (fun acc stmt ->
           match Css.as_rule stmt with
-          | Some (sel, decls, _) when Css.Selector.to_string sel <> ":root" ->
+          | Some (sel, decls, _)
+            when String.contains (Css.Selector.to_string sel) '.' ->
               acc @ List.map (Css.Declaration.to_string ~minify:true) decls
           | _ -> acc)
         [] sheet
