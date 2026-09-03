@@ -84,6 +84,9 @@ let focus_ring_decls ~offset_width ~ring_width_px =
     box_shadows box_shadow_vars;
   ]
 
+(* The focus ring a text input carries: 1px, no offset. The plugin renders the
+   same ring on [.form-input] and on the bare elements it restyles, so both read
+   it from here. *)
 let input_focus_decls =
   let open Css in
   focus_ring_decls ~offset_width:(Px 0.) ~ring_width_px:1
@@ -98,6 +101,8 @@ let input_focus_decls =
            });
     ]
 
+(* The focus ring a checkbox or radio carries: 2px, offset by 2px. Shared with
+   the bare-element rules for the same reason. *)
 let checkbox_focus_decls =
   let open Css in
   focus_ring_decls ~offset_width:(Px 2.) ~ring_width_px:2
@@ -627,35 +632,6 @@ let text_inputs =
       Css.Selector.element "select";
     ]
 
-(** Focus ring declarations for text inputs (1px ring, no offset) *)
-let text_input_focus_ring_decls =
-  let open Css in
-  focus_ring_decls ~offset_width:(Px 0.) ~ring_width_px:1
-  @ [
-      border_color blue_600;
-      outline
-        (Shorthand
-           {
-             width = Some (Px 2.);
-             style = Some Solid;
-             color = Some (hex "#0000");
-           });
-    ]
-
-(** Focus ring declarations for checkboxes/radios (2px ring, 2px offset) *)
-let checkbox_focus_ring_decls =
-  let open Css in
-  focus_ring_decls ~offset_width:(Px 2.) ~ring_width_px:2
-  @ [
-      outline
-        (Shorthand
-           {
-             width = Some (Px 2.);
-             style = Some Solid;
-             color = Some (hex "#0000");
-           });
-    ]
-
 (** Webkit datetime edit pseudo-element rules for text inputs *)
 let webkit_datetime_rules () =
   let open Css in
@@ -726,9 +702,7 @@ let text_inputs_base () =
         font_size (Rem 1.);
         line_height (Rem 1.5);
       ];
-    rule
-      ~selector:Selector.(is_ text_input_items && Focus)
-      text_input_focus_ring_decls;
+    rule ~selector:Selector.(is_ text_input_items && Focus) input_focus_decls;
     rule
       ~selector:
         Selector.(
@@ -908,7 +882,7 @@ let checkbox_radio_base () =
     (* 4. Focus ring for both *)
     rule
       ~selector:Selector.(list [ type_checkbox && Focus; type_radio && Focus ])
-      checkbox_focus_ring_decls;
+      checkbox_focus_decls;
   ]
   @ checkbox_checked_rules ()
   @ checkbox_indeterminate_rules ()
