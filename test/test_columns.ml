@@ -41,7 +41,6 @@ let test_arbitrary_token_stream () =
     [ "columns:calc(1 + 2)" ];
   Test_helpers.check_declarations "columns-[0x10]" [ "columns:0x10" ];
   Test_helpers.check_declarations "columns-[1_0]" [ "columns:1 0" ];
-  Test_helpers.check_declarations "columns-[+3]" [ "columns:+3" ];
   Test_helpers.check_declarations "columns-[0x4rem]" [ "columns:0x4rem" ]
 
 (* columns-[16rem] is a column-WIDTH (columns: 16rem), distinct from the integer

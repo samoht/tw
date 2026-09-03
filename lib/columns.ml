@@ -26,7 +26,11 @@ module Handler = struct
     | Columns_6xl
     | Columns_7xl
     | Columns_arbitrary of int
-    | Columns_arbitrary_len of string (* columns-[16rem] *)
+    | Columns_arbitrary_len of string * Css.length (* columns-[16rem] *)
+    (* The author's text beside the value it denotes: a bracket Tailwind hands
+       to the declaration unvalidated, so [columns-[0x10]] is [columns: 0x10]
+       and not the [16] an OCaml number reader would fold it to. *)
+    | Columns_arbitrary_raw of string * string
     | Columns_bracket_var of string
 
   let name = "columns"
@@ -37,26 +41,6 @@ module Handler = struct
   let columns_with_var var default_value =
     let decl, ref_ = Var.binding var default_value in
     style [ decl; columns (Width (Var ref_)) ]
-
-  (* Parse an arbitrary column width (columns-[16rem]). *)
-  let parse_columns_length str : Css.length option =
-    let len = String.length str in
-    let drop n = float_of_string_opt (String.sub str 0 (len - n)) in
-    let map (f : float -> Css.length) = function
-      | Some n -> Some (f n)
-      | None -> None
-    in
-    if len > 3 && String.sub str (len - 3) 3 = "rem" then
-      map (fun n -> Css.Rem n) (drop 3)
-    else if len > 2 && String.sub str (len - 2) 2 = "px" then
-      map (fun n -> Css.Px n) (drop 2)
-    else if len > 2 && String.sub str (len - 2) 2 = "em" then
-      map (fun n -> Css.Em n) (drop 2)
-    else if len > 2 && String.sub str (len - 2) 2 = "vw" then
-      map (fun n -> Css.Vw n) (drop 2)
-    else if len > 1 && str.[len - 1] = '%' then
-      map (fun n -> Css.Pct n) (drop 1)
-    else None
 
   let to_style theme = function
     | Columns_auto -> (
@@ -90,10 +74,11 @@ module Handler = struct
     | Columns_6xl -> columns_with_var Sizing.container_6xl (Rem 72.0)
     | Columns_7xl -> columns_with_var Sizing.container_7xl (Rem 80.0)
     | Columns_arbitrary n -> style [ columns (Count n) ]
-    | Columns_arbitrary_len s -> (
-        match parse_columns_length s with
-        | Some l -> style [ columns (Width l) ]
-        | None -> style [ columns Auto ])
+    | Columns_arbitrary_len (_, l) -> style [ columns (Width l) ]
+    | Columns_arbitrary_raw (_, v) -> (
+        match Parse.opaque_declaration "columns" v with
+        | Some declaration -> style [ declaration ]
+        | None -> style [])
     | Columns_bracket_var s ->
         let inner = Parse.extract_var_name s in
         let ref : Css.columns_value Css.var = Var.bracket inner in
@@ -126,19 +111,22 @@ module Handler = struct
     | [ "columns"; "7xl" ] -> Ok Columns_7xl
     | [ "columns"; value ] when Parse.is_bracket_var value ->
         Ok (Columns_bracket_var (Parse.bracket_inner value))
+    | [ "columns"; n ] when Parse.is_bracket_value n -> (
+        (* A count, a width, or the author's text as written. *)
+        let inner = Parse.bracket_inner n in
+        match Parse.decimal_int inner with
+        | Some i -> Ok (Columns_arbitrary i)
+        | None -> (
+            match Parse.arbitrary_length inner with
+            | Some l -> Ok (Columns_arbitrary_len (inner, l))
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some v -> Ok (Columns_arbitrary_raw (inner, v))
+                | None -> Error (`Msg "Invalid columns arbitrary value"))))
     | [ "columns"; n ] -> (
-        let len = String.length n in
-        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
-          match Parse.decimal_int inner with
-          | Some i -> Ok (Columns_arbitrary i)
-          | None when parse_columns_length inner <> None ->
-              Ok (Columns_arbitrary_len inner)
-          | None -> Error (`Msg "Invalid columns arbitrary value")
-        else
-          match Parse.decimal_int n with
-          | Some i -> Ok (Columns_count i)
-          | None -> Error (`Msg "Invalid columns value"))
+        match Parse.decimal_int n with
+        | Some i -> Ok (Columns_count i)
+        | None -> Error (`Msg "Invalid columns value"))
     | _ -> Error (`Msg "Not a columns utility")
 
   let to_class = function
@@ -158,7 +146,8 @@ module Handler = struct
     | Columns_6xl -> "columns-6xl"
     | Columns_7xl -> "columns-7xl"
     | Columns_arbitrary n -> "columns-[" ^ string_of_int n ^ "]"
-    | Columns_arbitrary_len s -> "columns-[" ^ s ^ "]"
+    | Columns_arbitrary_len (s, _) -> "columns-[" ^ s ^ "]"
+    | Columns_arbitrary_raw (s, _) -> "columns-[" ^ s ^ "]"
     | Columns_bracket_var s -> "columns-[" ^ s ^ "]"
 
   let examples = [ Columns_auto ]

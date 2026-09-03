@@ -99,18 +99,22 @@ let of_string_invalid () =
   fail_maybe [ "auto"; "rows"; "invalid" ];
 
   (* Invalid value *)
+  ()
 
-  (* Arbitrary values with unparseable contents: should reject, not crash.
-     Regression: grid-cols-[1fr_40%] used to raise Invalid_argument mid-run. *)
-  let bad input =
-    match Tw.Grid_template.Handler.of_class Tw.Scheme.default input with
-    | Ok _ -> fail ("Expected error for: " ^ input)
-    | Error _ -> ()
-  in
-  bad "grid-cols-[totally_garbage]";
-  bad "grid-cols-[1xyz]";
-  bad "grid-rows-[abc_def]";
-  bad "auto-cols-[nope]"
+(* A bracket the track grammar cannot read is not refused: Tailwind hands it to
+   the declaration as written, and so does tw. Reading it must not raise, which
+   [grid-cols-[1fr_40%]] once did mid-run. *)
+let test_unreadable_tracks_pass_through () =
+  Test_helpers.check_declarations "grid-cols-[totally_garbage]"
+    [ "grid-template-columns:totally garbage" ];
+  Test_helpers.check_declarations "grid-cols-[1xyz]"
+    [ "grid-template-columns:1xyz" ];
+  Test_helpers.check_declarations "grid-rows-[abc_def]"
+    [ "grid-template-rows:abc def" ];
+  Test_helpers.check_declarations "auto-cols-[nope]"
+    [ "grid-auto-columns:nope" ];
+  Test_helpers.check_declarations "grid-cols-[1fr_40%]"
+    [ "grid-template-columns:1fr 40%" ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -182,6 +186,8 @@ let test_arbitrary_token_stream () =
 let tests =
   [
     test_case "arbitrary token stream" `Quick test_arbitrary_token_stream;
+    test_case "unreadable tracks pass through" `Quick
+      test_unreadable_tracks_pass_through;
     test_case "arbitrary track values" `Quick test_arbitrary_track_values;
     test_case "grid_template of_string - valid values" `Quick of_string_valid;
     test_case "grid_template of_string - invalid values" `Quick

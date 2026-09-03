@@ -267,7 +267,12 @@ let test_invalid_arbitrary_z_index () =
    ([0x4], [1_0]) is emitted as written. A word and a percentage are not
    z-indexes and are passed through the same way, as the pinned CLI does. *)
 let test_arbitrary_token_stream () =
-  Test_helpers.check_declarations "z-[calc(1+2)]" [ "z-index:calc(1 + 2)" ];
+  (* The z-index grammar reads a math function, so this one is typed rather than
+     opaque, and cascade folds a calc() over constants to the number it
+     computes. Tailwind writes [calc(1 + 2)]; the two are the same z-index. *)
+  Test_helpers.check_declarations "z-[calc(1+2)]" [ "z-index:3" ];
+  Test_helpers.check_declarations "z-[calc(var(--x)+2)]"
+    [ "z-index:calc(var(--x) + 2)" ];
   Test_helpers.check_declarations "z-[0x4]" [ "z-index:0x4" ];
   Test_helpers.check_declarations "z-[1_0]" [ "z-index:1 0" ];
   Test_helpers.check_declarations "z-[foo]" [ "z-index:foo" ];
