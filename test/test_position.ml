@@ -178,6 +178,26 @@ let test_arbitrary_calc () =
        (css "left-[calc(50%+var(--offset))]"));
   check "left-[calc(5%-2px)]"
 
+(* An arbitrary value is read by the whole decoder, not by its last stage alone:
+   [_] is a space, [--spacing(n)] expands to the spacing product, and only then
+   are the math operators re-spaced. The bare suffix keeps its own reading,
+   where a step OCaml's number reader accepts but Tailwind does not ([top-0x4],
+   [top-1_0]) is still no utility. *)
+let test_arbitrary_value_decoder_stages () =
+  Test_helpers.check_declarations "top-[calc(1px_+_1px)]"
+    [ "top:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "inset-[calc(1px_+_1px)]"
+    [ "inset:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "left-[--spacing(4)]"
+    [ "left:calc(var(--spacing)*4)" ];
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "top-0x4";
+  rejected "top-1_0"
+
 (* An arbitrary inset whose body is not a whole calc expression is not a
    utility. In [-left-[0)/*1]] the stray ')' closes nothing and the '/*' opens a
    comment that never ends, so Tailwind emits no rule for it. *)
@@ -475,6 +495,8 @@ let tests =
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
     test_case "spacing steps (fractional + px)" `Quick test_spacing_steps;
     test_case "arbitrary calc insets" `Quick test_arbitrary_calc;
+    test_case "arbitrary value decoder stages" `Quick
+      test_arbitrary_value_decoder_stages;
     test_case "unbalanced arbitrary inset rejected" `Quick
       test_unbalanced_arbitrary_rejected;
     test_case "position suborder matches Tailwind" `Quick
