@@ -28,13 +28,6 @@ let repo_root () =
   in
   match Sys.getcwd () with exception Sys_error _ -> None | cwd -> climb cwd 4
 
-let contains haystack word =
-  let n = String.length haystack and m = String.length word in
-  let rec loop i =
-    i + m <= n && (String.sub haystack i m = word || loop (i + 1))
-  in
-  m > 0 && loop 0
-
 (* The [dune-project] depends line is [(cascade (and (>= X) (< Y)))]; grabbed
    verbatim rather than sexp-parsed since it is only ever displayed, never
    compared against. *)
@@ -49,8 +42,10 @@ let cascade_constraint root =
         | exception End_of_file -> None
         | line ->
             let trimmed = String.trim line in
-            if contains trimmed "cascade" && contains trimmed "(and" then
-              Some trimmed
+            if
+              Tw.Strings.contains ~sub:"cascade" trimmed
+              && Tw.Strings.contains ~sub:"(and" trimmed
+            then Some trimmed
             else loop ()
       in
       loop ()
