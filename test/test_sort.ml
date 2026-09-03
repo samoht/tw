@@ -2149,6 +2149,13 @@ let test_not_supports_variant_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"not-supports variants follow base utilities" utilities
 
+(* Negating a breakpoint changes its media condition, not its place in the
+   responsive scale. Tailwind therefore keeps not-sm, not-md, and not-xl in
+   ascending breakpoint order. *)
+let test_not_breakpoint_order () =
+  Test_helpers.check_class_order ~test_name:"not-breakpoint order"
+    [ "not-xl:hidden"; "not-sm:hidden"; "not-md:hidden" ]
+
 let test_breakpoint_groups_stacked_variants () =
   (* A stacked variant sorts under its breakpoint, so first:sm:m-2 stays with
      the other sm rules instead of falling past md:block. Tailwind's order for
@@ -3131,6 +3138,7 @@ let tests =
     test_case "stacked variant outline order" `Slow
       test_stacked_variant_outline_order;
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
+    test_case "not-breakpoint order" `Slow test_not_breakpoint_order;
     test_case "variant table emission order" `Slow
       test_variant_table_emission_order;
     test_case "stacked responsive variant order" `Slow
