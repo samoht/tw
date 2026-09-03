@@ -145,7 +145,7 @@
 - `gap-`, `margin-` and the inset families read a bracket value through the
   whole arbitrary decoder rather than its last stage alone, so
   `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]` and `top-[calc(1px_+_1px)]`
-  reach the sheet (#PR).
+  reach the sheet (#688).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).
@@ -156,10 +156,10 @@
 - A `theme()` naming a key the resolved theme does not carry makes the class no
   utility, the way Tailwind emits no rule for it. `shadow-[0_0_0_1px_theme(a_b)]`
   compiled with the call written through into the declaration, and a fallback
-  argument now stands in for the missing key (#PR).
+  argument now stands in for the missing key (#688).
 - `mask-[url(...)]` keeps the bare underscore a file name carries, the way
   `bg-[url(...)]` already does: it named a different file, with a space in it
-  (#PR).
+  (#688).
 - An arbitrary value keeps the underscore its `\_` escape spells, so
   `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
   the sheet as written instead of carrying the backslash into the value (#676).
