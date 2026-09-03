@@ -542,6 +542,34 @@ let theme_function_keeps_an_underscore () =
         "the class is the one the source spells" "[color:theme(colors.red.500)]"
         (Tw.to_classes [ u ])
 
+(* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
+   does not carry, so a class carrying one is not a utility. A bare segment
+   names no namespace and the palette namespace is known in full, so both are
+   provably missing. A key the theme does carry still resolves, alone or inside
+   a longer value, and a fallback argument stands in for a missing key. *)
+let theme_function_rejects_an_unknown_key () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "shadow-[0_0_0_1px_theme(a_b)]";
+  rejected {|shadow-[0_0_0_1px_theme(a\_b)]|};
+  rejected "[color:theme(colors.nope.500)]";
+  rejected "[color:theme(colors.red.999)]";
+  rejected "[color:theme(colors.red)]";
+  (* a key the theme carries still resolves *)
+  Test_helpers.check_declarations "p-[theme(spacing.4)]" [ "padding:1rem" ];
+  Test_helpers.check_declarations "[color:theme(colors.red.500)]"
+    [ "color:oklch(63.7%.237 25.331)" ];
+  (* and inside a longer value *)
+  Test_helpers.check_declarations "p-[calc(theme(spacing.4)_*_2)]"
+    [ "padding:calc(1rem*2)" ];
+  (* a missing key with a fallback takes the fallback, the way Tailwind does *)
+  Test_helpers.check_declarations "[color:theme(nope,blue)]" [ "color:blue" ];
+  Test_helpers.check_declarations "[color:theme(colors.nope.500,blue)]"
+    [ "color:blue" ]
+
 let custom_breakpoint_theme_is_local () =
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
@@ -1540,6 +1568,8 @@ let core_tests =
     test_case "style combination" `Slow style_combination;
     test_case "paren var shorthand" `Quick paren_var_shorthand;
     test_case "unterminated theme() call" `Quick unterminated_theme_call;
+    test_case "theme() rejects an unknown key" `Quick
+      theme_function_rejects_an_unknown_key;
     test_case "arbitrary property rejection message" `Quick
       arbitrary_property_rejection_message;
     test_case "responsive classes" `Slow responsive_classes;
