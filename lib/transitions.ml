@@ -32,7 +32,7 @@ module Handler = struct
     | Duration_arbitrary of
         string * [ `Duration of Css.duration | `Raw of string ]
     | Delay of int
-    | Delay_arbitrary of string * Css.duration
+    | Delay_arbitrary of string * [ `Duration of Css.duration | `Raw of string ]
     | Ease_linear
     | Ease_in
     | Ease_out
@@ -547,7 +547,11 @@ module Handler = struct
               ])
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
-  let delay_arbitrary d = style [ Css.transition_delay d ]
+
+  let delay_arbitrary = function
+    | `Duration d -> style [ Css.transition_delay d ]
+    | `Raw raw ->
+        style (Option.to_list (Parse.opaque_declaration "transition-delay" raw))
 
   let to_style theme =
     let transition_all () = transition_all ~theme () in
@@ -613,6 +617,29 @@ module Handler = struct
 
   let ( >|= ) = Parse.( >|= )
 
+  (* [duration-] and [delay-] read a bracket the same way: a bare time keeps its
+     unit as a typed duration, and anything else Tailwind would accept passes
+     through as a declaration-safe token stream. *)
+  let arbitrary_time inner =
+    let timed suffix unit =
+      let num =
+        String.sub inner 0 (String.length inner - String.length suffix)
+      in
+      Option.map (fun f -> `Duration (unit f)) (float_of_string_opt num)
+    in
+    let typed =
+      if String.ends_with ~suffix:"ms" inner then timed "ms" (fun f -> Css.Ms f)
+      else if String.ends_with ~suffix:"s" inner then
+        timed "s" (fun f -> Css.S f)
+      else None
+    in
+    match typed with
+    | Some _ as value -> value
+    | None ->
+        Option.map
+          (fun value -> `Raw value)
+          (Parse.arbitrary_declaration_value inner)
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -635,65 +662,21 @@ module Handler = struct
         | Some _ -> Ok (Transition_arbitrary inner)
         | None -> Error (`Msg "Invalid transition property"))
     | [ "transition" ] -> Ok Transition
-    | [ "duration"; n ] when String.length n > 0 && n.[0] = '[' ->
-        (* Arbitrary duration: duration-[300ms] *)
-        let len = String.length n in
-        if len > 2 && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
-          if String.ends_with ~suffix:"ms" inner then
-            let num = String.sub inner 0 (String.length inner - 2) in
-            match float_of_string_opt num with
-            | Some _ ->
-                Ok
-                  (Duration_arbitrary
-                     (inner, `Duration (Css.Ms (float_of_string num))))
-            | None -> (
-                match Parse.arbitrary_declaration_value inner with
-                | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
-                | None -> Error (`Msg "Invalid duration value"))
-          else if String.ends_with ~suffix:"s" inner then
-            let num = String.sub inner 0 (String.length inner - 1) in
-            match float_of_string_opt num with
-            | Some _ ->
-                Ok
-                  (Duration_arbitrary
-                     (inner, `Duration (Css.S (float_of_string num))))
-            | None -> (
-                match Parse.arbitrary_declaration_value inner with
-                | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
-                | None -> Error (`Msg "Invalid duration value"))
-          else
-            match Parse.arbitrary_declaration_value inner with
-            | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
-            | None -> Error (`Msg "Invalid duration unit")
-        else Error (`Msg "Invalid arbitrary syntax")
+    | [ "duration"; n ] when Parse.is_bracket_value n -> (
+        (* Arbitrary duration: duration-[300ms], duration-[calc(1s+2s)] *)
+        let inner = Parse.bracket_inner n in
+        match arbitrary_time inner with
+        | Some value -> Ok (Duration_arbitrary (inner, value))
+        | None -> Error (`Msg "Invalid duration value"))
     | [ "duration"; "initial" ] -> Ok Duration_initial
     | [ "duration"; n ] ->
         Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
-    | [ "delay"; n ] when String.length n > 0 && n.[0] = '[' ->
-        (* Arbitrary delay: delay-[300ms], delay-[var(--d)] *)
-        let len = String.length n in
-        if len > 2 && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
-          if Parse.is_var inner then
-            let dref : Css.duration Css.var =
-              Var.bracket (Parse.extract_var_name inner)
-            in
-            Ok (Delay_arbitrary (inner, (Css.Var dref : Css.duration)))
-          else if String.ends_with ~suffix:"ms" inner then
-            let num = String.sub inner 0 (String.length inner - 2) in
-            match float_of_string_opt num with
-            | Some _ ->
-                Ok (Delay_arbitrary (inner, Css.Ms (float_of_string num)))
-            | None -> Error (`Msg "Invalid delay value")
-          else if String.ends_with ~suffix:"s" inner then
-            let num = String.sub inner 0 (String.length inner - 1) in
-            match float_of_string_opt num with
-            | Some _ ->
-                Ok (Delay_arbitrary (inner, Css.S (float_of_string num)))
-            | None -> Error (`Msg "Invalid delay value")
-          else Error (`Msg "Invalid delay unit")
-        else Error (`Msg "Invalid arbitrary syntax")
+    | [ "delay"; n ] when Parse.is_bracket_value n -> (
+        (* Arbitrary delay: delay-[300ms], delay-[calc(1s+2s)] *)
+        let inner = Parse.bracket_inner n in
+        match arbitrary_time inner with
+        | Some value -> Ok (Delay_arbitrary (inner, value))
+        | None -> Error (`Msg "Invalid delay value"))
     | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n >|= fun n -> Delay n
     | [ "ease"; "linear" ] -> Ok Ease_linear
     | [ "ease"; "in" ] -> Ok Ease_in

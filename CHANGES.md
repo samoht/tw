@@ -131,6 +131,9 @@
 
 ### Arbitrary values and validation
 
+- `delay-[...]` takes the arbitrary token streams `duration-[...]` already
+  took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
+  a `var()` fallback in either family decodes its underscores (#PR).
 - Preserve Tailwind's declaration-safe token-stream contract for arbitrary
   animation, background, divide, filter, shadow, ring, scrollbar, table,
   transform, transition and typography values, including values that are
