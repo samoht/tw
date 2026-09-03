@@ -92,9 +92,16 @@ val decode_underscores : string -> string
 
     The argument list of a [url()] is left as written, because a [_] there is
     part of a file name: [image-set(url('a_b.png')_1x)] keeps the first
-    underscore and gives the second a space. The function name is matched on
-    [url] or a name ending in [_url], so [myurl(a_b)] and [a-url(a_b)] decode
-    their arguments. *)
+    underscore and gives the second a space.
+
+    The first argument of a [var()] or a [theme()] keeps its bare [_] too,
+    because it names a custom property, while [\_] there still unescapes. The
+    rest of the call reads normally, so [var(--a_b,_c_d)] is [var(--a_b, c d)].
+
+    A name is matched on the word itself or on one ending in [_url], [_var] or
+    [_theme], since a class writes a space as [_]: the whole of [0_0_0_var] is
+    one function name, and [shadow-[0_0_0_var(--my_var)]] keeps the property it
+    references. So [myurl(a_b)] and [a-url(a_b)] decode their arguments. *)
 
 val unescape_underscores : string -> string
 (** [unescape_underscores s] turns the [\_] of an arbitrary value into a literal

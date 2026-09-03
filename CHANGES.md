@@ -160,6 +160,11 @@
   `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
   `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
   underscore outside the `url()` still becomes a space (#692).
+- The first argument of a `var()` or a `theme()` in an arbitrary value keeps its
+  underscores, which spell the name of a custom property rather than spaces.
+  `[--x:var(--my_var)]` referenced `--my var`, and `shadow-[0_0_0_var(--my_var)]`
+  truncated the reference to `var(--my)` without saying so; a later argument
+  still decodes (#PR).
 - `bg-[url(a\]b)]` names the file the class means. The escaped bracket reached
   the value as a backslash of its own and emitted `url("a\\]b")`; the whole
   `url()` is now read by the CSS tokeniser, which resolves its quotes and
