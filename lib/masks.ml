@@ -283,22 +283,6 @@ module Handler = struct
   let mask_position_style positions =
     style [ Css.webkit_mask_position positions; Css.mask_position positions ]
 
-  (* A whole value that is one [url()]: the first [)] closes it, so no second
-     layer hides behind a comma. *)
-  let is_single_url inner =
-    let n = String.length inner in
-    n > 5
-    && String.sub inner 0 4 = "url("
-    && inner.[n - 1] = ')'
-    && not (String.contains (String.sub inner 4 (n - 5)) ')')
-
-  (* Tailwind keeps a bare [_] inside [url()], where it is part of the file
-     name, and undoes only the [\_] escape; everywhere else in an arbitrary
-     value an underscore is a space. *)
-  let image_source inner =
-    if is_single_url inner then Parse.unescape_underscores inner
-    else Parse.decode_underscores inner
-
   let to_style _theme = function
     | No_mask -> mask_none
     | Add -> mask_add
@@ -387,7 +371,7 @@ module Handler = struct
             Css.mask_image (Var var_ref);
           ]
     | Bracket_image v -> (
-        match Css.parse_background_image (image_source v) with
+        match Css.parse_background_image (Parse.decode_underscores v) with
         | Some (img :: _) ->
             style [ Css.webkit_mask_image img; Css.mask_image img ]
         | _ ->
@@ -455,7 +439,7 @@ module Handler = struct
      whether the value parser accepts it, not which gradient function it
      names. *)
   let is_image_value inner =
-    match Css.parse_background_image (image_source inner) with
+    match Css.parse_background_image (Parse.decode_underscores inner) with
     | Some (_ :: _) -> true
     | _ -> false
 
@@ -554,9 +538,8 @@ module Handler = struct
               (Bracket_image_var (String.sub inner 6 (String.length inner - 6)))
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
             Ok (Bracket_url_var (String.sub inner 4 (String.length inner - 4)))
-        (* Before the single-[url(...)] reading below, which takes everything
-           between the first [(] and the last [)] and so swallows the comma of a
-           layer list. *)
+        (* Before the [url(...)] reading below, which takes one whole token and
+           so has no answer for the comma of a layer list. *)
         | _ when is_image_value inner -> Ok (Bracket_image inner)
         | _ when String.starts_with ~prefix:"url(" inner -> (
             match Parse.url_token (Parse.decode_arbitrary_value inner) with
