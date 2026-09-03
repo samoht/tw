@@ -559,9 +559,8 @@ let rule_sets_from_selector_props order_map all_rules =
   sorted |> List.map indexed_rule_to_statement
 
 let utilities_layer ~layers ~statements =
-  (* Statements are already in the correct order with media queries interleaved.
-     Consecutive media queries with the same condition will be merged by the
-     optimizer (css/optimize.ml) while preserving cascade order. *)
+  (* Statements are already in the correct order, with adjacent equal media
+     conditions merged before the layer is assembled. *)
   if layers then Css.v [ Css.layer ~name:[ "utilities" ] statements ]
   else Css.v statements
 
@@ -571,6 +570,7 @@ let utilities_layer ~layers ~statements =
 let statements_of_sorted_rules ?verbatim sorted_rules =
   List.map (indexed_rule_to_statement ?verbatim) sorted_rules
   |> Css.Optimize.merge_consecutive_starting_style
+  |> Css.Optimize.merge_consecutive_media
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)

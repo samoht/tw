@@ -116,7 +116,7 @@ around the project's selector.
   $ cat > lgdark.html <<EOF
   > <div class="lg:dark:flex lg:dark:hover:block"></div>
   > EOF
-  $ tw --minify --input-css darkclass.css lgdark.html | grep -cF '@media(min-width:64rem){.lg\:dark\:flex:where(.dark,.dark *){display:flex}}'
+  $ tw --minify --input-css darkclass.css lgdark.html | grep -cF '@media(min-width:64rem){.lg\:dark\:flex:where(.dark,.dark *){display:flex}'
   1
   $ tw --minify --input-css darkclass.css lgdark.html | grep -cF '.lg\:dark\:hover\:block:where(.dark,.dark *):hover{display:block}'
   1

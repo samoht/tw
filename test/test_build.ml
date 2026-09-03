@@ -624,7 +624,8 @@ let test_rule_sets_hover_media () =
 
 let test_rule_sets_md_media () =
   (* Multiple md[...] utilities should group under a single min-width media
-     block without relying on Cascade optimization. *)
+     block during utility construction, without requiring whole-stylesheet
+     optimization. *)
   let css =
     Tw.Build.to_css
       ~config:{ base = true; forms = None; layers = true }
@@ -639,8 +640,7 @@ let test_rule_sets_md_media () =
   in
   check int "one consecutive md media block" 1 md_blocks;
 
-  (* Collect md media blocks and verify both selectors are under md. CSS
-     optimization may merge these blocks, but tw no longer depends on that. *)
+  (* Collect the md media block and verify both selectors remain under md. *)
   let selectors =
     Css.fold
       (fun acc stmt ->
