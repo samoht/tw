@@ -396,10 +396,10 @@ module Handler = struct
       let inner = String.sub s 1 (len - 2) in
       if Parse.is_var inner then Some (Arbitrary_var inner)
       else
-        (* Route the value through the full length grammar (percent,
-           container-query units, calc), keeping the raw token for
-           round-trip. *)
-        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        (* Route the value through the whole arbitrary decoder and the full
+           length grammar (percent, container-query units, calc), keeping the
+           raw token for round-trip. *)
+        match Parse.arbitrary_length inner with
         | Some l -> Some (Arbitrary (inner, l))
         | None -> None
     else None

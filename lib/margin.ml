@@ -193,13 +193,14 @@ module Handler = struct
   let parse_arbitrary s : signed option =
     (* Parse [4px], [1rem], [50%], [-5cqw], [calc(...)], or [var(--value)]. The
        raw inner is kept verbatim for the class name; the value goes through the
-       full length grammar so any unit or calc() is accepted. *)
+       whole arbitrary decoder and the full length grammar so any unit or calc()
+       is accepted. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
       if Parse.is_var inner then Some (Arbitrary_var inner)
       else
-        match Css.parse_length (Parse.normalize_css_math_operators inner) with
+        match Parse.arbitrary_length inner with
         | Some l -> Some (Arbitrary (inner, l))
         | None -> None
     else None
