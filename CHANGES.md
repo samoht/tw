@@ -299,6 +299,10 @@
 - A declared utility's own rules come before the ones its variants wrap in an
   at-rule, and one whose first property has no order slot sorts among the
   built-ins instead of opening a second `@layer utilities` (#550).
+- The initial values of the utility variables emit as one `@supports` block.
+  Every `@apply` and every declared utility hoisted a block of its own beside
+  the generated sheet's, so a project stylesheet re-declared variables the
+  sheet had already initialised (#XXX).
 
 ### Public OCaml API
 
