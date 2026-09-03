@@ -602,10 +602,11 @@ let test_bracket_url_escape () =
   in
   has {|bg-[url(a\]b)]|} "background-image: url(a]b)";
   has {|bg-[image:url(a\]b)]|} "background-image: url(a]b)";
-  (* A quoted []] needs no escape and keeps its quotes. *)
-  has "bg-[url('a]b')]" "background-image: url('a]b')";
+  (* A quoted []] needs no escape either. Tailwind keeps the quotes the class
+     wrote; dropping them is cascade's canonical spelling of the same URL. *)
+  has "bg-[url('a]b')]" "background-image: url(a]b)";
   (* A url argument keeps a bare [_], which is part of the file name. *)
-  has "bg-[url('a_b.png')]" "background-image: url('a_b.png')"
+  has "bg-[url('a_b.png')]" "background-image: url(a_b.png)"
 
 let tests =
   [

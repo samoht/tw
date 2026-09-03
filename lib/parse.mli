@@ -114,6 +114,15 @@ val decode_arbitrary_value : string -> string
     spaces and normalizes omitted whitespace around binary [+] and [-] operators
     inside CSS math functions such as [calc()]. *)
 
+val url_token : string -> string option
+(** [url_token s] reads [s] as one whole CSS [url()] token and returns the URL
+    it names, with quotes and escapes resolved: [url(a\]b)], [url(a\\\]b)] and
+    [url('a\]b')] all name [a\]b]. [None] when [s] is not one whole token.
+
+    A utility holding a [url()] as it was written reads it back through this
+    rather than slicing the file name out of the text, which would carry the
+    backslash of an escape into the value. *)
+
 val normalize_css_math_operators : string -> string
 (** [normalize_css_math_operators s] inserts the spaces CSS math functions
     (calc/min/max/...) require around binary [+] and [-], e.g.

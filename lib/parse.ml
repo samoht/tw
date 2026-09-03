@@ -238,6 +238,18 @@ let url_argument_spans s =
 let decode_underscores s =
   read_underscores ~plain:' ' ~verbatim:(url_argument_spans s) s
 
+(* A [url()] in an arbitrary value is CSS source, so an escape in it stands for
+   one character of the URL and the quotes are the tokeniser's, not the file
+   name's: [url(a\]b)], [url(a]b)] and [url('a]b')] all name [a]b]. Reading the
+   token rather than slicing the text out of it keeps the backslash from
+   reaching the value as a character of its own. *)
+let url_token s =
+  try
+    let cursor = Cascade.Cursor.of_string s in
+    let url = Cascade.Cursor.url cursor in
+    if Cascade.Cursor.is_done cursor then Some url else None
+  with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None
+
 (* A property name has no spaces to spell, so its underscores stand for
    themselves and only the escape is undone. A name holds no [url()] either, so
    nothing is copied out unread. *)

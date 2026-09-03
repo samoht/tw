@@ -159,11 +159,17 @@
   are part of a file name rather than spaces. `list-image-[url('a_b.png')]`,
   `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
   `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
-  underscore outside the `url()` still becomes a space (#PR).
-- An arbitrary property whose value quotes or escapes a closing bracket reaches
-  the sheet. `[content:'a]b']`, `[--x:'a]b']` and
-  `[background-image:url('a]b')]` were refused, because the scan for the
-  closing bracket read neither strings nor escapes (#PR).
+  underscore outside the `url()` still becomes a space (#692).
+- `bg-[url(a\]b)]` names the file the class means. The escaped bracket reached
+  the value as a backslash of its own and emitted `url("a\\]b")`; the whole
+  `url()` is now read by the CSS tokeniser, which resolves its quotes and
+  escapes (#692).
+- A closing bracket the arbitrary value quotes or escapes belongs to the value,
+  so `[content:'a]b']`, `[--x:'a]b']`, `[background-image:url('a]b')]`,
+  `bg-[url('a]b')]`, `font-['My]Font']`, `shadow-[0_0_0_'a]b']` and
+  `after:content-['a]b']` reach the sheet. Both scans for the closing bracket
+  read strings and the backslash escape as the CSS tokeniser does; a string the
+  value leaves open runs to the end, so no later bracket closes it (#692).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).
