@@ -252,7 +252,8 @@
 - Stacked and compound variants sort by what they contain rather than by their
   prefix text. A compound carries its inner value, a recursive compound follows
   its whole path, an arbitrary variant orders by its selector, data variants
-  group by predicate, and repeated element variants collapse to one key (#564).
+  group by predicate, a negated breakpoint retains its responsive order, and
+  repeated element variants collapse to one key (#564, #672).
 - Blocks group the way Tailwind groups them. A run of `@starting-style`
   utilities emits as one block, the utilities one `@apply` pulls in land in a
   single rule, the `@property` an applied utility brings is hoisted and
