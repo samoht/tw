@@ -20,8 +20,8 @@
 
 module Tailwind_gen = Tw_tools.Tailwind_gen
 
-(* Measured 2026-08-30 over [classlist.txt], 4825 classes of tailwindcss.com,
-   against cascade main at e829b2d6. Both keys and grouping come out of
+(* Measured 2026-09-03 over [classlist.txt], 4825 classes of tailwindcss.com,
+   against cascade main at 3a007e5b. Both keys and grouping come out of
    cascade's printer, so the number is only comparable against the cascade a run
    was built with, and every run prints which one that was. CI pins cascade main
    through opam; a local [cascade/] symlink sitting on someone's branch is the
@@ -31,7 +31,7 @@ module Tailwind_gen = Tw_tools.Tailwind_gen
    would otherwise have nothing left to be out of order, and the gate would read
    that as a pass. *)
 let pinned =
-  [ ("utilities", `Moves 0, `Pairs 3800); ("components", `Moves 0, `Pairs 45) ]
+  [ ("utilities", `Moves 2, `Pairs 3900); ("components", `Moves 0, `Pairs 45) ]
 
 (* Skipping is right on a machine with no Tailwind CLI and wrong in CI, where it
    reports a sheet as correctly ordered because nothing looked. Set

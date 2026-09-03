@@ -18,6 +18,7 @@ module Handler = struct
   type color_spec =
     | Theme of Color.color * int * Color.opacity_modifier
     | Bracket of string * Css.color * Color.opacity_modifier
+    | Raw of string * string
     | Current
     | Inherit
     | Transparent
@@ -50,6 +51,7 @@ module Handler = struct
         in
         base ^ Color.opacity_suffix op
     | Bracket (raw, _, op) -> raw ^ Color.opacity_suffix op
+    | Raw (raw, _) -> raw
     | Current -> "current"
     | Inherit -> "inherit"
     | Transparent -> "transparent"
@@ -94,6 +96,7 @@ module Handler = struct
         ([ fst (Var.binding set_var (Css.Transparent : Css.color)) ], [])
     | Current -> ([ keyword "currentcolor" ], [])
     | Inherit -> ([ fst (Var.binding set_var (Css.Inherit : Css.color)) ], [])
+    | Raw (_, value) -> ([ keyword value ], [])
     | Theme (color, shade, Color.No_opacity) ->
         let color_decl, color_ref =
           Var.binding (Color.color_var color shade) (Color.to_css color shade)
@@ -166,8 +169,12 @@ module Handler = struct
       |> List.filter_map (fun x -> x)
       |> Css.concat
     in
+    let metadata =
+      match spec with Raw _ -> [ Var.metadata set_var ] | _ -> []
+    in
     match supports_rules with
-    | [] -> style ~property_rules (main_decls @ [ scrollbar_color_decl ])
+    | [] ->
+        style ~property_rules ~metadata (main_decls @ [ scrollbar_color_decl ])
     | _ ->
         (* Tailwind sets the fallback custom property, then upgrades it inside
            @supports, then applies scrollbar-color in a trailing rule so the
@@ -178,7 +185,7 @@ module Handler = struct
           (self main_decls :: supports_rules)
           @ [ self [ scrollbar_color_decl ] ]
         in
-        style ~property_rules ~rules:(Some ordered) []
+        style ~property_rules ~metadata ~rules:(Some ordered) []
 
   let to_style theme =
     let compose ~set_var s = compose ~theme ~set_var s in
@@ -210,7 +217,10 @@ module Handler = struct
         let inner = Parse.bracket_inner base in
         match Color.parse_bracket_color inner with
         | Some c -> Ok (mk (Bracket (base, c, op)))
-        | None -> Error (`Msg "Not a scrollbar utility"))
+        | None -> (
+            match (op, Parse.arbitrary_declaration_value inner) with
+            | Color.No_opacity, Some value -> Ok (mk (Raw (base, value)))
+            | _ -> Error (`Msg "Not a scrollbar utility")))
     | parts when List.exists has_opacity parts -> (
         match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))

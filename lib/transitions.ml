@@ -29,7 +29,8 @@ module Handler = struct
     | Transition_arbitrary of string
     | Duration of int
     | Duration_initial
-    | Duration_arbitrary of string * Css.duration
+    | Duration_arbitrary of
+        string * [ `Duration of Css.duration | `Raw of string ]
     | Delay of int
     | Delay_arbitrary of string * Css.duration
     | Ease_linear
@@ -39,7 +40,8 @@ module Handler = struct
     | Ease_initial
     (* The author's bracket text travels with the timing function it denotes, so
        the class name is spelled exactly as it was written. *)
-    | Ease_arbitrary of string * Css.timing_function
+    | Ease_arbitrary of
+        string * [ `Timing_function of Css.timing_function | `Raw of string ]
     | Ease_theme of string (* timing function from an --ease-* token *)
 
   let name = "transitions"
@@ -273,9 +275,10 @@ module Handler = struct
           Css.transition_duration (Css.Var duration_ref);
         ])
 
-  let transition_arbitrary ?theme s =
-    if Parse.is_var s then
-      let bare_name = Parse.extract_var_name s in
+  let transition_arbitrary ?theme spelling =
+    let value = Parse.decode_arbitrary_value spelling in
+    if Parse.is_var value then
+      let bare_name = Parse.extract_var_name value in
       let ref_ : Css.transition_property_value Css.var =
         Var.bracket bare_name
       in
@@ -286,11 +289,14 @@ module Handler = struct
             Css.transition_timing_function (Css.Var ease_ref);
             Css.transition_duration (Css.Var duration_ref);
           ])
-    else
+    else if
+      String.split_on_char ',' value
+      |> List.map String.trim
+      |> List.for_all Parse.is_ident
+    then
       (* Raw property list like "color,background-color" *)
-      let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
       let props =
-        String.split_on_char ',' raw
+        String.split_on_char ',' value
         |> List.map (fun p -> Css.Property (String.trim p))
       in
       style
@@ -300,6 +306,17 @@ module Handler = struct
             Css.transition_timing_function (Css.Var ease_ref);
             Css.transition_duration (Css.Var duration_ref);
           ])
+    else
+      match Parse.opaque_declaration "transition-property" value with
+      | None -> assert false
+      | Some transition_property ->
+          style
+            (default_theme_decls ?theme ()
+            @ [
+                transition_property;
+                Css.transition_timing_function (Css.Var ease_ref);
+                Css.transition_duration (Css.Var duration_ref);
+              ])
 
   (* Transition behavior (CSS Transitions Level 2) *)
   let transition_behavior_normal = style [ Css.transition_behavior Normal ]
@@ -450,12 +467,63 @@ module Handler = struct
       | Ok tf -> Some tf
       | Error _ -> None
 
-  let ease_arbitrary tf =
-    let tw_ease_decl, _ = Var.binding tw_ease_var tf in
-    let property_rules =
-      match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
-    in
-    style ~property_rules [ tw_ease_decl; Css.transition_timing_function tf ]
+  let ease_arbitrary = function
+    | `Timing_function tf ->
+        let tw_ease_decl, _ = Var.binding tw_ease_var tf in
+        let property_rules =
+          match Var.property_rule tw_ease_var with
+          | Some r -> r
+          | None -> Css.empty
+        in
+        style ~property_rules
+          [ tw_ease_decl; Css.transition_timing_function tf ]
+    | `Raw raw ->
+        let property_rules =
+          match Var.property_rule tw_ease_var with
+          | Some r -> r
+          | None -> Css.empty
+        in
+        let timing =
+          match Parse.opaque_declaration "transition-timing-function" raw with
+          | Some declaration -> declaration
+          | None -> assert false
+        in
+        style ~property_rules
+          ~metadata:[ Var.metadata tw_ease_var ]
+          [
+            Css.custom_property ~layer:"utilities" (Var.css_name tw_ease_var)
+              raw;
+            timing;
+          ]
+
+  let duration_arbitrary = function
+    | `Duration d ->
+        let tw_duration_decl, _ = Var.binding tw_duration_var d in
+        let property_rules =
+          match Var.property_rule tw_duration_var with
+          | Some r -> r
+          | None -> Css.empty
+        in
+        style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
+    | `Raw raw ->
+        let property_rules =
+          match Var.property_rule tw_duration_var with
+          | Some r -> r
+          | None -> Css.empty
+        in
+        let duration =
+          match Parse.opaque_declaration "transition-duration" raw with
+          | Some declaration -> declaration
+          | None -> assert false
+        in
+        style ~property_rules
+          ~metadata:[ Var.metadata tw_duration_var ]
+          [
+            Css.custom_property ~layer:"utilities"
+              (Var.css_name tw_duration_var)
+              raw;
+            duration;
+          ]
 
   let ease_theme theme name =
     match Scheme.theme_value (Some theme) ("ease-" ^ name) with
@@ -481,14 +549,6 @@ module Handler = struct
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
   let delay_arbitrary d = style [ Css.transition_delay d ]
 
-  let duration_arbitrary d =
-    let tw_duration_decl, _ = Var.binding tw_duration_var d in
-    let prop_rule = Var.property_rule tw_duration_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
-    style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
-
   let to_style theme =
     let transition_all () = transition_all ~theme () in
     let transition_colors () = transition_colors ~theme () in
@@ -511,7 +571,7 @@ module Handler = struct
     | Transition_arbitrary s -> transition_arbitrary s
     | Duration n -> duration n
     | Duration_initial -> duration_initial
-    | Duration_arbitrary (_, d) -> duration_arbitrary d
+    | Duration_arbitrary (_, value) -> duration_arbitrary value
     | Delay n -> delay n
     | Delay_arbitrary (_, d) -> delay_arbitrary d
     | Ease_linear -> ease_linear ()
@@ -519,7 +579,7 @@ module Handler = struct
     | Ease_out -> ease_out
     | Ease_in_out -> ease_in_out
     | Ease_initial -> ease_initial
-    | Ease_arbitrary (_, tf) -> ease_arbitrary tf
+    | Ease_arbitrary (_, value) -> ease_arbitrary value
     | Ease_theme name -> ease_theme theme name
 
   let suborder = function
@@ -539,10 +599,10 @@ module Handler = struct
     | Delay _ | Delay_arbitrary _ -> 100
     | Duration n -> 200 + n
     | Duration_initial -> 89_000_001
-    | Duration_arbitrary _ -> 200000
-    (* Ease utilities come after Duration. Tailwind orders: duration then ease.
-       Use a high base to ensure even duration-5000 (suborder 5200) < ease.
-       Within ease, Tailwind orders alphabetically: in, in-out, linear, out. *)
+    | Duration_arbitrary _ -> 99998
+    (* Arbitrary duration and ease share Tailwind's candidate band, with
+       duration immediately before ease. Named easing values then follow in
+       alphabetical order: in, in-out, linear, out. *)
     | Ease_in -> 100000
     | Ease_in_out -> 100001
     | Ease_linear -> 100002
@@ -567,18 +627,13 @@ module Handler = struct
         Ok Transition_behavior_allow_discrete
     | [ "transition"; "normal" ] -> Ok Transition_behavior_normal
     | [ "transition"; "discrete" ] -> Ok Transition_behavior_allow_discrete
-    | [ "transition"; value ] when Parse.is_bracket_value value ->
+    | [ "transition"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
-        (* [transition-property] takes property names, so anything that is not
-           an identifier - the docs' [<value>] placeholder included - is not
-           one. *)
-        if
-          Parse.is_var inner
-          || String.split_on_char ',' inner
-             |> List.map String.trim
-             |> List.for_all Parse.is_ident
-        then Ok (Transition_arbitrary inner)
-        else Error (`Msg "Invalid transition property")
+        (* Tailwind accepts any declaration-safe token stream here, including
+           values that are not valid transition-property lists. *)
+        match Parse.arbitrary_declaration_value inner with
+        | Some _ -> Ok (Transition_arbitrary inner)
+        | None -> Error (`Msg "Invalid transition property"))
     | [ "transition" ] -> Ok Transition
     | [ "duration"; n ] when String.length n > 0 && n.[0] = '[' ->
         (* Arbitrary duration: duration-[300ms] *)
@@ -589,15 +644,28 @@ module Handler = struct
             let num = String.sub inner 0 (String.length inner - 2) in
             match float_of_string_opt num with
             | Some _ ->
-                Ok (Duration_arbitrary (inner, Css.Ms (float_of_string num)))
-            | None -> Error (`Msg "Invalid duration value")
+                Ok
+                  (Duration_arbitrary
+                     (inner, `Duration (Css.Ms (float_of_string num))))
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
+                | None -> Error (`Msg "Invalid duration value"))
           else if String.ends_with ~suffix:"s" inner then
             let num = String.sub inner 0 (String.length inner - 1) in
             match float_of_string_opt num with
             | Some _ ->
-                Ok (Duration_arbitrary (inner, Css.S (float_of_string num)))
-            | None -> Error (`Msg "Invalid duration value")
-          else Error (`Msg "Invalid duration unit")
+                Ok
+                  (Duration_arbitrary
+                     (inner, `Duration (Css.S (float_of_string num))))
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
+                | None -> Error (`Msg "Invalid duration value"))
+          else
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Duration_arbitrary (inner, `Raw value))
+            | None -> Error (`Msg "Invalid duration unit")
         else Error (`Msg "Invalid arbitrary syntax")
     | [ "duration"; "initial" ] -> Ok Duration_initial
     | [ "duration"; n ] ->
@@ -638,8 +706,11 @@ module Handler = struct
     | [ "ease"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         match arbitrary_timing_function inner with
-        | Some tf -> Ok (Ease_arbitrary (inner, tf))
-        | None -> Error (`Msg "Invalid ease value"))
+        | Some tf -> Ok (Ease_arbitrary (inner, `Timing_function tf))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Ease_arbitrary (inner, `Raw value))
+            | None -> Error (`Msg "Invalid ease value")))
     | _ -> Error (`Msg "Not a transition utility")
 
   let to_class = function

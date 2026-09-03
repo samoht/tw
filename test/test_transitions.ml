@@ -44,8 +44,8 @@ let test_initial_resets () =
     "ease-initial sets --tw-ease:initial" true
     (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
 
-(* The arbitrary transition property is a safe token stream, not necessarily a
-   value Cascade's typed property-name grammar knows. *)
+(* Tailwind forwards a declaration-safe arbitrary transition-property token
+   stream even when it is not a valid property-name list. *)
 let test_arbitrary_property_token_stream () =
   let accepted cls =
     match Tw.of_string cls with

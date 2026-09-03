@@ -368,9 +368,9 @@ let test_arbitrary_transform_spelling () =
       "perspective-[100px]";
     ]
 
-(* Arbitrary transforms are safe declaration-value token streams even when the
-   property's typed grammar rejects them. The browser decides whether the
-   resulting declaration has a valid transform value. *)
+(* Tailwind forwards declaration-safe arbitrary transform token streams even
+   when they are invalid for the target property. The browser then discards the
+   invalid declaration. *)
 let test_arbitrary_transform_token_streams () =
   let css cls =
     match Tw.of_string cls with

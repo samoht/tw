@@ -58,6 +58,7 @@ module Handler = struct
     | Shadow_2xl
     | Shadow_inner
     | Shadow_arbitrary of string
+    | Shadow_raw of string * string * Color.opacity_modifier
     | Shadow_theme of string (* shadow from a --shadow-* token *)
     | Inset_shadow_theme of string (* shadow from an --inset-shadow-* token *)
     | Shadow_arbitrary_opacity of string * Color.opacity_modifier
@@ -86,6 +87,7 @@ module Handler = struct
     | Inset_shadow_sm
     | Inset_shadow
     | Inset_shadow_arbitrary of string (* For inset-shadow-[12px_12px_#color] *)
+    | Inset_shadow_raw of string * string * Color.opacity_modifier
     | Inset_shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Inset_shadow_shape_opacity of inset_shadow_shape * Color.opacity_modifier
     (* Inset shadow color utilities *)
@@ -164,6 +166,9 @@ module Handler = struct
     | Ring_bracket_var of string
     | Ring_bracket_var_opacity of string * Color.opacity_modifier
     | Ring_bracket_length of string
+    | Ring_raw of string * string * Color.opacity_modifier
+    | Ring_offset_raw of string * string * Color.opacity_modifier
+    | Inset_ring_raw of string * string * Color.opacity_modifier
     (* Mix blend modes *)
     | Mix_blend_normal
     | Mix_blend_multiply
@@ -408,6 +413,72 @@ module Handler = struct
         Css.Var v_ring;
         Css.Var v_shadow;
       ]
+
+  let raw_color_value value = function
+    | Color.No_opacity -> value
+    | opacity ->
+        pp_str
+          [
+            "color-mix(in oklab, ";
+            value;
+            " ";
+            pp_float (Color.opacity_to_percent opacity);
+            "%, transparent)";
+          ]
+
+  (* Tailwind treats one identifier among two to four shadow lengths as the
+     colour token, even when that identifier is not in the CSS named-colour
+     table. Keep the authored token order and route that colour through the
+     family's channel variable. *)
+  let raw_shadow_color ~color_var value opacity =
+    let tokens =
+      String.split_on_char ' ' value |> List.filter (fun token -> token <> "")
+    in
+    let lengths, other =
+      List.partition
+        (fun token ->
+          String.equal token "0"
+          || Option.is_some (Parse.arbitrary_length token))
+        tokens
+    in
+    match other with
+    | [ color ] when List.length lengths >= 2 && List.length lengths <= 4 ->
+        let fallback =
+          match opacity with
+          | Color.No_opacity -> color
+          | _ ->
+              pp_str
+                [
+                  "oklab(from ";
+                  color;
+                  " l a b / ";
+                  opacity_css_value opacity;
+                  ")";
+                ]
+        in
+        let replacement =
+          pp_str [ "var("; Var.css_name color_var; ","; fallback; ")" ]
+        in
+        String.concat " "
+          (List.map
+             (fun token ->
+               if String.equal token color then replacement else token)
+             tokens)
+    | _ -> value
+
+  let shadow_raw value opacity =
+    let value = raw_shadow_color ~color_var:shadow_color_var value opacity in
+    let shadow_decl =
+      Css.custom_property ~layer:"utilities" (Var.css_name shadow_var) value
+    in
+    let declarations =
+      match opacity with
+      | Color.No_opacity -> [ shadow_decl ]
+      | _ -> [ shadow_opacity_decl opacity; shadow_decl ]
+    in
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
+      (declarations @ [ box_shadow_composition (Var.reference shadow_var) ])
 
   let shadow_shape_data (shape : shadow_shape) :
       (Css.length * Css.length * Css.length option * Css.length option * string)
@@ -1177,6 +1248,25 @@ module Handler = struct
         Css.Var v_ring;
         Css.Var v_shadow;
       ]
+
+  let inset_shadow_raw value opacity =
+    let value =
+      raw_shadow_color ~color_var:inset_shadow_color_var value opacity
+    in
+    let shadow_decl =
+      Css.custom_property ~layer:"utilities"
+        (Var.css_name inset_shadow_var)
+        ("inset " ^ value)
+    in
+    let declarations =
+      match opacity with
+      | Color.No_opacity -> [ shadow_decl ]
+      | _ -> [ inset_shadow_opacity_decl opacity; shadow_decl ]
+    in
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
+      (declarations
+      @ [ inset_box_shadow_composition (Var.reference inset_shadow_var) ])
 
   (* Split a string on top-level commas (not inside parentheses) *)
   let split_top_level_commas (s : string) : string list =
@@ -2194,6 +2284,14 @@ module Handler = struct
     Style.style ~merge_key:("ring-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
+  let raw_ring_color var value opacity =
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
+      [
+        Css.custom_property ~layer:"utilities" (Var.css_name var)
+          (raw_color_value value opacity);
+      ]
+
   let opacity n =
     let value = float_of_int n /. 100.0 in
     style [ opacity (Opacity_number value) ]
@@ -2293,6 +2391,7 @@ module Handler = struct
     | Shadow_2xl -> shadow_2xl
     | Shadow_inner -> shadow_inner
     | Shadow_arbitrary arb -> shadow_arbitrary arb
+    | Shadow_raw (_, value, opacity) -> shadow_raw value opacity
     | Shadow_theme name -> shadow_theme theme name
     | Inset_shadow_theme name -> inset_shadow_theme theme name
     | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
@@ -2318,6 +2417,7 @@ module Handler = struct
     | Inset_shadow_sm -> inset_shadow_shape_style ~theme Ish_sm
     | Inset_shadow -> inset_shadow_themed ~theme ()
     | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
+    | Inset_shadow_raw (_, value, opacity) -> inset_shadow_raw value opacity
     | Inset_shadow_arbitrary_opacity (arb, op) ->
         inset_shadow_arbitrary_opacity arb op
     | Inset_shadow_shape_opacity (shape, op) ->
@@ -2372,6 +2472,8 @@ module Handler = struct
     | Ring_bracket_color_var_opacity (v, o) -> ring_bracket_cvar_opacity v o
     | Ring_bracket_var v -> ring_bracket_var v
     | Ring_bracket_var_opacity (v, o) -> ring_bracket_var_with_opacity v o
+    | Ring_raw (_, value, opacity) ->
+        raw_ring_color ring_color_var value opacity
     | Ring_bracket_length inner ->
         let width_value = parse_bracket_width inner in
         (* Build ring shadow like ring_internal but with bracket length *)
@@ -2440,6 +2542,8 @@ module Handler = struct
     | Ring_offset_bracket_var v -> ring_offset_bracket_var v
     | Ring_offset_bracket_var_opacity (v, o) ->
         ring_offset_bracket_var_opacity v o
+    | Ring_offset_raw (_, value, opacity) ->
+        raw_ring_color ring_offset_color_var value opacity
     | Inset_ring_color (color, shade) -> inset_ring_color color shade
     | Inset_ring_color_opacity (color, shade, opacity) ->
         inset_ring_color_with_opacity color shade opacity
@@ -2459,6 +2563,8 @@ module Handler = struct
     | Inset_ring_bracket_var v -> inset_ring_bracket_var v
     | Inset_ring_bracket_var_opacity (v, o) ->
         inset_ring_bracket_var_opacity v o
+    | Inset_ring_raw (_, value, opacity) ->
+        raw_ring_color inset_ring_color_var value opacity
     | Inset_ring_default -> inset_ring_default ()
     | Inset_ring_width n -> inset_ring_internal n
     | Inset_ring_bracket_length inner ->
@@ -2574,7 +2680,10 @@ module Handler = struct
             else
               match parse_bracket_width_opt inner with
               | Some _ -> Ok (Ring_bracket_length inner)
-              | None -> err_not_utility))
+              | None -> (
+                  match Parse.arbitrary_declaration_value inner with
+                  | Some value -> Ok (Ring_raw (inner, value, opacity))
+                  | None -> err_not_utility)))
     | `Ring_offset -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2594,7 +2703,10 @@ module Handler = struct
             else
               match parse_bracket_width_opt inner with
               | Some _ -> Ok (Ring_offset_bracket_length inner)
-              | None -> err_not_utility))
+              | None -> (
+                  match Parse.arbitrary_declaration_value inner with
+                  | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
+                  | None -> err_not_utility)))
     | `Inset_ring -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2614,7 +2726,10 @@ module Handler = struct
             else
               match parse_bracket_width_opt inner with
               | Some _ -> Ok (Inset_ring_bracket_length inner)
-              | None -> err_not_utility))
+              | None -> (
+                  match Parse.arbitrary_declaration_value inner with
+                  | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
+                  | None -> err_not_utility)))
 
   let parse_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
@@ -2636,10 +2751,10 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Shadow_bracket_color (inner, c))
           | _ -> Ok (Shadow_bracket_color_opacity (inner, c, opacity)))
-      | None when not (is_shadow_bracket inner) ->
-          (* Not a shadow, so not a utility: it used to fall back to the zero
-             shadow [0 0 #0000]. *)
-          err_not_utility
+      | None when not (is_shadow_bracket inner) -> (
+          match Parse.arbitrary_declaration_value inner with
+          | Some value -> Ok (Shadow_raw (inner, value, opacity))
+          | None -> err_not_utility)
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Shadow_arbitrary inner)
@@ -2665,7 +2780,10 @@ module Handler = struct
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_bracket_color (inner, c))
           | _ -> Ok (Inset_shadow_bracket_color_opacity (inner, c, opacity)))
-      | None when not (is_shadow_bracket inner) -> err_not_utility
+      | None when not (is_shadow_bracket inner) -> (
+          match Parse.arbitrary_declaration_value inner with
+          | Some value -> Ok (Inset_shadow_raw (inner, value, opacity))
+          | None -> err_not_utility)
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
@@ -2980,6 +3098,8 @@ module Handler = struct
     | Shadow_2xl -> "shadow-2xl"
     | Shadow_inner -> "shadow-inner"
     | Shadow_arbitrary arb -> "shadow-[" ^ arb ^ "]"
+    | Shadow_raw (spelling, _, opacity) ->
+        "shadow-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Shadow_theme name -> "shadow-" ^ name
     | Inset_shadow_theme name -> "inset-shadow-" ^ name
     | Shadow_arbitrary_opacity (arb, op) ->
@@ -3019,6 +3139,8 @@ module Handler = struct
     | Inset_shadow_sm -> "inset-shadow-sm"
     | Inset_shadow -> "inset-shadow"
     | Inset_shadow_arbitrary arb -> "inset-shadow-[" ^ arb ^ "]"
+    | Inset_shadow_raw (spelling, _, opacity) ->
+        "inset-shadow-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Inset_shadow_arbitrary_opacity (arb, op) ->
         "inset-shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity op
     | Inset_shadow_shape_opacity (shape, op) ->
@@ -3082,6 +3204,8 @@ module Handler = struct
     | Ring_bracket_var_opacity (v, o) ->
         "ring-[" ^ v ^ "]/" ^ Color.pp_opacity o
     | Ring_bracket_length l -> "ring-[" ^ l ^ "]"
+    | Ring_raw (spelling, _, opacity) ->
+        "ring-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Ring_offset_width n -> "ring-offset-" ^ string_of_int n
     | Ring_offset_bracket_length l -> "ring-offset-[" ^ l ^ "]"
     | Ring_offset_color (color, shade) ->
@@ -3105,6 +3229,8 @@ module Handler = struct
     | Ring_offset_bracket_var v -> "ring-offset-[" ^ v ^ "]"
     | Ring_offset_bracket_var_opacity (v, o) ->
         "ring-offset-[" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Ring_offset_raw (spelling, _, opacity) ->
+        "ring-offset-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Inset_ring_color (color, shade) ->
         if Color.is_shadeless color then "inset-ring-" ^ Color.pp color
         else "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
@@ -3129,6 +3255,8 @@ module Handler = struct
     | Inset_ring_bracket_var v -> "inset-ring-[" ^ v ^ "]"
     | Inset_ring_bracket_var_opacity (v, o) ->
         "inset-ring-[" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_raw (spelling, _, opacity) ->
+        "inset-ring-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Inset_ring_default -> "inset-ring"
     | Inset_ring_width n -> "inset-ring-" ^ string_of_int n
     | Inset_ring_bracket_length l -> "inset-ring-[" ^ l ^ "]"
@@ -3195,7 +3323,8 @@ module Handler = struct
        within-group order: bracket values ([) sort before named (none/sm/xl) *)
     | Shadow | Shadow_2xs | Shadow_xs | Shadow_2xl | Shadow_inner | Shadow_lg
     | Shadow_md | Shadow_none | Shadow_sm | Shadow_xl | Shadow_arbitrary _
-    | Shadow_bracket_shadow _ | Shadow_bracket_var _ | Shadow_theme _ ->
+    | Shadow_raw _ | Shadow_bracket_shadow _ | Shadow_bracket_var _
+    | Shadow_theme _ ->
         30000
     (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
@@ -3224,8 +3353,9 @@ module Handler = struct
     (* Inset shadow shape utilities — all same suborder, natural_compare
        decides *)
     | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
-    | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_bracket_shadow _
-    | Inset_shadow_bracket_var _ | Inset_shadow_theme _ ->
+    | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_raw _
+    | Inset_shadow_bracket_shadow _ | Inset_shadow_bracket_var _
+    | Inset_shadow_theme _ ->
         32000
     (* Inset shadow color utilities *)
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
@@ -3282,7 +3412,7 @@ module Handler = struct
     | Ring_transparent | Ring_current | Ring_current_opacity _ | Ring_inherit
     | Ring_bracket_color _ | Ring_bracket_color_opacity _
     | Ring_bracket_color_var _ | Ring_bracket_color_var_opacity _
-    | Ring_bracket_var _ | Ring_bracket_var_opacity _ ->
+    | Ring_bracket_var _ | Ring_bracket_var_opacity _ | Ring_raw _ ->
         41000
     | Ring_inset -> 2000
     | Inset_ring_default -> 33000
@@ -3293,7 +3423,8 @@ module Handler = struct
     | Inset_ring_current_opacity _ | Inset_ring_inherit
     | Inset_ring_bracket_color _ | Inset_ring_bracket_color_opacity _
     | Inset_ring_bracket_color_var _ | Inset_ring_bracket_cvar_opacity _
-    | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
+    | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _
+    | Inset_ring_raw _ ->
         43000
     | Ring_offset_width n -> 50000 + n
     | Ring_offset_bracket_length _ -> 50100
@@ -3302,7 +3433,8 @@ module Handler = struct
     | Ring_offset_current | Ring_offset_current_opacity _ | Ring_offset_inherit
     | Ring_offset_bracket_color _ | Ring_offset_bracket_color_opacity _
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_cvar_opacity _
-    | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
+    | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _
+    | Ring_offset_raw _ ->
         51000
 
   let examples =

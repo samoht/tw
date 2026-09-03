@@ -339,6 +339,28 @@ let is_ident = Cascade.Syntax.is_ident
    the thing to refuse. Tailwind refuses the same ones. *)
 let is_declaration_value = Cascade.Css.Declaration.is_declaration_value
 
+let arbitrary_declaration_value s =
+  let value = decode_arbitrary_value s in
+  if value <> "" && is_declaration_value value then Some value else None
+
+let wrap_declaration_value ~before ~after value =
+  if value = "" || not (is_declaration_value value) then None
+  else
+    let wrapped = before ^ value ^ after in
+    if is_declaration_value wrapped then Some wrapped
+    else
+      (* A CSS comment is implicitly closed at EOF. Once the author value is
+         embedded, however, an unterminated comment would consume the wrapper's
+         closing tokens. Close that comment explicitly; the tokeniser drops the
+         comment itself, as it does for the standalone value. *)
+      let closed_comment = before ^ value ^ "*/" ^ after in
+      if is_declaration_value closed_comment then Some closed_comment else None
+
+let opaque_declaration property value =
+  if value <> "" && is_declaration_value value then
+    Cascade.Css.Declaration.parse_opaque_declaration property value
+  else None
+
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
 

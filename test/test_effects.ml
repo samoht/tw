@@ -444,8 +444,8 @@ let test_shadow_bracket_alpha_tracking () =
   has "shadow-lg/[25%]" "--tw-shadow-alpha:25%";
   has "shadow-lg/50" "--tw-shadow-alpha:50%"
 
-(* A safe arbitrary shadow token stream is forwarded even when Cascade's typed
-   shadow grammar cannot interpret it. *)
+(* Tailwind forwards a declaration-safe arbitrary shadow token stream even when
+   it is not a valid shadow value. *)
 let test_arbitrary_shadow_token_stream () =
   let accepted cls =
     match Tw.of_string cls with

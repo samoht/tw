@@ -104,6 +104,24 @@ val is_declaration_value : string -> bool
     than emitted. {!Cascade.Css.custom_property} takes the same values and
     raises on the rest. *)
 
+val arbitrary_declaration_value : string -> string option
+(** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
+    returns its non-empty CSS declaration value. Values that can terminate or
+    swallow the declaration are [None]. *)
+
+val wrap_declaration_value :
+  before:string -> after:string -> string -> string option
+(** [wrap_declaration_value ~before ~after value] safely embeds a declaration
+    value between generated tokens. In particular, it closes a comment that was
+    implicitly closed by the end of [value], so that comment cannot swallow
+    [after]. *)
+
+val opaque_declaration : string -> string -> Cascade.Css.declaration option
+(** [opaque_declaration property value] preserves one non-empty,
+    declaration-safe value verbatim. It implements Tailwind's token-stream
+    contract for arbitrary utilities, which deliberately emits some values that
+    are invalid for [property]. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes

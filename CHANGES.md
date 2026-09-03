@@ -120,6 +120,10 @@
 
 ### Arbitrary values and validation
 
+- Preserve Tailwind's declaration-safe token-stream contract for arbitrary
+  animation, background, divide, filter, shadow, ring, scrollbar, table,
+  transform, transition and typography values, including values that are
+  invalid for the target property (#667).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote

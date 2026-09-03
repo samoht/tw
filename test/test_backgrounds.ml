@@ -431,8 +431,8 @@ let test_bg_var_opacity () =
        ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
        (css_of "bg-[var(--x)]/50"))
 
-(* A safe arbitrary stop that has no typed colour or position representation is
-   still forwarded as a colour token stream. *)
+(* Tailwind forwards a declaration-safe arbitrary stop even when it is neither a
+   valid colour nor a valid stop position. *)
 let test_gradient_stop_token_stream () =
   let accepted cls =
     match Tw.of_string cls with
