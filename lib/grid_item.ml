@@ -311,11 +311,12 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a grid item utility")
 
   let parse_arbitrary s =
-    (* Parse [value] to value, replacing underscores with spaces *)
+    (* The bracket text, decoded: [_] is a space and [\_] a literal
+       underscore. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      Some (String.map (fun c -> if c = '_' then ' ' else c) inner)
+      Some (Parse.decode_underscores inner)
     else None
 
   let of_class theme class_name =
@@ -468,8 +469,9 @@ module Handler = struct
     | _ -> err_not_utility
 
   let to_class_arbitrary s =
-    (* Convert value to arbitrary format: replace spaces with underscores *)
-    "[" ^ String.map (fun c -> if c = ' ' then '_' else c) s ^ "]"
+    (* The value is held decoded, so the bracket it goes back into spells a
+       space [_] and an underscore [\_]. *)
+    "[" ^ Parse.encode_underscores s ^ "]"
 
   let to_class = function
     (* Column *)

@@ -1128,10 +1128,7 @@ module Handler = struct
     (* mask-radial-[size] - arbitrary size *)
     | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
         let size_value = Parse.bracket_inner arb in
-        (* Replace underscores with spaces *)
-        let size_value =
-          String.map (fun c -> if c = '_' then ' ' else c) size_value
-        in
+        let size_value = Parse.decode_underscores size_value in
         if not (Parse.is_declaration_value size_value) then
           Error (`Msg ("Invalid mask-radial size: " ^ size_value))
         else Ok (Radial_size (Arbitrary_size size_value))
@@ -1187,8 +1184,9 @@ module Handler = struct
     | Radial_size Farthest_corner -> "mask-radial-farthest-corner"
     | Radial_size Farthest_side -> "mask-radial-farthest-side"
     | Radial_size (Arbitrary_size s) ->
-        let escaped = String.map (fun c -> if c = ' ' then '_' else c) s in
-        "mask-radial-[" ^ escaped ^ "]"
+        (* The size is held decoded, so the bracket it goes back into spells a
+           space [_] and an underscore [\_]. *)
+        "mask-radial-[" ^ Parse.encode_underscores s ^ "]"
 
   let examples = [ Linear_angle (Int 0) ]
 end

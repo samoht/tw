@@ -1571,17 +1571,20 @@ module Handler = struct
         Ok (Rotate_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; n ] when Parse.is_bracket_value n -> (
         let inner = String.sub n 1 (String.length n - 2) in
-        (* Check for 3D rotation: x y z angle (underscores as spaces) *)
-        let inner_spaced =
-          String.map (fun c -> if c = '_' then ' ' else c) inner
+        (* The 3D form is four components, [x y z <angle>]. [_] separates them
+           and [\_] is a literal underscore inside one, so the value is decoded
+           before it is split. What the axes take is a CSS number, which OCaml's
+           own float reader is wider than: it reads [1_2] as 12, where the value
+           is meant to reach the sheet as written. *)
+        let parts_3d =
+          String.split_on_char ' ' (Parse.decode_underscores inner)
         in
-        let parts_3d = String.split_on_char ' ' inner_spaced in
         match parts_3d with
         | [ x; y; z; a ] -> (
             match
-              ( Float.of_string_opt x,
-                Float.of_string_opt y,
-                Float.of_string_opt z,
+              ( Parse.decimal_float x,
+                Parse.decimal_float y,
+                Parse.decimal_float z,
                 parse_bracket_angle ("[" ^ a ^ "]") )
             with
             | Some fx, Some fy, Some fz, Ok (_, angle) ->

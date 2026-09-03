@@ -695,12 +695,16 @@ module Typography_early = struct
           | None ->
               if Parse.is_var inner then
                 Ok (Font_bracket_weight_var (inner, inner))
-                (* A family name is a list of idents or quoted strings; the
-                   docs' [<value>] placeholder is neither, and it used to be
-                   quoted into [font-family: "<value>"]. *)
-              else if is_font_family_value inner then
-                Ok (Font_bracket_family_name (inner, inner))
-              else err_not_utility)
+              else
+                (* A family name is a list of idents or quoted strings, so the
+                   docs' [<value>] placeholder is not one. [_] separates the
+                   words of a name and [\_] is a literal underscore inside one,
+                   so the stack is read decoded while the class keeps the
+                   spelling it was written with. *)
+                let decoded = Parse.decode_underscores inner in
+                if is_font_family_value decoded then
+                  Ok (Font_bracket_family_name (inner, decoded))
+                else err_not_utility)
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
@@ -2130,7 +2134,7 @@ module Typography_late = struct
           && String.get joined (String.length joined - 1) = ']'
         then begin
           let inner = String.sub joined 1 (String.length joined - 2) in
-          let spaced = String.map (fun c -> if c = '_' then ' ' else c) inner in
+          let spaced = Parse.decode_underscores inner in
           match
             Cascade.Cursor.try_parse_full_err Css.Properties.read_content
               (Cascade.Cursor.of_string spaced)
@@ -2983,8 +2987,7 @@ module Typography_late = struct
     style [ content_decl; content None ]
 
   let content s =
-    (* Convert underscores to spaces in content values *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let value = Parse.decode_underscores s in
     let content_decl, content_ref = Var.binding content_var (String value) in
     let property_rules = Var.property_rules content_var in
     style ~property_rules [ content_decl; content (Css.Var content_ref) ]

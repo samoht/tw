@@ -621,7 +621,7 @@ module Handler = struct
 
   (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
   let parse_arbitrary_shadow (s : string) : arbitrary_shadow option =
-    let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let normalized = Parse.decode_underscores s in
     let parts = String.split_on_char ' ' normalized in
     let rec find_color_and_lengths acc (parts : string list) :
         string list * arbitrary =
@@ -696,11 +696,10 @@ module Handler = struct
   let is_shadow_bracket inner =
     Parse.is_var inner
     || parse_arbitrary_shadow inner <> None
-    || Css.parse_shadow (String.map (fun c -> if c = '_' then ' ' else c) inner)
-       <> None
+    || Css.parse_shadow (Parse.decode_underscores inner) <> None
 
   let shadow_arbitrary (arb : string) =
-    let normalized = String.map (fun c -> if c = '_' then ' ' else c) arb in
+    let normalized = Parse.decode_underscores arb in
     (* The reading below takes one shadow, so anything with a comma - a layer
        list, or a colour function carrying one - goes to the value parser
        instead. *)

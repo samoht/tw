@@ -873,9 +873,7 @@ let of_string = function
         else Error (`Msg ("Unknown color: " ^ s))
       else if len >= 3 && s.[0] = '[' && s.[len - 1] = ']' then
         let inner = String.sub s 1 (len - 2) in
-        let normalized =
-          String.map (fun c -> if c = '_' then ' ' else c) inner
-        in
+        let normalized = Parse.decode_underscores inner in
         if Parse.is_css_color_fn normalized then
           match Css.parse_color normalized with
           | Some c -> Ok (Css c)
@@ -2026,9 +2024,7 @@ module Handler = struct
              red-500 palette entry); fall back to the palette only if CSS does
              not know it. *)
           let color =
-            let normalized =
-              String.map (fun c -> if c = '_' then ' ' else c) color_str
-            in
+            let normalized = Parse.decode_underscores color_str in
             match Css.parse_color normalized with
             | Some c -> Some c
             | None -> parse_bracket_color color_str
@@ -2045,9 +2041,7 @@ module Handler = struct
           let starts_with_hash = String.length inner > 0 && inner.[0] = '#' in
           if starts_with_hash then Css.hex_opt inner
           else
-            let normalized =
-              String.map (fun c -> if c = '_' then ' ' else c) inner
-            in
+            let normalized = Parse.decode_underscores inner in
             (* Any colour CSS knows wins over the palette, keywords and system
                colours included: [[Field]] and [[light-dark(a,b)]] are values,
                not palette names. The guard used to admit only functions. *)

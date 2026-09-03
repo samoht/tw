@@ -40,7 +40,7 @@ let class_pseudo prefix cls pseudo =
     content uses underscores for spaces, e.g. "2n+1_of_.foo" → nth = 2n+1, of_ =
     Some [Class "foo"]. *)
 let parse_nth_selector expr =
-  let spaced = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let spaced = Parse.decode_underscores expr in
   Css.Selector.read_nth_selector (Cascade.Cursor.of_string spaced)
 
 (** Helper: breakpoint name for responsive modifiers *)
@@ -178,8 +178,7 @@ let nest_selector ~parent template =
     ":where(.group):hover" *)
 let parse_arbitrary_selector_content content anchor =
   let open Css.Selector in
-  (* Replace _ with space for Tailwind convention *)
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   combine (nest_selector ~parent:(where [ anchor ]) s) Descendant universal
 
 (** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
@@ -991,7 +990,7 @@ let try_has_shorthand s =
    a compound and [[p_~_span]] is not, and only the grammar separates them. [_]
    stands for a space here, the decoding {!nest_selector} applies. *)
 let is_compound_selector inner =
-  let s = String.map (fun c -> if c = '_' then ' ' else c) inner in
+  let s = Parse.decode_underscores inner in
   let cursor = Cascade.Cursor.of_string s in
   match Css.Selector.read_strict_selector_list cursor with
   | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
@@ -1019,7 +1018,7 @@ let is_plain_ident str =
    selector browsers parse and keep although nothing ever matches it, so it is
    not a variant. An underscore stands for a space, so it is empty as well. *)
 let names_attribute expr =
-  let decoded = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let decoded = Parse.decode_underscores expr in
   decoded <> "" && String.equal decoded (String.trim decoded)
 
 (* [group-data-dragging] is [group-data-[dragging]] with a different spelling,
@@ -1112,8 +1111,6 @@ let data_match_operator raw_expr =
   in
   go 0
 
-let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
-
 (* Split a trailing case-sensitivity flag off a decoded value remainder:
    Selectors 4 requires whitespace before [i]/[s], which is what Tailwind's own
    underscore convention spells too once the underscore before the flag decodes
@@ -1165,12 +1162,12 @@ let data_attribute_of_bracket bracket =
 let parse_data_expr raw_expr =
   match data_match_operator raw_expr with
   | None ->
-      let name = String.trim (decode_underscores raw_expr) in
+      let name = String.trim (Parse.decode_underscores raw_expr) in
       data_attribute_of_bracket ("[data-" ^ name ^ "]")
   | Some (op_pos, op_len) ->
       let len = String.length raw_expr in
       let name =
-        String.trim (decode_underscores (String.sub raw_expr 0 op_pos))
+        String.trim (Parse.decode_underscores (String.sub raw_expr 0 op_pos))
       in
       (* Validated here, on its own: folded straight into the reconstructed text
          below, a name ending in one of [$ ^ * ~ |] would recombine with the
@@ -1182,7 +1179,7 @@ let parse_data_expr raw_expr =
       let op_text = String.sub raw_expr op_pos op_len in
       let rest =
         String.trim
-          (decode_underscores
+          (Parse.decode_underscores
              (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)))
       in
       let value, flag_text = split_trailing_flag rest in
@@ -1212,8 +1209,7 @@ let try_bracket_at_rule s =
   else None
 
 let normalize_supports_condition condition_str =
-  (* Convert underscores to spaces (Tailwind bracket notation) *)
-  let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
+  let cond = Parse.decode_underscores condition_str in
   if
     String.length cond > 2
     && cond.[0] = '-'
@@ -1679,7 +1675,7 @@ let is_not_compatible = function
    so the cursor has to be exhausted too: a trailing remainder would otherwise
    be dropped and the rule would negate less than the class says. *)
 let reads_as_selector content =
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   let cursor = Cascade.Cursor.of_string s in
   match Css.Selector.read cursor with
   | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false

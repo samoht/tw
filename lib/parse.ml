@@ -111,8 +111,9 @@ let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
-   underscore — otherwise a value that needs one could not be written. *)
-let decode_underscores s =
+   underscore — otherwise a value that needs one could not be written. The two
+   readings differ only in what a bare [_] stands for, which [plain] carries. *)
+let read_underscores ~plain s =
   let len = String.length s in
   let buf = Buffer.create len in
   let rec go i =
@@ -122,11 +123,29 @@ let decode_underscores s =
       go (i + 2)
     end
     else begin
-      Buffer.add_char buf (if s.[i] = '_' then ' ' else s.[i]);
+      Buffer.add_char buf (if s.[i] = '_' then plain else s.[i]);
       go (i + 1)
     end
   in
   go 0;
+  Buffer.contents buf
+
+let decode_underscores s = read_underscores ~plain:' ' s
+
+(* A property name has no spaces to spell, so its underscores stand for
+   themselves and only the escape is undone. *)
+let unescape_underscores s = read_underscores ~plain:'_' s
+
+(* The inverse: a utility holding a decoded value writes its class name back,
+   and the name has to read as the value it came from. *)
+let encode_underscores s =
+  let buf = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | ' ' -> Buffer.add_char buf '_'
+      | '_' -> Buffer.add_string buf {|\_|}
+      | c -> Buffer.add_char buf c)
+    s;
   Buffer.contents buf
 
 let function_name_before s i =

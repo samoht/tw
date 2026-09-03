@@ -129,6 +129,9 @@
   animation, background, divide, filter, shadow, ring, scrollbar, table,
   transform, transition and typography values, including values that are
   invalid for the target property (#667).
+- An arbitrary value keeps the underscore its `\_` escape spells, so
+  `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
+  the sheet as written instead of carrying the backslash into the value (#676).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote

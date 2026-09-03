@@ -748,7 +748,7 @@ module Handler = struct
      list. [None] means the bracket is not an image, which [of_class] rejects:
      [bg-[image:nope]] used to parse and then emit an empty rule. *)
   let parse_bracket_image v : Css.background_image option =
-    let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
+    let css_str = Parse.decode_underscores v in
     match Css.parse_background_image css_str with
     | Some [ img ] -> Some (Css.minify_background_image img)
     | Some (_ :: _ as imgs) ->
@@ -844,7 +844,7 @@ module Handler = struct
       letters. Reading the value as a real [<angle>] tells the two apart instead
       of matching on the "rad" suffix, which "grad" also has. *)
   let bracket_value_to_css inner =
-    let decoded = String.map (fun c -> if c = '_' then ' ' else c) inner in
+    let decoded = Parse.decode_underscores inner in
     match
       Cascade.Cursor.try_parse_full_err Css.Values.read_angle
         (Cascade.Cursor.of_string decoded)
@@ -1517,10 +1517,15 @@ module Handler = struct
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
     | Bg_bracket_image (_, img) -> style [ Css.background_image img ]
+    (* A [url()] is the one place an arbitrary value keeps its bare [_], so only
+       the [\_] escape is undone and a path spelled either way names the same
+       file. *)
     | Bg_bracket_url url ->
-        style [ Css.background_image (Url (strip_outer_quotes url)) ]
+        let url = strip_outer_quotes (Parse.unescape_underscores url) in
+        style [ Css.background_image (Url url) ]
     | Bg_bracket_image_url url ->
-        style [ Css.background_image (Url (strip_outer_quotes url)) ]
+        let url = strip_outer_quotes (Parse.unescape_underscores url) in
+        style [ Css.background_image (Url url) ]
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in

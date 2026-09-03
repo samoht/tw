@@ -261,7 +261,7 @@ module Handler = struct
 
   (* Tailwind moves the animation name to the end of the shorthand. *)
   let animation_shorthand value =
-    let css_value = String.map (fun c -> if c = '_' then ' ' else c) value in
+    let css_value = Parse.decode_underscores value in
     match String.split_on_char ' ' css_value with
     | name :: (_ :: _ as rest) -> String.concat " " (rest @ [ name ])
     | _ -> css_value

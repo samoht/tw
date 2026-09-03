@@ -64,6 +64,18 @@ val decode_underscores : string -> string
 (** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
     [\_] into a literal underscore. *)
 
+val unescape_underscores : string -> string
+(** [unescape_underscores s] turns the [\_] of an arbitrary value into a literal
+    underscore and leaves a bare [_] alone. This is the reading a property name
+    takes: [[--my\_var:red]] and [[--my_var:red]] both declare [--my_var], where
+    {!decode_underscores} would give the first a space. *)
+
+val encode_underscores : string -> string
+(** [encode_underscores s] writes a decoded value back into the arbitrary
+    spelling a class name carries, turning a space into [_] and an underscore
+    into [\_]. It is the inverse of {!decode_underscores}, which is what a
+    utility holding its value decoded needs to name itself. *)
+
 val decode_arbitrary_value : string -> string
 (** [decode_arbitrary_value s] decodes Tailwind arbitrary-value syntax into a
     CSS value string suitable for Cascade readers. This converts underscores to
