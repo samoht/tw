@@ -217,6 +217,30 @@ let test_arbitrary_order_reads_the_whole_bracket () =
     [ "order:calc(var(--spacing)*4)" ];
   check "order-[calc(1+2)]"
 
+(* An arbitrary bracket sorts after every numbered utility of its family, and a
+   bracket no grammar reads sorts after one that denotes a factor. Tailwind
+   lists grow, grow-0, grow-3, grow-7, grow-[2], grow-[<value>]. *)
+let test_arbitrary_flex_order () =
+  Test_helpers.check_class_order ~test_name:"arbitrary flex order"
+    [
+      "grow";
+      "grow-0";
+      "grow-3";
+      "grow-7";
+      "grow-[2]";
+      "grow-[<value>]";
+      "shrink";
+      "shrink-0";
+      "shrink-[2]";
+      "shrink-[<value>]";
+      "flex-1";
+      "flex-3";
+      "flex-[2]";
+      "flex-[10]";
+      "flex-[<value>]";
+      "flex-auto";
+    ]
+
 let tests =
   [
     test_case "basis-* prefers --spacing-*" `Quick
@@ -231,6 +255,7 @@ let tests =
       test_arbitrary_flex_reads_the_whole_bracket;
     test_case "arbitrary order reads the whole bracket" `Quick
       test_arbitrary_order_reads_the_whole_bracket;
+    test_case "arbitrary flex order" `Quick test_arbitrary_flex_order;
     test_case "basis-[...] keeps the authored spelling" `Quick
       test_basis_arbitrary_keeps_the_authored_spelling;
   ]

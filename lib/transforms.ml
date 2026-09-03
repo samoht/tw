@@ -1555,10 +1555,15 @@ module Handler = struct
   let parse_fraction = Parse.fraction
 
   (* The value a bracket denotes, read with the grammar cascade already has for
-     the property. [None] is a bracket that grammar refuses, and [of_class]
-     declines the utility rather than leaving [to_style] to raise. *)
+     the property, off the arbitrary-value pipeline every other family reads:
+     [_] stands for a space, [--spacing(n)] expands, and a binary [+] gets the
+     spaces CSS math wants, so [calc(1px+1px)] is a value rather than a parse
+     error. [None] is a bracket that grammar refuses, and [of_class] declines
+     the utility rather than leaving [to_style] to raise. *)
   let arbitrary_value read inner =
-    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    let cursor =
+      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
+    in
     match Cascade.Cursor.try_parse_full_err read cursor with
     | Ok v -> Some v
     | Error _ -> None
@@ -1895,9 +1900,8 @@ module Handler = struct
         Ok Perspective_origin_bottom_right
     | "perspective" :: "origin" :: rest when List.length rest > 0 ->
         let value = String.concat "-" rest in
-        let len = String.length value in
-        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
-          let inner = String.sub value 1 (len - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match
             arbitrary_value Css.Properties.read_perspective_origin inner
           with
@@ -1941,9 +1945,8 @@ module Handler = struct
     | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
     | "origin" :: rest when List.length rest > 0 ->
         let value = String.concat "-" rest in
-        let len = String.length value in
-        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
-          let inner = String.sub value 1 (len - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match arbitrary_value Css.Properties.read_transform_origin inner with
           | Some t -> Ok (Origin_arbitrary (inner, t))
           | None ->

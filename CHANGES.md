@@ -146,6 +146,11 @@
   whole arbitrary decoder rather than its last stage alone, so
   `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]` and `top-[calc(1px_+_1px)]`
   reach the sheet (#688).
+- `flex-`, `grow-`, `shrink-`, `order-`, `origin-`, `perspective-origin-` and
+  `transform-` decode their bracket the way every other family does, so
+  `flex-[calc(1+2)]` and `origin-[--spacing(4)_--spacing(2)]` reach the sheet.
+  Reading the text with OCaml's number reader instead folded `flex-[0x4]` to
+  `flex: 4` under the class name `.flex-\[4\]` (#PR).
 - A `]` written inside a quoted or escaped part of an arbitrary value belongs
   to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
   `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
