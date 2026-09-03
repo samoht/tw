@@ -262,21 +262,30 @@ let test_drop_shadow_keyword_and_alpha () =
     (Astring.String.is_infix ~affix:"--drop-shadow-xl:"
        (css "drop-shadow-xl/25"))
 
-(* An arbitrary filter amount that is not a number, a percentage or a var used
-   to be coerced to zero, so brightness-[abc] emitted brightness(0). *)
-let test_invalid_arbitrary_amount () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "brightness-[abc]";
-  rejected "invert-[xyz]";
-  rejected "backdrop-sepia-[nope]";
-  rejected "drop-shadow-[<value>]";
+(* Arbitrary filter arguments are safe token streams; the browser, rather than
+   the generator, applies the function's value grammar. *)
+let test_arbitrary_amount_token_streams () =
+  check "brightness-[abc]";
+  check "invert-[xyz]";
+  check "backdrop-sepia-[nope]";
+  check "drop-shadow-[<value>]";
   check "brightness-[1.5]";
   check "saturate-[150%]";
   check "brightness-[var(--x)]"
+
+(* An unterminated comment is complete at the end of an arbitrary value. When
+   the value is embedded in a filter function, the generated closing parenthesis
+   must remain outside that comment. *)
+let test_arbitrary_amount_unterminated_comment () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "unterminated comment cannot swallow the wrapper" true
+    (Astring.String.is_infix ~affix:"brightness(1px)"
+       (css "backdrop-brightness-[1px/*x]"))
 
 (* An arbitrary filter spells its spaces with [_], so a multi-function chain
    like filter-[blur(4px)_saturate(150%)] has to be decoded before it is parsed.
@@ -377,38 +386,32 @@ let test_arbitrary_angle_class_name () =
       "-backdrop-hue-rotate-[1turn]";
     ]
 
-(* A bracket that is not an angle is refused. *)
-let test_invalid_arbitrary_angle () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
-  rejected "hue-rotate-[2]";
-  rejected "hue-rotate-[2zz]";
-  rejected "hue-rotate-[deg]";
-  rejected "backdrop-hue-rotate-[2px]"
+(* The arbitrary hue-rotate argument is forwarded even when it is not a typed
+   angle. *)
+let test_arbitrary_angle_token_streams () =
+  List.iter check
+    [
+      "hue-rotate-[2]";
+      "hue-rotate-[2zz]";
+      "hue-rotate-[deg]";
+      "backdrop-hue-rotate-[2px]";
+    ]
 
 (* [blur-[...]] takes a length. A bracket the length grammar cannot read was
    accepted and then raised out of [to_css], which is a pure conversion. Reading
    the bracket with cascade's grammar also earns [calc()] and the units the
    hand-rolled reader never took. *)
-let test_invalid_arbitrary_blur () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
+let test_arbitrary_blur_token_streams () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "blur-[foo]";
-  rejected "blur-[red]";
-  rejected "blur-[1]";
-  rejected "backdrop-blur-[foo]";
-  rejected "backdrop-blur-[a,b]";
+  renders "blur-[foo]";
+  renders "blur-[red]";
+  renders "blur-[1]";
+  renders "backdrop-blur-[foo]";
+  renders "backdrop-blur-[a,b]";
   renders "blur-[4px]";
   renders "blur-[.5rem]";
   renders "blur-[calc(1px_+_2px)]";
@@ -444,13 +447,18 @@ let tests =
   [
     test_case "arbitrary angle class name" `Quick
       test_arbitrary_angle_class_name;
-    test_case "invalid arbitrary angle" `Quick test_invalid_arbitrary_angle;
-    test_case "invalid arbitrary blur" `Quick test_invalid_arbitrary_blur;
+    test_case "arbitrary angle token streams" `Quick
+      test_arbitrary_angle_token_streams;
+    test_case "arbitrary blur token streams" `Quick
+      test_arbitrary_blur_token_streams;
     test_case "drop-shadow keyword color and alpha" `Quick
       test_drop_shadow_keyword_and_alpha;
     test_case "filters render like Tailwind" `Slow rendering_matches_tailwind;
     test_case "blur" `Quick test_blur;
-    test_case "invalid arbitrary amount" `Quick test_invalid_arbitrary_amount;
+    test_case "arbitrary amount token streams" `Quick
+      test_arbitrary_amount_token_streams;
+    test_case "arbitrary amount unterminated comment" `Quick
+      test_arbitrary_amount_unterminated_comment;
     test_case "arbitrary filter chain" `Quick test_arbitrary_filter_chain;
     test_case "unparseable arbitrary filter rejected" `Quick
       test_unparseable_arbitrary_filter_rejected;

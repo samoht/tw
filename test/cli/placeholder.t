@@ -1,8 +1,6 @@
-A class can parse yet fail to render, as the docs' [prop-[<value>]]
-placeholders do: [animate-[<value>]] and [backdrop-blur-[<value>]] are
-accepted by their handlers but raise when they render an arbitrary value
-they cannot serialise. Such a class produces no rule, so it is dropped
-rather than aborting the whole sheet.
+Documentation placeholders are safe arbitrary-value token streams. Tailwind
+emits them even when the browser will reject the value for the property, so tw
+must preserve them too.
 
   $ cat > docs.mdx <<'EOF'
   > A table of utilities:
@@ -11,10 +9,14 @@ rather than aborting the whole sheet.
   > And a real class: <div class="p-4"></div>
   > EOF
 
-The placeholder classes do not crash generation, and the real class
-still lands in the output:
+The placeholder classes and the real class all land in the output:
 
-  $ tw --minify --no-base docs.mdx | grep -c '\.p-4{padding:'
+  $ tw --minify --no-base docs.mdx > generated.css
+  $ grep -c '\.animate-.*{animation:<value>}' generated.css
+  1
+  $ grep -c '\.backdrop-blur-.*--tw-backdrop-blur:blur(<value>)' generated.css
+  1
+  $ grep -c '\.p-4{padding:' generated.css
   1
 
 An arbitrary value that is valid still renders:

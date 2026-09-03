@@ -52,6 +52,7 @@ let () =
       Test_effects.suite;
       Test_clipping.suite;
       Test_animations.suite;
+      Test_arbitrary_values.suite;
       Test_backgrounds.suite;
       Test_containers.suite;
       Test_style.suite;

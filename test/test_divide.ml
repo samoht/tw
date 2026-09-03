@@ -18,16 +18,7 @@ let test_roundtrip () =
 
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
-  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo";
-  (* A bracket with no number is not a length, so it is refused rather than read
-     as a bare identifier. Tailwind passes the bracket through unread and emits
-     border-inline-start-width: calc(rem * ...), which no browser accepts. *)
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind passes the bracket through unread and emits calc(rem * ...)")
-    (module Tw.Divide.Handler)
-    "divide-x-[rem]"
+  Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo"
 
 (* divide-x-[2em] and divide-y-[3vw] used to be refused: the width reader only
    knew px and rem, so an em or a vw stop fell through to "not a divide utility"
@@ -205,21 +196,15 @@ let rendering_matches_tailwind () =
    The divide reader handed everything after the [#] to the raising constructor
    from inside [of_class], so a malformed hex escaped the parser as an exception
    instead of failing the match. *)
-let test_invalid_bracket_hex () =
+let test_arbitrary_bracket_color_token_stream () =
   let css cls =
     match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "divide-[#zz]";
-  rejected "divide-[#]";
-  rejected "divide-[#12345]";
-  rejected "divide-[#zz]/50";
+  List.iter
+    (fun cls -> ignore (css cls))
+    [ "divide-[#zz]"; "divide-[#]"; "divide-[#12345]"; "divide-[#zz]/50" ];
   Alcotest.(check bool)
     "divide-[#ff0000] still emits the colour" true
     (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
@@ -256,10 +241,9 @@ let test_bracket_named_color () =
     "divide-[rebeccapurple]/50 is divide-[#663399]/50"
     (value "divide-[#663399]/50")
     (value "divide-[rebeccapurple]/50");
-  (* a bracket naming no colour is still not a class *)
-  Alcotest.(check bool)
-    "divide-[notacolour] is not a class" true
-    (Result.is_error (Tw.of_string "divide-[notacolour]"))
+  (* Tailwind forwards a safe token stream even when the browser will not
+     recognise it as a colour. *)
+  emits "border-color:notacolour" "divide-[notacolour]"
 
 (* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
    as 16 and emitted a rule selecting [.divide-x-16], a class the author never
@@ -292,7 +276,8 @@ let tests =
         class_order_matches_tailwind;
       Alcotest.test_case "renders like Tailwind" `Slow
         rendering_matches_tailwind;
-      Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+      Alcotest.test_case "arbitrary bracket color token stream" `Quick
+        test_arbitrary_bracket_color_token_stream;
       Alcotest.test_case "non-decimal widths" `Quick test_non_decimal_widths;
       Alcotest.test_case "bracket named colour" `Quick test_bracket_named_color;
     ]

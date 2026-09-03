@@ -44,23 +44,25 @@ let arbitrary_border_spacing () =
       "border-spacing-y-[1.5vw]";
     ]
 
-(* A bracket that is not a length is not a border-spacing. *)
-let invalid_border_spacing () =
-  let rejected cls =
+(* Tailwind forwards a safe arbitrary token stream even when it is not a CSS
+   length; the browser decides whether the declaration applies. *)
+let arbitrary_border_spacing_token_streams () =
+  let accepted cls =
     match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+    | Ok u -> Alcotest.(check string) cls cls (Tw.pp u)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "border-spacing-[1zz]";
-  rejected "border-spacing-x-[12px3]";
-  rejected "border-spacing-y-[<length>]"
+  accepted "border-spacing-[1zz]";
+  accepted "border-spacing-x-[12px3]";
+  accepted "border-spacing-y-[<length>]"
 
 let tests =
   [
     test_case "basic tables" `Quick basic_tables;
     test_case "border-spacing half-step" `Quick border_spacing_prime;
     test_case "arbitrary border-spacing" `Quick arbitrary_border_spacing;
-    test_case "invalid border-spacing" `Quick invalid_border_spacing;
+    test_case "arbitrary token streams" `Quick
+      arbitrary_border_spacing_token_streams;
   ]
 
 let suite = ("tables", tests)

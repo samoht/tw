@@ -368,14 +368,24 @@ let test_arbitrary_transform_spelling () =
       "perspective-[100px]";
     ]
 
-(* The bracket holds a number or an angle, so a word is not a transform. *)
-let test_arbitrary_transform_rejects_non_number () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
-      | Error (`Msg _) -> ())
-    [ "scale-[abc]"; "rotate-[abc]"; "skew-[1.5]"; "rotate-[1.5px]" ]
+(* Arbitrary transforms are safe declaration-value token streams even when the
+   property's typed grammar rejects them. The browser decides whether the
+   resulting declaration has a valid transform value. *)
+let test_arbitrary_transform_token_streams () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls fragment =
+    Alcotest.(check bool)
+      cls true
+      (Astring.String.is_infix ~affix:fragment (css cls))
+  in
+  emits "scale-[abc]" "scale:abc";
+  emits "rotate-[abc]" "rotate:abc";
+  emits "rotate-[1.5px]" "rotate:1.5px";
+  emits "skew-[1.5]" "--tw-skew-x:skewX(1.5)"
 
 (* A [--perspective-*] token the project declared in its [@theme] names a depth
    the built-in scale has no slot for. Tailwind generates the utility from it;
@@ -453,8 +463,8 @@ let tests =
       suborder_matches_tailwind;
     test_case "arbitrary transform spelling" `Quick
       test_arbitrary_transform_spelling;
-    test_case "arbitrary transform rejects non-number" `Quick
-      test_arbitrary_transform_rejects_non_number;
+    test_case "arbitrary transform token streams" `Quick
+      test_arbitrary_transform_token_streams;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]

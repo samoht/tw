@@ -44,28 +44,22 @@ let test_initial_resets () =
     "ease-initial sets --tw-ease:initial" true
     (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
 
-(* [transition-[...]] takes property names, so the docs' [<value>] placeholder
-   is not one; it used to reach the sheet as transition-property: <value>. *)
-let test_invalid_arbitrary_property () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* The arbitrary transition property is a safe token stream, not necessarily a
+   value Cascade's typed property-name grammar knows. *)
+let test_arbitrary_property_token_stream () =
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "transition-[<value>]";
+  accepted "transition-[<value>]";
   accepted "transition-[opacity]";
   accepted "transition-[opacity,transform]";
   accepted "transition-[var(--x)]"
 
-(* [ease-[...]] takes a timing function. A bracket the timing-function grammar
-   cannot read used to be accepted and then raise out of [to_css], which is a
-   pure conversion. *)
-let test_invalid_arbitrary_ease () =
+(* Safe arbitrary easing token streams are forwarded; an empty bracket still
+   names no declaration value. *)
+let test_arbitrary_ease_token_stream () =
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -76,9 +70,9 @@ let test_invalid_arbitrary_ease () =
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "ease-[foo]";
-  rejected "ease-[1]";
-  rejected "ease-[50%]";
+  renders "ease-[foo]";
+  renders "ease-[1]";
+  renders "ease-[50%]";
   rejected "ease-[]";
   renders "ease-[linear]";
   renders "ease-[cubic-bezier(0.4,0,0.2,1)]";
@@ -163,8 +157,10 @@ let test_delay_candidate_band () =
   Test_helpers.check_class_order ~test_name:"delay candidate band"
     [
       "duration-150";
+      "duration-[<value>]";
       "delay-700";
       "ease-in";
+      "ease-[<value>]";
       "delay-150";
       "transition";
       "duration-300";
@@ -190,10 +186,10 @@ let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
-      Alcotest.test_case "invalid arbitrary property" `Quick
-        test_invalid_arbitrary_property;
-      Alcotest.test_case "invalid arbitrary ease" `Quick
-        test_invalid_arbitrary_ease;
+      Alcotest.test_case "arbitrary property token stream" `Quick
+        test_arbitrary_property_token_stream;
+      Alcotest.test_case "arbitrary ease token stream" `Quick
+        test_arbitrary_ease_token_stream;
       Alcotest.test_case "arbitrary ease steps default position" `Quick
         test_arbitrary_ease_steps_default_position;
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;

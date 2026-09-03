@@ -103,24 +103,18 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"animations suborder matches Tailwind" shuffled
 
-(* [animate-[...]] takes an animation shorthand. A bracket the animation grammar
-   cannot read is accepted and then raises out of [to_css], a pure conversion,
-   so the rejection belongs at parse time. *)
-let test_invalid_arbitrary_animation () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* [animate-[...]] forwards a safe declaration value. Typed animation values
+   still provide keyframe metadata; opaque values simply have none. *)
+let test_arbitrary_animation_token_streams () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "animate-[#fff]";
-  rejected "animate-[50%]";
-  rejected "animate-[1/2]";
-  rejected "animate-[calc(1px_+_2px)]";
+  renders "animate-[#fff]";
+  renders "animate-[50%]";
+  renders "animate-[1/2]";
+  renders "animate-[calc(1px_+_2px)]";
   renders "animate-[spin_1s_linear_infinite]";
   renders "animate-[bounce_1s]"
 
@@ -242,8 +236,8 @@ let tests =
     test_case "transition CSS output" `Quick test_transition_css;
     test_case "animations suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "invalid arbitrary animation" `Quick
-      test_invalid_arbitrary_animation;
+    test_case "arbitrary animation token streams" `Quick
+      test_arbitrary_animation_token_streams;
     test_case "keyframes follow the animation name" `Quick
       test_keyframes_follow_the_animation_name;
     test_case "keyframes for theme and bracket names" `Quick
