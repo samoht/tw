@@ -576,6 +576,7 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
   |> Css.Optimize.merge_consecutive_media
   |> Css.Optimize.merge_consecutive_supports
   |> Css.Optimize.merge_consecutive_containers
+  |> Css.Optimize.merge_distant_containers
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
