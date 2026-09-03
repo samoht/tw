@@ -632,6 +632,12 @@ let test_rule_sets_md_media () =
   in
   check bool "has (min-width: 48rem) media query" true
     (has_media_condition "(min-width: 48rem)" css);
+  let md_blocks =
+    media_conditions css
+    |> List.filter (String.equal "(min-width: 48rem)")
+    |> List.length
+  in
+  check int "one consecutive md media block" 1 md_blocks;
 
   (* Collect md media blocks and verify both selectors are under md. CSS
      optimization may merge these blocks, but tw no longer depends on that. *)
