@@ -341,10 +341,61 @@ let test_underscore_escape () =
   reads "another escape is left alone" {|a\.b|} {|a\.b|};
   reads "a trailing backslash is kept" {|a\|} {|a\|}
 
+(* A quoted []] belongs to the value, not to the bracket wrapping it, so
+   [is_bracket_value] tokenises CSS strings and the backslash escape the way CSS
+   Syntax 3 sec. 4.3 does. Every family reads its bracket through that one
+   answer, which is why the families below span the whole library. A string left
+   open runs to the end of the input, so no []] after it closes the value and
+   the class is refused, which is what Tailwind does with an unclosed [url(]
+   argument. *)
+let test_quoted_bracket_stays_inside_the_value () =
+  let holds name input expected =
+    Alcotest.(check bool) name expected (Tw.Parse.is_bracket_value input)
+  in
+  holds "a quoted bracket does not close the value" {|[url('a]b')]|} true;
+  holds "a double-quoted bracket does not close it either" {|['My]Font']|} true;
+  holds "an escaped bracket does not close it" {|[url(a\]b)]|} true;
+  holds "an escaped quote keeps the string open" {|['a\']b']|} true;
+  holds "a plain value still reads" "[10px]" true;
+  holds "an unclosed string swallows the closing bracket" {|[url('a]b)]|} false;
+  holds "an unclosed string with no bracket in it also swallows it"
+    {|[url('a)]|} false;
+  holds "a trailing backslash escapes the closing bracket" {|[a\]|} false;
+  holds "two brackets are not one value" "[10px][20px]" false;
+  holds "a quoted bracket does not hide a second bracket" {|[url('a]b')][20px]|}
+    false;
+  (* cascade writes a CSS string with double quotes and a url() unquoted, both
+     of which the canonical differ reads as the value Tailwind writes. *)
+  Test_helpers.check_declarations {|bg-[url('a]b')]|}
+    [ {|background-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|font-['My]Font']|}
+    [ {|font-family:"My]Font"|} ];
+  Test_helpers.check_declarations {|font-["My]Font"]|}
+    [ {|font-family:"My]Font"|} ];
+  Test_helpers.check_declarations {|mask-[url('a]b')]|}
+    [ {|-webkit-mask-image:url(a]b)|}; {|mask-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|list-image-[url('a]b')]|}
+    [ {|list-style-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|after:content-['a]b']|}
+    [ {|--tw-content:"a]b"|}; "content:var(--tw-content)" ];
+  round_trips {|shadow-[0_0_0_'a]b']|};
+  (* an unclosed string, and a second bracket the string does not hide *)
+  List.iter unknown
+    [
+      {|bg-[url('a]b)]|};
+      {|bg-[url('a)]|};
+      {|font-['My]Font]|};
+      "w-[10px][20px]";
+      "text-[12px][14px]";
+      {|bg-[url(a\]b)][20px]|};
+    ]
+
 let tests =
   Alcotest.
     [
       test_case "underscore escape" `Quick test_underscore_escape;
+      test_case "a quoted bracket stays inside the value" `Quick
+        test_quoted_bracket_stays_inside_the_value;
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
       test_case "double bracket class rejected" `Quick
