@@ -244,6 +244,80 @@ let typed_prime () =
   check_class "top-4" (top 4);
   check_class "-top-4" (top (-4))
 
+(* Tailwind's start-* / end-* handler resolves the spacing step itself and
+   writes the product out in full, so the zero and unit multipliers keep
+   calc(var(--spacing) * n) where the physical sides fold them to 0px and
+   var(--spacing). The folded zero stops referencing --spacing, which also drops
+   the declaration the utility reads from the theme layer. *)
+let logical_inline_keeps_the_spacing_product () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let check_css cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  check_css "start-0" "inset-inline-start:calc(var(--spacing)*0)";
+  check_css "start-1" "inset-inline-start:calc(var(--spacing)*1)";
+  check_css "start-2" "inset-inline-start:calc(var(--spacing)*2)";
+  check_css "-start-4" "inset-inline-start:calc(var(--spacing)*-4)";
+  check_css "end-0" "inset-inline-end:calc(var(--spacing)*0)";
+  check_css "end-1" "inset-inline-end:calc(var(--spacing)*1)";
+  check_css "start-0" "--spacing:.25rem";
+  check_css "end-0" "--spacing:.25rem"
+
+(* The logical inline sides carry the same scale as the physical ones: the px
+   step, the fractional steps and the fractions, in both signs. *)
+let logical_inline_scale_steps () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let check_css cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  check_css "start-px" "inset-inline-start:1px";
+  check_css "-start-px" "inset-inline-start:-1px";
+  check_css "end-px" "inset-inline-end:1px";
+  check_css "start-0.5" "inset-inline-start:calc(var(--spacing)*.5)";
+  check_css "-start-0.5" "inset-inline-start:calc(var(--spacing)*-.5)";
+  check_css "end-0.5" "inset-inline-end:calc(var(--spacing)*.5)";
+  check_css "start-1/2" "inset-inline-start:50%";
+  check_css "-start-1/2" "inset-inline-start:-50%";
+  check_css "-start-full" "inset-inline-start:-100%";
+  check_css "-end-full" "inset-inline-end:-100%";
+  check "start-px";
+  check "end-px";
+  check "start-0.5";
+  check "start-1/2";
+  check "start-3/4";
+  check "start-2";
+  check "-start-4";
+  check "-start-full"
+
+(* Neither logical inline side is a utility without a scale value: a stray
+   source token, the negative of a keyword Tailwind only defines positive, and a
+   zero denominator are all rejected. *)
+let logical_inline_rejects_non_utilities () =
+  let reject c =
+    match Tw.of_string c with
+    | Error _ -> ()
+    | Ok _ -> Alcotest.failf "%s should not be a utility" c
+  in
+  reject "start-junk";
+  reject "end-junk";
+  reject "-start-auto";
+  reject "start-1/0";
+  reject "start-"
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
@@ -267,6 +341,11 @@ let tests =
       inset_value_order_matches_tailwind;
     test_case "position candidate bands match Tailwind" `Quick
       position_candidate_bands_match_tailwind;
+    test_case "logical inline sides keep the spacing product" `Quick
+      logical_inline_keeps_the_spacing_product;
+    test_case "logical inline scale steps" `Quick logical_inline_scale_steps;
+    test_case "logical inline rejects non-utilities" `Quick
+      logical_inline_rejects_non_utilities;
   ]
 
 let suite = ("position", tests)
