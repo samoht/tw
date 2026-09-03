@@ -419,6 +419,52 @@ let test_underscore_inside_url () =
   reads "a quoted string outside a url decodes" "image-set('a_b.png'_1x)"
     "image-set('a b.png' 1x)"
 
+(* The first argument of a [var()] or a [theme()] names a custom property, so a
+   [_] there belongs to the name. Tailwind exempts that one node and reads the
+   rest of the call normally; the name of the node itself decodes, which is what
+   keeps [0_0_0_var(--my_var)] - one function node named [0_0_0_var] - both a
+   shadow and a reference to [--my_var]. Only the bare [_] is exempt, the [\_]
+   escape still unescapes, which is where this differs from a [url()] argument
+   list. Pinned against @tailwindcss/cli 4.3.3. *)
+let test_underscore_inside_var_and_theme () =
+  let reads name input expected =
+    Alcotest.(check string) name expected (Tw.Parse.decode_underscores input)
+  in
+  reads "a var name keeps its underscore" "var(--my_var)" "var(--my_var)";
+  reads "a theme key keeps its underscore" "theme(--my_key)" "theme(--my_key)";
+  reads "the node name decodes around it" "0_0_0_var(--my_var)"
+    "0 0 0 var(--my_var)";
+  reads "a name ending in _var takes the rule" "my_var(--a_b)" "my var(--a_b)";
+  reads "a name ending in _theme takes it too" "my_theme(--a_b)"
+    "my theme(--a_b)";
+  reads "a later argument still decodes" "var(--a_b,_c_d)" "var(--a_b, c d)";
+  reads "a nested call keeps its own name" "var(--a_b,_var(--c_d))"
+    "var(--a_b, var(--c_d))";
+  reads "the escape still unescapes" {|var(--a\_b)|} "var(--a_b)";
+  reads "a first argument that opens a call is no word" "var(foo(--a_b))"
+    "var(foo(--a b))";
+  reads "the word runs to the first break" "var(--a_b/2)" "var(--a_b/2)";
+  reads "a leading underscore is part of the word" "var(_--a_b)" "var(_--a_b)";
+  reads "an empty argument list reads" "my_var()" "my var()";
+  reads "another name decodes its arguments" "foo(--a_b)" "foo(--a b)";
+  reads "var is matched case-sensitively" "VAR(--a_b)" "VAR(--a b)";
+  reads "two calls each keep their name" "var(--a_b)_var(--c_d)"
+    "var(--a_b) var(--c_d)";
+  reads "a url inside a later argument is still verbatim"
+    "var(--a_b,_url(c_d.png))" "var(--a_b, url(c_d.png))";
+  (* What the exemption saves a shadow from: a name decoded to [--my var] splits
+     at the space, so the reference reaching the sheet is the first half of a
+     custom property nothing declares, and nothing says so. *)
+  Test_helpers.check_declarations {|[--x:var(--my_var)]|}
+    [ "--x:var(--my_var)" ];
+  Test_helpers.check_declarations "shadow-[0_0_0_var(--my_var)]"
+    [
+      "--tw-shadow:0 0 0 var(--tw-shadow-color,var(--my_var))";
+      "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)";
+    ];
+  Test_helpers.check_declarations {|[--x:var(--a_b,_c_d)]|}
+    [ "--x:var(--a_b,c d)" ]
+
 let tests =
   Alcotest.
     [
@@ -426,6 +472,8 @@ let tests =
       test_case "a quoted bracket stays inside the value" `Quick
         test_quoted_bracket_stays_inside_the_value;
       test_case "underscore inside a url" `Quick test_underscore_inside_url;
+      test_case "underscore inside a var or theme call" `Quick
+        test_underscore_inside_var_and_theme;
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
       test_case "double bracket class rejected" `Quick
