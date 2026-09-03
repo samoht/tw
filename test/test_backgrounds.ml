@@ -92,6 +92,24 @@ let test_of_string_invalid () =
   (* Missing color *)
   test_invalid [ "to"; "xyz" ];
 
+  (* Gradient positions, gradient angles and the opacity modifier are all plain
+     decimal: read as OCaml literals, [from-0x50%] named itself [.from-80%] and
+     [bg-red-500/0x50] mixed at 80%. *)
+  let invalid =
+    Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
+  in
+  invalid "from-0x50%";
+  invalid "from-050%";
+  invalid "via-1_0%";
+  invalid "bg-linear-0x45";
+  invalid "bg-linear-045";
+  invalid "bg-conic-0x45";
+  invalid "bg-red-500/0x50";
+  invalid "bg-red-500/1_0";
+  invalid "bg-red-500/04";
+  invalid "bg-red-500/1.50";
+  invalid "bg-red-0500";
+
   (* Invalid color *)
 
   (* Invalid prefixes *)

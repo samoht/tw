@@ -79,6 +79,16 @@ let test_perspective_candidate_order () =
       "perspective-midrange";
     ]
 
+(* A translate fraction is any numerator over any denominator, and the translate
+   family writes the division out rather than folding it, so even the zero
+   denominator Tailwind emits reads here. *)
+let test_any_translate_fraction () =
+  check "translate-x-0/2";
+  check "translate-x-1/7";
+  check "translate-y-13/17";
+  check "translate-1/0";
+  check "-translate-x-0/2"
+
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
@@ -477,6 +487,7 @@ let tests =
       test_perspective_candidate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
+    test_case "any translate fraction" `Quick test_any_translate_fraction;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick

@@ -9,7 +9,11 @@ let test_roundtrip () =
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab";
   Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-2.5";
-  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-unknown"
+  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-unknown";
+  (* A tab size is written in plain decimal: [tab-0x4] named itself [.tab-4]. *)
+  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-0x4";
+  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-04";
+  Test_helpers.check_invalid_input (module Tw.Tab.Handler) "tab-1_0"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

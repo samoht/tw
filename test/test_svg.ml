@@ -82,6 +82,19 @@ let stroke_arbitrary_width_invalid () =
   rejected "stroke-[.]";
   rejected "stroke-[-]"
 
+(* A stroke width is written in plain decimal. Read as an OCaml literal,
+   [stroke-0x4] parsed and then named itself [.stroke-4]: a rule the author
+   never wrote, matching nothing in the markup. *)
+let stroke_width_rejects_ocaml_literals () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u ->
+          Alcotest.failf "expected %s to be rejected, got %s" cls
+            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+      | Error _ -> ())
+    [ "stroke-0x4"; "stroke-04"; "stroke-1_0" ]
+
 (* A bracket colour CSS names without spelling it as a function - a named
    colour, a keyword - is a stroke colour too. The stroke reader told colours
    from widths by looking for a [#] or a colour function, so
@@ -154,6 +167,8 @@ let tests =
     test_case "stroke arbitrary width units" `Quick stroke_arbitrary_width_units;
     test_case "stroke arbitrary width invalid" `Quick
       stroke_arbitrary_width_invalid;
+    test_case "stroke width rejects OCaml literals" `Quick
+      stroke_width_rejects_ocaml_literals;
   ]
 
 let suite = ("svg", tests)

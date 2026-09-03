@@ -53,6 +53,35 @@ let test_negative_and_improper_fractions () =
     "-inset-x-1/2 is -50%" true
     (Astring.String.is_infix ~affix:"inset-inline: -50%" (css "-inset-x-1/2"))
 
+(* Tailwind reads any numerator over any denominator, the same rule the sizing
+   families follow: [top-1/7] and [top-3/8] are as good as [top-1/2], and a zero
+   numerator is a position of its own. Restricting the denominator to a hand
+   picked list refused classes the CLI emits. *)
+let test_any_fraction_denominator () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " contains " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "top-1/7" "top: 14.2857%";
+  has "top-3/8" "top: 37.5%";
+  has "top-1/13" "top: 7.69231%";
+  has "inset-0/2" "inset: 0%";
+  has "left-13/17" "left: 76.4706%";
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+          which no browser can compute; tw refuses the class instead")
+    (module Tw.Position.Handler)
+    "top-1/0"
+
 (* Arbitrary values round-trip verbatim in the class name: the leading zero of
    0.67rem (and the sign of negatives) is preserved, not re-serialised to a
    normalised .67rem that would no longer match the HTML class. *)
@@ -328,6 +357,7 @@ let tests =
     test_case "position fractions" `Quick test_fractions;
     test_case "negative and improper fractions" `Quick
       test_negative_and_improper_fractions;
+    test_case "any fraction denominator" `Quick test_any_fraction_denominator;
     test_case "named inset requires theme token" `Quick
       named_inset_requires_theme_token;
     test_case "arbitrary var insets" `Quick test_arbitrary_var;

@@ -399,6 +399,27 @@ let test_arbitrary_breakpoint_rejects_non_length () =
       | Error (`Msg _) -> ())
     [ "min-[abc]:flex"; "max-[abc]:flex"; "min-[]:flex" ]
 
+(* The number in front of the unit is a CSS number, not an OCaml one. Reading it
+   with [float_of_string_opt] turned [min-[0x600px]] into a live [(min-width:
+   1536px)] breakpoint: a query the browser honours, built out of a value
+   Tailwind passes through verbatim for the browser to drop. Nothing here is a
+   length either, so tw declines the whole class. *)
+let test_arbitrary_breakpoint_rejects_ocaml_literals () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u ->
+          Alcotest.failf "%s parsed as %s emitting %s" cls (Tw.pp u)
+            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+      | Error (`Msg _) -> ())
+    [
+      "min-[0x600px]:p-4";
+      "max-[0x600px]:p-4";
+      "min-[0x600]:p-4";
+      "min-[1_000px]:p-4";
+      "min-[+600px]:p-4";
+    ]
+
 (* A [@custom-variant] belongs to the [@theme] block that declared it. Two
    stylesheets built in one process read different themes, so a variant the
    first declared must be unknown to the second. *)
@@ -1467,6 +1488,8 @@ let tests =
       test_case "nth spelling" `Quick test_nth_spelling;
       test_case "arbitrary breakpoint rejects non-length" `Quick
         test_arbitrary_breakpoint_rejects_non_length;
+      test_case "arbitrary breakpoint rejects OCaml literals" `Quick
+        test_arbitrary_breakpoint_rejects_ocaml_literals;
       test_case "custom variant is theme-local" `Quick
         test_custom_variant_is_theme_local;
       test_case "container variant is theme-local" `Quick

@@ -91,6 +91,134 @@ let test_decimal_class_suffixes_round_trip () =
 let test_redundant_zero_spellings_are_rejected () =
   List.iter unknown [ "p-04"; "p-4.0"; "p-1.50" ]
 
+(* The families that read their own suffix rather than going through the readers
+   above. Checked against the pinned CLI: Tailwind emits for none of these. The
+   integer ones rename the rule they emit, so the author writes [stroke-0x4] and
+   gets a [.stroke-4] that matches nothing. *)
+let test_family_int_suffixes_reject_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "stroke-0x4";
+      "stroke-04";
+      "stroke-1_0";
+      "tab-0x4";
+      "tab-04";
+      "grow-0x4";
+      "grow-04";
+      "ring-0x4";
+      "ring-04";
+      "zoom-0x4";
+      "zoom-04";
+      "from-0x50%";
+      "from-050%";
+      "via-0x50%";
+      "to-0x50%";
+      "bg-linear-0x45";
+      "bg-linear-045";
+      "bg-conic-0x45";
+      "bg-conic-045";
+      "-bg-linear-0x45";
+      "-bg-conic-045";
+      "mask-linear-0x45";
+      "mask-linear-045";
+      "mask-conic-0x45";
+      "-mask-linear-045";
+      "mask-x-from-0x50%";
+      "mask-x-from-050%";
+    ]
+
+(* The same for the families whose suffix is a decimal. *)
+let test_family_decimal_suffixes_reject_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "underline-offset-0x4";
+      "underline-offset-04";
+      "underline-offset-4.50";
+      "-underline-offset-0x4";
+      "backdrop-opacity-0x50";
+      "backdrop-opacity-050";
+      "auto-cols-0x4";
+      "auto-cols-04";
+      "auto-rows-0x4";
+      "mask-x-from-02";
+      "mask-x-from-2.50";
+      "top-1_5";
+      "inset-1.50";
+      "translate-x-1.50";
+      "aspect-0x4/3";
+      "aspect-04/3";
+      "aspect-4.0/3";
+      "aspect-1.50/3";
+    ]
+
+(* The opacity modifier rides on every colour utility, so one reader that admits
+   an OCaml literal admits it across the whole palette. The shade is the same
+   suffix a step earlier: [bg-red-0500] emitted [.bg-red-500]. *)
+let test_colour_modifier_rejects_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "bg-red-500/0x50";
+      "bg-red-500/1_0";
+      "bg-red-500/04";
+      "bg-red-500/1.50";
+      "text-red-500/0x50";
+      "border-red-500/1_0";
+      "stroke-red-500/04";
+      "bg-red-0500";
+      "border-red-1_00";
+      "text-red-0x500";
+    ]
+
+(* A fraction is two plain decimals: [w-04/2] emitted [width: 200%] for a class
+   Tailwind does not emit at all. *)
+let test_fraction_suffixes_reject_non_decimal_spellings () =
+  List.iter unknown
+    [
+      "w-04/2";
+      "w-1_0/2";
+      "w-0x2/4";
+      "w-1/02";
+      "h-04/2";
+      "top-04/2";
+      "inset-04/2";
+      "basis-01/2";
+      "flex-01/2";
+      "translate-x-01/2";
+      "-translate-x-01/2";
+    ]
+
+(* What the families above have to keep emitting. *)
+let test_family_suffixes_round_trip () =
+  List.iter round_trips
+    [
+      "stroke-4";
+      "tab-4";
+      "grow-4";
+      "ring-4";
+      "zoom-4";
+      "from-50%";
+      "bg-linear-45";
+      "bg-conic-45";
+      "mask-linear-45";
+      "mask-x-from-50%";
+      "mask-x-from-2.5";
+      "underline-offset-4";
+      "backdrop-opacity-50";
+      "backdrop-opacity-5.5";
+      "auto-cols-4";
+      "aspect-4/3";
+      "aspect-8.5/11";
+      "top-2.5";
+      "inset-0.5";
+      "translate-x-0.5";
+      "bg-red-500/50";
+      "bg-red-500/2.5";
+      "w-1/2";
+      "basis-1/2";
+      "flex-1/2";
+      "translate-x-1/2";
+    ]
+
 (* [Parse.split_class] remembers the split of the last class name it was given,
    because every handler in turn splits the same one. A parse must therefore not
    depend on what was parsed before it, nor on whether two equal class names are
@@ -231,6 +359,16 @@ let tests =
         test_decimal_class_suffixes_round_trip;
       test_case "redundant zero suffixes are rejected" `Quick
         test_redundant_zero_spellings_are_rejected;
+      test_case "family int suffixes reject non-decimal spellings" `Quick
+        test_family_int_suffixes_reject_non_decimal_spellings;
+      test_case "family decimal suffixes reject non-decimal spellings" `Quick
+        test_family_decimal_suffixes_reject_non_decimal_spellings;
+      test_case "colour modifier rejects non-decimal spellings" `Quick
+        test_colour_modifier_rejects_non_decimal_spellings;
+      test_case "fraction suffixes reject non-decimal spellings" `Quick
+        test_fraction_suffixes_reject_non_decimal_spellings;
+      test_case "family suffixes round-trip" `Quick
+        test_family_suffixes_round_trip;
       test_case "parsing is independent of parse history" `Quick
         test_parse_is_independent_of_history;
       test_case "var name reads one complete reference" `Quick
