@@ -101,7 +101,7 @@
 - Every inset side reads an arbitrary length under either sign, and `start-*`
   and `end-*` read one at all. `start-[4px]`, `end-[4px]`, `-top-[4px]` and
   `-inset-bs-[4px]` reach the sheet, as does a name the theme binds on the
-  logical inline sides (#PR).
+  logical inline sides (#691).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
@@ -164,7 +164,7 @@
   unit outside a handful (#543).
 - A spacing step is a non-negative multiple of 0.25 on the inset and sizing
   families, as it already was on padding, margin and gap, so `top-1.7` and
-  `w-1.7` stop being utilities Tailwind never emits (#PR).
+  `w-1.7` stop being utilities Tailwind never emits (#691).
 - A class whose arbitrary value has an unbalanced paren is rejected rather than
   compiled. The value was re-parsed inside a `calc()` the code wrapped around
   it, so the added `)` silently closed the author's stray one and
