@@ -46,14 +46,7 @@ let test_non_decimal_integers () =
 (* columns-[16rem] is a column-WIDTH (columns: 16rem), distinct from the integer
    count form (columns-[3]). *)
 let test_columns_arbitrary_width () =
-  let css =
-    match Tw.of_string "columns-[16rem]" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error _ -> Alcotest.fail "could not parse columns-[16rem]"
-  in
-  Alcotest.(check bool)
-    "columns-[16rem] sets columns: 16rem" true
-    (Astring.String.is_infix ~affix:"columns:16rem" css)
+  Test_helpers.check_declarations "columns-[16rem]" [ "columns:16rem" ]
 
 (* The typed constructors (newly exposed in tw.mli) must agree with the parser
    on class names, including the [int] argument of [columns]. *)

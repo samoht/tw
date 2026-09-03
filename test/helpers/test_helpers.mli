@@ -32,6 +32,24 @@ val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
     properties included: two utilities can conflict on a [--tw-*] alone. *)
 
+val declarations_of_class : string -> string list
+(** [declarations_of_class cls] is every declaration [cls] writes outside
+    [:root], minified, in source order. Fails the test if [cls] does not parse.
+*)
+
+val check_declarations : string -> string list -> unit
+(** [check_declarations cls expected] checks [cls] writes exactly [expected].
+    Prefer it to a substring search: an affix that is a prefix of a longer
+    generated class matches it, so [.bg-blue-500] is satisfied by
+    [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
+    class nor the CSS. *)
+
+val check_declarations_match : string -> string list -> unit
+(** [check_declarations_match cls patterns] checks each PCRE in [patterns]
+    matches some declaration of [cls], naming the class and every declaration
+    on failure. For a value that cannot be spelled exactly; anchor the pattern,
+    since an unanchored one accepts a longer class the way a substring does. *)
+
 val interacting_pairs : string list -> (string * string) list
 (** [interacting_pairs classes] pairs up the classes that write on each other.
     An element carrying such a pair is where an ordering difference becomes

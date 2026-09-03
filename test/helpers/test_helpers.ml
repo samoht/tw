@@ -115,6 +115,42 @@ let properties_of_class cls =
              | _ -> acc)
            []
 
+(* [Astring.String.is_infix] accepts more than a test names. The affix
+   [.bg-blue-500] matches the selector [.bg-blue-500\/50], so a test naming a
+   utility passes when only an opacity variant of it reached the sheet, and any
+   affix that is a prefix of a longer generated class behaves the same way.
+   [Alcotest.check bool ... true] then prints neither the class nor the CSS when
+   it fails, so a red test reports only that something is wrong. The helpers
+   below compare whole declarations and name the subject in the failure. *)
+let declarations_of_class cls =
+  match compiled cls with
+  | None -> Alcotest.failf "%s does not parse" cls
+  | Some sheet ->
+      Css.fold
+        (fun acc stmt ->
+          match Css.as_rule stmt with
+          | Some (sel, decls, _) when Css.Selector.to_string sel <> ":root" ->
+              acc @ List.map (Css.Declaration.to_string ~minify:true) decls
+          | _ -> acc)
+        [] sheet
+
+let check_declarations cls expected =
+  Alcotest.(check (list string)) cls expected (declarations_of_class cls)
+
+(* For a value a test cannot spell exactly, a generated hash or a number the
+   suite deliberately leaves open. Anchor the pattern: an unanchored one
+   reintroduces the defect above. *)
+let check_declarations_match cls patterns =
+  let actual = declarations_of_class cls in
+  List.iter
+    (fun pattern ->
+      let re = Re.Pcre.re pattern |> Re.compile in
+      if not (List.exists (fun d -> Re.execp re d) actual) then
+        Alcotest.failf "%s: no declaration matches %s@.declarations: %s" cls
+          pattern
+          (String.concat "; " actual))
+    patterns
+
 (* What a class writes on an element carrying it, as one rule. The theme
    bindings it drags in are left out - every class reading the spacing scale
    writes [--spacing], which says nothing about what two of them do to each
