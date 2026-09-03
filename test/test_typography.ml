@@ -869,7 +869,9 @@ let test_bracket_url_underscore () =
   in
   has "list-image-[url('a_b.png')]" "list-style-image: url(a_b.png)";
   has "list-image-[url(a_b.png)]" "list-style-image: url(a_b.png)";
-  has "content-[url('a_b.png')]" "--tw-content: url(a_b.png)"
+  (* Tailwind writes this one [url('a_b.png')]. The quoting is cascade's
+     canonical spelling of the same URL; the underscore is the point. *)
+  has "content-[url('a_b.png')]" {|--tw-content: url("a_b.png")|}
 
 (* List position, type, and image are three property bands; candidates inside
    each band use their natural class-name order. *)

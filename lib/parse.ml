@@ -154,29 +154,92 @@ let bracket_inner s =
 
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
    underscore — otherwise a value that needs one could not be written. The two
-   readings differ only in what a bare [_] stands for, which [plain] carries. *)
-let read_underscores ~plain s =
+   readings differ only in what a bare [_] stands for, which [plain] carries,
+   and in [verbatim], the spans copied out unread. *)
+let read_underscores ~plain ~verbatim s =
   let len = String.length s in
   let buf = Buffer.create len in
-  let rec go i =
+  let rec go i spans =
     if i >= len then ()
-    else if s.[i] = '\\' && i + 1 < len && s.[i + 1] = '_' then begin
-      Buffer.add_char buf '_';
-      go (i + 2)
-    end
-    else begin
-      Buffer.add_char buf (if s.[i] = '_' then plain else s.[i]);
-      go (i + 1)
-    end
+    else
+      match spans with
+      | (start, stop) :: rest when i = start ->
+          Buffer.add_substring buf s start (stop - start);
+          go stop rest
+      | _ ->
+          if s.[i] = '\\' && i + 1 < len && s.[i + 1] = '_' then begin
+            Buffer.add_char buf '_';
+            go (i + 2) spans
+          end
+          else begin
+            Buffer.add_char buf (if s.[i] = '_' then plain else s.[i]);
+            go (i + 1) spans
+          end
   in
-  go 0;
+  go 0 verbatim;
   Buffer.contents buf
 
-let decode_underscores s = read_underscores ~plain:' ' s
+(* Tailwind's value parser: a word runs to the next of [/ : , = > < ( )] or
+   whitespace, and a [\] escape or a quoted string is part of the word it stands
+   in. A [(] opens a function whose name is the word before it. *)
+let breaks_word = function
+  | '/' | ':' | ',' | '=' | '>' | '<' | '(' | ')' | ' ' | '\t' | '\n' -> true
+  | _ -> false
+
+(* [url_argument_spans s] is the list, in order, of the argument lists a [url()]
+   opens in [s], each as the half-open range between its parentheses.
+
+   Tailwind decodes an arbitrary value node by node and leaves these alone: a
+   [_] inside a [url()] is part of a file name, not a space. The function name
+   is matched the way Tailwind matches it, on [url] or a name ending in [_url],
+   so [myurl(a_b)] and [a-url(a_b)] decode their arguments and [_url(a_b)] does
+   not. *)
+let url_argument_spans s =
+  let len = String.length s in
+  (* The name before the [(] at [i] started at [word]. *)
+  let names_url i word =
+    i - word >= 3
+    && String.sub s (i - 3) 3 = "url"
+    && (i - word = 3 || s.[i - 4] = '_')
+  in
+  let rec string_end i quote =
+    if i >= len then len
+    else if s.[i] = '\\' then string_end (i + 2) quote
+    else if s.[i] = quote then i + 1
+    else string_end (i + 1) quote
+  in
+  (* The [)] closing the argument list, or the end of [s] when it is left open,
+     as the tokeniser leaves it. *)
+  let rec paren_end i depth =
+    if i >= len then len
+    else
+      match s.[i] with
+      | '\\' -> paren_end (i + 2) depth
+      | '\'' | '"' -> paren_end (string_end (i + 1) s.[i]) depth
+      | '(' -> paren_end (i + 1) (depth + 1)
+      | ')' -> if depth = 0 then i else paren_end (i + 1) (depth - 1)
+      | _ -> paren_end (i + 1) depth
+  in
+  let rec scan i word acc =
+    if i >= len then List.rev acc
+    else
+      match s.[i] with
+      | '\\' -> scan (i + 2) word acc
+      | '\'' | '"' -> scan (string_end (i + 1) s.[i]) word acc
+      | '(' when names_url i word ->
+          let stop = paren_end (i + 1) 0 in
+          scan (stop + 1) (stop + 1) ((i + 1, stop) :: acc)
+      | c -> scan (i + 1) (if breaks_word c then i + 1 else word) acc
+  in
+  scan 0 0 []
+
+let decode_underscores s =
+  read_underscores ~plain:' ' ~verbatim:(url_argument_spans s) s
 
 (* A property name has no spaces to spell, so its underscores stand for
-   themselves and only the escape is undone. *)
-let unescape_underscores s = read_underscores ~plain:'_' s
+   themselves and only the escape is undone. A name holds no [url()] either, so
+   nothing is copied out unread. *)
+let unescape_underscores s = read_underscores ~plain:'_' ~verbatim:[] s
 
 (* The inverse: a utility holding a decoded value writes its class name back,
    and the name has to read as the value it came from. *)

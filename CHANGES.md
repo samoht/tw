@@ -155,6 +155,11 @@
   to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
   `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
   unterminated string still refuses the class, as it does in Tailwind (#689).
+- A `url()` in an arbitrary value keeps the underscores of its argument, which
+  are part of a file name rather than spaces. `list-image-[url('a_b.png')]`,
+  `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
+  `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
+  underscore outside the `url()` still becomes a space (#PR).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).

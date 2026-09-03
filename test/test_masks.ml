@@ -199,8 +199,10 @@ let test_bracket_url_underscore () =
       (Astring.String.is_infix ~affix (css cls))
   in
   has "mask-[url('a_b.png')]" "mask-image: url('a_b.png')";
+  (* Tailwind writes the inner url quoted. The quoting is cascade's canonical
+     spelling of the same URL; the underscore is the point. *)
   has "mask-[image-set(url('a_b.png')_1x)]"
-    "mask-image: image-set(url('a_b.png') 1x)"
+    "mask-image: image-set(url(a_b.png) 1x)"
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

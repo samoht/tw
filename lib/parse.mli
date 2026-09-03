@@ -83,7 +83,13 @@ val bracket_inner : string -> string
 
 val decode_underscores : string -> string
 (** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
-    [\_] into a literal underscore. *)
+    [\_] into a literal underscore.
+
+    The argument list of a [url()] is left as written, because a [_] there is
+    part of a file name: [image-set(url('a_b.png')_1x)] keeps the first
+    underscore and gives the second a space. The function name is matched on
+    [url] or a name ending in [_url], so [myurl(a_b)] and [a-url(a_b)] decode
+    their arguments. *)
 
 val unescape_underscores : string -> string
 (** [unescape_underscores s] turns the [\_] of an arbitrary value into a literal
