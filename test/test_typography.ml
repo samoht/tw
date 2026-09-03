@@ -852,6 +852,25 @@ let test_bracket_list_style () =
     "an unknown counter style is rejected" true
     (Result.is_error (Tw.of_string "list-[nonsense-style]"))
 
+(* A [url()] argument is left verbatim, so a file name keeps the [_] it is
+   written with. [list-image-] and [content-] read their bracket through the
+   arbitrary-value decoder, which used to turn every [_] into a space. *)
+let test_bracket_url_underscore () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "list-image-[url('a_b.png')]" "list-style-image: url(a_b.png)";
+  has "list-image-[url(a_b.png)]" "list-style-image: url(a_b.png)";
+  has "content-[url('a_b.png')]" "--tw-content: url(a_b.png)"
+
 (* List position, type, and image are three property bands; candidates inside
    each band use their natural class-name order. *)
 let test_list_style_property_bands () =
@@ -1289,6 +1308,7 @@ let tests =
     test_case "text-[<font-size>] invalid values" `Quick
       test_text_bracket_size_invalid;
     test_case "bracket length units" `Quick test_bracket_length_units;
+    test_case "bracket url underscores" `Quick test_bracket_url_underscore;
     test_case "arbitrary leading" `Quick test_arbitrary_leading;
     test_case "arbitrary leading token stream" `Quick
       test_arbitrary_leading_token_stream;

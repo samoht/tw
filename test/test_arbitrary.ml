@@ -323,6 +323,42 @@ let test_property_underscore_escape () =
   has {|[--my\_var:red]|} "--my_var: red";
   has "[--my_var:red]" "--my_var: red"
 
+(* A []] the value quotes belongs to the value, so the scan for the closing
+   bracket reads strings the way the CSS tokeniser does. Tailwind emits
+   [content: 'a]b'] for the first of these; a scan blind to quotes stopped at
+   the []] inside the string and refused the class. *)
+let test_quoted_closing_bracket () =
+  check "[content:'a]b']";
+  check "[--x:'a]b']";
+  check {|[content:"a]b"]|};
+  Alcotest.(check bool)
+    "[content:'a]b'] keeps the bracket in the string" true
+    (Astring.String.is_infix ~affix:"content: 'a]b'" (css "[content:'a]b']"));
+  Alcotest.(check bool)
+    "[--x:'a]b'] keeps the bracket in the string" true
+    (Astring.String.is_infix ~affix:"--x: 'a]b'" (css "[--x:'a]b']"));
+  Alcotest.(check bool)
+    "[background-image:url('a]b')] keeps the bracket in the url" true
+    (Astring.String.is_infix ~affix:"background-image: url('a]b')"
+       (css "[background-image:url('a]b')]"))
+
+(* A [url()] argument is left verbatim, so a [_] in a file name stays one while
+   the [_] separating it from the next value becomes a space. *)
+let test_url_underscore () =
+  Alcotest.(check bool)
+    "the url keeps its underscore" true
+    (Astring.String.is_infix ~affix:"background-image: url('a_b.png')"
+       (css "[background-image:url('a_b.png')]"));
+  Alcotest.(check bool)
+    "the underscore after the url is a space" true
+    (Astring.String.is_infix ~affix:"background-image: url('a_b.png') center"
+       (css "[background-image:url('a_b.png')_center]"));
+  Alcotest.(check bool)
+    "the underscore inside an image-set url stays" true
+    (Astring.String.is_infix
+       ~affix:"background-image: image-set(url('a_b.png') 1x)"
+       (css "[background-image:image-set(url('a_b.png')_1x)]"))
+
 let tests =
   [
     test_case "property name underscore escape" `Quick
@@ -333,6 +369,8 @@ let tests =
     test_case "arbitrary of_string - valid values" `Quick of_string_valid;
     test_case "arbitrary of_string - invalid values" `Quick of_string_invalid;
     test_case "text after the closing bracket" `Quick test_trailing_text;
+    test_case "quoted closing bracket" `Quick test_quoted_closing_bracket;
+    test_case "url argument underscores" `Quick test_url_underscore;
     test_case "--alpha() value with a /opacity modifier" `Quick
       test_alpha_fn_with_modifier;
     test_case "var-valued opacity modifier spelling" `Quick

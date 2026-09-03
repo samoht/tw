@@ -390,12 +390,42 @@ let test_quoted_bracket_stays_inside_the_value () =
       {|bg-[url(a\]b)][20px]|};
     ]
 
+(* Tailwind reads an arbitrary value as a value tree and decodes the text of
+   every node except the arguments of a [url()], which stay verbatim: a [_]
+   there is part of a file name, not a space. The function name is matched the
+   way Tailwind matches it, on [url] or a name ending in [_url], so a word that
+   merely ends in the letters decodes its arguments. Pinned against
+   @tailwindcss/cli 4.3.3. *)
+let test_underscore_inside_url () =
+  let reads name input expected =
+    Alcotest.(check string) name expected (Tw.Parse.decode_underscores input)
+  in
+  reads "a quoted url keeps its underscore" "url('a_b.png')" "url('a_b.png')";
+  reads "an unquoted url keeps its underscore" "url(a_b.png)" "url(a_b.png)";
+  reads "a url keeps the escape as written" {|url('a\_b.png')|}
+    {|url('a\_b.png')|};
+  reads "only the url argument is kept" "image-set(url('a_b.png')_1x)"
+    "image-set(url('a_b.png') 1x)";
+  reads "the text after a url is decoded" "url('a_b.png')_center"
+    "url('a_b.png') center";
+  reads "each url of a list is kept" "url(a_b),url(c_d)" "url(a_b),url(c_d)";
+  reads "a url nested in a function is kept" "calc(url(a_b))" "calc(url(a_b))";
+  reads "a url argument list balances its parens" "url(a(b_c)d)" "url(a(b_c)d)";
+  reads "a name merely ending in url decodes" "myurl(a_b)" "myurl(a b)";
+  reads "a hyphen keeps the name apart" "a-url(a_b)" "a-url(a b)";
+  reads "a name ending in _url keeps its arguments" "_url(a_b)" " url(a_b)";
+  reads "url is matched case-sensitively" "URL(a_b)" "URL(a b)";
+  reads "an escaped paren opens no url" {|url\(a_b\)|} {|url\(a b\)|};
+  reads "a quoted string outside a url decodes" "image-set('a_b.png'_1x)"
+    "image-set('a b.png' 1x)"
+
 let tests =
   Alcotest.
     [
       test_case "underscore escape" `Quick test_underscore_escape;
       test_case "a quoted bracket stays inside the value" `Quick
         test_quoted_bracket_stays_inside_the_value;
+      test_case "underscore inside a url" `Quick test_underscore_inside_url;
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
       test_case "double bracket class rejected" `Quick

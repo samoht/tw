@@ -183,6 +183,25 @@ let test_bracket_url_keeps_underscores () =
   Test_helpers.check_declarations "mask-[url(a_b.png)]"
     [ "-webkit-mask-image:url(a_b.png)"; "mask-image:url(a_b.png)" ]
 
+(* A [url()] argument is left verbatim, so a bare [_] in a file name is a file
+   name too. Only the [_] outside the url is a space, which [image-set()] is the
+   case that tells the two apart. *)
+let test_bracket_url_underscore () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "mask-[url('a_b.png')]" "mask-image: url('a_b.png')";
+  has "mask-[image-set(url('a_b.png')_1x)]"
+    "mask-image: image-set(url('a_b.png') 1x)"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -190,6 +209,8 @@ let tests =
         test_bracket_image_underscore_escape;
       Alcotest.test_case "bracket url keeps underscores" `Quick
         test_bracket_url_keeps_underscores;
+      Alcotest.test_case "mask image url underscores" `Quick
+        test_bracket_url_underscore;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
       Alcotest.test_case "arbitrary mask layer list" `Quick

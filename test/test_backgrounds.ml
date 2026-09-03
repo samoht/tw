@@ -584,10 +584,34 @@ let test_arbitrary_underscore_escape () =
   has {|bg-[url('a\_b.png')]|} "background-image: url(a_b.png)";
   has {|bg-linear-[to\_bottom]|} "--tw-gradient-position: to_bottom"
 
+(* A [url()] is CSS source, so a [\]] in it is one character of the URL, not a
+   backslash of its own: [url(a\]b)] and [url(a]b)] name the same file, and
+   Tailwind emits the first verbatim. tw used to hand cascade the backslash as
+   well and emit the double-escaped url("a\\]b"). *)
+let test_bracket_url_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|bg-[url(a\]b)]|} "background-image: url(a]b)";
+  has {|bg-[image:url(a\]b)]|} "background-image: url(a]b)";
+  (* A quoted []] needs no escape and keeps its quotes. *)
+  has "bg-[url('a]b')]" "background-image: url('a]b')";
+  (* A url argument keeps a bare [_], which is part of the file name. *)
+  has "bg-[url('a_b.png')]" "background-image: url('a_b.png')"
+
 let tests =
   [
     test_case "arbitrary underscore escape" `Quick
       test_arbitrary_underscore_escape;
+    test_case "bracket url escape" `Quick test_bracket_url_escape;
     test_case "gradient interpolation" `Quick test_gradient_interpolation;
     test_case "gradient stop position units" `Quick
       test_gradient_stop_position_units;
