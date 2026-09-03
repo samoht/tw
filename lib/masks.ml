@@ -283,6 +283,22 @@ module Handler = struct
   let mask_position_style positions =
     style [ Css.webkit_mask_position positions; Css.mask_position positions ]
 
+  (* A whole value that is one [url()]: the first [)] closes it, so no second
+     layer hides behind a comma. *)
+  let is_single_url inner =
+    let n = String.length inner in
+    n > 5
+    && String.sub inner 0 4 = "url("
+    && inner.[n - 1] = ')'
+    && not (String.contains (String.sub inner 4 (n - 5)) ')')
+
+  (* Tailwind keeps a bare [_] inside [url()], where it is part of the file
+     name, and undoes only the [\_] escape; everywhere else in an arbitrary
+     value an underscore is a space. *)
+  let image_source inner =
+    if is_single_url inner then Parse.unescape_underscores inner
+    else Parse.decode_underscores inner
+
   let to_style _theme = function
     | No_mask -> mask_none
     | Add -> mask_add
@@ -364,8 +380,7 @@ module Handler = struct
             Css.mask_image (Var var_ref);
           ]
     | Bracket_image v -> (
-        let css_str = Parse.decode_underscores v in
-        match Css.parse_background_image css_str with
+        match Css.parse_background_image (image_source v) with
         | Some (img :: _) ->
             style [ Css.webkit_mask_image img; Css.mask_image img ]
         | _ ->
@@ -433,8 +448,7 @@ module Handler = struct
      whether the value parser accepts it, not which gradient function it
      names. *)
   let is_image_value inner =
-    let css_str = Parse.decode_underscores inner in
-    match Css.parse_background_image css_str with
+    match Css.parse_background_image (image_source inner) with
     | Some (_ :: _) -> true
     | _ -> false
 
