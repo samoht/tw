@@ -779,6 +779,97 @@ let test_container_and_media () =
   check bool "has media queries" true has_media;
   check bool "has container queries" true has_container
 
+(* Conditions of every [@container] block in the sheet, in source order. *)
+let container_conditions css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_container stmt with
+      | Some (_, Some cond, _) -> Css.Container.to_string cond :: acc
+      | _ -> acc)
+    [] css
+  |> List.rev
+
+let selectors_in_container ~condition css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_container stmt with
+      | Some (_, Some cond, inner)
+        when String.equal (Css.Container.to_string cond) condition ->
+          acc @ List.filter_map Css.statement_selector inner
+      | _ -> acc)
+    [] css
+
+let supports_conditions css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_supports stmt with
+      | Some (cond, _) -> Css.Supports.to_string cond :: acc
+      | None -> acc)
+    [] css
+  |> List.rev
+
+let selectors_in_supports ~condition css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_supports stmt with
+      | Some (cond, inner)
+        when String.equal (Css.Supports.to_string cond) condition ->
+          acc @ List.filter_map Css.statement_selector inner
+      | Some _ | None -> acc)
+    [] css
+
+(* Two utilities under one container query are a single block in Tailwind's
+   output. Merging is adjacency-only, so it never lifts a rule over another: the
+   merged block holds the selectors in the order the comparator gave them. *)
+let test_container_query_merge () =
+  let css =
+    Tw.Build.to_css
+      [ Tw.Containers.container_sm [ p 4 ]; Tw.Containers.container_sm [ m 2 ] ]
+  in
+  check (list string) "one consecutive container block" [ "(width >= 24rem)" ]
+    (container_conditions css);
+  check
+    (list Test_helpers.selector_testable)
+    "container block keeps rule order"
+    [ Css.Selector.class_ "@sm:m-2"; Css.Selector.class_ "@sm:p-4" ]
+    (selectors_in_container ~condition:"(width >= 24rem)" css)
+
+(* The same for [@supports], whose blocks carry a condition to compare in the
+   same way. *)
+let test_supports_merge () =
+  (* Preflight carries [@supports] blocks of its own, so the sheet is built
+     without the base layer to leave only the two under test. *)
+  let css =
+    Tw.Build.to_css
+      ~config:{ base = false; forms = None; layers = true }
+      [ supports "display:grid" [ p 4 ]; supports "display:grid" [ m 2 ] ]
+  in
+  check (list string) "one consecutive supports block" [ "(display: grid)" ]
+    (supports_conditions css);
+  check
+    (list Test_helpers.selector_testable)
+    "supports block keeps rule order"
+    [
+      Css.Selector.class_ "supports-[display:grid]:m-2";
+      Css.Selector.class_ "supports-[display:grid]:p-4";
+    ]
+    (selectors_in_supports ~condition:"(display: grid)" css)
+
+(* Only equal conditions collapse. Two container queries of different widths are
+   separate blocks whatever order the comparator puts them in. *)
+let test_container_merge_keeps_conditions_apart () =
+  let css =
+    Tw.Build.to_css
+      [
+        Tw.Containers.container_sm [ p 4 ];
+        Tw.Containers.container_md [ p 4 ];
+        Tw.Containers.container_sm [ m 2 ];
+      ]
+  in
+  check (list string) "unequal conditions stay apart"
+    [ "(width >= 24rem)"; "(width >= 28rem)" ]
+    (container_conditions css)
+
 let test_rule_sets () =
   let statements = Tw.Build.rule_sets [ p 4; sm [ m 2 ] ] in
   (* Check that we have statements *)
@@ -1216,6 +1307,10 @@ let tests =
     test_case "md:hover nests the hover gate" `Quick test_md_hover_extra_media;
     test_case "container hover nests the gate" `Quick test_container_hover_nests;
     test_case "container + media together" `Quick test_container_and_media;
+    test_case "consecutive container merge" `Quick test_container_query_merge;
+    test_case "consecutive supports merge" `Quick test_supports_merge;
+    test_case "container merge keeps conditions apart" `Quick
+      test_container_merge_keeps_conditions_apart;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
