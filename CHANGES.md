@@ -160,6 +160,10 @@
   `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
   `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
   underscore outside the `url()` still becomes a space (#PR).
+- An arbitrary property whose value quotes or escapes a closing bracket reaches
+  the sheet. `[content:'a]b']`, `[--x:'a]b']` and
+  `[background-image:url('a]b')]` were refused, because the scan for the
+  closing bracket read neither strings nor escapes (#PR).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).

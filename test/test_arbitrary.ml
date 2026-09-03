@@ -334,9 +334,11 @@ let test_quoted_closing_bracket () =
   Alcotest.(check bool)
     "[content:'a]b'] keeps the bracket in the string" true
     (Astring.String.is_infix ~affix:"content: 'a]b'" (css "[content:'a]b']"));
+  (* Tailwind keeps the quote the class wrote; the quoting is cascade's
+     canonical spelling of the same CSS string. *)
   Alcotest.(check bool)
     "[--x:'a]b'] keeps the bracket in the string" true
-    (Astring.String.is_infix ~affix:"--x: 'a]b'" (css "[--x:'a]b']"));
+    (Astring.String.is_infix ~affix:{|--x: "a]b"|} (css "[--x:'a]b']"));
   Alcotest.(check bool)
     "[background-image:url('a]b')] keeps the bracket in the url" true
     (Astring.String.is_infix ~affix:"background-image: url('a]b')"
@@ -349,14 +351,19 @@ let test_url_underscore () =
     "the url keeps its underscore" true
     (Astring.String.is_infix ~affix:"background-image: url('a_b.png')"
        (css "[background-image:url('a_b.png')]"));
+  (* Outside the url the underscore is a space, in a shorthand that takes both.
+     [background-image] does not take a position, and tw declines to write the
+     invalid declaration Tailwind emits for it. *)
   Alcotest.(check bool)
     "the underscore after the url is a space" true
-    (Astring.String.is_infix ~affix:"background-image: url('a_b.png') center"
-       (css "[background-image:url('a_b.png')_center]"));
+    (Astring.String.is_infix ~affix:"background: url(a_b.png) no-repeat"
+       (css "[background:url(a_b.png)_no-repeat]"));
+  (* Tailwind keeps the inner url quoted; the quoting is cascade's canonical
+     spelling of the same URL. *)
   Alcotest.(check bool)
     "the underscore inside an image-set url stays" true
     (Astring.String.is_infix
-       ~affix:"background-image: image-set(url('a_b.png') 1x)"
+       ~affix:"background-image: image-set(url(a_b.png) 1x)"
        (css "[background-image:image-set(url('a_b.png')_1x)]"))
 
 let tests =

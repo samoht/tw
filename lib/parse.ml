@@ -118,35 +118,43 @@ let extract_var_name s =
       | name, Some fallback -> name ^ ", " ^ fallback
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> s
 
-(* One bracket, not two: the closing bracket has to be the last character. A
-   suffix carrying a second bracket - one bracket with a bracket modifier, or
-   two brackets in a row - would otherwise read as one bracket whose inner text
-   has a stray bracket in it, which no declaration value takes.
+(* A quoted string runs to its closing quote, and to the end of the input when
+   the value leaves it open, as the CSS Syntax 3 sec. 4.3 tokeniser leaves it.
+   The result is the index just past the string. *)
+let string_end s i quote =
+  let len = String.length s in
+  let rec go i =
+    if i >= len then len
+    else if s.[i] = '\\' then go (i + 2)
+    else if s.[i] = quote then i + 1
+    else go (i + 1)
+  in
+  go i
 
-   A []] the value quotes or escapes is part of the value, so the scan tokenises
-   strings and the [\] escape the way CSS Syntax 3 sec. 4.3 does:
-   [bg-[url('a]b')]] is one bracket whose text carries a []]. A string the value
-   leaves open runs to the end of the input, as it does in the tokeniser, so no
-   []] after it closes the bracket and the suffix is refused - which is what
-   Tailwind does with [bg-[url('a)]]. *)
-let is_bracket_value s =
+(* A []] the value quotes or escapes is part of the value, not the bracket's
+   end, so the scan reads strings and the [\] escape the way the tokeniser does:
+   [[background-image:url('a]b')]] is one bracket whose text carries a []]. A
+   string left open swallows every later []], which is what Tailwind does with
+   [bg-[url('a)]]. *)
+let bracket_close s =
   let len = String.length s in
   let rec close i depth =
-    if i >= len then false
+    if i >= len then None
     else
       match s.[i] with
       | '\\' -> close (i + 2) depth
-      | '\'' | '"' -> in_string (i + 1) depth s.[i]
+      | '\'' | '"' -> close (string_end s (i + 1) s.[i]) depth
       | '[' -> close (i + 1) (depth + 1)
-      | ']' -> if depth = 0 then i = len - 1 else close (i + 1) (depth - 1)
+      | ']' -> if depth = 0 then Some i else close (i + 1) (depth - 1)
       | _ -> close (i + 1) depth
-  and in_string i depth quote =
-    if i >= len then false
-    else if s.[i] = '\\' then in_string (i + 2) depth quote
-    else if s.[i] = quote then close (i + 1) depth
-    else in_string (i + 1) depth quote
   in
-  len > 2 && s.[0] = '[' && close 1 0
+  if len > 2 && s.[0] = '[' then close 1 0 else None
+
+(* One bracket, not two: the closing bracket has to be the last character. A
+   suffix carrying a second bracket - one bracket with a bracket modifier, or
+   two brackets in a row - would otherwise read as one bracket whose inner text
+   has a stray bracket in it, which no declaration value takes. *)
+let is_bracket_value s = bracket_close s = Some (String.length s - 1)
 
 (** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
@@ -202,12 +210,6 @@ let url_argument_spans s =
     && String.sub s (i - 3) 3 = "url"
     && (i - word = 3 || s.[i - 4] = '_')
   in
-  let rec string_end i quote =
-    if i >= len then len
-    else if s.[i] = '\\' then string_end (i + 2) quote
-    else if s.[i] = quote then i + 1
-    else string_end (i + 1) quote
-  in
   (* The [)] closing the argument list, or the end of [s] when it is left open,
      as the tokeniser leaves it. *)
   let rec paren_end i depth =
@@ -215,7 +217,7 @@ let url_argument_spans s =
     else
       match s.[i] with
       | '\\' -> paren_end (i + 2) depth
-      | '\'' | '"' -> paren_end (string_end (i + 1) s.[i]) depth
+      | '\'' | '"' -> paren_end (string_end s (i + 1) s.[i]) depth
       | '(' -> paren_end (i + 1) (depth + 1)
       | ')' -> if depth = 0 then i else paren_end (i + 1) (depth - 1)
       | _ -> paren_end (i + 1) depth
@@ -225,7 +227,7 @@ let url_argument_spans s =
     else
       match s.[i] with
       | '\\' -> scan (i + 2) word acc
-      | '\'' | '"' -> scan (string_end (i + 1) s.[i]) word acc
+      | '\'' | '"' -> scan (string_end s (i + 1) s.[i]) word acc
       | '(' when names_url i word ->
           let stop = paren_end (i + 1) 0 in
           scan (stop + 1) (stop + 1) ((i + 1, stop) :: acc)

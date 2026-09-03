@@ -304,96 +304,86 @@ module Handler = struct
     | Parsed_decl { property; value } -> "[" ^ property ^ ":" ^ value ^ "]"
 
   let of_class theme class_name =
-    (* Must start with [ and contain : *)
     let len = String.length class_name in
-    if len < 3 || class_name.[0] <> '[' then err_not_utility
-    else
-      (* Find the closing ] tracking bracket depth *)
-      let rec find_close i depth =
-        if i >= len then None
-        else
-          match class_name.[i] with
-          | '[' -> find_close (i + 1) (depth + 1)
-          | ']' -> if depth = 1 then Some i else find_close (i + 1) (depth - 1)
-          | _ -> find_close (i + 1) depth
-      in
-      match find_close 0 0 with
-      | None -> err_not_utility
-      | Some close_pos -> (
-          let inner = String.sub class_name 1 (close_pos - 1) in
-          (* Find the colon that separates property from value *)
-          let rec find_colon i =
-            if i >= String.length inner then None
-            else if inner.[i] = ':' then Some i
-            else find_colon (i + 1)
-          in
-          match find_colon 0 with
-          | None -> err_not_utility
-          | Some colon_pos -> (
-              let property = String.sub inner 0 colon_pos in
-              let raw_value =
-                String.sub inner (colon_pos + 1)
-                  (String.length inner - colon_pos - 1)
-              in
-              (* [--alpha(C/P)] is the [/opacity] form spelled as a function, so
-                 it resolves to the same fallback and [@supports] pair. *)
-              let value, fn_alpha =
-                match alpha_fn_parts raw_value with
-                | Some (c, p) -> (
-                    (* [--alpha()] writes the alpha as a percentage; the [/]
-                       modifier writes the bare number. *)
-                    let bare =
-                      if String.ends_with ~suffix:"%" p then
-                        String.sub p 0 (String.length p - 1)
-                      else p
-                    in
-                    match Color.opacity_of_string ~theme bare with
-                    | Some alpha -> (c, Some { spelling = raw_value; alpha })
-                    | None -> (raw_value, None))
-                | None -> (raw_value, None)
-              in
-              (* What follows the closing bracket is part of the class name, so
-                 it has to be a [/opacity] modifier in full: a suffix that does
-                 not parse names a class Tailwind does not recognise. *)
-              let suffix =
-                String.sub class_name (close_pos + 1) (len - close_pos - 1)
-              in
-              let modifier =
-                if suffix = "" then Some Color.No_opacity
-                else if suffix.[0] = '/' then
-                  Color.opacity_of_string ~theme
-                    (String.sub suffix 1 (String.length suffix - 1))
-                else None
-              in
-              match modifier with
-              | None -> err_not_utility
-              | Some opacity -> (
-                  if fn_alpha <> None || opacity <> Color.No_opacity then
-                    (* The /opacity form wraps the value in color-mix, so it
-                       needs a colour target (known colour property or custom
-                       property) and a colour value. Non-colour cases are
-                       rejected (Tailwind blindly color-mixes them, which is
-                       meaningless). *)
-                    let is_colour_value =
-                      Parse.is_var value
-                      || Css.parse_color (Parse.decode_arbitrary_value value)
-                         <> None
-                    in
-                    if color_emitter property <> None && is_colour_value then
-                      Ok
-                        (Color_opacity
-                           { property; value; alpha_fn = fn_alpha; opacity })
-                    else err_not_utility
-                  else
-                    (* Plain [property:value]: any property whose value cascade
-                       can parse becomes a typed declaration. *)
-                    match
-                      Css.parse_declaration
-                        (declared_property property)
-                        (Parse.decode_arbitrary_value value)
-                    with
-                    | Some _ -> Ok (Parsed_decl { property; value })
-                    | None -> err_not_utility)))
+    (* The bracket is closed by the tokeniser's reading, so a []] the value
+       quotes or escapes stays inside it: [[content:'a]b']] is one property and
+       one value. *)
+    match Parse.bracket_close class_name with
+    | None -> err_not_utility
+    | Some close_pos -> (
+        let inner = String.sub class_name 1 (close_pos - 1) in
+        (* Find the colon that separates property from value *)
+        let rec find_colon i =
+          if i >= String.length inner then None
+          else if inner.[i] = ':' then Some i
+          else find_colon (i + 1)
+        in
+        match find_colon 0 with
+        | None -> err_not_utility
+        | Some colon_pos -> (
+            let property = String.sub inner 0 colon_pos in
+            let raw_value =
+              String.sub inner (colon_pos + 1)
+                (String.length inner - colon_pos - 1)
+            in
+            (* [--alpha(C/P)] is the [/opacity] form spelled as a function, so
+               it resolves to the same fallback and [@supports] pair. *)
+            let value, fn_alpha =
+              match alpha_fn_parts raw_value with
+              | Some (c, p) -> (
+                  (* [--alpha()] writes the alpha as a percentage; the [/]
+                     modifier writes the bare number. *)
+                  let bare =
+                    if String.ends_with ~suffix:"%" p then
+                      String.sub p 0 (String.length p - 1)
+                    else p
+                  in
+                  match Color.opacity_of_string ~theme bare with
+                  | Some alpha -> (c, Some { spelling = raw_value; alpha })
+                  | None -> (raw_value, None))
+              | None -> (raw_value, None)
+            in
+            (* What follows the closing bracket is part of the class name, so it
+               has to be a [/opacity] modifier in full: a suffix that does not
+               parse names a class Tailwind does not recognise. *)
+            let suffix =
+              String.sub class_name (close_pos + 1) (len - close_pos - 1)
+            in
+            let modifier =
+              if suffix = "" then Some Color.No_opacity
+              else if suffix.[0] = '/' then
+                Color.opacity_of_string ~theme
+                  (String.sub suffix 1 (String.length suffix - 1))
+              else None
+            in
+            match modifier with
+            | None -> err_not_utility
+            | Some opacity -> (
+                if fn_alpha <> None || opacity <> Color.No_opacity then
+                  (* The /opacity form wraps the value in color-mix, so it needs
+                     a colour target (known colour property or custom property)
+                     and a colour value. Non-colour cases are rejected (Tailwind
+                     blindly color-mixes them, which is meaningless). *)
+                  let is_colour_value =
+                    Parse.is_var value
+                    || Css.parse_color (Parse.decode_arbitrary_value value)
+                       <> None
+                  in
+                  if color_emitter property <> None && is_colour_value then
+                    Ok
+                      (Color_opacity
+                         { property; value; alpha_fn = fn_alpha; opacity })
+                  else err_not_utility
+                else
+                  (* Plain [property:value]: any property whose value cascade
+                     can parse becomes a typed declaration. *)
+                  match
+                    Css.parse_declaration
+                      (declared_property property)
+                      (Parse.decode_arbitrary_value value)
+                  with
+                  | Some _ -> Ok (Parsed_decl { property; value })
+                  | None -> err_not_utility)))
 
   let examples = []
 end

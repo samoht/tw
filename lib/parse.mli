@@ -65,17 +65,22 @@ val extract_var_name : string -> string
     name without the [--] prefix, retaining an optional fallback after a comma.
     If [s] is not exactly one valid reference, it returns [s] unchanged. *)
 
+val bracket_close : string -> int option
+(** [bracket_close s] is the index of the [\]] closing the [\[] that [s] starts
+    with, and [None] when [s] does not start with one or leaves it open. Nested
+    brackets are matched.
+
+    A [\]] the value quotes or escapes belongs to the value: strings and the
+    backslash escape are read as CSS Syntax 3 sec. 4.3 reads them, so
+    [[background-image:url('a]b')\]] closes on its last bracket. A string left
+    open runs to the end of [s], so nothing after it closes the bracket. *)
+
 val is_bracket_value : string -> bool
 (** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
     closing bracket has to be the last character, so a suffix carrying a second
     bracket - one bracket with a bracket modifier, or two brackets in a row - is
-    not one bracket value.
-
-    A closing bracket the value quotes or escapes belongs to the value: strings
-    and the backslash escape are read as CSS Syntax 3 sec. 4.3 reads them, so a
-    quoted [url()] argument carrying one is still one bracket value. A string
-    left open runs to the end of [s], so nothing after it can close the bracket
-    and [s] is not one. *)
+    not one bracket value. It is {!bracket_close} landing on the last character,
+    and reads quotes and escapes the same way. *)
 
 val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
