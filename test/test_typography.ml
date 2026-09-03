@@ -1202,8 +1202,33 @@ let test_project_tracking_token () =
     "an undeclared tracking name is rejected" true
     (Result.is_error (Tw.of_string ~theme "tracking-nope"))
 
+(* An arbitrary value writes a space as [_] and a literal underscore as [\_].
+   Both readings have to reach the value: a family name and a content string are
+   written by hand, so either character can be the one meant. *)
+let test_arbitrary_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|font-['My\_Font']|} "font-family: My_Font";
+  has "font-[Arial_Black]" {|font-family: "Arial Black"|};
+  has {|content-["hello\_world"]|} {|--tw-content: "hello_world"|};
+  has {|content-[attr(a\_b)]|} "--tw-content: attr(a_b)";
+  (* The single-quoted spelling already reads both, and stays that way. *)
+  has {|content-['hello\_world']|} {|--tw-content: 'hello_world'|};
+  has {|content-['hello_world']|} {|--tw-content: 'hello world'|}
+
 let tests =
   [
+    test_case "arbitrary underscore escape" `Quick
+      test_arbitrary_underscore_escape;
     test_case "invalid decoration bracket hex" `Quick
       test_invalid_decoration_bracket_hex;
     test_case "non-decimal integers" `Quick test_non_decimal_integers;

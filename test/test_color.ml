@@ -1035,8 +1035,24 @@ let test_removed_mix_token_stays_runtime () =
     "removed theme token is not resolved through the default palette" false
     (Astring.String.is_infix ~affix:"oklch(63.7% .237 25.331)" css)
 
+(* A bracket colour reads [_] as a space, so a variable name carrying an
+   underscore is written [\_] and keeps the character. *)
+let test_bracket_colour_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix ~affix:"color: light-dark(var(--a_b), red)"
+       (css {|text-[light-dark(var(--a\_b),red)]|}))
+
 let tests =
   [
+    ( "Bracket colour underscore escape",
+      `Quick,
+      test_bracket_colour_underscore_escape );
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
     ( "Colour variable name is one ident",
       `Quick,

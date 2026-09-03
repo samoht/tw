@@ -1385,10 +1385,35 @@ let test_silent_empty_variants_rejected () =
   check bool "not-hover still parses" true
     (Result.is_ok (Tw.of_string "not-hover:flex"))
 
+(* A variant's bracket is an arbitrary value too: [_] is a space and [\_] a
+   literal underscore. An attribute value, a [@supports] condition and a
+   selector each carry the escape into a different part of the rule. *)
+let test_variant_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|data-[foo=bar\_baz]:flex|} {|[data-foo="bar_baz"]|};
+  has {|supports-[--a\_b]:flex|} "@supports (--a_b: var(--tw))";
+  has {|[.a\_b]:flex|} ".a_b";
+  has {|group-[.a\_b_&]:flex|} ":is(.a_b :where(.group) *)";
+  has {|nth-[2n+1_of_.a\_b]:flex|} ":nth-child(2n+1 of .a_b)";
+  (* A bare [_] still stands for a space. *)
+  has "data-[foo=bar_baz]:flex" {|[data-foo="bar baz"]|}
+
 (* Extend the suite with new tests *)
 let tests =
   tests
   @ [
+      test_case "variant underscore escape" `Quick
+        test_variant_underscore_escape;
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;

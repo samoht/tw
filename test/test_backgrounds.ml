@@ -548,8 +548,28 @@ let test_gradient_interpolation () =
   has "bg-linear-45/foo" "--tw-gradient-position: 45deg in foo";
   has "bg-linear-to-r/foo" "--tw-gradient-position: to right in foo"
 
+(* An arbitrary value writes a space as [_] and a literal underscore as [\_], so
+   a file name or a gradient position carrying an underscore is written with the
+   escape rather than losing the character. *)
+let test_arbitrary_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|bg-[url('a\_b.png')]|} "background-image: url(a_b.png)";
+  has {|bg-linear-[to\_bottom]|} "--tw-gradient-position: to_bottom"
+
 let tests =
   [
+    test_case "arbitrary underscore escape" `Quick
+      test_arbitrary_underscore_escape;
     test_case "gradient interpolation" `Quick test_gradient_interpolation;
     test_case "gradient stop position units" `Quick
       test_gradient_stop_position_units;

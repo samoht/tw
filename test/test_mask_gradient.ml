@@ -118,9 +118,16 @@ let test_arbitrary_angle () =
   has "mask-linear-45" "--tw-mask-linear-position: calc(1deg * 45);";
   has "mask-linear-1" "--tw-mask-linear-position: 1deg;"
 
+(* A radial size is an arbitrary value: [_] is a space and [\_] a literal
+   underscore, so a variable name carrying one keeps the character. *)
+let test_radial_size_underscore_escape () =
+  has {|mask-radial-[var(--a\_b)]|} "--tw-mask-radial-size: var(--a_b);"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "radial size underscore escape" `Quick
+        test_radial_size_underscore_escape;
       Alcotest.test_case "from-0 keeps its px unit" `Quick
         test_from_zero_keeps_unit;
       Alcotest.test_case "colour stops" `Quick test_stop_colors;

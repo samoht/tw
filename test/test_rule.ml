@@ -615,8 +615,31 @@ let test_variant_outside_starting_style () =
       "dark:starting:opacity-50";
     ]
 
+(* The selector a variant's bracket spells reads [_] as a space and [\_] as a
+   literal underscore, so a class or an attribute value carrying one is written
+   with the escape. *)
+let test_selector_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|aria-[label=a\_b]:flex|} {|[aria-label="a_b"]|};
+  has {|not-[.a\_b]:flex|} ":not(.a_b)";
+  has {|[.a\_b_&]:flex|} ".a_b .";
+  (* A bare [_] still stands for a space. *)
+  has "aria-[label=a_b]:flex" {|[aria-label="a b"]|}
+
 let tests =
   [
+    test_case "selector underscore escape" `Quick
+      test_selector_underscore_escape;
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
     test_case "arbitrary anchor inside a quoted value" `Quick

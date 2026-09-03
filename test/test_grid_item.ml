@@ -157,8 +157,23 @@ let test_invalid_arbitrary_grid_line () =
   renders "col-start-[7]";
   renders "row-end-[3]"
 
+(* A grid line is an arbitrary value: [_] is a space and [\_] a literal
+   underscore, so a variable name carrying one keeps the character. *)
+let test_grid_line_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix ~affix:"grid-column-start: var(--a_b)"
+       (css {|col-start-[var(--a\_b)]|}))
+
 let tests =
   [
+    test_case "grid line underscore escape" `Quick
+      test_grid_line_underscore_escape;
     test_case "grid_item of_string - valid values" `Quick of_string_valid;
     test_case "grid_item of_string - invalid values" `Quick of_string_invalid;
     test_case "invalid arbitrary span" `Quick test_invalid_arbitrary_span;

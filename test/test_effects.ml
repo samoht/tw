@@ -570,8 +570,23 @@ let test_project_shadow_tokens () =
     "an undeclared shadow name is rejected" true
     (Result.is_error (Tw.of_string ~theme "shadow-nope"))
 
+(* A shadow's parts are separated by the [_] that stands for a space, so a
+   variable name carrying an underscore of its own is written [\_]. *)
+let test_shadow_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix
+       ~affix:"0 0 0 1px var(--tw-shadow-color, var(--a_b))"
+       (css {|shadow-[0_0_0_1px_var(--a\_b)]|}))
+
 let tests =
   [
+    test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;

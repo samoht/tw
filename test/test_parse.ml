@@ -201,9 +201,22 @@ let test_spacing_shorthand_ignored_in_quotes () =
     (Astring.String.is_infix ~affix:{|content: "--spacing(1)"|}
        (css {|[content:"--spacing(1)"]|}))
 
+(* An arbitrary value writes a space as [_] and a literal underscore as [\_].
+   Every family reads its bracket through this, so the two spellings have to
+   stay apart wherever a value reaches the sheet. *)
+let test_underscore_escape () =
+  let reads name input expected =
+    Alcotest.(check string) name expected (Tw.Parse.decode_underscores input)
+  in
+  reads "a bare underscore is a space" "a_b" "a b";
+  reads "an escaped underscore is literal" {|a\_b|} "a_b";
+  reads "another escape is left alone" {|a\.b|} {|a\.b|};
+  reads "a trailing backslash is kept" {|a\|} {|a\|}
+
 let tests =
   Alcotest.
     [
+      test_case "underscore escape" `Quick test_underscore_escape;
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
       test_case "double bracket class rejected" `Quick

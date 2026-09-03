@@ -160,9 +160,24 @@ let order_matches_tailwind () =
   Test_helpers.check_ordering_matches ~test_name:"mask order matches Tailwind"
     (Test_helpers.shuffle utilities)
 
+(* A mask image is an arbitrary value, so [_] is a space and [\_] a literal
+   underscore: a file name carrying one is written with the escape. *)
+let test_bracket_image_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the file name" true
+    (Astring.String.is_infix ~affix:"mask-image: url('a_b.png')"
+       (css {|mask-[url('a\_b.png')]|}))
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "mask image underscore escape" `Quick
+        test_bracket_image_underscore_escape;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
       Alcotest.test_case "arbitrary mask layer list" `Quick

@@ -435,8 +435,28 @@ let test_property_rules_belong_to_transform () =
     "rotate-x-30 declares its own" true
     (property_rules "rotate-x-30" > 0)
 
+(* The 3D form of [rotate] is four space-separated components, and the [\_] that
+   spells a literal underscore belongs inside one of them rather than splitting
+   it. A component carrying one is not a CSS number, so the value stays as
+   written instead of being read as an axis and an angle. *)
+let test_rotate_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|rotate-[1_1_1\_2_45deg]|} "rotate: 1 1 1_2 45deg";
+  has {|rotate-[var(--a\_b)]|} "rotate: var(--a_b)"
+
 let tests =
   [
+    test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
     test_case "property rules belong to transform" `Quick
       test_property_rules_belong_to_transform;
     test_case "invalid arbitrary transform" `Quick
