@@ -164,7 +164,7 @@
   underscores, which spell the name of a custom property rather than spaces.
   `[--x:var(--my_var)]` referenced `--my var`, and `shadow-[0_0_0_var(--my_var)]`
   truncated the reference to `var(--my)` without saying so; a later argument
-  still decodes (#PR).
+  still decodes (#695).
 - `bg-[url(a\]b)]` names the file the class means. The escaped bracket reached
   the value as a backslash of its own and emitted `url("a\\]b")`; the whole
   `url()` is now read by the CSS tokeniser, which resolves its quotes and
@@ -192,7 +192,7 @@
 - `mask-[url(...)]` reads the whole `url()` with the CSS tokeniser, so a bracket
   carrying anything after it is refused rather than sliced.
   `mask-[url(x.png)_center]` emitted `mask-image: url("x.png)_cente")` under
-  `.mask-\[url\(x\.png\)_cente\)\]`, a selector no markup carries (#PR).
+  `.mask-\[url\(x\.png\)_cente\)\]`, a selector no markup carries (#695).
 - An arbitrary value keeps the underscore its `\_` escape spells, so
   `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
   the sheet as written instead of carrying the backslash into the value (#676).
