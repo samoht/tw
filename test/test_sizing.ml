@@ -591,6 +591,24 @@ let typed_prime () =
   check_typed_class "w-4" (w 4);
   check_typed_class "size-4" (size 4)
 
+(* A spacing step is a non-negative multiple of 0.25
+   ([isValidSpacingMultiplier]), so the CLI emits for [w-1.75] and for nothing
+   between the quarters. The sizing families read the same scale the inset ones
+   do. *)
+let spacing_step_is_a_quarter_multiple () =
+  check_declarations "w-1.5" [ "width:calc(var(--spacing)*1.5)" ];
+  check_declarations "w-1.75" [ "width:calc(var(--spacing)*1.75)" ];
+  check_declarations "h-0.25" [ "height:calc(var(--spacing)*.25)" ];
+  let reject c = check_invalid_input (module Tw.Sizing.Handler) c in
+  reject "w-1.7";
+  reject "h-1.7";
+  reject "size-1.7";
+  reject "min-w-1.7";
+  reject "max-h-1.7";
+  reject "inline-1.7";
+  reject "w-0.3";
+  reject "w-0.125"
+
 let tests =
   [
     test_case "typed constructors: half-step" `Quick typed_prime;
@@ -629,6 +647,8 @@ let tests =
     test_case "aspect precedes dimensions" `Quick aspect_precedes_dimensions;
     test_case "aspect candidate order" `Slow
       aspect_candidate_order_matches_tailwind;
+    test_case "spacing step is a quarter multiple" `Quick
+      spacing_step_is_a_quarter_multiple;
   ]
 
 let suite = ("sizing", tests)
