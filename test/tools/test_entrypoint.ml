@@ -283,6 +283,64 @@ let test_apply_hoists_each_property_once () =
     (List.sort_uniq String.compare names)
     (List.sort String.compare names)
 
+(* The initial values of the variables the utilities set. [@layer properties]
+   holds them, on the universal selector, under one browser-detection
+   [@supports] condition. *)
+let property_fallbacks sheet =
+  Cascade.Css.statements sheet
+  |> List.concat_map (fun stmt ->
+      match Cascade.Css.as_layer stmt with
+      | Some (Some name, inner)
+        when Cascade.Css.Stylesheet.equal_layer_name name [ "properties" ] ->
+          inner
+      | _ -> [])
+
+let fallback_names stmts =
+  List.concat_map
+    (fun stmt ->
+      match Cascade.Css.as_supports stmt with
+      | None -> []
+      | Some (_, inner) ->
+          List.concat_map
+            (fun stmt ->
+              match Cascade.Css.as_rule stmt with
+              | Some (_, decls, _) ->
+                  List.map Cascade.Css.Declaration.property_name decls
+              | None -> [])
+            inner)
+    stmts
+
+(* The generated sheet hoists a [@layer properties] block and so does every
+   [@apply], and the two overlap whenever they name utilities that set the same
+   variables. Folded into the single layer Tailwind writes, they arrive as a run
+   of [@supports] blocks over one condition and one universal selector, each
+   repeating what the others already declare. Tailwind v4.3.3 writes one block
+   for the same input and declares each variable once. *)
+let test_property_fallbacks_in_one_block () =
+  let path = "property-fallback-entry.css" in
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      output_string oc "@import \"tailwindcss\";\n.a { @apply shadow-md; }\n");
+  let generated =
+    Tw.to_css ~theme:Tw.Scheme.default ~base:false ~forms:false
+      [ Tw.shadow_lg; Tw.blur_sm ]
+  in
+  let out =
+    Fun.protect
+      ~finally:(fun () -> Sys.remove path)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path generated)
+  in
+  let fallbacks = property_fallbacks out in
+  check int "one block, the way Tailwind writes it" 1 (List.length fallbacks);
+  let names = fallback_names fallbacks in
+  check bool "the fallbacks are there" true (names <> []);
+  check string_list "each variable initialised once"
+    (List.sort_uniq String.compare names)
+    (List.sort String.compare names)
+
 (* Tailwind emits a declared utility as one block, its own nesting intact:
    [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
    rules, the second sorts by the property it writes and an unrelated utility
@@ -522,6 +580,8 @@ let tests =
       test_authored_color_mix_fallbacks;
     test_case "@apply hoists each property once" `Quick
       test_apply_hoists_each_property_once;
+    test_case "property fallbacks in one block" `Quick
+      test_property_fallbacks_in_one_block;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
     test_case "complex custom variant keeps its candidate" `Quick
