@@ -1614,7 +1614,7 @@ module Handler = struct
     (* Percentage positions: from-0%, from-100% (integer only) *)
     | [ pct_str ] when String.ends_with ~suffix:"%" pct_str -> (
         let num_s = String.sub pct_str 0 (String.length pct_str - 1) in
-        match int_of_string_opt num_s with
+        match Parse.decimal_int num_s with
         | Some p -> gp (Percent (float_of_int p))
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
@@ -1778,7 +1778,7 @@ module Handler = struct
     (* bg-linear-{angle} and bg-linear-{angle}/interp *)
     | [ "bg"; "linear"; angle_mod ] -> (
         let angle_s, interp_opt = split_mod angle_mod in
-        match (int_of_string_opt angle_s, interp_opt) with
+        match (Parse.decimal_int angle_s, interp_opt) with
         | Some n, None -> Ok (Bg_linear_angle n)
         | Some n, Some interp -> (
             match interp_to_css_string interp with
@@ -1807,7 +1807,7 @@ module Handler = struct
     (* -bg-linear-{angle} and -bg-linear-{angle}/interp *)
     | [ ""; "bg"; "linear"; angle_mod ] -> (
         let angle_s, interp_opt = split_mod angle_mod in
-        match (int_of_string_opt angle_s, interp_opt) with
+        match (Parse.decimal_int angle_s, interp_opt) with
         | Some n, None -> Ok (Bg_linear_angle_neg n)
         | Some n, Some interp -> (
             match interp_to_css_string interp with
@@ -1833,7 +1833,7 @@ module Handler = struct
     (* bg-conic-{angle} and bg-conic-{angle}/interp *)
     | [ "bg"; "conic"; angle_mod ] -> (
         let angle_s, interp_opt = split_mod angle_mod in
-        match (int_of_string_opt angle_s, interp_opt) with
+        match (Parse.decimal_int angle_s, interp_opt) with
         | Some n, None -> Ok (Bg_conic_angle n)
         | Some n, Some interp -> (
             match interp_to_css_string interp with
@@ -1844,7 +1844,7 @@ module Handler = struct
     (* -bg-conic-{angle} and -bg-conic-{angle}/interp *)
     | [ ""; "bg"; "conic"; angle_mod ] -> (
         let angle_s, interp_opt = split_mod angle_mod in
-        match (int_of_string_opt angle_s, interp_opt) with
+        match (Parse.decimal_int angle_s, interp_opt) with
         | Some n, None -> Ok (Bg_conic_angle_neg n)
         | Some n, Some interp -> (
             match interp_to_css_string interp with

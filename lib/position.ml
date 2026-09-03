@@ -152,7 +152,7 @@ end
 let parse_pos_spacing s : Style.spacing option =
   if s = "px" then Some `Px
   else
-    match float_of_string_opt s with
+    match Parse.decimal_float s with
     | Some f when f >= 0. && not (Float.is_integer f) -> Some (`Rem (f *. 0.25))
     | _ -> None
 
@@ -214,30 +214,11 @@ let neg_pos_spacing_style ?theme side (s : Style.spacing) =
   in
   Style.style (decls @ body)
 
-(* A position fraction [n/m] resolves to [n/m * 100%], folded to 6 significant
-   figures like Tailwind (mirrors [Sizing]'s fraction handling, including the
-   supported denominators). *)
-let frac_num_den frac =
-  match String.split_on_char '/' frac with
-  | [ n; m ] -> (
-      match (int_of_string_opt n, int_of_string_opt m) with
-      | Some n, Some m
-        when m > 0 && n > 0 && List.mem m [ 2; 3; 4; 5; 6; 10; 12 ] ->
-          (* An improper fraction (6/5 -> 120%) is a valid position. *)
-          Some (n, m)
-      | _ -> None)
-  | _ -> None
-
-let frac_valid frac = frac_num_den frac <> None
-
-let frac_pct frac =
-  match frac_num_den frac with
-  | Some (n, m) ->
-      let pct = float_of_int n /. float_of_int m *. 100. in
-      let digits = 6. -. Float.ceil (Float.log10 pct) in
-      let factor = 10. ** digits in
-      Float.round (pct *. factor) /. factor
-  | None -> 0.
+(* A position fraction [n/m] resolves to [n/m * 100%], the same reading the
+   sizing families give it: any numerator over any positive denominator, and an
+   improper fraction (6/5 -> 120%) is a position like any other. *)
+let frac_valid frac = Parse.fraction_pct frac <> None
+let frac_pct frac = Option.value ~default:0. (Parse.fraction_pct frac)
 
 module Handler = struct
   open Style

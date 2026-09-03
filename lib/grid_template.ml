@@ -310,7 +310,7 @@ module Handler = struct
     | [ "auto"; "cols"; "max" ] -> Ok Auto_cols_max
     | [ "auto"; "cols"; "fr" ] -> Ok Auto_cols_fr
     | [ "auto"; "cols"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some f when f >= 0.0 -> Ok (Auto_cols_spacing f)
         | _ ->
             let len = String.length n in
@@ -328,7 +328,7 @@ module Handler = struct
     | [ "auto"; "rows"; "max" ] -> Ok Auto_rows_max
     | [ "auto"; "rows"; "fr" ] -> Ok Auto_rows_fr
     | [ "auto"; "rows"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some f when f >= 0.0 -> Ok (Auto_rows_spacing f)
         | _ ->
             let len = String.length n in

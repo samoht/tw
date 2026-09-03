@@ -188,6 +188,12 @@
 - A `var()` reference is read to its end wherever it appears, including inside
   a bracket value, so one carrying its own parentheses or a fallback is not
   truncated (#564).
+- A numeric class suffix is read as plain decimal rather than as an OCaml
+  literal: `stroke-0x4` emitted a `.stroke-4` nobody wrote, `/0x50` rode the
+  opacity modifier onto every colour utility, and `min-[0x600px]` manufactured
+  a working 1536px breakpoint. One fraction reader serves the sizing, position,
+  flex and translate families, so `top-1/7` and `basis-0/2` read like `w-1/7`
+  (#678).
 
 ### Colours and effects
 

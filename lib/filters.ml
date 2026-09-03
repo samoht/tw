@@ -1672,7 +1672,7 @@ module Handler = struct
         | Some _ -> Ok (Backdrop_opacity_arbitrary s)
         | None -> err_not_utility)
     | [ "backdrop"; "opacity"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some f when f >= 0. -> Ok (Backdrop_opacity f)
         | _ -> err_not_utility)
     | [ "backdrop"; "saturate"; s ] when Parse.is_bracket_value s -> (

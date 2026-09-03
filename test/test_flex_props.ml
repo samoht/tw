@@ -70,7 +70,11 @@ let of_string_invalid () =
 
 (* [basis-*] and [flex-*] read the same fraction the sizing families do: any
    numerator, zero included, over any positive denominator. Requiring a positive
-   numerator refused [basis-0/2], which the CLI emits. *)
+   numerator refused [basis-0/2], which the CLI emits.
+
+   [flex-0/2] is the one whose sheets do not compare equal: tw writes the [0%]
+   that Tailwind's [calc(0/2 * 100%)] computes to, and cascade reads the two
+   spellings of that declaration differently. *)
 let test_any_fraction_numerator () =
   check "basis-0/2";
   check "basis-1/7";

@@ -1058,15 +1058,21 @@ let parse_css_length s : Style.arbitrary_length option =
     (Parse.arbitrary_length s)
 
 (* Parse a pixel value from a string like "600px" or "600", keeping the
-   spelling: it is what the variant's own class is named after. *)
+   spelling: it is what the variant's own class is named after. The digits are a
+   CSS number, which is not OCaml's: [0x600px] is neither a number nor a length,
+   and reading it as an OCaml float turned [min-[0x600px]] into a live 1536px
+   breakpoint out of a value Tailwind leaves for the browser to drop. *)
 let parse_px_value s =
   let digits =
     if String.ends_with ~suffix:"px" s then String.sub s 0 (String.length s - 2)
     else s
   in
-  match float_of_string_opt digits with
-  | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
-  | None -> None
+  match
+    Cascade.Cursor.try_parse_full_err Css.Values.read_number
+      (Cascade.Cursor.of_string digits)
+  with
+  | Ok (Num px) -> Some ({ px; text = s } : Style.arbitrary_px)
+  | Ok _ | Error _ -> None
 
 (* Parse a has-selector string as a relative CSS selector ([:has()] accepts a
    bare leading combinator, e.g. [>div] or [~img]), with [&] resolved to the

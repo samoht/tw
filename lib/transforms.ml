@@ -1539,21 +1539,15 @@ module Handler = struct
 
   (* A fractional spacing step: [0.5], [2.5]. Integers keep the existing
      path. *)
-
-  (** Parse a fraction string like "1/2", "2/3", etc. Returns (numerator,
-      denominator) or None. *)
   let parse_spacing_step s =
-    match float_of_string_opt s with
+    match Parse.decimal_float s with
     | Some f when f > 0. && not (Float.is_integer f) -> Some f
     | _ -> None
 
-  let parse_fraction s =
-    match String.split_on_char '/' s with
-    | [ num_s; denom_s ] -> (
-        match (int_of_string_opt num_s, int_of_string_opt denom_s) with
-        | Some num, Some denom when num > 0 && denom > 0 -> Some (num, denom)
-        | _ -> None)
-    | _ -> None
+  (* The translate family writes [calc(n / m * 100%)] out rather than folding
+     it, so it takes every fraction Tailwind reads, a zero on either side
+     included. *)
+  let parse_fraction = Parse.fraction
 
   (* The value a bracket denotes, read with the grammar cascade already has for
      the property. [None] is a bracket that grammar refuses, and [of_class]

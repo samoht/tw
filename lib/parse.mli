@@ -15,6 +15,21 @@ val decimal_float : string -> float option
     Exponents, digit separators, redundant leading or trailing zeroes, and
     missing digits around the decimal point are rejected. *)
 
+val fraction : string -> (int * int) option
+(** [fraction s] reads a fraction suffix such as ["1/2"] or ["13/17"] as its
+    numerator and denominator. Both are plain decimals with no sign and no
+    redundant leading zero; the denominator is drawn from no fixed list, and
+    zero is a value on either side. *)
+
+val fraction_percent : int -> int -> float option
+(** [fraction_percent n m] is the percentage Tailwind's [calc(n / m * 100%)]
+    computes, folded to six significant figures the way Tailwind's printer folds
+    it. A zero denominator is [None]: it has no percentage, and Tailwind writes
+    the division out instead. *)
+
+val fraction_pct : string -> float option
+(** [fraction_pct s] is {!fraction} put through {!fraction_percent}. *)
+
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
 (** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
     [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used

@@ -2013,7 +2013,7 @@ module Typography_late = struct
           | Some len -> Ok (Underline_offset_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ "underline"; "offset"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_px px)
         | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] when Parse.is_bracket_value n -> (
@@ -2024,7 +2024,7 @@ module Typography_late = struct
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_neg_px px)
         | None -> err_not_utility)
     | [ "antialiased" ] -> Ok Antialiased

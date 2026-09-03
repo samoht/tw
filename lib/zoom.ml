@@ -61,7 +61,7 @@ module Handler = struct
     match Parse.split_class class_name with
     | [ "zoom"; value ] when Parse.is_bare_var value -> Ok (Bare_var value)
     | [ "zoom"; n ] -> (
-        match int_of_string_opt n with
+        match Parse.decimal_int n with
         | Some i -> Ok (Percent (float_of_int i))
         | None -> (
             match parse_arbitrary n with

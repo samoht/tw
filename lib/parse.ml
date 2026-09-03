@@ -31,6 +31,34 @@ let decimal_float s =
   in
   if plain then float_of_string_opt s else None
 
+(* A fraction suffix is two plain decimals around one [/]: [w-1/2], [top-3/8],
+   [basis-13/17]. Neither side carries a sign, neither takes a redundant leading
+   zero, and the denominator is drawn from no fixed list — Tailwind divides
+   whatever it is given. *)
+let fraction s =
+  match String.split_on_char '/' s with
+  | [ n; m ] when is_canonical_digits n && is_canonical_digits m -> (
+      match (int_of_string_opt n, int_of_string_opt m) with
+      | Some n, Some m -> Some (n, m)
+      | Some _, None | None, _ -> None)
+  | _ -> None
+
+(* [n/m] as the percentage Tailwind's [calc(n / m * 100%)] resolves to, folded
+   to the six significant figures its own printer keeps (33.3333, 8.33333). A
+   zero denominator has no percentage: Tailwind writes the division out for the
+   browser to fail on, so a family that folds it here has nothing to write. *)
+let fraction_percent n m =
+  if m = 0 then None
+  else if n = 0 then Some 0.
+  else
+    let pct = float_of_int n /. float_of_int m *. 100. in
+    let digits = 6. -. Float.ceil (Float.log10 pct) in
+    let factor = 10. ** digits in
+    Some (Float.round (pct *. factor) /. factor)
+
+let fraction_pct s =
+  match fraction s with Some (n, m) -> fraction_percent n m | None -> None
+
 let int_any s =
   match decimal_int s with
   | Some n -> Ok n

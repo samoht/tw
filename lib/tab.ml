@@ -38,7 +38,7 @@ module Handler = struct
   let of_class _theme class_name =
     match Parse.split_class class_name with
     | [ "tab"; n ] -> (
-        match int_of_string_opt n with
+        match Parse.decimal_int n with
         | Some i -> Ok (Tab i)
         | None -> (
             match parse_arbitrary n with

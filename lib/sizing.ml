@@ -85,13 +85,9 @@ module Handler = struct
      the last slot before that boundary, after every floor-n spacing value. The
      natural candidate tiebreak then orders the unbounded denominators. *)
   let fraction_value_order f =
-    match String.split_on_char '/' f with
-    | [ n; m ] -> (
-        match (int_of_string_opt n, int_of_string_opt m) with
-        | Some n, Some _ ->
-            ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 1
-        | _ -> 490000)
-    | _ -> 490000
+    match Parse.fraction f with
+    | Some (n, _) -> ((spacing_suborder (float_of_int n *. 0.25) + 4) * 100) - 1
+    | None -> 490000
 
   (* Within a family: spacing and fractions interleaved by magnitude, then an
      arbitrary value, then the keywords. *)
@@ -123,24 +119,10 @@ module Handler = struct
   let min_inline_base = 130_000_000
   let logical_priority = 38
 
-  (* A Tailwind sizing fraction [n/m] resolves to [n/m * 100%]. Tailwind emits
-     calc(n / m * 100%) and folds it to 6 significant figures (e.g. 33.3333,
-     8.33333); we emit the percentage rounded the same way so the two match. *)
-  let fraction_pct frac =
-    match String.split_on_char '/' frac with
-    | [ n; m ] -> (
-        match (int_of_string_opt n, int_of_string_opt m) with
-        (* Any nonnegative numerator over a positive denominator: Tailwind reads
-           [w-<number>/<number>] as a percentage, not from a fixed scale. *)
-        | Some n, Some m when m > 0 && n >= 0 ->
-            let pct = float_of_int n /. float_of_int m *. 100. in
-            if n = 0 then Some 0.
-            else
-              let digits = 6. -. Float.ceil (Float.log10 pct) in
-              let factor = 10. ** digits in
-              Some (Float.round (pct *. factor) /. factor)
-        | _ -> None)
-    | _ -> None
+  (* A Tailwind sizing fraction [n/m] resolves to [n/m * 100%]: any numerator
+     over any positive denominator, read as a percentage rather than off a fixed
+     scale. *)
+  let fraction_pct = Parse.fraction_pct
 
   (* Container size theme variables - ordered from smallest to largest *)
   let container_3xs = Var.theme Css.Length "container-3xs" ~order:(5, 0)
@@ -802,10 +784,13 @@ module Handler = struct
      not. *)
   let is_quarter_multiple f = f >= 0. && Float.rem f 0.25 = 0.
 
-  let parse_aspect_ratio s mk =
+  (* [read] is how the two spellings of a ratio differ. A bare [aspect-4/3] is a
+     class suffix, so each part is a plain decimal; inside a bracket the author
+     writes CSS, which Tailwind hands to the browser however it is spelled. *)
+  let parse_aspect_ratio ~read s mk =
     match String.split_on_char '/' s with
     | [ w; h ] -> (
-        match (float_of_string_opt w, float_of_string_opt h) with
+        match (read w, read h) with
         | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
             Ok (mk w h)
         | _ -> err_not_utility)
@@ -834,7 +819,8 @@ module Handler = struct
     | [ "aspect"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         match
-          parse_aspect_ratio inner (fun w h -> Aspect_bracket (inner, w, h))
+          parse_aspect_ratio ~read:float_of_string_opt inner (fun w h ->
+              Aspect_bracket (inner, w, h))
         with
         | Ok _ as ok -> ok
         | Error _ -> (
@@ -846,7 +832,8 @@ module Handler = struct
     | [ "aspect"; value ] when is_theme_aspect theme value ->
         Ok (Aspect_theme value)
     | [ "aspect"; value ] ->
-        parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
+        parse_aspect_ratio ~read:Parse.decimal_float value (fun w h ->
+            Aspect_ratio (w, h))
     | _ -> err_not_utility
 
   let suborder = function

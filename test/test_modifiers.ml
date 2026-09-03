@@ -347,6 +347,7 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[0600px]:flex";
       "min-[1e3px]:flex";
       "min-[600]:flex";
+      "min-[+600px]:flex";
       "min-[.5rem]:flex";
       "max-[48rem]:flex";
       "max-[37.50px]:flex";
@@ -416,8 +417,8 @@ let test_arbitrary_breakpoint_rejects_ocaml_literals () =
       "min-[0x600px]:p-4";
       "max-[0x600px]:p-4";
       "min-[0x600]:p-4";
+      "min-[0o17px]:p-4";
       "min-[1_000px]:p-4";
-      "min-[+600px]:p-4";
     ]
 
 (* A [@custom-variant] belongs to the [@theme] block that declared it. Two

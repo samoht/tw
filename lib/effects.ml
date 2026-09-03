@@ -2921,7 +2921,7 @@ module Handler = struct
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; n ]
-      when match int_of_string_opt n with Some w -> w > 0 | None -> false ->
+      when match Parse.decimal_int n with Some w -> w > 0 | None -> false ->
         Ok (Ring_width (int_of_string n))
     | [ "ring"; "inset" ] -> Ok Ring_inset
     | [ "ring"; "transparent" ] -> Ok Ring_transparent

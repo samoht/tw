@@ -1559,7 +1559,7 @@ let opacity_of_string ?theme opacity_str =
     else None
   else
     (* Numeric value like 50 or 2.5, or named opacity like half/custom *)
-    match float_of_string_opt opacity_str with
+    match Parse.decimal_float opacity_str with
     | Some f when f >= 0. ->
         Some (Opacity_percent { value = f; text = opacity_str })
     | _ ->
@@ -1617,7 +1617,7 @@ let shade_of_strings ?theme parts =
   | [ color_str; shade_str ] -> (
       match of_string color_str with
       | Ok color -> (
-          match int_of_string_opt shade_str with
+          match Parse.decimal_int shade_str with
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
@@ -1658,7 +1658,7 @@ let shade_and_opacity_of_strings ?theme parts =
       in
       match of_string color_str with
       | Ok color -> (
-          match int_of_string_opt shade_str with
+          match Parse.decimal_int shade_str with
           | Some shade
             when shade >= 0
                  && (not (is_shadeless color))
