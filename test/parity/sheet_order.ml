@@ -10,9 +10,11 @@
 
    This measures the whole sheet. Both sides are generated over the committed
    site class list, the top-level statement sequence of a layer is taken out of
-   each, and the two are compared over the keys that occur exactly once on both
-   sides, where no pairing choice exists. What is reported is the fewest
-   statements that have to move for the orders to agree.
+   each, and the two are compared over structural identities that occur exactly
+   once on both sides, where no pairing choice exists. An at-rule identity
+   includes the nested statements it contains, so equal media preludes remain
+   distinguishable. What is reported is the fewest statements that have to move
+   for the orders to agree.
 
    The numbers below are pinned, not aspirational: the gate fails when one goes
    up and prints the new figure when it goes down, so the ceiling can be
@@ -20,18 +22,19 @@
 
 module Tailwind_gen = Tw_tools.Tailwind_gen
 
-(* Measured 2026-08-30 over [classlist.txt], 4825 classes of tailwindcss.com,
-   against cascade main at e829b2d6. Both keys and grouping come out of
-   cascade's printer, so the number is only comparable against the cascade a run
-   was built with, and every run prints which one that was. CI pins cascade main
-   through opam; a local [cascade/] symlink sitting on someone's branch is the
-   first thing to check when the count moves for no reason in the sort code.
+(* Measured 2026-09-03 over [classlist.txt], 4825 classes of tailwindcss.com, at
+   the PR #667 + #668 stack against cascade main at 3a007e5b. Both keys and
+   grouping come out of cascade's printer, so the number is only comparable
+   against the cascade a run was built with, and every run prints which one that
+   was. CI pins cascade main through opam; a local [cascade/] symlink sitting on
+   someone's branch is the first thing to check when the count moves for no
+   reason in the sort code.
 
    [pairs] is pinned as a floor as well: a sheet that lost most of its rules
    would otherwise have nothing left to be out of order, and the gate would read
    that as a pass. *)
 let pinned =
-  [ ("utilities", `Moves 0, `Pairs 3800); ("components", `Moves 0, `Pairs 45) ]
+  [ ("utilities", `Moves 0, `Pairs 3900); ("components", `Moves 0, `Pairs 45) ]
 
 (* Skipping is right on a machine with no Tailwind CLI and wrong in CI, where it
    reports a sheet as correctly ordered because nothing looked. Set
@@ -90,8 +93,8 @@ let check ~tailwind ~tw (layer, `Moves ceiling, `Pairs floor) =
       gap.Test_helpers.moves;
     report_moved gap.Test_helpers.moved;
     Fmt.pr
-      "  The ranks are positions among the paired statements, so a large gap \
-       is a family sorted into the wrong band.@.";
+      "  Each line is outside one minimum-move subsequence; inspect its \
+       neighbours before attributing the ordering defect.@.";
     false
   end
   else begin

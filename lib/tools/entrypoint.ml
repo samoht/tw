@@ -140,7 +140,7 @@ let theme_tokens body =
           Some
             ( decl.Cascade.Component.loc.Cascade.Loc.start_pos,
               ( String.sub name 2 (String.length name - 2),
-                Cascade.Parser.to_string_custom value ) )
+                Cascade.Parser.string_of_components value ) )
         else None)
   in
   List.stable_sort

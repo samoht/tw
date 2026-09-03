@@ -504,9 +504,9 @@ let test_arbitrary_leading () =
     "text-lg/[2em] round-trips" "text-lg/[2em]"
     (Tw.pp (Result.get_ok (Tw.of_string "text-lg/[2em]")))
 
-(* A bracket that is not a line-height is refused by both, rather than accepted
-   and rendered as a zero. *)
-let test_arbitrary_leading_invalid () =
+(* A standalone arbitrary leading utility forwards a safe token stream. Font
+   size modifiers remain typed line-height values. *)
+let test_arbitrary_leading_token_stream () =
   let rejected cls =
     match Tw.of_string cls with
     | Ok u ->
@@ -514,34 +514,29 @@ let test_arbitrary_leading_invalid () =
           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
     | Error _ -> ()
   in
-  rejected "leading-[red]";
-  rejected "leading-[1zz]";
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  accepted "leading-[red]";
+  accepted "leading-[1zz]";
   rejected "text-lg/[red]";
   rejected "text-lg/[1zz]"
 
-(* [tracking-[...]] takes a length. A bracket the length grammar cannot read was
-   accepted and then raised out of [to_css], which is a pure conversion. Reading
-   the bracket with cascade's grammar also earns [calc()], which the old reader
-   could not take. *)
-let test_arbitrary_tracking_invalid () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
-  in
+(* [tracking-[...]] forwards any safe declaration value. *)
+let test_arbitrary_tracking_token_stream () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "tracking-[foo]";
-  rejected "tracking-[red]";
-  rejected "tracking-[45deg]";
-  rejected "tracking-[1e]";
-  rejected "tracking-[a,b]";
-  rejected "-tracking-[foo]";
+  renders "tracking-[foo]";
+  renders "tracking-[red]";
+  renders "tracking-[45deg]";
+  renders "tracking-[1e]";
+  renders "tracking-[a,b]";
+  renders "-tracking-[foo]";
   renders "tracking-[1px]";
   renders "tracking-[.5em]";
   renders "tracking-[-1px]";
@@ -612,6 +607,15 @@ let of_string_invalid () =
 (* line-clamp sits between box-sizing and the display family in Tailwind's
    order, not among the typography utilities its class name suggests. *)
 let line_clamp_sorts_with_box_sizing () =
+  let order cls =
+    Tw.Utility.base_of_class Tw.Scheme.default cls
+    |> Result.get_ok |> Tw.Utility.order
+  in
+  let named_priority, _ = order "line-clamp-2" in
+  let arbitrary_priority, _ = order "line-clamp-[<value>]" in
+  Alcotest.(check int)
+    "arbitrary line-clamp stays in the line-clamp property band" named_priority
+    arbitrary_priority;
   let classes =
     [ "indent-4"; "line-clamp-2"; "block"; "box-border"; "ml-auto" ]
   in
@@ -1142,8 +1146,13 @@ let test_non_decimal_integers () =
   in
   rejected "text-lg/0x10";
   rejected "font-[0x10]";
-  rejected "line-clamp-[0x10]";
-  rejected "line-clamp-[1_0]"
+  let accepted cls =
+    match Tw.of_string cls with
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  accepted "line-clamp-[0x10]";
+  accepted "line-clamp-[1_0]"
 
 (* A [--font-weight-*] or [--leading-*] token the project declared in its
    [@theme] names a value the built-in scale has no slot for. Tailwind generates
@@ -1193,8 +1202,33 @@ let test_project_tracking_token () =
     "an undeclared tracking name is rejected" true
     (Result.is_error (Tw.of_string ~theme "tracking-nope"))
 
+(* An arbitrary value writes a space as [_] and a literal underscore as [\_].
+   Both readings have to reach the value: a family name and a content string are
+   written by hand, so either character can be the one meant. *)
+let test_arbitrary_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|font-['My\_Font']|} "font-family: My_Font";
+  has "font-[Arial_Black]" {|font-family: "Arial Black"|};
+  has {|content-["hello\_world"]|} {|--tw-content: "hello_world"|};
+  has {|content-[attr(a\_b)]|} "--tw-content: attr(a_b)";
+  (* The single-quoted spelling already reads both, and stays that way. *)
+  has {|content-['hello\_world']|} {|--tw-content: 'hello_world'|};
+  has {|content-['hello_world']|} {|--tw-content: 'hello world'|}
+
 let tests =
   [
+    test_case "arbitrary underscore escape" `Quick
+      test_arbitrary_underscore_escape;
     test_case "invalid decoration bracket hex" `Quick
       test_invalid_decoration_bracket_hex;
     test_case "non-decimal integers" `Quick test_non_decimal_integers;
@@ -1256,9 +1290,10 @@ let tests =
       test_text_bracket_size_invalid;
     test_case "bracket length units" `Quick test_bracket_length_units;
     test_case "arbitrary leading" `Quick test_arbitrary_leading;
-    test_case "arbitrary leading invalid" `Quick test_arbitrary_leading_invalid;
-    test_case "arbitrary tracking invalid" `Quick
-      test_arbitrary_tracking_invalid;
+    test_case "arbitrary leading token stream" `Quick
+      test_arbitrary_leading_token_stream;
+    test_case "arbitrary tracking token stream" `Quick
+      test_arbitrary_tracking_token_stream;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;

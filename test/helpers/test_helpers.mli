@@ -32,6 +32,26 @@ val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
     properties included: two utilities can conflict on a [--tw-*] alone. *)
 
+val declarations_of_class : string -> string list
+(** [declarations_of_class cls] is what [cls] writes on an element carrying it,
+    minified, in source order. Only selectors holding a [.] count, so the theme
+    bindings the class drags in and the [*, ::before] property defaults are left
+    out, the way {!class_rule} reads them. Fails the test if [cls] does not
+    parse. *)
+
+val check_declarations : string -> string list -> unit
+(** [check_declarations cls expected] checks [cls] writes exactly [expected].
+    Prefer it to a substring search: an affix that is a prefix of a longer
+    generated class matches it, so [.bg-blue-500] is satisfied by
+    [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
+    class nor the CSS. *)
+
+val check_declarations_match : string -> string list -> unit
+(** [check_declarations_match cls patterns] checks each PCRE in [patterns]
+    matches some declaration of [cls], naming the class and every declaration on
+    failure. For a value that cannot be spelled exactly; anchor the pattern,
+    since an unanchored one accepts a longer class the way a substring does. *)
+
 val interacting_pairs : string list -> (string * string) list
 (** [interacting_pairs classes] pairs up the classes that write on each other.
     An element carrying such a pair is where an ordering difference becomes
@@ -154,7 +174,7 @@ val layer_statement_keys : string -> layer:string -> string list
     the empty list. *)
 
 type order_gap = {
-  pairs : int;  (** keys occurring exactly once on each side *)
+  pairs : int;  (** structural identities occurring exactly once on each side *)
   moves : int;  (** the fewest of those that have to move *)
   moved : (string * int * int) list;
       (** each moved key with its rank among {!field-pairs} on Tailwind's side
@@ -164,9 +184,11 @@ type order_gap = {
 
 val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
 (** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
-    in [@layer layer] is from Tailwind's. Only keys occurring exactly once on
-    both sides are paired, so no pairing choice of the gate's own can move the
-    number; over those, {!field-moves} is the count outside a longest
+    in [@layer layer] is from Tailwind's. At-rule identities include a
+    fingerprint of their nested statement structure, so repeated media and
+    supports preludes remain distinguishable. Only identities occurring exactly
+    once on both sides are paired, so no pairing choice of the gate's own can
+    move the number; over those, {!field-moves} is the count outside a longest
     subsequence, which is the fewest statements that have to move for the orders
     to agree.
 

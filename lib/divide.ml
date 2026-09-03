@@ -7,6 +7,10 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
+
+  (* Bind tw's string formatter before [open Css] shadows [Pp]. *)
+  let pp_float = Pp.float
+
   open Css
 
   type t =
@@ -14,8 +18,9 @@ module Handler = struct
     | Y of int
     (* The author's bracket text travels with the parsed width so that the class
        name is spelled exactly as it was written. *)
-    | X_arb of string * Css.border_width (* divide-x-[4px] *)
-    | Y_arb of string * Css.border_width
+    | X_arb of string * [ `Width of Css.border_width | `Raw of string ]
+      (* divide-x-[4px] *)
+    | Y_arb of string * [ `Width of Css.border_width | `Raw of string ]
     | X_reverse
     | Y_reverse
     | Named_color of Color.color * int
@@ -26,6 +31,7 @@ module Handler = struct
     | Inherit
     | Bracket_color of string * Css.color
     | Bracket_color_opacity of string * Css.color * Color.opacity_modifier
+    | Raw_color of string * string * Color.opacity_modifier
     | Line_style of Css.border_style
 
   let name = "divide"
@@ -124,6 +130,54 @@ module Handler = struct
         ]
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
+
+  let divide_raw_width_style axis ~class_name value =
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
+    let reverse_var, inline_styles, widths =
+      match axis with
+      | `X ->
+          ( divide_x_reverse_var,
+            [ border_inline_style (Var (Var.reference border_style_var)) ],
+            [ "border-inline-start-width"; "border-inline-end-width" ] )
+      | `Y ->
+          ( divide_y_reverse_var,
+            [
+              border_bottom_style (Var (Var.reference border_style_var));
+              border_top_style (Var (Var.reference border_style_var));
+            ],
+            [ "border-top-width"; "border-bottom-width" ] )
+    in
+    let reverse_decl, reverse_ref = Var.binding reverse_var (Css.Num 0.) in
+    let reverse = "var(--" ^ Css.var_name reverse_ref ^ ")" in
+    let width_values =
+      [
+        Parse.wrap_declaration_value ~before:"calc("
+          ~after:(" * " ^ reverse ^ ")")
+          value;
+        Parse.wrap_declaration_value ~before:"calc("
+          ~after:(" * calc(1 - " ^ reverse ^ "))")
+          value;
+      ]
+    in
+    let raw_widths =
+      List.map2
+        (fun property raw ->
+          Option.bind raw (Parse.opaque_declaration property))
+        widths width_values
+      |> List.filter_map Fun.id
+    in
+    if List.length raw_widths <> 2 then style []
+    else
+      let property_rules =
+        [ Var.property_rule reverse_var; Var.property_rule border_style_var ]
+        |> List.filter_map Fun.id |> Css.concat
+      in
+      let rule =
+        Css.rule ~selector ((reverse_decl :: inline_styles) @ raw_widths)
+      in
+      style ~rules:(Some [ rule ]) ~property_rules []
 
   (* divide-x-reverse utility sets --tw-divide-x-reverse: 1 on children *)
   let divide_x_reverse_style () =
@@ -229,6 +283,23 @@ module Handler = struct
         in
         style ~rules:(Some [ rule; supports_block ]) []
 
+  let divide_raw_color_style class_name value opacity =
+    let selector = divide_children_selector class_name in
+    let value =
+      match opacity with
+      | Color.No_opacity -> value
+      | _ ->
+          let percent = Color.opacity_to_percent opacity in
+          "color-mix(in oklab, " ^ value ^ " " ^ pp_float percent
+          ^ "%, transparent)"
+    in
+    let declaration =
+      match Parse.opaque_declaration "border-color" value with
+      | Some declaration -> declaration
+      | None -> assert false
+    in
+    style ~rules:(Some [ Css.rule ~selector [ declaration ] ]) []
+
   let divide_style_of_string (s : string) =
     let open Css in
     let r : border_style option =
@@ -300,6 +371,8 @@ module Handler = struct
     | Bracket_color (v, _) -> "divide-[" ^ v ^ "]"
     | Bracket_color_opacity (v, _, opacity) ->
         "divide-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
+    | Raw_color (v, _, opacity) ->
+        "divide-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Line_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style theme =
@@ -322,12 +395,20 @@ module Handler = struct
         in
         let w = if n = 1 then theme.Scheme.default_border_width else n in
         divide_y_width_style ~class_name ~width:(Px (float_of_int w))
-    | X_arb (spelling, width) ->
-        let class_name = to_class (X_arb (spelling, width)) in
+    | X_arb (spelling, `Width width) ->
+        let class_name = to_class (X_arb (spelling, `Width width)) in
         divide_x_width_style ~class_name ~width
-    | Y_arb (spelling, width) ->
-        let class_name = to_class (Y_arb (spelling, width)) in
+    | Y_arb (spelling, `Width width) ->
+        let class_name = to_class (Y_arb (spelling, `Width width)) in
         divide_y_width_style ~class_name ~width
+    | X_arb (spelling, `Raw value) ->
+        divide_raw_width_style `X
+          ~class_name:(to_class (X_arb (spelling, `Raw value)))
+          value
+    | Y_arb (spelling, `Raw value) ->
+        divide_raw_width_style `Y
+          ~class_name:(to_class (Y_arb (spelling, `Raw value)))
+          value
     | X_reverse -> divide_x_reverse_style ()
     | Y_reverse -> divide_y_reverse_style ()
     | Named_color (color, shade) -> divide_color_style color shade
@@ -343,6 +424,9 @@ module Handler = struct
     | Bracket_color_opacity (inner, c, opacity) ->
         let class_name = to_class (Bracket_color_opacity (inner, c, opacity)) in
         divide_bracket_color_opacity_style ~theme class_name c opacity
+    | Raw_color (inner, value, opacity) ->
+        let class_name = to_class (Raw_color (inner, value, opacity)) in
+        divide_raw_color_style class_name value opacity
     | Line_style bs -> divide_style_style bs
 
   (* Tailwind's order across the family, read off its own output: divide-x,
@@ -363,7 +447,7 @@ module Handler = struct
     | Line_style _ -> 65_000
     (* All divide color utilities use flat suborder for natural sort *)
     | Named_color _ | Named_color_opacity _ -> 66_000
-    | Bracket_color _ | Bracket_color_opacity _ -> 66_000
+    | Bracket_color _ | Bracket_color_opacity _ | Raw_color _ -> 66_000
     | Current | Current_opacity _ -> 66_000
     | Inherit -> 66_000
     | Transparent -> 66_000
@@ -406,18 +490,30 @@ module Handler = struct
     | [ "divide"; "y"; "reverse" ] -> Ok Y_reverse
     | [ "divide"; "x"; value ] -> (
         match parse_bracket_width value with
-        | Some (spelling, w) -> Ok (X_arb (spelling, w))
+        | Some (spelling, w) -> Ok (X_arb (spelling, `Width w))
         | None -> (
-            match Parse.decimal_int value with
-            | Some n when n >= 0 -> Ok (X n)
-            | _ -> Error (`Msg "Not a divide utility")))
+            if Parse.is_bracket_value value then
+              let spelling = Parse.bracket_inner value in
+              match Parse.arbitrary_declaration_value spelling with
+              | Some raw -> Ok (X_arb (spelling, `Raw raw))
+              | None -> Error (`Msg "Not a divide utility")
+            else
+              match Parse.decimal_int value with
+              | Some n when n >= 0 -> Ok (X n)
+              | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "y"; value ] -> (
         match parse_bracket_width value with
-        | Some (spelling, w) -> Ok (Y_arb (spelling, w))
+        | Some (spelling, w) -> Ok (Y_arb (spelling, `Width w))
         | None -> (
-            match Parse.decimal_int value with
-            | Some n when n >= 0 -> Ok (Y n)
-            | _ -> Error (`Msg "Not a divide utility")))
+            if Parse.is_bracket_value value then
+              let spelling = Parse.bracket_inner value in
+              match Parse.arbitrary_declaration_value spelling with
+              | Some raw -> Ok (Y_arb (spelling, `Raw raw))
+              | None -> Error (`Msg "Not a divide utility")
+            else
+              match Parse.decimal_int value with
+              | Some n when n >= 0 -> Ok (Y n)
+              | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "transparent" ] -> Ok Transparent
     | [ "divide"; "inherit" ] -> Ok Inherit
     | [ "divide"; style_str ]
@@ -442,7 +538,10 @@ module Handler = struct
             match opacity with
             | Color.No_opacity -> Ok (Bracket_color (inner, c))
             | _ -> Ok (Bracket_color_opacity (inner, c, opacity)))
-        | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner)))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Raw_color (inner, value, opacity))
+            | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -493,10 +592,10 @@ let bracket_spelling ~name w =
   | None -> invalid_arg (name ^ ": width has no arbitrary-value spelling")
 
 let divide_x_length w =
-  utility (X_arb (bracket_spelling ~name:"divide_x_length" w, w))
+  utility (X_arb (bracket_spelling ~name:"divide_x_length" w, `Width w))
 
 let divide_y_length w =
-  utility (Y_arb (bracket_spelling ~name:"divide_y_length" w, w))
+  utility (Y_arb (bracket_spelling ~name:"divide_y_length" w, `Width w))
 
 (** {1 Divide Colour Utilities} *)
 

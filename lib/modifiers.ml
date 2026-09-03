@@ -40,7 +40,7 @@ let class_pseudo prefix cls pseudo =
     content uses underscores for spaces, e.g. "2n+1_of_.foo" → nth = 2n+1, of_ =
     Some [Class "foo"]. *)
 let parse_nth_selector expr =
-  let spaced = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let spaced = Parse.decode_underscores expr in
   Css.Selector.read_nth_selector (Cascade.Cursor.of_string spaced)
 
 (** Helper: breakpoint name for responsive modifiers *)
@@ -178,8 +178,7 @@ let nest_selector ~parent template =
     ":where(.group):hover" *)
 let parse_arbitrary_selector_content content anchor =
   let open Css.Selector in
-  (* Replace _ with space for Tailwind convention *)
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   combine (nest_selector ~parent:(where [ anchor ]) s) Descendant universal
 
 (** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
@@ -991,7 +990,7 @@ let try_has_shorthand s =
    a compound and [[p_~_span]] is not, and only the grammar separates them. [_]
    stands for a space here, the decoding {!nest_selector} applies. *)
 let is_compound_selector inner =
-  let s = String.map (fun c -> if c = '_' then ' ' else c) inner in
+  let s = Parse.decode_underscores inner in
   let cursor = Cascade.Cursor.of_string s in
   match Css.Selector.read_strict_selector_list cursor with
   | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
@@ -1019,7 +1018,7 @@ let is_plain_ident str =
    selector browsers parse and keep although nothing ever matches it, so it is
    not a variant. An underscore stands for a space, so it is empty as well. *)
 let names_attribute expr =
-  let decoded = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let decoded = Parse.decode_underscores expr in
   decoded <> "" && String.equal decoded (String.trim decoded)
 
 (* [group-data-dragging] is [group-data-[dragging]] with a different spelling,
@@ -1059,15 +1058,21 @@ let parse_css_length s : Style.arbitrary_length option =
     (Parse.arbitrary_length s)
 
 (* Parse a pixel value from a string like "600px" or "600", keeping the
-   spelling: it is what the variant's own class is named after. *)
+   spelling: it is what the variant's own class is named after. The digits are a
+   CSS number, which is not OCaml's: [0x600px] is neither a number nor a length,
+   and reading it as an OCaml float turned [min-[0x600px]] into a live 1536px
+   breakpoint out of a value Tailwind leaves for the browser to drop. *)
 let parse_px_value s =
   let digits =
     if String.ends_with ~suffix:"px" s then String.sub s 0 (String.length s - 2)
     else s
   in
-  match float_of_string_opt digits with
-  | Some px -> Some ({ px; text = s } : Style.arbitrary_px)
-  | None -> None
+  match
+    Cascade.Cursor.try_parse_full_err Css.Values.read_number
+      (Cascade.Cursor.of_string digits)
+  with
+  | Ok (Num px) -> Some ({ px; text = s } : Style.arbitrary_px)
+  | Ok _ | Error _ -> None
 
 (* Parse a has-selector string as a relative CSS selector ([:has()] accepts a
    bare leading combinator, e.g. [>div] or [~img]), with [&] resolved to the
@@ -1111,8 +1116,6 @@ let data_match_operator raw_expr =
       | _ -> go (i + 1)
   in
   go 0
-
-let decode_underscores s = String.map (fun c -> if c = '_' then ' ' else c) s
 
 (* Split a trailing case-sensitivity flag off a decoded value remainder:
    Selectors 4 requires whitespace before [i]/[s], which is what Tailwind's own
@@ -1165,12 +1168,12 @@ let data_attribute_of_bracket bracket =
 let parse_data_expr raw_expr =
   match data_match_operator raw_expr with
   | None ->
-      let name = String.trim (decode_underscores raw_expr) in
+      let name = String.trim (Parse.decode_underscores raw_expr) in
       data_attribute_of_bracket ("[data-" ^ name ^ "]")
   | Some (op_pos, op_len) ->
       let len = String.length raw_expr in
       let name =
-        String.trim (decode_underscores (String.sub raw_expr 0 op_pos))
+        String.trim (Parse.decode_underscores (String.sub raw_expr 0 op_pos))
       in
       (* Validated here, on its own: folded straight into the reconstructed text
          below, a name ending in one of [$ ^ * ~ |] would recombine with the
@@ -1182,7 +1185,7 @@ let parse_data_expr raw_expr =
       let op_text = String.sub raw_expr op_pos op_len in
       let rest =
         String.trim
-          (decode_underscores
+          (Parse.decode_underscores
              (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)))
       in
       let value, flag_text = split_trailing_flag rest in
@@ -1212,8 +1215,7 @@ let try_bracket_at_rule s =
   else None
 
 let normalize_supports_condition condition_str =
-  (* Convert underscores to spaces (Tailwind bracket notation) *)
-  let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
+  let cond = Parse.decode_underscores condition_str in
   if
     String.length cond > 2
     && cond.[0] = '-'
@@ -1679,7 +1681,7 @@ let is_not_compatible = function
    so the cursor has to be exhausted too: a trailing remainder would otherwise
    be dropped and the rule would negate less than the class says. *)
 let reads_as_selector content =
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   let cursor = Cascade.Cursor.of_string s in
   match Css.Selector.read cursor with
   | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
@@ -2600,7 +2602,10 @@ let variant_inner_token token =
 let variant_order_of_prefix ?theme prefix =
   match theme with
   | Some theme when Option.is_some (try_custom_variant theme prefix) ->
-      Slot.rank Slot.Custom
+      (* Tailwind registers [dark] before it reads [@custom-variant]. Replacing
+         that exact registration changes its body but retains its slot. *)
+      if String.equal prefix "dark" then Slot.rank Slot.Dark
+      else Slot.rank Slot.Custom
   | Some _ | None -> (
       match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
 

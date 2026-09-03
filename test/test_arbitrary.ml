@@ -309,8 +309,24 @@ let test_sorts_by_declared_property () =
   Test_helpers.check_class_order ~test_name:"arbitrary property slots"
     [ "[order:3]"; "m-4"; "[display:grid]"; "p-4"; "[color:red]" ]
 
+(* A property name keeps the underscores it is written with, and [\_] is the
+   escape that spells one where the value grammar would read a space. Both
+   spellings name the same custom property; the backslash reached the sheet as a
+   character of the name. *)
+let test_property_underscore_escape () =
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " declares " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|[--my\_var:red]|} "--my_var: red";
+  has "[--my_var:red]" "--my_var: red"
+
 let tests =
   [
+    test_case "property name underscore escape" `Quick
+      test_property_underscore_escape;
     test_case "sorts by the property it declares" `Quick
       test_sorts_by_declared_property;
     test_case "invalid hex value" `Quick test_invalid_hex_value;

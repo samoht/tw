@@ -31,6 +31,34 @@ let decimal_float s =
   in
   if plain then float_of_string_opt s else None
 
+(* A fraction suffix is two plain decimals around one [/]: [w-1/2], [top-3/8],
+   [basis-13/17]. Neither side carries a sign, neither takes a redundant leading
+   zero, and the denominator is drawn from no fixed list — Tailwind divides
+   whatever it is given. *)
+let fraction s =
+  match String.split_on_char '/' s with
+  | [ n; m ] when is_canonical_digits n && is_canonical_digits m -> (
+      match (int_of_string_opt n, int_of_string_opt m) with
+      | Some n, Some m -> Some (n, m)
+      | Some _, None | None, _ -> None)
+  | _ -> None
+
+(* [n/m] as the percentage Tailwind's [calc(n / m * 100%)] resolves to, folded
+   to the six significant figures its own printer keeps (33.3333, 8.33333). A
+   zero denominator has no percentage: Tailwind writes the division out for the
+   browser to fail on, so a family that folds it here has nothing to write. *)
+let fraction_percent n m =
+  if m = 0 then None
+  else if n = 0 then Some 0.
+  else
+    let pct = float_of_int n /. float_of_int m *. 100. in
+    let digits = 6. -. Float.ceil (Float.log10 pct) in
+    let factor = 10. ** digits in
+    Some (Float.round (pct *. factor) /. factor)
+
+let fraction_pct s =
+  match fraction s with Some (n, m) -> fraction_percent n m | None -> None
+
 let int_any s =
   match decimal_int s with
   | Some n -> Ok n
@@ -111,8 +139,9 @@ let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
-   underscore — otherwise a value that needs one could not be written. *)
-let decode_underscores s =
+   underscore — otherwise a value that needs one could not be written. The two
+   readings differ only in what a bare [_] stands for, which [plain] carries. *)
+let read_underscores ~plain s =
   let len = String.length s in
   let buf = Buffer.create len in
   let rec go i =
@@ -122,11 +151,29 @@ let decode_underscores s =
       go (i + 2)
     end
     else begin
-      Buffer.add_char buf (if s.[i] = '_' then ' ' else s.[i]);
+      Buffer.add_char buf (if s.[i] = '_' then plain else s.[i]);
       go (i + 1)
     end
   in
   go 0;
+  Buffer.contents buf
+
+let decode_underscores s = read_underscores ~plain:' ' s
+
+(* A property name has no spaces to spell, so its underscores stand for
+   themselves and only the escape is undone. *)
+let unescape_underscores s = read_underscores ~plain:'_' s
+
+(* The inverse: a utility holding a decoded value writes its class name back,
+   and the name has to read as the value it came from. *)
+let encode_underscores s =
+  let buf = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | ' ' -> Buffer.add_char buf '_'
+      | '_' -> Buffer.add_string buf {|\_|}
+      | c -> Buffer.add_char buf c)
+    s;
   Buffer.contents buf
 
 let function_name_before s i =
@@ -338,6 +385,28 @@ let is_ident = Cascade.Syntax.is_ident
    holding CSS it wrote; here the text comes from a class name, so the class is
    the thing to refuse. Tailwind refuses the same ones. *)
 let is_declaration_value = Cascade.Css.Declaration.is_declaration_value
+
+let arbitrary_declaration_value s =
+  let value = decode_arbitrary_value s in
+  if value <> "" && is_declaration_value value then Some value else None
+
+let wrap_declaration_value ~before ~after value =
+  if value = "" || not (is_declaration_value value) then None
+  else
+    let wrapped = before ^ value ^ after in
+    if is_declaration_value wrapped then Some wrapped
+    else
+      (* A CSS comment is implicitly closed at EOF. Once the author value is
+         embedded, however, an unterminated comment would consume the wrapper's
+         closing tokens. Close that comment explicitly; the tokeniser drops the
+         comment itself, as it does for the standalone value. *)
+      let closed_comment = before ^ value ^ "*/" ^ after in
+      if is_declaration_value closed_comment then Some closed_comment else None
+
+let opaque_declaration property value =
+  if value <> "" && is_declaration_value value then
+    Cascade.Css.Declaration.parse_opaque_declaration property value
+  else None
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
 let is_var s = String.length s > 4 && String.sub s 0 4 = "var("

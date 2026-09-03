@@ -111,8 +111,24 @@ let test_invalid_arbitrary_will_change () =
   accepted "will-change-[opacity,transform]";
   accepted "will-change-[var(--x)]"
 
+(* A property name is an identifier, and an identifier may carry an underscore.
+   The arbitrary value spells that one [\_], so the class both parses and keeps
+   the character. *)
+let test_will_change_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the property name" true
+    (Astring.String.is_infix ~affix:"will-change: a_b"
+       (css {|will-change-[a\_b]|}))
+
 let tests =
   [
+    test_case "will-change underscore escape" `Quick
+      test_will_change_underscore_escape;
     test_case "select" `Quick test_select;
     test_case "scroll+snap" `Quick test_scroll_snap;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;

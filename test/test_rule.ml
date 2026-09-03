@@ -331,6 +331,15 @@ let test_arbitrary_selector_stacking () =
   has "**:[svg]:first:sm:size-4"
     ":is(.\\*\\*\\:\\[svg\\]\\:first\\:sm\\:size-4 *):is(svg):first-child"
 
+let occurrences sub str =
+  let n = String.length sub in
+  let rec go i acc =
+    if i + n > String.length str then acc
+    else if String.sub str i n = sub then go (i + n) (acc + 1)
+    else go (i + 1) acc
+  in
+  go 0 0
+
 (* An opacity colour emits a progressive-enhancement @supports block beside its
    fallback. Under a variant the block used to carry the theme declaration a
    second time, and for the variants that set an order of their own it sorted
@@ -342,15 +351,6 @@ let test_opacity_supports_under_variant () =
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   let s = css "hover:bg-red-500/50" in
-  let occurrences sub str =
-    let n = String.length sub in
-    let rec go i acc =
-      if i + n > String.length str then acc
-      else if String.sub str i n = sub then go (i + n) (acc + 1)
-      else go (i + 1) acc
-    in
-    go 0 0
-  in
   (* once in @layer theme, not again inside the @supports block *)
   check int "the theme token is declared once" 1
     (occurrences "--color-red-500:oklch" s);
@@ -365,18 +365,26 @@ let test_opacity_supports_under_variant () =
 (* A variant whose own effect is an at-rule wraps both halves of an opacity
    colour. The modern half still needs its inner color-mix feature query; losing
    it makes the nested output differ from Tailwind and leaves the enhancement at
-   the wrong structural depth. *)
+   the wrong structural depth. Tailwind opens the variant's at-rule once and
+   holds the fallback and the feature query inside it, in that order. *)
 let test_opacity_supports_inside_at_rule_variant () =
   let css cls =
     match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
+  let modern = "@supports(color:color-mix(in lab,red,red)){" in
   let nested cls wrapper =
+    let s = css cls in
+    let opening = wrapper ^ "{" in
+    check int (cls ^ ": one wrapper") 1 (occurrences opening s);
     check bool cls true
-      (Astring.String.is_infix
-         ~affix:(wrapper ^ "{@supports(color:color-mix(in lab,red,red)){")
-         (css cls))
+      (match
+         ( Astring.String.find_sub ~sub:opening s,
+           Astring.String.find_sub ~sub:modern s )
+       with
+      | Some outer, Some inner -> outer < inner
+      | _ -> false)
   in
   nested "supports-backdrop-filter:bg-black/25"
     "@supports(backdrop-filter:var(--tw))";
@@ -615,8 +623,31 @@ let test_variant_outside_starting_style () =
       "dark:starting:opacity-50";
     ]
 
+(* The selector a variant's bracket spells reads [_] as a space and [\_] as a
+   literal underscore, so a class or an attribute value carrying one is written
+   with the escape. *)
+let test_selector_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|aria-[label=a\_b]:flex|} {|[aria-label="a_b"]|};
+  has {|not-[.a\_b]:flex|} ":not(.a_b)";
+  has {|[.a\_b_&]:flex|} ".a_b .";
+  (* A bare [_] still stands for a space. *)
+  has "aria-[label=a_b]:flex" {|[aria-label="a b"]|}
+
 let tests =
   [
+    test_case "selector underscore escape" `Quick
+      test_selector_underscore_escape;
     test_case "arbitrary selector combinator variants" `Quick
       test_arbitrary_selector_combinator;
     test_case "arbitrary anchor inside a quoted value" `Quick

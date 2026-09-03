@@ -69,6 +69,11 @@ module Handler = struct
      visibility. *)
   let unclaimed = 38
 
+  (* The class carries the property as it was written, which is where [\_]
+     spells an underscore the value grammar would otherwise read as a space. The
+     name itself has no space to spell, so it keeps every bare [_] it has. *)
+  let declared_property property = Parse.unescape_underscores property
+
   let slot t =
     let property, value =
       match t with
@@ -76,7 +81,8 @@ module Handler = struct
       | Parsed_decl { property; value } -> (property, value)
     in
     match
-      Css.parse_declaration ~layer:"utilities" property
+      Css.parse_declaration ~layer:"utilities"
+        (declared_property property)
         (Parse.decode_arbitrary_value value)
     with
     | None -> None
@@ -234,6 +240,7 @@ module Handler = struct
      typed [Css.var] form (kept in the utilities layer), never a token
      stream. *)
   let color_emitter property : (Css.color -> Css.declaration) option =
+    let property = declared_property property in
     match color_property_of_name property with
     | Some prop -> Some prop
     | None ->
@@ -251,7 +258,8 @@ module Handler = struct
            declaration in the utilities layer (the build's theme/utilities
            filter drops layerless custom properties). *)
         match
-          Css.parse_declaration ~layer:"utilities" property
+          Css.parse_declaration ~layer:"utilities"
+            (declared_property property)
             (Parse.decode_arbitrary_value value)
         with
         | Some decl -> style [ decl ]
@@ -380,7 +388,8 @@ module Handler = struct
                     (* Plain [property:value]: any property whose value cascade
                        can parse becomes a typed declaration. *)
                     match
-                      Css.parse_declaration property
+                      Css.parse_declaration
+                        (declared_property property)
                         (Parse.decode_arbitrary_value value)
                     with
                     | Some _ -> Ok (Parsed_decl { property; value })

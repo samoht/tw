@@ -25,6 +25,9 @@
   Code that caught the exception to find a typo reads that list. `Tw.of_string`
   is unchanged, so the CLI still reports a deliberately typed class as an error
   (#514).
+- `-safe` alignment resolves on `center` and `end` only, as in Tailwind. The
+  `-start-safe` classes stop being emitted, and `Alignment.content_start_safe`
+  and `Alignment.place_items_start_safe` are removed (#679).
 
 ### Tailwind CSS 4.3.3
 
@@ -41,6 +44,12 @@
   `@apply` and `@variant` (#136, #138, #139, #140, #141, #143, #195, #206).
 - Authored input receives browser-compatibility prefixes even when full CSS
   optimization is disabled, preserving the CLI's target coverage (#665).
+- Merge adjacent media queries with identical conditions during utility
+  construction, avoiding redundant wrappers without enabling full stylesheet
+  optimization (#668).
+- Merge adjacent `@container` and `@supports` blocks with identical preludes
+  the same way, so a run of utilities sharing one condition is a single wrapper
+  and the sheet is smaller (#682).
 - A project's own theme reaches class generation, so its variants, keyframes,
   layers, static scales, custom breakpoints and v3 dotted `theme()` paths apply
   to the utilities tw generates from the markup, and a routed utility survives a
@@ -85,6 +94,10 @@
   any shape, and a negated arbitrary inset accepts a parenthesised calc body,
   so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
   work alongside the numeric steps (#160, #166, #172, #186, #210, #646).
+- `start-*` and `end-*` carry the same inset scale as the physical sides and
+  keep the `calc(var(--spacing) * n)` Tailwind writes for every step, so
+  `start-px`, `start-0.5` and `start-1/2` resolve and `start-0` no longer drops
+  `--spacing` from the theme layer (#677).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
@@ -101,6 +114,8 @@
   #222, #265).
 - A named spacing token declares the variable it references. Padding and gap
   emitted `var(--spacing-<name>)` with nothing declaring it (#261).
+- Border-spacing candidates keep their property order across the whole theme
+  scale, including arbitrary values (#670).
 - Accept a value the project named in its own `@theme` wherever Tailwind does:
   shadows, blur radii, timing functions, font weights, line heights, letter
   spacing, corner radii, font sizes, perspectives, aspect ratios and max-widths
@@ -116,6 +131,16 @@
 
 ### Arbitrary values and validation
 
+- `delay-[...]` takes the arbitrary token streams `duration-[...]` already
+  took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
+  a `var()` fallback in either family decodes its underscores (#PR).
+- Preserve Tailwind's declaration-safe token-stream contract for arbitrary
+  animation, background, divide, filter, shadow, ring, scrollbar, table,
+  transform, transition and typography values, including values that are
+  invalid for the target property (#667).
+- An arbitrary value keeps the underscore its `\_` escape spells, so
+  `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
+  the sheet as written instead of carrying the backslash into the value (#676).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote
@@ -163,6 +188,12 @@
 - A `var()` reference is read to its end wherever it appears, including inside
   a bracket value, so one carrying its own parentheses or a fallback is not
   truncated (#564).
+- A numeric class suffix is read as plain decimal rather than as an OCaml
+  literal: `stroke-0x4` emitted a `.stroke-4` nobody wrote, `/0x50` rode the
+  opacity modifier onto every colour utility, and `min-[0x600px]` manufactured
+  a working 1536px breakpoint. One fraction reader serves the sizing, position,
+  flex and translate families, so `top-1/7` and `basis-0/2` read like `w-1/7`
+  (#678).
 
 ### Colours and effects
 
@@ -239,7 +270,9 @@
 - Stacked and compound variants sort by what they contain rather than by their
   prefix text. A compound carries its inner value, a recursive compound follows
   its whole path, an arbitrary variant orders by its selector, data variants
-  group by predicate, and repeated element variants collapse to one key (#564).
+  group by predicate, a negated breakpoint retains its responsive order, a
+  project dark override keeps the built-in dark slot, and repeated element
+  variants collapse to one key (#564, #672, #673).
 - Blocks group the way Tailwind groups them. A run of `@starting-style`
   utilities emits as one block, the utilities one `@apply` pulls in land in a
   single rule, the `@property` an applied utility brings is hoisted and

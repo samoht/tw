@@ -214,7 +214,7 @@ module Handler = struct
           let bare_name = Parse.extract_var_name s in
           style [ will_change (Var (Var.bracket bare_name)) ]
         else
-          let raw = String.map (fun c -> if c = '_' then ' ' else c) s in
+          let raw = Parse.decode_underscores s in
           let props = String.split_on_char ',' raw |> List.map String.trim in
           style [ will_change (Properties props) ]
     | Group -> group_s
@@ -306,9 +306,7 @@ module Handler = struct
           || String.split_on_char ',' inner
              |> List.map String.trim
              |> List.for_all (fun p ->
-                 Parse.is_ident
-                   (String.map (fun c -> if c = '_' then ' ' else c) p
-                   |> String.trim))
+                 Parse.is_ident (Parse.decode_underscores p |> String.trim))
         then Ok (Will_change_arbitrary inner)
         else err_not_utility
     | [ "group" ] -> Ok Group

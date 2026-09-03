@@ -945,12 +945,12 @@ module Handler = struct
     then
       (* Percentage - must be non-negative integer *)
       let num_str = String.sub suffix 0 (String.length suffix - 1) in
-      match int_of_string_opt num_str with
+      match Parse.decimal_int num_str with
       | Some n when n >= 0 -> Option.some (Percent (Float.of_int n))
       | _ -> Option.none
     else
       (* Spacing multiplier - must be non-negative, integer or half *)
-      match float_of_string_opt suffix with
+      match Parse.decimal_float suffix with
       | Some n when is_valid_spacing n -> Option.some (Spacing n)
       | _ -> Option.none
 
@@ -1053,7 +1053,7 @@ module Handler = struct
           let inner = Parse.bracket_inner n in
           Ok (Linear_angle (Arb inner))
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i -> Ok (Linear_angle (Int i))
           | None -> Error (`Msg "Invalid mask-linear angle value"))
     (* -mask-linear-N (negative angle), -mask-linear-[arb] *)
@@ -1062,7 +1062,7 @@ module Handler = struct
           let inner = Parse.bracket_inner n in
           Ok (Linear_angle (Arb_neg inner))
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i -> Ok (Linear_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-linear angle value"))
     (* mask-radial *)
@@ -1103,7 +1103,7 @@ module Handler = struct
           let inner = Parse.bracket_inner n in
           Ok (Conic_angle (Arb inner))
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i -> Ok (Conic_angle (Int i))
           | None -> Error (`Msg "Invalid mask-conic angle value"))
     (* -mask-conic-N (negative angle), -mask-conic-[arb] *)
@@ -1112,7 +1112,7 @@ module Handler = struct
           let inner = Parse.bracket_inner n in
           Ok (Conic_angle (Arb_neg inner))
         else
-          match int_of_string_opt n with
+          match Parse.decimal_int n with
           | Some i -> Ok (Conic_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-conic angle value"))
     (* mask-circle, mask-ellipse *)
@@ -1128,10 +1128,7 @@ module Handler = struct
     (* mask-radial-[size] - arbitrary size *)
     | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
         let size_value = Parse.bracket_inner arb in
-        (* Replace underscores with spaces *)
-        let size_value =
-          String.map (fun c -> if c = '_' then ' ' else c) size_value
-        in
+        let size_value = Parse.decode_underscores size_value in
         if not (Parse.is_declaration_value size_value) then
           Error (`Msg ("Invalid mask-radial size: " ^ size_value))
         else Ok (Radial_size (Arbitrary_size size_value))
@@ -1187,8 +1184,9 @@ module Handler = struct
     | Radial_size Farthest_corner -> "mask-radial-farthest-corner"
     | Radial_size Farthest_side -> "mask-radial-farthest-side"
     | Radial_size (Arbitrary_size s) ->
-        let escaped = String.map (fun c -> if c = ' ' then '_' else c) s in
-        "mask-radial-[" ^ escaped ^ "]"
+        (* The size is held decoded, so the bracket it goes back into spells a
+           space [_] and an underscore [\_]. *)
+        "mask-radial-[" ^ Parse.encode_underscores s ^ "]"
 
   let examples = [ Linear_angle (Int 0) ]
 end

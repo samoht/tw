@@ -2149,6 +2149,13 @@ let test_not_supports_variant_order () =
   Test_helpers.check_ordering_matches
     ~test_name:"not-supports variants follow base utilities" utilities
 
+(* Negating a breakpoint changes its media condition, not its place in the
+   responsive scale. Tailwind therefore keeps not-sm, not-md, and not-xl in
+   ascending breakpoint order. *)
+let test_not_breakpoint_order () =
+  Test_helpers.check_class_order ~test_name:"not-breakpoint order"
+    [ "not-xl:hidden"; "not-sm:hidden"; "not-md:hidden" ]
+
 let test_breakpoint_groups_stacked_variants () =
   (* A stacked variant sorts under its breakpoint, so first:sm:m-2 stays with
      the other sm rules instead of falling past md:block. Tailwind's order for
@@ -2391,6 +2398,32 @@ let test_custom_variant_supports_companion_order () =
       "dark:border-fuchsia-500";
       "dark:border-fuchsia-500";
     ]
+    (emitted_classes css classes)
+
+(* Re-registering an exact built-in variant changes what it emits, not where it
+   sits in Tailwind's variant order. A class-based dark variant therefore stays
+   before starting and print instead of moving to the generic custom slot. *)
+let test_custom_dark_keeps_builtin_slot () =
+  let defs = [ ("dark", "&:where(.dark,.dark *){@slot;}") ] in
+  let classes = [ "dark:hidden"; "starting:hidden"; "print:hidden" ] in
+  let _, extra, _ =
+    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+      ~udefs:[] [ "dark:hidden" ]
+  in
+  let utilities =
+    [ "starting:hidden"; "print:hidden" ]
+    |> List.map (fun cls -> Result.get_ok (Tw.of_string cls))
+  in
+  let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
+  let theme =
+    { Tw.Scheme.default with custom_variants = [ ("dark", custom) ] }
+  in
+  let css =
+    Tw.to_css ~theme ~base:false ~extra utilities
+    |> Css.to_string ~minify:true ~lossless:true
+  in
+  Alcotest.(check (list string))
+    "custom dark retains the built-in slot" classes
     (emitted_classes css classes)
 
 let test_margin_value_order () =
@@ -3131,6 +3164,7 @@ let tests =
     test_case "stacked variant outline order" `Slow
       test_stacked_variant_outline_order;
     test_case "not-supports variant order" `Slow test_not_supports_variant_order;
+    test_case "not-breakpoint order" `Slow test_not_breakpoint_order;
     test_case "variant table emission order" `Slow
       test_variant_table_emission_order;
     test_case "stacked responsive variant order" `Slow
@@ -3144,6 +3178,8 @@ let tests =
       test_color_mix_supports_companion_order;
     test_case "custom variant branches stay with their candidate" `Quick
       test_custom_variant_supports_companion_order;
+    test_case "custom dark keeps its built-in slot" `Quick
+      test_custom_dark_keeps_builtin_slot;
     test_case "margin value order" `Slow test_margin_value_order;
     test_case "prose margin order" `Slow test_prose_margin_order;
     test_case "variant same-suborder tiebreak" `Slow

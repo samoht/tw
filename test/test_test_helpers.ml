@@ -170,6 +170,23 @@ let test_order_gap_drops_a_repeated_key () =
     "the repeated key leaves two pairs, one of them moved" (2, 1)
     (g.Test_helpers.pairs, g.Test_helpers.moves)
 
+(* Repeated container preludes are distinguishable by the rules they contain.
+   Dropping them all hides a container moved across a regular rule. *)
+let test_order_gap_pairs_structural_containers () =
+  let media selector = "@media (hover:hover){" ^ selector ^ "{color:red}}" in
+  let tailwind =
+    "@layer utilities{.a{color:red}" ^ media ".hover\\:a:hover"
+    ^ ".b{color:red}" ^ media ".hover\\:b:hover" ^ "}"
+  in
+  let tw =
+    "@layer utilities{.a{color:red}.b{color:red}" ^ media ".hover\\:a:hover"
+    ^ media ".hover\\:b:hover" ^ "}"
+  in
+  let g = Test_helpers.sheet_order_gap ~layer:"utilities" ~tailwind ~tw in
+  Alcotest.(check (pair int int))
+    "four structural pairs expose one moved container" (4, 1)
+    (g.Test_helpers.pairs, g.Test_helpers.moves)
+
 let test_order_gap_agreeing_sheets () =
   let g = gap ~tailwind:[ ".a"; ".b"; ".c" ] ~tw:[ ".a"; ".b"; ".c" ] in
   Alcotest.(check (pair int int))
@@ -350,6 +367,8 @@ let tests =
       test_order_gap_counts_the_minimum_move;
     Alcotest.test_case "order gap: repeated key" `Quick
       test_order_gap_drops_a_repeated_key;
+    Alcotest.test_case "order gap: repeated containers" `Quick
+      test_order_gap_pairs_structural_containers;
     Alcotest.test_case "order gap: agreeing sheets" `Quick
       test_order_gap_agreeing_sheets;
     Alcotest.test_case "inversions: grouped selector is unordered" `Quick

@@ -420,6 +420,7 @@ module Typography_early = struct
        class name is spelled exactly as it was written. *)
     | Leading_bracket of
         string * Css.line_height (* leading-[1.8], leading-[24px], etc. *)
+    | Leading_raw of string * string
     | (* Font-size with explicit line-height modifier (text-sm/6) *)
       Text_named_lh of string * lh_modifier
     | (* Font size named by a project [--text-*] token (text-huge) *)
@@ -694,12 +695,16 @@ module Typography_early = struct
           | None ->
               if Parse.is_var inner then
                 Ok (Font_bracket_weight_var (inner, inner))
-                (* A family name is a list of idents or quoted strings; the
-                   docs' [<value>] placeholder is neither, and it used to be
-                   quoted into [font-family: "<value>"]. *)
-              else if is_font_family_value inner then
-                Ok (Font_bracket_family_name (inner, inner))
-              else err_not_utility)
+              else
+                (* A family name is a list of idents or quoted strings, so the
+                   docs' [<value>] placeholder is not one. [_] separates the
+                   words of a name and [\_] is a literal underscore inside one,
+                   so the stack is read decoded while the class keeps the
+                   spelling it was written with. *)
+                let decoded = Parse.decode_underscores inner in
+                if is_font_family_value decoded then
+                  Ok (Font_bracket_family_name (inner, decoded))
+                else err_not_utility)
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
@@ -746,7 +751,10 @@ module Typography_early = struct
         else
           match parse_bracket_leading inner with
           | Stdlib.Option.Some lh -> Ok (Leading_bracket (inner, lh))
-          | Stdlib.Option.None -> err_not_utility)
+          | Stdlib.Option.None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Leading_raw (inner, value))
+              | None -> err_not_utility))
     | "leading" :: (_ :: _ as rest)
       when is_theme_leading theme (String.concat "-" rest) ->
         Ok (Leading_theme (String.concat "-" rest))
@@ -859,6 +867,7 @@ module Typography_early = struct
         "leading-" ^ Spacing.pp_spacing_suffix (`Rem (f *. 0.25))
     | Leading_var v -> "leading-[" ^ v ^ "]"
     | Leading_bracket (v, _) -> "leading-[" ^ v ^ "]"
+    | Leading_raw (v, _) -> "leading-[" ^ v ^ "]"
     | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_theme name -> "text-" ^ name
     | Text_theme_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
@@ -939,6 +948,7 @@ module Typography_early = struct
     | Leading_step f -> 3000 + int_of_float (f *. 10.)
     | Leading_var _ -> 3100
     | Leading_bracket _ -> 3100
+    | Leading_raw _ -> 3100
     | Leading_loose -> 3201
     | Leading_none -> 3202
     | Leading_normal -> 3203
@@ -1536,6 +1546,21 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height lh ]
+    | Leading_raw (_, value) ->
+        let channel_decl =
+          Css.custom_property ~layer:"utilities" (Var.css_name leading_var)
+            value
+        in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        let declarations =
+          channel_decl
+          :: Option.to_list (Parse.opaque_declaration "line-height" value)
+        in
+        style
+          ~metadata:[ Var.metadata leading_var ]
+          ~property_rules declarations
     | Text_named_lh (name, lh_mod) ->
         let fs_decl, lh_decls = text_named_with_lh theme name lh_mod in
         style (fs_decl @ lh_decls)
@@ -1618,6 +1643,8 @@ module Typography_late = struct
          class name is spelled exactly as it was written. *)
       Tracking_arbitrary of string * Css.length
     | Neg_tracking_arbitrary of string * Css.length
+    | Tracking_raw of string * string
+    | Neg_tracking_raw of string * string
     | Tracking_var of string
     | Neg_tracking_var of string
     | Tracking_tighter
@@ -1731,12 +1758,13 @@ module Typography_late = struct
     | Indent_neg_arbitrary of string
     | Line_clamp of int
     | Line_clamp_arbitrary of int
+    | Line_clamp_raw of string * string
     | Line_clamp_none
     | (* Content *)
       Content_none
     | Content of string
     | Content_squote of string (* single-quoted arbitrary: content-['x'] *)
-    | Content_raw of string * Css.content
+    | Content_raw of string * [ `Content of Css.content | `Raw of string ]
       (* unquoted arbitrary: content-[attr(before)]; raw class text + value *)
     | Content_named of string (* content-<token> defined in the @theme *)
 
@@ -1756,7 +1784,9 @@ module Typography_late = struct
         11
     (* line-clamp (rank 26) sits between box-sizing and the display family, so
        it shares box-sizing's priority and sorts after it on suborder. *)
-    | Line_clamp _ | Line_clamp_arbitrary _ | Line_clamp_none -> 3
+    | Line_clamp _ | Line_clamp_arbitrary _ | Line_clamp_raw _ | Line_clamp_none
+      ->
+        3
     | Truncate -> 17
     | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
     | Indent_neg_arbitrary _ | Align_baseline | Align_top | Align_middle
@@ -1889,7 +1919,10 @@ module Typography_late = struct
         else
           match arbitrary_tracking inner with
           | Some len -> Ok (Tracking_arbitrary (inner, len))
-          | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
+          | None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Tracking_raw (inner, value))
+              | None -> Error (`Msg ("Invalid tracking value: " ^ inner))))
     | "" :: "tracking" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
         if not (Parse.is_bracket_value value) then err_not_utility
@@ -1899,7 +1932,10 @@ module Typography_late = struct
           else
             match arbitrary_tracking inner with
             | Some len -> Ok (Neg_tracking_arbitrary (inner, len))
-            | None -> Error (`Msg ("Invalid tracking length: " ^ inner)))
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Neg_tracking_raw (inner, value))
+                | None -> Error (`Msg ("Invalid tracking value: " ^ inner))))
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
     | [ "tracking"; "normal" ] -> Ok Tracking_normal
@@ -1977,7 +2013,7 @@ module Typography_late = struct
           | Some len -> Ok (Underline_offset_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ "underline"; "offset"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_px px)
         | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] when Parse.is_bracket_value n -> (
@@ -1988,7 +2024,7 @@ module Typography_late = struct
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
-        match float_of_string_opt n with
+        match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_neg_px px)
         | None -> err_not_utility)
     | [ "antialiased" ] -> Ok Antialiased
@@ -2061,7 +2097,10 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         match Parse.decimal_int inner with
         | Some i -> Ok (Line_clamp_arbitrary i)
-        | None -> err_not_utility)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Line_clamp_raw (inner, value))
+            | None -> err_not_utility))
     | [ "line"; "clamp"; n ] ->
         Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:999 n >|= fun i ->
         Line_clamp i
@@ -2095,13 +2134,16 @@ module Typography_late = struct
           && String.get joined (String.length joined - 1) = ']'
         then begin
           let inner = String.sub joined 1 (String.length joined - 2) in
-          let spaced = String.map (fun c -> if c = '_' then ' ' else c) inner in
+          let spaced = Parse.decode_underscores inner in
           match
             Cascade.Cursor.try_parse_full_err Css.Properties.read_content
               (Cascade.Cursor.of_string spaced)
           with
-          | Ok value -> Ok (Content_raw (inner, value))
-          | Error _ -> err_not_utility
+          | Ok value -> Ok (Content_raw (inner, `Content value))
+          | Error _ -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Content_raw (inner, `Raw value))
+              | None -> err_not_utility)
         end
         else err_not_utility
     | _ -> err_not_utility
@@ -2149,6 +2191,8 @@ module Typography_late = struct
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
     | Tracking_arbitrary (v, _) -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_arbitrary (v, _) -> "-tracking-[" ^ v ^ "]"
+    | Tracking_raw (v, _) -> "tracking-[" ^ v ^ "]"
+    | Neg_tracking_raw (v, _) -> "-tracking-[" ^ v ^ "]"
     | Tracking_var v -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
@@ -2264,6 +2308,7 @@ module Typography_late = struct
     | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
     | Line_clamp_arbitrary n -> "line-clamp-[" ^ string_of_int n ^ "]"
+    | Line_clamp_raw (spelling, _) -> "line-clamp-[" ^ spelling ^ "]"
     | Line_clamp_none -> "line-clamp-none"
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
@@ -2314,8 +2359,10 @@ module Typography_late = struct
     | Decoration_from_font -> 30010
     (* Tracking — negative first, then arbitrary, then named *)
     | Neg_tracking_arbitrary _ -> 8245
+    | Neg_tracking_raw _ -> 8245
     | Neg_tracking_var _ -> 8250
     | Tracking_arbitrary _ -> 8255
+    | Tracking_raw _ -> 8255
     | Tracking_var _ -> 8260
     (* Alphabetical by class name: normal, tight, tighter, wide, wider,
        widest *)
@@ -2465,7 +2512,7 @@ module Typography_late = struct
     | Indent_neg_arbitrary _ ->
         1100
     | Line_clamp n -> 10000 + n
-    | Line_clamp_arbitrary _ -> 11000
+    | Line_clamp_arbitrary _ | Line_clamp_raw _ -> 11000
     | Line_clamp_none -> 12000
     (* Content *)
     | Content_none -> 13000
@@ -2791,6 +2838,20 @@ module Typography_late = struct
     in
     style ~property_rules [ channel_decl; letter_spacing len ]
 
+  let tracking_raw ?(negative = false) value =
+    let value = if negative then "calc(" ^ value ^ " * -1)" else value in
+    let channel_decl =
+      Css.custom_property ~layer:"utilities" (Var.css_name tracking_var) value
+    in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    let declarations =
+      channel_decl
+      :: Option.to_list (Parse.opaque_declaration "letter-spacing" value)
+    in
+    style ~metadata:[ Var.metadata tracking_var ] ~property_rules declarations
+
   let negate_length : Css.length -> Css.length = function
     | Px n -> Px (-.n)
     | Em n -> Em (-.n)
@@ -2874,6 +2935,14 @@ module Typography_late = struct
         overflow Hidden;
       ]
 
+  let line_clamp_raw value =
+    let clamp =
+      Option.to_list (Parse.opaque_declaration "-webkit-line-clamp" value)
+    in
+    style
+      (clamp
+      @ [ webkit_box_orient Vertical; display Webkit_box; overflow Hidden ])
+
   (* A project [@theme] token is a namespace key, not a value Tailwind type-
      checks at build time: any override of [--line-clamp-none], decimal or not,
      switches the utility to the variable-driven form. Reading it with
@@ -2918,8 +2987,7 @@ module Typography_late = struct
     style [ content_decl; content None ]
 
   let content s =
-    (* Convert underscores to spaces in content values *)
-    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let value = Parse.decode_underscores s in
     let content_decl, content_ref = Var.binding content_var (String value) in
     let property_rules = Var.property_rules content_var in
     style ~property_rules [ content_decl; content (Css.Var content_ref) ]
@@ -2966,6 +3034,17 @@ module Typography_late = struct
     let content_decl, content_ref = Var.binding content_var value in
     let property_rules = Var.property_rules content_var in
     style ~property_rules [ content_decl; Css.content (Css.Var content_ref) ]
+
+  let content_raw_value value =
+    let content_decl =
+      Css.custom_property ~layer:"utilities" (Var.css_name content_var) value
+    in
+    let content_ref = Var.reference content_var in
+    let property_rules = Var.property_rules content_var in
+    style
+      ~metadata:[ Var.metadata content_var ]
+      ~property_rules
+      [ content_decl; Css.content (Css.Var content_ref) ]
 
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]
@@ -3201,6 +3280,8 @@ module Typography_late = struct
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
     | Tracking_arbitrary (_, len) -> tracking_arbitrary len
     | Neg_tracking_arbitrary (_, len) -> neg_tracking_arbitrary len
+    | Tracking_raw (_, value) -> tracking_raw value
+    | Neg_tracking_raw (_, value) -> tracking_raw ~negative:true value
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
@@ -3336,10 +3417,12 @@ module Typography_late = struct
     | Indent_neg_arbitrary s -> indent_neg_arbitrary s
     | Line_clamp n -> line_clamp n
     | Line_clamp_arbitrary n -> line_clamp n
+    | Line_clamp_raw (_, value) -> line_clamp_raw value
     | Line_clamp_none -> line_clamp_none_style ()
     | Content_none -> content_none
     | Content s -> content s
-    | Content_raw (_, c) -> content_raw c
+    | Content_raw (_, `Content c) -> content_raw c
+    | Content_raw (_, `Raw value) -> content_raw_value value
     | Content_squote s -> content_squote s
     | Content_named name -> content_named name
 

@@ -88,6 +88,73 @@ let of_string_invalid () =
   fail_maybe [ "place"; "content" ];
   fail_maybe []
 
+(* The four baseline spellings around justify-content. Tailwind emits
+   [justify-content: baseline] for [justify-baseline] and nothing at all for the
+   other three, so only the first is a gap on tw's side. Filing all four holds
+   them to the pinned CLI through [check_negative_premises], which is what stops
+   a later reading of "the baseline arm is missing" from adding the three that
+   name no utility. *)
+let baseline_family_matches_tailwind () =
+  let invalid ?why input =
+    Test_helpers.check_invalid_input ?why (module Tw.Alignment.Handler) input
+  in
+  invalid
+    ~why:
+      (Test_helpers.Diverges
+         "cascade's justify_content carries no baseline value, so tw has no \
+          typed way to write the declaration")
+    "justify-baseline";
+  invalid "justify-items-baseline";
+  invalid "justify-self-baseline";
+  invalid "place-self-baseline"
+
+(* Tailwind offers the [-safe] suffix on exactly two positions, [center] and
+   [end], and does so uniformly across all nine alignment families. No other
+   position takes it, [start] included, even where CSS would allow [safe start]
+   as an <overflow-position> <self-position> pair. The pinned CLI emits an empty
+   utilities layer for every spelling below the divide, and
+   [check_negative_premises] holds that claim to it on every run. *)
+let safe_family_matches_tailwind () =
+  let invalid =
+    Test_helpers.check_invalid_input (module Tw.Alignment.Handler)
+  in
+  check "justify-center-safe";
+  check "justify-end-safe";
+  check "justify-items-center-safe";
+  check "justify-items-end-safe";
+  check "justify-self-center-safe";
+  check "justify-self-end-safe";
+  check "items-center-safe";
+  check "items-end-safe";
+  check "content-center-safe";
+  check "content-end-safe";
+  check "self-center-safe";
+  check "self-end-safe";
+  check "place-content-center-safe";
+  check "place-content-end-safe";
+  check "place-items-center-safe";
+  check "place-items-end-safe";
+  check "place-self-center-safe";
+  check "place-self-end-safe";
+
+  (* [start] takes no [-safe] in any family. *)
+  invalid "justify-start-safe";
+  invalid "justify-items-start-safe";
+  invalid "justify-self-start-safe";
+  invalid "items-start-safe";
+  invalid "content-start-safe";
+  invalid "self-start-safe";
+  invalid "place-content-start-safe";
+  invalid "place-items-start-safe";
+  invalid "place-self-start-safe";
+
+  (* Nor does any of the remaining positions. *)
+  invalid "justify-between-safe";
+  invalid "justify-items-normal-safe";
+  invalid "items-baseline-safe";
+  invalid "self-auto-safe";
+  invalid "place-content-stretch-safe"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -128,6 +195,10 @@ let tests =
   [
     test_case "alignment of_string - valid values" `Quick of_string_valid;
     test_case "alignment of_string - invalid values" `Quick of_string_invalid;
+    test_case "alignment baseline family matches Tailwind" `Quick
+      baseline_family_matches_tailwind;
+    test_case "alignment safe family matches Tailwind" `Quick
+      safe_family_matches_tailwind;
     test_case "alignment suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "content stretch boundary matches Tailwind" `Quick

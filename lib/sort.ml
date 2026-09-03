@@ -36,6 +36,7 @@ type selector_kind =
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
+  reverse_breakpoint : bool;
   wrapped : int list;
   value_key : string option;
 }
@@ -387,6 +388,7 @@ let accessibility_preference_group =
 (* The rank the variant table gives a breakpoint prefix. Read back from the
    table for the same reason as the two groups above. *)
 let responsive_variant_order = Modifiers.variant_order_of_prefix "sm"
+let negation_variant_order = Modifiers.variant_order_of_prefix "not-hover"
 
 (** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
@@ -1113,7 +1115,9 @@ let compare_variant_components a b =
   else
     let bp_cmp =
       match (a.breakpoint, b.breakpoint) with
-      | Some k1, Some k2 -> Css.Media.compare_keys k1 k2
+      | Some k1, Some k2 ->
+          let c = Css.Media.compare_keys k1 k2 in
+          if a.reverse_breakpoint && b.reverse_breakpoint then -c else c
       | Some _, None | None, Some _ | None, None -> 0
     in
     if bp_cmp <> 0 then bp_cmp
@@ -1157,11 +1161,21 @@ let rec variant_value_key token =
 let token_order_key ?theme ~breakpoint token =
   let slot = Modifiers.variant_order_of_prefix ?theme token in
   let wrapped = Modifiers.variant_inner_order_path ?theme token in
+  let reverse_breakpoint =
+    slot = negation_variant_order
+    &&
+    match Modifiers.variant_inner_token token with
+    | Some inner ->
+        Modifiers.variant_order_of_prefix ?theme inner
+        = responsive_variant_order
+    | None -> false
+  in
   let breakpoint =
-    if slot = responsive_variant_order then breakpoint else None
+    if slot = responsive_variant_order || reverse_breakpoint then breakpoint
+    else None
   in
   let value_key = variant_value_key token in
-  { slot; breakpoint; wrapped; value_key }
+  { slot; breakpoint; reverse_breakpoint; wrapped; value_key }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1190,6 +1204,7 @@ let variant_order_list ?theme base_class variant_order breakpoint =
         {
           slot = variant_order;
           breakpoint = None;
+          reverse_breakpoint = false;
           wrapped = [];
           value_key = None;
         };

@@ -74,10 +74,13 @@ module Handler = struct
   (* flex-N: flex: N *)
   let flex_n_style n = style [ flex (Grow (Number (float_of_int n))) ]
 
-  (* flex-N/M: flex: (N/M * 100)% - evaluates the fraction *)
+  (* flex-N/M: flex: (N/M * 100)%, folded the way Tailwind folds it. *)
   let flex_fraction_style n m =
-    let pct_value = float_of_int n /. float_of_int m *. 100.0 in
-    style [ flex (Basis (Pct pct_value)) ]
+    style
+      [
+        flex
+          (Basis (Pct (Option.value ~default:0. (Parse.fraction_percent n m))));
+      ]
 
   (* Grow *)
   let flex_grow_utility = style [ flex_grow 1.0 ]
@@ -105,9 +108,10 @@ module Handler = struct
   let basis_full = style [ flex_basis (Pct 100.0) ]
 
   let basis_fraction_style n m =
-    let raw = float_of_int n /. float_of_int m *. 100.0 in
-    let pct_value = Float.round (raw *. 10000.0) /. 10000.0 in
-    style [ flex_basis (Pct pct_value) ]
+    style
+      [
+        flex_basis (Pct (Option.value ~default:0. (Parse.fraction_percent n m)));
+      ]
 
   (* [basis] lists --flex-basis, then --spacing, then --container, so a named
      size reads the first of those the theme defines. *)
@@ -255,14 +259,12 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 
+  (* [basis-1/2] and [flex-1/2] fold the fraction to a percentage, which a zero
+     denominator has none of. Every other numerator and denominator reads. *)
   let parse_fraction s =
-    (* Parse "N/M" into (N, M) *)
-    match String.split_on_char '/' s with
-    | [ n_str; m_str ] -> (
-        match (int_of_string_opt n_str, int_of_string_opt m_str) with
-        | Some n, Some m when n > 0 && m > 0 -> Some (n, m)
-        | _ -> None)
-    | _ -> None
+    match Parse.fraction s with
+    | Some (n, m) when m > 0 -> Some (n, m)
+    | Some _ | None -> None
 
   (* The container scale, whose digit-led names ([2xl], [3xs])
      [is_named_spacing] rejects. *)
@@ -300,7 +302,7 @@ module Handler = struct
         | Some i -> Ok (Flex_grow_arbitrary i)
         | None -> err_not_utility)
     | [ "grow"; n ] -> (
-        match int_of_string_opt n with
+        match Parse.decimal_int n with
         | Some i when i > 0 -> Ok (Flex_grow_n i)
         | _ -> err_not_utility)
     | [ "flex"; "shrink" ] -> Ok Flex_shrink_legacy

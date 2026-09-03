@@ -559,18 +559,23 @@ let rule_sets_from_selector_props order_map all_rules =
   sorted |> List.map indexed_rule_to_statement
 
 let utilities_layer ~layers ~statements =
-  (* Statements are already in the correct order with media queries interleaved.
-     Consecutive media queries with the same condition will be merged by the
-     optimizer (css/optimize.ml) while preserving cascade order. *)
+  (* Statements are already in the correct order, with adjacent conditional
+     groups of equal prelude merged before the layer is assembled. *)
   if layers then Css.v [ Css.layer ~name:[ "utilities" ] statements ]
   else Css.v statements
 
-(* [@starting-style] carries no condition, so a run of [starting:] utilities is
-   one block in Tailwind's output. Each rule is wrapped on its own here, and
-   cascade collapses the run. *)
+(* Each utility is wrapped in its own conditional group, so a run of utilities
+   sharing one condition arrives here as a run of equal blocks where Tailwind
+   has a single one. Cascade collapses each run. [@starting-style] carries no
+   condition, so adjacency is its whole gate; the other three compare preludes
+   as well. Every pass merges adjacent blocks only, which leaves the rule order
+   the comparator produced untouched. *)
 let statements_of_sorted_rules ?verbatim sorted_rules =
   List.map (indexed_rule_to_statement ?verbatim) sorted_rules
   |> Css.Optimize.merge_consecutive_starting_style
+  |> Css.Optimize.merge_consecutive_media
+  |> Css.Optimize.merge_consecutive_supports
+  |> Css.Optimize.merge_consecutive_containers
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)

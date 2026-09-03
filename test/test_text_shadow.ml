@@ -233,10 +233,25 @@ let test_colour_hint_takes_a_colour () =
   (* The hint survives into the class name, so the class reads back. *)
   has "text-shadow-[color:red]" ".text-shadow-\\[color\\:red\\]"
 
+(* The shadow's parts are separated by the [_] that stands for a space, so a
+   variable name carrying an underscore of its own is written [\_]. *)
+let test_underscore_escape () =
+  let value cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix
+       ~affix:"text-shadow: 0 0 1px var(--tw-text-shadow-color, var(--a_b))"
+       (value {|text-shadow-[0_0_1px_var(--a\_b)]|}))
+
 let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
       test_colour_hint_takes_a_colour;
+    Alcotest.test_case "underscore escape" `Quick test_underscore_escape;
   ]
   @ Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [

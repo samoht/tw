@@ -347,6 +347,7 @@ let test_arbitrary_breakpoint_spelling () =
       "min-[0600px]:flex";
       "min-[1e3px]:flex";
       "min-[600]:flex";
+      "min-[+600px]:flex";
       "min-[.5rem]:flex";
       "max-[48rem]:flex";
       "max-[37.50px]:flex";
@@ -398,6 +399,27 @@ let test_arbitrary_breakpoint_rejects_non_length () =
       | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
       | Error (`Msg _) -> ())
     [ "min-[abc]:flex"; "max-[abc]:flex"; "min-[]:flex" ]
+
+(* The number in front of the unit is a CSS number, not an OCaml one. Reading it
+   with [float_of_string_opt] turned [min-[0x600px]] into a live [(min-width:
+   1536px)] breakpoint: a query the browser honours, built out of a value
+   Tailwind passes through verbatim for the browser to drop. Nothing here is a
+   length either, so tw declines the whole class. *)
+let test_arbitrary_breakpoint_rejects_ocaml_literals () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u ->
+          Alcotest.failf "%s parsed as %s emitting %s" cls (Tw.pp u)
+            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
+      | Error (`Msg _) -> ())
+    [
+      "min-[0x600px]:p-4";
+      "max-[0x600px]:p-4";
+      "min-[0x600]:p-4";
+      "min-[0o17px]:p-4";
+      "min-[1_000px]:p-4";
+    ]
 
 (* A [@custom-variant] belongs to the [@theme] block that declared it. Two
    stylesheets built in one process read different themes, so a variant the
@@ -1385,10 +1407,35 @@ let test_silent_empty_variants_rejected () =
   check bool "not-hover still parses" true
     (Result.is_ok (Tw.of_string "not-hover:flex"))
 
+(* A variant's bracket is an arbitrary value too: [_] is a space and [\_] a
+   literal underscore. An attribute value, a [@supports] condition and a
+   selector each carry the escape into a different part of the rule. *)
+let test_variant_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|data-[foo=bar\_baz]:flex|} {|[data-foo="bar_baz"]|};
+  has {|supports-[--a\_b]:flex|} "@supports (--a_b: var(--tw))";
+  has {|[.a\_b]:flex|} ".a_b";
+  has {|group-[.a\_b_&]:flex|} ":is(.a_b :where(.group) *)";
+  has {|nth-[2n+1_of_.a\_b]:flex|} ":nth-child(2n+1 of .a_b)";
+  (* A bare [_] still stands for a space. *)
+  has "data-[foo=bar_baz]:flex" {|[data-foo="bar baz"]|}
+
 (* Extend the suite with new tests *)
 let tests =
   tests
   @ [
+      test_case "variant underscore escape" `Quick
+        test_variant_underscore_escape;
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
@@ -1442,6 +1489,8 @@ let tests =
       test_case "nth spelling" `Quick test_nth_spelling;
       test_case "arbitrary breakpoint rejects non-length" `Quick
         test_arbitrary_breakpoint_rejects_non_length;
+      test_case "arbitrary breakpoint rejects OCaml literals" `Quick
+        test_arbitrary_breakpoint_rejects_ocaml_literals;
       test_case "custom variant is theme-local" `Quick
         test_custom_variant_is_theme_local;
       test_case "container variant is theme-local" `Quick

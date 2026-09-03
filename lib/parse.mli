@@ -15,6 +15,21 @@ val decimal_float : string -> float option
     Exponents, digit separators, redundant leading or trailing zeroes, and
     missing digits around the decimal point are rejected. *)
 
+val fraction : string -> (int * int) option
+(** [fraction s] reads a fraction suffix such as ["1/2"] or ["13/17"] as its
+    numerator and denominator. Both are plain decimals with no sign and no
+    redundant leading zero; the denominator is drawn from no fixed list, and
+    zero is a value on either side. *)
+
+val fraction_percent : int -> int -> float option
+(** [fraction_percent n m] is the percentage Tailwind's [calc(n / m * 100%)]
+    computes, folded to six significant figures the way Tailwind's printer folds
+    it. A zero denominator is [None]: it has no percentage, and Tailwind writes
+    the division out instead. *)
+
+val fraction_pct : string -> float option
+(** [fraction_pct s] is {!fraction} put through {!fraction_percent}. *)
+
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
 (** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
     [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used
@@ -64,6 +79,18 @@ val decode_underscores : string -> string
 (** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
     [\_] into a literal underscore. *)
 
+val unescape_underscores : string -> string
+(** [unescape_underscores s] turns the [\_] of an arbitrary value into a literal
+    underscore and leaves a bare [_] alone. This is the reading a property name
+    takes: [[--my\_var:red]] and [[--my_var:red]] both declare [--my_var], where
+    {!decode_underscores} would give the first a space. *)
+
+val encode_underscores : string -> string
+(** [encode_underscores s] writes a decoded value back into the arbitrary
+    spelling a class name carries, turning a space into [_] and an underscore
+    into [\_]. It is the inverse of {!decode_underscores}, which is what a
+    utility holding its value decoded needs to name itself. *)
+
 val decode_arbitrary_value : string -> string
 (** [decode_arbitrary_value s] decodes Tailwind arbitrary-value syntax into a
     CSS value string suitable for Cascade readers. This converts underscores to
@@ -103,6 +130,24 @@ val is_declaration_value : string -> bool
     swallows the rest of the rule, so the class carrying it is refused rather
     than emitted. {!Cascade.Css.custom_property} takes the same values and
     raises on the rest. *)
+
+val arbitrary_declaration_value : string -> string option
+(** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
+    returns its non-empty CSS declaration value. Values that can terminate or
+    swallow the declaration are [None]. *)
+
+val wrap_declaration_value :
+  before:string -> after:string -> string -> string option
+(** [wrap_declaration_value ~before ~after value] safely embeds a declaration
+    value between generated tokens. In particular, it closes a comment that was
+    implicitly closed by the end of [value], so that comment cannot swallow
+    [after]. *)
+
+val opaque_declaration : string -> string -> Cascade.Css.declaration option
+(** [opaque_declaration property value] preserves one non-empty,
+    declaration-safe value verbatim. It implements Tailwind's token-stream
+    contract for arbitrary utilities, which deliberately emits some values that
+    are invalid for [property]. *)
 
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math

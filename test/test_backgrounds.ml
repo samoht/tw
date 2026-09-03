@@ -92,6 +92,24 @@ let test_of_string_invalid () =
   (* Missing color *)
   test_invalid [ "to"; "xyz" ];
 
+  (* Gradient positions, gradient angles and the opacity modifier are all plain
+     decimal: read as OCaml literals, [from-0x50%] named itself [.from-80%] and
+     [bg-red-500/0x50] mixed at 80%. *)
+  let invalid =
+    Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
+  in
+  invalid "from-0x50%";
+  invalid "from-050%";
+  invalid "via-1_0%";
+  invalid "bg-linear-0x45";
+  invalid "bg-linear-045";
+  invalid "bg-conic-0x45";
+  invalid "bg-red-500/0x50";
+  invalid "bg-red-500/1_0";
+  invalid "bg-red-500/04";
+  invalid "bg-red-500/1.50";
+  invalid "bg-red-0500";
+
   (* Invalid color *)
 
   (* Invalid prefixes *)
@@ -431,50 +449,39 @@ let test_bg_var_opacity () =
        ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
        (css_of "bg-[var(--x)]/50"))
 
-(* A gradient stop bracket is a colour or a stop position; the docs' [<value>]
-   placeholder is neither, and it used to land as [0%]. *)
-let test_invalid_gradient_stop () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* Tailwind forwards a declaration-safe arbitrary stop even when it is neither a
+   valid colour nor a valid stop position. *)
+let test_gradient_stop_token_stream () =
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "from-[<value>]";
-  rejected "via-[<value>]";
-  rejected "to-[<value>]";
+  accepted "from-[<value>]";
+  accepted "via-[<value>]";
+  accepted "to-[<value>]";
   accepted "from-[25%]";
   accepted "from-[var(--x)]";
   accepted "from-[#0088cc]"
 
-(* A [#] gradient stop is only a colour when what follows is a hex spelling. The
-   stop reader kept the text after the [#] as-is and the raising constructor saw
-   it when the sheet was rendered, so a malformed hex escaped as an exception
-   instead of failing the parse. *)
-let test_invalid_bracket_hex () =
+(* A malformed colour can still be one safe declaration value, so Tailwind
+   forwards it and leaves rejection to the browser. *)
+let test_arbitrary_bracket_color_token_stream () =
   let css cls =
     match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+  let accepted cls = ignore (css cls) in
   let emits cls affix =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
   List.iter
     (fun prefix ->
-      rejected (prefix ^ "-[#zz]");
-      rejected (prefix ^ "-[#]");
-      rejected (prefix ^ "-[#12345]");
-      rejected (prefix ^ "-[#zz]/50"))
+      accepted (prefix ^ "-[#zz]");
+      accepted (prefix ^ "-[#]");
+      accepted (prefix ^ "-[#12345]");
+      accepted (prefix ^ "-[#zz]/50"))
     [ "from"; "via"; "to" ];
   emits "from-[#fff]" "--tw-gradient-from:#fff";
   emits "via-[#abc]" "--tw-gradient-via:#abc";
@@ -505,23 +512,20 @@ let test_gradient_stop_position_units () =
     "from-[1rem] round-trips" "from-[1rem]"
     (Tw.pp (Result.get_ok (Tw.of_string "from-[1rem]")))
 
-(* A bracket that is not a length-percentage is not a stop position. Tailwind
-   reads those as a colour, which has no typed spelling here, so the class is
-   refused rather than rendered as a zero position. *)
-let test_gradient_stop_position_not_a_length () =
-  let rejected cls =
+(* A bracket that is not a length-percentage is forwarded through the colour
+   channel, matching Tailwind's arbitrary token-stream behavior. *)
+let test_gradient_stop_position_token_stream () =
+  let accepted cls =
     match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "from-[fit-content]";
-  rejected "from-[none]";
-  rejected "to-[max-content]";
-  rejected "from-[0]";
-  rejected "from-[1zz]";
-  rejected "via-[12px3]"
+  accepted "from-[fit-content]";
+  accepted "from-[none]";
+  accepted "to-[max-content]";
+  accepted "from-[0]";
+  accepted "from-[1zz]";
+  accepted "via-[12px3]"
 
 (* A gradient interpolation modifier names a colour space. Tailwind writes an
    unknown one through as [in <space>], so only the shapes it refuses are
@@ -562,16 +566,38 @@ let test_gradient_interpolation () =
   has "bg-linear-45/foo" "--tw-gradient-position: 45deg in foo";
   has "bg-linear-to-r/foo" "--tw-gradient-position: to right in foo"
 
+(* An arbitrary value writes a space as [_] and a literal underscore as [\_], so
+   a file name or a gradient position carrying an underscore is written with the
+   escape rather than losing the character. *)
+let test_arbitrary_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|bg-[url('a\_b.png')]|} "background-image: url(a_b.png)";
+  has {|bg-linear-[to\_bottom]|} "--tw-gradient-position: to_bottom"
+
 let tests =
   [
+    test_case "arbitrary underscore escape" `Quick
+      test_arbitrary_underscore_escape;
     test_case "gradient interpolation" `Quick test_gradient_interpolation;
     test_case "gradient stop position units" `Quick
       test_gradient_stop_position_units;
-    test_case "gradient stop position is a length-percentage" `Quick
-      test_gradient_stop_position_not_a_length;
-    test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+    test_case "gradient stop position token stream" `Quick
+      test_gradient_stop_position_token_stream;
+    test_case "arbitrary bracket color token stream" `Quick
+      test_arbitrary_bracket_color_token_stream;
     test_case "bg colors" `Quick test_bg_colors;
-    test_case "invalid gradient stop" `Quick test_invalid_gradient_stop;
+    test_case "gradient stop token stream" `Quick
+      test_gradient_stop_token_stream;
     test_case "bg var color with opacity" `Quick test_bg_var_opacity;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
     test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;

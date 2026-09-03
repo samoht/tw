@@ -12,9 +12,11 @@ let test_roundtrip () =
   check "duration-300";
   check "delay-150";
   check "delay-300";
-  (* Arbitrary delay accepts both time units and var(). *)
+  (* Arbitrary delay and duration take the same bracket values. *)
   check "delay-[300ms]";
   check "delay-[var(--d)]";
+  check "delay-[calc(1s+2s)]";
+  check "duration-[calc(1s+2s)]";
   check "ease-linear";
   check "ease-in";
   check "ease-out";
@@ -44,28 +46,52 @@ let test_initial_resets () =
     "ease-initial sets --tw-ease:initial" true
     (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
 
-(* [transition-[...]] takes property names, so the docs' [<value>] placeholder
-   is not one; it used to reach the sheet as transition-property: <value>. *)
-let test_invalid_arbitrary_property () =
-  let rejected cls =
+(* Tailwind takes the same arbitrary token streams for [duration-] and [delay-]:
+   a math function, a theme function call and a var() reference all reach the
+   declaration, with underscores decoded to spaces. Only [duration-] also
+   mirrors the value into its channel variable. *)
+let test_arbitrary_token_streams_agree () =
+  let css cls =
     match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:false
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
+  let emits cls affix =
+    Alcotest.(check bool)
+      (Fmt.str "%s emits %s" cls affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "duration-150" "transition-duration: 150ms";
+  emits "delay-150" "transition-delay: 150ms";
+  emits "duration-[calc(1s+2s)]" "transition-duration: calc(1s + 2s)";
+  emits "delay-[calc(1s+2s)]" "transition-delay: calc(1s + 2s)";
+  emits "duration-[--spacing(1)]" "transition-duration: var(--spacing)";
+  emits "delay-[--spacing(1)]" "transition-delay: var(--spacing)";
+  emits "duration-[var(--x,_3s)]" "transition-duration: var(--x, 3s)";
+  emits "delay-[var(--x,_3s)]" "transition-delay: var(--x, 3s)";
+  (* The channel variable carries the same value, and only for duration. *)
+  emits "duration-[calc(1s+2s)]" "--tw-duration: calc(1s + 2s)";
+  Alcotest.(check bool)
+    "delay sets no duration channel" false
+    (Astring.String.is_infix ~affix:"--tw-duration" (css "delay-[calc(1s+2s)]"))
+
+(* Tailwind forwards a declaration-safe arbitrary transition-property token
+   stream even when it is not a valid property-name list. *)
+let test_arbitrary_property_token_stream () =
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "transition-[<value>]";
+  accepted "transition-[<value>]";
   accepted "transition-[opacity]";
   accepted "transition-[opacity,transform]";
   accepted "transition-[var(--x)]"
 
-(* [ease-[...]] takes a timing function. A bracket the timing-function grammar
-   cannot read used to be accepted and then raise out of [to_css], which is a
-   pure conversion. *)
-let test_invalid_arbitrary_ease () =
+(* Safe arbitrary easing token streams are forwarded; an empty bracket still
+   names no declaration value. *)
+let test_arbitrary_ease_token_stream () =
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -76,9 +102,9 @@ let test_invalid_arbitrary_ease () =
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "ease-[foo]";
-  rejected "ease-[1]";
-  rejected "ease-[50%]";
+  renders "ease-[foo]";
+  renders "ease-[1]";
+  renders "ease-[50%]";
   rejected "ease-[]";
   renders "ease-[linear]";
   renders "ease-[cubic-bezier(0.4,0,0.2,1)]";
@@ -163,8 +189,10 @@ let test_delay_candidate_band () =
   Test_helpers.check_class_order ~test_name:"delay candidate band"
     [
       "duration-150";
+      "duration-[<value>]";
       "delay-700";
       "ease-in";
+      "ease-[<value>]";
       "delay-150";
       "transition";
       "duration-300";
@@ -190,10 +218,12 @@ let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
-      Alcotest.test_case "invalid arbitrary property" `Quick
-        test_invalid_arbitrary_property;
-      Alcotest.test_case "invalid arbitrary ease" `Quick
-        test_invalid_arbitrary_ease;
+      Alcotest.test_case "arbitrary token streams agree" `Quick
+        test_arbitrary_token_streams_agree;
+      Alcotest.test_case "arbitrary property token stream" `Quick
+        test_arbitrary_property_token_stream;
+      Alcotest.test_case "arbitrary ease token stream" `Quick
+        test_arbitrary_ease_token_stream;
       Alcotest.test_case "arbitrary ease steps default position" `Quick
         test_arbitrary_ease_steps_default_position;
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;

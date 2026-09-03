@@ -27,7 +27,7 @@ module Handler = struct
     | Bounce
     (* The author's bracket text travels with the animation it denotes, so the
        class name is spelled exactly as it was written. *)
-    | Bracket of string * Css.animation
+    | Bracket of string * [ `Animation of Css.animation | `Raw of string ]
     | Named of string
 
   let name = "animations"
@@ -261,14 +261,14 @@ module Handler = struct
 
   (* Tailwind moves the animation name to the end of the shorthand. *)
   let animation_shorthand value =
-    let css_value = String.map (fun c -> if c = '_' then ' ' else c) value in
+    let css_value = Parse.decode_underscores value in
     match String.split_on_char ' ' css_value with
     | name :: (_ :: _ as rest) -> String.concat " " (rest @ [ name ])
     | _ -> css_value
 
-  (* The animation an [animate-[...]] bracket denotes. [None] is a bracket the
-     animation grammar cannot read, and [of_class] refuses the utility rather
-     than leaving [to_style] to raise. *)
+  (* Parse a valid animation shorthand so keyframe metadata remains available.
+     [None] leaves [of_class] to apply Tailwind's declaration-safe token-stream
+     contract. *)
   let arbitrary_animation value : Css.animation option =
     let cursor = Cascade.Cursor.of_string (animation_shorthand value) in
     match
@@ -277,9 +277,14 @@ module Handler = struct
     | Ok anim -> Some anim
     | Error _ -> None
 
-  let animate_bracket anim =
-    let rules = keyframes_rules (Option.to_list (shorthand_name anim)) in
-    style ~rules [ Css.animation anim ]
+  let animate_bracket = function
+    | `Animation anim ->
+        let rules = keyframes_rules (Option.to_list (shorthand_name anim)) in
+        style ~rules [ Css.animation anim ]
+    | `Raw value -> (
+        match Parse.opaque_declaration "animation" value with
+        | Some decl -> style [ decl ]
+        | None -> assert false)
 
   let animate_named ?theme name =
     let var_name = "animate-" ^ name in
@@ -314,7 +319,7 @@ module Handler = struct
     | Ping -> animate_ping ()
     | Pulse -> animate_pulse ()
     | Bounce -> animate_bounce ()
-    | Bracket (_, anim) -> animate_bracket anim
+    | Bracket (_, value) -> animate_bracket value
     | Named name -> animate_named ~theme name
 
   (* Tailwind emits the animate-* rules in class-name order, with no family
@@ -338,8 +343,11 @@ module Handler = struct
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           match arbitrary_animation inner with
-          | Some anim -> Ok (Bracket (inner, anim))
-          | Option.None -> Error (`Msg "Invalid animation value")
+          | Some anim -> Ok (Bracket (inner, `Animation anim))
+          | Option.None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Bracket (inner, `Raw value))
+              | None -> Error (`Msg "Invalid animation value"))
         else
           (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in

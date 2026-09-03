@@ -115,6 +115,43 @@ let properties_of_class cls =
              | _ -> acc)
            []
 
+(* [Astring.String.is_infix] accepts more than a test names. The affix
+   [.bg-blue-500] matches the selector [.bg-blue-500\/50], so a test naming a
+   utility passes when only an opacity variant of it reached the sheet, and any
+   affix that is a prefix of a longer generated class behaves the same way.
+   [Alcotest.check bool ... true] then prints neither the class nor the CSS when
+   it fails, so a red test reports only that something is wrong. The helpers
+   below compare whole declarations and name the subject in the failure. *)
+let declarations_of_class cls =
+  match compiled cls with
+  | None -> Alcotest.failf "%s does not parse" cls
+  | Some sheet ->
+      Css.fold
+        (fun acc stmt ->
+          match Css.as_rule stmt with
+          | Some (sel, decls, _)
+            when String.contains (Css.Selector.to_string sel) '.' ->
+              acc @ List.map (Css.Declaration.to_string ~minify:true) decls
+          | _ -> acc)
+        [] sheet
+
+let check_declarations cls expected =
+  Alcotest.(check (list string)) cls expected (declarations_of_class cls)
+
+(* For a value a test cannot spell exactly, a generated hash or a number the
+   suite deliberately leaves open. Anchor the pattern: an unanchored one
+   reintroduces the defect above. *)
+let check_declarations_match cls patterns =
+  let actual = declarations_of_class cls in
+  List.iter
+    (fun pattern ->
+      let re = Re.Pcre.re pattern |> Re.compile in
+      if not (List.exists (fun d -> Re.execp re d) actual) then
+        Alcotest.failf "%s: no declaration matches %s@.declarations: %s" cls
+          pattern
+          (String.concat "; " actual))
+    patterns
+
 (* What a class writes on an element carrying it, as one rule. The theme
    bindings it drags in are left out - every class reading the spacing scale
    writes [--spacing], which says nothing about what two of them do to each
@@ -733,6 +770,35 @@ let layer_statement_keys sheet ~layer =
           else selector_branches p)
         (statements_between sheet lo hi)
 
+(* An at-rule prelude alone is not an identity: a generated sheet can contain
+   hundreds of [@media (hover: hover)] blocks, each wrapping a different rule.
+   Fingerprint the unordered nested statement structure as well. Sorting makes
+   the identity independent of order inside the container, since this gate
+   measures the containing layer's sequence; repeated identical containers stay
+   ambiguous and are conservatively dropped below. *)
+let rec structural_statement_keys sheet (prelude, body) =
+  let p = normalize_prelude prelude in
+  if p = "" then []
+  else if p.[0] <> '@' then selector_branches p
+  else
+    match body with
+    | None -> [ p ]
+    | Some (lo, hi) ->
+        let nested =
+          statements_between sheet lo hi
+          |> List.concat_map (structural_statement_keys sheet)
+          |> List.sort String.compare |> String.concat "\x1f"
+        in
+        let fingerprint = Digest.string nested |> Digest.to_hex in
+        [ p ^ " #" ^ fingerprint ]
+
+let layer_statement_identities sheet ~layer =
+  match layer_body sheet ~layer with
+  | None -> []
+  | Some (lo, hi) ->
+      statements_between sheet lo hi
+      |> List.concat_map (structural_statement_keys sheet)
+
 (* Patience sorting. [tails.(l)] holds the index of the smallest value that can
    end an increasing run of length [l + 1], so a binary search places each
    element and the predecessor links rebuild one longest run. Everything outside
@@ -764,8 +830,8 @@ let longest_increasing_subsequence seq =
 type order_gap = { pairs : int; moves : int; moved : (string * int * int) list }
 
 let sheet_order_gap ~layer ~tailwind ~tw =
-  let ours = layer_statement_keys tw ~layer in
-  let theirs = layer_statement_keys tailwind ~layer in
+  let ours = layer_statement_identities tw ~layer in
+  let theirs = layer_statement_identities tailwind ~layer in
   let occurrences keys =
     let tbl = Hashtbl.create 4096 in
     List.iter

@@ -364,7 +364,7 @@ module Handler = struct
             Css.mask_image (Var var_ref);
           ]
     | Bracket_image v -> (
-        let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
+        let css_str = Parse.decode_underscores v in
         match Css.parse_background_image css_str with
         | Some (img :: _) ->
             style [ Css.webkit_mask_image img; Css.mask_image img ]
@@ -433,7 +433,7 @@ module Handler = struct
      whether the value parser accepts it, not which gradient function it
      names. *)
   let is_image_value inner =
-    let css_str = String.map (fun c -> if c = '_' then ' ' else c) inner in
+    let css_str = Parse.decode_underscores inner in
     match Css.parse_background_image css_str with
     | Some (_ :: _) -> true
     | _ -> false

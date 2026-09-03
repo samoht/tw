@@ -124,7 +124,7 @@ module Handler = struct
      length, so a colour spelled any other way lands in a length slot. *)
   let scan_verbatim_colour (s : string) :
       (length * length * length option * arb_color) option =
-    let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let normalized = Parse.decode_underscores s in
     let parts = String.split_on_char ' ' normalized in
     let rec find_color_and_lengths acc (parts : string list) :
         string list * arb_color =
@@ -165,7 +165,7 @@ module Handler = struct
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
     | Stdlib.Option.None -> (
-        let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
+        let normalized = Parse.decode_underscores s in
         match Css.parse_shadow normalized with
         (* CSS text-shadow has no spread, so a body carrying one is not one. *)
         | Some

@@ -79,6 +79,16 @@ let test_perspective_candidate_order () =
       "perspective-midrange";
     ]
 
+(* A translate fraction is any numerator over any denominator, and the translate
+   family writes the division out rather than folding it, so even the zero
+   denominator Tailwind emits reads here. *)
+let test_any_translate_fraction () =
+  check "translate-x-0/2";
+  check "translate-x-1/7";
+  check "translate-y-13/17";
+  check "translate-1/0";
+  check "-translate-x-0/2"
+
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
@@ -368,14 +378,24 @@ let test_arbitrary_transform_spelling () =
       "perspective-[100px]";
     ]
 
-(* The bracket holds a number or an angle, so a word is not a transform. *)
-let test_arbitrary_transform_rejects_non_number () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
-      | Error (`Msg _) -> ())
-    [ "scale-[abc]"; "rotate-[abc]"; "skew-[1.5]"; "rotate-[1.5px]" ]
+(* Tailwind forwards declaration-safe arbitrary transform token streams even
+   when they are invalid for the target property. The browser then discards the
+   invalid declaration. *)
+let test_arbitrary_transform_token_streams () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls fragment =
+    Alcotest.(check bool)
+      cls true
+      (Astring.String.is_infix ~affix:fragment (css cls))
+  in
+  emits "scale-[abc]" "scale:abc";
+  emits "rotate-[abc]" "rotate:abc";
+  emits "rotate-[1.5px]" "rotate:1.5px";
+  emits "skew-[1.5]" "--tw-skew-x:skewX(1.5)"
 
 (* A [--perspective-*] token the project declared in its [@theme] names a depth
    the built-in scale has no slot for. Tailwind generates the utility from it;
@@ -425,8 +445,28 @@ let test_property_rules_belong_to_transform () =
     "rotate-x-30 declares its own" true
     (property_rules "rotate-x-30" > 0)
 
+(* The 3D form of [rotate] is four space-separated components, and the [\_] that
+   spells a literal underscore belongs inside one of them rather than splitting
+   it. A component carrying one is not a CSS number, so the value stays as
+   written instead of being read as an axis and an angle. *)
+let test_rotate_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " emits " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has {|rotate-[1_1_1\_2_45deg]|} "rotate: 1 1 1_2 45deg";
+  has {|rotate-[var(--a\_b)]|} "rotate: var(--a_b)"
+
 let tests =
   [
+    test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
     test_case "property rules belong to transform" `Quick
       test_property_rules_belong_to_transform;
     test_case "invalid arbitrary transform" `Quick
@@ -447,14 +487,15 @@ let tests =
       test_perspective_candidate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
+    test_case "any translate fraction" `Quick test_any_translate_fraction;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "arbitrary transform spelling" `Quick
       test_arbitrary_transform_spelling;
-    test_case "arbitrary transform rejects non-number" `Quick
-      test_arbitrary_transform_rejects_non_number;
+    test_case "arbitrary transform token streams" `Quick
+      test_arbitrary_transform_token_streams;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]

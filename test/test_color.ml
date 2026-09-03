@@ -187,50 +187,26 @@ let test_css_mode_with_colors () =
    edge; named, arbitrary and keyword forms. Widths (border-l-2) still resolve
    via the borders handler. *)
 let test_border_side_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "border-l-[#575959] sets border-left-color" true
-    (Astring.String.is_infix ~affix:"border-left-color: #575959"
-       (css "border-l-[#575959]"));
-  Alcotest.(check bool)
-    "border-b-transparent sets border-bottom-color" true
-    (Astring.String.is_infix ~affix:"border-bottom-color:"
-       (css "border-b-transparent"));
-  Alcotest.(check bool)
-    "border-l-red-500 sets border-left-color" true
-    (Astring.String.is_infix ~affix:"border-left-color:"
-       (css "border-l-red-500"));
-  Alcotest.(check bool)
-    "border-l-2 is still a width" true
-    (Astring.String.is_infix ~affix:"border-left-width: 2px" (css "border-l-2"));
-  Alcotest.(check bool)
-    "border-x-red-500 uses the logical inline color" true
-    (Astring.String.is_infix ~affix:"border-inline-color:"
-       (css "border-x-red-500"));
-  Alcotest.(check bool)
-    "border-y-red-500 uses the logical block color" true
-    (Astring.String.is_infix ~affix:"border-block-color:"
-       (css "border-y-red-500"));
-  Alcotest.(check bool)
-    "border-s-red-500 uses the inline-start color" true
-    (Astring.String.is_infix ~affix:"border-inline-start-color:"
-       (css "border-s-red-500"));
-  Alcotest.(check bool)
-    "border-e-red-500 uses the inline-end color" true
-    (Astring.String.is_infix ~affix:"border-inline-end-color:"
-       (css "border-e-red-500"));
-  Alcotest.(check bool)
-    "border-bs-red-500 uses the block-start color" true
-    (Astring.String.is_infix ~affix:"border-block-start-color:"
-       (css "border-bs-red-500"));
-  Alcotest.(check bool)
-    "border-be-red-500 uses the block-end color" true
-    (Astring.String.is_infix ~affix:"border-block-end-color:"
-       (css "border-be-red-500"))
+  Test_helpers.check_declarations "border-l-[#575959]"
+    [ "border-left-color:#575959" ];
+  Test_helpers.check_declarations "border-b-transparent"
+    [ "border-bottom-color:#0000" ];
+  Test_helpers.check_declarations "border-l-red-500"
+    [ "border-left-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-l-2"
+    [ "border-left-style:var(--tw-border-style)"; "border-left-width:2px" ];
+  Test_helpers.check_declarations "border-x-red-500"
+    [ "border-inline-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-y-red-500"
+    [ "border-block-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-s-red-500"
+    [ "border-inline-start-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-e-red-500"
+    [ "border-inline-end-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-bs-red-500"
+    [ "border-block-start-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "border-be-red-500"
+    [ "border-block-end-color:var(--color-red-500)" ]
 
 (* Every per-side border colour writes a colour another side writes too, so
    their relative order decides which one wins. Tailwind groups them side-major:
@@ -285,23 +261,12 @@ let test_outline_inherit_order () =
 (* A CSS variable in a border color bracket, and its v4 paren shorthand, resolve
    to var(): border-[var(--x)] and border-(--x) both set border-color. *)
 let test_border_color_var () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "border-[var(--pattern-fg)] sets border-color: var()" true
-    (Astring.String.is_infix ~affix:"border-color: var(--pattern-fg)"
-       (css "border-[var(--pattern-fg)]"));
-  Alcotest.(check bool)
-    "border-(--pattern-fg) shorthand sets border-color: var()" true
-    (Astring.String.is_infix ~affix:"border-color: var(--pattern-fg)"
-       (css "border-(--pattern-fg)"));
-  Alcotest.(check bool)
-    "border-t-[var(--x)] sets border-top-color: var()" true
-    (Astring.String.is_infix ~affix:"border-top-color: var(--x)"
-       (css "border-t-[var(--x)]"));
+  Test_helpers.check_declarations "border-[var(--pattern-fg)]"
+    [ "border-color:var(--pattern-fg)" ];
+  Test_helpers.check_declarations "border-(--pattern-fg)"
+    [ "border-color:var(--pattern-fg)" ];
+  Test_helpers.check_declarations "border-t-[var(--x)]"
+    [ "border-top-color:var(--x)" ];
   (* the paren shorthand keeps its own class name *)
   Alcotest.(check string)
     "border-(--pattern-fg) round-trips" "border-(--pattern-fg)"
@@ -1035,8 +1000,24 @@ let test_removed_mix_token_stays_runtime () =
     "removed theme token is not resolved through the default palette" false
     (Astring.String.is_infix ~affix:"oklch(63.7% .237 25.331)" css)
 
+(* A bracket colour reads [_] as a space, so a variable name carrying an
+   underscore is written [\_] and keeps the character. *)
+let test_bracket_colour_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix ~affix:"color: light-dark(var(--a_b), red)"
+       (css {|text-[light-dark(var(--a\_b),red)]|}))
+
 let tests =
   [
+    ( "Bracket colour underscore escape",
+      `Quick,
+      test_bracket_colour_underscore_escape );
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
     ( "Colour variable name is one ident",
       `Quick,

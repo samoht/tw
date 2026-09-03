@@ -68,6 +68,27 @@ let of_string_invalid () =
   fail_maybe [ "order" ];
   fail_maybe []
 
+(* [basis-*] and [flex-*] read the same fraction the sizing families do: any
+   numerator, zero included, over any positive denominator. Requiring a positive
+   numerator refused [basis-0/2], which the CLI emits.
+
+   [flex-0/2] is the one whose sheets do not compare equal: tw writes the [0%]
+   that Tailwind's [calc(0/2 * 100%)] computes to, and cascade reads the two
+   spellings of that declaration differently. *)
+let test_any_fraction_numerator () =
+  check "basis-0/2";
+  check "basis-1/7";
+  check "basis-13/17";
+  check "flex-0/2";
+  check "flex-1/7";
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+          which no browser can compute; tw refuses the class instead")
+    (module Tw.Flex_props.Handler)
+    "basis-1/0"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -168,6 +189,7 @@ let tests =
       test_basis_named_prefers_spacing;
     test_case "flex_props of_string - valid values" `Quick of_string_valid;
     test_case "flex_props of_string - invalid values" `Quick of_string_invalid;
+    test_case "any fraction numerator" `Quick test_any_fraction_numerator;
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;

@@ -765,10 +765,10 @@ let route_has_modifier modifier ~selector base_class props =
 
 (* Parse an aria expression string into an attribute name and match. "modal" →
    ("aria-modal", Presence) "valuenow=1" → ("aria-valuenow", Exact "1")
-   "invalid=spelling" → ("aria-invalid", Exact "spelling") Underscores in values
-   are replaced with spaces. *)
+   "invalid=spelling" → ("aria-invalid", Exact "spelling") The expression is an
+   arbitrary value, so [_] is a space in it and [\_] a literal underscore. *)
 let parse_aria_expr expr =
-  let expr = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let expr = Parse.decode_underscores expr in
   let expr = String.trim expr in
   match String.index_opt expr '=' with
   | None -> ("aria-" ^ expr, Css.Selector.Presence)
@@ -777,11 +777,16 @@ let parse_aria_expr expr =
       let raw_value =
         String.trim (String.sub expr (i + 1) (String.length expr - i - 1))
       in
-      (* Strip surrounding quotes if present *)
+      (* The quotes an author writes around the value are the attribute
+         selector's own, which the printer puts back; either style spells the
+         same value. *)
       let value =
         let len = String.length raw_value in
-        if len >= 2 && raw_value.[0] = '"' && raw_value.[len - 1] = '"' then
-          String.sub raw_value 1 (len - 2)
+        if
+          len >= 2
+          && (raw_value.[0] = '"' || raw_value.[0] = '\'')
+          && raw_value.[len - 1] = raw_value.[0]
+        then String.sub raw_value 1 (len - 2)
         else raw_value
       in
       ("aria-" ^ attr, Css.Selector.Exact value)
@@ -1184,8 +1189,7 @@ let handle_not_modifier ?theme inner_modifier base_class selector props =
     appropriate negated media condition. Handles double negation: not of "not
     (cond)" → positive cond. *)
 let parse_bracket_media content =
-  (* Convert underscores to spaces (Tailwind bracket convention) *)
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   (* Strip @media prefix *)
   let rest =
     String.trim
@@ -1317,7 +1321,7 @@ let handle_not_bracket content base_class props =
        [:not(.os-macos <star>)]. Parse the transformed string as a selector so
        combinators and compounds flatten, rather than escaping it as a single
        class name. *)
-    let sel_str = String.map (fun c -> if c = '_' then ' ' else c) content in
+    let sel_str = Parse.decode_underscores content in
     let inner =
       Cascade.Nest.substitute ~parent:Css.Selector.universal
         (Css.Selector.read (Cascade.Cursor.of_string sel_str))
@@ -1544,7 +1548,7 @@ let rec attach_to_subject extra sel =
 let arbitrary_selector_rule content base_class selector props =
   let open Css.Selector in
   (* In arbitrary variants, [_] denotes a space. *)
-  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let s = Parse.decode_underscores content in
   let modified_class = "[" ^ content ^ "]:" ^ base_class in
   (* What the inner rule compounded onto its own class, if that class is still
      the subject. Anything else (an inner variant that moved the subject) has no

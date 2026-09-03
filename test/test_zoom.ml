@@ -8,7 +8,11 @@ let test_roundtrip () =
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom";
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-1.5";
-  Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-unknown"
+  Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-unknown";
+  (* A zoom percentage is written in plain decimal. *)
+  Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-0x4";
+  Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-04";
+  Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-1_0"
 
 (* Tailwind emits [zoom-*] between the transforms and the animations. It sorted
    with the margins instead, at the priority a family gets when nobody has

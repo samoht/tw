@@ -30,9 +30,9 @@ module Handler = struct
     | Border_spacing_y of float
     (* The author's bracket text travels with the length it denotes, so the
        class name is spelled exactly as it was written. *)
-    | Border_spacing_arb of string * Css.length
-    | Border_spacing_x_arb of string * Css.length
-    | Border_spacing_y_arb of string * Css.length
+    | Border_spacing_arb of string * [ `Length of Css.length | `Raw of string ]
+    | Border_spacing_x_arb of string * [ `Length of Css.length | `Raw of string ]
+    | Border_spacing_y_arb of string * [ `Length of Css.length | `Raw of string ]
     | Table_auto
     | Table_fixed
     | Caption_top
@@ -160,6 +160,30 @@ module Handler = struct
       ~property_rules:(Css.concat property_rules)
       [ decl_y; Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ]
 
+  let raw_border_spacing_style axis value =
+    let property_rules =
+      [
+        Var.property_rule border_spacing_x_var;
+        Var.property_rule border_spacing_y_var;
+      ]
+      |> List.filter_map Fun.id |> Css.concat
+    in
+    let x_ref = Var.reference border_spacing_x_var in
+    let y_ref = Var.reference border_spacing_y_var in
+    let raw var =
+      Css.custom_property ~layer:"utilities" (Var.css_name var) value
+    in
+    let bindings =
+      match axis with
+      | `Both -> [ raw border_spacing_x_var; raw border_spacing_y_var ]
+      | `X -> [ raw border_spacing_x_var ]
+      | `Y -> [ raw border_spacing_y_var ]
+    in
+    style ~property_rules
+      ~metadata:
+        [ Var.metadata border_spacing_x_var; Var.metadata border_spacing_y_var ]
+      (bindings @ [ Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]) ])
+
   let to_style theme =
     let border_spacing_style n = border_spacing_style ~theme n in
     let border_spacing_x_style n = border_spacing_x_style ~theme n in
@@ -170,9 +194,12 @@ module Handler = struct
     | Border_spacing n -> border_spacing_style n
     | Border_spacing_x n -> border_spacing_x_style n
     | Border_spacing_y n -> border_spacing_y_style n
-    | Border_spacing_arb (_, len) -> border_spacing_arb_style len
-    | Border_spacing_x_arb (_, len) -> border_spacing_x_arb_style len
-    | Border_spacing_y_arb (_, len) -> border_spacing_y_arb_style len
+    | Border_spacing_arb (_, `Length len) -> border_spacing_arb_style len
+    | Border_spacing_x_arb (_, `Length len) -> border_spacing_x_arb_style len
+    | Border_spacing_y_arb (_, `Length len) -> border_spacing_y_arb_style len
+    | Border_spacing_arb (_, `Raw value) -> raw_border_spacing_style `Both value
+    | Border_spacing_x_arb (_, `Raw value) -> raw_border_spacing_style `X value
+    | Border_spacing_y_arb (_, `Raw value) -> raw_border_spacing_style `Y value
     | Table_auto -> style [ Css.table_layout Auto ]
     | Table_fixed -> style [ Css.table_layout Fixed ]
     | Caption_top -> style [ Css.caption_side Top ]
@@ -183,12 +210,12 @@ module Handler = struct
     | Caption_bottom | Caption_top -> 1
     | Border_collapse -> 30
     | Border_separate -> 31
-    | Border_spacing n -> 32 + int_of_float (n *. 10.)
-    | Border_spacing_arb _ -> 1000
-    | Border_spacing_x n -> 1032 + int_of_float (n *. 10.)
-    | Border_spacing_x_arb _ -> 2000
-    | Border_spacing_y n -> 2032 + int_of_float (n *. 10.)
-    | Border_spacing_y_arb _ -> 3000
+    (* Values share their property's slot and use the candidate-name tiebreaker.
+       Encoding a spacing magnitude in the suborder lets a large theme step
+       escape its family and cross transform-origin. *)
+    | Border_spacing _ | Border_spacing_arb _ -> 32
+    | Border_spacing_x _ | Border_spacing_x_arb _ -> 33
+    | Border_spacing_y _ | Border_spacing_y_arb _ -> 34
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -198,8 +225,11 @@ module Handler = struct
     | [ "border"; "spacing"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match Parse.arbitrary_length inner with
-        | Some len -> Ok (Border_spacing_arb (inner, len))
-        | None -> err_not_utility)
+        | Some len -> Ok (Border_spacing_arb (inner, `Length len))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Border_spacing_arb (inner, `Raw value))
+            | None -> err_not_utility))
     | [ "border"; "spacing"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing f)
@@ -207,8 +237,11 @@ module Handler = struct
     | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match Parse.arbitrary_length inner with
-        | Some len -> Ok (Border_spacing_x_arb (inner, len))
-        | None -> err_not_utility)
+        | Some len -> Ok (Border_spacing_x_arb (inner, `Length len))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Border_spacing_x_arb (inner, `Raw value))
+            | None -> err_not_utility))
     | [ "border"; "spacing"; "x"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-x" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_x f)
@@ -216,8 +249,11 @@ module Handler = struct
     | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match Parse.arbitrary_length inner with
-        | Some len -> Ok (Border_spacing_y_arb (inner, len))
-        | None -> err_not_utility)
+        | Some len -> Ok (Border_spacing_y_arb (inner, `Length len))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Border_spacing_y_arb (inner, `Raw value))
+            | None -> err_not_utility))
     | [ "border"; "spacing"; "y"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-y" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_y f)

@@ -28,6 +28,9 @@ type variant_component = {
   breakpoint : Css.Media.key option;
       (** The width a breakpoint token names, so [sm] and [md] do not collapse
           onto one key. [None] for every other token. *)
+  reverse_breakpoint : bool;
+      (** [true] when a [not-*] token negates the breakpoint it names. The
+          rendered query reverses direction, but its variant order does not. *)
   wrapped : int list;
       (** The recursive path of variants a compound token wraps, so
           [group-has-indeterminate] and [group-has-focus] keep their inner state

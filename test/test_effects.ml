@@ -345,9 +345,12 @@ let test_arbitrary_shadow_lengths () =
     "--tw-inset-shadow: inset 0 1px 2px 3px var(--tw-inset-shadow-color, \
      #000000)"
     "inset-shadow-[0_1px_2px_3px_#000]";
-  match Tw.of_string "shadow-[0_bogus_2px]" with
-  | Ok _ -> Alcotest.fail "expected shadow-[0_bogus_2px] to be rejected"
-  | Error _ -> ()
+  emits "--tw-shadow: 0 var(--tw-shadow-color,bogus) 2px" "shadow-[0_bogus_2px]";
+  emits
+    "--tw-shadow: 0 var(--tw-shadow-color,oklab(from bogus l a b / 50%)) 2px"
+    "shadow-[0_bogus_2px]/50";
+  emits "--tw-inset-shadow: inset 0 var(--tw-inset-shadow-color,bogus) 2px"
+    "inset-shadow-[0_bogus_2px]"
 
 let test_arbitrary_shadow_colour_opacity () =
   let css cls =
@@ -441,21 +444,16 @@ let test_shadow_bracket_alpha_tracking () =
   has "shadow-lg/[25%]" "--tw-shadow-alpha:25%";
   has "shadow-lg/50" "--tw-shadow-alpha:50%"
 
-(* An arbitrary shadow that is not a shadow is not a utility: it used to fall
-   back to the zero shadow. *)
-let test_invalid_arbitrary_shadow () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* Tailwind forwards a declaration-safe arbitrary shadow token stream even when
+   it is not a valid shadow value. *)
+let test_arbitrary_shadow_token_stream () =
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "shadow-[<value>]";
-  rejected "inset-shadow-[<value>]";
+  accepted "shadow-[<value>]";
+  accepted "inset-shadow-[<value>]";
   accepted "shadow-[0_1px_2px_#000]";
   accepted "inset-shadow-[0_1px_2px_#000]"
 
@@ -463,32 +461,27 @@ let test_invalid_arbitrary_shadow () =
    spelling. The bracket-colour reader handed everything after the [#] to the
    raising constructor from inside [of_class], so a malformed hex escaped the
    parser as an exception instead of failing the match. *)
-let test_invalid_bracket_hex () =
+let test_arbitrary_bracket_color_token_stream () =
   let css cls =
     match Tw.of_string cls with
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
   in
   let emits cls affix =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
   List.iter
     (fun prefix ->
-      rejected (prefix ^ "-[#zz]");
-      rejected (prefix ^ "-[#]");
-      rejected (prefix ^ "-[#12345]");
-      rejected (prefix ^ "-[#zz]/50"))
+      ignore (css (prefix ^ "-[#zz]"));
+      ignore (css (prefix ^ "-[#]"));
+      ignore (css (prefix ^ "-[#12345]"));
+      ignore (css (prefix ^ "-[#zz]/50")))
     [ "shadow"; "ring"; "inset-shadow"; "inset-ring"; "ring-offset" ];
   (* The colour of an arbitrary shadow is read the same way. *)
-  rejected "shadow-[0_1px_2px_#zz]";
-  rejected "shadow-[0_1px_2px_#12345]";
-  rejected "shadow-[0_1px_2px_#zz]/50";
-  rejected "inset-shadow-[0_1px_2px_#zz]";
+  ignore (css "shadow-[0_1px_2px_#zz]");
+  ignore (css "shadow-[0_1px_2px_#12345]");
+  ignore (css "shadow-[0_1px_2px_#zz]/50");
+  ignore (css "inset-shadow-[0_1px_2px_#zz]");
   emits "shadow-[#abc]" "--tw-shadow-color:#abc";
   emits "ring-[#123456]" "--tw-ring-color:#123456";
   emits "inset-shadow-[#abc]" "--tw-inset-shadow-color:#abc";
@@ -577,9 +570,25 @@ let test_project_shadow_tokens () =
     "an undeclared shadow name is rejected" true
     (Result.is_error (Tw.of_string ~theme "shadow-nope"))
 
+(* A shadow's parts are separated by the [_] that stands for a space, so a
+   variable name carrying an underscore of its own is written [\_]. *)
+let test_shadow_underscore_escape () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  Alcotest.(check bool)
+    "an escaped underscore stays in the variable name" true
+    (Astring.String.is_infix
+       ~affix:"0 0 0 1px var(--tw-shadow-color, var(--a_b))"
+       (css {|shadow-[0_0_0_1px_var(--a\_b)]|}))
+
 let tests =
   [
-    test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
+    test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;
+    test_case "arbitrary bracket color token stream" `Quick
+      test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
@@ -598,7 +607,8 @@ let tests =
       test_bracket_hex_opacity_var;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
-    test_case "invalid arbitrary shadow" `Quick test_invalid_arbitrary_shadow;
+    test_case "arbitrary shadow token stream" `Quick
+      test_arbitrary_shadow_token_stream;
     test_case "shadow-2xl default alpha" `Quick test_shadow_2xl_alpha;
     test_case "shadow-2xs/xs small sizes" `Quick test_shadow_small_sizes;
     test_case "inset-shadow roundtrip" `Quick test_inset_shadow_roundtrip;
