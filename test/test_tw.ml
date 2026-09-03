@@ -519,6 +519,29 @@ let theme_function_alpha_reads_any_palette_value () =
     (Astring.String.is_infix ~affix:"theme(colors.red"
        (css "[color:theme(colors.red.500/abc)]"))
 
+(* [theme()] resolves against the project's own binding and the resolved value
+   is written back into the class string, which reads a bare [_] as a space. A
+   project that binds a palette entry to a variable whose name carries an
+   underscore lost it: [var(--brand_red)] came back as [var(--brand red)], which
+   names a different variable, and an arbitrary property carrying it was dropped
+   outright. Tailwind v4.3.3 emits [var(--brand_red)] for the same theme, under
+   the class the source spells. *)
+let theme_function_keeps_an_underscore () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("color-red-500", "var(--brand_red)") ]
+  in
+  match Tw.of_string ~theme "[color:theme(colors.red.500)]" with
+  | Error (`Msg m) -> Alcotest.failf "[color:theme(colors.red.500)]: %s" m
+  | Ok u ->
+      let css = Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string in
+      Alcotest.(check bool)
+        "the variable name keeps its underscore" true
+        (Astring.String.is_infix ~affix:"var(--brand_red)" css);
+      Alcotest.(check string)
+        "the class is the one the source spells" "[color:theme(colors.red.500)]"
+        (Tw.to_classes [ u ])
+
 let custom_breakpoint_theme_is_local () =
   let theme : Tw.Scheme.t =
     { Tw.Scheme.default with breakpoints = [ ("10xl", 1600.) ] }
@@ -1453,6 +1476,8 @@ let core_tests =
       theme_function_reads_the_project_palette;
     test_case "theme() alpha reads any palette value" `Quick
       theme_function_alpha_reads_any_palette_value;
+    test_case "theme() keeps an underscore" `Quick
+      theme_function_keeps_an_underscore;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
