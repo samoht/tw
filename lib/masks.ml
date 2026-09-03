@@ -359,8 +359,15 @@ module Handler = struct
             Css.webkit_mask_image (Var var_ref);
             Css.mask_image (Var var_ref);
           ]
-    | Bracket_url url ->
-        style [ Css.webkit_mask_image (Url url); Css.mask_image (Url url) ]
+    (* The whole [url()] is kept, so cascade reads the token rather than masks
+       slicing the file name out of it: the quotes are the tokeniser's, and an
+       escape in it stands for one character of the URL. [of_class] refuses a
+       value the token reader will not take, so [None] names nothing. *)
+    | Bracket_url v -> (
+        match Parse.url_token (Parse.decode_arbitrary_value v) with
+        | Some url ->
+            style [ Css.webkit_mask_image (Url url); Css.mask_image (Url url) ]
+        | None -> style [])
     | Bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -551,9 +558,10 @@ module Handler = struct
            between the first [(] and the last [)] and so swallows the comma of a
            layer list. *)
         | _ when is_image_value inner -> Ok (Bracket_image inner)
-        | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
-            let url_content = String.sub inner 4 (String.length inner - 5) in
-            Ok (Bracket_url url_content)
+        | _ when String.starts_with ~prefix:"url(" inner -> (
+            match Parse.url_token (Parse.decode_arbitrary_value inner) with
+            | Some _ -> Ok (Bracket_url inner)
+            | None -> Error (`Msg ("Unknown mask bracket url: " ^ inner)))
         | _ when Parse.is_var inner -> Ok (Bracket_var inner)
         | _ -> (
             match parse_bracket_position inner with
@@ -610,7 +618,7 @@ module Handler = struct
     | Bracket_position (v, _) -> "mask-[" ^ v ^ "]"
     | Bracket_typed_position (v, _) -> "mask-[position:" ^ v ^ "]"
     | Bracket_image_var v -> "mask-[image:" ^ v ^ "]"
-    | Bracket_url url -> "mask-[url(" ^ url ^ ")]"
+    | Bracket_url v -> "mask-[" ^ v ^ "]"
     | Bracket_url_var v -> "mask-[url:" ^ v ^ "]"
     | Bracket_var v -> "mask-[" ^ v ^ "]"
     | Bracket_image v -> "mask-[" ^ v ^ "]"

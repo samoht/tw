@@ -189,6 +189,10 @@
 - `mask-[url(...)]` keeps the bare underscore a file name carries, the way
   `bg-[url(...)]` already does: it named a different file, with a space in it
   (#688).
+- `mask-[url(...)]` reads the whole `url()` with the CSS tokeniser, so a bracket
+  carrying anything after it is refused rather than sliced.
+  `mask-[url(x.png)_center]` emitted `mask-image: url("x.png)_cente")` under
+  `.mask-\[url\(x\.png\)_cente\)\]`, a selector no markup carries (#PR).
 - An arbitrary value keeps the underscore its `\_` escape spells, so
   `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
   the sheet as written instead of carrying the backslash into the value (#676).
