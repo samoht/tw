@@ -116,10 +116,19 @@ let named_inset_value name : Css.declaration * Css.length =
 let spacing_value ?theme n : Css.declaration * Css.length =
   Theme.spacing_calc ?theme n
 
-(* The physical/axis inset sides that take the spacing scale, so a fractional
-   step (top-2.5) or the px step (left-px) can share one constructor. *)
+(* The inset sides that take the spacing scale, so a fractional step (top-2.5)
+   or the px step (left-px) can share one constructor. *)
 module Side = struct
-  type t = Top | Right | Bottom | Left | Inset | Inset_x | Inset_y
+  type t =
+    | Top
+    | Right
+    | Bottom
+    | Left
+    | Inset
+    | Inset_x
+    | Inset_y
+    | Start
+    | End
 
   let name = function
     | Top -> "top"
@@ -129,6 +138,13 @@ module Side = struct
     | Inset -> "inset"
     | Inset_x -> "inset-x"
     | Inset_y -> "inset-y"
+    | Start -> "start"
+    | End -> "end"
+
+  (* Tailwind folds the zero and unit multipliers of the spacing scale to [0px]
+     and [var(--spacing)], but its [start]/[end] handler resolves the step
+     itself and keeps [calc(var(--spacing) * n)] for every step. *)
+  let folds_spacing_scale = function Start | End -> false | _ -> true
 end
 
 (* [top-2.5] / [right-0.5] / [left-px]: a spacing token that is not a plain
@@ -142,18 +158,23 @@ let parse_pos_spacing s : Style.spacing option =
 
 (* Resolve a spacing token to (optional --spacing binding, length), mirroring
    the padding family so the px and fractional steps render identically. *)
-let len_of_pos_spacing ?theme (s : Style.spacing) :
+let len_of_pos_spacing ?theme side (s : Style.spacing) :
     Css.declaration option * Css.length =
   match s with
   | `Rem f ->
-      let decl, len = Theme.spacing_calc_float ?theme (f /. 0.25) in
+      let step = f /. 0.25 in
+      let decl, len =
+        if Side.folds_spacing_scale side then
+          Theme.spacing_calc_float ?theme step
+        else Theme.spacing_product ?theme step
+      in
       (Some decl, len)
   | `Px -> (None, Css.Px 1.)
   | `Full -> (None, Css.Pct 100.)
   | `Named name -> (None, Css.Var (Var.theme_ref ("spacing-" ^ name)))
 
 let pos_spacing_style ?theme side (s : Style.spacing) =
-  let decl_opt, len = len_of_pos_spacing ?theme s in
+  let decl_opt, len = len_of_pos_spacing ?theme side s in
   let decls = Option.to_list decl_opt in
   let body =
     match side with
@@ -164,6 +185,8 @@ let pos_spacing_style ?theme side (s : Style.spacing) =
     | Side.Inset -> [ Css.inset [ len ] ]
     | Side.Inset_x -> [ Css.inset_inline [ len ] ]
     | Side.Inset_y -> [ Css.inset_block [ len ] ]
+    | Side.Start -> [ Css.inset_inline_start len ]
+    | Side.End -> [ Css.inset_inline_end len ]
   in
   Style.style (decls @ body)
 
@@ -174,7 +197,7 @@ let neg_pos_spacing_style ?theme side (s : Style.spacing) =
   let negated : Style.spacing =
     match s with `Rem f -> `Rem (-.f) | other -> other
   in
-  let decl_opt, len = len_of_pos_spacing ?theme negated in
+  let decl_opt, len = len_of_pos_spacing ?theme side negated in
   let len = match s with `Px -> negate_length len | _ -> len in
   let decls = Option.to_list decl_opt in
   let body =
@@ -186,6 +209,8 @@ let neg_pos_spacing_style ?theme side (s : Style.spacing) =
     | Side.Inset -> [ Css.inset [ len ] ]
     | Side.Inset_x -> [ Css.inset_inline [ len ] ]
     | Side.Inset_y -> [ Css.inset_block [ len ] ]
+    | Side.Start -> [ Css.inset_inline_start len ]
+    | Side.End -> [ Css.inset_inline_end len ]
   in
   Style.style (decls @ body)
 
@@ -316,14 +341,16 @@ module Handler = struct
     | Neg_left_arbitrary of string * Css.length
       (* raw bracket suffix kept for the class name; value is negated *)
     | Left_named of string
-    | Start of int
     | Start_auto
     | Start_full
-    | Start_3_4
-    | End of int
+    | Neg_start_full
+    | Start_fraction of string
+    | Neg_start_fraction of string
     | End_auto
     | End_full
-    | End_3_4
+    | Neg_end_full
+    | End_fraction of string
+    | Neg_end_fraction of string
 
   (** Extensible variant for position utilities *)
 
@@ -485,18 +512,17 @@ module Handler = struct
     | Left_named name ->
         let decl, value = named_inset_value name in
         style (decl :: [ Css.left value ])
-    | Start n ->
-        let decl, value = spacing_value n in
-        style (decl :: [ Css.inset_inline_start value ])
     | Start_auto -> style [ Css.inset_inline_start Auto ]
     | Start_full -> style [ Css.inset_inline_start (Pct 100.0) ]
-    | Start_3_4 -> style [ Css.inset_inline_start (Pct 75.0) ]
-    | End n ->
-        let decl, value = spacing_value n in
-        style (decl :: [ Css.inset_inline_end value ])
+    | Neg_start_full -> style [ Css.inset_inline_start (Pct (-100.0)) ]
+    | Start_fraction f -> style [ Css.inset_inline_start (Pct (frac_pct f)) ]
+    | Neg_start_fraction f ->
+        style [ Css.inset_inline_start (Pct (-.frac_pct f)) ]
     | End_auto -> style [ Css.inset_inline_end Auto ]
     | End_full -> style [ Css.inset_inline_end (Pct 100.0) ]
-    | End_3_4 -> style [ Css.inset_inline_end (Pct 75.0) ]
+    | Neg_end_full -> style [ Css.inset_inline_end (Pct (-100.0)) ]
+    | End_fraction f -> style [ Css.inset_inline_end (Pct (frac_pct f)) ]
+    | Neg_end_fraction f -> style [ Css.inset_inline_end (Pct (-.frac_pct f)) ]
 
   let int_of_string_with_sign = Parse.int_any
 
@@ -539,13 +565,17 @@ module Handler = struct
     | Inset_y_0 | Inset_y_auto | Inset_y_full | Neg_inset_y_full | Inset_y_3_4
     | Inset_y _ | Inset_y_arbitrary _ | Inset_y_named _ ->
         inset_y
+    | Pos_spacing (Side.Start, _)
+    | Neg_pos_spacing (Side.Start, _)
     | Inset_s _ | Inset_s_arbitrary _ | Inset_s_named _ | Inset_s_auto
-    | Inset_s_full | Neg_inset_s_full | Inset_s_3_4 | Start _ | Start_auto
-    | Start_full | Start_3_4 ->
+    | Inset_s_full | Neg_inset_s_full | Inset_s_3_4 | Start_auto | Start_full
+    | Neg_start_full | Start_fraction _ | Neg_start_fraction _ ->
         start
+    | Pos_spacing (Side.End, _)
+    | Neg_pos_spacing (Side.End, _)
     | Inset_e _ | Inset_e_arbitrary _ | Inset_e_named _ | Inset_e_auto
-    | Inset_e_full | Neg_inset_e_full | Inset_e_3_4 | End _ | End_auto
-    | End_full | End_3_4 ->
+    | Inset_e_full | Neg_inset_e_full | Inset_e_3_4 | End_auto | End_full
+    | Neg_end_full | End_fraction _ | Neg_end_fraction _ ->
         e
     | Inset_bs _ | Inset_bs_arbitrary _ | Inset_bs_named _ | Inset_bs_auto
     | Inset_bs_full | Neg_inset_bs_full | Inset_bs_3_4 ->
@@ -597,6 +627,14 @@ module Handler = struct
       | Some (`Rem f) when not (Theme.has_spacing_step ~theme (f /. 0.25)) ->
           None
       | parsed -> parsed
+    in
+    (* [start-4] and [start-0.5] share one constructor: the logical inline sides
+       have no separate integer step, so their reader spans the scale. *)
+    let parse_scale_step n : Style.spacing option =
+      match int_of_string_with_sign n with
+      | Ok x when x >= 0 -> Some (`Rem (float_of_int x *. 0.25))
+      | Ok _ -> None
+      | Error _ -> parse_pos_spacing n
     in
     let parts = Parse.split_class class_name in
     match parts with
@@ -855,19 +893,32 @@ module Handler = struct
                 match parse_pos_spacing n with
                 | Some sp -> Ok (Neg_pos_spacing (Side.Left, sp))
                 | None -> Error (`Msg "invalid"))))
-    | [ "start"; "3/4" ] -> Ok Start_3_4
     | [ "start"; "auto" ] -> Ok Start_auto
     | [ "start"; "full" ] -> Ok Start_full
-    | [ "start"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Start x)
-    | [ ""; "start"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Start (-x))
-    | [ "end"; "3/4" ] -> Ok End_3_4
+    | [ ""; "start"; "full" ] -> Ok Neg_start_full
+    | [ "start"; frac ] when frac_valid frac -> Ok (Start_fraction frac)
+    | [ ""; "start"; frac ] when frac_valid frac -> Ok (Neg_start_fraction frac)
+    | [ "start"; n ] -> (
+        match parse_scale_step n with
+        | Some sp -> Ok (Pos_spacing (Side.Start, sp))
+        | None -> Error (`Msg "invalid"))
+    | [ ""; "start"; n ] -> (
+        match parse_scale_step n with
+        | Some sp -> Ok (Neg_pos_spacing (Side.Start, sp))
+        | None -> Error (`Msg "invalid"))
     | [ "end"; "auto" ] -> Ok End_auto
     | [ "end"; "full" ] -> Ok End_full
-    | [ "end"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> End x)
-    | [ ""; "end"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> End (-x))
+    | [ ""; "end"; "full" ] -> Ok Neg_end_full
+    | [ "end"; frac ] when frac_valid frac -> Ok (End_fraction frac)
+    | [ ""; "end"; frac ] when frac_valid frac -> Ok (Neg_end_fraction frac)
+    | [ "end"; n ] -> (
+        match parse_scale_step n with
+        | Some sp -> Ok (Pos_spacing (Side.End, sp))
+        | None -> Error (`Msg "invalid"))
+    | [ ""; "end"; n ] -> (
+        match parse_scale_step n with
+        | Some sp -> Ok (Neg_pos_spacing (Side.End, sp))
+        | None -> Error (`Msg "invalid"))
     | _ -> Error (`Msg "Not a position utility")
 
   let to_class = function
@@ -992,18 +1043,16 @@ module Handler = struct
     | Left_arbitrary (raw, _) -> "left-" ^ raw
     | Neg_left_arbitrary (raw, _) -> "-left-" ^ raw
     | Left_named name -> "left-" ^ name
-    | Start_3_4 -> "start-3/4"
     | Start_auto -> "start-auto"
     | Start_full -> "start-full"
-    | Start n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "start-" ^ string_of_int (abs n)
-    | End_3_4 -> "end-3/4"
+    | Neg_start_full -> "-start-full"
+    | Start_fraction f -> "start-" ^ f
+    | Neg_start_fraction f -> "-start-" ^ f
     | End_auto -> "end-auto"
     | End_full -> "end-full"
-    | End n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "end-" ^ string_of_int (abs n)
+    | Neg_end_full -> "-end-full"
+    | End_fraction f -> "end-" ^ f
+    | Neg_end_fraction f -> "-end-" ^ f
 
   let examples =
     [

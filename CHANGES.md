@@ -85,6 +85,10 @@
   any shape, and a negated arbitrary inset accepts a parenthesised calc body,
   so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
   work alongside the numeric steps (#160, #166, #172, #186, #210, #646).
+- `start-*` and `end-*` carry the same inset scale as the physical sides and
+  keep the `calc(var(--spacing) * n)` Tailwind writes for every step, so
+  `start-px`, `start-0.5` and `start-1/2` resolve and `start-0` no longer drops
+  `--spacing` from the theme layer (#674).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a

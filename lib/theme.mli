@@ -38,3 +38,10 @@ val spacing_calc_float :
   ?theme:Scheme.t -> float -> Css.declaration * Css.length
 (** [spacing_calc_float ?theme n] is like {!spacing_calc} but accepts float
     multipliers such as [2.5] for classes like [my-2.5]. *)
+
+val spacing_product : ?theme:Scheme.t -> float -> Css.declaration * Css.length
+(** [spacing_product ?theme n] is {!spacing_calc_float} without the folding:
+    [calc(var(--spacing) * n)] for every multiplier, the zero and unit ones
+    included. A scheme that binds the step outright still wins, as it does for
+    {!spacing_calc}. Tailwind's [start-*] and [end-*] utilities resolve the step
+    themselves and write the product out in full. *)
