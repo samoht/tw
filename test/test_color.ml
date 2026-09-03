@@ -1013,6 +1013,68 @@ let test_bracket_colour_underscore_escape () =
     (Astring.String.is_infix ~affix:"color: light-dark(var(--a_b), red)"
        (css {|text-[light-dark(var(--a\_b),red)]|}))
 
+(* The theme layer and the utilities layer rank the same colour names in
+   different orders, and a name missing from either map silently takes that
+   map's unknown-colour slot. Both are derived from one list, so the pairing
+   holds by construction; this is what fails if that stops being true. *)
+let ranked_color_names =
+  [
+    "transparent";
+    "black";
+    "white";
+    "red";
+    "orange";
+    "amber";
+    "yellow";
+    "lime";
+    "green";
+    "emerald";
+    "teal";
+    "cyan";
+    "sky";
+    "blue";
+    "indigo";
+    "violet";
+    "purple";
+    "fuchsia";
+    "pink";
+    "rose";
+    "slate";
+    "gray";
+    "zinc";
+    "neutral";
+    "stone";
+  ]
+
+let test_color_orders_cover_the_same_names () =
+  let unknown_theme = Tw.Color.theme_order "definitely-not-a-colour" in
+  let unknown_utilities = Tw.Color.utilities_order "definitely-not-a-colour" in
+  Alcotest.(check (pair int int))
+    "unknown theme colour falls back" (2, 100000) unknown_theme;
+  Alcotest.(check (pair int int))
+    "unknown utility colour falls back" (2, 100) unknown_utilities;
+  List.iter
+    (fun name ->
+      Alcotest.(check bool)
+        (name ^ " has a theme slot")
+        false
+        (Tw.Color.theme_order name = unknown_theme);
+      Alcotest.(check bool)
+        (name ^ " has a utilities slot")
+        false
+        (Tw.Color.utilities_order name = unknown_utilities))
+    ranked_color_names
+
+(* The utilities layer leads with transparent and black and is alphabetical from
+   there. *)
+let test_utilities_color_order_is_alphabetical () =
+  let order name = snd (Tw.Color.utilities_order name) in
+  Alcotest.(check int) "transparent leads" 0 (order "transparent");
+  Alcotest.(check int) "black follows" 1 (order "black");
+  Alcotest.(check int) "amber opens the alphabetical run" 2 (order "amber");
+  Alcotest.(check int) "white sits between violet and yellow" 22 (order "white");
+  Alcotest.(check int) "zinc closes it" 24 (order "zinc")
+
 let tests =
   [
     ( "Bracket colour underscore escape",
@@ -1083,6 +1145,12 @@ let tests =
       test_removed_mix_token_stays_runtime );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
     ("Out-of-gamut OKLCH", `Quick, test_out_of_gamut_oklch);
+    ( "Colour orders cover the same names",
+      `Quick,
+      test_color_orders_cover_the_same_names );
+    ( "Utilities colour order is alphabetical",
+      `Quick,
+      test_utilities_color_order_is_alphabetical );
   ]
 
 let suite = ("color", tests)

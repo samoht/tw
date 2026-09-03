@@ -1301,36 +1301,20 @@ let theme_color_order_map =
     ("white", 24);
   ]
 
-(* Utilities layer color ordering map for conflict resolution. *)
+(* Utilities layer color ordering map for conflict resolution. The utilities
+   layer ranks the same names the theme layer does, but by its own rule:
+   [transparent] and [black] lead and the rest are alphabetical. Reading the
+   names off the theme map is what keeps a colour added there from silently
+   taking the unknown-colour slot here. *)
 let utilities_color_order_map =
-  [
-    (* Basic colors come first *)
-    ("transparent", 0);
-    ("black", 1);
-    ("amber", 2);
-    ("blue", 3);
-    ("cyan", 4);
-    ("emerald", 5);
-    ("fuchsia", 6);
-    ("gray", 7);
-    ("green", 8);
-    ("indigo", 9);
-    ("lime", 10);
-    ("neutral", 11);
-    ("orange", 12);
-    ("pink", 13);
-    ("purple", 14);
-    ("red", 15);
-    ("rose", 16);
-    ("sky", 17);
-    ("slate", 18);
-    ("stone", 19);
-    ("teal", 20);
-    ("violet", 21);
-    ("white", 22);
-    ("yellow", 23);
-    ("zinc", 24);
-  ]
+  let leading = [ "transparent"; "black" ] in
+  let alphabetical =
+    List.sort String.compare
+      (List.filter_map
+         (fun (name, _) -> if List.mem name leading then None else Some name)
+         theme_color_order_map)
+  in
+  List.mapi (fun index name -> (name, index)) (leading @ alphabetical)
 
 (* Get theme layer order for a color variable. Returns (priority=2, suborder)
    where 2 indicates these are theme layer variables. *)
