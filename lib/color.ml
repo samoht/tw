@@ -1917,10 +1917,11 @@ module Handler = struct
             | Some value -> parse_theme_color value
             | None -> to_css ?theme c (if is_base_color c then 500 else shade)))
 
-  (* Aliases for color constructors/functions that will be shadowed by open
-     Css *)
+  (* Aliases for names that open Css shadows: the color constructors below, and
+     [Pp], whose byte formatter cascade's own [Pp] does not carry. *)
   let mk_color_hex s : color = Hex s
   let color_of_string = of_string
+  let hex_byte = Pp.hex_byte
 
   open Style
   open Css
@@ -2462,10 +2463,6 @@ module Handler = struct
         Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
     | Var _ | Calc _ -> Alpha_unresolvable
 
-  let to_hex_byte n =
-    let hex = "0123456789abcdef" in
-    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
-
   (** Convert a typed CSS color to a hex string for Tailwind parity *)
   let css_color_to_hex (c : Css.color) : Css.color option =
     let hex_of_bytes bytes = Some (Css.hex ("#" ^ shorten_hex_str bytes)) in
@@ -2473,17 +2470,16 @@ module Handler = struct
     | Rgb (Channels { r; g; b }) -> (
         match (channel_to_int r, channel_to_int g, channel_to_int b) with
         | Some r, Some g, Some b ->
-            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b)
         | _ -> None)
     | Rgba { rgb = Channels { r; g; b }; a; _ } -> (
         match
           (channel_to_int r, channel_to_int g, channel_to_int b, fold_alpha a)
         with
         | Some r, Some g, Some b, Opaque ->
-            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b)
         | Some r, Some g, Some b, Alpha_byte a ->
-            hex_of_bytes
-              (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b ^ to_hex_byte a)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b ^ hex_byte a)
         | _ -> None)
     | Hsl _ -> (
         (* Fold through cascade's own colour path: it knows every hue unit and
@@ -2494,8 +2490,8 @@ module Handler = struct
           Cascade.Values.nonkeyword_color (Cascade.Values.normalize_color c)
         with
         | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-            let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
-            hex_of_bytes (if a = 255 then hex else hex ^ to_hex_byte a)
+            let hex = hex_byte r ^ hex_byte g ^ hex_byte b in
+            hex_of_bytes (if a = 255 then hex else hex ^ hex_byte a)
         | _ -> None)
     | _ -> None
 
@@ -2507,7 +2503,7 @@ module Handler = struct
     match css_color with
     | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
         let value = hex_string_of_rgb (r, g, b) in
-        let value = if a = 255 then value else value ^ to_hex_byte a in
+        let value = if a = 255 then value else value ^ hex_byte a in
         Css.hex ("#" ^ shorten_hex_str value)
     | _ -> (
         match css_color_to_hex css_color with
