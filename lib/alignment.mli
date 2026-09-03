@@ -82,9 +82,6 @@ val content_center_safe : t
 val content_end_safe : t
 (** [content_end_safe] aligns content to end with safe overflow. *)
 
-val content_start_safe : t
-(** [content_start_safe] aligns content to start with safe overflow. *)
-
 (** {1 Align Self Utilities} *)
 
 val self_auto : t
@@ -190,9 +187,6 @@ val place_items_center_safe : t
 
 val place_items_end_safe : t
 (** [place_items_end_safe] places items at end with safe overflow. *)
-
-val place_items_start_safe : t
-(** [place_items_start_safe] places items at start with safe overflow. *)
 
 (** {1 Place Self Utilities} *)
 

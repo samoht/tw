@@ -9,6 +9,8 @@
 
     What's not:
     - Advanced grid alignment features not covered by basic flex/grid alignment.
+    - `-safe` on any position but `center` and `end`: Tailwind offers the
+      overflow-position suffix on those two alone, in every family.
 
     Parsing contract (`of_string`):
     - Accepts ["justify"; ...], ["items"; ...], ["content"; ...], ["self"; ...],
@@ -42,7 +44,6 @@ module Handler = struct
     | Items_baseline_last
     | Items_center_safe
     | Items_end_safe
-    | Items_start_safe
     | (* Align content *)
       Content_start
     | Content_end
@@ -55,7 +56,6 @@ module Handler = struct
     | Content_normal
     | Content_center_safe
     | Content_end_safe
-    | Content_start_safe
     | (* Align self *)
       Self_auto
     | Self_start
@@ -66,7 +66,6 @@ module Handler = struct
     | Self_stretch
     | Self_center_safe
     | Self_end_safe
-    | Self_start_safe
     | (* Justify items *)
       Justify_items_start
     | Justify_items_end
@@ -83,7 +82,6 @@ module Handler = struct
     | Justify_self_stretch
     | Justify_self_center_safe
     | Justify_self_end_safe
-    | Justify_self_start_safe
     | (* Place content *)
       Place_content_start
     | Place_content_end
@@ -95,7 +93,6 @@ module Handler = struct
     | Place_content_baseline
     | Place_content_center_safe
     | Place_content_end_safe
-    | Place_content_start_safe
     | (* Place items *)
       Place_items_start
     | Place_items_end
@@ -104,7 +101,6 @@ module Handler = struct
     | Place_items_baseline
     | Place_items_center_safe
     | Place_items_end_safe
-    | Place_items_start_safe
     | (* Place self *)
       Place_self_auto
     | Place_self_start
@@ -139,7 +135,6 @@ module Handler = struct
   let items_baseline_last = style [ align_items Last_baseline ]
   let items_center_safe = style [ align_items Safe_center ]
   let items_end_safe = style [ align_items Safe_flex_end ]
-  let items_start_safe = style [ align_items Safe_flex_start ]
   let content_start = style [ align_content Flex_start ]
   let content_end = style [ align_content Flex_end ]
   let content_center = style [ align_content Center ]
@@ -151,7 +146,6 @@ module Handler = struct
   let content_normal = style [ align_content Normal ]
   let content_center_safe = style [ align_content Safe_center ]
   let content_end_safe = style [ align_content Safe_flex_end ]
-  let content_start_safe = style [ align_content Safe_flex_start ]
   let self_auto = style [ align_self Auto ]
   let self_start = style [ align_self Flex_start ]
   let self_end = style [ align_self Flex_end ]
@@ -161,7 +155,6 @@ module Handler = struct
   let self_stretch = style [ align_self Stretch ]
   let self_center_safe = style [ align_self Safe_center ]
   let self_end_safe = style [ align_self Safe_flex_end ]
-  let self_start_safe = style [ align_self Safe_flex_start ]
   let justify_items_start = style [ justify_items Start ]
   let justify_items_end = style [ justify_items End ]
   let justify_items_center = style [ justify_items Center ]
@@ -176,7 +169,6 @@ module Handler = struct
   let justify_self_stretch = style [ justify_self Stretch ]
   let justify_self_center_safe = style [ justify_self Safe_center ]
   let justify_self_end_safe = style [ justify_self Safe_flex_end ]
-  let justify_self_start_safe = style [ justify_self Safe_flex_start ]
   let place_content_start = style [ place_content Start ]
   let place_content_end = style [ place_content End ]
   let place_content_center = style [ place_content Center ]
@@ -190,7 +182,6 @@ module Handler = struct
 
   let place_content_center_safe = style [ place_content Safe_center ]
   let place_content_end_safe = style [ place_content Safe_end ]
-  let place_content_start_safe = style [ place_content Safe_start ]
   let place_items_start = style [ place_items Start ]
   let place_items_end = style [ place_items End ]
   let place_items_center = style [ place_items Center ]
@@ -198,7 +189,6 @@ module Handler = struct
   let place_items_baseline = style [ place_items Baseline ]
   let place_items_center_safe = style [ place_items Center_safe ]
   let place_items_end_safe = style [ place_items End_safe ]
-  let place_items_start_safe = style [ place_items Start_safe ]
   let place_self_auto = style [ place_self (Auto, Auto) ]
   let place_self_start = style [ place_self (Start, Start) ]
   let place_self_end = style [ place_self (End, End) ]
@@ -232,7 +222,6 @@ module Handler = struct
     | Items_baseline_last -> ("items-baseline-last", items_baseline_last, 31)
     | Items_center_safe -> ("items-center-safe", items_center_safe, 33)
     | Items_end_safe -> ("items-end-safe", items_end_safe, 35)
-    | Items_start_safe -> ("items-start-safe", items_start_safe, 37)
     (* Align content *)
     | Content_start -> ("content-start", content_start, 29)
     | Content_end -> ("content-end", content_end, 25)
@@ -245,7 +234,6 @@ module Handler = struct
     | Content_normal -> ("content-normal", content_normal, 28)
     | Content_center_safe -> ("content-center-safe", content_center_safe, 24)
     | Content_end_safe -> ("content-end-safe", content_end_safe, 26)
-    | Content_start_safe -> ("content-start-safe", content_start_safe, 30)
     (* Align self *)
     | Self_auto -> ("self-auto", self_auto, 76010)
     | Self_start -> ("self-start", self_start, 76017)
@@ -256,7 +244,6 @@ module Handler = struct
     | Self_stretch -> ("self-stretch", self_stretch, 76019)
     | Self_center_safe -> ("self-center-safe", self_center_safe, 76014)
     | Self_end_safe -> ("self-end-safe", self_end_safe, 76016)
-    | Self_start_safe -> ("self-start-safe", self_start_safe, 76018)
     (* Justify items *)
     | Justify_items_start -> ("justify-items-start", justify_items_start, 74)
     | Justify_items_end -> ("justify-items-end", justify_items_end, 72)
@@ -279,8 +266,6 @@ module Handler = struct
         ("justify-self-center-safe", justify_self_center_safe, 76032)
     | Justify_self_end_safe ->
         ("justify-self-end-safe", justify_self_end_safe, 76034)
-    | Justify_self_start_safe ->
-        ("justify-self-start-safe", justify_self_start_safe, 76036)
     (* Place content *)
     | Place_content_start -> ("place-content-start", place_content_start, 8)
     | Place_content_end -> ("place-content-end", place_content_end, 5)
@@ -297,8 +282,6 @@ module Handler = struct
         ("place-content-center-safe", place_content_center_safe, 4)
     | Place_content_end_safe ->
         ("place-content-end-safe", place_content_end_safe, 6)
-    | Place_content_start_safe ->
-        ("place-content-start-safe", place_content_start_safe, 9)
     (* Place items *)
     | Place_items_start -> ("place-items-start", place_items_start, 15)
     | Place_items_end -> ("place-items-end", place_items_end, 13)
@@ -308,8 +291,6 @@ module Handler = struct
     | Place_items_center_safe ->
         ("place-items-center-safe", place_items_center_safe, 12)
     | Place_items_end_safe -> ("place-items-end-safe", place_items_end_safe, 14)
-    | Place_items_start_safe ->
-        ("place-items-start-safe", place_items_start_safe, 16)
     (* Place self *)
     | Place_self_auto -> ("place-self-auto", place_self_auto, 76000)
     | Place_self_start -> ("place-self-start", place_self_start, 76005)
@@ -344,7 +325,6 @@ module Handler = struct
       Items_baseline_last;
       Items_center_safe;
       Items_end_safe;
-      Items_start_safe;
       (* Align content *)
       Content_start;
       Content_end;
@@ -357,7 +337,6 @@ module Handler = struct
       Content_normal;
       Content_center_safe;
       Content_end_safe;
-      Content_start_safe;
       (* Align self *)
       Self_auto;
       Self_start;
@@ -368,7 +347,6 @@ module Handler = struct
       Self_stretch;
       Self_center_safe;
       Self_end_safe;
-      Self_start_safe;
       (* Justify items *)
       Justify_items_start;
       Justify_items_end;
@@ -385,7 +363,6 @@ module Handler = struct
       Justify_self_stretch;
       Justify_self_center_safe;
       Justify_self_end_safe;
-      Justify_self_start_safe;
       (* Place content *)
       Place_content_start;
       Place_content_end;
@@ -397,7 +374,6 @@ module Handler = struct
       Place_content_baseline;
       Place_content_center_safe;
       Place_content_end_safe;
-      Place_content_start_safe;
       (* Place items *)
       Place_items_start;
       Place_items_end;
@@ -406,7 +382,6 @@ module Handler = struct
       Place_items_baseline;
       Place_items_center_safe;
       Place_items_end_safe;
-      Place_items_start_safe;
       (* Place self *)
       Place_self_auto;
       Place_self_start;
@@ -488,7 +463,6 @@ let content_baseline = utility Content_baseline
 let content_normal = utility Content_normal
 let content_center_safe = utility Content_center_safe
 let content_end_safe = utility Content_end_safe
-let content_start_safe = utility Content_start_safe
 
 (** {1 Align Self Utilities} *)
 let self_auto = utility Self_auto
@@ -536,7 +510,6 @@ let place_items_stretch = utility Place_items_stretch
 let place_items_baseline = utility Place_items_baseline
 let place_items_center_safe = utility Place_items_center_safe
 let place_items_end_safe = utility Place_items_end_safe
-let place_items_start_safe = utility Place_items_start_safe
 
 (** {1 Place Self Utilities} *)
 let place_self_auto = utility Place_self_auto

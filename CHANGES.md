@@ -25,6 +25,9 @@
   Code that caught the exception to find a typo reads that list. `Tw.of_string`
   is unchanged, so the CLI still reports a deliberately typed class as an error
   (#514).
+- `-safe` alignment resolves on `center` and `end` only, as in Tailwind. The
+  `-start-safe` classes stop being emitted, and `Alignment.content_start_safe`
+  and `Alignment.place_items_start_safe` are removed (#679).
 
 ### Tailwind CSS 4.3.3
 
