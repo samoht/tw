@@ -401,16 +401,12 @@ let needs_property_rule v =
       | None -> assert false)
 
 let order_of_declaration decl =
-  match Css.meta_of_declaration decl with
-  | None -> None
-  | Some meta -> (
-      match info_of_meta meta with Some (Info t) -> t.order | None -> None)
+  Option.bind (metadata_of_declaration decl) metadata_order
 
 let is_runtime_declaration decl =
-  match Css.meta_of_declaration decl with
+  match metadata_of_declaration decl with
+  | Some (Info t) -> t.runtime
   | None -> false
-  | Some meta -> (
-      match info_of_meta meta with Some (Info t) -> t.runtime | None -> false)
 
 let property_initial_declaration = declaration_of_property_info
 let pp v = Pp.str [ "Var(--"; v.name; ")" ]
