@@ -144,7 +144,7 @@
 - A `theme()` call resolves to the value the project bound, underscores and
   all. The resolved value was written back into the class string unescaped, so
   a palette entry bound to `var(--brand_red)` named `var(--brand red)` and an
-  arbitrary property carrying it was dropped (#PR).
+  arbitrary property carrying it was dropped (#687).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote
@@ -306,7 +306,7 @@
 - The initial values of the utility variables emit as one `@supports` block.
   Every `@apply` and every declared utility hoisted a block of its own beside
   the generated sheet's, so a project stylesheet re-declared variables the
-  sheet had already initialised (#XXX).
+  sheet had already initialised (#687).
 
 ### Public OCaml API
 
