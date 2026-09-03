@@ -141,6 +141,10 @@
 - An arbitrary value keeps the underscore its `\_` escape spells, so
   `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
   the sheet as written instead of carrying the backslash into the value (#676).
+- A `theme()` call resolves to the value the project bound, underscores and
+  all. The resolved value was written back into the class string unescaped, so
+  a palette entry bound to `var(--brand_red)` named `var(--brand red)` and an
+  arbitrary property carrying it was dropped (#PR).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote

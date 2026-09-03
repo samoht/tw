@@ -191,9 +191,10 @@ let theme_resolve_path ~theme inner =
       Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
-(* Replace each theme(<path>) in a class string with its resolved value, spaces
-   re-encoded as [_] so downstream arbitrary-value decoding treats them as
-   spaces. Unresolved theme() calls are left verbatim. *)
+(* Replace each theme(<path>) in a class string with its resolved value, written
+   back in the spelling an arbitrary value is read in: a space becomes [_] and
+   an underscore [\_], so a project that binds a token to [var(--brand_red)]
+   keeps the variable it named. Unresolved theme() calls are left verbatim. *)
 let resolve_theme_functions ~theme s =
   let buf = Buffer.create (String.length s) in
   let n = String.length s in
@@ -212,9 +213,7 @@ let resolve_theme_functions ~theme s =
       let closed = !depth = 0 in
       let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
       (match if closed then theme_resolve_path ~theme inner else None with
-      | Some v ->
-          Buffer.add_string buf
-            (String.map (fun c -> if c = ' ' then '_' else c) v)
+      | Some v -> Buffer.add_string buf (Parse.encode_underscores v)
       | None ->
           let stop = if closed then !j + 1 else n in
           Buffer.add_string buf (String.sub s !i (stop - !i)));
