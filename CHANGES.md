@@ -47,6 +47,9 @@
 - Merge adjacent media queries with identical conditions during utility
   construction, avoiding redundant wrappers without enabling full stylesheet
   optimization (#668).
+- Merge adjacent `@container` and `@supports` blocks with identical preludes
+  the same way, so a run of utilities sharing one condition is a single wrapper
+  and the sheet is smaller (#682).
 - A project's own theme reaches class generation, so its variants, keyframes,
   layers, static scales, custom breakpoints and v3 dotted `theme()` paths apply
   to the utilities tw generates from the markup, and a routed utility survives a
