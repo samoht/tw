@@ -150,11 +150,11 @@
   `transform-` decode their bracket the way every other family does, so
   `flex-[calc(1+2)]` and `origin-[--spacing(4)_--spacing(2)]` reach the sheet.
   Reading the text with OCaml's number reader instead folded `flex-[0x4]` to
-  `flex: 4` under the class name `.flex-\[4\]` (#PR).
+  `flex: 4` under the class name `.flex-\[4\]` (#689).
 - A `]` written inside a quoted or escaped part of an arbitrary value belongs
   to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
   `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
-  unterminated string still refuses the class, as it does in Tailwind (#PR).
+  unterminated string still refuses the class, as it does in Tailwind (#689).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).
