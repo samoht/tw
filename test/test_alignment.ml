@@ -88,6 +88,26 @@ let of_string_invalid () =
   fail_maybe [ "place"; "content" ];
   fail_maybe []
 
+(* The four baseline spellings around justify-content. Tailwind emits
+   [justify-content: baseline] for [justify-baseline] and nothing at all for the
+   other three, so only the first is a gap on tw's side. Filing all four holds
+   them to the pinned CLI through [check_negative_premises], which is what stops
+   a later reading of "the baseline arm is missing" from adding the three that
+   name no utility. *)
+let baseline_family_matches_tailwind () =
+  let invalid ?why input =
+    Test_helpers.check_invalid_input ?why (module Tw.Alignment.Handler) input
+  in
+  invalid
+    ~why:
+      (Test_helpers.Diverges
+         "cascade's justify_content carries no baseline value, so tw has no \
+          typed way to write the declaration")
+    "justify-baseline";
+  invalid "justify-items-baseline";
+  invalid "justify-self-baseline";
+  invalid "place-self-baseline"
+
 let suborder_matches_tailwind () =
   let open Tw in
   let utilities =
@@ -128,6 +148,8 @@ let tests =
   [
     test_case "alignment of_string - valid values" `Quick of_string_valid;
     test_case "alignment of_string - invalid values" `Quick of_string_invalid;
+    test_case "alignment baseline family matches Tailwind" `Quick
+      baseline_family_matches_tailwind;
     test_case "alignment suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "content stretch boundary matches Tailwind" `Quick
