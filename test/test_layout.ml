@@ -252,15 +252,27 @@ let test_invalid_arbitrary_z_index () =
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "z-[foo]";
-  rejected "z-[1.5]";
-  rejected "z-[50%]";
+  (* The negated form builds [calc(<inner> * -1)] from a typed z-index, so a
+     bracket the grammar cannot read still has nowhere to go. *)
   rejected "-z-[foo]";
   renders "z-[13]";
   renders "z-[auto]";
   renders "z-[var(--x)]";
   renders "-z-[13]";
   renders "-z-[var(--x)]"
+
+(* The bracket is a token stream Tailwind hands to the declaration unvalidated.
+   It goes through the arbitrary-value pipeline, not OCaml's number reader, so
+   [calc()] reaches the property and a spelling only OCaml reads as a number
+   ([0x4], [1_0]) is emitted as written. A word and a percentage are not
+   z-indexes and are passed through the same way, as the pinned CLI does. *)
+let test_arbitrary_token_stream () =
+  Test_helpers.check_declarations "z-[calc(1+2)]" [ "z-index:calc(1 + 2)" ];
+  Test_helpers.check_declarations "z-[0x4]" [ "z-index:0x4" ];
+  Test_helpers.check_declarations "z-[1_0]" [ "z-index:1 0" ];
+  Test_helpers.check_declarations "z-[foo]" [ "z-index:foo" ];
+  Test_helpers.check_declarations "z-[50%]" [ "z-index:50%" ];
+  Test_helpers.check_declarations "z-[1.5]" [ "z-index:1.5" ]
 
 let tests =
   [
@@ -284,6 +296,8 @@ let tests =
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "invalid arbitrary z-index" `Quick test_invalid_arbitrary_z_index;
+    test_case "arbitrary z-index token stream" `Quick
+      test_arbitrary_token_stream;
   ]
 
 let suite = ("layout", tests)

@@ -26,22 +26,23 @@ let test_roundtrip () =
 
 let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns";
-  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-abc"
+  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-abc";
+  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-0x10";
+  Test_helpers.check_invalid_input (module Tw.Columns.Handler) "columns-1_0"
 
-(* An integer in a class name is written in plain decimal. A hex or
-   underscore-separated spelling is not that integer under another name: reading
-   it renames the class, so [columns-[0x10]] would generate a rule selecting
-   [.columns-\[16\]] that the markup can never match. Tailwind passes the
-   bracket through as [columns: 0x10], which no browser accepts. *)
-let test_non_decimal_integers () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "columns-[0x10]";
-  rejected "columns-[1_0]";
-  rejected "columns-[+3]"
+(* A bare suffix is written in plain decimal, so [columns-0x10] stays rejected.
+   A bracket is not a suffix: it is a token stream Tailwind hands to the
+   declaration unvalidated, and the pinned CLI emits [columns: 0x10] for
+   [columns-[0x10]]. tw emits it as written rather than reading it with OCaml's
+   number reader, which folded [0x10] to [16] and named the rule
+   [.columns-\[16\]], a selector the markup can never match. *)
+let test_arbitrary_token_stream () =
+  Test_helpers.check_declarations "columns-[calc(1+2)]"
+    [ "columns:calc(1 + 2)" ];
+  Test_helpers.check_declarations "columns-[0x10]" [ "columns:0x10" ];
+  Test_helpers.check_declarations "columns-[1_0]" [ "columns:1 0" ];
+  Test_helpers.check_declarations "columns-[+3]" [ "columns:+3" ];
+  Test_helpers.check_declarations "columns-[0x4rem]" [ "columns:0x4rem" ]
 
 (* columns-[16rem] is a column-WIDTH (columns: 16rem), distinct from the integer
    count form (columns-[3]). *)
@@ -97,7 +98,8 @@ let tests =
   @ [
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
-      Alcotest.test_case "non-decimal integers" `Quick test_non_decimal_integers;
+      Alcotest.test_case "arbitrary token stream" `Quick
+        test_arbitrary_token_stream;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "numeric order" `Quick test_numeric_order;
       Alcotest.test_case "arbitrary order" `Quick test_arbitrary_order;

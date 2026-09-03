@@ -534,14 +534,26 @@ let test_arbitrary_opacity_spelling () =
       | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
     [ "opacity-[0.5]"; "opacity-[0.50]"; "opacity-[.5]"; "opacity-[1]" ]
 
-(* The bracket holds a number, so a word is not an opacity. *)
-let test_arbitrary_opacity_rejects_non_number () =
+(* An empty bracket names no value, and the pinned CLI emits nothing for it. *)
+let test_arbitrary_opacity_rejects_empty () =
   List.iter
     (fun cls ->
       match Tw.of_string cls with
       | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
       | Error (`Msg _) -> ())
-    [ "opacity-[abc]"; "opacity-[]" ]
+    [ "opacity-[]" ]
+
+(* The bracket is a token stream Tailwind hands to the declaration unvalidated.
+   It goes through the arbitrary-value pipeline, not OCaml's number reader, so
+   [calc()] reaches the property and a spelling only OCaml reads as a number
+   ([0x4], [1_0]) is emitted as written rather than folded to [4] and [10]. A
+   word is not a number and is passed through the same way. *)
+let test_arbitrary_opacity_token_stream () =
+  Test_helpers.check_declarations "opacity-[calc(1+2)]"
+    [ "opacity:calc(1 + 2)" ];
+  Test_helpers.check_declarations "opacity-[0x4]" [ "opacity:0x4" ];
+  Test_helpers.check_declarations "opacity-[1_0]" [ "opacity:1 0" ];
+  Test_helpers.check_declarations "opacity-[abc]" [ "opacity:abc" ]
 
 (* A [--shadow-*] or [--inset-shadow-*] token the project declared in its
    [@theme] names a shadow the built-in scale has no slot for. Tailwind
@@ -630,8 +642,10 @@ let tests =
       suborder_matches_tailwind;
     test_case "arbitrary opacity spelling" `Quick
       test_arbitrary_opacity_spelling;
-    test_case "arbitrary opacity rejects non-number" `Quick
-      test_arbitrary_opacity_rejects_non_number;
+    test_case "arbitrary opacity rejects empty" `Quick
+      test_arbitrary_opacity_rejects_empty;
+    test_case "arbitrary opacity token stream" `Quick
+      test_arbitrary_opacity_token_stream;
     test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
