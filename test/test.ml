@@ -71,6 +71,7 @@ let () =
       Test_var.suite;
       Test_modifiers.suite;
       Test_pp.suite;
+      Test_strings.suite;
       Test_prose.suite;
       Test_theme.suite;
       Test_utility.suite;

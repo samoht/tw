@@ -961,14 +961,6 @@ let media_condition_of_modifier = function
     not-* rules sort by variant position, not alphabetically. The offset is
     multiplied by 100 to leave room for the base suborder. *)
 
-(** Check if string [s] contains substring [pat]. *)
-let has_substring s pat =
-  let slen = String.length s and plen = String.length pat in
-  let rec check i =
-    i + plen <= slen && (String.sub s i plen = pat || check (i + 1))
-  in
-  check 0
-
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
     by the comparator. For before/after, the base_class is the raw utility name
@@ -990,9 +982,9 @@ let compute_variant_order ~selector_str base_class =
      to avoid matching utility-generated pseudo-elements like prose's
      ::before. *)
   if vo > 0 then vo
-  else if has_substring selector_str "before\\:" then
+  else if Strings.contains ~sub:"before\\:" selector_str then
     Modifiers.variant_order_of_prefix "before"
-  else if has_substring selector_str "after\\:" then
+  else if Strings.contains ~sub:"after\\:" selector_str then
     Modifiers.variant_order_of_prefix "after"
   else 0
 
