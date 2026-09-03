@@ -153,34 +153,23 @@ let theme_color_with_alpha base a =
               Cascade.Css.Transparent))
   | _ -> None
 
-(* Resolve a Tailwind theme() dot-path to its static value:
-   colors.<name>.<shade> (optionally with a /<alpha> suffix) becomes the
-   colour's value mixed with the alpha, and spacing.<n> becomes <n * 0.25>rem.
-   Returns None for paths not resolved. *)
-let theme_resolve_path ~theme inner =
-  let path, alpha =
-    match String.index_opt inner '/' with
-    | Some k ->
-        ( String.sub inner 0 k,
-          Some (String.sub inner (k + 1) (String.length inner - k - 1)) )
-    | None -> (inner, None)
-  in
+(* The value the theme binds a [theme()] dot path to, before any alpha:
+   [colors.<name>.<shade>] is the palette entry, [spacing.<n>] the spacing
+   product. [None] is a path this does not resolve, which is not the same
+   question as whether the theme carries the key. *)
+let theme_key_value ~theme path =
   match String.split_on_char '.' path with
   | [ "colors"; name; shade ] -> (
-      match (Color.of_string name, int_of_string_opt shade) with
-      | Ok c, Some sh -> (
-          (* A project that renames a palette entry in its [@theme] gets its own
-             value back here, the way [bg-<name>-<shade>] already does. *)
-          let token = String.concat "-" [ "color"; name; shade ] in
-          let base =
-            match Scheme.theme_value (Some theme) token with
-            | Some v -> v
-            | None -> Color.to_oklch_css c sh
-          in
-          match alpha with
-          | Some a -> theme_color_with_alpha base a
-          | None -> Some base)
-      | _ -> None)
+      (* A project that renames or adds a palette entry in its [@theme] gets its
+         own value back here, the way [bg-<name>-<shade>] already does. *)
+      let token = String.concat "-" [ "color"; name; shade ] in
+      match Scheme.theme_value (Some theme) token with
+      | Some _ as v -> v
+      | None -> (
+          match (Color.of_string name, int_of_string_opt shade) with
+          | Ok c, Some sh when Color.is_valid_shade c sh ->
+              Some (Color.to_oklch_css c sh)
+          | _ -> None))
   | [ "spacing"; n ] ->
       (* The step here is Tailwind's own 0.25rem and not whatever [--spacing]
          the project set: checked against the CLI with [@theme { --spacing:
@@ -191,14 +180,68 @@ let theme_resolve_path ~theme inner =
       Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
+(* Resolve one theme() argument.
+
+   [`Value] is the key resolved, mixed with the [/<alpha>] it carries when it
+   has one. [`Missing] is a key the theme provably does not carry, which
+   Tailwind answers with no rule at all: a bare segment names no namespace, and
+   the palette namespace is one tw resolves in full, so an entry missing from it
+   is missing. [`Verbatim] is everything else - an alpha naming no number, the
+   [--<token>] spelling, and a namespace tw does not resolve - where there is no
+   table saying the key is absent and Tailwind emits a rule for the ones it
+   knows. *)
+let theme_resolve_key ~theme key =
+  let path, alpha =
+    match String.index_opt key '/' with
+    | Some k ->
+        ( String.sub key 0 k,
+          Some (String.sub key (k + 1) (String.length key - k - 1)) )
+    | None -> (key, None)
+  in
+  match theme_key_value ~theme path with
+  | Some base -> (
+      match alpha with
+      | None -> `Value base
+      | Some a -> (
+          match theme_color_with_alpha base a with
+          | Some v -> `Value v
+          | None -> `Verbatim))
+  | None -> (
+      match String.split_on_char '.' path with
+      | "colors" :: _ -> `Missing
+      | [ token ]
+        when not (String.length token > 2 && String.sub token 0 2 = "--") ->
+          `Missing
+      | _ -> `Verbatim)
+
+(* Split a theme() argument into its key and the fallback after the first
+   top-level comma, which stands in whenever the key resolves to nothing. *)
+let theme_call_fallback inner =
+  let n = String.length inner in
+  let rec go i depth =
+    if i >= n then (inner, None)
+    else
+      match inner.[i] with
+      | '(' -> go (i + 1) (depth + 1)
+      | ')' -> go (i + 1) (depth - 1)
+      | ',' when depth = 0 ->
+          (String.sub inner 0 i, Some (String.sub inner (i + 1) (n - i - 1)))
+      | _ -> go (i + 1) depth
+  in
+  go 0 0
+
 (* Replace each theme(<path>) in a class string with its resolved value, written
    back in the spelling an arbitrary value is read in: a space becomes [_] and
    an underscore [\_], so a project that binds a token to [var(--brand_red)]
-   keeps the variable it named. Unresolved theme() calls are left verbatim. *)
+   keeps the variable it named. [None] is a call naming a key the theme does not
+   carry and offering no fallback: Tailwind emits no rule for such a class, so
+   it is not a utility. *)
 let resolve_theme_functions ~theme s =
   let buf = Buffer.create (String.length s) in
   let n = String.length s in
+  let missing = ref false in
   let i = ref 0 in
+  let resolved v = Buffer.add_string buf (Parse.encode_underscores v) in
   while !i < n do
     if !i + 6 <= n && String.sub s !i 6 = "theme(" then begin
       let j = ref (!i + 6) and depth = ref 1 in
@@ -208,15 +251,24 @@ let resolve_theme_functions ~theme s =
       done;
       (* [!j] is the closing paren, or [n] when the call never closed - a
          truncated attribute or template artefact in scanned markup. An
-         unterminated call has no path to resolve, so the rest of the string is
+         unterminated call has no key to read, so the rest of the string is
          copied through and the class stays unresolved. *)
       let closed = !depth = 0 in
       let inner = String.sub s (!i + 6) (!j - (!i + 6)) in
-      (match if closed then theme_resolve_path ~theme inner else None with
-      | Some v -> Buffer.add_string buf (Parse.encode_underscores v)
-      | None ->
-          let stop = if closed then !j + 1 else n in
-          Buffer.add_string buf (String.sub s !i (stop - !i)));
+      let verbatim () =
+        let stop = if closed then !j + 1 else n in
+        Buffer.add_string buf (String.sub s !i (stop - !i))
+      in
+      (if not closed then verbatim ()
+       else
+         let key, fallback = theme_call_fallback inner in
+         match theme_resolve_key ~theme key with
+         | `Value v -> resolved v
+         | `Verbatim -> verbatim ()
+         | `Missing -> (
+             match fallback with
+             | Some f -> Buffer.add_string buf f
+             | None -> missing := true));
       i := if closed then !j + 1 else n
     end
     else begin
@@ -224,7 +276,7 @@ let resolve_theme_functions ~theme s =
       incr i
     end
   done;
-  Buffer.contents buf
+  if !missing then None else Some (Buffer.contents buf)
 
 (* The rejection a class gets once no handler has claimed it. A bracket class
    that looks like an arbitrary property but that nothing accepted is malformed
@@ -267,26 +319,29 @@ let of_string ?(theme = Scheme.default) class_str =
     | Some u -> Ok u
     | None -> Error (`Msg ("Unknown modifier in: " ^ class_str))
   in
-  (* Resolve theme() dot-paths for dispatch, keeping the original spelling as
-     the class-name alias so the utility still round-trips. *)
-  let resolved_base = resolve_theme_functions ~theme base_class in
-  let theme_alias =
-    if resolved_base = base_class then None else Some base_class
-  in
-  match Utility.base_of_class theme resolved_base with
-  | Ok base_utility -> finish ?alias:theme_alias base_utility
-  | Error _ -> (
-      (* Fallback: the v4 [prop-(--x)] shorthand for handlers that accept the
-         [prop-[var(--x)]] form but not the paren spelling directly. Handlers
-         that support [(--x)] natively (e.g. rotate) already matched above, so
-         this never overrides them. The original spelling is kept via the
-         alias. *)
-      match normalize_paren_var base_class with
-      | Some normalized -> (
-          match Utility.base_of_class theme normalized with
-          | Ok base_utility -> finish ~alias:base_class base_utility
-          | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
-      | None -> unknown_class_error ~base_class class_str)
+  (* Resolve theme() calls for dispatch, keeping the original spelling as the
+     class-name alias so the utility still round-trips. A call naming no key
+     leaves nothing to dispatch on. *)
+  match resolve_theme_functions ~theme base_class with
+  | None -> unknown_class_error ~base_class class_str
+  | Some resolved_base -> (
+      let theme_alias =
+        if resolved_base = base_class then None else Some base_class
+      in
+      match Utility.base_of_class theme resolved_base with
+      | Ok base_utility -> finish ?alias:theme_alias base_utility
+      | Error _ -> (
+          (* Fallback: the v4 [prop-(--x)] shorthand for handlers that accept
+             the [prop-[var(--x)]] form but not the paren spelling directly.
+             Handlers that support [(--x)] natively (e.g. rotate) already
+             matched above, so this never overrides them. The original spelling
+             is kept via the alias. *)
+          match normalize_paren_var base_class with
+          | Some normalized -> (
+              match Utility.base_of_class theme normalized with
+              | Ok base_utility -> finish ~alias:base_class base_utility
+              | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
+          | None -> unknown_class_error ~base_class class_str))
 
 (* A name the parser rejects may be a typo or a deliberate non-tw class - a
    framework hook, a JS selector - and nothing here can tell the two apart. So

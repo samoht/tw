@@ -153,6 +153,10 @@
   animation, background, divide, filter, shadow, ring, scrollbar, table,
   transform, transition and typography values, including values that are
   invalid for the target property (#667).
+- A `theme()` naming a key the resolved theme does not carry makes the class no
+  utility, the way Tailwind emits no rule for it. `shadow-[0_0_0_1px_theme(a_b)]`
+  compiled with the call written through into the declaration, and a fallback
+  argument now stands in for the missing key (#PR).
 - `mask-[url(...)]` keeps the bare underscore a file name carries, the way
   `bg-[url(...)]` already does: it named a different file, with a space in it
   (#PR).
