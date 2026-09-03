@@ -108,6 +108,8 @@
   #222, #265).
 - A named spacing token declares the variable it references. Padding and gap
   emitted `var(--spacing-<name>)` with nothing declaring it (#261).
+- Border-spacing candidates keep their property order across the whole theme
+  scale, including arbitrary values (#670).
 - Accept a value the project named in its own `@theme` wherever Tailwind does:
   shadows, blur radii, timing functions, font weights, line heights, letter
   spacing, corner radii, font sizes, perspectives, aspect ratios and max-widths

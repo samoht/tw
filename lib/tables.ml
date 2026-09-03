@@ -210,12 +210,12 @@ module Handler = struct
     | Caption_bottom | Caption_top -> 1
     | Border_collapse -> 30
     | Border_separate -> 31
-    | Border_spacing n -> 32 + int_of_float (n *. 10.)
-    | Border_spacing_arb _ -> 1000
-    | Border_spacing_x n -> 1032 + int_of_float (n *. 10.)
-    | Border_spacing_x_arb _ -> 2000
-    | Border_spacing_y n -> 2032 + int_of_float (n *. 10.)
-    | Border_spacing_y_arb _ -> 3000
+    (* Values share their property's slot and use the candidate-name tiebreaker.
+       Encoding a spacing magnitude in the suborder lets a large theme step
+       escape its family and cross transform-origin. *)
+    | Border_spacing _ | Border_spacing_arb _ -> 32
+    | Border_spacing_x _ | Border_spacing_x_arb _ -> 33
+    | Border_spacing_y _ | Border_spacing_y_arb _ -> 34
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
