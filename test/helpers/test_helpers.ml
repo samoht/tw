@@ -733,6 +733,35 @@ let layer_statement_keys sheet ~layer =
           else selector_branches p)
         (statements_between sheet lo hi)
 
+(* An at-rule prelude alone is not an identity: a generated sheet can contain
+   hundreds of [@media (hover: hover)] blocks, each wrapping a different rule.
+   Fingerprint the unordered nested statement structure as well. Sorting makes
+   the identity independent of order inside the container, since this gate
+   measures the containing layer's sequence; repeated identical containers stay
+   ambiguous and are conservatively dropped below. *)
+let rec structural_statement_keys sheet (prelude, body) =
+  let p = normalize_prelude prelude in
+  if p = "" then []
+  else if p.[0] <> '@' then selector_branches p
+  else
+    match body with
+    | None -> [ p ]
+    | Some (lo, hi) ->
+        let nested =
+          statements_between sheet lo hi
+          |> List.concat_map (structural_statement_keys sheet)
+          |> List.sort String.compare |> String.concat "\x1f"
+        in
+        let fingerprint = Digest.string nested |> Digest.to_hex in
+        [ p ^ " #" ^ fingerprint ]
+
+let layer_statement_identities sheet ~layer =
+  match layer_body sheet ~layer with
+  | None -> []
+  | Some (lo, hi) ->
+      statements_between sheet lo hi
+      |> List.concat_map (structural_statement_keys sheet)
+
 (* Patience sorting. [tails.(l)] holds the index of the smallest value that can
    end an increasing run of length [l + 1], so a binary search places each
    element and the predecessor links rebuild one longest run. Everything outside
@@ -764,8 +793,8 @@ let longest_increasing_subsequence seq =
 type order_gap = { pairs : int; moves : int; moved : (string * int * int) list }
 
 let sheet_order_gap ~layer ~tailwind ~tw =
-  let ours = layer_statement_keys tw ~layer in
-  let theirs = layer_statement_keys tailwind ~layer in
+  let ours = layer_statement_identities tw ~layer in
+  let theirs = layer_statement_identities tailwind ~layer in
   let occurrences keys =
     let tbl = Hashtbl.create 4096 in
     List.iter

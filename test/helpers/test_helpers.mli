@@ -154,7 +154,7 @@ val layer_statement_keys : string -> layer:string -> string list
     the empty list. *)
 
 type order_gap = {
-  pairs : int;  (** keys occurring exactly once on each side *)
+  pairs : int;  (** structural identities occurring exactly once on each side *)
   moves : int;  (** the fewest of those that have to move *)
   moved : (string * int * int) list;
       (** each moved key with its rank among {!field-pairs} on Tailwind's side
@@ -164,9 +164,11 @@ type order_gap = {
 
 val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
 (** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
-    in [@layer layer] is from Tailwind's. Only keys occurring exactly once on
-    both sides are paired, so no pairing choice of the gate's own can move the
-    number; over those, {!field-moves} is the count outside a longest
+    in [@layer layer] is from Tailwind's. At-rule identities include a
+    fingerprint of their nested statement structure, so repeated media and
+    supports preludes remain distinguishable. Only identities occurring exactly
+    once on both sides are paired, so no pairing choice of the gate's own can
+    move the number; over those, {!field-moves} is the count outside a longest
     subsequence, which is the fewest statements that have to move for the orders
     to agree.
 
