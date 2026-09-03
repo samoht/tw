@@ -173,11 +173,23 @@ let test_bracket_image_underscore_escape () =
     (Astring.String.is_infix ~affix:"mask-image: url('a_b.png')"
        (css {|mask-[url('a\_b.png')]|}))
 
+(* Tailwind leaves a bare [_] alone inside [url()], where it is part of the file
+   name rather than an encoded space, so [mask-[url('a_b.png')]] names
+   [a_b.png]. Only the [\_] escape is undone, the way the background family
+   already reads it. The quotes are the minifier's to drop, on both sides. *)
+let test_bracket_url_keeps_underscores () =
+  Test_helpers.check_declarations "mask-[url('a_b.png')]"
+    [ "-webkit-mask-image:url(a_b.png)"; "mask-image:url(a_b.png)" ];
+  Test_helpers.check_declarations "mask-[url(a_b.png)]"
+    [ "-webkit-mask-image:url(a_b.png)"; "mask-image:url(a_b.png)" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "mask image underscore escape" `Quick
         test_bracket_image_underscore_escape;
+      Alcotest.test_case "bracket url keeps underscores" `Quick
+        test_bracket_url_keeps_underscores;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
       Alcotest.test_case "arbitrary mask layer list" `Quick
