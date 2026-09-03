@@ -146,6 +146,10 @@
   whole arbitrary decoder rather than its last stage alone, so
   `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]` and `top-[calc(1px_+_1px)]`
   reach the sheet (#688).
+- A `]` written inside a quoted or escaped part of an arbitrary value belongs
+  to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
+  `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
+  unterminated string still refuses the class, as it does in Tailwind (#PR).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).

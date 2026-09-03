@@ -69,7 +69,13 @@ val is_bracket_value : string -> bool
 (** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
     closing bracket has to be the last character, so a suffix carrying a second
     bracket - one bracket with a bracket modifier, or two brackets in a row - is
-    not one bracket value. *)
+    not one bracket value.
+
+    A closing bracket the value quotes or escapes belongs to the value: strings
+    and the backslash escape are read as CSS Syntax 3 sec. 4.3 reads them, so a
+    quoted [url()] argument carrying one is still one bracket value. A string
+    left open runs to the end of [s], so nothing after it can close the bracket
+    and [s] is not one. *)
 
 val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning

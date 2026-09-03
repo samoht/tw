@@ -121,16 +121,30 @@ let extract_var_name s =
 (* One bracket, not two: the closing bracket has to be the last character. A
    suffix carrying a second bracket - one bracket with a bracket modifier, or
    two brackets in a row - would otherwise read as one bracket whose inner text
-   has a stray bracket in it, which no declaration value takes. *)
+   has a stray bracket in it, which no declaration value takes.
+
+   A []] the value quotes or escapes is part of the value, so the scan tokenises
+   strings and the [\] escape the way CSS Syntax 3 sec. 4.3 does:
+   [bg-[url('a]b')]] is one bracket whose text carries a []]. A string the value
+   leaves open runs to the end of the input, as it does in the tokeniser, so no
+   []] after it closes the bracket and the suffix is refused - which is what
+   Tailwind does with [bg-[url('a)]]. *)
 let is_bracket_value s =
   let len = String.length s in
   let rec close i depth =
     if i >= len then false
     else
       match s.[i] with
+      | '\\' -> close (i + 2) depth
+      | '\'' | '"' -> in_string (i + 1) depth s.[i]
       | '[' -> close (i + 1) (depth + 1)
       | ']' -> if depth = 0 then i = len - 1 else close (i + 1) (depth - 1)
       | _ -> close (i + 1) depth
+  and in_string i depth quote =
+    if i >= len then false
+    else if s.[i] = '\\' then in_string (i + 2) depth quote
+    else if s.[i] = quote then close (i + 1) depth
+    else in_string (i + 1) depth quote
   in
   len > 2 && s.[0] = '[' && close 1 0
 
