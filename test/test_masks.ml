@@ -204,6 +204,29 @@ let test_bracket_url_underscore () =
   has "mask-[image-set(url('a_b.png')_1x)]"
     "mask-image: image-set(url(a_b.png) 1x)"
 
+(* [mask-image] takes an image and no position, so a [url()] carrying one is not
+   a mask utility. The bracket is read as a whole token rather than sliced
+   between its first [(] and its last [)]: that slice cuts the file name at the
+   trailing word, and both halves of the utility carry the cut, so
+   [mask-[url(x.png)_center]] names itself [.mask-\[url\(x\.png\)_cente\)\]] - a
+   selector no markup carries - and holds [url("x.png)_cente")]. The [bg-]
+   family reads its bracket the same way. *)
+let test_bracket_url_needs_a_whole_token () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "mask-[url(x.png)_center]";
+  rejected "mask-[url(x.png)_no-repeat]";
+  rejected "mask-[url(x.png)_50%_50%]";
+  (* The whole token still reads, and still names itself. *)
+  Test_helpers.check_declarations "mask-[url(x.png)]"
+    [ "-webkit-mask-image:url(x.png)"; "mask-image:url(x.png)" ];
+  match Tw.of_string "mask-[url(x.png)]" with
+  | Ok u -> Alcotest.(check string) "round-trips" "mask-[url(x.png)]" (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.failf "mask-[url(x.png)]: %s" m
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -213,6 +236,8 @@ let tests =
         test_bracket_url_keeps_underscores;
       Alcotest.test_case "mask image url underscores" `Quick
         test_bracket_url_underscore;
+      Alcotest.test_case "bracket url needs a whole token" `Quick
+        test_bracket_url_needs_a_whole_token;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary mask image" `Quick test_bracket_image;
       Alcotest.test_case "arbitrary mask layer list" `Quick
