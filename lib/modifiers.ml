@@ -2600,7 +2600,10 @@ let variant_inner_token token =
 let variant_order_of_prefix ?theme prefix =
   match theme with
   | Some theme when Option.is_some (try_custom_variant theme prefix) ->
-      Slot.rank Slot.Custom
+      (* Tailwind registers [dark] before it reads [@custom-variant]. Replacing
+         that exact registration changes its body but retains its slot. *)
+      if String.equal prefix "dark" then Slot.rank Slot.Dark
+      else Slot.rank Slot.Custom
   | Some _ | None -> (
       match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
 

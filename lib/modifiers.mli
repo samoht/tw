@@ -747,9 +747,10 @@ val variant_order_of_prefix : ?theme:Scheme.t -> string -> int
     prefix string in the Tailwind v4 variant cascade. The prefix is one modifier
     of a class name, the part between two ":" (e.g. ["hover"],
     ["group-has-checked"], ["@min-[64rem]"]). When [theme] is supplied, its
-    exact custom-variant names take precedence over the built-in prefix grammar.
-    Returns 0 for a token that names no variant, which
-    {!Sort.compare_indexed_rules} reads as "this rule carries no variant". *)
+    exact custom-variant names take precedence over the built-in prefix grammar;
+    re-registering [dark] retains its pre-existing built-in position. Returns 0
+    for a token that names no variant, which {!Sort.compare_indexed_rules} reads
+    as "this rule carries no variant". *)
 
 val variant_inner_order : string -> int
 (** [variant_inner_order token] returns what separates [token] from another
