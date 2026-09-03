@@ -39,7 +39,7 @@ dune build --root "$root" bin/main.exe cascade/bin/main.exe
 # report that reads as parity. Propagate it instead.
 status=0
 "$root"/_build/default/cascade/bin/main.exe \
-  diff --diff=canonical --depth=max "$out"/tw_all.css "$out"/ref_local.css \
+  diff --diff=canonical --limit=none "$out"/tw_all.css "$out"/ref_local.css \
   > "$out"/diff.txt 2>&1 || status=$?
 
 if [ "$status" -gt 1 ]; then
