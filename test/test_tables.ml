@@ -56,6 +56,20 @@ let arbitrary_border_spacing_token_streams () =
   accepted "border-spacing-x-[12px3]";
   accepted "border-spacing-y-[<length>]"
 
+(* Every border-spacing candidate belongs before transform-origin in Tailwind's
+   property order, including an arbitrary axis value. *)
+let border_spacing_axis_order () =
+  Test_helpers.check_class_order ~test_name:"border-spacing axis order"
+    [
+      "origin-bottom";
+      "border-spacing-y-[1.5vw]";
+      "border-spacing-x-[2em]";
+      "border-spacing-y-96";
+      "border-spacing-x-96";
+      "border-spacing-[1rem]";
+      "border-spacing-4";
+    ]
+
 let tests =
   [
     test_case "basic tables" `Quick basic_tables;
@@ -63,6 +77,7 @@ let tests =
     test_case "arbitrary border-spacing" `Quick arbitrary_border_spacing;
     test_case "arbitrary token streams" `Quick
       arbitrary_border_spacing_token_streams;
+    test_case "border-spacing axis order" `Slow border_spacing_axis_order;
   ]
 
 let suite = ("tables", tests)
