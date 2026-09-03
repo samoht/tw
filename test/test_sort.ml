@@ -2400,6 +2400,32 @@ let test_custom_variant_supports_companion_order () =
     ]
     (emitted_classes css classes)
 
+(* Re-registering an exact built-in variant changes what it emits, not where it
+   sits in Tailwind's variant order. A class-based dark variant therefore stays
+   before starting and print instead of moving to the generic custom slot. *)
+let test_custom_dark_keeps_builtin_slot () =
+  let defs = [ ("dark", "&:where(.dark,.dark *){@slot;}") ] in
+  let classes = [ "dark:hidden"; "starting:hidden"; "print:hidden" ] in
+  let _, extra, _ =
+    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+      ~udefs:[] [ "dark:hidden" ]
+  in
+  let utilities =
+    [ "starting:hidden"; "print:hidden" ]
+    |> List.map (fun cls -> Result.get_ok (Tw.of_string cls))
+  in
+  let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
+  let theme =
+    { Tw.Scheme.default with custom_variants = [ ("dark", custom) ] }
+  in
+  let css =
+    Tw.to_css ~theme ~base:false ~extra utilities
+    |> Css.to_string ~minify:true ~lossless:true
+  in
+  Alcotest.(check (list string))
+    "custom dark retains the built-in slot" classes
+    (emitted_classes css classes)
+
 let test_margin_value_order () =
   (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
      keywords auto < full < px. -ml-4 and -ml-px conflict on margin-left, so the
@@ -3152,6 +3178,8 @@ let tests =
       test_color_mix_supports_companion_order;
     test_case "custom variant branches stay with their candidate" `Quick
       test_custom_variant_supports_companion_order;
+    test_case "custom dark keeps its built-in slot" `Quick
+      test_custom_dark_keeps_builtin_slot;
     test_case "margin value order" `Slow test_margin_value_order;
     test_case "prose margin order" `Slow test_prose_margin_order;
     test_case "variant same-suborder tiebreak" `Slow
