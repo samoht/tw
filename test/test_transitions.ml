@@ -12,9 +12,11 @@ let test_roundtrip () =
   check "duration-300";
   check "delay-150";
   check "delay-300";
-  (* Arbitrary delay accepts both time units and var(). *)
+  (* Arbitrary delay and duration take the same bracket values. *)
   check "delay-[300ms]";
   check "delay-[var(--d)]";
+  check "delay-[calc(1s+2s)]";
+  check "duration-[calc(1s+2s)]";
   check "ease-linear";
   check "ease-in";
   check "ease-out";
@@ -43,6 +45,36 @@ let test_initial_resets () =
   Alcotest.(check bool)
     "ease-initial sets --tw-ease:initial" true
     (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
+
+(* Tailwind takes the same arbitrary token streams for [duration-] and [delay-]:
+   a math function, a theme function call and a var() reference all reach the
+   declaration, with underscores decoded to spaces. Only [duration-] also
+   mirrors the value into its channel variable. *)
+let test_arbitrary_token_streams_agree () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:false
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let emits cls affix =
+    Alcotest.(check bool)
+      (Fmt.str "%s emits %s" cls affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  emits "duration-150" "transition-duration: 150ms";
+  emits "delay-150" "transition-delay: 150ms";
+  emits "duration-[calc(1s+2s)]" "transition-duration: calc(1s + 2s)";
+  emits "delay-[calc(1s+2s)]" "transition-delay: calc(1s + 2s)";
+  emits "duration-[--spacing(1)]" "transition-duration: var(--spacing)";
+  emits "delay-[--spacing(1)]" "transition-delay: var(--spacing)";
+  emits "duration-[var(--x,_3s)]" "transition-duration: var(--x, 3s)";
+  emits "delay-[var(--x,_3s)]" "transition-delay: var(--x, 3s)";
+  (* The channel variable carries the same value, and only for duration. *)
+  emits "duration-[calc(1s+2s)]" "--tw-duration: calc(1s + 2s)";
+  Alcotest.(check bool)
+    "delay sets no duration channel" false
+    (Astring.String.is_infix ~affix:"--tw-duration" (css "delay-[calc(1s+2s)]"))
 
 (* Tailwind forwards a declaration-safe arbitrary transition-property token
    stream even when it is not a valid property-name list. *)
@@ -186,6 +218,8 @@ let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
+      Alcotest.test_case "arbitrary token streams agree" `Quick
+        test_arbitrary_token_streams_agree;
       Alcotest.test_case "arbitrary property token stream" `Quick
         test_arbitrary_property_token_stream;
       Alcotest.test_case "arbitrary ease token stream" `Quick
