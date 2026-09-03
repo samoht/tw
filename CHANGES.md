@@ -137,7 +137,7 @@
   bracket through the arbitrary-value pipeline, so `z-[calc(1+2)]` and its
   siblings reach the sheet. A bracket only OCaml's number reader accepts is no
   longer folded to a different value: `tab-[0x4]` writes `tab-size: 0x4` rather
-  than `4`, and `grid-cols-[0x4]` writes `0x4` rather than `4px` (#PR).
+  than `4`, and `grid-cols-[0x4]` writes `0x4` rather than `4px` (#690).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).
