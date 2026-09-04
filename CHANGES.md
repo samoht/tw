@@ -156,6 +156,12 @@
   `gap-[length:4px]`, `top-[length:4px]`, `scroll-m-[length:4px]`,
   `rounded-[length:4px]`, `border-[length:2px]` and `border-[line-width:2px]`
   reach the sheet with the hint kept in the class name (#PR).
+- `border-[…]` and its per-side spellings, `accent-[…]`, `caret-[…]` and
+  `placeholder-[…]` read the value after a hint too, so `border-[color:red]`,
+  `border-t-[color:red]`, `accent-[color:red]`, `caret-[color:red]` and
+  `placeholder-[color:red]` reach the sheet (#PR).
+- `bg-[percentage:50%]` is a `background-position`, the second spelling
+  Tailwind gives that hint alongside `bg-[position:50%]` (#PR).
 - A bracket whose hint is empty, and one left holding nothing but blank space,
   name no utility, as in Tailwind. `z-[:5]` and `z-[_]` put a declaration with
   no value into the sheet (#PR).

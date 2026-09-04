@@ -122,7 +122,8 @@ module Handler = struct
     (* Bracket notation: bg-[50%], bg-[120px], bg-[120px_120px] →
        background-position *)
     | Bg_bracket_position of string * Css.position_value
-    (* Bracket notation: bg-[position:...] → background-position *)
+    (* Bracket notation: bg-[position:...] and bg-[percentage:...] →
+       background-position; the whole inner text is kept, hint included *)
     | Bg_bracket_typed_position of string * Css.position_value
     (* Bracket notation: bg-[color:var(--x)] → background-color *)
     | Bg_bracket_color_var of string
@@ -305,7 +306,7 @@ module Handler = struct
     | Bg_bracket_size v -> "bg-[size:" ^ v ^ "]"
     | Bg_bracket_length v -> "bg-[length:" ^ v ^ "]"
     | Bg_bracket_position (v, _) -> "bg-[" ^ v ^ "]"
-    | Bg_bracket_typed_position (v, _) -> "bg-[position:" ^ v ^ "]"
+    | Bg_bracket_typed_position (inner, _) -> "bg-[" ^ inner ^ "]"
     | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
     | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
@@ -1392,6 +1393,13 @@ module Handler = struct
   let is_bracket_color_hint value =
     Parse.is_var value || Color.parse_bracket_color value <> None
 
+  (* [position:] and [percentage:] both name the background-position longhand;
+     Tailwind knows the two spellings for the one hint. *)
+  let has_bracket_position_hint inner =
+    match Parse.data_type_hint inner with
+    | Some (("position" | "percentage"), _) -> true
+    | Some _ | None -> false
+
   let has_bracket_color_hint inner =
     String.length inner > 6
     && String.sub inner 0 6 = "color:"
@@ -1947,14 +1955,17 @@ module Handler = struct
           | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
               Ok
                 (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
-          | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
-            -> (
-              (* The [position:] data-type hint forces a background-position; a
-                 value the grammar rejects is not a utility. It used to fall
-                 through to a plausible-looking [center]. *)
-              let v = String.sub inner 9 (String.length inner - 9) in
+          | _ when has_bracket_position_hint inner -> (
+              (* The hint forces a background-position; a value the grammar
+                 rejects is not a utility. It used to fall through to a
+                 plausible-looking [center]. *)
+              let v =
+                Stdlib.Option.value
+                  (Parse.value_after_hint inner)
+                  ~default:inner
+              in
               match bracket_position_value v with
-              | Some pos -> Ok (Bg_bracket_typed_position (v, pos))
+              | Some pos -> Ok (Bg_bracket_typed_position (inner, pos))
               | None -> Error (`Msg ("Unknown bg bracket position: " ^ v)))
           | _ when has_bracket_color_hint inner -> (
               (* The hint says how to read the value written after it; only a
