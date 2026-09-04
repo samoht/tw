@@ -311,6 +311,10 @@
   colour's `oklab()` channels instead, and where the alpha read a custom
   property the mix went out with no unguarded fallback, so a browser without
   `color-mix()` painted nothing (#711).
+- An arbitrary shadow whose alpha reads a custom property keeps the authored
+  colour as its unguarded fallback. `shadow-` and `text-shadow-` folded it
+  through oklab at full opacity, so a browser with no relative colours painted
+  an opaque shadow where Tailwind paints the colour the class named (#711).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).

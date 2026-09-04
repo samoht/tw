@@ -637,7 +637,14 @@ module Handler = struct
         let alpha_d = opacity_decl opacity in
         let base_fallback : Css.color =
           match color with
-          | Hex c -> Color.hex_to_oklab_alpha c alpha
+          (* An alpha reading a custom property has no percentage to resolve
+             against, so the colour stays as the class wrote it and the relative
+             form goes behind the guard below. Folding it through oklab at full
+             opacity left the shadow opaque for a browser with no relative
+             colours, where Tailwind leaves the authored colour. *)
+          | Hex c ->
+              if dynamic_opacity then Color.authored_hex c
+              else Color.hex_to_oklab_alpha c alpha
           | Var_ref v -> make_full_color_var v
           | Css_color c -> (
               match hex_string_of_css_color c with
