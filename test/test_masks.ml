@@ -83,21 +83,86 @@ let test_bracket_layer_list () =
     (Astring.String.is_infix ~affix:"mask-position: 30% 50%, 70% 50%"
        (css "mask-position-[30%_50%,70%_50%]"))
 
-(* An arbitrary value the property cannot take is not a utility: these used to
-   fall back to [auto] / [center] and emit a plausible-looking declaration. *)
+(* A bracket that would end the declaration or swallow what follows it is the
+   one thing no mask utility can hold, and Tailwind writes nothing for it
+   either. Every other unreadable value is emitted verbatim; see
+   {!test_bracket_falls_through_to_a_longhand}. *)
 let test_invalid_bracket_value () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask-[a;b]";
+  Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask-size-[a;b]";
+  Test_helpers.check_invalid_input
+    (module Tw.Masks.Handler)
+    "mask-[position:a;b]"
+
+(* A bracket no reader here takes is still a utility: Tailwind writes it into
+   the longhand the class names, spelled as the author wrote it, and leaves the
+   browser to decide whether it means anything. The value's own validity is not
+   what selects the longhand, so [mask-[red]] is an image and not a refusal. *)
+let test_bracket_falls_through_to_a_longhand () =
+  let has cls decls = Test_helpers.check_declarations cls decls in
+  let image cls value =
+    has cls [ "-webkit-mask-image:" ^ value; "mask-image:" ^ value ]
   in
-  rejected "mask-size-[<value>]";
-  rejected "mask-position-[<value>]";
-  rejected "mask-[position:nope]";
-  (* mask-[length:nope] and mask-[size:nope] used to be accepted unvalidated and
-     silently emit mask-size:auto under a selector that matches the class. *)
-  rejected "mask-[length:nope]";
-  rejected "mask-[size:nope]"
+  let position cls value =
+    has cls [ "-webkit-mask-position:" ^ value; "mask-position:" ^ value ]
+  in
+  let size cls value =
+    has cls [ "-webkit-mask-size:" ^ value; "mask-size:" ^ value ]
+  in
+  (* an unhinted bracket no image and no position reader takes *)
+  image "mask-[foo]" "foo";
+  image "mask-[red]" "red";
+  image "mask-[--c]" "--c";
+  (* the [url()] that is not one whole token, so no position goes with it *)
+  image "mask-[url(x.png)_center]" "url(x.png) center";
+  (* Tailwind reads a math function as a length, and a length is a position
+     component, so such a bracket goes to mask-position however the rest of it
+     reads. Cascade will not read [calc(1 + 2)] back as a position, which is
+     correct of it: a bare number is no length-percentage. *)
+  position "mask-[calc(1+2)]" "calc(1 + 2)";
+  position "mask-[foo_calc(1+2)]" "foo calc(1 + 2)";
+  (* a sub-property bracket names its longhand outright *)
+  position "mask-position-[foo]" "foo";
+  size "mask-size-[foo]" "foo";
+  (* a data-type hint names it too, and says nothing about the value *)
+  image "mask-[image:notanimage]" "notanimage";
+  image "mask-[url:notaurl]" "notaurl";
+  size "mask-[length:nope]" "nope";
+  size "mask-[size:nope]" "nope";
+  position "mask-[position:nope]" "nope";
+  (* A sub-property class names its longhand outright, so a hint in front of the
+     value only says where the value starts - whatever the hint is. *)
+  position "mask-position-[length:2em]" "2em";
+  position "mask-position-[bogus:2em]" "2em";
+  size "mask-size-[size:2em]" "2em";
+  (* An unknown hint on the unhinted class settles the longhand all the same: it
+     takes the last resort, and nothing is read from what follows. A bare [2em]
+     with no hint would have been a position. *)
+  image "mask-[bogus:2em]" "2em";
+  image "mask-[bogus:url(a.png)]" "url(a.png)";
+  (* The name has to be an identifier to be a hint, so this one is the value. *)
+  image "mask-[10px:2em]" "10px:2em";
+  (* and a [:] inside a function call belongs to the value *)
+  position "mask-position-[url(http://x/a.png)]" "url(http://x/a.png)";
+  (* every one of them prints back as the author wrote it: a hint dropped from
+     the class name is a selector that matches no markup *)
+  List.iter
+    (fun cls ->
+      Test_helpers.check_handler_roundtrip (module Tw.Masks.Handler) cls)
+    [
+      "mask-[foo]";
+      "mask-[url(x.png)_center]";
+      "mask-[calc(1+2)]";
+      "mask-position-[foo]";
+      "mask-size-[foo]";
+      "mask-[image:notanimage]";
+      "mask-[length:nope]";
+      "mask-[position:nope]";
+      "mask-position-[length:2em]";
+      "mask-size-[size:2em]";
+      "mask-[bogus:2em]";
+      "mask-[10px:2em]";
+    ]
 
 (* mask-size-[...], mask-[size:...] and mask-[length:...] only read px, %, and
    rem before; every CSS length unit does now, matching real Tailwind's
@@ -204,28 +269,26 @@ let test_bracket_url_underscore () =
   has "mask-[image-set(url('a_b.png')_1x)]"
     "mask-image: image-set(url(a_b.png) 1x)"
 
-(* [mask-image] takes an image and no position, so a [url()] carrying one is not
-   a mask utility. The bracket is read as a whole token rather than sliced
-   between its first [(] and its last [)]: that slice cuts the file name at the
-   trailing word, and both halves of the utility carry the cut, so
-   [mask-[url(x.png)_center]] names itself [.mask-\[url\(x\.png\)_cente\)\]] - a
-   selector no markup carries - and holds [url("x.png)_cente")]. The [bg-]
-   family reads its bracket the same way. *)
+(* A [url()] carrying a position is no [url()] token, so the typed reading has
+   no answer for it and the whole bracket goes out verbatim instead. What must
+   not come back is the slice between the bracket's first [(] and its last [)]:
+   it cuts the file name at the trailing word, and both halves of the utility
+   carry the cut, so [mask-[url(x.png)_center]] named itself
+   [.mask-\[url\(x\.png\)_cente\)\]] - a selector no markup carries - and held
+   [url("x.png)_cente")]. The [bg-] family reads its bracket the same way. *)
 let test_bracket_url_needs_a_whole_token () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  (* Read unminified, so the assertions read as the values they are about: a [%]
+     already ends its token, so the minifier writes [50% 50%] compactly. *)
+  let whole cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "-webkit-mask-image: " ^ value; "mask-image: " ^ value ];
+    Test_helpers.check_handler_roundtrip (module Tw.Masks.Handler) cls
   in
-  rejected "mask-[url(x.png)_center]";
-  rejected "mask-[url(x.png)_no-repeat]";
-  rejected "mask-[url(x.png)_50%_50%]";
-  (* The whole token still reads, and still names itself. *)
-  Test_helpers.check_declarations "mask-[url(x.png)]"
-    [ "-webkit-mask-image:url(x.png)"; "mask-image:url(x.png)" ];
-  match Tw.of_string "mask-[url(x.png)]" with
-  | Ok u -> Alcotest.(check string) "round-trips" "mask-[url(x.png)]" (Tw.pp u)
-  | Error (`Msg m) -> Alcotest.failf "mask-[url(x.png)]: %s" m
+  whole "mask-[url(x.png)_center]" "url(x.png) center";
+  whole "mask-[url(x.png)_no-repeat]" "url(x.png) no-repeat";
+  whole "mask-[url(x.png)_50%_50%]" "url(x.png) 50% 50%";
+  (* The whole token reads as a token, so cascade prints it as one. *)
+  whole "mask-[url(x.png)]" "url(x.png)"
 
 (* An [image:]/[url:] hint says how to read the value written after it; it does
    not make that value the name of a custom property. [mask-[image:url(a.png)]]
@@ -246,14 +309,10 @@ let test_bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "mask-[url:url(a.png)] round-trips" "mask-[url:url(a.png)]"
     (Tw.pp (Result.get_ok (Tw.of_string "mask-[url:url(a.png)]")));
-  (* A value no image reader takes is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Masks.Handler)
-    "mask-[image:notanimage]"
+  (* A value no image reader takes is written out as it stands: the hint says
+     which longhand takes the bracket and nothing about what may be in it. *)
+  Test_helpers.check_declarations "mask-[image:notanimage]"
+    [ "-webkit-mask-image:notanimage"; "mask-image:notanimage" ]
 
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
@@ -274,6 +333,8 @@ let tests =
         test_bracket_layer_list;
       Alcotest.test_case "invalid bracket value" `Quick
         test_invalid_bracket_value;
+      Alcotest.test_case "bracket falls through to a longhand" `Quick
+        test_bracket_falls_through_to_a_longhand;
       Alcotest.test_case "bracket position grammar" `Quick
         test_bracket_position_grammar;
       Alcotest.test_case "bracket size units" `Quick test_bracket_size_units;
