@@ -962,13 +962,20 @@ let keep_extracted_theme_decl ~theme ~referenced decl =
   | None -> false
 
 (* [theme(static)] on the package import emits every theme variable, not only
-   the ones a utility used. The palette is by far the biggest part of it. *)
+   the ones a utility used. The palette is by far the biggest part of it. A
+   token the project declared in an [\@theme inline] or [\@theme reference]
+   block is the exception: those blocks say the sheet declares it nowhere, and
+   asking for the whole theme does not undo that. *)
 let add_static_theme_decls ~theme extracted =
   if not theme.Scheme.static_theme then extracted
   else
     let have = names_set_of extracted in
     let registered =
       Scheme.all_default_tokens ()
+      |> List.filter (fun (name, _) ->
+          not
+            (Scheme.is_inline_token theme name
+            || Scheme.is_reference_token theme name))
       |> List.map (fun (name, css) ->
           Css.custom_property ~layer:"theme" ("--" ^ name) css)
     in
