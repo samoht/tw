@@ -1901,7 +1901,6 @@ module Handler = struct
 
   (* Aliases for names that open Css shadows: the color constructors below, and
      [Pp], whose byte formatter cascade's own [Pp] does not carry. *)
-  let mk_color_hex s : color = Hex s
   let color_of_string = of_string
   let hex_byte = Pp.hex_byte
 
@@ -2867,31 +2866,13 @@ module Handler = struct
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
-  (* The bracket colour as a palette-shaped [Hex], so an opacity modifier folds
-     the alpha in the same way it does for a hex bracket. [None] for a colour
-     with no hex form: [currentcolor], a [var()], or a colour whose channels are
-     not all static. *)
-  let bracket_color_to_custom css_color =
-    let c = Cascade.Values.nonkeyword_color css_color in
-    let c = match css_color_to_hex c with Some hex -> hex | None -> c in
-    match c with
-    (* The bracket's own spelling, where it is the three or six digits the alpha
-       arithmetic below reads. A spelling carrying an alpha byte folds to its
-       six digits first, since that is the form [hex_to_rgb] decodes. *)
-    | Authored_hex { value; _ }
-      when String.length value = 3 || String.length value = 6 ->
-        Some (mk_color_hex value)
-    | Hex { r; g; b; _ } | Authored_hex { r; g; b; _ } ->
-        Some (mk_color_hex (hex_string_of_rgb (r, g, b)))
-    | _ -> None
-
   (* What an opacity modifier makes of a bracket colour. [Folded] is the single
-     value a colour with a hex spelling and a literal alpha resolves to.
-     [Guarded] is the pair every other case needs: the colour itself, for a
-     browser with no [color-mix()], and the mix behind an [\@supports] guard.
-     The properties the two land on are the caller's, which is why this answers
-     values rather than declarations - a decoration colour writes a vendor
-     prefix alongside, and a divide colour hangs both on its child selector. *)
+     value a modifier a browser can read on its own resolves to. [Guarded] is
+     the pair the rest need: the colour itself, for a browser with no
+     [color-mix()], and the mix behind an [\@supports] guard. The properties the
+     two land on are the caller's, which is why this answers values rather than
+     declarations - a decoration colour writes a vendor prefix alongside, and a
+     divide colour hangs both on its child selector. *)
   type bracket_opacity =
     | Folded of Css.color
     | Guarded of { fallback : Css.color; mixed : Css.color }
@@ -2899,47 +2880,38 @@ module Handler = struct
   (* A bracket colour arrives already parsed into a typed [Css.color], and an
      opacity modifier applies to that value. Reading the bracket text back
      through the palette parser answered black for every colour the palette does
-     not name. *)
+     not name.
+
+     The modifier stays a [color-mix()] wherever Tailwind writes one: the
+     bracket's contents are emitted as authored, so evaluating the mix would
+     replace the colour the class named with a computed [oklab()] no class
+     spells. Only a fully opaque modifier resolves, to the colour itself. *)
   let bracket_color_opacity ?(theme = Scheme.default) css_color opacity =
-    match bracket_color_to_custom css_color with
-    | Some c when opacity_var_name opacity = None ->
-        Folded (custom_color_with_alpha c (opacity_to_percent opacity /. 100.0))
-    | _ -> (
-        let base = resolve_bracket_css_color css_color in
-        let mixed = mix_alpha opacity base in
-        match pre_color_mix_fallback theme mixed with
-        | Some fallback -> Guarded { fallback; mixed }
-        | None -> (
-            (* A fully static mix needs no progressive-enhancement pair: Cascade
-               can evaluate its inner mix and then the composed opacity. This is
-               especially important when [base] is itself a mix; using [base] as
-               the fallback would silently discard the slash opacity. *)
-            let normalized_base = Cascade.Values.normalize_color base in
-            let normalized =
-              mix_alpha opacity normalized_base
-              |> Cascade.Values.normalize_color
-            in
-            match normalized with
-            | Css.Mix _ -> Guarded { fallback = base; mixed }
-            | color -> Folded (Cascade.Values.nonkeyword_color color)))
+    let base = resolve_bracket_css_color css_color in
+    if is_fully_opaque opacity then Folded base
+    else
+      let mixed = mix_alpha opacity base in
+      match pre_color_mix_fallback theme mixed with
+      | Some fallback -> Guarded { fallback; mixed }
+      | None when opacity_var_name opacity <> None ->
+          (* The mix reads its percentage from a custom property, which
+             [pre_color_mix_fallback] does not look at: it answers on the colour
+             operands alone. Without the pair a browser with no [color-mix()]
+             drops the declaration and paints nothing, where Tailwind paints the
+             bracket colour. *)
+          Guarded { fallback = base; mixed }
+      | None -> Folded mixed
 
   let bracket_color_opacity_style ?(theme = Scheme.default) ?merge_key ~property
       css_color opacity =
-    match bracket_color_to_custom css_color with
-    | Some c -> color_with_opacity_style ~property ?merge_key c 500 opacity
-    | None -> (
-        match bracket_color_opacity ~theme css_color opacity with
-        | Folded value -> style ?merge_key [ property value ]
-        | Guarded { fallback; mixed } ->
-            let supports_block =
-              Css.supports ~condition:color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ property mixed ];
-                ]
-            in
-            style ?merge_key ~rules:(Some [ supports_block ])
-              [ property fallback ])
+    match bracket_color_opacity ~theme css_color opacity with
+    | Folded value -> style ?merge_key [ property value ]
+    | Guarded { fallback; mixed } ->
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ property mixed ] ]
+        in
+        style ?merge_key ~rules:(Some [ supports_block ]) [ property fallback ]
 
   let outline_bracket_color_opacity_style ~theme inner css_color opacity =
     let merge_key =
