@@ -233,6 +233,30 @@ let test_colour_hint_takes_a_colour () =
   (* The hint survives into the class name, so the class reads back. *)
   has "text-shadow-[color:red]" ".text-shadow-\\[color\\:red\\]"
 
+(* The [shadow:] hint says the payload is a shadow, not that it names a
+   variable. [text-shadow-[shadow:12px_12px_#0088cc]] wrote [text-shadow:
+   var(--12px_12px_#0088cc)]. *)
+let test_shadow_hint_takes_a_shadow () =
+  Test_helpers.check_declarations "text-shadow-[shadow:12px_12px_#0088cc]"
+    [ "text-shadow:12px 12px var(--tw-text-shadow-color,#08c)" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "text-shadow-[shadow:var(--value)]"
+    [ "text-shadow:var(--value)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "text-shadow-[shadow:12px_12px_#0088cc] round-trips"
+    "text-shadow-[shadow:12px_12px_#0088cc]"
+    (Tw.pp
+       (Result.get_ok (Tw.of_string "text-shadow-[shadow:12px_12px_#0088cc]")));
+  (* A payload the shadow reader refuses is held open, not settled: Tailwind
+     writes the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Text_shadow.Handler)
+    "text-shadow-[shadow:notashadow]"
+
 (* The shadow's parts are separated by the [_] that stands for a space, so a
    variable name carrying an underscore of its own is written [\_]. *)
 let test_underscore_escape () =
@@ -251,6 +275,8 @@ let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
       test_colour_hint_takes_a_colour;
+    Alcotest.test_case "shadow hint takes a shadow" `Quick
+      test_shadow_hint_takes_a_shadow;
     Alcotest.test_case "underscore escape" `Quick test_underscore_escape;
   ]
   @ Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

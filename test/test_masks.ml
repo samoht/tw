@@ -227,9 +227,39 @@ let test_bracket_url_needs_a_whole_token () =
   | Ok u -> Alcotest.(check string) "round-trips" "mask-[url(x.png)]" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.failf "mask-[url(x.png)]: %s" m
 
+(* An [image:]/[url:] hint says how to read the value written after it; it does
+   not make that value the name of a custom property. [mask-[image:url(a.png)]]
+   wrote [mask-image: var(--url\(a\.png\))]. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  Test_helpers.check_declarations "mask-[image:url(a.png)]"
+    [ "-webkit-mask-image:url(a.png)"; "mask-image:url(a.png)" ];
+  Test_helpers.check_declarations "mask-[url:url(a.png)]"
+    [ "-webkit-mask-image:url(a.png)"; "mask-image:url(a.png)" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "mask-[image:var(--some-var)]"
+    [
+      "-webkit-mask-image:var(--some-var)";
+      "-webkit-mask-image:var(--some-var)";
+      "mask-image:var(--some-var)";
+    ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "mask-[url:url(a.png)] round-trips" "mask-[url:url(a.png)]"
+    (Tw.pp (Result.get_ok (Tw.of_string "mask-[url:url(a.png)]")));
+  (* A value no image reader takes is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Masks.Handler)
+    "mask-[image:notanimage]"
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "bracket data-type hint reads the value" `Quick
+        test_bracket_data_type_hint_reads_the_value;
       Alcotest.test_case "mask image underscore escape" `Quick
         test_bracket_image_underscore_escape;
       Alcotest.test_case "bracket url keeps underscores" `Quick

@@ -1166,8 +1166,39 @@ let test_arbitrary_underscore_escape () =
   content {|content-['hello\_world']|} {|"hello_world"|};
   content {|content-['hello_world']|} {|"hello world"|}
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [text-[length:1.25rem]] wrote
+   [font-size: var(--1\.25rem)] where Tailwind writes [font-size: 1.25rem]. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  check_declarations "text-[length:1.25rem]" [ "font-size:1.25rem" ];
+  check_declarations "text-[percentage:80%]" [ "font-size:80%" ];
+  check_declarations "text-[absolute-size:large]" [ "font-size:large" ];
+  check_declarations "text-[relative-size:larger]" [ "font-size:larger" ];
+  check_declarations "font-[family-name:Inter]" [ "font-family:Inter" ];
+  check_declarations "font-[generic-name:serif]" [ "font-family:serif" ];
+  check_declarations "font-[number:600]"
+    [ "--tw-font-weight:600"; "font-weight:600" ];
+  check_declarations "decoration-[length:3px]"
+    [ "text-decoration-thickness:3px" ];
+  check_declarations "decoration-[color:red]" [ "text-decoration-color:red" ];
+  (* a var() reference after the hint still names a custom property *)
+  check_declarations "text-[length:var(--my-size)]"
+    [ "font-size:var(--my-size)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "text-[length:1.25rem] round-trips" "text-[length:1.25rem]"
+    (Tw.pp (Result.get_ok (Tw.of_string "text-[length:1.25rem]")));
+  (* A value the reading refuses is held open, not settled: Tailwind writes the
+     bracket out whatever it says, so refusing is an intermediate. *)
+  check_invalid_input
+    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Typography.Typography_early)
+    "text-[length:notalength]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick
       test_arbitrary_underscore_escape;
     test_case "invalid decoration bracket hex" `Quick
