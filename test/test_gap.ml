@@ -165,8 +165,23 @@ let typed_prime () =
   check_typed_class "space-y-4" (space_y 4);
   check_typed_class "space-y-0.5" (space_y' 0.5)
 
+(* A data-type hint chooses the longhand and says nothing about the value. Gap
+   writes one longhand per axis, so every hint reaches it and the length reader
+   sees only what follows the hint, which stays in the class name. *)
+let test_data_type_hint_before_the_length_reader () =
+  check_declarations "gap-[length:4px]" [ "gap:4px" ];
+  check_declarations "gap-x-[foo:4px]" [ "column-gap:4px" ];
+  check_declarations "gap-[length:var(--x)]" [ "gap:var(--x)" ];
+  List.iter check
+    [ "gap-[length:4px]"; "gap-x-[foo:4px]"; "gap-[length:var(--x)]" ];
+  let reject c = check_invalid_input (module Tw.Gap.Handler) c in
+  reject "gap-[:4px]";
+  reject "gap-[length:]"
+
 let tests =
   [
+    test_case "data-type hint before the length reader" `Quick
+      test_data_type_hint_before_the_length_reader;
     test_case "gap of_string - valid values" `Quick of_string_valid;
     test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "gap of_string - invalid values" `Quick of_string_invalid;
