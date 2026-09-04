@@ -333,6 +333,18 @@ let nested_hover ~selector ~props =
 let at_rule_body ~inner_has_hover ~selector ~props =
   if inner_has_hover then ([], nested_hover ~selector ~props) else (props, [])
 
+(* Rebuild an inner media block under an outer variant. A hover-gated variant
+   keeps every declaration in the [@media (hover:hover)] it carries in [nested]
+   and leaves its wrapper with none of its own, so the nested blocks are the
+   whole body there: a rule that declares nothing styles nothing, and Tailwind
+   writes none. This is the rule [Build.indexed_rule_to_statement] applies to
+   the outermost block, which is why the same stack shows nothing surplus
+   without an outer variant around it. *)
+let rebuilt_media ~condition ~selector ~props nested =
+  match (props, nested) with
+  | [], _ :: _ -> Css.media ~condition nested
+  | _ -> Css.media ~condition (Css.rule ~selector props :: nested)
+
 let media_rule_with_prefix ?(inner_has_hover = false) prefix condition
     base_class selector props =
   let modified_class = prefix ^ ":" ^ base_class in
@@ -1858,8 +1870,8 @@ let apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
   in
   let inner_media =
     let rename = rename_class_in_stmt ~old_class:bc ~new_class:modified_class in
-    Css.media ~condition:inner_condition
-      (Css.rule ~selector:new_selector props :: List.map rename nested)
+    rebuilt_media ~condition:inner_condition ~selector:new_selector ~props
+      (List.map rename nested)
   in
   let wrap_in_media condition =
     (* Use the modified class (e.g. "dark:md:block") as the wrapped rule's base
@@ -2066,8 +2078,8 @@ let rec apply_modifier_to_rule ?theme modifier = function
             ~new_class:modified_class selector
         in
         let inner_media =
-          Css.media ~condition:inner_condition
-            (Css.rule ~selector:inner_selector props :: List.map rename nested)
+          rebuilt_media ~condition:inner_condition ~selector:inner_selector
+            ~props (List.map rename nested)
         in
         nest_inside_at_rule inner_media wrapper
       in
