@@ -1088,8 +1088,11 @@ let palette_nodes =
 (* Convert color to CSS color value *)
 let to_css ?theme color shade =
   match color with
-  | Black -> Css.hex "#000"
-  | White -> Css.hex "#fff"
+  (* Tailwind writes these two palette entries in the three digits its own theme
+     block spells, where every other entry is an [oklch()]. [Css.hex] keeps the
+     decoded bytes alone and the printer then spells them in full. *)
+  | Black -> authored_hex "#000"
+  | White -> authored_hex "#fff"
   (* The class named the spelling, so that is the one CSS gets, [#] and all. *)
   | Hex hex -> authored_hex hex
   | Oklch oklch -> css_color_of_oklch oklch
