@@ -21,12 +21,15 @@ even when the rest of the optimizer is disabled:
 
 The Tailwind backend generates against the project's own entrypoint, so a
 [--tailwind] run over files reads the same [@theme] the native run does.
-A stub CLI stands in for the real one and echoes the entrypoint it was given:
+A stub CLI stands in for the real one: it echoes the entrypoint it was given,
+and answers the identification probe, which asks for the banner on stdout and
+leaves a copy of whatever it was asked to compile. tw takes the CLI from the
+nearest [node_modules] above the working directory, so the stub goes there; on
+[PATH] the installed one still wins and the stub never runs.
 
-  $ mkdir -p stub
-  $ cat > stub/tailwindcss <<'EOF'
+  $ mkdir -p node_modules/.bin
+  $ cat > node_modules/.bin/tailwindcss <<'EOF'
   > #!/bin/sh
-  > if [ "$1" = "--version" ]; then echo "tailwindcss v4.3.3"; exit 0; fi
   > in=input.css
   > out=output.css
   > while [ $# -gt 0 ]; do
@@ -36,11 +39,15 @@ A stub CLI stands in for the real one and echoes the entrypoint it was given:
   >     *) shift ;;
   >   esac
   > done
+  > if [ "$out" = "-" ]; then
+  >   cp "$in" probe-entrypoint.css
+  >   echo "/*! tailwindcss v4.3.3 | MIT License */"
+  >   exit 0
+  > fi
   > if [ -n "$TW_STUB_CSS" ]; then cat "$TW_STUB_CSS" > "$out"
   > else cat "$in" > "$out"; fi
   > EOF
-  $ chmod +x stub/tailwindcss
-  $ export PATH="$PWD/stub:$PATH"
+  $ chmod +x node_modules/.bin/tailwindcss
 
   $ cat > app.css <<EOF
   > @import "tailwindcss";
@@ -57,6 +64,15 @@ The single-class path already did:
 
   $ tw --tailwind --input-css app.css -s text-huge | grep -c -- '--text-huge: 9rem;'
   1
+
+Identifying the CLI must cost the same from any directory. The pinned CLI has
+no version flag: [--version] compiles a stylesheet like any other run, and with
+no entrypoint of its own that means scanning the current directory for classes,
+which under dune is the whole build tree. The probe names an entrypoint that
+turns source detection off, so it reads nothing around it:
+
+  $ cat probe-entrypoint.css
+  @import "tailwindcss" source(none);
 
 The sheet [--diff] compares is the sheet tw generates. A project's own
 [@utility] declarations and its entrypoint belong to both, so handing the
