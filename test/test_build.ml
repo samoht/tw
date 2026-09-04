@@ -1203,6 +1203,30 @@ let test_theme_named_family_declaration_order () =
   check bool "--font-zeta declared before --font-alpha, as in the @theme block"
     true (zeta < alpha)
 
+(* [theme(static)] asks for the whole theme, so the token registry answers even
+   where no utility read the token. That is not a licence to declare one the
+   project put out of reach: an [@theme inline] or [@theme reference] block says
+   the sheet declares it nowhere, and a removed one is gone. *)
+let test_static_theme_respects_project_tokens () =
+  let static = { Tw.Scheme.default with static_theme = true } in
+  let vars theme = vars_in_layer "theme" (Tw.Build.theme_layer_of ~theme []) in
+  check bool "the registry reaches the static theme" true
+    (List.mem "--spacing" (vars static));
+  let out_of_reach kind theme =
+    check bool
+      (kind ^ " gets no declaration")
+      false
+      (List.mem "--spacing" (vars theme))
+  in
+  out_of_reach "an inline token"
+    (Tw.Scheme.with_overrides ~inline:[ "spacing" ] static
+       [ ("spacing", "0.5rem") ]);
+  out_of_reach "a reference token"
+    (Tw.Scheme.with_overrides ~reference:[ "spacing" ] static
+       [ ("spacing", "0.5rem") ]);
+  out_of_reach "a removed token"
+    (Tw.Scheme.with_overrides static [ ("spacing", "initial") ])
+
 (* [--default-font-family] is derived from [--font-sans]: a project that took
    the family out of its theme leaves the derived token naming nothing, and
    Tailwind drops it rather than emitting a reference that never resolves. *)
@@ -1298,6 +1322,8 @@ let tests =
       test_theme_media_refs_md;
     test_case "theme layer emits a read project token" `Quick
       test_theme_layer_emits_read_project_token;
+    test_case "static theme respects project tokens" `Quick
+      test_static_theme_respects_project_tokens;
     test_case "rule_sets_injects_hover_media_query" `Quick
       test_rule_sets_hover_media;
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
