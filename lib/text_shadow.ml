@@ -74,8 +74,6 @@ module Handler = struct
   let text_shadow_property_metadata =
     [ Var.metadata text_shadow_color_var; Var.metadata text_shadow_alpha_var ]
 
-  let shorten_hex = Color.shorten_hex_str
-
   (* A [#] value only names a colour when what follows is a hex spelling;
      [Css.hex] raises on anything else, here once the sheet is rendered. *)
   let is_hex_value s =
@@ -496,11 +494,11 @@ module Handler = struct
       ~property_rules:text_shadow_property_rules [ base_decl ]
 
   let set_bracket_hex hex =
-    let short = shorten_hex ("#" ^ hex) in
-    let base_decl, _ = Var.binding text_shadow_color_var (Css.hex short) in
+    let color = Color.authored_hex hex in
+    let base_decl, _ = Var.binding text_shadow_color_var color in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        (Css.hex short) Css.Transparent
+        color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
     let supports_block = color_mix_supports [ enhanced_decl ] in
@@ -612,7 +610,7 @@ module Handler = struct
     | Some (h_offset, v_offset, blur, color) ->
         let fallback_color : Css.color =
           match color with
-          | Hex c -> Css.hex (shorten_hex c)
+          | Hex c -> Color.authored_hex c
           | Var_ref v -> make_full_color_var v
           | Css_color c -> (
               match Color.css_color_to_hex c with Some h -> h | None -> c)

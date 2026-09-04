@@ -333,8 +333,6 @@ module Handler = struct
       Var.metadata ring_offset_shadow_var;
     ]
 
-  let shorten_hex = Color.shorten_hex_str
-
   (* A bracket alpha with no [%] records the author's own number, unscaled and
      without a unit, which is what Tailwind writes: [shadow-lg/[25]] gives
      [--tw-shadow-alpha: 25]. Every other spelling stays a percentage. The alpha
@@ -1303,7 +1301,7 @@ module Handler = struct
             (fun { h_offset; v_offset; blur; spread; color } ->
               let fallback_color : Css.color =
                 match color with
-                | Hex c -> Css.hex (shorten_hex c)
+                | Hex c -> Color.authored_hex c
                 | Var v -> make_full_color_var v
                 | Css_color c -> (
                     match Color.css_color_to_hex c with
@@ -1381,7 +1379,7 @@ module Handler = struct
               let base_fallback : Css.color =
                 match color with
                 | Hex c ->
-                    if needs_supports then Css.hex (shorten_hex c)
+                    if needs_supports then Color.authored_hex c
                     else Color.hex_to_oklab_alpha c alpha
                 | Var v -> make_full_color_var v
                 | Css_color c ->

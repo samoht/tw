@@ -284,6 +284,9 @@
   `decoration-`, `divide-` and `stroke-` accept the modifier at all now, and a
   colour the browser resolves at use time keeps the `@supports` fallback
   Tailwind writes (#508, #517).
+- An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
+  gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
+  case, where Tailwind writes back what the bracket held (#700).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).
