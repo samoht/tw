@@ -1044,6 +1044,10 @@ let ranked_color_names =
     "zinc";
     "neutral";
     "stone";
+    "mauve";
+    "olive";
+    "mist";
+    "taupe";
   ]
 
 let test_color_orders_cover_the_same_names () =
@@ -1072,8 +1076,28 @@ let test_utilities_color_order_is_alphabetical () =
   Alcotest.(check int) "transparent leads" 0 (order "transparent");
   Alcotest.(check int) "black follows" 1 (order "black");
   Alcotest.(check int) "amber opens the alphabetical run" 2 (order "amber");
-  Alcotest.(check int) "white sits between violet and yellow" 22 (order "white");
-  Alcotest.(check int) "zinc closes it" 24 (order "zinc")
+  Alcotest.(check int) "white sits between violet and yellow" 25 (order "white");
+  Alcotest.(check int) "zinc closes it" 27 (order "zinc");
+  (* The v4.3.3 families take their alphabetical places rather than the
+     unknown-colour slot. *)
+  Alcotest.(check int) "mauve follows lime" 10 (order "mauve");
+  Alcotest.(check int) "mist follows mauve" 11 (order "mist");
+  Alcotest.(check int) "olive follows neutral" 13 (order "olive");
+  Alcotest.(check int) "taupe follows stone" 22 (order "taupe")
+
+(* Tailwind 4.3.3 declares mauve, olive, mist and taupe in its [@theme] after
+   stone and before black, in that order. Read off [@import "tailwindcss"
+   theme(static)]. *)
+let test_v433_families_rank_in_theme_order () =
+  let order name = snd (Tw.Color.theme_order name) in
+  let names =
+    [ "stone"; "mauve"; "olive"; "mist"; "taupe"; "black"; "white" ]
+  in
+  let orders = List.map order names in
+  Alcotest.(check (list int))
+    "the four families sit between stone and black, each in its own slot"
+    (List.sort_uniq compare orders)
+    orders
 
 let tests =
   [
@@ -1151,6 +1175,9 @@ let tests =
     ( "Utilities colour order is alphabetical",
       `Quick,
       test_utilities_color_order_is_alphabetical );
+    ( "v4.3.3 families rank in theme order",
+      `Quick,
+      test_v433_families_rank_in_theme_order );
   ]
 
 let suite = ("color", tests)

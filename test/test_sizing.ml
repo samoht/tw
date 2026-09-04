@@ -539,16 +539,50 @@ let test_arbitrary_aspect_spelling () =
       match Tw.of_string cls with
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
-    [ "aspect-[16/9]"; "aspect-[16.50/9]"; "aspect-[1.333]"; "aspect-16/9" ]
+    [
+      "aspect-[16/9]";
+      "aspect-[16.50/9]";
+      "aspect-[1.333]";
+      "aspect-16/9";
+      "aspect-[16_/_9]";
+      "aspect-[foo]";
+      "aspect-[calc(1+2)]";
+    ]
 
-(* The bracket holds a ratio or a number, so a word is not an aspect. *)
-let test_arbitrary_aspect_rejects_non_ratio () =
+(* [aspect-[...]] is a token-stream site, not an arbitrary-length one: the CLI
+   validates nothing inside the bracket and hands the text to [aspect-ratio] as
+   written. Measured against tailwindcss 4.3.3. *)
+let test_arbitrary_aspect_token_stream () =
+  List.iter
+    (fun (cls, decl) -> Test_helpers.check_declarations cls [ decl ])
+    [
+      ("aspect-[foo]", "aspect-ratio:foo");
+      ("aspect-[abc]", "aspect-ratio:abc");
+      ("aspect-[-1]", "aspect-ratio:-1");
+      ("aspect-[0x4]", "aspect-ratio:0x4");
+      ("aspect-[1_0]", "aspect-ratio:1 0");
+      ("aspect-[16/abc]", "aspect-ratio:16/abc");
+      (* The quarter-multiple gate reads a bare [aspect-8.5/11]; inside a
+         bracket the author writes CSS, so no part is rounded away. *)
+      ("aspect-[1.23/4.56]", "aspect-ratio:1.23/4.56");
+      (* A ratio comes back spelled as written, so [16/9] keeps its spacing and
+         [16_/_9] keeps its spaces. *)
+      ("aspect-[16/9]", "aspect-ratio:16/9");
+      ("aspect-[16_/_9]", "aspect-ratio:16 / 9");
+      (* The CLI's own minifier folds this to [3]; cascade leaves the math
+         alone, as it does for every other opaque declaration. *)
+      ("aspect-[calc(1+2)]", "aspect-ratio:calc(1 + 2)");
+    ]
+
+(* Anything that can end the declaration or swallow the rest of the rule names
+   no utility, which is the one thing the CLI does refuse here. *)
+let test_arbitrary_aspect_rejects_unsafe () =
   List.iter
     (fun cls ->
       match Tw.of_string cls with
       | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
       | Error (`Msg _) -> ())
-    [ "aspect-[abc]"; "aspect-[16/abc]"; "aspect-[]" ]
+    [ "aspect-[]"; "aspect-[a;b]"; "aspect-[a}b]" ]
 
 (* An [--aspect-*] or [--container-*] token the project declared in its [@theme]
    names a value the built-in scale has no slot for. Tailwind generates the
@@ -640,8 +674,10 @@ let tests =
     test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
     test_case "arbitrary aspect spelling" `Quick test_arbitrary_aspect_spelling;
     test_case "project theme tokens" `Quick test_project_theme_tokens;
-    test_case "arbitrary aspect rejects non-ratio" `Quick
-      test_arbitrary_aspect_rejects_non_ratio;
+    test_case "arbitrary aspect token stream" `Quick
+      test_arbitrary_aspect_token_stream;
+    test_case "arbitrary aspect rejects unsafe values" `Quick
+      test_arbitrary_aspect_rejects_unsafe;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
     test_case "aspect precedes dimensions" `Quick aspect_precedes_dimensions;
