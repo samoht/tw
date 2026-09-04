@@ -361,8 +361,10 @@ module Handler = struct
         match Parse.arbitrary_length inner with
         | Some length -> Ok (Stroke_width_bracket (inner, length))
         | None -> (
-            (* A bare number reads as pixels, which is what Tailwind's own
-               fixture corpus records for stroke-[1.5]. *)
+            (* A bare number goes through Tailwind's generator as it was written
+               and its minifier reads it as pixels, which is what Tailwind's own
+               fixture corpus records for stroke-[1.5] and what [--diff]
+               compares. *)
             match float_of_string_opt inner with
             | Some f -> Ok (Stroke_width_bracket (inner, Px f))
             | None -> err_not_utility))

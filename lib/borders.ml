@@ -280,8 +280,10 @@ module Handler = struct
 
   (* cascade types outline-width as a [border_width], the line-width grammar it
      shares with the border sides, so read it as one rather than reading a
-     length and converting where it is written. A bare number is Tailwind's own
-     sugar and still means pixels. *)
+     length and converting where it is written. A bare number goes through
+     Tailwind's generator as it was written and its minifier reads it as pixels,
+     which is the spelling its own test corpus records and the one [--diff]
+     compares. *)
   let parse_outline_width inner : Css.border_width option =
     match parse_border_width inner with
     | Some _ as w -> w

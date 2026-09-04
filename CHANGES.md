@@ -313,6 +313,10 @@
 - `--color-black` and `--color-white` are written `#000` and `#fff`, the three
   digits Tailwind spells them in, in the theme block and in every colour
   family's unguarded fallback (#711).
+- An arbitrary inset shadow keeps its lengths, its spread and its colour when
+  that colour is one CSS knows by name. `inset-shadow-[0_0_0_1px_red]` and every
+  other bracket carrying a named colour came out as `inset-shadow-none`, where
+  the same bracket under `shadow-` was read correctly (#PR).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).

@@ -1649,7 +1649,10 @@ module Typography_late = struct
   let parse_decoration_thickness inner : Css.length option =
     Parse.arbitrary_length inner
 
-  (* Tailwind converts a percentage thickness to em: 50% -> .5em. *)
+  (* Tailwind's generator writes the percentage through and its minifier folds
+     it to em, 50% -> .5em, which is the spelling its own test corpus records
+     and the one [--diff] compares. Reading the unminified sheet instead reports
+     a difference that is the minifier's. *)
   let parse_decoration_pct inner : Css.length option =
     match Parse.arbitrary_length inner with
     | Some (Pct pct) -> Some (Em (pct /. 100.))
