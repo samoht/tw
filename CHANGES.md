@@ -411,6 +411,10 @@
 - `tw --tailwind` and `tw --diff` no longer compile the working directory
   before they start. Identifying the pinned CLI ran with Tailwind's source
   detection on, which costs minutes in a large tree (#702).
+- `tw --diff` no longer invents a difference for a class Tailwind compiles.
+  Building the reference by scanning a file lost every class Tailwind's own
+  extractor declines to read back, `group-hover/-2a:underline` among them
+  (#705).
 
 ## 1.0.0
 

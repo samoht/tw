@@ -5,15 +5,70 @@ let write_file path content =
   output_string oc content;
   close_out oc
 
+(* A candidate reaches the CLI by one of two routes, and they answer different
+   questions. An [@source inline] entry goes to the engine, which is what tw's
+   own reader models. Text in a scanned file has to satisfy the candidate
+   extractor first, and the extractor declines spellings the engine compiles: a
+   [/name] opening on [-] or [_] is one, so [group-hover/-2a:underline] yields
+   no rule from a file although [@apply] resolves it. A declined candidate costs
+   the whole rule rather than changing a value, so a sheet built that way is
+   short a rule that tw emits, and the comparison reads as a class tw invented.
+
+   Inline is therefore the route and the extractor the exception, taken only
+   where the [@source inline] string cannot hold the candidate: [{] and [}] are
+   its expansion syntax, a [\] opens a string escape, and one carrying both
+   quote characters fits inside neither string form. No class name Tailwind can
+   produce is spelled that way. *)
+let inline_quote candidate =
+  let unusable = function '{' | '}' | '\\' -> true | _ -> false in
+  if String.exists unusable candidate then None
+  else if not (String.contains candidate '"') then Some '"'
+  else if not (String.contains candidate '\'') then Some '\''
+  else None
+
+(* [-s "p-4 flex"] hands the harness one entry holding two candidates, and both
+   routes split it, so what either compiles is the whitespace split of what the
+   caller passed. *)
+let candidates classnames =
+  let is_white = function
+    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
+    | _ -> false
+  in
+  let split s =
+    let n = String.length s in
+    let rec loop i start acc =
+      let taken =
+        if i > start then String.sub s start (i - start) :: acc else acc
+      in
+      if i = n then List.rev taken
+      else if is_white s.[i] then loop (i + 1) (i + 1) taken
+      else loop (i + 1) start acc
+    in
+    loop 0 0 []
+  in
+  List.concat_map split classnames
+
+let scanned_candidates classnames =
+  List.filter (fun c -> Option.is_none (inline_quote c)) (candidates classnames)
+
 let tailwind_files ?(forms = false) ?input_css temp_dir classnames =
-  (* Feed candidates to the extractor verbatim, space-separated, as raw file
-     text rather than inside an HTML class attribute. An attribute forces
-     escaping one quote style into an HTML entity, and Tailwind's extractor
-     reads that entity literally into the selector (e.g. bg-[url('x')] ->
-     .bg-\[url\(\&\#39\;x\&\#39\;\)\]), diverging from tw's selector. Raw text
-     preserves both single and double quotes exactly as a real source file
-     would, so arbitrary url() and content-["..."] values round-trip. *)
-  let html_content = String.concat " " classnames in
+  (* What the inline route cannot carry is fed to the extractor verbatim,
+     space-separated, as raw file text rather than inside an HTML class
+     attribute. An attribute forces escaping one quote style into an HTML
+     entity, and Tailwind's extractor reads that entity literally into the
+     selector (e.g. bg-[url('x')] -> .bg-\[url\(\&\#39\;x\&\#39\;\)\]),
+     diverging from tw's selector. Raw text preserves both single and double
+     quotes exactly as a real source file would. *)
+  let candidates = candidates classnames in
+  let html_content = String.concat " " (scanned_candidates candidates) in
+  let inline_sources =
+    List.filter_map
+      (fun candidate ->
+        Option.map
+          (fun q -> Fmt.str "@source inline(%c%s%c);" q candidate q)
+          (inline_quote candidate))
+      candidates
+  in
   (* When the caller supplies a project CSS entrypoint, use it verbatim so the
      real Tailwind reads the project's @theme/@plugin/@config; otherwise
      synthesise the default import. *)
@@ -43,7 +98,9 @@ export default {
      in
      write_file (Filename.concat temp_dir "tailwind.config.js") config_content);
   write_file (Filename.concat temp_dir "input.html") html_content;
-  write_file (Filename.concat temp_dir "input.css") input_css_content
+  write_file
+    (Filename.concat temp_dir "input.css")
+    (String.concat "\n" (input_css_content :: inline_sources))
 
 let availability_result = ref None
 let tailwind_command = ref None
