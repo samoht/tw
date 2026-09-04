@@ -634,6 +634,60 @@ let theme_function_custom_property_fallback () =
   Test_helpers.check_declarations "p-[calc(theme(--spacing)_*_2)]"
     [ "padding:calc(.25rem*2)" ]
 
+(* Every namespace Tailwind's default [@theme] declares answers a [theme(--x)],
+   not only the handful of scales a utility happened to publish. The value is
+   inlined into the utility and the token's binding stays in [@layer theme], so
+   a consumer reading it off the sheet still finds it.
+
+   Three of these write a [--tw-*] channel beside the property, which is what
+   the arbitrary value does anyway once the call has resolved.
+
+   [font-[theme(--font-weight-bold)]] and
+   [drop-shadow-[theme(--drop-shadow-md)]] are left out: the CLI picks the
+   utility before it substitutes the call, so it reads the first as a font
+   family and writes [font-family: 700], and skips the [--tw-drop-shadow-color]
+   hoist it gives the same value written out. tw resolves the call first and
+   treats both the way the resolved value is treated. *)
+let theme_function_default_namespaces () =
+  let bindings cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> (
+        match Css.layer_block [ "theme" ] (Tw.to_css ~base:false [ u ]) with
+        | None -> Alcotest.failf "%s: expected @layer theme" cls
+        | Some statements ->
+            Css.rules_of_statements statements
+            |> List.concat_map snd
+            |> List.map (Css.Declaration.to_string ~minify:true))
+  in
+  let check_token cls binding declarations =
+    Alcotest.(check (list string)) (cls ^ " binding") [ binding ] (bindings cls);
+    Test_helpers.check_declarations cls declarations
+  in
+  check_token "rounded-[theme(--radius-lg)]" "--radius-lg:.5rem"
+    [ "border-radius:.5rem" ];
+  check_token "max-w-[theme(--container-md)]" "--container-md:28rem"
+    [ "max-width:28rem" ];
+  check_token "aspect-[theme(--aspect-video)]" "--aspect-video:16/9"
+    [ "aspect-ratio:16/9" ];
+  check_token "animate-[theme(--animate-spin)]"
+    "--animate-spin:spin 1s linear infinite"
+    [ "animation:spin 1s linear infinite" ];
+  check_token "perspective-[theme(--perspective-normal)]"
+    "--perspective-normal:500px" [ "perspective:500px" ];
+  check_token "ease-[theme(--ease-in)]" "--ease-in:cubic-bezier(.4,0,1,1)"
+    [
+      "--tw-ease:cubic-bezier(.4,0,1,1)";
+      "transition-timing-function:cubic-bezier(.4,0,1,1)";
+    ];
+  check_token "tracking-[theme(--tracking-wide)]" "--tracking-wide:.025em"
+    [ "--tw-tracking:.025em"; "letter-spacing:.025em" ];
+  check_token "blur-[theme(--blur-sm)]" "--blur-sm:8px"
+    [
+      "--tw-blur:blur(8px)";
+      "filter:var(--tw-blur,)var(--tw-brightness,)var(--tw-contrast,)var(--tw-grayscale,)var(--tw-hue-rotate,)var(--tw-invert,)var(--tw-saturate,)var(--tw-sepia,)var(--tw-drop-shadow,)";
+    ]
+
 (* Tailwind spells the same lookup [--theme(--x)] as well, and that spelling
    references the token instead of inlining it: the CLI writes [padding:
    var(--spacing)] and the binding beside it. It admits neither a v3 dot path
@@ -1623,6 +1677,8 @@ let core_tests =
       theme_function_custom_property_binding;
     test_case "theme(--x) falls back and composes" `Quick
       theme_function_custom_property_fallback;
+    test_case "theme(--x) reads every default namespace" `Quick
+      theme_function_default_namespaces;
     test_case "--theme(--x) references the token" `Quick
       theme_function_custom_property_reference;
     test_case "layout" `Slow layout;
