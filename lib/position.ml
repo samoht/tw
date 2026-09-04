@@ -43,18 +43,25 @@ let read_paren_calc inner : Css.length Css.calc option =
 let parse_bracket_length ?(negate = false) s : Css.length option =
   if not (Parse.is_bracket_value s) then None
   else
-    let inner = Parse.bracket_inner s in
     let signed l = if negate then negate_length l else l in
-    if Parse.is_var inner then
-      Some (signed (Css.Var (Var.bracket (Parse.extract_var_name inner))))
-    else
-      match Parse.arbitrary_length inner with
-      | Some l -> Some (signed l)
-      | None when not negate -> None
-      | None -> (
-          match read_paren_calc (Parse.decode_arbitrary_value inner) with
-          | None -> None
-          | Some c -> Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.)))))
+    (* A data-type hint chooses the longhand and says nothing about the value.
+       An inset side writes one longhand, so every hint lands here and the
+       readers below are handed what follows it; the class name keeps the whole
+       bracket, which is what the caller stores. *)
+    match Parse.value_after_hint (Parse.bracket_inner s) with
+    | None -> None
+    | Some inner -> (
+        if Parse.is_var inner then
+          Some (signed (Css.Var (Var.bracket (Parse.extract_var_name inner))))
+        else
+          match Parse.arbitrary_length inner with
+          | Some l -> Some (signed l)
+          | None when not negate -> None
+          | None -> (
+              match read_paren_calc (Parse.decode_arbitrary_value inner) with
+              | None -> None
+              | Some c ->
+                  Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.))))))
 
 (* The theme token a named inset (top-header) reads: Tailwind resolves the name
    against the [--inset-*] namespace and falls back to [--spacing-*]. The value

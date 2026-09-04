@@ -528,8 +528,40 @@ let test_bracket_data_type_hint_reads_the_value () =
     (module Tw.Borders.Handler)
     "outline-[length:notawidth]"
 
+(* [border-[…]] routes on the hint: [length:] and [line-width:] name the width,
+   and the width reader sees only what follows. [rounded-[…]] names its longhand
+   already, so it takes any hint. Both keep the hint in the class name. *)
+let test_border_width_data_type_hint () =
+  let width cls value =
+    check_declarations cls
+      [ "border-style:var(--tw-border-style)"; "border-width:" ^ value ]
+  in
+  width "border-[length:2px]" "2px";
+  width "border-[line-width:2px]" "2px";
+  width "border-[length:var(--w)]" "var(--w)";
+  check_declarations "border-t-[line-width:2px]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:2px" ];
+  check_declarations "border-x-[line-width:2px]"
+    [ "border-inline-style:var(--tw-border-style)"; "border-inline-width:2px" ];
+  check_declarations "rounded-[length:4px]" [ "border-radius:4px" ];
+  check_declarations "rounded-[foo:4px]" [ "border-radius:4px" ];
+  List.iter check
+    [
+      "border-[length:2px]";
+      "border-[line-width:2px]";
+      "border-t-[line-width:2px]";
+      "rounded-[length:4px]";
+    ];
+  let reject c = check_invalid_input (module Tw.Borders.Handler) c in
+  reject "border-[:2px]";
+  reject "border-[length:]";
+  reject "rounded-[:4px]";
+  reject "rounded-[length:]"
+
 let tests =
   [
+    test_case "border width data-type hint" `Quick
+      test_border_width_data_type_hint;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "bracket width units" `Quick test_bracket_width_units;

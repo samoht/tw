@@ -632,8 +632,31 @@ let logical_inset_sides_take_the_whole_scale () =
   reject "inset-s-1.7";
   reject "inset-be-1.7"
 
+(* A data-type hint chooses the longhand and says nothing about the value. An
+   inset side writes one longhand, so every hint reaches it and the length
+   reader sees only what follows the hint, which stays in the class name. *)
+let test_data_type_hint_before_the_length_reader () =
+  let open Test_helpers in
+  check_declarations "top-[length:4px]" [ "top:4px" ];
+  check_declarations "inset-[foo:4px]" [ "inset:4px" ];
+  check_declarations "-top-[length:4px]" [ "top:-4px" ];
+  check_declarations "left-[length:var(--x)]" [ "left:var(--x)" ];
+  List.iter
+    (check_handler_roundtrip (module Tw.Position.Handler))
+    [
+      "top-[length:4px]";
+      "inset-[foo:4px]";
+      "-top-[length:4px]";
+      "left-[length:var(--x)]";
+    ];
+  List.iter
+    (check_invalid_input (module Tw.Position.Handler))
+    [ "top-[:4px]"; "top-[length:]" ]
+
 let tests =
   [
+    test_case "data-type hint before the length reader" `Quick
+      test_data_type_hint_before_the_length_reader;
     test_case "inset and z" `Quick test_inset_and_z;
     test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "negative top" `Quick test_negative;

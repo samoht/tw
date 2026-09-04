@@ -104,9 +104,31 @@ let test_padding_order () =
       "scroll-pl-4";
     ]
 
+(* A data-type hint chooses the longhand and says nothing about the value. A
+   scroll family writes one longhand per side, so every hint reaches it and the
+   length reader sees only what follows the hint, which stays in the class
+   name. *)
+let test_data_type_hint_before_the_length_reader () =
+  Test_helpers.check_declarations "scroll-m-[length:4px]"
+    [ "scroll-margin:4px" ];
+  Test_helpers.check_declarations "scroll-p-[foo:4px]" [ "scroll-padding:4px" ];
+  Test_helpers.check_declarations "scroll-m-[length:var(--x)]"
+    [ "scroll-margin:var(--x)" ];
+  List.iter check
+    [
+      "scroll-m-[length:4px]";
+      "scroll-p-[foo:4px]";
+      "scroll-m-[length:var(--x)]";
+    ];
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Scroll.Handler))
+    [ "scroll-m-[:4px]"; "scroll-m-[length:]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "data-type hint before the length reader" `Quick
+        test_data_type_hint_before_the_length_reader;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "typed constructors: half-step" `Quick test_typed_prime;
       Alcotest.test_case "arbitrary length" `Quick test_arbitrary_length;
