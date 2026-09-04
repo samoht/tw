@@ -343,52 +343,111 @@ let test_bracket_css_colors () =
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red"
 
+(* The declarations a class writes outside any [@supports] block, and those it
+   writes inside one. [Test_helpers.check_declarations] flattens the two
+   together, which cannot tell a progressive-enhancement pair from two
+   declarations written side by side in one rule. *)
+let guarded_declarations cls =
+  match Tw.of_string cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      let declarations stmt =
+        match Css.as_rule stmt with
+        | Some (selector, decls, _)
+          when String.contains (Css.Selector.to_string selector) '.' ->
+            List.map (Css.Declaration.to_string ~minify:false) decls
+        | Some _ | None -> []
+      in
+      Tw.to_css ~base:false [ u ]
+      |> Test_helpers.extract_utilities_layer_rules
+      |> List.fold_left
+           (fun (plain, guarded) stmt ->
+             match Css.as_supports stmt with
+             | Some (_, inner) ->
+                 (plain, guarded @ List.concat_map declarations inner)
+             | None -> (plain @ declarations stmt, guarded))
+           ([], [])
+
 (* An opacity modifier applies to the colour the bracket was parsed into. The
    modifier read the bracket text back through the palette parser, which
    answered black for every CSS colour the palette does not name, and answered
    the palette entry for the names it shares with CSS. *)
 let test_bracket_colour_opacity () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let pin cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
-  (* the value a class sets for [prop], so two spellings of one colour compare
-     without their class names *)
-  let value prop cls =
-    let sheet = css cls in
-    let key = prop ^ ":" in
-    match Astring.String.find_sub ~sub:key sheet with
-    | None -> Alcotest.failf "%s sets no %s: %s" cls prop sheet
-    | Some i ->
-        let start = i + String.length key in
-        Astring.String.with_range ~first:start sheet
-        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
-  in
-  let same prop cls hex =
-    Alcotest.(check string)
-      (cls ^ " is " ^ hex)
-      (value prop hex) (value prop cls)
-  in
-  same "color" "text-[rebeccapurple]/50" "text-[#663399]/50";
-  same "color" "text-[hsl(200_50%_50%)]/50" "text-[#4095bf]/50";
+  let half colour = "color-mix(in oklab, " ^ colour ^ " 50%, transparent)" in
+  pin "text-[rebeccapurple]/50" ("color: " ^ half "rebeccapurple");
+  pin "text-[hsl(200_50%_50%)]/50" ("color: " ^ half "#4095bf");
   (* a CSS keyword still beats the palette entry of the same name *)
-  same "background-color" "bg-[red]/50" "bg-[#ff0000]/50";
-  same "border-color" "border-[rebeccapurple]/50" "border-[#663399]/50";
-  same "accent-color" "accent-[rebeccapurple]/50" "accent-[#663399]/50";
-  same "caret-color" "caret-[rebeccapurple]/50" "caret-[#663399]/50";
-  same "outline-color" "outline-[rebeccapurple]/50" "outline-[#663399]/50";
-  same "color" "placeholder-[rebeccapurple]/50" "placeholder-[#663399]/50";
+  pin "bg-[red]/50" ("background-color: " ^ half "red");
+  pin "border-[rebeccapurple]/50" ("border-color: " ^ half "rebeccapurple");
+  pin "accent-[rebeccapurple]/50" ("accent-color: " ^ half "rebeccapurple");
+  pin "caret-[rebeccapurple]/50" ("caret-color: " ^ half "rebeccapurple");
+  pin "outline-[rebeccapurple]/50" ("outline-color: " ^ half "rebeccapurple");
+  pin "placeholder-[rebeccapurple]/50" ("color: " ^ half "rebeccapurple");
   (* an alpha read from a var names the property in the mix *)
-  same "color" "text-[rebeccapurple]/(--a)" "text-[#663399]/(--a)";
-  (* the colour the palette cannot name is not black *)
-  Alcotest.(check bool)
-    "text-[rebeccapurple]/50 is not black" false
-    (Astring.String.is_infix ~affix:"oklab(0%" (css "text-[rebeccapurple]/50"));
+  Alcotest.(check (list string))
+    "text-[rebeccapurple]/(--a)"
+    [ "color: color-mix(in oklab, rebeccapurple var(--a), transparent)" ]
+    (snd (guarded_declarations "text-[rebeccapurple]/(--a)"));
   (* a bracket that names no colour at all is still not a class *)
   Alcotest.(check bool)
     "text-[notacolour]/50 is not a class" true
     (Result.is_error (Tw.of_string "text-[notacolour]/50"))
+
+(* An opacity modifier over a bracket colour stays a [color-mix()] on the colour
+   the class wrote, which is what the pinned CLI answers: [text-[#f00]/50] gives
+   [color-mix(in oklab, #f00 50%, transparent)]. Evaluating the mix at compile
+   time replaced the authored value with the [oklab()] channels of the same
+   colour, a spelling no class names and one carrying eight decimal places
+   Tailwind never writes. Only a fully opaque modifier resolves, to the colour
+   itself. *)
+let test_bracket_colour_opacity_keeps_the_mix () =
+  let pin cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
+  in
+  let half colour = "color-mix(in oklab, " ^ colour ^ " 50%, transparent)" in
+  pin "text-[#f00]/50" ("color: " ^ half "#f00");
+  pin "text-[#f00]/[0.5]" ("color: " ^ half "#f00");
+  pin "text-[#f00]/[50%]" ("color: " ^ half "#f00");
+  (* the bracket's own spelling survives the mix, case and alpha byte
+     included *)
+  pin "text-[#F00]/50" ("color: " ^ half "#F00");
+  pin "text-[#ff0000]/50" ("color: " ^ half "#ff0000");
+  pin "text-[#ff000080]/50" ("color: " ^ half "#ff000080");
+  (* a data-type hint says how to read the value, not what to write back *)
+  pin "text-[color:red]/50" ("color: " ^ half "red");
+  (* every family the shared handler serves *)
+  pin "border-[#f00]/50" ("border-color: " ^ half "#f00");
+  pin "accent-[#f00]/50" ("accent-color: " ^ half "#f00");
+  pin "caret-[#f00]/50" ("caret-color: " ^ half "#f00");
+  pin "outline-[#f00]/50" ("outline-color: " ^ half "#f00");
+  pin "placeholder-[#f00]/50" ("color: " ^ half "#f00");
+  (* at full opacity the mix is a no-op and Tailwind writes the colour alone *)
+  pin "text-[#f00]/100" "color: #f00";
+  (* a zero mix is still a mix: the colour at no opacity, not no colour *)
+  pin "text-[#f00]/0" "color: color-mix(in oklab, #f00 0%, transparent)"
+
+(* An alpha read from a custom property cannot be resolved, so Tailwind writes
+   the bracket colour unguarded and puts the mix behind an [@supports] guard. tw
+   wrote the mix alone: a browser with no [color-mix()] drops that declaration
+   and paints nothing where Tailwind paints the authored colour.
+   [pre_color_mix_fallback] answers on the mix's colour operands, and the var
+   here is its percentage, so it reported that no guard was needed. *)
+let test_bracket_colour_var_alpha_keeps_a_fallback () =
+  let pin cls plain guarded =
+    Alcotest.(check (pair (list string) (list string)))
+      cls ([ plain ], [ guarded ]) (guarded_declarations cls)
+  in
+  pin "text-[#f00]/[var(--x)]" "color: #f00"
+    "color: color-mix(in oklab, #f00 var(--x), transparent)";
+  pin "text-[#f00]/(--x)" "color: #f00"
+    "color: color-mix(in oklab, #f00 var(--x), transparent)";
+  pin "border-[#f00]/[var(--x)]" "border-color: #f00"
+    "border-color: color-mix(in oklab, #f00 var(--x), transparent)";
+  pin "outline-[#f00]/[var(--x)]" "outline-color: #f00"
+    "outline-color: color-mix(in oklab, #f00 var(--x), transparent)"
 
 (* An hsl() hue takes any angle unit. Folding one to a hex colour used to keep
    only bare numbers and [deg] and read every other unit as 0, so a half turn
@@ -1168,6 +1227,12 @@ let tests =
     ("Outline inherit order", `Slow, test_outline_inherit_order);
     ("Bracket CSS colors", `Quick, test_bracket_css_colors);
     ("Bracket colour opacity", `Quick, test_bracket_colour_opacity);
+    ( "Bracket colour opacity keeps the mix",
+      `Quick,
+      test_bracket_colour_opacity_keeps_the_mix );
+    ( "Bracket colour var alpha keeps a fallback",
+      `Quick,
+      test_bracket_colour_var_alpha_keeps_a_fallback );
     ("hsl hue units", `Quick, test_hsl_hue_units);
     ("hsl non-percentage channels", `Quick, test_hsl_non_percentage_channels);
     ("rgb non-numeric channels", `Quick, test_rgb_non_numeric_channels);

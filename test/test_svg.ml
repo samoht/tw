@@ -111,27 +111,13 @@ let bracket_named_color () =
   let emits affix cls =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
-  (* the value a class sets for [prop], so two spellings of one colour compare
-     without their class names *)
-  let value prop cls =
-    let sheet = css cls in
-    let key = prop ^ ":" in
-    match Astring.String.find_sub ~sub:key sheet with
-    | None -> Alcotest.failf "%s sets no %s: %s" cls prop sheet
-    | Some i ->
-        let first = i + String.length key in
-        Astring.String.with_range ~first sheet
-        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
-  in
-  let same prop cls other =
-    Alcotest.(check string)
-      (cls ^ " is " ^ other)
-      (value prop other) (value prop cls)
-  in
   emits "stroke:rebeccapurple" "stroke-[rebeccapurple]";
   emits "stroke:currentColor" "stroke-[currentColor]";
-  same "stroke" "stroke-[rebeccapurple]/50" "stroke-[#663399]/50";
-  same "fill" "fill-[rebeccapurple]/50" "fill-[#663399]/50";
+  (* the modifier mixes into the colour the bracket named, not into black *)
+  Test_helpers.check_declarations ~minify:false "stroke-[rebeccapurple]/50"
+    [ "stroke: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
+  Test_helpers.check_declarations ~minify:false "fill-[rebeccapurple]/50"
+    [ "fill: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   (* a bracket naming neither a colour nor a width is still not a class *)
   Alcotest.(check bool)
     "stroke-[notacolour] is not a class" true
