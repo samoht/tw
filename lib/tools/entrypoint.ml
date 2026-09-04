@@ -547,18 +547,6 @@ let segment sep s =
   done;
   List.rev (Buffer.contents buf :: !pieces)
 
-(* Index of the first [sub] in [s]. *)
-let sub_index s sub =
-  let n = String.length s and m = String.length sub in
-  let rec go i =
-    if i + m > n then None
-    else if String.sub s i m = sub then Some i
-    else go (i + 1)
-  in
-  go 0
-
-let has_sub s sub = Option.is_some (sub_index s sub)
-
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
    one decimal point, and an optional exponent. *)
 let is_number text =
@@ -696,7 +684,9 @@ let math_functions =
 (* A math function stands for the value it computes, so it reads as every
    numeric type. *)
 let has_math_fn text =
-  List.exists (fun name -> has_sub text (name ^ "(")) math_functions
+  List.exists
+    (fun name -> Tw.Strings.contains ~sub:(name ^ "(") text)
+    math_functions
 
 let is_length text =
   has_math_fn text
@@ -881,7 +871,7 @@ let parse_functional_candidates ~is_root cls =
         (* An arbitrary value ends the base, so what stands before its opener is
            the root outright rather than one of several the base could name. *)
         let arbitrary opener read =
-          match sub_index base opener with
+          match Tw.Strings.index ~sub:opener base with
           | Some idx when is_root (String.sub base 0 idx) ->
               read (String.sub base 0 idx) idx
           | _ -> []
@@ -937,7 +927,7 @@ let normalize_value_arg arg =
     Buffer.contents buf
   in
   let rec collapse s =
-    match sub_index s "-*-*" with
+    match Tw.Strings.index ~sub:"-*-*" s with
     | None -> s
     | Some i ->
         collapse
@@ -951,7 +941,7 @@ let normalize_value_arg arg =
     String.length arg >= 2
     && String.sub arg 0 2 = "--"
     && (not (String.contains arg '('))
-    && not (has_sub arg "-*")
+    && not (Tw.Strings.contains ~sub:"-*" arg)
   then arg ^ "-*"
   else arg
 
@@ -978,7 +968,7 @@ let theme_token_css ~theme name =
    with nothing behind it. *)
 let split_wildcard arg =
   let rec go acc s =
-    match sub_index s "-*" with
+    match Tw.Strings.index ~sub:"-*" s with
     | None -> List.rev (s :: acc)
     | Some i ->
         go (String.sub s 0 i :: acc)
@@ -1195,8 +1185,10 @@ let functional_body ~theme ~body candidate =
         match piece with
         | Punctuation _ -> (piece, Keep "")
         | Declaration text ->
-            if has_sub text "--value(" || has_sub text "--modifier(" then
-              (piece, resolve_declaration ~theme ~candidate ~state text)
+            if
+              Tw.Strings.contains ~sub:"--value(" text
+              || Tw.Strings.contains ~sub:"--modifier(" text
+            then (piece, resolve_declaration ~theme ~candidate ~state text)
             else (piece, Keep text))
       (body_pieces body)
   in
