@@ -1518,7 +1518,7 @@ let has_pseudo_elements tw_classes =
     | Utility.Modified (modifier, u) -> has_pseudo modifier || check_utility u
     | Utility.Group us -> List.exists check_utility us
     | Utility.Important (_, u) -> check_utility u
-    | Utility.Aliased (_, u) -> check_utility u
+    | Utility.Aliased (_, u) | Utility.Theme_bound (_, u) -> check_utility u
   in
   List.exists check_utility tw_classes
 
@@ -1535,8 +1535,10 @@ let has_transition_utility tw_classes =
         String.length c >= 10
         && String.sub c 0 10 = "transition"
         && not (String.equal c "transition-none")
-    | Utility.Modified (_, u) | Utility.Important (_, u) | Utility.Aliased (_, u)
-      ->
+    | Utility.Modified (_, u)
+    | Utility.Important (_, u)
+    | Utility.Aliased (_, u)
+    | Utility.Theme_bound (_, u) ->
         check u
     | Utility.Group us -> List.exists check us
   in

@@ -168,6 +168,9 @@
   `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
   `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
   underscore outside the `url()` still becomes a space (#692).
+- `theme(--x)` and `--theme(--x)`, v4's own spelling of a theme lookup, resolve
+  in an arbitrary value. `p-[theme(--spacing)]` and its siblings were rejected
+  as unknown classes; only the v3 dot paths resolved (#701).
 - The first argument of a `var()` or a `theme()` in an arbitrary value keeps its
   underscores, which spell the name of a custom property rather than spaces.
   `[--x:var(--my_var)]` referenced `--my var`, and `shadow-[0_0_0_var(--my_var)]`

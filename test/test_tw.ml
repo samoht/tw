@@ -542,13 +542,12 @@ let theme_function_keeps_an_underscore () =
         "the class is the one the source spells" "[color:theme(colors.red.500)]"
         (Tw.to_classes [ u ])
 
-(* [theme(--x)] is v4's own spelling of a theme lookup and reads the same token
-   table the dot paths do, across every namespace: [--spacing], [--color-*],
-   [--breakpoint-*], [--container-*], [--radius-*], [--text-*]. Unlike a dot
+(* [theme(--x)] is v4's own spelling of a theme lookup, and it reads the token
+   table rather than one of the v3 namespaces a dot path names. Unlike a dot
    path it does not consume the token: @tailwindcss/cli 4.3.3 inlines the value
    into the utility and still writes the binding into [@layer theme], so a
    consumer reading [--spacing] off the sheet finds it. tw answered "Unknown
-   class" for all of them. *)
+   class" for every one of these. *)
 let theme_function_custom_property_spelling () =
   let sheet cls =
     match Tw.of_string cls with
@@ -564,17 +563,20 @@ let theme_function_custom_property_spelling () =
   in
   check_sheet "p-[theme(--spacing)]" "--spacing:.25rem"
     {|.p-\[theme\(--spacing\)\]{padding:.25rem}|};
+  check_sheet "max-w-[theme(--breakpoint-sm)]" "--breakpoint-sm:40rem"
+    {|.max-w-\[theme\(--breakpoint-sm\)\]{max-width:40rem}|};
+  (* The palette answers through the catalogue an arbitrary
+     [var(--color-red-500)] already reads, so a shaded entry and a shadeless one
+     both resolve and the two spellings of one entry cannot drift apart. *)
   check_sheet "text-[theme(--color-red-500)]"
     "--color-red-500:oklch(63.7%.237 25.331)"
     {|.text-\[theme\(--color-red-500\)\]{color:oklch(63.7%.237 25.331)}|};
-  check_sheet "max-w-[theme(--breakpoint-sm)]" "--breakpoint-sm:40rem"
-    {|.max-w-\[theme\(--breakpoint-sm\)\]{max-width:40rem}|};
-  check_sheet "max-w-[theme(--container-md)]" "--container-md:28rem"
-    {|.max-w-\[theme\(--container-md\)\]{max-width:28rem}|};
-  check_sheet "rounded-[theme(--radius-lg)]" "--radius-lg:.5rem"
-    {|.rounded-\[theme\(--radius-lg\)\]{border-radius:.5rem}|};
-  check_sheet "text-[length:theme(--text-xl)]" "--text-xl:1.25rem"
-    {|.text-\[length\:theme\(--text-xl\)\]{font-size:1.25rem}|}
+  check_sheet "text-[theme(--color-black)]" "--color-black:#000"
+    {|.text-\[theme\(--color-black\)\]{color:#000}|};
+  (* An alpha reads the token the same way a dot path's does. *)
+  check_sheet "bg-[theme(--color-red-500/25%)]"
+    "--color-red-500:oklch(63.7%.237 25.331)"
+    {|.bg-\[theme\(--color-red-500\/25\%\)\]{background-color:color-mix(in oklab,oklch(63.7%.237 25.331) 25%,transparent)}|}
 
 (* The token a [theme(--x)] names is bound once however many classes read it,
    the variants a class carries do not move the binding out of [@layer theme],
@@ -597,9 +599,15 @@ let theme_function_custom_property_binding () =
     "a variant leaves the binding in the theme layer"
     "@layer theme,components,utilities;@layer \
      theme{:root,:host{--spacing:.25rem}}@layer components;@layer \
-     utilities{@media \
-     (width>=48rem){.md\\:p-\\[theme\\(--spacing\\)\\]{padding:.25rem}}}"
+     utilities{@media(min-width:48rem){.md\\:p-\\[theme\\(--spacing\\)\\]{padding:.25rem}}}"
     (sheet [ "md:p-[theme(--spacing)]" ]);
+  (* The binding is not one of the declarations a [!] marks. *)
+  Alcotest.(check string)
+    "important marks the utility and not the binding"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--spacing:.25rem}}@layer components;@layer \
+     utilities{.p-\\[theme\\(--spacing\\)\\]\\!{padding:.25rem!important}}"
+    (sheet [ "p-[theme(--spacing)]!" ]);
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing", "0.5rem") ]
   in
@@ -610,10 +618,10 @@ let theme_function_custom_property_binding () =
      utilities{.p-\\[theme\\(--spacing\\)\\]{padding:.5rem}}"
     (sheet ~theme [ "p-[theme(--spacing)]" ])
 
-(* A [theme(--x)] naming a token the theme does not carry has no rule at all,
-   the way a missing dot path has none, and a fallback argument stands in for it
-   and binds nothing. The call composes inside a longer value, where only the
-   call itself is replaced. *)
+(* A [theme(--x)] naming a token the resolved theme does not carry has no rule
+   at all, the way a missing dot path has none, and a fallback argument stands
+   in for it and binds nothing. The call composes inside a longer value, where
+   only the call itself is replaced. *)
 let theme_function_custom_property_fallback () =
   let rejected cls =
     match Tw.of_string cls with
@@ -628,8 +636,8 @@ let theme_function_custom_property_fallback () =
 
 (* Tailwind spells the same lookup [--theme(--x)] as well, and that spelling
    references the token instead of inlining it: the CLI writes [padding:
-   var(--spacing)] and the binding beside it. A dot path is not admitted in this
-   spelling. *)
+   var(--spacing)] and the binding beside it. It admits neither a v3 dot path
+   nor an alpha, both of which Tailwind reads some other way. *)
 let theme_function_custom_property_reference () =
   let rejected cls =
     match Tw.of_string cls with
@@ -638,11 +646,12 @@ let theme_function_custom_property_reference () =
   in
   Test_helpers.check_declarations "p-[--theme(--spacing)]"
     [ "padding:var(--spacing)" ];
-  Test_helpers.check_declarations "max-w-[--theme(--breakpoint-sm)]"
-    [ "max-width:var(--breakpoint-sm)" ];
+  Test_helpers.check_declarations "text-[--theme(--color-red-500)]"
+    [ "color:var(--color-red-500)" ];
   Test_helpers.check_declarations "p-[--theme(--nope,1rem)]" [ "padding:1rem" ];
   rejected "p-[--theme(spacing.4)]";
-  rejected "p-[--theme(--nope)]"
+  rejected "p-[--theme(--nope)]";
+  rejected "bg-[--theme(--color-red-500/25%)]"
 
 (* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
    does not carry, so a class carrying one is not a utility. A bare segment
@@ -1608,7 +1617,7 @@ let core_tests =
       theme_function_alpha_reads_any_palette_value;
     test_case "theme() keeps an underscore" `Quick
       theme_function_keeps_an_underscore;
-    test_case "theme(--x) resolves every namespace" `Quick
+    test_case "theme(--x) resolves the token table" `Quick
       theme_function_custom_property_spelling;
     test_case "theme(--x) binds the token once" `Quick
       theme_function_custom_property_binding;

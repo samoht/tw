@@ -17,6 +17,28 @@ let test_base_of_class_invalid () =
   | Error (`Msg msg) ->
       check bool "error message not empty" true (String.length msg > 0)
 
+(* A theme binding rides on the utility's own declarations, where the theme
+   layer collects it and the utilities layer filters it out. It is not part of
+   the class the utility reports, and an empty list adds no carrier at all. *)
+let test_theme_bound () =
+  let open Tw.Utility in
+  let decl = Cascade.Css.custom_property ~layer:"theme" "--spacing" "0.25rem" in
+  match base_of_class Tw.Scheme.default "p-4" with
+  | Error (`Msg msg) -> fail msg
+  | Ok b -> (
+      let u = theme_bound [ decl ] (Base b) in
+      check string "the class is unchanged" "p-4" (to_class u);
+      check string "an empty list adds no carrier" "Base p-4"
+        (pp (theme_bound [] (Base b)));
+      match to_style Tw.Scheme.default u with
+      | Tw.Style.Style { props; _ } ->
+          check bool "the binding is one of the declarations" true
+            (List.exists
+               (fun d ->
+                 Cascade.Css.custom_declaration_name d = Some "--spacing")
+               props)
+      | _ -> fail "expected p-4 to be a single style")
+
 (* Test deduplication preserves order and keeps last occurrence *)
 let test_deduplicate () =
   let open Tw.Utility in
@@ -377,6 +399,7 @@ let tests =
     test_case "base_of_class valid input" `Quick test_base_of_class_valid;
     test_case "no class claimed twice" `Quick test_no_class_claimed_twice;
     test_case "base_of_class invalid input" `Quick test_base_of_class_invalid;
+    test_case "theme_bound carries a binding" `Quick test_theme_bound;
     test_case "deduplicate preserves order" `Quick test_deduplicate;
     test_case "deduplicate handles empty list" `Quick test_deduplicate_empty;
     (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)

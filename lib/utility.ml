@@ -12,10 +12,18 @@ type t =
           {!to_class}, so the emitted selector matches the source spelling. Used
           for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
           but keeps its own class name. *)
+  | Theme_bound of Cascade.Css.declaration list * t
+      (** [Theme_bound (decls, u)] renders as [u] with [decls] alongside its own
+          declarations. Carries the [\@layer theme] binding of a token a
+          [theme(--x)] read: resolving the reference does not consume the token,
+          so Tailwind writes the binding as well. *)
 
 let base x = Base x
 let important ?(suffix = false) x = Important (suffix, x)
 let alias class_name u = Aliased (class_name, u)
+
+let theme_bound decls u =
+  match decls with [] -> u | _ -> Theme_bound (decls, u)
 
 (* See the .mli. *)
 module Property_order = struct
@@ -275,12 +283,21 @@ let base_to_style theme u =
   in
   try_handlers handlers
 
+(* A theme binding rides on the rule's own declarations, where the theme layer
+   collects it and the utilities layer filters it out - the same carriage a
+   container query's binding uses. *)
+let rec bind_props decls = function
+  | Style.Style s -> Style.Style { s with props = decls @ s.props }
+  | Style.Modified (m, t) -> Style.Modified (m, bind_props decls t)
+  | Style.Group ts -> Style.Group (List.map (bind_props decls) ts)
+
 let rec to_style theme = function
   | Base u -> base_to_style theme u
   | Modified (m, u) -> Style.Modified (m, to_style theme u)
   | Group us -> Style.Group (List.map (to_style theme) us)
   | Important (_, u) -> Style.map_important (to_style theme u)
   | Aliased (_, u) -> to_style theme u
+  | Theme_bound (decls, u) -> bind_props decls (to_style theme u)
 
 let rec to_class = function
   | Base u -> class_of_base u
@@ -296,6 +313,7 @@ let rec to_class = function
   | Important (suffix, u) ->
       if suffix then to_class u ^ "!" else "!" ^ to_class u
   | Aliased (class_name, _) -> class_name
+  | Theme_bound (_, u) -> to_class u
 
 let rec pp = function
   | Base u -> "Base " ^ class_of_base u
@@ -303,6 +321,7 @@ let rec pp = function
   | Group us -> "Group [" ^ String.concat "; " (List.map pp us) ^ "]"
   | Important (_, u) -> "Important (" ^ pp u ^ ")"
   | Aliased (class_name, u) -> "Aliased (" ^ class_name ^ ", " ^ pp u ^ ")"
+  | Theme_bound (_, u) -> "Theme_bound (" ^ pp u ^ ")"
 
 let order (u : base) : int * int =
   let rec try_handlers = function
