@@ -401,6 +401,9 @@ module Handler = struct
     Css.parse_color
       (pp_str [ "oklab(from "; v; " l a b / "; opacity_css_value opacity; ")" ])
 
+  let color_origin (c : Css.color) =
+    Css.Pp.to_string ~minify:true Css.pp_color c
+
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
     let v_inset_ring = Var.reference inset_ring_shadow_var in
@@ -765,7 +768,14 @@ module Handler = struct
         let alpha_d = shadow_opacity_decl opacity in
         let base_fallback : Css.color =
           match color with
-          | Hex c -> Color.hex_to_oklab_alpha c alpha
+          (* An alpha reading a custom property has no percentage to resolve
+             against, so the colour stays as the class wrote it and the relative
+             form goes behind the guard below. Folding it through oklab at full
+             opacity left the shadow opaque for a browser with no relative
+             colours, where Tailwind leaves the authored colour. *)
+          | Hex c ->
+              if dynamic_opacity then Color.authored_hex c
+              else Color.hex_to_oklab_alpha c alpha
           | Var v -> make_full_color_var v
           | Css_color c ->
               let c =
@@ -805,8 +815,7 @@ module Handler = struct
           match color with
           | Hex c when dynamic_opacity -> relative_support c
           | Css_color c when dynamic_opacity ->
-              let origin = Css.Pp.to_string ~minify:true Css.pp_color c in
-              relative_support origin
+              relative_support (color_origin c)
           | Hex _ | Css_color _ -> []
           | Var v -> relative_support v
           | None ->
@@ -1420,7 +1429,7 @@ module Handler = struct
                           if dynamic_opacity then
                             match relative_oklab_from_color c opacity with
                             | Some relative -> relative
-                            | None -> Css.hex c
+                            | None -> Color.authored_hex c
                           else Color.hex_to_oklab_alpha c alpha
                         in
                         Var.reference_with_fallback inset_shadow_color_var
@@ -1434,9 +1443,7 @@ module Handler = struct
                             Var.reference_with_fallback inset_shadow_color_var
                               (make_full_color_var v))
                     | Css_color c ->
-                        let origin =
-                          Css.Pp.to_string ~minify:true Css.pp_color c
-                        in
+                        let origin = color_origin c in
                         let enhanced =
                           if dynamic_opacity then
                             match relative_oklab_from_color origin opacity with
