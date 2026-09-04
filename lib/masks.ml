@@ -23,6 +23,29 @@ module Handler = struct
       | Top_right
   end
 
+  (* The longhands an arbitrary mask bracket is written into, each beside the
+     [-webkit-] spelling this family writes with it. *)
+  module Longhand = struct
+    type t = Image | Position | Size
+
+    let properties = function
+      | Image -> [ "-webkit-mask-image"; "mask-image" ]
+      | Position -> [ "-webkit-mask-position"; "mask-position" ]
+      | Size -> [ "-webkit-mask-size"; "mask-size" ]
+
+    (* The slot Tailwind's property table gives each one. *)
+    let rank = function Image -> 209 | Size -> 260 | Position -> 262
+  end
+
+  (* A bracket no reader here takes. Tailwind writes it into the longhand the
+     class names and leaves the value spelled as the author wrote it, so whether
+     it means anything is the browser's answer rather than tw's. *)
+  type opaque = {
+    spelling : string;  (** the class as written, which prints back *)
+    longhand : Longhand.t;
+    value : string;  (** the bracket's contents, decoded but not read *)
+  }
+
   type t =
     | No_mask
     | Add
@@ -74,6 +97,7 @@ module Handler = struct
     | Position_bracket_var of string
     | Size_bracket of string
     | Size_bracket_var of string
+    | Bracket_opaque of opaque
 
   let name = "masks"
 
@@ -414,6 +438,11 @@ module Handler = struct
             Css.webkit_mask_size (Var var_ref);
             Css.mask_size (Var var_ref);
           ]
+    | Bracket_opaque { longhand; value; _ } ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (Longhand.properties longhand))
 
   (* Tailwind sorts by the property a utility sets, at the rank its property
      table gives it: mask-image (209), then mask-composite (257) through
@@ -440,6 +469,7 @@ module Handler = struct
     | Origin_border | Origin_content | Origin_fill | Origin_padding
     | Origin_stroke | Origin_view ->
         264
+    | Bracket_opaque { longhand; _ } -> Longhand.rank longhand
 
   (* Each of these writes one property and stops there, so it closes that
      property's slot: the mask-gradient utilities that write mask-image and
@@ -460,6 +490,64 @@ module Handler = struct
   let is_mask_image_value v =
     Parse.is_var v || is_image_value v
     || Parse.url_token (Parse.decode_arbitrary_value v) <> None
+
+  (* A bracket no reader takes is still a utility: it is written into [longhand]
+     as the author spelled it. A value that would end the declaration or swallow
+     what follows it is not one. *)
+  let opaque spelling longhand inner =
+    match Parse.arbitrary_declaration_value inner with
+    | Some value -> Ok (Bracket_opaque { spelling; longhand; value })
+    | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))
+
+  (* A bracket may open with a data-type hint, [<ident>:], which says how to
+     read what follows it. Tailwind reads the name as one only when it is an
+     identifier, so [mask-[10px:2em]] holds [10px:2em] whole, and a [:] inside a
+     function call belongs to the value: [url(http://x/a.png)] is a URL and not
+     a hint called [url(http]. *)
+  let strip_data_type_hint inner =
+    let len = String.length inner in
+    let is_tail c =
+      (c >= 'a' && c <= 'z')
+      || (c >= 'A' && c <= 'Z')
+      || (c >= '0' && c <= '9')
+      || c = '-'
+    in
+    let is_head c = is_tail c && not (c >= '0' && c <= '9') in
+    let rec find i : (string * string) option =
+      if i >= len then None
+      else if inner.[i] = ':' then
+        if i = 0 || i = len - 1 then None
+        else Some (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
+      else if (if i = 0 then is_head else is_tail) inner.[i] then find (i + 1)
+      else None
+    in
+    find 0
+
+  (* Tailwind reads a bracket holding a math function as a length, and a length
+     is a position component, so such a value goes to mask-position however the
+     rest of it reads: [mask-[foo_calc(1+2)]] is a position where
+     [mask-[foo_10px]] is an image. *)
+  let holds_math_function inner =
+    let len = String.length inner in
+    let is_name_char c =
+      (c >= 'a' && c <= 'z')
+      || (c >= 'A' && c <= 'Z')
+      || (c >= '0' && c <= '9')
+      || c = '-'
+    in
+    let rec name_start i =
+      if i > 0 && is_name_char inner.[i - 1] then name_start (i - 1) else i
+    in
+    let rec scan i =
+      i < len
+      && ((inner.[i] = '('
+          &&
+          let s = name_start i in
+          Css.Properties.is_math_function
+            (String.lowercase_ascii (String.sub inner s (i - s))))
+         || scan (i + 1))
+    in
+    scan 0
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -512,17 +600,25 @@ module Handler = struct
     (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
     | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        if Parse.is_var inner then Ok (Position_bracket_var inner)
-        else
-          match parse_bracket_position inner with
-          | Some positions -> Ok (Position_bracket (inner, positions))
-          | None -> Error (`Msg "Invalid mask-position value"))
-    | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket ->
+        (* This class names its longhand outright, so a hint in front of the
+           value says nothing more than where the value starts. *)
+        match strip_data_type_hint inner with
+        | Some (_, v) -> opaque class_name Longhand.Position v
+        | None -> (
+            if Parse.is_var inner then Ok (Position_bracket_var inner)
+            else
+              match parse_bracket_position inner with
+              | Some positions -> Ok (Position_bracket (inner, positions))
+              | None -> opaque class_name Longhand.Position inner))
+    | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        if Parse.is_var inner then Ok (Size_bracket_var inner)
-        else if parse_bracket_size inner = None then
-          Error (`Msg "Invalid mask-size value")
-        else Ok (Size_bracket inner)
+        match strip_data_type_hint inner with
+        | Some (_, v) -> opaque class_name Longhand.Size v
+        | None ->
+            if Parse.is_var inner then Ok (Size_bracket_var inner)
+            else if parse_bracket_size inner = None then
+              opaque class_name Longhand.Size inner
+            else Ok (Size_bracket inner))
     (* Bracket notation: mask-[...] *)
     | [ "mask"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
@@ -530,49 +626,58 @@ module Handler = struct
         | "contain" -> Ok Bracket_contain
         | "cover" -> Ok Bracket_cover
         | _ when String.length inner > 7 && String.sub inner 0 7 = "length:" ->
-            (* The [length:] hint forces a mask-size; a value the size grammar
-               cannot take is not a utility. It used to fall through to a
-               plausible-looking [auto]. *)
+            (* The [length:] hint forces a mask-size, and says nothing about
+               whether the value is one: a size the grammar cannot take is
+               written out as the author spelled it. *)
             let v = String.sub inner 7 (String.length inner - 7) in
             if parse_bracket_size v = None then
-              Error (`Msg ("Unknown mask bracket length: " ^ v))
+              opaque class_name Longhand.Size v
             else Ok (Bracket_length v)
         | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
             let v = String.sub inner 5 (String.length inner - 5) in
             if parse_bracket_size v = None then
-              Error (`Msg ("Unknown mask bracket size: " ^ v))
+              opaque class_name Longhand.Size v
             else Ok (Bracket_size v)
         | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
           -> (
-            (* The [position:] data-type hint forces a mask-position; a value
-               the grammar rejects is not a utility. It used to fall through to
-               a plausible-looking [center]. *)
+            (* The [position:] hint forces a mask-position the same way. *)
             let v = String.sub inner 9 (String.length inner - 9) in
             match parse_bracket_position v with
             | Some positions -> Ok (Bracket_typed_position (v, positions))
-            | None -> Error (`Msg ("Unknown mask bracket position: " ^ v)))
+            | None -> opaque class_name Longhand.Position v)
         (* An [image:]/[url:] hint says how to read the value written after it;
            only a var() reference there names a custom property. *)
         | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
             let v = String.sub inner 6 (String.length inner - 6) in
             if is_mask_image_value v then Ok (Bracket_image_var v)
-            else Error (`Msg ("Unknown mask bracket image: " ^ v))
+            else opaque class_name Longhand.Image v
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
             let v = String.sub inner 4 (String.length inner - 4) in
             if is_mask_image_value v then Ok (Bracket_url_var v)
-            else Error (`Msg ("Unknown mask bracket url: " ^ v))
+            else opaque class_name Longhand.Image v
         (* Before the [url(...)] reading below, which takes one whole token and
            so has no answer for the comma of a layer list. *)
         | _ when is_image_value inner -> Ok (Bracket_image inner)
         | _ when String.starts_with ~prefix:"url(" inner -> (
             match Parse.url_token (Parse.decode_arbitrary_value inner) with
             | Some _ -> Ok (Bracket_url inner)
-            | None -> Error (`Msg ("Unknown mask bracket url: " ^ inner)))
+            | None -> opaque class_name Longhand.Image inner)
         | _ when Parse.is_var inner -> Ok (Bracket_var inner)
         | _ -> (
-            match parse_bracket_position inner with
-            | Some positions -> Ok (Bracket_position (inner, positions))
-            | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))))
+            (* A hint Tailwind does not know here settles the longhand all the
+               same: it takes the last resort, and nothing is read from the
+               value that follows it. *)
+            match strip_data_type_hint inner with
+            | Some (_, v) -> opaque class_name Longhand.Image v
+            | None -> (
+                match parse_bracket_position inner with
+                | Some positions -> Ok (Bracket_position (inner, positions))
+                | None ->
+                    let longhand =
+                      if holds_math_function inner then Longhand.Position
+                      else Longhand.Image
+                    in
+                    opaque class_name longhand inner)))
     | _ -> Error (`Msg "Not a mask utility")
 
   let to_class = function
@@ -632,6 +737,7 @@ module Handler = struct
     | Position_bracket_var v -> "mask-position-[" ^ v ^ "]"
     | Size_bracket v -> "mask-size-[" ^ v ^ "]"
     | Size_bracket_var v -> "mask-size-[" ^ v ^ "]"
+    | Bracket_opaque { spelling; _ } -> spelling
 
   let examples =
     [ No_mask; Clip_border; Origin_border; Repeat; Type_alpha; Add; Alpha ]
