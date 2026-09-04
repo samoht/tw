@@ -1035,32 +1035,16 @@ let test_decoration_opacity_fallback () =
    [#] hex and a colour function, so [decoration-[rebeccapurple]] was an unknown
    class, with or without an opacity modifier. *)
 let test_decoration_bracket_named_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  (* the value a class sets for [text-decoration-color], so two spellings of one
-     colour compare without their class names *)
-  let value cls =
-    let sheet = css cls in
-    let key = "text-decoration-color:" in
-    match Astring.String.find_sub ~sub:key sheet with
-    | None -> Alcotest.failf "%s sets no decoration colour: %s" cls sheet
-    | Some i ->
-        let first = i + String.length key in
-        Astring.String.with_range ~first sheet
-        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
-  in
   check_declarations "decoration-[rebeccapurple]"
     [ "text-decoration-color:rebeccapurple" ];
   check_declarations "decoration-[currentColor]"
     [ "text-decoration-color:currentColor" ];
-  (* the modifier folds into the colour the bracket named, not into black *)
-  Alcotest.(check string)
-    "decoration-[rebeccapurple]/50 is decoration-[#663399]/50"
-    (value "decoration-[#663399]/50")
-    (value "decoration-[rebeccapurple]/50");
+  (* the modifier mixes into the colour the bracket named, not into black *)
+  Test_helpers.check_declarations ~minify:false "decoration-[rebeccapurple]/50"
+    [
+      "text-decoration-color: color-mix(in oklab, rebeccapurple 50%, \
+       transparent)";
+    ];
   (* a bracket naming no colour and no thickness is still not a class *)
   Alcotest.(check bool)
     "decoration-[notacolour] is not a class" true
