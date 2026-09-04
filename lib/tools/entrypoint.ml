@@ -558,7 +558,6 @@ let sub_index s sub =
   go 0
 
 let has_sub s sub = Option.is_some (sub_index s sub)
-let is_digit c = c >= '0' && c <= '9'
 
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
    one decimal point, and an optional exponent. *)
@@ -568,7 +567,7 @@ let is_number text =
   if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
   let digits () =
     let from = !i in
-    while !i < n && is_digit text.[!i] do
+    while !i < n && Tw.Strings.is_digit text.[!i] do
       incr i
     done;
     !i - from
@@ -612,7 +611,7 @@ let is_canonical_number text =
         ( String.sub text 0 i,
           Some (String.sub text (i + 1) (String.length text - i - 1)) )
   in
-  let digits s = s <> "" && String.for_all is_digit s in
+  let digits s = s <> "" && String.for_all Tw.Strings.is_digit s in
   digits whole
   && (String.length whole = 1 || whole.[0] <> '0')
   &&
@@ -756,7 +755,7 @@ let is_named_value s =
   s <> ""
   && String.for_all
        (fun c ->
-         is_digit c
+         Tw.Strings.is_digit c
          || (c >= 'a' && c <= 'z')
          || (c >= 'A' && c <= 'Z')
          || c = '_' || c = '.' || c = '%' || c = '-')
