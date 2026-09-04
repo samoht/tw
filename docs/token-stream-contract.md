@@ -37,6 +37,23 @@ spellings before any utility is consulted, and a class it declines is not a
 class Tailwind refuses. `--diff` over a file compares strings, and
 `--diff-mode=canonical` is ignored there; only `-s` honours it.
 
+## Reading a value off the CLI
+
+Which longhand a bracket lands in is the same minified or not, so `@apply`
+settles it. The value written into that longhand is not: the CLI's `--minify`
+runs Lightning CSS, which rewrites values as well as whitespace, and the
+snapshots in `test/upstream/utilities.txt` come from a run that was minified
+too. So a value read off an unminified CLI sheet is not on its own a target.
+
+Three families already differ that way and are right as they stand.
+`outline-[2]` writes `outline-width: 2` unminified and `outline-width: 2px`
+minified; `stroke-2` and `stroke-[1.5]` write `2` and `1.5` against `2px` and
+`1.5px`; `decoration-[10%]` writes `text-decoration-thickness: 10%` against
+`.1em`. tw writes the minified spelling in all three, `--diff` finds no
+difference because it minifies both sides, and the corpus agrees. Minify both
+sheets before calling one of these a divergence, or what you report is the
+minifier's.
+
 ## What routes a bracket
 
 A family tries its readers in order and writes what none of them took into a
