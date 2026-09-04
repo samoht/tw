@@ -276,11 +276,25 @@ readers decline into `mask-image`, `mask-position` or `mask-size` according to
 the hint the class carries, and `test/test_masks.ml` pins each one against the
 CLI.
 
-The hint itself comes off in one place, `Parse.arbitrary_declaration_value`, so
-a family reaching its last resort passes the whole bracket and gets the value
-back. `Parse.data_type_hint` is the same scan on its own, for a family that
-routes on whether a hint is there. Peeling in the family and passing the
-remainder peels twice, and `mask-[bogus:foo:2em]` is where that shows.
+The hint comes off in two places and nowhere else.
+`Parse.arbitrary_declaration_value` peels it for a family falling through to a
+token stream, so such a family passes the whole bracket and gets the value
+back. `Parse.value_after_hint` peels it for a family whose reader is typed,
+which keeps the value typed where a last resort would not: the sizing, padding,
+margin, gap, inset and scroll families call it, as do `rounded-[…]`,
+`outline-offset-[…]` and the four colour families in `lib/color.ml`.
+`Parse.data_type_hint` is the same scan on its own, for a
+family that routes on which hint was written. Peeling in the family and passing
+the remainder peels twice, and `mask-[bogus:foo:2em]` is where that shows.
+
+A family that writes one longhand takes any hint, so `w-[foo:10px]` is a width
+and `accent-[foo:red]` an accent colour. A family that writes several routes on
+the name, and the names are the family's own: `border-[…]` reads `length:` and
+`line-width:` as the width and every other hint as the colour, where
+`outline-[…]` reads `length:`, `number:` and `percentage:` as the width and
+takes `line-width:` for no hint of its own, so `outline-[line-width:2px]` is an
+`outline-color`. `bg-[…]` spells its position hint two ways, `position:` and
+`percentage:`. Read the family off the CLI before adding a name to it.
 
 Two mask readings are wrong in a way this contract does not reach, because
 both take a bracket their readers accept. `mask-[30%_50%,70%_50%]` is a
@@ -295,10 +309,23 @@ class exists and then build the declaration from the raw bracket again, so the
 hint reaches the sheet: `transition-[foo:color]` writes `transition-property:
 foo:color` where the CLI writes `color`. Each needs the `(spelling, value)`
 payload the other families carry, so `to_class` keeps the hint and `to_style`
-does not. The `color:`
-data-type hint is read in one place for every colour-bearing utility,
-`parse_bracket_hint` in `lib/color.ml`, so `text-[color:1.25rem]` and its
-siblings need an opaque case threaded through each family's variant rather than
-a change where the hint is read. And the `length:` hint in `lib/typography.ml`,
+does not. `text-[…]` and `outline-[…]` read only the hints they already know,
+because both route between longhands two modules own and an unknown hint on
+either falls to the colour, which wants the opaque colour case as well as the
+peel: `text-[foo:1.25rem]`, `text-[foo:red]` and `outline-[foo:red]` are
+refused where the CLI writes `color: 1.25rem`, `color: red` and
+`outline-color: red`. And the `length:` hint in `lib/typography.ml`,
 `lib/borders.ml` and `lib/svg.ml` refuses a value its width reader declines,
 which is the same one-line shape in three modules.
+
+These families still refuse a bracket that opens with a hint, each because the
+hint reaches a typed reader that has not been shown it: `basis-[…]`,
+`indent-[…]`, `object-[…]`, `origin-[…]`, `perspective-origin-[…]`,
+`bg-position-[…]`, `bg-size-[…]`, `underline-offset-[…]`, and `col-[…]` and
+`row-[…]` with their `-start` and `-end` siblings.
+
+One family reads a hinted bracket and writes the wrong declaration.
+`shadow-[foo:red]` reaches the shadow reader as `red` and writes
+`--tw-shadow: red`, where the CLI writes
+`--tw-shadow: var(--tw-shadow-color, red)`; the hint drops the bracket into the
+colour branch there, not the shadow one.
