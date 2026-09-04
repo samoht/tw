@@ -1402,7 +1402,9 @@ module Handler = struct
     | Color_source.Current -> Css.Current
     | Color_source.Inherit -> Css.Inherit
     | Color_source.Transparent -> Css.Transparent
-    | Color_source.Bracket_hex h -> Css.hex h
+    (* The bracket's own spelling is the one Tailwind writes back, so [#f00]
+       stays three digits here as it does for every other colour family. *)
+    | Color_source.Bracket_hex h -> Color.authored_hex h
     | Color_source.Bracket_var v -> color_var_ref v
     | Color_source.Bracket_color_var v when Parse.is_var v -> color_var_ref v
     | Color_source.Bracket_color_var v | Color_source.Bracket_color v -> (
@@ -1430,11 +1432,6 @@ module Handler = struct
             gradient_color ~prefix ~set_var ~shade color
         | Color_source.Palette (color, shade, Some opacity) ->
             gradient_color_opacity ~prefix ~set_var ~shade color opacity
-        | Color_source.Plain (Color_source.Bracket_hex h, Some opacity) ->
-            (* Hex is known at compile time: compute oklab directly *)
-            let alpha = Color.opacity_to_percent opacity /. 100.0 in
-            let color = Color.hex_to_oklab_alpha h alpha in
-            gradient_simple ~theme ~prefix ~set_var color []
         | Color_source.Plain (source, opacity) -> (
             (* A keyword or a bracket value: the colour is known without the
                scheme. *)
