@@ -1,5 +1,31 @@
 (** Tailwind CSS generation utilities for testing *)
 
+val entrypoint :
+  ?project_css:string ->
+  ?plugins:string list ->
+  ?config:string ->
+  ?scanned_files:string list ->
+  string list ->
+  string
+(** [entrypoint ?project_css ?plugins ?config ?scanned_files candidates] is the
+    text of a Tailwind entrypoint that names every source it may read: the files
+    of [scanned_files], which reach the CLI through its candidate extractor, and
+    the [candidates] an [@source inline] string can hold, which reach the engine
+    directly. {!scanned_candidates} names the residue that cannot take the
+    inline route and so has to be written into one of [scanned_files].
+
+    Sources are named because the CLI otherwise picks its own: an
+    [@import "tailwindcss"] without [source(none)] scans the working directory,
+    which under dune is the whole build tree and by hand is the checkout, so a
+    sheet meant as a reference ends up compiled from tw's own output. Every
+    entrypoint the harness writes comes from here for that reason.
+
+    [project_css] replaces the fenced import with a project's own entrypoint,
+    for a caller measuring against that project rather than against a class
+    list. It carries its own source decisions, so such a run has to root
+    Tailwind's detection some other way. [plugins] and [config] are appended
+    after whichever head is used. *)
+
 val generate :
   ?minify:bool ->
   ?optimize:bool ->
