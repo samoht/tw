@@ -105,6 +105,49 @@ let test_arbitrary_url_matches_cli () =
       check bool (cls ^ ": tw matches live Tailwind CLI") true true
   | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
 
+(* The reference sheet is generated from a class list, and the route that list
+   takes decides what the CLI can answer with. Text in a source file has to
+   survive Tailwind's candidate extractor first, and the extractor declines
+   spellings the engine compiles: [@apply group-hover/-2a:underline] resolves,
+   while the same class written into a scanned file yields nothing. Extraction
+   failure costs the whole rule rather than changing a value, so the comparison
+   reports a class Tailwind supports as tw's invention. *)
+let test_extractor_hostile_class_matches_cli () =
+  Test_helpers.require_tailwind_cli ();
+  let cls = "group-hover/-2a:underline" in
+  let cli = generate ~minify:true ~optimize:true [ cls ] in
+  let tw =
+    match Tw.of_string cls with
+    | Ok u ->
+        Tw.to_css ~base:true [ u ]
+        |> Tw.Css.optimize ~prune_unused_custom_props:true
+        |> Tw.Css.to_string ~minify:true
+    | Error _ -> Alcotest.failf "tw could not parse %s" cls
+  in
+  let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
+  match diff.Cascade_diff.Css_compare.result with
+  | Cascade_diff.Css_compare.No_diff ->
+      check bool (cls ^ ": tw matches live Tailwind CLI") true true
+  | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
+
+(* The inline route carries every class name Tailwind can produce, quotes and
+   all, because the quote style is chosen per candidate. What it cannot carry
+   keeps the extractor, and naming that residue is what stops a comparison from
+   mixing the two oracles without saying so. *)
+let test_scanned_candidates_names_the_residue () =
+  check (list string) "a class Tailwind can produce goes inline" []
+    (scanned_candidates
+       [
+         "p-4";
+         "group-hover/-2a:underline";
+         {|content-["hello_world"]|};
+         "data-[foo$='bar'_i]:flex";
+         "bg-[url('/img/x.svg')]";
+       ]);
+  check (list string) "brace expansion and both quote styles keep the extractor"
+    [ "p-{1,2}"; {|content-['"x"']|} ]
+    (scanned_candidates [ "p-4"; "p-{1,2}"; {|content-['"x"']|}; "underline" ])
+
 let tests =
   [
     test_case "check tailwindcss available" `Quick test_check_available;
@@ -117,6 +160,10 @@ let tests =
       test_arbitrary_color_opacity_matches_cli;
     test_case "arbitrary url() round-trips through the CLI harness" `Quick
       test_arbitrary_url_matches_cli;
+    test_case "a class the extractor declines matches the live CLI" `Quick
+      test_extractor_hostile_class_matches_cli;
+    test_case "the extractor residue is named" `Quick
+      test_scanned_candidates_names_the_residue;
   ]
 
 let suite = ("tailwind_gen", tests)
