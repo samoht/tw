@@ -541,19 +541,23 @@ let data_type_hint inner =
   in
   scan 0
 
+let value_after_hint s =
+  match data_type_hint s with
+  (* A bracket opening with [:] has an empty hint, which names no longhand and
+     no utility either. *)
+  | Some ("", _) -> None
+  | Some (_, value) -> Some value
+  | None -> Some s
+
 let declaration_value_of s =
   let value = decode_arbitrary_value s in
   if String.trim value <> "" && is_declaration_value value then Some value
   else None
 
+(* Every family reaches its last resort with the bracket as the author wrote it,
+   so refusing an empty hint here refuses it everywhere. *)
 let arbitrary_declaration_value s =
-  match data_type_hint s with
-  (* A bracket opening with [:] has an empty hint, which names no longhand and
-     no utility either. Every family reaches its last resort with the bracket as
-     the author wrote it, so refusing it here refuses it everywhere. *)
-  | Some ("", _) -> None
-  | Some (_, value) -> declaration_value_of value
-  | None -> declaration_value_of s
+  Option.bind (value_after_hint s) declaration_value_of
 
 let wrap_declaration_value ~before ~after value =
   if value = "" || not (is_declaration_value value) then None

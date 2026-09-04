@@ -180,6 +180,16 @@ val data_type_hint : string -> (string * string) option
     A [hint] of [""], which is a bracket opening with [:], names no utility at
     all: {!arbitrary_declaration_value} is where that is refused. *)
 
+val value_after_hint : string -> string option
+(** [value_after_hint inner] is what a family's own reader sees: [inner] with
+    any {!data_type_hint} taken off, and [None] for a bracket whose hint is
+    empty, which names no utility.
+
+    A family whose bracket reader is typed calls this before reading, so the
+    hint chooses the longhand and the reader is handed only the value. A family
+    that falls through to a token stream gets the same peel from
+    {!arbitrary_declaration_value}; calling both peels twice. *)
+
 val arbitrary_declaration_value : string -> string option
 (** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
     returns its CSS declaration value: the text after any {!data_type_hint},

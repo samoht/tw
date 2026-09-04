@@ -241,8 +241,13 @@ module Handler = struct
   (* Arbitrary radii go through the same normalisation as the other arbitrary
      length utilities, so calc() and var() references parse. *)
   let parse_length str : length option =
-    Css.parse_length
-      (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
+    (* A radius and an outline offset each write one longhand, so a data-type
+       hint only chooses that longhand and the reader is handed what follows
+       it. *)
+    Option.bind (Parse.value_after_hint str) (fun value ->
+        Css.parse_length
+          (Parse.normalize_css_math_operators
+             (Parse.decode_arbitrary_value value)))
 
   (* A bare number is not a CSS length, but Tailwind admits [border-[3]] and
      emits it as a width, so it keeps the px reading it has always had. *)
@@ -258,6 +263,17 @@ module Handler = struct
   let is_line_width_keyword = function
     | "thin" | "medium" | "thick" -> true
     | _ -> false
+
+  (* Which value the width reader is handed, once the hint has said whether the
+     bracket is a width at all. [length:] and [line-width:] name the width side;
+     [color:], an unknown hint and the empty one all belong to the colour
+     handler, so this declines and leaves them to it. Unhinted, the bracket has
+     to look like a width or a colour would be read as one. *)
+  let width_bracket_value ~looks_like_width inner =
+    match Parse.data_type_hint inner with
+    | Some (("length" | "line-width"), value) -> Some value
+    | Some _ -> None
+    | None -> if looks_like_width inner then Some inner else None
 
   (* cascade's own border-width reader answers the line-width keywords, every
      unit [Css.border_width] names, [calc()] and [var()]. The units only
@@ -811,33 +827,35 @@ module Handler = struct
     | [ "border"; "double" ] -> Ok Border_double
     | [ "border"; "hidden" ] -> Ok Border_hidden
     | [ "border"; "none" ] -> Ok Border_none
-    | [ "border"; v ] when Parse.is_bracket_value v ->
+    | [ "border"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-        let is_width =
-          (String.length inner > 0 && is_numeric_start inner.[0])
-          || Parse.starts_with_math_function inner
-          || is_line_width_keyword inner
+        let looks_like_width s =
+          (String.length s > 0 && is_numeric_start s.[0])
+          || Parse.starts_with_math_function s
+          || is_line_width_keyword s
         in
-        if is_width then
-          match parse_border_width inner with
-          | Some w -> Ok (Border_width_bracket (inner, w))
-          | None -> err_not_utility
-        else err_not_utility
+        match width_bracket_value ~looks_like_width inner with
+        | None -> err_not_utility
+        | Some value -> (
+            match parse_border_width value with
+            | Some w -> Ok (Border_width_bracket (inner, w))
+            | None -> err_not_utility))
     | [ "border"; side; v ] when is_border_side side && Parse.is_bracket_value v
-      ->
+      -> (
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
-        let is_width =
-          (String.length inner > 0 && is_numeric_start inner.[0])
-          || Parse.starts_with_math_function inner
-          || is_line_width_keyword inner
+        let looks_like_width s =
+          (String.length s > 0 && is_numeric_start s.[0])
+          || Parse.starts_with_math_function s
+          || is_line_width_keyword s
         in
-        if is_width then
-          match parse_border_width inner with
-          | Some w -> Ok (Border_side_width_bracket (side, inner, w))
-          | None -> err_not_utility
-        else err_not_utility
+        match width_bracket_value ~looks_like_width inner with
+        | None -> err_not_utility
+        | Some value -> (
+            match parse_border_width value with
+            | Some w -> Ok (Border_side_width_bracket (side, inner, w))
+            | None -> err_not_utility))
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
