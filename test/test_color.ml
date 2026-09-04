@@ -1118,8 +1118,35 @@ let test_v433_families_rank_in_theme_order () =
     (List.sort_uniq compare orders)
     orders
 
+(* A [color:] hint says how to read the value written after it; it does not make
+   that value the name of a custom property. [text-[color:red]] wrote [color:
+   var(--red)] where Tailwind writes [color: red]. *)
+let test_bracket_color_hint_reads_the_value () =
+  Test_helpers.check_declarations "text-[color:red]" [ "color:red" ];
+  Test_helpers.check_declarations "outline-[color:red]" [ "outline-color:red" ];
+  Test_helpers.check_declarations ~minify:false "text-[color:#ff0000]"
+    [ "color: #ff0000" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "text-[color:var(--my-color)]"
+    [ "color:var(--my-color)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "text-[color:red] round-trips" "text-[color:red]"
+    (Tw.pp (Result.get_ok (Tw.of_string "text-[color:red]")));
+  (* A value no colour reader takes is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Color.Handler)
+    "text-[color:notacolour]"
+
 let tests =
   [
+    ( "Bracket colour hint reads the value",
+      `Quick,
+      test_bracket_color_hint_reads_the_value );
     ( "Bracket colour underscore escape",
       `Quick,
       test_bracket_colour_underscore_escape );

@@ -608,8 +608,40 @@ let test_bracket_url_escape () =
   (* A url argument keeps a bare [_], which is part of the file name. *)
   has "bg-[url('a_b.png')]" "background-image: url(a_b.png)"
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [bg-[color:red]] wrote
+   [background-color: var(--red)] where Tailwind writes [background-color:
+   red]. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  check_declarations "bg-[color:red]" [ "background-color:red" ];
+  check_declarations "bg-[url:url(a.png)]" [ "background-image:url(a.png)" ];
+  check_declarations "from-[color:red]"
+    [
+      "--tw-gradient-from:red";
+      "--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from) \
+       var(--tw-gradient-from-position),var(--tw-gradient-to) \
+       var(--tw-gradient-to-position))";
+    ];
+  check_declarations "from-[percentage:40%]"
+    [ "--tw-gradient-from-position:40%" ];
+  (* a var() reference after the hint still names a custom property *)
+  check_declarations "bg-[color:var(--my-color)]"
+    [ "background-color:var(--my-color)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "bg-[color:red] round-trips" "bg-[color:red]"
+    (Tw.pp (Result.get_ok (Tw.of_string "bg-[color:red]")));
+  (* A value no colour reader takes is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  check_invalid_input
+    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Backgrounds.Handler)
+    "bg-[color:notacolour]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick
       test_arbitrary_underscore_escape;
     test_case "bracket url escape" `Quick test_bracket_url_escape;
