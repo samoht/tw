@@ -449,6 +449,46 @@ let test_bracket_colour_var_alpha_keeps_a_fallback () =
   pin "outline-[#f00]/[var(--x)]" "outline-color: #f00"
     "outline-color: color-mix(in oklab, #f00 var(--x), transparent)"
 
+(* What a class binds in [@layer theme]. A palette entry is a declaration of its
+   own, and the spelling it carries is not visible in the rule that reads it. *)
+let theme_declarations cls =
+  match Tw.of_string cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      Tw.to_css ~base:false [ u ]
+      |> Css.statements
+      |> List.concat_map (fun stmt ->
+          match Css.as_layer stmt with
+          | Some (Some [ "theme" ], rules) ->
+              List.concat_map
+                (fun rule ->
+                  match Css.as_rule rule with
+                  | Some (_, decls, _) ->
+                      List.map (Css.Declaration.to_string ~minify:false) decls
+                  | None -> [])
+                rules
+          | Some _ | None -> [])
+
+(* Black and white are the two palette entries Tailwind spells as a hex, and it
+   writes both in three digits. The digits were decoded to bytes and re-spelled,
+   which sent every one of their six-digit forms out: the two theme bindings,
+   and the unguarded fallback each colour family writes beside a mix whose alpha
+   reads a custom property. *)
+let test_black_and_white_keep_three_digits () =
+  let theme cls decl =
+    Alcotest.(check (list string)) cls [ decl ] (theme_declarations cls)
+  in
+  theme "bg-black" "--color-black: #000";
+  theme "text-white" "--color-white: #fff";
+  let fallback cls decl =
+    Alcotest.(check (list string)) cls [ decl ] (fst (guarded_declarations cls))
+  in
+  fallback "bg-black/[var(--x)]" "background-color: #000";
+  fallback "text-white/[var(--x)]" "color: #fff";
+  fallback "border-black/[var(--x)]" "border-color: #000";
+  fallback "outline-black/[var(--x)]" "outline-color: #000";
+  fallback "fill-white/[var(--x)]" "fill: #fff"
+
 (* An hsl() hue takes any angle unit. Folding one to a hex colour used to keep
    only bare numbers and [deg] and read every other unit as 0, so a half turn
    painted red instead of cyan. *)
@@ -1233,6 +1273,9 @@ let tests =
     ( "Bracket colour var alpha keeps a fallback",
       `Quick,
       test_bracket_colour_var_alpha_keeps_a_fallback );
+    ( "Black and white keep three digits",
+      `Quick,
+      test_black_and_white_keep_three_digits );
     ("hsl hue units", `Quick, test_hsl_hue_units);
     ("hsl non-percentage channels", `Quick, test_hsl_non_percentage_channels);
     ("rgb non-numeric channels", `Quick, test_rgb_non_numeric_channels);
