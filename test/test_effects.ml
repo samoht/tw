@@ -378,11 +378,12 @@ let test_arbitrary_shadow_lengths () =
 (* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
    the modifier folds into a [color-mix] rather than into a hex byte.
 
-   The unguarded fallback of [shadow-[0_0_8px_#f00]/[var(--x)]] is pinned as tw
-   writes it, which is not what the CLI writes: the CLI leaves the authored
-   colour alone there and tw folds it to the oklab of the same colour. The inset
-   twin already leaves it alone, so the two spellings below are tw's, not a
-   shared rule. *)
+   Where the alpha reads a custom property there is nothing to fold, so the
+   authored colour stands unguarded and the relative colour goes behind the
+   guard. The box-shadow half folded that unguarded value through oklab at full
+   opacity, which paints an opaque shadow in a browser with no relative colours
+   where Tailwind paints the authored colour; the inset twin already left it
+   alone, so the two halves of one family disagreed. *)
 let test_arbitrary_shadow_colour_opacity () =
   Test_helpers.check_declarations "shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
@@ -402,8 +403,7 @@ let test_arbitrary_shadow_colour_opacity () =
   Test_helpers.check_declarations "shadow-[0_0_8px_#f00]/[var(--x)]"
     [
       "--tw-shadow-alpha:var(--x)";
-      "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(62.79553606%.22486306 \
-       .1258463))";
+      "--tw-shadow:0 0 8px var(--tw-shadow-color,#f00)";
       "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(from #f00 l a \
        b/var(--x)))";
       composes_box_shadow;
@@ -418,6 +418,16 @@ let test_arbitrary_shadow_colour_opacity () =
     ];
   (* Minified printing folds a colour to its shortest hex, so the authored
      three-digit spelling the CLI keeps only shows unminified. *)
+  Test_helpers.check_declarations ~minify:false
+    "shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-shadow-alpha: var(--x)";
+      "--tw-shadow: 0 0 8px var(--tw-shadow-color, #f00)";
+      "--tw-shadow: 0 0 8px var(--tw-shadow-color, oklab(from #f00 l a \
+       b/var(--x)))";
+      "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+       var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)";
+    ];
   Test_helpers.check_declarations ~minify:false
     "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
     [
