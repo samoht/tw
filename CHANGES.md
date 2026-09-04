@@ -445,6 +445,10 @@
   Building the reference by scanning a file lost every class Tailwind's own
   extractor declines to read back, `group-hover/-2a:underline` among them
   (#705).
+- `tw --diff` no longer invents a difference for a `theme(--x)` class. The CLI
+  counts that read as a theme dependency only for a candidate it found in a
+  file, so a reference built through `@source inline` alone came back without
+  the token's binding in `@layer theme` (#712).
 
 ## 1.0.0
 

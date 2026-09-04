@@ -14,11 +14,19 @@ let write_file path content =
    the whole rule rather than changing a value, so a sheet built that way is
    short a rule that tw emits, and the comparison reads as a class tw invented.
 
-   Inline is therefore the route and the extractor the exception, taken only
-   where the [@source inline] string cannot hold the candidate: [{] and [}] are
-   its expansion syntax, a [\] opens a string escape, and one carrying both
-   quote characters fits inside neither string form. No class name Tailwind can
-   produce is spelled that way. *)
+   The scanned route answers what inline cannot. A [theme(--x)] read counts as a
+   theme dependency only when the candidate came from a file, so a class reading
+   one that way binds the token in [@layer theme] and the same class declared
+   inline leaves it unbound. The spelling inlines the token's value and leaves
+   no [var()] behind, so nothing else recovers the binding, and the comparison
+   reads as a binding tw invented.
+
+   Every candidate therefore takes both routes, which costs nothing because the
+   engine compiles it once either way. [inline_quote] says which of them the
+   inline string can hold at all: [{] and [}] are its expansion syntax, a [\]
+   opens a string escape, and one carrying both quote characters fits inside
+   neither string form. No class name Tailwind can produce is spelled that
+   way. *)
 let inline_quote candidate =
   let unusable = function '{' | '}' | '\\' -> true | _ -> false in
   if String.exists unusable candidate then None
@@ -83,6 +91,9 @@ let candidates classnames =
   in
   List.concat_map split classnames
 
+(* What the inline string cannot hold reaches the CLI through the extractor and
+   nowhere else, which is the one case where a dropped candidate costs a rule
+   outright. *)
 let scanned_candidates classnames =
   List.filter (fun c -> Option.is_none (inline_quote c)) (candidates classnames)
 
@@ -92,15 +103,15 @@ let scanned_file = "input.html"
 let config_file = "tailwind.config.js"
 
 let tailwind_files ?(forms = false) ?input_css temp_dir classnames =
-  (* What the inline route cannot carry is fed to the extractor verbatim,
-     space-separated, as raw file text rather than inside an HTML class
-     attribute. An attribute forces escaping one quote style into an HTML
-     entity, and Tailwind's extractor reads that entity literally into the
-     selector (e.g. bg-[url('x')] -> .bg-\[url\(\&\#39\;x\&\#39\;\)\]),
-     diverging from tw's selector. Raw text preserves both single and double
-     quotes exactly as a real source file would. *)
+  (* Candidates are fed to the extractor verbatim, space-separated, as raw file
+     text rather than inside an HTML class attribute. An attribute forces
+     escaping one quote style into an HTML entity, and Tailwind's extractor
+     reads that entity literally into the selector (e.g. bg-[url('x')] ->
+     .bg-\[url\(\&\#39\;x\&\#39\;\)\]), diverging from tw's selector. Raw text
+     preserves both single and double quotes exactly as a real source file
+     would. *)
   let candidates = candidates classnames in
-  let html_content = String.concat " " (scanned_candidates candidates) in
+  let html_content = String.concat " " candidates in
   let scanned_files = [ "./" ^ scanned_file ] in
   (* When the caller supplies a project CSS entrypoint, use it verbatim so the
      real Tailwind reads the project's @theme/@plugin/@config; otherwise
