@@ -397,6 +397,75 @@ let test_arbitrary_inset_shadow_named_colour () =
     "inset 0 0 var(--tw-inset-shadow-color,red),inset 0 0 \
      var(--tw-inset-shadow-color,blue)"
 
+(* The same bracket under an opacity modifier. The reader that builds the value
+   there has no fall-back to the reader that accepted the bracket, so a colour
+   keyword, a leading colour, the [inset] keyword and a layer list all lost the
+   whole shadow and the modifier with it.
+
+   Tailwind writes the colour as [oklab(from <colour> l a b / <alpha>)] and lets
+   its minifier fold it, so a colour whose value is fixed where it is written
+   arrives folded and unguarded; the modifier's alpha replaces the colour's own
+   rather than multiplying it.
+
+   The two neighbours are pinned alongside because a fix to one reader can break
+   the other: a hex already folded correctly, and a token that is no colour at
+   all never reaches this reader. *)
+let test_arbitrary_shadow_named_colour_opacity () =
+  let red_50 = "oklab(62.79553606%.22486306 .1258463/.5)" in
+  let shadow cls value =
+    Test_helpers.check_declarations cls
+      [ "--tw-shadow-alpha:50%"; "--tw-shadow:" ^ value; composes_box_shadow ]
+  in
+  let inset_shadow cls value =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-inset-shadow-alpha:50%";
+        "--tw-inset-shadow:" ^ value;
+        composes_box_shadow;
+      ]
+  in
+  shadow "shadow-[0_0_red]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  inset_shadow "inset-shadow-[0_0_0_1px_red]/50"
+    ("inset 0 0 0 1px var(--tw-inset-shadow-color," ^ red_50 ^ ")");
+  shadow "shadow-[inset_0_0_red]/50"
+    ("inset 0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  inset_shadow "inset-shadow-[0_0_red,0_0_0_1px_red]/50"
+    ("inset 0 0 var(--tw-inset-shadow-color," ^ red_50
+   ^ "),inset 0 0 0 1px var(--tw-inset-shadow-color," ^ red_50 ^ ")");
+  (* The hex neighbour, which folds to the same colour. *)
+  shadow "shadow-[0_0_#f00]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  (* The neighbour with no colour at all: [bogus] is no colour CSS knows, so the
+     bracket is not a shadow and the whole value is written through as text. *)
+  shadow "shadow-[0_bogus_2px]/50"
+    "0 var(--tw-shadow-color,oklab(from bogus l a b / 50%)) 2px";
+  (* A colour written first. cascade's reader moves it to the end, which is a
+     difference against Tailwind in its own right and holds with or without the
+     modifier; what the modifier must not do is lose the shadow. *)
+  Test_helpers.check_declarations "shadow-[red_0_0]"
+    [ "--tw-shadow:0 0 var(--tw-shadow-color,red)"; composes_box_shadow ];
+  shadow "shadow-[red_0_0]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")")
+
+(* An alpha that reads a custom property has no percentage to fold, so the
+   authored colour - the keyword the class wrote, not its computed [oklab()] -
+   stands unguarded and the relative colour goes behind the guard, the way a
+   bracket hex already does. *)
+let test_arbitrary_shadow_named_colour_var_opacity () =
+  Test_helpers.check_declarations "shadow-[0_0_red]/[var(--x)]"
+    [
+      "--tw-shadow-alpha:var(--x)";
+      "--tw-shadow:0 0 var(--tw-shadow-color,red)";
+      "--tw-shadow:0 0 var(--tw-shadow-color,oklab(from red l a b/var(--x)))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "inset-shadow-[0_0_0_1px_red]/[var(--x)]"
+    [
+      "--tw-inset-shadow-alpha:var(--x)";
+      "--tw-inset-shadow:inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+      "--tw-inset-shadow:inset 0 0 0 1px \
+       var(--tw-inset-shadow-color,oklab(from red l a b/var(--x)))";
+      composes_box_shadow;
+    ]
+
 (* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
    the modifier folds into a [color-mix] rather than into a hex byte.
 
@@ -757,6 +826,10 @@ let tests =
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
     test_case "arbitrary inset shadow named colour" `Quick
       test_arbitrary_inset_shadow_named_colour;
+    test_case "arbitrary shadow named colour opacity" `Quick
+      test_arbitrary_shadow_named_colour_opacity;
+    test_case "arbitrary shadow named colour var opacity" `Quick
+      test_arbitrary_shadow_named_colour_var_opacity;
     test_case "arbitrary shadow colour opacity" `Quick
       test_arbitrary_shadow_colour_opacity;
     test_case "bracket colour opacity without a hex" `Quick
