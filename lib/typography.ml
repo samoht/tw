@@ -525,19 +525,35 @@ module Typography_early = struct
       float_of_string_opt (String.sub s pl (n - pl - 1))
     else Stdlib.Option.None
 
-  let is_valid_bracket_font_size (inner : string) : bool =
+  (* A data-type hint in front of an arbitrary font size says how to read the
+     value written after it, so [text-[length:1rem]] is the size [1rem] and not
+     a reference to a custom property called [--1rem]. *)
+  let is_font_size_hint = function
+    | "absolute-size" | "relative-size" | "length" | "percentage" -> true
+    | _ -> false
+
+  (* The value a bracket font size carries, told apart from the hint that
+     introduces it. *)
+  let bracket_font_size_value inner =
     match split_type_prefix inner with
-    | Some (prefix, _)
-      when prefix = "absolute-size" || prefix = "relative-size"
-           || prefix = "length" || prefix = "percentage" ->
-        true
-    | _ -> (
-        match font_size_keyword inner with
-        | Some _ -> true
-        | Stdlib.Option.None ->
-            try_parse_length_value inner <> Stdlib.Option.None
-            || Parse.is_var inner
-            || parse_spacing_call inner <> Stdlib.Option.None)
+    | Stdlib.Option.Some (prefix, value) when is_font_size_hint prefix ->
+        (value, true)
+    | _ -> (inner, false)
+
+  (* A hint settles the ambiguity [try_parse_length_value] guards against, so a
+     hinted [0] is the size zero where a bare one is a colour. *)
+  let bracket_font_size_length value ~hinted =
+    if hinted then Parse.arbitrary_length value
+    else try_parse_length_value value
+
+  let is_valid_bracket_font_size (inner : string) : bool =
+    let value, hinted = bracket_font_size_value inner in
+    match font_size_keyword value with
+    | Some _ -> true
+    | Stdlib.Option.None ->
+        bracket_font_size_length value ~hinted <> Stdlib.Option.None
+        || Parse.is_var value
+        || parse_spacing_call value <> Stdlib.Option.None
 
   (** Check if bracket content looks like a color (should go to color handler).
   *)
@@ -669,42 +685,43 @@ module Typography_early = struct
     | [ "text"; "9xl" ] -> Ok Text_9xl
     | [ "font"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
+        (* A family name is a list of idents or quoted strings, so the docs'
+           [<value>] placeholder is not one. [_] separates the words of a name
+           and [\_] is a literal underscore inside one, so the stack is read
+           decoded while the class keeps the spelling it was written with. *)
+        let family raw value =
+          if Parse.is_var value then Ok (Font_bracket_family_var (raw, value))
+          else
+            let decoded = Parse.decode_underscores value in
+            if is_font_family_value decoded then
+              Ok (Font_bracket_family_name (raw, decoded))
+            else err_not_utility
+        in
+        let weight raw value =
+          if Parse.is_var value then Ok (Font_bracket_weight_var (raw, value))
+          else
+            match Parse.decimal_int value with
+            | Some n -> Ok (Font_bracket_weight (raw, n))
+            | None -> err_not_utility
+        in
         if String.length inner > 0 && inner.[0] = '"' then
           (* font-["arial_rounded"] → the decoded bracket text becomes the
              literal font-family value, quotes and all; Tailwind never wraps it
              in another layer of quoting. *)
           let decoded = Parse.decode_underscores inner in
           Ok (Font_bracket_family_quoted (inner, decoded))
-        else if
-          String.length inner >= 12 && String.sub inner 0 12 = "family-name:"
-        then
-          let rest = String.sub inner 12 (String.length inner - 12) in
-          Ok (Font_bracket_family_var (inner, rest))
-        else if
-          String.length inner >= 13 && String.sub inner 0 13 = "generic-name:"
-        then
-          let rest = String.sub inner 13 (String.length inner - 13) in
-          Ok (Font_bracket_family_var (inner, rest))
-        else if String.length inner >= 7 && String.sub inner 0 7 = "number:"
-        then
-          let rest = String.sub inner 7 (String.length inner - 7) in
-          Ok (Font_bracket_weight_var (inner, rest))
         else
-          match Parse.decimal_int inner with
-          | Some n -> Ok (Font_bracket_weight (inner, n))
-          | None ->
-              if Parse.is_var inner then
-                Ok (Font_bracket_weight_var (inner, inner))
-              else
-                (* A family name is a list of idents or quoted strings, so the
-                   docs' [<value>] placeholder is not one. [_] separates the
-                   words of a name and [\_] is a literal underscore inside one,
-                   so the stack is read decoded while the class keeps the
-                   spelling it was written with. *)
-                let decoded = Parse.decode_underscores inner in
-                if is_font_family_value decoded then
-                  Ok (Font_bracket_family_name (inner, decoded))
-                else err_not_utility)
+          (* A data-type hint picks which of the two readings applies; the value
+             written after it is read the way the un-hinted spelling is, so only
+             a var() reference names a custom property. *)
+          match split_type_prefix inner with
+          | Stdlib.Option.Some (("family-name" | "generic-name"), value) ->
+              family inner value
+          | Stdlib.Option.Some ("number", value) -> weight inner value
+          | _ ->
+              if Parse.decimal_int inner <> None || Parse.is_var inner then
+                weight inner inner
+              else family inner inner)
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
@@ -1347,33 +1364,25 @@ module Typography_early = struct
       Caller must have already passed [inner] through
       [is_valid_bracket_font_size]. *)
   let bracket_font_size_decls inner =
-    match parse_spacing_call inner with
+    let value, hinted = bracket_font_size_value inner in
+    match parse_spacing_call value with
     | Stdlib.Option.Some n ->
         let decl, len = Theme.spacing_calc_float n in
         [ decl; font_size len ]
     | Stdlib.Option.None -> (
-        match split_type_prefix inner with
-        | Stdlib.Option.Some (prefix, value)
-          when prefix = "absolute-size" || prefix = "relative-size"
-               || prefix = "length" || prefix = "percentage" ->
-            if Parse.is_var value then
-              let bare = Parse.extract_var_name value in
-              [ font_size (Css.Var (Var.bracket bare)) ]
-            else [ font_size (Css.Var (Var.bracket value)) ]
-        | _ -> (
-            match font_size_keyword inner with
-            | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
-            | Stdlib.Option.None -> (
-                match try_parse_length_value inner with
-                | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
-                | Stdlib.Option.None ->
-                    if Parse.is_var inner then
-                      let bare = Parse.extract_var_name inner in
-                      [ font_size (Css.Var (Var.bracket bare)) ]
-                    else
-                      invalid_arg
-                        ("bracket_font_size_decls: not a valid font-size \
-                          value: " ^ inner))))
+        match font_size_keyword value with
+        | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
+        | Stdlib.Option.None -> (
+            match bracket_font_size_length value ~hinted with
+            | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
+            | Stdlib.Option.None ->
+                if Parse.is_var value then
+                  let bare = Parse.extract_var_name value in
+                  [ font_size (Css.Var (Var.bracket bare)) ]
+                else
+                  invalid_arg
+                    ("bracket_font_size_decls: not a valid font-size value: "
+                   ^ inner)))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
@@ -1842,37 +1851,62 @@ module Typography_late = struct
               Parse.is_bracket_value base_str
             then
               let inner = Parse.bracket_inner base_str in
+              (* [raw] is the bracket text the class was written with, hint
+                 included, so the class prints back the way it was read. *)
+              let bracket_color raw value =
+                match Color.parse_bracket_color value with
+                | Some c -> (
+                    match opacity with
+                    | Color.No_opacity -> Ok (Decoration_bracket_color (raw, c))
+                    | _ ->
+                        Ok (Decoration_bracket_color_opacity (raw, c, opacity)))
+                | None -> err_not_utility
+              in
+              let bracket_pct raw value =
+                match parse_decoration_pct value with
+                | Some len -> Ok (Decoration_bracket_pct (raw, len))
+                | None -> err_not_utility
+              in
+              let bracket_thickness raw value =
+                if
+                  String.length value > 0
+                  && value.[String.length value - 1] = '%'
+                then bracket_pct raw value
+                else
+                  match parse_decoration_thickness value with
+                  | Some len -> Ok (Decoration_bracket_thickness (raw, len))
+                  | None -> err_not_utility
+              in
+              (* A data-type hint says how to read the value written after it,
+                 so only a var() reference there names a custom property. *)
               if String.starts_with ~prefix:"color:" inner then
-                let var_part = String.sub inner 6 (String.length inner - 6) in
-                match opacity with
-                | Color.No_opacity -> Ok (Decoration_bracket_color_var var_part)
-                | _ ->
-                    Ok
-                      (Decoration_bracket_color_var_opacity (var_part, opacity))
+                let value = String.sub inner 6 (String.length inner - 6) in
+                if Parse.is_var value then
+                  match opacity with
+                  | Color.No_opacity -> Ok (Decoration_bracket_color_var value)
+                  | _ ->
+                      Ok (Decoration_bracket_color_var_opacity (value, opacity))
+                else bracket_color inner value
               else if String.starts_with ~prefix:"var(" inner then
                 match opacity with
                 | Color.No_opacity -> Ok (Decoration_bracket_var inner)
                 | _ -> Ok (Decoration_bracket_var_opacity (inner, opacity))
               else if String.starts_with ~prefix:"length:" inner then
-                let var_part = String.sub inner 7 (String.length inner - 7) in
-                Ok (Decoration_bracket_length_var var_part)
+                let value = String.sub inner 7 (String.length inner - 7) in
+                if Parse.is_var value then
+                  Ok (Decoration_bracket_length_var value)
+                else bracket_thickness inner value
               else if String.starts_with ~prefix:"percentage:" inner then
-                let var_part = String.sub inner 11 (String.length inner - 11) in
-                Ok (Decoration_bracket_pct_var var_part)
+                let value = String.sub inner 11 (String.length inner - 11) in
+                if Parse.is_var value then Ok (Decoration_bracket_pct_var value)
+                else bracket_pct inner value
               else
                 (* Every colour spelling CSS knows, not only a [#] hex and a
                    colour function: a named colour and a keyword name a
                    decoration colour too. The colour reader runs before the
                    percentage one because [hsl(200_50%_50%)] ends in a [%]. *)
                 match Color.parse_bracket_color inner with
-                | Some c -> (
-                    match opacity with
-                    | Color.No_opacity ->
-                        Ok (Decoration_bracket_color (inner, c))
-                    | _ ->
-                        Ok
-                          (Decoration_bracket_color_opacity (inner, c, opacity))
-                    )
+                | Some _ -> bracket_color inner inner
                 | None -> (
                     if
                       String.length inner > 0

@@ -1360,26 +1360,25 @@ module Handler = struct
      refused. *)
   let parse_bracket_position_value (inner : string) :
       Css.length_percentage option =
-    let typed_var prefix =
-      let n = String.length prefix in
-      if String.length inner > n && String.sub inner 0 n = prefix then
-        let var_str = String.sub inner n (String.length inner - n) in
-        let bare = Parse.extract_var_name var_str in
-        let vr : Css.length_percentage Css.var = Var.bracket bare in
-        Some (Css.Var vr : Css.length_percentage)
-      else None
-    in
-    if Parse.is_var inner then
-      let bare = Parse.extract_var_name inner in
+    let var_ref value =
+      let bare = Parse.extract_var_name value in
       let vr : Css.length_percentage Css.var = Var.bracket bare in
-      Some (Css.Var vr : Css.length_percentage)
-    else
-      match typed_var "percentage:" with
-      | Some v -> Some v
-      | None -> (
-          match typed_var "length:" with
-          | Some v -> Some v
-          | None -> Parse.arbitrary_length_percentage inner)
+      (Css.Var vr : Css.length_percentage)
+    in
+    (* A data-type hint says how to read the value written after it; only a
+       var() reference there names a custom property. *)
+    let hinted =
+      List.find_map
+        (fun prefix ->
+          let n = String.length prefix in
+          if String.length inner > n && String.sub inner 0 n = prefix then
+            Some (String.sub inner n (String.length inner - n))
+          else None)
+        [ "percentage:"; "length:" ]
+    in
+    let value = Stdlib.Option.value hinted ~default:inner in
+    if Parse.is_var value then Some (var_ref value)
+    else Parse.arbitrary_length_percentage value
 
   (** Convert a var string to a typed CSS color value *)
   let color_var_ref v : Css.color =
@@ -1387,15 +1386,26 @@ module Handler = struct
     let vr : Css.color Css.var = Var.bracket bare in
     Var vr
 
+  (* A [color:] hint says how to read the value written after it; only a var()
+     reference there names a custom property, so any other spelling has to be a
+     colour the reader takes. *)
+  let is_bracket_color_hint value =
+    Parse.is_var value || Color.parse_bracket_color value <> None
+
+  let has_bracket_color_hint inner =
+    String.length inner > 6
+    && String.sub inner 0 6 = "color:"
+    && is_bracket_color_hint (String.sub inner 6 (String.length inner - 6))
+
   (** Convert a plain colour source to a Css.color *)
   let css_color_of_plain : Color_source.plain -> Css.color = function
     | Color_source.Current -> Css.Current
     | Color_source.Inherit -> Css.Inherit
     | Color_source.Transparent -> Css.Transparent
     | Color_source.Bracket_hex h -> Css.hex h
-    | Color_source.Bracket_color_var v | Color_source.Bracket_var v ->
-        color_var_ref v
-    | Color_source.Bracket_color v -> (
+    | Color_source.Bracket_var v -> color_var_ref v
+    | Color_source.Bracket_color_var v when Parse.is_var v -> color_var_ref v
+    | Color_source.Bracket_color_var v | Color_source.Bracket_color v -> (
         match Color.parse_bracket_color v with
         | Some c -> c
         | None -> Css.Transparent)
@@ -1517,6 +1527,13 @@ module Handler = struct
         match Parse.url_token (Parse.decode_arbitrary_value v) with
         | Some url -> style [ Css.background_image (Url url) ]
         | None -> style [])
+    | Bg_bracket_url_var v when not (Parse.is_var v) -> (
+        match Parse.url_token (Parse.decode_arbitrary_value v) with
+        | Some url -> style [ Css.background_image (Url url) ]
+        | None -> (
+            match parse_bracket_image v with
+            | Some img -> style [ Css.background_image img ]
+            | None -> style []))
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -1617,7 +1634,7 @@ module Handler = struct
         | Color.No_opacity when Parse.is_bracket_value bracket_opacity -> (
             (* No valid opacity found — treat as plain bracket *)
             let inner = Parse.bracket_inner bracket_opacity in
-            if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+            if has_bracket_color_hint inner then
               let var_str = String.sub inner 6 (String.length inner - 6) in
               plain (Color_source.Bracket_color_var var_str)
             else if is_bracket_hex inner then
@@ -1637,7 +1654,7 @@ module Handler = struct
             Error (`Msg "Invalid gradient bracket with opacity")
         | opacity when Parse.is_bracket_value base -> (
             let inner = Parse.bracket_inner base in
-            if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+            if has_bracket_color_hint inner then
               let var_str = String.sub inner 6 (String.length inner - 6) in
               plain ~opacity (Color_source.Bracket_color_var var_str)
             else if is_bracket_hex inner then
@@ -1661,7 +1678,7 @@ module Handler = struct
     (* Bracket notation without opacity *)
     | [ bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+        if has_bracket_color_hint inner then
           let var_str = String.sub inner 6 (String.length inner - 6) in
           plain (Color_source.Bracket_color_var var_str)
         else if is_bracket_hex inner then
@@ -1897,9 +1914,17 @@ module Handler = struct
           let inner = Parse.bracket_inner bracket in
           match parse_opacity opacity_str with
           | Some opacity -> (
-              if String.length inner > 6 && String.sub inner 0 6 = "color:" then
-                let var_str = String.sub inner 6 (String.length inner - 6) in
-                Ok (Bg_bracket_color_var_opacity (var_str, opacity))
+              if has_bracket_color_hint inner then
+                (* The hint says how to read the value written after it; only a
+                   var() reference there names a custom property. *)
+                let v = String.sub inner 6 (String.length inner - 6) in
+                if Parse.is_var v then
+                  Ok (Bg_bracket_color_var_opacity (v, opacity))
+                else
+                  match Color.parse_bracket_color v with
+                  | Some css_color ->
+                      Ok (Bg_bracket_color_opacity (inner, css_color, opacity))
+                  | None -> Error (`Msg ("Unknown bg bracket color: " ^ v))
               else if Parse.is_var inner then
                 (* A var() holds an unknown colour, so the alpha has to be
                    applied at run time by color-mix, not folded here. *)
@@ -1934,10 +1959,15 @@ module Handler = struct
               match bracket_position_value v with
               | Some pos -> Ok (Bg_bracket_typed_position (v, pos))
               | None -> Error (`Msg ("Unknown bg bracket position: " ^ v)))
-          | _ when String.length inner > 6 && String.sub inner 0 6 = "color:" ->
-              Ok
-                (Bg_bracket_color_var
-                   (String.sub inner 6 (String.length inner - 6)))
+          | _ when has_bracket_color_hint inner -> (
+              (* The hint says how to read the value written after it; only a
+                 var() reference there names a custom property. *)
+              let v = String.sub inner 6 (String.length inner - 6) in
+              if Parse.is_var v then Ok (Bg_bracket_color_var v)
+              else
+                match Color.parse_bracket_color v with
+                | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
+                | None -> Error (`Msg ("Unknown bg bracket color: " ^ v)))
           | _ when String.length inner > 6 && String.sub inner 0 6 = "image:"
             -> (
               (* The [image:] data-type hint forces a background-image. The
@@ -1954,9 +1984,16 @@ module Handler = struct
                 | Some img -> Ok (Bg_bracket_image (v, img))
                 | None -> Error (`Msg ("Unknown bg bracket image: " ^ v)))
           | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
-              Ok
-                (Bg_bracket_url_var
-                   (String.sub inner 4 (String.length inner - 4)))
+              (* The [url:] data-type hint forces a background-image the way
+                 [image:] does. Only a var() reference names a custom property;
+                 any other spelling is the image itself. *)
+              let v = String.sub inner 4 (String.length inner - 4) in
+              if Parse.is_var v then Ok (Bg_bracket_url_var v)
+              else if
+                Parse.url_token (Parse.decode_arbitrary_value v) <> None
+                || parse_bracket_image v <> None
+              then Ok (Bg_bracket_url_var v)
+              else Error (`Msg ("Unknown bg bracket url: " ^ v))
           | _ when String.starts_with ~prefix:"url(" inner -> (
               match Parse.url_token (Parse.decode_arbitrary_value inner) with
               | Some _ -> Ok (Bg_bracket_url inner)

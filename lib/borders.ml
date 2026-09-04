@@ -852,34 +852,49 @@ module Handler = struct
     | [ "outline"; n ]
       when match Parse.decimal_int n with Some w -> w > 0 | None -> false ->
         Ok (Outline_width (int_of_string n))
-    | [ "outline"; v ] when Parse.is_bracket_value v ->
+    | [ "outline"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         let starts prefix s =
           String.length s >= String.length prefix
           && String.sub s 0 (String.length prefix) = prefix
         in
-        if starts "length:" inner then Ok (Outline_width_var inner)
-        else if starts "number:" inner then Ok (Outline_width_var inner)
-        else if starts "percentage:" inner then Ok (Outline_width_var inner)
-        else if starts "var(" inner then
-          (* Bare var() defaults to color for outline, not width *)
-          err_not_utility
-        else if starts "color:" inner then err_not_utility
-        else if starts "#" inner then err_not_utility
-        else
-          (* Only accept if it looks like a number/length/percentage, not a
-             named color like "black" *)
-          let is_numeric_start c =
-            (c >= '0' && c <= '9') || c = '.' || c = '-'
-          in
-          if
-            (String.length inner > 0 && is_numeric_start inner.[0])
-            || Parse.starts_with_math_function inner
-          then
-            match parse_outline_width inner with
+        let hinted_width =
+          List.find_map
+            (fun prefix ->
+              if starts prefix inner then
+                let n = String.length prefix in
+                Some (String.sub inner n (String.length inner - n))
+              else None)
+            [ "length:"; "number:"; "percentage:" ]
+        in
+        (* A data-type hint says how to read the value written after it; only a
+           var() reference there names a custom property. *)
+        match hinted_width with
+        | Some value when Parse.is_var value -> Ok (Outline_width_var inner)
+        | Some value -> (
+            match parse_outline_width value with
             | Some len -> Ok (Outline_width_bracket (inner, len))
-            | None -> err_not_utility
-          else err_not_utility
+            | None -> err_not_utility)
+        | None ->
+            if starts "var(" inner then
+              (* Bare var() defaults to color for outline, not width *)
+              err_not_utility
+            else if starts "color:" inner then err_not_utility
+            else if starts "#" inner then err_not_utility
+            else
+              (* Only accept if it looks like a number/length/percentage, not a
+                 named color like "black" *)
+              let is_numeric_start c =
+                (c >= '0' && c <= '9') || c = '.' || c = '-'
+              in
+              if
+                (String.length inner > 0 && is_numeric_start inner.[0])
+                || Parse.starts_with_math_function inner
+              then
+                match parse_outline_width inner with
+                | Some len -> Ok (Outline_width_bracket (inner, len))
+                | None -> err_not_utility
+              else err_not_utility)
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden

@@ -591,14 +591,18 @@ val parse_bracket_color : string -> Css.color option
     shadow, fill, stroke, ...) classifies its bracket content this way; only the
     variant it stores the result in differs. *)
 type bracket_hint =
-  | Typed_var of string  (** [color:<value>], the part after [color:] *)
+  | Typed_var of string  (** [color:var(--x)], the [var(...)] text *)
   | Bare_var of string  (** [var(--x)], the full [var(...)] text *)
   | Plain_color of Css.color  (** any other color spelling *)
 
 val parse_bracket_hint : string -> bracket_hint option
 (** [parse_bracket_hint inner] classifies a bracket's inner text as a typed var,
     a bare var, or a plain color parsed via {!parse_bracket_color}. Returns
-    [None] when [inner] is none of these. *)
+    [None] when [inner] is none of these.
+
+    A [color:] hint says how to read the value written after it, so
+    [color:var(--x)] is a typed var while [color:red] is the color red. Only a
+    [var()] reference names a custom property. *)
 
 val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex

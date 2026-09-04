@@ -334,6 +334,18 @@ module Handler = struct
             style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ])
     | Bracket_position (_, positions) -> mask_position_style positions
     | Bracket_typed_position (_, positions) -> mask_position_style positions
+    (* A hint says how to read the value written after it; only a var()
+       reference there names a custom property. *)
+    | (Bracket_image_var v | Bracket_url_var v) when not (Parse.is_var v) -> (
+        match Css.parse_background_image (Parse.decode_underscores v) with
+        | Some (img :: _) ->
+            style [ Css.webkit_mask_image img; Css.mask_image img ]
+        | _ -> (
+            match Parse.url_token (Parse.decode_arbitrary_value v) with
+            | Some url ->
+                style
+                  [ Css.webkit_mask_image (Url url); Css.mask_image (Url url) ]
+            | None -> style []))
     | Bracket_image_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -443,6 +455,12 @@ module Handler = struct
     | Some (_ :: _) -> true
     | _ -> false
 
+  (* What the value of an [image:]/[url:] hint may be: a var() reference, a
+     [url()] token, or a literal image such as a gradient. *)
+  let is_mask_image_value v =
+    Parse.is_var v || is_image_value v
+    || Parse.url_token (Parse.decode_arbitrary_value v) <> None
+
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -533,11 +551,16 @@ module Handler = struct
             match parse_bracket_position v with
             | Some positions -> Ok (Bracket_typed_position (v, positions))
             | None -> Error (`Msg ("Unknown mask bracket position: " ^ v)))
+        (* An [image:]/[url:] hint says how to read the value written after it;
+           only a var() reference there names a custom property. *)
         | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
-            Ok
-              (Bracket_image_var (String.sub inner 6 (String.length inner - 6)))
+            let v = String.sub inner 6 (String.length inner - 6) in
+            if is_mask_image_value v then Ok (Bracket_image_var v)
+            else Error (`Msg ("Unknown mask bracket image: " ^ v))
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
-            Ok (Bracket_url_var (String.sub inner 4 (String.length inner - 4)))
+            let v = String.sub inner 4 (String.length inner - 4) in
+            if is_mask_image_value v then Ok (Bracket_url_var v)
+            else Error (`Msg ("Unknown mask bracket url: " ^ v))
         (* Before the [url(...)] reading below, which takes one whole token and
            so has no answer for the comma of a layer list. *)
         | _ when is_image_value inner -> Ok (Bracket_image inner)
