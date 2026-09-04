@@ -272,15 +272,9 @@ let test_content () =
   (* unquoted function values *)
   check "content-[attr(before)]";
   check "content-[counter(x)]";
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "content-[attr(before)] binds attr() to --tw-content" true
-    (Astring.String.is_infix ~affix:"--tw-content:attr(before)"
-       (css "content-[attr(before)]"))
+  (* the bracket binds the channel and [content] reads it back *)
+  check_declarations "content-[attr(before)]"
+    [ "--tw-content:attr(before)"; "content:var(--tw-content)" ]
 
 (* content-<token> parses only when the @theme defines --content-<token>; a bare
    word like content-wrapper with no token is rejected (it used to parse as a
@@ -449,39 +443,26 @@ let test_text_bracket_size_invalid () =
 (* A bracket font-size is any CSS length, not the px/rem/em/% subset the
    hand-rolled suffix parser knew. Same for an arbitrary text-indent. *)
 let test_bracket_length_units () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "font-size: 3ch" "text-[3ch]";
-  emits "font-size: 2vh" "text-[2vh]";
-  emits "font-size: calc(1rem + 2px)" "text-[calc(1rem+2px)]";
-  emits "text-indent: 3ch" "indent-[3ch]";
-  emits "text-indent: -3ch" "-indent-[3ch]"
+  check_declarations "text-[3ch]" [ "font-size:3ch" ];
+  check_declarations "text-[2vh]" [ "font-size:2vh" ];
+  check_declarations "text-[calc(1rem+2px)]" [ "font-size:calc(1rem + 2px)" ];
+  check_declarations "indent-[3ch]" [ "text-indent:3ch" ];
+  check_declarations "-indent-[3ch]" [ "text-indent:-3ch" ]
 
 (* The [/leading] modifier on a text size and the standalone [leading-[...]]
    utility read an arbitrary line-height with one reader, so they agree on every
    spelling. The modifier used to render anything but px, rem or a bare number
    as a zero, collapsing the line box under a selector that matched. *)
 let test_arbitrary_leading () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits cls value =
-    Alcotest.(check bool)
-      (cls ^ " emits line-height: " ^ value)
-      true
-      (Astring.String.is_infix ~affix:("line-height: " ^ value) (css cls))
-  in
+  (* The standalone utility sets the channel and reads it back; the modifier
+     writes the line height beside the size it decorates. *)
   let agree spelling value =
-    emits ("leading-[" ^ spelling ^ "]") value;
-    emits ("text-lg/[" ^ spelling ^ "]") value
+    check_declarations
+      ("leading-[" ^ spelling ^ "]")
+      [ "--tw-leading:" ^ value; "line-height:" ^ value ];
+    check_declarations
+      ("text-lg/[" ^ spelling ^ "]")
+      [ "font-size:var(--text-lg)"; "line-height:" ^ value ]
   in
   agree "2em" "2em";
   agree "150%" "150%";
@@ -670,13 +651,7 @@ let test_underline_offset_bracket_keeps_its_class () =
       ("-underline-offset-[3px]", {|.-underline-offset-\[3px\]|});
     ];
   (* the bare step keeps its own class and the [px] the scale gives it *)
-  match Tw.of_string "underline-offset-3" with
-  | Error (`Msg m) -> Alcotest.failf "underline-offset-3: %s" m
-  | Ok u ->
-      Alcotest.(check bool)
-        "bare step stays on the spacing scale" true
-        (Astring.String.is_infix ~affix:"text-underline-offset: 3px"
-           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
+  check_declarations "underline-offset-3" [ "text-underline-offset:3px" ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -768,10 +743,15 @@ let test_numeric_leading_spacing () =
       (Astring.String.is_infix ~affix (css cls))
   in
   (* Any non-negative N is accepted; N>=2 scales spacing, 1 is bare, 0 is 0. *)
-  has "leading-6" "calc(var(--spacing)*6)";
-  has "leading-2" "calc(var(--spacing)*2)";
-  has "leading-11" "calc(var(--spacing)*11)";
-  has "leading-1" "line-height:var(--spacing)";
+  let scaled cls value =
+    check_declarations cls [ "--tw-leading:" ^ value; "line-height:" ^ value ]
+  in
+  scaled "leading-6" "calc(var(--spacing)*6)";
+  scaled "leading-2" "calc(var(--spacing)*2)";
+  scaled "leading-11" "calc(var(--spacing)*11)";
+  scaled "leading-1" "var(--spacing)";
+  (* leading-0 stays on a substring: the pinned CLI writes [--tw-leading: 0px]
+     where tw writes [0]. *)
   has "leading-0" "line-height:0"
 
 (* [leading'] takes a half-step float, same convention as [p]/[p']; the int base
@@ -779,10 +759,11 @@ let test_numeric_leading_spacing () =
 let test_leading_prime () =
   check_typed_class "leading-1.5" (Tw.leading' 1.5);
   check_typed_class "leading-6" (Tw.leading 6);
-  let css = Tw.to_css [ Tw.leading' 1.5 ] |> Tw.Css.to_string ~minify:true in
-  Alcotest.(check bool)
-    "leading-1.5 -> calc(var(--spacing)*1.5)" true
-    (Astring.String.is_infix ~affix:"calc(var(--spacing)*1.5)" css)
+  check_declarations "leading-1.5"
+    [
+      "--tw-leading:calc(var(--spacing)*1.5)";
+      "line-height:calc(var(--spacing)*1.5)";
+    ]
 
 (* leading-none has no v4.3 theme token, so it inlines line-height: 1 rather
    than minting a --leading-none var. *)
@@ -792,9 +773,7 @@ let test_leading_none_inline () =
     | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.fail "could not parse leading-none"
   in
-  Alcotest.(check bool)
-    "leading-none inlines line-height:1" true
-    (Astring.String.is_infix ~affix:"line-height:1" css);
+  check_declarations "leading-none" [ "--tw-leading:1"; "line-height:1" ];
   Alcotest.(check bool)
     "leading-none mints no --leading-none token" false
     (Astring.String.is_infix ~affix:"--leading-none" css)
@@ -820,34 +799,20 @@ let test_text_line_height_override () =
    [calc(var(--spacing) * 2)] and [color-mix(in oklab, red 20%,
    transparent)]. *)
 let test_text_bracket_functions () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "text-[--spacing(2)] is a spacing calc" true
-    (Astring.String.is_infix ~affix:"calc(var(--spacing)*2)"
-       (css "text-[--spacing(2)]"));
-  Alcotest.(check bool)
-    "text-[--alpha(red/20%)] is a color-mix" true
-    (Astring.String.is_infix ~affix:"color-mix(in oklab,red 20%,transparent)"
-       (css "text-[--alpha(red/20%)]"))
+  check_declarations "text-[--spacing(2)]"
+    [ "font-size:calc(var(--spacing)*2)" ];
+  (* an alpha bracket names a colour, so it is a text colour rather than a
+     size *)
+  check_declarations "text-[--alpha(red/20%)]"
+    [ "color:color-mix(in oklab,red 20%,transparent)" ]
 
 (* A bracket list-style value is read with the CSS parser rather than a
    hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
    unknown classes. *)
 let test_bracket_list_style () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "list-[square]" "list-style-type:square";
-  has "list-image-[url(/carrot.png)]" "list-style-image:url(/carrot.png)";
+  check_declarations "list-[square]" [ "list-style-type:square" ];
+  check_declarations "list-image-[url(/carrot.png)]"
+    [ "list-style-image:url(/carrot.png)" ];
   Alcotest.(check bool)
     "an unknown counter style is rejected" true
     (Result.is_error (Tw.of_string "list-[nonsense-style]"))
@@ -856,22 +821,14 @@ let test_bracket_list_style () =
    written with. [list-image-] and [content-] read their bracket through the
    arbitrary-value decoder, which used to turn every [_] into a space. *)
 let test_bracket_url_underscore () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has "list-image-[url('a_b.png')]" "list-style-image: url(a_b.png)";
-  has "list-image-[url(a_b.png)]" "list-style-image: url(a_b.png)";
+  check_declarations "list-image-[url('a_b.png')]"
+    [ "list-style-image:url(a_b.png)" ];
+  check_declarations "list-image-[url(a_b.png)]"
+    [ "list-style-image:url(a_b.png)" ];
   (* Tailwind writes this one [url('a_b.png')]. The quoting is cascade's
      canonical spelling of the same URL; the underscore is the point. *)
-  has "content-[url('a_b.png')]" {|--tw-content: url("a_b.png")|}
+  check_declarations "content-[url('a_b.png')]"
+    [ "--tw-content:url(a_b.png)"; "content:var(--tw-content)" ]
 
 (* List position, type, and image are three property bands; candidates inside
    each band use their natural class-name order. *)
@@ -897,16 +854,10 @@ let test_font_features_value () =
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   rejected "font-features-[<value>]";
-  Alcotest.(check bool)
-    "the underscore is a space" true
-    (Astring.String.is_infix ~affix:"font-feature-settings:\"liga\" 0"
-       (css "font-features-[\"liga\"_0]"))
+  (* the underscore is a space *)
+  check_declarations "font-features-[\"liga\"_0]"
+    [ "font-feature-settings:\"liga\" 0" ]
 
 (* font-feature-settings follows font-family and precedes font-size in
    Tailwind's property table. Keeping it after the weight band displaces both
@@ -962,10 +913,8 @@ let test_font_bracket_family_quoted () =
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
     | Ok u -> Tw.Css.to_string (Tw.to_css ~base:false [ u ])
   in
-  Alcotest.(check bool)
-    "a single quoted name keeps exactly one layer of quotes" true
-    (Astring.String.is_infix ~affix:{|font-family: "arial rounded"|}
-       (css {|font-["arial_rounded"]|}));
+  (* one layer of quotes, which minified prints as a bare two-word family *)
+  check_declarations {|font-["arial_rounded"]|} [ "font-family:arial rounded" ];
   Alcotest.(check bool)
     "a quoted string mixed with a bare token is never double-quoted" false
     (Astring.String.is_infix ~affix:{|font-family: "\"liga\"|}
@@ -976,39 +925,24 @@ let test_font_bracket_family_quoted () =
    [<family-name>], so a bare generic keyword among them (here [fantasy]) stays
    an unquoted keyword rather than folding into one quoted string. *)
 let test_font_bracket_family_comma_list () =
-  let css cls =
-    match Tw.of_string cls with
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  in
-  Alcotest.(check bool)
-    "unquoted comma list, generic keyword kept bare" true
-    (Astring.String.is_infix ~affix:"font-family:Papyrus,fantasy"
-       (css "font-[Papyrus,fantasy]"))
+  check_declarations "font-[Papyrus,fantasy]" [ "font-family:Papyrus,fantasy" ]
 
 (* An arbitrary decoration thickness takes any CSS length unit, not just the px
    the hand-rolled suffix parser knew; the percentage form keeps its em
    conversion. A bracket that is not a length is rejected by the parser rather
    than raising once the sheet is rendered. *)
 let test_decoration_bracket_thickness () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let thickness cls value =
+    check_declarations cls [ "text-decoration-thickness:" ^ value ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "text-decoration-thickness: 3rem" "decoration-[3rem]";
-  emits "text-decoration-thickness: 2px" "decoration-[2px]";
-  emits "text-decoration-thickness: 2ch" "decoration-[2ch]";
-  emits "text-decoration-thickness: .5em" "decoration-[50%]";
+  thickness "decoration-[3rem]" "3rem";
+  thickness "decoration-[2px]" "2px";
+  thickness "decoration-[2ch]" "2ch";
+  thickness "decoration-[50%]" ".5em";
   (* The bracket goes through the arbitrary-value decoder, so an escaped space
      and a [--spacing()] call both read as lengths. *)
-  emits "text-decoration-thickness: calc(1rem + 2px)"
-    "decoration-[calc(1rem_+_2px)]";
-  emits "text-decoration-thickness: calc(var(--spacing) * 2)"
-    "decoration-[--spacing(2)]";
+  thickness "decoration-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
+  thickness "decoration-[--spacing(2)]" "calc(var(--spacing)*2)";
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -1041,21 +975,23 @@ let test_decoration_bracket_unitless_is_color () =
 (* A shadeless decoration colour takes an opacity modifier the same way every
    other colour family does, and keeps its shadeless class name. *)
 let test_decoration_shadeless_opacity () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
   check_late "decoration-white/50";
   check_late "decoration-black/50";
   check_late "decoration-white/[0.5]";
-  emits "color-mix(in oklab,var(--color-white) 50%,transparent)"
-    "decoration-white/50";
-  emits "color-mix(in oklab,var(--color-black) 50%,transparent)"
-    "decoration-black/50";
+  (* the folded sRGB fallback, then the [color-mix] enhancement under its
+     [@supports] guard, aliased for WebKit *)
+  let mixed cls hex token =
+    check_declarations cls
+      [
+        "text-decoration-color:" ^ hex;
+        "-webkit-text-decoration-color:color-mix(in oklab,var(" ^ token
+        ^ ") 50%,transparent)";
+        "text-decoration-color:color-mix(in oklab,var(" ^ token
+        ^ ") 50%,transparent)";
+      ]
+  in
+  mixed "decoration-white/50" "#ffffff80" "--color-white";
+  mixed "decoration-black/50" "#00000080" "--color-black";
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -1104,9 +1040,6 @@ let test_decoration_bracket_named_color () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
   (* the value a class sets for [text-decoration-color], so two spellings of one
      colour compare without their class names *)
   let value cls =
@@ -1119,8 +1052,10 @@ let test_decoration_bracket_named_color () =
         Astring.String.with_range ~first sheet
         |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
   in
-  emits "text-decoration-color:rebeccapurple" "decoration-[rebeccapurple]";
-  emits "text-decoration-color:currentColor" "decoration-[currentColor]";
+  check_declarations "decoration-[rebeccapurple]"
+    [ "text-decoration-color:rebeccapurple" ];
+  check_declarations "decoration-[currentColor]"
+    [ "text-decoration-color:currentColor" ];
   (* the modifier folds into the colour the bracket named, not into black *)
   Alcotest.(check string)
     "decoration-[rebeccapurple]/50 is decoration-[#663399]/50"
@@ -1136,11 +1071,6 @@ let test_decoration_bracket_named_color () =
    raising constructor from inside [of_class], so a malformed hex escaped the
    parser as an exception instead of failing the match. *)
 let test_invalid_decoration_bracket_hex () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -1150,10 +1080,7 @@ let test_invalid_decoration_bracket_hex () =
   rejected "decoration-[#]";
   rejected "decoration-[#12345]";
   rejected "decoration-[#zz]/50";
-  Alcotest.(check bool)
-    "decoration-[#ff0000] still emits the colour" true
-    (Astring.String.is_infix ~affix:"text-decoration-color:#f00"
-       (css "decoration-[#ff0000]"))
+  check_declarations "decoration-[#ff0000]" [ "text-decoration-color:#f00" ]
 
 (* Integers in a class name are plain decimal here too: the leading modifier
    [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
@@ -1227,24 +1154,17 @@ let test_project_tracking_token () =
    Both readings have to reach the value: a family name and a content string are
    written by hand, so either character can be the one meant. *)
 let test_arbitrary_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let content cls value =
+    check_declarations cls
+      [ "--tw-content:" ^ value; "content:var(--tw-content)" ]
   in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has {|font-['My\_Font']|} "font-family: My_Font";
-  has "font-[Arial_Black]" {|font-family: "Arial Black"|};
-  has {|content-["hello\_world"]|} {|--tw-content: "hello_world"|};
-  has {|content-[attr(a\_b)]|} "--tw-content: attr(a_b)";
+  check_declarations {|font-['My\_Font']|} [ "font-family:My_Font" ];
+  check_declarations "font-[Arial_Black]" [ "font-family:Arial Black" ];
+  content {|content-["hello\_world"]|} {|"hello_world"|};
+  content {|content-[attr(a\_b)]|} "attr(a_b)";
   (* The single-quoted spelling already reads both, and stays that way. *)
-  has {|content-['hello\_world']|} {|--tw-content: 'hello_world'|};
-  has {|content-['hello_world']|} {|--tw-content: 'hello world'|}
+  content {|content-['hello\_world']|} {|"hello_world"|};
+  content {|content-['hello_world']|} {|"hello world"|}
 
 let tests =
   [
