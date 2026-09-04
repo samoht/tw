@@ -1076,14 +1076,14 @@ let test_utilities_color_order_is_alphabetical () =
   Alcotest.(check int) "transparent leads" 0 (order "transparent");
   Alcotest.(check int) "black follows" 1 (order "black");
   Alcotest.(check int) "amber opens the alphabetical run" 2 (order "amber");
-  Alcotest.(check int) "white sits between violet and yellow" 25 (order "white");
-  Alcotest.(check int) "zinc closes it" 27 (order "zinc");
+  Alcotest.(check int) "white sits between violet and yellow" 26 (order "white");
+  Alcotest.(check int) "zinc closes it" 28 (order "zinc");
   (* The v4.3.3 families take their alphabetical places rather than the
      unknown-colour slot. *)
-  Alcotest.(check int) "mauve follows lime" 10 (order "mauve");
-  Alcotest.(check int) "mist follows mauve" 11 (order "mist");
-  Alcotest.(check int) "olive follows neutral" 13 (order "olive");
-  Alcotest.(check int) "taupe follows stone" 22 (order "taupe")
+  Alcotest.(check int) "mauve follows lime" 11 (order "mauve");
+  Alcotest.(check int) "mist follows mauve" 12 (order "mist");
+  Alcotest.(check int) "olive follows neutral" 14 (order "olive");
+  Alcotest.(check int) "taupe follows stone" 23 (order "taupe")
 
 (* Tailwind 4.3.3 declares mauve, olive, mist and taupe in its [@theme] after
    stone and before black, in that order. Read off [@import "tailwindcss"

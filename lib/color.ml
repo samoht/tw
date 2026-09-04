@@ -1267,39 +1267,48 @@ let check_shade ~utility color shade =
 
 (** Background color utilities *)
 
-(* Theme layer color variable ordering map. See build.mli for detailed layer
-   ordering documentation. *)
-let theme_color_order_map =
+(* Every colour the palette defines, in the order Tailwind's [@theme] declares
+   them: the shaded families, then the four v4.3.3 added after [stone], then the
+   two base colours. Both order maps below and [all_palette_declarations] read
+   this one list, so a colour added here cannot silently take the unknown-colour
+   slot in either. *)
+let palette_names =
   [
-    (* Transparent first *)
-    ("transparent", 0);
-    (* Regular colors with shades *)
-    ("red", 1);
-    ("orange", 2);
-    ("amber", 3);
-    ("yellow", 4);
-    ("lime", 5);
-    ("green", 6);
-    ("emerald", 7);
-    ("teal", 8);
-    ("cyan", 9);
-    ("sky", 10);
-    ("blue", 11);
-    ("indigo", 12);
-    ("violet", 13);
-    ("purple", 14);
-    ("fuchsia", 15);
-    ("pink", 16);
-    ("rose", 17);
-    ("slate", 18);
-    ("gray", 19);
-    ("zinc", 20);
-    ("neutral", 21);
-    ("stone", 22);
-    (* Base colors come last *)
-    ("black", 23);
-    ("white", 24);
+    "red";
+    "orange";
+    "amber";
+    "yellow";
+    "lime";
+    "green";
+    "emerald";
+    "teal";
+    "cyan";
+    "sky";
+    "blue";
+    "indigo";
+    "violet";
+    "purple";
+    "fuchsia";
+    "pink";
+    "rose";
+    "slate";
+    "gray";
+    "zinc";
+    "neutral";
+    "stone";
+    "mauve";
+    "olive";
+    "mist";
+    "taupe";
+    "black";
+    "white";
   ]
+
+(* Theme layer color variable ordering map. See build.mli for detailed layer
+   ordering documentation. Tailwind declares no [--color-transparent] token, but
+   the keyword is a colour a utility can name, so it leads the ranking. *)
+let theme_color_order_map =
+  List.mapi (fun index name -> (name, index)) ("transparent" :: palette_names)
 
 (* Utilities layer color ordering map for conflict resolution. The utilities
    layer ranks the same names the theme layer does, but by its own rule:
@@ -1801,41 +1810,9 @@ module Handler = struct
   let color_binding ?theme c shade =
     Var.binding (color_var c shade) (get_color_value ?theme c shade)
 
-  (* Every colour the palette defines, in theme order. [\@import "tailwindcss"
-     theme(static)] emits the whole theme rather than only the tokens a utility
-     used, so the sheet needs them all. *)
-  let palette_names =
-    [
-      "red";
-      "orange";
-      "amber";
-      "yellow";
-      "lime";
-      "green";
-      "emerald";
-      "teal";
-      "cyan";
-      "sky";
-      "blue";
-      "indigo";
-      "violet";
-      "purple";
-      "fuchsia";
-      "pink";
-      "rose";
-      "slate";
-      "gray";
-      "zinc";
-      "neutral";
-      "stone";
-      "mauve";
-      "olive";
-      "mist";
-      "taupe";
-      "black";
-      "white";
-    ]
-
+  (* [\@import "tailwindcss" theme(static)] emits the whole theme rather than
+     only the tokens a utility used, so the sheet needs every palette colour.
+     [transparent] is not one: Tailwind declares no token for it. *)
   let all_palette_declarations ?theme () =
     List.concat_map
       (fun name ->

@@ -34,7 +34,10 @@
 - Track Tailwind CSS 4.3.3. `font-sans` carries the 4.3.2 system stack,
   preflight scopes `:-moz-focusring` to non-iframe elements, and an achromatic
   colour writes its powerless hue as `none` (#128, #129, #130, #132, #147).
-- Add the mauve, mist, olive and taupe palettes (#153).
+- Add the mauve, mist, olive and taupe palettes (#153). Their theme tokens are
+  declared between `stone` and `black`, and their utilities sort among the rest,
+  where Tailwind puts them; all four shared one unranked slot after `white`
+  (#PR).
 
 ### Project stylesheets
 
