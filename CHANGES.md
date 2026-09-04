@@ -405,6 +405,9 @@
   real markup, and CI installs the browser the rendering comparison drives,
   which it had been skipping silently (#158, #258, #259, #270, #286, #301,
   #512, #513, #519).
+- `tw --tailwind` and `tw --diff` no longer compile the working directory
+  before they start. Identifying the pinned CLI ran with Tailwind's source
+  detection on, which costs minutes in a large tree (#702).
 
 ## 1.0.0
 
