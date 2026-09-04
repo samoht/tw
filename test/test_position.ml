@@ -479,6 +479,159 @@ let spacing_step_is_a_quarter_multiple () =
   reject "start-0x4";
   reject "start-1_0"
 
+(* {!Test_helpers.check_declarations} compiles against the default theme, which
+   binds none of the tokens the named-inset cases need, so those read their own
+   sheet. *)
+let themed_declarations theme cls =
+  match Tw.of_string ~theme cls with
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  | Ok u ->
+      Tw.to_css ~theme ~base:false [ u ]
+      |> Tw.Css.fold
+           (fun acc stmt ->
+             match Tw.Css.as_rule stmt with
+             | Some (sel, decls, _)
+               when String.contains (Tw.Css.Selector.to_string sel) '.' ->
+                 acc
+                 @ List.map (Tw.Css.Declaration.to_string ~minify:true) decls
+             | _ -> acc)
+           []
+
+let check_themed theme cls expected =
+  Alcotest.(check (list string)) cls expected (themed_declarations theme cls)
+
+(* A named inset names a theme token, and the theme owns its value: Tailwind
+   reads [--inset-<name>] and falls back to [--spacing-<name>]. tw resolved the
+   [--inset-*] spelling whichever namespace matched and bound it to a length of
+   its own, so a theme carrying only [--spacing-lg] got [top: var(--inset-lg)]
+   over an [--inset-lg: 1940px] no theme ever declared. *)
+let named_inset_reads_the_theme_token () =
+  let spacing =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-lg", "3rem") ]
+  in
+  let inset =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("inset-shadowned", "7px") ]
+  in
+  let both =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("inset-lg", "5rem"); ("spacing-lg", "3rem") ]
+  in
+  check_themed spacing "top-lg" [ "top:var(--spacing-lg)" ];
+  check_themed inset "top-shadowned" [ "top:var(--inset-shadowned)" ];
+  (* [--inset-*] first, [--spacing-*] only as the fallback *)
+  check_themed both "top-lg" [ "top:var(--inset-lg)" ];
+  let theme_vars theme cls =
+    match Tw.of_string ~theme cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Test_helpers.vars_in_layer "theme" (Tw.to_css ~theme ~base:false [ u ])
+  in
+  Alcotest.(check (list string))
+    "top-lg binds the token the theme declared, and no other" [ "--spacing-lg" ]
+    (theme_vars spacing "top-lg")
+
+(* Every inset side reads a named token under a minus, the way it reads a
+   spacing step and an arbitrary length: the CLI writes
+   [calc(var(--inset-shadowned) * -1)]. tw's negative tail read the bracket
+   alone, so the whole negative named family was an unknown class. *)
+let negative_named_inset_on_every_side () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("inset-shadowned", "7px"); ("spacing-lg", "3rem") ]
+  in
+  let neg = "calc(var(--inset-shadowned)*-1)" in
+  check_themed theme "-top-shadowned" [ "top:" ^ neg ];
+  check_themed theme "-right-shadowned" [ "right:" ^ neg ];
+  check_themed theme "-bottom-shadowned" [ "bottom:" ^ neg ];
+  check_themed theme "-left-shadowned" [ "left:" ^ neg ];
+  check_themed theme "-inset-shadowned" [ "inset:" ^ neg ];
+  check_themed theme "-inset-x-shadowned" [ "inset-inline:" ^ neg ];
+  check_themed theme "-inset-y-shadowned" [ "inset-block:" ^ neg ];
+  check_themed theme "-start-shadowned" [ "inset-inline-start:" ^ neg ];
+  check_themed theme "-end-shadowned" [ "inset-inline-end:" ^ neg ];
+  check_themed theme "-inset-s-shadowned" [ "inset-inline-start:" ^ neg ];
+  check_themed theme "-inset-e-shadowned" [ "inset-inline-end:" ^ neg ];
+  check_themed theme "-inset-bs-shadowned" [ "inset-block-start:" ^ neg ];
+  check_themed theme "-inset-be-shadowned" [ "inset-block-end:" ^ neg ];
+  (* the [--spacing-*] fallback carries the minus too *)
+  check_themed theme "-inset-bs-lg"
+    [ "inset-block-start:calc(var(--spacing-lg)*-1)" ];
+  (* a bare parenthesised group stays a length under the minus alone: Tailwind
+     writes the positive as [top: (var(--a) + var(--b))], which no browser
+     accepts *)
+  check_themed theme "-top-[(var(--a)+var(--b))]"
+    [ "top:calc((var(--a) + var(--b))*-1)" ];
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind writes the group out unwrapped, as top: (var(--a) + \
+          var(--b)); tw refuses the class rather than emit a declaration no \
+          browser reads")
+    (module Tw.Position.Handler)
+    "top-[(var(--a)+var(--b))]";
+  (* and a name the theme binds in neither namespace is still no utility *)
+  Test_helpers.check_invalid_input (module Tw.Position.Handler) "-top-level";
+  Test_helpers.check_invalid_input (module Tw.Position.Handler) "-bottom-right"
+
+(* The four logical [inset-*] sides carry the whole scale their [start]/[end]
+   spellings do: the px step, the fractional steps and the fractions, in both
+   signs. Fractions were spelled per side, which left [inset-y-1/2],
+   [bottom-1/2] and every fraction but [3/4] on the logical sides unknown. *)
+let logical_inset_sides_take_the_whole_scale () =
+  let open Test_helpers in
+  check_declarations "inset-s-0.5"
+    [ "inset-inline-start:calc(var(--spacing)*.5)" ];
+  check_declarations "inset-e-0.5"
+    [ "inset-inline-end:calc(var(--spacing)*.5)" ];
+  check_declarations "inset-bs-0.5"
+    [ "inset-block-start:calc(var(--spacing)*.5)" ];
+  check_declarations "inset-be-0.5"
+    [ "inset-block-end:calc(var(--spacing)*.5)" ];
+  check_declarations "-inset-s-0.5"
+    [ "inset-inline-start:calc(var(--spacing)*-.5)" ];
+  check_declarations "inset-bs-1.25"
+    [ "inset-block-start:calc(var(--spacing)*1.25)" ];
+  check_declarations "inset-s-px" [ "inset-inline-start:1px" ];
+  check_declarations "-inset-bs-px" [ "inset-block-start:-1px" ];
+  (* the zero and unit steps still fold, the way the physical sides fold them
+     and unlike [start-0] *)
+  check_declarations "inset-s-0" [ "inset-inline-start:0px" ];
+  check_declarations "inset-bs-1" [ "inset-block-start:var(--spacing)" ];
+  (* fractions, on the logical sides and on the two the per-side spelling had
+     left with [3/4] alone *)
+  check_declarations "inset-s-1/2" [ "inset-inline-start:50%" ];
+  check_declarations "inset-e-3/4" [ "inset-inline-end:75%" ];
+  check_declarations "inset-bs-1/2" [ "inset-block-start:50%" ];
+  check_declarations "inset-be-1/2" [ "inset-block-end:50%" ];
+  check_declarations "-inset-bs-1/2" [ "inset-block-start:-50%" ];
+  check_declarations "inset-y-1/2" [ "inset-block:50%" ];
+  check_declarations "-inset-y-1/2" [ "inset-block:-50%" ];
+  check_declarations "bottom-1/2" [ "bottom:50%" ];
+  check_declarations "-bottom-3/4" [ "bottom:-75%" ];
+  (* the bare suffix is the class name, so it round-trips *)
+  check "inset-s-0.5";
+  check "inset-bs-1/2";
+  check "-inset-y-1/2";
+  check "-bottom-3/4";
+  (* a zero denominator has no percentage on any side either: Tailwind passes it
+     through as calc(1 / 0 * 100%), which no browser can compute *)
+  let uncomputable c =
+    check_invalid_input
+      ~why:
+        (Diverges
+           "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+            which no browser can compute; tw refuses the class instead")
+      (module Tw.Position.Handler)
+      c
+  in
+  uncomputable "inset-s-1/0";
+  uncomputable "inset-bs-1/0";
+  uncomputable "inset-y-1/0";
+  uncomputable "bottom-1/0";
+  let reject c = check_invalid_input (module Tw.Position.Handler) c in
+  reject "inset-s-1.7";
+  reject "inset-be-1.7"
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
@@ -518,6 +671,12 @@ let tests =
       arbitrary_insets_match_tailwind;
     test_case "spacing step is a quarter multiple" `Quick
       spacing_step_is_a_quarter_multiple;
+    test_case "named inset reads the theme token" `Quick
+      named_inset_reads_the_theme_token;
+    test_case "negative named inset on every side" `Quick
+      negative_named_inset_on_every_side;
+    test_case "logical inset sides take the whole scale" `Quick
+      logical_inset_sides_take_the_whole_scale;
   ]
 
 let suite = ("position", tests)
