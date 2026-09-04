@@ -261,6 +261,14 @@ val hex_to_oklab_alpha : string -> float -> Css.color
     with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
     where the color is known at compile time. *)
 
+val oklab_alpha : Css.color -> float -> Css.color option
+(** [oklab_alpha c alpha] is [c] in oklab carrying [alpha] (0.0-1.0), which is
+    what [oklab(from c l a b / alpha)] resolves to: the alpha replaces the
+    colour's own rather than multiplying it, where {!mix_alpha} multiplies.
+    [None] for a colour whose channels are not named where it is written -
+    [currentcolor], a [var()] reference, a colour function - leaving those to
+    {!mix_alpha} or to the browser. *)
+
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)

@@ -243,6 +243,18 @@ let hex_to_oklab_alpha hex alpha : Css.color =
       Css.oklaba l a b alpha
   | None -> Css.hex hex
 
+(* [oklab(from <c> l a b / <alpha>)] takes the origin's channels and the alpha
+   written after the slash, so the alpha replaces the colour's own rather than
+   multiplying it. A hex spelling names the channels outright, and so does a
+   colour keyword; every other colour names them somewhere the class cannot
+   see. *)
+let oklab_alpha (c : Css.color) alpha : Css.color option =
+  match Cascade.Values.nonkeyword_color c with
+  | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } ->
+      let ok_l, ok_a, ok_b = rgb_to_oklab { r; g; b } in
+      Some (Css.oklaba ok_l ok_a ok_b alpha)
+  | _ -> None
+
 (* A custom colour (a hex or an rgb() the author wrote) with an alpha folded in.
    Tailwind writes the oklab form, with [none] for a channel that is zero. *)
 let custom_color_with_alpha (c : color) alpha =
