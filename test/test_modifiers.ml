@@ -11,6 +11,26 @@ open Tw.Animations
 open Tw.Transitions
 open Tw.Borders
 
+(* A variant decides the selector and the at-rules wrapped around it, and
+   neither is a declaration, so what these tests have to compare is the sheet
+   itself. Comparing it whole is what a substring cannot do: [:has(:focus)] is
+   an infix of [:has(:focus-visible)], and a [check bool] failure prints neither
+   the class nor the CSS. *)
+let sheet cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
+
+(* Most classes here draw on no theme token, so the layers ahead of [utilities]
+   are empty and only the utilities layer is worth spelling out. The comparison
+   is still against the whole sheet. *)
+let check_utilities cls expected =
+  check_sheet cls
+    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
+      utilities{" ^ expected ^ "}")
+
 (* Test responsive modifier detection *)
 let test_has_responsive_modifier () =
   (* Basic styles should not have responsive modifier *)
@@ -267,24 +287,11 @@ let test_combined_media_modifiers () =
 
 (* Test that motion-reduce:transition-none outputs transition-property: none *)
 let test_motion_reduce_transition_none () =
-  (* Tailwind v4 uses transition-property: none, not transition: none *)
-  let css = Tw.Build.to_css [ motion_reduce [ transition_none ] ] in
-  let css_str = Tw.Css.to_string ~minify:true css in
-
-  (* Should contain transition-property:none *)
-  let has_transition_property =
-    Astring.String.is_infix ~affix:"transition-property" css_str
-  in
-  check bool "has transition-property (not transition shorthand)" true
-    has_transition_property;
-
-  (* Should NOT contain the shorthand 'transition: none' (with zero duration) *)
-  let has_shorthand =
-    Astring.String.is_infix ~affix:"transition:" css_str
-    && Astring.String.is_infix ~affix:"none" css_str
-    && Astring.String.is_infix ~affix:"0s" css_str
-  in
-  check bool "should NOT have shorthand transition: none 0s" false has_shorthand
+  (* Tailwind v4 writes transition-property: none, not the transition shorthand
+     with a zero duration; the whole rule is pinned, so the shorthand cannot
+     come back alongside it. *)
+  check_utilities "motion-reduce:transition-none"
+    {|@media(prefers-reduced-motion:reduce){.motion-reduce\:transition-none{transition-property:none}}|}
 
 (* The class a modifier renders has to be the class it was read from. This is
    the cheap guard on the two spellings staying merged: the class name comes
@@ -608,15 +615,7 @@ let test_variant_inner_order () =
    tokens (--spacing) normal, preserves the class name, and nests under a
    modifier (md:!flex). *)
 let test_important_prefix () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.fail m
-  in
-  let flex = css "!flex" in
-  Alcotest.(check bool)
-    "!flex marks display important" true
-    (Astring.String.is_infix ~affix:"display:flex!important" flex);
+  check_utilities "!flex" {|.\!flex{display:flex!important}|};
   (match Tw.of_string "!flex" with
   | Ok u -> Alcotest.(check string) "!flex class round-trips" "!flex" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.fail m);
@@ -625,15 +624,14 @@ let test_important_prefix () =
       Alcotest.(check string) "md:!flex class round-trips" "md:!flex" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.fail m);
   (* v4 trailing form keeps the suffix in the class name *)
-  Alcotest.(check bool)
-    "flex! marks display important" true
-    (Astring.String.is_infix ~affix:"display:flex!important" (css "flex!"));
+  check_utilities "flex!" {|.flex\!{display:flex!important}|};
   (match Tw.of_string "flex!" with
   | Ok u -> Alcotest.(check string) "flex! class round-trips" "flex!" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.fail m);
-  Alcotest.(check bool)
-    "!p-4 leaves the --spacing theme token normal" false
-    (Astring.String.is_infix ~affix:"--spacing:.25rem!important" (css "!p-4"))
+  (* the theme binding !p-4 drags in stays normal: the whole sheet is compared,
+     so an [!important] appearing on it would fail here *)
+  check_sheet "!p-4"
+    {|@layer theme,components,utilities;@layer theme{:root,:host{--spacing:.25rem}}@layer components;@layer utilities{.\!p-4{padding:calc(var(--spacing)*4)!important}}|}
 
 (* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
    left the selector reader to raise out of [to_css], a pure conversion, while
@@ -658,17 +656,16 @@ let test_not_has_shorthand_selector () =
    dt, dd, table, tr, picture - were not recognised at all, so the class was
    rejected and the utility never reached the element. *)
 let test_prose_element_variants () =
-  let selector name =
-    let cls = "prose-" ^ name ^ ":underline" in
-    match Tw.of_string cls with
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  in
-  let targets name affix =
-    Alcotest.(check bool)
-      ("prose-" ^ name ^ ": targets " ^ affix)
-      true
-      (Astring.String.is_infix ~affix:(":where(" ^ affix ^ ")") (selector name))
+  (* The variant scopes the utility to a descendant of the prose root, and the
+     [:not(:where([class~=not-prose] ...))] guard is what keeps it off an
+     opted-out subtree, so the whole rule is pinned rather than the element name
+     alone. *)
+  let targets name element =
+    check_utilities
+      ("prose-" ^ name ^ ":underline")
+      (".prose-" ^ name ^ {|\:underline :where(|} ^ element
+     ^ {|):not(:where([class~=not-prose],[class~=not-prose] *)){text-decoration-line:underline}|}
+      )
   in
   List.iter
     (fun n -> targets n n)
@@ -794,17 +791,10 @@ let test_pp_modifier_strings () =
    the right threshold, using Tailwind v4's range syntax ([width >= 20rem]); @xs
    and @3xl+ used to be unknown modifiers. *)
 let test_container_query_scale () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  check bool "@xs:flex is a 20rem container query" true
-    (Astring.String.is_infix ~affix:"@container (width >= 20rem)"
-       (css "@xs:flex"));
-  check bool "@3xl:flex is a 48rem container query" true
-    (Astring.String.is_infix ~affix:"@container (width >= 48rem)"
-       (css "@3xl:flex"));
+  check_utilities "@xs:flex"
+    {|@container(width>=20rem){.\@xs\:flex{display:flex}}|};
+  check_utilities "@3xl:flex"
+    {|@container(width>=48rem){.\@3xl\:flex{display:flex}}|};
   check string "@xs round-trips" "@xs:p-4"
     (Tw.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
 
@@ -819,13 +809,20 @@ let test_container_query_min_max () =
   let has cls affix =
     check bool cls true (Astring.String.is_infix ~affix (css cls))
   in
-  has "@min-md:flex" "@container (width >= 28rem)";
-  has "@max-md:flex" "@container (not (width >= 28rem))";
-  has "@min-[20rem]:flex" "@container (width >= 20rem)";
-  has "@max-[40rem]:flex" "@container (not (width >= 40rem))";
-  has "@[480px]:flex" "@container (width >= 480px)";
+  check_utilities "@min-md:flex"
+    {|@container(width>=28rem){.\@min-md\:flex{display:flex}}|};
+  check_utilities "@max-md:flex"
+    {|@container not (width>=28rem){.\@max-md\:flex{display:flex}}|};
+  check_utilities "@min-[20rem]:flex"
+    {|@container(width>=20rem){.\@min-\[20rem\]\:flex{display:flex}}|};
+  check_utilities "@max-[40rem]:flex"
+    {|@container not (width>=40rem){.\@max-\[40rem\]\:flex{display:flex}}|};
+  check_utilities "@[480px]:flex"
+    {|@container(width>=480px){.\@\[480px\]\:flex{display:flex}}|};
   (* A theme(--breakpoint-lg) arbitrary value resolves to the breakpoint the
-     [lg:] variant uses (64rem). *)
+     [lg:] variant uses (64rem). These two stay on a substring: the pinned CLI
+     also writes [--breakpoint-lg: 64rem] into the theme layer and tw does not,
+     so the sheets cannot be compared whole without encoding that gap. *)
   has "@min-[theme(--breakpoint-lg)]:flex" "@container (width >= 64rem)";
   has "@max-[theme(--breakpoint-lg)]:flex" "@container (not (width >= 64rem))";
   check string "@max-md round-trips" "@max-md:p-4"
@@ -853,23 +850,19 @@ let test_apply_bracketed_has () =
    checked: the name resolves to the pseudo-class that state matches, and
    has-hover keeps the pointer gate hover itself carries. *)
 let test_has_state_shorthands () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has_infix affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has_infix ".has-focus\\:flex:has(:focus)" "has-focus:flex";
-  has_infix ".has-focus-visible\\:flex:has(:focus-visible)"
-    "has-focus-visible:flex";
-  has_infix ".has-first\\:flex:has(:first-child)" "has-first:flex";
-  has_infix ".has-odd\\:flex:has(:nth-child(odd))" "has-odd:flex";
-  has_infix ".group-has-focus\\:flex:is(:where(.group):has(:focus) *)"
-    "group-has-focus:flex";
-  check bool "has-hover keeps the pointer gate" true
-    (Astring.String.is_infix ~affix:"@media(hover:hover)" (css "has-hover:flex"));
+  check_utilities "has-focus:flex"
+    {|.has-focus\:flex:has(:focus){display:flex}|};
+  check_utilities "has-focus-visible:flex"
+    {|.has-focus-visible\:flex:has(:focus-visible){display:flex}|};
+  check_utilities "has-first:flex"
+    {|.has-first\:flex:has(:first-child){display:flex}|};
+  check_utilities "has-odd:flex"
+    {|.has-odd\:flex:has(:nth-child(odd)){display:flex}|};
+  check_utilities "group-has-focus:flex"
+    {|.group-has-focus\:flex:is(:where(.group):has(:focus) *){display:flex}|};
+  (* has-hover keeps the pointer gate hover itself carries *)
+  check_utilities "has-hover:flex"
+    {|@media(hover:hover){.has-hover\:flex:has(:hover){display:flex}}|};
   (* the class name round-trips through the shorthand, not the bracket form *)
   check string "has-focus round-trips" "has-focus:flex"
     (Tw.pp (Result.get_ok (Tw.of_string "has-focus:flex")))
@@ -879,50 +872,31 @@ let test_has_state_shorthands () =
    attribute shorthand under group-/peer- too, keeping a class name distinct
    from the bracket spelling. *)
 let test_named_anchor_and_bare_data () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "group-hover/edit:underline"
-    ".group-hover\\/edit\\:underline:is(:where(.group\\/edit):hover *)";
-  has "group-focus/option:underline"
-    ".group-focus\\/option\\:underline:is(:where(.group\\/option):focus *)";
-  has "peer-checked/draft:block"
-    ".peer-checked\\/draft\\:block:is(:where(.peer\\/draft):checked~*)";
-  has "group-data-modified:italic"
-    ".group-data-modified\\:italic:is(:where(.group)[data-modified] *)";
-  (* the bracket spelling keeps its own class name *)
-  has "group-data-[modified]:italic"
-    ".group-data-\\[modified\\]\\:italic:is(:where(.group)[data-modified] *)";
   (* group-hover gates on the pointer, as a plain hover does *)
-  check bool "group-hover/edit keeps the pointer gate" true
-    (Astring.String.is_infix ~affix:"@media(hover:hover)"
-       (css "group-hover/edit:underline"))
+  check_utilities "group-hover/edit:underline"
+    {|@media(hover:hover){.group-hover\/edit\:underline:is(:where(.group\/edit):hover *){text-decoration-line:underline}}|};
+  check_utilities "group-focus/option:underline"
+    {|.group-focus\/option\:underline:is(:where(.group\/option):focus *){text-decoration-line:underline}|};
+  check_utilities "peer-checked/draft:block"
+    {|.peer-checked\/draft\:block:is(:where(.peer\/draft):checked~*){display:block}|};
+  check_utilities "group-data-modified:italic"
+    {|.group-data-modified\:italic:is(:where(.group)[data-modified] *){font-style:italic}|};
+  (* the bracket spelling keeps its own class name *)
+  check_utilities "group-data-[modified]:italic"
+    {|.group-data-\[modified\]\:italic:is(:where(.group)[data-modified] *){font-style:italic}|}
 
 (* [has-data-lg] matches an attribute rather than a state but spells itself the
    same way, and [not-] composes over any variant, including a scoped
    [group-has-]: the negation wraps the whole relative selector. *)
 let test_has_data_and_not_composition () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "has-data-lg:opacity-40" ".has-data-lg\\:opacity-40:has([data-lg])";
-  has "group-has-data-lg:opacity-40"
-    ".group-has-data-lg\\:opacity-40:is(:where(.group):has([data-lg]) *)";
-  has "not-group-has-data-lg:opacity-40"
-    ".not-group-has-data-lg\\:opacity-40:not(:is(:where(.group):has([data-lg]) \
-     *))";
-  has "not-peer-has-checked:opacity-0"
-    ".not-peer-has-checked\\:opacity-0:not(:is(:where(.peer):has(:checked)~*))"
+  check_utilities "has-data-lg:opacity-40"
+    {|.has-data-lg\:opacity-40:has([data-lg]){opacity:.4}|};
+  check_utilities "group-has-data-lg:opacity-40"
+    {|.group-has-data-lg\:opacity-40:is(:where(.group):has([data-lg]) *){opacity:.4}|};
+  check_utilities "not-group-has-data-lg:opacity-40"
+    {|.not-group-has-data-lg\:opacity-40:not(:is(:where(.group):has([data-lg]) *)){opacity:.4}|};
+  check_utilities "not-peer-has-checked:opacity-0"
+    {|.not-peer-has-checked\:opacity-0:not(:is(:where(.peer):has(:checked)~*)){opacity:0}|}
 
 (* A bracket [has-] argument is one arbitrary relative selector, so Tailwind
    wraps it in [:is()], including a bare type selector. The brackets stay in the
@@ -937,64 +911,61 @@ let test_has_bracket_arguments () =
   let has cls affix =
     check bool cls true (Astring.String.is_infix ~affix (css cls))
   in
-  has "has-[[data-a],[data-b]]:block" ":has(:is([data-a], [data-b]))";
-  has "has-[a]:block" ".has-\\[a\\]\\:block:has(:is(a))";
-  has "has-[:focus]:block" ".has-\\[\\:focus\\]\\:block:has(:focus)";
-  has "has-[.item]:block" ".has-\\[\\.item\\]\\:block:has(.item)";
-  has "has-[a_.item]:block" ".has-\\[a_\\.item\\]\\:block:has(:is(a .item))";
-  has "has-[&>img]:block" ".has-\\[\\&\\>img\\]\\:block:has(*>img)";
-  has "group-has-[a]:block"
-    ".group-has-\\[a\\]\\:block:is(:where(.group):has(:is(a)) *)";
-  has "peer-has-[a]:block"
-    ".peer-has-\\[a\\]\\:block:is(:where(.peer):has(:is(a))~*)";
-  has "group-not-has-[[data-hover],[data-focus]]:block"
-    ":not(:has(:is([data-hover], [data-focus])))";
-  (* the hocus shorthand really is two selectors and stays a list *)
+  check_utilities "has-[[data-a],[data-b]]:block"
+    {|.has-\[\[data-a\]\,\[data-b\]\]\:block:has(:is([data-a], [data-b])){display:block}|};
+  check_utilities "has-[a]:block"
+    {|.has-\[a\]\:block:has(:is(a)){display:block}|};
+  check_utilities "has-[:focus]:block"
+    {|.has-\[\:focus\]\:block:has(:focus){display:block}|};
+  check_utilities "has-[.item]:block"
+    {|.has-\[\.item\]\:block:has(.item){display:block}|};
+  check_utilities "has-[a_.item]:block"
+    {|.has-\[a_\.item\]\:block:has(:is(a .item)){display:block}|};
+  check_utilities "has-[&>img]:block"
+    {|.has-\[\&\>img\]\:block:has(*>img){display:block}|};
+  check_utilities "group-has-[a]:block"
+    {|.group-has-\[a\]\:block:is(:where(.group):has(:is(a)) *){display:block}|};
+  check_utilities "peer-has-[a]:block"
+    {|.peer-has-\[a\]\:block:is(:where(.peer):has(:is(a))~*){display:block}|};
+  check_utilities "group-not-has-[[data-hover],[data-focus]]:block"
+    {|.group-not-has-\[\[data-hover\]\,\[data-focus\]\]\:block:is(:where(.group):not(:has(:is([data-hover], [data-focus]))) *){display:block}|};
+  (* The hocus shorthand really is two selectors and stays a list. It stays on a
+     substring: the pinned CLI emits nothing at all for [has-hocus], so pinning
+     the sheet would pin a rule only tw writes. *)
   has "has-hocus:flex" ":has(:hover,:focus)"
 
 (* A group or peer bracket without an [&] attaches its compound to the anchor:
    group-[.is-published] scopes to a .group that also has that class. It used to
    be an unknown class, since the anchor had to be spelled. *)
 let test_anchor_bracket_without_ampersand () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "group-[.is-published]:block" ":is(:where(.group).is-published *)";
-  has "peer-[.is-dirty]:block" ":is(:where(.peer).is-dirty~*)";
+  check_utilities "group-[.is-published]:block"
+    {|.group-\[\.is-published\]\:block:is(:where(.group).is-published *){display:block}|};
+  check_utilities "peer-[.is-dirty]:block"
+    {|.peer-\[\.is-dirty\]\:block:is(:where(.peer).is-dirty~*){display:block}|};
   (* the spelled anchor still works *)
-  has "group-[&:hover]:block" ":is(:where(.group):hover *)"
+  check_utilities "group-[&:hover]:block"
+    {|.group-\[\&\:hover\]\:block:is(:where(.group):hover *){display:block}|}
 
 (* What follows the [&] anchor in a group or peer bracket is a selector, so it
    is read as one. A pseudo-class outside a short hand-written list came out as
    a class literally named [:defined], and a compound remainder was taken whole
    as an element name, so [&_p.foo] named an element [p.foo]. *)
 let test_anchor_bracket_reads_remainder () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "group-[&:defined]:flex"
-    {|.group-\[\&\:defined\]\:flex:is(:where(.group):defined *)|};
-  has "group-[&:nth-child(2)]:flex"
-    {|.group-\[\&\:nth-child\(2\)\]\:flex:is(:where(.group):nth-child(2) *)|};
-  has "group-[&_p.foo]:flex"
-    {|.group-\[\&_p\.foo\]\:flex:is(:where(.group) p.foo *)|};
+  check_utilities "group-[&:defined]:flex"
+    {|.group-\[\&\:defined\]\:flex:is(:where(.group):defined *){display:flex}|};
+  check_utilities "group-[&:nth-child(2)]:flex"
+    {|.group-\[\&\:nth-child\(2\)\]\:flex:is(:where(.group):nth-child(2) *){display:flex}|};
+  check_utilities "group-[&_p.foo]:flex"
+    {|.group-\[\&_p\.foo\]\:flex:is(:where(.group) p.foo *){display:flex}|};
   (* the spellings that already worked stay byte-identical *)
-  has "group-[&:hover]:flex"
-    {|.group-\[\&\:hover\]\:flex:is(:where(.group):hover *)|};
-  has "group-[&_p]:flex" {|.group-\[\&_p\]\:flex:is(:where(.group) p *)|};
-  has "group-[:nth-of-type(3)_&]:flex" {|:is(:nth-of-type(3) :where(.group) *)|};
-  has "peer-[&:hover]:flex"
-    {|.peer-\[\&\:hover\]\:flex:is(:where(.peer):hover~*)|}
+  check_utilities "group-[&:hover]:flex"
+    {|.group-\[\&\:hover\]\:flex:is(:where(.group):hover *){display:flex}|};
+  check_utilities "group-[&_p]:flex"
+    {|.group-\[\&_p\]\:flex:is(:where(.group) p *){display:flex}|};
+  check_utilities "group-[:nth-of-type(3)_&]:flex"
+    {|.group-\[\:nth-of-type\(3\)_\&\]\:flex:is(:nth-of-type(3) :where(.group) *){display:flex}|};
+  check_utilities "peer-[&:hover]:flex"
+    {|.peer-\[\&\:hover\]\:flex:is(:where(.peer):hover~*){display:flex}|}
 
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
@@ -1074,25 +1045,11 @@ let test_nested_modifier_class_names () =
 
 (* Test CSS generation for nested modifiers *)
 let test_nested_modifier_css_generation () =
-  (* Ensure dark:hover: generates valid CSS with proper media query nesting *)
-  let utilities = [ dark [ hover [ bg blue ] ] ] in
-  let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
-
-  (* Should contain the escaped class name *)
-  let has_class =
-    Astring.String.is_infix ~affix:{|dark\:hover\:bg-blue-500|} css_str
-  in
-  check bool "CSS contains dark:hover: class selector" true has_class;
-
-  (* Should contain prefers-color-scheme:dark media query *)
-  let has_dark_media =
-    Astring.String.is_infix ~affix:"prefers-color-scheme" css_str
-    && Astring.String.is_infix ~affix:"dark" css_str
-  in
-  check bool "CSS contains dark mode media query" true has_dark_media;
-
-  (* Should parse correctly *)
-  match Tw.Css.of_string css_str with
+  (* dark:hover: nests one media query inside the other, in the order the class
+     spells them, and keeps the escaped class name. *)
+  check_sheet "dark:hover:bg-blue-500"
+    {|@layer theme,components,utilities;@layer theme{:root,:host{--color-blue-500:oklch(62.3%.214 259.815)}}@layer components;@layer utilities{@media(prefers-color-scheme:dark){@media(hover:hover){.dark\:hover\:bg-blue-500:hover{background-color:var(--color-blue-500)}}}}|};
+  match Tw.Css.of_string (sheet "dark:hover:bg-blue-500") with
   | Ok _ -> ()
   | Error e ->
       Alcotest.failf "Nested modifier CSS parse failed:\n%s"
@@ -1104,16 +1061,10 @@ let test_nested_modifier_css_generation () =
    .os-macos descendants). It used to escape the bracket content as one class
    name instead. *)
 let test_not_bracket_arbitrary_selector () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  check bool "not-[.os-macos_&]:block negates the descendant context" true
-    (Astring.String.is_infix ~affix:":not(.os-macos *)"
-       (css "not-[.os-macos_&]:block"));
-  check bool "not-[.foo]:block negates a plain class" true
-    (Astring.String.is_infix ~affix:":not(.foo)" (css "not-[.foo]:block"))
+  check_utilities "not-[.os-macos_&]:block"
+    {|.not-\[\.os-macos_\&\]\:block:not(.os-macos *){display:block}|};
+  check_utilities "not-[.foo]:block"
+    {|.not-\[\.foo\]\:block:not(.foo){display:block}|}
 
 (* The bracket is negated as a selector, so content the selector grammar cannot
    read is not a negation and the class is refused at parse time. The reader
@@ -1153,17 +1104,10 @@ let test_not_bracket_unreadable_selector_rejected () =
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
 let test_group_arbitrary_prefix () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  check bool "group-[:nth-of-type(3)_&] keeps the prefix" true
-    (Astring.String.is_infix ~affix:":is(:nth-of-type(3) :where(.group) *)"
-       (css "group-[:nth-of-type(3)_&]:block"));
-  check bool "group-[&_p] anchor-first still works" true
-    (Astring.String.is_infix ~affix:":is(:where(.group) p *)"
-       (css "group-[&_p]:block"))
+  check_utilities "group-[:nth-of-type(3)_&]:block"
+    {|.group-\[\:nth-of-type\(3\)_\&\]\:block:is(:nth-of-type(3) :where(.group) *){display:block}|};
+  check_utilities "group-[&_p]:block"
+    {|.group-\[\&_p\]\:block:is(:where(.group) p *){display:block}|}
 
 (* An nth-* bracket holds an An+B expression and a supports- bracket holds an
    @supports condition; both are taken verbatim, so content the CSS grammar has
@@ -1216,21 +1160,20 @@ let test_padded_attribute_brackets () =
 (* The attribute spellings that do name something keep working, including the
    empty-name-with-value form Tailwind also accepts. *)
 let test_attribute_brackets_still_parse () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "[aria-modal]" "aria-[modal]:flex";
-  emits "[aria-sort=ascending]" "aria-[sort=ascending]:flex";
-  emits "[aria-=true]" "aria-[=true]:flex";
-  emits "[data-state=open]" "data-[state=open]:flex";
-  emits "[data-dragging]" "group-data-[dragging]:flex";
-  emits "[data-dragging]" "peer-data-[dragging]:flex";
-  emits "[data-modified]" "group-data-modified:flex"
+  check_utilities "aria-[modal]:flex"
+    {|.aria-\[modal\]\:flex[aria-modal]{display:flex}|};
+  check_utilities "aria-[sort=ascending]:flex"
+    {|.aria-\[sort\=ascending\]\:flex[aria-sort=ascending]{display:flex}|};
+  check_utilities "aria-[=true]:flex"
+    {|.aria-\[\=true\]\:flex[aria-=true]{display:flex}|};
+  check_utilities "data-[state=open]:flex"
+    {|.data-\[state\=open\]\:flex[data-state=open]{display:flex}|};
+  check_utilities "group-data-[dragging]:flex"
+    {|.group-data-\[dragging\]\:flex:is(:where(.group)[data-dragging] *){display:flex}|};
+  check_utilities "peer-data-[dragging]:flex"
+    {|.peer-data-\[dragging\]\:flex:is(:where(.peer)[data-dragging]~*){display:flex}|};
+  check_utilities "group-data-modified:flex"
+    {|.group-data-modified\:flex:is(:where(.group)[data-modified] *){display:flex}|}
 
 (* [parse_data_expr] reads the [data-[...]] bracket body into an attribute
    match: every operator ([$=], [^=], [*=], [~=], [|=], bare [=]), the
@@ -1246,18 +1189,31 @@ let test_data_bracket_operators () =
   let emits affix cls =
     check bool cls true (Astring.String.is_infix ~affix (css cls))
   in
-  emits "[data-size~=large]" "data-[size~=large]:flex";
-  emits "[data-foo=bar]" "data-[foo=bar]:flex";
-  emits "[data-foo^=bar]" "data-[foo^=bar]:flex";
-  emits "[data-foo$=bar]" "data-[foo$=bar]:flex";
-  emits "[data-foo*=bar]" "data-[foo*=bar]:flex";
-  emits "[data-foo|=bar]" "data-[foo|=bar]:flex";
-  emits "[data-open]" "data-[open]:flex";
+  check_utilities "data-[size~=large]:flex"
+    {|.data-\[size\~\=large\]\:flex[data-size~=large]{display:flex}|};
+  check_utilities "data-[foo=bar]:flex"
+    {|.data-\[foo\=bar\]\:flex[data-foo=bar]{display:flex}|};
+  check_utilities "data-[foo^=bar]:flex"
+    {|.data-\[foo\^\=bar\]\:flex[data-foo^=bar]{display:flex}|};
+  check_utilities "data-[foo$=bar]:flex"
+    {|.data-\[foo\$\=bar\]\:flex[data-foo$=bar]{display:flex}|};
+  check_utilities "data-[foo*=bar]:flex"
+    {|.data-\[foo\*\=bar\]\:flex[data-foo*=bar]{display:flex}|};
+  check_utilities "data-[foo|=bar]:flex"
+    {|.data-\[foo\|\=bar\]\:flex[data-foo|=bar]{display:flex}|};
+  check_utilities "data-[open]:flex"
+    {|.data-\[open\]\:flex[data-open]{display:flex}|};
+  (* A decoded space in the value stays on a substring: tw quotes the attribute
+     value where the pinned CLI escapes the space instead ([data-foo=a\ b]). *)
   emits {|[data-foo="a b"]|} "data-[foo='a_b']:flex";
-  emits "[data-foo=bar i]" "data-[foo=bar_i]:flex";
-  emits "[data-foo=bar s]" "data-[foo=bar_s]:flex";
-  emits "[data-size~=large]" "group-data-[size~=large]:flex";
-  emits "[data-size~=large]" "peer-data-[size~=large]:flex"
+  check_utilities "data-[foo=bar_i]:flex"
+    {|.data-\[foo\=bar_i\]\:flex[data-foo=bar i]{display:flex}|};
+  check_utilities "data-[foo=bar_s]:flex"
+    {|.data-\[foo\=bar_s\]\:flex[data-foo=bar s]{display:flex}|};
+  check_utilities "group-data-[size~=large]:flex"
+    {|.group-data-\[size\~\=large\]\:flex:is(:where(.group)[data-size~=large] *){display:flex}|};
+  check_utilities "peer-data-[size~=large]:flex"
+    {|.peer-data-\[size\~\=large\]\:flex:is(:where(.peer)[data-size~=large]~*){display:flex}|}
 
 (* A bare [[...]] variant compounds its selector onto the utility's own class,
    so what the brackets hold has to be a compound selector. [~] is both the
@@ -1265,25 +1221,22 @@ let test_data_bracket_operators () =
    reading the bracket as a selector tells them apart: a character scan that
    rejects every [~] rejects [[data-size~=large]] along with [p_~_span]. *)
 let test_bare_selector_variant_attribute_operators () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
   let rejected cls =
     match Tw.of_string cls with
     | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
     | Error _ -> ()
   in
-  emits "[data-size~=large]" "[[data-size~=large]]:underline";
-  emits "[data-size~=large]" "group-[[data-size~=large]]:underline";
-  emits "[data-size~=large]" "peer-[[data-size~=large]]:underline";
+  check_utilities "[[data-size~=large]]:underline"
+    {|.\[\[data-size\~\=large\]\]\:underline[data-size~=large]{text-decoration-line:underline}|};
+  check_utilities "group-[[data-size~=large]]:underline"
+    {|.group-\[\[data-size\~\=large\]\]\:underline:is(:where(.group)[data-size~=large] *){text-decoration-line:underline}|};
+  check_utilities "peer-[[data-size~=large]]:underline"
+    {|.peer-\[\[data-size\~\=large\]\]\:underline:is(:where(.peer)[data-size~=large]~*){text-decoration-line:underline}|};
   (* the attribute operators that never collided with a combinator stay put *)
-  emits "[lang|=en]" "[[lang|=en]]:underline";
-  emits "[href^=https]" "[[href^=https]]:underline";
+  check_utilities "[[lang|=en]]:underline"
+    {|.\[\[lang\|\=en\]\]\:underline[lang|=en]{text-decoration-line:underline}|};
+  check_utilities "[[href^=https]]:underline"
+    {|.\[\[href\^\=https\]\]\:underline[href^=https]{text-decoration-line:underline}|};
   (* a combinator really is one, and none of these is a compound *)
   rejected "[p_~_span]:underline";
   rejected "[>img]:underline";
@@ -1292,19 +1245,15 @@ let test_bare_selector_variant_attribute_operators () =
 
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits ":nth-child(2n+1)" "nth-[2n+1]:flex";
-  emits ":nth-child(3)" "nth-[3]:flex";
-  emits ":nth-last-child(2n)" "nth-last-[2n]:flex";
-  emits ":nth-of-type(odd)" "nth-of-type-[odd]:flex";
-  emits "@supports (display: grid)" "supports-[display:grid]:flex"
+  check_utilities "nth-[2n+1]:flex"
+    {|.nth-\[2n\+1\]\:flex:nth-child(odd){display:flex}|};
+  check_utilities "nth-[3]:flex" {|.nth-\[3\]\:flex:nth-child(3){display:flex}|};
+  check_utilities "nth-last-[2n]:flex"
+    {|.nth-last-\[2n\]\:flex:nth-last-child(2n){display:flex}|};
+  check_utilities "nth-of-type-[odd]:flex"
+    {|.nth-of-type-\[odd\]\:flex:nth-of-type(odd){display:flex}|};
+  check_utilities "supports-[display:grid]:flex"
+    {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
 
 (* A [supports-<property>] test names the property the author wrote, even for a
    property browsers once shipped behind a vendor prefix: Tailwind emits
@@ -1324,12 +1273,19 @@ let test_supports_property_is_unprefixed () =
     check bool cls false (Astring.String.is_infix ~affix:"-webkit-" css);
     check bool cls false (Astring.String.is_infix ~affix:"-moz-" css)
   in
-  emits "@supports (hyphens: var(--tw))" "supports-hyphens:flex";
-  emits "@supports (user-select: var(--tw))" "supports-user-select:flex";
-  emits "@supports (user-select: var(--tw))" "supports-[user-select]:flex";
+  check_utilities "supports-hyphens:flex"
+    {|@supports(hyphens:var(--tw)){.supports-hyphens\:flex{display:flex}}|};
+  check_utilities "supports-user-select:flex"
+    {|@supports(user-select:var(--tw)){.supports-user-select\:flex{display:flex}}|};
+  check_utilities "supports-[user-select]:flex"
+    {|@supports(user-select:var(--tw)){.supports-\[user-select\]\:flex{display:flex}}|};
+  (* text-size-adjust stays on a substring: the pinned CLI's own prefixing turns
+     the condition into three alternatives ([-webkit-], [-moz-], plain) where
+     tw's leaves one, so the sheets cannot be compared whole. *)
   emits "@supports (text-size-adjust: var(--tw))"
     "supports-text-size-adjust:flex";
-  emits "@supports (backdrop-filter: var(--tw))" "supports-backdrop-filter:flex";
+  check_utilities "supports-backdrop-filter:flex"
+    {|@supports(backdrop-filter:var(--tw)){.supports-backdrop-filter\:flex{display:flex}}|};
   unprefixed "supports-hyphens:flex";
   unprefixed "supports-user-select:flex";
   unprefixed "supports-text-size-adjust:flex";
@@ -1342,31 +1298,14 @@ let test_supports_property_is_unprefixed () =
    applied unconditionally and matched a class the author never wrote. Tailwind
    nests the two in the order the class spells them. *)
 let test_at_rule_variant_over_media () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits cls affixes =
-    let out = css cls in
-    List.iter
-      (fun affix ->
-        check bool
-          (cls ^ " emits " ^ affix)
-          true
-          (Astring.String.is_infix ~affix out))
-      affixes
-  in
-  emits "supports-grid:sm:flex"
-    [
-      "@supports (grid: var(--tw))";
-      "min-width: 40rem";
-      ".supports-grid\\:sm\\:flex";
-    ];
-  emits "not-supports-grid:sm:flex"
-    [ "@supports not (grid: var(--tw))"; "min-width: 40rem" ];
-  emits "starting:sm:flex" [ "@starting-style"; "min-width: 40rem" ];
-  emits "@md:sm:flex" [ "@container"; "min-width: 40rem" ]
+  check_utilities "supports-grid:sm:flex"
+    {|@supports(grid:var(--tw)){@media(min-width:40rem){.supports-grid\:sm\:flex{display:flex}}}|};
+  check_utilities "not-supports-grid:sm:flex"
+    {|@supports not (grid:var(--tw)){@media(min-width:40rem){.not-supports-grid\:sm\:flex{display:flex}}}|};
+  check_utilities "starting:sm:flex"
+    {|@starting-style{@media(min-width:40rem){.starting\:sm\:flex{display:flex}}}|};
+  check_utilities "@md:sm:flex"
+    {|@container(width>=28rem){@media(min-width:40rem){.\@md\:sm\:flex{display:flex}}}|}
 
 (* A container query is not a [not-*] inner. Tailwind rejects the class
    outright; tw built a rule whose selector negates the utility's own class
@@ -1422,12 +1361,17 @@ let test_variant_underscore_escape () =
       true
       (Astring.String.is_infix ~affix (css cls))
   in
-  has {|data-[foo=bar\_baz]:flex|} {|[data-foo="bar_baz"]|};
-  has {|supports-[--a\_b]:flex|} "@supports (--a_b: var(--tw))";
-  has {|[.a\_b]:flex|} ".a_b";
-  has {|group-[.a\_b_&]:flex|} ":is(.a_b :where(.group) *)";
-  has {|nth-[2n+1_of_.a\_b]:flex|} ":nth-child(2n+1 of .a_b)";
-  (* A bare [_] still stands for a space. *)
+  check_utilities {|data-[foo=bar\_baz]:flex|}
+    {|.data-\[foo\=bar\\_baz\]\:flex[data-foo=bar_baz]{display:flex}|};
+  check_utilities {|supports-[--a\_b]:flex|}
+    {|@supports(--a_b:var(--tw)){.supports-\[--a\\_b\]\:flex{display:flex}}|};
+  check_utilities {|[.a\_b]:flex|} {|.\[\.a\\_b\]\:flex.a_b{display:flex}|};
+  check_utilities {|group-[.a\_b_&]:flex|}
+    {|.group-\[\.a\\_b_\&\]\:flex:is(.a_b :where(.group) *){display:flex}|};
+  check_utilities {|nth-[2n+1_of_.a\_b]:flex|}
+    {|.nth-\[2n\+1_of_\.a\\_b\]\:flex:nth-child(odd of.a_b){display:flex}|};
+  (* A bare [_] still stands for a space. This one stays on a substring: tw
+     quotes the attribute value where the pinned CLI escapes the space. *)
   has "data-[foo=bar_baz]:flex" {|[data-foo="bar baz"]|}
 
 (* Extend the suite with new tests *)
