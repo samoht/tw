@@ -105,6 +105,11 @@
   and `end-*` read one at all. `start-[4px]`, `end-[4px]`, `-top-[4px]` and
   `-inset-bs-[4px]` reach the sheet, as does a name the theme binds on the
   logical inline sides (#691).
+- A named inset takes its value from the theme, reading `--inset-<name>` and
+  falling back to `--spacing-<name>`; a theme declaring only `--spacing-lg` used
+  to get `top: var(--inset-lg)` over a length tw made up (#PR).
+- Every inset side reads a named token under a minus, so `-top-header` and
+  `-inset-bs-lg` reach the sheet (#PR).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
