@@ -314,11 +314,35 @@ let test_bracket_data_type_hint_reads_the_value () =
   Test_helpers.check_declarations "mask-[image:notanimage]"
     [ "-webkit-mask-image:notanimage"; "mask-image:notanimage" ]
 
+(* The hint's name is a run of [a-z] and [-] and nothing else, so an upper-case
+   letter or a digit ends it and the whole bracket is the value. A bracket whose
+   hint is empty, and one with nothing after the hint, name no utility. *)
+let test_hint_name_is_a_lower_case_run () =
+  let image cls value =
+    Test_helpers.check_declarations cls
+      [ "-webkit-mask-image:" ^ value; "mask-image:" ^ value ]
+  in
+  image "mask-[FOO:2em]" "FOO:2em";
+  image "mask-[a1:2em]" "a1:2em";
+  Test_helpers.check_declarations "mask-size-[FOO:2em]"
+    [ "-webkit-mask-size:FOO:2em"; "mask-size:FOO:2em" ];
+  (* only the leading run is the hint's, so the value keeps its own [:] *)
+  image "mask-[bogus:foo:2em]" "foo:2em";
+  List.iter
+    (fun cls ->
+      Test_helpers.check_handler_roundtrip (module Tw.Masks.Handler) cls)
+    [ "mask-[FOO:2em]"; "mask-[a1:2em]"; "mask-size-[FOO:2em]" ];
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Masks.Handler))
+    [ "mask-[:2em]"; "mask-[foo:]"; "mask-size-[:2em]"; "mask-position-[:2em]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
       Alcotest.test_case "bracket data-type hint reads the value" `Quick
         test_bracket_data_type_hint_reads_the_value;
+      Alcotest.test_case "hint name is a lower-case run" `Quick
+        test_hint_name_is_a_lower_case_run;
       Alcotest.test_case "mask image underscore escape" `Quick
         test_bracket_image_underscore_escape;
       Alcotest.test_case "bracket url keeps underscores" `Quick
