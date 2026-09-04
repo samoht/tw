@@ -11,8 +11,9 @@ val entrypoint :
     text of a Tailwind entrypoint that names every source it may read: the files
     of [scanned_files], which reach the CLI through its candidate extractor, and
     the [candidates] an [@source inline] string can hold, which reach the engine
-    directly. {!scanned_candidates} names the residue that cannot take the
-    inline route and so has to be written into one of [scanned_files].
+    directly. A candidate is meant to arrive both ways, because each route is
+    blind to something the other sees; {!scanned_candidates} names those that
+    can arrive no way but through one of [scanned_files].
 
     Sources are named because the CLI otherwise picks its own: an
     [@import "tailwindcss"] without [source(none)] scans the working directory,
@@ -36,12 +37,15 @@ val generate :
 (** [generate ?minify ?optimize ?forms ?input_css classnames] generates Tailwind
     CSS for given class names.
 
-    Each class name is handed to the CLI as an [@source inline] candidate, which
-    reaches the engine without passing Tailwind's source extractor. The
-    extractor declines spellings the engine compiles, and it drops a candidate
-    rather than compiling it differently, so a sheet built by scanning is short
-    whole rules and a comparison against it reports them as tw's invention.
-    {!scanned_candidates} names the few class names that cannot take this route.
+    Each class name is handed to the CLI twice, as an [@source inline] candidate
+    and as text in a scanned file, because neither route answers for it alone.
+    The source extractor declines spellings the engine compiles, and it drops a
+    candidate rather than compiling it differently, so a sheet built by scanning
+    alone is short whole rules. A [theme(--x)] read counts as a theme dependency
+    only when the candidate came from a file, so a sheet built inline alone is
+    short the bindings such a class puts in [@layer theme]. Either way the
+    comparison reports what is missing as tw's invention. {!scanned_candidates}
+    names the few class names the inline route cannot carry at all.
     @param minify Whether to minify the output (default: false)
     @param optimize Whether to optimize the output (default: true)
     @param forms
@@ -54,16 +58,17 @@ val generate :
     @raise Failure if Tailwind CSS generation fails. *)
 
 val scanned_candidates : string list -> string list
-(** [scanned_candidates classnames] are the candidates {!generate} writes into a
-    scanned file because an [@source inline] string cannot hold them: [{] and
-    [}] are its expansion syntax, a backslash opens an escape, and a name
-    carrying both quote characters fits inside neither string form. An entry of
-    [classnames] holding several whitespace-separated candidates is split first,
-    the way both routes split it. These reach the CLI through its source
-    extractor, which drops what it cannot read, so a sheet compared over one of
-    them may be missing a rule Tailwind would emit. It is empty for every class
-    name Tailwind can produce; a caller comparing sheets should name what it
-    returns rather than leave the two routes mixed unremarked. *)
+(** [scanned_candidates classnames] are the candidates that reach the CLI
+    through its source extractor and nowhere else, because an [@source inline]
+    string cannot hold them: [{] and [}] are its expansion syntax, a backslash
+    opens an escape, and a name carrying both quote characters fits inside
+    neither string form. An entry of [classnames] holding several
+    whitespace-separated candidates is split first, the way both routes split
+    it. The extractor drops what it cannot read, and these have no second route
+    to fall back on, so a sheet compared over one of them may be missing a rule
+    Tailwind would emit. It is empty for every class name Tailwind can produce;
+    a caller comparing sheets should name what it returns rather than leave that
+    narrower oracle unremarked. *)
 
 val check_tailwindcss_available : unit -> unit
 (** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
