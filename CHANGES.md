@@ -107,9 +107,12 @@
   logical inline sides (#691).
 - A named inset takes its value from the theme, reading `--inset-<name>` and
   falling back to `--spacing-<name>`; a theme declaring only `--spacing-lg` used
-  to get `top: var(--inset-lg)` over a length tw made up (#PR).
+  to get `top: var(--inset-lg)` over a length tw made up (#708).
 - Every inset side reads a named token under a minus, so `-top-header` and
-  `-inset-bs-lg` reach the sheet (#PR).
+  `-inset-bs-lg` reach the sheet (#708).
+- `inset-s-*`, `inset-e-*`, `inset-bs-*` and `inset-be-*` carry the whole scale
+  `start`/`end` do, and a fraction resolves on every inset side: `inset-s-0.5`,
+  `inset-bs-1/2`, `inset-s-px`, `inset-y-1/2` and `-bottom-3/4` (#708).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
