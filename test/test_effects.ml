@@ -375,6 +375,28 @@ let test_arbitrary_shadow_lengths () =
   inset_shadow "inset-shadow-[0_bogus_2px]"
     "inset 0 var(--tw-inset-shadow-color,bogus) 2px"
 
+(* An arbitrary inset shadow whose colour is one CSS knows by name. Two readers
+   decide the bracket between them: the one that accepts it as a shadow reads
+   every colour spelling, the one that then builds the value knows only a hex, a
+   var() and a colour function. A named colour passed the first and failed the
+   second, so the whole shadow fell out as [inset-shadow-none] - lengths, spread
+   and colour together. A token that is no colour at all, such as [bogus], never
+   reached the second reader and was right throughout. *)
+let test_arbitrary_inset_shadow_named_colour () =
+  let inset_shadow cls value =
+    Test_helpers.check_declarations cls
+      [ "--tw-inset-shadow:" ^ value; composes_box_shadow ]
+  in
+  inset_shadow "inset-shadow-[0_0_red]"
+    "inset 0 0 var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[0_0_0_1px_red]"
+    "inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[shadow:0_0_0_1px_red]"
+    "inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[0_0_red,0_0_blue]"
+    "inset 0 0 var(--tw-inset-shadow-color,red),inset 0 0 \
+     var(--tw-inset-shadow-color,blue)"
+
 (* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
    the modifier folds into a [color-mix] rather than into a hex byte.
 
@@ -733,6 +755,8 @@ let tests =
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
+    test_case "arbitrary inset shadow named colour" `Quick
+      test_arbitrary_inset_shadow_named_colour;
     test_case "arbitrary shadow colour opacity" `Quick
       test_arbitrary_shadow_colour_opacity;
     test_case "bracket colour opacity without a hex" `Quick
