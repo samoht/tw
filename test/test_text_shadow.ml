@@ -108,6 +108,11 @@ let test_arbitrary_color_function () =
     "var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
   rejected "text-shadow-[0_1px_rgb(zz)]"
 
+(* Where the alpha reads a custom property there is nothing to fold, so the
+   authored colour stands unguarded and the relative colour goes behind the
+   guard. Folding that unguarded value through oklab at full opacity paints an
+   opaque shadow in a browser with no relative colours, where Tailwind paints
+   the authored colour. *)
 let test_arbitrary_colour_opacity () =
   let css cls =
     match Tw.of_string cls with
@@ -119,8 +124,14 @@ let test_arbitrary_colour_opacity () =
   in
   has "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     "var(--tw-text-shadow-color,color-mix(";
-  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-text-shadow-alpha:var(--x)";
-  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
+  Test_helpers.check_declarations ~minify:false
+    "text-shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-text-shadow-alpha: var(--x)";
+      "text-shadow: 0 0 8px var(--tw-text-shadow-color, #f00)";
+      "text-shadow: 0 0 8px var(--tw-text-shadow-color, oklab(from #f00 l a \
+       b/var(--x)))";
+    ]
 
 (* An arbitrary text-shadow takes a named colour, the same as the box-shadow
    twin [shadow-[0_1px_2px_red]] does. The reader recognised a [#] hex, a var()

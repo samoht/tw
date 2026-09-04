@@ -306,6 +306,18 @@
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
+- An opacity modifier over a bracket colour stays a `color-mix()` on the colour
+  the class named, across all thirteen colour families. It resolved to that
+  colour's `oklab()` channels instead, and where the alpha read a custom
+  property the mix went out with no unguarded fallback, so a browser without
+  `color-mix()` painted nothing (#711).
+- An arbitrary shadow whose alpha reads a custom property keeps the authored
+  colour as its unguarded fallback. `shadow-` and `text-shadow-` folded it
+  through oklab at full opacity, so a browser with no relative colours painted
+  an opaque shadow where Tailwind paints the colour the class named (#711).
+- `--color-black` and `--color-white` are written `#000` and `#fff`, the three
+  digits Tailwind spells them in, in the theme block and in every colour
+  family's unguarded fallback (#711).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).

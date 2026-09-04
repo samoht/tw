@@ -222,25 +222,11 @@ let test_bracket_named_color () =
   let emits affix cls =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
-  (* the value a class sets for [border-color], so two spellings of one colour
-     compare without their class names *)
-  let value cls =
-    let sheet = css cls in
-    let key = "border-color:" in
-    match Astring.String.find_sub ~sub:key sheet with
-    | None -> Alcotest.failf "%s sets no border colour: %s" cls sheet
-    | Some i ->
-        let first = i + String.length key in
-        Astring.String.with_range ~first sheet
-        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
-  in
   emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
   emits "border-color:currentColor" "divide-[currentColor]";
-  (* the modifier folds into the colour the bracket named, not into black *)
-  Alcotest.(check string)
-    "divide-[rebeccapurple]/50 is divide-[#663399]/50"
-    (value "divide-[#663399]/50")
-    (value "divide-[rebeccapurple]/50");
+  (* the modifier mixes into the colour the bracket named, not into black *)
+  Test_helpers.check_declarations ~minify:false "divide-[rebeccapurple]/50"
+    [ "border-color: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   (* Tailwind forwards a safe token stream even when the browser will not
      recognise it as a colour. *)
   emits "border-color:notacolour" "divide-[notacolour]"
