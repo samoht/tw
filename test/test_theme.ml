@@ -180,12 +180,77 @@ let one_spacing_declaration () =
     (fun (cls, value) -> check string (cls ^ " carrier value") base value)
     found
 
+(* [Binds cls] is a family whose utility declares the token, so the registry
+   entry has to agree with what [cls] emits. [Unbound] is one no utility
+   declares: the shadow scales fold their value into a [--tw-*] channel, and the
+   default transition pair rides on the base layer. *)
+type binder = Binds of string | Unbound
+
+(* One member of every namespace Tailwind's default [@theme] declares. A family
+   that keeps its default to itself resolves nowhere: [theme(--x)] in a class,
+   [theme()] in a project's CSS and [theme(static)] all read the registry, so a
+   token missing from it is a class with no rule rather than a wrong value. *)
+let default_theme_namespaces =
+  [
+    ("spacing", Binds "p-4");
+    ("breakpoint-sm", Binds "max-w-screen-sm");
+    ("container-md", Binds "max-w-md");
+    ("text-lg", Binds "text-lg");
+    ("font-weight-bold", Binds "font-bold");
+    ("tracking-wide", Binds "tracking-wide");
+    ("leading-relaxed", Binds "leading-relaxed");
+    ("radius-lg", Binds "rounded-lg");
+    ("shadow-md", Unbound);
+    ("inset-shadow-sm", Unbound);
+    ("drop-shadow-md", Binds "drop-shadow-md");
+    ("text-shadow-sm", Unbound);
+    ("ease-in", Binds "ease-in");
+    ("animate-spin", Binds "animate-spin");
+    ("blur-sm", Binds "blur-sm");
+    ("perspective-normal", Binds "perspective-normal");
+    ("aspect-video", Binds "aspect-video");
+    ("font-sans", Binds "font-sans");
+    ("default-transition-duration", Unbound);
+  ]
+
+(* The registry answers for every one of them, and for a family that declares
+   the token, with the value the utility itself binds: the two spellings of a
+   token cannot drift apart. *)
+let default_tokens_cover_every_namespace () =
+  let bound cls token =
+    let style = Result.get_ok (Tw.of_string cls) in
+    match Css.layer_block [ "theme" ] (Tw.to_css ~base:false [ style ]) with
+    | None -> failf "%s: expected @layer theme" cls
+    | Some statements ->
+        Css.rules_of_statements statements
+        |> List.concat_map snd
+        |> List.find_map (fun d ->
+            if Css.custom_declaration_name d = Some ("--" ^ token) then
+              Some (Css.declaration_value ~minify:true d)
+            else None)
+  in
+  List.iter
+    (fun (token, binder) ->
+      match (Tw.Scheme.token_default token, binder) with
+      | None, _ -> failf "--%s is not in the theme-token registry" token
+      | Some _, Unbound -> ()
+      | Some registered, Binds cls -> (
+          match bound cls token with
+          | None -> failf "%s does not bind --%s" cls token
+          | Some bound ->
+              check string
+                ("--" ^ token ^ " matches the binding")
+                bound registered))
+    default_theme_namespaces
+
 let tests =
   [
     test_case "theme layer stable order" `Quick theme_layer_stable_order;
     test_case "theme cross-module vars" `Quick theme_cross_module_vars;
     test_case "theme family block order" `Quick theme_family_block_order;
     test_case "one spacing declaration" `Quick one_spacing_declaration;
+    test_case "default tokens cover every namespace" `Quick
+      default_tokens_cover_every_namespace;
   ]
 
 let suite = ("theme", tests)
