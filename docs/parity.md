@@ -26,16 +26,18 @@ absent, and `%{bin:cascade}` resolves through the dune workspace, so the diff
 runs the freshly built cascade rather than whatever sits on `PATH`.
 
 **Whole-sheet order, `test/parity/dune`.** The site inputs below feed a third
-check, which takes the top-level statement sequence out of `@layer utilities` on
-each side and reports the fewest statements that have to move for tw's order to
-match Tailwind's. Only keys occurring exactly once on both sides are paired, so
-the number owes nothing to a pairing choice. It is pinned at 581 over 3885 pairs
-and ratchets: the gate fails when it rises and prints the new figure when it
-falls, so the ceiling can be tightened. Both other checks run the differ in
-canonical mode, which normalises cascade-neutral rule order on purpose, so this
-is the only one that sees a family emitted in the wrong band. A missing or
-off-version CLI skips it with a line saying so; `TW_TAILWIND_TESTS=1`, which CI
-sets, turns that into a failure.
+check, which takes the top-level statement sequence out of `@layer utilities`
+and `@layer components` on each side and reports the fewest statements that
+have to move for tw's order to match Tailwind's. Only keys occurring exactly
+once on both sides are paired, so the number owes nothing to a pairing choice.
+The move count is pinned at 0 for both layers and the pair count at a floor of
+3900 and 45, and the gate ratchets both ways: it fails when a move count rises
+or a pair count falls, and prints the new figure when a move count drops, so
+the ceiling can be tightened. It reads 0 of 3961 and 0 of 50 today. Both other
+checks run the differ in canonical mode, which normalises cascade-neutral rule
+order on purpose, so this is the only one that sees a family emitted in the
+wrong band. A missing or off-version CLI skips it with a line saying so;
+`TW_TAILWIND_TESTS=1`, which CI sets, turns that into a failure.
 
 ## The site comparison
 
@@ -77,68 +79,64 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-02 at 36b47e32 against cascade a6557326. The documented command
-completed without a patched differ and reported:
+Measured 2026-09-05 at 532fcc23 against cascade e2be4971, with the tailwindcss
+4.3.3 that `package-lock.json` pins. The documented command completed without a
+patched differ and reported:
 
 ```text
-CSS: 662557 chars vs 664632 chars (0.3% diff)
-Changes: 1 removed rule, 8 modified rules, 20 reordered rules, 5 changed containers
-├─ .DocSearch-Container
-├─ .with-line-numbers .line:before
+CSS: 659204 chars vs 664632 chars (0.8% diff)
+Changes: 1 removed rule, 3 changed containers
 ├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
-├─ .dark .DocSearch-Container
-├─ .dark .DocSearch-Hit--Result.DocSearch-Hit--Child:before
-├─ .dark .DocSearch-SearchBar
-├─ .dark :is(.DocSearch-Hit:first-child > a)
-├─ .dark :is(.DocSearch-Hit-action [title="Remove this search from favorites"]):before
-├─ .dark .DocSearch-Hit--Result
-├─ .DocSearch-Hits mark (position 132) ↔  .DocSearch-NoResults .DocSearch-Title (position 76)
-├─ .DocSearch-Hit-path mark (position 133) ↔  .DocSearch-StartScreen .DocSearch-Help (position 77)
-├─ .DocSearch-Hits ma...re(.dark, .dark *) (position 134) ↔  .dark .DocSearch-Hit-path (position 78)
-├─ .DocSearch-NoResults-Prefill-List ul (position 135) ↔  .DocSearch-NoResul...st .DocSearch-Help (position 79)
-├─ .DocSearch-NoResul...re(.dark, .dark *) (position 136) ↔  .DocSearch-NoResul...re(.dark, .dark *) (position 80)
-├─ .dark .DocSearch-Modal (position 137) ↔  .DocSearch-NoResul... + .DocSearch-Help (position 81)
-├─ .dark .DocSearch-MagnifierLabel (position 141) ↔  .DocSearch-Container (position 92)
-├─ .dark .DocSearch-Cancel (position 144) ↔  @media (width >= 40rem) (position 93)
-├─ .DocSearch-Hit--Re...DocSearch-Hit-icon (position 145) ↔  @media (width >= 64rem) (position 95)
-├─ .DocSearch-Hit--Pa...DocSearch-Hit-icon (position 146) ↔  .DocSearch-Visuall...enForAccessibility (position 96)
-├─ .DocSearch-Hit--Re...cSearch-Hit-action (position 147) ↔  .DocSearch-Hit (position 97)
-├─ .DocSearch-Hit-act...h from favorites"] (position 148) ↔  .DocSearch-LoadingIndicator (position 98)
-├─ .DocSearch-Hit-act...rch from history"] (position 149) ↔  .DocSearch-Modal (position 99)
-├─ .DocSearch-Hit-act...Save this search"] (position 150) ↔  .DocSearch-Hit--Result (position 100)
-├─ .DocSearch-Hit--Ta...DocSearch-Hit-icon (position 151) ↔  .DocSearch-SearchBar (position 101)
-├─ .DocSearch-Hit--Ta...cSearch-Hit-action (position 152) ↔  .DocSearch-Dropdown-Container (position 102)
-├─ .DocSearch-Hit-act...cSearch-Hit-action (position 153) ↔  .DocSearch-Dropdown (position 103)
-├─ .DocSearch-NoResul...Search-Screen-Icon (position 154) ↔  .DocSearch-Form (position 104)
-├─ .with-line-numbers .line (position 156) ↔  .DocSearch-Hit-Container (position 109)
-├─ .DocSearch-Hit[ari...favorites"]:before (position 160) ↔  .DocSearch-Hit-source (position 114)
-├─ @media (width <= 40rem) (position 116 → 161)
-├─ @media (prefers-color-scheme: dark) (10 block split into 11)
-├─ @layer utilities (45 added, 16 modified, 164 reordered, 4 rearranged, 1 selector changed)
-├─ @layer components (6 modified)
-└─ @supports (color: color-mix(in lab,red,red)) (1 block split into 4)
+├─ @media (prefers-color-scheme: dark) (9 blocks merged into 8)
+├─ @layer utilities (2 reordered)
+└─ @supports (color: color-mix(in lab,red,red)) (5 blocks merged into 4)
 ```
 
-The top-level entries are quoted with the summary because its five changed
-containers include the utilities layer, which contains hundreds of nested
-changes. The summary alone is not a useful estimate of the remaining work.
+The count is only comparable against the cascade it was taken with, which is why
+the sha is quoted beside it. Reading each entry:
+
+- The rule entry is the empty `:where()` lightningcss writes for the site's
+  `dark` variant, described under "What parity does not cover". tw keeps the
+  declaration and the reference loses it, so it arrives as removed.
+- The two block entries are DocSearch rules out of `search.css`. That is the
+  site's own CSS rather than anything tw generated, and both sides only reprint
+  it, so what they measure is cascade's printer against lightningcss.
+- `@layer utilities` carries the whole of tw's own residual. Two rules sit out
+  of position, `.line-y` and `.not-dark:hidden`. The containers under it differ
+  in where their block boundaries fall rather than in what they hold, and the
+  `@container` entries come in added/removed twins, which is the shape
+  described under "Reading a failure".
+
+Two divergences inside that layer are tw's and are worth naming, because a
+canonical diff reports them only as block boundaries moving:
+
+- **Media nesting order.** For a class stacking a breakpoint with the site's
+  `dark` variant, Tailwind writes
+  `@media (width >= 40rem) { @media (prefers-color-scheme: dark) { ... } }`
+  and tw writes the two conditions the other way round. Nested media
+  conditions are conjunctive, so the two render the same, but tw's spelling
+  closes and reopens the breakpoint block around every preference block inside
+  it. Tailwind's unminified output confirms the order, so this is not
+  lightningcss.
+- **A repeated `content`.** In the `color-mix` fallback of a `before:` or
+  `after:` utility, tw repeats `content: var(--tw-content)` beside the colour.
+  Tailwind nests the fallback inside the rule, so lightningcss flattens it
+  carrying the colour alone. Seven rules on this corpus.
 
 **Both sides are minified because every other configuration is noisier.** The
 reference passes through lightningcss, so part of what the diff reports is
 cascade disagreeing with lightningcss rather than tw disagreeing with Tailwind.
 Dropping `--minify` raises that cost rather than removing it, because Tailwind's
 unminified output is heavily nested and `--minify` is where lightningcss
-flattens it. Measured on the site corpus:
+flattens it. Measured on the site corpus at the revisions above:
 
-| harness | utilities layer | components layer |
+| harness | top-level entries | utilities layer |
 |---|---|---|
-| minify both sides (current) | 45 added, 16 modified, 164 reordered, 4 rearranged, 1 selector changed | 6 modified |
-| neither side minified | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
-| neither minified, both flattened | 45 added, 11 removed, 513 modified | 55 removed, 1 modified |
+| minify both sides (current) | 4 | 2 reordered |
+| neither side minified | 8 | 226 modified, 42 reordered |
 
-The two unminified rows predate cascade reading rule positions back, so neither
-of them carries a reordered count and they are not directly comparable to the
-current row.
+The unminified run also reports `@layer theme`, `@property` and two `@keyframes`
+entries that the minified one does not.
 
 Flattening afterwards changes nothing, because the canonical comparator already
 folds nesting.
@@ -154,6 +152,13 @@ dune exec -- tw --single="hover:bg-blue-600" --diff
 
 Use `--single=` rather than `-s` for a class that starts with `-` or contains
 spaces. Both that output and the site diff have traps.
+
+**`added` means present in the second file.** `cascade diff FILE1 FILE2` calls
+FILE1 the expected side and FILE2 the actual one, and prints them as `---` and
+`+++` in that order. `measure.sh` passes tw first and Tailwind second, so under
+it `added` reads "Tailwind emits this and tw does not" and `removed` the
+reverse. Reading the header the other way inverts every conclusion drawn from
+the report.
 
 **Use the built cascade, not the one on `PATH`.** An installed `cascade` from an
 opam switch can be months old and will invent differences that do not exist.
@@ -225,14 +230,32 @@ family of utilities is worth checking against all five.
 
 tw rejects a class whose arbitrary value the property cannot take, where
 Tailwind splices the value into CSS anyway. The docs pages carry literal
-`<value>` placeholders, so the site's class list holds `blur-[<value>]`,
-`shadow-[<value>]` and about forty more, which Tailwind emits as
-`filter: blur(<value>)` and no browser accepts. `bg-[--brand-color]` emits
-`background-color: --brand-color` (v3 syntax), `grid-cols-[1rem,1fr]` emits
-`grid-template-columns: 1rem,1fr`, and `justify-baseline` emits a
-`justify-content` value CSS Box Alignment 3 does not define. Together these are
-the 45 rules the site comparison reports as added directly under
-`@layer utilities`.
+`<value>` and `<color>` placeholders, so the site's class list holds
+`blur-[<value>]`, `shadow-[<value>]` and 64 more, which Tailwind emits as
+`filter: blur(<value>)` and no browser accepts. `bg-[--brand-color]` and
+`hover:bg-[--brand-hover-color]` emit `background-color: --brand-color` (v3
+syntax), and `justify-baseline` emits a `justify-content` value CSS Box
+Alignment 3 does not define. Together they are the 69 classes of the corpus that
+Tailwind emits a rule for and tw does not. No class goes the other way: tw
+invents nothing here.
+
+The site comparison no longer counts them, and a reader looking for them in the
+report above will not find them. cascade's declaration reader refuses
+`order: <value>` and 76 more like it, so it drops those rules out of the parsed
+reference before comparing and prints a parse warning for each instead.
+`--diff=canonical` answers `Cannot determine whether the CSS files are
+identical` and exits 2 when a refused declaration is all that separates two
+sheets, but a run that also finds real differences exits 1 and its summary drops
+them without saying so. On the site corpus the 111 parse warnings the script
+prints are the only signal that the counts below them are short.
+
+Neither side's candidate extractor is a source of difference on this corpus. tw
+reads `classlist.txt` with `Tw_tools.Source_scan` and Tailwind reads it with its
+own extractor through `@source`, and the two agree: a reference built by
+declaring all 4824 candidates an `@source inline` string can hold differs from
+the scanned one only by the two `content-['Hello\_World']` spellings that form
+cannot carry, and `@apply` compiles all 69 classes above, so none of them is a
+spelling Tailwind's extractor declined.
 
 A bracket value neither property can take is placed differently by the two:
 `border-[50%]` is `border-color: 50%` in Tailwind and `border-width: 50%` in tw,
@@ -241,21 +264,18 @@ tw. `Css.color` has no numeric inhabitant, so tw cannot spell the Tailwind form
 without an untyped escape hatch. Browsers drop both declarations either way, so
 the rendered result matches.
 
-Three more differences come from lightningcss on the reference side:
+One difference comes from lightningcss on the reference side: it serialises the
+site's `dark` variant with an empty `:where()` where the variant expands to
+`:where(.dark, .dark *)`, which matches nothing and drops a background colour
+that Tailwind's own unminified output gets right. That is the rule entry in the
+report above. Two others have gone, because tw now matches the reference: the
+`@supports ((-webkit-backdrop-filter: ...) or (backdrop-filter: ...))` guard,
+and the `-webkit-` prefix on `user-select`.
 
-- It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
-  spelling as well, so that guard and the rules under it arrive as added
-  containers of their own.
-- It autoprefixes the site's own CSS, so `user-select: none` on
-  `.with-line-numbers .line::before` arrives as
-  `-webkit-user-select: none; user-select: none`. cascade adds no prefix.
-- It serialises the DocSearch dark-variant rules with an empty `:where()`, which
-  matches nothing and drops a background colour that Tailwind's own unminified
-  output gets right.
-
-The last difference is between the two minifiers. cascade folds `calc()` only
-where the fold is exact, so the typography component keeps
-`line-height: calc(28 / 18)` where lightningcss rounds it to `1.55556`.
+A last difference is between the two minifiers and shows in the sheets rather
+than in the report. cascade folds `calc()` only where the fold is exact, so the
+typography component keeps `line-height: calc(28/18)` where lightningcss rounds
+it to `1.55556`; the canonical comparator reads the two as equal.
 
 Anything else the site comparison reports is worth investigating, and so is the
 disappearance of any of the above.
