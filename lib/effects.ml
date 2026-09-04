@@ -670,30 +670,127 @@ module Handler = struct
                 }
           | _ -> None)
 
-  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)]. Converts
-      CSS color functions to hex for Tailwind parity. *)
-  let wrap_shadow_color ~color_var (sh : Css.shadow) : Css.shadow =
-    let wrap_body (body : Css.shadow_body) : Css.shadow_body =
-      let fallback : Css.color =
-        match body.color with
-        | Some c -> (
-            match Color.css_color_to_hex c with Some h -> h | None -> c)
-        | None -> Css.Current
-      in
-      let color_ref = Var.reference_with_fallback color_var fallback in
-      { body with color = Some (Var color_ref) }
+  (* A layer that names no colour paints in the current colour, so read a
+     missing one as [currentcolor] rather than carrying the absence around. *)
+  let body_color (body : Css.shadow_body) : Css.color =
+    match body.color with Some c -> c | None -> Css.Current
+
+  (* Rewrite every layer's colour, one shadow at a time. *)
+  let map_shadow_color ~f (sh : Css.shadow) : Css.shadow =
+    let map_body (body : Css.shadow_body) : Css.shadow_body =
+      { body with color = Some (f (body_color body)) }
     in
     match sh with
-    | Css.Shadow body -> Css.Shadow (wrap_body body)
-    | Css.Inset (Css.Body body) -> Css.Inset (Css.Body (wrap_body body))
+    | Css.Shadow body -> Css.Shadow (map_body body)
+    | Css.Inset (Css.Body body) -> Css.Inset (Css.Body (map_body body))
     | Css.Inset (Css.Toggle t) ->
-        Css.Inset (Css.Toggle { t with body = wrap_body t.body })
+        Css.Inset (Css.Toggle { t with body = map_body t.body })
     | other -> other
 
-  let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
+  let map_shadow_colors ~f (sh : Css.shadow) : Css.shadow =
     match sh with
-    | List shadows -> List (List.map (wrap_shadow_color ~color_var) shadows)
-    | _ -> wrap_shadow_color ~color_var sh
+    | List shadows -> List (List.map (map_shadow_color ~f) shadows)
+    | _ -> map_shadow_color ~f sh
+
+  let rec shadow_colors (sh : Css.shadow) : Css.color list =
+    match sh with
+    | Css.Shadow body | Css.Inset (Css.Body body) -> [ body_color body ]
+    | Css.Inset (Css.Toggle t) -> [ body_color t.body ]
+    | Css.List shadows -> List.concat_map shadow_colors shadows
+    | _ -> []
+
+  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)], each
+      layer's colour giving the fallback. *)
+  let wrap_shadow_colors_by ~color_var ~f (sh : Css.shadow) : Css.shadow =
+    map_shadow_colors sh ~f:(fun c ->
+        Css.Var (Var.reference_with_fallback color_var (f c)))
+
+  (** Converts CSS color functions to hex for Tailwind parity. *)
+  let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
+    wrap_shadow_colors_by ~color_var sh ~f:(fun c ->
+        match Color.css_color_to_hex c with Some h -> h | None -> c)
+
+  (* Tailwind writes an arbitrary shadow's colour under a modifier as
+     [oklab(from <colour> l a b / <alpha>)] and lets its minifier fold it, so a
+     colour whose channels the class names arrives folded and needs no guard.
+     [currentcolor], a [var()] reference and an alpha that reads a custom
+     property leave nothing to fold here. *)
+  let folded_shadow_color opacity (c : Css.color) : Css.color option =
+    if Color.opacity_var_bare_of opacity <> None then None
+    else
+      match c with
+      | Css.Current | Css.Var _ -> None
+      | _ -> (
+          let alpha = Color.opacity_to_percent opacity /. 100.0 in
+          match Color.oklab_alpha c alpha with
+          | Some folded -> Some folded
+          | None -> Some (Color.mix_alpha opacity c))
+
+  (* What a browser reads when the fold is left to it: the colour as the class
+     wrote it, which is what Tailwind leaves outside the guard. *)
+  let unguarded_shadow_color opacity (c : Css.color) : Css.color =
+    match folded_shadow_color opacity c with Some folded -> folded | None -> c
+
+  (* What it reads behind the guard: [currentcolor] takes the alpha through a
+     [color-mix], every other colour through a relative [oklab()]. *)
+  let guarded_shadow_color opacity (c : Css.color) : Css.color =
+    match folded_shadow_color opacity c with
+    | Some folded -> folded
+    | None -> (
+        match c with
+        | Css.Current -> Color.mix_alpha opacity Css.Current
+        | _ -> (
+            match relative_oklab_from_color (color_origin c) opacity with
+            | Some relative -> relative
+            | None -> c))
+
+  let is_current_color (c : Css.color) =
+    match c with Css.Current -> true | _ -> false
+
+  (* An arbitrary shadow the value reader produced, with the modifier's alpha
+     folded into every layer. Both families write the same shape: the alpha and
+     the unguarded value in a rule of their own, the guarded value in an
+     [@supports] behind it, and the composition in the base rule. *)
+  let arbitrary_shadow_alpha_style ~shadow_var ~color_var ~alpha_decl
+      ~composition (sh : Css.shadow) opacity =
+    let unfolded =
+      List.filter
+        (fun c -> folded_shadow_color opacity c = None)
+        (shadow_colors sh)
+    in
+    let d_shadow, v_shadow =
+      Var.binding shadow_var
+        (wrap_shadow_colors_by ~color_var
+           ~f:(unguarded_shadow_color opacity)
+           sh)
+    in
+    match unfolded with
+    | [] ->
+        style ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
+          [ alpha_decl; d_shadow; composition v_shadow ]
+    | _ ->
+        let d_enhanced, _ =
+          Var.binding shadow_var
+            (wrap_shadow_colors_by ~color_var
+               ~f:(guarded_shadow_color opacity)
+               sh)
+        in
+        let supports_block =
+          if List.exists is_current_color unfolded then
+            color_mix_supports [ d_enhanced ]
+          else
+            Css.supports ~condition:relative_color_supports
+              [ Css.rule ~selector:(Css.Selector.class_ "_") [ d_enhanced ] ]
+        in
+        let alpha_shadow_rule =
+          Css.rule ~selector:(Css.Selector.class_ "_") [ alpha_decl; d_shadow ]
+        in
+        style
+          ~rules:(Stdlib.Option.Some [ alpha_shadow_rule; supports_block ])
+          ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
+          [ composition v_shadow ]
 
   (* A shadow bracket is a shadow list or a var(); anything else - the docs'
      [<value>] placeholder included - is not one. *)
@@ -851,7 +948,18 @@ module Handler = struct
               ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ box_shadow_composition v_shadow ])
-    | Stdlib.Option.None -> shadow_none
+    | Stdlib.Option.None -> (
+        (* The bracket reaches here because [is_shadow_bracket] read it as a
+           shadow, and the reader that said so is [Css.parse_shadow], which
+           reads a colour keyword, a layer list and the [inset] keyword the
+           reading above does not. Falling out to [shadow-none] lost the lengths
+           and the modifier's own declaration along with the colour. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            arbitrary_shadow_alpha_style ~shadow_var ~color_var:shadow_color_var
+              ~alpha_decl:(shadow_opacity_decl opacity)
+              ~composition:box_shadow_composition shadow opacity
+        | None -> shadow_none)
 
   (* ============ Shadow color utilities ============ *)
 
@@ -1531,7 +1639,17 @@ module Handler = struct
               ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ inset_box_shadow_composition v_inset_shadow ])
-    | Stdlib.Option.None -> inset_shadow_none
+    | Stdlib.Option.None -> (
+        (* Read the bracket with the reader that accepted it, as
+           [inset_shadow_arbitrary] does without a modifier. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            arbitrary_shadow_alpha_style ~shadow_var:inset_shadow_var
+              ~color_var:inset_shadow_color_var
+              ~alpha_decl:(inset_shadow_opacity_decl opacity)
+              ~composition:inset_box_shadow_composition (force_inset shadow)
+              opacity
+        | None -> inset_shadow_none)
 
   (* ============ Inset shadow color utilities ============ *)
 
