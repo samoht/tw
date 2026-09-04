@@ -34,10 +34,10 @@
 - Track Tailwind CSS 4.3.3. `font-sans` carries the 4.3.2 system stack,
   preflight scopes `:-moz-focusring` to non-iframe elements, and an achromatic
   colour writes its powerless hue as `none` (#128, #129, #130, #132, #147).
-- Add the mauve, mist, olive and taupe palettes (#153). Their theme tokens are
-  declared between `stone` and `black`, and their utilities sort among the rest,
-  where Tailwind puts them; all four shared one unranked slot after `white`
-  (#PR).
+- Add the mauve, mist, olive and taupe palettes. Their theme tokens are declared
+  between `stone` and `black`, and their utilities sort among the rest, where
+  Tailwind puts them; all four shared one unranked slot after `white` (#153,
+  #696).
 
 ### Project stylesheets
 
@@ -153,7 +153,7 @@
   validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
   `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than
   `4`, `aspect-[1_0]` writes `1 0` rather than `10`, and `aspect-[16/9]` keeps
-  its spelling instead of being re-printed as `16 / 9` (#PR).
+  its spelling instead of being re-printed as `16 / 9` (#696).
 - `z-[...]`, `opacity-[...]`, `col-span-[...]`, `row-span-[...]`,
   `grid-cols-[...]`, `grid-rows-[...]`, `auto-cols-[...]`, `auto-rows-[...]`,
   `columns-[...]`, `tab-[...]`, `scale-x-[...]` and `scale-y-[...]` read their
@@ -170,15 +170,10 @@
   `flex-[calc(1+2)]` and `origin-[--spacing(4)_--spacing(2)]` reach the sheet.
   Reading the text with OCaml's number reader instead folded `flex-[0x4]` to
   `flex: 4` under the class name `.flex-\[4\]` (#689).
-- A `]` written inside a quoted or escaped part of an arbitrary value belongs
-  to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
-  `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
-  unterminated string still refuses the class, as it does in Tailwind (#689).
 - A `url()` in an arbitrary value keeps the underscores of its argument, which
-  are part of a file name rather than spaces. `list-image-[url('a_b.png')]`,
-  `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
-  `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
-  underscore outside the `url()` still becomes a space (#692).
+  name a file rather than spelling spaces, so `mask-`, `list-image-`, `content-`
+  and an arbitrary property stop naming a file they did not mean; the underscore
+  outside the `url()` still becomes a space (#688, #692).
 - `theme(--x)` and `--theme(--x)`, v4's own spelling of a theme lookup, resolve
   in an arbitrary value. `p-[theme(--spacing)]` and its siblings were rejected
   as unknown classes; only the v3 dot paths resolved (#701).
@@ -197,14 +192,13 @@
   `url()` is now read by the CSS tokeniser, which resolves its quotes and
   escapes (#692).
 - A closing bracket the arbitrary value quotes or escapes belongs to the value,
-  so `[content:'a]b']`, `[--x:'a]b']`, `[background-image:url('a]b')]`,
-  `bg-[url('a]b')]`, `font-['My]Font']`, `shadow-[0_0_0_'a]b']` and
-  `after:content-['a]b']` reach the sheet. Both scans for the closing bracket
-  read strings and the backslash escape as the CSS tokeniser does; a string the
-  value leaves open runs to the end, so no later bracket closes it (#692).
+  so `bg-[url('a]b')]`, `font-['My]Font']`, `shadow-[0_0_0_'a]b']`,
+  `[content:'a]b']` and `after:content-['a]b']` reach the sheet. A string the
+  value leaves open still refuses the class, as it does in Tailwind (#689,
+  #692).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
-  a `var()` fallback in either family decodes its underscores (#PR).
+  a `var()` fallback in either family decodes its underscores (#683).
 - Preserve Tailwind's declaration-safe token-stream contract for arbitrary
   animation, background, divide, filter, shadow, ring, scrollbar, table,
   transform, transition and typography values, including values that are
@@ -213,9 +207,6 @@
   utility, the way Tailwind emits no rule for it. `shadow-[0_0_0_1px_theme(a_b)]`
   compiled with the call written through into the declaration, and a fallback
   argument now stands in for the missing key (#688).
-- `mask-[url(...)]` keeps the bare underscore a file name carries, the way
-  `bg-[url(...)]` already does: it named a different file, with a space in it
-  (#688).
 - `mask-[url(...)]` reads the whole `url()` with the CSS tokeniser, so a bracket
   carrying anything after it is refused rather than sliced.
   `mask-[url(x.png)_center]` emitted `mask-image: url("x.png)_cente")` under
@@ -228,7 +219,7 @@
   a palette entry bound to `var(--brand_red)` named `var(--brand red)` and an
   arbitrary property carrying it was dropped (#687).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
-  `:is(...)` wrapper for bare type and complex selectors.
+  `:is(...)` wrapper for bare type and complex selectors (#658).
 - An arbitrary length in a variant's class name is spelled as the author wrote
   it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
   `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
@@ -282,12 +273,12 @@
   opacity modifier onto every colour utility, and `min-[0x600px]` manufactured
   a working 1536px breakpoint. One fraction reader serves the sizing, position,
   flex and translate families, so `top-1/7` and `basis-0/2` read like `w-1/7`
-  (#678).
+  (#684).
 
 ### Colours and effects
 
 - Palette box, inset-box and text shadows keep Tailwind's authored OKLCH value
-  as their unguarded fallback instead of converting it to sRGB hex.
+  as their unguarded fallback instead of converting it to sRGB hex (#657).
 - An opacity modifier reaches every colour family. A ring, a per-side border, a
   shadow, a drop shadow, a decoration and a stroke all take one, the alpha can
   itself be a variable (`bg-cyan-400/(--my-alpha-value)`), and `transparent` and
@@ -373,11 +364,11 @@
   group, and a variable whose slot was already taken is no longer dropped from
   the sheet (#242, #243, #249, #250, #251, #253, #263, #264, #267, #268, #269,
   #291, #292, #310, #311, #312).
-- Around forty more property families emit in Tailwind's band: fill and stroke
-  ahead of object-fit, aspect ratio before the dimensions, tab size inside
-  typography, field sizing after display, logical block margins before the
-  physical sides, ring widths in numeric order, and the transform, filter,
-  gradient, gap, delay and list-style families throughout (#564).
+- More property families emit in Tailwind's band: fill and stroke ahead of
+  object-fit, aspect ratio before the dimensions, tab size inside typography,
+  field sizing after display, logical block margins before the physical sides,
+  ring widths in numeric order, and the transform, filter, gradient, gap, delay
+  and list-style families throughout (#564).
 - Stacked and compound variants sort by what they contain rather than by their
   prefix text. A compound carries its inner value, a recursive compound follows
   its whole path, an arbitrary variant orders by its selector, data variants
