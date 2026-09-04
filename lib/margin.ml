@@ -9,7 +9,8 @@ module Handler = struct
   type signed =
     | Spacing of Style.spacing
     | Arbitrary of string * Css.length (* mx-[4px], raw kept for round-trip *)
-    | Arbitrary_var of string (* mx-[var(--value)] *)
+    | Arbitrary_var of string * string
+      (* mx-[var(--value)], raw then the var() text *)
     | Named of string (* mx-big - custom spacing *)
 
   (* [Auto] sits outside [signed] because there is no [-m-auto] and negating
@@ -105,7 +106,7 @@ module Handler = struct
             in
             style [ prop neg_len ]
           else style [ prop len ]
-      | Arbitrary_var var_str ->
+      | Arbitrary_var (_, var_str) ->
           let bare_name = Parse.extract_var_name var_str in
           let len : Css.length =
             if negative then
@@ -185,7 +186,8 @@ module Handler = struct
           Spacing.pp_margin_suffix (s :> margin)
       | Positive (Arbitrary (raw, _)) | Negative (Arbitrary (raw, _)) ->
           "[" ^ raw ^ "]"
-      | Positive (Arbitrary_var s) | Negative (Arbitrary_var s) -> "[" ^ s ^ "]"
+      | Positive (Arbitrary_var (raw, _)) | Negative (Arbitrary_var (raw, _)) ->
+          "[" ^ raw ^ "]"
       | Positive (Named name) | Negative (Named name) -> name
     in
     neg_prefix ^ prefix ^ value_suffix
@@ -198,11 +200,17 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if Parse.is_var inner then Some (Arbitrary_var inner)
-      else
-        match Parse.arbitrary_length inner with
-        | Some l -> Some (Arbitrary (inner, l))
-        | None -> None
+      (* A data-type hint chooses the longhand and says nothing about the value.
+         Margin writes one longhand per side, so every hint lands here and the
+         readers below are handed what follows it. *)
+      match Parse.value_after_hint inner with
+      | None -> None
+      | Some value ->
+          if Parse.is_var value then Some (Arbitrary_var (inner, value))
+          else
+            Option.map
+              (fun l -> Arbitrary (inner, l))
+              (Parse.arbitrary_length value)
     else None
 
   let axis_of_prefix_ext = function

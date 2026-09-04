@@ -753,12 +753,20 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      let css_value =
-        Parse.normalize_css_math_operators (Parse.decode_arbitrary_value inner)
-      in
-      match Css.parse_length css_value with
-      | Some l -> Some (inner, l)
+      (* A data-type hint chooses the longhand and says nothing about the value.
+         A sizing family writes one longhand, so every hint lands here and the
+         length reader is handed what follows it; [inner] keeps the hint because
+         the class name has to. *)
+      match Parse.value_after_hint inner with
       | None -> None
+      | Some value -> (
+          let css_value =
+            Parse.normalize_css_math_operators
+              (Parse.decode_arbitrary_value value)
+          in
+          match Css.parse_length css_value with
+          | Some l -> Some (inner, l)
+          | None -> None)
     else None
 
   (* A spacing step, and a ratio part, is a non-negative multiple of 0.25
