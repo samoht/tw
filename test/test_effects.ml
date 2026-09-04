@@ -363,8 +363,8 @@ let test_arbitrary_shadow_lengths () =
     "0 1px 2px 3px var(--tw-shadow-color,oklab(0%0 0/.5))";
   with_alpha "shadow-[0_1ch_2px_3vmin_#000]/50" "50%"
     "0 1ch 2px 3vmin var(--tw-shadow-color,oklab(0%0 0/.5))";
-  (* inset-shadow reads its arbitrary value through the same parser, with no
-     [Css.parse_shadow] fallback to hide the dropped tokens. *)
+  (* inset-shadow reads its arbitrary value through the same parser, so a token
+     that is not a length shifts nothing along there either. *)
   inset_shadow "inset-shadow-[0_1ch_2px_#000]"
     "inset 0 1ch 2px var(--tw-inset-shadow-color,#000)";
   inset_shadow "inset-shadow-[0_1px_2px_3px_#000]"
