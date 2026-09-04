@@ -56,27 +56,18 @@ let parse_bracket_length ?(negate = false) s : Css.length option =
           | None -> None
           | Some c -> Some (Css.Calc (Css.Calc.mul c (Css.Calc.float (-1.)))))
 
-(* Memoization cache for inset-named theme variables *)
-let inset_named_cache = Domain_cache.v 16
-
-(* Get or create a theme variable for a named inset value like
-   --inset-shadowned. Uses order (3, 200) to place in theme layer after numbered
-   spacing variables (which are at 3, 100+n). *)
-let inset_named_var name =
-  Domain_cache.or_add inset_named_cache name (fun () ->
-      let var_name = "inset-" ^ name in
-      (* Order (3, 200) places named inset vars after numbered spacing (3,
-         100+n) *)
-      Var.theme Css.Length var_name ~order:(3, 200))
-
-(* Create a named inset value using a theme variable like --inset-shadowned.
-   Returns the theme declaration and a length that references the variable. *)
-let named_inset_value name : Css.declaration * Css.length =
-  let var = inset_named_var name in
-  (* Use 1940px as placeholder value - this comes from Tailwind test config *)
-  let concrete_value : Css.length = Px 1940. in
-  let decl, ref = Var.binding var concrete_value in
-  (decl, Css.Var ref)
+(* The theme token a named inset (top-header) reads: Tailwind resolves the name
+   against the [--inset-*] namespace and falls back to [--spacing-*]. The value
+   is the theme's, so the utility only references the token and the theme layer
+   emits the binding; setting one here writes a length the theme never declared
+   over whichever namespace the name actually came from. *)
+let named_inset_value theme name : Css.length =
+  let token =
+    if Scheme.theme_value (Some theme) ("inset-" ^ name) <> None then
+      "inset-" ^ name
+    else "spacing-" ^ name
+  in
+  Css.Var (Var.theme_ref token)
 
 (* Create a spacing value using calc(var(--spacing) * n). Returns the theme
    declaration and a length that references the variable. *)
@@ -225,7 +216,8 @@ module Handler = struct
       (* raw bracket suffix kept for the class name, value already signed *)
     | Neg_pos_arbitrary of Side.t * string * Css.length
     | Pos_named of Side.t * string
-      (* custom property reference like inset-shadowned *)
+    | Neg_pos_named of Side.t * string
+      (* theme token reference like inset-shadowned *)
     | Inset of int
     | Inset_x of int
     | Inset_y of int
@@ -330,8 +322,11 @@ module Handler = struct
     | Pos_arbitrary (side, _, len) | Neg_pos_arbitrary (side, _, len) ->
         style (Side.declarations side len)
     | Pos_named (side, name) ->
-        let decl, value = named_inset_value name in
-        style (decl :: Side.declarations side value)
+        style (Side.declarations side (named_inset_value theme name))
+    | Neg_pos_named (side, name) ->
+        style
+          (Side.declarations side
+             (negate_length (named_inset_value theme name)))
     | Inset n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset [ value ] ])
@@ -445,7 +440,8 @@ module Handler = struct
     | Neg_pos_spacing (side, _)
     | Pos_arbitrary (side, _, _)
     | Neg_pos_arbitrary (side, _, _)
-    | Pos_named (side, _) ->
+    | Pos_named (side, _)
+    | Neg_pos_named (side, _) ->
         side_slot side
     | Inset_0 | Inset_auto | Inset_full | Neg_inset_full | Inset_fraction _
     | Neg_inset_fraction _ | Inset _ ->
@@ -515,8 +511,8 @@ module Handler = struct
       | Error _ -> parse_pos_spacing n
     in
     (* The tail every inset side shares once its own scale reader has declined:
-       an arbitrary bracket, then a name the theme binds. Tailwind defines no
-       negative named inset, so the negative tail reads the bracket alone. *)
+       an arbitrary bracket, then a name the theme binds. Both signs read the
+       same tail; the negative writes the name out as [calc(var(--x) * -1)]. *)
     let arbitrary_or_named side n =
       match parse_bracket_length n with
       | Some len -> Ok (Pos_arbitrary (side, n, len))
@@ -524,9 +520,11 @@ module Handler = struct
           Ok (Pos_named (side, n))
       | None -> Error (`Msg "invalid")
     in
-    let neg_arbitrary side n =
+    let neg_arbitrary_or_named side n =
       match parse_bracket_length ~negate:true n with
       | Some len -> Ok (Neg_pos_arbitrary (side, n, len))
+      | None when Parse.is_valid_theme_name n && is_named_inset theme n ->
+          Ok (Neg_pos_named (side, n))
       | None -> Error (`Msg "invalid")
     in
     (* The scale, then the shared tail, on a side that has both. *)
@@ -538,7 +536,7 @@ module Handler = struct
     let neg_scale_or_arbitrary side n =
       match parse_pos_spacing n with
       | Some sp -> Ok (Neg_pos_spacing (side, sp))
-      | None -> neg_arbitrary side n
+      | None -> neg_arbitrary_or_named side n
     in
     let parts = Parse.split_class class_name in
     match parts with
@@ -592,7 +590,7 @@ module Handler = struct
     | [ ""; "inset"; "s"; n ] -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_s (-x))
-        | Error _ -> neg_arbitrary Side.Inset_s n)
+        | Error _ -> neg_arbitrary_or_named Side.Inset_s n)
     (* inset-e = inset-inline-end *)
     | [ "inset"; "e"; "auto" ] -> Ok Inset_e_auto
     | [ "inset"; "e"; "full" ] -> Ok Inset_e_full
@@ -605,7 +603,7 @@ module Handler = struct
     | [ ""; "inset"; "e"; n ] -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_e (-x))
-        | Error _ -> neg_arbitrary Side.Inset_e n)
+        | Error _ -> neg_arbitrary_or_named Side.Inset_e n)
     (* inset-bs = inset-block-start *)
     | [ "inset"; "bs"; "auto" ] -> Ok Inset_bs_auto
     | [ "inset"; "bs"; "full" ] -> Ok Inset_bs_full
@@ -618,7 +616,7 @@ module Handler = struct
     | [ ""; "inset"; "bs"; n ] -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_bs (-x))
-        | Error _ -> neg_arbitrary Side.Inset_bs n)
+        | Error _ -> neg_arbitrary_or_named Side.Inset_bs n)
     (* inset-be = inset-block-end *)
     | [ "inset"; "be"; "auto" ] -> Ok Inset_be_auto
     | [ "inset"; "be"; "full" ] -> Ok Inset_be_full
@@ -631,7 +629,7 @@ module Handler = struct
     | [ ""; "inset"; "be"; n ] -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_be (-x))
-        | Error _ -> neg_arbitrary Side.Inset_be n)
+        | Error _ -> neg_arbitrary_or_named Side.Inset_be n)
     | [ "inset"; n ]
       when n <> "shadow" && n <> "ring" && n <> "x" && n <> "y" && n <> "s"
            && n <> "e" && n <> "bs" && n <> "be" -> (
@@ -706,7 +704,7 @@ module Handler = struct
     | [ ""; "start"; n ] -> (
         match parse_scale_step n with
         | Some sp -> Ok (Neg_pos_spacing (Side.Start, sp))
-        | None -> neg_arbitrary Side.Start n)
+        | None -> neg_arbitrary_or_named Side.Start n)
     | [ "end"; "auto" ] -> Ok End_auto
     | [ "end"; "full" ] -> Ok End_full
     | [ ""; "end"; "full" ] -> Ok Neg_end_full
@@ -719,7 +717,7 @@ module Handler = struct
     | [ ""; "end"; n ] -> (
         match parse_scale_step n with
         | Some sp -> Ok (Neg_pos_spacing (Side.End, sp))
-        | None -> neg_arbitrary Side.End n)
+        | None -> neg_arbitrary_or_named Side.End n)
     | _ -> Error (`Msg "Not a position utility")
 
   let to_class = function
@@ -752,6 +750,7 @@ module Handler = struct
     | Pos_arbitrary (side, raw, _) -> Side.name side ^ "-" ^ raw
     | Neg_pos_arbitrary (side, raw, _) -> "-" ^ Side.name side ^ "-" ^ raw
     | Pos_named (side, name) -> Side.name side ^ "-" ^ name
+    | Neg_pos_named (side, name) -> "-" ^ Side.name side ^ "-" ^ name
     | Inset n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-" ^ string_of_int (abs n)
