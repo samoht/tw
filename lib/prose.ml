@@ -211,62 +211,297 @@ type prose_theme = {
   invert_td_borders : Css.declaration * Css.color Css.var;
 }
 
-(* Default prose theme - created once and shared across all utilities. Each
-   field is the (declaration, reference) pair returned by [Var.binding], so the
-   theme is a plain record literal. *)
-let default_prose_theme : prose_theme =
+(* The eighteen colour slots a prose palette fills. Each theme below is one
+   record, so a slot added here is a compile error in every theme rather than a
+   declaration that silently goes missing from one of them. *)
+type palette = {
+  body : Css.color;
+  headings : Css.color;
+  lead : Css.color;
+  links : Css.color;
+  bold : Css.color;
+  counters : Css.color;
+  bullets : Css.color;
+  hr : Css.color;
+  quotes : Css.color;
+  quote_borders : Css.color;
+  captions : Css.color;
+  kbd : Css.color;
+  kbd_shadows : Css.color;
+  code : Css.color;
+  pre_code : Css.color;
+  pre_bg : Css.color;
+  th_borders : Css.color;
+  td_borders : Css.color;
+}
+
+let gray_normal =
   {
-    body = Var.binding prose_body_var (Css.oklch 37.3 0.034 259.733);
-    headings = Var.binding prose_headings_var (Css.oklch 21.0 0.034 264.665);
-    lead = Var.binding prose_lead_var (Css.oklch 44.6 0.030 256.802);
-    links = Var.binding prose_links_var (Css.oklch 21.0 0.034 264.665);
-    bold = Var.binding prose_bold_var (Css.oklch 21.0 0.034 264.665);
-    counters = Var.binding prose_counters_var (Css.oklch 55.1 0.027 264.364);
-    bullets = Var.binding prose_bullets_var (Css.oklch 87.2 0.010 258.338);
-    hr = Var.binding prose_hr_var (Css.oklch 92.8 0.006 264.531);
-    quotes = Var.binding prose_quotes_var (Css.oklch 21.0 0.034 264.665);
-    quote_borders =
-      Var.binding prose_quote_borders_var (Css.oklch 92.8 0.006 264.531);
-    captions = Var.binding prose_captions_var (Css.oklch 55.1 0.027 264.364);
-    kbd = Var.binding prose_kbd_var (Css.oklch 21.0 0.034 264.665);
-    kbd_shadows =
-      Var.binding prose_kbd_shadows_var
-        (Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1);
-    code = Var.binding prose_code_var (Css.oklch 21.0 0.034 264.665);
-    pre_code = Var.binding prose_pre_code_var (Css.oklch 92.8 0.006 264.531);
-    pre_bg = Var.binding prose_pre_bg_var (Css.oklch 27.8 0.033 256.848);
-    th_borders = Var.binding prose_th_borders_var (Css.oklch 87.2 0.010 258.338);
-    td_borders = Var.binding prose_td_borders_var (Css.oklch 92.8 0.006 264.531);
+    body = Css.oklch 37.3 0.034 259.733;
+    headings = Css.oklch 21.0 0.034 264.665;
+    lead = Css.oklch 44.6 0.030 256.802;
+    links = Css.oklch 21.0 0.034 264.665;
+    bold = Css.oklch 21.0 0.034 264.665;
+    counters = Css.oklch 55.1 0.027 264.364;
+    bullets = Css.oklch 87.2 0.010 258.338;
+    hr = Css.oklch 92.8 0.006 264.531;
+    quotes = Css.oklch 21.0 0.034 264.665;
+    quote_borders = Css.oklch 92.8 0.006 264.531;
+    captions = Css.oklch 55.1 0.027 264.364;
+    kbd = Css.oklch 21.0 0.034 264.665;
+    kbd_shadows = Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1;
+    code = Css.oklch 21.0 0.034 264.665;
+    pre_code = Css.oklch 92.8 0.006 264.531;
+    pre_bg = Css.oklch 27.8 0.033 256.848;
+    th_borders = Css.oklch 87.2 0.010 258.338;
+    td_borders = Css.oklch 92.8 0.006 264.531;
+  }
+
+let gray_invert =
+  {
+    body = Css.oklch 87.2 0.010 258.338;
+    headings = Css.hex "fff";
+    lead = Css.oklch 70.7 0.022 261.325;
+    links = Css.hex "fff";
+    bold = Css.hex "fff";
+    counters = Css.oklch 70.7 0.022 261.325;
+    bullets = Css.oklch 44.6 0.030 256.802;
+    hr = Css.oklch 37.3 0.034 259.733;
+    quotes = Css.oklch 96.7 0.003 264.542;
+    quote_borders = Css.oklch 37.3 0.034 259.733;
+    captions = Css.oklch 70.7 0.022 261.325;
+    kbd = Css.hex "fff";
+    kbd_shadows = Css.hex "#ffffff1a";
+    code = Css.hex "fff";
+    pre_code = Css.oklch 87.2 0.010 258.338;
+    pre_bg = Css.hex "00000080";
+    th_borders = Css.oklch 44.6 0.030 256.802;
+    td_borders = Css.oklch 37.3 0.034 259.733;
+  }
+
+let slate_normal =
+  {
+    body = Css.oklch 37.2 0.044 257.287;
+    headings = Css.oklch 20.8 0.042 265.755;
+    lead = Css.oklch 44.6 0.043 257.281;
+    links = Css.oklch 20.8 0.042 265.755;
+    bold = Css.oklch 20.8 0.042 265.755;
+    counters = Css.oklch 55.4 0.046 257.417;
+    bullets = Css.oklch 86.9 0.022 252.894;
+    hr = Css.oklch 92.9 0.013 255.508;
+    quotes = Css.oklch 20.8 0.042 265.755;
+    quote_borders = Css.oklch 92.9 0.013 255.508;
+    captions = Css.oklch 55.4 0.046 257.417;
+    kbd = Css.oklch 20.8 0.042 265.755;
+    kbd_shadows = Css.oklaba 20.8 (-0.00310889) (-0.0418848) 0.1;
+    code = Css.oklch 20.8 0.042 265.755;
+    pre_code = Css.oklch 92.9 0.013 255.508;
+    pre_bg = Css.oklch 27.9 0.041 260.031;
+    th_borders = Css.oklch 86.9 0.022 252.894;
+    td_borders = Css.oklch 92.9 0.013 255.508;
+  }
+
+let slate_invert =
+  {
+    body = Css.oklch 86.9 0.022 252.894;
+    headings = Css.hex "fff";
+    lead = Css.oklch 70.4 0.040 256.788;
+    links = Css.hex "fff";
+    bold = Css.hex "fff";
+    counters = Css.oklch 70.4 0.040 256.788;
+    bullets = Css.oklch 44.6 0.043 257.281;
+    hr = Css.oklch 37.2 0.044 257.287;
+    quotes = Css.oklch 96.8 0.007 247.896;
+    quote_borders = Css.oklch 37.2 0.044 257.287;
+    captions = Css.oklch 70.4 0.040 256.788;
+    kbd = Css.hex "fff";
+    kbd_shadows = Css.hex "#ffffff1a";
+    code = Css.hex "fff";
+    pre_code = Css.oklch 86.9 0.022 252.894;
+    pre_bg = Css.hex "00000080";
+    th_borders = Css.oklch 44.6 0.043 257.281;
+    td_borders = Css.oklch 37.2 0.044 257.287;
+  }
+
+let zinc_normal =
+  {
+    body = Css.oklch 37.0 0.013 285.805;
+    headings = Css.oklch 21.0 0.006 285.885;
+    lead = Css.oklch 44.2 0.017 285.786;
+    links = Css.oklch 21.0 0.006 285.885;
+    bold = Css.oklch 21.0 0.006 285.885;
+    counters = Css.oklch 55.2 0.016 285.938;
+    bullets = Css.oklch 87.1 0.006 286.286;
+    hr = Css.oklch 92.0 0.004 286.32;
+    quotes = Css.oklch 21.0 0.006 285.885;
+    quote_borders = Css.oklch 92.0 0.004 286.32;
+    captions = Css.oklch 55.2 0.016 285.938;
+    kbd = Css.oklch 21.0 0.006 285.885;
+    kbd_shadows = Css.oklaba 21.0 0.00164225 (-0.00577088) 0.1;
+    code = Css.oklch 21.0 0.006 285.885;
+    pre_code = Css.oklch 92.0 0.004 286.32;
+    pre_bg = Css.oklch 27.4 0.006 286.033;
+    th_borders = Css.oklch 87.1 0.006 286.286;
+    td_borders = Css.oklch 92.0 0.004 286.32;
+  }
+
+let zinc_invert =
+  {
+    body = Css.oklch 87.1 0.006 286.286;
+    headings = Css.hex "fff";
+    lead = Css.oklch 70.5 0.015 286.067;
+    links = Css.hex "fff";
+    bold = Css.hex "fff";
+    counters = Css.oklch 70.5 0.015 286.067;
+    bullets = Css.oklch 44.2 0.017 285.786;
+    hr = Css.oklch 37.0 0.013 285.805;
+    quotes = Css.oklch 96.7 0.001 286.375;
+    quote_borders = Css.oklch 37.0 0.013 285.805;
+    captions = Css.oklch 70.5 0.015 286.067;
+    kbd = Css.hex "fff";
+    kbd_shadows = Css.hex "#ffffff1a";
+    code = Css.hex "fff";
+    pre_code = Css.oklch 87.1 0.006 286.286;
+    pre_bg = Css.hex "00000080";
+    th_borders = Css.oklch 44.2 0.017 285.786;
+    td_borders = Css.oklch 37.0 0.013 285.805;
+  }
+
+let neutral_normal =
+  {
+    body = Css.oklch_none_hue 37.1 0.0;
+    headings = Css.oklch_none_hue 20.5 0.0;
+    lead = Css.oklch_none_hue 43.9 0.0;
+    links = Css.oklch_none_hue 20.5 0.0;
+    bold = Css.oklch_none_hue 20.5 0.0;
+    counters = Css.oklch_none_hue 55.6 0.0;
+    bullets = Css.oklch_none_hue 87.0 0.0;
+    hr = Css.oklch_none_hue 92.2 0.0;
+    quotes = Css.oklch_none_hue 20.5 0.0;
+    quote_borders = Css.oklch_none_hue 92.2 0.0;
+    captions = Css.oklch_none_hue 55.6 0.0;
+    kbd = Css.oklch_none_hue 20.5 0.0;
+    kbd_shadows = Css.oklaba 20.5 0.0 0.0 0.1;
+    code = Css.oklch_none_hue 20.5 0.0;
+    pre_code = Css.oklch_none_hue 92.2 0.0;
+    pre_bg = Css.oklch_none_hue 26.9 0.0;
+    th_borders = Css.oklch_none_hue 87.0 0.0;
+    td_borders = Css.oklch_none_hue 92.2 0.0;
+  }
+
+let neutral_invert =
+  {
+    body = Css.oklch_none_hue 87.0 0.0;
+    headings = Css.hex "fff";
+    lead = Css.oklch_none_hue 70.8 0.0;
+    links = Css.hex "fff";
+    bold = Css.hex "fff";
+    counters = Css.oklch_none_hue 70.8 0.0;
+    bullets = Css.oklch_none_hue 43.9 0.0;
+    hr = Css.oklch_none_hue 37.1 0.0;
+    quotes = Css.oklch_none_hue 97.0 0.0;
+    quote_borders = Css.oklch_none_hue 37.1 0.0;
+    captions = Css.oklch_none_hue 70.8 0.0;
+    kbd = Css.hex "fff";
+    kbd_shadows = Css.hex "#ffffff1a";
+    code = Css.hex "fff";
+    pre_code = Css.oklch_none_hue 87.0 0.0;
+    pre_bg = Css.hex "00000080";
+    th_borders = Css.oklch_none_hue 43.9 0.0;
+    td_borders = Css.oklch_none_hue 37.1 0.0;
+  }
+
+let stone_normal =
+  {
+    body = Css.oklch 37.4 0.01 67.558;
+    headings = Css.oklch 21.6 0.006 56.043;
+    lead = Css.oklch 44.4 0.011 73.639;
+    links = Css.oklch 21.6 0.006 56.043;
+    bold = Css.oklch 21.6 0.006 56.043;
+    counters = Css.oklch 55.3 0.013 58.071;
+    bullets = Css.oklch 86.9 0.005 56.366;
+    hr = Css.oklch 92.3 0.003 48.717;
+    quotes = Css.oklch 21.6 0.006 56.043;
+    quote_borders = Css.oklch 92.3 0.003 48.717;
+    captions = Css.oklch 55.3 0.013 58.071;
+    kbd = Css.oklch 21.6 0.006 56.043;
+    kbd_shadows = Css.oklaba 21.6 0.00335142 0.00497674 0.1;
+    code = Css.oklch 21.6 0.006 56.043;
+    pre_code = Css.oklch 92.3 0.003 48.717;
+    pre_bg = Css.oklch 26.8 0.007 34.298;
+    th_borders = Css.oklch 86.9 0.005 56.366;
+    td_borders = Css.oklch 92.3 0.003 48.717;
+  }
+
+let stone_invert =
+  {
+    body = Css.oklch 86.9 0.005 56.366;
+    headings = Css.hex "fff";
+    lead = Css.oklch 70.9 0.01 56.259;
+    links = Css.hex "fff";
+    bold = Css.hex "fff";
+    counters = Css.oklch 70.9 0.01 56.259;
+    bullets = Css.oklch 44.4 0.011 73.639;
+    hr = Css.oklch 37.4 0.01 67.558;
+    quotes = Css.oklch 97.0 0.001 106.424;
+    quote_borders = Css.oklch 37.4 0.01 67.558;
+    captions = Css.oklch 70.9 0.01 56.259;
+    kbd = Css.hex "fff";
+    kbd_shadows = Css.hex "#ffffff1a";
+    code = Css.hex "fff";
+    pre_code = Css.oklch 86.9 0.005 56.366;
+    pre_bg = Css.hex "00000080";
+    th_borders = Css.oklch 44.4 0.011 73.639;
+    td_borders = Css.oklch 37.4 0.01 67.558;
+  }
+
+(* Default prose theme - the gray palette bound to the prose variables, created
+   once and shared across all utilities. Each field is the (declaration,
+   reference) pair returned by [Var.binding]. *)
+let default_prose_theme : prose_theme =
+  let normal = gray_normal and invert = gray_invert in
+  {
+    body = Var.binding prose_body_var normal.body;
+    headings = Var.binding prose_headings_var normal.headings;
+    lead = Var.binding prose_lead_var normal.lead;
+    links = Var.binding prose_links_var normal.links;
+    bold = Var.binding prose_bold_var normal.bold;
+    counters = Var.binding prose_counters_var normal.counters;
+    bullets = Var.binding prose_bullets_var normal.bullets;
+    hr = Var.binding prose_hr_var normal.hr;
+    quotes = Var.binding prose_quotes_var normal.quotes;
+    quote_borders = Var.binding prose_quote_borders_var normal.quote_borders;
+    captions = Var.binding prose_captions_var normal.captions;
+    kbd = Var.binding prose_kbd_var normal.kbd;
+    kbd_shadows = Var.binding prose_kbd_shadows_var normal.kbd_shadows;
+    code = Var.binding prose_code_var normal.code;
+    pre_code = Var.binding prose_pre_code_var normal.pre_code;
+    pre_bg = Var.binding prose_pre_bg_var normal.pre_bg;
+    th_borders = Var.binding prose_th_borders_var normal.th_borders;
+    td_borders = Var.binding prose_td_borders_var normal.td_borders;
     (* Invert variants *)
-    invert_body =
-      Var.binding prose_invert_body_var (Css.oklch 87.2 0.010 258.338);
-    invert_headings = Var.binding prose_invert_headings_var (Css.hex "fff");
-    invert_lead =
-      Var.binding prose_invert_lead_var (Css.oklch 70.7 0.022 261.325);
-    invert_links = Var.binding prose_invert_links_var (Css.hex "fff");
-    invert_bold = Var.binding prose_invert_bold_var (Css.hex "fff");
-    invert_counters =
-      Var.binding prose_invert_counters_var (Css.oklch 70.7 0.022 261.325);
-    invert_bullets =
-      Var.binding prose_invert_bullets_var (Css.oklch 44.6 0.030 256.802);
-    invert_hr = Var.binding prose_invert_hr_var (Css.oklch 37.3 0.034 259.733);
-    invert_quotes =
-      Var.binding prose_invert_quotes_var (Css.oklch 96.7 0.003 264.542);
+    invert_body = Var.binding prose_invert_body_var invert.body;
+    invert_headings = Var.binding prose_invert_headings_var invert.headings;
+    invert_lead = Var.binding prose_invert_lead_var invert.lead;
+    invert_links = Var.binding prose_invert_links_var invert.links;
+    invert_bold = Var.binding prose_invert_bold_var invert.bold;
+    invert_counters = Var.binding prose_invert_counters_var invert.counters;
+    invert_bullets = Var.binding prose_invert_bullets_var invert.bullets;
+    invert_hr = Var.binding prose_invert_hr_var invert.hr;
+    invert_quotes = Var.binding prose_invert_quotes_var invert.quotes;
     invert_quote_borders =
-      Var.binding prose_invert_quote_borders_var (Css.oklch 37.3 0.034 259.733);
-    invert_captions =
-      Var.binding prose_invert_captions_var (Css.oklch 70.7 0.022 261.325);
-    invert_kbd = Var.binding prose_invert_kbd_var (Css.hex "fff");
+      Var.binding prose_invert_quote_borders_var invert.quote_borders;
+    invert_captions = Var.binding prose_invert_captions_var invert.captions;
+    invert_kbd = Var.binding prose_invert_kbd_var invert.kbd;
     invert_kbd_shadows =
-      Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a");
-    invert_code = Var.binding prose_invert_code_var (Css.hex "fff");
-    invert_pre_code =
-      Var.binding prose_invert_pre_code_var (Css.oklch 87.2 0.010 258.338);
-    invert_pre_bg = Var.binding prose_invert_pre_bg_var (Css.hex "00000080");
+      Var.binding prose_invert_kbd_shadows_var invert.kbd_shadows;
+    invert_code = Var.binding prose_invert_code_var invert.code;
+    invert_pre_code = Var.binding prose_invert_pre_code_var invert.pre_code;
+    invert_pre_bg = Var.binding prose_invert_pre_bg_var invert.pre_bg;
     invert_th_borders =
-      Var.binding prose_invert_th_borders_var (Css.oklch 44.6 0.030 256.802);
+      Var.binding prose_invert_th_borders_var invert.th_borders;
     invert_td_borders =
-      Var.binding prose_invert_td_borders_var (Css.oklch 37.3 0.034 259.733);
+      Var.binding prose_invert_td_borders_var invert.td_borders;
   }
 
 (** Access theme record variables *)
@@ -1645,30 +1880,6 @@ let xl2_size_rules selector =
 let bind_prose_vars bindings =
   List.map (fun (var, value) -> fst (Var.binding var value)) bindings
 
-(* The eighteen colour slots a prose palette fills. Each theme below is one
-   record, so a slot added here is a compile error in every theme rather than a
-   declaration that silently goes missing from one of them. *)
-type palette = {
-  body : Css.color;
-  headings : Css.color;
-  lead : Css.color;
-  links : Css.color;
-  bold : Css.color;
-  counters : Css.color;
-  bullets : Css.color;
-  hr : Css.color;
-  quotes : Css.color;
-  quote_borders : Css.color;
-  captions : Css.color;
-  kbd : Css.color;
-  kbd_shadows : Css.color;
-  code : Css.color;
-  pre_code : Css.color;
-  pre_bg : Css.color;
-  th_borders : Css.color;
-  td_borders : Css.color;
-}
-
 (* The two ways a palette reaches the sheet: as the prose colours themselves,
    and as the inverted set [.prose-invert] swaps in. *)
 let normal_bindings p =
@@ -1716,226 +1927,6 @@ let invert_bindings p =
       (prose_invert_th_borders_var, p.th_borders);
       (prose_invert_td_borders_var, p.td_borders);
     ]
-
-let gray_normal =
-  {
-    body = Css.oklch 37.3 0.034 259.733;
-    headings = Css.oklch 21.0 0.034 264.665;
-    lead = Css.oklch 44.6 0.030 256.802;
-    links = Css.oklch 21.0 0.034 264.665;
-    bold = Css.oklch 21.0 0.034 264.665;
-    counters = Css.oklch 55.1 0.027 264.364;
-    bullets = Css.oklch 87.2 0.010 258.338;
-    hr = Css.oklch 92.8 0.006 264.531;
-    quotes = Css.oklch 21.0 0.034 264.665;
-    quote_borders = Css.oklch 92.8 0.006 264.531;
-    captions = Css.oklch 55.1 0.027 264.364;
-    kbd = Css.oklch 21.0 0.034 264.665;
-    kbd_shadows = Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1;
-    code = Css.oklch 21.0 0.034 264.665;
-    pre_code = Css.oklch 92.8 0.006 264.531;
-    pre_bg = Css.oklch 27.8 0.033 256.848;
-    th_borders = Css.oklch 87.2 0.010 258.338;
-    td_borders = Css.oklch 92.8 0.006 264.531;
-  }
-
-let gray_invert =
-  {
-    body = Css.oklch 87.2 0.010 258.338;
-    headings = Css.hex "fff";
-    lead = Css.oklch 70.7 0.022 261.325;
-    links = Css.hex "fff";
-    bold = Css.hex "fff";
-    counters = Css.oklch 70.7 0.022 261.325;
-    bullets = Css.oklch 44.6 0.030 256.802;
-    hr = Css.oklch 37.3 0.034 259.733;
-    quotes = Css.oklch 96.7 0.003 264.542;
-    quote_borders = Css.oklch 37.3 0.034 259.733;
-    captions = Css.oklch 70.7 0.022 261.325;
-    kbd = Css.hex "fff";
-    kbd_shadows = Css.hex "#ffffff1a";
-    code = Css.hex "fff";
-    pre_code = Css.oklch 87.2 0.010 258.338;
-    pre_bg = Css.hex "00000080";
-    th_borders = Css.oklch 44.6 0.030 256.802;
-    td_borders = Css.oklch 37.3 0.034 259.733;
-  }
-
-let slate_normal =
-  {
-    body = Css.oklch 37.2 0.044 257.287;
-    headings = Css.oklch 20.8 0.042 265.755;
-    lead = Css.oklch 44.6 0.043 257.281;
-    links = Css.oklch 20.8 0.042 265.755;
-    bold = Css.oklch 20.8 0.042 265.755;
-    counters = Css.oklch 55.4 0.046 257.417;
-    bullets = Css.oklch 86.9 0.022 252.894;
-    hr = Css.oklch 92.9 0.013 255.508;
-    quotes = Css.oklch 20.8 0.042 265.755;
-    quote_borders = Css.oklch 92.9 0.013 255.508;
-    captions = Css.oklch 55.4 0.046 257.417;
-    kbd = Css.oklch 20.8 0.042 265.755;
-    kbd_shadows = Css.oklaba 20.8 (-0.00310889) (-0.0418848) 0.1;
-    code = Css.oklch 20.8 0.042 265.755;
-    pre_code = Css.oklch 92.9 0.013 255.508;
-    pre_bg = Css.oklch 27.9 0.041 260.031;
-    th_borders = Css.oklch 86.9 0.022 252.894;
-    td_borders = Css.oklch 92.9 0.013 255.508;
-  }
-
-let slate_invert =
-  {
-    body = Css.oklch 86.9 0.022 252.894;
-    headings = Css.hex "fff";
-    lead = Css.oklch 70.4 0.040 256.788;
-    links = Css.hex "fff";
-    bold = Css.hex "fff";
-    counters = Css.oklch 70.4 0.040 256.788;
-    bullets = Css.oklch 44.6 0.043 257.281;
-    hr = Css.oklch 37.2 0.044 257.287;
-    quotes = Css.oklch 96.8 0.007 247.896;
-    quote_borders = Css.oklch 37.2 0.044 257.287;
-    captions = Css.oklch 70.4 0.040 256.788;
-    kbd = Css.hex "fff";
-    kbd_shadows = Css.hex "#ffffff1a";
-    code = Css.hex "fff";
-    pre_code = Css.oklch 86.9 0.022 252.894;
-    pre_bg = Css.hex "00000080";
-    th_borders = Css.oklch 44.6 0.043 257.281;
-    td_borders = Css.oklch 37.2 0.044 257.287;
-  }
-
-let zinc_normal =
-  {
-    body = Css.oklch 37.0 0.013 285.805;
-    headings = Css.oklch 21.0 0.006 285.885;
-    lead = Css.oklch 44.2 0.017 285.786;
-    links = Css.oklch 21.0 0.006 285.885;
-    bold = Css.oklch 21.0 0.006 285.885;
-    counters = Css.oklch 55.2 0.016 285.938;
-    bullets = Css.oklch 87.1 0.006 286.286;
-    hr = Css.oklch 92.0 0.004 286.32;
-    quotes = Css.oklch 21.0 0.006 285.885;
-    quote_borders = Css.oklch 92.0 0.004 286.32;
-    captions = Css.oklch 55.2 0.016 285.938;
-    kbd = Css.oklch 21.0 0.006 285.885;
-    kbd_shadows = Css.oklaba 21.0 0.00164225 (-0.00577088) 0.1;
-    code = Css.oklch 21.0 0.006 285.885;
-    pre_code = Css.oklch 92.0 0.004 286.32;
-    pre_bg = Css.oklch 27.4 0.006 286.033;
-    th_borders = Css.oklch 87.1 0.006 286.286;
-    td_borders = Css.oklch 92.0 0.004 286.32;
-  }
-
-let zinc_invert =
-  {
-    body = Css.oklch 87.1 0.006 286.286;
-    headings = Css.hex "fff";
-    lead = Css.oklch 70.5 0.015 286.067;
-    links = Css.hex "fff";
-    bold = Css.hex "fff";
-    counters = Css.oklch 70.5 0.015 286.067;
-    bullets = Css.oklch 44.2 0.017 285.786;
-    hr = Css.oklch 37.0 0.013 285.805;
-    quotes = Css.oklch 96.7 0.001 286.375;
-    quote_borders = Css.oklch 37.0 0.013 285.805;
-    captions = Css.oklch 70.5 0.015 286.067;
-    kbd = Css.hex "fff";
-    kbd_shadows = Css.hex "#ffffff1a";
-    code = Css.hex "fff";
-    pre_code = Css.oklch 87.1 0.006 286.286;
-    pre_bg = Css.hex "00000080";
-    th_borders = Css.oklch 44.2 0.017 285.786;
-    td_borders = Css.oklch 37.0 0.013 285.805;
-  }
-
-let neutral_normal =
-  {
-    body = Css.oklch_none_hue 37.1 0.0;
-    headings = Css.oklch_none_hue 20.5 0.0;
-    lead = Css.oklch_none_hue 43.9 0.0;
-    links = Css.oklch_none_hue 20.5 0.0;
-    bold = Css.oklch_none_hue 20.5 0.0;
-    counters = Css.oklch_none_hue 55.6 0.0;
-    bullets = Css.oklch_none_hue 87.0 0.0;
-    hr = Css.oklch_none_hue 92.2 0.0;
-    quotes = Css.oklch_none_hue 20.5 0.0;
-    quote_borders = Css.oklch_none_hue 92.2 0.0;
-    captions = Css.oklch_none_hue 55.6 0.0;
-    kbd = Css.oklch_none_hue 20.5 0.0;
-    kbd_shadows = Css.oklaba 20.5 0.0 0.0 0.1;
-    code = Css.oklch_none_hue 20.5 0.0;
-    pre_code = Css.oklch_none_hue 92.2 0.0;
-    pre_bg = Css.oklch_none_hue 26.9 0.0;
-    th_borders = Css.oklch_none_hue 87.0 0.0;
-    td_borders = Css.oklch_none_hue 92.2 0.0;
-  }
-
-let neutral_invert =
-  {
-    body = Css.oklch_none_hue 87.0 0.0;
-    headings = Css.hex "fff";
-    lead = Css.oklch_none_hue 70.8 0.0;
-    links = Css.hex "fff";
-    bold = Css.hex "fff";
-    counters = Css.oklch_none_hue 70.8 0.0;
-    bullets = Css.oklch_none_hue 43.9 0.0;
-    hr = Css.oklch_none_hue 37.1 0.0;
-    quotes = Css.oklch_none_hue 97.0 0.0;
-    quote_borders = Css.oklch_none_hue 37.1 0.0;
-    captions = Css.oklch_none_hue 70.8 0.0;
-    kbd = Css.hex "fff";
-    kbd_shadows = Css.hex "#ffffff1a";
-    code = Css.hex "fff";
-    pre_code = Css.oklch_none_hue 87.0 0.0;
-    pre_bg = Css.hex "00000080";
-    th_borders = Css.oklch_none_hue 43.9 0.0;
-    td_borders = Css.oklch_none_hue 37.1 0.0;
-  }
-
-let stone_normal =
-  {
-    body = Css.oklch 37.4 0.01 67.558;
-    headings = Css.oklch 21.6 0.006 56.043;
-    lead = Css.oklch 44.4 0.011 73.639;
-    links = Css.oklch 21.6 0.006 56.043;
-    bold = Css.oklch 21.6 0.006 56.043;
-    counters = Css.oklch 55.3 0.013 58.071;
-    bullets = Css.oklch 86.9 0.005 56.366;
-    hr = Css.oklch 92.3 0.003 48.717;
-    quotes = Css.oklch 21.6 0.006 56.043;
-    quote_borders = Css.oklch 92.3 0.003 48.717;
-    captions = Css.oklch 55.3 0.013 58.071;
-    kbd = Css.oklch 21.6 0.006 56.043;
-    kbd_shadows = Css.oklaba 21.6 0.00335142 0.00497674 0.1;
-    code = Css.oklch 21.6 0.006 56.043;
-    pre_code = Css.oklch 92.3 0.003 48.717;
-    pre_bg = Css.oklch 26.8 0.007 34.298;
-    th_borders = Css.oklch 86.9 0.005 56.366;
-    td_borders = Css.oklch 92.3 0.003 48.717;
-  }
-
-let stone_invert =
-  {
-    body = Css.oklch 86.9 0.005 56.366;
-    headings = Css.hex "fff";
-    lead = Css.oklch 70.9 0.01 56.259;
-    links = Css.hex "fff";
-    bold = Css.hex "fff";
-    counters = Css.oklch 70.9 0.01 56.259;
-    bullets = Css.oklch 44.4 0.011 73.639;
-    hr = Css.oklch 37.4 0.01 67.558;
-    quotes = Css.oklch 97.0 0.001 106.424;
-    quote_borders = Css.oklch 37.4 0.01 67.558;
-    captions = Css.oklch 70.9 0.01 56.259;
-    kbd = Css.hex "fff";
-    kbd_shadows = Css.hex "#ffffff1a";
-    code = Css.hex "fff";
-    pre_code = Css.oklch 86.9 0.005 56.366;
-    pre_bg = Css.hex "00000080";
-    th_borders = Css.oklch 44.4 0.011 73.639;
-    td_borders = Css.oklch 37.4 0.01 67.558;
-  }
 
 (* Helper to create color variable bindings for color themes - returns
    declarations *)
