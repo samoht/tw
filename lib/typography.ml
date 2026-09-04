@@ -120,6 +120,36 @@ let tracking_named_var name =
   Domain_cache.or_add tracking_named_cache name (fun () ->
       Var.theme Css.Length ("tracking-" ^ name) ~order:(6, 45))
 
+(* Publish the weight and tracking scales through the theme-token registry, the
+   way rule.ml publishes the breakpoints, so [tracking-[theme(--tracking-wide)]]
+   resolves and [theme(static)] emits them. *)
+let () =
+  List.iter
+    (fun (var, weight) -> Theme.register_default var weight)
+    [
+      (font_weight_thin_var, (Weight 100. : Css.font_weight));
+      (font_weight_extralight_var, Weight 200.);
+      (font_weight_light_var, Weight 300.);
+      (font_weight_normal_var, Weight 400.);
+      (font_weight_medium_var, Weight 500.);
+      (font_weight_semibold_var, Weight 600.);
+      (font_weight_bold_var, Weight 700.);
+      (font_weight_extrabold_var, Weight 800.);
+      (font_weight_black_var, Weight 900.);
+    ];
+  List.iter
+    (fun (var, spacing) -> Theme.register_default var spacing)
+    [
+      (tracking_tighter_var, (Em (-0.05) : Css.length));
+      (tracking_tight_var, Em (-0.025));
+      (* Tailwind's default theme spells the normal tracking [0em], not a
+         unitless zero. *)
+      (tracking_normal_var, Em 0.0);
+      (tracking_wide_var, Em 0.025);
+      (tracking_wider_var, Em 0.05);
+      (tracking_widest_var, Em 0.1);
+    ]
+
 (* Theme variables for named leading values *)
 let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
 let leading_tight_var = Var.theme Css.Line_height "leading-tight" ~order:(6, 48)
@@ -287,6 +317,19 @@ let default_mono_stack : Css.font_family =
       Liberation_mono;
       Courier_new;
       Monospace;
+    ]
+
+let default_serif_stack : Css.font_family =
+  List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ]
+
+(* Published the same way, so [font-[theme(--font-mono)]] resolves. *)
+let () =
+  List.iter
+    (fun (var, stack) -> Theme.register_default var stack)
+    [
+      (font_sans_var, default_sans_stack);
+      (font_serif_var, default_serif_stack);
+      (font_mono_var, default_mono_stack);
     ]
 
 (* Base font family variables for theme layer *)
@@ -1086,8 +1129,7 @@ module Typography_early = struct
 
   let font_serif =
     let serif_decl, serif_ref =
-      Var.binding font_serif_var
-        (List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ])
+      Var.binding font_serif_var default_serif_stack
     in
     style [ serif_decl; font_family (Css.Var serif_ref) ]
 

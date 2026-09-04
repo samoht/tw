@@ -163,6 +163,14 @@ module Handler = struct
       (fun (n, var, default) -> if n = name then Some (var, default) else None)
       container_scale
 
+  (* Publish the scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [max-w-[theme(--container-md)]] resolves and
+     [theme(static)] emits it. *)
+  let () =
+    List.iter
+      (fun (_, var, default) -> Theme.register_default var default)
+      container_scale
+
   (* Breakpoint theme vars, referenced by the (v3) max-w-screen-* utilities.
      Negative suborders keep them before --container-* in the theme layer, as
      Tailwind emits them. *)
@@ -604,9 +612,13 @@ module Handler = struct
   (* aspect-square inlines the 1/1 ratio in v4 (no --aspect-square theme token),
      unlike aspect-video which references the --aspect-video token. *)
   let aspect_square' = style [ Css.aspect_ratio (Ratio (1., 1.)) ]
+  let aspect_video_ratio : Css.aspect_ratio = Ratio (16., 9.)
+
+  (* Published the same way, so [aspect-[theme(--aspect-video)]] resolves. *)
+  let () = Theme.register_default aspect_video_var aspect_video_ratio
 
   let aspect_video' =
-    let decl, r = Var.binding aspect_video_var (Ratio (16., 9.)) in
+    let decl, r = Var.binding aspect_video_var aspect_video_ratio in
     style (decl :: [ Css.aspect_ratio (Var r) ])
 
   let aspect_ratio' w h = style [ Css.aspect_ratio (Ratio (w, h)) ]

@@ -9,6 +9,18 @@ module Css = Cascade.Css
     border radius variables 8. Animation/timing (8) - animation variables 9.
     Default fonts (9) - default font family variables *)
 
+(* Publish a theme variable's built-in default through the token registry. The
+   text comes from the binding the utility itself emits, so [theme(--x)] in a
+   class, [theme()] in a project's CSS and [theme(static)] all read exactly what
+   the theme layer would declare for the token. A registry entry is a token
+   stream rather than a typed value, and the printer leaves its numbers as
+   written, so the shortest spelling is the one to store: it is what the sheet
+   carries in either output mode. *)
+let register_default var value =
+  let decl, _ = Var.binding var value in
+  Scheme.register_default_token (Var.name var)
+    (Css.declaration_value ~minify:true decl)
+
 (** {1 Spacing Variables} *)
 
 (* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
@@ -25,9 +37,7 @@ let spacing_base : Css.length = Rem 0.25
 (* Publish the spacing step through the theme-token registry, the way rule.ml
    publishes the breakpoints, so [theme()] in a project's CSS resolves against
    the same value the utilities use. *)
-let () =
-  Scheme.register_default_token (Var.name spacing_var)
-    (Css.Pp.to_string Css.pp_length spacing_base)
+let () = register_default spacing_var spacing_base
 
 (* The spacing step times [n], rendered. Tailwind's v3 [spacing] and
    [lineHeight] scales are both that product, and v4 keeps no token per step, so

@@ -166,21 +166,21 @@ module Handler = struct
      30-34) *)
   let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 41)
 
+  let spin_animation : Css.animation =
+    Css.Shorthand
+      {
+        name = Some (Name "spin");
+        duration = Some (S 1.0);
+        timing_function = Some Linear;
+        delay = None;
+        iteration_count = Some Infinite;
+        direction = None;
+        fill_mode = None;
+        play_state = None;
+        timeline = None;
+      }
+
   let animate_spin ?theme () =
-    let spin_animation : Css.animation =
-      Css.Shorthand
-        {
-          name = Some (Name "spin");
-          duration = Some (S 1.0);
-          timing_function = Some Linear;
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-          timeline = None;
-        }
-    in
     let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
     let rules = theme_keyframes ?theme ~token:"animate-spin" spin_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
@@ -189,21 +189,21 @@ module Handler = struct
      (7, 41) *)
   let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 42)
 
+  let ping_animation : Css.animation =
+    Css.Shorthand
+      {
+        name = Some (Name "ping");
+        duration = Some (S 1.0);
+        timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
+        delay = None;
+        iteration_count = Some Infinite;
+        direction = None;
+        fill_mode = None;
+        play_state = None;
+        timeline = None;
+      }
+
   let animate_ping ?theme () =
-    let ping_animation : Css.animation =
-      Css.Shorthand
-        {
-          name = Some (Name "ping");
-          duration = Some (S 1.0);
-          timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-          timeline = None;
-        }
-    in
     let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
     let rules = theme_keyframes ?theme ~token:"animate-ping" ping_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
@@ -212,21 +212,21 @@ module Handler = struct
      animate-ping (7, 42) *)
   let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 43)
 
+  let pulse_animation : Css.animation =
+    Css.Shorthand
+      {
+        name = Some (Name "pulse");
+        duration = Some (S 2.0);
+        timing_function = Some (Cubic_bezier (0.4, 0., 0.6, 1.));
+        delay = None;
+        iteration_count = Some Infinite;
+        direction = None;
+        fill_mode = None;
+        play_state = None;
+        timeline = None;
+      }
+
   let animate_pulse ?theme () =
-    let pulse_animation : Css.animation =
-      Css.Shorthand
-        {
-          name = Some (Name "pulse");
-          duration = Some (S 2.0);
-          timing_function = Some (Cubic_bezier (0.4, 0., 0.6, 1.));
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-          timeline = None;
-        }
-    in
     let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
     let rules = theme_keyframes ?theme ~token:"animate-pulse" pulse_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
@@ -236,21 +236,21 @@ module Handler = struct
   let animate_bounce_var =
     Var.theme Css.Animation "animate-bounce" ~order:(7, 44)
 
+  let bounce_animation : Css.animation =
+    Css.Shorthand
+      {
+        name = Some (Name "bounce");
+        duration = Some (S 1.0);
+        timing_function = None;
+        delay = None;
+        iteration_count = Some Infinite;
+        direction = None;
+        fill_mode = None;
+        play_state = None;
+        timeline = None;
+      }
+
   let animate_bounce ?theme () =
-    let bounce_animation : Css.animation =
-      Css.Shorthand
-        {
-          name = Some (Name "bounce");
-          duration = Some (S 1.0);
-          timing_function = None;
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-          timeline = None;
-        }
-    in
     let theme_decl, bounce_var =
       Var.binding animate_bounce_var bounce_animation
     in
@@ -258,6 +258,21 @@ module Handler = struct
       theme_keyframes ?theme ~token:"animate-bounce" bounce_animation
     in
     style ~rules [ theme_decl; Css.animation (Css.Var bounce_var) ]
+
+  (* Publish the scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [animate-[theme(--animate-spin)]] resolves
+     and [theme(static)] emits it. [--animate-none] is not in Tailwind's default
+     theme - the utility writes [animation: none] unless a project declares the
+     token - so it stays out. *)
+  let () =
+    List.iter
+      (fun (var, animation) -> Theme.register_default var animation)
+      [
+        (animate_spin_var, spin_animation);
+        (animate_ping_var, ping_animation);
+        (animate_pulse_var, pulse_animation);
+        (animate_bounce_var, bounce_animation);
+      ]
 
   (* Tailwind moves the animation name to the end of the shorthand. *)
   let animation_shorthand value =

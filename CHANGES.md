@@ -182,6 +182,11 @@
 - `theme(--x)` and `--theme(--x)`, v4's own spelling of a theme lookup, resolve
   in an arbitrary value. `p-[theme(--spacing)]` and its siblings were rejected
   as unknown classes; only the v3 dot paths resolved (#701).
+- Every namespace Tailwind's default `@theme` declares answers a `theme()` and
+  comes out under `theme(static)`. The radius, container, ease, tracking, blur,
+  aspect, animate, perspective, font, font-weight, drop-shadow and
+  default-transition scales kept their defaults to themselves, so
+  `rounded-[theme(--radius-lg)]` and its siblings were unknown classes (#710).
 - The first argument of a `var()` or a `theme()` in an arbitrary value keeps its
   underscores, which spell the name of a custom property rather than spaces.
   `[--x:var(--my_var)]` referenced `--my var`, and `shadow-[0_0_0_var(--my_var)]`
