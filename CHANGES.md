@@ -315,6 +315,9 @@
   colour as its unguarded fallback. `shadow-` and `text-shadow-` folded it
   through oklab at full opacity, so a browser with no relative colours painted
   an opaque shadow where Tailwind paints the colour the class named (#711).
+- `--color-black` and `--color-white` are written `#000` and `#fff`, the three
+  digits Tailwind spells them in, in the theme block and in every colour
+  family's unguarded fallback (#711).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).
