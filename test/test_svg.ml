@@ -157,8 +157,35 @@ let svg_sorts_before_object () =
       "p-4";
     ]
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [stroke-[length:2px]] wrote
+   [stroke-width: var(--2px)] where Tailwind writes [stroke-width: 2px]. *)
+let bracket_data_type_hint_reads_the_value () =
+  Test_helpers.check_declarations "stroke-[length:2px]" [ "stroke-width:2px" ];
+  Test_helpers.check_declarations "stroke-[percentage:50%]"
+    [ "stroke-width:50%" ];
+  Test_helpers.check_declarations "stroke-[color:red]" [ "stroke:red" ];
+  Test_helpers.check_declarations "fill-[color:red]" [ "fill:red" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "stroke-[length:var(--my-width)]"
+    [ "stroke-width:var(--my-width)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "stroke-[length:2px] round-trips" "stroke-[length:2px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:2px]")));
+  (* A value the width reader refuses is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Svg.Handler)
+    "stroke-[length:notawidth]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      bracket_data_type_hint_reads_the_value;
     test_case "basic svg" `Quick basic_svg;
     test_case "svg sorts before object" `Quick svg_sorts_before_object;
     test_case "bracket named colour" `Quick bracket_named_color;

@@ -677,8 +677,39 @@ let test_shadow_underscore_escape () =
       composes_box_shadow;
     ]
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [shadow-[shadow:...]] wrote
+   [--tw-shadow: var(--0_0_0_1px_red)] and [ring-[length:3px]] read [3px] as a
+   variable name. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  Test_helpers.check_declarations "shadow-[shadow:0_0_0_1px_red]"
+    [ "--tw-shadow:0 0 0 1px var(--tw-shadow-color,red)"; composes_box_shadow ];
+  Test_helpers.check_declarations "ring-[length:3px]"
+    [
+      "--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + \
+       var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor)";
+      composes_box_shadow;
+    ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "shadow-[shadow:var(--value)]"
+    [ "--tw-shadow:var(--value)"; composes_box_shadow ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "ring-[length:3px] round-trips" "ring-[length:3px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "ring-[length:3px]")));
+  (* A payload the shadow reader refuses is held open, not settled: Tailwind
+     writes the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Effects.Handler)
+    "shadow-[shadow:notashadow]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      test_bracket_data_type_hint_reads_the_value;
     test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
