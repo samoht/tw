@@ -23,7 +23,9 @@ let stroke_shadeless_colors () =
     "stroke-black references --color-black" true
     (Astring.String.is_infix ~affix:"stroke:var(--color-black)"
        (css "stroke-black"));
-  (* integer widths still parse as widths, not colours *)
+  (* Integer widths still parse as widths, not colours. The [px] is Tailwind's
+     minifier reading its generator's bare [2], and it is the spelling the
+     upstream corpus records and [--diff] compares. *)
   Alcotest.(check bool)
     "stroke-2 stays a width" true
     (Astring.String.is_infix ~affix:"stroke-width:2px" (css "stroke-2"))
