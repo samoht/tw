@@ -146,6 +146,10 @@
 
 ### Arbitrary values and validation
 
+- The mask family writes an arbitrary bracket no reader takes into the longhand
+  the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
+  `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
+  value the hint declines reach the sheet (#PR).
 - A data-type hint reads the value written after it instead of naming a custom
   property, so `text-[length:1.25rem]` sets `font-size: 1.25rem` rather than
   `font-size: var(--1\.25rem)`. Every hint tw recognises is affected (#706).
