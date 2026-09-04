@@ -317,6 +317,10 @@
   that colour is one CSS knows by name. `inset-shadow-[0_0_0_1px_red]` and every
   other bracket carrying a named colour came out as `inset-shadow-none`, where
   the same bracket under `shadow-` was read correctly (#PR).
+- An arbitrary shadow under an opacity modifier keeps whatever the value reader
+  accepted: a colour keyword, `currentcolor`, a layer list, a leading `inset`.
+  `shadow-[0_0_red]/50` and `inset-shadow-[0_0_0_1px_red]/50` came out as
+  `shadow-none`, dropping the `--tw-*-alpha` declaration with the rest (#PR).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).
