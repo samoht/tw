@@ -465,6 +465,54 @@ let test_underscore_inside_var_and_theme () =
   Test_helpers.check_declarations {|[--x:var(--a_b,_c_d)]|}
     [ "--x:var(--a_b,c d)" ]
 
+(* A bracket may open with a data-type hint, a run of [a-z] and [-] closed by a
+   [:]. The hint chooses which longhand the class lands in and says nothing
+   about the value, so what reaches the declaration is the text after it, in
+   whichever family reads the bracket. *)
+let test_data_type_hint_leaves_the_value_behind () =
+  Test_helpers.check_declarations "z-[integer:5]" [ "z-index:5" ];
+  Test_helpers.check_declarations "aspect-[ratio:16/9]" [ "aspect-ratio:16/9" ];
+  Test_helpers.check_declarations "rotate-[angle:45deg]" [ "rotate:45deg" ];
+  Test_helpers.check_declarations "divide-[color:red]" [ "border-color:red" ];
+  Test_helpers.check_declarations "divide-[color:var(--c)]"
+    [ "border-color:var(--c)" ];
+  Test_helpers.check_declarations "shadow-[length:3px]"
+    [
+      "--tw-shadow:3px";
+      "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)";
+    ];
+  (* The hint stays in the class name. Dropping it writes a selector no markup
+     carries, which is the same defect as slicing an arbitrary value. *)
+  List.iter round_trips
+    [
+      "z-[integer:5]";
+      "aspect-[ratio:16/9]";
+      "rotate-[angle:45deg]";
+      "divide-[color:red]";
+      "shadow-[length:3px]";
+    ]
+
+(* Only the leading run of [a-z] and [-] is a hint's name. An upper-case letter,
+   a digit or a [(] ends the run without one, and the run stops at the first
+   [:], so what follows keeps every [:] of its own. *)
+let test_only_a_lower_case_run_names_a_hint () =
+  Test_helpers.check_declarations "z-[a-b:5]" [ "z-index:5" ];
+  Test_helpers.check_declarations "z-[color:red:blue]" [ "z-index:red:blue" ];
+  Test_helpers.check_declarations "z-[FOO:5]" [ "z-index:FOO:5" ];
+  Test_helpers.check_declarations "z-[foo2:5]" [ "z-index:foo2:5" ];
+  Test_helpers.check_declarations "z-[10px:2em]" [ "z-index:10px:2em" ];
+  Test_helpers.check_declarations "z-[foo_bar:5]" [ "z-index:foo bar:5" ];
+  Test_helpers.check_declarations "z-[url(http://x/a.png)]"
+    [ "z-index:url(http://x/a.png)" ]
+
+(* A bracket whose hint is empty, and one left with nothing but blank space for
+   a value, name no utility: Tailwind reads the candidate and then drops it.
+   Emitting one writes a declaration with no value into the sheet. *)
+let test_empty_hint_or_blank_value_names_no_utility () =
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Layout.Handler))
+    [ "z-[:5]"; "z-[foo:]"; "z-[foo:_]"; "z-[_]"; "z-[__]" ]
+
 let tests =
   Alcotest.
     [
@@ -506,6 +554,12 @@ let tests =
         test_bracket_value_leaving_the_declaration_is_rejected;
       test_case "--spacing() shorthand ignored inside quotes" `Quick
         test_spacing_shorthand_ignored_in_quotes;
+      test_case "data-type hint leaves the value behind" `Quick
+        test_data_type_hint_leaves_the_value_behind;
+      test_case "only a lower-case run names a hint" `Quick
+        test_only_a_lower_case_run_names_a_hint;
+      test_case "empty hint or blank value names no utility" `Quick
+        test_empty_hint_or_blank_value_names_no_utility;
     ]
 
 let suite = ("parse", tests)

@@ -492,36 +492,15 @@ module Handler = struct
     || Parse.url_token (Parse.decode_arbitrary_value v) <> None
 
   (* A bracket no reader takes is still a utility: it is written into [longhand]
-     as the author spelled it. A value that would end the declaration or swallow
-     what follows it is not one. *)
+     as the author spelled it, less the data-type hint that chose the longhand.
+     Take the whole bracket here and let [arbitrary_declaration_value] peel it,
+     so the hint comes off once however this family routed the class. A value
+     that would end the declaration or swallow what follows it is not one, and
+     neither is a bracket opening with a [:]. *)
   let opaque spelling longhand inner =
     match Parse.arbitrary_declaration_value inner with
     | Some value -> Ok (Bracket_opaque { spelling; longhand; value })
     | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))
-
-  (* A bracket may open with a data-type hint, [<ident>:], which says how to
-     read what follows it. Tailwind reads the name as one only when it is an
-     identifier, so [mask-[10px:2em]] holds [10px:2em] whole, and a [:] inside a
-     function call belongs to the value: [url(http://x/a.png)] is a URL and not
-     a hint called [url(http]. *)
-  let strip_data_type_hint inner =
-    let len = String.length inner in
-    let is_tail c =
-      (c >= 'a' && c <= 'z')
-      || (c >= 'A' && c <= 'Z')
-      || (c >= '0' && c <= '9')
-      || c = '-'
-    in
-    let is_head c = is_tail c && not (c >= '0' && c <= '9') in
-    let rec find i : (string * string) option =
-      if i >= len then None
-      else if inner.[i] = ':' then
-        if i = 0 || i = len - 1 then None
-        else Some (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
-      else if (if i = 0 then is_head else is_tail) inner.[i] then find (i + 1)
-      else None
-    in
-    find 0
 
   (* Tailwind reads a bracket holding a math function as a length, and a length
      is a position component, so such a value goes to mask-position however the
@@ -602,8 +581,8 @@ module Handler = struct
         let inner = Parse.bracket_inner bracket in
         (* This class names its longhand outright, so a hint in front of the
            value says nothing more than where the value starts. *)
-        match strip_data_type_hint inner with
-        | Some (_, v) -> opaque class_name Longhand.Position v
+        match Parse.data_type_hint inner with
+        | Some _ -> opaque class_name Longhand.Position inner
         | None -> (
             if Parse.is_var inner then Ok (Position_bracket_var inner)
             else
@@ -612,8 +591,8 @@ module Handler = struct
               | None -> opaque class_name Longhand.Position inner))
     | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        match strip_data_type_hint inner with
-        | Some (_, v) -> opaque class_name Longhand.Size v
+        match Parse.data_type_hint inner with
+        | Some _ -> opaque class_name Longhand.Size inner
         | None ->
             if Parse.is_var inner then Ok (Size_bracket_var inner)
             else if parse_bracket_size inner = None then
@@ -631,12 +610,12 @@ module Handler = struct
                written out as the author spelled it. *)
             let v = String.sub inner 7 (String.length inner - 7) in
             if parse_bracket_size v = None then
-              opaque class_name Longhand.Size v
+              opaque class_name Longhand.Size inner
             else Ok (Bracket_length v)
         | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
             let v = String.sub inner 5 (String.length inner - 5) in
             if parse_bracket_size v = None then
-              opaque class_name Longhand.Size v
+              opaque class_name Longhand.Size inner
             else Ok (Bracket_size v)
         | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
           -> (
@@ -644,17 +623,17 @@ module Handler = struct
             let v = String.sub inner 9 (String.length inner - 9) in
             match parse_bracket_position v with
             | Some positions -> Ok (Bracket_typed_position (v, positions))
-            | None -> opaque class_name Longhand.Position v)
+            | None -> opaque class_name Longhand.Position inner)
         (* An [image:]/[url:] hint says how to read the value written after it;
            only a var() reference there names a custom property. *)
         | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
             let v = String.sub inner 6 (String.length inner - 6) in
             if is_mask_image_value v then Ok (Bracket_image_var v)
-            else opaque class_name Longhand.Image v
+            else opaque class_name Longhand.Image inner
         | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
             let v = String.sub inner 4 (String.length inner - 4) in
             if is_mask_image_value v then Ok (Bracket_url_var v)
-            else opaque class_name Longhand.Image v
+            else opaque class_name Longhand.Image inner
         (* Before the [url(...)] reading below, which takes one whole token and
            so has no answer for the comma of a layer list. *)
         | _ when is_image_value inner -> Ok (Bracket_image inner)
@@ -666,9 +645,10 @@ module Handler = struct
         | _ -> (
             (* A hint Tailwind does not know here settles the longhand all the
                same: it takes the last resort, and nothing is read from the
-               value that follows it. *)
-            match strip_data_type_hint inner with
-            | Some (_, v) -> opaque class_name Longhand.Image v
+               value that follows it. The name is a run of [a-z] and [-], so
+               [10px:2em] and [FOO:2em] carry no hint and are values whole. *)
+            match Parse.data_type_hint inner with
+            | Some _ -> opaque class_name Longhand.Image inner
             | None -> (
                 match parse_bracket_position inner with
                 | Some positions -> Ok (Bracket_position (inner, positions))
