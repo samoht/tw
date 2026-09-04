@@ -105,30 +105,47 @@ let test_arbitrary_url_matches_cli () =
       check bool (cls ^ ": tw matches live Tailwind CLI") true true
   | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
 
-(* The reference sheet is generated from a class list, and the route that list
-   takes decides what the CLI can answer with. Text in a source file has to
-   survive Tailwind's candidate extractor first, and the extractor declines
-   spellings the engine compiles: [@apply group-hover/-2a:underline] resolves,
-   while the same class written into a scanned file yields nothing. Extraction
-   failure costs the whole rule rather than changing a value, so the comparison
-   reports a class Tailwind supports as tw's invention. *)
-let test_extractor_hostile_class_matches_cli () =
+(* The reference sheet is generated from a class list, and each route that list
+   can take is blind to something the other route sees, so the entrypoint has to
+   declare both.
+
+   Text in a scanned file survives Tailwind's candidate extractor first, and the
+   extractor declines spellings the engine compiles: [@apply
+   group-hover/-2a:underline] resolves, while the same class written into a
+   scanned file yields nothing. Extraction failure costs the whole rule rather
+   than changing a value, so the comparison reports a class Tailwind supports as
+   tw's invention.
+
+   An [@source inline] candidate reaches the engine without the extractor, but a
+   [theme(--x)] read arriving that way is not recorded as a theme dependency, so
+   [@layer theme] comes back without the binding the same class picks up from a
+   scanned file. That spelling inlines the token's value and leaves no [var()]
+   behind for the ordinary referenced-variable path to find, so the binding
+   reads as tw's invention too.
+
+   Neither route alone answers both, and the pair is checked here together so
+   that dropping one cannot look like a fix for the other. The tw side keeps its
+   unused custom properties: the binding under test is unreferenced by
+   construction, and the CLI keeps it under [--optimize] all the same. *)
+let test_both_candidate_routes_match_cli () =
   Test_helpers.require_tailwind_cli ();
-  let cls = "group-hover/-2a:underline" in
-  let cli = generate ~minify:true ~optimize:true [ cls ] in
-  let tw =
-    match Tw.of_string cls with
-    | Ok u ->
-        Tw.to_css ~base:true [ u ]
-        |> Tw.Css.optimize ~prune_unused_custom_props:true
-        |> Tw.Css.to_string ~minify:true
-    | Error _ -> Alcotest.failf "tw could not parse %s" cls
+  let check_class cls =
+    let cli = generate ~minify:true ~optimize:true [ cls ] in
+    let tw =
+      match Tw.of_string cls with
+      | Ok u ->
+          Tw.to_css ~base:true [ u ] |> Tw.Css.optimize
+          |> Tw.Css.to_string ~minify:true
+      | Error _ -> Alcotest.failf "tw could not parse %s" cls
+    in
+    let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
+    match diff.Cascade_diff.Css_compare.result with
+    | Cascade_diff.Css_compare.No_diff ->
+        check bool (cls ^ ": tw matches live Tailwind CLI") true true
+    | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
   in
-  let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
-  match diff.Cascade_diff.Css_compare.result with
-  | Cascade_diff.Css_compare.No_diff ->
-      check bool (cls ^ ": tw matches live Tailwind CLI") true true
-  | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
+  check_class "group-hover/-2a:underline";
+  check_class "p-[theme(--spacing)]"
 
 (* The inline route carries every class name Tailwind can produce, quotes and
    all, because the quote style is chosen per candidate. What it cannot carry
@@ -252,8 +269,8 @@ let tests =
       test_arbitrary_color_opacity_matches_cli;
     test_case "arbitrary url() round-trips through the CLI harness" `Quick
       test_arbitrary_url_matches_cli;
-    test_case "a class the extractor declines matches the live CLI" `Quick
-      test_extractor_hostile_class_matches_cli;
+    test_case "both candidate routes match the live CLI" `Quick
+      test_both_candidate_routes_match_cli;
     test_case "the extractor residue is named" `Quick
       test_scanned_candidates_names_the_residue;
     test_case "generation ignores the working directory" `Quick
