@@ -148,6 +148,98 @@ let test_scanned_candidates_names_the_residue () =
     [ "p-{1,2}"; {|content-['"x"']|} ]
     (scanned_candidates [ "p-4"; "p-{1,2}"; {|content-['"x"']|}; "underline" ])
 
+let with_cwd dir f =
+  let saved = Sys.getcwd () in
+  Sys.chdir dir;
+  Fun.protect ~finally:(fun () -> Sys.chdir saved) f
+
+(* The harness is reached from wherever the calling binary happens to stand:
+   dune runs the suites from inside [_build], [tw] runs from whatever directory
+   the command was typed in, and a worktree's executable is routinely invoked
+   from the shared checkout. None of that may reach the sheet, and two things
+   carry it there: an entrypoint that leaves Tailwind to choose its own sources,
+   which is how a probe compiling nothing once returned the whole repository,
+   and a scratch root resolved against the caller, which puts the entrypoint
+   where [@import "tailwindcss"] has no package to resolve against. *)
+let test_generate_ignores_the_working_directory () =
+  Test_helpers.require_tailwind_cli ();
+  (* Settle which executable answers before moving: that is a separate
+     working-directory question, and pinning it keeps this test on the sheet. *)
+  check_tailwindcss_available ();
+  let classes = [ "p-4"; "underline" ] in
+  let here = generate ~minify:true classes in
+  check bool "the reference sheet carries the classes asked for" true
+    (Astring.String.is_infix ~affix:".p-4" here
+    && Astring.String.is_infix ~affix:".underline" here);
+  let elsewhere =
+    with_cwd (Filename.get_temp_dir_name ()) (fun () ->
+        generate ~minify:true classes)
+  in
+  check string "the working directory does not reach the sheet" here elsewhere
+
+let test_entrypoint_names_its_sources () =
+  check string "the version probe names no source at all"
+    "@import \"tailwindcss\" source(none);\n" (entrypoint []);
+  check string "the generated entrypoint names each source once"
+    "@import \"tailwindcss\" source(none);\n\
+     @plugin \"@tailwindcss/typography\";\n\
+     @config \"./tailwind.config.js\";\n\
+     @source \"./input.html\";\n\
+     @source inline(\"p-4\");\n"
+    (entrypoint
+       ~plugins:[ "@tailwindcss/typography" ]
+       ~config:"./tailwind.config.js" ~scanned_files:[ "./input.html" ]
+       [ "p-4"; "p-{1,2}" ]);
+  check string "a project entrypoint keeps its own head"
+    "@import \"tailwindcss\";\n@source \"./input.html\";\n"
+    (entrypoint ~project_css:"@import \"tailwindcss\";"
+       ~scanned_files:[ "./input.html" ] [])
+
+(* The CLI resolves [@import "tailwindcss"] against the nearest node_modules
+   above the entrypoint, so a scratch directory outside the project is no
+   scratch directory at all. *)
+let in_project_tmp_dir f =
+  let root =
+    match dir_containing "node_modules" (Sys.getcwd ()) with
+    | Some root -> root
+    | None -> Alcotest.skip ()
+  in
+  let tmp = Filename.concat root "tmp" in
+  if not (Sys.file_exists tmp) then Sys.mkdir tmp 0o755;
+  let dir = Filename.temp_file ~temp_dir:tmp "tw_fence" "" in
+  Sys.remove dir;
+  Sys.mkdir dir 0o755;
+  Fun.protect
+    ~finally:(fun () -> ignore (Sys.command ("rm -rf " ^ Filename.quote dir)))
+    (fun () -> f dir)
+
+(* [source(none)] is what stops the CLI choosing sources for itself, and this is
+   the failure it prevents: compiled from the directory it sits in, an
+   entrypoint must read the file it names and not the one beside it. *)
+let test_entrypoint_fences_source_detection () =
+  Test_helpers.require_tailwind_cli ();
+  check_tailwindcss_available ();
+  in_project_tmp_dir @@ fun dir ->
+  let write name content =
+    let oc = open_out (Filename.concat dir name) in
+    Fun.protect
+      ~finally:(fun () -> close_out_noerr oc)
+      (fun () -> output_string oc content)
+  in
+  write "named.txt" "underline";
+  write "unnamed.html" "text-red-500";
+  write "entry.css" (entrypoint ~scanned_files:[ "./named.txt" ] [ "p-4" ]);
+  let css =
+    with_cwd dir (fun () ->
+        generate_entrypoint (Filename.concat dir "entry.css"))
+  in
+  check bool "the inline candidate reaches the engine" true
+    (Astring.String.is_infix ~affix:".p-4" css);
+  check bool "the named file reaches the extractor" true
+    (Astring.String.is_infix ~affix:".underline" css);
+  check bool "a file the entrypoint does not name is left alone" false
+    (Astring.String.is_infix ~affix:".text-red-500" css)
+
 let tests =
   [
     test_case "check tailwindcss available" `Quick test_check_available;
@@ -164,6 +256,12 @@ let tests =
       test_extractor_hostile_class_matches_cli;
     test_case "the extractor residue is named" `Quick
       test_scanned_candidates_names_the_residue;
+    test_case "generation ignores the working directory" `Quick
+      test_generate_ignores_the_working_directory;
+    test_case "the entrypoint names its sources" `Quick
+      test_entrypoint_names_its_sources;
+    test_case "the entrypoint fences source detection" `Quick
+      test_entrypoint_fences_source_detection;
   ]
 
 let suite = ("tailwind_gen", tests)
