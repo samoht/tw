@@ -378,19 +378,12 @@ let test_arbitrary_shadow_lengths () =
 (* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
    the modifier folds into a [color-mix] rather than into a hex byte.
 
-   [shadow-[0_0_8px_#f00]/[var(--x)]] and its inset twin are left on a
-   substring: tw expands the authored [#f00] to [#ff0000] where the pinned CLI
-   passes the six-character spelling through, so their declarations cannot be
-   pinned without encoding that divergence. *)
+   The unguarded fallback of [shadow-[0_0_8px_#f00]/[var(--x)]] is pinned as tw
+   writes it, which is not what the CLI writes: the CLI leaves the authored
+   colour alone there and tw folds it to the oklab of the same colour. The inset
+   twin already leaves it alone, so the two spellings below are tw's, not a
+   shared rule. *)
 let test_arbitrary_shadow_colour_opacity () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
   Test_helpers.check_declarations "shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
       "--tw-shadow-alpha:50%";
@@ -406,11 +399,35 @@ let test_arbitrary_shadow_colour_opacity () =
        50%,transparent))";
       composes_box_shadow;
     ];
-  has "shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-shadow-alpha:var(--x)";
-  has "shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from";
-  has "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
-    "--tw-inset-shadow-alpha:var(--x)";
-  has "inset-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
+  Test_helpers.check_declarations "shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-shadow-alpha:var(--x)";
+      "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(62.79553606%.22486306 \
+       .1258463))";
+      "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(from #f00 l a \
+       b/var(--x)))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-inset-shadow-alpha:var(--x)";
+      "--tw-inset-shadow:inset 0 0 8px var(--tw-inset-shadow-color,#f00)";
+      "--tw-inset-shadow:inset 0 0 8px var(--tw-inset-shadow-color,oklab(from \
+       #f00 l a b/var(--x)))";
+      composes_box_shadow;
+    ];
+  (* Minified printing folds a colour to its shortest hex, so the authored
+     three-digit spelling the CLI keeps only shows unminified. *)
+  Test_helpers.check_declarations ~minify:false
+    "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-inset-shadow-alpha: var(--x)";
+      "--tw-inset-shadow: inset 0 0 8px var(--tw-inset-shadow-color, #f00)";
+      "--tw-inset-shadow: inset 0 0 8px var(--tw-inset-shadow-color, \
+       oklab(from #f00 l a b/var(--x)))";
+      "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+       var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)";
+    ]
 
 (* A bracket colour with no sRGB hex - [oklch()] and the other wide-gamut
    spellings - has no hex to fold the modifier's alpha into, so the alpha has to
@@ -437,27 +454,23 @@ let test_bracket_colour_opacity_without_hex () =
    an alpha byte, which a var() has no value for, so the modifier was dropped
    and the shadow painted fully opaque.
 
-   These two classes stay on a substring: tw expands the authored [#f00] to
-   [#ff0000] where the pinned CLI keeps the three-character spelling, so their
-   declarations cannot be pinned without encoding that divergence. *)
+   Read unminified: the CLI keeps the [#f00] the class wrote, and minified
+   printing folds a colour to its shortest hex, so an expanded [#ff0000] reads
+   the same as [#f00] there. *)
 let test_bracket_hex_opacity_var () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
   (* the plain fallback has no percentage to hold, so it keeps the hex *)
-  has "shadow-[#f00]/[var(--x)]" "--tw-shadow-color:#f00";
-  has "shadow-[#f00]/[var(--x)]"
-    "color-mix(in oklab,color-mix(in oklab,#f00 var(--x),transparent) \
-     var(--tw-shadow-alpha),transparent)";
-  has "inset-shadow-[#f00]/[var(--x)]" "--tw-inset-shadow-color:#f00";
-  has "inset-shadow-[#f00]/[var(--x)]"
-    "color-mix(in oklab,color-mix(in oklab,#f00 var(--x),transparent) \
-     var(--tw-inset-shadow-alpha),transparent)"
+  Test_helpers.check_declarations ~minify:false "shadow-[#f00]/[var(--x)]"
+    [
+      "--tw-shadow-color: #f00";
+      "--tw-shadow-color: color-mix(in oklab, color-mix(in oklab, #f00 \
+       var(--x), transparent) var(--tw-shadow-alpha), transparent)";
+    ];
+  Test_helpers.check_declarations ~minify:false "inset-shadow-[#f00]/[var(--x)]"
+    [
+      "--tw-inset-shadow-color: #f00";
+      "--tw-inset-shadow-color: color-mix(in oklab, color-mix(in oklab, #f00 \
+       var(--x), transparent) var(--tw-inset-shadow-alpha), transparent)";
+    ]
 
 (* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
    modifier's own written text in --tw-shadow-alpha, the way Tailwind does,

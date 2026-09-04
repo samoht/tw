@@ -122,7 +122,7 @@ let properties_of_class cls =
    [Alcotest.check bool ... true] then prints neither the class nor the CSS when
    it fails, so a red test reports only that something is wrong. The helpers
    below compare whole declarations and name the subject in the failure. *)
-let declarations_of_class cls =
+let declarations_of_class ?(minify = true) cls =
   match compiled cls with
   | None -> Alcotest.failf "%s does not parse" cls
   | Some sheet ->
@@ -131,12 +131,14 @@ let declarations_of_class cls =
           match Css.as_rule stmt with
           | Some (sel, decls, _)
             when String.contains (Css.Selector.to_string sel) '.' ->
-              acc @ List.map (Css.Declaration.to_string ~minify:true) decls
+              acc @ List.map (Css.Declaration.to_string ~minify) decls
           | _ -> acc)
         [] sheet
 
-let check_declarations cls expected =
-  Alcotest.(check (list string)) cls expected (declarations_of_class cls)
+let check_declarations ?minify cls expected =
+  Alcotest.(check (list string))
+    cls expected
+    (declarations_of_class ?minify cls)
 
 (* For a value a test cannot spell exactly, a generated hash or a number the
    suite deliberately leaves open. Anchor the pattern: an unanchored one

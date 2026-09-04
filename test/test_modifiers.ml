@@ -801,14 +801,6 @@ let test_container_query_scale () =
 (* @max-<size> negates the min query, and @min-/@max-[<len>] and bare @[<len>]
    accept arbitrary lengths. All used to be unknown modifiers. *)
 let test_container_query_min_max () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
   check_utilities "@min-md:flex"
     {|@container(width>=28rem){.\@min-md\:flex{display:flex}}|};
   check_utilities "@max-md:flex"
@@ -820,11 +812,13 @@ let test_container_query_min_max () =
   check_utilities "@[480px]:flex"
     {|@container(width>=480px){.\@\[480px\]\:flex{display:flex}}|};
   (* A theme(--breakpoint-lg) arbitrary value resolves to the breakpoint the
-     [lg:] variant uses (64rem). These two stay on a substring: the pinned CLI
-     also writes [--breakpoint-lg: 64rem] into the theme layer and tw does not,
-     so the sheets cannot be compared whole without encoding that gap. *)
-  has "@min-[theme(--breakpoint-lg)]:flex" "@container (width >= 64rem)";
-  has "@max-[theme(--breakpoint-lg)]:flex" "@container (not (width >= 64rem))";
+     [lg:] variant uses (64rem). Resolving the reference does not consume it:
+     the CLI writes [--breakpoint-lg: 64rem] into the theme layer as well, so a
+     consumer reading the token off the sheet still finds it. *)
+  check_sheet "@min-[theme(--breakpoint-lg)]:flex"
+    {|@layer theme,components,utilities;@layer theme{:root,:host{--breakpoint-lg:64rem}}@layer components;@layer utilities{@container(width>=64rem){.\@min-\[theme\(--breakpoint-lg\)\]\:flex{display:flex}}}|};
+  check_sheet "@max-[theme(--breakpoint-lg)]:flex"
+    {|@layer theme,components,utilities;@layer theme{:root,:host{--breakpoint-lg:64rem}}@layer components;@layer utilities{@container not (width>=64rem){.\@max-\[theme\(--breakpoint-lg\)\]\:flex{display:flex}}}|};
   check string "@max-md round-trips" "@max-md:p-4"
     (Tw.Utility.to_class (Option.get (apply [ "@max-md" ] (p 4))));
   check string "@min-[20rem] round-trips" "@min-[20rem]:p-4"

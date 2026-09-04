@@ -32,19 +32,22 @@ val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
     properties included: two utilities can conflict on a [--tw-*] alone. *)
 
-val declarations_of_class : string -> string list
+val declarations_of_class : ?minify:bool -> string -> string list
 (** [declarations_of_class cls] is what [cls] writes on an element carrying it,
-    minified, in source order. Only selectors holding a [.] count, so the theme
-    bindings the class drags in and the [*, ::before] property defaults are left
-    out, the way {!class_rule} reads them. Fails the test if [cls] does not
-    parse. *)
+    in source order. Only selectors holding a [.] count, so the theme bindings
+    the class drags in and the [*, ::before] property defaults are left out, the
+    way {!class_rule} reads them. Fails the test if [cls] does not parse.
 
-val check_declarations : string -> string list -> unit
+    [minify] defaults to [true]. Pass [false] where the spelling a value keeps
+    is what is under test: minified printing folds a colour to its shortest hex,
+    so [#f00] and an expanded [#ff0000] read the same there. *)
+
+val check_declarations : ?minify:bool -> string -> string list -> unit
 (** [check_declarations cls expected] checks [cls] writes exactly [expected].
     Prefer it to a substring search: an affix that is a prefix of a longer
     generated class matches it, so [.bg-blue-500] is satisfied by
     [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
-    class nor the CSS. *)
+    class nor the CSS. [minify] is {!declarations_of_class}'s. *)
 
 val check_declarations_match : string -> string list -> unit
 (** [check_declarations_match cls patterns] checks each PCRE in [patterns]

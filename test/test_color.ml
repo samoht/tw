@@ -801,6 +801,25 @@ let test_shorthand_hex_alpha () =
     "a six-digit hex is unchanged" "#0307121a"
     (Tw.Color.hex_with_alpha "#030712" 10.)
 
+(* Tailwind writes an arbitrary colour back in the spelling the class used: the
+   pinned CLI answers [bg-[#f00]] with [background-color: #f00] and
+   [bg-[#ffffffff]] with all eight digits, whatever the shortest equivalent
+   would be. The digits were decoded to bytes and re-spelled, which turned every
+   short or upper-case hex into its six-digit lower-case form. Minified printing
+   folds a colour to its shortest hex, so the spelling only shows unminified. *)
+let test_bracket_hex_keeps_authored_spelling () =
+  let pin cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
+  in
+  pin "bg-[#f00]" "background-color: #f00";
+  pin "bg-[#ff0000]" "background-color: #ff0000";
+  pin "bg-[#FF0000]" "background-color: #FF0000";
+  pin "bg-[#abc]" "background-color: #abc";
+  pin "bg-[#ffffffff]" "background-color: #ffffffff";
+  pin "bg-[#f008]" "background-color: #f008";
+  pin "text-[#0088cc]" "color: #0088cc";
+  pin "border-[#f00]" "border-color: #f00"
+
 (* A [#] bracket only names a colour when what follows is a hex spelling. The
    colour handler handed everything after the [#] to the raising constructor
    from inside [of_class], so a malformed hex escaped the parser as an exception
@@ -1105,6 +1124,9 @@ let tests =
       `Quick,
       test_bracket_colour_underscore_escape );
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
+    ( "Bracket hex keeps its authored spelling",
+      `Quick,
+      test_bracket_hex_keeps_authored_spelling );
     ( "Colour variable name is one ident",
       `Quick,
       test_color_var_name_is_one_ident );
