@@ -1241,8 +1241,49 @@ let test_bracket_color_hint_reads_the_value () =
     (module Tw.Color.Handler)
     "text-[color:notacolour]"
 
+(* The four families that never consulted a hint. Each writes one colour
+   longhand, so any hint reaches it and the colour reader sees what follows;
+   [border-[…]] is the exception, where [length:] and [line-width:] name the
+   width the borders handler owns. The hint stays in the class name. *)
+let test_bracket_colour_hint_in_every_colour_family () =
+  Test_helpers.check_declarations "border-[color:red]" [ "border-color:red" ];
+  Test_helpers.check_declarations "border-t-[color:red]"
+    [ "border-top-color:red" ];
+  Test_helpers.check_declarations "border-x-[foo:red]"
+    [ "border-inline-color:red" ];
+  Test_helpers.check_declarations "accent-[color:red]" [ "accent-color:red" ];
+  Test_helpers.check_declarations "caret-[color:red]" [ "caret-color:red" ];
+  Test_helpers.check_declarations "placeholder-[color:red]" [ "color:red" ];
+  (* a hint the family does not know is still a hint *)
+  Test_helpers.check_declarations "accent-[foo:red]" [ "accent-color:red" ];
+  Test_helpers.check_declarations "border-[image:red]" [ "border-color:red" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "caret-[color:var(--c)]"
+    [ "caret-color:var(--c)" ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [
+      "border-[color:red]";
+      "border-t-[color:red]";
+      "border-x-[foo:red]";
+      "accent-[color:red]";
+      "caret-[color:red]";
+      "placeholder-[color:red]";
+      "accent-[foo:red]";
+      "caret-[color:var(--c)]";
+    ];
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Color.Handler))
+    [ "accent-[:red]"; "accent-[color:]"; "border-[:red]" ]
+
 let tests =
   [
+    ( "Bracket colour hint in every colour family",
+      `Quick,
+      test_bracket_colour_hint_in_every_colour_family );
     ( "Bracket colour hint reads the value",
       `Quick,
       test_bracket_color_hint_reads_the_value );
