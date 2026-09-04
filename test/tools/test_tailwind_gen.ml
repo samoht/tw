@@ -130,6 +130,24 @@ let test_extractor_hostile_class_matches_cli () =
       check bool (cls ^ ": tw matches live Tailwind CLI") true true
   | _ -> Alcotest.failf "%s: tw diverges from the live Tailwind CLI" cls
 
+(* The inline route carries every class name Tailwind can produce, quotes and
+   all, because the quote style is chosen per candidate. What it cannot carry
+   keeps the extractor, and naming that residue is what stops a comparison from
+   mixing the two oracles without saying so. *)
+let test_scanned_candidates_names_the_residue () =
+  check (list string) "a class Tailwind can produce goes inline" []
+    (scanned_candidates
+       [
+         "p-4";
+         "group-hover/-2a:underline";
+         {|content-["hello_world"]|};
+         "data-[foo$='bar'_i]:flex";
+         "bg-[url('/img/x.svg')]";
+       ]);
+  check (list string) "brace expansion and both quote styles keep the extractor"
+    [ "p-{1,2}"; {|content-['"x"']|} ]
+    (scanned_candidates [ "p-4"; "p-{1,2}"; {|content-['"x"']|}; "underline" ])
+
 let tests =
   [
     test_case "check tailwindcss available" `Quick test_check_available;
@@ -144,6 +162,8 @@ let tests =
       test_arbitrary_url_matches_cli;
     test_case "a class the extractor declines matches the live CLI" `Quick
       test_extractor_hostile_class_matches_cli;
+    test_case "the extractor residue is named" `Quick
+      test_scanned_candidates_names_the_residue;
   ]
 
 let suite = ("tailwind_gen", tests)

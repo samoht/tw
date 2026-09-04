@@ -9,6 +9,13 @@ val generate :
   string
 (** [generate ?minify ?optimize ?forms ?input_css classnames] generates Tailwind
     CSS for given class names.
+
+    Each class name is handed to the CLI as an [@source inline] candidate, which
+    reaches the engine without passing Tailwind's source extractor. The
+    extractor declines spellings the engine compiles, and it drops a candidate
+    rather than compiling it differently, so a sheet built by scanning is short
+    whole rules and a comparison against it reports them as tw's invention.
+    {!scanned_candidates} names the few class names that cannot take this route.
     @param minify Whether to minify the output (default: false)
     @param optimize Whether to optimize the output (default: true)
     @param forms
@@ -19,6 +26,18 @@ val generate :
     @param classnames List of Tailwind class names
     @return The generated CSS as a string
     @raise Failure if Tailwind CSS generation fails. *)
+
+val scanned_candidates : string list -> string list
+(** [scanned_candidates classnames] are the candidates {!generate} writes into a
+    scanned file because an [@source inline] string cannot hold them: [{] and
+    [}] are its expansion syntax, a backslash opens an escape, and a name
+    carrying both quote characters fits inside neither string form. An entry of
+    [classnames] holding several whitespace-separated candidates is split first,
+    the way both routes split it. These reach the CLI through its source
+    extractor, which drops what it cannot read, so a sheet compared over one of
+    them may be missing a rule Tailwind would emit. It is empty for every class
+    name Tailwind can produce; a caller comparing sheets should name what it
+    returns rather than leave the two routes mixed unremarked. *)
 
 val check_tailwindcss_available : unit -> unit
 (** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
