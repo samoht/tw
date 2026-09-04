@@ -148,6 +148,35 @@ let test_scanned_candidates_names_the_residue () =
     [ "p-{1,2}"; {|content-['"x"']|} ]
     (scanned_candidates [ "p-4"; "p-{1,2}"; {|content-['"x"']|}; "underline" ])
 
+let with_cwd dir f =
+  let saved = Sys.getcwd () in
+  Sys.chdir dir;
+  Fun.protect ~finally:(fun () -> Sys.chdir saved) f
+
+(* The harness is reached from wherever the calling binary happens to stand:
+   dune runs the suites from inside [_build], [tw] runs from whatever directory
+   the command was typed in, and a worktree's executable is routinely invoked
+   from the shared checkout. None of that may reach the sheet, and it has: a run
+   that let Tailwind choose its own sources compiled the whole repository into a
+   reference built from an empty input. The scratch directory is the other half,
+   because one resolved against the caller puts the entrypoint where [@import
+   "tailwindcss"] has no package to resolve against. *)
+let test_generate_ignores_the_working_directory () =
+  Test_helpers.require_tailwind_cli ();
+  (* Settle which executable answers before moving: that is a separate
+     working-directory question, and pinning it keeps this test on the sheet. *)
+  check_tailwindcss_available ();
+  let classes = [ "p-4"; "underline" ] in
+  let here = generate ~minify:true classes in
+  check bool "the reference sheet carries the classes asked for" true
+    (Astring.String.is_infix ~affix:".p-4" here
+    && Astring.String.is_infix ~affix:".underline" here);
+  let elsewhere =
+    with_cwd (Filename.get_temp_dir_name ()) (fun () ->
+        generate ~minify:true classes)
+  in
+  check string "the working directory does not reach the sheet" here elsewhere
+
 let tests =
   [
     test_case "check tailwindcss available" `Quick test_check_available;
@@ -164,6 +193,8 @@ let tests =
       test_extractor_hostile_class_matches_cli;
     test_case "the extractor residue is named" `Quick
       test_scanned_candidates_names_the_residue;
+    test_case "generation ignores the working directory" `Quick
+      test_generate_ignores_the_working_directory;
   ]
 
 let suite = ("tailwind_gen", tests)
