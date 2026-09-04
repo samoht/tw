@@ -638,8 +638,22 @@ let test_bracket_data_type_hint_reads_the_value () =
     (module Tw.Backgrounds.Handler)
     "bg-[color:notacolour]"
 
+(* Tailwind knows two spellings for the hint that names a background-position,
+   and [bg-[…]] routes on the one the author wrote while the class name keeps
+   it. *)
+let test_percentage_hint_names_a_position () =
+  check_declarations "bg-[percentage:50%]" [ "background-position:50%" ];
+  check_declarations "bg-[position:50%]" [ "background-position:50%" ];
+  List.iter check [ "bg-[percentage:50%]"; "bg-[position:50%]" ];
+  check_invalid_input
+    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Backgrounds.Handler)
+    "bg-[percentage:notaposition]"
+
 let tests =
   [
+    test_case "percentage hint names a position" `Quick
+      test_percentage_hint_names_a_position;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick
