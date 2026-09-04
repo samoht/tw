@@ -2028,14 +2028,21 @@ module Handler = struct
      ring, shadow, fill, stroke, ...) reads the same bracket this way; only the
      variant it stores the result in differs. *)
   type bracket_hint =
-    | Typed_var of string (* [color:<var-or-value>], var part only *)
+    | Typed_var of string (* [color:var(--x)], the var() text *)
     | Bare_var of string (* [var(--x)], the full "var(...)" text *)
     | Plain_color of Css.color (* any other colour spelling *)
 
   let parse_bracket_hint inner =
     if String.starts_with ~prefix:"color:" inner then
-      let var_part = String.sub inner 6 (String.length inner - 6) in
-      Some (Typed_var var_part)
+      let value = String.sub inner 6 (String.length inner - 6) in
+      (* [color:] says how to read what follows it and nothing more. Only a
+         var() reference names a custom property; every other spelling is the
+         colour itself, so [color:red] is the colour red. *)
+      if Parse.is_var value then Some (Typed_var value)
+      else
+        match parse_bracket_color value with
+        | Some c -> Some (Plain_color c)
+        | None -> None
     else if String.starts_with ~prefix:"var(" inner then Some (Bare_var inner)
     else
       match parse_bracket_color inner with

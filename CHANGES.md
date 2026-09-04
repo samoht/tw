@@ -138,6 +138,9 @@
 
 ### Arbitrary values and validation
 
+- A data-type hint reads the value written after it instead of naming a custom
+  property, so `text-[length:1.25rem]` sets `font-size: 1.25rem` rather than
+  `font-size: var(--1\.25rem)`. Every hint tw recognises is affected (#706).
 - `aspect-[...]` emits its bracket verbatim, as Tailwind does: nothing inside is
   validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
   `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than

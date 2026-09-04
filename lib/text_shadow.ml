@@ -753,6 +753,10 @@ module Handler = struct
     | Bracket_color_var var_expr -> set_bracket_color_var var_expr
     | Bracket_cvar_opacity (var_expr, opacity) ->
         set_bracket_color_var_opacity var_expr opacity
+    (* The hint says the payload is a shadow, not that it names a variable. A
+       [var()] still reads as one; anything else is the shadow itself. *)
+    | Bracket_shadow payload when not (Parse.is_var payload) ->
+        arbitrary_shadow_style payload
     | Bracket_shadow var_expr ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
@@ -867,8 +871,12 @@ module Handler = struct
               | Stdlib.Option.None, op ->
                   Ok (Bracket_cvar_opacity (payload, op))
             else if starts_with "shadow:" inner then
-              let var_part = String.sub inner 7 (String.length inner - 7) in
-              Ok (Bracket_shadow var_part)
+              let payload = String.sub inner 7 (String.length inner - 7) in
+              if
+                Parse.is_var payload
+                || parse_arbitrary_shadow payload <> Stdlib.Option.None
+              then Ok (Bracket_shadow payload)
+              else err_not_utility
             else if Parse.is_var inner && not (is_shadow_value inner) then
               Ok (Bracket_var inner)
             else if is_hex_value inner then

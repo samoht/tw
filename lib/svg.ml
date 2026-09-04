@@ -337,19 +337,35 @@ module Handler = struct
      [percentage:var(...)]. A bracket the length reader cannot read is not a
      stroke width, so it is refused here rather than reaching to_style. *)
   let parse_bracket_stroke_width inner =
-    if
-      starts "length:" inner || starts "number:" inner
-      || starts "percentage:" inner
-    then Ok (Stroke_width_typed_var inner)
-    else
-      match Parse.arbitrary_length inner with
-      | Some length -> Ok (Stroke_width_bracket (inner, length))
-      | None -> (
-          (* A bare number reads as pixels, which is what Tailwind's own fixture
-             corpus records for stroke-[1.5]. *)
-          match float_of_string_opt inner with
-          | Some f -> Ok (Stroke_width_bracket (inner, Px f))
-          | None -> err_not_utility)
+    let hinted =
+      List.find_map
+        (fun prefix ->
+          if starts prefix inner then
+            let n = String.length prefix in
+            Some (String.sub inner n (String.length inner - n))
+          else None)
+        [ "length:"; "number:"; "percentage:" ]
+    in
+    (* A data-type hint says how to read the value written after it; only a
+       var() reference there names a custom property. *)
+    match hinted with
+    | Some value when Parse.is_var value -> Ok (Stroke_width_typed_var inner)
+    | Some value -> (
+        match Parse.arbitrary_length value with
+        | Some length -> Ok (Stroke_width_bracket (inner, length))
+        | None -> (
+            match float_of_string_opt value with
+            | Some f -> Ok (Stroke_width_bracket (inner, Px f))
+            | None -> err_not_utility))
+    | None -> (
+        match Parse.arbitrary_length inner with
+        | Some length -> Ok (Stroke_width_bracket (inner, length))
+        | None -> (
+            (* A bare number reads as pixels, which is what Tailwind's own
+               fixture corpus records for stroke-[1.5]. *)
+            match float_of_string_opt inner with
+            | Some f -> Ok (Stroke_width_bracket (inner, Px f))
+            | None -> err_not_utility))
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in

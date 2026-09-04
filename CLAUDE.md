@@ -379,7 +379,8 @@ and the fields it keys on.
 
   1. Define named test functions (`let test_foo () = ...`).
   2. Do not inline anonymous fns in `test_case`.
-  3. Cover invalid inputs with `try_parse`.
+  3. Cover invalid inputs with `Test_helpers.check_invalid_input`, passing
+     `~why` to say what the rejection claims about Tailwind.
   4. Document any ambiguous spec choices in comments.
 
 ---

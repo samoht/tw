@@ -1927,30 +1927,36 @@ module Handler = struct
      the zero the callers that cannot fail fall back to; the two used to be
      written out separately and agreed only by hand, so adding a unit to one
      alone would have reintroduced a silently-zero width. *)
-  let parse_bracket_width_opt inner : Css.length option =
+  let plain_bracket_width value : Css.length option =
     let suffixed suffix mk =
       let n = String.length suffix in
       if
-        String.length inner > n
-        && String.sub inner (String.length inner - n) n = suffix
+        String.length value > n
+        && String.sub value (String.length value - n) n = suffix
       then
-        Some (String.sub inner 0 (String.length inner - n))
+        Some (String.sub value 0 (String.length value - n))
         |> Option.map (fun num -> Option.map mk (float_of_string_opt num))
       else None
     in
+    match suffixed "px" (fun f -> (Px f : Css.length)) with
+    | Some found -> found
+    | None -> (
+        match suffixed "rem" (fun f -> (Rem f : Css.length)) with
+        | Some found -> found
+        | None ->
+            Option.map
+              (fun f -> (Px f : Css.length))
+              (float_of_string_opt value))
+
+  (* A [length:] hint says how to read the value written after it; only a var()
+     reference there names a custom property. *)
+  let parse_bracket_width_opt inner : Css.length option =
     if String.length inner > 6 && String.sub inner 0 7 = "length:" then
       let v = String.sub inner 7 (String.length inner - 7) in
-      Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
-    else
-      match suffixed "px" (fun f -> (Px f : Css.length)) with
-      | Some found -> found
-      | None -> (
-          match suffixed "rem" (fun f -> (Rem f : Css.length)) with
-          | Some found -> found
-          | None ->
-              Option.map
-                (fun f -> (Px f : Css.length))
-                (float_of_string_opt inner))
+      if Parse.is_var v then
+        Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
+      else plain_bracket_width v
+    else plain_bracket_width inner
 
   let parse_bracket_width inner : Css.length =
     match parse_bracket_width_opt inner with Some l -> l | None -> Px 0.
@@ -2409,7 +2415,8 @@ module Handler = struct
     | Shadow_bracket_color_var v -> set_shadow_bracket_color_var v
     | Shadow_bracket_color_var_opacity (v, op) ->
         set_shadow_bracket_cvar_opacity v op
-    | Shadow_bracket_shadow s -> shadow_raw_var s
+    | Shadow_bracket_shadow s ->
+        if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
     | Shadow_bracket_var v -> shadow_raw_var v
     | Inset_shadow_none -> inset_shadow_none
     | Inset_shadow_2xs -> inset_shadow_shape_style ~theme Ish_2xs
@@ -2437,7 +2444,9 @@ module Handler = struct
     | Inset_shadow_bracket_color_var v -> set_ishadow_bracket_cvar v
     | Inset_shadow_bracket_cvar_opacity (v, op) ->
         set_ishadow_bracket_cvar_opacity v op
-    | Inset_shadow_bracket_shadow s -> inset_shadow_raw_var s
+    | Inset_shadow_bracket_shadow s ->
+        if Parse.is_var s then inset_shadow_raw_var s
+        else inset_shadow_arbitrary s
     | Inset_shadow_bracket_var v -> inset_shadow_raw_var v
     | Opacity n -> opacity n
     | Opacity_decimal f ->
@@ -2681,14 +2690,12 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_bracket_color (inner, c))
             | _ -> Ok (Ring_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Ring_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Ring_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Ring_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Ring_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Ring_raw (inner, value, opacity))
+                | None -> err_not_utility)))
     | `Ring_offset -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2704,14 +2711,12 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_offset_bracket_color (inner, c))
             | _ -> Ok (Ring_offset_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Ring_offset_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Ring_offset_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Ring_offset_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
+                | None -> err_not_utility)))
     | `Inset_ring -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2727,21 +2732,23 @@ module Handler = struct
             | Color.No_opacity -> Ok (Inset_ring_bracket_color (inner, c))
             | _ -> Ok (Inset_ring_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Inset_ring_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Inset_ring_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Inset_ring_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
+                | None -> err_not_utility)))
 
   let parse_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
     if starts "shadow:" inner then
+      (* The hint says how to read the value written after it; only a var()
+         reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      Ok (Shadow_bracket_shadow shadow_part)
+      if is_shadow_bracket shadow_part then
+        Ok (Shadow_bracket_shadow shadow_part)
+      else err_not_utility
     else
       match Color.parse_bracket_hint inner with
       | Some (Color.Typed_var var_part) -> (
@@ -2769,8 +2776,12 @@ module Handler = struct
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
     if starts "shadow:" inner then
+      (* The hint says how to read the value written after it; only a var()
+         reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      Ok (Inset_shadow_bracket_shadow shadow_part)
+      if is_shadow_bracket shadow_part then
+        Ok (Inset_shadow_bracket_shadow shadow_part)
+      else err_not_utility
     else
       match Color.parse_bracket_hint inner with
       | Some (Color.Typed_var var_part) -> (
