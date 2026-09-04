@@ -1302,6 +1302,15 @@ module Handler = struct
     if List.length parsed = List.length parts then Stdlib.Option.Some parsed
     else Stdlib.Option.None
 
+  (* [Css.parse_shadow] reads a non-inset shadow, which is the spelling an
+     [inset-shadow-*] bracket carries; the utility supplies the [inset] keyword
+     itself, once per layer, the way Tailwind does. *)
+  let rec force_inset (sh : Css.shadow) : Css.shadow =
+    match sh with
+    | Css.Shadow body -> Css.Inset (Css.Body body)
+    | Css.List shadows -> Css.List (List.map force_inset shadows)
+    | other -> other
+
   let inset_shadow_arbitrary (arb : string) =
     match parse_multi_shadow arb with
     | Stdlib.Option.Some parsed_parts ->
@@ -1335,7 +1344,20 @@ module Handler = struct
         style ~metadata:shadow_property_metadata
           ~property_rules:shadow_property_rules
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
-    | Stdlib.Option.None -> inset_shadow_none
+    | Stdlib.Option.None -> (
+        (* The bracket reaches here because [is_shadow_bracket] read it as a
+           shadow, and the reader that said so is [Css.parse_shadow], which
+           knows every colour spelling rather than the hex, [var()] and colour
+           function the reading above covers. Reading it with the same reader
+           that accepted it keeps the shadow the class wrote; falling out to
+           [inset-shadow-none] lost its lengths and spread along with the
+           colour. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            inset_shadow_compose
+              (wrap_shadow_colors ~color_var:inset_shadow_color_var
+                 (force_inset shadow))
+        | None -> inset_shadow_none)
 
   let inset_shadow_shape_opacity_style ?theme shape opacity =
     let percent = Color.opacity_to_percent opacity in
