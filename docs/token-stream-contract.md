@@ -66,15 +66,19 @@ length, so a value carrying `calc()`, `min()` or `clamp()` anywhere in it takes
 the length-shaped branch however the rest of it reads: `mask-[foo_calc(1+2)]`
 is a `mask-position` where `mask-[foo_10px]` is a `mask-image`.
 
-And a bracket may open with a data-type hint, `<ident>:`, which chooses the
-longhand and says nothing at all about the value. The name has to be an
-identifier: `mask-[10px:2em]` holds `10px:2em` whole, and a `:` inside a
-function call belongs to the value, so `mask-position-[url(http://x/a.png)]` is
-a URL. A hint a family does not know still counts as one, and drops to that
-family's last resort with no reading tried on what follows: `mask-[bogus:2em]`
-is a `mask-image` where the bare `mask-[2em]` is a `mask-position`. A class
-that names its longhand already, such as `mask-size-[…]`, takes any hint and
-uses the value after it.
+And a bracket may open with a data-type hint, which chooses the longhand and
+says nothing at all about the value. The name is a run of `a`-`z` and `-`
+closed by a `:` and nothing wider, so `mask-[10px:2em]`, `mask-[FOO:2em]` and
+`mask-[a1:2em]` hold their brackets whole, and a `:` inside a function call
+belongs to the value, so `mask-position-[url(http://x/a.png)]` is a URL. Only
+the leading run is the hint's: `z-[color:red:blue]` writes `red:blue`. A hint a
+family does not know still counts as one, and drops to that family's last
+resort with no reading tried on what follows: `mask-[bogus:2em]` is a
+`mask-image` where the bare `mask-[2em]` is a `mask-position`. A class that
+names its longhand already, such as `mask-size-[…]`, takes any hint and uses
+the value after it. An empty hint names no utility at all, and neither does a
+bracket left holding nothing but blank space, so `z-[:5]` and `z-[_]` are
+refusals.
 
 The hint has to stay in the class name. Dropping it from `to_class` writes a
 selector no markup carries, which is the same defect as slicing an arbitrary
@@ -272,13 +276,26 @@ readers decline into `mask-image`, `mask-position` or `mask-size` according to
 the hint the class carries, and `test/test_masks.ml` pins each one against the
 CLI.
 
+The hint itself comes off in one place, `Parse.arbitrary_declaration_value`, so
+a family reaching its last resort passes the whole bracket and gets the value
+back. `Parse.data_type_hint` is the same scan on its own, for a family that
+routes on whether a hint is there. Peeling in the family and passing the
+remainder peels twice, and `mask-[bogus:foo:2em]` is where that shows.
+
 Two mask readings are wrong in a way this contract does not reach, because
 both take a bracket their readers accept. `mask-[30%_50%,70%_50%]` is a
 `mask-size` to Tailwind and a `mask-position` to tw, which also drops half of
 each pair; `mask-[image-set(url(a.png)_1x)]` writes the inner URL quoted and
 without the `-webkit-image-set` fallback beside it.
 
-Two things are still open and neither is a family's own fault. The `color:`
+Three things are still open and none is a family's own fault. `transition-[…]`,
+`bg-conic-[…]` and the `brightness-`, `contrast-`, `grayscale-`, `saturate-`
+and `sepia-` filters call `arbitrary_declaration_value` to decide whether the
+class exists and then build the declaration from the raw bracket again, so the
+hint reaches the sheet: `transition-[foo:color]` writes `transition-property:
+foo:color` where the CLI writes `color`. Each needs the `(spelling, value)`
+payload the other families carry, so `to_class` keeps the hint and `to_style`
+does not. The `color:`
 data-type hint is read in one place for every colour-bearing utility,
 `parse_bracket_hint` in `lib/color.ml`, so `text-[color:1.25rem]` and its
 siblings need an opaque case threaded through each family's variant rather than

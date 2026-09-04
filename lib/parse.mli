@@ -164,10 +164,28 @@ val is_declaration_value : string -> bool
     than emitted. {!Cascade.Css.custom_property} takes the same values and
     raises on the rest. *)
 
+val data_type_hint : string -> (string * string) option
+(** [data_type_hint inner] splits a bracket's inner text at a data-type hint:
+    [Some (hint, value)] when [inner] opens with a run of [a-z] and [-] closed
+    by a [:], and [None] when it does not, so the whole of [inner] is the value.
+
+    The hint chooses which longhand the class lands in and says nothing about
+    the value, so a family that does not know the hint still writes what follows
+    it into its last resort. Only the leading run is the hint's name:
+    [color:red:blue] leaves [red:blue] whole, an upper-case letter or a digit
+    ends the run without a hint, so [FOO:5] and [a1:5] are values, and a [:]
+    inside a function call belongs to the value, so [url(http://x/a.png)] is a
+    URL.
+
+    A [hint] of [""], which is a bracket opening with [:], names no utility at
+    all: {!arbitrary_declaration_value} is where that is refused. *)
+
 val arbitrary_declaration_value : string -> string option
 (** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
-    returns its non-empty CSS declaration value. Values that can terminate or
-    swallow the declaration are [None]. *)
+    returns its CSS declaration value: the text after any {!data_type_hint},
+    which has to hold something other than blank space. Values that can
+    terminate or swallow the declaration are [None], as is a bracket whose hint
+    is empty. *)
 
 val wrap_declaration_value :
   before:string -> after:string -> string -> string option

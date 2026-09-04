@@ -146,6 +146,17 @@
 
 ### Arbitrary values and validation
 
+- A data-type hint comes off the front of any bracket, not only the ones a
+  family reads: `z-[integer:5]` writes `z-index: 5` rather than
+  `z-index: integer:5`, and `divide-[color:red]`, `shadow-[length:3px]`,
+  `rotate-[angle:45deg]` and `aspect-[ratio:16/9]` write their values the same
+  way (#PR).
+- A bracket whose hint is empty, and one left holding nothing but blank space,
+  name no utility, as in Tailwind. `z-[:5]` and `z-[_]` put a declaration with
+  no value into the sheet (#PR).
+- The hint's name is a run of `a`-`z` and `-`, so `mask-[FOO:2em]` and
+  `mask-[a1:2em]` hold their bracket whole. The mask family read a wider name
+  than Tailwind does and sliced the value away (#PR).
 - The mask family writes an arbitrary bracket no reader takes into the longhand
   the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
   `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
