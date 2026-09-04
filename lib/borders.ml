@@ -311,6 +311,25 @@ module Handler = struct
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 9)
   let radius_4xl_var = Var.theme Css.Length "radius-4xl" ~order:(7, 10)
 
+  (* Publish the radius scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [rounded-[theme(--radius-lg)]] resolves and
+     [theme(static)] emits the scale. [--radius-none] and [--radius-full] are
+     not in Tailwind's default theme - their utilities carry the value - so they
+     stay out of the registry. *)
+  let () =
+    List.iter
+      (fun (var, value) -> Theme.register_default var value)
+      [
+        (radius_xs_var, (Css.Rem 0.125 : Css.length));
+        (radius_sm_var, Css.Rem 0.25);
+        (radius_md_var, Css.Rem 0.375);
+        (radius_lg_var, Css.Rem 0.5);
+        (radius_xl_var, Css.Rem 0.75);
+        (radius_2xl_var, Css.Rem 1.0);
+        (radius_3xl_var, Css.Rem 1.5);
+        (radius_4xl_var, Css.Rem 2.0);
+      ]
+
   let radius_value len =
     Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 

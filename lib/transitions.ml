@@ -62,6 +62,20 @@ module Handler = struct
     Var.theme Css.Timing_function "default-transition-timing-function"
       ~order:(8, 31)
 
+  let default_transition_duration : Css.duration = Ms 150.
+
+  let default_transition_timing_function : Css.timing_function =
+    Cubic_bezier (0.4, 0., 0.2, 1.)
+
+  (* Publish the pair through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [theme(--default-transition-duration)]
+     resolves and [theme(static)] emits them. *)
+  let () =
+    Theme.register_default default_transition_duration_var
+      default_transition_duration;
+    Theme.register_default default_transition_timing_function_var
+      default_transition_timing_function
+
   (* Variable for transition duration with @property *)
   let tw_duration_var =
     (* Duration appears after skew (4) but before scale (6-8) in properties *)
@@ -369,6 +383,22 @@ module Handler = struct
   let ease_linear_var =
     Var.theme Css.Timing_function "ease-linear" ~order:(7, 33)
 
+  let ease_in_curve : Css.timing_function = Cubic_bezier (0.4, 0.0, 1.0, 1.0)
+  let ease_out_curve : Css.timing_function = Cubic_bezier (0.0, 0.0, 0.2, 1.0)
+  let ease_in_out_curve : Css.timing_function = Cubic_bezier (0.4, 0.0, 0.2, 1.0)
+
+  (* Published the same way, so [ease-[theme(--ease-in)]] resolves.
+     [--ease-linear] is not in Tailwind's default theme - the utility writes the
+     [linear] keyword unless a project declares the token - so it stays out. *)
+  let () =
+    List.iter
+      (fun (var, curve) -> Theme.register_default var curve)
+      [
+        (ease_in_var, ease_in_curve);
+        (ease_out_var, ease_out_curve);
+        (ease_in_out_var, ease_in_out_curve);
+      ]
+
   let ease_linear ?theme () =
     (* Tailwind uses the raw 'linear' keyword by default, but uses
        var(--ease-linear) when the theme defines --ease-linear. *)
@@ -401,8 +431,7 @@ module Handler = struct
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)
-    let ease_value = Cubic_bezier (0.4, 0.0, 1.0, 1.0) in
-    let theme_decl, ease_in_ref = Var.binding ease_in_var ease_value in
+    let theme_decl, ease_in_ref = Var.binding ease_in_var ease_in_curve in
     let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_in_ref) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
@@ -416,8 +445,7 @@ module Handler = struct
       ]
 
   let ease_out =
-    let ease_value = Cubic_bezier (0.0, 0.0, 0.2, 1.0) in
-    let theme_decl, ease_out_ref = Var.binding ease_out_var ease_value in
+    let theme_decl, ease_out_ref = Var.binding ease_out_var ease_out_curve in
     let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_out_ref) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
@@ -431,8 +459,9 @@ module Handler = struct
       ]
 
   let ease_in_out =
-    let ease_value = Cubic_bezier (0.4, 0.0, 0.2, 1.0) in
-    let theme_decl, ease_in_out_ref = Var.binding ease_in_out_var ease_value in
+    let theme_decl, ease_in_out_ref =
+      Var.binding ease_in_out_var ease_in_out_curve
+    in
     let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_in_out_ref) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
@@ -748,13 +777,12 @@ let ease_in_out = utility Ease_in_out
 
 (* Theme declarations for default transition values *)
 let default_transition_declarations =
-  (* --default-transition-duration: 150ms *)
   let duration_decl, _ =
-    Var.binding Handler.default_transition_duration_var (Css.Ms 150.)
+    Var.binding Handler.default_transition_duration_var
+      Handler.default_transition_duration
   in
-  (* --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) *)
   let timing_decl, _ =
     Var.binding Handler.default_transition_timing_function_var
-      (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
+      Handler.default_transition_timing_function
   in
   [ duration_decl; timing_decl ]

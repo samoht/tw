@@ -2,6 +2,12 @@
 
 module Css = Cascade.Css
 
+val register_default : 'a Var.theme -> 'a -> unit
+(** [register_default var value] publishes [value] as [var]'s built-in default
+    in the theme-token registry, spelled as the binding the utility emits. A
+    token a family keeps to itself resolves nowhere: [theme(--x)] in a class,
+    [theme()] in a project's CSS and [theme(static)] all read the registry. *)
+
 val spacing_var : Css.length Var.theme
 (** [spacing_var] is the shared [--spacing] variable used across padding,
     margin, positioning, etc. *)

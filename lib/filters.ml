@@ -358,6 +358,22 @@ module Handler = struct
   let blur_2xl_var = Var.theme Css.Length "blur-2xl" ~order:(8, 5)
   let blur_3xl_var = Var.theme Css.Length "blur-3xl" ~order:(8, 6)
 
+  (* Publish the scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [blur-[theme(--blur-sm)]] resolves and
+     [theme(static)] emits it. *)
+  let () =
+    List.iter
+      (fun (var, px) -> Theme.register_default var (Css.Px px : Css.length))
+      [
+        (blur_xs_var, 4.);
+        (blur_sm_var, 8.);
+        (blur_md_var, 12.);
+        (blur_lg_var, 16.);
+        (blur_xl_var, 24.);
+        (blur_2xl_var, 40.);
+        (blur_3xl_var, 64.);
+      ]
+
   let blur_size_utility (theme_var : Css.length Var.theme) default_px () =
     let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
     style ~metadata:filter_property_metadata
@@ -571,6 +587,24 @@ module Handler = struct
   let drop_shadow_lg_var = Var.theme Css.Shadow "drop-shadow-lg" ~order:(7, 23)
   let drop_shadow_xl_var = Var.theme Css.Shadow "drop-shadow-xl" ~order:(7, 24)
   let drop_shadow_2xl_var = Var.theme Css.Shadow "drop-shadow-2xl" ~order:(7, 25)
+
+  (* Published the same way, so [drop-shadow-[theme(--drop-shadow-md)]]
+     resolves. The colours keep the hex spelling the sized utilities bind, which
+     is the alpha Tailwind writes as an [rgb()]. *)
+  let () =
+    List.iter
+      (fun (var, v, blur, hex) ->
+        Theme.register_default var
+          (Css.shadow ~h_offset:Zero ~v_offset:(Px v) ~blur:(Px blur)
+             ~color:(Css.hex hex) ()))
+      [
+        (drop_shadow_xs_var, 1., 1., "#0000000d");
+        (drop_shadow_sm_var, 1., 2., "#00000026");
+        (drop_shadow_md_var, 3., 3., "#0000001f");
+        (drop_shadow_lg_var, 4., 4., "#00000026");
+        (drop_shadow_xl_var, 9., 7., "#0000001a");
+        (drop_shadow_2xl_var, 25., 25., "#00000026");
+      ]
 
   let drop_shadow_color_ref fallback =
     Var.reference_with_fallback drop_shadow_color_var fallback

@@ -259,6 +259,22 @@ module Handler = struct
   let perspective_none_var =
     Var.theme Css.Length "perspective-none" ~order:(8, 15)
 
+  (* Publish the scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [perspective-[theme(--perspective-normal)]]
+     resolves and [theme(static)] emits it. [--perspective-none] is not in
+     Tailwind's default theme - the utility writes [perspective: none] - so it
+     stays out. *)
+  let () =
+    List.iter
+      (fun (var, px) -> Theme.register_default var (Css.Px px : Css.length))
+      [
+        (perspective_dramatic_var, 100.);
+        (perspective_near_var, 300.);
+        (perspective_normal_var, 500.);
+        (perspective_midrange_var, 800.);
+        (perspective_distant_var, 1200.);
+      ]
+
   (** {1 Helpers} *)
 
   let collect_property_rules vars =
