@@ -398,6 +398,8 @@
 - `divide_x_length` accepts a line-width keyword. Tailwind renders
   `divide-x-[thin]`, and the parser already did, but the typed constructor
   raised on it (#522).
+- `Var.needs_property_rule` answers `false` for a variable carrying metadata tw
+  did not create, where it failed an assertion (#707).
 
 ### Parity and packaging
 

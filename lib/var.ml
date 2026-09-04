@@ -389,16 +389,12 @@ let declaration_of_property_info (Css.Property_info info) =
 let name var = var.name
 let css_name var = "--" ^ var.name
 
+(* A variable carrying none of our metadata - a raw theme reference like
+   --animate-pulse - has no [@property] rule to emit. *)
 let needs_property_rule v =
-  match Css.var_meta v with
-  | None ->
-      (* Variables without metadata (e.g., raw theme variable references like
-         --animate-pulse) don't need @property rules *)
-      false
-  | Some meta -> (
-      match info_of_meta meta with
-      | Some (Info i) -> i.property <> None
-      | None -> assert false)
+  match metadata_of_var v with
+  | Some metadata -> metadata_needs_property metadata
+  | None -> false
 
 let order_of_declaration decl =
   Option.bind (metadata_of_declaration decl) metadata_order
