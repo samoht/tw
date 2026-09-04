@@ -542,6 +542,108 @@ let theme_function_keeps_an_underscore () =
         "the class is the one the source spells" "[color:theme(colors.red.500)]"
         (Tw.to_classes [ u ])
 
+(* [theme(--x)] is v4's own spelling of a theme lookup and reads the same token
+   table the dot paths do, across every namespace: [--spacing], [--color-*],
+   [--breakpoint-*], [--container-*], [--radius-*], [--text-*]. Unlike a dot
+   path it does not consume the token: @tailwindcss/cli 4.3.3 inlines the value
+   into the utility and still writes the binding into [@layer theme], so a
+   consumer reading [--spacing] off the sheet finds it. tw answered "Unknown
+   class" for all of them. *)
+let theme_function_custom_property_spelling () =
+  let sheet cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let check_sheet cls theme utilities =
+    Alcotest.(check string)
+      cls
+      ("@layer theme,components,utilities;@layer theme{:root,:host{" ^ theme
+     ^ "}}@layer components;@layer utilities{" ^ utilities ^ "}")
+      (sheet cls)
+  in
+  check_sheet "p-[theme(--spacing)]" "--spacing:.25rem"
+    {|.p-\[theme\(--spacing\)\]{padding:.25rem}|};
+  check_sheet "text-[theme(--color-red-500)]"
+    "--color-red-500:oklch(63.7%.237 25.331)"
+    {|.text-\[theme\(--color-red-500\)\]{color:oklch(63.7%.237 25.331)}|};
+  check_sheet "max-w-[theme(--breakpoint-sm)]" "--breakpoint-sm:40rem"
+    {|.max-w-\[theme\(--breakpoint-sm\)\]{max-width:40rem}|};
+  check_sheet "max-w-[theme(--container-md)]" "--container-md:28rem"
+    {|.max-w-\[theme\(--container-md\)\]{max-width:28rem}|};
+  check_sheet "rounded-[theme(--radius-lg)]" "--radius-lg:.5rem"
+    {|.rounded-\[theme\(--radius-lg\)\]{border-radius:.5rem}|};
+  check_sheet "text-[length:theme(--text-xl)]" "--text-xl:1.25rem"
+    {|.text-\[length\:theme\(--text-xl\)\]{font-size:1.25rem}|}
+
+(* The token a [theme(--x)] names is bound once however many classes read it,
+   the variants a class carries do not move the binding out of [@layer theme],
+   and a [\@theme] override reaches both the binding and the inlined value. *)
+let theme_function_custom_property_binding () =
+  let sheet ?theme classes =
+    let utilities, unknown = Tw.of_classes ?theme (String.concat " " classes) in
+    match unknown with
+    | cls :: _ -> Alcotest.failf "%s did not parse" cls
+    | [] ->
+        Tw.to_css ?theme ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check string)
+    "one binding for two readers of the same token"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--spacing:.25rem}}@layer components;@layer \
+     utilities{.m-\\[theme\\(--spacing\\)\\]{margin:.25rem}.p-\\[theme\\(--spacing\\)\\]{padding:.25rem}}"
+    (sheet [ "p-[theme(--spacing)]"; "m-[theme(--spacing)]" ]);
+  Alcotest.(check string)
+    "a variant leaves the binding in the theme layer"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--spacing:.25rem}}@layer components;@layer \
+     utilities{@media \
+     (width>=48rem){.md\\:p-\\[theme\\(--spacing\\)\\]{padding:.25rem}}}"
+    (sheet [ "md:p-[theme(--spacing)]" ]);
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing", "0.5rem") ]
+  in
+  Alcotest.(check string)
+    "an override reaches the binding and the inlined value"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--spacing:.5rem}}@layer components;@layer \
+     utilities{.p-\\[theme\\(--spacing\\)\\]{padding:.5rem}}"
+    (sheet ~theme [ "p-[theme(--spacing)]" ])
+
+(* A [theme(--x)] naming a token the theme does not carry has no rule at all,
+   the way a missing dot path has none, and a fallback argument stands in for it
+   and binds nothing. The call composes inside a longer value, where only the
+   call itself is replaced. *)
+let theme_function_custom_property_fallback () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "p-[theme(--nope)]";
+  rejected "p-[theme(--Spacing)]";
+  Test_helpers.check_declarations "p-[theme(--nope,1rem)]" [ "padding:1rem" ];
+  Test_helpers.check_declarations "p-[calc(theme(--spacing)_*_2)]"
+    [ "padding:calc(.25rem*2)" ]
+
+(* Tailwind spells the same lookup [--theme(--x)] as well, and that spelling
+   references the token instead of inlining it: the CLI writes [padding:
+   var(--spacing)] and the binding beside it. A dot path is not admitted in this
+   spelling. *)
+let theme_function_custom_property_reference () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  Test_helpers.check_declarations "p-[--theme(--spacing)]"
+    [ "padding:var(--spacing)" ];
+  Test_helpers.check_declarations "max-w-[--theme(--breakpoint-sm)]"
+    [ "max-width:var(--breakpoint-sm)" ];
+  Test_helpers.check_declarations "p-[--theme(--nope,1rem)]" [ "padding:1rem" ];
+  rejected "p-[--theme(spacing.4)]";
+  rejected "p-[--theme(--nope)]"
+
 (* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
    does not carry, so a class carrying one is not a utility. A bare segment
    names no namespace and the palette namespace is known in full, so both are
@@ -1506,6 +1608,14 @@ let core_tests =
       theme_function_alpha_reads_any_palette_value;
     test_case "theme() keeps an underscore" `Quick
       theme_function_keeps_an_underscore;
+    test_case "theme(--x) resolves every namespace" `Quick
+      theme_function_custom_property_spelling;
+    test_case "theme(--x) binds the token once" `Quick
+      theme_function_custom_property_binding;
+    test_case "theme(--x) falls back and composes" `Quick
+      theme_function_custom_property_fallback;
+    test_case "--theme(--x) references the token" `Quick
+      theme_function_custom_property_reference;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
