@@ -2034,6 +2034,16 @@ module Handler = struct
     | Bare_var of string (* [var(--x)], the full "var(...)" text *)
     | Plain_color of Css.color (* any other colour spelling *)
 
+  (* A data-type hint chooses the longhand and says nothing about the value, so
+     a family that writes one colour longhand reads what follows any hint.
+     [border-[…]] is the exception: [length:] and [line-width:] name the width,
+     which the borders handler owns, and naming them in [not_mine] leaves such a
+     bracket to it rather than reading the value here as a colour. *)
+  let bracket_color_after_hint ?(not_mine = []) inner : Css.color option =
+    match Parse.data_type_hint inner with
+    | Some (hint, _) when List.mem hint not_mine -> None
+    | _ -> Stdlib.Option.bind (Parse.value_after_hint inner) parse_bracket_color
+
   let parse_bracket_hint inner =
     if String.starts_with ~prefix:"color:" inner then
       let value = String.sub inner 6 (String.length inner - 6) in
@@ -2110,7 +2120,10 @@ module Handler = struct
       -> (
         let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
-        match parse_bracket_color base_inner with
+        match
+          bracket_color_after_hint ~not_mine:[ "length"; "line-width" ]
+            base_inner
+        with
         | Some css_color -> (
             match opacity with
             | No_opacity -> Ok (Border_bracket_color (base_inner, css_color))
@@ -2146,7 +2159,10 @@ module Handler = struct
           when String.length v > 0 && v.[0] = '[' && Parse.is_bracket_value v
           -> (
             let inner = Parse.bracket_inner v in
-            match parse_bracket_color inner with
+            match
+              bracket_color_after_hint ~not_mine:[ "length"; "line-width" ]
+                inner
+            with
             | Some css_color ->
                 Ok
                   (Border_side_color (bs, Side_color.Bracket (inner, css_color)))
@@ -2188,7 +2204,7 @@ module Handler = struct
       -> (
         let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
-        match parse_bracket_color base_inner with
+        match bracket_color_after_hint base_inner with
         | Some css_color -> (
             match opacity with
             | No_opacity -> Ok (Accent_bracket_color (base_inner, css_color))
@@ -2222,7 +2238,7 @@ module Handler = struct
       -> (
         let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
-        match parse_bracket_color base_inner with
+        match bracket_color_after_hint base_inner with
         | Some css_color -> (
             match opacity with
             | No_opacity -> Ok (Caret_bracket_color (base_inner, css_color))
@@ -2298,7 +2314,7 @@ module Handler = struct
       -> (
         let base_str, opacity = parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
-        match parse_bracket_color base_inner with
+        match bracket_color_after_hint base_inner with
         | Some css_color -> (
             match opacity with
             | No_opacity ->
