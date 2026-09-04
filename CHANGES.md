@@ -314,6 +314,9 @@
   at-rule variant, a peer hover gate survives a selector variant, a variant
   stays wrapped around a `@starting-style` rule, and a class a variant renames
   keeps the default transition theme (#564).
+- A variant wrapped around a hover gate no longer writes an empty rule beside
+  the real one. `sm:dark:hover:underline` emitted a declarationless
+  `.sm\:dark\:hover\:underline:hover {}` into the dark media block (#703).
 - An opacity colour keeps its progressive-enhancement `@supports` guard when
   wrapped in a supports, container or starting-style variant. The modern
   `color-mix()` declaration was previously left unguarded inside that wrapper
