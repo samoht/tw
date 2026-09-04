@@ -131,8 +131,22 @@ let typed_prime () =
   check_typed_class "p-4" (p 4);
   check_typed_class "px-8" (px 8)
 
+(* A data-type hint chooses the longhand and says nothing about the value.
+   Padding writes one longhand per side, so every hint reaches it and the length
+   reader sees only what follows the hint, which stays in the class name. *)
+let test_data_type_hint_before_the_length_reader () =
+  check_declarations "p-[length:4px]" [ "padding:4px" ];
+  check_declarations "px-[foo:4px]" [ "padding-inline:4px" ];
+  check_declarations "p-[length:var(--x)]" [ "padding:var(--x)" ];
+  List.iter check [ "p-[length:4px]"; "px-[foo:4px]"; "p-[length:var(--x)]" ];
+  let reject c = check_invalid_input (module Tw.Padding.Handler) c in
+  reject "p-[:4px]";
+  reject "p-[length:]"
+
 let tests =
   [
+    test_case "data-type hint before the length reader" `Quick
+      test_data_type_hint_before_the_length_reader;
     test_case "arbitrary --spacing()" `Quick test_arbitrary_spacing_fn;
     test_case "padding of_string - valid values" `Quick of_string_valid;
     test_case "padding of_string - invalid values" `Quick of_string_invalid;

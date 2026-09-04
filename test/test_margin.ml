@@ -222,8 +222,22 @@ let typed_prime () =
   check_typed_class "m-4" (m 4);
   check_typed_class "-mt-4" (mt (-4))
 
+(* A data-type hint chooses the longhand and says nothing about the value.
+   Margin writes one longhand per side, so every hint reaches it and the length
+   reader sees only what follows the hint, which stays in the class name. *)
+let test_data_type_hint_before_the_length_reader () =
+  check_declarations "m-[length:4px]" [ "margin:4px" ];
+  check_declarations "mt-[foo:4px]" [ "margin-top:4px" ];
+  check_declarations "m-[length:var(--x)]" [ "margin:var(--x)" ];
+  List.iter check [ "m-[length:4px]"; "mt-[foo:4px]"; "m-[length:var(--x)]" ];
+  let reject c = check_invalid_input (module Tw.Margin.Handler) c in
+  reject "m-[:4px]";
+  reject "m-[length:]"
+
 let tests =
   [
+    test_case "data-type hint before the length reader" `Quick
+      test_data_type_hint_before_the_length_reader;
     test_case "margin of_string - valid values" `Quick of_string_valid;
     test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "margin of_string - invalid values" `Quick of_string_invalid;

@@ -577,8 +577,43 @@ let spacing_step_is_a_quarter_multiple () =
   reject "w-0.3";
   reject "w-0.125"
 
+(* A bracket may open with a data-type hint, which chooses the longhand and says
+   nothing about the value. A sizing family writes one longhand, so every hint
+   reaches it and the length reader sees only what follows. The hint stays in
+   the class name: dropping it writes a selector no markup carries. *)
+let test_data_type_hint_before_the_length_reader () =
+  check_declarations "w-[length:10px]" [ "width:10px" ];
+  check_declarations "h-[length:10px]" [ "height:10px" ];
+  check_declarations "size-[length:10px]" [ "width:10px"; "height:10px" ];
+  check_declarations "min-w-[foo:10px]" [ "min-width:10px" ];
+  check_declarations "w-[foo:10px]" [ "width:10px" ];
+  check_declarations "w-[length:calc(1px+2px)]" [ "width:calc(1px + 2px)" ];
+  check_declarations "w-[length:var(--x)]" [ "width:var(--x)" ];
+  List.iter check
+    [
+      "w-[length:10px]";
+      "w-[foo:10px]";
+      "size-[length:10px]";
+      "w-[length:var(--x)]";
+    ];
+  (* The name is a run of [a-z] and [-], so an upper-case letter or a digit ends
+     it without a hint and the whole bracket stays the value, which the length
+     reader declines. Tailwind writes it out because [w-[…]] has a token-stream
+     last resort and tw has none yet. *)
+  let reject ?why c = check_invalid_input ?why (module Tw.Sizing.Handler) c in
+  let no_last_resort =
+    Diverges "w-[…] has no token-stream last resort, so the value is refused"
+  in
+  reject ~why:no_last_resort "w-[FOO:10px]";
+  reject ~why:no_last_resort "w-[a1:10px]";
+  (* An empty hint, and a hint with nothing after it, name no utility. *)
+  reject "w-[:10px]";
+  reject "w-[length:]"
+
 let tests =
   [
+    test_case "data-type hint before the length reader" `Quick
+      test_data_type_hint_before_the_length_reader;
     test_case "typed constructors: half-step" `Quick typed_prime;
     test_case "named size prefers --spacing-*" `Quick
       test_named_size_prefers_spacing;
