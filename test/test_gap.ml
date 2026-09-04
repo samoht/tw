@@ -133,6 +133,19 @@ let test_arbitrary_length_grammar () =
   check "gap-[inherit]";
   check "gap-[4px]"
 
+(* An arbitrary value is read by the whole decoder, not by its last stage alone:
+   [_] is a space, [--spacing(n)] expands to the spacing product, and only then
+   are the math operators re-spaced. Tailwind emits all of these. *)
+let test_arbitrary_value_decoder_stages () =
+  Test_helpers.check_declarations "gap-[calc(1px_+_1px)]"
+    [ "gap:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "gap-x-[calc(1px_+_1px)]"
+    [ "column-gap:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "gap-y-[calc(1px_+_1px)]"
+    [ "row-gap:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "gap-[--spacing(4)]"
+    [ "gap:calc(var(--spacing)*4)" ]
+
 (* The paren shorthand is Tailwind's first candidate value and literal px its
    last; numeric and bracket values stay between those boundaries. *)
 let test_gap_candidate_boundaries () =
@@ -165,6 +178,8 @@ let tests =
     test_case "space-px CSS values" `Quick test_space_px_values;
     test_case "gap CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
+    test_case "arbitrary value decoder stages" `Quick
+      test_arbitrary_value_decoder_stages;
     test_case "gap candidate boundaries" `Quick test_gap_candidate_boundaries;
   ]
 

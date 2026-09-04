@@ -1860,6 +1860,33 @@ let merge_named_layers stmts =
         | _ -> stmt)
       merged
 
+(* Every [@apply] and every declared utility hoists a [@layer properties] block
+   of its own, holding the initial values of the variables its utilities set,
+   and the generated sheet hoists one too. Folded into the single layer the
+   sheet declares, they line up as a run of [@supports] blocks over one
+   condition and one universal selector, each repeating variables the others
+   already declare. Tailwind writes one block. Joining the run leaves every
+   variable on the value the last block in it gave it, which is the value it
+   held before. *)
+let join_fallback_rules stmts =
+  merge_same_selector stmts
+  |> List.map (fun stmt ->
+      match Css.as_rule stmt with
+      | Some (selector, decls, []) ->
+          Css.rule ~selector (Css.Optimize.deduplicate_declarations decls)
+      | _ -> stmt)
+
+let collapse_property_fallbacks stmts =
+  List.map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some name, inner) when equal_layer name [ "properties" ] ->
+          Css.layer ~name
+            (Css.Optimize.merge_consecutive_supports
+               ~optimize_merged_block:join_fallback_rules inner)
+      | _ -> stmt)
+    stmts
+
 let layer_block_name stmt =
   match Css.layer_block_name stmt with Some [] | None -> None | name -> name
 
@@ -2005,58 +2032,58 @@ let collect_properties_at_end stmts =
    [flatten_nesting] has made every element rule flat by the time this runs, so
    splitting one declaration into a rule/query pair preserves its exact place
    among the author's declarations. *)
-let authored_color_mix_fallbacks ~theme stmts =
-  let fallback_declaration declaration =
-    let value = Css.declaration_value ~minify:true declaration in
-    match Css.parse_color value with
-    | None -> None
-    | Some color -> (
-        match Tw.Color.pre_color_mix_fallback theme color with
-        | None -> None
-        | Some fallback ->
-            let fallback_value =
-              Css.color fallback |> Css.Declaration.normalize
-              |> Css.declaration_value ~minify:true
-            in
-            let layer = Css.Declaration.custom_declaration_layer declaration in
-            Css.Declaration.parse_declaration ?layer
-              (Css.declaration_name declaration)
-              fallback_value
-            |> Option.map (fun fallback ->
-                if Css.declaration_is_important declaration then
-                  Css.important fallback
-                else fallback))
-  in
-  let lower_rule selector declarations =
-    let rec loop pending emitted = function
-      | [] ->
-          let emitted =
-            match pending with
-            | [] -> emitted
-            | _ -> Css.rule ~selector (List.rev pending) :: emitted
+let fallback_declaration ~theme declaration =
+  let value = Css.declaration_value ~minify:true declaration in
+  match Css.parse_color value with
+  | None -> None
+  | Some color -> (
+      match Tw.Color.pre_color_mix_fallback theme color with
+      | None -> None
+      | Some fallback ->
+          let fallback_value =
+            Css.color fallback |> Css.Declaration.normalize
+            |> Css.declaration_value ~minify:true
           in
-          List.rev emitted
-      | declaration :: rest -> (
-          match fallback_declaration declaration with
-          | None -> loop (declaration :: pending) emitted rest
-          | Some fallback ->
-              let base_declarations =
-                match pending with
-                | previous :: _
-                  when Css.Declaration.equal_declaration previous fallback ->
-                    List.rev pending
-                | _ -> List.rev (fallback :: pending)
-              in
-              let base = Css.rule ~selector base_declarations in
-              let enhanced = Css.rule ~selector [ declaration ] in
-              let supports =
-                Css.supports ~condition:Tw.Color.color_mix_supports_condition
-                  [ enhanced ]
-              in
-              loop [] (supports :: base :: emitted) rest)
-    in
-    loop [] [] declarations
+          let layer = Css.Declaration.custom_declaration_layer declaration in
+          Css.Declaration.parse_declaration ?layer
+            (Css.declaration_name declaration)
+            fallback_value
+          |> Option.map (fun fallback ->
+              if Css.declaration_is_important declaration then
+                Css.important fallback
+              else fallback))
+
+let lower_color_mix_rule ~theme selector declarations =
+  let rec loop pending emitted = function
+    | [] ->
+        let emitted =
+          match pending with
+          | [] -> emitted
+          | _ -> Css.rule ~selector (List.rev pending) :: emitted
+        in
+        List.rev emitted
+    | declaration :: rest -> (
+        match fallback_declaration ~theme declaration with
+        | None -> loop (declaration :: pending) emitted rest
+        | Some fallback ->
+            let base_declarations =
+              match pending with
+              | previous :: _
+                when Css.Declaration.equal_declaration previous fallback ->
+                  List.rev pending
+              | _ -> List.rev (fallback :: pending)
+            in
+            let base = Css.rule ~selector base_declarations in
+            let enhanced = Css.rule ~selector [ declaration ] in
+            let supports =
+              Css.supports ~condition:Tw.Color.color_mix_supports_condition
+                [ enhanced ]
+            in
+            loop [] (supports :: base :: emitted) rest)
   in
+  loop [] [] declarations
+
+let authored_color_mix_fallbacks ~theme stmts =
   let rec lower_block stmts =
     List.concat_map
       (fun statement ->
@@ -2071,7 +2098,7 @@ let authored_color_mix_fallbacks ~theme stmts =
             in
             match Css.as_rule statement with
             | Some (selector, declarations, []) ->
-                lower_rule selector declarations
+                lower_color_mix_rule ~theme selector declarations
             | _ -> [ statement ]))
       stmts
   in
@@ -2115,7 +2142,8 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
-          |> merge_named_layers |> hoist_layer_blocks
+          |> merge_named_layers |> collapse_property_fallbacks
+          |> hoist_layer_blocks
           |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)
 

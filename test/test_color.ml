@@ -801,6 +801,25 @@ let test_shorthand_hex_alpha () =
     "a six-digit hex is unchanged" "#0307121a"
     (Tw.Color.hex_with_alpha "#030712" 10.)
 
+(* Tailwind writes an arbitrary colour back in the spelling the class used: the
+   pinned CLI answers [bg-[#f00]] with [background-color: #f00] and
+   [bg-[#ffffffff]] with all eight digits, whatever the shortest equivalent
+   would be. The digits were decoded to bytes and re-spelled, which turned every
+   short or upper-case hex into its six-digit lower-case form. Minified printing
+   folds a colour to its shortest hex, so the spelling only shows unminified. *)
+let test_bracket_hex_keeps_authored_spelling () =
+  let pin cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
+  in
+  pin "bg-[#f00]" "background-color: #f00";
+  pin "bg-[#ff0000]" "background-color: #ff0000";
+  pin "bg-[#FF0000]" "background-color: #FF0000";
+  pin "bg-[#abc]" "background-color: #abc";
+  pin "bg-[#ffffffff]" "background-color: #ffffffff";
+  pin "bg-[#f008]" "background-color: #f008";
+  pin "text-[#0088cc]" "color: #0088cc";
+  pin "border-[#f00]" "border-color: #f00"
+
 (* A [#] bracket only names a colour when what follows is a hex spelling. The
    colour handler handed everything after the [#] to the raising constructor
    from inside [of_class], so a malformed hex escaped the parser as an exception
@@ -1013,12 +1032,101 @@ let test_bracket_colour_underscore_escape () =
     (Astring.String.is_infix ~affix:"color: light-dark(var(--a_b), red)"
        (css {|text-[light-dark(var(--a\_b),red)]|}))
 
+(* The theme layer and the utilities layer rank the same colour names in
+   different orders, and a name missing from either map silently takes that
+   map's unknown-colour slot. Both are derived from one list, so the pairing
+   holds by construction; this is what fails if that stops being true. *)
+let ranked_color_names =
+  [
+    "transparent";
+    "black";
+    "white";
+    "red";
+    "orange";
+    "amber";
+    "yellow";
+    "lime";
+    "green";
+    "emerald";
+    "teal";
+    "cyan";
+    "sky";
+    "blue";
+    "indigo";
+    "violet";
+    "purple";
+    "fuchsia";
+    "pink";
+    "rose";
+    "slate";
+    "gray";
+    "zinc";
+    "neutral";
+    "stone";
+    "mauve";
+    "olive";
+    "mist";
+    "taupe";
+  ]
+
+let test_color_orders_cover_the_same_names () =
+  let unknown_theme = Tw.Color.theme_order "definitely-not-a-colour" in
+  let unknown_utilities = Tw.Color.utilities_order "definitely-not-a-colour" in
+  Alcotest.(check (pair int int))
+    "unknown theme colour falls back" (2, 100000) unknown_theme;
+  Alcotest.(check (pair int int))
+    "unknown utility colour falls back" (2, 100) unknown_utilities;
+  List.iter
+    (fun name ->
+      Alcotest.(check bool)
+        (name ^ " has a theme slot")
+        false
+        (Tw.Color.theme_order name = unknown_theme);
+      Alcotest.(check bool)
+        (name ^ " has a utilities slot")
+        false
+        (Tw.Color.utilities_order name = unknown_utilities))
+    ranked_color_names
+
+(* The utilities layer leads with transparent and black and is alphabetical from
+   there. *)
+let test_utilities_color_order_is_alphabetical () =
+  let order name = snd (Tw.Color.utilities_order name) in
+  Alcotest.(check int) "transparent leads" 0 (order "transparent");
+  Alcotest.(check int) "black follows" 1 (order "black");
+  Alcotest.(check int) "amber opens the alphabetical run" 2 (order "amber");
+  Alcotest.(check int) "white sits between violet and yellow" 26 (order "white");
+  Alcotest.(check int) "zinc closes it" 28 (order "zinc");
+  (* The v4.3.3 families take their alphabetical places rather than the
+     unknown-colour slot. *)
+  Alcotest.(check int) "mauve follows lime" 11 (order "mauve");
+  Alcotest.(check int) "mist follows mauve" 12 (order "mist");
+  Alcotest.(check int) "olive follows neutral" 14 (order "olive");
+  Alcotest.(check int) "taupe follows stone" 23 (order "taupe")
+
+(* Tailwind 4.3.3 declares mauve, olive, mist and taupe in its [@theme] after
+   stone and before black, in that order. Read off [@import "tailwindcss"
+   theme(static)]. *)
+let test_v433_families_rank_in_theme_order () =
+  let order name = snd (Tw.Color.theme_order name) in
+  let names =
+    [ "stone"; "mauve"; "olive"; "mist"; "taupe"; "black"; "white" ]
+  in
+  let orders = List.map order names in
+  Alcotest.(check (list int))
+    "the four families sit between stone and black, each in its own slot"
+    (List.sort_uniq compare orders)
+    orders
+
 let tests =
   [
     ( "Bracket colour underscore escape",
       `Quick,
       test_bracket_colour_underscore_escape );
     ("Invalid bracket hex", `Quick, test_invalid_bracket_hex);
+    ( "Bracket hex keeps its authored spelling",
+      `Quick,
+      test_bracket_hex_keeps_authored_spelling );
     ( "Colour variable name is one ident",
       `Quick,
       test_color_var_name_is_one_ident );
@@ -1083,6 +1191,15 @@ let tests =
       test_removed_mix_token_stays_runtime );
     ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
     ("Out-of-gamut OKLCH", `Quick, test_out_of_gamut_oklch);
+    ( "Colour orders cover the same names",
+      `Quick,
+      test_color_orders_cover_the_same_names );
+    ( "Utilities colour order is alphabetical",
+      `Quick,
+      test_utilities_color_order_is_alphabetical );
+    ( "v4.3.3 families rank in theme order",
+      `Quick,
+      test_v433_families_rank_in_theme_order );
   ]
 
 let suite = ("color", tests)

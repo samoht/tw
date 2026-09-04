@@ -169,24 +169,12 @@ let test_aspect_classes () =
   Alcotest.check string "ratio class" "aspect-16/9" (Tw.pp (aspect_ratio 16 9))
 
 let test_aspect_css () =
-  let open Tw in
-  let css = to_css [ aspect_ratio 16 9 ] |> Css.to_string ~minify:true in
-  Alcotest.check bool "has aspect-ratio" true
-    (Astring.String.is_infix ~affix:"aspect-ratio" css);
-  Alcotest.check bool "has 16/9" true
-    (Astring.String.is_infix ~affix:"16/9" css)
+  check_declarations "aspect-16/9" [ "aspect-ratio:16/9" ]
 
 (* A bare-number arbitrary ratio (aspect-[1.333]) is a single-value
    aspect-ratio; it minifies to just the number, and round-trips. *)
 let test_aspect_bracket_number () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "aspect-[1.333] is aspect-ratio:1.333" true
-    (Astring.String.is_infix ~affix:"aspect-ratio:1.333" (css "aspect-[1.333]"));
+  check_declarations "aspect-[1.333]" [ "aspect-ratio:1.333" ];
   Alcotest.(check string)
     "aspect-[1.333] round-trips" "aspect-[1.333]"
     (Tw.pp (Result.get_ok (Tw.of_string "aspect-[1.333]")))
@@ -194,29 +182,17 @@ let test_aspect_bracket_number () =
 (* A fraction on a logical min/max inline or block axis resolves to a
    percentage, like the physical max-w/max-h families do. *)
 let test_logical_size_fractions () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " is " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has "max-block-1/2" "max-block-size:50%";
-  has "min-block-1/3" "min-block-size:33.3333%";
-  has "max-inline-3/4" "max-inline-size:75%";
-  has "min-inline-2/3" "min-inline-size:66.6667%"
+  check_declarations "max-block-1/2" [ "max-block-size:50%" ];
+  check_declarations "min-block-1/3" [ "min-block-size:33.3333%" ];
+  check_declarations "max-inline-3/4" [ "max-inline-size:75%" ];
+  check_declarations "min-inline-2/3" [ "min-inline-size:66.6667%" ]
 
 (* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
    var(--aspect-square) with a stray --aspect-square theme token that bare
    Tailwind does not define. *)
 let test_aspect_square_inlined () =
   let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.to_string ~minify:true in
-  Alcotest.check bool "aspect-square inlines the ratio" true
-    (Astring.String.is_infix ~affix:"aspect-ratio:1" css);
+  check_declarations "aspect-square" [ "aspect-ratio:1" ];
   Alcotest.check bool "aspect-square references no var" false
     (Astring.String.is_infix ~affix:"var(--aspect-square)" css);
   Alcotest.check bool "aspect-square emits no --aspect-square token" false
@@ -238,31 +214,17 @@ let test_class_generation () =
   Alcotest.check string "h 10 -> h-10" "h-10" (Tw.pp (h 10));
   Alcotest.check string "h 64 -> h-64" "h-64" (Tw.pp (h 64));
 
-  (* Verify CSS values are correct. These use calc(var(--spacing)*N) format
-     where N is the class number (NOT the rem value). Tailwind v4: w-64 =>
-     calc(var(--spacing)*64), h-10 => calc(var(--spacing)*10) *)
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
-  (* w-64 => calc(var(--spacing)*64) *)
-  Alcotest.check bool "w-64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (w 64)));
-  (* h-10 => calc(var(--spacing)*10) *)
-  Alcotest.check bool "h-10 uses spacing*10" true
-    (Astring.String.is_infix ~affix:"*10)" (css_for (h 10)));
-  (* w-4 => calc(var(--spacing)*4) *)
-  Alcotest.check bool "w-4 uses spacing*4" true
-    (Astring.String.is_infix ~affix:"*4)" (css_for (w 4)));
-  (* min-w-64 => calc(var(--spacing)*64) *)
-  Alcotest.check bool "min_w 64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (min_w 64)));
-  (* max-h-32 => calc(var(--spacing)*32) *)
-  Alcotest.check bool "max_h 32 uses spacing*32" true
-    (Astring.String.is_infix ~affix:"*32)" (css_for (max_h 32)));
-  (* size-64 => calc(var(--spacing)*64) for both width and height *)
-  Alcotest.check bool "size 64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (size 64)));
-  (* size-4 => calc(var(--spacing)*4) *)
-  Alcotest.check bool "size 4 uses spacing*4" true
-    (Astring.String.is_infix ~affix:"*4)" (css_for (size 4)))
+  (* The value is calc(var(--spacing)*N) with N the class number, not the rem it
+     works out to. [size-*] writes both axes, in that order. *)
+  check_declarations "w-64" [ "width:calc(var(--spacing)*64)" ];
+  check_declarations "h-10" [ "height:calc(var(--spacing)*10)" ];
+  check_declarations "w-4" [ "width:calc(var(--spacing)*4)" ];
+  check_declarations "min-w-64" [ "min-width:calc(var(--spacing)*64)" ];
+  check_declarations "max-h-32" [ "max-height:calc(var(--spacing)*32)" ];
+  check_declarations "size-64"
+    [ "width:calc(var(--spacing)*64)"; "height:calc(var(--spacing)*64)" ];
+  check_declarations "size-4"
+    [ "width:calc(var(--spacing)*4)"; "height:calc(var(--spacing)*4)" ]
 
 (* The logical sizing utilities are registered after every other utility in
    Tailwind, so they sort last rather than beside w-* and h-*, and among
@@ -400,111 +362,82 @@ let fraction_interleave_matches_tailwind () =
     ~test_name:"sizing fraction interleave matches Tailwind"
     (Test_helpers.shuffle utilities)
 
-let css_of cls =
+(* The whole sheet, theme bindings included, for the one claim that reaches past
+   what the class writes on its own element. *)
+let sheet_of cls =
   match Tw.of_string cls with
-  | Ok s -> Tw.to_css ~base:false [ s ] |> Css.to_string
+  | Ok s -> Tw.to_css ~base:false [ s ] |> Css.to_string ~minify:true
   | Error _ -> Alcotest.failf "could not parse %S" cls
 
 (* Fractional spacing steps must scale --spacing, not truncate to 0. *)
 let test_fractional_spacing () =
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "h-0.5" "height: calc(var(--spacing) * .5)";
-  has "w-0.5" "width: calc(var(--spacing) * .5)";
-  has "size-0.5" "calc(var(--spacing) * .5)";
-  has "h-2.5" "height: calc(var(--spacing) * 2.5)"
+  check_declarations "h-0.5" [ "height:calc(var(--spacing)*.5)" ];
+  check_declarations "w-0.5" [ "width:calc(var(--spacing)*.5)" ];
+  check_declarations "size-0.5"
+    [ "width:calc(var(--spacing)*.5)"; "height:calc(var(--spacing)*.5)" ];
+  check_declarations "h-2.5" [ "height:calc(var(--spacing)*2.5)" ]
 
 (* Fractional sizing accepts any n/m with a Tailwind denominator (2,3,4,5,6,12),
    not just the originally hardcoded handful; the percentage matches the CLI's
    folded calc(n/m*100%) at 6 significant figures. *)
 let test_general_fractions () =
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "w-4/12" "width: 33.3333%";
-  has "w-8/12" "width: 66.6667%";
-  has "w-1/12" "width: 8.33333%";
-  has "h-2/6" "height: 33.3333%"
+  check_declarations "w-4/12" [ "width:33.3333%" ];
+  check_declarations "w-8/12" [ "width:66.6667%" ];
+  check_declarations "w-1/12" [ "width:8.33333%" ];
+  check_declarations "h-2/6" [ "height:33.3333%" ]
 
 (* Tailwind treats every integer numerator over a positive denominator as a
    sizing fraction. Zero, equal and improper fractions share the same parser and
    percentage rendering across all thirteen sizing families. *)
 let test_zero_equal_and_improper_fractions () =
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "w-0/3" "width: 0%";
-  has "w-1/1" "width: 100%";
-  has "h-9/9" "height: 100%";
-  has "w-5/4" "width: 125%";
-  has "w-100/3" "width: 3333.33%";
-  has "size-5/4" "height: 125%";
-  has "min-w-0/3" "min-width: 0%";
-  has "max-h-100/3" "max-height: 3333.33%";
-  has "min-inline-1/1" "min-inline-size: 100%";
+  check_declarations "w-0/3" [ "width:0%" ];
+  check_declarations "w-1/1" [ "width:100%" ];
+  check_declarations "h-9/9" [ "height:100%" ];
+  check_declarations "w-5/4" [ "width:125%" ];
+  check_declarations "w-100/3" [ "width:3333.33%" ];
+  check_declarations "size-5/4" [ "width:125%"; "height:125%" ];
+  check_declarations "min-w-0/3" [ "min-width:0%" ];
+  check_declarations "max-h-100/3" [ "max-height:3333.33%" ];
+  check_declarations "min-inline-1/1" [ "min-inline-size:100%" ];
   Alcotest.(check bool)
     "a zero denominator is still rejected" true
     (Result.is_error (Tw.of_string "w-1/0"))
 
 (* max-w-screen-* references the breakpoint theme var (like the v4 CLI), not an
-   inlined px. *)
+   inlined px. The whole sheet is pinned rather than the declaration alone: the
+   theme binding the class drags in is the other half of the claim, and it sits
+   on [:root, :host], which carries no class. *)
 let test_max_w_screen () =
-  let xl = css_of "max-w-screen-xl" in
-  Alcotest.(check bool)
-    "max-w-screen-xl references --breakpoint-xl" true
-    (Astring.String.is_infix ~affix:"max-width: var(--breakpoint-xl)" xl);
-  Alcotest.(check bool)
-    "max-w-screen-xl defines --breakpoint-xl: 80rem" true
-    (Astring.String.is_infix ~affix:"--breakpoint-xl: 80rem" xl)
+  check_declarations "max-w-screen-xl" [ "max-width:var(--breakpoint-xl)" ];
+  Alcotest.(check string)
+    "max-w-screen-xl defines --breakpoint-xl"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--breakpoint-xl:80rem}}@layer components;@layer \
+     utilities{.max-w-screen-xl{max-width:var(--breakpoint-xl)}}"
+    (sheet_of "max-w-screen-xl")
 
 (* Arbitrary sizes accept compact calc() (the bracket value is normalized before
    going through the length grammar). *)
 let test_arbitrary_calc () =
-  Alcotest.(check bool)
-    "w-[calc(100vh-4rem)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"width: calc(100vh - 4rem)"
-       (css_of "w-[calc(100vh-4rem)]"))
+  check_declarations "w-[calc(100vh-4rem)]" [ "width:calc(100vh - 4rem)" ]
 
 (* A width fraction is read as a percentage, from any denominator: Tailwind has
    no fixed scale here, and w-3/8 used to be an unknown class. *)
 let test_any_fraction_denominator () =
-  Alcotest.(check bool)
-    "w-3/8 is 37.5%" true
-    (Astring.String.is_infix ~affix:"width: 37.5%" (css_of "w-3/8"));
-  Alcotest.(check bool)
-    "w-7/9 rounds like Tailwind" true
-    (Astring.String.is_infix ~affix:"width: 77.7778%" (css_of "w-7/9"))
+  check_declarations "w-3/8" [ "width:37.5%" ];
+  check_declarations "w-7/9" [ "width:77.7778%" ]
 
 (* A [/] inside a bracket belongs to the value, not to a fraction: the fraction
    branch used to claim w-[calc(2px/2)] and reject it. *)
 let test_bracket_keeps_its_slash () =
-  Alcotest.(check bool)
-    "w-[calc(2px/2)] divides" true
-    (Astring.String.is_infix ~affix:"width: calc(2px / 2)"
-       (css_of "w-[calc(2px/2)]"));
-  Alcotest.(check bool)
-    "w-1/2 is still a fraction" true
-    (Astring.String.is_infix ~affix:"width: 50%" (css_of "w-1/2"))
+  check_declarations "w-[calc(2px/2)]" [ "width:calc(2px/2)" ];
+  check_declarations "w-1/2" [ "width:50%" ]
 
 (* The px step exists on the logical sizes too: block-px and inline-px used to
    be unknown classes. *)
 let test_logical_px_step () =
-  Alcotest.(check bool)
-    "block-px is 1px" true
-    (Astring.String.is_infix ~affix:"block-size: 1px" (css_of "block-px"));
-  Alcotest.(check bool)
-    "inline-px is 1px" true
-    (Astring.String.is_infix ~affix:"inline-size: 1px" (css_of "inline-px"))
+  check_declarations "block-px" [ "block-size:1px" ];
+  check_declarations "inline-px" [ "inline-size:1px" ]
 
 (* v4 resolves a named size through the namespaces the family lists ahead of the
    container scale, so a theme that sets both --spacing-sm and --container-sm
@@ -539,16 +472,51 @@ let test_arbitrary_aspect_spelling () =
       match Tw.of_string cls with
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u))
-    [ "aspect-[16/9]"; "aspect-[16.50/9]"; "aspect-[1.333]"; "aspect-16/9" ]
+    [
+      "aspect-[16/9]";
+      "aspect-[16.50/9]";
+      "aspect-[1.333]";
+      "aspect-16/9";
+      "aspect-[16_/_9]";
+      "aspect-[foo]";
+      "aspect-[calc(1+2)]";
+    ]
 
-(* The bracket holds a ratio or a number, so a word is not an aspect. *)
-let test_arbitrary_aspect_rejects_non_ratio () =
+(* [aspect-[...]] is a token-stream site, not an arbitrary-length one: the CLI
+   validates nothing inside the bracket and hands the text to [aspect-ratio] as
+   written. Measured against tailwindcss 4.3.3. *)
+let test_arbitrary_aspect_token_stream () =
+  List.iter
+    (fun (cls, decl) -> Test_helpers.check_declarations cls [ decl ])
+    [
+      ("aspect-[foo]", "aspect-ratio:foo");
+      ("aspect-[abc]", "aspect-ratio:abc");
+      ("aspect-[-1]", "aspect-ratio:-1");
+      ("aspect-[0x4]", "aspect-ratio:0x4");
+      ("aspect-[1_0]", "aspect-ratio:1 0");
+      ("aspect-[16/abc]", "aspect-ratio:16/abc");
+      (* The quarter-multiple gate reads a bare [aspect-8.5/11]; inside a
+         bracket the author writes CSS, so no part is rounded away. *)
+      ("aspect-[1.23/4.56]", "aspect-ratio:1.23/4.56");
+      (* A ratio comes back spelled as written rather than re-printed, so [16/9]
+         keeps its spacing; both tools' minifiers then drop the spaces an
+         [16_/_9] decodes to. *)
+      ("aspect-[16/9]", "aspect-ratio:16/9");
+      ("aspect-[16_/_9]", "aspect-ratio:16/9");
+      (* The CLI's own minifier folds this to [3]; cascade leaves the math
+         alone, as it does for every other opaque declaration. *)
+      ("aspect-[calc(1+2)]", "aspect-ratio:calc(1 + 2)");
+    ]
+
+(* Anything that can end the declaration or swallow the rest of the rule names
+   no utility, which is the one thing the CLI does refuse here. *)
+let test_arbitrary_aspect_rejects_unsafe () =
   List.iter
     (fun cls ->
       match Tw.of_string cls with
       | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
       | Error (`Msg _) -> ())
-    [ "aspect-[abc]"; "aspect-[16/abc]"; "aspect-[]" ]
+    [ "aspect-[]"; "aspect-[a;b]"; "aspect-[a}b]" ]
 
 (* An [--aspect-*] or [--container-*] token the project declared in its [@theme]
    names a value the built-in scale has no slot for. Tailwind generates the
@@ -591,6 +559,24 @@ let typed_prime () =
   check_typed_class "w-4" (w 4);
   check_typed_class "size-4" (size 4)
 
+(* A spacing step is a non-negative multiple of 0.25
+   ([isValidSpacingMultiplier]), so the CLI emits for [w-1.75] and for nothing
+   between the quarters. The sizing families read the same scale the inset ones
+   do. *)
+let spacing_step_is_a_quarter_multiple () =
+  check_declarations "w-1.5" [ "width:calc(var(--spacing)*1.5)" ];
+  check_declarations "w-1.75" [ "width:calc(var(--spacing)*1.75)" ];
+  check_declarations "h-0.25" [ "height:calc(var(--spacing)*.25)" ];
+  let reject c = check_invalid_input (module Tw.Sizing.Handler) c in
+  reject "w-1.7";
+  reject "h-1.7";
+  reject "size-1.7";
+  reject "min-w-1.7";
+  reject "max-h-1.7";
+  reject "inline-1.7";
+  reject "w-0.3";
+  reject "w-0.125"
+
 let tests =
   [
     test_case "typed constructors: half-step" `Quick typed_prime;
@@ -622,13 +608,17 @@ let tests =
     test_case "logical sizing sorts last" `Quick logical_sizing_sorts_last;
     test_case "arbitrary aspect spelling" `Quick test_arbitrary_aspect_spelling;
     test_case "project theme tokens" `Quick test_project_theme_tokens;
-    test_case "arbitrary aspect rejects non-ratio" `Quick
-      test_arbitrary_aspect_rejects_non_ratio;
+    test_case "arbitrary aspect token stream" `Quick
+      test_arbitrary_aspect_token_stream;
+    test_case "arbitrary aspect rejects unsafe values" `Quick
+      test_arbitrary_aspect_rejects_unsafe;
     test_case "sizing fraction interleave matches Tailwind" `Quick
       fraction_interleave_matches_tailwind;
     test_case "aspect precedes dimensions" `Quick aspect_precedes_dimensions;
     test_case "aspect candidate order" `Slow
       aspect_candidate_order_matches_tailwind;
+    test_case "spacing step is a quarter multiple" `Quick
+      spacing_step_is_a_quarter_multiple;
   ]
 
 let suite = ("sizing", tests)

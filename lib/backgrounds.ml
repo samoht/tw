@@ -31,16 +31,6 @@ module Handler = struct
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
 
-  (* An arbitrary url() value may already carry its own quotes (url('a.png') /
-     url("a.png")). Drop a matching outer pair so the typed [Url] pretty-printer
-     canonicalises it instead of double-wrapping it into the broken
-     url("'a.png'"). *)
-  let strip_outer_quotes s =
-    let n = String.length s in
-    if n >= 2 && (s.[0] = '\'' || s.[0] = '"') && s.[n - 1] = s.[0] then
-      String.sub s 1 (n - 2)
-    else s
-
   (* The named background positions, as [bg-<position>] spells them. *)
   module Position = struct
     type t =
@@ -143,7 +133,9 @@ module Handler = struct
     (* Bracket notation: bg-[image:<gradient/literal>] → background-image, with
        the image: hint kept in the class name *)
     | Bg_bracket_image of string * Css.background_image
-    (* Bracket notation: bg-[url(...)] → background-image *)
+    (* Bracket notation: bg-[url(...)] → background-image, holding the whole
+       url() as written so the token reader, not tw, resolves its quotes and
+       escapes *)
     | Bg_bracket_url of string
     (* Bracket notation: bg-[image:url(...)] → background-image (image: hint
        forces background-image; selector keeps the image: form) *)
@@ -318,8 +310,8 @@ module Handler = struct
     | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_image (v, _) -> "bg-[image:" ^ v ^ "]"
-    | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
-    | Bg_bracket_image_url v -> "bg-[image:url(" ^ v ^ ")]"
+    | Bg_bracket_url v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_image_url v -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
     | Bg_bracket_linear_gradient (v, _) -> "bg-[" ^ v ^ "]"
     | Bg_bracket_color_var_opacity (v, opacity) ->
@@ -1517,15 +1509,14 @@ module Handler = struct
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
     | Bg_bracket_image (_, img) -> style [ Css.background_image img ]
-    (* A [url()] is the one place an arbitrary value keeps its bare [_], so only
-       the [\_] escape is undone and a path spelled either way names the same
-       file. *)
-    | Bg_bracket_url url ->
-        let url = strip_outer_quotes (Parse.unescape_underscores url) in
-        style [ Css.background_image (Url url) ]
-    | Bg_bracket_image_url url ->
-        let url = strip_outer_quotes (Parse.unescape_underscores url) in
-        style [ Css.background_image (Url url) ]
+    (* The whole [url()] is kept, so cascade reads the token rather than tw
+       slicing the file name out of it: the quotes are the tokeniser's, and an
+       escape in it stands for one character of the URL. [of_class] refuses a
+       value the token reader will not take, so [None] names nothing. *)
+    | Bg_bracket_url v | Bg_bracket_image_url v -> (
+        match Parse.url_token (Parse.decode_arbitrary_value v) with
+        | Some url -> style [ Css.background_image (Url url) ]
+        | None -> style [])
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
@@ -1953,8 +1944,10 @@ module Handler = struct
                  value is a [url(...)] literal, a [var(...)] reference, or a
                  literal image (e.g. a gradient). *)
               let v = String.sub inner 6 (String.length inner - 6) in
-              if String.length v > 4 && String.sub v 0 4 = "url(" then
-                Ok (Bg_bracket_image_url (String.sub v 4 (String.length v - 5)))
+              if String.starts_with ~prefix:"url(" v then
+                match Parse.url_token (Parse.decode_arbitrary_value v) with
+                | Some _ -> Ok (Bg_bracket_image_url v)
+                | None -> Error (`Msg ("Unknown bg bracket image: " ^ v))
               else if Parse.is_var v then Ok (Bg_bracket_image_var v)
               else
                 match parse_bracket_image v with
@@ -1964,9 +1957,10 @@ module Handler = struct
               Ok
                 (Bg_bracket_url_var
                    (String.sub inner 4 (String.length inner - 4)))
-          | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
-              let url_content = String.sub inner 4 (String.length inner - 5) in
-              Ok (Bg_bracket_url url_content)
+          | _ when String.starts_with ~prefix:"url(" inner -> (
+              match Parse.url_token (Parse.decode_arbitrary_value inner) with
+              | Some _ -> Ok (Bg_bracket_url inner)
+              | None -> Error (`Msg ("Unknown bg bracket url: " ^ inner)))
           | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
           | _ -> (
               (* Try parsing as background-image (gradients, urls,

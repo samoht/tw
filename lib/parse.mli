@@ -65,11 +65,22 @@ val extract_var_name : string -> string
     name without the [--] prefix, retaining an optional fallback after a comma.
     If [s] is not exactly one valid reference, it returns [s] unchanged. *)
 
+val bracket_close : string -> int option
+(** [bracket_close s] is the index of the [\]] closing the [\[] that [s] starts
+    with, and [None] when [s] does not start with one or leaves it open. Nested
+    brackets are matched.
+
+    A [\]] the value quotes or escapes belongs to the value: strings and the
+    backslash escape are read as CSS Syntax 3 sec. 4.3 reads them, so
+    [[background-image:url('a]b')\]] closes on its last bracket. A string left
+    open runs to the end of [s], so nothing after it closes the bracket. *)
+
 val is_bracket_value : string -> bool
 (** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
     closing bracket has to be the last character, so a suffix carrying a second
     bracket - one bracket with a bracket modifier, or two brackets in a row - is
-    not one bracket value. *)
+    not one bracket value. It is {!bracket_close} landing on the last character,
+    and reads quotes and escapes the same way. *)
 
 val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
@@ -77,7 +88,20 @@ val bracket_inner : string -> string
 
 val decode_underscores : string -> string
 (** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
-    [\_] into a literal underscore. *)
+    [\_] into a literal underscore.
+
+    The argument list of a [url()] is left as written, because a [_] there is
+    part of a file name: [image-set(url('a_b.png')_1x)] keeps the first
+    underscore and gives the second a space.
+
+    The first argument of a [var()] or a [theme()] keeps its bare [_] too,
+    because it names a custom property, while [\_] there still unescapes. The
+    rest of the call reads normally, so [var(--a_b,_c_d)] is [var(--a_b, c d)].
+
+    A name is matched on the word itself or on one ending in [_url], [_var] or
+    [_theme], since a class writes a space as [_]: the whole of [0_0_0_var] is
+    one function name, and [shadow-[0_0_0_var(--my_var)]] keeps the property it
+    references. So [myurl(a_b)] and [a-url(a_b)] decode their arguments. *)
 
 val unescape_underscores : string -> string
 (** [unescape_underscores s] turns the [\_] of an arbitrary value into a literal
@@ -96,6 +120,15 @@ val decode_arbitrary_value : string -> string
     CSS value string suitable for Cascade readers. This converts underscores to
     spaces and normalizes omitted whitespace around binary [+] and [-] operators
     inside CSS math functions such as [calc()]. *)
+
+val url_token : string -> string option
+(** [url_token s] reads [s] as one whole CSS [url()] token and returns the URL
+    it names, with quotes and escapes resolved: [url(a\]b)], [url(a\\\]b)] and
+    [url('a\]b')] all name [a\]b]. [None] when [s] is not one whole token.
+
+    A utility holding a [url()] as it was written reads it back through this
+    rather than slicing the file name out of the text, which would carry the
+    backslash of an escape into the value. *)
 
 val normalize_css_math_operators : string -> string
 (** [normalize_css_math_operators s] inserts the spaces CSS math functions

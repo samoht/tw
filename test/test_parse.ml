@@ -341,10 +341,139 @@ let test_underscore_escape () =
   reads "another escape is left alone" {|a\.b|} {|a\.b|};
   reads "a trailing backslash is kept" {|a\|} {|a\|}
 
+(* A quoted []] belongs to the value, not to the bracket wrapping it, so
+   [is_bracket_value] tokenises CSS strings and the backslash escape the way CSS
+   Syntax 3 sec. 4.3 does. Every family reads its bracket through that one
+   answer, which is why the families below span the whole library. A string left
+   open runs to the end of the input, so no []] after it closes the value and
+   the class is refused, which is what Tailwind does with an unclosed [url(]
+   argument. *)
+let test_quoted_bracket_stays_inside_the_value () =
+  let holds name input expected =
+    Alcotest.(check bool) name expected (Tw.Parse.is_bracket_value input)
+  in
+  holds "a quoted bracket does not close the value" {|[url('a]b')]|} true;
+  holds "a double-quoted bracket does not close it either" {|['My]Font']|} true;
+  holds "an escaped bracket does not close it" {|[url(a\]b)]|} true;
+  holds "an escaped quote keeps the string open" {|['a\']b']|} true;
+  holds "a plain value still reads" "[10px]" true;
+  holds "an unclosed string swallows the closing bracket" {|[url('a]b)]|} false;
+  holds "an unclosed string with no bracket in it also swallows it"
+    {|[url('a)]|} false;
+  holds "a trailing backslash escapes the closing bracket" {|[a\]|} false;
+  holds "two brackets are not one value" "[10px][20px]" false;
+  holds "a quoted bracket does not hide a second bracket" {|[url('a]b')][20px]|}
+    false;
+  (* cascade writes a CSS string with double quotes and a url() unquoted, both
+     of which the canonical differ reads as the value Tailwind writes. *)
+  Test_helpers.check_declarations {|bg-[url('a]b')]|}
+    [ {|background-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|font-['My]Font']|}
+    [ {|font-family:"My]Font"|} ];
+  Test_helpers.check_declarations {|font-["My]Font"]|}
+    [ {|font-family:"My]Font"|} ];
+  Test_helpers.check_declarations {|mask-[url('a]b')]|}
+    [ {|-webkit-mask-image:url(a]b)|}; {|mask-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|list-image-[url('a]b')]|}
+    [ {|list-style-image:url(a]b)|} ];
+  Test_helpers.check_declarations {|after:content-['a]b']|}
+    [ {|--tw-content:"a]b"|}; "content:var(--tw-content)" ];
+  round_trips {|shadow-[0_0_0_'a]b']|};
+  (* an unclosed string, and a second bracket the string does not hide *)
+  List.iter unknown
+    [
+      {|bg-[url('a]b)]|};
+      {|bg-[url('a)]|};
+      {|font-['My]Font]|};
+      "w-[10px][20px]";
+      "text-[12px][14px]";
+      {|bg-[url(a\]b)][20px]|};
+    ]
+
+(* Tailwind reads an arbitrary value as a value tree and decodes the text of
+   every node except the arguments of a [url()], which stay verbatim: a [_]
+   there is part of a file name, not a space. The function name is matched the
+   way Tailwind matches it, on [url] or a name ending in [_url], so a word that
+   merely ends in the letters decodes its arguments. Pinned against
+   @tailwindcss/cli 4.3.3. *)
+let test_underscore_inside_url () =
+  let reads name input expected =
+    Alcotest.(check string) name expected (Tw.Parse.decode_underscores input)
+  in
+  reads "a quoted url keeps its underscore" "url('a_b.png')" "url('a_b.png')";
+  reads "an unquoted url keeps its underscore" "url(a_b.png)" "url(a_b.png)";
+  reads "a url keeps the escape as written" {|url('a\_b.png')|}
+    {|url('a\_b.png')|};
+  reads "only the url argument is kept" "image-set(url('a_b.png')_1x)"
+    "image-set(url('a_b.png') 1x)";
+  reads "the text after a url is decoded" "url('a_b.png')_center"
+    "url('a_b.png') center";
+  reads "each url of a list is kept" "url(a_b),url(c_d)" "url(a_b),url(c_d)";
+  reads "a url nested in a function is kept" "calc(url(a_b))" "calc(url(a_b))";
+  reads "a url argument list balances its parens" "url(a(b_c)d)" "url(a(b_c)d)";
+  reads "a name merely ending in url decodes" "myurl(a_b)" "myurl(a b)";
+  reads "a hyphen keeps the name apart" "a-url(a_b)" "a-url(a b)";
+  reads "a name ending in _url keeps its arguments" "_url(a_b)" " url(a_b)";
+  reads "url is matched case-sensitively" "URL(a_b)" "URL(a b)";
+  reads "an escaped paren opens no url" {|url\(a_b\)|} {|url\(a b\)|};
+  reads "a quoted string outside a url decodes" "image-set('a_b.png'_1x)"
+    "image-set('a b.png' 1x)"
+
+(* The first argument of a [var()] or a [theme()] names a custom property, so a
+   [_] there belongs to the name. Tailwind exempts that one node and reads the
+   rest of the call normally; the name of the node itself decodes, which is what
+   keeps [0_0_0_var(--my_var)] - one function node named [0_0_0_var] - both a
+   shadow and a reference to [--my_var]. Only the bare [_] is exempt, the [\_]
+   escape still unescapes, which is where this differs from a [url()] argument
+   list. Pinned against @tailwindcss/cli 4.3.3. *)
+let test_underscore_inside_var_and_theme () =
+  let reads name input expected =
+    Alcotest.(check string) name expected (Tw.Parse.decode_underscores input)
+  in
+  reads "a var name keeps its underscore" "var(--my_var)" "var(--my_var)";
+  reads "a theme key keeps its underscore" "theme(--my_key)" "theme(--my_key)";
+  reads "the node name decodes around it" "0_0_0_var(--my_var)"
+    "0 0 0 var(--my_var)";
+  reads "a name ending in _var takes the rule" "my_var(--a_b)" "my var(--a_b)";
+  reads "a name ending in _theme takes it too" "my_theme(--a_b)"
+    "my theme(--a_b)";
+  reads "a later argument still decodes" "var(--a_b,_c_d)" "var(--a_b, c d)";
+  reads "a nested call keeps its own name" "var(--a_b,_var(--c_d))"
+    "var(--a_b, var(--c_d))";
+  reads "the escape still unescapes" {|var(--a\_b)|} "var(--a_b)";
+  reads "a first argument that opens a call is no word" "var(foo(--a_b))"
+    "var(foo(--a b))";
+  reads "the word runs to the first break" "var(--a_b/2)" "var(--a_b/2)";
+  reads "a leading underscore is part of the word" "var(_--a_b)" "var(_--a_b)";
+  reads "an empty argument list reads" "my_var()" "my var()";
+  reads "another name decodes its arguments" "foo(--a_b)" "foo(--a b)";
+  reads "var is matched case-sensitively" "VAR(--a_b)" "VAR(--a b)";
+  reads "two calls each keep their name" "var(--a_b)_var(--c_d)"
+    "var(--a_b) var(--c_d)";
+  reads "a url inside a later argument is still verbatim"
+    "var(--a_b,_url(c_d.png))" "var(--a_b, url(c_d.png))";
+  (* What the exemption saves a shadow from: a name decoded to [--my var] splits
+     at the space, so the reference reaching the sheet is the first half of a
+     custom property nothing declares, and nothing says so. *)
+  Test_helpers.check_declarations {|[--x:var(--my_var)]|}
+    [ "--x:var(--my_var)" ];
+  Test_helpers.check_declarations "shadow-[0_0_0_var(--my_var)]"
+    [
+      "--tw-shadow:0 0 0 var(--tw-shadow-color,var(--my_var))";
+      "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)";
+    ];
+  Test_helpers.check_declarations {|[--x:var(--a_b,_c_d)]|}
+    [ "--x:var(--a_b,c d)" ]
+
 let tests =
   Alcotest.
     [
       test_case "underscore escape" `Quick test_underscore_escape;
+      test_case "a quoted bracket stays inside the value" `Quick
+        test_quoted_bracket_stays_inside_the_value;
+      test_case "underscore inside a url" `Quick test_underscore_inside_url;
+      test_case "underscore inside a var or theme call" `Quick
+        test_underscore_inside_var_and_theme;
       test_case "parse backslash escape in selector" `Quick
         test_escape_in_selector;
       test_case "double bracket class rejected" `Quick

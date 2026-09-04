@@ -733,6 +733,19 @@ let shorten_hex_str hex_str =
     else hex_no_hash
   else hex_no_hash
 
+(* An arbitrary colour reaches CSS in the spelling the class wrote it in, which
+   is what Tailwind emits: [bg-[#f00]] gives [#f00] and [bg-[#ffffffff]] all
+   eight digits, whatever the shortest equivalent would be. Cascade's reader is
+   what carries that spelling alongside the decoded bytes; [Css.hex] keeps the
+   bytes alone and the printer then spells them in full. *)
+let authored_hex hex_str =
+  let spelled =
+    if String.starts_with ~prefix:"#" hex_str then hex_str else "#" ^ hex_str
+  in
+  match Css.parse_color spelled with
+  | Some (Css.Authored_hex _ as c) -> c
+  | Some _ | None -> Css.hex spelled
+
 let is_rgb_call s =
   String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s
 
@@ -1077,16 +1090,8 @@ let to_css ?theme color shade =
   match color with
   | Black -> Css.hex "#000"
   | White -> Css.hex "#fff"
-  | Hex hex ->
-      (* For arbitrary hex colors, always output valid CSS with # prefix. Per
-         MDN spec, hex colors MUST have # prefix. Shorten hex for CSS output
-         (e.g., 0088cc -> 08c) while class names preserve original. *)
-      let hex_value =
-        if String.starts_with ~prefix:"#" hex then
-          String.sub hex 1 (String.length hex - 1)
-        else hex
-      in
-      Css.hex ("#" ^ shorten_hex_str hex_value)
+  (* The class named the spelling, so that is the one CSS gets, [#] and all. *)
+  | Hex hex -> authored_hex hex
   | Oklch oklch -> css_color_of_oklch oklch
   | Css c -> c
   | Theme_named name -> (
@@ -1267,70 +1272,63 @@ let check_shade ~utility color shade =
 
 (** Background color utilities *)
 
-(* Theme layer color variable ordering map. See build.mli for detailed layer
-   ordering documentation. *)
-let theme_color_order_map =
+(* Every colour the palette defines, in the order Tailwind's [@theme] declares
+   them: the shaded families, then the four v4.3.3 added after [stone], then the
+   two base colours. Both order maps below and [all_palette_declarations] read
+   this one list, so a colour added here cannot silently take the unknown-colour
+   slot in either. *)
+let palette_names =
   [
-    (* Transparent first *)
-    ("transparent", 0);
-    (* Regular colors with shades *)
-    ("red", 1);
-    ("orange", 2);
-    ("amber", 3);
-    ("yellow", 4);
-    ("lime", 5);
-    ("green", 6);
-    ("emerald", 7);
-    ("teal", 8);
-    ("cyan", 9);
-    ("sky", 10);
-    ("blue", 11);
-    ("indigo", 12);
-    ("violet", 13);
-    ("purple", 14);
-    ("fuchsia", 15);
-    ("pink", 16);
-    ("rose", 17);
-    ("slate", 18);
-    ("gray", 19);
-    ("zinc", 20);
-    ("neutral", 21);
-    ("stone", 22);
-    (* Base colors come last *)
-    ("black", 23);
-    ("white", 24);
+    "red";
+    "orange";
+    "amber";
+    "yellow";
+    "lime";
+    "green";
+    "emerald";
+    "teal";
+    "cyan";
+    "sky";
+    "blue";
+    "indigo";
+    "violet";
+    "purple";
+    "fuchsia";
+    "pink";
+    "rose";
+    "slate";
+    "gray";
+    "zinc";
+    "neutral";
+    "stone";
+    "mauve";
+    "olive";
+    "mist";
+    "taupe";
+    "black";
+    "white";
   ]
 
-(* Utilities layer color ordering map for conflict resolution. *)
+(* Theme layer color variable ordering map. See build.mli for detailed layer
+   ordering documentation. Tailwind declares no [--color-transparent] token, but
+   the keyword is a colour a utility can name, so it leads the ranking. *)
+let theme_color_order_map =
+  List.mapi (fun index name -> (name, index)) ("transparent" :: palette_names)
+
+(* Utilities layer color ordering map for conflict resolution. The utilities
+   layer ranks the same names the theme layer does, but by its own rule:
+   [transparent] and [black] lead and the rest are alphabetical. Reading the
+   names off the theme map is what keeps a colour added there from silently
+   taking the unknown-colour slot here. *)
 let utilities_color_order_map =
-  [
-    (* Basic colors come first *)
-    ("transparent", 0);
-    ("black", 1);
-    ("amber", 2);
-    ("blue", 3);
-    ("cyan", 4);
-    ("emerald", 5);
-    ("fuchsia", 6);
-    ("gray", 7);
-    ("green", 8);
-    ("indigo", 9);
-    ("lime", 10);
-    ("neutral", 11);
-    ("orange", 12);
-    ("pink", 13);
-    ("purple", 14);
-    ("red", 15);
-    ("rose", 16);
-    ("sky", 17);
-    ("slate", 18);
-    ("stone", 19);
-    ("teal", 20);
-    ("violet", 21);
-    ("white", 22);
-    ("yellow", 23);
-    ("zinc", 24);
-  ]
+  let leading = [ "transparent"; "black" ] in
+  let alphabetical =
+    List.sort String.compare
+      (List.filter_map
+         (fun (name, _) -> if List.mem name leading then None else Some name)
+         theme_color_order_map)
+  in
+  List.mapi (fun index name -> (name, index)) (leading @ alphabetical)
 
 (* Get theme layer order for a color variable. Returns (priority=2, suborder)
    where 2 indicates these are theme layer variables. *)
@@ -1817,41 +1815,9 @@ module Handler = struct
   let color_binding ?theme c shade =
     Var.binding (color_var c shade) (get_color_value ?theme c shade)
 
-  (* Every colour the palette defines, in theme order. [\@import "tailwindcss"
-     theme(static)] emits the whole theme rather than only the tokens a utility
-     used, so the sheet needs them all. *)
-  let palette_names =
-    [
-      "red";
-      "orange";
-      "amber";
-      "yellow";
-      "lime";
-      "green";
-      "emerald";
-      "teal";
-      "cyan";
-      "sky";
-      "blue";
-      "indigo";
-      "violet";
-      "purple";
-      "fuchsia";
-      "pink";
-      "rose";
-      "slate";
-      "gray";
-      "zinc";
-      "neutral";
-      "stone";
-      "mauve";
-      "olive";
-      "mist";
-      "taupe";
-      "black";
-      "white";
-    ]
-
+  (* [\@import "tailwindcss" theme(static)] emits the whole theme rather than
+     only the tokens a utility used, so the sheet needs every palette colour.
+     [transparent] is not one: Tailwind declares no token for it. *)
   let all_palette_declarations ?theme () =
     List.concat_map
       (fun name ->
@@ -1933,10 +1899,11 @@ module Handler = struct
             | Some value -> parse_theme_color value
             | None -> to_css ?theme c (if is_base_color c then 500 else shade)))
 
-  (* Aliases for color constructors/functions that will be shadowed by open
-     Css *)
+  (* Aliases for names that open Css shadows: the color constructors below, and
+     [Pp], whose byte formatter cascade's own [Pp] does not carry. *)
   let mk_color_hex s : color = Hex s
   let color_of_string = of_string
+  let hex_byte = Pp.hex_byte
 
   open Style
   open Css
@@ -2036,10 +2003,14 @@ module Handler = struct
           | _ -> None)
       | None -> (
           (* A [#] prefix only names a colour when what follows is a hex
-             spelling; [Css.hex] raises on anything else, and this runs inside
-             [of_class]. *)
+             spelling, so this reads the digits rather than raising on them
+             inside [of_class]. Reading them through the parser is what keeps
+             the spelling the bracket wrote, which is the one Tailwind emits. *)
           let starts_with_hash = String.length inner > 0 && inner.[0] = '#' in
-          if starts_with_hash then Css.hex_opt inner
+          if starts_with_hash then
+            match Css.hex_opt inner with
+            | Some _ -> Some (authored_hex inner)
+            | None -> None
           else
             let normalized = Parse.decode_underscores inner in
             (* Any colour CSS knows wins over the palette, keywords and system
@@ -2478,10 +2449,6 @@ module Handler = struct
         Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
     | Var _ | Calc _ -> Alpha_unresolvable
 
-  let to_hex_byte n =
-    let hex = "0123456789abcdef" in
-    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
-
   (** Convert a typed CSS color to a hex string for Tailwind parity *)
   let css_color_to_hex (c : Css.color) : Css.color option =
     let hex_of_bytes bytes = Some (Css.hex ("#" ^ shorten_hex_str bytes)) in
@@ -2489,17 +2456,16 @@ module Handler = struct
     | Rgb (Channels { r; g; b }) -> (
         match (channel_to_int r, channel_to_int g, channel_to_int b) with
         | Some r, Some g, Some b ->
-            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b)
         | _ -> None)
     | Rgba { rgb = Channels { r; g; b }; a; _ } -> (
         match
           (channel_to_int r, channel_to_int g, channel_to_int b, fold_alpha a)
         with
         | Some r, Some g, Some b, Opaque ->
-            hex_of_bytes (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b)
         | Some r, Some g, Some b, Alpha_byte a ->
-            hex_of_bytes
-              (to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b ^ to_hex_byte a)
+            hex_of_bytes (hex_byte r ^ hex_byte g ^ hex_byte b ^ hex_byte a)
         | _ -> None)
     | Hsl _ -> (
         (* Fold through cascade's own colour path: it knows every hue unit and
@@ -2510,20 +2476,21 @@ module Handler = struct
           Cascade.Values.nonkeyword_color (Cascade.Values.normalize_color c)
         with
         | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-            let hex = to_hex_byte r ^ to_hex_byte g ^ to_hex_byte b in
-            hex_of_bytes (if a = 255 then hex else hex ^ to_hex_byte a)
+            let hex = hex_byte r ^ hex_byte g ^ hex_byte b in
+            hex_of_bytes (if a = 255 then hex else hex ^ hex_byte a)
         | _ -> None)
     | _ -> None
 
-  (** Resolve a typed [Css.color] to its emission form. Hex colors are
-      shortened, color functions are converted to hex where possible. This
-      mirrors the logic that was previously inlined in each [to_style] branch.
+  (** Resolve a typed [Css.color] to its emission form. A hex keeps the spelling
+      the bracket wrote, a colour function is converted to hex where possible.
   *)
   let resolve_bracket_css_color (css_color : Css.color) : Css.color =
     match css_color with
-    | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
+    (* The bracket's own spelling is the one Tailwind writes back. *)
+    | Authored_hex _ -> css_color
+    | Hex { r; g; b; a } ->
         let value = hex_string_of_rgb (r, g, b) in
-        let value = if a = 255 then value else value ^ to_hex_byte a in
+        let value = if a = 255 then value else value ^ hex_byte a in
         Css.hex ("#" ^ shorten_hex_str value)
     | _ -> (
         match css_color_to_hex css_color with
@@ -2901,6 +2868,12 @@ module Handler = struct
     let c = Cascade.Values.nonkeyword_color css_color in
     let c = match css_color_to_hex c with Some hex -> hex | None -> c in
     match c with
+    (* The bracket's own spelling, where it is the three or six digits the alpha
+       arithmetic below reads. A spelling carrying an alpha byte folds to its
+       six digits first, since that is the form [hex_to_rgb] decodes. *)
+    | Authored_hex { value; _ }
+      when String.length value = 3 || String.length value = 6 ->
+        Some (mk_color_hex value)
     | Hex { r; g; b; _ } | Authored_hex { r; g; b; _ } ->
         Some (mk_color_hex (hex_string_of_rgb (r, g, b)))
     | _ -> None
@@ -3469,6 +3442,7 @@ let opacity_to_percent = Handler.opacity_to_percent
 let opacity_var_bare = Handler.opacity_var_bare
 let opacity_var_bare_of = Handler.opacity_var_name
 let shorten_hex_str = shorten_hex_str
+let authored_hex = authored_hex
 let bracket_color_opacity_style = Handler.bracket_color_opacity_style
 
 type bracket_opacity = Handler.bracket_opacity =

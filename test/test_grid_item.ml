@@ -93,22 +93,15 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"grid_item suborder matches Tailwind" shuffled
 
-(* An arbitrary span is a count, a named line or a var(). The docs pages carry a
-   [<value>] placeholder, which is none of those and emitted an invalid
-   grid-column. *)
-let test_invalid_arbitrary_span () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* The three shapes an arbitrary span is usually written in: a count, a named
+   line and a var(). Anything else the bracket holds is passed through; see
+   {!test_arbitrary_span_token_stream}. *)
+let test_arbitrary_span_accepted () =
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "col-span-[<value>]";
-  rejected "row-span-[<value>]";
   accepted "col-span-[3]";
   accepted "col-span-[mycol]";
   accepted "col-span-[var(--my-variable)]"
@@ -132,6 +125,24 @@ let test_arbitrary_span_var () =
     "col-span-[var(--my-variable)]";
   has "grid-row: span var(--my-variable) / span var(--my-variable)"
     "row-span-[var(--my-variable)]"
+
+(* The bracket is a token stream Tailwind hands to the declaration unvalidated.
+   It goes through the arbitrary-value pipeline, not OCaml's number reader, so
+   [calc()] reaches the property and a spelling only OCaml reads as a number
+   ([0x4], [1_0]) is emitted as written rather than folded to a span count. The
+   docs' [<value>] placeholder is passed through the same way, as the pinned CLI
+   does. *)
+let test_arbitrary_span_token_stream () =
+  Test_helpers.check_declarations "col-span-[calc(1+2)]"
+    [ "grid-column:span calc(1 + 2)/span calc(1 + 2)" ];
+  Test_helpers.check_declarations "col-span-[0x4]"
+    [ "grid-column:span 0x4/span 0x4" ];
+  Test_helpers.check_declarations "col-span-[1_0]"
+    [ "grid-column:span 1 0/span 1 0" ];
+  Test_helpers.check_declarations "row-span-[calc(1+2)]"
+    [ "grid-row:span calc(1 + 2)/span calc(1 + 2)" ];
+  Test_helpers.check_declarations "col-span-[<value>]"
+    [ "grid-column:span <value>/span <value>" ]
 
 (* [col-[...]] and [row-start-[...]] take grid lines. A bracket the grid-line
    grammar cannot read is accepted and then raises out of [to_css], a pure
@@ -176,8 +187,10 @@ let tests =
       test_grid_line_underscore_escape;
     test_case "grid_item of_string - valid values" `Quick of_string_valid;
     test_case "grid_item of_string - invalid values" `Quick of_string_invalid;
-    test_case "invalid arbitrary span" `Quick test_invalid_arbitrary_span;
+    test_case "arbitrary span accepted" `Quick test_arbitrary_span_accepted;
     test_case "arbitrary span var()" `Quick test_arbitrary_span_var;
+    test_case "arbitrary span token stream" `Quick
+      test_arbitrary_span_token_stream;
     test_case "grid_item suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "invalid arbitrary grid line" `Quick

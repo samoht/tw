@@ -178,6 +178,26 @@ let test_arbitrary_calc () =
        (css "left-[calc(50%+var(--offset))]"));
   check "left-[calc(5%-2px)]"
 
+(* An arbitrary value is read by the whole decoder, not by its last stage alone:
+   [_] is a space, [--spacing(n)] expands to the spacing product, and only then
+   are the math operators re-spaced. The bare suffix keeps its own reading,
+   where a step OCaml's number reader accepts but Tailwind does not ([top-0x4],
+   [top-1_0]) is still no utility. *)
+let test_arbitrary_value_decoder_stages () =
+  Test_helpers.check_declarations "top-[calc(1px_+_1px)]"
+    [ "top:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "inset-[calc(1px_+_1px)]"
+    [ "inset:calc(1px + 1px)" ];
+  Test_helpers.check_declarations "left-[--spacing(4)]"
+    [ "left:calc(var(--spacing)*4)" ];
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "top-0x4";
+  rejected "top-1_0"
+
 (* An arbitrary inset whose body is not a whole calc expression is not a
    utility. In [-left-[0)/*1]] the stray ')' closes nothing and the '/*' opens a
    comment that never ends, so Tailwind emits no rule for it. *)
@@ -347,6 +367,118 @@ let logical_inline_rejects_non_utilities () =
   reject "start-1/0";
   reject "start-"
 
+(* Every inset side reads an arbitrary length, and reads it under either sign.
+   The pinned CLI emits [inset-inline-start: 4px] for [start-[4px]] and [top:
+   calc(4px * -1)] for [-top-[4px]]; tw folds the negation into the literal,
+   which [arbitrary_insets_match_tailwind] holds to the CLI. *)
+let arbitrary_length_on_every_inset_side () =
+  let open Test_helpers in
+  check_declarations "start-[4px]" [ "inset-inline-start:4px" ];
+  check_declarations "end-[4px]" [ "inset-inline-end:4px" ];
+  check_declarations "start-[var(--x)]" [ "inset-inline-start:var(--x)" ];
+  check_declarations "end-[calc(5%-2px)]" [ "inset-inline-end:calc(5% - 2px)" ];
+  check_declarations "-start-[4px]" [ "inset-inline-start:-4px" ];
+  check_declarations "-end-[4px]" [ "inset-inline-end:-4px" ];
+  check_declarations "-top-[4px]" [ "top:-4px" ];
+  check_declarations "-right-[4px]" [ "right:-4px" ];
+  check_declarations "-bottom-[4px]" [ "bottom:-4px" ];
+  check_declarations "-left-[4px]" [ "left:-4px" ];
+  check_declarations "-inset-[4px]" [ "inset:-4px" ];
+  check_declarations "-inset-x-[4px]" [ "inset-inline:-4px" ];
+  check_declarations "-inset-y-[4px]" [ "inset-block:-4px" ];
+  check_declarations "-inset-s-[4px]" [ "inset-inline-start:-4px" ];
+  check_declarations "-inset-e-[4px]" [ "inset-inline-end:-4px" ];
+  check_declarations "-inset-bs-[4px]" [ "inset-block-start:-4px" ];
+  check_declarations "-inset-be-[4px]" [ "inset-block-end:-4px" ];
+  check_declarations "-top-[var(--t)]" [ "top:calc(var(--t)*-1)" ];
+  (* the bracket text is the class name, so it has to survive the round trip *)
+  check "start-[4px]";
+  check "end-[4px]";
+  check "-top-[4px]";
+  check "-inset-bs-[4px]";
+  check "-start-[var(--x)]"
+
+(* The logical inline sides resolve a name the theme binds, the way every other
+   inset side does: the CLI reads [--inset-header] for [start-header]. *)
+let named_inset_on_logical_inline_sides () =
+  let themed =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("inset-header", "2rem") ]
+  in
+  let accepts cls =
+    match Tw.Position.Handler.of_class themed cls with
+    | Ok util ->
+        Alcotest.(check string)
+          "round-trips" cls
+          (Tw.Position.Handler.to_class util)
+    | Error (`Msg m) -> Alcotest.failf "%s with theme rejected: %s" cls m
+  in
+  accepts "start-header";
+  accepts "end-header";
+  (* and stays a non-utility when the theme binds no such name *)
+  let reject c =
+    match Tw.Position.Handler.of_class Tw.Scheme.default c with
+    | Error _ -> ()
+    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  in
+  reject "start-header";
+  reject "end-header"
+
+(* The values above against the pinned CLI, sheet for sheet. *)
+let arbitrary_insets_match_tailwind () =
+  let mk s =
+    match Tw.of_string s with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" s m
+  in
+  Test_helpers.check_ordering_matches ~test_name:"arbitrary insets"
+    (List.map mk
+       [
+         "start-[4px]";
+         "end-[4px]";
+         "-start-[4px]";
+         "-end-[4px]";
+         "-top-[4px]";
+         "-right-[4px]";
+         "-bottom-[4px]";
+         "-left-[4px]";
+         "-inset-[4px]";
+         "-inset-x-[4px]";
+         "-inset-y-[4px]";
+         "-inset-s-[4px]";
+         "-inset-e-[4px]";
+         "-inset-bs-[4px]";
+         "-inset-be-[4px]";
+       ])
+
+(* A spacing step is a non-negative multiple of 0.25
+   ([isValidSpacingMultiplier]), so the CLI emits for [top-1.25] and for nothing
+   between the quarters. The bare suffix is read as a plain decimal too, which
+   is what keeps the OCaml literal spellings out. *)
+let spacing_step_is_a_quarter_multiple () =
+  let open Test_helpers in
+  check_declarations "top-1.5" [ "top:calc(var(--spacing)*1.5)" ];
+  check_declarations "top-1.25" [ "top:calc(var(--spacing)*1.25)" ];
+  check_declarations "top-0.75" [ "top:calc(var(--spacing)*.75)" ];
+  check_declarations "start-1.5"
+    [ "inset-inline-start:calc(var(--spacing)*1.5)" ];
+  let reject c = check_invalid_input (module Tw.Position.Handler) c in
+  reject "top-1.7";
+  reject "top-0.3";
+  reject "top-1.1";
+  reject "top-0.125";
+  reject "-top-1.7";
+  reject "inset-1.7";
+  reject "inset-x-1.7";
+  reject "left-1.7";
+  reject "start-1.7";
+  reject "end-1.7";
+  reject "-start-1.7";
+  (* the plain-decimal reading of a bare suffix, which brackets do not share *)
+  reject "top-0x4";
+  reject "top-1_0";
+  reject "start-0x4";
+  reject "start-1_0"
+
 let tests =
   [
     test_case "inset and z" `Quick test_inset_and_z;
@@ -363,6 +495,8 @@ let tests =
     test_case "arbitrary var insets" `Quick test_arbitrary_var;
     test_case "spacing steps (fractional + px)" `Quick test_spacing_steps;
     test_case "arbitrary calc insets" `Quick test_arbitrary_calc;
+    test_case "arbitrary value decoder stages" `Quick
+      test_arbitrary_value_decoder_stages;
     test_case "unbalanced arbitrary inset rejected" `Quick
       test_unbalanced_arbitrary_rejected;
     test_case "position suborder matches Tailwind" `Quick
@@ -376,6 +510,14 @@ let tests =
     test_case "logical inline scale steps" `Quick logical_inline_scale_steps;
     test_case "logical inline rejects non-utilities" `Quick
       logical_inline_rejects_non_utilities;
+    test_case "arbitrary length on every inset side" `Quick
+      arbitrary_length_on_every_inset_side;
+    test_case "named inset on logical inline sides" `Quick
+      named_inset_on_logical_inline_sides;
+    test_case "arbitrary insets match Tailwind" `Quick
+      arbitrary_insets_match_tailwind;
+    test_case "spacing step is a quarter multiple" `Quick
+      spacing_step_is_a_quarter_multiple;
   ]
 
 let suite = ("position", tests)

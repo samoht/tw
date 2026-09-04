@@ -3,6 +3,17 @@ open Test_helpers
 
 let check = check_handler_roundtrip (module Tw.Borders.Handler)
 
+(* A theme token's value and a variant's selector are neither of them a
+   declaration, so the tests that turn on one compare the sheet whole.
+   [check_declarations] reads only the rules whose selector holds a [.], which
+   is what leaves both out. *)
+let sheet cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
+
 let of_string_valid () =
   check "border";
   check "border-0";
@@ -167,100 +178,62 @@ let rendering_matches_tailwind () =
 
 (* rounded-sm's default radius is .25rem in v4.3.1, not the old .125rem. *)
 let test_rounded_sm_default () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_sm ] |> Tw.Css.to_string in
-  Alcotest.(check bool)
-    "rounded-sm default is .25rem" true
-    (Astring.String.is_infix ~affix:"--radius-sm: .25rem" css)
+  check_sheet "rounded-sm"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--radius-sm:.25rem}}@layer components;@layer \
+     utilities{.rounded-sm{border-radius:var(--radius-sm)}}"
 
 (* rounded-xs is a v4.3.1 addition: references var(--radius-xs) and emits the
    .125rem default token. *)
 let test_rounded_xs () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_xs ] |> Tw.Css.to_string in
-  Alcotest.(check bool)
-    "rounded-xs default is .125rem" true
-    (Astring.String.is_infix ~affix:"--radius-xs: .125rem" css);
-  Alcotest.(check bool)
-    "rounded-xs references var(--radius-xs)" true
-    (Astring.String.is_infix ~affix:"border-radius: var(--radius-xs)" css)
+  check_sheet "rounded-xs"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--radius-xs:.125rem}}@layer components;@layer \
+     utilities{.rounded-xs{border-radius:var(--radius-xs)}}"
 
 (* rounded-4xl is a v4.3.1 addition: references var(--radius-4xl) and emits the
    2rem default token. *)
 let test_rounded_4xl () =
-  let css = Tw.to_css ~base:false [ Tw.rounded_4xl ] |> Tw.Css.to_string in
-  Alcotest.(check bool)
-    "rounded-4xl default is 2rem" true
-    (Astring.String.is_infix ~affix:"--radius-4xl: 2rem" css);
-  Alcotest.(check bool)
-    "rounded-4xl references var(--radius-4xl)" true
-    (Astring.String.is_infix ~affix:"border-radius: var(--radius-4xl)" css)
+  check_sheet "rounded-4xl"
+    "@layer theme,components,utilities;@layer \
+     theme{:root,:host{--radius-4xl:2rem}}@layer components;@layer \
+     utilities{.rounded-4xl{border-radius:var(--radius-4xl)}}"
 
 (* Per-side/corner full radius inlines the infinite value (matching the
    all-corners variant and Tailwind's calc(infinity*1px)), not a --radius-full
-   token that defaulted to the wrong 9999px. *)
+   token that defaulted to the wrong 9999px. The empty theme layer is what says
+   no such token is emitted, which no assertion on the declarations alone
+   reaches. *)
 let test_rounded_side_full_inlined () =
-  let css =
-    match Tw.of_string "rounded-l-full" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.fail "could not parse rounded-l-full"
-  in
-  Alcotest.(check bool)
-    "rounded-l-full inlines the infinite radius" true
-    (Astring.String.is_infix ~affix:"3.40282e38px" css);
-  Alcotest.(check bool)
-    "rounded-l-full emits no --radius-full token" false
-    (Astring.String.is_infix ~affix:"--radius-full" css);
-  Alcotest.(check bool)
-    "rounded-l-full is not the old 9999px" false
-    (Astring.String.is_infix ~affix:"9999px" css)
+  check_sheet "rounded-l-full"
+    "@layer theme,components,utilities;@layer theme;@layer components;@layer \
+     utilities{.rounded-l-full{border-top-left-radius:3.40282e38px;border-bottom-left-radius:3.40282e38px}}"
 
 (* Numeric outline widths (outline-1/2/4/8) emit outline-width: Npx with the
    outline-style var; they used to be unknown classes. *)
 let test_outline_widths () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "outline-2 emits outline-width: 2px" true
-    (Astring.String.is_infix ~affix:"outline-width: 2px" (css "outline-2"));
-  Alcotest.(check bool)
-    "outline-1 emits outline-width: 1px" true
-    (Astring.String.is_infix ~affix:"outline-width: 1px" (css "outline-1"));
-  Alcotest.(check bool)
-    "outline-3 emits outline-width: 3px (v4 bare integer)" true
-    (Astring.String.is_infix ~affix:"outline-width: 3px" (css "outline-3"))
+  check_declarations "outline-1"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:1px" ];
+  check_declarations "outline-2"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:2px" ];
+  (* v4 takes any bare integer, not just the fixed scale *)
+  check_declarations "outline-3"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:3px" ]
 
 (* Arbitrary outline-offset lengths (outline-offset-[3px]) emit the length,
    alongside the var() form (outline-offset-[var(--x)]). *)
 let test_outline_offset_arbitrary () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "outline-offset-[3px] emits outline-offset: 3px" true
-    (Astring.String.is_infix ~affix:"outline-offset: 3px"
-       (css "outline-offset-[3px]"))
+  check_declarations "outline-offset-[3px]" [ "outline-offset:3px" ]
 
 (* outline-hidden's forced-colors reset is its own @media block; under a state
    modifier (focus, focus-within) the block must use the modified selector, not
    the bare .outline-hidden, and stay grouped with the regular rule. It used to
    keep the bare selector and reorder before the regular rule. *)
 let test_outline_hidden_modifier_forced_colors () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let out = css "focus:outline-hidden" in
-  Alcotest.(check bool)
-    "forced-colors block uses the focus-modified selector" true
-    (Astring.String.is_infix ~affix:".focus\\:outline-hidden:focus" out);
-  Alcotest.(check bool)
-    "forced-colors block is not the bare .outline-hidden" false
-    (Astring.String.is_infix ~affix:" .outline-hidden " out)
+  check_sheet "focus:outline-hidden"
+    "@layer theme,components,utilities;@layer theme;@layer components;@layer \
+     utilities{.focus\\:outline-hidden:focus{--tw-outline-style:none;outline-style:none}@media(forced-colors:active){.focus\\:outline-hidden:focus{outline-offset:2px;outline:2px \
+     solid #0000}}}"
 
 (* The outline family sorts as one block: outline-hidden, the widths, the
    offsets, the colors, then the styles. Order matters beyond byte parity here:
@@ -296,103 +269,95 @@ let test_outline_ordering () =
 (* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
    plus the side border-style var; they used to be unknown classes. *)
 let test_border_side_arbitrary_width () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "border-t-[1px] sets border-top-width" true
-    (Astring.String.is_infix ~affix:"border-top-width: 1px"
-       (css "border-t-[1px]"));
-  Alcotest.(check bool)
-    "border-l-[0.5rem] sets border-left-width" true
-    (Astring.String.is_infix ~affix:"border-left-width: .5rem"
-       (css "border-l-[0.5rem]"))
+  check_declarations "border-t-[1px]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:1px" ];
+  check_declarations "border-l-[0.5rem]"
+    [ "border-left-style:var(--tw-border-style)"; "border-left-width:.5rem" ]
 
 (* Logical single-side borders emit the inline/block start/end style var and
    width, like the physical per-side borders do. *)
 let test_logical_side_borders () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "border-s sets border-inline-start-width: 1px" true
-    (Astring.String.is_infix ~affix:"border-inline-start-width: 1px"
-       (css "border-s"));
-  Alcotest.(check bool)
-    "border-be-2 sets border-block-end-width: 2px" true
-    (Astring.String.is_infix ~affix:"border-block-end-width: 2px"
-       (css "border-be-2"));
-  Alcotest.(check bool)
-    "border-e references the border-style var" true
-    (Astring.String.is_infix
-       ~affix:"border-inline-end-style: var(--tw-border-style)" (css "border-e"))
+  check_declarations "border-s"
+    [
+      "border-inline-start-style:var(--tw-border-style)";
+      "border-inline-start-width:1px";
+    ];
+  check_declarations "border-be-2"
+    [
+      "border-block-end-style:var(--tw-border-style)";
+      "border-block-end-width:2px";
+    ];
+  check_declarations "border-e"
+    [
+      "border-inline-end-style:var(--tw-border-style)";
+      "border-inline-end-width:1px";
+    ]
 
 (* Arbitrary outline and border widths take any CSS length unit, not just the
    px/rem/em/% the hand-rolled suffix parsers knew: Tailwind emits
    outline-width: 3rem for outline-[3rem] and border-width: 3vw for
    border-[3vw]. *)
 let test_bracket_width_units () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let outline cls width =
+    check_declarations cls
+      [ "outline-style:var(--tw-outline-style)"; "outline-width:" ^ width ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "outline-width: 3rem" "outline-[3rem]";
-  emits "outline-width: 2em" "outline-[2em]";
-  emits "outline-width: 3px" "outline-[3px]";
-  emits "outline-width: 50%" "outline-[50%]";
-  emits "border-width: 3vw" "border-[3vw]";
-  emits "border-width: 2ch" "border-[2ch]";
-  emits "border-width: .5rem" "border-[0.5rem]";
-  emits "border-top-width: 3vw" "border-t-[3vw]"
+  outline "outline-[3rem]" "3rem";
+  outline "outline-[2em]" "2em";
+  outline "outline-[3px]" "3px";
+  outline "outline-[50%]" "50%";
+  check_declarations "border-[3vw]"
+    [ "border-style:var(--tw-border-style)"; "border-width:3vw" ];
+  check_declarations "border-[2ch]"
+    [ "border-style:var(--tw-border-style)"; "border-width:2ch" ];
+  check_declarations "border-[0.5rem]"
+    [ "border-style:var(--tw-border-style)"; "border-width:.5rem" ];
+  check_declarations "border-t-[3vw]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:3vw" ]
 
 (* A math function in a width bracket stands for the width it computes, so it is
    a width and not a colour. The bracket was classified by its first character,
    which put [calc(...)] on the colour side and refused the class Tailwind
    renders. *)
 let test_bracket_math_function_width () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "border-width: calc(1rem + 2px)" "border-[calc(1rem_+_2px)]";
-  emits "border-top-width: calc(1rem + 2px)" "border-t-[calc(1rem_+_2px)]";
-  emits "border-width: min(2px, 1rem)" "border-[min(2px,1rem)]";
-  emits "border-width: clamp(1px, 2vw, 3rem)" "border-[clamp(1px,2vw,3rem)]";
-  emits "outline-width: calc(1rem + 2px)" "outline-[calc(1rem_+_2px)]";
-  (* a bare var() is still a colour on both *)
-  emits "border-color: var(--w)" "border-[var(--w)]";
-  emits "outline-color: var(--w)" "outline-[var(--w)]"
+  check_declarations "border-[calc(1rem_+_2px)]"
+    [ "border-style:var(--tw-border-style)"; "border-width:calc(1rem + 2px)" ];
+  check_declarations "border-t-[calc(1rem_+_2px)]"
+    [
+      "border-top-style:var(--tw-border-style)";
+      "border-top-width:calc(1rem + 2px)";
+    ];
+  check_declarations "border-[min(2px,1rem)]"
+    [ "border-style:var(--tw-border-style)"; "border-width:min(2px,1rem)" ];
+  check_declarations "border-[clamp(1px,2vw,3rem)]"
+    [
+      "border-style:var(--tw-border-style)"; "border-width:clamp(1px,2vw,3rem)";
+    ];
+  check_declarations "outline-[calc(1rem_+_2px)]"
+    [
+      "outline-style:var(--tw-outline-style)"; "outline-width:calc(1rem + 2px)";
+    ];
+  (* a bare var() is still a colour on both, so it writes the colour alone and
+     none of the width's style var *)
+  check_declarations "border-[var(--w)]" [ "border-color:var(--w)" ];
+  check_declarations "outline-[var(--w)]" [ "outline-color:var(--w)" ]
 
 (* The three CSS line-width keywords are border widths in their own right, so a
    bracket naming one is a width and not an unknown class: Tailwind emits
    border-width: thin for border-[thin], and the same for medium and thick on
    every side. *)
 let test_bracket_line_width_keywords () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let all_sides cls keyword =
+    check_declarations cls
+      [ "border-style:var(--tw-border-style)"; "border-width:" ^ keyword ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "border-width: thin" "border-[thin]";
-  emits "border-width: medium" "border-[medium]";
-  emits "border-width: thick" "border-[thick]";
-  emits "border-top-width: thin" "border-t-[thin]";
-  emits "border-left-width: thick" "border-l-[thick]"
+  all_sides "border-[thin]" "thin";
+  all_sides "border-[medium]" "medium";
+  all_sides "border-[thick]" "thick";
+  check_declarations "border-t-[thin]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:thin" ];
+  check_declarations "border-l-[thick]"
+    [ "border-left-style:var(--tw-border-style)"; "border-left-width:thick" ]
 
 (* A [--radius-*] token the project declared in its [@theme] names a corner
    radius the built-in scale has no slot for. Tailwind generates the utility
@@ -407,6 +372,9 @@ let test_project_radius_token () =
     | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
+  (* [check_declarations] and [check_sheet] both compile the class against the
+     default theme, which has no [--radius-blob], so these stay on a substring
+     of the sheet this theme renders. *)
   let emits affix cls =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
@@ -442,22 +410,20 @@ let test_side_width_order () =
    sides do. The bracket arm matched the four physical sides only, so an axis or
    logical side fell through to the colour path and failed there. *)
 let test_axis_arbitrary_width () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let side cls family width =
+    check_declarations cls
+      [
+        "border-" ^ family ^ "-style:var(--tw-border-style)";
+        "border-" ^ family ^ "-width:" ^ width;
+      ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "border-inline-width: 3px" "border-x-[3px]";
-  emits "border-block-width: 3px" "border-y-[3px]";
-  emits "border-inline-start-width: 3px" "border-s-[3px]";
-  emits "border-inline-end-width: 3px" "border-e-[3px]";
-  emits "border-block-start-width: 3px" "border-bs-[3px]";
-  emits "border-block-end-width: 3px" "border-be-[3px]";
-  emits "border-inline-width: .5rem" "border-x-[0.5rem]";
-  emits "border-inline-style: var(--tw-border-style)" "border-x-[3px]";
+  side "border-x-[3px]" "inline" "3px";
+  side "border-y-[3px]" "block" "3px";
+  side "border-s-[3px]" "inline-start" "3px";
+  side "border-e-[3px]" "inline-end" "3px";
+  side "border-bs-[3px]" "block-start" "3px";
+  side "border-be-[3px]" "block-end" "3px";
+  side "border-x-[0.5rem]" "inline" ".5rem";
   (* a bracket that is not a length is still not a width *)
   Alcotest.(check bool)
     "border-x-[1e] is rejected" true

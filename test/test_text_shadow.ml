@@ -69,7 +69,7 @@ let test_arbitrary_lengths () =
   let emits affix cls =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
-  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, #000000)"
+  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, #000)"
     "text-shadow-[0_1ch_2px_#000]";
   emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))"
     "text-shadow-[0_1ch_2px_#000]/50";

@@ -134,30 +134,40 @@ module Handler = struct
 
   let col_span n = style [ grid_column (Span n, Span n) ]
 
-  (* [col-span-[N]] is a count, [col-span-[name]] a named line: anything else -
-     the docs' [<value>] placeholder included - is not a grid line. *)
-  let is_span_value s =
-    int_of_string_opt s <> None || Parse.is_var s || Parse.is_ident s
+  (* [span <v> / span <v>], the shorthand Tailwind writes for a span. The value
+     is embedded twice, so it is wrapped twice: a comment left open by the end
+     of [v] would otherwise swallow the tokens generated after it. *)
+  let span_pair v =
+    Option.bind
+      (Parse.wrap_declaration_value ~before:"span " ~after:" / span " v)
+      (fun before -> Parse.wrap_declaration_value ~before ~after:"" v)
 
   (* var() substitutes before the <grid-line> grammar applies, so the text in
      [span var(--x)] is not a <custom-ident> and a printer that escapes it as
-     one corrupts the parentheses. The declaration parser keeps it raw. *)
+     one corrupts the parentheses. The declaration parser keeps it raw. A count
+     is a plain decimal and a name a CSS identifier; anything else the bracket
+     holds - the docs' [<value>] placeholder included - is passed through as
+     written, which is what Tailwind does with it. *)
   let span_arbitrary property_name property s =
-    let raw =
-      if Parse.is_var s then
-        Css.parse_declaration property_name
-          (String.concat "" [ "span "; s; " / span "; s ])
-      else None
-    in
-    match raw with
-    | Some decl -> style [ decl ]
+    match Parse.decimal_int s with
+    | Some n -> style [ property (Span n, Span n) ]
     | None ->
-        let gl =
-          match int_of_string_opt s with
-          | Some n -> Span n
-          | None -> Span_name s
+        let opaque () =
+          match
+            Option.bind (span_pair s) (Parse.opaque_declaration property_name)
+          with
+          | Some declaration -> style [ declaration ]
+          | None -> style []
         in
-        style [ property (gl, gl) ]
+        if Parse.is_var s then
+          match
+            Option.bind (span_pair s) (Css.parse_declaration property_name)
+          with
+          | Some declaration -> style [ declaration ]
+          | None -> opaque ()
+        else if Parse.is_ident s then
+          style [ property (Span_name s, Span_name s) ]
+        else opaque ()
 
   let col_span_arbitrary s = span_arbitrary "grid-column" grid_column s
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
@@ -311,12 +321,11 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a grid item utility")
 
   let parse_arbitrary s =
-    (* The bracket text, decoded: [_] is a space and [\_] a literal
-       underscore. *)
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
-      Some (Parse.decode_underscores inner)
+    (* The bracket text, through the arbitrary-value pipeline: [_] becomes a
+       space, [\_] a literal underscore, and a CSS math function gets the spaces
+       its grammar needs around a binary operator. *)
+    if Parse.is_bracket_value s then
+      Some (Parse.decode_arbitrary_value (Parse.bracket_inner s))
     else None
 
   let of_class theme class_name =
@@ -326,8 +335,8 @@ module Handler = struct
     | [ "col"; "span"; "full" ] -> Ok Col_span_full
     | [ "col"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
-        | Some v when is_span_value v -> Ok (Col_span_arbitrary v)
-        | _ -> err_not_utility)
+        | Some v -> Ok (Col_span_arbitrary v)
+        | None -> err_not_utility)
     | [ "col"; "span"; n ] -> (
         match Parse.int_pos ~name:"col-span" n with
         | Ok i -> Ok (Col_span i)
@@ -399,8 +408,8 @@ module Handler = struct
     | [ "row"; "span"; "full" ] -> Ok Row_span_full
     | [ "row"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
-        | Some v when is_span_value v -> Ok (Row_span_arbitrary v)
-        | _ -> err_not_utility)
+        | Some v -> Ok (Row_span_arbitrary v)
+        | None -> err_not_utility)
     | [ "row"; "span"; n ] -> (
         match Parse.int_pos ~name:"row-span" n with
         | Ok i -> Ok (Row_span i)

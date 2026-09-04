@@ -464,6 +464,33 @@ let test_rotate_underscore_escape () =
   has {|rotate-[1_1_1\_2_45deg]|} "rotate: 1 1 1_2 45deg";
   has {|rotate-[var(--a\_b)]|} "rotate: var(--a_b)"
 
+(* A single-axis scale bracket is a token stream Tailwind hands to the custom
+   property unvalidated. It goes through the arbitrary-value pipeline, not
+   OCaml's [Float.of_string_opt], so [calc()] reaches the property and a hex
+   spelling is emitted as written rather than folded to [4]. *)
+let test_arbitrary_scale_axis_token_stream () =
+  Test_helpers.check_declarations "scale-x-[calc(1+2)]"
+    [ "--tw-scale-x:calc(1 + 2)"; "scale:var(--tw-scale-x)var(--tw-scale-y)" ];
+  Test_helpers.check_declarations "scale-x-[0x4]"
+    [ "--tw-scale-x:0x4"; "scale:var(--tw-scale-x)var(--tw-scale-y)" ];
+  Test_helpers.check_declarations "scale-y-[0x4]"
+    [ "--tw-scale-y:0x4"; "scale:var(--tw-scale-x)var(--tw-scale-y)" ]
+
+(* [origin-], [perspective-origin-] and [transform-] read their bracket through
+   the arbitrary-value pipeline. Applying underscore decoding alone leaves
+   [calc(1px+1px)] without the spaces CSS math wants and [--spacing(4)]
+   unexpanded, so cascade's grammar refuses the value and the class with it. *)
+let test_arbitrary_transform_reads_the_whole_bracket () =
+  Test_helpers.check_declarations "origin-[calc(1px+1px)_calc(2px+2px)]"
+    [ "transform-origin:calc(1px + 1px) calc(2px + 2px)" ];
+  Test_helpers.check_declarations "origin-[--spacing(4)_--spacing(2)]"
+    [ "transform-origin:calc(var(--spacing)*4) calc(var(--spacing)*2)" ];
+  Test_helpers.check_declarations
+    "perspective-origin-[calc(1px+1px)_calc(2px+2px)]"
+    [ "perspective-origin:calc(1px + 1px) calc(2px + 2px)" ];
+  Test_helpers.check_declarations "transform-[translateX(calc(1px+1px))]"
+    [ "transform:translateX(calc(1px + 1px))" ]
+
 let tests =
   [
     test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
@@ -494,8 +521,12 @@ let tests =
       suborder_matches_tailwind;
     test_case "arbitrary transform spelling" `Quick
       test_arbitrary_transform_spelling;
+    test_case "arbitrary transform reads the whole bracket" `Quick
+      test_arbitrary_transform_reads_the_whole_bracket;
     test_case "arbitrary transform token streams" `Quick
       test_arbitrary_transform_token_streams;
+    test_case "arbitrary scale axis token stream" `Quick
+      test_arbitrary_scale_axis_token_stream;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]

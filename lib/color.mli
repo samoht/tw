@@ -546,6 +546,13 @@ val rgb_to_oklab : rgb -> float * float * float
 val shorten_hex_str : string -> string
 (** [shorten_hex_str hex] shortens a hex color string if possible. *)
 
+val authored_hex : string -> Css.color
+(** [authored_hex hex] is the colour [hex] spells, keeping that spelling for
+    output: [#f00] stays three digits and [#F00] keeps its case, which is what
+    Tailwind writes back for an arbitrary colour. Leading [#] optional. Raises
+    [Invalid_argument] on a string that is not a hex colour, as {!Css.hex} does.
+*)
+
 val bracket_color_opacity_style :
   ?theme:Scheme.t ->
   ?merge_key:string ->

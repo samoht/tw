@@ -31,9 +31,9 @@ module Handler = struct
     | Translate_y_arbitrary of string * Css.length
     | Scale of int
     | Scale_x of int
-    | Scale_x_arbitrary of string * float
+    | Scale_x_arbitrary of string * [ `Num of float | `Raw of string ]
     | Scale_y of int
-    | Scale_y_arbitrary of string * float
+    | Scale_y_arbitrary of string * [ `Num of float | `Raw of string ]
     | Scale_raw_1 of string * float
     | Scale_raw_3 of string * float * float * float
     | Scale_arbitrary_raw of string * string
@@ -419,12 +419,18 @@ module Handler = struct
             | _ -> Error (`Msg ("Invalid angle unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
-  let parse_bracket_number s : (string * float, _) result =
-    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
-      let inner = String.sub s 1 (String.length s - 2) in
-      match Float.of_string_opt inner with
-      | Some f -> Ok (inner, f)
-      | None -> Error (`Msg ("Invalid number: " ^ inner))
+  (* The bracket beside its reading: a plain decimal is the number it spells,
+     and anything else goes to the custom property as written. A spelling only
+     OCaml's number reader takes ([0x4]) is not a number under another name. *)
+  let parse_bracket_number s =
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
+      match Parse.decimal_float (Parse.decode_arbitrary_value inner) with
+      | Some f -> Ok (inner, `Num f)
+      | None -> (
+          match Parse.arbitrary_declaration_value inner with
+          | Some v -> Ok (inner, `Raw v)
+          | None -> Error (`Msg ("Invalid number: " ^ inner)))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
   (** {1 2D Transform Utilities} *)
@@ -639,28 +645,27 @@ module Handler = struct
     style ~property_rules:props
       (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
-  let scale_x_arbitrary f =
-    let value : Css.number_percentage = Css.Num f in
-    let d, _ = Var.binding tw_scale_x_var value in
+  (* One axis of the scale, from either the number the bracket denotes or, when
+     it denotes none, the author's text: Tailwind hands a bracket to the custom
+     property unvalidated, so [scale-x-[0x4]] sets [0x4] and not the [4] an
+     OCaml number reader would fold it to. *)
+  let scale_axis_arbitrary var v =
+    let binding =
+      match v with
+      | `Num f -> fst (Var.binding var (Css.Num f : Css.number_percentage))
+      | `Raw value ->
+          Css.custom_property ~layer:"utilities" (Var.css_name var) value
+    in
     let props =
       collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
     in
     let scale_x_ref = Var.reference tw_scale_x_var in
     let scale_y_ref = Var.reference tw_scale_y_var in
     style ~property_rules:props
-      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
+      [ binding; Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ]
 
-  let scale_y_arbitrary f =
-    let value : Css.number_percentage = Css.Num f in
-    let d, _ = Var.binding tw_scale_y_var value in
-    let props =
-      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
-    in
-    let scale_x_ref = Var.reference tw_scale_x_var in
-    let scale_y_ref = Var.reference tw_scale_y_var in
-    style ~property_rules:props
-      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
-
+  let scale_x_arbitrary v = scale_axis_arbitrary tw_scale_x_var v
+  let scale_y_arbitrary v = scale_axis_arbitrary tw_scale_y_var v
   let skew_x deg = transform_with_var tw_skew_x_var (Skew_x (make_angle deg))
   let skew_y deg = transform_with_var tw_skew_y_var (Skew_y (make_angle deg))
   let skew_x_arbitrary angle = transform_with_var tw_skew_x_var (Skew_x angle)
@@ -1348,9 +1353,9 @@ module Handler = struct
     | Translate_3d -> translate_3d
     | Scale n -> scale n
     | Scale_x n -> scale_x n
-    | Scale_x_arbitrary (_, f) -> scale_x_arbitrary f
+    | Scale_x_arbitrary (_, v) -> scale_x_arbitrary v
     | Scale_y n -> scale_y n
-    | Scale_y_arbitrary (_, f) -> scale_y_arbitrary f
+    | Scale_y_arbitrary (_, v) -> scale_y_arbitrary v
     | Scale_raw_1 (_, f) -> style [ Css.scale (X (Num f)) ]
     | Scale_raw_3 (_, x, y, z) ->
         style [ Css.scale (XYZ (Num x, Num y, Num z)) ]
@@ -1550,10 +1555,15 @@ module Handler = struct
   let parse_fraction = Parse.fraction
 
   (* The value a bracket denotes, read with the grammar cascade already has for
-     the property. [None] is a bracket that grammar refuses, and [of_class]
-     declines the utility rather than leaving [to_style] to raise. *)
+     the property, off the arbitrary-value pipeline every other family reads:
+     [_] stands for a space, [--spacing(n)] expands, and a binary [+] gets the
+     spaces CSS math wants, so [calc(1px+1px)] is a value rather than a parse
+     error. [None] is a bracket that grammar refuses, and [of_class] declines
+     the utility rather than leaving [to_style] to raise. *)
   let arbitrary_value read inner =
-    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    let cursor =
+      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
+    in
     match Cascade.Cursor.try_parse_full_err read cursor with
     | Ok v -> Some v
     | Error _ -> None
@@ -1890,9 +1900,8 @@ module Handler = struct
         Ok Perspective_origin_bottom_right
     | "perspective" :: "origin" :: rest when List.length rest > 0 ->
         let value = String.concat "-" rest in
-        let len = String.length value in
-        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
-          let inner = String.sub value 1 (len - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match
             arbitrary_value Css.Properties.read_perspective_origin inner
           with
@@ -1936,9 +1945,8 @@ module Handler = struct
     | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
     | "origin" :: rest when List.length rest > 0 ->
         let value = String.concat "-" rest in
-        let len = String.length value in
-        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
-          let inner = String.sub value 1 (len - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match arbitrary_value Css.Properties.read_transform_origin inner with
           | Some t -> Ok (Origin_arbitrary (inner, t))
           | None ->

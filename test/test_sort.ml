@@ -82,7 +82,11 @@ let test_color_order () =
   check int "cyan utilities order" 4
     (let _, order = Tw.Color.utilities_order "cyan" in
      order);
-  check int "sky utilities order" 17
+  (* mauve, mist and olive sort before sky, which is why this reads 20 rather
+     than the 17 it read while those three shared the theme fallback slot.
+     Measured against the CLI, which emits a mixed set alphabetically: blue,
+     mauve, mist, olive, red, sky, taupe. *)
+  check int "sky utilities order" 20
     (let _, order = Tw.Color.utilities_order "sky" in
      order);
   check int "unknown color gets 100" 100

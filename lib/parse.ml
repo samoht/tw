@@ -118,51 +118,193 @@ let extract_var_name s =
       | name, Some fallback -> name ^ ", " ^ fallback
     with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> s
 
+(* A quoted string runs to its closing quote, and to the end of the input when
+   the value leaves it open, as the CSS Syntax 3 sec. 4.3 tokeniser leaves it.
+   The result is the index just past the string. *)
+let string_end s i quote =
+  let len = String.length s in
+  let rec go i =
+    if i >= len then len
+    else if s.[i] = '\\' then go (i + 2)
+    else if s.[i] = quote then i + 1
+    else go (i + 1)
+  in
+  go i
+
+(* A []] the value quotes or escapes is part of the value, not the bracket's
+   end, so the scan reads strings and the [\] escape the way the tokeniser does:
+   [[background-image:url('a]b')]] is one bracket whose text carries a []]. A
+   string left open swallows every later []], which is what Tailwind does with
+   [bg-[url('a)]]. *)
+let bracket_close s =
+  let len = String.length s in
+  let rec close i depth =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '\\' -> close (i + 2) depth
+      | '\'' | '"' -> close (string_end s (i + 1) s.[i]) depth
+      | '[' -> close (i + 1) (depth + 1)
+      | ']' -> if depth = 0 then Some i else close (i + 1) (depth - 1)
+      | _ -> close (i + 1) depth
+  in
+  if len > 2 && s.[0] = '[' then close 1 0 else None
+
 (* One bracket, not two: the closing bracket has to be the last character. A
    suffix carrying a second bracket - one bracket with a bracket modifier, or
    two brackets in a row - would otherwise read as one bracket whose inner text
    has a stray bracket in it, which no declaration value takes. *)
-let is_bracket_value s =
-  let len = String.length s in
-  let rec close i depth =
-    if i >= len then false
-    else
-      match s.[i] with
-      | '[' -> close (i + 1) (depth + 1)
-      | ']' -> if depth = 0 then i = len - 1 else close (i + 1) (depth - 1)
-      | _ -> close (i + 1) depth
-  in
-  len > 2 && s.[0] = '[' && close 1 0
+let is_bracket_value s = bracket_close s = Some (String.length s - 1)
 
 (** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
+(* How a span the decoder does not read as ordinary text is copied out.
+   [Verbatim] keeps every character, escape included; [Literal_underscore] reads
+   the text but leaves a bare [_] standing for itself. *)
+type exempt_span = Verbatim | Literal_underscore
+
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
    underscore — otherwise a value that needs one could not be written. The two
-   readings differ only in what a bare [_] stands for, which [plain] carries. *)
-let read_underscores ~plain s =
+   readings differ only in what a bare [_] stands for, which [plain] carries,
+   and in [exempt], the spans read under one of the rules above. *)
+let read_underscores ~plain ~exempt s =
   let len = String.length s in
   let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else if s.[i] = '\\' && i + 1 < len && s.[i + 1] = '_' then begin
+  (* One character of text, [under] standing for a bare [_]. *)
+  let text under i =
+    if s.[i] = '\\' && i + 1 < len && s.[i + 1] = '_' then begin
       Buffer.add_char buf '_';
-      go (i + 2)
+      i + 2
     end
     else begin
-      Buffer.add_char buf (if s.[i] = '_' then plain else s.[i]);
-      go (i + 1)
+      Buffer.add_char buf (if s.[i] = '_' then under else s.[i]);
+      i + 1
     end
   in
-  go 0;
+  let rec go i spans =
+    if i >= len then ()
+    else
+      match spans with
+      | (start, stop, Verbatim) :: rest when i = start ->
+          Buffer.add_substring buf s start (stop - start);
+          go stop rest
+      | (start, stop, Literal_underscore) :: rest when i = start ->
+          let rec span j = if j >= stop then j else span (text '_' j) in
+          go (span start) rest
+      | _ -> go (text plain i) spans
+  in
+  go 0 exempt;
   Buffer.contents buf
 
-let decode_underscores s = read_underscores ~plain:' ' s
+(* Tailwind's value parser: a word runs to the next of [/ : , = > < ( )] or
+   whitespace, and a [\] escape or a quoted string is part of the word it stands
+   in. A [(] opens a function whose name is the word before it. *)
+let breaks_word = function
+  | '/' | ':' | ',' | '=' | '>' | '<' | '(' | ')' | ' ' | '\t' | '\n' -> true
+  | _ -> false
+
+(* The [)] closing the argument list opened before [i] in [s], or the end of [s]
+   when it is left open, as the tokeniser leaves it. *)
+let rec paren_end s i depth =
+  let len = String.length s in
+  if i >= len then len
+  else
+    match s.[i] with
+    | '\\' -> paren_end s (i + 2) depth
+    | '\'' | '"' -> paren_end s (string_end s (i + 1) s.[i]) depth
+    | '(' -> paren_end s (i + 1) (depth + 1)
+    | ')' -> if depth = 0 then i else paren_end s (i + 1) (depth - 1)
+    | _ -> paren_end s (i + 1) depth
+
+(* Where the word starting at [i] in [s] ends, which is where Tailwind's value
+   parser breaks one. A [\] escape and a quoted string are part of the word. *)
+let rec word_end s i =
+  let len = String.length s in
+  if i >= len then len
+  else
+    match s.[i] with
+    | '\\' -> word_end s (i + 2)
+    | '\'' | '"' -> word_end s (string_end s (i + 1) s.[i])
+    | c when breaks_word c -> i
+    | _ -> word_end s (i + 1)
+
+(* Whether the function name before the [(] at [i] in [s], a name that started
+   at [word], is [key] or ends in [_key]. *)
+let names s i word key =
+  let n = String.length key in
+  i - word >= n
+  && String.sub s (i - n) n = key
+  && (i - word = n || s.[i - n - 1] = '_')
+
+(* [exempt_spans s] is the list, in order, of the spans of [s] that the decoder
+   does not read as ordinary text, each as a half-open range.
+
+   Tailwind decodes an arbitrary value node by node, and two kinds of function
+   node keep text the decoding would otherwise change. A [url()] keeps its whole
+   argument list as written, escape included: a [_] there is part of a file
+   name. A [var()] or [theme()] keeps the bare [_] of its first argument, which
+   names a custom property, while the [\_] escape there still unescapes.
+
+   The names are matched the way Tailwind matches them, on the word itself or on
+   a name ending in [_url], [_var] or [_theme], because a class writes a space
+   as [_] and the parser reads the whole run before the [(] as one name. That is
+   what carries [shadow-[0_0_0_var(--my_var)]], whose function node is named
+   [0_0_0_var]: the name decodes to [0 0 0 var] and the property it references
+   stays whole. So [myurl(a_b)] and [a-url(a_b)] decode their arguments, and
+   [--my-var(a_b)] is not a [var()].
+
+   Only a first argument that is a word takes the rule. One opening a call of
+   its own is a function node, which Tailwind recurses into instead: the
+   arguments of [var(foo(--a_b))] decode. *)
+let exempt_spans s =
+  let len = String.length s in
+  (* The first argument of the call opening at [i], when it is a word: none when
+     the list opens on a separator or on the [(] of a nested call. *)
+  let first_word i =
+    let stop = word_end s (i + 1) in
+    if stop > i + 1 && not (stop < len && s.[stop] = '(') then
+      Some (i + 1, stop, Literal_underscore)
+    else None
+  in
+  let rec scan i word acc =
+    if i >= len then List.rev acc
+    else
+      match s.[i] with
+      | '\\' -> scan (i + 2) word acc
+      | '\'' | '"' -> scan (string_end s (i + 1) s.[i]) word acc
+      | '(' when names s i word "url" ->
+          let stop = paren_end s (i + 1) 0 in
+          scan (stop + 1) (stop + 1) ((i + 1, stop, Verbatim) :: acc)
+      | '(' when names s i word "var" || names s i word "theme" ->
+          let acc =
+            match first_word i with Some span -> span :: acc | None -> acc
+          in
+          scan (i + 1) (i + 1) acc
+      | c -> scan (i + 1) (if breaks_word c then i + 1 else word) acc
+  in
+  scan 0 0 []
+
+let decode_underscores s =
+  read_underscores ~plain:' ' ~exempt:(exempt_spans s) s
+
+(* A [url()] in an arbitrary value is CSS source, so an escape in it stands for
+   one character of the URL and the quotes are the tokeniser's, not the file
+   name's: [url(a\]b)], [url(a]b)] and [url('a]b')] all name [a]b]. Reading the
+   token rather than slicing the text out of it keeps the backslash from
+   reaching the value as a character of its own. *)
+let url_token s =
+  try
+    let cursor = Cascade.Cursor.of_string s in
+    let url = Cascade.Cursor.url cursor in
+    if Cascade.Cursor.is_done cursor then Some url else None
+  with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> None
 
 (* A property name has no spaces to spell, so its underscores stand for
-   themselves and only the escape is undone. *)
-let unescape_underscores s = read_underscores ~plain:'_' s
+   themselves and only the escape is undone. A name holds no [url()] either, so
+   nothing is copied out unread. *)
+let unescape_underscores s = read_underscores ~plain:'_' ~exempt:[] s
 
 (* The inverse: a utility holding a decoded value writes its class name back,
    and the name has to read as the value it came from. *)

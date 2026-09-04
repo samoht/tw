@@ -33,19 +33,37 @@ dune build --root "$root" bin/main.exe cascade/bin/main.exe
 "$root"/_build/default/bin/main.exe \
   --input-css "$here"/globals.css --minify "$here"/classlist.txt > "$out"/tw_all.css
 
-# The differ exits 0 when the sheets are identical and 1 when they differ, and
-# both are measurements. Any other status is the differ failing -- an unusable
-# argument, an input it could not read, a crash -- which writes a short or empty
-# report that reads as parity. Propagate it instead.
+# The differ's exit status carries three measurements and one failure.
+#
+#   0  identical, and every declaration was readable
+#   2  identical in what could be read, but a side held a declaration the
+#      reader refused, so equivalence is undetermined rather than established
+#   1  different
+#
+# 2 is not a crash and not a pass. An equivalence checker that answered 0 here
+# would be claiming a property it cannot prove: a refused declaration is absent
+# from both parsed sheets, so two sheets differing only inside one compare
+# equal. tw's own sheet carries such declarations today -- the `<value>`
+# placeholder classes the corpus scrapes from the docs -- so this fires on a
+# clean run and must not read as a differ failure.
+#
+# Anything above 2 is the differ failing -- an unusable argument, an input it
+# could not read at all, a crash -- which writes a short or empty report that
+# reads as parity. Propagate that instead.
 status=0
 "$root"/_build/default/cascade/bin/main.exe \
   diff --diff=canonical --limit=none "$out"/tw_all.css "$out"/ref_local.css \
   > "$out"/diff.txt 2>&1 || status=$?
 
-if [ "$status" -gt 1 ]; then
+if [ "$status" -gt 2 ]; then
   cat "$out"/diff.txt
   echo "cascade diff failed with status $status" >&2
   exit "$status"
+fi
+
+if [ "$status" -eq 2 ]; then
+  echo "cascade diff could not read every declaration; equivalence is" \
+       "undetermined rather than established" >&2
 fi
 
 cat "$out"/diff.txt

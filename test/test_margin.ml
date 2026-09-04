@@ -199,6 +199,14 @@ let test_arbitrary_length_grammar () =
   check "ml-[50%]";
   check "mb-[-5cqw]"
 
+(* An arbitrary value is read by the whole decoder, not by its last stage alone:
+   [_] is a space, [--spacing(n)] expands to the spacing product, and only then
+   are the math operators re-spaced. Tailwind emits all of these. *)
+let test_arbitrary_value_decoder_stages () =
+  check_declarations "mx-[calc(1px_+_1px)]" [ "margin-inline:calc(1px + 1px)" ];
+  check_declarations "mt-[calc(1px_+_1px)]" [ "margin-top:calc(1px + 1px)" ];
+  check_declarations "m-[--spacing(4)]" [ "margin:calc(var(--spacing)*4)" ]
+
 (* The [']-suffixed sibling of each int constructor takes a half-step float (and
    still supports negative values); the int base keeps emitting what it always
    did. *)
@@ -229,6 +237,8 @@ let tests =
       margin_side_bands_match_tailwind;
     test_case "margin CSS values" `Quick test_css_values;
     test_case "arbitrary length grammar" `Quick test_arbitrary_length_grammar;
+    test_case "arbitrary value decoder stages" `Quick
+      test_arbitrary_value_decoder_stages;
     test_case "margins render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 

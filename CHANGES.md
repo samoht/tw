@@ -34,7 +34,10 @@
 - Track Tailwind CSS 4.3.3. `font-sans` carries the 4.3.2 system stack,
   preflight scopes `:-moz-focusring` to non-iframe elements, and an achromatic
   colour writes its powerless hue as `none` (#128, #129, #130, #132, #147).
-- Add the mauve, mist, olive and taupe palettes (#153).
+- Add the mauve, mist, olive and taupe palettes (#153). Their theme tokens are
+  declared between `stone` and `black`, and their utilities sort among the rest,
+  where Tailwind puts them; all four shared one unranked slot after `white`
+  (#PR).
 
 ### Project stylesheets
 
@@ -98,6 +101,10 @@
   keep the `calc(var(--spacing) * n)` Tailwind writes for every step, so
   `start-px`, `start-0.5` and `start-1/2` resolve and `start-0` no longer drops
   `--spacing` from the theme layer (#677).
+- Every inset side reads an arbitrary length under either sign, and `start-*`
+  and `end-*` read one at all. `start-[4px]`, `end-[4px]`, `-top-[4px]` and
+  `-inset-bs-[4px]` reach the sheet, as does a name the theme binds on the
+  logical inline sides (#691).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
@@ -131,6 +138,54 @@
 
 ### Arbitrary values and validation
 
+- `aspect-[...]` emits its bracket verbatim, as Tailwind does: nothing inside is
+  validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
+  `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than
+  `4`, `aspect-[1_0]` writes `1 0` rather than `10`, and `aspect-[16/9]` keeps
+  its spelling instead of being re-printed as `16 / 9` (#PR).
+- `z-[...]`, `opacity-[...]`, `col-span-[...]`, `row-span-[...]`,
+  `grid-cols-[...]`, `grid-rows-[...]`, `auto-cols-[...]`, `auto-rows-[...]`,
+  `columns-[...]`, `tab-[...]`, `scale-x-[...]` and `scale-y-[...]` read their
+  bracket through the arbitrary-value pipeline, so `z-[calc(1+2)]` and its
+  siblings reach the sheet. A bracket only OCaml's number reader accepts is no
+  longer folded to a different value: `tab-[0x4]` writes `tab-size: 0x4` rather
+  than `4`, and `grid-cols-[0x4]` writes `0x4` rather than `4px` (#690).
+- `gap-`, `margin-` and the inset families read a bracket value through the
+  whole arbitrary decoder rather than its last stage alone, so
+  `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]` and `top-[calc(1px_+_1px)]`
+  reach the sheet (#688).
+- `flex-`, `grow-`, `shrink-`, `order-`, `origin-`, `perspective-origin-` and
+  `transform-` decode their bracket the way every other family does, so
+  `flex-[calc(1+2)]` and `origin-[--spacing(4)_--spacing(2)]` reach the sheet.
+  Reading the text with OCaml's number reader instead folded `flex-[0x4]` to
+  `flex: 4` under the class name `.flex-\[4\]` (#689).
+- A `]` written inside a quoted or escaped part of an arbitrary value belongs
+  to the value, so `bg-[url('a]b')]`, `font-['My]Font']`, `mask-[url('a]b')]`,
+  `shadow-[0_0_0_'a]b']` and `list-image-[url('a]b')]` reach the sheet. An
+  unterminated string still refuses the class, as it does in Tailwind (#689).
+- A `url()` in an arbitrary value keeps the underscores of its argument, which
+  are part of a file name rather than spaces. `list-image-[url('a_b.png')]`,
+  `content-[url('a_b.png')]`, `[background-image:url('a_b.png')]` and
+  `mask-[image-set(url('a_b.png')_1x)]` named a file they did not mean; the
+  underscore outside the `url()` still becomes a space (#692).
+- `theme(--x)` and `--theme(--x)`, v4's own spelling of a theme lookup, resolve
+  in an arbitrary value. `p-[theme(--spacing)]` and its siblings were rejected
+  as unknown classes; only the v3 dot paths resolved (#701).
+- The first argument of a `var()` or a `theme()` in an arbitrary value keeps its
+  underscores, which spell the name of a custom property rather than spaces.
+  `[--x:var(--my_var)]` referenced `--my var`, and `shadow-[0_0_0_var(--my_var)]`
+  truncated the reference to `var(--my)` without saying so; a later argument
+  still decodes (#695).
+- `bg-[url(a\]b)]` names the file the class means. The escaped bracket reached
+  the value as a backslash of its own and emitted `url("a\\]b")`; the whole
+  `url()` is now read by the CSS tokeniser, which resolves its quotes and
+  escapes (#692).
+- A closing bracket the arbitrary value quotes or escapes belongs to the value,
+  so `[content:'a]b']`, `[--x:'a]b']`, `[background-image:url('a]b')]`,
+  `bg-[url('a]b')]`, `font-['My]Font']`, `shadow-[0_0_0_'a]b']` and
+  `after:content-['a]b']` reach the sheet. Both scans for the closing bracket
+  read strings and the backslash escape as the CSS tokeniser does; a string the
+  value leaves open runs to the end, so no later bracket closes it (#692).
 - `delay-[...]` takes the arbitrary token streams `duration-[...]` already
   took, so `delay-[calc(1s+2s)]` and `delay-[--spacing(1)]` reach the sheet, and
   a `var()` fallback in either family decodes its underscores (#PR).
@@ -138,15 +193,33 @@
   animation, background, divide, filter, shadow, ring, scrollbar, table,
   transform, transition and typography values, including values that are
   invalid for the target property (#667).
+- A `theme()` naming a key the resolved theme does not carry makes the class no
+  utility, the way Tailwind emits no rule for it. `shadow-[0_0_0_1px_theme(a_b)]`
+  compiled with the call written through into the declaration, and a fallback
+  argument now stands in for the missing key (#688).
+- `mask-[url(...)]` keeps the bare underscore a file name carries, the way
+  `bg-[url(...)]` already does: it named a different file, with a space in it
+  (#688).
+- `mask-[url(...)]` reads the whole `url()` with the CSS tokeniser, so a bracket
+  carrying anything after it is refused rather than sliced.
+  `mask-[url(x.png)_center]` emitted `mask-image: url("x.png)_cente")` under
+  `.mask-\[url\(x\.png\)_cente\)\]`, a selector no markup carries (#695).
 - An arbitrary value keeps the underscore its `\_` escape spells, so
   `font-['My\_Font']`, `[--my\_var:red]` and `data-[foo=bar\_baz]:flex` reach
   the sheet as written instead of carrying the backslash into the value (#676).
+- A `theme()` call resolves to the value the project bound, underscores and
+  all. The resolved value was written back into the class string unescaped, so
+  a palette entry bound to `var(--brand_red)` named `var(--brand red)` and an
+  arbitrary property carrying it was dropped (#687).
 - Bracketed `has`, `group-has` and `peer-has` variants retain Tailwind's
   `:is(...)` wrapper for bare type and complex selectors.
 - An arbitrary length in a variant's class name is spelled as the author wrote
   it, so the selector matches the markup. `min-[0.5ch]:flex` emitted
   `.min-\[\.5ch\]\:flex`, a rule nothing on the page could match, for every
   unit outside a handful (#543).
+- A spacing step is a non-negative multiple of 0.25 on the inset and sizing
+  families, as it already was on padding, margin and gap, so `top-1.7` and
+  `w-1.7` stop being utilities Tailwind never emits (#691).
 - A class whose arbitrary value has an unbalanced paren is rejected rather than
   compiled. The value was re-parsed inside a `calc()` the code wrapped around
   it, so the added `)` silently closed the author's stray one and
@@ -214,6 +287,9 @@
   `decoration-`, `divide-` and `stroke-` accept the modifier at all now, and a
   colour the browser resolves at use time keeps the `@supports` fallback
   Tailwind writes (#508, #517).
+- An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
+  gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
+  case, where Tailwind writes back what the bracket held (#700).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).
@@ -242,6 +318,10 @@
   wrapped in a supports, container or starting-style variant. The modern
   `color-mix()` declaration was previously left unguarded inside that wrapper
   (#666).
+- A container query reading a theme token still writes the token's binding.
+  `@min-[theme(--breakpoint-lg)]:flex` resolved the reference into the query and
+  left `--breakpoint-lg` out of the theme layer, so a consumer reading it off
+  the sheet found nothing (#700).
 - `[attr~=value]` attribute selectors work in arbitrary variants. The gate
   rejected any bracket containing `~`, reading the whitespace-list operator as
   a sibling combinator (#509).
@@ -299,6 +379,10 @@
 - A declared utility's own rules come before the ones its variants wrap in an
   at-rule, and one whose first property has no order slot sorts among the
   built-ins instead of opening a second `@layer utilities` (#550).
+- The initial values of the utility variables emit as one `@supports` block.
+  Every `@apply` and every declared utility hoisted a block of its own beside
+  the generated sheet's, so a project stylesheet re-declared variables the
+  sheet had already initialised (#687).
 
 ### Public OCaml API
 

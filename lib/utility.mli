@@ -75,6 +75,11 @@ type t =
           {!to_class}, so the emitted selector matches the source spelling. Used
           for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
           but keeps its own class name. *)
+  | Theme_bound of Cascade.Css.declaration list * t
+      (** [Theme_bound (decls, u)] renders as [u] with [decls] alongside its own
+          declarations. Carries the [\@layer theme] binding of a token a
+          [theme(--x)] read: resolving the reference does not consume the token,
+          so Tailwind writes the binding as well. *)
 
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t. *)
@@ -82,6 +87,10 @@ val base : base -> t
 val alias : string -> t -> t
 (** [alias class_name u] is [u] with its class name overridden to [class_name]
     (see {!constructor-Aliased}). *)
+
+val theme_bound : Cascade.Css.declaration list -> t -> t
+(** [theme_bound decls u] is [u] carrying [decls] alongside its own declarations
+    (see {!constructor-Theme_bound}). [u] itself for an empty list. *)
 
 val important : ?suffix:bool -> t -> t
 (** [important ?suffix u] marks every declaration [u] emits as [!important]: the

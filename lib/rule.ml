@@ -447,14 +447,17 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
       ~new_class:modified_class selector
   in
   let condition = Containers.container_query_to_condition query in
+  (* A [theme()] the query read still owes the sheet its binding; carried on the
+     rule's own properties, where the theme layer collects it. *)
+  let theme_decls = Modifiers.container_query_theme_decls query in
   if inner_has_hover then
-    container_query ~condition ~selector:new_selector ~props:[]
+    container_query ~condition ~selector:new_selector ~props:theme_decls
       ~base_class:modified_class
       ~nested:(nested_hover ~selector:new_selector ~props)
       ()
   else
-    container_query ~condition ~selector:new_selector ~props
-      ~base_class:modified_class ()
+    container_query ~condition ~selector:new_selector
+      ~props:(props @ theme_decls) ~base_class:modified_class ()
 
 (** Parse a has-[...] selector string as a relative CSS selector ([:has()]
     accepts a bare leading combinator, e.g. [>div] or [~img]), with [&] (the
@@ -961,14 +964,6 @@ let media_condition_of_modifier = function
     not-* rules sort by variant position, not alphabetically. The offset is
     multiplied by 100 to leave room for the base suborder. *)
 
-(** Check if string [s] contains substring [pat]. *)
-let has_substring s pat =
-  let slen = String.length s and plen = String.length pat in
-  let rec check i =
-    i + plen <= slen && (String.sub s i plen = pat || check (i + 1))
-  in
-  check 0
-
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
     by the comparator. For before/after, the base_class is the raw utility name
@@ -990,9 +985,9 @@ let compute_variant_order ~selector_str base_class =
      to avoid matching utility-generated pseudo-elements like prose's
      ::before. *)
   if vo > 0 then vo
-  else if has_substring selector_str "before\\:" then
+  else if Strings.contains ~sub:"before\\:" selector_str then
     Modifiers.variant_order_of_prefix "before"
-  else if has_substring selector_str "after\\:" then
+  else if Strings.contains ~sub:"after\\:" selector_str then
     Modifiers.variant_order_of_prefix "after"
   else 0
 
@@ -2439,8 +2434,10 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
 let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec utility_order = function
     | Utility.Base b -> Some (Utility.order b)
-    | Utility.Modified (_, u) | Utility.Important (_, u) | Utility.Aliased (_, u)
-      ->
+    | Utility.Modified (_, u)
+    | Utility.Important (_, u)
+    | Utility.Aliased (_, u)
+    | Utility.Theme_bound (_, u) ->
         utility_order u
     | Utility.Group _ -> None
   in

@@ -145,9 +145,12 @@ module Handler = struct
     | Z_auto
     | Z of int (* Dynamic z-index: z-5, z-100, etc. *)
     | Neg_z of int (* Negative z-index: -z-10, -z-50, etc. *)
-    (* The author's bracket text travels with the z-index it denotes, so the
-       class name is spelled exactly as it was written. *)
-    | Z_arbitrary of string * Css.z_index (* Arbitrary values: z-[123] *)
+    (* Arbitrary values (z-[123]). The author's bracket text travels with what
+       it denotes, so the class name is spelled exactly as it was written. The
+       bracket carries either a value the z-index grammar reads or, when it does
+       not, that text verbatim: Tailwind hands a bracket to the declaration
+       unvalidated. *)
+    | Z_arbitrary of string * [ `Index of Css.z_index | `Raw of string ]
     | Neg_z_arbitrary of
         string * Css.z_index (* Negative arbitrary: -z-[var(--value)] *)
     | (* Object fit *)
@@ -510,7 +513,11 @@ module Handler = struct
     | Z_50 -> style [ z_index (Index 50) ]
     | Z_auto -> z_auto_style ()
     | Neg_z n -> style [ z_index (Index (-n)) ]
-    | Z_arbitrary (_, zi) -> style [ z_index zi ]
+    | Z_arbitrary (_, `Index zi) -> style [ z_index zi ]
+    | Z_arbitrary (_, `Raw v) -> (
+        match Parse.opaque_declaration "z-index" v with
+        | Some declaration -> style [ declaration ]
+        | None -> style [])
     | Neg_z_arbitrary (_, zi) ->
         style [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ]
     | Object_contain -> style [ object_fit Contain ]
@@ -609,7 +616,9 @@ module Handler = struct
      grammar cannot read, and [of_class] refuses the utility rather than leaving
      [to_style] to raise. *)
   let arbitrary_z_index inner : Css.z_index option =
-    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
+    let cursor =
+      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
+    in
     match
       Cascade.Cursor.try_parse_full_err Css.Properties.read_z_index cursor
     with
@@ -654,8 +663,12 @@ module Handler = struct
         if len > 2 && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
           match arbitrary_z_index inner with
-          | Some zi -> Ok (Z_arbitrary (inner, zi))
-          | None -> Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
+          | Some zi -> Ok (Z_arbitrary (inner, `Index zi))
+          | None -> (
+              (* Not a z-index, so it goes to the declaration as written. *)
+              match Parse.arbitrary_declaration_value inner with
+              | Some v -> Ok (Z_arbitrary (inner, `Raw v))
+              | None -> Error (`Msg ("Invalid z-index arbitrary value: " ^ n)))
         else Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
     | [ "z"; n ] -> (
         (* Dynamic z-index: z-5, z-100, etc. *)

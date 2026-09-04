@@ -19,18 +19,21 @@ module Handler = struct
     | Flex_none
     | Flex_n of int (* flex-N where N is any integer *)
     | Flex_fraction of int * int (* flex-N/M where N/M is a fraction *)
-    | Flex_arbitrary of int (* flex-[123] *)
+    | Flex_arbitrary of string * [ `Flex of Css.flex | `Raw of string ]
+    (* flex-[123] *)
     (* Grow *)
     | Flex_grow
     | Flex_grow_0
     | Flex_grow_n of int (* grow-N where N is any integer *)
-    | Flex_grow_arbitrary of int (* grow-[123] *)
+    | Flex_grow_arbitrary of string * [ `Number of float | `Raw of string ]
+      (* grow-[123] *)
     | Flex_grow_legacy (* flex-grow (deprecated alias, keeps its class name) *)
     | Flex_grow_0_legacy (* flex-grow-0 *)
     (* Shrink *)
     | Flex_shrink
     | Flex_shrink_0
-    | Flex_shrink_arbitrary of int (* shrink-[123] *)
+    | Flex_shrink_arbitrary of string * [ `Number of float | `Raw of string ]
+      (* shrink-[123] *)
     | Flex_shrink_legacy (* flex-shrink *)
     | Flex_shrink_0_legacy (* flex-shrink-0 *)
     (* Basis *)
@@ -81,6 +84,11 @@ module Handler = struct
         flex
           (Basis (Pct (Option.value ~default:0. (Parse.fraction_percent n m))));
       ]
+
+  (* A bracket no property grammar reads is still a value Tailwind writes out,
+     so it reaches the sheet as the token stream it is. *)
+  let opaque property raw =
+    style (Option.to_list (Parse.opaque_declaration property raw))
 
   (* Grow *)
   let flex_grow_utility = style [ flex_grow 1.0 ]
@@ -180,16 +188,19 @@ module Handler = struct
     | Flex_none -> flex_none
     | Flex_n n -> flex_n_style n
     | Flex_fraction (n, m) -> flex_fraction_style n m
-    | Flex_arbitrary n -> flex_n_style n
+    | Flex_arbitrary (_, `Flex v) -> style [ flex v ]
+    | Flex_arbitrary (_, `Raw raw) -> opaque "flex" raw
     | Flex_grow -> flex_grow_utility
     | Flex_grow_0 -> flex_grow_0_utility
     | Flex_grow_n n -> style [ flex_grow (float_of_int n) ]
-    | Flex_grow_arbitrary n -> style [ flex_grow (float_of_int n) ]
+    | Flex_grow_arbitrary (_, `Number f) -> style [ flex_grow f ]
+    | Flex_grow_arbitrary (_, `Raw raw) -> opaque "flex-grow" raw
     | Flex_grow_legacy -> flex_grow_utility
     | Flex_grow_0_legacy -> flex_grow_0_utility
     | Flex_shrink -> flex_shrink_utility
     | Flex_shrink_0 -> flex_shrink_0_utility
-    | Flex_shrink_arbitrary n -> style [ flex_shrink (float_of_int n) ]
+    | Flex_shrink_arbitrary (_, `Number f) -> style [ flex_shrink f ]
+    | Flex_shrink_arbitrary (_, `Raw raw) -> opaque "flex-shrink" raw
     | Flex_shrink_legacy -> flex_shrink_utility
     | Flex_shrink_0_legacy -> flex_shrink_0_utility
     | Basis_0 -> basis_0
@@ -228,8 +239,11 @@ module Handler = struct
     | Flex_fraction (n, m) -> 1020 + (n * 100) + m
     (* flex-N values: after fractions, ordered by value *)
     | Flex_n n -> 5000 + n
-    (* Arbitrary flex values - after regular numbers *)
-    | Flex_arbitrary n -> 6000 + n
+    (* Arbitrary flex values - after the numbered ones, ordered by the grow
+       factor the bracket denotes, and a bracket denoting none last: Tailwind
+       sorts flex-[2] before flex-[10] before flex-[<value>]. *)
+    | Flex_arbitrary (_, `Flex (Grow (Number f))) -> 6000 + int_of_float f
+    | Flex_arbitrary _ -> 9000
     (* Named shortcuts come last *)
     | Flex_auto -> 10000
     | Flex_initial -> 10001
@@ -239,14 +253,18 @@ module Handler = struct
     | Flex_shrink_0_legacy -> 19999
     | Flex_shrink -> 20000
     | Flex_shrink_0 -> 20001
-    | Flex_shrink_arbitrary _ -> 20002
+    | Flex_shrink_arbitrary (_, `Number f) -> 20002 + int_of_float f
+    | Flex_shrink_arbitrary _ -> 25000
     (* Grow - legacy flex-grow* sorts before the canonical grow* *)
     | Flex_grow_legacy -> 29998
     | Flex_grow_0_legacy -> 29999
     | Flex_grow -> 30000
     | Flex_grow_0 -> 30001
     | Flex_grow_n n -> 30000 + n
-    | Flex_grow_arbitrary _ -> 30002
+    (* Arbitrary grow values sort after every numbered one, the way Tailwind
+       lists grow, grow-0, grow-3, grow-7, grow-[2], grow-[<value>]. *)
+    | Flex_grow_arbitrary (_, `Number f) -> 35000 + int_of_float f
+    | Flex_grow_arbitrary _ -> 39000
     (* Basis: fractions → arbitrary → keywords alphabetical → named *)
     | Basis_fraction (n, m) -> 40000 + (n * 10) + m
     | Basis_arbitrary _ -> 42000
@@ -274,16 +292,45 @@ module Handler = struct
         true
     | _ -> false
 
+  (* A bracket read with the grammar cascade has for the property, off the
+     arbitrary-value pipeline every other family reads: [_] stands for a space,
+     [--spacing(n)] expands, and a binary [+] gets the spaces CSS math wants, so
+     [calc(1+2)] is a value rather than a parse error. *)
+  let arbitrary_typed read inner =
+    let cursor =
+      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
+    in
+    match Cascade.Cursor.try_parse_full_err read cursor with
+    | Ok v -> Some v
+    | Error _ -> None
+
   (* The order an [order-[...]] bracket denotes. [None] is a bracket the order
      grammar cannot read, and [of_class] refuses the utility rather than leaving
      [to_style] to raise. *)
   let arbitrary_order inner : Css.order option =
-    let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
-    match
-      Cascade.Cursor.try_parse_full_err Css.Properties.read_order cursor
-    with
-    | Ok o -> Some o
-    | Error _ -> None
+    arbitrary_typed Css.Properties.read_order inner
+
+  (* [flex-], [grow-] and [shrink-] take the same two readings [duration-] does:
+     a value the property's own grammar accepts keeps its typed form, and
+     anything else Tailwind writes out passes through as a declaration-safe
+     token stream. OCaml's number reader serves neither - it reads [0x4] as 4,
+     so the class named itself after a value nobody wrote, and it refuses
+     [calc(1+2)], which is a value once the pipeline has spaced it out. *)
+  let arbitrary_raw inner =
+    Option.map (fun v -> `Raw v) (Parse.arbitrary_declaration_value inner)
+
+  let arbitrary_flex inner =
+    match arbitrary_typed Css.Properties.read_flex inner with
+    | Some v -> Some (`Flex v)
+    | None -> arbitrary_raw inner
+
+  let arbitrary_factor inner =
+    let typed : Css.flex_factor option =
+      arbitrary_typed Css.Properties.read_flex_factor inner
+    in
+    match typed with
+    | Some (Number f) -> Some (`Number f)
+    | Some _ | None -> arbitrary_raw inner
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -298,8 +345,8 @@ module Handler = struct
     | [ "grow"; "0" ] -> Ok Flex_grow_0
     | [ "grow"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        match int_of_string_opt inner with
-        | Some i -> Ok (Flex_grow_arbitrary i)
+        match arbitrary_factor inner with
+        | Some v -> Ok (Flex_grow_arbitrary (inner, v))
         | None -> err_not_utility)
     | [ "grow"; n ] -> (
         match Parse.decimal_int n with
@@ -311,8 +358,8 @@ module Handler = struct
     | [ "shrink"; "0" ] -> Ok Flex_shrink_0
     | [ "shrink"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        match int_of_string_opt inner with
-        | Some i -> Ok (Flex_shrink_arbitrary i)
+        match arbitrary_factor inner with
+        | Some v -> Ok (Flex_shrink_arbitrary (inner, v))
         | None -> err_not_utility)
     | [ "basis"; "0" ] -> Ok Basis_0
     | [ "basis"; "1" ] -> Ok Basis_1
@@ -351,12 +398,8 @@ module Handler = struct
     | [ "order"; "none" ] -> Ok Order_none
     | "order" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
-        if
-          String.length value > 2
-          && value.[0] = '['
-          && value.[String.length value - 1] = ']'
-        then
-          let inner = String.sub value 1 (String.length value - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Order_arbitrary (inner, o))
           | None -> err_not_utility
@@ -367,12 +410,8 @@ module Handler = struct
     | "" :: "order" :: rest when rest <> [] -> (
         (* Negative order: -order-4, -order-[var(--value)] *)
         let value = String.concat "-" rest in
-        if
-          String.length value > 2
-          && value.[0] = '['
-          && value.[String.length value - 1] = ']'
-        then
-          let inner = String.sub value 1 (String.length value - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Neg_order_arbitrary (inner, o))
           | None -> err_not_utility
@@ -380,15 +419,12 @@ module Handler = struct
           match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
           | _ -> err_not_utility)
-    | [ "flex"; value ] when String.length value > 0 && value.[0] = '[' ->
+    | [ "flex"; value ] when Parse.is_bracket_value value -> (
         (* Arbitrary flex: flex-[123] *)
-        let len = String.length value in
-        if len > 2 && value.[len - 1] = ']' then
-          let inner = String.sub value 1 (len - 2) in
-          match int_of_string_opt inner with
-          | Some n -> Ok (Flex_arbitrary n)
-          | None -> err_not_utility
-        else err_not_utility
+        let inner = Parse.bracket_inner value in
+        match arbitrary_flex inner with
+        | Some v -> Ok (Flex_arbitrary (inner, v))
+        | None -> err_not_utility)
     | [ "flex"; value ] -> (
         (* Try fraction first (e.g., "1/2") *)
         match parse_fraction value with
@@ -408,19 +444,19 @@ module Handler = struct
     | Flex_none -> "flex-none"
     | Flex_n n -> "flex-" ^ string_of_int n
     | Flex_fraction (n, m) -> "flex-" ^ string_of_int n ^ "/" ^ string_of_int m
-    | Flex_arbitrary n -> "flex-[" ^ string_of_int n ^ "]"
+    | Flex_arbitrary (raw, _) -> "flex-[" ^ raw ^ "]"
     (* Grow - Tailwind v4 uses shorter names; the flex-* spellings are kept as
        deprecated aliases that preserve their class name *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"
     | Flex_grow_n n -> "grow-" ^ string_of_int n
-    | Flex_grow_arbitrary n -> "grow-[" ^ string_of_int n ^ "]"
+    | Flex_grow_arbitrary (raw, _) -> "grow-[" ^ raw ^ "]"
     | Flex_grow_legacy -> "flex-grow"
     | Flex_grow_0_legacy -> "flex-grow-0"
     (* Shrink - Tailwind v4 uses shorter names *)
     | Flex_shrink -> "shrink"
     | Flex_shrink_0 -> "shrink-0"
-    | Flex_shrink_arbitrary n -> "shrink-[" ^ string_of_int n ^ "]"
+    | Flex_shrink_arbitrary (raw, _) -> "shrink-[" ^ raw ^ "]"
     | Flex_shrink_legacy -> "flex-shrink"
     | Flex_shrink_0_legacy -> "flex-shrink-0"
     (* Basis *)

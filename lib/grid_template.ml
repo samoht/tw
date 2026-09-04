@@ -38,11 +38,13 @@ module Handler = struct
     | Grid_cols of int
     | Grid_cols_none
     | Grid_cols_subgrid
-    | Grid_cols_arbitrary of string * Css.grid_template
+    | Grid_cols_arbitrary of
+        string * [ `Template of Css.grid_template | `Raw of string ]
     | Grid_rows of int
     | Grid_rows_none
     | Grid_rows_subgrid
-    | Grid_rows_arbitrary of string * Css.grid_template
+    | Grid_rows_arbitrary of
+        string * [ `Template of Css.grid_template | `Raw of string ]
     | Grid_flow_row
     | Grid_flow_col
     | Grid_flow_dense
@@ -53,13 +55,15 @@ module Handler = struct
     | Auto_cols_max
     | Auto_cols_fr
     | Auto_cols_spacing of float  (** [auto-cols-<n>]: spacing-scaled track. *)
-    | Auto_cols_arbitrary of string * Css.grid_template
+    | Auto_cols_arbitrary of
+        string * [ `Template of Css.grid_template | `Raw of string ]
     | Auto_rows_auto
     | Auto_rows_min
     | Auto_rows_max
     | Auto_rows_fr
     | Auto_rows_spacing of float  (** [auto-rows-<n>]: spacing-scaled track. *)
-    | Auto_rows_arbitrary of string * Css.grid_template
+    | Auto_rows_arbitrary of
+        string * [ `Template of Css.grid_template | `Raw of string ]
 
   let name = "grid_template"
 
@@ -98,18 +102,27 @@ module Handler = struct
   (* Parse the complete property grammar in Cascade. Keeping a second grid
      parser here made tw reject valid CSS as soon as Grid gained flex-valued
      math functions, and also made template and auto-track validation drift. *)
-  let parse_arbitrary_grid_template read s : Css.grid_template option =
-    let decoded = Parse.decode_arbitrary_value (String.trim s) in
+  let parse_arbitrary_grid_template
+      (read : Cascade.Cursor.t -> Css.grid_template) s :
+      [ `Template of Css.grid_template | `Raw of string ] option =
+    let trimmed = String.trim s in
+    let decoded = Parse.decode_arbitrary_value trimmed in
     let cursor = Cascade.Cursor.of_string decoded in
     match Cascade.Cursor.try_parse_full_err read cursor with
-    | Ok template -> Some template
+    | Ok template -> Some (`Template template)
     | Error _ -> (
         (* Tailwind's upstream fixture includes the invalid CSS value [[123]].
            Preserve tw's established interpretation as [123px] without weakening
-           Cascade's property grammar for every other value. *)
-        match int_of_string_opt decoded with
-        | Some n -> Some (Css.Px (float_of_int n))
-        | None -> None)
+           Cascade's property grammar for every other value. The reading is a
+           plain decimal: a spelling only OCaml's number reader takes ([0x4],
+           [1_0]) is not that integer under another name, and goes to the
+           declaration as written, which is what Tailwind does with it. *)
+        match Parse.decimal_int decoded with
+        | Some n -> Some (`Template (Css.Px (float_of_int n)))
+        | None ->
+            Option.map
+              (fun v -> `Raw v)
+              (Parse.arbitrary_declaration_value trimmed))
 
   (* A track written with the [--spacing()] shorthand reads the scale, so the
      token has to be declared alongside it. *)
@@ -127,11 +140,22 @@ module Handler = struct
       [ decl ]
     else []
 
-  let grid_cols_arbitrary s template =
-    style (spacing_decls s @ [ Css.grid_template_columns template ])
+  (* A track the grammar reads renders through the typed property; anything else
+     goes to the declaration as written, under the property's own name. *)
+  let arbitrary_track ~property_name ~property s = function
+    | `Template template -> style (spacing_decls s @ [ property template ])
+    | `Raw v -> (
+        match Parse.opaque_declaration property_name v with
+        | Some declaration -> style [ declaration ]
+        | None -> style [])
 
-  let grid_rows_arbitrary s template =
-    style (spacing_decls s @ [ Css.grid_template_rows template ])
+  let grid_cols_arbitrary s =
+    arbitrary_track ~property_name:"grid-template-columns"
+      ~property:Css.grid_template_columns s
+
+  let grid_rows_arbitrary s =
+    arbitrary_track ~property_name:"grid-template-rows"
+      ~property:Css.grid_template_rows s
 
   let grid_rows n =
     if n < 1 || n > 999 then
@@ -166,7 +190,10 @@ module Handler = struct
   let auto_cols_min = style [ Css.grid_auto_columns Min_content ]
   let auto_cols_max = style [ Css.grid_auto_columns Max_content ]
   let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
-  let auto_cols_arbitrary template = style [ Css.grid_auto_columns template ]
+
+  let auto_cols_arbitrary s =
+    arbitrary_track ~property_name:"grid-auto-columns"
+      ~property:Css.grid_auto_columns s
 
   (* [auto-cols-<n>] sizes implicit columns to a spacing-scaled track,
      [grid-auto-columns: calc(var(--spacing) * n)]. *)
@@ -185,7 +212,10 @@ module Handler = struct
   let auto_rows_min = style [ Css.grid_auto_rows Min_content ]
   let auto_rows_max = style [ Css.grid_auto_rows Max_content ]
   let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
-  let auto_rows_arbitrary template = style [ Css.grid_auto_rows template ]
+
+  let auto_rows_arbitrary s =
+    arbitrary_track ~property_name:"grid-auto-rows" ~property:Css.grid_auto_rows
+      s
 
   let auto_rows_spacing ?theme n =
     let decl, len = Theme.spacing_calc_float ?theme n in
@@ -203,11 +233,11 @@ module Handler = struct
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none ()
     | Grid_cols_subgrid -> grid_cols_subgrid
-    | Grid_cols_arbitrary (s, template) -> grid_cols_arbitrary s template
+    | Grid_cols_arbitrary (s, v) -> grid_cols_arbitrary s v
     | Grid_rows n -> grid_rows n
     | Grid_rows_none -> grid_rows_none ()
     | Grid_rows_subgrid -> grid_rows_subgrid
-    | Grid_rows_arbitrary (s, template) -> grid_rows_arbitrary s template
+    | Grid_rows_arbitrary (s, v) -> grid_rows_arbitrary s v
     | Grid_flow_row -> grid_flow_row
     | Grid_flow_col -> grid_flow_col
     | Grid_flow_dense -> grid_flow_dense
@@ -218,13 +248,13 @@ module Handler = struct
     | Auto_cols_max -> auto_cols_max
     | Auto_cols_fr -> auto_cols_fr
     | Auto_cols_spacing n -> auto_cols_spacing n
-    | Auto_cols_arbitrary (_, template) -> auto_cols_arbitrary template
+    | Auto_cols_arbitrary (s, v) -> auto_cols_arbitrary s v
     | Auto_rows_auto -> auto_rows_auto ()
     | Auto_rows_min -> auto_rows_min
     | Auto_rows_max -> auto_rows_max
     | Auto_rows_fr -> auto_rows_fr
     | Auto_rows_spacing n -> auto_rows_spacing n
-    | Auto_rows_arbitrary (_, template) -> auto_rows_arbitrary template
+    | Auto_rows_arbitrary (s, v) -> auto_rows_arbitrary s v
 
   (* Tailwind emits these five families in the alphabetical order of the CSS
      property each declares: grid-auto-columns, grid-auto-flow, grid-auto-rows,
@@ -278,7 +308,7 @@ module Handler = struct
             parse_arbitrary_grid_template
               Css.Properties.read_grid_template_tracks inner
           with
-          | Some template -> Ok (Grid_cols_arbitrary (inner, template))
+          | Some v -> Ok (Grid_cols_arbitrary (inner, v))
           | None -> err_invalid_cols
         else
           match Parse.decimal_int n with
@@ -294,7 +324,7 @@ module Handler = struct
             parse_arbitrary_grid_template
               Css.Properties.read_grid_template_tracks inner
           with
-          | Some template -> Ok (Grid_rows_arbitrary (inner, template))
+          | Some v -> Ok (Grid_rows_arbitrary (inner, v))
           | None -> err_invalid_rows
         else
           match Parse.decimal_int n with
@@ -320,7 +350,7 @@ module Handler = struct
                 parse_arbitrary_grid_template
                   Css.Properties.read_grid_auto_tracks inner
               with
-              | Some template -> Ok (Auto_cols_arbitrary (inner, template))
+              | Some v -> Ok (Auto_cols_arbitrary (inner, v))
               | None -> err_not_utility
             else err_not_utility)
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
@@ -338,7 +368,7 @@ module Handler = struct
                 parse_arbitrary_grid_template
                   Css.Properties.read_grid_auto_tracks inner
               with
-              | Some template -> Ok (Auto_rows_arbitrary (inner, template))
+              | Some v -> Ok (Auto_rows_arbitrary (inner, v))
               | None -> err_not_utility
             else err_not_utility)
     | _ -> err_not_utility

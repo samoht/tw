@@ -8,108 +8,65 @@ let test_txt () =
   let html_str = to_string text in
   check string "text content" "Hello World" html_str
 
+(* The whole rendering is compared rather than searched: a substring says
+   nothing about where the class attribute went or what else came out beside it,
+   and a [check bool] failure prints neither the markup nor the subject. *)
 let test_element_creation () =
-  let div = div ~tw:Tw.[ p 4; bg white ] [ txt "Content" ] in
-  let html_str = to_string div in
-
-  check bool "is div element" true
-    (Astring.String.is_prefix ~affix:"<div" html_str);
-  check bool "contains content" true
-    (Astring.String.is_infix ~affix:"Content" html_str);
-  check bool "has classes" true
-    (Astring.String.is_infix ~affix:"class=" html_str)
+  check string "utilities render into one class attribute"
+    {|<div class="p-4 bg-white">Content</div>|}
+    (to_string (div ~tw:Tw.[ p 4; bg white ] [ txt "Content" ]))
 
 let test_attributes () =
-  let link =
-    a
-      ~at:[ At.href "/about"; At.title "About page" ]
-      ~tw:Tw.[ text ~shade:600 blue; hover [ underline ] ]
-      [ txt "About" ]
-  in
-  let html_str = to_string link in
-
-  check bool "has href" true
-    (Astring.String.is_infix ~affix:"href=\"/about\"" html_str);
-  check bool "has title" true
-    (Astring.String.is_infix ~affix:"title=\"About page\"" html_str);
-  check bool "contains text" true
-    (Astring.String.is_infix ~affix:"About" html_str)
+  check string "the class attribute comes first, then the given ones in order"
+    {|<a class="text-blue-600 hover:underline" href="/about" title="About page">About</a>|}
+    (to_string
+       (a
+          ~at:[ At.href "/about"; At.title "About page" ]
+          ~tw:Tw.[ text ~shade:600 blue; hover [ underline ] ]
+          [ txt "About" ]))
 
 let test_html_escaping () =
-  (* Text content escaping *)
-  let dangerous = txt "<script>if (a && b) alert(\"x\")</script>" in
-  let html_str = to_string dangerous in
-  check bool "escapes < and >" true
-    (Astring.String.is_infix ~affix:"&lt;script&gt;" html_str);
-  check bool "escapes & inside" true
-    (Astring.String.is_infix ~affix:"&amp;&amp;" html_str);
-  check bool "escapes quotes" true
-    (Astring.String.is_infix ~affix:"\"x\"" html_str
-    || Astring.String.is_infix ~affix:"&quot;x&quot;" html_str);
-
-  (* Attribute value escaping *)
-  let elem = div ~at:[ At.title "5 > 3 & \"yes\"" ] [ txt "t" ] in
-  let s = to_string elem in
-  check bool "attribute escapes >" true
-    (Astring.String.is_infix ~affix:"&gt;" s);
-  check bool "attribute escapes & and quotes" true
-    (Astring.String.is_infix ~affix:"&amp;" s
-    && Astring.String.is_infix ~affix:"&quot;yes&quot;" s)
+  check string "text content escapes <, >, & and the quote"
+    "&lt;script&gt;if (a &amp;&amp; b) alert(&quot;x&quot;)&lt;/script&gt;"
+    (to_string (txt "<script>if (a && b) alert(\"x\")</script>"));
+  check string "an attribute value escapes the same four"
+    {|<div title="5 &gt; 3 &amp; &quot;yes&quot;">t</div>|}
+    (to_string (div ~at:[ At.title "5 > 3 & \"yes\"" ] [ txt "t" ]))
 
 let test_boolean_and_data_attrs () =
-  (* Boolean attributes render as presence-only *)
-  let i = input ~at:[ At.disabled; At.checked; At.required ] () in
-  let s = to_string i in
-  check bool "has disabled" true (Astring.String.is_infix ~affix:"disabled" s);
-  check bool "has checked" true (Astring.String.is_infix ~affix:"checked" s);
-  check bool "has required" true (Astring.String.is_infix ~affix:"required" s);
-
-  (* aria and data attributes serialization *)
-  let d =
-    div
-      ~at:
-        [
-          Aria.label "Greeting";
-          Aria.hidden;
-          Aria.expanded true;
-          At.v "data-user" "Tom & Jerry";
-        ]
-      [ txt "x" ]
-  in
-  let sd = to_string d in
-  check bool "aria-label set" true
-    (Astring.String.is_infix ~affix:"aria-label=\"Greeting\"" sd);
-  check bool "aria-hidden set" true
-    (Astring.String.is_infix ~affix:"aria-hidden=\"true\"" sd);
-  check bool "aria-expanded set" true
-    (Astring.String.is_infix ~affix:"aria-expanded=\"true\"" sd);
-  check bool "data-* serialized and escaped" true
-    (Astring.String.is_infix ~affix:"data-user=\"Tom &amp; Jerry\"" sd)
+  (* A boolean attribute is written with an empty value, which HTML reads as the
+     attribute being present. A substring on the name alone could not tell that
+     from any other spelling. *)
+  check string "boolean attributes carry an empty value"
+    {|<input disabled="" checked="" required="" />|}
+    (to_string (input ~at:[ At.disabled; At.checked; At.required ] ()));
+  check string "aria and data attributes serialise in order, values escaped"
+    {|<div aria-label="Greeting" aria-hidden="true" aria-expanded="true" data-user="Tom &amp; Jerry">x</div>|}
+    (to_string
+       (div
+          ~at:
+            [
+              Aria.label "Greeting";
+              Aria.hidden;
+              Aria.expanded true;
+              At.v "data-user" "Tom & Jerry";
+            ]
+          [ txt "x" ]))
 
 let test_nesting () =
-  let nested =
-    div
-      [
-        h1 [ txt "Title" ];
-        p
+  check string "children render in place, in document order"
+    {|<div><h1>Title</h1><p>Paragraph with <span class="font-bold">bold</span> text.</p></div>|}
+    (to_string
+       (div
           [
-            txt "Paragraph with ";
-            span ~tw:Tw.[ font_bold ] [ txt "bold" ];
-            txt " text.";
-          ];
-      ]
-  in
-  let html_str = to_string nested in
-
-  check bool "has h1" true (Astring.String.is_infix ~affix:"<h1>" html_str);
-  check bool "has paragraph" true
-    (Astring.String.is_infix ~affix:"<p>" html_str);
-  check bool "has span with bold" true
-    (Astring.String.is_infix ~affix:"<span" html_str);
-  check bool "correct nesting" true
-    (Astring.String.is_infix ~affix:"Paragraph with" html_str
-    && Astring.String.is_infix ~affix:"bold" html_str
-    && Astring.String.is_infix ~affix:"text." html_str)
+            h1 [ txt "Title" ];
+            p
+              [
+                txt "Paragraph with ";
+                span ~tw:Tw.[ font_bold ] [ txt "bold" ];
+                txt " text.";
+              ];
+          ]))
 
 let test_to_tw () =
   let elem =
@@ -126,13 +83,9 @@ let test_to_tw () =
     (List.exists (fun tw -> Tw.pp tw = "font-bold") tw_classes)
 
 let test_pp () =
-  let elem = div ~tw:Tw.[ p 2 ] [ txt "Test" ] in
-  let pp_output = pp elem in
-
-  check bool "pp contains element tag" true
-    (Astring.String.is_infix ~affix:"<div" pp_output);
-  check bool "pp contains classes" true
-    (Astring.String.is_infix ~affix:"p-2" pp_output)
+  check string "pp names the utilities alongside the rendering"
+    {|<element with classes="p-2"><div class="p-2">Test</div></element>|}
+    (pp (div ~tw:Tw.[ p 2 ] [ txt "Test" ]))
 
 let test_page_cache_busting () =
   (* Test that page function generates cache-busted CSS URLs *)
@@ -146,35 +99,41 @@ let test_page_cache_busting () =
   let html_content = html test_page in
   let css_filename, _css_stylesheet = css test_page in
 
-  (* Check that the HTML contains a cache-busted CSS link *)
-  check bool "HTML contains link tag" true
-    (Astring.String.is_infix ~affix:"<link" html_content);
-  check bool "CSS link has cache buster" true
-    (Astring.String.is_infix ~affix:"styles.css?v=" html_content);
   check
     Alcotest.(option string)
     "CSS filename is correct" (Some "styles.css") css_filename;
 
-  (* Check that the hash is 8 characters (MD5 hash prefix) *)
-  match Astring.String.find_sub ~sub:"styles.css?v=" html_content with
-  | Some idx ->
-      let hash_start = idx + String.length "styles.css?v=" in
-      let rest =
-        String.sub html_content hash_start
-          (String.length html_content - hash_start)
-      in
-      (* Find the end of the hash (until quote) *)
-      let hash_end = try String.index rest '"' with Not_found -> 8 in
-      let hash = String.sub rest 0 hash_end in
-      check int "hash length is 8 characters" 8 (String.length hash);
-      (* Check that hash is hexadecimal *)
-      let is_hex c =
-        (c >= '0' && c <= '9')
-        || (c >= 'a' && c <= 'f')
-        || (c >= 'A' && c <= 'F')
-      in
-      check bool "hash is hexadecimal" true (String.for_all is_hex hash)
-  | None -> fail "Cache buster not found in HTML"
+  (* The buster is an MD5 prefix over the stylesheet, so it moves with anything
+     that changes the CSS. Read it back and check its shape, then compare the
+     document around it whole: that is what says the link is a [<link>] in the
+     head and that nothing else was emitted beside it. *)
+  let hash =
+    match Astring.String.find_sub ~sub:"styles.css?v=" html_content with
+    | None -> fail "Cache buster not found in HTML"
+    | Some idx ->
+        let start = idx + String.length "styles.css?v=" in
+        let rest =
+          String.sub html_content start (String.length html_content - start)
+        in
+        let stop =
+          match Astring.String.find (Char.equal '"') rest with
+          | Some i -> i
+          | None -> String.length rest
+        in
+        String.sub rest 0 stop
+  in
+  check int "hash length is 8 characters" 8 (String.length hash);
+  let is_hex c =
+    (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+  in
+  check bool "hash is hexadecimal" true (String.for_all is_hex hash);
+  check string "the document links the cache-busted stylesheet"
+    ({|<!DOCTYPE html>|} ^ "\n"
+   ^ {|<html lang="en"><head><meta charset="utf-8" /><meta name="description" content="Test page for cache busting" /><title>Test Page</title><link rel="stylesheet" href="styles.css?v=|}
+   ^ hash
+   ^ {|" /></head><body><div class="p-4 bg-white">Test content</div></body></html>|}
+    )
+    html_content
 
 let test_page_cache_busting_consistency () =
   (* Test that same content produces same hash *)
@@ -225,59 +184,43 @@ let test_inline_css () =
   (* Inline pages have no external CSS file *)
   check Alcotest.(option string) "no external CSS file" None css_filename;
 
-  (* The CSS is embedded in a <style> tag, not referenced via <link> *)
-  check bool "HTML contains style tag" true
-    (Astring.String.is_infix ~affix:"<style>" html_content);
-  check bool "HTML has no link tag" false
-    (Astring.String.is_infix ~affix:"<link" html_content);
-
-  (* The stylesheet is inlined verbatim: <style> is a raw-text element, so the
-     CSS must not be HTML-escaped (e.g. [>] must stay [>], not [&gt;]). *)
-  let expected_css = Tw.Css.to_string ~minify:true css_stylesheet in
-  check bool "stylesheet inlined verbatim (unescaped)" true
-    (Astring.String.is_infix ~affix:expected_css html_content)
+  (* The stylesheet is inlined verbatim inside [<style>], a raw-text element, so
+     the CSS must not be HTML-escaped ([>] stays [>], not [&gt;]). Composing the
+     expected document from the stylesheet keeps this about the embedding rather
+     than about the sheet, and comparing it whole is what says no [<link>] went
+     out beside it. *)
+  check string "stylesheet embedded verbatim, and no link tag"
+    ({|<!DOCTYPE html>|} ^ "\n"
+   ^ {|<html lang="en"><head><meta charset="utf-8" /><title>Inline Style Test</title><style>|}
+    ^ Tw.Css.to_string ~minify:true css_stylesheet
+    ^ {|</style></head><body><div class="p-4 bg-white">Inline content</div></body></html>|}
+    )
+    html_content
 
 let test_class_merging () =
-  (* tw classes and explicit class attribute should merge into one class attr *)
-  let elem =
-    div
-      ~at:[ At.v "class" "custom-class" ]
-      ~tw:Tw.[ p 4; flex ]
-      [ txt "Merged" ]
-  in
-  let html_str = to_string elem in
-  (* Should have exactly one class attribute containing both *)
-  let class_count =
-    let rec count s from n =
-      match Astring.String.find_sub ~start:from ~sub:"class=" s with
-      | Some i -> count s (i + 6) (n + 1)
-      | None -> n
-    in
-    count html_str 0 0
-  in
-  check int "single class attribute" 1 class_count;
-  check bool "has tw classes" true
-    (Astring.String.is_infix ~affix:"p-4" html_str);
-  check bool "has custom class" true
-    (Astring.String.is_infix ~affix:"custom-class" html_str)
+  (* The tw utilities and the explicit class attribute merge into one attribute,
+     utilities first. Comparing the whole rendering is what says there is no
+     second [class=]. *)
+  check string "one class attribute, utilities then the explicit names"
+    {|<div class="p-4 flex custom-class">Merged</div>|}
+    (to_string
+       (div
+          ~at:[ At.v "class" "custom-class" ]
+          ~tw:Tw.[ p 4; flex ]
+          [ txt "Merged" ]))
 
 let test_no_class_without_tw () =
-  (* No class attribute when tw is empty *)
-  let elem = div [ txt "Plain" ] in
-  let html_str = to_string elem in
-  check bool "no class attribute" false
-    (Astring.String.is_infix ~affix:"class=" html_str)
+  check string "no class attribute when there are no utilities"
+    "<div>Plain</div>"
+    (to_string (div [ txt "Plain" ]))
 
 let test_void_elements () =
   (* A void element carries no end tag, whichever constructor built it. *)
-  let s = to_string (picture [ source ~at:[ At.src "a.webp" ] () ]) in
-  check bool "source self-closed" true
-    (Astring.String.is_infix ~affix:"<source src=\"a.webp\" />" s);
-  check bool "no source end tag" false
-    (Astring.String.is_infix ~affix:"</source>" s);
-  let img_str = to_string (img ~at:[ At.src "a.png" ] ()) in
-  check bool "img self-closed" true
-    (Astring.String.is_infix ~affix:"<img src=\"a.png\" />" img_str);
+  check string "source self-closed, with no end tag"
+    {|<picture><source src="a.webp" /></picture>|}
+    (to_string (picture [ source ~at:[ At.src "a.webp" ] () ]));
+  check string "img self-closed" {|<img src="a.png" />|}
+    (to_string (img ~at:[ At.src "a.png" ] ()));
   let br_str = to_string (br ()) in
   check string "br self-closed" "<br />" br_str;
   let hr_str = to_string (hr ()) in

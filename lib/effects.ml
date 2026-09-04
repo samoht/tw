@@ -108,7 +108,10 @@ module Handler = struct
     (* Opacity *)
     | Opacity of int
     | Opacity_decimal of float (* For values like opacity-2.5 *)
-    | Opacity_arbitrary of string * float (* the bracket as written *)
+    (* The bracket as written, beside either the number it denotes or, when the
+       opacity grammar cannot read it, the author's text: Tailwind hands a
+       bracket to the declaration unvalidated. *)
+    | Opacity_arbitrary of string * [ `Num of float | `Raw of string ]
     | Opacity_var of string (* opacity-[var(--value)] *)
     (* Rings *)
     | Ring_none
@@ -329,8 +332,6 @@ module Handler = struct
       Var.metadata ring_offset_color_var;
       Var.metadata ring_offset_shadow_var;
     ]
-
-  let shorten_hex = Color.shorten_hex_str
 
   (* A bracket alpha with no [%] records the author's own number, unscaled and
      without a unit, which is what Tailwind writes: [shadow-lg/[25]] gives
@@ -1300,7 +1301,7 @@ module Handler = struct
             (fun { h_offset; v_offset; blur; spread; color } ->
               let fallback_color : Css.color =
                 match color with
-                | Hex c -> Css.hex (shorten_hex c)
+                | Hex c -> Color.authored_hex c
                 | Var v -> make_full_color_var v
                 | Css_color c -> (
                     match Color.css_color_to_hex c with
@@ -1378,7 +1379,7 @@ module Handler = struct
               let base_fallback : Css.color =
                 match color with
                 | Hex c ->
-                    if needs_supports then Css.hex (shorten_hex c)
+                    if needs_supports then Color.authored_hex c
                     else Color.hex_to_oklab_alpha c alpha
                 | Var v -> make_full_color_var v
                 | Css_color c ->
@@ -2442,7 +2443,12 @@ module Handler = struct
     | Opacity_decimal f ->
         let value = f /. 100.0 in
         style [ Css.opacity (Css.Opacity_number value) ]
-    | Opacity_arbitrary (_, f) -> style [ Css.opacity (Css.Opacity_number f) ]
+    | Opacity_arbitrary (_, `Num f) ->
+        style [ Css.opacity (Css.Opacity_number f) ]
+    | Opacity_arbitrary (_, `Raw v) -> (
+        match Parse.opaque_declaration "opacity" v with
+        | Some declaration -> style [ declaration ]
+        | None -> style [])
     | Opacity_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.opacity Css.var = Var.bracket bare_name in
@@ -2903,9 +2909,12 @@ module Handler = struct
           let inner = String.sub n 1 (len - 2) in
           if Parse.is_var inner then Ok (Opacity_var inner)
           else
-            match float_of_string_opt inner with
-            | Some f -> Ok (Opacity_arbitrary (inner, f))
-            | None -> err_not_utility
+            match Parse.decimal_float (Parse.decode_arbitrary_value inner) with
+            | Some f -> Ok (Opacity_arbitrary (inner, `Num f))
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some v -> Ok (Opacity_arbitrary (inner, `Raw v))
+                | None -> err_not_utility)
         else err_not_utility
     | [ "opacity"; n ] -> (
         match Parse.spacing_value ~name:"opacity" n with

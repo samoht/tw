@@ -183,6 +183,64 @@ let test_invalid_arbitrary_order () =
   renders "-order-[13]";
   renders "-order-[var(--x)]"
 
+(* [flex-], [grow-] and [shrink-] read their bracket through the arbitrary-value
+   pipeline, which puts the spaces CSS math wants around a binary [+] and
+   expands [--spacing()]. Reading the text with OCaml's number reader instead
+   refused [calc(1+2)] outright and folded [0x4] to 4, so the class named itself
+   after a value nobody wrote. What that reader refuses is not invalid: Tailwind
+   writes a bracket out as the token stream it is. *)
+let test_arbitrary_flex_reads_the_whole_bracket () =
+  Test_helpers.check_declarations "flex-[calc(1+2)]" [ "flex:calc(1 + 2)" ];
+  Test_helpers.check_declarations "grow-[calc(1+2)]" [ "flex-grow:calc(1 + 2)" ];
+  Test_helpers.check_declarations "shrink-[calc(1+2)]"
+    [ "flex-shrink:calc(1 + 2)" ];
+  Test_helpers.check_declarations "flex-[--spacing(4)]"
+    [ "flex:calc(var(--spacing)*4)" ];
+  (* a value no property grammar reads still reaches the sheet as written *)
+  Test_helpers.check_declarations "flex-[0x4]" [ "flex:0x4" ];
+  Test_helpers.check_declarations "grow-[0x4]" [ "flex-grow:0x4" ];
+  Test_helpers.check_declarations "shrink-[0x4]" [ "flex-shrink:0x4" ];
+  Test_helpers.check_declarations "grow-[var(--x)]" [ "flex-grow:var(--x)" ];
+  (* and the class keeps the spelling it was written with *)
+  check "flex-[0x4]";
+  check "grow-[0x4]";
+  check "shrink-[0x4]";
+  check "flex-[calc(1+2)]"
+
+(* [order-[...]] reads the same pipeline: [calc(1+2)] is a value the order
+   grammar takes once the operator spacing is normalised. *)
+let test_arbitrary_order_reads_the_whole_bracket () =
+  (* cascade folds a constant calc, which the canonical differ accepts; Tailwind
+     writes [order:calc(1 + 2)]. *)
+  Test_helpers.check_declarations "order-[calc(1+2)]" [ "order:3" ];
+  Test_helpers.check_declarations "order-[--spacing(4)]"
+    [ "order:calc(var(--spacing)*4)" ];
+  check "order-[calc(1+2)]"
+
+(* An arbitrary bracket sorts after every numbered utility of its family, and a
+   bracket no grammar reads sorts after one that denotes a factor. Tailwind
+   lists grow, grow-0, grow-3, grow-7, grow-[2], grow-[<value>]. *)
+let test_arbitrary_flex_order () =
+  Test_helpers.check_class_order ~test_name:"arbitrary flex order"
+    [
+      "grow";
+      "grow-0";
+      "grow-3";
+      "grow-7";
+      "grow-[2]";
+      "grow-[<value>]";
+      "shrink";
+      "shrink-0";
+      "shrink-[2]";
+      "shrink-[<value>]";
+      "flex-1";
+      "flex-3";
+      "flex-[2]";
+      "flex-[10]";
+      "flex-[<value>]";
+      "flex-auto";
+    ]
+
 let tests =
   [
     test_case "basis-* prefers --spacing-*" `Quick
@@ -193,6 +251,11 @@ let tests =
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;
+    test_case "arbitrary flex reads the whole bracket" `Quick
+      test_arbitrary_flex_reads_the_whole_bracket;
+    test_case "arbitrary order reads the whole bracket" `Quick
+      test_arbitrary_order_reads_the_whole_bracket;
+    test_case "arbitrary flex order" `Quick test_arbitrary_flex_order;
     test_case "basis-[...] keeps the authored spelling" `Quick
       test_basis_arbitrary_keeps_the_authored_spelling;
   ]
