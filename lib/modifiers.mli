@@ -706,6 +706,16 @@ val apply : ?theme:Scheme.t -> string list -> t -> t option
     [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
 *)
 
+(** {1 Container Query Helpers} *)
+
+val container_query_theme_decls : Style.container_query -> Css.declaration list
+(** [container_query_theme_decls q] is the theme-layer bindings [q] read through
+    [theme()], e.g. [--breakpoint-lg: 64rem] for
+    [\@min-[theme(--breakpoint-lg)]]. Resolving the reference into the query
+    does not consume the token: Tailwind writes its binding into [\@layer theme]
+    as well, so a consumer reading the token off the sheet still finds it. Empty
+    for a query naming no token. *)
+
 (** {1 ARIA Helpers} *)
 
 val is_aria_shorthand : string -> bool
@@ -748,9 +758,9 @@ val variant_order_of_prefix : ?theme:Scheme.t -> string -> int
     of a class name, the part between two ":" (e.g. ["hover"],
     ["group-has-checked"], ["@min-[64rem]"]). When [theme] is supplied, its
     exact custom-variant names take precedence over the built-in prefix grammar;
-    re-registering [dark] retains its pre-existing built-in position. Returns 0
-    for a token that names no variant, which {!Sort.compare_indexed_rules} reads
-    as "this rule carries no variant". *)
+    re-registering ["dark"] retains its pre-existing built-in position. Returns
+    0 for a token that names no variant, which {!Sort.compare_indexed_rules}
+    reads as "this rule carries no variant". *)
 
 val variant_inner_order : string -> int
 (** [variant_inner_order token] returns what separates [token] from another

@@ -1953,6 +1953,25 @@ let container_size_of_string = function
   | "7xl" -> Some Container_7xl
   | _ -> None
 
+(* The theme token a container-query arbitrary value reads through [theme()],
+   e.g. [breakpoint-lg] for [@min-[theme(--breakpoint-lg)]]. Tailwind spells the
+   lookup [theme(--x)] and [--theme(--x)]. *)
+let container_theme_token content =
+  let s = String.trim content in
+  let s =
+    if String.length s > 2 && String.sub s 0 2 = "--" then
+      String.sub s 2 (String.length s - 2)
+    else s
+  in
+  let n = String.length s in
+  if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
+    let inner = String.trim (String.sub s 6 (n - 7)) in
+    Some
+      (if String.length inner >= 2 && String.sub inner 0 2 = "--" then
+         String.sub inner 2 (String.length inner - 2)
+       else inner)
+  else None
+
 (* A container-query arbitrary value may reference a theme token, e.g.
    [@min-[theme(--breakpoint-lg)]]. [theme(--breakpoint-lg)] resolves to the
    [--breakpoint-lg] default (64rem) via the same token table the [lg:] variant
@@ -1961,23 +1980,33 @@ let parse_container_length content =
   match Css.parse_length content with
   | Some _ as len -> len
   | None ->
-      let s = String.trim content in
-      (* Tailwind spells the theme lookup [theme(--x)] and [--theme(--x)]. *)
-      let s =
-        if String.length s > 2 && String.sub s 0 2 = "--" then
-          String.sub s 2 (String.length s - 2)
-        else s
-      in
-      let n = String.length s in
-      if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
-        let inner = String.trim (String.sub s 6 (n - 7)) in
-        let name =
-          if String.length inner >= 2 && String.sub inner 0 2 = "--" then
-            String.sub inner 2 (String.length inner - 2)
-          else inner
-        in
-        Option.bind (Scheme.token_default name) Css.parse_length
-      else None
+      Option.bind
+        (Option.bind (container_theme_token content) Scheme.token_default)
+        Css.parse_length
+
+(* Resolving a [theme()] reference into the query does not consume the token:
+   Tailwind writes its binding into [@layer theme] as well, so a consumer
+   reading [--breakpoint-lg] off the sheet still finds it. The value is the
+   registered default's own text, the way the theme layer emits every other
+   token it holds; the declaration rides on the utility's properties, where the
+   theme extractor collects it and the utilities layer filters it out. *)
+let rec container_query_theme_decls (q : container_query) =
+  let of_bracket raw =
+    match container_theme_token raw with
+    | None -> []
+    | Some name -> (
+        match Scheme.token_default name with
+        | None -> []
+        | Some css -> [ Css.custom_property ~layer:"theme" ("--" ^ name) css ])
+  in
+  match q with
+  | Container_len (raw, _) | Container_len_cmp (_, raw, _) -> of_bracket raw
+  | Container_size (_, inner) | Container_scoped (_, inner) ->
+      container_query_theme_decls inner
+  | Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
+  | Container_lg | Container_xl | Container_2xl | Container_3xl | Container_4xl
+  | Container_5xl | Container_6xl | Container_7xl | Container_named _ ->
+      []
 
 (* [@sm/main] aims a size query at the container named [main]. The name is the
    tail after the last [/]; the head is any other container-query spelling. *)

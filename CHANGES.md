@@ -315,6 +315,10 @@
   wrapped in a supports, container or starting-style variant. The modern
   `color-mix()` declaration was previously left unguarded inside that wrapper
   (#666).
+- A container query reading a theme token still writes the token's binding.
+  `@min-[theme(--breakpoint-lg)]:flex` resolved the reference into the query and
+  left `--breakpoint-lg` out of the theme layer, so a consumer reading it off
+  the sheet found nothing (#700).
 - `[attr~=value]` attribute selectors work in arbitrary variants. The gate
   rejected any bracket containing `~`, reading the whitespace-list operator as
   a sibling combinator (#509).

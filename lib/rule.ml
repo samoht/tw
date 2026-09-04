@@ -447,14 +447,17 @@ let container_rule ?(inner_has_hover = false) query base_class selector props =
       ~new_class:modified_class selector
   in
   let condition = Containers.container_query_to_condition query in
+  (* A [theme()] the query read still owes the sheet its binding; carried on the
+     rule's own properties, where the theme layer collects it. *)
+  let theme_decls = Modifiers.container_query_theme_decls query in
   if inner_has_hover then
-    container_query ~condition ~selector:new_selector ~props:[]
+    container_query ~condition ~selector:new_selector ~props:theme_decls
       ~base_class:modified_class
       ~nested:(nested_hover ~selector:new_selector ~props)
       ()
   else
-    container_query ~condition ~selector:new_selector ~props
-      ~base_class:modified_class ()
+    container_query ~condition ~selector:new_selector
+      ~props:(props @ theme_decls) ~base_class:modified_class ()
 
 (** Parse a has-[...] selector string as a relative CSS selector ([:has()]
     accepts a bare leading combinator, e.g. [>div] or [~img]), with [&] (the
