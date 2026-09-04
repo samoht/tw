@@ -90,18 +90,36 @@ let first_line path =
     ~finally:(fun () -> close_in_noerr ic)
     (fun () -> try Some (input_line ic) with End_of_file -> None)
 
+(* The CLI names itself in the banner it puts at the top of every stylesheet it
+   compiles, and it has no version flag: [--version] compiles a stylesheet like
+   any other run, and with no entrypoint of its own that means running automatic
+   source detection over the current directory. Dune runs the tests from inside
+   [_build], where that scan reaches the whole build tree, so the probe names an
+   entrypoint. [source(none)] is what turns detection off; an empty entrypoint
+   does not, because the scan comes from what [@import "tailwindcss"] pulls
+   in. *)
+let version_probe_entrypoint = "@import \"tailwindcss\" source(none);\n"
+
 let tailwindcss_version cmd =
-  (* Try --version first, fall back to --help if needed. A command that exits 0
-     and prints nothing has answered nothing, so it counts as no answer and the
-     fallback runs. *)
+  (* A command that exits 0 and prints nothing has answered nothing, so it
+     counts as no answer and the [--help] fallback runs. *)
   let temp_file = tmp_file "tw_version" ".txt" in
-  let remove () = try Sys.remove temp_file with Sys_error _ -> () in
-  Fun.protect ~finally:remove @@ fun () ->
+  (* The entrypoint has to sit where the [tailwindcss] package resolves, which
+     means inside the project: from a system temp directory the CLI exits 1 with
+     no output. *)
+  let entrypoint = tmp_file "tw_probe" ".css" in
+  write_file entrypoint version_probe_entrypoint;
+  let remove path = try Sys.remove path with Sys_error _ -> () in
+  let cleanup () =
+    remove temp_file;
+    remove entrypoint
+  in
+  Fun.protect ~finally:cleanup @@ fun () ->
   let probe args =
     if Sys.command (cmd ^ args ^ temp_file) = 0 then first_line temp_file
     else None
   in
-  match probe " --version 2>/dev/null > " with
+  match probe (" -i " ^ Filename.quote entrypoint ^ " -o - 2>/dev/null > ") with
   | Some line -> (line, false)
   | None -> (
       match probe " --help 2>&1 | head -1 > " with
