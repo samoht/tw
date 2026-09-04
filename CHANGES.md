@@ -135,6 +135,11 @@
 
 ### Arbitrary values and validation
 
+- `aspect-[...]` emits its bracket verbatim, as Tailwind does: nothing inside is
+  validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
+  `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than
+  `4`, `aspect-[1_0]` writes `1 0` rather than `10`, and `aspect-[16/9]` keeps
+  its spelling instead of being re-printed as `16 / 9` (#PR).
 - `z-[...]`, `opacity-[...]`, `col-span-[...]`, `row-span-[...]`,
   `grid-cols-[...]`, `grid-rows-[...]`, `auto-cols-[...]`, `auto-rows-[...]`,
   `columns-[...]`, `tab-[...]`, `scale-x-[...]` and `scale-y-[...]` read their

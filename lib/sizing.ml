@@ -48,8 +48,8 @@ module Handler = struct
     | Aspect_square
     | Aspect_video
     | Aspect_ratio of float * float (* aspect-4/3, aspect-8.5/11 *)
-    | Aspect_bracket of string * float * float (* aspect-[10/9], as written *)
-    | Aspect_bracket_num of string (* aspect-[1.333] single number *)
+    | Aspect_arbitrary of string * string
+      (* aspect-[16/9]: the bracket as written, and the value it declares *)
     | Aspect_theme of string (* ratio named by a project [--aspect-*] token *)
 
   let name = "sizing"
@@ -720,8 +720,8 @@ module Handler = struct
     | Aspect_square -> aspect_square'
     | Aspect_video -> aspect_video'
     | Aspect_ratio (w, h) -> aspect_ratio' w h
-    | Aspect_bracket (_, w, h) -> aspect_ratio' w h
-    | Aspect_bracket_num s -> aspect_ratio' (float_of_string s) 1.
+    | Aspect_arbitrary (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "aspect-ratio" value))
     | Aspect_theme name -> aspect_theme' theme name
 
   let err_not_utility = Error (`Msg "Not a sizing utility")
@@ -785,15 +785,15 @@ module Handler = struct
     | Some value -> Ok (Sized (Max_width, value))
     | None -> err_invalid_value "max-width screen size" s
 
-  (* [read] is how the two spellings of a ratio differ. A bare [aspect-4/3] is a
-     class suffix, so each part is a plain decimal; inside a bracket the author
-     writes CSS, which Tailwind hands to the browser however it is spelled. *)
-  let parse_aspect_ratio ~read s mk =
+  (* A bare [aspect-4/3] is a class suffix, so each part is a plain decimal and
+     a quarter multiple, the way a spacing step is. The bracket spelling shares
+     none of that: it is a token stream, parsed below. *)
+  let parse_aspect_ratio s =
     match String.split_on_char '/' s with
     | [ w; h ] -> (
-        match (read w, read h) with
+        match (Parse.decimal_float w, Parse.decimal_float h) with
         | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
-            Ok (mk w h)
+            Ok (Aspect_ratio (w, h))
         | _ -> err_not_utility)
     | _ -> err_not_utility
 
@@ -817,24 +817,18 @@ module Handler = struct
     | [ "aspect"; "auto" ] -> Ok Aspect_auto
     | [ "aspect"; "square" ] -> Ok Aspect_square
     | [ "aspect"; "video" ] -> Ok Aspect_video
+    (* Tailwind reads nothing inside an [aspect-[...]] bracket: it is one
+       token-stream site, so [aspect-[foo]] and [aspect-[1.23/4.56]] both reach
+       [aspect-ratio] as written. Only text that could end the declaration or
+       swallow the rest of the rule names no utility. *)
     | [ "aspect"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
-        match
-          parse_aspect_ratio ~read:float_of_string_opt inner (fun w h ->
-              Aspect_bracket (inner, w, h))
-        with
-        | Ok _ as ok -> ok
-        | Error _ -> (
-            (* A bare number arbitrary ratio (aspect-[1.333]) is a single-value
-               aspect-ratio, which minifies to just the number. *)
-            match float_of_string_opt inner with
-            | Some f when f > 0. -> Ok (Aspect_bracket_num inner)
-            | _ -> err_not_utility))
+        match Parse.arbitrary_declaration_value inner with
+        | Some declared -> Ok (Aspect_arbitrary (inner, declared))
+        | None -> err_not_utility)
     | [ "aspect"; value ] when is_theme_aspect theme value ->
         Ok (Aspect_theme value)
-    | [ "aspect"; value ] ->
-        parse_aspect_ratio ~read:Parse.decimal_float value (fun w h ->
-            Aspect_ratio (w, h))
+    | [ "aspect"; value ] -> parse_aspect_ratio value
     | _ -> err_not_utility
 
   let suborder = function
@@ -844,8 +838,8 @@ module Handler = struct
     (* Every aspect candidate writes the same property. One slot lets the
        natural class-name tie-break order numeric ratios, then brackets and
        keywords without large numerators spilling past the tail. *)
-    | Aspect_ratio _ | Aspect_bracket _ | Aspect_bracket_num _ | Aspect_auto
-    | Aspect_square | Aspect_video | Aspect_theme _ ->
+    | Aspect_ratio _ | Aspect_arbitrary _ | Aspect_auto | Aspect_square
+    | Aspect_video | Aspect_theme _ ->
         aspect_base
 
   (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
@@ -865,8 +859,7 @@ module Handler = struct
           else string_of_float f
         in
         "aspect-" ^ num w ^ "/" ^ num h
-    | Aspect_bracket (raw, _, _) -> "aspect-[" ^ raw ^ "]"
-    | Aspect_bracket_num s -> "aspect-[" ^ s ^ "]"
+    | Aspect_arbitrary (raw, _) -> "aspect-[" ^ raw ^ "]"
 
   let examples =
     [

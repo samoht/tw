@@ -565,10 +565,11 @@ let test_arbitrary_aspect_token_stream () =
       (* The quarter-multiple gate reads a bare [aspect-8.5/11]; inside a
          bracket the author writes CSS, so no part is rounded away. *)
       ("aspect-[1.23/4.56]", "aspect-ratio:1.23/4.56");
-      (* A ratio comes back spelled as written, so [16/9] keeps its spacing and
-         [16_/_9] keeps its spaces. *)
+      (* A ratio comes back spelled as written rather than re-printed, so [16/9]
+         keeps its spacing; both tools' minifiers then drop the spaces an
+         [16_/_9] decodes to. *)
       ("aspect-[16/9]", "aspect-ratio:16/9");
-      ("aspect-[16_/_9]", "aspect-ratio:16 / 9");
+      ("aspect-[16_/_9]", "aspect-ratio:16/9");
       (* The CLI's own minifier folds this to [3]; cascade leaves the math
          alone, as it does for every other opaque declaration. *)
       ("aspect-[calc(1+2)]", "aspect-ratio:calc(1 + 2)");
