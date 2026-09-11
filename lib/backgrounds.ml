@@ -543,7 +543,7 @@ module Handler = struct
   let bg_gradient_to' dir =
     (* Set --tw-gradient-position to the typed direction with oklab
        interpolation *)
-    let dir_val = With_interpolation (to_spec dir, In_oklab) in
+    let dir_val = With_interpolation (to_spec dir, In (Oklab, None)) in
     let d_position, _ = Var.binding gradient_position_var dir_val in
     (* Reference --tw-gradient-stops for linear-gradient *)
     let stops_ref = Var.reference gradient_stops_var in
@@ -776,7 +776,7 @@ module Handler = struct
   let bg_linear_to' dir =
     let dir_val = to_spec dir in
     let dir_with_interp : Css.gradient_direction =
-      With_interpolation (dir_val, In_oklab)
+      With_interpolation (dir_val, In (Oklab, None))
     in
     let base_decl, _ = Var.binding gradient_position_var dir_val in
     let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
@@ -809,25 +809,25 @@ module Handler = struct
         Some ("in " ^ s)
     | _ -> None
 
-  (* The typed counterpart of [interp_to_css_string]: [Some] for the closed set
-     an [Css.color_interpolation] can represent (the four hue keywords, the six
-     named colour spaces), [None] for everything [gradient_position_decl] cannot
-     take directly - a bracket's arbitrary text, or a space Tailwind writes
-     through without validating. Callers fall back to
+  (* The typed counterpart of [interp_to_css_string]: [Some] for what a
+     [Css.color_interpolation] can represent (the four hue keywords, and every
+     colour space cascade's reader knows), [None] for everything
+     [gradient_position_decl] cannot take directly - a bracket's arbitrary text,
+     or a space Tailwind writes through without validating. Callers fall back to
      [gradient_position_decl_of_string] on [None]. *)
   let interp_to_color_interpolation s : Css.color_interpolation option =
     match s with
-    | "shorter" -> Some (Css.In_oklch (Some Css.Shorter))
-    | "longer" -> Some (Css.In_oklch (Some Css.Longer))
-    | "increasing" -> Some (Css.In_oklch (Some Css.Increasing))
-    | "decreasing" -> Some (Css.In_oklch (Some Css.Decreasing))
-    | "oklab" -> Some Css.In_oklab
-    | "oklch" -> Some (Css.In_oklch None)
-    | "srgb" -> Some Css.In_srgb
-    | "hsl" -> Some (Css.In_hsl None)
-    | "lab" -> Some Css.In_lab
-    | "lch" -> Some (Css.In_lch None)
-    | _ -> None
+    | "shorter" -> Some (Css.In (Oklch, Some Css.Shorter))
+    | "longer" -> Some (Css.In (Oklch, Some Css.Longer))
+    | "increasing" -> Some (Css.In (Oklch, Some Css.Increasing))
+    | "decreasing" -> Some (Css.In (Oklch, Some Css.Decreasing))
+    | _ -> (
+        match
+          Cascade.Cursor.try_parse_full_err Css.Values.read_color_space
+            (Cascade.Cursor.of_string s)
+        with
+        | Ok space -> Some (Css.In (space, None))
+        | Error _ -> None)
 
   (** Convert a bracket gradient value to its CSS string. "125deg" → "125deg",
       "1.3rad" → "74.4845deg", "to_bottom" → "to bottom", "circle_at_center" →
@@ -874,7 +874,7 @@ module Handler = struct
       Angle (Deg (float_of_int angle_deg))
     in
     let dir_with_interp : Css.gradient_direction =
-      With_interpolation (dir_val, In_oklab)
+      With_interpolation (dir_val, In (Oklab, None))
     in
     let base_decl, _ = Var.binding gradient_position_var dir_val in
     let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
@@ -887,7 +887,7 @@ module Handler = struct
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
     in
     let angle_calc_interp : Css.gradient_direction =
-      With_interpolation (angle_calc, In_oklab)
+      With_interpolation (angle_calc, In (Oklab, None))
     in
     let base_decl, _ = Var.binding gradient_position_var angle_calc in
     let interp_decl, _ = Var.binding gradient_position_var angle_calc_interp in

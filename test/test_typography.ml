@@ -808,14 +808,15 @@ let test_text_bracket_functions () =
 
 (* A bracket list-style value is read with the CSS parser rather than a
    hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
-   unknown classes. *)
+   unknown classes. A name the keyword table does not know is a
+   [<counter-style-name>], which CSS Lists 3 sec. 3.3 admits as any
+   [<custom-ident>], so it reads as the author's own [@counter-style]. *)
 let test_bracket_list_style () =
   check_declarations "list-[square]" [ "list-style-type:square" ];
   check_declarations "list-image-[url(/carrot.png)]"
     [ "list-style-image:url(/carrot.png)" ];
-  Alcotest.(check bool)
-    "an unknown counter style is rejected" true
-    (Result.is_error (Tw.of_string "list-[nonsense-style]"))
+  check_declarations "list-[nonsense-style]"
+    [ "list-style-type:nonsense-style" ]
 
 (* A [url()] argument is left verbatim, so a file name keeps the [_] it is
    written with. [list-image-] and [content-] read their bracket through the

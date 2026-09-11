@@ -191,7 +191,12 @@ module Handler = struct
   let mask_repeat_y' =
     style [ Css.webkit_mask_repeat Css.Repeat_y; Css.mask_repeat Css.Repeat_y ]
 
-  (* mask-clip utilities *)
+  (* mask-clip and mask-origin utilities. Tailwind writes a [-webkit-] twin for
+     every box, but WebKit's own grammar only has the three CSS boxes:
+     [fill-box], [stroke-box], [view-box] and [no-clip] are dropped by every
+     browser on the prefixed property, and [Css.webkit_mask_box] has no
+     constructor for them, so those utilities carry the unprefixed declaration
+     alone. *)
   let mask_clip_border =
     style [ Css.webkit_mask_clip Border_box; Css.mask_clip Border_box ]
 
@@ -201,19 +206,11 @@ module Handler = struct
   let mask_clip_content =
     style [ Css.webkit_mask_clip Content_box; Css.mask_clip Content_box ]
 
-  let mask_clip_fill =
-    style [ Css.webkit_mask_clip Fill_box; Css.mask_clip Fill_box ]
+  let mask_clip_fill = style [ Css.mask_clip Fill_box ]
+  let mask_clip_stroke = style [ Css.mask_clip Stroke_box ]
+  let mask_clip_view = style [ Css.mask_clip View_box ]
+  let mask_no_clip = style [ Css.mask_clip Css.No_clip ]
 
-  let mask_clip_stroke =
-    style [ Css.webkit_mask_clip Stroke_box; Css.mask_clip Stroke_box ]
-
-  let mask_clip_view =
-    style [ Css.webkit_mask_clip View_box; Css.mask_clip View_box ]
-
-  let mask_no_clip =
-    style [ Css.webkit_mask_clip Css.No_clip; Css.mask_clip Css.No_clip ]
-
-  (* mask-origin utilities *)
   let mask_origin_border =
     style [ Css.webkit_mask_origin Border_box; Css.mask_origin Border_box ]
 
@@ -223,14 +220,9 @@ module Handler = struct
   let mask_origin_content =
     style [ Css.webkit_mask_origin Content_box; Css.mask_origin Content_box ]
 
-  let mask_origin_fill =
-    style [ Css.webkit_mask_origin Fill_box; Css.mask_origin Fill_box ]
-
-  let mask_origin_stroke =
-    style [ Css.webkit_mask_origin Stroke_box; Css.mask_origin Stroke_box ]
-
-  let mask_origin_view =
-    style [ Css.webkit_mask_origin View_box; Css.mask_origin View_box ]
+  let mask_origin_fill = style [ Css.mask_origin Fill_box ]
+  let mask_origin_stroke = style [ Css.mask_origin Stroke_box ]
+  let mask_origin_view = style [ Css.mask_origin View_box ]
 
   (* Bracket notation helpers *)
 

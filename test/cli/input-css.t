@@ -121,14 +121,17 @@ spacing step times the key, which v4 keeps no token for, so those are computed:
   $ tw --minify --input-css v3.css index.html | grep -cF '.b{margin:1rem;width:40rem}'
   1
 
-An unknown namespace is left alone, the same as an unknown token:
+An unknown namespace resolves to nothing, the same as an unknown token, and
+the call it leaves behind is no colour a browser reads: the declaration is
+dropped as any invalid value is, and the rule it emptied goes with it.
 
   $ cat > v3bad.css <<EOF
   > @import "tailwindcss" theme(static);
   > .u { color: theme("nope.not-a-namespace") }
   > EOF
-  $ tw --minify --input-css v3bad.css index.html | grep -c 'theme("nope.not-a-namespace")'
-  1
+  $ tw --minify --input-css v3bad.css index.html | grep -c '\.u{'
+  0
+  [1]
 
 An imported file's [@layer components { ... }] fills the slot the generated
 sheet declared, and the [@keyframes] the utilities bring go at the end of the

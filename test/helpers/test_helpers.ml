@@ -266,24 +266,35 @@ let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 (* [Css_compare] drops a declaration its reader rejects from that side's AST
    before the comparison runs, so a real difference can surface as a phantom
    addition on the side that parsed, or as no difference at all when both sides
-   collapse to the same AST. A rejection is a finding about the comparison, not
-   noise to ignore.
+   collapse to the same AST. Which drops are findings follows from what the
+   comparison is for: the canonical diff asks whether a browser could tell the
+   two sheets apart, and cascade's reader drops what a browser drops.
 
-   One rejection is known and is Tailwind's own: it writes the [color-mix]
-   mixing amount as a bare number ([color-mix(in srgb, red .5, transparent)]),
-   where CSS Color 5 sec. 3.1 admits only a [<percentage>], so a browser drops
-   that declaration too. The upstream runner rewrites that spelling before
-   either side is parsed, so the exception is there for the suites that compare
-   against the live Tailwind CLI, which does not go through that rewrite. *)
-let known_reader_rejection (error : Cascade.Error.t) =
-  match error.kind with
-  | Cascade.Error.Bad_value { reason = "expected color-mix percentage"; _ } ->
+   A drop on tw's side is always a finding: tw writes through typed values, so a
+   declaration its own reader refuses is a defect in tw, never a spelling.
+
+   A drop on Tailwind's side is a finding unless it is a value the property's
+   grammar refused ([Bad_value] on a declaration). That is Tailwind writing CSS
+   no browser reads: [outline-width: 50%] under [outline-[50%]], the
+   [-webkit-mask-clip: fill-box] twin WebKit's grammar lacks, a [color-mix]
+   mixing amount written as a bare number. The browser keeps the rest of the
+   rule, the comparison compares that rest, and tw is held to what the browser
+   keeps. A dropped rule, a selector the reader refuses, or a construct that
+   failed for any other reason is still a finding on either side: those hide CSS
+   the browser would have read. *)
+let browser_drops_too (error : Cascade.Error.t) =
+  match (error.kind, error.recovery) with
+  | ( Cascade.Error.Bad_value _,
+      Cascade.Error.Recovery.Dropped
+        { construct = Cascade.Error.Recovery.Declaration; _ } ) ->
       true
   | _ -> false
 
 let dropped_declarations (diff : Css_compare.t) =
-  diff.Css_compare.expected_warnings @ diff.Css_compare.actual_warnings
-  |> List.filter (fun e -> not (known_reader_rejection e))
+  List.filter
+    (fun e -> not (browser_drops_too e))
+    diff.Css_compare.expected_warnings
+  @ diff.Css_compare.actual_warnings
 
 let check_no_dropped_declarations ~test_name diff =
   let dropped = dropped_declarations diff in

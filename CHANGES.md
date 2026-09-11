@@ -398,6 +398,20 @@
 - Require cascade 1.2.0 for the released package pairing. While it remains
   unreleased, CI pins cascade's main branch so builds and tests follow upstream
   rather than an exact development revision (#297, #302, #305, #646).
+- Follow cascade's grammar tightening. `-webkit-mask-clip` and
+  `-webkit-mask-origin` carry only the three boxes WebKit's own grammar has, so
+  `mask-clip-fill`, `mask-clip-stroke`, `mask-clip-view`, `mask-no-clip` and
+  the three `mask-origin-*` siblings emit the unprefixed declaration alone,
+  which is what every browser kept of the twin Tailwind writes. `outline-[50%]`
+  emits its `outline-style` alone, the declaration a browser keeps once it
+  drops the `outline-width: 50%` Tailwind writes beside it; `border-[50%]`,
+  whose Tailwind form is `border-color: 50%`, is refused rather than emitting
+  a live `border-style` behind a dropped width. `list-[<name>]` reads any
+  `<counter-style-name>`, and a `[color:theme(...)]` whose alpha names no
+  number is refused rather than resolved without it. The parity comparison
+  lets a value the property's grammar refuses on Tailwind's side through, since
+  a browser drops it too, and still reports the same drop on tw's side or a
+  rule lost on either (#721).
 - Parity is measured over whole sheets and in a real browser. The ordering gate
   compares every statement in both sheets rather than the handful a test names,
   the upstream suite takes its expected values from committed fixtures rather

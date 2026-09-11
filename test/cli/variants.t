@@ -144,14 +144,17 @@ hold a var() anyway.
   $ tw --minify --input-css th.css index.html | grep -c '@media(width<=40rem){\.b{color:red}}'
   1
 
-An unknown token is left alone rather than guessed at:
+An unknown token is not guessed at: the call resolves to nothing, and what it
+leaves is no colour a browser reads, so the declaration is dropped and the
+rule it emptied with it.
 
   $ cat > un.css <<EOF
   > @import "tailwindcss";
   > .u { color: theme(--nope-not-a-token) }
   > EOF
-  $ tw --minify --input-css un.css index.html | grep -c 'theme(--nope-not-a-token)'
-  1
+  $ tw --minify --input-css un.css index.html | grep -c '\.u{'
+  0
+  [1]
 
 A routed utility whose own selector is not a bare class survives too: the
 [divide-*] family wraps its class in a [:where(... > :not(:last-child))], and

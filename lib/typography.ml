@@ -2902,7 +2902,7 @@ module Typography_late = struct
   let subpixel_antialiased =
     style [ webkit_font_smoothing Auto; moz_osx_font_smoothing Auto ]
 
-  let list_image_url url = style [ list_style_image (Url url) ]
+  let list_image_url url = style [ list_style_image (Image (Url url)) ]
 
   let text_indent_length length =
     text_indent (Indent { length; hanging = false; each_line = false })

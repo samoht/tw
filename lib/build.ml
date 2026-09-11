@@ -647,30 +647,13 @@ module Strings = Set.Make (String)
 (* Helpers for theme layer extraction and ordering *)
 let collect_selector_props tw_classes = List.concat_map Rule.outputs tw_classes
 
-(* Collect the theme-layer tokens a statement tree declares. A compound variant
-   nests its rule under whichever at-rules its modifiers ask for, so the walk
-   has to reach a declaration under any of them; [Css.Stylesheet]'s pair of
-   exhaustive readers is that walk. *)
-let rec extract_theme_from_statements theme_vars insertion_order statements =
-  List.iter
-    (fun stmt ->
-      Css.Stylesheet.statement_declarations stmt
-      |> Css.custom_declarations ~layer:"theme"
-      |> List.iter (fun decl ->
-          match Css.custom_declaration_name decl with
-          | Some name when not (Hashtbl.mem theme_vars name) ->
-              Hashtbl.add theme_vars name decl;
-              insertion_order := decl :: !insertion_order
-          | _ -> ());
-      extract_theme_from_statements theme_vars insertion_order
-        (Css.Stylesheet.statement_children stmt))
-    statements
-
+(* Collect the theme-layer tokens a utility's output declares, in first-seen
+   order. A compound variant nests its rule under whichever at-rules its
+   modifiers ask for, so the walk has to reach a declaration under any of them;
+   [Css.Stylesheet.iter_declarations] is that walk. *)
 let extract_non_tw_custom_declarations selector_props =
-  (* Use Hashtbl to collect unique theme variables efficiently *)
   let theme_vars = Hashtbl.create 32 in
   let insertion_order = ref [] in
-
   let add_props props =
     Css.custom_declarations ~layer:"theme" props
     |> List.iter (fun decl ->
@@ -688,10 +671,9 @@ let extract_non_tw_custom_declarations selector_props =
     | Media_query { props; nested; _ }
     | Container_query { props; nested; _ } ->
         add_props props;
-        extract_theme_from_statements theme_vars insertion_order nested
+        Css.Stylesheet.iter_declarations add_props nested
     | Starting_style { props; _ } | Supports_query { props; _ } ->
         add_props props);
-  (* Return in original insertion order *)
   List.rev !insertion_order
 
 (* Substitute per-render [@theme] token overrides into extracted theme-layer
@@ -823,16 +805,8 @@ let add_declaration_var_names names declarations =
       |> List.fold_left (fun names name -> Strings.add name names) names)
     names declarations
 
-let rec add_statement_var_names names statements =
-  List.fold_left
-    (fun names statement ->
-      let names =
-        add_declaration_var_names names
-          (Css.Stylesheet.statement_declarations statement)
-      in
-      add_statement_var_names names
-        (Css.Stylesheet.statement_children statement))
-    names statements
+let add_statement_var_names names statements =
+  Css.Stylesheet.fold_declarations add_declaration_var_names names statements
 
 (* Every var() referenced anywhere in a utility's output (top-level props and
    nested @media/@supports). *)

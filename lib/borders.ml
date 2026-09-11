@@ -115,6 +115,10 @@ module Handler = struct
     | Outline_width of int (* outline-1, outline-2, outline-4, outline-8 *)
     | Outline_width_bracket of
         string * Css.border_width (* outline-[12px], outline-[1.5], etc. *)
+    | Outline_width_dropped of string
+      (* outline-[50%]: a percentage is a width to Tailwind's type inference and
+         [outline-width] takes none, so the browser keeps only the style
+         declaration beside it. *)
     | Outline_width_var of string (* outline-[length:var(...)], etc. *)
     (* Outline style utilities (dashed, dotted, etc.) are in
        Outline_style_handler *)
@@ -133,9 +137,9 @@ module Handler = struct
      28. *)
   let priority = function
     | Outline | Outline_0 | Outline_width _ | Outline_width_bracket _
-    | Outline_width_var _ | Outline_hidden | Outline_offset _
-    | Outline_offset_var _ | Outline_offset_arbitrary _ | Neg_outline_offset _
-    | Neg_outline_offset_var _ ->
+    | Outline_width_dropped _ | Outline_width_var _ | Outline_hidden
+    | Outline_offset _ | Outline_offset_var _ | Outline_offset_arbitrary _
+    | Neg_outline_offset _ | Neg_outline_offset_var _ ->
         28
     | _ -> 19
 
@@ -200,12 +204,12 @@ module Handler = struct
     match side with
     | "x" ->
         [
-          border_inline_style (Var border_var);
+          border_inline_style (logical_border_style (Var border_var));
           border_inline_width (logical_border_width w);
         ]
     | "y" ->
         [
-          border_block_style (Var border_var);
+          border_block_style (logical_border_style (Var border_var));
           border_block_width (logical_border_width w);
         ]
     | "s" ->
@@ -458,7 +462,7 @@ module Handler = struct
         Css.outline_width (Px (float_of_int n));
       ]
 
-  (* Outline bracket width: outline-[12px], outline-[1.5], outline-[50%] *)
+  (* Outline bracket width: outline-[12px], outline-[1.5] *)
   let outline_width_bracket_style (width : Css.border_width) =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -468,6 +472,19 @@ module Handler = struct
     in
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width width ]
+
+  (* outline-[50%]: Tailwind routes a percentage to the width by its type and
+     writes [outline-width: 50%], which the line-width grammar refuses and every
+     browser drops, leaving the [outline-style] beside it to paint a [medium]
+     outline. tw emits what the browser keeps. *)
+  let outline_width_dropped_style =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    style ~property_rules:property_rule [ Css.outline_style (Css.Var oref) ]
 
   (* Outline typed bracket width: outline-[length:var(...)], etc. *)
   let outline_width_var_style v =
@@ -584,6 +601,7 @@ module Handler = struct
     | Outline_0 -> outline_0
     | Outline_width n -> outline_width_style n
     | Outline_width_bracket (_, len) -> outline_width_bracket_style len
+    | Outline_width_dropped _ -> outline_width_dropped_style
     | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
     | Outline_offset n -> outline_offset_px n
@@ -727,7 +745,7 @@ module Handler = struct
     | Outline -> 1999
     | Outline_0 -> 2000
     | Outline_width n -> 2000 + n
-    | Outline_width_bracket _ -> 2009
+    | Outline_width_bracket _ | Outline_width_dropped _ -> 2009
     | Outline_width_var _ -> 2010
     (* Outline offset — negatives before positives *)
     | Neg_outline_offset n -> 2200 + n
@@ -878,7 +896,10 @@ module Handler = struct
           then
             match parse_outline_width inner with
             | Some len -> Ok (Outline_width_bracket (inner, len))
-            | None -> err_not_utility
+            | None -> (
+                match parse_length inner with
+                | Some (Pct _) -> Ok (Outline_width_dropped inner)
+                | _ -> err_not_utility)
           else err_not_utility
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
@@ -979,8 +1000,10 @@ module Handler = struct
     | Outline -> "outline"
     | Outline_0 -> "outline-0"
     | Outline_width n -> "outline-" ^ string_of_int n
-    | Outline_width_bracket (v, _) -> "outline-[" ^ v ^ "]"
-    | Outline_width_var v -> "outline-[" ^ v ^ "]"
+    | Outline_width_bracket (v, _)
+    | Outline_width_dropped v
+    | Outline_width_var v ->
+        "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
     | Outline_offset n -> "outline-offset-" ^ string_of_int n
     | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"

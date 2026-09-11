@@ -38,72 +38,10 @@ module Rules_selector = struct
   (* Replace every occurrence of a class name in a selector AST with a selector
      of its own, so a variant can put structure where the class sat and keep
      whatever the inner rule built around it. *)
-  let rec replace_class_with ~old_class ~replacement = function
-    | Css.Selector.Class cls when String.equal cls old_class -> replacement
-    | Css.Selector.Compound selectors ->
-        Css.Selector.Compound
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Combined (a, comb, b) ->
-        Css.Selector.Combined
-          ( replace_class_with ~old_class ~replacement a,
-            comb,
-            replace_class_with ~old_class ~replacement b )
-    | Css.Selector.Relative (comb, b) ->
-        Css.Selector.Relative
-          (comb, replace_class_with ~old_class ~replacement b)
-    | Css.Selector.List selectors ->
-        Css.Selector.List
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Is selectors ->
-        Css.Selector.Is
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Where selectors ->
-        Css.Selector.Where
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Not selectors ->
-        Css.Selector.Not
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Has selectors ->
-        Css.Selector.Has
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Slotted selectors ->
-        Css.Selector.Slotted
-          (List.map (replace_class_with ~old_class ~replacement) selectors)
-    | Css.Selector.Cue selectors ->
-        Css.Selector.Cue
-          (Option.map
-             (List.map (replace_class_with ~old_class ~replacement))
-             selectors)
-    | Css.Selector.Cue_region selectors ->
-        Css.Selector.Cue_region
-          (Option.map
-             (List.map (replace_class_with ~old_class ~replacement))
-             selectors)
-    | Css.Selector.Nth_child (nth, of_) ->
-        Css.Selector.Nth_child
-          ( nth,
-            Option.map
-              (List.map (replace_class_with ~old_class ~replacement))
-              of_ )
-    | Css.Selector.Nth_last_child (nth, of_) ->
-        Css.Selector.Nth_last_child
-          ( nth,
-            Option.map
-              (List.map (replace_class_with ~old_class ~replacement))
-              of_ )
-    | Css.Selector.Nth_of_type (nth, of_) ->
-        Css.Selector.Nth_of_type
-          ( nth,
-            Option.map
-              (List.map (replace_class_with ~old_class ~replacement))
-              of_ )
-    | Css.Selector.Nth_last_of_type (nth, of_) ->
-        Css.Selector.Nth_last_of_type
-          ( nth,
-            Option.map
-              (List.map (replace_class_with ~old_class ~replacement))
-              of_ )
-    | other -> other
+  let replace_class_with ~old_class ~replacement =
+    Css.Selector.map (function
+      | Css.Selector.Class cls when String.equal cls old_class -> replacement
+      | other -> other)
 
   (* Replace every occurrence of a class name in a selector AST. *)
   let replace_class_in_selector ~old_class ~new_class =

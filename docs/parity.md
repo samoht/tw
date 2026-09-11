@@ -234,12 +234,15 @@ Tailwind splices the value into CSS anyway. The docs pages carry literal
 the 45 rules the site comparison reports as added directly under
 `@layer utilities`.
 
-A bracket value neither property can take is placed differently by the two:
-`border-[50%]` is `border-color: 50%` in Tailwind and `border-width: 50%` in tw,
+A bracket value neither property can take is a class Tailwind emits and tw
+rejects: `border-[50%]` is `border-color: 50%` in Tailwind and nothing in tw,
 and `decoration-[2]` is `text-decoration-color: 2` in Tailwind and nothing in
 tw. `Css.color` has no numeric inhabitant, so tw cannot spell the Tailwind form
 without an untyped escape hatch. Browsers drop both declarations either way, so
-the rendered result matches.
+the rendered result matches. `outline-[50%]` is the one such class tw keeps:
+Tailwind writes `outline-style: var(--tw-outline-style)` beside an
+`outline-width: 50%` every browser drops, and that style declaration paints a
+`medium` outline on its own, so tw emits the style declaration alone.
 
 Three more differences come from lightningcss on the reference side:
 

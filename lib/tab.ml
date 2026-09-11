@@ -36,7 +36,7 @@ module Handler = struct
       let inner = Parse.bracket_inner raw in
       let decoded = Parse.decode_arbitrary_value inner in
       match Parse.decimal_int decoded with
-      | Some n -> Some (`Size (Int n : Css.tab_size))
+      | Some n -> Some (`Size (Number (Num (float_of_int n)) : Css.tab_size))
       | None -> (
           match Css.parse_length decoded with
           | Some l -> Some (`Size (Length l : Css.tab_size))
