@@ -21,7 +21,7 @@ module Components = struct
     if i >= Array.length components then i
     else
       match components.(i) with
-      | Component.Preserved { kind = Token.Whitespace; _ } ->
+      | Component.Preserved { kind = Token.Whitespace _; _ } ->
           after_whitespace components (i + 1)
       | _ -> i
 
@@ -42,7 +42,7 @@ module Components = struct
     let rec add acc = function
       | [] -> acc
       | Component.Preserved
-          { kind = Token.Semicolon | Token.Close Token.Curly; loc }
+          { kind = Token.Semicolon | Token.Close Token.Curly; loc; _ }
         :: rest ->
           add ((loc.Loc.start_pos, loc.Loc.end_pos) :: acc) rest
       | Component.Block { node = { opening = Token.Curly; value; closed }; loc }
@@ -257,9 +257,9 @@ module Index = struct
   (* The semicolon or enclosing closer that terminates a blockless at-rule. *)
   let rec statement_end ~closer = function
     | [] -> (closer, closer)
-    | Component.Preserved { kind = Token.Semicolon; loc } :: _ ->
+    | Component.Preserved { kind = Token.Semicolon; loc; _ } :: _ ->
         (loc.start_pos, loc.end_pos)
-    | Component.Preserved { kind = Token.Close Token.Curly; loc } :: _ ->
+    | Component.Preserved { kind = Token.Close Token.Curly; loc; _ } :: _ ->
         (loc.start_pos, loc.start_pos)
     | _ :: rest -> statement_end ~closer rest
 
@@ -291,7 +291,7 @@ module Index = struct
       | [] -> ()
       | item :: rest ->
           (match item with
-          | Component.Preserved { kind = Token.At_keyword name; loc } ->
+          | Component.Preserved { kind = Token.At_keyword name; loc; _ } ->
               header name loc rest;
               statement ~closer name loc rest
           | Component.Preserved _ -> ()

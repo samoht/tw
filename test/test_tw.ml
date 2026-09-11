@@ -513,11 +513,13 @@ let theme_function_alpha_reads_any_palette_value () =
     (Astring.String.is_infix ~affix:"color-mix(in oklab, oklch("
        (css "[color:theme(colors.blue.500/25%)]"));
   (* an alpha that names no number leaves the call verbatim, the way an unknown
-     path already does, rather than dropping the alpha *)
+     path already does, rather than dropping the alpha; [theme()] is no colour
+     function, so the arbitrary property is then refused as a whole. Tailwind
+     writes [color-mix(in oklab, oklch(...) abc, transparent)], which no browser
+     reads either. *)
   Alcotest.(check bool)
-    "theme(colors.red.500/abc) stays verbatim" true
-    (Astring.String.is_infix ~affix:"theme(colors.red"
-       (css "[color:theme(colors.red.500/abc)]"))
+    "theme(colors.red.500/abc) does not resolve to the colour" true
+    (Result.is_error (Tw.of_string ~theme "[color:theme(colors.red.500/abc)]"))
 
 (* [theme()] resolves against the project's own binding and the resolved value
    is written back into the class string, which reads a bare [_] as a space. A

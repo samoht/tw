@@ -150,7 +150,10 @@ let theme_resolution ~declared config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
-      ("default-transition-duration", ".1s", "0");
+      (* [0s] rather than [0]: a [<time>] carries its unit, so a bare [0]
+         inlined into [transition-duration] is a value the reader refuses and
+         the reference stays live instead. *)
+      ("default-transition-duration", ".1s", "0s");
     ]
   in
   let root_vars = declared_root_vars ~declared expected in
@@ -556,20 +559,25 @@ let test_reference_survives_theme_resolution () =
 
 (* Guards [Test_helpers.check_no_dropped_declarations], which every comparison
    in the runner goes through: a declaration the reader rejects is dropped from
-   that side's AST, so the diff compares less than it appears to. Only
-   Tailwind's own bare-number [color-mix] amount is let through. *)
+   that side's AST, so the diff compares less than it appears to. A value the
+   property's grammar refuses on Tailwind's side is what a browser drops too and
+   is let through; the same drop on tw's side, or a rule lost on either side, is
+   reported. *)
 let test_dropped_declarations_are_reported () =
-  let reported declaration =
-    Css_compare.diff ~mode:`Canonical
-      (Fmt.str ".x{%s}" declaration)
-      ".x{color:red}"
+  let reported ~expected ~actual =
+    Css_compare.diff ~mode:`Canonical expected actual
     |> Test_helpers.dropped_declarations <> []
   in
   Alcotest.(check bool)
-    "a declaration the reader drops is reported" true (reported "width:12quux");
+    "a value the grammar refuses on Tailwind's side is what the browser drops"
+    false
+    (reported ~expected:".x{width:12quux;color:red}" ~actual:".x{color:red}");
   Alcotest.(check bool)
-    "Tailwind's bare-number color-mix amount is allowed through" false
-    (reported "color:color-mix(in srgb, red .5, transparent)")
+    "the same value on tw's side is a defect" true
+    (reported ~expected:".x{color:red}" ~actual:".x{width:12quux;color:red}");
+  Alcotest.(check bool)
+    "a rule the reader drops on Tailwind's side is reported" true
+    (reported ~expected:".x{color:red}. y a{color:red}" ~actual:".x{color:red}")
 
 (** Set theme value overrides for root vars from expected CSS. This enables
     utilities like z-auto and order-first to produce custom declarations in the

@@ -497,7 +497,7 @@ let length_percentage_of_length (l : Cascade.Css.length) :
       Some (Length l)
   (* Math functions and references resolve to a length at used-value time. *)
   | Clamp _ | Min _ | Max _ | Round _ | Mod _ | Rem_fn _ | Hypot _ | Abs _
-  | Sign _ | Env _ | Var _ | Calc _ ->
+  | Env _ | Var _ | Calc _ ->
       Some (Length l)
   | Zero -> None
   (* Keywords, and the functions that stand for an intrinsic size or an anchor

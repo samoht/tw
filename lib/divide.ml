@@ -88,7 +88,7 @@ module Handler = struct
       Css.rule ~selector
         [
           reverse_decl;
-          border_inline_style (Var border_style_ref);
+          border_inline_style (logical_border_style (Var border_style_ref));
           border_inline_start_width start_width;
           border_inline_end_width end_width;
         ]
@@ -139,7 +139,10 @@ module Handler = struct
       match axis with
       | `X ->
           ( divide_x_reverse_var,
-            [ border_inline_style (Var (Var.reference border_style_var)) ],
+            [
+              border_inline_style
+                (logical_border_style (Var (Var.reference border_style_var)));
+            ],
             [ "border-inline-start-width"; "border-inline-end-width" ] )
       | `Y ->
           ( divide_y_reverse_var,

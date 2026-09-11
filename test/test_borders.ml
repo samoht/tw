@@ -305,7 +305,9 @@ let test_bracket_width_units () =
   outline "outline-[3rem]" "3rem";
   outline "outline-[2em]" "2em";
   outline "outline-[3px]" "3px";
-  outline "outline-[50%]" "50%";
+  (* A percentage is a width to Tailwind, and a width no browser reads: the
+     style declaration beside it is all the element gets. *)
+  check_declarations "outline-[50%]" [ "outline-style:var(--tw-outline-style)" ];
   check_declarations "border-[3vw]"
     [ "border-style:var(--tw-border-style)"; "border-width:3vw" ];
   check_declarations "border-[2ch]"
