@@ -22,6 +22,9 @@ let test_font_family () =
 (* Tailwind v4.3.2 moved [--font-sans] off [ui-sans-serif, system-ui, ...] to
    the platform system-font stack; v4.3.3 theme.css still carries that stack,
    and preflight's [html] fallback has to agree with it. *)
+(* Every assertion here reads a sheet after [Css.inline_vars], which resolves
+   the theme bindings into the rules; [declarations_of_class] reads the rules
+   before that, so these stay on substrings. *)
 let test_font_family_default_stack () =
   let css ?(base = false) cls =
     match Tw.of_string cls with
@@ -149,21 +152,28 @@ let test_line_clamp_none_theme_override () =
   let hex =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "0x3") ]
   in
-  let out = css hex "line-clamp-none" in
-  Alcotest.(check bool)
-    "a hex-looking override still drives the variable form" true
-    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
-       out);
+  let variable_form theme =
+    (* The whole list: the box properties travel with the clamp, so an affix on
+       the clamp alone passes on a utility that lost them. *)
+    Test_helpers.check_declarations ~theme ~minify:false "line-clamp-none"
+      [
+        "-webkit-line-clamp: var(--line-clamp-none)";
+        "-webkit-box-orient: vertical";
+        "display: -webkit-box";
+        "overflow: hidden";
+      ]
+  in
+  variable_form hex;
+  (* The binding itself is a :root declaration, which declarations_of_class
+     leaves out by design, so this one stays a substring. *)
   Alcotest.(check bool)
     "the theme layer keeps the override text as authored" true
-    (Astring.String.is_infix ~affix:"--line-clamp-none: 0x3" out);
+    (Astring.String.is_infix ~affix:"--line-clamp-none: 0x3"
+       (css hex "line-clamp-none"));
   let non_numeric =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "banana") ]
   in
-  Alcotest.(check bool)
-    "a non-numeric override still drives the variable form, too" true
-    (Astring.String.is_infix ~affix:"-webkit-line-clamp: var(--line-clamp-none)"
-       (css non_numeric "line-clamp-none"))
+  variable_form non_numeric
 
 let test_text_overflow_wrap () =
   check "text-ellipsis";
@@ -306,24 +316,19 @@ let test_named_text_size () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("text-huge", "9rem") ]
   in
-  let css cls =
+  let round_trips cls =
     match Tw.of_string ~theme cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u ->
-        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
-        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
+    | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
   in
-  Alcotest.(check bool)
-    "text-huge references its token" true
-    (Astring.String.is_infix ~affix:"font-size:var(--text-huge)"
-       (css "text-huge"));
-  Alcotest.(check bool)
-    "text-huge sets no line height" false
-    (Astring.String.is_infix ~affix:"line-height" (css "text-huge"));
-  Alcotest.(check bool)
-    "text-huge/7 takes the modifier's leading" true
-    (Astring.String.is_infix ~affix:"line-height:calc(var(--spacing)*7)"
-       (css "text-huge/7"))
+  round_trips "text-huge";
+  round_trips "text-huge/7";
+  (* The whole list, which is where "sets no line height" is said: it used to be
+     a second search for a property that must not appear. *)
+  Test_helpers.check_declarations ~theme "text-huge"
+    [ "font-size:var(--text-huge)" ];
+  Test_helpers.check_declarations ~theme "text-huge/7"
+    [ "font-size:var(--text-huge)"; "line-height:calc(var(--spacing)*7)" ]
 
 (* [--text-shadow-*] is a namespace of its own and [--text-<name>--line-height]
    is a modifier on another token, so neither names a font size. Nor does a
@@ -355,20 +360,14 @@ let test_theme_leading_modifier () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("leading-airy", "2.5"); ("text-huge", "9rem") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u ->
-        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
-        Tw.Css.to_string ~minify:true (Tw.to_css ~base:false ~theme [ u ])
-  in
   List.iter
-    (fun cls ->
-      Alcotest.(check bool)
-        (cls ^ " reads the token") true
-        (Astring.String.is_infix ~affix:"line-height:var(--leading-airy)"
-           (css cls)))
-    [ "text-base/airy"; "text-huge/airy" ]
+    (fun (cls, size) ->
+      (match Tw.of_string ~theme cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u));
+      Test_helpers.check_declarations ~theme cls
+        [ "font-size:var(" ^ size ^ ")"; "line-height:var(--leading-airy)" ])
+    [ ("text-base/airy", "--text-base"); ("text-huge/airy", "--text-huge") ]
 
 let test_named_font_family () =
   (match Tw.of_string "font-awesome" with
@@ -383,20 +382,18 @@ let test_named_font_family () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("font-source", "Georgia, serif") ]
   in
-  Alcotest.(check bool)
-    "font-source references its token" true
-    (Astring.String.is_infix ~affix:"font-family:var(--font-source)"
-       (css themed "font-source"));
+  Test_helpers.check_declarations ~theme:themed "font-source"
+    [ "font-family:var(--font-source)" ];
   let inline =
     Tw.Scheme.with_overrides
       ~inline:[ "font-source"; "font-self" ]
       Tw.Scheme.default
       [ ("font-source", "Georgia, serif"); ("font-self", "var(--font-self)") ]
   in
-  Alcotest.(check bool)
-    "an inline token is inlined" true
-    (Astring.String.is_infix ~affix:"font-family:Georgia,serif"
-       (css inline "font-source"));
+  Test_helpers.check_declarations ~theme:inline "font-source"
+    [ "font-family:Georgia,serif" ];
+  (* The declaration this one is about is the :root binding, which
+     declarations_of_class leaves out by design, so it stays a substring. *)
   Alcotest.(check bool)
     "a self-referential inline token keeps its declaration" true
     (Astring.String.is_infix ~affix:"--font-self:var(--font-self)"
@@ -644,11 +641,10 @@ let test_typography_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+          (* The whole list, which is where "lands in one longhand" is said: an
+             affix passes just as well beside a second declaration the hint was
+             not supposed to produce. *)
+          Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("indent-[length:4px]", "text-indent: 4px");
       ("indent-[foo:4px]", "text-indent: 4px");
@@ -663,21 +659,31 @@ let test_typography_brackets_peel_a_hint () =
    rule nothing selects. *)
 let test_underline_offset_bracket_keeps_its_class () =
   List.iter
-    (fun (cls, escaped) ->
+    (fun (cls, escaped, value) ->
       match Tw.of_string cls with
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " selects itself") true
-            (Astring.String.is_infix ~affix:escaped css))
+          (* The whole selector, not an affix of it: the rule this test is
+             about, [.underline-offset-0] for [underline-offset-[0.0]], is a
+             selector the affix for the bracket form would simply miss rather
+             than contradict. And the value, which says the unit the author
+             wrote survived. *)
+          Alcotest.(check (list string))
+            (cls ^ " selects itself") [ escaped ]
+            (Test_helpers.selectors_of_utility u);
+          Test_helpers.check_declarations ~minify:false cls
+            [ "text-underline-offset: " ^ value ])
     [
-      ("underline-offset-[0.0]", {|.underline-offset-\[0\.0\]|});
-      ("underline-offset-[3px]", {|.underline-offset-\[3px\]|});
-      ("underline-offset-[1.50px]", {|.underline-offset-\[1\.50px\]|});
-      ("underline-offset-[calc(1px+2px)]", {|.underline-offset-\[calc\(|});
-      ("-underline-offset-[3px]", {|.-underline-offset-\[3px\]|});
+      ("underline-offset-[0.0]", {|.underline-offset-\[0\.0\]|}, "0");
+      ("underline-offset-[3px]", {|.underline-offset-\[3px\]|}, "3px");
+      ("underline-offset-[1.50px]", {|.underline-offset-\[1\.50px\]|}, "1.50px");
+      ( "underline-offset-[calc(1px+2px)]",
+        {|.underline-offset-\[calc\(1px\+2px\)\]|},
+        "calc(1px + 2px)" );
+      ( "-underline-offset-[3px]",
+        {|.-underline-offset-\[3px\]|},
+        "calc(3px * -1)" );
     ];
   (* the bare step keeps its own class and the [px] the scale gives it *)
   check_declarations "underline-offset-3" [ "text-underline-offset:3px" ]
@@ -754,23 +760,14 @@ let rendering_matches_tailwind () =
 (* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
 let test_tracking_normal_unit () =
   let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.to_string ~minify:true in
+  (* The subject is the :root binding, which declarations_of_class leaves out by
+     design, so this stays a substring. *)
   Alcotest.check bool "tracking-normal token keeps em unit" true
     (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
 
 (* Numeric leading derives from the spacing scale in v4.3.1 (not a --leading-N
    theme token). *)
 let test_numeric_leading_spacing () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css [ u ] |> Tw.Css.to_string ~minify:true
-    | Error _ -> Alcotest.failf "could not parse %s" cls
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " -> " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
   (* Any non-negative N is accepted; N>=2 scales spacing, 1 is bare, 0 is 0. *)
   let scaled cls value =
     check_declarations cls [ "--tw-leading:" ^ value; "line-height:" ^ value ]
@@ -779,9 +776,11 @@ let test_numeric_leading_spacing () =
   scaled "leading-2" "calc(var(--spacing)*2)";
   scaled "leading-11" "calc(var(--spacing)*11)";
   scaled "leading-1" "var(--spacing)";
-  (* leading-0 stays on a substring: the pinned CLI writes [--tw-leading: 0px]
-     where tw writes [0]. *)
-  has "leading-0" "line-height:0"
+  (* leading-0 is tw's own spelling, not the CLI's: the pinned CLI writes
+     [--tw-leading: 0px] for the channel. The two are the same length, and
+     pinning tw's is what makes a change to it visible; a substring on
+     [line-height:0] said nothing about the channel at all. *)
+  scaled "leading-0" "0"
 
 (* [leading'] takes a half-step float, same convention as [p]/[p']; the int base
    keeps emitting what it always did. *)
@@ -803,6 +802,8 @@ let test_leading_none_inline () =
     | Error _ -> Alcotest.fail "could not parse leading-none"
   in
   check_declarations "leading-none" [ "--tw-leading:1"; "line-height:1" ];
+  (* The token that must not be minted would be a :root binding, which the
+     declaration list above does not reach, so this stays a substring. *)
   Alcotest.(check bool)
     "leading-none mints no --leading-none token" false
     (Astring.String.is_infix ~affix:"--leading-none" css)
@@ -819,6 +820,16 @@ let test_text_line_height_override () =
     | Ok u -> Tw.to_css ~theme [ u ] |> Tw.Css.to_string ~minify:true
     | Error _ -> Alcotest.fail "could not parse text-sm"
   in
+  (* What the utility writes, which is where "honors the override" lives: the
+     reference has to reach the overridden token rather than a baked-in
+     default. *)
+  Test_helpers.check_declarations ~theme "text-sm"
+    [
+      "font-size:var(--text-sm)";
+      "line-height:var(--tw-leading,var(--text-sm--line-height))";
+    ];
+  (* And the binding it resolves to, a :root declaration the list above leaves
+     out by design. *)
   Alcotest.(check bool)
     "text-sm honors --text-sm--line-height override" true
     (Astring.String.is_infix ~affix:"--text-sm--line-height:1.25rem" css)
@@ -938,17 +949,11 @@ let test_invalid_font_family () =
    gives Tailwind's literal (spec-invalid) text, so the double-quoted mangling
    must not appear either. *)
 let test_font_bracket_family_quoted () =
-  let css cls =
-    match Tw.of_string cls with
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> Tw.Css.to_string (Tw.to_css ~base:false [ u ])
-  in
   (* one layer of quotes, which minified prints as a bare two-word family *)
   check_declarations {|font-["arial_rounded"]|} [ "font-family:arial rounded" ];
-  Alcotest.(check bool)
-    "a quoted string mixed with a bare token is never double-quoted" false
-    (Astring.String.is_infix ~affix:{|font-family: "\"liga\"|}
-       (css {|font-["liga"_0x10]|}))
+  (* The whole declaration, which is where "never double-quoted" is said: it
+     used to be a search for a spelling that must not appear. *)
+  check_declarations {|font-["liga"_0x10]|} [ {|font-family:"liga" 0x10|} ]
 
 (* A comma-separated bracket family list ([font-[Papyrus,fantasy]]) is a
    fallback stack, not one literal name: each comma segment is its own
@@ -986,18 +991,14 @@ let test_decoration_bracket_thickness () =
    colour declaration is invalid CSS and has no browser effect; TW must keep the
    candidate accepted without turning it into a visible pixel thickness. *)
 let test_decoration_bracket_unitless_is_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let inert cls =
-    Alcotest.(check bool)
-      (cls ^ " does not turn the invalid colour into a thickness")
-      false
-      (Astring.String.is_infix ~affix:"text-decoration-thickness" (css cls))
-  in
-  List.iter inert
+  (* The whole list, which is empty: the class is accepted and writes nothing.
+     That is a divergence from the CLI, which writes the invalid
+     [text-decoration-color: 1.5] under the token-stream contract; see
+     docs/token-stream-contract.md. Pinning the empty list rather than searching
+     for a thickness that must not appear is what makes the divergence visible,
+     and what will fail when the contract is honoured here. *)
+  List.iter
+    (fun cls -> Test_helpers.check_declarations cls [])
     [
       "decoration-[0]"; "decoration-[2]"; "decoration-[1.5]"; "decoration-[.5]";
     ]
@@ -1040,25 +1041,29 @@ let test_decoration_opacity_fallback () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("color-brand", "oklch(55% 0.2 250)") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u ->
-        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* All three arms: the fallback, then the enhancement aliased for WebKit and
+     unaliased. The affixes these replace named the fallback alone for the first
+     three, so nothing held the enhancement to carrying the same alpha the
+     fallback folded in - which is the whole subject of this test. *)
+  let emits cls fallback enhanced =
+    Test_helpers.check_declarations ~theme cls
+      [
+        "text-decoration-color:" ^ fallback;
+        "-webkit-text-decoration-color:" ^ enhanced;
+        "text-decoration-color:" ^ enhanced;
+      ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "text-decoration-color:#fb2c3680" "decoration-red-500/50";
-  emits "text-decoration-color:#ffffff80" "decoration-white/50";
-  emits
-    "text-decoration-color:color-mix(in srgb,oklch(55%.2 250) 50%,transparent)"
-    "decoration-brand/50";
+  emits "decoration-red-500/50" "#fb2c3680"
+    "color-mix(in oklab,var(--color-red-500) 50%,transparent)";
+  emits "decoration-white/50" "#ffffff80"
+    "color-mix(in oklab,var(--color-white) 50%,transparent)";
+  emits "decoration-brand/50"
+    "color-mix(in srgb,oklch(55%.2 250) 50%,transparent)"
+    "color-mix(in oklab,var(--color-brand) 50%,transparent)";
   (* An alpha read from a var has no percentage to fold in, so the fallback is
      the colour itself and the enhanced value reads the var. *)
-  emits "text-decoration-color:oklch(55%.2 250)" "decoration-brand/(--a)";
-  emits "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
-    "decoration-brand/(--a)"
+  emits "decoration-brand/(--a)" "oklch(55%.2 250)"
+    "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
 
 (* A bracket colour CSS names without spelling it as a function - a named
    colour, a keyword - is a decoration colour too. The reader admitted only a
@@ -1125,18 +1130,15 @@ let test_project_font_and_leading_tokens () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("font-weight-chonk", "900"); ("leading-roomy", "2.5") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* Channel then property, and nothing else: "channel variable included" is
+     what this test is for, and a pair of affixes says each is present without
+     saying the utility writes only the two. *)
+  let emits cls channel prop token =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ channel ^ ": var(" ^ token ^ ")"; prop ^ ": var(" ^ token ^ ")" ]
   in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "--tw-font-weight: var(--font-weight-chonk)" "font-chonk";
-  emits "font-weight: var(--font-weight-chonk)" "font-chonk";
-  emits "--tw-leading: var(--leading-roomy)" "leading-roomy";
-  emits "line-height: var(--leading-roomy)" "leading-roomy";
+  emits "font-chonk" "--tw-font-weight" "font-weight" "--font-weight-chonk";
+  emits "leading-roomy" "--tw-leading" "line-height" "--leading-roomy";
   Alcotest.(check bool)
     "an undeclared weight name is rejected" true
     (Result.is_error (Tw.of_string ~theme "font-nope"))
@@ -1148,18 +1150,11 @@ let test_project_tracking_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("tracking-airy", "0.2em") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let out = css "tracking-airy" in
-  Alcotest.(check bool)
-    "sets the channel" true
-    (Astring.String.is_infix ~affix:"--tw-tracking: var(--tracking-airy)" out);
-  Alcotest.(check bool)
-    "sets letter-spacing" true
-    (Astring.String.is_infix ~affix:"letter-spacing: var(--tracking-airy)" out);
+  Test_helpers.check_declarations ~theme ~minify:false "tracking-airy"
+    [
+      "--tw-tracking: var(--tracking-airy)";
+      "letter-spacing: var(--tracking-airy)";
+    ];
   Alcotest.(check bool)
     "an undeclared tracking name is rejected" true
     (Result.is_error (Tw.of_string ~theme "tracking-nope"))
@@ -1218,14 +1213,7 @@ let test_bracket_data_type_hint_reads_the_value () =
 let test_typography_negated_arbitrary_is_a_calc () =
   List.iter
     (fun (cls, decl) ->
-      match Tw.of_string cls with
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      | Ok u ->
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("-indent-[4px]", "text-indent: calc(4px * -1)");
       ("-indent-[2rem]", "text-indent: calc(2rem * -1)");
