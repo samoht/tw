@@ -1118,14 +1118,18 @@ let check_spacing_zero_prune () =
     Tw.Build.to_css ~config [ utility ] |> Css.to_string ~minify:true
   in
   let check_zero name property utility =
-    let css = css utility in
-    Alcotest.(check bool)
-      (name ^ " emits zero") true
-      (Astring.String.is_infix ~affix:(property ^ ":0") css);
+    (* The whole list. The substring this replaces was [property ^ ":0"], which
+       matched [padding:0px] on its prefix, so it could not have told a zero
+       length from any value starting with one. The CLI writes [0px] and so does
+       tw. *)
+    Test_helpers.check_declarations name [ property ^ ":0px" ];
+    (* The carrier is a [:root] binding, which [declarations_of_class] leaves
+       out by design, so its absence cannot be read off the list above and this
+       one stays a search over the sheet. *)
     Alcotest.(check bool)
       (name ^ " omits unused --spacing")
       false
-      (Astring.String.is_infix ~affix:"--spacing" css)
+      (Astring.String.is_infix ~affix:"--spacing" (css utility))
   in
   check_zero "p-0" "padding" (p 0);
   check_zero "mb-0" "margin-bottom" (mb 0);
