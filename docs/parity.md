@@ -107,6 +107,26 @@ the sha is quoted beside it. Reading each entry:
   `@container` entries come in added/removed twins, which is the shape
   described under "Reading a failure".
 
+Neither of those two rules changes what a browser computes, which is worth
+stating because a reported reorder reads like it does:
+
+- `.line-y` sets exactly one declaration, `position: relative`, on both sides.
+  It sits 1688 bytes earlier in tw's sheet, and the only other `position` rules
+  in that span are `.line-y:before` and `.line-y:after`. Those style
+  pseudo-element boxes, which never contend with the element's own `position`,
+  and nothing else in the span sets `position` at all. `line-y` is a
+  project-declared `@utility` from `globals.css`, so where it lands is the
+  declared-utility sort rather than a built-in family.
+- `.not-dark:hidden` is two rules that both set `display: none`. Whichever wins,
+  the computed value is the same.
+
+**A reorder surviving canonical mode does not mean it can change rendering.**
+Canonical mode suppresses a reorder it can prove cascade-neutral and flags the
+rest: a same-property pair whose selectors might match a common element. It does
+not check whether the two boxes differ or the two values coincide, which is the
+right conservatism for a differ and the wrong thing to read as a defect. Decide
+by reading what the moved rule sets and what it moved across, as above.
+
 Two divergences inside that layer are tw's and are worth naming, because a
 canonical diff reports them only as block boundaries moving:
 
