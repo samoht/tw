@@ -35,17 +35,37 @@ let test_drop_shadow_color () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
+  (* [--tw-drop-shadow-color] alone said a declaration with that name existed,
+     and [color-mix] said some declaration somewhere used one. Both are the
+     enhancement arm, which the CLI writes identically, so it can be spelled
+     whole. *)
   Alcotest.(check bool)
-    "drop-shadow-red-500 sets the drop-shadow color" true
-    (Astring.String.is_infix ~affix:"--tw-drop-shadow-color"
+    "drop-shadow-red-500 mixes the palette token under the alpha channel" true
+    (Astring.String.is_infix
+       ~affix:
+         "--tw-drop-shadow-color: color-mix(in oklab, var(--color-red-500) \
+          var(--tw-drop-shadow-alpha), transparent)"
        (css "drop-shadow-red-500"));
   Alcotest.(check bool)
-    "drop-shadow-red-500/50 uses color-mix" true
-    (Astring.String.is_infix ~affix:"color-mix" (css "drop-shadow-red-500/50"));
-  Alcotest.(check bool)
-    "drop-shadow-blue-500/50 falls back to a plain hex" true
-    (Astring.String.is_infix ~affix:"--tw-drop-shadow-color: #3080ff80"
-       (css "drop-shadow-blue-500/50"))
+    "drop-shadow-red-500/50 mixes the already-mixed colour" true
+    (Astring.String.is_infix
+       ~affix:
+         "--tw-drop-shadow-color: color-mix(in oklab, color-mix(in oklab, \
+          var(--color-red-500) 50%, transparent) var(--tw-drop-shadow-alpha), \
+          transparent)"
+       (css "drop-shadow-red-500/50"));
+  (* The whole list here, which is the one whose fallback this file pins: the
+     unguarded arm is a plain hex, because a browser without color-mix reads it
+     and cannot read a mix of its own. The enhancement arm and the size
+     reference travel with it. *)
+  Test_helpers.check_declarations ~minify:false "drop-shadow-blue-500/50"
+    [
+      "--tw-drop-shadow-color: #3080ff80";
+      "--tw-drop-shadow-color: color-mix(in oklab, color-mix(in oklab, \
+       var(--color-blue-500) 50%, transparent) var(--tw-drop-shadow-alpha), \
+       transparent)";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+    ]
 
 (* drop-shadow/<n> recolours the default shadow, which is a two-layer stack, so
    both layers carry the modifier's alpha as their fallback. It used to emit one
