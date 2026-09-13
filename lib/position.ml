@@ -40,6 +40,12 @@ let read_paren_calc inner : Css.length Css.calc option =
    the negative as [calc((a + b) * -1)], where the group is a calc
    sub-expression; the positive it writes as [top: (a + b)], which is no
    declaration a browser accepts, so there is nothing to agree with. *)
+(* A bracket no length reader took is still one declaration value, which the
+   side's own longhand takes verbatim. *)
+let bracket_token_stream s =
+  if not (Parse.is_bracket_value s) then None
+  else Parse.arbitrary_declaration_value (Parse.bracket_inner s)
+
 let parse_bracket_length ?(negate = false) s : Css.length option =
   if not (Parse.is_bracket_value s) then None
   else
@@ -123,6 +129,20 @@ module Side = struct
 
   (* What the side writes. [start] and [inset-s] name one property under two
      spellings, as [end] and [inset-e] do. *)
+  (* The longhand each side names, for a value no typed setter can hold. *)
+  let properties = function
+    | Top -> [ "top" ]
+    | Right -> [ "right" ]
+    | Bottom -> [ "bottom" ]
+    | Left -> [ "left" ]
+    | Inset -> [ "inset" ]
+    | Inset_x -> [ "inset-inline" ]
+    | Inset_y -> [ "inset-block" ]
+    | Start | Inset_s -> [ "inset-inline-start" ]
+    | End | Inset_e -> [ "inset-inline-end" ]
+    | Inset_bs -> [ "inset-block-start" ]
+    | Inset_be -> [ "inset-block-end" ]
+
   let declarations side (len : Css.length) =
     match side with
     | Top -> [ Css.top len ]
@@ -227,6 +247,11 @@ module Handler = struct
     | Pos_arbitrary of Side.t * string * Css.length
       (* raw bracket suffix kept for the class name, value already signed *)
     | Neg_pos_arbitrary of Side.t * string * Css.length
+    | Pos_raw of Side.t * string * string
+      (* top-[foo]: an inset side writes one longhand, so a bracket no length
+         reader took still names it and the value is forwarded verbatim -
+         Tailwind's token-stream contract. *)
+    | Neg_pos_raw of Side.t * string * string
     | Pos_named of Side.t * string
     | Neg_pos_named of Side.t * string
       (* theme token reference like inset-shadowned *)
@@ -316,6 +341,11 @@ module Handler = struct
         style (Side.declarations side (Pct (-.frac_pct f)))
     | Pos_arbitrary (side, _, len) | Neg_pos_arbitrary (side, _, len) ->
         style (Side.declarations side len)
+    | Pos_raw (side, _, value) | Neg_pos_raw (side, _, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (Side.properties side))
     | Pos_named (side, name) ->
         style (Side.declarations side (named_inset_value theme name))
     | Neg_pos_named (side, name) ->
@@ -421,6 +451,8 @@ module Handler = struct
     | Neg_pos_fraction (side, _)
     | Pos_arbitrary (side, _, _)
     | Neg_pos_arbitrary (side, _, _)
+    | Pos_raw (side, _, _)
+    | Neg_pos_raw (side, _, _)
     | Pos_named (side, _)
     | Neg_pos_named (side, _) ->
         side_slot side
@@ -486,14 +518,22 @@ module Handler = struct
       | Some len -> Ok (Pos_arbitrary (side, n, len))
       | None when Parse.is_valid_theme_name n && is_named_inset theme n ->
           Ok (Pos_named (side, n))
-      | None -> Error (`Msg "invalid")
+      | None -> (
+          match bracket_token_stream n with
+          | Some raw -> Ok (Pos_raw (side, n, raw))
+          | None -> Error (`Msg "invalid"))
     in
     let neg_arbitrary_or_named side n =
       match parse_bracket_length ~negate:true n with
       | Some len -> Ok (Neg_pos_arbitrary (side, n, len))
       | None when Parse.is_valid_theme_name n && is_named_inset theme n ->
           Ok (Neg_pos_named (side, n))
-      | None -> Error (`Msg "invalid")
+      | None -> (
+          (* [calc(<value> * -1)] is what a negated arbitrary writes whatever
+             the unit, and a value no reader took is no exception. *)
+          match bracket_token_stream n with
+          | Some raw -> Ok (Neg_pos_raw (side, n, "calc(" ^ raw ^ " * -1)"))
+          | None -> Error (`Msg "invalid"))
     in
     (* A fraction, then the side's own scale, then the shared tail. Every inset
        side reads all three, so the suffix vocabulary is one function of the
@@ -688,8 +728,10 @@ module Handler = struct
         Side.name side ^ "-" ^ Spacing.pp_spacing_suffix sp
     | Neg_pos_spacing (side, sp) ->
         "-" ^ Side.name side ^ "-" ^ Spacing.pp_spacing_suffix sp
-    | Pos_arbitrary (side, raw, _) -> Side.name side ^ "-" ^ raw
-    | Neg_pos_arbitrary (side, raw, _) -> "-" ^ Side.name side ^ "-" ^ raw
+    | Pos_arbitrary (side, raw, _) | Pos_raw (side, raw, _) ->
+        Side.name side ^ "-" ^ raw
+    | Neg_pos_arbitrary (side, raw, _) | Neg_pos_raw (side, raw, _) ->
+        "-" ^ Side.name side ^ "-" ^ raw
     | Pos_fraction (side, f) -> Side.name side ^ "-" ^ f
     | Neg_pos_fraction (side, f) -> "-" ^ Side.name side ^ "-" ^ f
     | Pos_named (side, name) -> Side.name side ^ "-" ^ name

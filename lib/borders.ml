@@ -59,6 +59,10 @@ type rounded_size =
   | Rsz_theme of string
     (* radius named by a project [--radius-*] token (rounded-blob) *)
   | Rsz_arbitrary of string * Css.length
+  | Rsz_raw of string * string
+(* rounded-[foo]: a corner names its own longhands, so a bracket no length
+   reader took still reaches them and the value is forwarded verbatim -
+   Tailwind's token-stream contract. *)
 
 module Handler = struct
   open Style
@@ -412,6 +416,26 @@ module Handler = struct
      Shared by both the sized and arbitrary radius utilities; [Corner.All] uses
      the [border-radius] shorthand, all others target the matching
      corner/logical properties. *)
+  (* The longhands each corner names, for a value no typed setter can hold. *)
+  let radius_properties_for_position = function
+    | Corner.All -> [ "border-radius" ]
+    | Corner.Top -> [ "border-top-left-radius"; "border-top-right-radius" ]
+    | Corner.Right ->
+        [ "border-top-right-radius"; "border-bottom-right-radius" ]
+    | Corner.Bottom ->
+        [ "border-bottom-right-radius"; "border-bottom-left-radius" ]
+    | Corner.Left -> [ "border-top-left-radius"; "border-bottom-left-radius" ]
+    | Corner.Top_left -> [ "border-top-left-radius" ]
+    | Corner.Top_right -> [ "border-top-right-radius" ]
+    | Corner.Bottom_right -> [ "border-bottom-right-radius" ]
+    | Corner.Bottom_left -> [ "border-bottom-left-radius" ]
+    | Corner.Start -> [ "border-start-start-radius"; "border-end-start-radius" ]
+    | Corner.End -> [ "border-start-end-radius"; "border-end-end-radius" ]
+    | Corner.Start_start -> [ "border-start-start-radius" ]
+    | Corner.Start_end -> [ "border-start-end-radius" ]
+    | Corner.End_start -> [ "border-end-start-radius" ]
+    | Corner.End_end -> [ "border-end-end-radius" ]
+
   let radius_decls_for_position pos (len : Css.length) : Css.declaration list =
     match pos with
     | Corner.All -> [ Css.border_radius (radius_value len) ]
@@ -499,6 +523,11 @@ module Handler = struct
                     (decl :: radius_decls_for_position pos (Var r : Css.length))
             ))
     | Rsz_arbitrary (_, len) -> style (radius_decls_for_position pos len)
+    | Rsz_raw (_, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (radius_properties_for_position pos))
 
   (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
@@ -961,7 +990,10 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         match parse_length inner with
         | Some len -> Ok (Rounded (Corner.All, Rsz_arbitrary (inner, len)))
-        | None -> err_not_utility)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Rounded (Corner.All, Rsz_raw (inner, raw)))
+            | None -> err_not_utility))
     | [ "rounded"; tok ] -> (
         match rounded_size_of_string tok with
         | Some size -> Ok (Rounded (Corner.All, size))
@@ -976,7 +1008,11 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         match (corner_of_string pos, parse_length inner) with
         | Some pos, Some len -> Ok (Rounded (pos, Rsz_arbitrary (inner, len)))
-        | _ -> err_not_utility)
+        | Some pos, None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Rounded (pos, Rsz_raw (inner, raw)))
+            | None -> err_not_utility)
+        | None, _ -> err_not_utility)
     | [ "rounded"; pos; size ] -> (
         match (corner_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
@@ -1137,7 +1173,7 @@ module Handler = struct
           | Rsz_4xl -> "-4xl"
           | Rsz_full -> "-full"
           | Rsz_theme name -> "-" ^ name
-          | Rsz_arbitrary (raw, _) -> "-[" ^ raw ^ "]"
+          | Rsz_arbitrary (raw, _) | Rsz_raw (raw, _) -> "-[" ^ raw ^ "]"
         in
         "rounded" ^ pos_str ^ size_str
     | Outline -> "outline"
