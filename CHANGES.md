@@ -479,6 +479,12 @@
 - `tw --tailwind` and `tw --diff` no longer compile the working directory
   before they start. Identifying the pinned CLI ran with Tailwind's source
   detection on, which costs minutes in a large tree (#702).
+- `tw --tailwind` and `tw --diff` find the pinned CLI when run from a directory
+  with no `node_modules` above it, falling back to the tree the binary was
+  built in. Both died at discovery there, reporting the pinned CLI as not
+  installed and naming whatever version sat on `PATH`. A `node_modules` above
+  the working directory still wins, so a caller can still choose the CLI
+  pinned beside the project being measured (#727).
 - `tw --diff` no longer invents a difference for a class Tailwind compiles.
   Building the reference by scanning a file lost every class Tailwind's own
   extractor declines to read back, `group-hover/-2a:underline` among them
