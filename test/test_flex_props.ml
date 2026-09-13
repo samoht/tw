@@ -160,6 +160,26 @@ let test_basis_arbitrary_keeps_the_authored_spelling () =
       ("basis-[10px]", {|.basis-\[10px\]|});
     ]
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. [basis-] writes one longhand, so every hint lands there and
+   the flex-basis reader is handed what follows it; the hint stays in the class
+   name, which is what the markup carries. The reader used to be given the hint
+   as well, so it read nothing and the class was refused where Tailwind emits
+   [flex-basis: 10px]. *)
+let test_basis_arbitrary_peels_a_hint () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes flex-basis: 10px")
+            true
+            (Astring.String.is_infix ~affix:"flex-basis: 10px" css))
+    [ "basis-[length:10px]"; "basis-[foo:10px]" ]
+
 (* [order-[...]] takes an order value. A bracket the order grammar cannot read
    is accepted and then raises out of [to_css], a pure conversion, so the
    rejection belongs at parse time. *)
@@ -258,6 +278,8 @@ let tests =
     test_case "arbitrary flex order" `Quick test_arbitrary_flex_order;
     test_case "basis-[...] keeps the authored spelling" `Quick
       test_basis_arbitrary_keeps_the_authored_spelling;
+    test_case "basis-[...] peels a data-type hint" `Quick
+      test_basis_arbitrary_peels_a_hint;
   ]
 
 let suite = ("flex_props", tests)
