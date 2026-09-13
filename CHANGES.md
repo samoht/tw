@@ -188,8 +188,11 @@
   malformed hex in any of them reach the sheet where they used to be refused.
   `bg-[size:...]` no longer substitutes `background-size: auto` for a value it
   cannot read, and the per-side border colours follow the rest, so
-  `border-t-[1e]` writes `border-top-color: 1e` (#761, #762, #763, #764, #765,
-  #766).
+  `border-t-[1e]` writes `border-top-color: 1e`. The spacing, inset, sizing and
+  corner-radius families do the same, so `p-[foo]`, `top-[foo]`, `w-[foo]` and
+  `rounded-[foo]` reach the sheet: 124 of the 150 families the token-stream
+  contract inventories now write a bracket no reader took, against 38 before
+  (#761, #762, #763, #764, #765, #766, #767, #768, #769).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
