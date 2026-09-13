@@ -73,6 +73,66 @@ let test_color_variants () =
     (Astring.String.is_infix ~affix:"--tw-prose-links" orange
     && Astring.String.is_infix ~affix:"--tw-prose-invert-links" orange)
 
+(* The colours [prose] sets on its own are the gray palette, normal and
+   inverted. Nothing else in the suite reads them, so an edit to [gray_normal]
+   or [gray_invert] could move the default sheet unremarked; these are the
+   values it has to preserve. *)
+let prose_root_variables () =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_rule stmt with
+      | Some (sel, decls, _) when Css.Selector.to_string sel = ".prose" ->
+          acc
+          @ List.filter
+              (fun d -> String.starts_with ~prefix:"--tw-prose-" d)
+              (List.map (Css.Declaration.to_string ~minify:false) decls)
+      | _ -> acc)
+    []
+    (to_css ~base:false [ prose ])
+
+let test_default_theme_colours () =
+  Alcotest.(check (list string))
+    "prose default colour variables"
+    [
+      "--tw-prose-body: oklch(37.3% .034 259.733)";
+      "--tw-prose-headings: oklch(21% .034 264.665)";
+      "--tw-prose-lead: oklch(44.6% .03 256.802)";
+      "--tw-prose-links: oklch(21% .034 264.665)";
+      "--tw-prose-bold: oklch(21% .034 264.665)";
+      "--tw-prose-counters: oklch(55.1% .027 264.364)";
+      "--tw-prose-bullets: oklch(87.2% .01 258.338)";
+      "--tw-prose-hr: oklch(92.8% .006 264.531)";
+      "--tw-prose-quotes: oklch(21% .034 264.665)";
+      "--tw-prose-quote-borders: oklch(92.8% .006 264.531)";
+      "--tw-prose-captions: oklch(55.1% .027 264.364)";
+      "--tw-prose-kbd: oklch(21% .034 264.665)";
+      "--tw-prose-kbd-shadows: oklab(21% -.00316127 -.0338527 / .1)";
+      "--tw-prose-code: oklch(21% .034 264.665)";
+      "--tw-prose-pre-code: oklch(92.8% .006 264.531)";
+      "--tw-prose-pre-bg: oklch(27.8% .033 256.848)";
+      "--tw-prose-th-borders: oklch(87.2% .01 258.338)";
+      "--tw-prose-td-borders: oklch(92.8% .006 264.531)";
+      "--tw-prose-invert-body: oklch(87.2% .01 258.338)";
+      "--tw-prose-invert-headings: #ffffff";
+      "--tw-prose-invert-lead: oklch(70.7% .022 261.325)";
+      "--tw-prose-invert-links: #ffffff";
+      "--tw-prose-invert-bold: #ffffff";
+      "--tw-prose-invert-counters: oklch(70.7% .022 261.325)";
+      "--tw-prose-invert-bullets: oklch(44.6% .03 256.802)";
+      "--tw-prose-invert-hr: oklch(37.3% .034 259.733)";
+      "--tw-prose-invert-quotes: oklch(96.7% .003 264.542)";
+      "--tw-prose-invert-quote-borders: oklch(37.3% .034 259.733)";
+      "--tw-prose-invert-captions: oklch(70.7% .022 261.325)";
+      "--tw-prose-invert-kbd: #ffffff";
+      "--tw-prose-invert-kbd-shadows: #ffffff1a";
+      "--tw-prose-invert-code: #ffffff";
+      "--tw-prose-invert-pre-code: oklch(87.2% .01 258.338)";
+      "--tw-prose-invert-pre-bg: #00000080";
+      "--tw-prose-invert-th-borders: oklch(44.6% .03 256.802)";
+      "--tw-prose-invert-td-borders: oklch(37.3% .034 259.733)";
+    ]
+    (prose_root_variables ())
+
 (* Real-CLI parity for the typography plugin. Until now prose had no comparison
    against the actual @tailwindcss/typography output (always enabled in
    Tailwind_gen) -- only checks of tw's own structure -- so the README's "fully
@@ -254,6 +314,8 @@ let suite =
   ( "prose",
     [
       Alcotest.test_case "classes" `Quick test_classes;
+      Alcotest.test_case "default theme colours" `Quick
+        test_default_theme_colours;
       Alcotest.test_case "color variants" `Quick test_color_variants;
       Alcotest.test_case "combinations" `Quick test_combinations;
       Alcotest.test_case "CSS generation" `Quick test_css_generation;

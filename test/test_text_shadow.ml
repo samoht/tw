@@ -108,6 +108,11 @@ let test_arbitrary_color_function () =
     "var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
   rejected "text-shadow-[0_1px_rgb(zz)]"
 
+(* Where the alpha reads a custom property there is nothing to fold, so the
+   authored colour stands unguarded and the relative colour goes behind the
+   guard. Folding that unguarded value through oklab at full opacity paints an
+   opaque shadow in a browser with no relative colours, where Tailwind paints
+   the authored colour. *)
 let test_arbitrary_colour_opacity () =
   let css cls =
     match Tw.of_string cls with
@@ -119,8 +124,14 @@ let test_arbitrary_colour_opacity () =
   in
   has "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     "var(--tw-text-shadow-color,color-mix(";
-  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "--tw-text-shadow-alpha:var(--x)";
-  has "text-shadow-[0_0_8px_#f00]/[var(--x)]" "oklab(from"
+  Test_helpers.check_declarations ~minify:false
+    "text-shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-text-shadow-alpha: var(--x)";
+      "text-shadow: 0 0 8px var(--tw-text-shadow-color, #f00)";
+      "text-shadow: 0 0 8px var(--tw-text-shadow-color, oklab(from #f00 l a \
+       b/var(--x)))";
+    ]
 
 (* An arbitrary text-shadow takes a named colour, the same as the box-shadow
    twin [shadow-[0_1px_2px_red]] does. The reader recognised a [#] hex, a var()
@@ -233,6 +244,30 @@ let test_colour_hint_takes_a_colour () =
   (* The hint survives into the class name, so the class reads back. *)
   has "text-shadow-[color:red]" ".text-shadow-\\[color\\:red\\]"
 
+(* The [shadow:] hint says the payload is a shadow, not that it names a
+   variable. [text-shadow-[shadow:12px_12px_#0088cc]] wrote [text-shadow:
+   var(--12px_12px_#0088cc)]. *)
+let test_shadow_hint_takes_a_shadow () =
+  Test_helpers.check_declarations "text-shadow-[shadow:12px_12px_#0088cc]"
+    [ "text-shadow:12px 12px var(--tw-text-shadow-color,#08c)" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "text-shadow-[shadow:var(--value)]"
+    [ "text-shadow:var(--value)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "text-shadow-[shadow:12px_12px_#0088cc] round-trips"
+    "text-shadow-[shadow:12px_12px_#0088cc]"
+    (Tw.pp
+       (Result.get_ok (Tw.of_string "text-shadow-[shadow:12px_12px_#0088cc]")));
+  (* A payload the shadow reader refuses is held open, not settled: Tailwind
+     writes the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Text_shadow.Handler)
+    "text-shadow-[shadow:notashadow]"
+
 (* The shadow's parts are separated by the [_] that stands for a space, so a
    variable name carrying an underscore of its own is written [\_]. *)
 let test_underscore_escape () =
@@ -251,6 +286,8 @@ let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
       test_colour_hint_takes_a_colour;
+    Alcotest.test_case "shadow hint takes a shadow" `Quick
+      test_shadow_hint_takes_a_shadow;
     Alcotest.test_case "underscore escape" `Quick test_underscore_escape;
   ]
   @ Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid

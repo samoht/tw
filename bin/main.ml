@@ -84,6 +84,21 @@ type gen_opts = {
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
+(* The reference sheet hands each class to Tailwind's engine and to its source
+   extractor both, so the two sides answer the same question. A class the
+   [@source inline] string cannot hold has only the extractor, and the extractor
+   drops what it cannot read, so a rule missing on the Tailwind side may be the
+   harness rather than tw. Name those classes: a comparison whose provenance is
+   unknown is worse than one that is merely narrower. *)
+let print_oracle_note classes =
+  match Tw_tools.Tailwind_gen.scanned_candidates classes with
+  | [] -> ()
+  | scanned ->
+      Fmt.pr
+        "Note: %s reached Tailwind through its source extractor alone, which \
+         drops a candidate it cannot read rather than compiling it.@."
+        (String.concat ", " scanned)
+
 let print_diff_result label diff =
   match diff.Css_compare.result with
   | Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
@@ -140,6 +155,7 @@ let diff_single_class class_str ~(opts : gen_opts) =
         `Ok ()
     | [] -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
     | _ ->
+        print_oracle_note [ class_str ];
         print_diff_result
           (Fmt.str " between Tailwind and tw for '%s'" class_str)
           diff;
@@ -218,13 +234,7 @@ let print_stats ~quiet ~candidate_count ~known_count =
 let declares_plugin css name =
   match css with
   | None -> false
-  | Some css ->
-      let needle = "@tailwindcss/" ^ name in
-      let n = String.length needle and l = String.length css in
-      let rec go i =
-        i + n <= l && (String.sub css i n = needle || go (i + 1))
-      in
-      go 0
+  | Some css -> Tw.Strings.contains ~sub:("@tailwindcss/" ^ name) css
 
 let is_prose_class cls =
   cls = "prose"
@@ -324,6 +334,7 @@ let diff_files paths ~(opts : gen_opts) =
     let diff =
       Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
     in
+    print_oracle_note all_classes;
     print_diff_result "" diff;
     `Ok ()
   with e ->

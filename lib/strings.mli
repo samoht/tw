@@ -1,8 +1,12 @@
-(** String scanning predicates shared across the library and the dev tools.
+(** String scanning shared across the library, the dev tools and the command
+    line.
 
-    Both were hand-rolled in several modules before landing here, and the
-    substring test had already drifted on the empty pattern. [tw_tools] depends
-    on [tw], so this module is the single answer for both. *)
+    [tw_tools] and the [tw] binary both depend on [tw], so the substring scan
+    written here is the only one any of them needs. *)
+
+val index : sub:string -> string -> int option
+(** [index ~sub s] is the offset of the first occurrence of [sub] in [s], and
+    [None] when [sub] does not occur. The empty pattern occurs at [0]. *)
 
 val contains : sub:string -> string -> bool
 (** [contains ~sub s] is [true] when [sub] occurs in [s]. The empty string

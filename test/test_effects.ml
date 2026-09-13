@@ -363,8 +363,8 @@ let test_arbitrary_shadow_lengths () =
     "0 1px 2px 3px var(--tw-shadow-color,oklab(0%0 0/.5))";
   with_alpha "shadow-[0_1ch_2px_3vmin_#000]/50" "50%"
     "0 1ch 2px 3vmin var(--tw-shadow-color,oklab(0%0 0/.5))";
-  (* inset-shadow reads its arbitrary value through the same parser, with no
-     [Css.parse_shadow] fallback to hide the dropped tokens. *)
+  (* inset-shadow reads its arbitrary value through the same parser, so a token
+     that is not a length shifts nothing along there either. *)
   inset_shadow "inset-shadow-[0_1ch_2px_#000]"
     "inset 0 1ch 2px var(--tw-inset-shadow-color,#000)";
   inset_shadow "inset-shadow-[0_1px_2px_3px_#000]"
@@ -375,14 +375,106 @@ let test_arbitrary_shadow_lengths () =
   inset_shadow "inset-shadow-[0_bogus_2px]"
     "inset 0 var(--tw-inset-shadow-color,bogus) 2px"
 
+(* An arbitrary inset shadow whose colour is one CSS knows by name. Two readers
+   decide the bracket between them: the one that accepts it as a shadow reads
+   every colour spelling, the one that then builds the value knows only a hex, a
+   var() and a colour function. A named colour passed the first and failed the
+   second, so the whole shadow fell out as [inset-shadow-none] - lengths, spread
+   and colour together. A token that is no colour at all, such as [bogus], never
+   reached the second reader and was right throughout. *)
+let test_arbitrary_inset_shadow_named_colour () =
+  let inset_shadow cls value =
+    Test_helpers.check_declarations cls
+      [ "--tw-inset-shadow:" ^ value; composes_box_shadow ]
+  in
+  inset_shadow "inset-shadow-[0_0_red]"
+    "inset 0 0 var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[0_0_0_1px_red]"
+    "inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[shadow:0_0_0_1px_red]"
+    "inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+  inset_shadow "inset-shadow-[0_0_red,0_0_blue]"
+    "inset 0 0 var(--tw-inset-shadow-color,red),inset 0 0 \
+     var(--tw-inset-shadow-color,blue)"
+
+(* The same bracket under an opacity modifier. The reader that builds the value
+   there has no fall-back to the reader that accepted the bracket, so a colour
+   keyword, a leading colour, the [inset] keyword and a layer list all lost the
+   whole shadow and the modifier with it.
+
+   Tailwind writes the colour as [oklab(from <colour> l a b / <alpha>)] and lets
+   its minifier fold it, so a colour whose value is fixed where it is written
+   arrives folded and unguarded; the modifier's alpha replaces the colour's own
+   rather than multiplying it.
+
+   The two neighbours are pinned alongside because a fix to one reader can break
+   the other: a hex already folded correctly, and a token that is no colour at
+   all never reaches this reader. *)
+let test_arbitrary_shadow_named_colour_opacity () =
+  let red_50 = "oklab(62.79553606%.22486306 .1258463/.5)" in
+  let shadow cls value =
+    Test_helpers.check_declarations cls
+      [ "--tw-shadow-alpha:50%"; "--tw-shadow:" ^ value; composes_box_shadow ]
+  in
+  let inset_shadow cls value =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-inset-shadow-alpha:50%";
+        "--tw-inset-shadow:" ^ value;
+        composes_box_shadow;
+      ]
+  in
+  shadow "shadow-[0_0_red]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  inset_shadow "inset-shadow-[0_0_0_1px_red]/50"
+    ("inset 0 0 0 1px var(--tw-inset-shadow-color," ^ red_50 ^ ")");
+  shadow "shadow-[inset_0_0_red]/50"
+    ("inset 0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  inset_shadow "inset-shadow-[0_0_red,0_0_0_1px_red]/50"
+    ("inset 0 0 var(--tw-inset-shadow-color," ^ red_50
+   ^ "),inset 0 0 0 1px var(--tw-inset-shadow-color," ^ red_50 ^ ")");
+  (* The hex neighbour, which folds to the same colour. *)
+  shadow "shadow-[0_0_#f00]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")");
+  (* The neighbour with no colour at all: [bogus] is no colour CSS knows, so the
+     bracket is not a shadow and the whole value is written through as text. *)
+  shadow "shadow-[0_bogus_2px]/50"
+    "0 var(--tw-shadow-color,oklab(from bogus l a b / 50%)) 2px";
+  (* A colour written first. cascade's reader moves it to the end, which is a
+     difference against Tailwind in its own right and holds with or without the
+     modifier; what the modifier must not do is lose the shadow. *)
+  Test_helpers.check_declarations "shadow-[red_0_0]"
+    [ "--tw-shadow:0 0 var(--tw-shadow-color,red)"; composes_box_shadow ];
+  shadow "shadow-[red_0_0]/50" ("0 0 var(--tw-shadow-color," ^ red_50 ^ ")")
+
+(* An alpha that reads a custom property has no percentage to fold, so the
+   authored colour - the keyword the class wrote, not its computed [oklab()] -
+   stands unguarded and the relative colour goes behind the guard, the way a
+   bracket hex already does. *)
+let test_arbitrary_shadow_named_colour_var_opacity () =
+  Test_helpers.check_declarations "shadow-[0_0_red]/[var(--x)]"
+    [
+      "--tw-shadow-alpha:var(--x)";
+      "--tw-shadow:0 0 var(--tw-shadow-color,red)";
+      "--tw-shadow:0 0 var(--tw-shadow-color,oklab(from red l a b/var(--x)))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "inset-shadow-[0_0_0_1px_red]/[var(--x)]"
+    [
+      "--tw-inset-shadow-alpha:var(--x)";
+      "--tw-inset-shadow:inset 0 0 0 1px var(--tw-inset-shadow-color,red)";
+      "--tw-inset-shadow:inset 0 0 0 1px \
+       var(--tw-inset-shadow-color,oklab(from red l a b/var(--x)))";
+      composes_box_shadow;
+    ]
+
 (* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
    the modifier folds into a [color-mix] rather than into a hex byte.
 
-   The unguarded fallback of [shadow-[0_0_8px_#f00]/[var(--x)]] is pinned as tw
-   writes it, which is not what the CLI writes: the CLI leaves the authored
-   colour alone there and tw folds it to the oklab of the same colour. The inset
-   twin already leaves it alone, so the two spellings below are tw's, not a
-   shared rule. *)
+   Where the alpha reads a custom property there is nothing to fold, so the
+   authored colour stands unguarded and the relative colour goes behind the
+   guard. The box-shadow half folded that unguarded value through oklab at full
+   opacity, which paints an opaque shadow in a browser with no relative colours
+   where Tailwind paints the authored colour; the inset twin already left it
+   alone, so the two halves of one family disagreed. *)
 let test_arbitrary_shadow_colour_opacity () =
   Test_helpers.check_declarations "shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
@@ -402,8 +494,7 @@ let test_arbitrary_shadow_colour_opacity () =
   Test_helpers.check_declarations "shadow-[0_0_8px_#f00]/[var(--x)]"
     [
       "--tw-shadow-alpha:var(--x)";
-      "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(62.79553606%.22486306 \
-       .1258463))";
+      "--tw-shadow:0 0 8px var(--tw-shadow-color,#f00)";
       "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(from #f00 l a \
        b/var(--x)))";
       composes_box_shadow;
@@ -418,6 +509,16 @@ let test_arbitrary_shadow_colour_opacity () =
     ];
   (* Minified printing folds a colour to its shortest hex, so the authored
      three-digit spelling the CLI keeps only shows unminified. *)
+  Test_helpers.check_declarations ~minify:false
+    "shadow-[0_0_8px_#f00]/[var(--x)]"
+    [
+      "--tw-shadow-alpha: var(--x)";
+      "--tw-shadow: 0 0 8px var(--tw-shadow-color, #f00)";
+      "--tw-shadow: 0 0 8px var(--tw-shadow-color, oklab(from #f00 l a \
+       b/var(--x)))";
+      "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+       var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)";
+    ];
   Test_helpers.check_declarations ~minify:false
     "inset-shadow-[0_0_8px_#f00]/[var(--x)]"
     [
@@ -677,8 +778,39 @@ let test_shadow_underscore_escape () =
       composes_box_shadow;
     ]
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [shadow-[shadow:...]] wrote
+   [--tw-shadow: var(--0_0_0_1px_red)] and [ring-[length:3px]] read [3px] as a
+   variable name. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  Test_helpers.check_declarations "shadow-[shadow:0_0_0_1px_red]"
+    [ "--tw-shadow:0 0 0 1px var(--tw-shadow-color,red)"; composes_box_shadow ];
+  Test_helpers.check_declarations "ring-[length:3px]"
+    [
+      "--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + \
+       var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor)";
+      composes_box_shadow;
+    ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "shadow-[shadow:var(--value)]"
+    [ "--tw-shadow:var(--value)"; composes_box_shadow ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "ring-[length:3px] round-trips" "ring-[length:3px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "ring-[length:3px]")));
+  (* A payload the shadow reader refuses is held open, not settled: Tailwind
+     writes the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Effects.Handler)
+    "shadow-[shadow:notashadow]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      test_bracket_data_type_hint_reads_the_value;
     test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
@@ -692,6 +824,12 @@ let tests =
     test_case "shadow-inner" `Quick test_shadow_inner;
     test_case "arbitrary shadow list" `Quick test_arbitrary_shadow_list;
     test_case "arbitrary shadow lengths" `Quick test_arbitrary_shadow_lengths;
+    test_case "arbitrary inset shadow named colour" `Quick
+      test_arbitrary_inset_shadow_named_colour;
+    test_case "arbitrary shadow named colour opacity" `Quick
+      test_arbitrary_shadow_named_colour_opacity;
+    test_case "arbitrary shadow named colour var opacity" `Quick
+      test_arbitrary_shadow_named_colour_var_opacity;
     test_case "arbitrary shadow colour opacity" `Quick
       test_arbitrary_shadow_colour_opacity;
     test_case "bracket colour opacity without a hex" `Quick

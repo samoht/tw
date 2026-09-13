@@ -23,7 +23,9 @@ let stroke_shadeless_colors () =
     "stroke-black references --color-black" true
     (Astring.String.is_infix ~affix:"stroke:var(--color-black)"
        (css "stroke-black"));
-  (* integer widths still parse as widths, not colours *)
+  (* Integer widths still parse as widths, not colours. The [px] is Tailwind's
+     minifier reading its generator's bare [2], and it is the spelling the
+     upstream corpus records and [--diff] compares. *)
   Alcotest.(check bool)
     "stroke-2 stays a width" true
     (Astring.String.is_infix ~affix:"stroke-width:2px" (css "stroke-2"))
@@ -111,27 +113,13 @@ let bracket_named_color () =
   let emits affix cls =
     Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
-  (* the value a class sets for [prop], so two spellings of one colour compare
-     without their class names *)
-  let value prop cls =
-    let sheet = css cls in
-    let key = prop ^ ":" in
-    match Astring.String.find_sub ~sub:key sheet with
-    | None -> Alcotest.failf "%s sets no %s: %s" cls prop sheet
-    | Some i ->
-        let first = i + String.length key in
-        Astring.String.with_range ~first sheet
-        |> Astring.String.take ~sat:(fun c -> c <> ';' && c <> '}')
-  in
-  let same prop cls other =
-    Alcotest.(check string)
-      (cls ^ " is " ^ other)
-      (value prop other) (value prop cls)
-  in
   emits "stroke:rebeccapurple" "stroke-[rebeccapurple]";
   emits "stroke:currentColor" "stroke-[currentColor]";
-  same "stroke" "stroke-[rebeccapurple]/50" "stroke-[#663399]/50";
-  same "fill" "fill-[rebeccapurple]/50" "fill-[#663399]/50";
+  (* the modifier mixes into the colour the bracket named, not into black *)
+  Test_helpers.check_declarations ~minify:false "stroke-[rebeccapurple]/50"
+    [ "stroke: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
+  Test_helpers.check_declarations ~minify:false "fill-[rebeccapurple]/50"
+    [ "fill: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   (* a bracket naming neither a colour nor a width is still not a class *)
   Alcotest.(check bool)
     "stroke-[notacolour] is not a class" true
@@ -157,8 +145,35 @@ let svg_sorts_before_object () =
       "p-4";
     ]
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [stroke-[length:2px]] wrote
+   [stroke-width: var(--2px)] where Tailwind writes [stroke-width: 2px]. *)
+let bracket_data_type_hint_reads_the_value () =
+  Test_helpers.check_declarations "stroke-[length:2px]" [ "stroke-width:2px" ];
+  Test_helpers.check_declarations "stroke-[percentage:50%]"
+    [ "stroke-width:50%" ];
+  Test_helpers.check_declarations "stroke-[color:red]" [ "stroke:red" ];
+  Test_helpers.check_declarations "fill-[color:red]" [ "fill:red" ];
+  (* a var() reference after the hint still names a custom property *)
+  Test_helpers.check_declarations "stroke-[length:var(--my-width)]"
+    [ "stroke-width:var(--my-width)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "stroke-[length:2px] round-trips" "stroke-[length:2px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:2px]")));
+  (* A value the width reader refuses is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Svg.Handler)
+    "stroke-[length:notawidth]"
+
 let tests =
   [
+    test_case "bracket data-type hint reads the value" `Quick
+      bracket_data_type_hint_reads_the_value;
     test_case "basic svg" `Quick basic_svg;
     test_case "svg sorts before object" `Quick svg_sorts_before_object;
     test_case "bracket named colour" `Quick bracket_named_color;

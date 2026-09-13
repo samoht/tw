@@ -508,8 +508,67 @@ let test_invalid_bracket_widths () =
   rejected "border-[abc]";
   rejected "border-t-[1e]"
 
+(* A data-type hint says how to read the value written after it; it does not
+   make that value the name of a custom property. [outline-[length:3px]] wrote
+   [outline-width: var(--3px)] where Tailwind writes [outline-width: 3px]. *)
+let test_bracket_data_type_hint_reads_the_value () =
+  check_declarations "outline-[length:3px]"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:3px" ];
+  (* a percentage is a width to Tailwind's type inference and [outline-width]
+     takes none, so the browser keeps the style declaration alone, exactly as it
+     does under [outline-[50%]] *)
+  check_declarations "outline-[percentage:10%]"
+    [ "outline-style:var(--tw-outline-style)" ];
+  (* a var() reference after the hint still names a custom property *)
+  check_declarations "outline-[length:var(--my-width)]"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:var(--my-width)" ];
+  (* the class prints back with the hint the author wrote *)
+  Alcotest.(check string)
+    "outline-[length:3px] round-trips" "outline-[length:3px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:3px]")));
+  (* A value the width reader refuses is held open, not settled: Tailwind writes
+     the bracket out whatever it says, so refusing is an intermediate. *)
+  check_invalid_input
+    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
+    (module Tw.Borders.Handler)
+    "outline-[length:notawidth]"
+
+(* [border-[…]] routes on the hint: [length:] and [line-width:] name the width,
+   and the width reader sees only what follows. [rounded-[…]] names its longhand
+   already, so it takes any hint. Both keep the hint in the class name. *)
+let test_border_width_data_type_hint () =
+  let width cls value =
+    check_declarations cls
+      [ "border-style:var(--tw-border-style)"; "border-width:" ^ value ]
+  in
+  width "border-[length:2px]" "2px";
+  width "border-[line-width:2px]" "2px";
+  width "border-[length:var(--w)]" "var(--w)";
+  check_declarations "border-t-[line-width:2px]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:2px" ];
+  check_declarations "border-x-[line-width:2px]"
+    [ "border-inline-style:var(--tw-border-style)"; "border-inline-width:2px" ];
+  check_declarations "rounded-[length:4px]" [ "border-radius:4px" ];
+  check_declarations "rounded-[foo:4px]" [ "border-radius:4px" ];
+  List.iter check
+    [
+      "border-[length:2px]";
+      "border-[line-width:2px]";
+      "border-t-[line-width:2px]";
+      "rounded-[length:4px]";
+    ];
+  let reject c = check_invalid_input (module Tw.Borders.Handler) c in
+  reject "border-[:2px]";
+  reject "border-[length:]";
+  reject "rounded-[:4px]";
+  reject "rounded-[length:]"
+
 let tests =
   [
+    test_case "border width data-type hint" `Quick
+      test_border_width_data_type_hint;
+    test_case "bracket data-type hint reads the value" `Quick
+      test_bracket_data_type_hint_reads_the_value;
     test_case "bracket width units" `Quick test_bracket_width_units;
     test_case "invalid bracket widths" `Quick test_invalid_bracket_widths;
     test_case "bracket line-width keywords" `Quick

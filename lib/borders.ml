@@ -245,8 +245,13 @@ module Handler = struct
   (* Arbitrary radii go through the same normalisation as the other arbitrary
      length utilities, so calc() and var() references parse. *)
   let parse_length str : length option =
-    Css.parse_length
-      (Parse.normalize_css_math_operators (Parse.decode_arbitrary_value str))
+    (* A radius and an outline offset each write one longhand, so a data-type
+       hint only chooses that longhand and the reader is handed what follows
+       it. *)
+    Option.bind (Parse.value_after_hint str) (fun value ->
+        Css.parse_length
+          (Parse.normalize_css_math_operators
+             (Parse.decode_arbitrary_value value)))
 
   (* A bare number is not a CSS length, but Tailwind admits [border-[3]] and
      emits it as a width, so it keeps the px reading it has always had. *)
@@ -262,6 +267,17 @@ module Handler = struct
   let is_line_width_keyword = function
     | "thin" | "medium" | "thick" -> true
     | _ -> false
+
+  (* Which value the width reader is handed, once the hint has said whether the
+     bracket is a width at all. [length:] and [line-width:] name the width side;
+     [color:], an unknown hint and the empty one all belong to the colour
+     handler, so this declines and leaves them to it. Unhinted, the bracket has
+     to look like a width or a colour would be read as one. *)
+  let width_bracket_value ~looks_like_width inner =
+    match Parse.data_type_hint inner with
+    | Some (("length" | "line-width"), value) -> Some value
+    | Some _ -> None
+    | None -> if looks_like_width inner then Some inner else None
 
   (* cascade's own border-width reader answers the line-width keywords, every
      unit [Css.border_width] names, [calc()] and [var()]. The units only
@@ -284,8 +300,10 @@ module Handler = struct
 
   (* cascade types outline-width as a [border_width], the line-width grammar it
      shares with the border sides, so read it as one rather than reading a
-     length and converting where it is written. A bare number is Tailwind's own
-     sugar and still means pixels. *)
+     length and converting where it is written. A bare number goes through
+     Tailwind's generator as it was written and its minifier reads it as pixels,
+     which is the spelling its own test corpus records and the one [--diff]
+     compares. *)
   let parse_outline_width inner : Css.border_width option =
     match parse_border_width inner with
     | Some _ as w -> w
@@ -314,6 +332,25 @@ module Handler = struct
   let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 8)
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 9)
   let radius_4xl_var = Var.theme Css.Length "radius-4xl" ~order:(7, 10)
+
+  (* Publish the radius scale through the theme-token registry, the way rule.ml
+     publishes the breakpoints, so [rounded-[theme(--radius-lg)]] resolves and
+     [theme(static)] emits the scale. [--radius-none] and [--radius-full] are
+     not in Tailwind's default theme - their utilities carry the value - so they
+     stay out of the registry. *)
+  let () =
+    List.iter
+      (fun (var, value) -> Theme.register_default var value)
+      [
+        (radius_xs_var, (Css.Rem 0.125 : Css.length));
+        (radius_sm_var, Css.Rem 0.25);
+        (radius_md_var, Css.Rem 0.375);
+        (radius_lg_var, Css.Rem 0.5);
+        (radius_xl_var, Css.Rem 0.75);
+        (radius_2xl_var, Css.Rem 1.0);
+        (radius_3xl_var, Css.Rem 1.5);
+        (radius_4xl_var, Css.Rem 2.0);
+      ]
 
   let radius_value len =
     Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
@@ -808,33 +845,35 @@ module Handler = struct
     | [ "border"; "double" ] -> Ok Border_double
     | [ "border"; "hidden" ] -> Ok Border_hidden
     | [ "border"; "none" ] -> Ok Border_none
-    | [ "border"; v ] when Parse.is_bracket_value v ->
+    | [ "border"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-        let is_width =
-          (String.length inner > 0 && is_numeric_start inner.[0])
-          || Parse.starts_with_math_function inner
-          || is_line_width_keyword inner
+        let looks_like_width s =
+          (String.length s > 0 && is_numeric_start s.[0])
+          || Parse.starts_with_math_function s
+          || is_line_width_keyword s
         in
-        if is_width then
-          match parse_border_width inner with
-          | Some w -> Ok (Border_width_bracket (inner, w))
-          | None -> err_not_utility
-        else err_not_utility
+        match width_bracket_value ~looks_like_width inner with
+        | None -> err_not_utility
+        | Some value -> (
+            match parse_border_width value with
+            | Some w -> Ok (Border_width_bracket (inner, w))
+            | None -> err_not_utility))
     | [ "border"; side; v ] when is_border_side side && Parse.is_bracket_value v
-      ->
+      -> (
         let inner = Parse.bracket_inner v in
         let is_numeric_start c = (c >= '0' && c <= '9') || c = '.' in
-        let is_width =
-          (String.length inner > 0 && is_numeric_start inner.[0])
-          || Parse.starts_with_math_function inner
-          || is_line_width_keyword inner
+        let looks_like_width s =
+          (String.length s > 0 && is_numeric_start s.[0])
+          || Parse.starts_with_math_function s
+          || is_line_width_keyword s
         in
-        if is_width then
-          match parse_border_width inner with
-          | Some w -> Ok (Border_side_width_bracket (side, inner, w))
-          | None -> err_not_utility
-        else err_not_utility
+        match width_bracket_value ~looks_like_width inner with
+        | None -> err_not_utility
+        | Some value -> (
+            match parse_border_width value with
+            | Some w -> Ok (Border_side_width_bracket (side, inner, w))
+            | None -> err_not_utility))
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
@@ -870,37 +909,57 @@ module Handler = struct
     | [ "outline"; n ]
       when match Parse.decimal_int n with Some w -> w > 0 | None -> false ->
         Ok (Outline_width (int_of_string n))
-    | [ "outline"; v ] when Parse.is_bracket_value v ->
+    | [ "outline"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         let starts prefix s =
           String.length s >= String.length prefix
           && String.sub s 0 (String.length prefix) = prefix
         in
-        if starts "length:" inner then Ok (Outline_width_var inner)
-        else if starts "number:" inner then Ok (Outline_width_var inner)
-        else if starts "percentage:" inner then Ok (Outline_width_var inner)
-        else if starts "var(" inner then
-          (* Bare var() defaults to color for outline, not width *)
-          err_not_utility
-        else if starts "color:" inner then err_not_utility
-        else if starts "#" inner then err_not_utility
-        else
-          (* Only accept if it looks like a number/length/percentage, not a
-             named color like "black" *)
-          let is_numeric_start c =
-            (c >= '0' && c <= '9') || c = '.' || c = '-'
-          in
-          if
-            (String.length inner > 0 && is_numeric_start inner.[0])
-            || Parse.starts_with_math_function inner
-          then
-            match parse_outline_width inner with
+        let hinted_width =
+          List.find_map
+            (fun prefix ->
+              if starts prefix inner then
+                let n = String.length prefix in
+                Some (String.sub inner n (String.length inner - n))
+              else None)
+            [ "length:"; "number:"; "percentage:" ]
+        in
+        (* A data-type hint says how to read the value written after it; only a
+           var() reference there names a custom property. *)
+        match hinted_width with
+        | Some value when Parse.is_var value -> Ok (Outline_width_var inner)
+        | Some value -> (
+            match parse_outline_width value with
             | Some len -> Ok (Outline_width_bracket (inner, len))
             | None -> (
-                match parse_length inner with
+                (* [percentage:10%] reads as a width [outline-width] cannot
+                   take, the same value [outline-[50%]] infers. *)
+                match parse_length value with
                 | Some (Pct _) -> Ok (Outline_width_dropped inner)
-                | _ -> err_not_utility)
-          else err_not_utility
+                | _ -> err_not_utility))
+        | None ->
+            if starts "var(" inner then
+              (* Bare var() defaults to color for outline, not width *)
+              err_not_utility
+            else if starts "color:" inner then err_not_utility
+            else if starts "#" inner then err_not_utility
+            else
+              (* Only accept if it looks like a number/length/percentage, not a
+                 named color like "black" *)
+              let is_numeric_start c =
+                (c >= '0' && c <= '9') || c = '.' || c = '-'
+              in
+              if
+                (String.length inner > 0 && is_numeric_start inner.[0])
+                || Parse.starts_with_math_function inner
+              then
+                match parse_outline_width inner with
+                | Some len -> Ok (Outline_width_bracket (inner, len))
+                | None -> (
+                    match parse_length inner with
+                    | Some (Pct _) -> Ok (Outline_width_dropped inner)
+                    | _ -> err_not_utility)
+              else err_not_utility)
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden

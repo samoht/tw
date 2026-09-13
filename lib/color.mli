@@ -261,6 +261,14 @@ val hex_to_oklab_alpha : string -> float -> Css.color
     with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
     where the color is known at compile time. *)
 
+val oklab_alpha : Css.color -> float -> Css.color option
+(** [oklab_alpha c alpha] is [c] in oklab carrying [alpha] (0.0-1.0), which is
+    what [oklab(from c l a b / alpha)] resolves to: the alpha replaces the
+    colour's own rather than multiplying it, where {!mix_alpha} multiplies.
+    [None] for a colour whose channels are not named where it is written -
+    [currentcolor], a [var()] reference, a colour function - leaving those to
+    {!mix_alpha} or to the browser. *)
+
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
@@ -591,14 +599,18 @@ val parse_bracket_color : string -> Css.color option
     shadow, fill, stroke, ...) classifies its bracket content this way; only the
     variant it stores the result in differs. *)
 type bracket_hint =
-  | Typed_var of string  (** [color:<value>], the part after [color:] *)
+  | Typed_var of string  (** [color:var(--x)], the [var(...)] text *)
   | Bare_var of string  (** [var(--x)], the full [var(...)] text *)
   | Plain_color of Css.color  (** any other color spelling *)
 
 val parse_bracket_hint : string -> bracket_hint option
 (** [parse_bracket_hint inner] classifies a bracket's inner text as a typed var,
     a bare var, or a plain color parsed via {!parse_bracket_color}. Returns
-    [None] when [inner] is none of these. *)
+    [None] when [inner] is none of these.
+
+    A [color:] hint says how to read the value written after it, so
+    [color:var(--x)] is a typed var while [color:red] is the color red. Only a
+    [var()] reference names a custom property. *)
 
 val css_color_to_hex : Css.color -> Css.color option
 (** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex

@@ -496,22 +496,36 @@ let test_has_variant () =
   check_utilities "has-group-focus/name:underline"
     {|.has-group-focus\/name\:underline:has(:is(:where(.group\/name):focus *)){text-decoration-line:underline}|}
 
-let variant_has cls affix =
-  check bool cls true (Astring.String.is_infix ~affix (sheet cls))
-
 (* An inner media query's nested blocks hold the utility's class too, so an
    outer responsive variant has to rename it there as well: [sm:] used to drop
    out of the class name whenever [hover:] had wrapped the rule in its own media
    block. *)
 let test_outer_media_renames_nested () =
-  (* Both stay on a substring. Beside the rule under test tw also writes an
-     empty [.sm\:dark\:hover\:underline:hover{}] into the dark media block,
-     which the pinned CLI does not; the canonical [--diff] prunes an empty rule
-     off both sides and so reports no difference. Pinning the sheet would fix
-     that surplus rule in place as if it were agreed output. *)
-  variant_has "sm:motion-reduce:hover:translate-y-0"
-    ".sm\\:motion-reduce\\:hover\\:translate-y-0:hover";
-  variant_has "sm:dark:hover:underline" ".sm\\:dark\\:hover\\:underline:hover"
+  check_utilities "sm:dark:hover:underline"
+    {|@media(min-width:40rem){@media(prefers-color-scheme:dark){@media(hover:hover){.sm\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
+  check_sheet "sm:motion-reduce:hover:translate-y-0"
+    {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0}}}@layer theme;@layer components;@layer utilities{@media(min-width:40rem){@media(prefers-reduced-motion:reduce){@media(hover:hover){.sm\:motion-reduce\:hover\:translate-y-0:hover{--tw-translate-y:0px;translate:var(--tw-translate-x)var(--tw-translate-y)}}}}}@property --tw-translate-x{syntax:"*";inherits:false;initial-value:0}@property --tw-translate-y{syntax:"*";inherits:false;initial-value:0}@property --tw-translate-z{syntax:"*";inherits:false;initial-value:0}|}
+
+(* A hover-gated variant keeps every declaration in a nested [@media
+   (hover:hover)] and leaves its wrapper carrying none. Rebuilding that
+   wrapper's own rule unconditionally wrote a declarationless rule beside the
+   real one, which the CLI does not emit and which no minified check sees. Each
+   at-rule an outer variant can build has to skip it. *)
+let test_hover_gate_leaves_no_empty_rule () =
+  check_utilities "supports-[display:grid]:dark:hover:underline"
+    {|@supports(display:grid){@media(prefers-color-scheme:dark){@media(hover:hover){.supports-\[display\:grid\]\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
+  check_utilities "starting:dark:hover:underline"
+    {|@starting-style{@media(prefers-color-scheme:dark){@media(hover:hover){.starting\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
+  check_utilities "@md:dark:hover:underline"
+    {|@container(width>=28rem){@media(prefers-color-scheme:dark){@media(hover:hover){.\@md\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
+  (* Controls. [focus:] is not hover-gated, so the inner rule carries its own
+     declarations and no wrapper is built empty; and an outer breakpoint over
+     [@supports] already skipped it, which is why that shape never showed the
+     surplus rule. *)
+  check_utilities "md:dark:focus:underline"
+    {|@media(min-width:48rem){@media(prefers-color-scheme:dark){.md\:dark\:focus\:underline:focus{text-decoration-line:underline}}}|};
+  check_utilities "sm:supports-[display:grid]:hover:underline"
+    {|@media(min-width:40rem){@supports(display:grid){@media(hover:hover){.sm\:supports-\[display\:grid\]\:hover\:underline:hover{text-decoration-line:underline}}}}|}
 
 (* [starting:] and the bracketed at-rule variant wrap the utility in an at-rule,
    and rebuilding the selector from the bare class dropped whatever an inner
@@ -622,6 +636,8 @@ let tests =
     test_case "has- takes any variant" `Quick test_has_variant;
     test_case "outer media renames the nested class" `Quick
       test_outer_media_renames_nested;
+    test_case "a hover gate leaves no empty rule" `Quick
+      test_hover_gate_leaves_no_empty_rule;
     test_case "at-rule variant keeps the inner selector" `Quick
       test_at_rule_keeps_inner;
     test_case "prose element variant keeps the inner selector" `Quick

@@ -244,7 +244,7 @@ Tailwind writes `outline-style: var(--tw-outline-style)` beside an
 `outline-width: 50%` every browser drops, and that style declaration paints a
 `medium` outline on its own, so tw emits the style declaration alone.
 
-Three more differences come from lightningcss on the reference side:
+Four more differences come from lightningcss on the reference side:
 
 - It rewrites `@supports (backdrop-filter: var(--tw))` to accept the `-webkit-`
   spelling as well, so that guard and the rules under it arrive as added
@@ -255,6 +255,15 @@ Three more differences come from lightningcss on the reference side:
 - It serialises the DocSearch dark-variant rules with an empty `:where()`, which
   matches nothing and drops a background colour that Tailwind's own unminified
   output gets right.
+- Its prefixer appends the `-webkit-` alias of a declaration once per pass
+  without noticing one already there, and `@tailwindcss/node` runs it twice, so
+  every alias it adds arrives duplicated. `.decoration-blue-400` carries
+  `-webkit-text-decoration-color` twice, and the preflight `a` rule carries
+  `-webkit-text-decoration` three times because preflight also ships one by
+  hand. cascade's prefixer is idempotent and emits one. Both sides prefix the
+  same declarations and neither prefixes a value settled at parse time, so
+  counting raw occurrences of a prefixed property reads about double on the
+  reference side with nothing missing on ours.
 
 The last difference is between the two minifiers. cascade folds `calc()` only
 where the fold is exact, so the typography component keeps

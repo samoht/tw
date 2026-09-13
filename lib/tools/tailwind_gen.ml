@@ -5,28 +5,126 @@ let write_file path content =
   output_string oc content;
   close_out oc
 
+(* A candidate reaches the CLI by one of two routes, and they answer different
+   questions. An [@source inline] entry goes to the engine, which is what tw's
+   own reader models. Text in a scanned file has to satisfy the candidate
+   extractor first, and the extractor declines spellings the engine compiles: a
+   [/name] opening on [-] or [_] is one, so [group-hover/-2a:underline] yields
+   no rule from a file although [@apply] resolves it. A declined candidate costs
+   the whole rule rather than changing a value, so a sheet built that way is
+   short a rule that tw emits, and the comparison reads as a class tw invented.
+
+   The scanned route answers what inline cannot. A [theme(--x)] read counts as a
+   theme dependency only when the candidate came from a file, so a class reading
+   one that way binds the token in [@layer theme] and the same class declared
+   inline leaves it unbound. The spelling inlines the token's value and leaves
+   no [var()] behind, so nothing else recovers the binding, and the comparison
+   reads as a binding tw invented.
+
+   Every candidate therefore takes both routes, which costs nothing because the
+   engine compiles it once either way. [inline_quote] says which of them the
+   inline string can hold at all: [{] and [}] are its expansion syntax, a [\]
+   opens a string escape, and one carrying both quote characters fits inside
+   neither string form. No class name Tailwind can produce is spelled that
+   way. *)
+let inline_quote candidate =
+  let unusable = function '{' | '}' | '\\' -> true | _ -> false in
+  if String.exists unusable candidate then None
+  else if not (String.contains candidate '"') then Some '"'
+  else if not (String.contains candidate '\'') then Some '\''
+  else None
+
+(* Every entrypoint the harness writes names the sources Tailwind may read,
+   because the CLI decides for itself otherwise: an [@import "tailwindcss"]
+   without [source(none)] scans the working directory, which under dune is the
+   whole build tree and by hand is the checkout. A run that chooses its own
+   sources reads tw's own output back in, so a reference built from an empty
+   class list can arrive carrying thousands of selectors and a comparison
+   against it measures nothing. The fence therefore belongs to the one function
+   that spells an entrypoint rather than to each caller's command line.
+
+   [project_css] is the single exception: a caller comparing against a real
+   project supplies that project's own entrypoint, which carries its own source
+   decisions and cannot be rewritten without changing what is being measured.
+   Such a run needs its detection rooted some other way. *)
+let entrypoint ?project_css ?(plugins = []) ?config ?(scanned_files = [])
+    candidates =
+  let head =
+    match project_css with
+    | Some css -> css
+    | None -> "@import \"tailwindcss\" source(none);"
+  in
+  let plugin name = Fmt.str "@plugin \"%s\";" name in
+  let config_line path = Fmt.str "@config \"%s\";" path in
+  let scan path = Fmt.str "@source \"%s\";" path in
+  let inline candidate =
+    Option.map
+      (fun quote -> Fmt.str "@source inline(%c%s%c);" quote candidate quote)
+      (inline_quote candidate)
+  in
+  String.concat "\n"
+    ((head :: List.map plugin plugins)
+    @ Option.to_list (Option.map config_line config)
+    @ List.map scan scanned_files
+    @ List.filter_map inline candidates)
+  ^ "\n"
+
+(* [-s "p-4 flex"] hands the harness one entry holding two candidates, and both
+   routes split it, so what either compiles is the whitespace split of what the
+   caller passed. *)
+let candidates classnames =
+  let is_white = function
+    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
+    | _ -> false
+  in
+  let split s =
+    let n = String.length s in
+    let rec loop i start acc =
+      let taken =
+        if i > start then String.sub s start (i - start) :: acc else acc
+      in
+      if i = n then List.rev taken
+      else if is_white s.[i] then loop (i + 1) (i + 1) taken
+      else loop (i + 1) start acc
+    in
+    loop 0 0 []
+  in
+  List.concat_map split classnames
+
+(* What the inline string cannot hold reaches the CLI through the extractor and
+   nowhere else, which is the one case where a dropped candidate costs a rule
+   outright. *)
+let scanned_candidates classnames =
+  List.filter (fun c -> Option.is_none (inline_quote c)) (candidates classnames)
+
+(* The generated directory holds one file per role, and the entrypoint names two
+   of them, so the names are written once. *)
+let scanned_file = "input.html"
+let config_file = "tailwind.config.js"
+
 let tailwind_files ?(forms = false) ?input_css temp_dir classnames =
-  (* Feed candidates to the extractor verbatim, space-separated, as raw file
+  (* Candidates are fed to the extractor verbatim, space-separated, as raw file
      text rather than inside an HTML class attribute. An attribute forces
      escaping one quote style into an HTML entity, and Tailwind's extractor
      reads that entity literally into the selector (e.g. bg-[url('x')] ->
      .bg-\[url\(\&\#39\;x\&\#39\;\)\]), diverging from tw's selector. Raw text
      preserves both single and double quotes exactly as a real source file
-     would, so arbitrary url() and content-["..."] values round-trip. *)
-  let html_content = String.concat " " classnames in
+     would. *)
+  let candidates = candidates classnames in
+  let html_content = String.concat " " candidates in
+  let scanned_files = [ "./" ^ scanned_file ] in
   (* When the caller supplies a project CSS entrypoint, use it verbatim so the
      real Tailwind reads the project's @theme/@plugin/@config; otherwise
      synthesise the default import. *)
   let input_css_content =
     match input_css with
-    | Some content -> content
+    | Some project_css -> entrypoint ~project_css ~scanned_files candidates
     | None ->
-        if forms then
-          (* forms plugin with strategy: 'class' requires a config file *)
-          "@import \"tailwindcss\";\n\
-           @plugin \"@tailwindcss/typography\";\n\
-           @config \"./tailwind.config.js\";"
-        else "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
+        (* The forms plugin with strategy: 'class' requires a config file. *)
+        let config = if forms then Some ("./" ^ config_file) else None in
+        entrypoint
+          ~plugins:[ "@tailwindcss/typography" ]
+          ?config ~scanned_files candidates
   in
   (* Generate tailwind.config.js when forms plugin is needed (only for the
      synthesised input; a supplied entrypoint carries its own config). *)
@@ -41,8 +139,8 @@ export default {
 }
 |}
      in
-     write_file (Filename.concat temp_dir "tailwind.config.js") config_content);
-  write_file (Filename.concat temp_dir "input.html") html_content;
+     write_file (Filename.concat temp_dir config_file) config_content);
+  write_file (Filename.concat temp_dir scanned_file) html_content;
   write_file (Filename.concat temp_dir "input.css") input_css_content
 
 let availability_result = ref None
@@ -70,19 +168,44 @@ let parse_version v =
       | _ -> None)
   | _ -> None
 
-(* Scratch files stay in the repo-local [tmp/], never a system temp directory:
-   it is shared with every other user and run on the machine, and tailwindcss
-   resolves its imports relative to where its input sits. *)
-let tmp_root = "tmp"
+let rec dir_containing name dir =
+  if Sys.file_exists (Filename.concat dir name) then Some dir
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_containing name parent
 
-let ensure_tmp_root () =
+let pinned_cli_relative = "node_modules/.bin/tailwindcss"
+
+(* Scratch files stay in a project-local [tmp/], never a system temp directory:
+   that one is shared with every other user and run on the machine, and the CLI
+   resolves [@import "tailwindcss"] against the nearest [node_modules] above the
+   entrypoint, which a system directory has none of.
+
+   The project is the tree the running executable was built in, which is the one
+   carrying the pinned CLI, rather than the caller's directory. A worktree's
+   binary is routinely invoked from another checkout, and a caller-relative
+   scratch root sends its generated entrypoints into that checkout instead. An
+   installed binary has no such tree and keeps the caller-relative root, which
+   resolves against whatever project the caller stands in. *)
+let tmp_root () =
+  let self = Sys.executable_name in
+  let self =
+    if Filename.is_relative self then Filename.concat (Sys.getcwd ()) self
+    else self
+  in
+  match dir_containing pinned_cli_relative (Filename.dirname self) with
+  | Some root -> Filename.concat root "tmp"
+  | None -> Filename.concat (Sys.getcwd ()) "tmp"
+
+let ensure_tmp_root root =
   (* Another test binary may have created it between the two calls. *)
-  if not (Sys.file_exists tmp_root) then
-    try Sys.mkdir tmp_root 0o755 with Sys_error _ -> ()
+  if not (Sys.file_exists root) then
+    try Sys.mkdir root 0o755 with Sys_error _ -> ()
 
 let tmp_file prefix suffix =
-  ensure_tmp_root ();
-  Filename.temp_file ~temp_dir:tmp_root prefix suffix
+  let root = tmp_root () in
+  ensure_tmp_root root;
+  Filename.temp_file ~temp_dir:root prefix suffix
 
 let first_line path =
   let ic = open_in path in
@@ -90,18 +213,34 @@ let first_line path =
     ~finally:(fun () -> close_in_noerr ic)
     (fun () -> try Some (input_line ic) with End_of_file -> None)
 
+(* The CLI names itself in the banner it puts at the top of every stylesheet it
+   compiles, and it has no version flag: [--version] compiles a stylesheet like
+   any other run. So the probe compiles the smallest thing there is, an
+   entrypoint with no sources at all. An empty file will not do, because the
+   scan comes from what [@import "tailwindcss"] pulls in rather than from the
+   file's contents. *)
+let version_probe_entrypoint = entrypoint []
+
 let tailwindcss_version cmd =
-  (* Try --version first, fall back to --help if needed. A command that exits 0
-     and prints nothing has answered nothing, so it counts as no answer and the
-     fallback runs. *)
+  (* A command that exits 0 and prints nothing has answered nothing, so it
+     counts as no answer and the [--help] fallback runs. *)
   let temp_file = tmp_file "tw_version" ".txt" in
-  let remove () = try Sys.remove temp_file with Sys_error _ -> () in
-  Fun.protect ~finally:remove @@ fun () ->
+  (* The entrypoint has to sit where the [tailwindcss] package resolves, which
+     means inside the project: from a system temp directory the CLI exits 1 with
+     no output. *)
+  let entrypoint = tmp_file "tw_probe" ".css" in
+  write_file entrypoint version_probe_entrypoint;
+  let remove path = try Sys.remove path with Sys_error _ -> () in
+  let cleanup () =
+    remove temp_file;
+    remove entrypoint
+  in
+  Fun.protect ~finally:cleanup @@ fun () ->
   let probe args =
     if Sys.command (cmd ^ args ^ temp_file) = 0 then first_line temp_file
     else None
   in
-  match probe " --version 2>/dev/null > " with
+  match probe (" -i " ^ Filename.quote entrypoint ^ " -o - 2>/dev/null > ") with
   | Some line -> (line, false)
   | None -> (
       match probe " --help 2>&1 | head -1 > " with
@@ -159,18 +298,12 @@ let describe_candidate cmd present =
     | Some v -> cmd ^ ": v" ^ v
     | None -> cmd ^ ": unknown version"
 
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 (* Worktrees can safely share an installed node_modules tree: the packages are
    read-only while tests run. Do not put npx between the harness and the pinned
    binary, because concurrent npx processes coordinate through npm's shared
    cache and can starve one another for minutes. *)
 let project_tailwindcss_command () =
-  let relative = "node_modules/.bin/tailwindcss" in
+  let relative = pinned_cli_relative in
   match dir_containing relative (Sys.getcwd ()) with
   | None -> None
   | Some root ->
@@ -319,11 +452,21 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
       match !tailwind_command with Some cmd -> cmd | None -> "tailwindcss"
     in
 
+    let output_file = Filename.concat dir "output.css" in
+
+    (* The CLI's own [--cwd] rather than a shell [cd], and it is asked only to
+       root automatic source detection: the entrypoint and the output are named
+       absolutely, so what the run reads and writes does not depend on the
+       flag's reach. The synthesised entrypoint has named its sources and needs
+       no rooting at all, but a caller-supplied project entrypoint carries its
+       own source decisions and may well leave detection on, and this is what
+       keeps it off whatever directory the calling binary stands in. *)
     let cmd =
-      Fmt.str
-        "cd %s && %s -i input.css -o output.css --content input.html%s%s \
-         2>/dev/null"
-        (Filename.quote dir) tailwind_cmd minify_flag optimize_flag
+      Fmt.str "%s --cwd %s -i %s -o %s%s%s 2>/dev/null" tailwind_cmd
+        (Filename.quote dir)
+        (Filename.quote (Filename.concat dir "input.css"))
+        (Filename.quote output_file)
+        minify_flag optimize_flag
     in
 
     let exit_code = Sys.command cmd in
@@ -331,7 +474,6 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
     Stats.record_call elapsed;
 
     if exit_code = 0 then (
-      let output_file = Filename.concat dir "output.css" in
       let ic = open_in output_file in
       let content = really_input_string ic (in_channel_length ic) in
       close_in ic;

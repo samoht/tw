@@ -528,9 +528,36 @@ let is_ident = Cascade.Syntax.is_ident
    the thing to refuse. Tailwind refuses the same ones. *)
 let is_declaration_value = Cascade.Css.Declaration.is_declaration_value
 
-let arbitrary_declaration_value s =
+let data_type_hint inner =
+  let len = String.length inner in
+  let rec scan i =
+    if i >= len then None
+    else
+      match inner.[i] with
+      | ':' ->
+          Some (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
+      | 'a' .. 'z' | '-' -> scan (i + 1)
+      | _ -> None
+  in
+  scan 0
+
+let value_after_hint s =
+  match data_type_hint s with
+  (* A bracket opening with [:] has an empty hint, which names no longhand and
+     no utility either. *)
+  | Some ("", _) -> None
+  | Some (_, value) -> Some value
+  | None -> Some s
+
+let declaration_value_of s =
   let value = decode_arbitrary_value s in
-  if value <> "" && is_declaration_value value then Some value else None
+  if String.trim value <> "" && is_declaration_value value then Some value
+  else None
+
+(* Every family reaches its last resort with the bracket as the author wrote it,
+   so refusing an empty hint here refuses it everywhere. *)
+let arbitrary_declaration_value s =
+  Option.bind (value_after_hint s) declaration_value_of
 
 let wrap_declaration_value ~before ~after value =
   if value = "" || not (is_declaration_value value) then None

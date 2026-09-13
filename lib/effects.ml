@@ -401,6 +401,9 @@ module Handler = struct
     Css.parse_color
       (pp_str [ "oklab(from "; v; " l a b / "; opacity_css_value opacity; ")" ])
 
+  let color_origin (c : Css.color) =
+    Css.Pp.to_string ~minify:true Css.pp_color c
+
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
     let v_inset_ring = Var.reference inset_ring_shadow_var in
@@ -667,30 +670,127 @@ module Handler = struct
                 }
           | _ -> None)
 
-  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)]. Converts
-      CSS color functions to hex for Tailwind parity. *)
-  let wrap_shadow_color ~color_var (sh : Css.shadow) : Css.shadow =
-    let wrap_body (body : Css.shadow_body) : Css.shadow_body =
-      let fallback : Css.color =
-        match body.color with
-        | Some c -> (
-            match Color.css_color_to_hex c with Some h -> h | None -> c)
-        | None -> Css.Current
-      in
-      let color_ref = Var.reference_with_fallback color_var fallback in
-      { body with color = Some (Var color_ref) }
+  (* A layer that names no colour paints in the current colour, so read a
+     missing one as [currentcolor] rather than carrying the absence around. *)
+  let body_color (body : Css.shadow_body) : Css.color =
+    match body.color with Some c -> c | None -> Css.Current
+
+  (* Rewrite every layer's colour, one shadow at a time. *)
+  let map_shadow_color ~f (sh : Css.shadow) : Css.shadow =
+    let map_body (body : Css.shadow_body) : Css.shadow_body =
+      { body with color = Some (f (body_color body)) }
     in
     match sh with
-    | Css.Shadow body -> Css.Shadow (wrap_body body)
-    | Css.Inset (Css.Body body) -> Css.Inset (Css.Body (wrap_body body))
+    | Css.Shadow body -> Css.Shadow (map_body body)
+    | Css.Inset (Css.Body body) -> Css.Inset (Css.Body (map_body body))
     | Css.Inset (Css.Toggle t) ->
-        Css.Inset (Css.Toggle { t with body = wrap_body t.body })
+        Css.Inset (Css.Toggle { t with body = map_body t.body })
     | other -> other
 
-  let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
+  let map_shadow_colors ~f (sh : Css.shadow) : Css.shadow =
     match sh with
-    | List shadows -> List (List.map (wrap_shadow_color ~color_var) shadows)
-    | _ -> wrap_shadow_color ~color_var sh
+    | List shadows -> List (List.map (map_shadow_color ~f) shadows)
+    | _ -> map_shadow_color ~f sh
+
+  let rec shadow_colors (sh : Css.shadow) : Css.color list =
+    match sh with
+    | Css.Shadow body | Css.Inset (Css.Body body) -> [ body_color body ]
+    | Css.Inset (Css.Toggle t) -> [ body_color t.body ]
+    | Css.List shadows -> List.concat_map shadow_colors shadows
+    | _ -> []
+
+  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)], each
+      layer's colour giving the fallback. *)
+  let wrap_shadow_colors_by ~color_var ~f (sh : Css.shadow) : Css.shadow =
+    map_shadow_colors sh ~f:(fun c ->
+        Css.Var (Var.reference_with_fallback color_var (f c)))
+
+  (** Converts CSS color functions to hex for Tailwind parity. *)
+  let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
+    wrap_shadow_colors_by ~color_var sh ~f:(fun c ->
+        match Color.css_color_to_hex c with Some h -> h | None -> c)
+
+  (* Tailwind writes an arbitrary shadow's colour under a modifier as
+     [oklab(from <colour> l a b / <alpha>)] and lets its minifier fold it, so a
+     colour whose channels the class names arrives folded and needs no guard.
+     [currentcolor], a [var()] reference and an alpha that reads a custom
+     property leave nothing to fold here. *)
+  let folded_shadow_color opacity (c : Css.color) : Css.color option =
+    if Color.opacity_var_bare_of opacity <> None then None
+    else
+      match c with
+      | Css.Current | Css.Var _ -> None
+      | _ -> (
+          let alpha = Color.opacity_to_percent opacity /. 100.0 in
+          match Color.oklab_alpha c alpha with
+          | Some folded -> Some folded
+          | None -> Some (Color.mix_alpha opacity c))
+
+  (* What a browser reads when the fold is left to it: the colour as the class
+     wrote it, which is what Tailwind leaves outside the guard. *)
+  let unguarded_shadow_color opacity (c : Css.color) : Css.color =
+    match folded_shadow_color opacity c with Some folded -> folded | None -> c
+
+  (* What it reads behind the guard: [currentcolor] takes the alpha through a
+     [color-mix], every other colour through a relative [oklab()]. *)
+  let guarded_shadow_color opacity (c : Css.color) : Css.color =
+    match folded_shadow_color opacity c with
+    | Some folded -> folded
+    | None -> (
+        match c with
+        | Css.Current -> Color.mix_alpha opacity Css.Current
+        | _ -> (
+            match relative_oklab_from_color (color_origin c) opacity with
+            | Some relative -> relative
+            | None -> c))
+
+  let is_current_color (c : Css.color) =
+    match c with Css.Current -> true | _ -> false
+
+  (* An arbitrary shadow the value reader produced, with the modifier's alpha
+     folded into every layer. Both families write the same shape: the alpha and
+     the unguarded value in a rule of their own, the guarded value in an
+     [@supports] behind it, and the composition in the base rule. *)
+  let arbitrary_shadow_alpha_style ~shadow_var ~color_var ~alpha_decl
+      ~composition (sh : Css.shadow) opacity =
+    let unfolded =
+      List.filter
+        (fun c -> folded_shadow_color opacity c = None)
+        (shadow_colors sh)
+    in
+    let d_shadow, v_shadow =
+      Var.binding shadow_var
+        (wrap_shadow_colors_by ~color_var
+           ~f:(unguarded_shadow_color opacity)
+           sh)
+    in
+    match unfolded with
+    | [] ->
+        style ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
+          [ alpha_decl; d_shadow; composition v_shadow ]
+    | _ ->
+        let d_enhanced, _ =
+          Var.binding shadow_var
+            (wrap_shadow_colors_by ~color_var
+               ~f:(guarded_shadow_color opacity)
+               sh)
+        in
+        let supports_block =
+          if List.exists is_current_color unfolded then
+            color_mix_supports [ d_enhanced ]
+          else
+            Css.supports ~condition:relative_color_supports
+              [ Css.rule ~selector:(Css.Selector.class_ "_") [ d_enhanced ] ]
+        in
+        let alpha_shadow_rule =
+          Css.rule ~selector:(Css.Selector.class_ "_") [ alpha_decl; d_shadow ]
+        in
+        style
+          ~rules:(Stdlib.Option.Some [ alpha_shadow_rule; supports_block ])
+          ~metadata:shadow_property_metadata
+          ~property_rules:shadow_property_rules
+          [ composition v_shadow ]
 
   (* A shadow bracket is a shadow list or a var(); anything else - the docs'
      [<value>] placeholder included - is not one. *)
@@ -765,7 +865,14 @@ module Handler = struct
         let alpha_d = shadow_opacity_decl opacity in
         let base_fallback : Css.color =
           match color with
-          | Hex c -> Color.hex_to_oklab_alpha c alpha
+          (* An alpha reading a custom property has no percentage to resolve
+             against, so the colour stays as the class wrote it and the relative
+             form goes behind the guard below. Folding it through oklab at full
+             opacity left the shadow opaque for a browser with no relative
+             colours, where Tailwind leaves the authored colour. *)
+          | Hex c ->
+              if dynamic_opacity then Color.authored_hex c
+              else Color.hex_to_oklab_alpha c alpha
           | Var v -> make_full_color_var v
           | Css_color c ->
               let c =
@@ -805,8 +912,7 @@ module Handler = struct
           match color with
           | Hex c when dynamic_opacity -> relative_support c
           | Css_color c when dynamic_opacity ->
-              let origin = Css.Pp.to_string ~minify:true Css.pp_color c in
-              relative_support origin
+              relative_support (color_origin c)
           | Hex _ | Css_color _ -> []
           | Var v -> relative_support v
           | None ->
@@ -842,7 +948,18 @@ module Handler = struct
               ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ box_shadow_composition v_shadow ])
-    | Stdlib.Option.None -> shadow_none
+    | Stdlib.Option.None -> (
+        (* The bracket reaches here because [is_shadow_bracket] read it as a
+           shadow, and the reader that said so is [Css.parse_shadow], which
+           reads a colour keyword, a layer list and the [inset] keyword the
+           reading above does not. Falling out to [shadow-none] lost the lengths
+           and the modifier's own declaration along with the colour. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            arbitrary_shadow_alpha_style ~shadow_var ~color_var:shadow_color_var
+              ~alpha_decl:(shadow_opacity_decl opacity)
+              ~composition:box_shadow_composition shadow opacity
+        | None -> shadow_none)
 
   (* ============ Shadow color utilities ============ *)
 
@@ -1293,6 +1410,15 @@ module Handler = struct
     if List.length parsed = List.length parts then Stdlib.Option.Some parsed
     else Stdlib.Option.None
 
+  (* [Css.parse_shadow] reads a non-inset shadow, which is the spelling an
+     [inset-shadow-*] bracket carries; the utility supplies the [inset] keyword
+     itself, once per layer, the way Tailwind does. *)
+  let rec force_inset (sh : Css.shadow) : Css.shadow =
+    match sh with
+    | Css.Shadow body -> Css.Inset (Css.Body body)
+    | Css.List shadows -> Css.List (List.map force_inset shadows)
+    | other -> other
+
   let inset_shadow_arbitrary (arb : string) =
     match parse_multi_shadow arb with
     | Stdlib.Option.Some parsed_parts ->
@@ -1326,7 +1452,20 @@ module Handler = struct
         style ~metadata:shadow_property_metadata
           ~property_rules:shadow_property_rules
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
-    | Stdlib.Option.None -> inset_shadow_none
+    | Stdlib.Option.None -> (
+        (* The bracket reaches here because [is_shadow_bracket] read it as a
+           shadow, and the reader that said so is [Css.parse_shadow], which
+           knows every colour spelling rather than the hex, [var()] and colour
+           function the reading above covers. Reading it with the same reader
+           that accepted it keeps the shadow the class wrote; falling out to
+           [inset-shadow-none] lost its lengths and spread along with the
+           colour. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            inset_shadow_compose
+              (wrap_shadow_colors ~color_var:inset_shadow_color_var
+                 (force_inset shadow))
+        | None -> inset_shadow_none)
 
   let inset_shadow_shape_opacity_style ?theme shape opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -1420,7 +1559,7 @@ module Handler = struct
                           if dynamic_opacity then
                             match relative_oklab_from_color c opacity with
                             | Some relative -> relative
-                            | None -> Css.hex c
+                            | None -> Color.authored_hex c
                           else Color.hex_to_oklab_alpha c alpha
                         in
                         Var.reference_with_fallback inset_shadow_color_var
@@ -1434,9 +1573,7 @@ module Handler = struct
                             Var.reference_with_fallback inset_shadow_color_var
                               (make_full_color_var v))
                     | Css_color c ->
-                        let origin =
-                          Css.Pp.to_string ~minify:true Css.pp_color c
-                        in
+                        let origin = color_origin c in
                         let enhanced =
                           if dynamic_opacity then
                             match relative_oklab_from_color origin opacity with
@@ -1502,7 +1639,17 @@ module Handler = struct
               ~metadata:shadow_property_metadata
               ~property_rules:shadow_property_rules
               [ inset_box_shadow_composition v_inset_shadow ])
-    | Stdlib.Option.None -> inset_shadow_none
+    | Stdlib.Option.None -> (
+        (* Read the bracket with the reader that accepted it, as
+           [inset_shadow_arbitrary] does without a modifier. *)
+        match Css.parse_shadow (Parse.decode_underscores arb) with
+        | Some shadow ->
+            arbitrary_shadow_alpha_style ~shadow_var:inset_shadow_var
+              ~color_var:inset_shadow_color_var
+              ~alpha_decl:(inset_shadow_opacity_decl opacity)
+              ~composition:inset_box_shadow_composition (force_inset shadow)
+              opacity
+        | None -> inset_shadow_none)
 
   (* ============ Inset shadow color utilities ============ *)
 
@@ -1927,30 +2074,36 @@ module Handler = struct
      the zero the callers that cannot fail fall back to; the two used to be
      written out separately and agreed only by hand, so adding a unit to one
      alone would have reintroduced a silently-zero width. *)
-  let parse_bracket_width_opt inner : Css.length option =
+  let plain_bracket_width value : Css.length option =
     let suffixed suffix mk =
       let n = String.length suffix in
       if
-        String.length inner > n
-        && String.sub inner (String.length inner - n) n = suffix
+        String.length value > n
+        && String.sub value (String.length value - n) n = suffix
       then
-        Some (String.sub inner 0 (String.length inner - n))
+        Some (String.sub value 0 (String.length value - n))
         |> Option.map (fun num -> Option.map mk (float_of_string_opt num))
       else None
     in
+    match suffixed "px" (fun f -> (Px f : Css.length)) with
+    | Some found -> found
+    | None -> (
+        match suffixed "rem" (fun f -> (Rem f : Css.length)) with
+        | Some found -> found
+        | None ->
+            Option.map
+              (fun f -> (Px f : Css.length))
+              (float_of_string_opt value))
+
+  (* A [length:] hint says how to read the value written after it; only a var()
+     reference there names a custom property. *)
+  let parse_bracket_width_opt inner : Css.length option =
     if String.length inner > 6 && String.sub inner 0 7 = "length:" then
       let v = String.sub inner 7 (String.length inner - 7) in
-      Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
-    else
-      match suffixed "px" (fun f -> (Px f : Css.length)) with
-      | Some found -> found
-      | None -> (
-          match suffixed "rem" (fun f -> (Rem f : Css.length)) with
-          | Some found -> found
-          | None ->
-              Option.map
-                (fun f -> (Px f : Css.length))
-                (float_of_string_opt inner))
+      if Parse.is_var v then
+        Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
+      else plain_bracket_width v
+    else plain_bracket_width inner
 
   let parse_bracket_width inner : Css.length =
     match parse_bracket_width_opt inner with Some l -> l | None -> Px 0.
@@ -2409,7 +2562,8 @@ module Handler = struct
     | Shadow_bracket_color_var v -> set_shadow_bracket_color_var v
     | Shadow_bracket_color_var_opacity (v, op) ->
         set_shadow_bracket_cvar_opacity v op
-    | Shadow_bracket_shadow s -> shadow_raw_var s
+    | Shadow_bracket_shadow s ->
+        if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
     | Shadow_bracket_var v -> shadow_raw_var v
     | Inset_shadow_none -> inset_shadow_none
     | Inset_shadow_2xs -> inset_shadow_shape_style ~theme Ish_2xs
@@ -2437,7 +2591,9 @@ module Handler = struct
     | Inset_shadow_bracket_color_var v -> set_ishadow_bracket_cvar v
     | Inset_shadow_bracket_cvar_opacity (v, op) ->
         set_ishadow_bracket_cvar_opacity v op
-    | Inset_shadow_bracket_shadow s -> inset_shadow_raw_var s
+    | Inset_shadow_bracket_shadow s ->
+        if Parse.is_var s then inset_shadow_raw_var s
+        else inset_shadow_arbitrary s
     | Inset_shadow_bracket_var v -> inset_shadow_raw_var v
     | Opacity n -> opacity n
     | Opacity_decimal f ->
@@ -2681,14 +2837,12 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_bracket_color (inner, c))
             | _ -> Ok (Ring_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Ring_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Ring_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Ring_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Ring_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Ring_raw (inner, value, opacity))
+                | None -> err_not_utility)))
     | `Ring_offset -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2704,14 +2858,12 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_offset_bracket_color (inner, c))
             | _ -> Ok (Ring_offset_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Ring_offset_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Ring_offset_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Ring_offset_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
+                | None -> err_not_utility)))
     | `Inset_ring -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -2727,21 +2879,23 @@ module Handler = struct
             | Color.No_opacity -> Ok (Inset_ring_bracket_color (inner, c))
             | _ -> Ok (Inset_ring_bracket_color_opacity (inner, c, opacity)))
         | None -> (
-            if starts "length:" inner then Ok (Inset_ring_bracket_length inner)
-            else
-              match parse_bracket_width_opt inner with
-              | Some _ -> Ok (Inset_ring_bracket_length inner)
-              | None -> (
-                  match Parse.arbitrary_declaration_value inner with
-                  | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
-                  | None -> err_not_utility)))
+            match parse_bracket_width_opt inner with
+            | Some _ -> Ok (Inset_ring_bracket_length inner)
+            | None -> (
+                match Parse.arbitrary_declaration_value inner with
+                | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
+                | None -> err_not_utility)))
 
   let parse_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
     if starts "shadow:" inner then
+      (* The hint says how to read the value written after it; only a var()
+         reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      Ok (Shadow_bracket_shadow shadow_part)
+      if is_shadow_bracket shadow_part then
+        Ok (Shadow_bracket_shadow shadow_part)
+      else err_not_utility
     else
       match Color.parse_bracket_hint inner with
       | Some (Color.Typed_var var_part) -> (
@@ -2769,8 +2923,12 @@ module Handler = struct
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
     if starts "shadow:" inner then
+      (* The hint says how to read the value written after it; only a var()
+         reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      Ok (Inset_shadow_bracket_shadow shadow_part)
+      if is_shadow_bracket shadow_part then
+        Ok (Inset_shadow_bracket_shadow shadow_part)
+      else err_not_utility
     else
       match Color.parse_bracket_hint inner with
       | Some (Color.Typed_var var_part) -> (

@@ -10,6 +10,8 @@ val suborder_ceiling : int
     [object-position] share its priority and Tailwind emits them after every
     fill and stroke, so {!Layout} starts their suborders here. *)
 
+module Handler : Utility.Handler
+
 (** {1 Fill Utilities} *)
 
 val fill_none : t
