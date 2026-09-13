@@ -314,12 +314,14 @@ because both route between longhands two modules own and an unknown hint on
 either falls to the colour, which wants the opaque colour case as well as the
 peel: `text-[foo:1.25rem]`, `text-[foo:red]` and `outline-[foo:red]` are
 refused where the CLI writes `color: 1.25rem`, `color: red` and
-`outline-color: red`. The `length:` hint in `lib/borders.ml` and
-`lib/svg.ml` still refuses a value its width reader declines, which is the same
-shape in two modules. `lib/typography.ml` no longer does, and what closing it
-cost is the measure for the other two: a variant carrying `(spelling, value)`,
-an `opaque_declaration` in `to_style`, and the bare-number-as-pixels rule
-above, which the hint makes unambiguous.
+`outline-color: red`. The width hints in `lib/typography.ml`,
+`lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
+declines: each carries a variant holding `(spelling, value)` and writes the
+value through `opaque_declaration` on the longhand the hint named, with the
+bare-number-as-pixels rule above settling the one case the hint makes
+unambiguous. Where the family writes a style declaration beside the width -
+`border-`, `outline-` - that declaration travels with the raw value, so the
+browser drops the width and keeps the style.
 
 These families still refuse a bracket that opens with a hint, each because the
 hint reaches a typed reader that has not been shown it: `basis-[…]`,

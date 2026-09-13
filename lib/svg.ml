@@ -49,6 +49,11 @@ module Handler = struct
     | Stroke_width_bracket of string * Css.length
     | Stroke_width_typed_var of
         string (* full inner: "length:var(--my-width)" *)
+    | (* A width hint over a value no length grammar reads
+         (stroke-[length:red]). The hint chooses the longhand and the value is
+         forwarded verbatim, which is Tailwind's token-stream contract; the
+         browser discards the declaration. *)
+      Stroke_width_raw of string * string
 
   let name = "svg"
   let priority _ = 22
@@ -172,6 +177,8 @@ module Handler = struct
         style Css.[ stroke_width (Length (Length (Px (float_of_int n)))) ]
     | Stroke_width_bracket (_, w) ->
         style [ Css.stroke_width (Length (Length w)) ]
+    | Stroke_width_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "stroke-width" value))
     | Stroke_width_typed_var inner ->
         let var_part =
           match String.index_opt inner ':' with
@@ -228,6 +235,7 @@ module Handler = struct
       | Stroke_width n -> (2, 10 + n)
       | Stroke_width_bracket _ -> (2, 100)
       | Stroke_width_typed_var _ -> (2, 100)
+      | Stroke_width_raw _ -> (2, 100)
     in
     (group * alpha_span) + detail
 
@@ -286,6 +294,7 @@ module Handler = struct
     | Stroke_width n -> "stroke-" ^ string_of_int n
     | Stroke_width_bracket (v, _) -> "stroke-[" ^ v ^ "]"
     | Stroke_width_typed_var v -> "stroke-[" ^ v ^ "]"
+    | Stroke_width_raw (v, _) -> "stroke-[" ^ v ^ "]"
 
   let has_opacity s = String.contains s '/'
 
@@ -356,7 +365,13 @@ module Handler = struct
         | None -> (
             match float_of_string_opt value with
             | Some f -> Ok (Stroke_width_bracket (inner, Px f))
-            | None -> err_not_utility))
+            | None -> (
+                (* The hint says the bracket is a width whatever the value turns
+                   out to be, so a value no length grammar reads is still a
+                   width, forwarded verbatim. *)
+                match Parse.arbitrary_declaration_value inner with
+                | Some raw -> Ok (Stroke_width_raw (inner, raw))
+                | None -> err_not_utility)))
     | None -> (
         match Parse.arbitrary_length inner with
         | Some length -> Ok (Stroke_width_bracket (inner, length))
