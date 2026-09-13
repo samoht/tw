@@ -303,8 +303,35 @@ let test_object_bracket_peels_a_hint () =
             (Astring.String.is_infix ~affix:"object-position: 50%" css))
     [ "object-[position:50%]"; "object-[foo:50%]" ]
 
+(* [object-[...]] takes the whole CSS <position> grammar, as Tailwind does and
+   as the [bg-position-] bracket already did: an edge keyword, a pair of them, a
+   keyword with an offset, a var() and a math function. The reader here split on
+   spaces and read each side as a length, so every keyword form was refused and
+   only the two-length and one-length cases resolved. *)
+let test_object_bracket_position_grammar () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("object-[top]", "object-position: top");
+      ("object-[center]", "object-position: center");
+      ("object-[left_top]", "object-position: left top");
+      ("object-[bottom_right]", "object-position: bottom right");
+      ("object-[right_2rem]", "object-position: right 2rem");
+      ("object-[50%_50%]", "object-position: 50% 50%");
+    ]
+
 let tests =
   [
+    test_case "object bracket position grammar" `Quick
+      test_object_bracket_position_grammar;
     test_case "object bracket peels a data-type hint" `Quick
       test_object_bracket_peels_a_hint;
     test_case "display utilities" `Quick test_display_utilities;
