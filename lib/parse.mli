@@ -195,7 +195,12 @@ val arbitrary_declaration_value : string -> string option
     returns its CSS declaration value: the text after any {!data_type_hint},
     which has to hold something other than blank space. Values that can
     terminate or swallow the declaration are [None], as is a bracket whose hint
-    is empty. *)
+    is empty.
+
+    A [theme()] or [--theme()] call still standing in the text is also [None]:
+    such a call is resolved before a family's reader sees the bracket, so one
+    that survived is a lookup that declined, and Tailwind names no utility for
+    it. *)
 
 val wrap_declaration_value :
   before:string -> after:string -> string -> string option
