@@ -279,8 +279,30 @@ let test_arbitrary_token_stream () =
   Test_helpers.check_declarations "z-[50%]" [ "z-index:50%" ];
   Test_helpers.check_declarations "z-[1.5]" [ "z-index:1.5" ]
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. [object-] writes one longhand, so every hint lands there and
+   the position reader is handed what follows it; the hint stays in the class
+   name, which is what the markup carries. The reader was given the hint as
+   well, read nothing, and the class was refused where Tailwind emits
+   [object-position: top]. *)
+let test_object_bracket_peels_a_hint () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes object-position: top")
+            true
+            (Astring.String.is_infix ~affix:"object-position: top" css))
+    [ "object-[position:top]"; "object-[foo:top]" ]
+
 let tests =
   [
+    test_case "object bracket peels a data-type hint" `Quick
+      test_object_bracket_peels_a_hint;
     test_case "display utilities" `Quick test_display_utilities;
     test_case "visibility" `Quick test_visibility;
     test_case "box-decoration-break" `Quick test_box_decoration_break;
