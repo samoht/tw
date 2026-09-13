@@ -318,6 +318,12 @@
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
+- An `@theme` override for an inset-shadow token is read as the CSS shadow it
+  is, so it keeps a length in any unit, a fourth length for the spread, and the
+  colour as the project spelled it. Only a `px` or `rem` length and a
+  three-length body were read; anything else put the built-in
+  `inset 0 2px 4px` into the sheet and lost the override without saying so
+  (#725).
 - An arbitrary shadow keeps the colour the class named, and keeps whatever the
   value reader accepted with it: a colour keyword, `currentcolor`, a layer list,
   a leading `inset`. A bracket naming a colour CSS knows came out as

@@ -1216,21 +1216,48 @@ module Handler = struct
   (* v4.3.1 default inset-shadow scale (verified against the bare CLI). The
      named utilities are inset-shadow-{2xs,xs,sm}; each is a single inset
      shadow. The alpha is .05 (#0000000d). 2xs has no blur. *)
-  let inset_shadow_shape_data (shape : inset_shadow_shape) :
-      Css.length * Css.length * Css.length option * string =
+  let inset_shadow_shape_data (shape : inset_shadow_shape) : Css.shadow_body =
+    let body v_offset blur : Css.shadow_body =
+      {
+        h_offset = Zero;
+        v_offset;
+        blur;
+        spread = None;
+        color = Some (Css.hex "#0000000d");
+      }
+    in
     match shape with
-    | Ish_2xs -> (Zero, Px 1., None, "#0000000d")
-    | Ish_xs -> (Zero, Px 1., Some (Px 1.), "#0000000d")
-    | Ish_sm -> (Zero, Px 2., Some (Px 4.), "#0000000d")
+    | Ish_2xs -> body (Px 1.) None
+    | Ish_xs -> body (Px 1.) (Some (Px 1.))
+    | Ish_sm -> body (Px 2.) (Some (Px 4.))
+
+  (* An inset shadow built from a body, with [color] standing in for the one the
+     body carries: the scale publishes the authored colour, a utility swaps in
+     the [--tw-inset-shadow-color] reference that falls back to it. *)
+  let inset_shadow_of_body (body : Css.shadow_body) ~color =
+    Css.shadow ~inset:true ~h_offset:body.h_offset ~v_offset:body.v_offset
+      ?blur:body.blur ?spread:body.spread ~color ()
+
+  let inset_shadow_body_color (body : Css.shadow_body) =
+    Option.value body.color ~default:(Css.hex "#0000000d")
+
+  (* The body's colour as [#rrggbb], for the opacity path, which re-derives the
+     alpha from the modifier and so wants the opaque channels alone. A colour no
+     hex can express (a [var()], a keyword the palette does not carry) leaves
+     the scale's own black standing, as it did when this read a hex string. *)
+  let inset_shadow_body_rgb_hex (body : Css.shadow_body) =
+    match Option.map Color.css_color_to_hex body.color with
+    | Some (Some (Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ })) ->
+        "#" ^ hex_byte r ^ hex_byte g ^ hex_byte b
+    | Some _ | None -> "#000000"
 
   (* The inset-shadow scale, published the same way. *)
   let () =
     List.iter
       (fun (name, shape) ->
-        let h_offset, v_offset, blur, hex = inset_shadow_shape_data shape in
+        let body = inset_shadow_shape_data shape in
         let value =
-          Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Css.hex hex)
-            ()
+          inset_shadow_of_body body ~color:(inset_shadow_body_color body)
         in
         Scheme.register_default_token name
           (Css.Pp.to_string ~minify:true Css.Properties.pp_shadow value))
@@ -1247,60 +1274,17 @@ module Handler = struct
     | Ish_xs -> "inset-shadow-xs"
     | Ish_sm -> "inset-shadow-sm"
 
-  (* Parse a theme override for an inset-shadow token (e.g. "inset 0 2px 4px
-     rgb(0 0 0 / 0.05)") into the (h, v, blur, hex) tuple
-     [inset_shadow_shape_data] returns. Drops a leading "inset" keyword, takes
-     the leading length tokens, then converts the trailing colour to a hex
-     string. *)
-  let parse_inset_shadow_override (s : string) :
-      (Css.length * Css.length * Css.length option * string) option =
-    let hex_string_of_color (str : string) : string =
-      match Css.parse_color str with
-      | Some c -> (
-          match Color.css_color_to_hex c with
-          | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ })
-            ->
-              let bh = hex_byte in
-              "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
-          | _ -> str)
-      | None -> str
-    in
-    let parse_len str : Css.length option =
-      match str with
-      | "0" -> Some (Zero : Css.length)
-      | _ ->
-          let n = String.length str in
-          let cut suf = String.sub str 0 (n - String.length suf) in
-          if Filename.check_suffix str "px" then
-            Option.map
-              (fun f -> (Px f : Css.length))
-              (float_of_string_opt (cut "px"))
-          else if Filename.check_suffix str "rem" then
-            Option.map
-              (fun f -> (Rem f : Css.length))
-              (float_of_string_opt (cut "rem"))
-          else None
-    in
-    let toks =
-      String.split_on_char ' ' s
-      |> List.filter (( <> ) "")
-      |> List.filter (( <> ) "inset")
-    in
-    let rec take_lengths acc = function
-      | t :: rest -> (
-          match parse_len t with
-          | Some l -> take_lengths (l :: acc) rest
-          | None -> (List.rev acc, t :: rest))
-      | [] -> (List.rev acc, [])
-    in
-    let lengths, color_toks = take_lengths [] toks in
-    let hex = hex_string_of_color (String.concat " " color_toks) in
-    match lengths with
-    | [ h; v ] -> Some (h, v, None, hex)
-    | [ h; v; blur ] -> Some (h, v, Some blur, hex)
-    | _ -> None
+  (* Read a theme override for an inset-shadow token (e.g. "inset 0 2px 4px
+     rgb(0 0 0 / 0.05)") as the CSS shadow value it is. The grammar settles what
+     the token may hold, so a length in any unit, a spread, and the colour in
+     the spelling the project wrote all survive; tw re-emits with [inset] set,
+     so an override that omits the keyword is read the same way. *)
+  let parse_inset_shadow_override (s : string) : Css.shadow_body option =
+    match Css.parse_shadow s with
+    | Some (Inset (Body body)) | Some (Shadow body) -> Some body
+    | Some _ | None -> None
 
-  (* (h, v, blur, hex) for a named shape: a threaded @theme override if present,
+  (* The shadow body for a named shape: a threaded @theme override if present,
      else the v4.3.1 default scale. *)
   let inset_shadow_data_for ?theme shape =
     match Scheme.theme_value theme (inset_shadow_shape_token shape) with
@@ -1311,16 +1295,12 @@ module Handler = struct
     | None -> inset_shadow_shape_data shape
 
   let inset_shadow_shape_style ?theme shape =
-    let h_offset, v_offset, blur, fallback_hex =
-      inset_shadow_data_for ?theme shape
-    in
+    let body = inset_shadow_data_for ?theme shape in
     let color_ref =
-      Var.reference_with_fallback inset_shadow_color_var (Css.hex fallback_hex)
+      Var.reference_with_fallback inset_shadow_color_var
+        (inset_shadow_body_color body)
     in
-    let inset_value =
-      Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
-    in
-    inset_shadow_compose inset_value
+    inset_shadow_compose (inset_shadow_of_body body ~color:(Var color_ref))
 
   let inset_shadow_none =
     inset_shadow_compose
@@ -1330,21 +1310,19 @@ module Handler = struct
   (* Bare `inset-shadow` reads the threaded --inset-shadow token (it has no
      v4.3.1 default; of_class only reaches here when the token is defined). *)
   let inset_shadow_themed ?theme () =
-    let h_offset, v_offset, blur, fallback_hex =
+    let body =
       match Scheme.theme_value theme "inset-shadow" with
       | Some override -> (
           match parse_inset_shadow_override override with
-          | Some data -> data
-          | None -> (Zero, Px 2., Some (Px 4.), "#0000000d"))
-      | None -> (Zero, Px 2., Some (Px 4.), "#0000000d")
+          | Some body -> body
+          | None -> inset_shadow_shape_data Ish_sm)
+      | None -> inset_shadow_shape_data Ish_sm
     in
     let color_ref =
-      Var.reference_with_fallback inset_shadow_color_var (Css.hex fallback_hex)
+      Var.reference_with_fallback inset_shadow_color_var
+        (inset_shadow_body_color body)
     in
-    let inset_value =
-      Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
-    in
-    inset_shadow_compose inset_value
+    inset_shadow_compose (inset_shadow_of_body body ~color:(Var color_ref))
 
   (* ============ Inset shadow helpers ============ *)
 
@@ -1470,20 +1448,14 @@ module Handler = struct
   let inset_shadow_shape_opacity_style ?theme shape opacity =
     let percent = Color.opacity_to_percent opacity in
     let alpha = percent /. 100.0 in
-    let h_offset, v_offset, blur, fallback_hex =
-      inset_shadow_data_for ?theme shape
+    let body = inset_shadow_data_for ?theme shape in
+    let oklab_fallback =
+      Color.hex_to_oklab_alpha (inset_shadow_body_rgb_hex body) alpha
     in
-    let base_hex =
-      if String.length fallback_hex = 9 then String.sub fallback_hex 0 7
-      else fallback_hex
-    in
-    let oklab_fallback = Color.hex_to_oklab_alpha base_hex alpha in
     let color_ref =
       Var.reference_with_fallback inset_shadow_color_var oklab_fallback
     in
-    let inset_value =
-      Css.shadow ~inset:true ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
-    in
+    let inset_value = inset_shadow_of_body body ~color:(Var color_ref) in
     let d_inset_shadow, v_inset_shadow =
       Var.binding inset_shadow_var inset_value
     in
