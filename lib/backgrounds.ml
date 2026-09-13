@@ -728,14 +728,25 @@ module Handler = struct
     | Ok pos -> Some pos
     | Error _ -> None
 
+  (* A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. [bg-position-] and [bg-size-] each write one longhand, so
+     every hint lands there and the readers are handed what follows it. The
+     constructors keep the bracket whole, because the class name is what the
+     markup carries, so the peel has to happen again wherever one re-reads it.
+     [None] is a bracket whose hint is empty, which names no utility. *)
+  let bracket_value_after_hint = Parse.value_after_hint
+
   (* The bracket forms that also accept a var() reference read it as one. *)
   let bracket_position_value inner : Css.position_value option =
-    if Parse.is_var inner then
-      let ref : Css.position_value Css.var =
-        Var.bracket (Parse.extract_var_name inner)
-      in
-      Some (Css.Var ref)
-    else parse_bracket_position inner
+    let read value : Css.position_value option =
+      if Parse.is_var value then
+        let ref : Css.position_value Css.var =
+          Var.bracket (Parse.extract_var_name value)
+        in
+        Some (Css.Var ref)
+      else parse_bracket_position value
+    in
+    Stdlib.Option.bind (bracket_value_after_hint inner) read
 
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
      list. [None] means the bracket is not an image, which [of_class] rejects:
@@ -1585,10 +1596,14 @@ module Handler = struct
         | None -> style [ Css.background_size Auto ])
     | Bg_position_bracket (_, pos) -> style [ Css.background_position [ pos ] ]
     | Bg_size_bracket inner -> (
-        match parse_bracket_size inner with
+        (* [of_class] refused an empty hint, so the peel succeeds here. *)
+        let value =
+          Stdlib.Option.value (bracket_value_after_hint inner) ~default:inner
+        in
+        match parse_bracket_size value with
         | Some decl -> style [ decl ]
-        | None when Parse.is_var inner ->
-            let var_name = Parse.extract_var_name inner in
+        | None when Parse.is_var value ->
+            let var_name = Parse.extract_var_name value in
             let ref : Css.background_size Css.var = Var.bracket var_name in
             style [ Css.background_size (Var ref) ]
         | None -> style [ Css.background_size Auto ])
@@ -1891,9 +1906,14 @@ module Handler = struct
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        if parse_bracket_size inner = None && not (Parse.is_var inner) then
-          Error (`Msg "Invalid background-size value")
-        else Ok (Bg_size_bracket inner)
+        let readable value =
+          parse_bracket_size value <> None || Parse.is_var value
+        in
+        if
+          Stdlib.Option.fold ~none:false ~some:readable
+            (bracket_value_after_hint inner)
+        then Ok (Bg_size_bracket inner)
+        else Error (`Msg "Invalid background-size value")
     (* Bracket notation: bg-[...] and bg-[...]/opacity *)
     | [ "bg"; bracket_stuff ]
       when String.length bracket_stuff > 1 && bracket_stuff.[0] = '[' -> (
