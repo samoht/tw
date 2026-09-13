@@ -312,10 +312,11 @@ payload the other families carry, so `to_class` keeps the hint and `to_style`
 does not. `text-[…]` and `outline-[…]` now write a bracket
 no reader took into their colour, which is each family's last resort, so
 `text-[foo:1.25rem]`, `text-[foo:red]`, `text-[notacolour]`,
-`outline-[foo:red]` and a malformed hex all reach the sheet. The seven other
-colour families — `bg-`, `border-`, `fill-`, `stroke-`, `accent-`, `caret-`,
-`placeholder-` — still refuse the same brackets, which is one divergence in
-seven more parsers. An opacity modifier over a value that is not a colour
+`outline-[foo:red]` and a malformed hex all reach the sheet. `border-`, `fill-`, `stroke-`, `accent-`,
+`caret-` and `placeholder-` followed. `bg-` is the one still refusing: its
+bracket runs through a size, a position, an image and a url before any colour
+reader sees it, so there is no single point where a refusal falls through, and
+the per-side border colours have no last resort either. An opacity modifier over a value that is not a colour
 stays refused everywhere: the CLI writes a `color-mix()` around the raw token,
 and cascade's colour types hold colours, not token streams. The width hints in `lib/typography.ml`,
 `lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
