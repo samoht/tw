@@ -40,6 +40,10 @@ module Handler = struct
     | Spacing of float
     | Fraction of string
     | Arbitrary of string * length
+    | Arbitrary_raw of string * string
+        (** a bracket no length reader took: the family names its longhands, so
+            the value is forwarded verbatim - Tailwind's token-stream contract
+        *)
     | Theme_named of string  (** a size the project named in its own [@theme] *)
 
   type t =
@@ -207,6 +211,9 @@ module Handler = struct
     prefix : string;  (** class prefix, e.g. ["min-w"] *)
     css_name : string;  (** property name, as error messages spell it *)
     decls : (length -> declaration) list;
+    properties : string list;
+        (** the longhands [decls] writes, for a value no typed setter can hold
+        *)
     base : int;  (** suborder base for the family *)
     spacing_off : int;  (** extra offset in front of the spacing band *)
     entries : value list;  (** the keywords this family admits *)
@@ -217,6 +224,7 @@ module Handler = struct
       prefix = "w";
       css_name = "width";
       decls = [ width ];
+      properties = [ "width" ];
       base = w_base;
       spacing_off = 0;
       entries =
@@ -243,6 +251,7 @@ module Handler = struct
       prefix = "h";
       css_name = "height";
       decls = [ height ];
+      properties = [ "height" ];
       base = h_base;
       spacing_off = 0;
       entries =
@@ -269,6 +278,7 @@ module Handler = struct
       prefix = "min-w";
       css_name = "min-width";
       decls = [ min_width ];
+      properties = [ "min-width" ];
       base = min_w_base;
       spacing_off = 0;
       entries =
@@ -296,6 +306,7 @@ module Handler = struct
       prefix = "min-h";
       css_name = "min-height";
       decls = [ min_height ];
+      properties = [ "min-height" ];
       base = min_h_base;
       spacing_off = 0;
       entries =
@@ -327,6 +338,7 @@ module Handler = struct
       prefix = "max-w";
       css_name = "max-width";
       decls = [ max_width ];
+      properties = [ "max-width" ];
       base = max_w_base;
       spacing_off = 1_000_000;
       entries =
@@ -374,6 +386,7 @@ module Handler = struct
       prefix = "max-h";
       css_name = "max-height";
       decls = [ max_height ];
+      properties = [ "max-height" ];
       base = max_h_base;
       spacing_off = 0;
       entries =
@@ -400,6 +413,7 @@ module Handler = struct
       prefix = "size";
       css_name = "size";
       decls = [ width; height ];
+      properties = [ "width"; "height" ];
       base = size_base;
       spacing_off = 0;
       entries =
@@ -424,6 +438,7 @@ module Handler = struct
       prefix = "inline";
       css_name = "inline-size";
       decls = [ inline_size ];
+      properties = [ "inline-size" ];
       base = inline_base;
       spacing_off = 0;
       entries =
@@ -447,6 +462,7 @@ module Handler = struct
       prefix = "min-inline";
       css_name = "min-inline-size";
       decls = [ min_inline_size ];
+      properties = [ "min-inline-size" ];
       base = min_inline_base;
       spacing_off = 0;
       entries =
@@ -470,6 +486,7 @@ module Handler = struct
       prefix = "max-inline";
       css_name = "max-inline-size";
       decls = [ max_inline_size ];
+      properties = [ "max-inline-size" ];
       base = max_inline_base;
       spacing_off = 0;
       entries =
@@ -493,6 +510,7 @@ module Handler = struct
       prefix = "block";
       css_name = "block-size";
       decls = [ block_size ];
+      properties = [ "block-size" ];
       base = block_base;
       spacing_off = 0;
       entries =
@@ -516,6 +534,7 @@ module Handler = struct
       prefix = "min-block";
       css_name = "min-block-size";
       decls = [ min_block_size ];
+      properties = [ "min-block-size" ];
       base = min_block_base;
       spacing_off = 0;
       entries =
@@ -539,6 +558,7 @@ module Handler = struct
       prefix = "max-block";
       css_name = "max-block-size";
       decls = [ max_block_size ];
+      properties = [ "max-block-size" ];
       base = max_block_base;
       spacing_off = 0;
       entries =
@@ -578,7 +598,7 @@ module Handler = struct
     | Themed t -> t.spelling
     | Spacing n -> class_float (n *. 4.)
     | Fraction f -> f
-    | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
+    | Arbitrary (raw, _) | Arbitrary_raw (raw, _) -> "[" ^ raw ^ "]"
     | Theme_named spelling -> spelling
 
   let value_order f = function
@@ -586,7 +606,7 @@ module Handler = struct
     | Themed t -> t.order
     | Spacing n -> f.spacing_off + spacing_value_order n
     | Fraction s -> fraction_value_order s
-    | Arbitrary _ -> arbitrary_off
+    | Arbitrary _ | Arbitrary_raw _ -> arbitrary_off
     (* A project-named size has no slot in the built-in scale, so it sorts with
        the other project-supplied values and ties are broken by class name. *)
     | Theme_named _ -> arbitrary_off
@@ -708,6 +728,11 @@ module Handler = struct
     match v with
     | Keyword k -> set k.length
     | Arbitrary (raw, len) -> set_arbitrary raw len
+    | Arbitrary_raw (_, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             f.properties)
     | Fraction s -> (
         match fraction_pct s with
         | Some pct -> set (Pct pct)
@@ -787,7 +812,17 @@ module Handler = struct
         else if is_bracket v then
           match parse_arbitrary v with
           | Some (raw, len) -> Ok (Sized (prop, Arbitrary (raw, len)))
-          | None -> err_invalid_value f.css_name v
+          | None when not (Parse.is_bracket_value v) ->
+              (* [w-[10px][20px]] is two brackets glued together, which is one
+                 value to neither reader nor to Tailwind. *)
+              err_invalid_value f.css_name v
+          | None -> (
+              (* The family names its longhands, so a bracket no length reader
+                 took still reaches them. *)
+              let inner = Parse.bracket_inner v in
+              match Parse.arbitrary_declaration_value inner with
+              | Some raw -> Ok (Sized (prop, Arbitrary_raw (inner, raw)))
+              | None -> err_invalid_value f.css_name v)
         else
           match Parse.decimal_float v with
           | Some n when is_quarter_multiple n && Theme.has_spacing_step ~theme n
