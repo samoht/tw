@@ -26,17 +26,25 @@ let test_invalid () =
 let test_arbitrary_width_units () =
   check "divide-x-[2em]";
   check "divide-y-[3vw]";
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "divide-x-[2em] carries the em unit into the calc" true
-    (Astring.String.is_infix ~affix:"calc(2em*" (css "divide-x-[2em]"));
-  Alcotest.(check bool)
-    "divide-y-[3vw] carries the vw unit into the calc" true
-    (Astring.String.is_infix ~affix:"calc(3vw*" (css "divide-y-[3vw]"))
+  (* [calc(2em*] said only that the unit reached a calc. The whole list says
+     which sides carry the width, which carries the reverse factor, and that the
+     style longhand travels with them. *)
+  Test_helpers.check_declarations ~minify:false "divide-x-[2em]"
+    [
+      "--tw-divide-x-reverse: 0";
+      "border-inline-style: var(--tw-border-style)";
+      "border-inline-start-width: calc(2em * var(--tw-divide-x-reverse))";
+      "border-inline-end-width: calc(2em * calc(1 - \
+       var(--tw-divide-x-reverse)))";
+    ];
+  Test_helpers.check_declarations ~minify:false "divide-y-[3vw]"
+    [
+      "--tw-divide-y-reverse: 0";
+      "border-bottom-style: var(--tw-border-style)";
+      "border-top-style: var(--tw-border-style)";
+      "border-top-width: calc(3vw * var(--tw-divide-y-reverse))";
+      "border-bottom-width: calc(3vw * calc(1 - var(--tw-divide-y-reverse)))";
+    ]
 
 (* Every arbitrary width the reader accepts is spelled back exactly as it was
    written, so the selector matches the class in the markup. A width the reader
