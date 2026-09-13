@@ -182,12 +182,12 @@
   declarations the browser discards rather than being refused outright, which
   dropped the selector and left an element carrying the class with nothing at
   all. A bare number after the hint is pixels, the spelling Tailwind's minifier
-  ships. Eight families do the same for a bracket no reader took at all,
-  writing it into their colour: `text-[notacolour]`, `stroke-[1zz]`,
-  `border-[abc]` and a malformed hex in any of `text-`, `outline-`, `border-`,
-  `accent-`, `caret-`, `placeholder-`, `fill-` and `stroke-` reach the sheet
-  where they used to be refused. `bg-` still refuses them (#761, #762, #763,
-  #764).
+  ships. Every colour family does the same for a bracket no reader took at all,
+  writing it into the longhand the hint named or into the colour when there is
+  no hint: `text-[notacolour]`, `stroke-[1zz]`, `bg-[image:nope]` and a
+  malformed hex in any of them reach the sheet where they used to be refused.
+  `bg-[size:...]` no longer substitutes `background-size: auto` for a value it
+  cannot read (#761, #762, #763, #764, #765).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
