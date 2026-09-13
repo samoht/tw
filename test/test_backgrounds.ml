@@ -3,6 +3,22 @@ open Test_helpers
 
 let check = check_handler_roundtrip (module Tw.Backgrounds.Handler)
 
+(* The stop list a from- or to- colour writes beside its own channel: the via
+   slot is left to its fallback, which is the whole list without it. *)
+let stops =
+  "--tw-gradient-stops: var(--tw-gradient-via-stops, \
+   var(--tw-gradient-position), var(--tw-gradient-from) \
+   var(--tw-gradient-from-position), var(--tw-gradient-to) \
+   var(--tw-gradient-to-position))"
+
+(* A via- colour fills that slot instead, so it writes the list out and points
+   --tw-gradient-stops at it. *)
+let via_stops =
+  "--tw-gradient-via-stops: var(--tw-gradient-position), \
+   var(--tw-gradient-from) var(--tw-gradient-from-position), \
+   var(--tw-gradient-via) var(--tw-gradient-via-position), \
+   var(--tw-gradient-to) var(--tw-gradient-to-position)"
+
 let test_bg_colors () =
   check "bg-red-500";
   check "bg-blue-600";
@@ -25,44 +41,35 @@ let test_gradient_colors () =
 (* via-none clears the gradient's via stops by resetting the channel var to the
    CSS initial keyword. *)
 let test_via_none () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   Alcotest.check string "via-none round-trips" "via-none"
     (Tw.pp (Result.get_ok (Tw.of_string "via-none")));
-  Alcotest.(check bool)
-    "via-none sets --tw-gradient-via-stops:initial" true
-    (Astring.String.is_infix ~affix:"--tw-gradient-via-stops:initial"
-       (css "via-none"))
+  (* The whole list: clearing the via stops is all the utility does, so a second
+     declaration beside it would be the regression. *)
+  Test_helpers.check_declarations ~minify:false "via-none"
+    [ "--tw-gradient-via-stops: initial" ]
 
 (* Bare bg-radial / bg-conic (and bg-conic-{angle}) set --tw-gradient-position
    to the default oklab interpolation and the matching gradient image; they used
    to be unknown classes (only the /interp and bracket forms were handled). *)
 let test_radial_conic () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "bg-radial emits radial-gradient" true
-    (Astring.String.is_infix ~affix:"radial-gradient(var(--tw-gradient-stops))"
-       (css "bg-radial"));
-  Alcotest.(check bool)
-    "bg-conic emits conic-gradient" true
-    (Astring.String.is_infix ~affix:"conic-gradient(var(--tw-gradient-stops))"
-       (css "bg-conic"));
-  Alcotest.(check bool)
-    "bg-radial sets position in oklab" true
-    (Astring.String.is_infix ~affix:"--tw-gradient-position: in oklab"
-       (css "bg-radial"));
-  Alcotest.(check bool)
-    "bg-conic-180 sets from 180deg" true
-    (Astring.String.is_infix
-       ~affix:"--tw-gradient-position: from 180deg in oklab"
-       (css "bg-conic-180"))
+  (* Each writes the position channel and the image, in that order, and nothing
+     else. The affixes these replace checked one declaration each, so bg-radial
+     was never held to emitting only a radial gradient. *)
+  Test_helpers.check_declarations ~minify:false "bg-radial"
+    [
+      "--tw-gradient-position: in oklab";
+      "background-image: radial-gradient(var(--tw-gradient-stops))";
+    ];
+  Test_helpers.check_declarations ~minify:false "bg-conic"
+    [
+      "--tw-gradient-position: in oklab";
+      "background-image: conic-gradient(var(--tw-gradient-stops))";
+    ];
+  Test_helpers.check_declarations ~minify:false "bg-conic-180"
+    [
+      "--tw-gradient-position: from 180deg in oklab";
+      "background-image: conic-gradient(var(--tw-gradient-stops))";
+    ]
 
 let test_of_string_invalid () =
   (* Invalid background utilities *)
@@ -145,11 +152,10 @@ let test_bg_position_and_size_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+          (* The whole list, which is where "lands in one longhand" is actually
+             said: an affix passes just as well beside a second declaration the
+             hint was not supposed to produce. *)
+          Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("bg-position-[position:50%]", "background-position: 50%");
       ("bg-position-[foo:50%]", "background-position: 50%");
@@ -205,38 +211,30 @@ let test_invalid_bracket_value () =
   accepted "bg-[position:120px_120px]"
 
 let test_bracket_image_literal () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "bg-[image:radial-gradient(...)] emits the literal gradient" true
-    (Astring.String.is_infix ~affix:"background-image: radial-gradient("
-       (css "bg-[image:radial-gradient(white,black)]"));
-  Alcotest.(check bool)
-    "no bogus var() wrapping" false
-    (Astring.String.is_infix ~affix:"var(--radial-gradient"
-       (css "bg-[image:radial-gradient(white,black)]"));
-  Alcotest.(check bool)
-    "bg-[image:var(--x)] still references the var" true
-    (Astring.String.is_infix ~affix:"background-image: var(--x)"
-       (css "bg-[image:var(--x)]"))
+  (* The whole declaration, so "no bogus var() wrapping" is said by the value
+     rather than by a second search for a string that must not appear. The named
+     colours come out as hex: cascade prints a colour canonically, and the CLI's
+     keyword is the same colour. *)
+  Test_helpers.check_declarations ~minify:false
+    "bg-[image:radial-gradient(white,black)]"
+    [ "background-image: radial-gradient(#ffffff, #000000)" ];
+  Test_helpers.check_declarations ~minify:false "bg-[image:var(--x)]"
+    [ "background-image: var(--x)" ]
 
 (* An arbitrary gradient angle in radians is converted to degrees. A negative
    angle used to come out as its floor plus a positive fraction, so
    bg-linear-[-0.5rad] rendered -29.3521deg instead of -28.6479deg. *)
 let test_bracket_gradient_radians () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let writes cls angle =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-gradient-position: " ^ angle;
+        "background-image: linear-gradient(var(--tw-gradient-stops, " ^ angle
+        ^ "))";
+      ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "bg-linear-[-0.5rad]" "--tw-gradient-position: -28.6479deg";
-  has "bg-linear-[1.3rad]" "--tw-gradient-position: 74.4845deg"
+  writes "bg-linear-[-0.5rad]" "-28.6479deg";
+  writes "bg-linear-[1.3rad]" "74.4845deg"
 
 (* [-bg-linear-[value]] accepts only angles, gated by a check that used to spell
    "is this an angle" as [String.ends_with ~suffix:"rad" value]. That suffix
@@ -246,15 +244,12 @@ let test_bracket_gradient_radians () =
    -1). Reading the bracket as a real CSS angle tells grad and rad apart; a
    non-angle bracket like [to_bottom] still has to be rejected. *)
 let test_bracket_gradient_negated_angle_units () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "-bg-linear-[100grad]" "calc(100grad * -1)";
+  Test_helpers.check_declarations ~minify:false "-bg-linear-[100grad]"
+    [
+      "--tw-gradient-position: calc(100grad * -1)";
+      "background-image: linear-gradient(var(--tw-gradient-stops, calc(100grad \
+       * -1)))";
+    ];
   match Tw.of_string "-bg-linear-[to_bottom]" with
   | Ok _ -> Alcotest.fail "expected -bg-linear-[to_bottom] to be rejected"
   | Error _ -> ()
@@ -265,16 +260,11 @@ let test_bracket_gradient_negated_angle_units () =
    bg-linear-[100grad] must keep its gradian unit rather than being read as a
    radian value with a stray "g" prefix. *)
 let test_bracket_gradient_grad_unit () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
-  in
-  has "bg-linear-[100grad]" "--tw-gradient-position: 100grad";
-  has "bg-linear-[100grad]" "linear-gradient(var(--tw-gradient-stops, 100grad))"
+  Test_helpers.check_declarations ~minify:false "bg-linear-[100grad]"
+    [
+      "--tw-gradient-position: 100grad";
+      "background-image: linear-gradient(var(--tw-gradient-stops, 100grad))";
+    ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -376,22 +366,13 @@ let rendering_matches_tailwind () =
    emit the broken url("'/img/x.png'"); it now canonicalises to a valid
    url(). *)
 let test_bg_arbitrary_url () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
   List.iter
     (fun cls ->
-      let css = css_of cls in
-      Alcotest.(check bool)
-        (cls ^ " emits a valid url()")
-        true
-        (Astring.String.is_infix ~affix:"url(/img/x.png)" css);
-      Alcotest.(check bool)
-        (cls ^ " does not double-quote")
-        false
-        (Astring.String.is_infix ~affix:"url(\"'" css))
+      (* The whole declaration, so the double-quoting this test was written for
+         is ruled out by the value rather than by a second search for a string
+         that must not appear. *)
+      Test_helpers.check_declarations ~minify:false cls
+        [ "background-image: url(/img/x.png)" ])
     [
       "bg-[url('/img/x.png')]";
       "bg-[url(\"/img/x.png\")]";
@@ -405,19 +386,25 @@ let test_bg_arbitrary_url () =
    being silently dropped as a position (they used to produce no
    --tw-gradient-from). *)
 let test_gradient_rgba_stop () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "from-[rgba(...)] sets --tw-gradient-from" true
-    (Astring.String.is_infix ~affix:"--tw-gradient-from"
-       (css_of "from-[rgba(5,74,218,0.60)]"));
-  Alcotest.(check bool)
-    "to-[rgb(...)] sets --tw-gradient-to" true
-    (Astring.String.is_infix ~affix:"--tw-gradient-to"
-       (css_of "to-[rgb(16,26,50,0.60)]"))
+  (* The whole list. The affixes these replace were prefixes of the [-position]
+     channels, so either would have passed on a utility that set only a position
+     - the very thing the test was written to rule out. *)
+  Test_helpers.check_declarations ~minify:false "from-[rgba(5,74,218,0.60)]"
+    [
+      "--tw-gradient-from: #054ada99";
+      "--tw-gradient-stops: var(--tw-gradient-via-stops, \
+       var(--tw-gradient-position), var(--tw-gradient-from) \
+       var(--tw-gradient-from-position), var(--tw-gradient-to) \
+       var(--tw-gradient-to-position))";
+    ];
+  Test_helpers.check_declarations ~minify:false "to-[rgb(16,26,50,0.60)]"
+    [
+      "--tw-gradient-to: #101a3299";
+      "--tw-gradient-stops: var(--tw-gradient-via-stops, \
+       var(--tw-gradient-position), var(--tw-gradient-from) \
+       var(--tw-gradient-from-position), var(--tw-gradient-to) \
+       var(--tw-gradient-to-position))";
+    ]
 
 (* A gradient stop-position utility (from-10%) registers the whole
    --tw-gradient-* @property family, like the colour utilities, matching the
@@ -428,9 +415,12 @@ let test_gradient_stop_position_properties () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
     | Error _ -> Alcotest.fail "could not parse from-10%"
   in
-  Alcotest.(check bool)
-    "from-10% sets --tw-gradient-from-position" true
-    (Astring.String.is_infix ~affix:"--tw-gradient-from-position: 10%" css);
+  (* A stop position writes only its own channel; the rest of the family is
+     registered rather than set, which is what the @property checks below read.
+     An @property rule is not a declaration, so those two stay on a
+     substring. *)
+  Test_helpers.check_declarations ~minify:false "from-10%"
+    [ "--tw-gradient-from-position: 10%" ];
   Alcotest.(check bool)
     "from-10% registers @property --tw-gradient-from" true
     (Astring.String.is_infix ~affix:"@property --tw-gradient-from" css);
@@ -442,16 +432,13 @@ let test_gradient_stop_position_properties () =
    color-mix: the variable's value is unknown at build time, so it cannot be
    folded into a literal colour. *)
 let test_bg_var_opacity () =
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  Alcotest.(check bool)
-    "bg-[var(--x)]/50 mixes at run time" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, var(--x) 50%, transparent)"
-       (css_of "bg-[var(--x)]/50"))
+  (* Both arms: an unguarded fallback leaving the var() bare, then the mix under
+     @supports. The affix this replaces named only the second. *)
+  Test_helpers.check_declarations ~minify:false "bg-[var(--x)]/50"
+    [
+      "background-color: var(--x)";
+      "background-color: color-mix(in oklab, var(--x) 50%, transparent)";
+    ]
 
 (* Tailwind forwards a declaration-safe arbitrary stop even when it is neither a
    valid colour nor a valid stop position. *)
@@ -471,14 +458,10 @@ let test_gradient_stop_token_stream () =
 (* A malformed colour can still be one safe declaration value, so Tailwind
    forwards it and leaves rejection to the browser. *)
 let test_arbitrary_bracket_color_token_stream () =
-  let css cls =
+  let accepted cls =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> ignore (Tw.to_css ~base:false [ u ])
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let accepted cls = ignore (css cls) in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
   List.iter
     (fun prefix ->
@@ -487,30 +470,35 @@ let test_arbitrary_bracket_color_token_stream () =
       accepted (prefix ^ "-[#12345]");
       accepted (prefix ^ "-[#zz]/50"))
     [ "from"; "via"; "to" ];
-  emits "from-[#fff]" "--tw-gradient-from:#fff";
-  emits "via-[#abc]" "--tw-gradient-via:#abc";
-  emits "to-[#123456]" "--tw-gradient-to:#123456"
+  (* The malformed value reaches the sheet verbatim, and the stop list it is
+     spliced into comes with it. *)
+  Test_helpers.check_declarations ~minify:false "from-[#fff]"
+    [ "--tw-gradient-from: #fff"; stops ];
+  Test_helpers.check_declarations ~minify:false "via-[#abc]"
+    [
+      "--tw-gradient-via: #abc";
+      via_stops;
+      "--tw-gradient-stops: var(--tw-gradient-via-stops)";
+    ];
+  Test_helpers.check_declarations ~minify:false "to-[#123456]"
+    [ "--tw-gradient-to: #123456"; stops ]
 
 (* A bracket stop position is read with the CSS length-percentage grammar, so a
    unit the reader does not name is not rendered as a zero position. *)
 let test_gradient_stop_position_units () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let emits cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "from-[1rem]" "--tw-gradient-from-position:1rem";
-  emits "via-[10vw]" "--tw-gradient-via-position:10vw";
-  emits "to-[2em]" "--tw-gradient-to-position:2em";
-  emits "from-[calc(10%_+_2px)]" "--tw-gradient-from-position:calc(10% + 2px)";
+  (* One declaration each: a stop position leaves the colour channels alone. *)
+  emits "from-[1rem]" "--tw-gradient-from-position: 1rem";
+  emits "via-[10vw]" "--tw-gradient-via-position: 10vw";
+  emits "to-[2em]" "--tw-gradient-to-position: 2em";
+  emits "from-[calc(10%_+_2px)]" "--tw-gradient-from-position: calc(10% + 2px)";
   (* the spellings the reader already named keep their value *)
-  emits "from-[50%]" "--tw-gradient-from-position:50%";
-  emits "from-[50px]" "--tw-gradient-from-position:50px";
+  emits "from-[50%]" "--tw-gradient-from-position: 50%";
+  emits "from-[50px]" "--tw-gradient-from-position: 50px";
   emits "from-[length:var(--my-position)]"
-    "--tw-gradient-from-position:var(--my-position)";
+    "--tw-gradient-from-position: var(--my-position)";
   (* the class name is spelled as it was written *)
   Alcotest.(check string)
     "from-[1rem] round-trips" "from-[1rem]"
@@ -543,13 +531,12 @@ let test_gradient_interpolation () =
           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
     | Error _ -> ()
   in
-  let css_of cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css_of cls))
+  let has cls shape position =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-gradient-position: " ^ position;
+        "background-image: " ^ shape ^ "-gradient(var(--tw-gradient-stops))";
+      ]
   in
   (* A second modifier, a function, a leading dot or sign, and the empty
      modifier: Tailwind emits nothing for any of them. *)
@@ -559,50 +546,49 @@ let test_gradient_interpolation () =
   rejected "bg-conic/[]";
   rejected "bg-radial/foo(1)";
   (* An unknown colour space still names one. *)
-  has "bg-conic/foo" "--tw-gradient-position: in foo";
-  has "bg-conic-45/999" "--tw-gradient-position: from 45deg in 999";
-  has "bg-radial/foo" "--tw-gradient-position: in foo";
-  has "bg-conic/oklab" "--tw-gradient-position: in oklab";
-  has "bg-conic/shorter" "--tw-gradient-position: in oklch shorter hue";
-  has "bg-conic/[in_hsl_longer_hue]" "--tw-gradient-position: in hsl longer hue";
+  has "bg-conic/foo" "conic" "in foo";
+  has "bg-conic-45/999" "conic" "from 45deg in 999";
+  has "bg-radial/foo" "radial" "in foo";
+  has "bg-conic/oklab" "conic" "in oklab";
+  has "bg-conic/shorter" "conic" "in oklch shorter hue";
+  has "bg-conic/[in_hsl_longer_hue]" "conic" "in hsl longer hue";
   (* The linear forms carry the modifier into the @supports rule rather than
-     dropping it. *)
-  has "bg-linear-45/foo" "--tw-gradient-position: 45deg in foo";
-  has "bg-linear-to-r/foo" "--tw-gradient-position: to right in foo"
+     dropping it, so they write the channel twice: the angle alone for a browser
+     without interpolation, then the interpolated form. The affixes these
+     replace named only the second, and so never said what the fallback a
+     browser actually reaches is. *)
+  let has_linear cls angle =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-gradient-position: " ^ angle;
+        "--tw-gradient-position: " ^ angle ^ " in foo";
+        "background-image: linear-gradient(var(--tw-gradient-stops))";
+      ]
+  in
+  has_linear "bg-linear-45/foo" "45deg";
+  has_linear "bg-linear-to-r/foo" "to right"
 
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_], so
    a file name or a gradient position carrying an underscore is written with the
    escape rather than losing the character. *)
 let test_arbitrary_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has {|bg-[url('a\_b.png')]|} "background-image: url(a_b.png)";
-  has {|bg-linear-[to\_bottom]|} "--tw-gradient-position: to_bottom"
+  Test_helpers.check_declarations ~minify:false {|bg-[url('a\_b.png')]|}
+    [ "background-image: url(a_b.png)" ];
+  (* The gradient carries the same value into its image, which is where an
+     escape lost in one of the two readings would show. *)
+  Test_helpers.check_declarations ~minify:false {|bg-linear-[to\_bottom]|}
+    [
+      "--tw-gradient-position: to_bottom";
+      "background-image: linear-gradient(var(--tw-gradient-stops, to_bottom))";
+    ]
 
 (* A [url()] is CSS source, so a [\]] in it is one character of the URL, not a
    backslash of its own: [url(a\]b)] and [url(a]b)] name the same file, and
    Tailwind emits the first verbatim. tw used to hand cascade the backslash as
    well and emit the double-escaped url("a\\]b"). *)
 let test_bracket_url_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has {|bg-[url(a\]b)]|} "background-image: url(a]b)";
   has {|bg-[image:url(a\]b)]|} "background-image: url(a]b)";
