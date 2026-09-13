@@ -302,29 +302,25 @@ let test_perspective_none_without_override () =
   Test_helpers.check_declarations "perspective-none" [ "perspective:none" ]
 
 (* [transform-[...]], [origin-[...]] and [perspective-origin-[...]] each take a
-   grammar cascade already reads. Reading it in [to_style] left a bracket the
-   grammar refuses accepted and then raising out of [to_css], which is a pure
-   conversion. *)
+   grammar cascade already reads, and a bracket that grammar refuses goes to the
+   longhand the class names as the token stream it is. What is ruled out is the
+   third answer: reading the grammar in [to_style] left such a bracket accepted
+   and then raised out of [to_css], which is a pure conversion. *)
 let test_invalid_arbitrary_transform () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
-  in
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "transform-[foo]";
-  rejected "transform-[1px]";
-  rejected "transform-[a,b]";
-  rejected "origin-[foo]";
-  rejected "origin-[red]";
-  rejected "perspective-origin-[foo]";
-  rejected "perspective-origin-[red]";
+  Test_helpers.check_declarations "transform-[foo]" [ "transform:foo" ];
+  Test_helpers.check_declarations "transform-[1px]" [ "transform:1px" ];
+  Test_helpers.check_declarations "transform-[a,b]" [ "transform:a,b" ];
+  Test_helpers.check_declarations "origin-[foo]" [ "transform-origin:foo" ];
+  Test_helpers.check_declarations "origin-[red]" [ "transform-origin:red" ];
+  Test_helpers.check_declarations "perspective-origin-[foo]"
+    [ "perspective-origin:foo" ];
+  Test_helpers.check_declarations "perspective-origin-[red]"
+    [ "perspective-origin:red" ];
   renders "transform-[rotate(45deg)]";
   renders "transform-[translateX(1px)_rotate(45deg)]";
   renders "origin-[50px_100px]";
