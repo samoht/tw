@@ -182,7 +182,10 @@
   declarations the browser discards rather than being refused outright, which
   dropped the selector and left an element carrying the class with nothing at
   all. A bare number after the hint is pixels, the spelling Tailwind's minifier
-  ships (#761, #762).
+  ships. `text-` and `outline-` do the same for a bracket no reader took at
+  all, writing it into their colour: `text-[notacolour]`, `text-[foo:red]` and
+  a malformed hex reach the sheet where they used to be refused (#761, #762,
+  #763).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
