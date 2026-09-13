@@ -890,12 +890,10 @@ let test_list_style_property_bands () =
    an optional integer / on / off, so the docs' [<value>] placeholder is not
    one; the underscore in [font-features-["liga"_0]] is a space. *)
 let test_font_features_value () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "font-features-[<value>]";
+  (* A bracket no feature-tag reader took still names [font-feature-settings],
+     so it reaches the sheet verbatim. *)
+  check_declarations "font-features-[<value>]"
+    [ "font-feature-settings:<value>" ];
   (* the underscore is a space *)
   check_declarations "font-features-[\"liga\"_0]"
     [ "font-feature-settings:\"liga\" 0" ]

@@ -225,10 +225,10 @@ let test_object_and_z_values () =
   has "object-[50%]" "object-position:50%";
   has "object-[10px_20px]" "object-position:10px 20px";
   has "object-[var(--x)]" "object-position:var(--x)";
-  (* not a position and not a var: not a utility *)
-  (match Tw.of_string "object-[<value>]" with
-  | Ok _ -> Alcotest.fail "expected object-[<value>] to be rejected"
-  | Error _ -> ());
+  (* Not a position and not a var: the family's own longhand takes it as the
+     token stream it is, which is what the CLI writes. *)
+  Test_helpers.check_declarations "object-[<value>]"
+    [ "object-position:<value>" ];
   has "z-auto" "z-index:auto"
 
 (* [z-[...]] takes a z-index. A bracket the z-index grammar cannot read is

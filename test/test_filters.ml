@@ -373,8 +373,14 @@ let test_unparseable_arbitrary_filter_rejected () =
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  rejected "filter-[nope(1)]";
-  rejected "backdrop-filter-[nope(1)]";
+  (* A bracket the filter grammar declines names the family's own longhand, so
+     it reaches the sheet as the token stream it is. A drop-shadow *name* the
+     theme has no token for is a different thing: it names no value at all, so
+     it stays refused, as it is upstream. *)
+  Test_helpers.check_declarations ~minify:false "filter-[nope(1)]"
+    [ "filter: nope(1)" ];
+  Test_helpers.check_declarations ~minify:false "backdrop-filter-[nope(1)]"
+    [ "-webkit-backdrop-filter: nope(1)"; "backdrop-filter: nope(1)" ];
   rejected "drop-shadow-nope";
   check "filter-[blur(4px)]";
   check "backdrop-filter-[blur(4px)]";

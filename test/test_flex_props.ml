@@ -195,9 +195,12 @@ let test_invalid_arbitrary_order () =
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "order-[foo]";
-  rejected "order-[1abc]";
-  rejected "order-[1.5]";
+  (* A bracket the order grammar declines still names [order], which is this
+     family's longhand, so it reaches the sheet as the token stream it is. What
+     is ruled out is the negated form, which has nothing to negate. *)
+  Test_helpers.check_declarations "order-[foo]" [ "order:foo" ];
+  Test_helpers.check_declarations "order-[1abc]" [ "order:1abc" ];
+  Test_helpers.check_declarations "order-[1.5]" [ "order:1.5" ];
   rejected "-order-[foo]";
   renders "order-[13]";
   renders "order-[var(--x)]";
