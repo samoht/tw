@@ -627,6 +627,32 @@ let late_typography_colour_block_order () =
       "accent-red-500";
     ]
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. Both families here write one longhand, so every hint lands
+   there and the length reader is handed what follows it; the hint stays in the
+   class name, which is what the markup carries. The readers were given the hint
+   as well, read nothing, and the classes were refused where Tailwind emits
+   [text-indent: 4px] and [text-underline-offset: 4px]. *)
+let test_typography_brackets_peel_a_hint () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("indent-[length:4px]", "text-indent: 4px");
+      ("indent-[foo:4px]", "text-indent: 4px");
+      ("-indent-[length:4px]", "text-indent: calc(4px * -1)");
+      ("underline-offset-[length:4px]", "text-underline-offset: 4px");
+      ("underline-offset-[foo:4px]", "text-underline-offset: 4px");
+    ]
+
 (* [underline-offset-[N]] is a bracket value, not a spelling of the bare
    [underline-offset-N] step: it names its own rule and its value carries the
    unit the author wrote rather than the [px] the scale supplies. Folding the
@@ -1275,6 +1301,8 @@ let tests =
       test_decoration_bracket_named_color;
     test_case "underline-offset-[...] keeps its bracket" `Quick
       test_underline_offset_bracket_keeps_its_class;
+    test_case "indent and underline-offset peel a data-type hint" `Quick
+      test_typography_brackets_peel_a_hint;
     test_case "typography renders like Tailwind" `Slow
       rendering_matches_tailwind;
   ]
