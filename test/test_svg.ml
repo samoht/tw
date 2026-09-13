@@ -10,25 +10,15 @@ let basic_svg () =
    stroke-width case and rejected; the width case now only matches integers, so
    they reach the colour parse. *)
 let stroke_shadeless_colors () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "stroke-white references --color-white" true
-    (Astring.String.is_infix ~affix:"stroke:var(--color-white)"
-       (css "stroke-white"));
-  Alcotest.(check bool)
-    "stroke-black references --color-black" true
-    (Astring.String.is_infix ~affix:"stroke:var(--color-black)"
-       (css "stroke-black"));
+  (* The whole list, which is what "parses as a colour, not a width" means: the
+     affix on [stroke:] left open whether a [stroke-width] was written beside
+     it. *)
+  Test_helpers.check_declarations "stroke-white" [ "stroke:var(--color-white)" ];
+  Test_helpers.check_declarations "stroke-black" [ "stroke:var(--color-black)" ];
   (* Integer widths still parse as widths, not colours. The [px] is Tailwind's
      minifier reading its generator's bare [2], and it is the spelling the
      upstream corpus records and [--diff] compares. *)
-  Alcotest.(check bool)
-    "stroke-2 stays a width" true
-    (Astring.String.is_infix ~affix:"stroke-width:2px" (css "stroke-2"))
+  Test_helpers.check_declarations "stroke-2" [ "stroke-width:2px" ]
 
 let stroke_light_dark_color () =
   let cls = "stroke-[light-dark(red,blue)]" in
@@ -36,24 +26,13 @@ let stroke_light_dark_color () =
   | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   | Ok u ->
       Alcotest.(check string) "class" cls (Tw.pp u);
-      let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
-      Alcotest.(check bool)
-        "light-dark() is routed as a stroke colour" true
-        (Astring.String.is_infix ~affix:"stroke:light-dark(red,blue)" css)
+      Test_helpers.check_declarations cls [ "stroke:light-dark(red,blue)" ]
 
 (* An arbitrary stroke width is read with the whole CSS length grammar, so a
    unit the reader does not name is not silently rendered as a zero width. *)
 let stroke_arbitrary_width_units () =
-  let width cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   let emits cls value =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ value)
-      true
-      (Astring.String.is_infix ~affix:("stroke-width:" ^ value) (width cls))
+    Test_helpers.check_declarations cls [ "stroke-width:" ^ value ]
   in
   emits "stroke-[1.5rem]" "1.5rem";
   emits "stroke-[2em]" "2em";
@@ -105,14 +84,7 @@ let stroke_width_rejects_ocaml_literals () =
    stroke read the bracket text back as a hex and answered black for every
    colour with no hex spelling. *)
 let bracket_named_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let emits decl cls = Test_helpers.check_declarations cls [ decl ] in
   emits "stroke:rebeccapurple" "stroke-[rebeccapurple]";
   emits "stroke:currentColor" "stroke-[currentColor]";
   (* the modifier mixes into the colour the bracket named, not into black *)

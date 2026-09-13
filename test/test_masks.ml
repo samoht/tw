@@ -47,15 +47,13 @@ let test_typed () =
 
 (* [mask-[<image>]] takes any background-image, not only a linear-gradient. *)
 let test_bracket_image () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "radial-gradient reaches mask-image" true
-    (Astring.String.is_infix ~affix:"mask-image:radial-gradient(white,black)"
-       (css "mask-[radial-gradient(white,black)]"));
+  (* The whole list. A mask utility aliases its property for WebKit, so the
+     affix this replaces was satisfied by the unaliased arm alone. *)
+  Test_helpers.check_declarations "mask-[radial-gradient(white,black)]"
+    [
+      "-webkit-mask-image:radial-gradient(white,black)";
+      "mask-image:radial-gradient(white,black)";
+    ];
   check "mask-[radial-gradient(white,black)]";
   check "mask-[conic-gradient(white,black)]";
   check "mask-[linear-gradient(white,black)]"
@@ -69,19 +67,12 @@ let test_bracket_layer_list () =
      [30% 50%] compacts to [30%50%] - still two components, still valid, and it
      round-trips - while a different minifier folds the pair to its [x] alone.
      Pinning either spelling pins the minifier instead of the reading. *)
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let both cls prop value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "-webkit-" ^ prop ^ ": " ^ value; prop ^ ": " ^ value ]
   in
-  Alcotest.(check bool)
-    "two url layers stay two" true
-    (Astring.String.is_infix ~affix:"mask-image: url(/a.png), url(/b.png)"
-       (css "mask-[url(/a.png),url(/b.png)]"));
-  Alcotest.(check bool)
-    "two positions stay two" true
-    (Astring.String.is_infix ~affix:"mask-position: 30% 50%, 70% 50%"
-       (css "mask-position-[30%_50%,70%_50%]"))
+  both "mask-[url(/a.png),url(/b.png)]" "mask-image" "url(/a.png), url(/b.png)";
+  both "mask-position-[30%_50%,70%_50%]" "mask-position" "30% 50%, 70% 50%"
 
 (* A bracket that would end the declaration or swallow what follows it is the
    one thing no mask utility can hold, and Tailwind writes nothing for it
@@ -168,17 +159,13 @@ let test_bracket_falls_through_to_a_longhand () =
    rem before; every CSS length unit does now, matching real Tailwind's
    mask-size-[2em]. *)
 let test_bracket_size_units () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls =
+    Test_helpers.check_declarations cls
+      [ "-webkit-mask-size:2em"; "mask-size:2em" ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "mask-size-[2em]" "mask-size:2em";
-  has "mask-[size:2em]" "mask-size:2em";
-  has "mask-[length:2em]" "mask-size:2em"
+  has "mask-size-[2em]";
+  has "mask-[size:2em]";
+  has "mask-[length:2em]"
 
 (* A mask-position bracket takes the whole CSS grammar, the same as
    background-position: a single edge keyword and the edge/offset form. Both
@@ -187,20 +174,16 @@ let test_bracket_position_grammar () =
   (* Unminified, so the assertions read as the grammar they are about. Compact
      spelling belongs to the minifier: [10px 20px] keeps its space while [30%
      50%] loses it, because a [%] already ends the token. *)
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "-webkit-mask-position: " ^ value; "mask-position: " ^ value ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "mask-[position:top]" "mask-position: top";
-  has "mask-position-[top]" "mask-position: top";
-  has "mask-[top]" "mask-position: top";
+  has "mask-[position:top]" "top";
+  has "mask-position-[top]" "top";
+  has "mask-[top]" "top";
   (* the lengths and layer-list forms are unchanged *)
-  has "mask-[position:10px_20px]" "mask-position: 10px 20px";
-  has "mask-position-[30%_50%,70%_50%]" "mask-position: 30% 50%, 70% 50%"
+  has "mask-[position:10px_20px]" "10px 20px";
+  has "mask-position-[30%_50%,70%_50%]" "30% 50%, 70% 50%"
 
 (* Masks sit between the backgrounds and fill/stroke, and the mask-gradient
    utilities lead them. Sharing padding's slot interleaved the two families with
@@ -228,15 +211,8 @@ let order_matches_tailwind () =
 (* A mask image is an arbitrary value, so [_] is a space and [\_] a literal
    underscore: a file name carrying one is written with the escape. *)
 let test_bracket_image_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the file name" true
-    (Astring.String.is_infix ~affix:"mask-image: url('a_b.png')"
-       (css {|mask-[url('a\_b.png')]|}))
+  Test_helpers.check_declarations ~minify:false {|mask-[url('a\_b.png')]|}
+    [ "-webkit-mask-image: url('a_b.png')"; "mask-image: url('a_b.png')" ]
 
 (* Tailwind leaves a bare [_] alone inside [url()], where it is part of the file
    name rather than an encoded space, so [mask-[url('a_b.png')]] names
@@ -252,22 +228,14 @@ let test_bracket_url_keeps_underscores () =
    name too. Only the [_] outside the url is a space, which [image-set()] is the
    case that tells the two apart. *)
 let test_bracket_url_underscore () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "-webkit-mask-image: " ^ value; "mask-image: " ^ value ]
   in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has "mask-[url('a_b.png')]" "mask-image: url('a_b.png')";
+  has "mask-[url('a_b.png')]" "url('a_b.png')";
   (* Tailwind writes the inner url quoted. The quoting is cascade's canonical
      spelling of the same URL; the underscore is the point. *)
-  has "mask-[image-set(url('a_b.png')_1x)]"
-    "mask-image: image-set(url(a_b.png) 1x)"
+  has "mask-[image-set(url('a_b.png')_1x)]" "image-set(url(a_b.png) 1x)"
 
 (* A [url()] carrying a position is no [url()] token, so the typed reading has
    no answer for it and the whole bracket goes out verbatim instead. What must
