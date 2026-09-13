@@ -200,6 +200,11 @@
   whose `/modifier` opens on `-` or `_` is not one, so `tw file.html` no longer
   writes rules for `group-hover/-2a:underline` that the author's own toolchain
   never produces (#772).
+- A `peer-` variant sorts inside the peer group by the variant it wraps, as
+  `group-` does: Tailwind writes `peer-checked`, then `peer-hover`, then
+  `peer-focus`. `peer-hover` sorted in front of every other `peer-` spelling,
+  so a sheet using two of them put the rules in an order the browser resolves
+  differently (#773).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
