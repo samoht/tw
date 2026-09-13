@@ -38,20 +38,12 @@ let test_fractions () =
 (* Negative fractions negate the percentage; an improper fraction resolves past
    100% (6/5 -> 120%). *)
 let test_negative_and_improper_fractions () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "-left-6/5 is -120%" true
-    (Astring.String.is_infix ~affix:"left: -120%" (css "-left-6/5"));
-  Alcotest.(check bool)
-    "left-6/5 is 120%" true
-    (Astring.String.is_infix ~affix:"left: 120%" (css "left-6/5"));
-  Alcotest.(check bool)
-    "-inset-x-1/2 is -50%" true
-    (Astring.String.is_infix ~affix:"inset-inline: -50%" (css "-inset-x-1/2"))
+  (* One declaration each, which is half the claim: an inset side writes its own
+     longhand and nothing beside it. *)
+  Test_helpers.check_declarations ~minify:false "-left-6/5" [ "left: -120%" ];
+  Test_helpers.check_declarations ~minify:false "left-6/5" [ "left: 120%" ];
+  Test_helpers.check_declarations ~minify:false "-inset-x-1/2"
+    [ "inset-inline: -50%" ]
 
 (* Tailwind reads any numerator over any denominator, the same rule the sizing
    families follow: [top-1/7] and [top-3/8] are as good as [top-1/2], and a zero
@@ -116,17 +108,10 @@ let named_inset_requires_theme_token () =
    directly; they used to be unknown classes because the bracket parser only
    accepted numeric lengths. *)
 let test_arbitrary_var () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "top-[var(--t)] sets top: var(--t)" true
-    (Astring.String.is_infix ~affix:"top: var(--t)" (css "top-[var(--t)]"));
-  Alcotest.(check bool)
-    "inset-[var(--i)] sets inset: var(--i)" true
-    (Astring.String.is_infix ~affix:"inset: var(--i)" (css "inset-[var(--i)]"));
+  Test_helpers.check_declarations ~minify:false "top-[var(--t)]"
+    [ "top: var(--t)" ];
+  Test_helpers.check_declarations ~minify:false "inset-[var(--i)]"
+    [ "inset: var(--i)" ];
   (* round-trips the class name *)
   check "top-[var(--t)]";
   check "left-[var(--l)]"
@@ -134,25 +119,11 @@ let test_arbitrary_var () =
 (* Fractional spacing steps (top-2.5) resolve to calc(var(--spacing) * n) and
    the px step (left-px) to 1px, on the physical/axis inset sides. *)
 let test_spacing_steps () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "top-2.5 uses calc(var(--spacing)*2.5)" true
-    (Astring.String.is_infix ~affix:"top:calc(var(--spacing)*2.5)"
-       (css "top-2.5"));
-  Alcotest.(check bool)
-    "inset-y-0.5 uses the block axis" true
-    (Astring.String.is_infix ~affix:"inset-block:calc(var(--spacing)*.5)"
-       (css "inset-y-0.5"));
-  Alcotest.(check bool)
-    "left-px is 1px" true
-    (Astring.String.is_infix ~affix:"left:1px" (css "left-px"));
-  Alcotest.(check bool)
-    "inset-px is 1px" true
-    (Astring.String.is_infix ~affix:"inset:1px" (css "inset-px"));
+  Test_helpers.check_declarations "top-2.5" [ "top:calc(var(--spacing)*2.5)" ];
+  Test_helpers.check_declarations "inset-y-0.5"
+    [ "inset-block:calc(var(--spacing)*.5)" ];
+  Test_helpers.check_declarations "left-px" [ "left:1px" ];
+  Test_helpers.check_declarations "inset-px" [ "inset:1px" ];
   (* round-trip the class names, escaped dot included *)
   check "top-2.5";
   check "right-1.5";
