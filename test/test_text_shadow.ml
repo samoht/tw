@@ -16,18 +16,13 @@ let test_invalid () =
      named scale `text-shadow-{2xs,xs,sm,md,lg}` is valid. *)
   Test_helpers.check_invalid_input (module Tw.Text_shadow.Handler) "text-shadow"
 
-let parse s = Result.get_ok (Tw.of_string s)
-
 (* The v4.3.1 default text-shadow scale: text-shadow-2xs uses alpha .15
    (#00000026), not the .1 (#0000001a) tw emitted before theme-threading. *)
 let test_default_scale () =
-  let css =
-    Tw.to_css ~base:false [ parse "text-shadow-2xs" ]
-    |> Tw.Css.to_string ~minify:true
-  in
-  Alcotest.(check bool)
-    "text-shadow-2xs default is #00000026 (alpha .15)" true
-    (Astring.String.is_infix ~affix:"#00000026" css)
+  (* The whole declaration. A bare hex could match the theme binding rather than
+     the utility, which is exactly what this test is about. *)
+  Test_helpers.check_declarations "text-shadow-2xs"
+    [ "text-shadow:0px 1px 0px var(--tw-text-shadow-color,#00000026)" ]
 
 (* A threaded @theme override for the text-shadow token flows through to the
    inlined value (here .1 = #0000001a), which is impossible without
@@ -37,25 +32,20 @@ let test_theme_override () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("text-shadow-2xs", "0px 1px 0px rgb(0 0 0 / 0.1)") ]
   in
-  let css =
-    Tw.to_css ~theme ~base:false [ parse "text-shadow-2xs" ]
-    |> Tw.Css.to_string ~minify:true
-  in
-  Alcotest.(check bool)
-    "text-shadow-2xs @theme override flows to #0000001a" true
-    (Astring.String.is_infix ~affix:"#0000001a" css)
+  Test_helpers.check_declarations ~theme "text-shadow-2xs"
+    [ "text-shadow:0px 1px 0px var(--tw-text-shadow-color,#0000001a)" ]
 
 (* Default palette colours stay in their authored OKLCH space, matching the
    fallback Tailwind emits before its guarded [color-mix()] declaration. *)
 let test_palette_color_keeps_oklch () =
-  let css =
-    Tw.to_css ~base:false [ parse "text-shadow-sky-300" ]
-    |> Tw.Css.to_string ~minify:true
-  in
-  Alcotest.(check bool)
-    "text-shadow-sky-300 keeps its palette OKLCH value" true
-    (Astring.String.is_infix
-       ~affix:"--tw-text-shadow-color:oklch(82.8%.111 230.318)" css)
+  (* Both arms: the unguarded fallback in its authored OKLCH, then the mix
+     behind the guard. The affix named the first alone. *)
+  Test_helpers.check_declarations "text-shadow-sky-300"
+    [
+      "--tw-text-shadow-color:oklch(82.8%.111 230.318)";
+      "--tw-text-shadow-color:color-mix(in oklab,var(--color-sky-300) \
+       var(--tw-text-shadow-alpha),transparent)";
+    ]
 
 (* An arbitrary text-shadow reads every CSS length, not the px/rem/em subset. A
    token that is not a length used to drop out of the list and shift its
@@ -84,30 +74,32 @@ let test_arbitrary_lengths () =
    function made the whole value stop being a shadow. A static one folds to its
    hex form; one with a channel that has no byte value stays as written. *)
 let test_arbitrary_color_function () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  emits "text-shadow-[0_1px_rgb(255,0,0)]" "var(--tw-text-shadow-color,#f00)";
+  (* The whole declaration, offsets included: an affix on the colour slot said
+     nothing about the lengths in front of it. *)
+  let emits cls shadow =
+    Test_helpers.check_declarations cls [ "text-shadow:" ^ shadow ]
+  in
+  emits "text-shadow-[0_1px_rgb(255,0,0)]"
+    "0 1px var(--tw-text-shadow-color,#f00)";
   emits "text-shadow-[0_1px_hsl(180deg_100%_50%)]"
-    "var(--tw-text-shadow-color,#0ff)";
+    "0 1px var(--tw-text-shadow-color,#0ff)";
   emits "text-shadow-[0_1px_oklch(0.5_0.2_180)]"
-    "var(--tw-text-shadow-color,oklch(";
+    "0 1px var(--tw-text-shadow-color,oklch(.5 .2 180))";
   emits "text-shadow-[0_1px_rgb(var(--x)_0_0)]"
-    "var(--tw-text-shadow-color,rgb(var(--x) 0 0))";
+    "0 1px var(--tw-text-shadow-color,rgb(var(--x) 0 0))";
   (* An opacity modifier takes the alpha through oklab, the same as a [#] hex
-     colour does. *)
-  emits "text-shadow-[0_1px_rgb(255,0,0)]/50"
-    "var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
+     colour does, and sets the alpha channel beside the shadow. *)
+  Test_helpers.check_declarations "text-shadow-[0_1px_rgb(255,0,0)]/50"
+    [
+      "--tw-text-shadow-alpha:50%";
+      "text-shadow:0 1px \
+       var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
+    ];
   rejected "text-shadow-[0_1px_rgb(zz)]"
 
 (* Where the alpha reads a custom property there is nothing to fold, so the
@@ -116,16 +108,12 @@ let test_arbitrary_color_function () =
    opaque shadow in a browser with no relative colours, where Tailwind paints
    the authored colour. *)
 let test_arbitrary_colour_opacity () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
-    "var(--tw-text-shadow-color,color-mix(";
+  Test_helpers.check_declarations "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
+    [
+      "--tw-text-shadow-alpha:50%";
+      "text-shadow:0 0 8px var(--tw-text-shadow-color,color-mix(in \
+       oklab,oklch(50%.2 250) 50%,transparent))";
+    ];
   Test_helpers.check_declarations ~minify:false
     "text-shadow-[0_0_8px_#f00]/[var(--x)]"
     [
@@ -140,14 +128,7 @@ let test_arbitrary_colour_opacity () =
    and a colour function and nothing else, so a name fell through to the length
    slot, failed to read as a length, and took the whole utility down with it. *)
 let test_arbitrary_named_colour () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
@@ -158,7 +139,7 @@ let test_arbitrary_named_colour () =
   emits "text-shadow-[1px_1px_rebeccapurple]"
     "text-shadow:1px 1px var(--tw-text-shadow-color,rebeccapurple)";
   emits "text-shadow-[0_1px_2px_currentColor]"
-    "var(--tw-text-shadow-color,currentcolor)";
+    "text-shadow:0 1px 2px var(--tw-text-shadow-color,currentcolor)";
   (* a word that names neither a length nor a colour is still not a shadow *)
   rejected "text-shadow-[0_1px_notacolour]"
 
@@ -168,83 +149,89 @@ let test_arbitrary_named_colour () =
    was rendered, so a malformed hex escaped as an exception instead of failing
    the parse. *)
 let test_invalid_bracket_hex () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
-  in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
   in
   rejected "text-shadow-[#zz]";
   rejected "text-shadow-[#]";
   rejected "text-shadow-[#12345]";
   rejected "text-shadow-[#zz]/50";
   rejected "text-shadow-[0_1px_2px_#zz]";
-  emits "text-shadow-[#abc]" "--tw-text-shadow-color:#abc";
-  emits "text-shadow-[0_1px_2px_#ff0000]"
-    "text-shadow:0 1px 2px var(--tw-text-shadow-color,#f00)"
+  (* A bare colour writes the channel twice, unguarded then mixed. *)
+  Test_helpers.check_declarations "text-shadow-[#abc]"
+    [
+      "--tw-text-shadow-color:#abc";
+      "--tw-text-shadow-color:color-mix(in oklab,#abc \
+       var(--tw-text-shadow-alpha),transparent)";
+    ];
+  Test_helpers.check_declarations "text-shadow-[0_1px_2px_#ff0000]"
+    [ "text-shadow:0 1px 2px var(--tw-text-shadow-color,#f00)" ]
 
 (* A bracket colour is a colour whatever spelling it takes. The bare-colour arm
    reached only the hex reader, so a name, an [oklch()] or an [rgb()] fell
    through to the arbitrary-shadow reader and was rejected outright. *)
 let test_bracket_plain_colour () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* Both arms of each: unguarded, then the mix behind the @supports guard. *)
+  let emits cls colour =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-text-shadow-color:" ^ colour;
+        "--tw-text-shadow-color:color-mix(in oklab," ^ colour
+        ^ " var(--tw-text-shadow-alpha),transparent)";
+      ]
   in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "text-shadow-[red]" "--tw-text-shadow-color:red";
-  emits "text-shadow-[red]"
-    "color-mix(in oklab,red var(--tw-text-shadow-alpha),transparent)";
-  emits "text-shadow-[oklch(0.7_0.1_200)]"
-    "--tw-text-shadow-color:oklch(.7 .1 200)";
+  emits "text-shadow-[red]" "red";
+  emits "text-shadow-[oklch(0.7_0.1_200)]" "oklch(.7 .1 200)";
   (* a colour function with a byte value for every channel folds to its hex
      spelling, the same as the arbitrary-shadow reader does with one *)
-  emits "text-shadow-[rgb(255_0_0)]" "--tw-text-shadow-color:#f00";
+  emits "text-shadow-[rgb(255_0_0)]" "#f00";
+  (* Where the modifier folds, the two arms stop agreeing, so they are spelled
+     out rather than derived from one colour. *)
+  let arms cls fallback guarded =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-text-shadow-color:" ^ fallback;
+        "--tw-text-shadow-color:color-mix(in oklab," ^ guarded
+        ^ " var(--tw-text-shadow-alpha),transparent)";
+      ]
+  in
   (* the modifier folds into the colour: sRGB for the plain fallback, oklab for
      the value the @supports block guards *)
-  emits "text-shadow-[red]/50"
-    "--tw-text-shadow-color:color-mix(in srgb,red 50%,transparent)";
-  emits "text-shadow-[red]/50"
-    "color-mix(in oklab,color-mix(in oklab,red 50%,transparent) \
-     var(--tw-text-shadow-alpha),transparent)";
+  arms "text-shadow-[red]/50" "color-mix(in srgb,red 50%,transparent)"
+    "color-mix(in oklab,red 50%,transparent)";
   (* a modifier reading a custom property has no percentage a plain fallback can
      hold, so only the guarded value mixes *)
-  emits "text-shadow-[red]/[var(--x)]" "--tw-text-shadow-color:red";
-  emits "text-shadow-[red]/[var(--x)]"
-    "color-mix(in oklab,color-mix(in oklab,red var(--x),transparent) \
-     var(--tw-text-shadow-alpha),transparent)"
+  arms "text-shadow-[red]/[var(--x)]" "red"
+    "color-mix(in oklab,red var(--x),transparent)"
 
 (* The [color:] hint says the payload is a colour, not that it names a variable.
    Every payload was read as a variable name, so [text-shadow-[color:red]]
    emitted [var(--red)] where Tailwind emits [red]. A [var()] payload still
    reads as one, and the class name keeps the hint. *)
 let test_colour_hint_takes_a_colour () =
-  let value cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls colour mixed =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-text-shadow-color:" ^ colour;
+        "--tw-text-shadow-color:color-mix(in oklab," ^ mixed
+        ^ " var(--tw-text-shadow-alpha),transparent)";
+      ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (value cls))
-  in
-  has "text-shadow-[color:red]" "--tw-text-shadow-color:red";
-  has "text-shadow-[color:var(--x)]" "--tw-text-shadow-color:var(--x)";
+  has "text-shadow-[color:red]" "red" "red";
+  has "text-shadow-[color:var(--x)]" "var(--x)" "var(--x)";
   (* A var() with an opacity modifier keeps the plain reference as the fallback
      and mixes only inside the @supports guard, so it must not take the colour
      path even though var() parses as a colour. *)
-  has "text-shadow-[color:var(--x)]/50" "--tw-text-shadow-color:var(--x)";
+  has "text-shadow-[color:var(--x)]/50" "var(--x)"
+    "color-mix(in oklab,var(--x) 50%,transparent)";
   (* The hint survives into the class name, so the class reads back. *)
-  has "text-shadow-[color:red]" ".text-shadow-\\[color\\:red\\]"
+  Alcotest.(check bool)
+    "the hint is in the selector" true
+    (List.mem {|.text-shadow-\[color\:red\]|}
+       (Test_helpers.selectors_of_utility
+          (Result.get_ok (Tw.of_string "text-shadow-[color:red]"))))
 
 (* The [shadow:] hint says the payload is a shadow, not that it names a
    variable. [text-shadow-[shadow:12px_12px_#0088cc]] wrote [text-shadow:
@@ -273,16 +260,9 @@ let test_shadow_hint_takes_a_shadow () =
 (* The shadow's parts are separated by the [_] that stands for a space, so a
    variable name carrying an underscore of its own is written [\_]. *)
 let test_underscore_escape () =
-  let value cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the variable name" true
-    (Astring.String.is_infix
-       ~affix:"text-shadow: 0 0 1px var(--tw-text-shadow-color, var(--a_b))"
-       (value {|text-shadow-[0_0_1px_var(--a\_b)]|}))
+  Test_helpers.check_declarations ~minify:false
+    {|text-shadow-[0_0_1px_var(--a\_b)]|}
+    [ "text-shadow: 0 0 1px var(--tw-text-shadow-color, var(--a_b))" ]
 
 let tests =
   [

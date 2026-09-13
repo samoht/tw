@@ -53,10 +53,10 @@ let test_perspective_keywords () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  Alcotest.(check bool)
-    "perspective-near references its token" true
-    (Astring.String.is_infix ~affix:"perspective:var(--perspective-near)"
-       (css "perspective-near"));
+  Test_helpers.check_declarations "perspective-near"
+    [ "perspective:var(--perspective-near)" ];
+  (* The token's own binding is a :root declaration, which the list above leaves
+     out by design, so this one stays a substring. *)
   Alcotest.(check bool)
     "perspective-distant defines the 1200px token" true
     (Astring.String.is_infix ~affix:"--perspective-distant:1200px"
@@ -182,10 +182,11 @@ let test_typed () =
    [0px] are different tokens, so the zero has to keep its unit. Leaving it to
    the length-level zero fold emits a bare [0] and diverges from Tailwind. *)
 let test_translate_zero_keeps_unit () =
-  let css = Tw.to_css ~base:false [ Tw.translate_x 0 ] |> Tw.Css.to_string in
-  Alcotest.(check bool)
-    "translate-x-0 writes 0px" true
-    (Astring.String.is_infix ~affix:"--tw-translate-x: 0px" css)
+  Test_helpers.check_declarations ~minify:false "translate-x-0"
+    [
+      "--tw-translate-x: 0px";
+      "translate: var(--tw-translate-x) var(--tw-translate-y)";
+    ]
 
 (* Bare-integer translate-N / -translate-N set both axes to calc(var(--spacing)
    * n); they used to be unknown classes (only the per-axis translate-x-N /
@@ -213,18 +214,23 @@ let test_translate_spacing () =
    -translate-y-0.5 used to be unknown classes since the axis took an int. The
    unit step folds to the bare variable, as Tailwind writes it. *)
 let test_translate_spacing_steps () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* Channel then the [translate] shorthand that reads it. A z step widens the
+     shorthand to three channels, which the affixes could not say. *)
+  let xy cls channel value =
+    Test_helpers.check_declarations cls
+      [
+        channel ^ ":" ^ value;
+        "translate:var(--tw-translate-x)var(--tw-translate-y)";
+      ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "translate-x-0.5" "--tw-translate-x:calc(var(--spacing)*.5)";
-  has "-translate-y-0.5" "--tw-translate-y:calc(var(--spacing)*-.5)";
-  has "translate-x-1" "--tw-translate-x:var(--spacing)";
-  has "translate-z-0.5" "--tw-translate-z:calc(var(--spacing)*.5)";
+  xy "translate-x-0.5" "--tw-translate-x" "calc(var(--spacing)*.5)";
+  xy "-translate-y-0.5" "--tw-translate-y" "calc(var(--spacing)*-.5)";
+  xy "translate-x-1" "--tw-translate-x" "var(--spacing)";
+  Test_helpers.check_declarations "translate-z-0.5"
+    [
+      "--tw-translate-z:calc(var(--spacing)*.5)";
+      "translate:var(--tw-translate-x)var(--tw-translate-y)var(--tw-translate-z)";
+    ];
   Alcotest.(check string)
     "-translate-y-0.5 round-trips" "-translate-y-0.5"
     (Tw.pp (Result.get_ok (Tw.of_string "-translate-y-0.5")));
@@ -245,11 +251,11 @@ let test_translate_prime () =
   check_class "translate-z-0.5" (Tw.translate_z' 0.5);
   check_class "translate-x-4" (Tw.translate_x' 4.0);
   check_class "translate-x-4" (Tw.translate_x 4);
-  let css u = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true in
-  Alcotest.(check bool)
-    "translate_x' 4.0 keeps the bare-var shortcut for 1, calc for others" true
-    (Astring.String.is_infix ~affix:"--tw-translate-x:calc(var(--spacing)*4)"
-       (css (Tw.translate_x' 4.0)))
+  Test_helpers.check_declarations "translate-x-4"
+    [
+      "--tw-translate-x:calc(var(--spacing)*4)";
+      "translate:var(--tw-translate-x)var(--tw-translate-y)";
+    ]
 
 (* [perspective-none] resolves to whatever a project declared [--perspective-
    none] to be. Reading that value back with a px-only test lost every other
@@ -293,13 +299,7 @@ let test_perspective_none_theme_override () =
 (* With no override the utility keeps its own meaning rather than referencing a
    token nothing declares. *)
 let test_perspective_none_without_override () =
-  let css =
-    Tw.to_css ~base:false [ Result.get_ok (Tw.of_string "perspective-none") ]
-    |> Tw.Css.to_string ~minify:true
-  in
-  Alcotest.(check bool)
-    "perspective:none" true
-    (Astring.String.is_infix ~affix:"perspective:none" css)
+  Test_helpers.check_declarations "perspective-none" [ "perspective:none" ]
 
 (* [transform-[...]], [origin-[...]] and [perspective-origin-[...]] each take a
    grammar cascade already reads. Reading it in [to_style] left a bracket the
@@ -372,20 +372,19 @@ let test_arbitrary_transform_spelling () =
    when they are invalid for the target property. The browser then discards the
    invalid declaration. *)
 let test_arbitrary_transform_token_streams () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits cls fragment =
-    Alcotest.(check bool)
-      cls true
-      (Astring.String.is_infix ~affix:fragment (css cls))
-  in
+  let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
   emits "scale-[abc]" "scale:abc";
   emits "rotate-[abc]" "rotate:abc";
   emits "rotate-[1.5px]" "rotate:1.5px";
-  emits "skew-[1.5]" "--tw-skew-x:skewX(1.5)"
+  (* A bare skew sets both axes and the transform chain that reads them, which
+     the affix on one channel never said. *)
+  Test_helpers.check_declarations "skew-[1.5]"
+    [
+      "--tw-skew-x:skewX(1.5)";
+      "--tw-skew-y:skewY(1.5)";
+      "transform:var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+       var(--tw-skew-x,) var(--tw-skew-y,)";
+    ]
 
 (* A [--perspective-*] token the project declared in its [@theme] names a depth
    the built-in scale has no slot for. Tailwind generates the utility from it;
@@ -395,15 +394,8 @@ let test_project_perspective_token () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("perspective-deep", "1200px") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "perspective-deep references its token" true
-    (Astring.String.is_infix ~affix:"perspective: var(--perspective-deep)"
-       (css "perspective-deep"));
+  Test_helpers.check_declarations ~theme ~minify:false "perspective-deep"
+    [ "perspective: var(--perspective-deep)" ];
   Alcotest.(check bool)
     "an undeclared perspective name is rejected" true
     (Result.is_error (Tw.of_string ~theme "perspective-nope"))
@@ -440,16 +432,8 @@ let test_property_rules_belong_to_transform () =
    it. A component carrying one is not a CSS number, so the value stays as
    written instead of being read as an axis and an angle. *)
 let test_rotate_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has {|rotate-[1_1_1\_2_45deg]|} "rotate: 1 1 1_2 45deg";
   has {|rotate-[var(--a\_b)]|} "rotate: var(--a_b)"
@@ -494,11 +478,10 @@ let test_transform_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+          (* The whole list, which is where "lands in one longhand" is said: an
+             affix passes just as well beside a second declaration the hint was
+             not supposed to produce. *)
+          Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("origin-[position:top]", "transform-origin: top");
       ("origin-[foo:top]", "transform-origin: top");
