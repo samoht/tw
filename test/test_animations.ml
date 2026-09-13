@@ -7,32 +7,6 @@ let check_animation =
 let check_transition =
   Test_helpers.check_handler_roundtrip (module Tw.Transitions.Handler)
 
-(* Helper to check if animation property exists with expected name or var ref *)
-let has_animation_name expected_name css =
-  let open Tw in
-  (* Check for var(--animate-NAME) or direct NAME *)
-  let var_ref = "var(--animate-" ^ expected_name ^ ")" in
-  Css.fold
-    (fun found stmt ->
-      if found then found
-      else
-        match Css.as_rule stmt with
-        | Some (_, decls, _) ->
-            List.exists
-              (fun decl ->
-                let name = Css.declaration_name decl in
-                let value = Css.declaration_value decl in
-                name = "animation"
-                && String.length value > 0
-                && (value = expected_name || value = var_ref
-                   || String.length value > String.length expected_name
-                      && String.sub value 0 (String.length expected_name)
-                         = expected_name))
-              decls
-        | None -> false)
-    false css
-
-(* Helper to check if transition-property exists *)
 let test_transitions () =
   check_transition "transition-none";
   check_transition "transition-opacity";
@@ -47,16 +21,17 @@ let test_duration_delay () =
   check_transition "duration-300";
   check_transition "delay-150"
 
+(* Each animate utility reads its own theme token and writes nothing else. The
+   helper this replaces accepted three shapes for the value — the bare name, the
+   var() reference, or any value merely *starting* with the name — so it could
+   not say which one the utility emits, and an animation named
+   [spin-something-else] would have satisfied it. *)
 let test_animation_css () =
-  (* Test that animate utilities generate CSS with correct animation
-     properties *)
-  let open Tw in
-  Alcotest.check bool "animate-spin has animation:spin" true
-    (has_animation_name "spin" (to_css [ animate_spin ]));
-  Alcotest.check bool "animate-bounce has animation:bounce" true
-    (has_animation_name "bounce" (to_css [ animate_bounce ]));
-  Alcotest.check bool "animate-pulse has animation:pulse" true
-    (has_animation_name "pulse" (to_css [ animate_pulse ]))
+  List.iter
+    (fun name ->
+      Test_helpers.check_declarations ~minify:false ("animate-" ^ name)
+        [ "animation: var(--animate-" ^ name ^ ")" ])
+    [ "spin"; "bounce"; "pulse" ]
 
 let test_transition_css () =
   (* Test that transition utilities generate CSS with correct transition
