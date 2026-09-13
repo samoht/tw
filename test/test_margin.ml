@@ -157,39 +157,26 @@ let rendering_matches_tailwind () =
 (** Test that CSS values use the correct spacing multiplier. m-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
-  let open Tw in
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
-  (* m-64 => calc(var(--spacing)*64) *)
-  Alcotest.check bool "m-64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (m 64)));
-  (* m-4 => calc(var(--spacing)*4) *)
-  Alcotest.check bool "m-4 uses spacing*4" true
-    (Astring.String.is_infix ~affix:"*4)" (css_for (m 4)));
-  (* mx-10 => calc(var(--spacing)*10) *)
-  Alcotest.check bool "mx-10 uses spacing*10" true
-    (Astring.String.is_infix ~affix:"*10)" (css_for (mx 10)));
-  (* -m-8 => calc(var(--spacing)*-8) *)
-  Alcotest.check bool "-m-8 uses spacing*-8" true
-    (Astring.String.is_infix ~affix:"*-8)" (css_for (m (-8))))
+  (* The whole declaration. The affixes these replace were the tail of the calc,
+     [*64)], which says nothing about the property it lands on, nor that the
+     multiplicand is the spacing scale rather than some other variable - the
+     very confusion the m-16/m-64 mix-up above was. *)
+  let spacing cls prop step =
+    Test_helpers.check_declarations cls
+      [ prop ^ ":calc(var(--spacing)*" ^ step ^ ")" ]
+  in
+  spacing "m-64" "margin" "64";
+  spacing "m-4" "margin" "4";
+  spacing "mx-10" "margin-inline" "10";
+  spacing "-m-8" "margin" "-8"
 
 (* Arbitrary margins accept the full length grammar (percent, container-query
    units, calc), not just px/rem, and round-trip verbatim. *)
 let test_arbitrary_length_grammar () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "ml-[50%] emits margin-left:50%" true
-    (Astring.String.is_infix ~affix:"margin-left:50%" (css "ml-[50%]"));
-  Alcotest.(check bool)
-    "mb-[-5cqw] keeps the cqw unit" true
-    (Astring.String.is_infix ~affix:"margin-bottom:-5cqw" (css "mb-[-5cqw]"));
-  Alcotest.(check bool)
-    "ml-[calc(5%-2px)] spaces the calc operator" true
-    (Astring.String.is_infix ~affix:"margin-left:calc(5% - 2px)"
-       (css "ml-[calc(5%-2px)]"));
+  Test_helpers.check_declarations "ml-[50%]" [ "margin-left:50%" ];
+  Test_helpers.check_declarations "mb-[-5cqw]" [ "margin-bottom:-5cqw" ];
+  Test_helpers.check_declarations "ml-[calc(5%-2px)]"
+    [ "margin-left:calc(5% - 2px)" ];
   (* class names round-trip verbatim *)
   let check c =
     match Tw.Margin.Handler.of_class Tw.Scheme.default c with
@@ -243,14 +230,7 @@ let test_data_type_hint_before_the_length_reader () =
 let test_margin_negated_arbitrary_is_a_calc () =
   List.iter
     (fun (cls, decl) ->
-      match Tw.of_string cls with
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      | Ok u ->
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("-mt-[4px]", "margin-top: calc(4px * -1)");
       ("-m-[2rem]", "margin: calc(2rem * -1)");

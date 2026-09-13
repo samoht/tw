@@ -141,8 +141,13 @@ let check_css_inline_with_base () =
   let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
+  (* The whole rule. [.p-4] alone is satisfied by the selector [.p-40], and says
+     nothing about the declaration inside. The sheet is read after
+     [inline_vars], which [declarations_of_class] cannot do, so this stays a
+     search over the text. *)
   check bool "has padding rule" true
-    (Astring.String.is_infix ~affix:".p-4" css_str)
+    (Astring.String.is_infix
+       ~affix:".p-4 {\n  padding: calc(var(--spacing) * 4);\n}" css_str)
 
 let check_css_inline_without_base () =
   let config = { Tw.Build.base = false; forms = None; layers = true } in
@@ -151,7 +156,8 @@ let check_css_inline_without_base () =
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
   check bool "has padding rule" true
-    (Astring.String.is_infix ~affix:".p-4" css_str)
+    (Astring.String.is_infix
+       ~affix:".p-4 {\n  padding: calc(var(--spacing) * 4);\n}" css_str)
 
 let check_inline_style () =
   let style = Tw.Build.to_inline_style [ p 4; m 2; bg blue ] in
@@ -1147,9 +1153,17 @@ let check_nested_spacing_keeps_runtime_carrier () =
     | Error (`Msg msg) -> Alcotest.fail msg
   in
   let css = Tw.to_css ~base:false [ utility ] |> Css.to_string ~minify:true in
-  Alcotest.(check bool)
-    "utility still reads --spacing" true
-    (Astring.String.is_infix ~affix:"var(--spacing)" css);
+  (* The whole list: the carrier has to survive in both margin declarations,
+     which a single search of the sheet for [var(--spacing)] never said. *)
+  Test_helpers.check_declarations "space-x-2.5"
+    [
+      "--tw-space-x-reverse:0";
+      "margin-inline-start:calc(calc(var(--spacing)*2.5)*var(--tw-space-x-reverse))";
+      "margin-inline-end:calc(calc(var(--spacing)*2.5)*calc(1 - \
+       var(--tw-space-x-reverse)))";
+    ];
+  (* The carrier's own binding is a :root declaration, which the list above
+     leaves out by design, so this one stays a search over the sheet. *)
   Alcotest.(check bool)
     "theme keeps referenced --spacing" true
     (Astring.String.is_infix ~affix:"--spacing:" css)
