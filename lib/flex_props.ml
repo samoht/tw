@@ -367,17 +367,24 @@ module Handler = struct
     | [ "basis"; "full" ] -> Ok Basis_full
     | [ "basis"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
-        let cursor =
-          Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
-        in
-        (match
-           let value = Css.Properties.read_flex_basis cursor in
-           Cascade.Cursor.ws cursor;
-           Cascade.Cursor.expect_eof cursor;
-           Some value
-         with
-          | value -> value
-          | exception Cascade.Cursor.Parse_error _ -> None)
+        (* A data-type hint chooses the longhand and says nothing about the
+           value. [basis-] writes one longhand, so every hint lands here and the
+           reader is handed what follows it; [inner] keeps the hint, because the
+           class name is what the markup carries. *)
+        (match Parse.value_after_hint inner with
+          | None -> None
+          | Some value -> (
+              let cursor =
+                Cascade.Cursor.of_string (Parse.decode_arbitrary_value value)
+              in
+              match
+                let value = Css.Properties.read_flex_basis cursor in
+                Cascade.Cursor.ws cursor;
+                Cascade.Cursor.expect_eof cursor;
+                Some value
+              with
+              | value -> value
+              | exception Cascade.Cursor.Parse_error _ -> None))
         |> Option.fold ~none:err_not_utility ~some:(fun value ->
             Ok (Basis_arbitrary (inner, value)))
     | [ "basis"; value ] -> (

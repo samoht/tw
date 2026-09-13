@@ -157,10 +157,10 @@
   the value the author meant, as do `divide-[color:red]`, `shadow-[length:3px]`,
   `rotate-[angle:45deg]`, `aspect-[ratio:16/9]`, `w-[length:10px]`,
   `border-[line-width:2px]`, `border-t-[color:red]`, `accent-[color:red]`,
-  `caret-[color:red]` and `placeholder-[color:red]`, with the hint kept in the
-  class name. `bg-[percentage:50%]` is a `background-position`, the second
-  spelling Tailwind gives that hint alongside `bg-[position:50%]` (#706, #718,
-  #720).
+  `caret-[color:red]`, `placeholder-[color:red]` and `basis-[length:10px]`,
+  with the hint kept in the class name. `bg-[percentage:50%]` is a
+  `background-position`, the second spelling Tailwind gives that hint alongside
+  `bg-[position:50%]` (#706, #718, #720, #729).
 - A hint's name is a run of `a`-`z` and `-`, and a bracket whose hint is empty
   or which holds nothing but blank space names no utility, as in Tailwind.
   `mask-[FOO:2em]` and `mask-[a1:2em]` hold their bracket whole, where the mask
