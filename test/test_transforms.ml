@@ -31,22 +31,16 @@ let test_translate_px_and_neg_arbitrary () =
   check "translate-x-[-0.5px]";
   check "translate-y-[-110%]";
   check "translate-x-[-1.15rem]";
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "translate-px sets both axes to 1px" true
-    (Astring.String.is_infix ~affix:"--tw-translate-x: 1px" (css "translate-px"));
-  Alcotest.(check bool)
-    "-translate-y-[110%] negates the value" true
-    (Astring.String.is_infix ~affix:"calc(110% * -1)"
-       (css "-translate-y-[110%]"));
-  Alcotest.(check bool)
-    "translate-x-[-0.5px] keeps the negative value" true
-    (Astring.String.is_infix ~affix:"--tw-translate-x: -.5px"
-       (css "translate-x-[-0.5px]"))
+  (* The whole list, which is what says [translate-px] sets *both* axes and a
+     single-axis class sets one: the substring could not tell those apart. The
+     composed [translate] travels with either. *)
+  let composed = "translate: var(--tw-translate-x) var(--tw-translate-y)" in
+  Test_helpers.check_declarations ~minify:false "translate-px"
+    [ "--tw-translate-x: 1px"; "--tw-translate-y: 1px"; composed ];
+  Test_helpers.check_declarations ~minify:false "-translate-y-[110%]"
+    [ "--tw-translate-y: calc(110% * -1)"; composed ];
+  Test_helpers.check_declarations ~minify:false "translate-x-[-0.5px]"
+    [ "--tw-translate-x: -.5px"; composed ]
 
 (* The near/midrange/distant perspective keywords reference their theme token,
    like the dramatic/normal ones already did. *)
@@ -202,22 +196,18 @@ let test_translate_spacing () =
   check "translate-60";
   check "-translate-4";
   check "-translate-6";
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "translate-2 sets both axes" true
-    (Astring.String.is_infix ~affix:"--tw-translate-x: calc(var(--spacing) * 2)"
-       (css "translate-2")
-    && Astring.String.is_infix
-         ~affix:"--tw-translate-y: calc(var(--spacing) * 2)" (css "translate-2")
-    );
-  Alcotest.(check bool)
-    "-translate-4 negates the multiplier" true
-    (Astring.String.is_infix
-       ~affix:"--tw-translate-x: calc(var(--spacing) * -4)" (css "-translate-4"))
+  Test_helpers.check_declarations ~minify:false "translate-2"
+    [
+      "--tw-translate-x: calc(var(--spacing) * 2)";
+      "--tw-translate-y: calc(var(--spacing) * 2)";
+      "translate: var(--tw-translate-x) var(--tw-translate-y)";
+    ];
+  Test_helpers.check_declarations ~minify:false "-translate-4"
+    [
+      "--tw-translate-x: calc(var(--spacing) * -4)";
+      "--tw-translate-y: calc(var(--spacing) * -4)";
+      "translate: var(--tw-translate-x) var(--tw-translate-y)";
+    ]
 
 (* A fractional spacing step on translate, in both signs: translate-x-0.5 and
    -translate-y-0.5 used to be unknown classes since the axis took an int. The
